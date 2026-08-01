@@ -232,8 +232,15 @@ export function useOpenCodeLocal({
   //      Used by the dashboard (no sessionId) and as the seed for brand-new
   //      sessions, so reloading the dashboard or starting a new chat doesn't
   //      reset to the first agent in the list.
+  //
+  // If the resolved name isn't in the current visible agents (e.g. cached from a
+  // different project or an old opencode version), auto-clear it so the UI falls
+  // back to the first available agent instead of sending "Agent not found" errors.
   const sessionAgentName = sessionId ? modelStore.getSessionAgentName(sessionId) : undefined;
-  const currentAgentName = sessionAgentName ?? modelStore.lastAgentName;
+  const rawAgentName = sessionAgentName ?? modelStore.lastAgentName;
+  const currentAgentName = rawAgentName && visibleAgents.some((a) => a.name === rawAgentName)
+    ? rawAgentName
+    : undefined;
   const scopedSessionModelKey = useMemo(
     () => scopedModelSelectionKey(sessionId, providerMode),
     [sessionId, providerMode],
