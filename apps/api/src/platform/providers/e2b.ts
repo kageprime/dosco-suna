@@ -24,9 +24,65 @@ const runningStatusCache = new Map<string, number>(); // externalId → cachedAt
 /** Full extension applied by the keep-alive; clamped to the Hobby 1h max. */
 const TTL_EXTEND_MS = 60 * 60 * 1000;
 
+/**
+ * Where the daemon's session env is staged. The pool-mode daemon polls this
+ * path (main.ts runPoolMode claim poll) for the `KORTIX_API_URL=` sentinel and
+ * adopts the session: reloadSessionEnv → loadConfig → server.reload. Same
+ * contract as Platinum's pre-boot writeEnvIntoOverlay (health.ts also reads
+ * /etc/pt-env for KORTIX_BRANCH_NAME). Verified live 2026-08-01: E2B drops
+ * create-time `envs` for the container's boot process — /proc/1/environ has no
+ * KORTIX_* vars even though the create request carried them (only
+ * envd-spawned commands see them) — so the daemon boots tokenless and would
+ * stay unconfigured forever without this file.
+ */
+const PT_ENV_PATH = '/etc/pt-env';
+const PT_ENV_WRITE_ATTEMPTS = 3;
+const PT_ENV_WRITE_RETRY_DELAY_MS = 500;
+
 function isE2BNotFound(err: unknown): boolean {
   return err instanceof SandboxNotFoundError ||
     (err instanceof Error && err.name === 'SandboxNotFoundError');
+}
+
+/** Serialize the session env as KEY=VALUE lines and write it into the sandbox
+ *  at /etc/pt-env. KORTIX_API_URL is the daemon's claim sentinel
+ *  (/^KORTIX_API_URL=\S/m) — write it LAST so the file is only "armed" once
+ *  every other key has landed (mirrors warm-pool stageClaimEnv ordering).
+ *  Best-effort: a failed stage leaves the daemon tokenless (the pre-fix
+ *  state), which the proxy already surfaces as "daemon not configured". */
+async function stageRuntimeEnvFile(
+  sandbox: { files: { write(path: string, data: string): Promise<unknown> } },
+  envVars: Record<string, string>,
+): Promise<void> {
+  for (const v of Object.values(envVars)) {
+    if (v.includes('\n') || v.includes('\r')) {
+      console.warn('[e2b] runtime env has a newline value — skipping /etc/pt-env stage (daemon stays tokenless)');
+      return;
+    }
+  }
+  const ordered: [string, string][] = [];
+  for (const [k, v] of Object.entries(envVars)) {
+    if (k === 'KORTIX_API_URL') continue;
+    ordered.push([k, v]);
+  }
+  const apiUrl = envVars.KORTIX_API_URL;
+  if (apiUrl) ordered.push(['KORTIX_API_URL', apiUrl]);
+  const body = ordered.map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+
+  for (let attempt = 1; attempt <= PT_ENV_WRITE_ATTEMPTS; attempt++) {
+    try {
+      await sandbox.files.write(PT_ENV_PATH, body);
+      return;
+    } catch (err) {
+      if (attempt >= PT_ENV_WRITE_ATTEMPTS) {
+        console.warn(
+          `[e2b] failed to stage runtime env at ${PT_ENV_PATH}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } else {
+        await new Promise((r) => setTimeout(r, PT_ENV_WRITE_RETRY_DELAY_MS));
+      }
+    }
+  }
 }
 
 export class E2BProvider implements SandboxProvider {
@@ -110,6 +166,12 @@ export class E2BProvider implements SandboxProvider {
 
     const externalId = sandbox.sandboxId;
     const baseUrl = `${sandboxApiBase}/v1/p/${externalId}/8000`;
+
+    // E2B only injects create-time envs into envd-spawned commands, NOT the
+    // container's boot process (verified live 2026-08-01: /proc/1/environ has
+    // no KORTIX_* vars). Stage the session env to /etc/pt-env so the daemon's
+    // pool-mode poll adopts it; without this the box stays tokenless forever.
+    await stageRuntimeEnvFile(sandbox, envVars);
 
     return {
       externalId,

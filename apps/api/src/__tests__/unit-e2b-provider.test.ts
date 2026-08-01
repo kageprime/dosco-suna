@@ -23,7 +23,8 @@ mock.module('../sandbox-frontend-url', () => ({
   sandboxFrontendBaseUrl: () => 'http://localhost:3000',
 }));
 
-const mockCreate = mock(() => Promise.resolve({ sandboxId: 'e2b-sbx-1' }));
+const mockCreate = mock(() => Promise.resolve({ sandboxId: 'e2b-sbx-1', files: { write: mockFilesWrite } }));
+const mockFilesWrite = mock(() => Promise.resolve({}));
 const mockConnect = mock(() => Promise.resolve({ getHost: () => 'https://8000-e2b-sbx-1.e2b.app', trafficAccessToken: 'tok_abc' }));
 const mockPause = mock(() => Promise.resolve());
 const mockKill = mock(() => Promise.resolve());
@@ -137,6 +138,74 @@ describe('E2BProvider', () => {
     expect(mockCreate).toHaveBeenCalledWith('tmpl-project-1', expect.objectContaining({
       timeoutMs: 60 * 60 * 1000,
     }));
+  });
+
+  test('create stages the runtime env at /etc/pt-env with KORTIX_API_URL last', async () => {
+    mockFilesWrite.mockClear();
+    await provider.create({
+      accountId: 'acct-1',
+      userId: 'user-1',
+      name: 'test-sb',
+      snapshot: 'tmpl-project-1',
+      envVars: { KORTIX_TOKEN: 'tok-1', KORTIX_SANDBOX_TOKEN: 'sb-1', KORTIX_SESSION_ID: 'sess-1', KORTIX_BRANCH_NAME: 'branch-1' },
+    });
+    expect(mockFilesWrite).toHaveBeenCalledTimes(1);
+    const [path, body] = mockFilesWrite.mock.calls[0] as unknown as [string, string];
+    expect(path).toBe('/etc/pt-env');
+    expect(body).toContain('KORTIX_TOKEN=tok-1');
+    expect(body).toContain('KORTIX_SANDBOX_TOKEN=sb-1');
+    expect(body).toContain('KORTIX_SESSION_ID=sess-1');
+    expect(body).toContain('KORTIX_BRANCH_NAME=branch-1');
+    expect(body).toContain('KORTIX_API_URL=http://localhost:8008/v1');
+    const lines = body.trimEnd().split('\n');
+    expect(lines[0]).not.toMatch(/^KORTIX_API_URL=/);
+    expect(lines.at(-1)).toBe('KORTIX_API_URL=http://localhost:8008/v1');
+  });
+
+  test('create retries the env stage write', async () => {
+    mockFilesWrite.mockClear();
+    let attempts = 0;
+    mockFilesWrite.mockImplementation(() => {
+      attempts += 1;
+      if (attempts < 3) return Promise.reject(new Error('envd hiccup'));
+      return Promise.resolve({});
+    });
+    await provider.create({
+      accountId: 'acct-1',
+      userId: 'user-1',
+      name: 'test-sb',
+      snapshot: 'tmpl-project-1',
+      envVars: { KORTIX_TOKEN: 'tok-1' },
+    });
+    expect(attempts).toBe(3);
+    mockFilesWrite.mockImplementation(() => Promise.resolve({}));
+  });
+
+  test('create skips the env stage when a value contains a newline', async () => {
+    mockFilesWrite.mockClear();
+    await provider.create({
+      accountId: 'acct-1',
+      userId: 'user-1',
+      name: 'test-sb',
+      snapshot: 'tmpl-project-1',
+      envVars: { KORTIX_TOKEN: 'tok-1', KORTIX_INITIAL_PROMPT: 'line1\nline2' },
+    });
+    expect(mockFilesWrite).not.toHaveBeenCalled();
+  });
+
+  test('create still returns the sandbox when the env stage fails', async () => {
+    mockFilesWrite.mockClear();
+    mockFilesWrite.mockImplementation(() => Promise.reject(new Error('envd down')));
+    const result = await provider.create({
+      accountId: 'acct-1',
+      userId: 'user-1',
+      name: 'test-sb',
+      snapshot: 'tmpl-project-1',
+      envVars: { KORTIX_TOKEN: 'tok-1' },
+    });
+    expect(result.externalId).toBe('e2b-sbx-1');
+    expect(mockFilesWrite).toHaveBeenCalledTimes(3);
+    mockFilesWrite.mockImplementation(() => Promise.resolve({}));
   });
 
   test('start calls Sandbox.connect', async () => {

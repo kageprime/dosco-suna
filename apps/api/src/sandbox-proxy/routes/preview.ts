@@ -528,6 +528,21 @@ export async function forwardToSandbox(
             headers: notReadyHeaders,
           });
         }
+        // The daemon itself reports a permanent misconfiguration (e.g. E2B
+        // dropped the create-time envs and KORTIX_TOKEN never landed). That is
+        // NOT a boot signal — retries will never fix it — so pass the real
+        // error through instead of retrying 4x and answering "sandbox port not
+        // ready yet, retry in 10s" (the misleading error the dashboard kept
+        // showing while the daemon sat unconfigured; caught live 2026-08-01).
+        if (bodyText.includes('daemon not configured')) {
+          void markSandboxUsed(sandboxId);
+          const misconfigHeaders = clientResponseHeaders(upstream.headers, origin);
+          return new Response(bodyText, {
+            status: upstream.status,
+            statusText: upstream.statusText,
+            headers: misconfigHeaders,
+          });
+        }
       }
 
       if (upstream.status === 502 || upstream.status === 503) {

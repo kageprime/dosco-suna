@@ -1118,6 +1118,41 @@ describe('Preview proxy: retry exhaustion', () => {
   });
 });
 
+describe('Preview proxy: daemon misconfiguration passthrough', () => {
+  test('passes through the daemon 503 "daemon not configured" without retrying', async () => {
+    // The daemon itself reports a permanent misconfiguration (E2B dropped the
+    // create-time envs, so KORTIX_TOKEN never landed). Retries can't fix that —
+    // the proxy must surface the real error, not "port not ready, retry in 10s".
+    mockFetchResponses = [{ status: 503, body: '{"error":"daemon not configured","detail":"KORTIX_TOKEN unset"}' }];
+    const app = createProxyTestApp();
+    const origSetTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: any) => fn()) as any;
+    const res = await app.request(`/v1/p/sandbox-misconfig-001/${TEST_PORT}/`, {
+      headers: { Authorization: 'Bearer test' },
+    });
+    globalThis.setTimeout = origSetTimeout;
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBe('daemon not configured');
+    expect(body.detail).toBe('KORTIX_TOKEN unset');
+    expect(mockFetchCallCount).toBe(1);
+  });
+
+  test('still retries a plain 503 without the misconfiguration marker', async () => {
+    mockFetchResponses = [{ status: 503, body: 'sandbox service temporarily unavailable' }];
+    const app = createProxyTestApp();
+    const origSetTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: any) => fn()) as any;
+    const res = await app.request(`/v1/p/sandbox-plain-503/${TEST_PORT}/`, {
+      headers: { Authorization: 'Bearer test' },
+    });
+    globalThis.setTimeout = origSetTimeout;
+    expect(res.status).toBe(503);
+    expect(mockFetchCallCount).toBeGreaterThan(1);
+    expect((await res.json()).error).toContain('port not ready yet');
+  });
+});
+
 describe('Preview proxy: no-trailing-slash', () => {
   test('handles /:sandboxId/:port without trailing slash (proxies or redirects)', async () => {
     const app = createProxyTestApp();

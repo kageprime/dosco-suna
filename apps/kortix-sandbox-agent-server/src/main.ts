@@ -558,6 +558,15 @@ async function runPoolMode(
     void (async () => {
       const t0 = Date.now()
       reloadSessionEnv()
+      // Gateway-off session: the pool booted the LLM proxy and exported
+      // KORTIX_LLM_PROXY_URL so the seed could bake a proxied gateway provider
+      // (hot-swap-ready). But buildOpencodeConfigContent treats any present
+      // KORTIX_LLM_PROXY_URL as gateway-on — so a claim with NO gateway key
+      // would re-bake the proxied `kortix` provider into opencode and strand
+      // the agent on a tokenless proxy ("llm proxy not ready") forever. Drop
+      // it so a gateway-off claim restarts opencode NATIVE (repo config + free
+      // built-in models) instead.
+      pruneGatewayProxyEnv(process.env)
       writeAgentEnvFile(createProjectEnvStore())
       const cfg2 = loadConfig()
       // Rebuild the proxy/control surface with the claimant's cfg — the spare
@@ -1244,6 +1253,21 @@ export function resolveOpencodeModel(): { providerID: string; modelID: string } 
   const slash = raw.indexOf('/')
   if (slash <= 0 || slash === raw.length - 1) return undefined
   return { providerID: raw.slice(0, slash), modelID: raw.slice(slash + 1) }
+}
+
+/**
+ * A warm-pool claim must not inherit the pool's gateway proxy wiring. At pool
+ * boot the daemon exports KORTIX_LLM_PROXY_URL so the seed bakes a proxied
+ * gateway provider (hot-swap-ready), but buildOpencodeConfigContent treats any
+ * present KORTIX_LLM_PROXY_URL as gateway-on — a gateway-off claim would then
+ * re-bake the proxied `kortix` provider and strand the agent on a tokenless
+ * proxy ("llm proxy not ready") forever. Dropping it lets a gateway-off claim
+ * restart opencode NATIVE (repo config + free built-in models).
+ */
+export function pruneGatewayProxyEnv(env: NodeJS.ProcessEnv): void {
+  if (!env.KORTIX_LLM_API_KEY) {
+    delete env.KORTIX_LLM_PROXY_URL
+  }
 }
 
 /** Read the pinned opencode session id (set at boot when KORTIX_INITIAL_PROMPT

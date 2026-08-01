@@ -178,7 +178,7 @@ export async function stageBuildContext(
     const fs = await import('node:fs/promises');
     await fs.writeFile(composedPath, composed);
   }
-  // Fail-loud completeness guard: a context missing scaffold.git / the agent
+  // Fail-loud completeness guard: a context missing scaffold-v5.tar.gz / the agent
   // binary / the composed Dockerfile reaches the provider as a confusing remote
   // "Path does not exist", and the auto-build can't tell it's a staging miss to
   // recover from. Assert at the source so a miss is caught here AND is retryable
@@ -194,7 +194,7 @@ export async function stageBuildContext(
  * as an opaque provider "Path does not exist" mid-build. Cheap stat checks.
  */
 async function assertContextComplete(contextDir: string, dockerfileName: string, isE2BBase: boolean = false): Promise<void> {
-  const requiredFiles = isE2BBase ? [dockerfileName] : ['scaffold.git', 'k-agent-v5.tar.gz', dockerfileName];
+  const requiredFiles = isE2BBase ? [dockerfileName] : ['scaffold-v5.tar.gz', 'k-agent-v5.tar.gz', dockerfileName];
   for (const rel of requiredFiles) {
     try {
       await stat(join(contextDir, rel));
