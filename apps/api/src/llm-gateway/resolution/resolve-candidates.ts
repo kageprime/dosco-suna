@@ -154,6 +154,30 @@ export async function resolveCandidates(
   }
 
   const byok = resolveCatalogUpstream(provider);
+
+  // OpenCode Zen: keyless free tier. Resolve directly with the `public` bearer
+  // (or a configured ZEN_API_KEY) — no project-secret lookup, no managed
+  // fallback. Mirrors `resolveCatalogUpstream('zen')`'s openai-compat route to
+  // https://opencode.ai/zen/v1.
+  if (provider === 'zen' && byok) {
+    const resolvedModelId = effectiveModel.slice(provider.length + 1);
+    const capabilities = capabilitiesForModel('opencode', resolvedModelId);
+    return [
+      {
+        provider: 'zen',
+        kind: 'openai-compat',
+        baseUrl: 'https://opencode.ai/zen/v1',
+        apiKey: config.ZEN_API_KEY || 'public',
+        billingMode: 'none',
+        markup: 0,
+        resolvedModel: resolvedModelId,
+        pricing: livePricing('opencode', resolvedModelId),
+        reasoning: capabilities.reasoning,
+        temperature: capabilities.temperature,
+      },
+    ];
+  }
+
   // Set only when a BYOK-catalog provider is recognized but no usable key was
   // found — held until the managed-model fallthrough below has a chance to
   // resolve the SAME model id (rare but possible), so a real fallback candidate

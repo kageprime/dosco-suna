@@ -49,6 +49,18 @@ export type CatalogUpstream =
 
 /** Resolve provider transport metadata from the API-owned runtime catalog. */
 export function resolveCatalogUpstream(providerId: string): CatalogUpstream | null {
+  // OpenCode Zen: keyless free-tier gateway. No models.dev provider entry exists
+  // for it (its models live under the `opencode` provider), so handle it before
+  // the catalog lookup. Routed as an OpenAI-compatible upstream to Zen's base URL;
+  // the data-plane gateway proxies with the `public` (or configured) bearer.
+  if (providerId === 'zen') {
+    return {
+      kind: 'openai-compat',
+      baseUrl: 'https://opencode.ai/zen/v1',
+      envVar: 'ZEN_API_KEY',
+      npm: undefined,
+    };
+  }
   const provider = runtimeModelCatalog
     .snapshot()
     .providers.find((candidate) => candidate.id === providerId);

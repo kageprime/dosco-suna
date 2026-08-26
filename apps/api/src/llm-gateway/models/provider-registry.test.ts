@@ -55,6 +55,19 @@ describe('runtime catalog provider resolution', () => {
     expect(resolveCatalogUpstream('definitely-not-a-provider')).toBeNull();
   });
 
+  // OpenCode Zen is a keyless free-tier gateway. It proxies to
+  // https://opencode.ai/zen/v1 with the `public` bearer (ZEN_API_KEY defaults to
+  // "public" in config). Routing for EVERY `zen/` model funnels through this one
+  // upstream, so if the host ever drifts the whole free lineup 502s. Pin it.
+  test('resolves Zen to the keyless OpenCode gateway host', () => {
+    const upstream = resolveCatalogUpstream('zen');
+    expect(upstream).not.toBeNull();
+    expect(upstream?.kind).toBe('openai-compat');
+    expect(upstream?.envVar).toBe('ZEN_API_KEY');
+    if (upstream?.kind === 'bedrock') throw new Error('expected openai-compat, got bedrock');
+    expect(upstream?.baseUrl).toBe('https://opencode.ai/zen/v1');
+  });
+
   // Regression coverage (2026-07-17 defect report): a BYOK OpenRouter call to
   // a model NOT individually catalogued by models.dev (OpenRouter's dynamic/
   // no-catalog-price auto-router, `openrouter/openrouter/fusion`, among

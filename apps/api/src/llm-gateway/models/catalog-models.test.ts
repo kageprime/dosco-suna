@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
-import { catalogModelForWireModel, gatewayModelCatalog } from './catalog-models';
+import {
+  catalogModelForWireModel,
+  gatewayModelCatalog,
+  gatewayZenFreeModels,
+} from './catalog-models';
+import type { Catalog } from '@kortix/llm-catalog';
 
 // The sandbox agent server injects this catalog into OpenCode verbatim and does NO
 // client-side limit backfill — so the gateway MUST guarantee a usable context window
@@ -111,14 +116,47 @@ describe('gatewayModelCatalog — served catalog', () => {
     expect(full['codex/gpt-5.6-luna']).toBeDefined();
   });
 
-  test('native OpenCode Zen free models are not served by the gateway catalog', () => {
-    for (const id of ['deepseek-v4-flash-free', 'mimo-v2.5-free']) {
-      expect(full[`opencode/${id}`], `opencode/${id}`).toBeUndefined();
-    }
-    expect(full['north-mini-code-free']).toBeUndefined();
-    expect(full['nemotron-3-ultra-free']).toBeUndefined();
-    expect(full['big-pickle']).toBeUndefined();
-    expect(full['opencode/big-pickle']).toBeUndefined();
+  test('OpenCode Zen free models ARE served under the `zen/` namespace', () => {
+    // The free lineup is a curated allowlist (ZEN_FREE_IDS), not a live fetch:
+    // every entry is verified keyless against Zen. The catalog's `opencode`
+    // models only enrich metadata; ids outside the allowlist never surface.
+    const synth = {
+      providers: [
+        {
+          id: 'opencode',
+          models: {
+            'hy3-free': {
+              id: 'hy3-free',
+              name: 'Hy3 Free',
+              released: '2026-01-01',
+              reasoning: true,
+              tool_call: true,
+              attachment: true,
+              cost: { input: 0, output: 0 },
+            },
+            'big-pickle': { id: 'big-pickle', name: 'Big Pickle', cost: { input: 0, output: 0 } },
+            // Outside the allowlist: must never appear, even if cost-free.
+            'free-model': { id: 'free-model', name: 'Free Model', cost: { input: 0, output: 0 } },
+            'paid-model': { id: 'paid-model', name: 'Paid Model', cost: { input: 1, output: 2 } },
+          },
+        },
+      ],
+    } as unknown as Catalog;
+
+    const z = gatewayZenFreeModels(synth);
+    // Exactly the curated allowlist surfaces, all under `zen/`.
+    expect(Object.keys(z).sort()).toEqual(
+      ['zen/big-pickle', 'zen/deepseek-v4-flash-free', 'zen/hy3-free', 'zen/laguna-s-2.1-free', 'zen/mimo-v2.5-free'].sort(),
+    );
+    expect(z['zen/hy3-free']?.provider).toBe('zen');
+    expect(z['zen/hy3-free']?.name).toBe('Hy3 Free');
+    expect(z['zen/hy3-free']?.reasoning).toBe(true);
+    // Models outside the allowlist never surface, regardless of cost.
+    expect(z['zen/free-model']).toBeUndefined();
+    expect(z['zen/paid-model']).toBeUndefined();
+
+    // The bare `opencode/` namespace is never used for Zen free models.
+    expect(full['opencode/hy3-free']).toBeUndefined();
   });
 
   test('BYOK catalog entries preserve models.dev metadata for picker visibility', () => {

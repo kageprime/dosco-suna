@@ -64,6 +64,10 @@ export function defaultEnabledFromCatalog(
     // PLATFORM DEFAULT) publish no release date or family at all, so the rule
     // would prune them and `auto` would resolve to a hidden model.
     if (isKnownManagedModelId(id)) enabled.add(id);
+    // OpenCode Zen free models are keyless and intentionally surfaced in full —
+    // never let the recency rule prune them the way it prunes the models.dev
+    // firehose. Every `zen/` entry is offered by default.
+    if (id.startsWith('zen/')) enabled.add(id);
   }
   for (const id of alwaysOn) {
     if (catalog[id]) enabled.add(id);

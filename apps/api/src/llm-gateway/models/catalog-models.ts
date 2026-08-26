@@ -267,6 +267,7 @@ export function gatewayCodexModels(
   catalog: Catalog = runtimeModelCatalog.snapshot(),
 ): Record<string, GatewayModel> {
   const out: Record<string, GatewayModel> = {};
+
   const catalogModelById = modelsById(catalog);
   for (const id of codexModelIds()) {
     const model = catalogModelById.get(`openai/${id}`);
@@ -301,6 +302,56 @@ export function gatewayCodexModels(
   return out;
 }
 
+// ─── OpenCode Zen free models ──────────────────────────────────────────────
+// Zen (https://opencode.ai/zen/v1) is OpenCode's keyless free-tier gateway. We
+// surface its free models under a dedicated `zen/` namespace so OpenCode forwards
+// them to the gateway (never as `opencode/`, which OpenCode would try to satisfy
+// natively) and the gateway proxies them to Zen with the keyless `public` bearer.
+//
+// The free lineup is a curated, verified allowlist: every entry was confirmed
+// keyless against Zen (no provider key required) and present in Zen's served
+// model list. The premium models Zen also proxies (gpt-5, claude-opus-*, gemini-*,
+// qwen*, kimi*, grok*, ...) require a provider key and are excluded — they are not
+// free. Metadata (name/family/capabilities) is enriched from the models.dev
+// `opencode` provider when available; models.dev's entry is absent only as a
+// fallback to permissive defaults so the picker still lists the model.
+//
+// The API container has no egress to opencode.ai, so we do NOT fetch the live
+// model list at runtime. ZEN_FREE_IDS is the source of truth and is trivial to
+// extend as Zen's free lineup changes. Verified keyless against Zen on 2026-08-26.
+const ZEN_FREE_IDS: string[] = [
+  'hy3-free',
+  'big-pickle',
+  'laguna-s-2.1-free',
+  'mimo-v2.5-free',
+  'deepseek-v4-flash-free',
+];
+
+export function gatewayZenFreeModels(
+  catalog: Catalog = runtimeModelCatalog.snapshot(),
+): Record<string, GatewayModel> {
+  const opencode = catalog.providers.find((p) => p.id === 'opencode');
+  const metaById = new Map<string, CatalogModel>();
+  if (opencode?.models) {
+    for (const model of Object.values(opencode.models)) {
+      metaById.set((model as { id: string }).id, model as CatalogModel);
+    }
+  }
+  const out: Record<string, GatewayModel> = {};
+  for (const id of ZEN_FREE_IDS) {
+    const meta = metaById.get(id);
+    out[`zen/${id}`] = {
+      name: meta?.name ?? id,
+      provider: 'zen',
+      released: meta?.released,
+      release_date: meta?.released,
+      family: meta?.family,
+      ...capabilitiesOf(meta),
+    };
+  }
+  return out;
+}
+
 // Runtime catalog shapes are rebuilt once per atomic API refresh revision, not
 // once per request. The bundled snapshot is only the initial/last-known fallback.
 const MANAGED_ONLY: Record<string, GatewayModel> = managedModels();
@@ -320,7 +371,16 @@ function refreshedCatalogs(): {
       ...gatewayModelsAll(catalog),
       ...gatewayCodexModels(catalog),
     };
-    cachedFullCatalog = { ...MANAGED_ONLY, ...cachedByokAndCodex };
+    // Zen free models join the FULL project catalog (so a logged-in user's
+    // picker sees them) but NOT the BYOK/codex catalog — that one backs the
+    // `freeManagedOnly` scope, whose contract is "exactly the managed lineup,
+    // no BYOK/codex". Anonymous callers keep MANAGED_ONLY; free-tier accounts
+    // keep their BYOK-only scope; only the full logged-in catalog gets Zen.
+    cachedFullCatalog = {
+      ...MANAGED_ONLY,
+      ...cachedByokAndCodex,
+      ...gatewayZenFreeModels(catalog),
+    };
     cachedRevision = revision;
   }
   return { byokAndCodex: cachedByokAndCodex, full: cachedFullCatalog };

@@ -88,6 +88,8 @@ export function providerFlagship(providerId: string): string | null {
 
 /** Whether a provider exposes a BYOK upstream and is connected for `connectedEnvVars`. */
 export function isProviderConnected(providerId: string, connectedEnvVars: Set<string>): boolean {
+  // Zen is keyless (free tier) — always available, no project secret required.
+  if (providerId === 'zen') return true;
   const upstream = resolveCatalogUpstream(providerId);
   return !!upstream && connectedEnvVars.has(upstream.envVar.toUpperCase());
 }

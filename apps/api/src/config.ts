@@ -388,6 +388,11 @@ const envSchema = z.object({
   // Manager bundle. Self-host deployments leave it unset.
   ASTER_API_URL: optUrl('https://api.asterlab.ai/v1'),
   ASTER_API_KEY: optStr,
+  // OpenCode Zen keyless free-tier gateway (https://opencode.ai/zen/v1). The
+  // free tier needs no real key — the literal 'public' bearer serves zero-cost
+  // models. Operators may set a real OPENCODE_API_KEY to reach paid Zen models,
+  // but this deployment only surfaces the free set.
+  ZEN_API_KEY: optStrDefault('public'),
   // Whether a session's sandbox gets the `kortix-connectors` OpenCode MCP
   // server (KORTIX_CONNECTORS_MCP_ENABLED in the guest). It exposes the
   // connector meta-tools plus `secret_call`, the only way to use an
@@ -1208,6 +1213,11 @@ export const config = {
   PLATINUM_API_URL: env.PLATINUM_API_URL,
   PLATINUM_TEMPLATE: env.PLATINUM_TEMPLATE,
   PLATINUM_WEBHOOK_SECRET: env.PLATINUM_WEBHOOK_SECRET,
+  // OpenCode Zen keyless free-tier gateway (https://opencode.ai/zen/v1). The
+  // free tier needs no real key — the literal 'public' bearer serves zero-cost
+  // models. Operators may set a real OPENCODE_API_KEY to reach paid Zen models,
+  // but this deployment only surfaces the free set.
+  ZEN_API_KEY: env.ZEN_API_KEY || 'public',
   E2B_API_KEY: env.E2B_API_KEY,
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
