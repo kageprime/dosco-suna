@@ -54,6 +54,10 @@ export const TAB_PREFERENCE: readonly { key: CapabilityTab['key']; action: strin
   { key: 'agent', action: PROJECT_ACTIONS.PROJECT_AGENT_READ },
   { key: 'skills', action: PROJECT_ACTIONS.PROJECT_SKILL_READ },
   { key: 'connectors', action: PROJECT_ACTIONS.PROJECT_CONNECTOR_READ },
+  // Marketplace browse is public (the /v1/marketplace catalog routes are
+  // read-only and gated by the project `marketplace` feature flag, not an IAM
+  // leaf), so the tab probes the same project.read floor the Models row uses.
+  { key: 'marketplace', action: PROJECT_ACTIONS.PROJECT_READ },
   // Triggers covers both schedules and webhooks — two views of one resource,
   // a project trigger — so it has one leaf. `project.trigger.read` is in
   // PROJECT_MEMBER_BASELINE (apps/api/src/iam/role-perms.ts), so every project
