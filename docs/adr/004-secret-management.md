@@ -6,7 +6,7 @@
 
 ## Context
 
-The Kortix API needs a large bundle of runtime secrets (Supabase, Redis, Stripe,
+The Dosco API needs a large bundle of runtime secrets (Supabase, Redis, Stripe,
 LLM providers, etc.) in every environment. Requirements:
 
 - **Zero plaintext secrets in git** — no Kubernetes `Secret` manifests, no

@@ -51,7 +51,7 @@ Only `Location:` redirects can be repaired at the proxy, and they already are
 not close the set either — a minified bundle builds URLs at runtime.
 
 A second reason: under the path form, arbitrary sandbox code runs on the SAME
-origin as the Kortix API, so two of a user's previews share cookies and storage
+origin as the Dosco API, so two of a user's previews share cookies and storage
 with each other. An origin per preview puts each app in its own principal.
 
 ## The pieces
@@ -72,7 +72,7 @@ with each other. An origin per preview puts each app in its own principal.
 ## Auth
 
 1. The client opens the preview with a one-shot `?token=` (a Supabase JWT, a
-   Kortix token, or a `?public_share=` token).
+   Dosco token, or a `?public_share=` token).
 2. The proxy validates it, mints an HMAC-signed cookie bound to that one
    (sandbox, port), and — on a top-level navigation — redirects once to the same
    URL without the token, so it never lingers in the address bar or a Referer.
@@ -81,7 +81,7 @@ with each other. An origin per preview puts each app in its own principal.
    header or a query parameter.
 
 Two cookie copies are set, `__kortix_preview` and `__kortix_preview_chips`
-(`Partitioned`). A preview is normally an iframe inside the Kortix web app — a
+(`Partitioned`). A preview is normally an iframe inside the Dosco web app — a
 third-party context where an ordinary cookie may be blocked — while the same URL
 opened in its own tab is first-party and cannot see a partitioned cookie. One
 copy covers each; verification accepts either.
@@ -143,7 +143,7 @@ handshake fails before the Worker is ever reached.
 ## Self-hosting
 
 A self-host has no Cloudflare Worker and no wildcard certificate, so it uses the
-same mechanics Kortix Apps already uses on a self-host:
+same mechanics Dosco Apps already uses on a self-host:
 
 - `kortix self-host init` asks for a **preview base domain**. It sets
   `KORTIX_PREVIEW_BASE_DOMAIN` and `KORTIX_PREVIEW_ALLOW_DIRECT_EDGE=true`.
@@ -198,7 +198,7 @@ On a deployment with origins that log line means the cutover has a hole.
 
 A preview origin is a real address: people paste and bookmark it. A document
 navigation that cannot be served gets a page, never JSON — what the address is,
-plus a **Sign in to Kortix** action that goes to `/preview/authorize` on the web
+plus a **Sign in to Dosco** action that goes to `/preview/authorize` on the web
 app and returns with a one-shot token (`preview-gate-page.ts`). The action uses
 `target="_top"` so a sign-in started inside the session panel's iframe does not
 try to render the whole web app in a preview pane. Sub-resources and XHR keep
@@ -211,7 +211,7 @@ that also hands over a bearer token.
 ## What is still not identical to reaching the box directly
 
 - `X-Frame-Options` and CSP `frame-ancestors` are stripped from responses, so the
-  preview can be embedded in the Kortix session panel.
+  preview can be embedded in the Dosco session panel.
 - The upstream sees `Host`/`x-forwarded-host` of the sandbox ingress, not the
   preview hostname. This is deliberate: frameworks that check `Origin` against
   `Host` on mutations (Next.js Server Actions, SvelteKit, Django CSRF) reject a

@@ -1,8 +1,8 @@
-# Kortix IAM — The Complete Administrator's Guide
+# Dosco IAM — The Complete Administrator's Guide
 
 **Identity, SSO (SAML), SCIM provisioning, roles, groups, custom roles, agent access, and audit.**
 
-This is the operator's manual for everything access-related in Kortix: how authorization
+This is the operator's manual for everything access-related in Dosco: how authorization
 actually decides, what the built-in roles grant, how to wire up your identity provider
 (Okta, Microsoft Entra ID, or any SAML IdP), how directory sync works, how to build
 custom roles that do exactly what you want, how agents and automation are contained,
@@ -18,7 +18,7 @@ Everything below reflects the shipped code (paths cited inline where useful).
 
 ## 1. The mental model
 
-Kortix authorization answers one question: **may this principal perform this action on
+Dosco authorization answers one question: **may this principal perform this action on
 this target?** Five concepts cover the whole system:
 
 | Concept | What it is | Examples |
@@ -128,7 +128,7 @@ Custom roles (section 5) exist for everything the built-ins don't express.
 
 Two deliberate design points:
 
-- **`member` is the floor *usable* role**: it can genuinely *use* Kortix (chat, run and
+- **`member` is the floor *usable* role**: it can genuinely *use* Dosco (chat, run and
   stop sessions, operate automations via `trigger.fire`) but cannot browse the file
   tree, view secret values, or customize anything. "Give them the agent, not the
   internals" is expressible with zero custom-role work.
@@ -336,7 +336,7 @@ kortix roles import iam-roles.toml       # re-create roles + bindings elsewhere
  Your IdP ───────┤
                  └── SCIM (provisioning) ─►  who exists / who is in which group (pushed)
 
- IdP group ──(mapping: claim value → group)──► Kortix IAM group
+ IdP group ──(mapping: claim value → group)──► Dosco IAM group
  IAM group ──(project grant: group → role)───► role on a project
  role ───────(authorization engine)──────────► what the user may do
 ```
@@ -347,8 +347,8 @@ group moves don't wait for a login. Both meet in **IAM groups**, and groups conf
 access only through the grants **you** create — a synced group grants nothing by itself.
 
 **Prerequisites:** the `sso` entitlement (Enterprise tier, or the self-serve
-*Enterprise demo* toggle — section 10), account owner/admin on the Kortix side, admin on
-the IdP side. Kortix delegates SAML validation to its Supabase Auth layer, but you never
+*Enterprise demo* toggle — section 10), account owner/admin on the Dosco side, admin on
+the IdP side. Dosco delegates SAML validation to its Supabase Auth layer, but you never
 need to touch that layer directly — the SP **Entity ID** and **ACS URL** your IdP asks
 for are shown, with copy buttons, on the SAML SSO card's **Service provider details**
 before you configure anything. *(Self-hosted operators can alternatively read them
@@ -364,7 +364,7 @@ later.
    Application → Single sign-on → SAML*) using the SP Entity ID + ACS URL copied from
    the SAML SSO card's **Service provider details**. Download the **IdP metadata XML**
    (or copy its URL).
-2. **In Kortix:** `/accounts/{accountId}?tab=settings` → **Identity & directory** →
+2. **In Dosco:** `/accounts/{accountId}?tab=settings` → **Identity & directory** →
    **SAML SSO** → **Configure** (the card appears once the `sso` entitlement is live).
 3. In the default **Import IdP metadata** mode, paste the metadata XML or URL and set:
 
@@ -376,7 +376,7 @@ later.
    | **Auto-create members** | Any successful SSO login from the domain self-provisions a baseline account `member` | default **on**; turn **off** for strict, invite/SCIM-only membership |
    | **Auto-provision groups** | Unmapped group claims automatically create an IAM group (+ mapping) on login | default **off** — see below |
 
-4. **Import & configure.** Kortix registers the IdP with its auth layer server-side and
+4. **Import & configure.** Dosco registers the IdP with its auth layer server-side and
    stores the provider. Errors are explicit: *409* = a provider already exists (one IdP
    per account — remove it first) or the domain is claimed elsewhere; *501* = SAML isn't
    enabled on the auth project (operator action).
@@ -418,7 +418,7 @@ configured IdP, the browser is redirected to it (SP-initiated; works from both t
 sign-in and register tabs, so first-time SSO users are provisioned on the spot).
 IdP-initiated login is not supported.
 
-On the first authenticated request after login, Kortix:
+On the first authenticated request after login, Dosco:
 
 1. Resolves the SSO provider → owning account.
 2. Ensures account membership (role `member`) — only if `auto_create_members` is on;
@@ -447,7 +447,7 @@ Every SSO configuration change is audited (`iam.sso.provider.*`, `iam.sso.mappin
 
 ## 7. SCIM provisioning
 
-SCIM 2.0 lets your directory push users and groups to Kortix proactively — offboarding
+SCIM 2.0 lets your directory push users and groups to Dosco proactively — offboarding
 and group moves apply without waiting for a login. Enterprise-only; the entitlement is
 re-checked on **every** SCIM request, so a token minted while entitled stops working on
 downgrade.
@@ -470,7 +470,7 @@ downgrade.
    | Setting | Value |
    | --- | --- |
    | SCIM connector base URL | the base URL above |
-   | Unique identifier field for users | `userName` *(Kortix treats it as the email)* |
+   | Unique identifier field for users | `userName` *(Dosco treats it as the email)* |
    | Supported provisioning actions | Push New Users, Push Profile Updates, Push Groups |
    | Authentication Mode | **HTTP Header** — bearer = the `kortix_scim_…` secret |
 
@@ -480,14 +480,14 @@ downgrade.
 
 3. **Microsoft Entra ID** — Enterprise app → *Provisioning* → Automatic:
    **Tenant URL** = the base URL, **Secret Token** = the SCIM token. *Test Connection*
-   works because Kortix serves the discovery endpoints Entra probes
+   works because Dosco serves the discovery endpoints Entra probes
    (`/ServiceProviderConfig`, `/ResourceTypes`, `/Schemas`).
 
 ### Semantics you should know
 
-| Event | What Kortix does |
+| Event | What Dosco does |
 | --- | --- |
-| **Push user (existing Kortix user)** | Idempotent membership upsert, account role `member`; `externalId` recorded |
+| **Push user (existing Dosco user)** | Idempotent membership upsert, account role `member`; `externalId` recorded |
 | **Push user (unknown email)** | Creates a 14-day **invitation** (no email sent); reported back as an `active:true` user; converts to a real member on their first SSO sign-in |
 | **Profile update** | Okta uses PUT, Azure uses PATCH — both supported; unknown attributes are accepted as no-ops so pushes never error |
 | **Deactivate / unassign / DELETE** | **Removes account membership, revokes all their PATs and live session tokens**, busts caches, audits. Response mirrors the resource so IdPs don't loop |
@@ -507,7 +507,7 @@ the actor.
 
 ## 8. Agents, automation & tokens
 
-Humans are half the picture. Kortix agents act with **contained**, auditable authority.
+Humans are half the picture. Dosco agents act with **contained**, auditable authority.
 
 ### The containment model
 
@@ -527,7 +527,7 @@ effective = (launching user's role  |  agent's standing role)
     kortix:
       connectors: all          # which integrations it may call
       secrets: all             # which project secrets it may read ($ENV)
-      kortix_cli: all          # which Kortix platform actions it may perform
+      kortix_cli: all          # which Dosco platform actions it may perform
     release-bot:
       kortix_cli: [project.cr.open, project.trigger.create]   # exactly two powers
       connectors: [github]
@@ -624,7 +624,7 @@ digests, and a per-session integrity chain.
 **Streaming to a SIEM:** `/accounts/{id}?tab=settings` → **Observability** → *Add
 webhook* (name, HTTPS URL, optional action prefix such as `iam.`). You get a `whsec_…`
 secret once, plus an immediate test delivery. Every delivery is signed —
-verify `X-Kortix-Signature: sha256=HMAC-SHA256(secret, raw_body)`; idempotency and
+verify `X-Dosco-Signature: sha256=HMAC-SHA256(secret, raw_body)`; idempotency and
 webhook-id headers included. Deliveries use a durable retry ledger, terminal
 dead-letter state, and manual replay. On
 downgrade, delivery stops per-event, but you can always list and delete leftover hooks.

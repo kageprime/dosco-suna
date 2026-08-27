@@ -1,17 +1,17 @@
 <div align="center">
 
-<img src="apps/web/public/kortix-symbol.svg" alt="Kortix" width="80" />
+<img src="/home/ubuntu/dosco-brand/assets/_dosco-logo.svg" alt="火dosco" width="160" />
 
-# Kortix
+# 火 Dosco — the Dosco Agent Network
 
-**The open-source AI Management System**
+**The AI agent network that delivers real work, not just chat.**
 
-**The leading open-source alternative to Claude Cowork and ChatGPT Work.**
+**The flexible agent that becomes any role at 100% capacity — the perfect coworker for your team.**
 
 [![GitHub stars](https://img.shields.io/github/stars/kortix-ai/suna?style=flat&color=111111&label=Stars)](https://github.com/kortix-ai/suna/stargazers)
 [![Release](https://img.shields.io/github/v/release/kortix-ai/suna?style=flat&color=111111&label=Release)](https://github.com/kortix-ai/suna/releases/latest)
-[![Docs](https://img.shields.io/badge/Docs-kortix.com%2Fdocs-111111.svg)](https://kortix.com/docs)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-111111.svg)](#contributing)
+[![Docs](https://img.shields.io/badge/Docs-dosco.com%2Fdocs-111111.svg)](https://kortix.com/docs)
+[![Dosco Network](https://img.shields.io/badge/Dosco-Network-111111.svg)](#contributing)
 
 [Website](https://kortix.com) · [Documentation](https://kortix.com/docs) · [Cloud](https://kortix.com) · [Manifesto](MANIFESTO.md)
 
@@ -23,14 +23,15 @@
 
 ---
 
-Agents that deliver finished work — reports, decks, code, replies, deployed changes — are now a
-product category. Every version of it runs inside a model lab, on that lab's model, with your
-company's brain on their side of the wall.
+Dosco is the **Dosco Agent Network** — a flexible AI agent that becomes whatever role your team
+needs: a UI engineer, a logo designer, an accountant, a PR lead. Each one runs at 100% capacity,
+with the judgment to take a sprint, drop in, and execute it end to end.
 
-**Kortix is the one you own.** It's an open-source **AI Management System**: your agents, the
-skills they share, your company memory, and every connector live in one git repo — versioned,
-diffable, and shared by the whole company. The agents work on real **cloud computers** — an
-isolated sandbox per session, on its own branch — and land what they produce through a **change
+**Dosco delivers deliverables — actual work that counts**, not just chat responses like a normal
+chatbot. Hand it a brief and it comes back with the finished report, deck, code, or shipped change.
+Your agents, the skills they share, your company memory, and every connector live in one git repo —
+versioned, diffable, and shared by the whole company. The agents work on real **cloud computers** —
+an isolated sandbox per session, on its own branch — and land what they produce through a **change
 request** a human approves.
 
 Any model, your own API keys, your own infrastructure or our managed cloud.
@@ -39,9 +40,9 @@ Any model, your own API keys, your own infrastructure or our managed cloud.
 
 ## How it compares
 
-| | Claude Cowork | ChatGPT Work | **Kortix** |
+| | Claude Cowork | ChatGPT Work | **Dosco** |
 | --- | --- | --- | --- |
-| **Source** | Closed | Closed | **Open source — read it, fork it, audit it** |
+| **Source** | Closed | Closed | **Yours — versioned, diffable, and owned outright** |
 | **Models** | Anthropic only | GPT-5.6 only | **Any provider, your own API keys** |
 | **Where it runs** | Anthropic's cloud, or Bedrock / Google Cloud / Microsoft Foundry — no self-host | OpenAI's cloud, no self-host | **Our cloud, your VPC, or your own on-prem network** |
 | **Your configuration** | In their product | In their product | **Files in a git repo you own** |
@@ -121,19 +122,19 @@ end).
 
 ---
 
-## Why Kortix
+## Why Dosco
 
-- **Open & yours.** Open source and self-hostable — your data, your models, your infrastructure. No lock-in, fully auditable.
+- **A coworker, not a chatbot.** Dosco delivers finished deliverables — reports, decks, code, shipped changes — not just chat responses.
+- **Any role, at 100% capacity.** A flexible agent that becomes a UI engineer, logo designer, accountant, or PR lead the moment you need it.
+- **Drops into your sprint.** Give it a sprint, and it executes end to end — the perfect coworker for the work that counts.
 - **A workforce, not one assistant.** Org-scale specialist agents that run in parallel and compound a shared memory.
-- **Real work, not chat.** Agents run on real cloud computers and return finished deliverables — and take real actions in your tools.
-- **Everything is code.** Versioned, reviewable, portable, governable — never a black box.
-- **Bring your own models.** Any provider, your own keys — or the ChatGPT, Claude, or Cursor subscription you already pay for.
+- **Everything is code.** Versioned, reviewable, portable, governable — never a black box. Bring your own models, your own keys, your own infrastructure.
 
 ---
 
 ## Self-host
 
-Kortix runs on your own infrastructure — a laptop, a VPS, your own VPC, or your own on-prem
+Dosco runs on your own infrastructure — a laptop, a VPS, your own VPC, or your own on-prem
 network. Start a production-style local instance from Docker images, then switch the CLI between
 Cloud and your own hosts:
 
@@ -147,7 +148,7 @@ GitHub access, and Pipedream connectors — ports, local URLs, keys and Docker C
 generated for you. Note that `self-host start` pulls its images from Docker Hub, so this is a
 self-hosted install rather than a disconnected one.
 
-Managed hosting is **[Kortix Cloud](https://kortix.com)**.
+Managed hosting is **[Dosco Cloud](https://kortix.com)**.
 
 ---
 

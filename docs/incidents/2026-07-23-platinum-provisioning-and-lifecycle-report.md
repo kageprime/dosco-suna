@@ -8,9 +8,9 @@ Status: Open
 
 ## Incident summary
 
-Kortix observes high latency and failure rates in Platinum sandbox creation and template builds.
+Dosco observes high latency and failure rates in Platinum sandbox creation and template builds.
 
-The measurements below exclude Kortix database queries and application request processing.
+The measurements below exclude Dosco database queries and application request processing.
 They measure Platinum provider operations and persisted provider outcomes.
 
 The highest-priority failure is `sandbox_not_found` during sandbox lifecycle calls.
@@ -30,7 +30,7 @@ runtime access.
 
 ## Sandbox create latency
 
-The data covers direct provider-create calls. It excludes snapshot preparation and Kortix queue time.
+The data covers direct provider-create calls. It excludes snapshot preparation and Dosco queue time.
 
 ### Rolling 24-hour window ending 2026-07-23
 
@@ -65,8 +65,8 @@ Another `20` stopped sessions contain this message:
 The original sandbox is unavailable. Its identity was preserved and no replacement sandbox was created.
 ```
 
-Kortix preserves the original provider identity in this state.
-Kortix does not silently create a replacement sandbox.
+Dosco preserves the original provider identity in this state.
+Dosco does not silently create a replacement sandbox.
 
 ## Template build outcomes
 
@@ -91,7 +91,7 @@ The observed build failure rate is `31.2%`.
 | Socket closed unexpectedly                                |     1 |
 | Provider state `build_failed`                             |     1 |
 
-### Affected Kortix project
+### Affected Dosco project
 
 The reported project has `34` recorded Platinum template builds.
 
@@ -123,7 +123,7 @@ These counts represent events, not distinct sandboxes.
 
 ## Confirmed response contracts
 
-Kortix observed these live Platinum responses:
+Dosco observed these live Platinum responses:
 
 ```text
 POST /v1/sandboxes/:id/start -> 404 sandbox_not_found
@@ -138,7 +138,7 @@ The `start` conflict response occurred while the sandbox state was `starting` or
 ## Requested Platinum actions
 
 1. Trace the `35,112` `sandbox_not_found` events to sandbox deletion or metadata-loss events.
-2. Identify every automatic deletion path that can remove a persistent Kortix sandbox.
+2. Identify every automatic deletion path that can remove a persistent Dosco sandbox.
 3. Return a durable deletion reason and deletion timestamp for missing sandboxes.
 4. Make `POST /sandboxes/:id/start` idempotent for `starting` and `running` states.
 5. Investigate the `671` capacity failures by region, host pool, and template.
@@ -160,14 +160,14 @@ Please return these items for closure:
 - An idempotent lifecycle API contract or migration plan.
 - A queryable audit record for sandbox deletion and host migration.
 
-## Kortix-side facts
+## Dosco-side facts
 
-- Kortix retains established Platinum sandbox identities after provider loss.
-- Kortix does not replace a missing established sandbox automatically.
+- Dosco retains established Platinum sandbox identities after provider loss.
+- Dosco does not replace a missing established sandbox automatically.
 - The current API deployment has two ready pods and zero pod restarts.
 - API CPU usage was approximately `28%` during investigation.
 - API memory usage was approximately `66%` during investigation.
 - No API `5xx` responses appeared in the last-ten-minute infrastructure sample.
 - The database query that lists sessions executed in `0.333 ms`.
 
-These facts rule out current Kortix compute saturation and session-list SQL execution as causes of the provider outcomes above.
+These facts rule out current Dosco compute saturation and session-list SQL execution as causes of the provider outcomes above.

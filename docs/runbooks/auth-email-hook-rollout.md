@@ -71,9 +71,9 @@ rm -f /tmp/env.json /tmp/env.new.json
 `put-secret-value` preserves every other key and makes the old version
 `AWSPREVIOUS`, so this is reversible.
 
-Optional, same edit: set `EMAIL_FROM` (e.g. `Kortix <noreply@kortix.com>`).
+Optional, same edit: set `EMAIL_FROM` (e.g. `Dosco <noreply@kortix.com>`).
 Without it the sender falls back to `MAILTRAP_FROM_EMAIL` / `MAILTRAP_FROM_NAME`,
-which already default to `noreply@kortix.com` / `Kortix`.
+which already default to `noreply@kortix.com` / `Dosco`.
 
 ## Step 2 — restart the API so the task reads the new blob
 
@@ -142,7 +142,7 @@ curl -s -X PATCH -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                 --arg sec "$HOOK_SECRET" --arg pass "$RESEND" \
         '{hook_send_email_enabled:true, hook_send_email_uri:$uri, hook_send_email_secrets:$sec,
           smtp_host:"smtp.resend.com", smtp_port:"465", smtp_user:"resend", smtp_pass:$pass,
-          smtp_admin_email:"noreply@kortix.cloud", smtp_sender_name:"Kortix"}')" >/dev/null
+          smtp_admin_email:"noreply@kortix.cloud", smtp_sender_name:"Dosco"}')" >/dev/null
 
 # Read back BOTH halves — the enable and the surviving fallback.
 curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
@@ -162,7 +162,7 @@ curl -s -X POST "https://<project-ref>.supabase.co/auth/v1/otp" \
   -d '{"email":"you@example.com","create_user":false}' -w '\n%{http_code}\n'
 ```
 
-The mail must arrive with the Kortix template (wordmark, "Sign in to Kortix",
+The mail must arrive with the Dosco template (wordmark, "Sign in to Dosco",
 a plain-text part) rather than Supabase's default. If it does not arrive:
 
 ```sh
@@ -179,7 +179,7 @@ Supabase resumes sending auth email itself the moment that returns.
 - **Sender.** Auth email starts coming from `EMAIL_FROM` (or
   `noreply@kortix.com`) via SES, instead of the project's current Auth sender.
   Confirm SPF/DKIM covers that address before prod.
-- **Templates.** Auth email gets the Kortix shell used by invites, HTML + text.
+- **Templates.** Auth email gets the Dosco shell used by invites, HTML + text.
 - **New dependency.** `kortix-api` being down now means auth email is not sent.
   The API answering non-2xx surfaces to the user as a failed sign-in rather than
   a silently missing mail, which is the intended behaviour.

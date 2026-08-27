@@ -1,6 +1,6 @@
-# Runbook: Self-hosting Kortix
+# Runbook: Self-hosting Dosco
 
-**Kortix self-host is VPS-first.** The supported way to run it is on your own
+**Dosco self-host is VPS-first.** The supported way to run it is on your own
 VPS or server with a persistent domain pointed at it — that combination is
 what makes reachability, TLS, and agent sessions work correctly and durably.
 Running it on a local machine with no public domain is a convenience for
@@ -10,7 +10,7 @@ default, and browsers enforce connection limits against plain-HTTP
 `localhost` that a real deployment won't hit. If you're deciding where to run
 this for real, provision a VPS and point a domain at it.
 
-Kortix self-host is **one generic Docker-native system**: `kortix self-host`
+Dosco self-host is **one generic Docker-native system**: `kortix self-host`
 generates a `docker-compose.yml` + `.env` (+ a `Caddyfile` and `updater.sh` when
 a domain is configured) into `~/.config/kortix/self-host/<instance>/` and runs
 `docker compose up`. The same artifact happens to also run on a local
@@ -51,7 +51,7 @@ box.
 - **Required for agent sessions to actually run:** a sandbox provider and
   managed-git access (a GitHub PAT or GitHub App) so the platform can create
   project repos. Recommended, standard choices: [Daytona](https://www.daytona.io/)
-  (the default) or [Platinum](https://www.platinum.dev/), Kortix's own microVM
+  (the default) or [Platinum](https://www.platinum.dev/), Dosco's own microVM
   sandbox provider. [E2B](https://e2b.dev/) is also supported. Any of these
   need an API key, settable after first boot with `kortix self-host configure`.
 - **Not required to get started:** email. A fresh install auto-confirms email
@@ -281,7 +281,7 @@ Full reference: [`/docs/reference/cli#self-host`](../../apps/web/content/docs/re
 
 `kortix self-host …` only manages the Compose stack itself. Everything else —
 `login`, `whoami`, `projects`, `ship`, `sessions`, … — is the same CLI you'd
-point at Kortix Cloud, just aimed at your own instance via the built-in
+point at Dosco Cloud, just aimed at your own instance via the built-in
 `selfhost` host:
 
 ```sh
@@ -315,7 +315,7 @@ kortix hosts add selfhost --url https://api.kortix.example.com --dashboard-url h
 **`kortix ship`** needs a git backend to push to — either an existing GitHub
 remote (via the GitHub App or `--github-token`, both set up in the dashboard
 under **Settings → Git**, see step 4 of the quickstart) or no origin at all
-(ship then creates a managed Kortix-hosted repo, no GitHub needed). If
+(ship then creates a managed Dosco-hosted repo, no GitHub needed). If
 managed git isn't configured yet, `ship -n` (dry-run) still validates
 `kortix.yaml`, resolves the target project, and shows the push plan without
 needing it.
@@ -429,14 +429,14 @@ Setting it derives everything else, so there is nothing else to configure:
 - **Product email** (invites, project access requests) sends through it.
 - **Auth email** (magic link, signup confirmation, password reset, email
   change) sends through it too: GoTrue stops sending mail itself and posts each
-  one to `kortix-api`'s send-email hook, which renders the Kortix template and
+  one to `kortix-api`'s send-email hook, which renders the Dosco template and
   sends it through the same provider. That is why `resend://` and `ses://` work
   for auth email even though GoTrue itself speaks only SMTP.
 - `AUTH_EMAIL_HOOK_SECRET` is generated once and shared with GoTrue.
 - `ENABLE_EMAIL_AUTOCONFIRM` flips to `false` and `KORTIX_PUBLIC_AUTH_METHODS`
   becomes `password,magic` — but only on the transition into "email
   configured". A later manual override of either is never overwritten.
-- `EMAIL_FROM` defaults to `Kortix <noreply@<your-domain>>`. Override it with
+- `EMAIL_FROM` defaults to `Dosco <noreply@<your-domain>>`. Override it with
   an address on a domain whose SPF/DKIM authorizes your relay:
 
 ```sh
@@ -454,7 +454,7 @@ unencrypted connection unless `?tls=off` is set explicitly.
 `kortix self-host doctor` parses `EMAIL_URL` and reports the resolved provider
 chain, so a typo surfaces there instead of as a missing invite.
 
-> Managed Kortix (dev/staging/prod) uses the same transport but reaches it
+> Managed Dosco (dev/staging/prod) uses the same transport but reaches it
 > differently: auth email goes through the Supabase send-email hook, which is
 > per-environment configuration rather than a self-host `EMAIL_URL`. See
 > [auth-email-hook-rollout.md](./auth-email-hook-rollout.md).
@@ -475,16 +475,16 @@ kortix self-host env set ENTERPRISE_LICENSE_AVAILABLE=true
 kortix self-host start
 ```
 
-With that flag on, register an IdP exactly like on Kortix Cloud — see
+With that flag on, register an IdP exactly like on Dosco Cloud — see
 `docs/ENTRA_SSO_SCIM_SETUP.md` for the full walkthrough (Entra/Okta/Google/
 custom SAML, group→role mapping, SCIM). Two paths:
 
 - **Self-serve (recommended)**: sign in as an account owner/admin → Account →
-  Settings → Identity → SAML SSO → Configure → Import IdP metadata. Kortix
+  Settings → Identity → SAML SSO → Configure → Import IdP metadata. Dosco
   registers the IdP with your self-hosted Supabase Auth (`/auth/v1/admin/sso/
   providers`) server-side — you never touch Supabase directly. Everything
   (Entity ID, ACS URL, metadata endpoint) is derived from your own
-  `KORTIX_DOMAIN`/tunnel URL, never a Kortix Cloud URL.
+  `KORTIX_DOMAIN`/tunnel URL, never a Dosco Cloud URL.
 - **Advanced/operator path**: run `supabase sso add --type saml --metadata-url
   "<idp metadata url>" --domains your-company.com` yourself against your
   self-hosted Supabase project, then paste the returned provider UUID into the

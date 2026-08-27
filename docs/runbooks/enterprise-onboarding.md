@@ -1,7 +1,7 @@
-# Enterprise onboarding packet — self-hosted Kortix
+# Enterprise onboarding packet — self-hosted Dosco
 
 > Customer-facing checklist for onboarding a new enterprise account onto a
-> self-hosted Kortix deployment. Derived from `docs/runbooks/self-hosting.md`
+> self-hosted Dosco deployment. Derived from `docs/runbooks/self-hosting.md`
 > (operator mechanics) + `docs/ENTERPRISE_EDITION.md` (entitlements). Mirrors
 > the FDE white-glove motion in goal §5 (invest the first 3–4 hours per
 > company: integrations connected, Slack installed, set up and customized to
@@ -14,20 +14,20 @@
 
 | # | Item | Why | Notes |
 |---|---|---|---|
-| 1 | **A VPS or cloud VM** (recommended) with Docker Engine + Compose plugin installed | Kortix self-host is one generic Docker Compose system; runs on any Linux VPS, EC2, Droplet, bare metal | Minimum: 4 vCPU / 8 GB RAM / 50 GB disk for evaluation; size up for production. `scripts/kortix-selfhost-up.sh` installs Docker on a fresh Linux box. |
+| 1 | **A VPS or cloud VM** (recommended) with Docker Engine + Compose plugin installed | Dosco self-host is one generic Docker Compose system; runs on any Linux VPS, EC2, Droplet, bare metal | Minimum: 4 vCPU / 8 GB RAM / 50 GB disk for evaluation; size up for production. `scripts/kortix-selfhost-up.sh` installs Docker on a fresh Linux box. |
 | 2 | **A public domain** pointed at the box's public IP (A/AAAA records for `<domain>` + `api.<domain>`) | Turns on the bundled Caddy reverse proxy + ACME TLS; required for agent sandboxes to call back to the API | No domain = Cloudflare tunnel fallback (ephemeral URL, evaluation only, not production). |
-| 3 | **A sandbox provider API key** — Daytona (default), Platinum, or E2B | Agent sessions run in cloud sandbox VMs outside the customer's network; they call back to the Kortix API over the public internet | Daytona is the recommended default. |
+| 3 | **A sandbox provider API key** — Daytona (default), Platinum, or E2B | Agent sessions run in cloud sandbox VMs outside the customer's network; they call back to the Dosco API over the public internet | Daytona is the recommended default. |
 | 4 | **Managed-git credentials** — a GitHub PAT or GitHub App | The platform creates project repos under the customer's org | `MANAGED_GIT_PROVIDER=github` + `MANAGED_GIT_GITHUB_TOKEN` + `MANAGED_GIT_GITHUB_OWNER`. |
 | 5 | **(Optional) SMTP credentials** — host/port/user/pass, admin sender | Enables magic-link sign-in + email verification; fresh installs auto-confirm signups and lead with password auth, so SMTP can come later | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_ADMIN_EMAIL`, `SMTP_SENDER_NAME`. |
 | 6 | **(Enterprise) IdP metadata** — Entra ID / Okta / Google / custom SAML | SAML SSO + SCIM (group→role mapping, automated user provisioning). SAML capability is on by default; the enterprise IAM surface unlocks with the entitlement | See `docs/ENTRA_SSO_SCIM_SETUP.md` for the full walkthrough. |
-| 7 | **(Enterprise) License entitlement** — issued by Kortix sales | Unlocks SSO/SCIM/RBAC/audit (hidden behind 402 without it) | `ENTERPRISE_LICENSE_AVAILABLE=true` (or `--enterprise-license` at `init`). |
+| 7 | **(Enterprise) License entitlement** — issued by Dosco sales | Unlocks SSO/SCIM/RBAC/audit (hidden behind 402 without it) | `ENTERPRISE_LICENSE_AVAILABLE=true` (or `--enterprise-license` at `init`). |
 
 ## What we do (the 3–4 hour white-glove setup)
 
 ### Phase 1 — Provision + reachability (~45 min)
 
 1. **Provision the box.** SSH in; run `bash <(curl -fsSL https://raw.githubusercontent.com/kortix-ai/suna/main/scripts/kortix-selfhost-up.sh) --domain <domain> --email ops@<domain>`. This installs Docker, runs `kortix self-host init`, and starts the stack.
-2. **Verify reachability.** `curl https://api.<domain>/v1/health` → expect `{"status":"ok","environment":"prod","version":"<version>"}`. `curl https://<domain>` → expect the Kortix frontend.
+2. **Verify reachability.** `curl https://api.<domain>/v1/health` → expect `{"status":"ok","environment":"prod","version":"<version>"}`. `curl https://<domain>` → expect the Dosco frontend.
 3. **Verify TLS.** Caddy obtains ACME certs automatically (DNS-01 via Route53 on AWS, HTTP-01 elsewhere); confirm a valid cert in the browser.
 
 ### Phase 2 — Sandbox + managed-git (~30 min)
@@ -39,7 +39,7 @@
 ### Phase 3 — Enterprise identity + governance (~45 min)
 
 7. **Unlock the enterprise entitlement.** `kortix self-host env set ENTERPRISE_LICENSE_AVAILABLE=true` → `kortix self-host start`.
-8. **Register the IdP.** Self-serve path (recommended): sign in as account owner → Account → Settings → Identity → SAML SSO → Configure → Import IdP metadata. Kortix registers the IdP with the self-hosted Supabase Auth server-side — the customer never touches Supabase directly. Entity ID / ACS URL / metadata endpoint are all derived from the customer's own `KORTIX_DOMAIN`.
+8. **Register the IdP.** Self-serve path (recommended): sign in as account owner → Account → Settings → Identity → SAML SSO → Configure → Import IdP metadata. Dosco registers the IdP with the self-hosted Supabase Auth server-side — the customer never touches Supabase directly. Entity ID / ACS URL / metadata endpoint are all derived from the customer's own `KORTIX_DOMAIN`.
 9. **Configure SCIM** (group→role mapping, automated provisioning). Same dashboard surface; see `docs/ENTRA_SSO_SCIM_SETUP.md`.
 10. **Verify SSO.** Sign in via the IdP (not password) as a test user; confirm group→role mapping applies correctly.
 
@@ -74,6 +74,6 @@
 
 ## After onboarding
 
-- **Continuous support.** The customer's operator owns day-2 operations via the runbook. Kortix FDE stays available for escalations.
+- **Continuous support.** The customer's operator owns day-2 operations via the runbook. Dosco FDE stays available for escalations.
 - **Updates.** The `stable` channel is curated — not every prod release ships to self-hosted boxes overnight. A human runs the `Promote Self-Host Stable` workflow to repoint `:stable` → a proven version. Self-hosts pick it up on their next nightly auto-updater cycle.
-- **Learning / education.** Bring Kortix into the customer's teams as a practice — the agent/skill/connectors/session/memory model, the change-request workflow, the IAM surface. The goal is the customer's team running Kortix autonomously, not depending on FDE for routine work.
+- **Learning / education.** Bring Dosco into the customer's teams as a practice — the agent/skill/connectors/session/memory model, the change-request workflow, the IAM surface. The goal is the customer's team running Dosco autonomously, not depending on FDE for routine work.

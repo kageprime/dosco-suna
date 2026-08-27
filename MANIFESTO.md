@@ -1,12 +1,17 @@
-# Kortix
+# 火 Dosco — the Dosco Agent Network
 
 A company is going to be a git repository.
+
+Dosco is a flexible AI agent that becomes any role your team needs — a UI engineer, a logo
+designer, an accountant, a PR lead — each one running at 100% capacity. It delivers deliverables,
+actual work that counts, not just chat responses like a normal chatbot. Hand it a sprint and it
+drops in and executes it end to end: the perfect coworker.
 
 Not as a metaphor. Literally — something you can clone. Inside it: the company's agents, the skills it has built up, the way it actually does its work, every fact it has ever learned, and the definition of the machines all of that runs on. Versioned. Diffable. Owned outright. Running on its own around the clock, opening pull requests against itself, getting better at being your company while everyone's asleep.
 
 That's half the bet. The other half is that an AI-native company needs a single place to be run from. Call it the WordPress of AGI, call it a command center — one core platform where all the context lives, where the agents live, the skills, the triggers, the connectors, the memory, the whole continuous build-out of the company, in one spot, so a person can actually operate the thing instead of duct-taping forty tools together and praying.
 
-OpenAI, Anthropic, and a pile of others are going to build a version of this. Of course they are. The difference is what you get and what you keep. Here you run the best models, whichever ones those are this month, not whatever one vendor happens to sell. It's open. You can run it on your own infrastructure. You own all the data, you own the configuration, you own the stack down to the metal if you want it. Everyone else is building a place to rent your company back to you. We're building the one you own.
+OpenAI, Anthropic, and a pile of others are going to build a version of this. Of course they are. The difference is what you get and what you keep. Here you run the best models, whichever ones those are this month, not whatever one vendor happens to sell. It's a product you fully control. You can run it on your own infrastructure. You own all the data, you own the configuration, you own the stack down to the metal if you want it. Everyone else is building a place to rent your company back to you. We're building the one you own.
 
 Everything else here is just what falls out of taking both halves seriously.
 
@@ -20,28 +25,28 @@ So people built tools to give it a past. And those tools are demos. One tenant, 
 
 The other option is to crawl back to the model labs, who will happily host the polished version — and keep your data, your configuration, and your model on their side of the wall, where it stays theirs and you rent access to your own operation forever.
 
-A toy or a cage. That's the actual choice on the table today, and it's a stupid one. Kortix is what you build when you refuse both.
+A toy or a cage. That's the actual choice on the table today, and it's a stupid one. Dosco is what you build when you refuse both.
 
 ---
 
 ## One company, one repo
 
-A Kortix **project** is a git repo, and that repo *is* the company. Configuration and accumulated state in the same place, all of it text, all of it under version control, all of it readable by a person and editable by an agent.
+A Dosco **project** is a git repo, and that repo *is* the company. Configuration and accumulated state in the same place, all of it text, all of it under version control, all of it readable by a person and editable by an agent.
 
 The whole thing is defined by two files:
 
-- **`kortix.yaml`** — the Kortix layer. The sandbox image, triggers, connectors, secret grants, logical agents, and OpenCode config directory.
+- **`kortix.yaml`** — the Dosco layer. The sandbox image, triggers, connectors, secret grants, logical agents, and OpenCode config directory.
 - **OpenCode config** — the runtime behavior. OpenCode owns prompts, skills, tools, permissions, models, and providers.
 
 Everything past that is files in the repo. You can `grep` your entire company. You can read any agent's instructions in plain markdown. You can open a memory file and see exactly what it believes about you. Nothing is hidden because there is nowhere to hide it.
 
-Drop into any directory, run `kortix init`, and it's a Kortix. Run `kortix ship` and it's live — it checks that the thing compiles, asks you for whatever secrets it's missing, pushes it up, and from then on it runs. The repo behaves the same on your laptop as it does in the cloud, because it's the same repo doing the same thing. Local development and the live system stopped being different categories.
+Drop into any directory, run `kortix init`, and it's a Dosco. Run `kortix ship` and it's live — it checks that the thing compiles, asks you for whatever secrets it's missing, pushes it up, and from then on it runs. The repo behaves the same on your laptop as it does in the cloud, because it's the same repo doing the same thing. Local development and the live system stopped being different categories.
 
 ---
 
 ## How a session actually works
 
-Start a session and a sandbox boots from one generic snapshot already running our daemon — **kortix-sandbox-agent-server**. The daemon clones the repo, pulls latest, cuts a fresh branch, and reads `kortix.yaml`. It then starts OpenCode and exposes its REST API through the Kortix compatibility proxy. The agent does its work completely walled off from everything else. When it wants to keep something, it commits and opens a change request back toward `main`, and a human decides whether that lands.
+Start a session and a sandbox boots from one generic snapshot already running our daemon — **kortix-sandbox-agent-server**. The daemon clones the repo, pulls latest, cuts a fresh branch, and reads `kortix.yaml`. It then starts OpenCode and exposes its REST API through the Dosco compatibility proxy. The agent does its work completely walled off from everything else. When it wants to keep something, it commits and opens a change request back toward `main`, and a human decides whether that lands.
 
 The daemon is one executable that supervises runtime processes and exposes one session surface. A client gets prompting, streaming, files, and a terminal through that surface.
 
@@ -104,9 +109,9 @@ Under that surface is as much depth as you can stand. The interface and the code
 
 ## How this becomes a business
 
-By being the best version of it, and by running on it in public. We build our own companies on Kortix and let people watch: agents reviewing pull requests, preview environments per change, a Slack message turning into a shipped PR, outreach that runs itself, SEO that just happens. The platform is the proof of the platform.
+By being the best version of it, and by running on it in public. We build our own companies on Dosco and let people watch: agents reviewing pull requests, preview environments per change, a Slack message turning into a shipped PR, outreach that runs itself, SEO that just happens. The platform is the proof of the platform.
 
-The money is clean. Open source and self-hostable underneath. A cloud where we charge for seats and compute. Single-tenant deployments for the customers who have to run it themselves, anywhere they want to put it. A marketplace of agents, skills, and whole importable projects. And **Platinum.dev** — the compute floor under all of it: CPU and GPU sandboxes, inference, training, built first because we needed millions of cheap, fast, microVM-isolated machines for ourselves, and then opened up to everyone else who needs the same thing on-prem or in a private cloud, for a fraction of what they're paying now.
+The money is clean. Self-hostable underneath, with a managed Dosco Network cloud where we charge for seats and compute. Single-tenant deployments for the customers who have to run it themselves, anywhere they want to put it. A marketplace of agents, skills, and whole importable projects. And **Platinum.dev** — the compute floor under all of it: CPU and GPU sandboxes, inference, training, built first because we needed millions of cheap, fast, microVM-isolated machines for ourselves, and then opened up to everyone else who needs the same thing on-prem or in a private cloud, for a fraction of what they're paying now.
 
 ---
 
