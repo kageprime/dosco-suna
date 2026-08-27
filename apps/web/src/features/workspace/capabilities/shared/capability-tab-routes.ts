@@ -35,6 +35,7 @@ export interface CapabilityTab {
     | 'agent'
     | 'connectors'
     | 'skills'
+    | 'marketplace'
     | 'triggers'
     | 'models'
     | 'secrets'
@@ -63,6 +64,7 @@ export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'connectors', label: 'Connectors' },
   { key: 'agent', label: 'Agents' },
   { key: 'skills', label: 'Skills' },
+  { key: 'marketplace', label: 'Marketplace' },
   { key: 'triggers', label: 'Triggers' },
   { key: 'secrets', label: 'Secrets' },
   { key: 'config', label: 'Settings' },

@@ -9,6 +9,7 @@ import {
   KeyIcon as KeyRound,
   LockKeyIcon as Lock,
   PlugIcon as Plug,
+  StorefrontIcon as Storefront,
   GearSixIcon as Settings,
   type Icon,
 } from '@phosphor-icons/react';
@@ -84,6 +85,10 @@ const CARD_COPY: Record<CapabilityTab['key'], { icon: Icon; description: string 
   skills: {
     icon: Blocks,
     description: 'Repeatable workflows your agent reuses.',
+  },
+  marketplace: {
+    icon: Storefront,
+    description: 'Browse and install skills from community and vendor registries.',
   },
   triggers: {
     icon: AlarmClock,
