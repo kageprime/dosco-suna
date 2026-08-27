@@ -2,7 +2,7 @@
 
 ## Goal
 
-Connector sources already describe authentication. Kortix must preserve and use
+Connector sources already describe authentication. Dosco must preserve and use
 that information instead of asking users to reconstruct it manually. A user
 should normally provide only the credential value (or complete an interactive
 OAuth consent flow).
@@ -15,7 +15,7 @@ OAuth consent flow).
 - Postman and OpenAPI sources are inspected before a connector is committed.
 - HTTP, GraphQL, and MCP sources contribute standardized auth metadata when they
   expose it (document fields or HTTP `WWW-Authenticate` challenges).
-- Every discovered scheme is returned to callers. Kortix recommends and applies
+- Every discovered scheme is returned to callers. Dosco recommends and applies
   the best executable scheme, while retaining warnings for alternatives,
   combinations, or schemes the connector cannot yet sign.
 - Secret values embedded in a source are never copied, returned, logged, or

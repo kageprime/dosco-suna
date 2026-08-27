@@ -1,8 +1,8 @@
-# One Kortix Token + CLI-Centric Platform
+# One Dosco Token + CLI-Centric Platform
 
 Status: working document
 Date: 2026-07-08
-Owner: Kortix product/infra
+Owner: Dosco product/infra
 Related: `docs/specs/2026-06-28-token-session-agent-identity.md`,
 `docs/specs/2026-06-28-project-authorization-runtime-governance.md`,
 `docs/specs/2026-07-05-agent-first-config-unification.md`
@@ -13,7 +13,7 @@ Two threads, one plan:
 
 1. **One token.** The platform has accumulated 17 distinct credential types.
    Collapse identity down to a single token family with claims, so that the
-   mental model is: *one Kortix token; on your laptop it is you, inside a
+   mental model is: *one Dosco token; on your laptop it is you, inside a
    sandbox it is the agent (capped by you), headless it is a service account.*
 2. **CLI-centric.** Every action possible in the web UI must be possible via
    the CLI — which makes it possible for agents, because agents drive the CLI
@@ -29,11 +29,11 @@ grants.
 ## Raw Prompt Input
 
 ```text
-Overall, I want to make Kortix way more CLI-centric. You understand? Like, every single action that you take via the web UI, you should be able to take via the CLI as well. Which will allow the agent to also do 100% that. The only question I have is around the authorization model, of course, with that. But also, what I want to do is like make it very easy to just like type in Kortix. Have a model where always one project is clearly tied. Like, it doesn't have to be only the repo-based thing, but that you just have your global project which you tie to your Kortix-CLI. And then the, then the, if you run it from a certain directory, it will just overtake that, you know, like it will prioritize it rather. But, so that you can start like a new Kortix, for instance, open code from anywhere. So that the, and this is also flow I want to test and minimize the commands that you have to type in. So you can easily start like a cloud coding session, you know, that is just running open code without any hassle whatsoever, if you understand what I want to say. // Overall, making everything 100% CLI centric. My only question is around the authorization model because the CLI always requires a human. How is the authorization to the CLI, right? How does even the authorization to the sandbox look like? How many tokens is there? Can you check all the tokens? I want to refactor and make it one token, like just one. And like either this can be a human identity, like when you're running locally, right? Because like then you have the full human same scopes. But if you're running within the sandbox, like it's going to assume the selected agent identity, correct? How does it behave if we switch the agents? Like how is all this authorization propagated on what who has access to?
+Overall, I want to make Dosco way more CLI-centric. You understand? Like, every single action that you take via the web UI, you should be able to take via the CLI as well. Which will allow the agent to also do 100% that. The only question I have is around the authorization model, of course, with that. But also, what I want to do is like make it very easy to just like type in Dosco. Have a model where always one project is clearly tied. Like, it doesn't have to be only the repo-based thing, but that you just have your global project which you tie to your Dosco-CLI. And then the, then the, if you run it from a certain directory, it will just overtake that, you know, like it will prioritize it rather. But, so that you can start like a new Dosco, for instance, open code from anywhere. So that the, and this is also flow I want to test and minimize the commands that you have to type in. So you can easily start like a cloud coding session, you know, that is just running open code without any hassle whatsoever, if you understand what I want to say. // Overall, making everything 100% CLI centric. My only question is around the authorization model because the CLI always requires a human. How is the authorization to the CLI, right? How does even the authorization to the sandbox look like? How many tokens is there? Can you check all the tokens? I want to refactor and make it one token, like just one. And like either this can be a human identity, like when you're running locally, right? Because like then you have the full human same scopes. But if you're running within the sandbox, like it's going to assume the selected agent identity, correct? How does it behave if we switch the agents? Like how is all this authorization propagated on what who has access to?
 
 ---
 
-Yeah, the project binding model should even be should even be better like right when you install Kortix or like if you don't have a global project bound It should basically force you to do so or like you can skip it But like this the user experience should be so that this global project is always bound no matter what and it's like very nice and nice like on the CLI centric push can you hardcore make a plan on all the things we should be doing here? there's loads of fucking tokens. I can't fucking look through all of this like and then let's fundamentally refactor and optimize this. it's deeply complicated in my opinion.
+Yeah, the project binding model should even be should even be better like right when you install Dosco or like if you don't have a global project bound It should basically force you to do so or like you can skip it But like this the user experience should be so that this global project is always bound no matter what and it's like very nice and nice like on the CLI centric push can you hardcore make a plan on all the things we should be doing here? there's loads of fucking tokens. I can't fucking look through all of this like and then let's fundamentally refactor and optimize this. it's deeply complicated in my opinion.
 ```
 
 ## Current State (audited 2026-07-08)
@@ -61,8 +61,8 @@ Non-identity credentials:
 | 10 | `kortix_tnl_` | tunnel machine credential (Computer connector) |
 | 11 | `ksl_` setup link | stateless encrypted capability link (secret intake / connect) |
 | 12 | `kps_` public share | anonymous session/preview share capability |
-| 13 | `kortix_oat_` / `kortix_ort_` | Kortix-as-OAuth-server access/refresh for external clients |
-| 14 | `X-Kortix-User-Context` | 60s-TTL HMAC header, signed with the sandbox token (not a bearer) |
+| 13 | `kortix_oat_` / `kortix_ort_` | Dosco-as-OAuth-server access/refresh for external clients |
+| 14 | `X-Dosco-User-Context` | 60s-TTL HMAC header, signed with the sandbox token (not a bearer) |
 | 15 | Session LLM token | HMAC token, single consumer route (`apps/api/src/shared/session-llm-token.ts`) — possibly dead |
 | 16 | `INTERNAL_SERVICE_KEY` | gateway-pod ↔ API service-to-service secret |
 | 17 | BYOK / third-party credentials | Codex auth.json, git credentials, connector secrets — proxied, never identity |
@@ -123,7 +123,7 @@ Non-identity credentials:
 
 ## Target Model
 
-### One identity token: "the Kortix token"
+### One identity token: "the Dosco token"
 
 One token family (`kortix_pat_`, one table: `account_tokens`), defined by
 claims, not by prefix proliferation:
@@ -146,7 +146,7 @@ Acting identity by context:
 | Headless automation / CI | a service account | its IAM policies |
 | Trigger/schedule-launched session | the agent's service account | the trigger owner's role ∩ agent grant (open question #8 of the governance spec — resolve as part of Phase B2) |
 
-A sandbox holds **exactly two secrets under exactly two names**: the Kortix
+A sandbox holds **exactly two secrets under exactly two names**: the Dosco
 token (identity) and the sandbox machine token (control plane / HMAC key).
 The machine token is deliberately NOT merged: it exists before and
 independent of any user, is the proxy's HMAC signing key, and merging it
@@ -168,7 +168,7 @@ server tokens, user-context header, internal service key.
 | `kortix_sa_` bearer | keep the principal, unify the credential: an SA-owned row in `account_tokens` (`principal_type` column) so minting/listing/revocation/expiry policy is one system |
 | Supabase JWT | keep — browser-only, third-party minted, already converges at middleware |
 
-End state: **6 identity types → 2** (Kortix token + browser JWT), and the
+End state: **6 identity types → 2** (Dosco token + browser JWT), and the
 non-identity credentials each documented with one sentence of why they exist.
 
 ## Plan — Track A: identity refactor
@@ -336,7 +336,7 @@ a manifest annotation away.
 2. Agent switch = the target agent's grant is applied before any tool executes
    under it. SHIPPED as a re-mint of `account_tokens.agent_grant` on the live
    token, not as a new token: `remintGrantForAgentSwitch` rewrites the grant row
-   per prompt, and the connector and Kortix-CLI gates read that row at call
+   per prompt, and the connector and Dosco-CLI gates read that row at call
    time. The token VALUE is unchanged, so nothing is revoked.
    Known limit: two concurrent prompts naming different agents on one session
    race, and the last writer wins (`session-token-grant.ts:200-206`). One row

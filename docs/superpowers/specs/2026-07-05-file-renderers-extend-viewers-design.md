@@ -17,12 +17,12 @@ Four engines, four interaction vocabularies, none of them excellent.
 
 ## Decision
 
-Replace all four view paths with the extend.ai viewer components (MIT, shadcn-registry-distributed, source vendored into our repo), rebuilt with Kortix-owned chrome.
+Replace all four view paths with the extend.ai viewer components (MIT, shadcn-registry-distributed, source vendored into our repo), rebuilt with Dosco-owned chrome.
 
 Decisions made with Jay:
 
 1. **Full replacement** — extend viewers become the only view path everywhere (full file viewer + inline tool previews). Legacy engines are deleted. Syncfusion stays for XLSX *editing* only.
-2. **Kortix chrome** — extend's toolbars, upload buttons, and theme toggles are stripped; controls are rebuilt as kortix-design-system components.
+2. **Dosco chrome** — extend's toolbars, upload buttons, and theme toggles are stripped; controls are rebuilt as kortix-design-system components.
 3. **Hand-vendor** — fetch registry JSONs from `https://www.extend.ai/ui/r/{name}.json`, extract only the viewer files, rewire imports to our existing ui primitives. No shadcn CLI (it would pull registry deps that collide with our customized `button`/`input`/`popover`).
 
 ## Engines (verified 2026-07-05)
@@ -42,22 +42,22 @@ hugeicons (extend's icon lib) is **not** added — icons are swapped to lucide d
 ```
 features/file-renderers/
   pdf/
-    pdf-viewer.tsx        vendored EmbedPDF viewer, Kortix chrome
+    pdf-viewer.tsx        vendored EmbedPDF viewer, Dosco chrome
     pdf-renderer.tsx      adapter — keeps current API (fileContent base64 / url, compact)
   docx/
-    docx-viewer.tsx       vendored, Kortix chrome
+    docx-viewer.tsx       vendored, Dosco chrome
     docx-annotation-card.tsx  vendored (comments / tracked changes)
     docx-renderer.tsx     adapter — keeps current API (blob / url)
   xlsx/
-    xlsx-viewer.tsx       vendored, Kortix chrome
+    xlsx-viewer.tsx       vendored, Dosco chrome
     xlsx-renderer.tsx     adapter — keeps current API (filePath/fileName, self-loading
                           via readFileAsBlob; stays out of barrel, lazy-only)
   csv/
-    csv-viewer.tsx        vendored, Kortix chrome
+    csv-viewer.tsx        vendored, Dosco chrome
     csv-renderer.tsx      adapter — keeps current API (content string, compact)
   shared/
     document-viewer-sidebar.tsx   vendored, restyled
-    viewer-toolbar.tsx            new — shared Kortix chrome primitives
+    viewer-toolbar.tsx            new — shared Dosco chrome primitives
 ```
 
 - **Adapters keep today's prop contracts**, so `file-content-renderer.tsx`, `file-editors/index.tsx`, and `show-content-renderer.tsx` keep their call sites (import paths update only). Barrel exports in `index.tsx` unchanged.
@@ -73,13 +73,13 @@ features/file-renderers/
 | XLSX: `filePath` + `fileName` | keep self-loading via `readFileAsBlob(filePath)` → object URL → viewer |
 | CSV: `content` string | pass directly as viewer `data` |
 
-## Kortix chrome
+## Dosco chrome
 
 One shared toolbar vocabulary across all four viewers (`shared/viewer-toolbar.tsx`):
 
 - **Left — context:** page `3 / 12` (PDF/DOCX), sheet tabs (XLSX), `1,204 rows × 8 cols` (CSV).
 - **Right — controls:** zoom out / percent / zoom in, fit-width, rotate (PDF only), search, thumbnails/outline toggle (PDF/DOCX), download.
-- Kortix design system throughout: kortix-* tokens, `rounded-md`, lucide icons, tinted icon tiles for status/error states.
+- Dosco design system throughout: kortix-* tokens, `rounded-md`, lucide icons, tinted icon tiles for status/error states.
 - Polish requirements (from emil-design-eng + make-interfaces-feel-better):
   - `tabular-nums` on page numbers, zoom %, row/col counts.
   - `active:scale-[0.96]` on toolbar buttons; transitions on specific properties only (never `transition: all`).

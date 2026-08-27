@@ -43,7 +43,7 @@ goes anywhere other than `api.stripe.com`, no credential is attached.
 ### Why the existing router is NOT this
 
 `apps/api/src/router/config/proxy-services.ts` already does server-side key
-injection for 11+ Kortix-owned services (Tavily, Serper, Firecrawl, Replicate,
+injection for 11+ Dosco-owned services (Tavily, Serper, Firecrawl, Replicate,
 Context7, and the LLM providers):
 
 ```ts
@@ -60,7 +60,7 @@ The mechanism is proven and in production.
 agent has to know to call `${KORTIX_API_URL}/v1/router/tavily` instead of
 `api.tavily.com`. That means:
 
-- Every connector needs Kortix-specific code. Ordinary SDKs, `curl`, and any
+- Every connector needs Dosco-specific code. Ordinary SDKs, `curl`, and any
   library that hardcodes its vendor base URL all bypass it.
 - It is a *convention*, not a *control*. An agent that ignores the convention and
   calls the vendor directly is not stopped — it just doesn't get a key from us.
@@ -95,7 +95,7 @@ STRIPE_SECRET_KEY:
 `inject` deliberately mirrors the existing `KeyInjectionMethod` union in
 `proxy-services.ts` (`header` | `json_body_field`) so the two converge rather
 than fork. The long-term shape is that `proxy-services.ts` becomes the
-Kortix-owned *preset* layer over the same per-project policy engine.
+Dosco-owned *preset* layer over the same per-project policy engine.
 
 The mental model — "where does this secret get materialized?" — is also the
 product story: **your agent never holds the key.**
@@ -118,7 +118,7 @@ reach `api.stripe.com` except through us — and we do the injection. Same resul
 on both prod providers, using each one's actual capability.
 
 Constraint to design around: Daytona's allowlist caps at **5 CIDRs** and is
-tier-gated, so the allowlist must be "the Kortix egress proxy," never "the union
+tier-gated, so the allowlist must be "the Dosco egress proxy," never "the union
 of every domain a project uses."
 
 Platinum gets the stronger version — we control the netns directly.
@@ -128,12 +128,12 @@ Platinum gets the stronger version — we control the netns directly.
 These are the reasons this is a project and not a patch.
 
 **1. TLS interception.** Attaching a header to an HTTPS request means terminating
-TLS at the proxy: a Kortix CA in the sandbox trust store and MITM on egress.
+TLS at the proxy: a Dosco CA in the sandbox trust store and MITM on egress.
 SNI tells you the hostname but does not let you modify an encrypted stream —
 which is why E2B's filtering is SNI-based while its `transform.headers` must be
 terminating. There is no way around this for header injection.
 
-*Open question:* some enterprise customers will reject a Kortix CA in the trust
+*Open question:* some enterprise customers will reject a Dosco CA in the trust
 store on principle. If so, `proxy` mode must be opt-in per project, which weakens
 the marketing claim from "always" to "when enabled."
 
@@ -165,7 +165,7 @@ takes effect in the existing session.
 
 Re-scoping *env* per prompt is not sufficient on its own. The proxy also
 reconciles every active session token's `agent_grant` before it forwards each
-prompt. Connector and Kortix CLI authorization therefore follow the current
+prompt. Connector and Dosco CLI authorization therefore follow the current
 manifest and running agent.
 
 There is also a live fail-open on that path: `session-sandbox.ts:143` does

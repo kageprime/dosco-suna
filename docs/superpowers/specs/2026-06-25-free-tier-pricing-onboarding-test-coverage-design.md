@@ -42,11 +42,11 @@ The live E2E layer is the release proof, but the monthly reset and LLM debit inv
 
 ### Sandbox-only wallet invariant
 
-- Free Zen/OpenCode model use is allowed and creates no Kortix LLM debit.
-- ChatGPT/Codex-subscription model use is allowed and creates no Kortix LLM debit.
+- Free Zen/OpenCode model use is allowed and creates no Dosco LLM debit.
+- ChatGPT/Codex-subscription model use is allowed and creates no Dosco LLM debit.
 - BYOK premium model use is allowed for free accounts with `billingMode:'none'`; the 10% BYOK platform fee is waived.
 - BYOK-to-managed fallback is disabled for free accounts.
-- Managed premium models on Kortix keys return no candidates or a clear blocked error for free accounts.
+- Managed premium models on Dosco keys return no candidates or a clear blocked error for free accounts.
 - Blocked managed premium attempts leave wallet balance unchanged and create no `llm_debit`.
 - Paid/per-seat accounts keep managed premium candidates and normal LLM billing behavior.
 - Self-hosted or billing-disabled mode keeps existing managed routing behavior.

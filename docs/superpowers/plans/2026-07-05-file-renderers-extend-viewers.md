@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the four document view paths (PDF, DOCX, XLSX, CSV/TSV) in `apps/web/src/features/file-renderers/` with vendored extend.ai viewer components carrying Kortix-owned chrome, and delete the legacy engines.
+**Goal:** Replace the four document view paths (PDF, DOCX, XLSX, CSV/TSV) in `apps/web/src/features/file-renderers/` with vendored extend.ai viewer components carrying Dosco-owned chrome, and delete the legacy engines.
 
 **Architecture:** Each format gets a folder containing the vendored extend viewer (imports rewired to our ui primitives, hugeicons→lucide via a compat shim, upload/theme-toggle chrome stripped) plus a thin adapter that keeps today's prop contract, so consumers only change import paths. Legacy engines (iframe PDF, docx-preview, Univer+ExcelJS, AG Grid) are deleted per format as each migration lands.
 
@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-05-file-renderers-extend-viewers-design.md`
 
-**Discovery amendment to spec:** The vendored extend toolbars are already composed from our own ui primitives (`Button`, `Input`, `Select`, `Tooltip`, `Separator`, `ScrollArea`, `Tabs`, `DropdownMenu`, `Popover`) — they inherit kortix tokens automatically. "Kortix chrome" therefore means: strip upload + theme-toggle blocks, swap icons to lucide, and apply the polish pass (Task 7) — not a from-scratch toolbar rebuild. `shared/viewer-chrome.tsx` from the spec is realized as the compat shim + spinner shim + polish constants.
+**Discovery amendment to spec:** The vendored extend toolbars are already composed from our own ui primitives (`Button`, `Input`, `Select`, `Tooltip`, `Separator`, `ScrollArea`, `Tabs`, `DropdownMenu`, `Popover`) — they inherit kortix tokens automatically. "Dosco chrome" therefore means: strip upload + theme-toggle blocks, swap icons to lucide, and apply the polish pass (Task 7) — not a from-scratch toolbar rebuild. `shared/viewer-chrome.tsx` from the spec is realized as the compat shim + spinner shim + polish constants.
 
 ## Global Constraints
 
@@ -1193,7 +1193,7 @@ git commit -m "refactor(web): drop orphaned pdfjs-dist, finish legacy renderer s
 
 
 
-### Task 7: Kortix polish pass + visual verification
+### Task 7: Dosco polish pass + visual verification
 
 **Files:**
 

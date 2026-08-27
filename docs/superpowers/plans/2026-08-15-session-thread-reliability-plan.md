@@ -40,7 +40,7 @@ Ordering rationale: Phase 1 removes the false-error producers (highest annoyance
 
 ### T6. Transcript paints from persisted pin before `/start`
 - Files: `packages/sdk/src/react/initial-session-pin.ts`, `use-session.ts:811-835`, `use-session-sync.ts:106-127`; `apps/web` `page.tsx:195,209`.
-- Change: persisted OpenCode pin per Kortix session is the paint key; IDB/memory paint runs independent of `/start` resolution in all hosts.
+- Change: persisted OpenCode pin per Dosco session is the paint key; IDB/memory paint runs independent of `/start` resolution in all hosts.
 - Verify (proposed): SDK test — with persisted pin and warm IDB, messages present while `/start` is still pending.
 
 ### T7. Stopped sandbox with cached transcript renders the conversation

@@ -2,7 +2,7 @@
 
 Status: working document
 Date: 2026-07-24
-Owner: Kortix product/infra
+Owner: Dosco product/infra
 Related:
 `docs/specs/2026-06-28-token-session-agent-identity.md`,
 `docs/specs/2026-06-28-project-authorization-runtime-governance.md`,

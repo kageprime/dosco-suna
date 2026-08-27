@@ -1,7 +1,7 @@
 # Gateway Capability Matrix — the "works flawlessly" contract
 
 **Status:** living contract. **As-of commit:** `main` @ 38a5f991a (post #4833).
-**Scope:** the Kortix LLM gateway (`packages/llm-gateway` + `apps/api/src/llm-gateway`) — the single
+**Scope:** the Dosco LLM gateway (`packages/llm-gateway` + `apps/api/src/llm-gateway`) — the single
 canonical OpenAI-chat-shaped request in, provider-native request out, canonical response back.
 
 This document is the authoritative definition of what "the gateway works" means, assessed
@@ -191,7 +191,7 @@ genuinely new and unowned.
 
 | Surface | Why not tested | To unblock |
 | --- | --- | --- |
-| **essentia production BYOK Claude/OpenAI path** | Customer-owned prod box (`i-08b6c255775e7cf60`, us-east-1); no sanctioned in-repo key-mint procedure — repo history shows essentia infra being handed to `Essentia-Innovation/kortix-infra`; burning a customer's BYOK budget on a probe matrix needs explicit consent. Used AWS Bedrock (real prod Claude surface) + Marko's own OpenAI/OpenRouter keys as equivalents instead. | Explicit customer + Marko sign-off, or continue using Kortix-owned keys (done). |
+| **essentia production BYOK Claude/OpenAI path** | Customer-owned prod box (`i-08b6c255775e7cf60`, us-east-1); no sanctioned in-repo key-mint procedure — repo history shows essentia infra being handed to `Essentia-Innovation/kortix-infra`; burning a customer's BYOK budget on a probe matrix needs explicit consent. Used AWS Bedrock (real prod Claude surface) + Marko's own OpenAI/OpenRouter keys as equivalents instead. | Explicit customer + Marko sign-off, or continue using Dosco-owned keys (done). |
 | **Direct Groq / xAI / Mistral / DeepSeek / Perplexity / Cerebras / TogetherAI / DeepInfra** (not via OpenRouter) | No direct API keys in `apps/api/.env` (only OpenAI, OpenRouter, AWS Bedrock present). Their pass-through code path is identical to OpenRouter's; only provider-specific quirks (G2/G4, Perplexity role-alternation) are unverified. | Provide a direct key for any provider whose quirks need live confirmation (Groq + DeepSeek most valuable — they'd validate G2/G4). |
 | **codex OAuth path** | No ChatGPT/Codex OAuth credential. Same `openai-responses` transport proven live otherwise. | A codex OAuth session credential. |
 | **genuine OpenAI account** BYOK on essentia specifically | `OPENAI_API_KEY` is empty in local `.env`; used Marko's provided key against `api.openai.com` directly (equivalent). | n/a — covered. |

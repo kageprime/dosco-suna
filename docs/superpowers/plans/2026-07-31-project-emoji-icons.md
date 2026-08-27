@@ -671,7 +671,7 @@ Load `kortix-design-system` and `make-interfaces-feel-better` before writing thi
 - [ ] **Step 2: Install frimousse**
 
 ```bash
-cd /Users/jay/root/kortix/suna-emoji && pnpm add frimousse --filter Kortix-Computer-Frontend
+cd /Users/jay/root/kortix/suna-emoji && pnpm add frimousse --filter Dosco-Computer-Frontend
 ```
 
 Do not run `npx shadcn@latest add`. It writes a stock-shadcn-styled component outside pnpm.

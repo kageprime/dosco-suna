@@ -17,7 +17,7 @@ variants attributed to their real source.
 Pipedream is not a generic API proxy. It contributes only applications whose
 Pipedream `auth_type` is exactly `oauth`. Those applications may appear as separate
 cards, are always labelled `Pipedream OAuth`, and are ordered after direct catalogue
-results. API-key Pipedream apps are excluded because Kortix can connect to those APIs
+results. API-key Pipedream apps are excluded because Dosco can connect to those APIs
 directly without an intermediary.
 
 Built-in channels such as Slack remain in Channels and are excluded from Pipedream.

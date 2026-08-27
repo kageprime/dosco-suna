@@ -2,14 +2,14 @@
 
 Status: working document
 Date: 2026-07-08
-Owner: Kortix product/infra
+Owner: Dosco product/infra
 Related: `docs/specs/2026-07-08-one-kortix-token-and-cli-centric-platform.md`
 (identity + parity program — this document is its endgame),
 `docs/specs/2026-06-28-project-authorization-runtime-governance.md`
 
 ## Purpose
 
-Kortix is an AGI you address like an API. One resource catalog — Agents,
+Dosco is an AGI you address like an API. One resource catalog — Agents,
 Skills, Memories, Schedules, Webhooks, Sessions, Connectors, Secrets,
 Channels, Files, Change Requests, … — exposed through **one** point of
 contact with three projections: REST, CLI, MCP. Whatever authorization your
@@ -29,8 +29,8 @@ companion spec) and becomes a property of the architecture.
 ```text
 AGI as API
 1 single API/CLI/MCP that allows u to CRUD Agents/Skills/Memories/Schedules/Webhooks/Sessions/Connectors/…etc… & all the other things
-Like we should primarily think in that realm how do we have 1 SINGLE point of contact. 1 API u can just access anyhow & it gives u access to ur full Kortix meaning u can use & configure it from anywhere thats mcp compatible in some sense
- / What about an idea like this? Like, let's go, let's go deep there. Like, should we design this? Like, make everything API, CLI, MCP specific so that even the whole like files, etc. Like, depending on the authorization which you have as a user, can be updated from any interface anywhere. So, the whole git file system, like memory, gets exposed, you know, like the whole file system, all the skills, you can call agents, sub-agents, Kortix agents, you can create new triggers and all the different things you can do. We basically make the interaction always 100% CLI native, and that is the beauty of everything. You understand what I kind of want to say? We also make it possible, like all the Kortix system understanding, yada, yada, yada. Like, you can just get the info from the CLI, like load the system, like the skill info, etc., into your context. Yada yada.
+Like we should primarily think in that realm how do we have 1 SINGLE point of contact. 1 API u can just access anyhow & it gives u access to ur full Dosco meaning u can use & configure it from anywhere thats mcp compatible in some sense
+ / What about an idea like this? Like, let's go, let's go deep there. Like, should we design this? Like, make everything API, CLI, MCP specific so that even the whole like files, etc. Like, depending on the authorization which you have as a user, can be updated from any interface anywhere. So, the whole git file system, like memory, gets exposed, you know, like the whole file system, all the skills, you can call agents, sub-agents, Dosco agents, you can create new triggers and all the different things you can do. We basically make the interaction always 100% CLI native, and that is the beauty of everything. You understand what I kind of want to say? We also make it possible, like all the Dosco system understanding, yada, yada, yada. Like, you can just get the info from the CLI, like load the system, like the skill info, etc., into your context. Yada yada.
 
 ---
 
@@ -63,7 +63,7 @@ all the kortix-*
   `marketplace.md`, `credentials-and-setup-links.md`), `kortix-connectors`,
   `kortix-memory`, `kortix-slack` — lives in `packages/starter` templates
   and is only present *inside sandboxes*. Nothing serves it to an external
-  client that wants to understand how to operate Kortix.
+  client that wants to understand how to operate Dosco.
 
 ## The Design
 
@@ -108,9 +108,9 @@ Rules:
 | CLI | `kortix {plural} {verb} [name] [--flags from schema]` | hand-written commands retire kind-by-kind as the generated grammar covers them; bespoke UX (chat REPL, `ship`, `init`) stays hand-crafted on top |
 | MCP | one hosted server: tools `kortix_{kind}_{verb}` + resources `kortix://…` | replaces "connector-only" MCP; connector tools mount under the same server |
 
-The MCP projection is what makes "use & configure your full Kortix from
+The MCP projection is what makes "use & configure your full Dosco from
 anywhere that's MCP compatible" literal: point Claude/Cursor/any client at
-`https://api.kortix.com/v1/mcp` with a Kortix token and the toolset you see
+`https://api.kortix.com/v1/mcp` with a Dosco token and the toolset you see
 IS your authorization — nothing more, nothing less.
 
 The CLI stays the human/agent-native face (`kortix triggers create …`), and
@@ -141,7 +141,7 @@ writes) with one mechanism instead of three bespoke ones.
 
 ### 4. Agents are callable — invocation is a verb
 
-"You can call agents, sub-agents, Kortix agents" becomes a catalog verb:
+"You can call agents, sub-agents, Dosco agents" becomes a catalog verb:
 
 - `agents.invoke` — start an **ephemeral session** with that agent, seeded
   with the prompt; return the session address immediately or block for the
@@ -178,7 +178,7 @@ The system explains itself through the same surface it exposes:
 - `kortix token` / `token_context` already answer "who am I?"; catalog
   introspection answers "what can I touch?"; system docs answer "how does
   this all work?". Together: an agent lands with zero prior knowledge and
-  bootstraps full Kortix competence from the surface itself.
+  bootstraps full Dosco competence from the surface itself.
 
 ### 6. Authorization is the filter, identically everywhere
 
@@ -289,7 +289,7 @@ The system explains itself through the same surface it exposes:
 
 ## Verification Gates
 
-1. An MCP client with only a Kortix PAT can: discover the catalog, read
+1. An MCP client with only a Dosco PAT can: discover the catalog, read
    system docs, create a trigger, edit a memory file (lands as a commit),
    invoke an agent, and answer its pending question — without touching the
    web UI or the git remote directly.

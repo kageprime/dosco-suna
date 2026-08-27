@@ -62,7 +62,7 @@ helper no longer references `uppercase`/`lowercase`.
 `packages/sdk/src/react/use-opencode-sessions/messages.test.ts`, and
 `packages/sdk/src/react/use-session.ts` if threading requires it.
 
-The Kortix sandbox proxy dedupes prompt deliveries by
+The Dosco sandbox proxy dedupes prompt deliveries by
 `Idempotency-Key` header, or — when absent — by a **sha256 of the request
 body** (`apps/api/src/sandbox-proxy/prompt-dedupe.ts`, 60s TTL). On a repeat
 it answers `200 {"status":"duplicate","deduplicated":true}` and never

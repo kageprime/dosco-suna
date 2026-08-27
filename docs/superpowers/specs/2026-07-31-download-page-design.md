@@ -2,11 +2,11 @@
 
 **Date:** 2026-07-31
 **Branch:** `download` (worktree `/Users/jay/root/kortix/suna-download`)
-**Linear project:** Kortix download (team `Jay`)
+**Linear project:** Dosco download (team `Jay`)
 
 ## Problem
 
-Kortix ships four consumer surfaces — desktop app, CLI, iOS, Android — and has no
+Dosco ships four consumer surfaces — desktop app, CLI, iOS, Android — and has no
 public page that hands a visitor the right file. Today:
 
 - `/download` is a **route handler** that 302s straight to a GitHub asset. A
@@ -18,7 +18,7 @@ public page that hands a visitor the right file. Today:
 - That modal carries six `shadow-[…]` declarations and `rounded-3xl` containers,
   both of which the design system forbids for in-flow surfaces.
 
-A non-technical visitor has no supported path to installing Kortix.
+A non-technical visitor has no supported path to installing Dosco.
 
 ## Goal
 
@@ -37,9 +37,9 @@ tag `v0.11.0`, published 2026-07-28.
 
 | Artifact | Platform | Size |
 | --- | --- | --- |
-| `Kortix-0.11.0-universal.dmg` | macOS (Apple Silicon + Intel) | 195.3 MB |
-| `Kortix-Setup-0.11.0.exe` | Windows x64 | 91.6 MB |
-| `Kortix-0.11.0-x86_64.AppImage` | Linux x86_64 | 110.5 MB |
+| `Dosco-0.11.0-universal.dmg` | macOS (Apple Silicon + Intel) | 195.3 MB |
+| `Dosco-Setup-0.11.0.exe` | Windows x64 | 91.6 MB |
+| `Dosco-0.11.0-x86_64.AppImage` | Linux x86_64 | 110.5 MB |
 | `kortix-darwin-arm64` | CLI, macOS Apple Silicon | 66.5 MB |
 | `kortix-darwin-x64` | CLI, macOS Intel | 71.9 MB |
 | `kortix-linux-arm64` | CLI, Linux ARM64 | 95.3 MB |
@@ -71,14 +71,14 @@ Perplexity download page: full-bleed product image, then title and description,
 then a divided list of platform rows, each row ending in its own button.
 
 ```
-                        Download Kortix
+                        Download Dosco
           Get the app for your desktop, phone, or terminal.
 
 ┌────────────────────────────────┐  ┌────────────────────────────────┐
 │ ▓▓▓ product poster 16:10 ▓▓▓▓▓ │  │ ▓▓▓ three phone shots ▓▓▓▓▓▓▓▓ │
 ├────────────────────────────────┤  ├────────────────────────────────┤
 │ Desktop app                    │  │ Mobile app                     │
-│ Run Kortix on your own machine │  │ Start a session anywhere and   │
+│ Run Dosco on your own machine │  │ Start a session anywhere and   │
 │ with your files and terminal.  │  │ pick up where you left off.    │
 ├────────────────────────────────┤  ├────────────────────────────────┤
 │  macOS             [Download] ←│  │  iPhone and iPad   [Download]  │
@@ -273,7 +273,7 @@ Real-surface verification (required before merge):
 This worktree is slot 13: web `14300`, api `14308`.
 
 1. `curl -sI localhost:14300/download/macos` → `302` with a `location` ending
-   `Kortix-<version>-universal.dmg`. Repeat for `windows` and `linux`.
+   `Dosco-<version>-universal.dmg`. Repeat for `windows` and `linux`.
 2. `curl -s localhost:14300/download -H 'User-Agent: <UA>'` for all five
    platforms → the served HTML contains the correct card order and the filled
    button on the correct row **in the initial payload**, proving no client flash.

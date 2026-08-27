@@ -90,7 +90,7 @@ The API stages the pinned checkout outside the provider build. It scrubs Git
 credentials, archives `.git` once, and removes the duplicate `.git` directory
 from the staged working tree. The image extracts that archive directly into
 `/workspace`; the final root filesystem contains no second tar copy. OpenCode
-indexes the project tree during the build with the canonical Kortix config.
+indexes the project tree during the build with the canonical Dosco config.
 Repository-controlled `.kortix/opencode` plugins and tools remain hidden during
 this build step. Git reset and clean restore the exact checkout afterward.
 
@@ -119,13 +119,13 @@ The transaction evaluates the current count and quota before it creates the
 template. Concurrent API replicas cannot oversubscribe the reserved capacity
 through separate list and create calls. The dev control plane serves this
 contract from commit `d3741b01995e1b8b670d7047e2cb46d2ef0a01b6` and advertises
-it as `templates.atomicAdmission=true` in `GET /v1/auth/orgs/quota`. Kortix
+it as `templates.atomicAdmission=true` in `GET /v1/auth/orgs/quota`. Dosco
 rejects FAST image builds when the configured Platinum endpoint omits this
 exact boolean. The ECS deploy script also rejects a flag-on rollout before it
 registers a task definition. Flag-off deployments and non-Platinum providers
 do not require this capability.
 
-On 2026-08-21, Kortix dev pointed at `https://api.platinum.dev`. That production
+On 2026-08-21, Dosco dev pointed at `https://api.platinum.dev`. That production
 endpoint did not contain commit `d3741b01995e1b8b670d7047e2cb46d2ef0a01b6`.
 Keep FAST disabled until the configured endpoint advertises the capability.
 

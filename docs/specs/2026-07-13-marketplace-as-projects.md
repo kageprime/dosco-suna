@@ -10,20 +10,20 @@ tools, whatever — with the **starter project** as the hero. Clicking it shows
 everything inside via the file browser we just built, instead of N loose skills.
 
 At the same time, collapse the plumbing. Make **`kortix-cli` the single,
-server-side source of truth** for "how Kortix works / what's available" (the
+server-side source of truth** for "how Dosco works / what's available" (the
 agent-browser pattern we already use for the `kortix-*` system skills), and
 **delete the entire deterministic install + update machinery** — registry-lock,
 versioning, dependency resolution, the update system, all of it.
 
 ## Why now — the driving pain
 
-Today a project's Kortix system skills are **committed files that go stale**. A
+Today a project's Dosco system skills are **committed files that go stale**. A
 project cloned months ago carries an old `kortix-system` descriptor and never
 learns the latest CLI/manifest/CR truth. That single problem is the whole reason
-the update system was built — and it's the wrong fix. If the Kortix system layer
+the update system was built — and it's the wrong fix. If the Dosco system layer
 is **served live** (the CLI is the source of truth, and `kortix-cli` can even be
 injected at the sandbox/agent-server level and edited via an MCP server, never
-touching the user's repo), **no project is ever stale on Kortix internals again**,
+touching the user's repo), **no project is ever stale on Dosco internals again**,
 and the update machinery has no remaining reason to exist.
 
 ## The reframe: two tiers, not one
@@ -45,7 +45,7 @@ skills don't need a lock (they're server-side). Owned skills shouldn't *want*
 updates (updates destroy forks). So the lock/update system can be retired — while
 keeping the git-native "skills are owned files you edit" model for the owned tier.
 
-Why the lock existed at all: it was added to update the Kortix system skills from
+Why the lock existed at all: it was added to update the Dosco system skills from
 the marketplace. That requirement is now fully served by the server-side/CLI
 path, so its reason for being is gone.
 
@@ -68,7 +68,7 @@ path, so its reason for being is gone.
   description, type, and a **source git repo/ref**. We delete the install
   *engine*, not the catalog. `search`/`show` stay.
 - **A trivial deterministic seed** (`packages/starter` folder-copy). Not "the
-  engine" — just the file write that makes a new repo a bootable Kortix project.
+  engine" — just the file write that makes a new repo a bootable Dosco project.
   Everything *added* to a project after that is an agent import.
 
 ## What we don't do (the trap)
@@ -105,10 +105,10 @@ Presentation only; no mechanics change.
   `packages/starter/src/index.ts`).
 - **Guaranteed present, not merely shipped.** It's shipped as a default
   owned-layer skill, but the real guarantee is that the **sandbox/agent-server
-  injects it (and/or a Kortix-MCP) into every agent**, always-latest. Every agent
-  therefore has Kortix context no matter what — even if the repo copy is deleted,
+  injects it (and/or a Dosco-MCP) into every agent**, always-latest. Every agent
+  therefore has Dosco context no matter what — even if the repo copy is deleted,
   the injected layer still provides it. That injected `kortix-cli`/MCP is *the*
-  one thing Kortix always guarantees to every agent.
+  one thing Dosco always guarantees to every agent.
 - Touch: the `kortix-cli` skill copy (done this session) + the sandbox/agent-server
   injection point + `kortix skills get` / `kortix marketplace` read surface.
 - Risk: low–medium (adds a runtime injection point).
@@ -164,7 +164,7 @@ different things:
   versioning, no agent.
 
 So there's no contradiction with "it's all just files." A brand-new project needs
-*some* seed to be a valid Kortix project a session can boot in (a `kortix.yaml` +
+*some* seed to be a valid Dosco project a session can boot in (a `kortix.yaml` +
 runtime wiring) — chicken-and-egg: no agent exists yet to do the importing. That
 seed is a plain deterministic folder-copy, and the runtime/`kortix-cli` layer is
 server-injected on top (Move 2).
@@ -233,7 +233,7 @@ on top (Move 2).
 
 - Not changing the CR system or the git-native ownership of the owned tier
   (that's the moat we're leaning *into*). The one intentional runtime addition is
-  injecting `kortix-cli`/Kortix-MCP into every agent (Move 2).
+  injecting `kortix-cli`/Dosco-MCP into every agent (Move 2).
 - Not auto-updating owned skills — deliberately dropped, not deferred.
 - Not building a deterministic install engine "lite." The engine is deleted;
   adds are agent imports; the only deterministic thing is a folder copy.

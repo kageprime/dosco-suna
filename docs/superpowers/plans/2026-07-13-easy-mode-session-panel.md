@@ -6,7 +6,7 @@
 
 **Architecture:** `features/session/action-panel/` splits into `shared/` (pure functions over `ToolPart[]`), `advanced/` (today's stepper, moved verbatim), and `easy/` (the new cards). Easy mode is a *lens* over the same `ToolPart[]` stream the stepper reads — no new data fetching, no changes to the 104 registered tool views. Tapping any Progress row reveals the real tool view via the existing `ToolPartRenderer`.
 
-**Tech Stack:** Next.js (App Router), React 19, TypeScript, zustand + `persist`, Tailwind v4 + Kortix tokens, `bun test` for co-located unit tests, `motion/react` for animation.
+**Tech Stack:** Next.js (App Router), React 19, TypeScript, zustand + `persist`, Tailwind v4 + Dosco tokens, `bun test` for co-located unit tests, `motion/react` for animation.
 
 ## Global Constraints
 

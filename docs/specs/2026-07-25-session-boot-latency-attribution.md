@@ -24,7 +24,7 @@ inside it*. That is where ~75% of the wall clock is.
 
 ## Live benchmark — 4 boots per provider, production
 
-`math-god` (Daytona, 15.8 MB repo) and `Kortix Company` (Platinum, 6.5 MB repo),
+`math-god` (Daytona, 15.8 MB repo) and `Dosco Company` (Platinum, 6.5 MB repo),
 run concurrently so both saw comparable control-plane load.
 
 ### Cumulative — t0 = `POST /sessions`
@@ -80,8 +80,8 @@ Same repo (`kortix-ai/company`), verified clones:
 |---|---|---:|---|
 | direct → GitHub | full | 5 462 ms | 27 MB, 758 commits |
 | direct → GitHub | `--depth 1` | **3 516 ms** | 25 MB, 1 commit |
-| **via Kortix git proxy** | full | 7 209 ms | 27 MB, 758 commits |
-| **via Kortix git proxy** | `--depth 1` | **6 690 ms** | 25 MB, 1 commit |
+| **via Dosco git proxy** | full | 7 209 ms | 27 MB, 758 commits |
+| **via Dosco git proxy** | `--depth 1` | **6 690 ms** | 25 MB, 1 commit |
 
 Two things fall out, and both contradict the obvious story:
 
@@ -389,21 +389,21 @@ no changes made):
 
 | Fact | Value | Source |
 |---|---|---|
-| Kortix's Platinum role | **`role: "org"`, `orgRole: "owner"` — NOT admin** | `GET /v1/auth/me` |
+| Dosco's Platinum role | **`role: "org"`, `orgRole: "owner"` — NOT admin** | `GET /v1/auth/me` |
 | Template quota | **used 96 / cap 500** (enterprise tier) | `GET /v1/auth/orgs/quota` |
 | Inflight cap | **used 0 / cap 50** | same |
 | Sandboxes | 81 / uncapped | same |
-| Projects running Platinum sessions (14d) | **2** (277 sessions) | Kortix DB |
-| Projects running Daytona sessions (14d) | **537** | Kortix DB |
+| Projects running Platinum sessions (14d) | **2** (277 sessions) | Dosco DB |
+| Projects running Daytona sessions (14d) | **537** | Dosco DB |
 | ppwarm templates already on Platinum | **63 ready, across 58 distinct projects** | `GET /v1/templates` |
 | Platinum ppwarm bake attempts (14d) | **373** (238 ok, 135 failed) | `project_snapshot_builds` |
 
-The quota **does** apply — Kortix is not an admin org, so `pickBuildHost`'s
+The quota **does** apply — Dosco is not an admin org, so `pickBuildHost`'s
 `org_template_quota_exceeded` (HTTP 429) gate is live
 (`platinum/apps/api/src/api/templates.ts`), reached from `/from-build`, which is the
-route Kortix's adapter uses. `/derive` would have been quota-exempt — Platinum's own
+route Dosco's adapter uses. `/derive` would have been quota-exempt — Platinum's own
 comment anticipates "a project with many warm seeds would otherwise block real image
-builds" — but Kortix does not use it.
+builds" — but Dosco does not use it.
 
 At 96/500 there are **404 slots of headroom**, and only **2** projects actually boot
 on Platinum, so this change adds roughly 2 templates. Bake concurrency is bounded by
@@ -529,7 +529,7 @@ not an engineering unknown.
 A parallel audit of the Platinum repo (read-only) turned up things the live API
 numbers alone did not show:
 
-1. **Kortix retried a 429 that can never clear.** Platinum answers 429 for two
+1. **Dosco retried a 429 that can never clear.** Platinum answers 429 for two
    opposite conditions: `rate_limited` (the per-org mutation-rate bucket,
    `PT_ORG_MUT_RATE` = 20 req/s — genuinely transient) and
    `org_template_quota_exceeded` (the per-org template COUNT cap — permanent until
@@ -538,7 +538,7 @@ numbers alone did not show:
    in front of a wall and burying the one error an operator needs to see. **Fixed**,
    with a test that fails without the fix.
 
-2. **Kortix has no org-wide GC for Platinum templates.** `snapshots/quota-gc.ts`
+2. **Dosco has no org-wide GC for Platinum templates.** `snapshots/quota-gc.ts`
    imports `listDaytonaSnapshots`/`deleteDaytonaSnapshotById` exclusively — it is
    Daytona-only. The single cleanup is `reapOldPerProjectWarm`, which deletes a
    project's *prior* tip only after a *new* tip for that same project finishes
@@ -547,10 +547,10 @@ numbers alone did not show:
    while only 2 projects boot on Platinum. Not urgent at 96/500, but the trend is
    monotonic.
 
-3. **Platinum's soft-delete contract is exactly what Kortix assumes.** DELETE
+3. **Platinum's soft-delete contract is exactly what Dosco assumes.** DELETE
    renames to `<name>__deleted_<id>` (keeping the ppwarm prefix) and sets
    `state='deprecated'`; the row is never removed. `GET /v1/templates` does **not**
-   filter tombstones, so Kortix's `n.includes('__deleted')` exclusion is both
+   filter tombstones, so Dosco's `n.includes('__deleted')` exclusion is both
    necessary and correct — and because the quota gate counts only
    `state IN ('ready','building')`, deleting an old tip genuinely frees quota.
    Verified on both sides; no change needed.

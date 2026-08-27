@@ -50,7 +50,7 @@ Public clients use `none`. Confidential clients use one configured method.
 
 ## OAuth application configuration
 
-An OAuth application is project-scoped or Kortix-managed.
+An OAuth application is project-scoped or Dosco-managed.
 
 It contains:
 
@@ -80,7 +80,7 @@ tokens, device codes, or PKCE verifiers.
 8. The callback hashes and consumes the state in one transaction.
 9. The callback exchanges the code with the PKCE verifier.
 10. The API encrypts and stores the token set on the connection.
-11. The callback redirects to an allowlisted Kortix web origin.
+11. The callback redirects to an allowlisted Dosco web origin.
 
 The state expires after ten minutes. It is valid once.
 
@@ -90,7 +90,7 @@ The state expires after ten minutes. It is valid once.
 2. The API requests a device code from the configured endpoint.
 3. The API stores the device code encrypted.
 4. The API returns the user code, verification URI, expiry, and poll interval.
-5. The caller polls the Kortix status route.
+5. The caller polls the Dosco status route.
 6. The API polls the provider no faster than the required interval.
 7. The API handles `authorization_pending` and `slow_down`.
 8. The API stores the final token set and consumes the session.
@@ -156,7 +156,7 @@ Each request has:
 - PKCE uses S256.
 - State is account-bound, project-bound, connection-bound, and user-bound.
 - State is consumed atomically.
-- Callback redirects use configured Kortix web origins only.
+- Callback redirects use configured Dosco web origins only.
 - Callback error parameters never include provider descriptions.
 
 ## Credential storage

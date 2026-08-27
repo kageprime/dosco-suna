@@ -2,7 +2,7 @@
 
 ## Goal
 
-Let a Kortix project declare a Postman collection, a Postman-managed Git
+Let a Dosco project declare a Postman collection, a Postman-managed Git
 repository, or a public Postman workspace as one connector source. Sync turns
 the source into the same normalized, policy-governed action catalog used by
 OpenAPI, GraphQL, MCP, and HTTP connectors.

@@ -2,7 +2,7 @@
 
 Status: working document
 Date: 2026-07-26
-Owner: Kortix product
+Owner: Dosco product
 Related: `docs/specs/2026-07-24-agi-system.md` (identity, authorization, session
 execution — assumed, not restated), `docs/specs/2026-07-14-trigger-session-strategy.md`
 
@@ -245,7 +245,7 @@ scheduler, or any second path.
 
 This is the central design decision and the largest departure from Paperclip,
 which has ~40 derived wake sources feeding a dedicated `agent_wakeup_requests`
-table. Kortix already has cron, one-off `runAt`, signed webhooks, payload
+table. Dosco already has cron, one-off `runAt`, signed webhooks, payload
 filters, and `session_strategy: fresh|reuse|pinned|keyed`. That is the engine.
 
 ### 6.1 A recurring task is a trigger
@@ -291,7 +291,7 @@ to need it. `tasks.project` reserves the column so the eventual grouping — a
 space, a tag, or a sub-workspace — lands without a migration.
 
 R-27 — There MUST NOT be an org chart, a role hierarchy, or a chain of command.
-Kortix already resolves capability through agent grants; a second authority
+Dosco already resolves capability through agent grants; a second authority
 model that disagrees with grants is a security defect, not a feature.
 
 ---

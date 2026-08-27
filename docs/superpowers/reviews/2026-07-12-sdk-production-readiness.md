@@ -18,8 +18,8 @@ Jay can make (below); neither is a code defect.
 | `pnpm --filter @kortix/sdk test` (full suite) | **1066 pass / 0 fail**, 70 files, 5023 expects |
 | `pnpm --filter @kortix/sdk run build:bundles` | `kortix.esm.min.js` 189.90 KB, `kortix.global.js` 190.88 KB |
 | `pnpm --filter @kortix/sdk run smoke:install` | pack → install tarballs → Node ESM import: OK |
-| **D2a** — streaming through the `window.Kortix` IIFE global | **PASS** — real Chromium loaded `examples/08-cdn.html` via `<script src>` against the live local stack (fresh session `4f2953bc…`, project t1): `sent — streaming…` followed by `· message.part.updated` ×7 through `· session.idle`. |
-| **D3** — `instanceof Kortix.ApiError` under the IIFE bundle | **PASS** — a bundle-thrown `ApiError` ("Session runtime not ready", `kortix.ts:681`) satisfied `error instanceof Kortix.ApiError` in page script and printed via that branch. A bad-PAT run threw `SessionStartError` and correctly took the non-ApiError branch (it extends `Error` by design). |
+| **D2a** — streaming through the `window.Dosco` IIFE global | **PASS** — real Chromium loaded `examples/08-cdn.html` via `<script src>` against the live local stack (fresh session `4f2953bc…`, project t1): `sent — streaming…` followed by `· message.part.updated` ×7 through `· session.idle`. |
+| **D3** — `instanceof Dosco.ApiError` under the IIFE bundle | **PASS** — a bundle-thrown `ApiError` ("Session runtime not ready", `kortix.ts:681`) satisfied `error instanceof Dosco.ApiError` in page script and printed via that branch. A bad-PAT run threw `SessionStartError` and correctly took the non-ApiError branch (it extends `Error` by design). |
 
 D2a/D3 were the ledger's sole "NOT YET shippable" reason (`PROGRESS.md`) — the plan
 gated them on a human ("awaiting Jay"). They are now machine-verified end to end;
@@ -33,7 +33,7 @@ claim left.
 1. **[Important] The public-surface snapshot omits every type-only export.**
    `public-surface.test.ts` snapshots runtime namespaces (`Object.keys(import(entry))`),
    which contain no `export type` bindings — `SessionHandle`, `ClassifiedPart`,
-   `KortixProject`, `Kortix`, `ProjectHandle`, `SessionModel`, `TurnError` are all
+   `KortixProject`, `Dosco`, `ProjectHandle`, `SessionModel`, `TurnError` are all
    absent from the snapshot. A type rename — the exact consumer break
    `packages/sdk/AGENTS.md` warns about hardest — passes CI green.
    → **Fixed this session (F5):** new `public-type-surface.test.ts` + committed

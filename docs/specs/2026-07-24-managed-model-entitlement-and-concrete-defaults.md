@@ -7,21 +7,21 @@ Date: 2026-07-24
 
 `accountIsFreeTierForModels()` exempts `dev` and `preview`.
 
-That exemption lets a free-tier account use Kortix-managed LLM credentials.
+That exemption lets a free-tier account use Dosco-managed LLM credentials.
 The account wallet can then receive LLM debits.
 
 The synthetic `auto` model hides the selected upstream model.
 The SDK sends `kortix/auto` when a user does not select a model.
-The gateway resolves that value to a provider-funded or Kortix-managed model.
+The gateway resolves that value to a provider-funded or Dosco-managed model.
 
 ## Required invariants
 
-1. Tier controls Kortix-managed model entitlement.
-2. `free`, `none`, and unknown tiers cannot use Kortix-managed models.
+1. Tier controls Dosco-managed model entitlement.
+2. `free`, `none`, and unknown tiers cannot use Dosco-managed models.
 3. The rule applies in `dev`, `preview`, `staging`, and `prod`.
-4. Wallet balance does not grant Kortix-managed model entitlement.
+4. Wallet balance does not grant Dosco-managed model entitlement.
 5. Free-tier wallet credits fund sandbox compute only.
-6. Paid tiers retain Kortix-managed model access.
+6. Paid tiers retain Dosco-managed model access.
 7. BYOK models use the project owner's provider credentials.
 8. Codex models use the connected ChatGPT account.
 9. BYOK and Codex remain available to free-tier accounts.
@@ -45,7 +45,7 @@ Project routing policies still apply to concrete model IDs.
 
 The LLM gateway does not take a wallet hold for a free-tier account.
 
-Kortix-managed resolution rejects the request before dispatch.
+Dosco-managed resolution rejects the request before dispatch.
 BYOK and Codex candidates use `billingMode: "none"`.
 The compute metering path remains unchanged.
 

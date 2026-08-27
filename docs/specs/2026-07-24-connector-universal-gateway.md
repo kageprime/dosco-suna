@@ -2,11 +2,11 @@
 
 **Status:** Proposed architecture  
 **Date:** 2026-07-24  
-**Audience:** Kortix platform, API, SDK, CLI, web, security, and infrastructure owners
+**Audience:** Dosco platform, API, SDK, CLI, web, security, and infrastructure owners
 
 ## 1. Decision
 
-Kortix should replace the current Connector and Connector model with one
+Dosco should replace the current Connector and Connector model with one
 general-purpose system named **Connector**.
 
 Connector is both:
@@ -24,7 +24,7 @@ Use these canonical terms:
 |---|---|
 | Connector | The control plane, credential broker, catalog compiler, and execution gateway. |
 | Connector Definition | A reusable description of an API and its authentication options. |
-| Connector | One definition installed in a Kortix project. |
+| Connector | One definition installed in a Dosco project. |
 | Connection | One authenticated or unauthenticated identity for a connector. |
 | Application | A managed or customer-owned OAuth developer application. |
 | Action | One callable API operation. |
@@ -37,13 +37,13 @@ The final canonical model does not use `Connector`, `Connector`, or
 ## 2. Product Goal
 
 A human or agent must be able to add a previously unknown standards-compliant
-API without a Kortix deployment.
+API without a Dosco deployment.
 
 The complete flow is:
 
 1. Import or define the API.
 2. Discover or configure authentication.
-3. Register a Kortix-managed or customer-owned application.
+3. Register a Dosco-managed or customer-owned application.
 4. Create a connection.
 5. Discover actions.
 6. configure policies.
@@ -67,7 +67,7 @@ the same authentication and connection runtime.
 
 ## 3. Current State
 
-Kortix already has most execution-plane primitives:
+Dosco already has most execution-plane primitives:
 
 - transport normalization for Pipedream, MCP, OpenAPI, Postman, GraphQL, and
   HTTP;
@@ -91,7 +91,7 @@ expiry, refresh state, scopes, audience, application ownership, certificate
 material, or OAuth transaction state.
 
 The current `integrations.sh` importer converts OAuth metadata into static bearer
-input. Kortix does not acquire or refresh that token.
+input. Dosco does not acquire or refresh that token.
 
 The published `@kortix/sdk` package exposes connector and connection terminology.
 
@@ -202,9 +202,9 @@ An `ConnectorDefinition` contains:
 - verification operations;
 - default policies.
 
-Kortix publishes shared definitions.
+Dosco publishes shared definitions.
 
-Account owners can publish private definitions without a Kortix deployment.
+Account owners can publish private definitions without a Dosco deployment.
 
 Private definitions can declare:
 
@@ -245,7 +245,7 @@ An `Application` represents an OAuth developer application.
 
 Ownership is:
 
-- `managed`: Kortix owns the provider-side application;
+- `managed`: Dosco owns the provider-side application;
 - `account`: the customer owns the provider-side application.
 
 Both use the same OAuth lifecycle.
@@ -268,7 +268,7 @@ Changing a client secret increments its revision. Changing the client ID creates
 a new application. Deleting an application with active connections returns
 `409`.
 
-Kortix-managed applications require external provider registration unless the
+Dosco-managed applications require external provider registration unless the
 provider supports dynamic client registration.
 
 ### 5.4 Connection
@@ -411,7 +411,7 @@ Built-in strategies cover:
 - multi-step token exchanges.
 
 A standards-compliant OAuth provider requires configuration only. A provider
-needs reviewed Kortix code only when declarative configuration cannot express
+needs reviewed Dosco code only when declarative configuration cannot express
 its behavior.
 
 ### 6.2 Dynamic OAuth definition
@@ -485,7 +485,7 @@ definition, application, connection, and flow.
 9. Validate the token response.
 10. Encrypt the credential.
 11. activate the connection.
-12. Redirect to an allowlisted Kortix origin.
+12. Redirect to an allowlisted Dosco origin.
 
 ### 6.5 Non-interactive authorization
 
@@ -767,7 +767,7 @@ The live test must:
 10. Execute one constrained raw request.
 11. Expire and refresh the credential.
 12. Revoke the connection.
-13. Complete all steps without a Kortix deployment.
+13. Complete all steps without a Dosco deployment.
 
 ### 13.2 SharePoint proof
 

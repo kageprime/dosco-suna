@@ -4,7 +4,7 @@
 
 ## Problem
 
-Kortix exposes two names for one product concept. The manifest and dashboard use
+Dosco exposes two names for one product concept. The manifest and dashboard use
 `connector`. The CLI, API namespace, runtime package, database schema, and MCP
 server also expose the legacy `executor` name. Agents must learn overlapping
 command trees and different paths for the same operation.

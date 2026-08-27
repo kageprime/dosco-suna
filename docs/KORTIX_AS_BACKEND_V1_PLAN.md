@@ -1,11 +1,11 @@
-# Kortix as a Backend (KaaB) — v1 Plan
+# Dosco as a Backend (KaaB) — v1 Plan
 
 Status: Historical and superseded
 
 > This document records the original v1 design. It is not current API
 > guidance. The product removed customer-reference usage attribution,
 > per-reference limits, and customer-reference connector selection. Use
-> [Drive Kortix as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for the current
+> [Drive Dosco as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for the current
 > session, connection, scope, and cost contracts.
 
 > **Historical runtime scope.** This plan uses the published
@@ -13,11 +13,11 @@ Status: Historical and superseded
 
 ## 0. TL;DR
 
-**The ask:** let a third party wrap Kortix as a backend — many end-users on **one shared agent + repo**, each bringing **their own** connectors, model, and context, passed **at session start**, overriding the agent's defaults.
+**The ask:** let a third party wrap Dosco as a backend — many end-users on **one shared agent + repo**, each bringing **their own** connectors, model, and context, passed **at session start**, overriding the agent's defaults.
 
 **The finding (verified in-repo):** ~80% of this **already ships**. The session-create contract already accepts per-session overrides, by reference, broker-safe. This is **activation + two small gaps**, not a rewrite.
 
-**The shape:** a session is `{ config-with-optional-overrides, provenance }`. **Origin** decides who may override what and how the session behaves; **overrides** carry references; the broker resolves them server-side. Internal Kortix = `origin: user`, no overrides → **byte-identical to today**. Not a mode toggle — one pipeline, policy branches on the origin enum.
+**The shape:** a session is `{ config-with-optional-overrides, provenance }`. **Origin** decides who may override what and how the session behaves; **overrides** carry references; the broker resolves them server-side. Internal Dosco = `origin: user`, no overrides → **byte-identical to today**. Not a mode toggle — one pipeline, policy branches on the origin enum.
 
 ## 1. Already works today (use it now)
 
@@ -34,10 +34,10 @@ Connectors already have **user-owned connections decoupled from the agent** (`co
 
 ## 2. Auth — how the wrapper connects
 
-**Kortix authenticates the wrapper; the wrapper vouches for its end-user.** (Stripe-Connect / Twilio-subaccount model.)
+**Dosco authenticates the wrapper; the wrapper vouches for its end-user.** (Stripe-Connect / Twilio-subaccount model.)
 
 - **Caller = any programmatic customer credential** *(REV 3 — shipped in PR #5147; supersedes the SA-only stance below)*: the **account API key / PAT** (`kortix_pat_` — the credential the Tokens UI mints as "Create API key"), a **Service Account** (`kortix_sa_`), or a dedicated account API key (`kortix_`, `apiKeyType='user'`, dormant until issuance ships). All resolve `origin: backend`. **Why the reversal from SA-only:** a fresh service account has *no* IAM policy binding — `createServiceAccount` attaches none, the engine skips membership for SAs, and granting `project.session.start` requires a custom role + per-project token-principal policy, both behind the enterprise-only `rbac` entitlement. SA-only would be dark for every non-enterprise account. The PAT inherits its creator's project membership → works on every tier with zero IAM setup. SA remains the *recommended* credential for enterprise/CI (deny-by-default governance, survives offboarding, independently revocable). Hard exclusions, enforced with regression tests: the **internal sandbox key** (`kortix_sb_`, the `KORTIX_TOKEN` inside every sandbox) and **any agent-scoped token** are never backend — an in-session agent cannot vouch for a phantom end-user.
-- **End-user identity = a parameter, not an auth principal** — the wrapper passes `end_user_ref` (its own user id) + that user's `connection_id`s. Kortix records `origin: backend`, resolves *that user's* connections, attributes usage to `end_user_ref`. **End-users never authenticate to Kortix.** Scales to 100k with no per-user login and no subject-identity system.
+- **End-user identity = a parameter, not an auth principal** — the wrapper passes `end_user_ref` (its own user id) + that user's `connection_id`s. Dosco records `origin: backend`, resolves *that user's* connections, attributes usage to `end_user_ref`. **End-users never authenticate to Dosco.** Scales to 100k with no per-user login and no subject-identity system.
 
 **Developer UX (the whole integration — zero-setup path, any tier):**
 ```
@@ -101,4 +101,4 @@ Each new contract field needs a schema add + a ke2e route-coverage test (the `.s
 
 ## 7. Explicitly out of scope (v1)
 
-Per-end-user **custom code** (new skills/connectors — untrusted code); per-end-user **file/memory state** + the release/overlay machinery (a proxying wrapper doesn't need it); a Kortix-hosted end-user UI. These return only if a wrapper needs untrusted **direct** sandbox access — a later phase, not now.
+Per-end-user **custom code** (new skills/connectors — untrusted code); per-end-user **file/memory state** + the release/overlay machinery (a proxying wrapper doesn't need it); a Dosco-hosted end-user UI. These return only if a wrapper needs untrusted **direct** sandbox access — a later phase, not now.

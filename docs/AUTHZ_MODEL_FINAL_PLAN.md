@@ -172,7 +172,7 @@ resolve as the **launcher's** share-subject, not the agent's. And `[[agents]].en
 ## 5. Token consolidation ("too many tokens")  *(cleanup + epic)*
 
 **Ask:** "Big tokens mess, too many tokens & api keys. Figure out a diff way. Agent-tokens that
-give access to the appropriate allowed Kortix scopes."
+give access to the appropriate allowed Dosco scopes."
 
 **Current state.** The session token is already agent-scoped (§0). Remaining sprawl is mostly
 **legacy aliases** injected for back-compat: `KORTIX_TOKEN` (alias of `KORTIX_SANDBOX_TOKEN`),
@@ -216,7 +216,7 @@ priority.
 
 ## 7. Agnostic backend / "CMS" + SDK completeness  *(partly now, mostly epic)*
 
-**Ask:** "Design Kortix so it can 100% be used as a wrapper backend API. Make everything agnostic,
+**Ask:** "Design Dosco so it can 100% be used as a wrapper backend API. Make everything agnostic,
 think of it as a CMS. The git/company-specific stuff kinda fucks it up." + "Web & Mobile both use
 the SDK; clean elegant API top to bottom."
 
@@ -231,7 +231,7 @@ the SDK lacks full workspace file-I/O CRUD + some hooks; and **git is a hard dep
   hooks so web/mobile never bypass the SDK. Safe, incremental.
 - **7b — Git-optional / CMS mode (L).** Make `repo_url`/`branch`/`manifest_path` optional (backend
   detects "no-git" mode); move GitHub-specific SDK functions out of the core; treat the project
-  config as content that can come from git **or** the API. This is what unlocks "wrap Kortix as a
+  config as content that can come from git **or** the API. This is what unlocks "wrap Dosco as a
   generic backend."
 
 **Risk:** 7b is architectural. **Decision needed:** commit to git-optional as a first-class mode.

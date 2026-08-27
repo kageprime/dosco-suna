@@ -3,7 +3,7 @@
 Two things to prove:
 
 1. **The inheritance pyramid** — resources (secrets + connectors) live on **agents**, never on people directly. You assign an **agent** to a member or a department, and they inherit every secret + connector that agent declares. No per-person secret sharing.
-2. **Azure AD / Entra directory-sync** — an Entra group claim on SSO login provisions the member, syncs their Kortix group membership, and the group's project grant confers a role — all enforced by `authorizeV2`. Remove them from the Entra group and access disappears on next login.
+2. **Azure AD / Entra directory-sync** — an Entra group claim on SSO login provisions the member, syncs their Dosco group membership, and the group's project grant confers a role — all enforced by `authorizeV2`. Remove them from the Entra group and access disappears on next login.
 
 Both have **self-contained, self-cleaning integration tests that seed their own dummy data** against your local DB. That's the fastest proof. Manual CLI + dashboard walkthroughs follow for a hands-on check.
 

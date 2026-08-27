@@ -1,9 +1,9 @@
-# Kortix-as-a-Backend — depth plan
+# Dosco-as-a-Backend — depth plan
 
 > **Historical and superseded.** This plan records a 2026-07-27 implementation
 > state. Customer-reference usage attribution and per-reference limits no
 > longer exist. Use
-> [Drive Kortix as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for the current
+> [Drive Dosco as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for the current
 > contract.
 
 Written 2026-07-27, after a 7-lens adversarial audit (63 agents, 45 findings that
@@ -150,7 +150,7 @@ Remaining, in order of what teaches the most:
 - **Session list filters by `end_user_ref`** (indexed, server-side), so a wrapper
   no longer pulls the whole project to find one customer — and the demo scopes
   its list to the signed-in end-user rather than showing everyone's.
-- **Mid-session agent switch re-mints the token grant.** Connectors and Kortix
+- **Mid-session agent switch re-mints the token grant.** Connectors and Dosco
   CLI actions now follow the agent that actually runs. Secrets are re-scoped
   forward only: nothing refuses the switch, because the previous agent's secrets
   are already in the box and no refusal can retract them.

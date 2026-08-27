@@ -6,7 +6,7 @@
 
 **Architecture:** An uncontrolled TipTap (ProseMirror) editor sits inside a layout shell that holds no text state. The toolbar receives only stable props and re-renders on agent/model change alone. All pure logic — serialization, menu assembly, selection maths, the action registry — lives in `.ts` modules with `bun:test` coverage; the `.tsx` files stay thin enough not to need DOM tests, matching the existing `queued-messages-logic.ts` / `queued-messages.tsx` split.
 
-**Tech Stack:** TipTap 3.27 on ProseMirror (both MIT, already installed), `@tiptap/suggestion` + `@tiptap/extension-mention` (MIT, to add), TanStack Query 5 (installed), Floating UI (installed via `@tiptap/react`), Tailwind + Kortix tokens, `bun:test`.
+**Tech Stack:** TipTap 3.27 on ProseMirror (both MIT, already installed), `@tiptap/suggestion` + `@tiptap/extension-mention` (MIT, to add), TanStack Query 5 (installed), Floating UI (installed via `@tiptap/react`), Tailwind + Dosco tokens, `bun:test`.
 
 **Spec:** `docs/superpowers/specs/2026-08-09-enhance-chat-input-design.md`
 

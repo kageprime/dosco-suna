@@ -75,7 +75,7 @@ PR #6273 (closed, superseded) and PR #6281 (merged 2026-08-08) fixed the parked-
 
 - Invariant: rendering a transcript requires only a session id and cached data. Runtime readiness gates the composer and live stream, never the read path.
 - `/start` query gets a `staleTime` and a known-ready fast path: returning to a session whose runtime was ready within the window renders immediately and revalidates in the background.
-- The OpenCode pin is persisted per Kortix session and used as the paint key before `/start` resolves (the `persistedPin` path becomes load-bearing everywhere, not only when the web list is warm).
+- The OpenCode pin is persisted per Dosco session and used as the paint key before `/start` resolves (the `persistedPin` path becomes load-bearing everywhere, not only when the web list is warm).
 - Route-level `fatal` for `stopped` renders transcript + waking affordance when a cached transcript exists; the full-screen card is reserved for truly unrenderable states (404, identity unavailable, no cache).
 - Fix the `resetForServerSwitch` ordering hole; scope `resetClient()` to the stale runtime only; collapse the serialized seed commits.
 

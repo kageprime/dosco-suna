@@ -3,13 +3,13 @@
 > **Historical and superseded.** This audit records earlier contracts and
 > defects. Customer-reference usage attribution and per-reference limits no
 > longer exist. Use
-> [Drive Kortix as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for current
+> [Drive Dosco as a Backend](./KORTIX_AS_A_BACKEND_GUIDE.md) for current
 > integration guidance.
 
 > **Historical audit scope.** OpenCode REST findings remain compatibility
 > evidence.
 
-Method: a 35-agent adversarial audit of every Kortix-as-a-Backend edge case
+Method: a 35-agent adversarial audit of every Dosco-as-a-Backend edge case
 (plan `docs/KORTIX_AS_BACKEND_V1_PLAN.md` §4.1–4.11) against current `main` plus
 the 6 open hardening PRs (#5259, #5267, #5271, #5272, #5273, #5275). Every
 claimed gap was re-read and adversarially verified before landing here.
@@ -106,9 +106,9 @@ Ranked by severity. Items tagged "(PR #N incomplete)" are surfaced by a PR whose
 |---------|-----|-----|
 | **Model ref form** — every KaaB doc shows only `anthropic/claude-opus-4-8`; none warns a bare managed id must be `kortix/<id>` and silently drops to default (create does not normalize/validate). | **High** | Add a "Model reference form" note to guide §3: managed models → `kortix/<id>`, BYOK → `<provider>/<id>`; state create does not fail-fast (until §2 #3 lands). |
 | **Idempotency-Key** — no KaaB doc mentions it, and SDK `sessions.create()` provides no way to send one, so retried creates double-create/double-charge. | **High** | Add "Idempotent retries" to the guide (stable per-attempt UUID `Idempotency-Key` header); add an SDK `sessions.create()` option to forward it; until then document the raw-HTTP form. Note global uniqueness + 409-on-collision + failed-replay-is-terminal. |
-| **§4.6 secrets-principal wording** — plan says overrides "resolve as the session owner (origin_ref user)"; they actually key on Kortix `createdBy` (the wrapper's shared PAT owner) — **no per-end-user provider-login isolation**. | Medium | Correct plan/§4.6: principal is the session's `createdBy`; per-user overrides are NOT isolated per `origin_ref` end-user in v1. |
+| **§4.6 secrets-principal wording** — plan says overrides "resolve as the session owner (origin_ref user)"; they actually key on Dosco `createdBy` (the wrapper's shared PAT owner) — **no per-end-user provider-login isolation**. | Medium | Correct plan/§4.6: principal is the session's `createdBy`; per-user overrides are NOT isolated per `origin_ref` end-user in v1. |
 | **README front door** — README's KaaB section covers only `createScopedKortix` concurrency; no `origin_ref`/`secrets` override table, no link to the guide or example 09. | Medium | Extend README KaaB section with the full override table + guide link + example 09 pointer; refresh the examples blurb. |
-| **KaaB discoverability** (GETTING-STARTED ends at 08, no examples index) | Medium | Covered by #5259 (merge it); additionally add a short "Kortix as a Backend" section to GETTING-STARTED. |
+| **KaaB discoverability** (GETTING-STARTED ends at 08, no examples index) | Medium | Covered by #5259 (merge it); additionally add a short "Dosco as a Backend" section to GETTING-STARTED. |
 | **Reconnect on revoked connection** not documented (broker fails closed to null, no default fallback; wrapper must prompt reconnect). | Medium | Add to guide §3/§5. |
 | **Browser streaming + visibility/resume** — guide only shows server-relay SSE; never states backend sessions are private-by-default or how (if) a browser streams directly. | Medium | Document server-relay as the supported path + private-by-default + connection-set-locked-at-start; or document the browser-token mint if §2 #11 ships. |
 | **Double-prompt** — guide §2 creates WITH `initial_prompt` (auto-replies) then §4 calls `s.send()` on the same session → two turns/charges. | Medium | Pick one pattern (match example 09: create without `initial_prompt`, then send); note `initial_prompt` auto-replies. |

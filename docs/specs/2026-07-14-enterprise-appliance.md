@@ -1,4 +1,4 @@
-# Kortix Enterprise Appliance — single-EC2, 100% Docker
+# Dosco Enterprise Appliance — single-EC2, 100% Docker
 
 > **Superseded by the generic self-host refactor.** The signed TUF `stable`
 > channel, AWS Terraform (`--target aws-vpc`), and the on-box systemd updater
@@ -26,7 +26,7 @@ light. One box, vertically sized, is the honest architecture — and the same
 artifact deploys on ANY VPS or cloud, unifying enterprise AWS-VPC with plain
 Docker self-hosting into ONE system.
 
-Sentence: **a signed release manifest and one box running Caddy + the Kortix
+Sentence: **a signed release manifest and one box running Caddy + the Dosco
 containers + official Supabase Docker, updated by a systemd timer, deployed by
 one CLI command.**
 

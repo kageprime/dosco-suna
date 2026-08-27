@@ -1,4 +1,4 @@
-# Kortix project
+# Dosco project
 
 ## Linear tracking
 
@@ -104,7 +104,7 @@ giving you a high level thing and come back, it's going to be done good, ideally
 better than I would've done it.
 
 Most people are shit at their jobs, some are decent/good, but only people who are
-exceptional should be at Kortix.
+exceptional should be at Dosco.
 
 Being exceptional on paper is simple — it's a combination of Ownership, Agency
 and actual Merit/Skill. It's hard, because you have to not only be very smart but
@@ -202,7 +202,7 @@ non-trivial change through this full lifecycle:
    surface, or force it with `gh workflow run deploy-dev.yml -f surface=all`.
    Full procedure, surfaces, and verification: `docs/runbooks/deploy-dev.md`.
 5. Re-run the user-visible behavior against `https://dev.kortix.com` and/or
-   `https://dev-api.kortix.com`. Prefer the real Kortix CLI configured for the
+   `https://dev-api.kortix.com`. Prefer the real Dosco CLI configured for the
    dev API for CLI/project/session flows, and direct authenticated HTTP calls for
    API contracts. For web behavior, drive the deployed UI and assert its network
    request plus visible result.
@@ -215,7 +215,7 @@ exact dev command or interaction in the final response.
 ## Architecture: `@kortix/sdk` is the source of truth
 
 `@kortix/sdk` is the **single source of truth** for everything that talks to the
-Kortix backend — projects, accounts, sessions, files, secrets, triggers, the
+Dosco backend — projects, accounts, sessions, files, secrets, triggers, the
 session runtime, OpenCode REST compatibility, SSE streaming, model state,
 and auth-token plumbing. The apps
 (`apps/web`, `apps/whitelabel-demo`, `apps/mobile`) are **thin consumers**. Treat
@@ -232,7 +232,7 @@ these as standing rules whenever you touch the data/runtime layer:
 > an export requires three synchronized edits; and the framework-free core is
 > enforced by a static import-graph tripwire.
 
-- **Logic lives in the SDK, never in a host.** No raw `fetch` to the Kortix API,
+- **Logic lives in the SDK, never in a host.** No raw `fetch` to the Dosco API,
   no `@opencode-ai/sdk` imports, no transport / runtime / data-state code written
   in app code. New data or runtime behavior is added to the SDK and exposed
   through its public surface — not hand-rolled or duplicated in a host. If you
@@ -469,14 +469,14 @@ See `tests/e2e/helpers/session-auth.ts` for the exact calls.
   app currently reports ~455 warnings, mostly `react-hooks/*` React Compiler
   rules pending a dedicated audit — expected until that audit lands.
 
-### Frontend design standard — Jay/Kortix bar
+### Frontend design standard — Jay/Dosco bar
 
 When touching any visual surface in `apps/web`, treat brand fit as a release
 gate, not polish:
 
 - Read `.claude/skills/kortix-design-system/SKILL.md` first and compose existing
   primitives from `@/components/ui/*` before inventing local chrome.
-- Match the current Jay Suthar / Kortix product aesthetic: calm neutral surfaces,
+- Match the current Jay Suthar / Dosco product aesthetic: calm neutral surfaces,
   dense-but-legible UI, black/white plus one earned accent, token-driven spacing,
   and no decorative color, glow, or one-off rounded boxes.
 - Use recent product surfaces as references before editing: `/design-system`,

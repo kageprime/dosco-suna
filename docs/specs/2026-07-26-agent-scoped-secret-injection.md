@@ -125,13 +125,13 @@ own context. Narrowing the next push does not retract any of that.
 
 The product accepts the switch. Before forwarding the prompt, the proxy replaces
 OpenCode's environment with the running agent's grant and re-mints the session
-token's connector and Kortix CLI grant.
+token's connector and Dosco CLI grant.
 
 No configuration refuses a switch. A switch always re-scopes.
 
 That residue is exactly why refusing the switch bought nothing. The secret is
 disclosed the moment the first agent reads it, so blocking the second agent
-protects nothing that is still protectable. Connector and Kortix CLI grants are
+protects nothing that is still protectable. Connector and Dosco CLI grants are
 different: they are checked against `account_tokens.agent_grant` at call time,
 and the re-mint rewrites that row, so narrowing them on a switch does take
 effect.

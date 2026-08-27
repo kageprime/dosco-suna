@@ -6,7 +6,7 @@
 
 ## Decision
 
-Kortix constructs each session environment on the API. The sandbox receives only
+Dosco constructs each session environment on the API. The sandbox receives only
 the selected agent's runtime files, permitted project files, declared data mounts,
 and short-lived capabilities.
 
@@ -20,7 +20,7 @@ This design makes one rule enforceable:
 
 ## Problem
 
-Kortix already enforces secrets, connectors, and Kortix CLI permissions at the
+Dosco already enforces secrets, connectors, and Dosco CLI permissions at the
 API. These controls terminate at a trusted service.
 
 Project files and harness configuration do not have the same boundary today:
@@ -50,11 +50,11 @@ The environment includes more than files:
 - Project workspace files.
 - Sandbox template, CPU, memory, disk, and runtime image.
 - Secret and connector references.
-- Kortix CLI capabilities.
+- Dosco CLI capabilities.
 - Network egress policy.
 - Memory and volume mounts.
 
-Environment variables remain encrypted in the Kortix data plane. This design
+Environment variables remain encrypted in the Dosco data plane. This design
 does not move configuration or secret values into volumes. Git remains the
 authoring and review source for agent definitions. Volumes carry working data.
 
@@ -79,7 +79,7 @@ authoring and review source for agent definitions. Volumes carry working data.
 
 Treat the following components as trusted:
 
-- Kortix API authorization.
+- Dosco API authorization.
 - Agent environment compiler.
 - Workspace materializer.
 - Secret, connector, Git, patch, volume, and network brokers.
@@ -93,7 +93,7 @@ Treat the following components as untrusted:
 - Shell commands and processes inside the sandbox.
 - A sandbox user with administrative access inside that sandbox.
 
-Every remote capability must terminate at a Kortix broker. A harness permission
+Every remote capability must terminate at a Dosco broker. A harness permission
 is defense in depth. It is not the authorization boundary.
 
 ## Core objects
@@ -129,7 +129,7 @@ The signed, content-addressed result contains:
 - Workspace mode and workspace artifact digest.
 - Sandbox resource profile.
 - Permitted secret and connector identifiers.
-- Kortix CLI actions.
+- Dosco CLI actions.
 - Network policy.
 - Memory and volume mount declarations.
 - Expiry, nonce, schema version, and content hash.
@@ -174,7 +174,7 @@ Standard Git cannot provide confidential path-level access. Sparse checkout only
 changes the working tree. Reachable commits, trees, and blobs can still expose
 excluded content. Therefore `read` and `patch` never receive a Git credential.
 
-In `patch` mode, the agent submits a patch to the Kortix patch broker. The broker
+In `patch` mode, the agent submits a patch to the Dosco patch broker. The broker
 validates every create, update, delete, and rename against the allowed path set.
 It then applies the complete patch atomically to a change-request branch.
 
@@ -195,7 +195,7 @@ this mode as high trust.
 8. The API provisions a shared base sandbox with the selected resource profile.
 9. The sandbox verifies the signature and artifact hashes before readiness.
 10. The sandbox writes the selected harness files and starts the harness.
-11. The agent uses brokers for secrets, connectors, Kortix CLI, Git, patches, and
+11. The agent uses brokers for secrets, connectors, Dosco CLI, Git, patches, and
     controlled network access.
 12. Session termination revokes tokens, unmounts data, and destroys writable
     runtime state.
@@ -264,7 +264,7 @@ project when materialization and access are explicit.
 
 ### Meta-agent and child sessions
 
-A meta-agent orchestrates child sessions through the Kortix CLI. Each child gets
+A meta-agent orchestrates child sessions through the Dosco CLI. Each child gets
 its own sandbox, `SessionSpec`, `WorkspaceArtifact`, and `SessionToken`.
 
 Child access is the intersection of the parent's delegatable access and the child
@@ -345,7 +345,7 @@ workspace mode, policy SHA, workspace SHA, and `SessionSpec` hash.
 
 ## Result
 
-Git remains the reviewable source for agent definitions. The Kortix API becomes
+Git remains the reviewable source for agent definitions. The Dosco API becomes
 the compiler and policy boundary. The sandbox becomes a disposable target that
 receives one exact environment. Harness choice, sandbox size, project files,
 memory, volumes, and remote resources become explicit per-agent decisions.

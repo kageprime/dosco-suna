@@ -87,7 +87,7 @@ References (Mobbin, reviewed 2026-08-15):
   ("Searched for …", "Read reuters.com") with favicons; a Sources tab with
   count. Target feel for the Context detail views.
 
-Kortix rules that bound the design (kortix-design-system):
+Dosco rules that bound the design (kortix-design-system):
 
 - Rows, not pills: `<ul className="space-y-*">` entity rows with an icon,
   a `text-sm` label, and `text-xs` meta. `rounded-full` chips are for badges

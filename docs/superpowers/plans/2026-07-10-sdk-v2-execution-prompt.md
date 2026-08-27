@@ -58,7 +58,7 @@ Model: **Fable orchestrates. Sonnet 5 executes.** But not uniformly — the plan
 1. **Task 2, first run.** Nothing has ever installed and imported the tarball. If the smoke test fails, that is a **real pre-existing bug**, not something to loop on. Report it.
 2. **Task 3, before committing the snapshot.** Show me it. It becomes ground truth for everything after.
 3. **Task 5, Step 12 — the snapshot diff.** Additions are fine. **A removal or rename means a broken consumer.** Never accept that diff to get green.
-4. **Task 9, Step 6.** Loading `dist/kortix.global.js` in a real browser, streaming through a live stack, asserting `instanceof Kortix.ApiError` under the bundle. Needs `pnpm dev` + a real PAT + a real sandbox. Do not claim D2a/D3 without it.
+4. **Task 9, Step 6.** Loading `dist/kortix.global.js` in a real browser, streaming through a live stack, asserting `instanceof Dosco.ApiError` under the bundle. Needs `pnpm dev` + a real PAT + a real sandbox. Do not claim D2a/D3 without it.
 
 Also stop if: the same failure survives three different fixes (invoke `superpowers:systematic-debugging` instead of guessing), or you are about to change what a test asserts.
 

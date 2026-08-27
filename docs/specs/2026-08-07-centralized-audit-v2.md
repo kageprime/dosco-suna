@@ -6,7 +6,7 @@
 system history. Session actions remain split across Connector, lifecycle,
 trigger, provider, gateway, usage, voice, tunnel, and OpenCode stores. The
 session audit route reads only `connector_calls`. Human request provenance also
-trusts the public `X-Kortix-Client` header.
+trusts the public `X-Dosco-Client` header.
 
 The result cannot reconstruct one session in order. It also loses webhook
 deliveries, silently ignores malformed time and cursor filters, and caps exports
@@ -103,7 +103,7 @@ timestamp comparison can repeat the boundary event and stall an export.
 ## Security and privacy
 
 - Authentication determines `authoritative_source`.
-- `X-Kortix-Client` populates only `client_reported_source`.
+- `X-Dosco-Client` populates only `client_reported_source`.
 - Agent and sandbox credentials bind project and session scope server-side.
 - Sandbox payloads cannot set canonical agent, initiator, or lineage fields.
 - Request bodies, prompt bodies, environment values, credentials, and raw tool

@@ -103,7 +103,7 @@ treat all model identifiers as opaque strings.
 
 ## UX
 
-Add a `Routing` tab to Customize -> LLM Gateway using existing Kortix
+Add a `Routing` tab to Customize -> LLM Gateway using existing Dosco
 primitives. It contains:
 
 - Defaults: project default and vision model selectors, each with explicit

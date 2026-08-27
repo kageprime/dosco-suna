@@ -1,18 +1,18 @@
-# Drive Kortix as a Backend
+# Drive Dosco as a Backend
 
-Use a Kortix API key to create and manage project sessions from your server.
+Use a Dosco API key to create and manage project sessions from your server.
 
 > **Runtime scope.** The public `opencode_model` name remains unchanged for
 > compatibility. Every session runs OpenCode over its REST compatibility
 > interface. Prefer `useSession()` in React over the framework-free
 > `session.stream()` / `session.send()` examples below.
 
-Each session has one Kortix owner. Each session also has one project and one
+Each session has one Dosco owner. Each session also has one project and one
 unified cost record.
 
 Your application owns customer identifiers and customer metadata. Store the
 relationship between your customer and the returned `session_id` outside
-Kortix.
+Dosco.
 
 ## 1. Create a backend credential
 

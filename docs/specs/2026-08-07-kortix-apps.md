@@ -1,4 +1,4 @@
-# Kortix Apps
+# Dosco Apps
 
 Date: 2026-08-07
 
@@ -6,16 +6,16 @@ Last verified: 2026-08-08
 
 Status: canonical implementation contract and deferred architecture record
 
-This document is the source of truth for Kortix Apps. Operational documentation
+This document is the source of truth for Dosco Apps. Operational documentation
 and system skills must agree with it. Do not create a second architecture or
 deployment report without linking it here and identifying which document wins.
 
 ## Problem
 
-Kortix can run long-lived project sessions in Daytona, Platinum, and E2B
+Dosco can run long-lived project sessions in Daytona, Platinum, and E2B
 sandboxes. It does not expose a durable application deployment product.
 Users need one command and one SDK surface that deploys a static directory,
-Docker build context, or OCI image to a stable Kortix URL.
+Docker build context, or OCI image to a stable Dosco URL.
 
 The deployment product must keep provider details out of user configuration.
 It must scale a runtime to zero, wake it on a public request, preserve a stable
@@ -25,7 +25,7 @@ runtime transition.
 ## Current decision
 
 The first-release sandbox system remains the only implemented hosting backend.
-Kortix deploys every source kind into a Daytona, Platinum, or E2B sandbox. Local
+Dosco deploys every source kind into a Daytona, Platinum, or E2B sandbox. Local
 Docker is not a supported Apps provider. Provider selection remains a server
 policy unless an operator supplies an explicit preference.
 
@@ -39,7 +39,7 @@ The following decisions are binding until this document changes:
 1. Keep the current sandbox implementation and improve its reliability.
 2. Keep `kortix apps deploy` blocking by default until the deployment is ready.
 3. Keep `--no-wait` as the explicit asynchronous mode.
-4. Keep Kortix as the control plane for identity, URLs, access, deployments,
+4. Keep Dosco as the control plane for identity, URLs, access, deployments,
    rollback, provenance, budgets, billing, and lifecycle state.
 5. Keep the Apps UI as an inventory and management surface. It does not create
    an empty App identity.
@@ -60,7 +60,7 @@ The following decisions are binding until this document changes:
 - **Transport**: HTTP, SSE, or WebSocket traffic. Do not use this term for a
   hosting backend.
 
-The product name is **Kortix Apps**. Provider names never appear in a normal App
+The product name is **Dosco Apps**. Provider names never appear in a normal App
 specification.
 
 ## Supported first-release workloads
@@ -94,7 +94,7 @@ The target port cannot be `7331` or `8080`.
 `kortix-appd` performs these operations:
 
 1. Parse and validate the runtime specification.
-2. Remove Kortix control credentials from the child environment.
+2. Remove Dosco control credentials from the child environment.
 3. Start the user process.
 4. Start Caddy after the user process starts.
 5. Poll the configured readiness path.
@@ -117,9 +117,9 @@ Caddy owns public protocol behavior. Dynamic apps use `reverse_proxy` to
 `127.0.0.1:<target-port>`. Static apps use `file_server` and an optional SPA
 fallback. The Caddy admin endpoint is disabled.
 
-The API sends `X-Kortix-App-Host` and `X-Forwarded-Proto`. Caddy replaces the
+The API sends `X-Dosco-App-Host` and `X-Forwarded-Proto`. Caddy replaces the
 upstream `Host` and `X-Forwarded-Host` with the public hostname. It removes the
-Kortix routing header before the request reaches the user process.
+Dosco routing header before the request reaches the user process.
 
 ## Defaults
 
@@ -173,7 +173,7 @@ rather than silently accepted.
 
 ## Hostnames
 
-Cloudflare Universal SSL does not cover `foo.apps.kortix.com`. Kortix will use
+Cloudflare Universal SSL does not cover `foo.apps.kortix.com`. Dosco will use
 an Advanced Certificate Manager certificate containing `*.apps.kortix.com`.
 
 One wildcard covers every environment because the environment is part of the
@@ -201,7 +201,7 @@ A self-host has no Cloudflare Apps Worker to sign requests; its own reverse
 proxy is the trust boundary, and `KORTIX_APPS_ALLOW_DIRECT_EDGE=true` tells the
 API to accept direct App traffic. `kortix self-host configure` sets both.
 
-`X-Kortix-App-Host` is an EDGE-SIGNED field: the Worker sets it and the HMAC
+`X-Dosco-App-Host` is an EDGE-SIGNED field: the Worker sets it and the HMAC
 covers it. It is authoritative only where that signature is verified. In
 direct-edge mode nothing verifies a signature, so the API ignores the header
 entirely and routes on the real `Host` — otherwise any caller able to reach the
@@ -216,7 +216,7 @@ A dedicated `infra/cloudflare/workers/apps-router` Worker owns
 The Worker:
 
 1. Parses the environment prefix from the hostname.
-2. Chooses the matching Kortix API backend.
+2. Chooses the matching Dosco API backend.
 3. Replaces any caller-supplied internal Apps headers.
 4. Adds the original hostname and an HMAC edge signature.
 5. Streams the request and response without buffering.
@@ -427,7 +427,7 @@ New Apps use `private` access. Supported modes are:
 - `public`: no authentication.
 - `password`: a user-supplied password stored only as an Argon2id hash.
 
-Kortix-authenticated users request a five-minute App exchange URL. The App host
+Dosco-authenticated users request a five-minute App exchange URL. The App host
 exchanges it for an eight-hour `__Host-kortix_app_access` cookie with
 `HttpOnly`, `Secure`, and `SameSite=Lax`. The cookie has no `Domain` attribute.
 Each policy update increments `access_revision`, which revokes existing App
@@ -568,7 +568,7 @@ The internal Browser opens `*.apps.kortix.com` and `*.apps.localhost` directly.
 It does not send these URLs through the generic sandbox proxy because the App
 host owns authorization and uses a host-only cookie.
 
-The UI imports Apps operations from `@kortix/sdk`. It contains no raw Kortix API
+The UI imports Apps operations from `@kortix/sdk`. It contains no raw Dosco API
 fetches.
 
 ## Verification contract
@@ -672,12 +672,12 @@ pricing, and private-origin controls before starting work.
 
 The sandbox-first implementation remains a valid vertical slice because no
 single managed platform satisfies the complete Apps contract. The future
-architecture can add specialized backends without replacing Kortix-owned App
+architecture can add specialized backends without replacing Dosco-owned App
 semantics.
 
 ### Control-plane boundary
 
-Kortix continues to own:
+Dosco continues to own:
 
 - Stable App identity and hostname.
 - Immutable artifacts and deployment versions.
@@ -688,7 +688,7 @@ Kortix continues to own:
 - Provider selection and capability validation.
 
 Vendor project, deployment, and domain models remain implementation details.
-The CLI and SDK continue to expose Kortix Apps.
+The CLI and SDK continue to expose Dosco Apps.
 
 ### Separate build and hosting
 
@@ -729,7 +729,7 @@ non-public App.
 | Unrestricted Docker and custom runtime behavior | Daytona or Platinum sandbox                                           | Sandbox         |
 
 Do not create one Cloudflare Worker per App without proving account and
-multi-tenant limits. A shared Kortix Apps Router serving content-addressed
+multi-tenant limits. A shared Dosco Apps Router serving content-addressed
 static artifacts is the preferred edge-static design.
 
 Deno Deploy is a JavaScript optimization, not an arbitrary-Docker backend.

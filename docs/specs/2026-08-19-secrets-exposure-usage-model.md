@@ -24,7 +24,7 @@
 1. A secret has one value and a set of legitimate spenders. Everything else is derived.
 2. The agent is untrusted (prompt injection, log leaks, `env` dumps). Minimize the places the
    real value exists without breaking the spender.
-3. There are exactly two kinds of secrets, and it is a property of the UPSTREAM, not of Kortix:
+3. There are exactly two kinds of secrets, and it is a property of the UPSTREAM, not of Dosco:
    - **Sent secrets** — the value travels on the wire (API keys, bearer tokens, passwords).
      The vast majority. These can be enforced at the network boundary, because there is a
      moment where the value is bytes in a request.
@@ -176,7 +176,7 @@ read-only labels (the `git_proxy` treatment generalized). LLM gateway is auto-as
 ## 7.5. The streaming relay — a second transport, not a replacement
 
 §4 puts an in-guest shim in front of every egress-enforced secret and relays each
-request to Kortix, which holds the credential. The original transport buffers:
+request to Dosco, which holds the credential. The original transport buffers:
 the shim base64s the whole request into a JSON envelope, POSTs it, and buffers
 the whole response back. That is where the **1 MiB request / 5 MiB response
 caps** come from, and why SSE, chunked responses and websockets were impossible.
@@ -220,8 +220,8 @@ x-kortix-relay-status: base64url({"v":1,"status":429,"headers":[["retry-after","
 ```
 
 **The disambiguator, and it is the load-bearing rule:** `x-kortix-relay-status`
-PRESENT ⟺ Kortix reached the upstream and that payload's `status` is the
-upstream's. ABSENT ⟺ Kortix itself refused, and the relay's own status plus
+PRESENT ⟺ Dosco reached the upstream and that payload's `status` is the
+upstream's. ABSENT ⟺ Dosco itself refused, and the relay's own status plus
 `x-kortix-relay-error` say why. The relay's own status is therefore **always
 200 on success**, whatever the upstream said — mirroring it would make a bare
 `403` ambiguous between "policy denied" and "Stripe said 403", a distinction the
@@ -426,7 +426,7 @@ Every surface that describes secrets MUST describe THIS model, and only this mod
    - **the third-party guidance**: when exposing capabilities to UNTRUSTED third-party users,
      do not hand them secret policies at all — implement your own authorization + proxy
      service that receives their requests, applies your own authz, and makes the upstream
-     calls with credentials it holds. Kortix secret policies protect a project's own agent;
+     calls with credentials it holds. Dosco secret policies protect a project's own agent;
      they are not a multi-tenant authorization system. This section is informational and
      must exist.
 2. `apps/api/src/projects/secret-capabilities.ts` — the agent-facing catalog text (what the
@@ -447,7 +447,7 @@ choices anywhere — docs, UI copy, CLI help, in-sandbox capability text, or ski
 ## 8.5. Threat model and limits
 
 The security guarantee of egress-enforced delivery is **host-scoping**: the real
-value only ever leaves Kortix toward a host on the secret's approved list, over
+value only ever leaves Dosco toward a host on the secret's approved list, over
 HTTPS/443. It is NOT a guarantee that an approved host cannot be tricked into
 returning the value.
 

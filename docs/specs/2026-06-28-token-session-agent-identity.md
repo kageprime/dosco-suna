@@ -2,13 +2,13 @@
 
 ## Principals
 
-Kortix sandboxes carry two different credentials with different principals.
+Dosco sandboxes carry two different credentials with different principals.
 
 1. Sandbox service credential: `KORTIX_SANDBOX_TOKEN` with legacy alias `KORTIX_TOKEN`.
    This authenticates API-to-daemon control-plane calls, signed user context, clone credentials, turn relays, and proxy plumbing. The CLI must not treat it as a user token.
 
 2. Session connector credential: `KORTIX_CLI_TOKEN`.
-   This is a Kortix account token acting as the launching user, scoped to exactly one project and, for real sandbox sessions, exactly one session. It is the only token the agent-facing CLI and Connector SDK should use.
+   This is a Dosco account token acting as the launching user, scoped to exactly one project and, for real sandbox sessions, exactly one session. It is the only token the agent-facing CLI and Connector SDK should use.
 
 3. User/account PAT: a laptop or automation token without `session_id`.
    It can be account-wide or project-scoped depending on `project_id`, and is governed by normal IAM plus PAT lifecycle policy.
@@ -27,7 +27,7 @@ A sandbox session connector token must include:
 
 Cold provisioning and restored warm-snapshot sessions must mint the same shape of token. The token is unique per session; a restored session must never keep a project-only token from its seed capture.
 
-`/accounts/me` exposes this as `token_context` so CLI and debugging surfaces can say whether the active credential is a user, project, or session token and show its agent/connectors/Kortix CLI grant.
+`/accounts/me` exposes this as `token_context` so CLI and debugging surfaces can say whether the active credential is a user, project, or session token and show its agent/connectors/Dosco CLI grant.
 
 ## Agent Switching Policy
 
@@ -37,7 +37,7 @@ A prompt may ask OpenCode to run a **different concrete agent** inside the same 
 2. Re-push the secret env for the running agent (`syncSandboxEnvForPrompt`). An unreadable `[[agents]]` manifest fails closed with `503 AGENT_SECRET_GRANT_UNRESOLVED`.
 3. Re-mint the session token's `agent_grant` from the running agent's manifest block (`remintGrantForAgentSwitch`). A failed re-mint returns `503 AGENT_SWITCH_GRANT_UNAPPLIED`.
 
-A switched agent therefore never inherits the boot agent's connector or Kortix CLI grant: both are checked against `account_tokens.agent_grant` at call time, and step 3 rewrites that row.
+A switched agent therefore never inherits the boot agent's connector or Dosco CLI grant: both are checked against `account_tokens.agent_grant` at call time, and step 3 rewrites that row.
 
 Secrets are the exception. Step 2 changes future delivery only. It cannot un-read a value the previous agent already read into its shell or its context.
 

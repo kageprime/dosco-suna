@@ -2,14 +2,14 @@
 
 **Status:** Phase 1 and owner-scoped connector-connection bindings implemented.
 
-**Audience:** Kortix API/SDK/runtime owners and wrapper-backend authors such as VEYRIS.
+**Audience:** Dosco API/SDK/runtime owners and wrapper-backend authors such as VEYRIS.
 
 ## 1. Decision
 
 The project repository remains the source of truth for an agent's behavior and
 governance: agents, skills, connector definitions, policies and sandbox
 configuration. Runtime identity is a different concern and is bound durably to
-the Kortix session.
+the Dosco session.
 
 The resulting split is:
 
@@ -135,7 +135,7 @@ encrypted and server-side.
 
 | Field | Meaning |
 |---|---|
-| `session_id` | durable Kortix session |
+| `session_id` | durable Dosco session |
 | `connector_alias` | manifest/logical name used by the agent |
 | `connection_id` | concrete connection selected for the run |
 | `source` | `request` or `default` |
@@ -196,7 +196,7 @@ payload must return a conflict. Binding rows are written before provisioning.
 
 ## 7. MCP strategy
 
-Kortix does not inject an arbitrary remote MCP server into OpenCode per session.
+Dosco does not inject an arbitrary remote MCP server into OpenCode per session.
 Remote MCP is already a connector provider, where URL validation,
 credential resolution, policy, approval and audit run server-side.
 
@@ -215,7 +215,7 @@ This avoids:
 
 ## 8. VEYRIS end-to-end flow
 
-One Kortix project holds the VEYRIS agent configuration. Each VEYRIS Better
+One Dosco project holds the VEYRIS agent configuration. Each VEYRIS Better
 Auth organization maps to a VEYRIS workspace and receives its own connections.
 
 Provisioning:
@@ -225,9 +225,9 @@ Provisioning:
    encrypted credential is a short-lived/revocable VEYRIS API capability.
 3. VEYRIS ensures one AgentMail/email connection for the workspace and stores the
    returned unique address in VEYRIS workspace metadata.
-4. VEYRIS creates a Kortix session with the two connection ids plus optional
+4. VEYRIS creates a Dosco session with the two connection ids plus optional
    non-secret `runtime_context` (`workspace_id`, locale, display hints).
-5. Kortix atomically persists the session bindings before runtime provision.
+5. Dosco atomically persists the session bindings before runtime provision.
 6. The agent invokes `veyris` or `email`; Connector resolves only the connections
    bound to that session.
 
@@ -235,13 +235,13 @@ The VEYRIS capability should assert at least:
 
 - audience (`veyris-workspace-api`);
 - VEYRIS workspace/organization id;
-- Kortix project id and session id;
+- Dosco project id and session id;
 - allowed operations/scopes;
 - expiry, issued-at and unique `jti`/nonce.
 
 VEYRIS verifies those claims on every request and scopes every database query
 from the verified workspace claim. A request body/query claiming another
-workspace is ignored or rejected. The Kortix project never receives direct
+workspace is ignored or rejected. The Dosco project never receives direct
 Neon credentials.
 
 ## 9. Email/channel migration

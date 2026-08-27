@@ -182,7 +182,7 @@ runs behind it.
 ### 3. Key factory in `@kortix/sdk/react`
 
 A new module, `packages/sdk/src/react/query-keys.ts`. It is not an extension of
-`kortixKeys`, which belongs to the Kortix-Master multi-server surface
+`kortixKeys`, which belongs to the Dosco-Master multi-server surface
 (`use-kortix-master.ts:276`) and means a different thing.
 
 **The root segment is `kx`, not `kortix`.** The `kortix` root is already taken:
@@ -378,7 +378,7 @@ all three paths that can change who the cache belongs to:
     server-side to the caller's primary account, independent of the account
     switcher, for the one "add to project" modal that wants that behavior.
   - `kortixKeys`'s `identity.userId` segment (`packages/sdk/src/react/use-kortix-master.ts:292,306`)
-    solves a different problem — disambiguating *self-hosted Kortix Master
+    solves a different problem — disambiguating *self-hosted Dosco Master
     servers* (`serverUrl` varies) — not multi-account partitioning on the one
     hosted backend `qk` talks to.
 

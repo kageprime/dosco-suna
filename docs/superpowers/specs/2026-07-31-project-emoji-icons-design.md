@@ -199,7 +199,7 @@ apply.
 
 ### 6.1 `components/ui/emoji-picker.tsx` — new
 
-The frimousse primitive, styled with Kortix tokens. Composed from
+The frimousse primitive, styled with Dosco tokens. Composed from
 `EmojiPicker.Root` / `Search` / `Viewport` / `List` / `Loading` / `Empty`, plus
 `SkinToneSelector` and `ActiveEmoji`.
 
@@ -330,11 +330,11 @@ Pass the icon through:
 ## 7. Dependency
 
 ```
-pnpm add frimousse --filter Kortix-Computer-Frontend
+pnpm add frimousse --filter Dosco-Computer-Frontend
 ```
 
 Install the package and hand-author `components/ui/emoji-picker.tsx` against
-Kortix tokens. Do **not** use `npx shadcn@latest add`: it emits a component styled
+Dosco tokens. Do **not** use `npx shadcn@latest add`: it emits a component styled
 for stock shadcn defaults, which would need rewriting to meet the design standard
 in `CLAUDE.md`, and it writes to the workspace without going through pnpm.
 

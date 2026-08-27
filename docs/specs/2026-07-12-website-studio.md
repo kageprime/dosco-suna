@@ -7,7 +7,7 @@
 
 ## The idea
 
-A Kortix project that operates a web design studio end-to-end, over email, with
+A Dosco project that operates a web design studio end-to-end, over email, with
 almost no human in the loop. A prospect or client emails an address; the agent
 figures out what they need, **designs and deploys a real website**, replies with
 a live preview link and a **Stripe subscription** to activate it, and then makes
@@ -23,7 +23,7 @@ It ships as a one-click **`registry:project`** in the marketplace
 (`packages/starter/templates/marketplace-projects/web-studio`) — clone it, connect
 email + Stripe + a deploy provider, and it runs.
 
-## Why this is a good Kortix demo
+## Why this is a good Dosco demo
 
 It exercises the whole platform in one loop: **triggers** (inbound-email webhook
 + heartbeat cron), **connectors/secrets** (email, Stripe, Vercel, a registrar),

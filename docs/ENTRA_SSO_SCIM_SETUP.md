@@ -1,10 +1,10 @@
-# Microsoft Entra ID (Azure AD) → Kortix: SSO + Directory Sync
+# Microsoft Entra ID (Azure AD) → Dosco: SSO + Directory Sync
 
-How to connect a Microsoft Entra ID (Azure AD) tenant to a Kortix account so that:
+How to connect a Microsoft Entra ID (Azure AD) tenant to a Dosco account so that:
 
 - **Users sign in with SSO** (SAML), and
 - **Users & Groups sync from Entra** (SCIM), and
-- **Entra group membership drives Kortix access** (a group → a Kortix IAM group → a project role).
+- **Entra group membership drives Dosco access** (a group → a Dosco IAM group → a project role).
 
 This is the setup an enterprise (e.g. acme-inc.com) runs once. Everything is
 account-scoped and gated on the `sso` entitlement.
@@ -39,8 +39,8 @@ Two independent channels, joined by **IAM groups**:
   Entra tenant ─────┤
                     └── SCIM (provisioning) ──► "who exists / who is in which group" (pushed)
 
-  Entra group ──(mapping: claim value → Kortix group)──► Kortix IAM group
-  Kortix IAM group ──(project grant: group → role)────► role on a project
+  Entra group ──(mapping: claim value → Dosco group)──► Dosco IAM group
+  Dosco IAM group ──(project grant: group → role)────► role on a project
   role on a project ──(authorizeV2)──────────────────► what the user may do
 ```
 
@@ -50,7 +50,7 @@ Two independent channels, joined by **IAM groups**:
 - **SCIM** lets Entra *push* user + group changes proactively (create, update,
   deactivate, group membership) instead of waiting for a login.
 - **Group → role** is the deliberate admin step: you map an Entra group to a
-  Kortix IAM group, then grant that IAM group a role on specific projects. A
+  Dosco IAM group, then grant that IAM group a role on specific projects. A
   synced group confers **no** access until you grant it a role — this is the
   opinionated, no-surprise default.
 
@@ -61,18 +61,18 @@ revoke; grants that ride a fresh login are immediate.
 
 ## Prerequisites
 
-- Kortix account with the **`sso` entitlement** (enterprise tier). Without it the
+- Dosco account with the **`sso` entitlement** (enterprise tier). Without it the
   provider/mapping/SCIM-token endpoints return `402`.
-- **Account owner or admin** on the Kortix side (these are account-scoped IAM
+- **Account owner or admin** on the Dosco side (these are account-scoped IAM
   actions).
 - **Global Administrator / Application Administrator** on the Entra side.
-- *(Self-hosted operators only, advanced path)* Access to your Kortix control
+- *(Self-hosted operators only, advanced path)* Access to your Dosco control
   plane's **Supabase project** — SAML metadata is registered with Supabase Auth,
   which validates assertions (see Part A). Not needed for the self-serve path;
   everything a customer needs comes from the SAML SSO card.
 
-Kortix API base below is written as `https://<api>` and all admin calls use a
-Kortix account bearer (owner/admin JWT or PAT).
+Dosco API base below is written as `https://<api>` and all admin calls use a
+Dosco account bearer (owner/admin JWT or PAT).
 
 ---
 
@@ -85,8 +85,8 @@ Kortix account bearer (owner/admin JWT or PAT).
 > same: **SCIM Provisioning** → **Guided setup**. This document remains the
 > reference for the details behind each step.
 
-Kortix delegates SAML assertion validation to Supabase Auth, so the IdP metadata
-is registered **with Supabase**, and Kortix stores the resulting provider id.
+Dosco delegates SAML assertion validation to Supabase Auth, so the IdP metadata
+is registered **with Supabase**, and Dosco stores the resulting provider id.
 
 1. **In Entra**: create an **Enterprise Application** ([screenshot 1](#screenshots)) →
    *Single sign-on* → **SAML** ([screenshot 2](#screenshots)).
@@ -110,7 +110,7 @@ is registered **with Supabase**, and Kortix stores the resulting provider id.
    **(A) Self-serve, in the dashboard (recommended).** Account → **Settings** →
    **SAML SSO** → **Configure** → **Import IdP metadata**. Paste the metadata XML
    (or its URL), set the display name, primary domain, and group claim, and save.
-   Kortix registers the IdP with Supabase server-side and stores the resulting
+   Dosco registers the IdP with Supabase server-side and stores the resulting
    provider id — you never touch Supabase. (API:
    `POST /v1/accounts/{accountId}/iam/sso/provider/from-metadata` with
    `{ metadata_xml | metadata_url, name, primary_domain, group_claim_name, auto_create_members }`.)
@@ -144,10 +144,10 @@ is registered **with Supabase**, and Kortix stores the resulting provider id.
 > edit the `…/emailaddress` claim and set its **Source attribute** to
 > **`user.userprincipalname`** — the UPN is always populated and email-formatted.
 
-> **You do NOT touch Supabase's attribute mapping.** Kortix registers the IdP with
+> **You do NOT touch Supabase's attribute mapping.** Dosco registers the IdP with
 > the group-claim `attribute_mapping` automatically (from `group_claim_name`), so
 > the group values reach the token. If you registered a provider via the operator
-> `supabase sso add` path, re-save the SSO config once in the dashboard and Kortix
+> `supabase sso add` path, re-save the SSO config once in the dashboard and Dosco
 > will (re)apply the mapping for you.
 
 ---
@@ -166,7 +166,7 @@ Entra does not send groups by default. In the Enterprise App → *Single sign-on
   group display names"** (it is greyed out for "Security groups"), and (c) **assign
   each group to the enterprise app**. ⚠️ **Assigning a *group* to an app requires
   Entra ID P1/P2** — on the **Free** plan you can only assign users, so Free-tier
-  tenants are **GUID-only**. Either way works: Kortix matches GUIDs and names
+  tenants are **GUID-only**. Either way works: Dosco matches GUIDs and names
   identically (case/space-insensitive) — GUID mapping is actually more robust since
   IDs never change.
 - Ensure the claim **name** is what you set as `group_claim_name` (default
@@ -178,26 +178,26 @@ GUIDs match regardless.
 
 ---
 
-## Part C — map Entra groups → Kortix groups → project roles
+## Part C — map Entra groups → Dosco groups → project roles
 
-1. **Create the Kortix IAM groups** (or reuse existing) — these are your
+1. **Create the Dosco IAM groups** (or reuse existing) — these are your
    "departments" (Marketing, Engineering, …). Via the Members → Departments UI or
    the groups API.
 
-2. **Map each Entra group claim value → a Kortix group**:
+2. **Map each Entra group claim value → a Dosco group**:
    ```
    POST https://<api>/v1/accounts/{accountId}/iam/sso/mappings
    { "claim_value": "<Entra group GUID or name>", "group_id": "<kortix group id>" }
    ```
-   One claim value maps to exactly one Kortix group (to fan a group across many
-   grants, attach several project grants to that one Kortix group).
+   One claim value maps to exactly one Dosco group (to fan a group across many
+   grants, attach several project grants to that one Dosco group).
 
-3. **Grant the Kortix group a role on the projects it should reach** (Members →
+3. **Grant the Dosco group a role on the projects it should reach** (Members →
    Resource access / project grants): e.g. *Marketing → editor on project X*. This
    is what turns membership into permissions.
 
 That's the whole chain. On the user's next SSO login (or SCIM push), their Entra
-groups reconcile their Kortix group memberships, and the project grants confer the
+groups reconcile their Dosco group memberships, and the project grants confer the
 role. Remove them from the Entra group and access is revoked on the next
 sync (within the ~15 s cache window).
 
@@ -228,14 +228,14 @@ new tab (**Provisioning**) to configure.
    - **Test Connection** (Entra probes `/ServiceProviderConfig` + a filtered
      `/Users` query — both implemented), then **Save**.
    - **#1 failure mode**: Test Connection fails. Almost always a hand-typed or
-     truncated Tenant URL — re-copy it exactly; it is not the regular Kortix
+     truncated Tenant URL — re-copy it exactly; it is not the regular Dosco
      API URL and has no `/v1` suffix.
 
 3. **Check the attribute mappings** — Provisioning → **Mappings** → "Provision
    Microsoft Entra ID Users" ([screenshot 4](#screenshots)). The default
    mappings work; the one that matters is `userName` → source attribute
-   `user.userprincipalname` — that is how Kortix matches the SCIM user to a
-   Kortix account.
+   `user.userprincipalname` — that is how Dosco matches the SCIM user to a
+   Dosco account.
 
 4. **Assign who gets provisioned** — this is the allow-list: only users/groups
    assigned to the application are ever synced. Enterprise applications → your
@@ -260,7 +260,7 @@ SCIM behavior worth knowing:
 - **Deactivate** (`PATCH active:false` or DELETE): removes the account membership
   and busts their cache. The **last owner cannot be deactivated** (guarded).
 - **Groups**: create + membership `PATCH` (Entra's add/remove and replace ops) map
-  onto Kortix IAM group membership; grant those groups project roles (Part C).
+  onto Dosco IAM group membership; grant those groups project roles (Part C).
 
 ---
 
@@ -289,9 +289,9 @@ These mirror the automated integration tests
 - **Deactivation = removal.** `active:false` removes the membership (not a
   reversible soft-flag). Re-adding a user in Entra re-provisions them via SCIM
   `POST`; their prior *role grants* are not automatically restored — grants live
-  on the Kortix group, so re-adding them to the group restores access.
+  on the Dosco group, so re-adding them to the group restores access.
 - **Group → role is explicit.** Synced groups never grant access on their own; an
-  admin must grant the Kortix group a project role. This is intentional
+  admin must grant the Dosco group a project role. This is intentional
   (deny-by-default, no surprise access).
 - **Claim mismatch fails safe.** If `group_claim_name` doesn't match what Entra
   emits, or a claim value has no mapping, the user simply gets no groups (no
@@ -303,8 +303,8 @@ These mirror the automated integration tests
   an admin registered their own domain on a test provider and their next
   sign-in was silently routed to the IdP, then came back authenticated as a
   *different* person because the IdP reused an existing browser SSO session
-  (IdP session reuse) — not a Kortix bug, but genuinely confusing from the
-  Kortix side with no explanation shown.
+  (IdP session reuse) — not a Dosco bug, but genuinely confusing from the
+  Dosco side with no explanation shown.
   `TODO(sso-identity-mismatch-notice)`: after an SSO return, if the
   authenticated identity differs from the email the user originally typed on
   `/auth`, surface a "You signed in as `{actual_email}`" notice instead of

@@ -321,7 +321,7 @@ Delete `MATRIX`, `MatrixRow`, `MatrixColumn`, `OS_LABELS`, `OS_HINTS` and
 import type { DesktopOs, MobileOs } from './detect-os';
 
 export const hero = {
-  title: 'Download Kortix',
+  title: 'Download Dosco',
   sub: 'Get the app for your desktop, your phone, or your terminal.',
 };
 
@@ -330,7 +330,7 @@ export type RowCopy = { label: string; hint: string; href: string };
 
 export const DESKTOP_CARD: CardCopy = {
   title: 'Desktop app',
-  description: 'Run Kortix on your own machine, with your files and your terminal.',
+  description: 'Run Dosco on your own machine, with your files and your terminal.',
 };
 
 export const MOBILE_CARD: CardCopy = {
@@ -363,7 +363,7 @@ export const MOBILE_ROWS: Record<MobileOs, RowCopy> = {
 
 export const TERMINAL = {
   title: 'Terminal',
-  description: 'Install the CLI and drive Kortix from your shell.',
+  description: 'Install the CLI and drive Dosco from your shell.',
   support: 'macOS & Linux · WSL on Windows',
 };
 ```
@@ -690,8 +690,8 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Download Kortix',
-  description: 'Get Kortix for macOS, Windows, Linux, iOS, and Android.',
+  title: 'Download Dosco',
+  description: 'Get Dosco for macOS, Windows, Linux, iOS, and Android.',
 };
 
 const DESKTOP_MARKS: Record<DesktopOs, CardRow['Mark']> = {
@@ -857,8 +857,8 @@ for p in macos windows linux; do
 done
 ```
 
-Expected: three `302`s whose `location` ends in `Kortix-<v>-universal.dmg`,
-`Kortix-Setup-<v>.exe`, and `Kortix-<v>-x86_64.AppImage` respectively.
+Expected: three `302`s whose `location` ends in `Dosco-<v>-universal.dmg`,
+`Dosco-Setup-<v>.exe`, and `Dosco-<v>-x86_64.AppImage` respectively.
 
 - [ ] **Step 3: Prove a mobile segment no longer reaches the desktop resolver**
 

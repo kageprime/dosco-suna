@@ -24,9 +24,9 @@ Ship one coherent launch flow:
 Use the existing unified wallet and meter categories; do not add a second credits column.
 
 - The free tier grants $5 of expiring wallet balance and permits running sandboxes once the existing minimum-run balance check succeeds.
-- Free tier has no managed-premium model entitlement. Requests requiring Kortix-managed premium inference are rejected before a debit can occur.
+- Free tier has no managed-premium model entitlement. Requests requiring Dosco-managed premium inference are rejected before a debit can occur.
 - BYOK runs with `billingMode: 'none'` for free accounts, so the current BYOK fee is not charged. BYOK-to-managed fallback is disabled for those accounts.
-- Free Zen/OpenCode and connected ChatGPT/Codex-subscription paths remain non-debit paths to Kortix.
+- Free Zen/OpenCode and connected ChatGPT/Codex-subscription paths remain non-debit paths to Dosco.
 - A free account must therefore only create `compute_debit` entries from its credited wallet. Paid and legacy account behavior remains unchanged.
 - A monthly, leader-elected free-tier rotation expires any unused free credits and grants a fresh $5 at each account's monthly billing anchor. The job is idempotent and is also exposed through an authenticated cron route for operational triggering.
 
@@ -44,7 +44,7 @@ The pricing page is a compact three-plan comparison:
 - **Team:** $40/seat/month and the existing pooled usage-credit model.
 - **Enterprise:** sales contact and existing enterprise capabilities.
 
-It removes nonessential credit examples and long FAQ copy. Compute is described as approximately $0.10/hour, billed by the second and stopped while idle. The page uses existing marketing primitives and Kortix tokens; it introduces no new visual language or decorative animation.
+It removes nonessential credit examples and long FAQ copy. Compute is described as approximately $0.10/hour, billed by the second and stopped while idle. The page uses existing marketing primitives and Dosco tokens; it introduces no new visual language or decorative animation.
 
 The app shell adds a clearly visible, minimum-40px-target Upgrade control only for free accounts. It reuses the global upgrade-dialog store and modal rather than creating a second checkout path.
 
@@ -71,6 +71,6 @@ Each behavior begins with a failing test before production code:
 - A fresh signup reaches `/projects/{id}` without seeing a project selector.
 - Its billing row is `free`, its first grant is $5 expiring balance, and UI shows 500 credits.
 - At the next monthly anchor, unused free credit is removed and exactly 500 fresh credits are available; retrying the rotation does not duplicate the grant.
-- Sandbox use can debit that balance; managed premium LLM requests cannot; free BYOK requests create no Kortix LLM debit.
+- Sandbox use can debit that balance; managed premium LLM requests cannot; free BYOK requests create no Dosco LLM debit.
 - `/pricing` accurately shows Free, Team, and Enterprise with the promised concise copy.
 - The Upgrade action is visible for a free user and opens the established modal.

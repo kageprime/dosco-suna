@@ -35,11 +35,11 @@
 
 ## Task 5: Typed platform API coverage
 
-- Inventory browser and Next.js server calls to the Kortix API.
+- Inventory browser and Next.js server calls to the Dosco API.
 - Add missing typed SDK functions with failing tests first.
 - Migrate each call site to the SDK.
 - Use request-scoped server SDK clients for server actions and route handlers.
-- Remove host-owned Kortix endpoint paths and response parsing.
+- Remove host-owned Dosco endpoint paths and response parsing.
 
 ## Task 6: Remove runtime routing knowledge
 

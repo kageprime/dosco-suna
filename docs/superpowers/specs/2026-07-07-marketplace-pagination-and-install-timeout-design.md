@@ -60,7 +60,7 @@ Three complementary layers, each earning its place:
 **A1 — API (`apps/api/src/marketplace/{catalog.ts,index.ts}`).**
 - Add optional `limit` + `offset` to the items query. **Opt-in:** when `limit` is
   absent, return the full filtered list (preserves existing programmatic callers
-  like `listDefaultProjectMarketplaceItems`, which needs all Kortix skills).
+  like `listDefaultProjectMarketplaceItems`, which needs all Dosco skills).
 - New `listCatalogItemsPage(opts)` returning `{ items, total }` where `total` is the
   filtered count *before* slicing; the route slices `[offset, offset+limit)`.
 - Route response gains `total` and `hasMore` (`offset + items.length < total`)

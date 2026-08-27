@@ -16,7 +16,7 @@ Platinum is the only one that does — production runs on Daytona
 ## 1. The problem in one paragraph
 
 A *network-boundary* secret (`strategy:'egress'`, `consumer:'network'`) is delivered by the
-**Platinum** sandbox provider: Kortix registers the credential with Platinum at session
+**Platinum** sandbox provider: Dosco registers the credential with Platinum at session
 provision, and Platinum's egress proxy terminates TLS and injects a header on outbound
 requests to allow-listed hosts. The sandbox never receives the value — no env var, no alias,
 no placeholder. Platinum is the only provider that owns a credential edge. On every other
@@ -89,7 +89,7 @@ host, outside guest control. **We pass neither today.**
 What Daytona does **not** have: a secret store, TLS termination, header injection, or any
 `on_echo` equivalent. Zero of the ten Platinum primitives the boundary depends on. So the
 feature cannot be ported provider-natively; it can only be **rebuilt** with Daytona supplying
-the funnel and Kortix supplying the injection.
+the funnel and Dosco supplying the injection.
 
 ### 3.3 ~~The claim the whole design rests on~~ — settled, and it was moot
 
@@ -184,7 +184,7 @@ Upstream status: 200
 {"args":{},"headers":{"host":"postman-echo.com",…,"x-proof-token":"[REDACTED]",…}}
 ```
 
-Three facts in one response: the header **arrived at the upstream** (so Kortix injected it
+Three facts in one response: the header **arrived at the upstream** (so Dosco injected it
 outside the sandbox), the call **succeeded** (200), and the echoed value came back
 **redacted** rather than killing the connection.
 
@@ -297,12 +297,12 @@ today that is every production project.
    field's own semantics. Nothing to fix.
 4. **Docs**: one page, "which delivery mode do I want", with the table from §5.
 
-### Track B — an enforced Kortix egress proxy (gated on the §7 experiment)
+### Track B — an enforced Dosco egress proxy (gated on the §7 experiment)
 
-Daytona supplies the non-bypassable funnel; Kortix supplies everything Platinum's edge does.
+Daytona supplies the non-bypassable funnel; Dosco supplies everything Platinum's edge does.
 
 ```
-guest ──(runner iptables: block-all + allow only proxy)──▶ Kortix egress proxy ──▶ upstream
+guest ──(runner iptables: block-all + allow only proxy)──▶ Dosco egress proxy ──▶ upstream
                                                             │
                                                             ├─ per-sandbox ephemeral CA
                                                             ├─ inject header for policy hosts
@@ -315,7 +315,7 @@ Non-negotiables:
 - **Selective termination.** MITM only hosts with an injection rule. Everything else is
   `CONNECT`-tunnelled untouched. This bounds the blast radius and avoids breaking pinned TLS.
 - **Ephemeral per-sandbox CA**, minted at provision, destroyed with the sandbox. Never a
-  long-lived Kortix root in a customer image.
+  long-lived Dosco root in a customer image.
 - **We become a credential-handling MITM.** That is a real compliance and blast-radius change
   and must be an explicit decision, not a side effect. Document the threat model before code.
 - **Honest labelling.** If the §7 experiment fails, the UI must say *cooperative where the
@@ -351,7 +351,7 @@ traffic into a proxy.
 
 Split the two properties, because on Daytona they now come from different places:
 
-- **Enforcement** comes from `networkAllowList` restricted to the Kortix proxy's address.
+- **Enforcement** comes from `networkAllowList` restricted to the Dosco proxy's address.
   Runner-applied, root-proof, already measured (§6b). Nothing escapes the guest, ever.
 - **Transparency** cannot come from the runner. The guest has to be *pointed* at the proxy:
   `HTTPS_PROXY`/`HTTP_PROXY` in the sandbox env, and for clients that ignore those, an
@@ -454,8 +454,8 @@ Hence: a real loopback TLS listener per terminated host, each with a static leaf
 
 ### 7.4 Where the proxy runs — split it, and the answer falls out
 
-The obvious reading of §7.3 is "stand up a public Kortix proxy service": new deployment, new
-TLS surface, a stable address to pin, and Kortix terminating customer traffic at a brand-new
+The obvious reading of §7.3 is "stand up a public Dosco proxy service": new deployment, new
+TLS surface, a stable address to pin, and Dosco terminating customer traffic at a brand-new
 internet-facing box. That is a lot of new exposure for a credential-handling MITM.
 
 There is a better shape, and it comes from noticing that the proxy does two separable jobs:
@@ -467,29 +467,29 @@ There is a better shape, and it comes from noticing that the proxy does two sepa
 Nothing requires those to be the same process. Split them:
 
 ```
-guest client ──HTTPS──▶ in-guest shim ──HTTPS──▶ Kortix API ──▶ upstream
+guest client ──HTTPS──▶ in-guest shim ──HTTPS──▶ Dosco API ──▶ upstream
                         (ephemeral CA;            (holds the credential,
                          holds NO secret)          injects, redacts)
 ```
 
 The in-guest shim is the proxy in this directory with its injection step replaced by a call
 to the existing broker route — the one already proven end to end in §5.1. It terminates TLS,
-reads the request, and relays it to Kortix, which does what it already does today: resolve
+reads the request, and relays it to Dosco, which does what it already does today: resolve
 the secret, apply the host/method policy, inject, perform the request, redact the echo.
 
 Why this is the better answer here:
 
-- **No new public infrastructure.** Sandboxes already reach the Kortix API — it is how every
+- **No new public infrastructure.** Sandboxes already reach the Dosco API — it is how every
   session works. The allow-list pins that address, which we already own and which is stable.
 - **The in-guest component holds no secret.** It is fully untrusted. An agent that reads it,
   patches it, or kills it learns nothing; under the allow-list, killing it costs the agent
   its own networking. Fail-closed, and security never rests on guest-side code.
-- **Kortix does not MITM arbitrary traffic.** Only requests the shim relays reach us, and only
+- **Dosco does not MITM arbitrary traffic.** Only requests the shim relays reach us, and only
   policy hosts have rules. We are not terminating the whole internet on a shared box.
 - **It reuses a proven path.** The broker is shipped, tested, and verified live; this makes it
   transparent rather than replacing it.
 
-The consequence to state plainly: with the allow-list pinned to Kortix, a session in boundary
+The consequence to state plainly: with the allow-list pinned to Dosco, a session in boundary
 mode can reach **only its approved hosts**. That is stricter than Platinum, which permits
 general egress alongside injection. Stricter is defensible — arguably it is the posture a
 "network boundary" should have had all along — but it is a behaviour difference, not parity,
@@ -499,7 +499,7 @@ and the UI has to say so.
 
 Built as a second rule mode on the same proxy (`mode: 'broker'`), so the CONNECT and
 TLS-termination machinery is the code already tested in §7.3 rather than a parallel
-implementation. Run inside a **real Kortix session** against the **real dev broker**, with an
+implementation. Run inside a **real Dosco session** against the **real dev broker**, with an
 unmodified `curl` and `https_proxy` pointed at the local shim:
 
 ```
@@ -511,7 +511,7 @@ SHIM_READY
  "url":"https://postman-echo.com/get"}
 ```
 
-The chain: unmodified client → in-guest shim (terminates TLS, holds nothing) → Kortix broker
+The chain: unmodified client → in-guest shim (terminates TLS, holds nothing) → Dosco broker
 (holds the credential, injects, redacts) → real upstream. **The credential reached the
 destination and was never in the guest.** That is the Platinum property, on a provider with
 no credential edge of its own.
@@ -522,7 +522,7 @@ echo-protection are both visible in the one response.
 Caveats, stated rather than implied:
 
 - This session was Platinum-backed (`kaab-demo` follows the dev default). The shim is
-  provider-agnostic by construction — it is in-guest code plus HTTPS to the Kortix API, and
+  provider-agnostic by construction — it is in-guest code plus HTTPS to the Dosco API, and
   touches no provider surface — but "provider-agnostic by construction" is an argument, and
   the Daytona re-run is pending only because dev Daytona provisioning is currently failing
   (`/start` succeeds, the sandbox never reaches running). It landed later — §7.7.
@@ -584,7 +584,7 @@ all three shipped. Item 4 remains optional and unbuilt.
    HTTP clients.
 4. **Optional: the allow-list.** Still not required for the security property — an agent that
    bypasses the shim gets an *unauthenticated* request, not a credential — so it is egress
-   restriction, a separate feature. It also needs a stable Kortix egress address, which
+   restriction, a separate feature. It also needs a stable Dosco egress address, which
    `dev-api` (Cloudflare-fronted) does not provide.
 
 **Broker mode only.** The API-side ancestor had an `inject` mode that held the credential
@@ -649,7 +649,7 @@ The whole point of this document, measured end to end on a real Daytona sandbox 
 (`ed82f4f969`), with every link real and nothing stubbed:
 
 ```
-agent curl ──▶ in-guest shim ──▶ Kortix broker route ──▶ postman-echo.com
+agent curl ──▶ in-guest shim ──▶ Dosco broker route ──▶ postman-echo.com
 ```
 
 An unmodified `curl` inside the guest:
@@ -674,7 +674,7 @@ so pinned-certificate and mTLS clients are untouched. **14 assertions, 0 failure
 This is the Platinum property on a provider with no credential edge of its own.
 
 **Daytona is the instance, not the requirement.** e2b takes the identical path with no code
-difference: the shim is in-guest code plus HTTPS to the Kortix API, and the one provider-name
+difference: the shim is in-guest code plus HTTPS to the Dosco API, and the one provider-name
 comparison anywhere in the chain is `networkBoundaryMode`
 (`apps/api/src/secrets/network-boundary-availability.ts`), which names `platinum` and nothing
 else. But the e2b run has NOT been done. That is an argument, not a measurement, and this doc
@@ -797,7 +797,7 @@ non-bug.
    compliance surface that implies?
 3. Should the guest get a **placeholder** instead of nothing, matching the rest of the industry?
    It would fix tools that insist on reading the variable, at the cost of our strictest property.
-4. Can `on_echo` be preserved through a Kortix proxy without stalling responses, or do we accept
+4. Can `on_echo` be preserved through a Dosco proxy without stalling responses, or do we accept
    header-only protection off Platinum?
 
 ## 10. Related

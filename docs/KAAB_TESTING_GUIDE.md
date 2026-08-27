@@ -1,4 +1,4 @@
-# Test Kortix as a Backend
+# Test Dosco as a Backend
 
 This guide verifies the current backend session contract.
 
@@ -79,7 +79,7 @@ Store the identifier:
 export SESSION_ID="$(jq -r '.session_id' /tmp/kortix-session.json)"
 ```
 
-Your application must store customer metadata outside Kortix. Associate that
+Your application must store customer metadata outside Dosco. Associate that
 metadata with `SESSION_ID` in your application database.
 
 ## C. Verify idempotency

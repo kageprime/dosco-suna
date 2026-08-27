@@ -7,7 +7,7 @@ Incident session: `ebdcac7f-58bd-4a9f-ad82-b5f536f12c9c`
 ## Problem
 
 A transient or provider-confirmed sandbox stop currently destroys the usable
-session experience even when Kortix still has the conversation:
+session experience even when Dosco still has the conversation:
 
 - a runtime error replaces the complete chat with a full-screen error;
 - Terminal and Files remain in loading or disconnected states without bounded

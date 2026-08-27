@@ -1,6 +1,6 @@
 # Enterprise Edition — what's gated, and how
 
-Kortix is source-available under the [Elastic License 2.0](../LICENSE): free to
+Dosco is source-available under the [Elastic License 2.0](../LICENSE): free to
 self-host, modify, and run in production. ELv2 also explicitly permits gating
 specific functionality behind a license key ("you may not move, change, disable,
 or circumvent the license key functionality"). This doc is the single source of
@@ -63,7 +63,7 @@ webhook rows stop streaming immediately.
 Nothing else in the product is currently entitlement-gated. Categories common
 elsewhere in this space (HA/clustering, dedicated single-tenant infra,
 white-labeling, LDAP, tiered data retention, air-gap-specific code) aren't yet
-built as Kortix features at all, so there's nothing to gate — self-hosting the
+built as Dosco features at all, so there's nothing to gate — self-hosting the
 whole product already *is* your dedicated, single-tenant deployment in your own
 VPC or your own on-prem network. It is **not** air-gapped: `kortix self-host
 start` pulls images from docker.io and reaches a sandbox provider over egress.

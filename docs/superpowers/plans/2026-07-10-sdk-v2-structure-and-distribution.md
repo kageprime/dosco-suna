@@ -72,9 +72,9 @@ Every task's requirements implicitly include this section.
 | `packages/sdk/src/core/turns/{parts,grouping,shell,state}.ts` | The split of the 1434-loc `turns/index.ts` | 4 |
 | `packages/sdk/src/deprecated/*.ts` | `@deprecated` re-export shims for the 21 subpaths | 5 |
 | `packages/sdk/src/internal/*.ts` | The 5 zustand stores, explicitly unsupported | 5 |
-| `packages/sdk/tsup.config.ts` | CDN ESM + IIFE `window.Kortix` bundles | 7 |
+| `packages/sdk/tsup.config.ts` | CDN ESM + IIFE `window.Dosco` bundles | 7 |
 | `packages/sdk/examples/07-vanilla.ts` | Full S1 flow, plain TS, zero framework | 9 |
-| `packages/sdk/examples/08-cdn.html` | No build step; streams + renders via `Kortix.classifyTurn` | 9 |
+| `packages/sdk/examples/08-cdn.html` | No build step; streams + renders via `Dosco.classifyTurn` | 9 |
 
 ---
 
@@ -745,7 +745,7 @@ In `packages/sdk/src/core/runtime/kortix-master.ts`, change `export interface Ko
 ```ts
 /**
  * A project inside the sandbox's kortix-master daemon — the `/kortix/projects`
- * board surface (tasks, tickets, milestones), NOT the Kortix platform project.
+ * board surface (tasks, tickets, milestones), NOT the Dosco platform project.
  * The platform's project is `KortixProject` in `core/rest/projects-client`.
  */
 export interface KortixMasterProject {
@@ -768,7 +768,7 @@ export interface KortixMasterProject {
 
 /**
  * @deprecated Renamed to `KortixMasterProject` — it models the kortix-master
- * daemon's board project, not the Kortix platform project (which keeps the name
+ * daemon's board project, not the Dosco platform project (which keeps the name
  * `KortixProject`, exported from the root barrel). Removed in the next major.
  */
 export type KortixProject = KortixMasterProject;
@@ -934,8 +934,8 @@ Expected removals: **zero**. Expected additions: 5 `./internal/*` keys, and a mu
 - [ ] **Step 13: Verify the hosts still compile untouched**
 
 ```bash
-# apps/web's package name is `Kortix-Computer-Frontend`, not @kortix/web.
-pnpm --filter Kortix-Computer-Frontend typecheck 2>&1 | grep "@kortix/sdk" || echo "no SDK resolution errors"
+# apps/web's package name is `Dosco-Computer-Frontend`, not @kortix/web.
+pnpm --filter Dosco-Computer-Frontend typecheck 2>&1 | grep "@kortix/sdk" || echo "no SDK resolution errors"
 pnpm --filter @kortix/whitelabel-demo typecheck
 ```
 
@@ -1004,7 +1004,7 @@ const token = await kortix.project(projectId).tokens.createCliToken({
 
 `src/app/api/usage/route.ts:67` → `kortix.project(projectId).gateway.sessions()`. Confirm the facade name against `core/rest/projects-client/gateway.ts:210` (`GET /projects/:id/gateway/sessions`).
 
-- [ ] **Step 5: Verify no raw Kortix `fetch` remains**
+- [ ] **Step 5: Verify no raw Dosco `fetch` remains**
 
 ```bash
 cd apps/whitelabel-demo
@@ -1137,11 +1137,11 @@ git commit -m "fix(sdk): guard the bare process.env read in platform-client; ban
 
 ---
 
-## Task 8: `tsup` bundles — CDN ESM + `window.Kortix`
+## Task 8: `tsup` bundles — CDN ESM + `window.Dosco`
 
 Additive. The `tsc` ESM `dist/` stays exactly as-is; these are two extra artifacts.
 
-Because Task 5 folded `turns`, `files`, and `session` into root, `window.Kortix` **is** the root barrel — one flat global, `classifyTurn` already in it. No namespace curation list to maintain.
+Because Task 5 folded `turns`, `files`, and `session` into root, `window.Dosco` **is** the root barrel — one flat global, `classifyTurn` already in it. No namespace curation list to maintain.
 
 **Files:**
 - Create: `packages/sdk/tsup.config.ts`
@@ -1150,7 +1150,7 @@ Because Task 5 folded `turns`, `files`, and `session` into root, `window.Kortix`
 
 **Interfaces:**
 - Consumes: `src/index.ts` from Task 5.
-- Produces: `dist/kortix.esm.min.js`, `dist/kortix.global.js` (exposing `window.Kortix`).
+- Produces: `dist/kortix.esm.min.js`, `dist/kortix.global.js` (exposing `window.Dosco`).
 
 - [ ] **Step 1: Add `tsup` and the config**
 
@@ -1185,7 +1185,7 @@ export default defineConfig([
   {
     entry: { 'kortix.global': 'src/index.ts' },
     format: ['iife'],
-    globalName: 'Kortix',
+    globalName: 'Dosco',
     minify: true,
     platform: 'browser',
     outDir: 'dist',
@@ -1222,10 +1222,10 @@ test.skipIf(!built)('no browser bundle contains node:child_process', () => {
   }
 });
 
-test.skipIf(!built)('the IIFE bundle assigns a Kortix global with the core API', () => {
+test.skipIf(!built)('the IIFE bundle assigns a Dosco global with the core API', () => {
   const source = readFileSync(IIFE, 'utf8');
   expect(source.length).toBeGreaterThan(1000);
-  // `globalName: 'Kortix'` makes tsup emit `var Kortix=(()=>{…})()`.
+  // `globalName: 'Dosco'` makes tsup emit `var Dosco=(()=>{…})()`.
   expect(/\bKortix\b/.test(source)).toBe(true);
 });
 ```
@@ -1281,7 +1281,7 @@ Expected: `staged @kortix/sdk@0.0.0-ci for publish`, all entrypoints present. `b
 
 ```bash
 git add -A packages/sdk
-git commit -m "feat(sdk): ship CDN ESM and window.Kortix IIFE bundles via tsup"
+git commit -m "feat(sdk): ship CDN ESM and window.Dosco IIFE bundles via tsup"
 ```
 
 ---
@@ -1410,10 +1410,10 @@ Expected: pass. To prove it works, temporarily add `import 'react';` to `example
 ```html
 <!doctype html>
 <meta charset="utf-8" />
-<title>Kortix SDK — no build step</title>
+<title>Dosco SDK — no build step</title>
 <pre id="out">connecting…</pre>
 
-<!-- The IIFE bundle. `window.Kortix` IS the root barrel: createKortix,
+<!-- The IIFE bundle. `window.Dosco` IS the root barrel: createKortix,
      classifyTurn, ApiError, narrowChatEvent — no namespaces, no build step. -->
 <script src="../dist/kortix.global.js"></script>
 <script>
@@ -1431,7 +1431,7 @@ Expected: pass. To prove it works, temporarily add `import 'react';` to `example
     throw new Error('missing params');
   }
 
-  const kortix = Kortix.createKortix({ backendUrl, getToken: async () => apiKey });
+  const kortix = Dosco.createKortix({ backendUrl, getToken: async () => apiKey });
 
   (async () => {
     try {
@@ -1439,7 +1439,7 @@ Expected: pass. To prove it works, temporarily add `import 'react';` to `example
       await session.ensureReady();
       await session.stream({
         onEvent: (event) => {
-          const narrowed = Kortix.narrowChatEvent(event);
+          const narrowed = Dosco.narrowChatEvent(event);
           if (narrowed) log(`· ${narrowed.type}`);
         },
       });
@@ -1449,7 +1449,7 @@ Expected: pass. To prove it works, temporarily add `import 'react';` to `example
       // D3: `instanceof ApiError` must work under the browser bundle. If the page
       // ever loads BOTH this global and the ESM build, there are two ApiError
       // classes and this check silently fails — that is the dual-package hazard.
-      if (error instanceof Kortix.ApiError) log(`ApiError ${error.status}: ${error.message}`);
+      if (error instanceof Dosco.ApiError) log(`ApiError ${error.status}: ${error.message}`);
       else log(`error: ${error}`);
     }
   })();
@@ -1510,7 +1510,7 @@ await kortix.projects.list();
 ```html
 <script src="https://unpkg.com/@kortix/sdk"></script>
 <script>
-  const kortix = Kortix.createKortix({ backendUrl, getToken });
+  const kortix = Dosco.createKortix({ backendUrl, getToken });
 </script>
 ```
 
@@ -1552,7 +1552,7 @@ Older subpaths (`@kortix/sdk/projects-client`, `/turns`, …) still work and are
 ### Added
 - The root entry `@kortix/sdk` is now canonical: it exports the whole
   framework-free surface (client, session, turns, files, event stream, errors).
-- CDN builds: a minified ESM bundle and an IIFE exposing `window.Kortix`.
+- CDN builds: a minified ESM bundle and an IIFE exposing `window.Dosco`.
   Usable from a `<script>` tag with no bundler.
 - `KortixMasterProject` — the kortix-master daemon's board project.
 - `@kortix/sdk/internal/*` for the zustand stores. Not covered by semver.
@@ -1603,7 +1603,7 @@ git commit -m "docs(sdk): document the single canonical entry, CDN usage, and th
 
 ## Self-Review
 
-**Spec coverage.** D1 → Task 9 Step 1. D2/D2a → Task 9 Step 6. D2b → Task 8 Step 2. D2c → Task 7. D2d → Task 5 Step 13. D3 → Task 9 Step 5 (`instanceof Kortix.ApiError`). D4 → Tasks 4, 7, 9. D5 → Task 2. D6 → Tasks 3, 5 Step 12. D7 → Task 5 (react consumes the public contract). D8 → Task 6. D9 → every task's final verify. Axis 1 → Task 4. Axis 2 → Task 5. `KortixProject` → Task 5 Steps 1–5. The 7 ambiguities → Task 5 Step 6.
+**Spec coverage.** D1 → Task 9 Step 1. D2/D2a → Task 9 Step 6. D2b → Task 8 Step 2. D2c → Task 7. D2d → Task 5 Step 13. D3 → Task 9 Step 5 (`instanceof Dosco.ApiError`). D4 → Tasks 4, 7, 9. D5 → Task 2. D6 → Tasks 3, 5 Step 12. D7 → Task 5 (react consumes the public contract). D8 → Task 6. D9 → every task's final verify. Axis 1 → Task 4. Axis 2 → Task 5. `KortixProject` → Task 5 Steps 1–5. The 7 ambiguities → Task 5 Step 6.
 
 **Known plan risks, stated rather than hidden:**
 

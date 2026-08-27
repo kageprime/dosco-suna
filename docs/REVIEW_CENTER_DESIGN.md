@@ -46,7 +46,7 @@ Also built since:
 
 ## 1. Why
 
-Today a human reviewing agent work in Kortix is handed something that reads like a raw GitHub pull
+Today a human reviewing agent work in Dosco is handed something that reads like a raw GitHub pull
 request: branch UUIDs, commit SHAs, `fast-forward` vs `3-way` merge jargon, raw conflict file-lists, and
 `@@` diff hunks. That is fine for engineers and wrong for everyone else. Meanwhile the other moments where
 a human needs to weigh in — "the agent wants to send a real email," "the agent finished 15 tasks," "the
@@ -237,7 +237,7 @@ GET    /v1/projects/:projectId/review/stream           # SSE — live updates (r
 The center must work for Slack-triggered sessions, not just the web.
 
 - **In-thread cards.** A review request posts in the session's thread as a Block Kit card: title + summary +
-  risk + buttons — **Approve · Deny · Ask for changes · View in Kortix** — mirroring the existing
+  risk + buttons — **Approve · Deny · Ask for changes · View in Dosco** — mirroring the existing
   `buildQuestionBlocks` button structure. Action ids `review_<id>_<verb>` are handled by a generalized
   `handleReviewAction` that routes to the same dispatcher as `handleQuestionAnswer` → `spawnAgentTurn`, so
   the agent resumes exactly as it does for questions today.

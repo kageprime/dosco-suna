@@ -91,7 +91,7 @@ them is redundant.
 5. `@` results come from a shared, revalidating cache — fresh skills and files
    without a per-composer `Set`.
 6. Attachment tiles in the composer match the tiles in the sent message.
-7. The visual language matches the Kortix design system and works from 320 px up.
+7. The visual language matches the Dosco design system and works from 320 px up.
 8. Every behaviour in §7 survives.
 
 ## 3. Non-goals

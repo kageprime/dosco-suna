@@ -11,8 +11,8 @@ Make model selection and defaults a **first-class, dead-simple SDK/API surface**
 
 - Set/get the **default model** at **project**, **agent**, and **trigger** scope
   through the SDK, cleanly — no host-local logic, no ugly key juggling.
-- Treat the **Kortix LLM gateway as the sole authority** for entitlement
-  (free-tier / subscription / budget). Kortix managed models are **just a
+- Treat the **Dosco LLM gateway as the sole authority** for entitlement
+  (free-tier / subscription / budget). Dosco managed models are **just a
   provider**; the client passes the user's token and renders the catalog the
   server hands back. **No free-tier logic in the SDK/client.**
 - `@kortix/sdk` is the single source of truth — apps consume it.
@@ -24,7 +24,7 @@ Three layers, mapped:
 1. **Gateway (already correct).** Entitlement is enforced *entirely server-side*.
    The gateway authenticates the token → resolves the account tier → (a) filters
    the `/llm-catalog` per tier and (b) rejects an unavailable managed model at
-   request time (402/400). The SDK Connector client has **zero** tier logic. Kortix is
+   request time (402/400). The SDK Connector client has **zero** tier logic. Dosco is
    injected into OpenCode as an OpenAI-compatible provider (`kortix`) via
    `KORTIX_LLM_API_KEY` + `KORTIX_LLM_BASE_URL`. **This is exactly the architecture
    you want — it already exists.**
@@ -77,7 +77,7 @@ default and no per-trigger model.
 - If a caller ever sends a model it isn't entitled to, the gateway returns a clear
   **402/400**; the SDK surfaces that as a normal runtime error (same path as any
   send error). No pre-emptive client gating.
-- Net: Kortix managed models are **just a provider** in the catalog; the user's
+- Net: Dosco managed models are **just a provider** in the catalog; the user's
   token + the gateway decide entitlement. Clean concern separation, as intended.
 
 ### 2. Model defaults: one scoped surface, server-resolved

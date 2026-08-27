@@ -6,7 +6,7 @@
 > [Managed Model Entitlement and Concrete Defaults](2026-07-24-managed-model-entitlement-and-concrete-defaults.md)
 
 The original design used a synthetic `auto` model as a server-side default-model
-indirection. Kortix no longer exposes or resolves that model.
+indirection. Dosco no longer exposes or resolves that model.
 
 Current behavior:
 
@@ -16,7 +16,7 @@ Current behavior:
 4. Default fallback and vision policies match the resolved concrete default.
 5. `auto` and `kortix/auto` are stale inputs. The gateway returns
    `400 model_not_found`.
-6. Free and `none` tiers cannot use Kortix-managed models.
+6. Free and `none` tiers cannot use Dosco-managed models.
 7. Wallet balance does not grant managed-model entitlement.
 8. BYOK and connected ChatGPT/Codex use provider-funded paths.
 

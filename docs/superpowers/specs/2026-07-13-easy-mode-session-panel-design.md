@@ -11,7 +11,7 @@ The session panel today is built for engineers. It is a one-tool-at-a-time stepp
 and a raw tool view for whichever of the 104 registered tools is selected. A
 non-technical user opening it sees `grep`, `pty_spawn`, and JSON arguments.
 
-Kortix's primary audience is non-technical. The panel should, by default, tell that
+Dosco's primary audience is non-technical. The panel should, by default, tell that
 user what the agent is *doing* — in their language — while keeping every bit of
 engineer detail one tap away for the people who want it.
 

@@ -33,7 +33,7 @@ Everything below was verified against the repo, not assumed.
 |---|---|
 | Package is live on npm | `npm view @kortix/sdk version` → `0.9.100` |
 | Real adoption is ~zero | 436 downloads/month, package `created` 2026-07-07 (2 days). The former standalone Connector client had 5,854 downloads/month for scale. |
-| The 400k Kortix users are **not** SDK installers | They consume it transitively via `apps/web`; a break surfaces at *our* build time, not their runtime |
+| The 400k Dosco users are **not** SDK installers | They consume it transitively via `apps/web`; a break surfaces at *our* build time, not their runtime |
 | `version` in `package.json` is inert | `scripts/stage-npm-publish.mjs:32` — `pkg.version = version` from the root `VERSION` file (`0.9.102`) |
 | Baseline is green | 1046 tests pass / 0 fail across 65 files; `typecheck` exits 0 |
 | Nothing tests an actual install | CI runs `npm pack --dry-run` (file list only). `publishConfig.exports` is a hand-maintained parallel map with zero coverage. |
@@ -264,10 +264,10 @@ each declared once and need only an explicit re-export at the barrel.
 
 #### A pleasant consequence
 
-An earlier decision — what goes in the `window.Kortix` IIFE global — chose
+An earlier decision — what goes in the `window.Dosco` IIFE global — chose
 "root barrel **plus** curated `turns` / `files` / `session` namespaces", because
 `classifyTurn` lived at `./turns` and a CDN page could stream but not render.
-Once those modules fold into root, **the question dissolves**: `window.Kortix`
+Once those modules fold into root, **the question dissolves**: `window.Dosco`
 *is* the root barrel, and it already contains `classifyTurn`. One flat global, no
 namespaces, no curation list to maintain.
 
@@ -284,7 +284,7 @@ Exported names are the API. This is now written into `packages/sdk/AGENTS.md`
 - To rename, **alias — never replace**: keep the old name as a `@deprecated`
   type alias, remove only on a major.
 - Conventions: `createX` factories, `XError` errors, `useX` hooks, `PascalCase`
-  types, no `I` prefix, no abbreviations. Do **not** prefix with `Kortix` unless
+  types, no `I` prefix, no abbreviations. Do **not** prefix with `Dosco` unless
   the bare name collides with a common global (`File`, `Event`, `Response`).
   `Project` beats `KortixProject`.
 
@@ -400,7 +400,7 @@ maintained in parallel forever.
 
 Streaming is not "done" because `state/event-stream.test.ts` passes (28 tests).
 It is done when events are **observed arriving** in the ESM `dist/`, the CDN ESM
-bundle, the `window.Kortix` IIFE global, and under the RN transport.
+bundle, the `window.Dosco` IIFE global, and under the RN transport.
 
 ### The tripwire has a hole, and RN is how you fall in it
 
@@ -439,7 +439,7 @@ npm consumers resolve. Add `tsup` as an SDK-only devDependency producing two
 additional artifacts:
 
 - a minified ESM bundle for `<script type="module">` / CDN
-- an IIFE `dist/kortix.global.js` exposing `window.Kortix` (the root barrel)
+- an IIFE `dist/kortix.global.js` exposing `window.Dosco` (the root barrel)
 
 Wire `browser` / `unpkg` / `jsdelivr` fields. Both are **purely additive**; no
 existing consumer is affected. The tripwire extends to cover the bundle entries.
@@ -463,12 +463,12 @@ do the trapeze.
 
 ## Lumen ships anonymous — and none of that is SDK work
 
-`apps/whitelabel-demo` (Lumen) will let visitors try Kortix **without logging in**.
+`apps/whitelabel-demo` (Lumen) will let visitors try Dosco **without logging in**.
 Two conclusions, and the second is the important one.
 
 **1. The SDK needs zero changes for this. It is a validation, not a gap.**
 
-Lumen already runs "wrapper mode": the Kortix PAT lives only on the server, the
+Lumen already runs "wrapper mode": the Dosco PAT lives only on the server, the
 browser talks to `/api/kortix/[...path]`, and the SDK is configured with Lumen's
 *own* HMAC-signed session token via `getToken()`. The SDK never knew or cared what
 identity backed that token — which is precisely what the `getToken` seam is for.
@@ -563,10 +563,10 @@ Each step is the guardrail for the next. This ordering is load-bearing.
    **This is browser work, not RN work.** A bare `process.env` read throws a
    `ReferenceError` in the CDN `<script>` bundle (step 7). RN is merely the *other*
    place it breaks. Not skippable.
-7. **`tsup` bundles** on the final shape — CDN ESM + `window.Kortix`.
+7. **`tsup` bundles** on the final shape — CDN ESM + `window.Dosco`.
 8. **Tripwire over `examples/`** — asserts the framework-free claim in CI.
 9. **`examples/07-vanilla.ts`** (full flow, plain TS) and **`examples/08-cdn.html`**
-   (no build step, streams and renders via `Kortix.classifyTurn`).
+   (no build step, streams and renders via `Dosco.classifyTurn`).
 10. **Docs** — CHANGELOG, README, API-MAP with a stability table. The README's
     install-and-first-call section is now the front door for a shipping product,
     not a demo.
@@ -582,7 +582,7 @@ stamp itself.
 - **D1** A plain `.ts` file runs `createKortix → projects.list() → session().send()
   → session.stream() → classifyTurn`, with zero React/DOM/Node in the import
   graph, asserted by the tripwire.
-- **D2** A `<script type="module">` page and a `window.Kortix` IIFE page both
+- **D2** A `<script type="module">` page and a `window.Dosco` IIFE page both
   stream a session and render its transcript, with no build step.
 - **D2a** **Streaming is observed delivering events in all three distribution
   targets** — the ESM `dist/`, the CDN ESM bundle, and the IIFE global. Not
@@ -608,9 +608,9 @@ has been deferred with the seam. It returns with the follow-up spec.)*
   restructure is reviewed and intentional.
 - **D7** `@kortix/sdk/react` consumes only the public contract.
 - **D8** `apps/whitelabel-demo` — **the first production ship** — reaches the
-  Kortix backend exclusively through `@kortix/sdk*`, imports it via the **root
+  Dosco backend exclusively through `@kortix/sdk*`, imports it via the **root
   entry only** (plus `/react` and `/server`, by rule), typechecks, and passes
-  `bun test tests/e2e`. No raw `fetch` to the Kortix API remains. This is the
+  `bun test tests/e2e`. No raw `fetch` to the Dosco API remains. This is the
   acceptance test for the whole spec: if the public surface cannot power a real
   shipping app, the surface is wrong.
 - **D9** `typecheck` + `test` + tripwire green at every step, not just the last.

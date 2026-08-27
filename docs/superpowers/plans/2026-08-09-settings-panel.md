@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Merge Kortix's three settings surfaces into one full-screen overlay built on a vertical `Tabs` list, and delete `app/(app)/accounts/**`.
+**Goal:** Merge Dosco's three settings surfaces into one full-screen overlay built on a vertical `Tabs` list, and delete `app/(app)/accounts/**`.
 
 **Architecture:** One `<Tabs orientation="vertical">` wraps both columns of the existing full-screen `Modal`. `TabsList` renders in the 250px left rail; `TabsContent` renders in the pane. A single `SettingsSectionHeader` primitive renders every section header. Tab visibility keeps the current fail-open IAM probe. Content moves tab-by-tab; each phase leaves the app working.
 

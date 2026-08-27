@@ -348,7 +348,7 @@ Create `packages/sdk/src/react/query-keys.ts`:
 
 ```ts
 /**
- * The one place a Kortix query key is constructed.
+ * The one place a Dosco query key is constructed.
  *
  * Before this existed, `apps/web` hand-typed roughly 176 key literals across
  * 30 `project*` families. One entity therefore had several cache entries

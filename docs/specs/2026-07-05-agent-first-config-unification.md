@@ -28,7 +28,7 @@ Facts established by direct code inspection — each of these shapes a decision 
 1. **`[[agents]]` is a governance overlay, not an agent definition.** It carries
    `connectors`/`kortix_cli`/`env` grants. All *behavior* (prompt, mode, tools,
    permission tree, temperature, steps…) lives in hand-authored
-   `.kortix/opencode/agents/*.md` files that Kortix passes through blind.
+   `.kortix/opencode/agents/*.md` files that Dosco passes through blind.
 2. **Two `[[agents]]` fields are dead**: `model` parses and round-trips but never
    reaches the running OpenCode process (effective model comes from
    `KORTIX_OPENCODE_MODEL` ← session/model-preferences DB); `file` is carried but
@@ -106,7 +106,7 @@ Facts established by direct code inspection — each of these shapes a decision 
 > sub-object inside the manifest's agent block, with an "illegal frontmatter"
 > gate on the `.md`) shipped first, then was killed the same day for hedging
 > between two homes for one concern. **The replacement, in one sentence:
-> OpenCode behavior lives in the native `.md` (frontmatter + body); Kortix
+> OpenCode behavior lives in the native `.md` (frontmatter + body); Dosco
 > governance lives in `kortix.yaml`. One home per concern.** Everything below
 > describes the *current*, redirected model. The nested-`opencode:`-block /
 > illegal-frontmatter design is dead — do not resurrect it.
@@ -115,7 +115,7 @@ The v2 agent entry does NOT unify `[[agents]]` (TOML) and
 `.kortix/opencode/agents/*.md` into one manifest-side bag of fields. Instead
 it leaves behavior exactly where OpenCode itself already expects it — the
 agent's own `.md` frontmatter + body, a stock OpenCode agent file with no
-Kortix-specific split — and narrows the manifest's `agents:` map down to pure
+Dosco-specific split — and narrows the manifest's `agents:` map down to pure
 governance:
 
 ```yaml
@@ -165,16 +165,16 @@ Rules:
   top-level `[opencode] config_dir`, default `.kortix/opencode` — unrelated to
   the old per-agent nesting, this is the same project-wide setting v1 always
   had). No manifest field ever spells this path out.
-- **`model` and `description` moved OFF the Kortix layer** — both are native
+- **`model` and `description` moved OFF the Dosco layer** — both are native
   OpenCode `AgentConfig` fields (the gateway/session pipeline still resolves
   `model` the same way; `description` is what OpenCode itself uses for
   subagent-selection hints), so both live in the `.md` now, not in
-  `kortix.yaml`. `enabled` stays the one Kortix-governance field with no
+  `kortix.yaml`. `enabled` stays the one Dosco-governance field with no
   OpenCode equivalent — "can this agent even start a session," a
   platform-level gate, orthogonal to whatever the `.md`'s own native
   `disable` field (if hand-authored) says.
 - **Frontmatter is EXPECTED, never illegal.** A stock OpenCode agent `.md` —
-  including ones with rich frontmatter nobody wrote with Kortix in mind — is
+  including ones with rich frontmatter nobody wrote with Dosco in mind — is
   valid v2 input as-is. The "illegal frontmatter" gate and the nested
   `opencode:` manifest sub-object are both **removed outright**, not renamed
   again. Authoring any behavioral field (`description`/`model`/`mode`/
@@ -325,7 +325,7 @@ agent." Target:
   credential or being explicitly disallowed. The sales-outreach scenario above
   is the acceptance test for that feature.
 
-### 2.6 Kortix CLI permissions: role-anchored, approval-capable
+### 2.6 Dosco CLI permissions: role-anchored, approval-capable
 
 Decision: **do not fold `kortix_cli` into connectors.** The role ceiling
 (`userRole ∩ agentGrant`) is the system's core invariant and lives in the IAM

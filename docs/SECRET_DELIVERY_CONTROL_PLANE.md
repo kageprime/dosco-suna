@@ -9,16 +9,16 @@ and the `network_boundary_shim` flag are deleted.
 
 ## Problem and contract
 
-Encryption at rest does not protect a secret after Kortix places its plaintext
+Encryption at rest does not protect a secret after Dosco places its plaintext
 value in a sandbox. Agent code can read, print, copy, or forward every runtime
 environment variable.
 
-Kortix therefore separates four decisions:
+Dosco therefore separates four decisions:
 
 1. **Identifier:** The stable handle used by grants and session allowlists.
 2. **Key:** The environment variable or provider key, such as
    `ANTHROPIC_API_KEY`. Several identifiers can use the same key.
-3. **Consumer:** The only Kortix subsystem allowed to use the decrypted value.
+3. **Consumer:** The only Dosco subsystem allowed to use the decrypted value.
 4. **Strategy:** The delivery method, or a decision to deliver nothing.
 
 The system contract is:
@@ -33,11 +33,11 @@ The product term is **Secret**. An environment variable is one delivery form.
 | Strategy | Consumer | Sandbox receives | Current behavior |
 | --- | --- | --- | --- |
 | `runtime` | `sandbox` | Plaintext value | Available for code that must read the value locally |
-| `broker` | `llm_gateway` | Nothing | Kortix authenticates provider requests server-side |
-| `broker` | `connector` | Nothing | Kortix resolves automation and channel credentials server-side |
-| `broker` | `http_broker` | Opaque session handle | Kortix makes one policy-bound HTTPS request |
+| `broker` | `llm_gateway` | Nothing | Dosco authenticates provider requests server-side |
+| `broker` | `connector` | Nothing | Dosco resolves automation and channel credentials server-side |
+| `broker` | `http_broker` | Opaque session handle | Dosco makes one policy-bound HTTPS request |
 | `broker` | `git_proxy` | Nothing | Git uses its separate encrypted credential path |
-| `egress` | `network` | A self-describing handle | Kortix substitutes the real value for the handle outside the guest, on exact approved HTTPS hosts |
+| `egress` | `network` | A self-describing handle | Dosco substitutes the real value for the handle outside the guest, on exact approved HTTPS hosts |
 | `denied` | none | Nothing | Stored but disabled |
 
 `runtime` is the only strategy that sends plaintext to a sandbox. No managed
@@ -62,7 +62,7 @@ flag, so the strategy is never rejected for unavailability. See
 
 An `egress` policy is a HOST LIST. It does not support wildcard hosts. A legacy
 row that still carries `inject` additionally rejects method filters, path
-filters, and non-header injection slots. Kortix rejects an unenforceable policy
+filters, and non-header injection slots. Dosco rejects an unenforceable policy
 with `400`.
 
 ## Access flow
@@ -103,7 +103,7 @@ The secret consumer resolver performs these steps:
 4. Write `secret.consumer.used`, `denied`, `missing`, or `invalid`.
 5. Return the value only to the named server subsystem.
 
-The sandbox uses its session-scoped `KORTIX_TOKEN` to call Kortix. Provider,
+The sandbox uses its session-scoped `KORTIX_TOKEN` to call Dosco. Provider,
 connector, Git, and automation credentials do not need to enter the sandbox.
 
 ## Creation defaults and migration
@@ -126,7 +126,7 @@ rotation because an earlier sandbox can retain plaintext.
 
 A switch away from `runtime` updates active sandboxes immediately where the
 provider supports environment synchronization. Rotation is still required to
-invalidate copies that may already exist outside Kortix control.
+invalidate copies that may already exist outside Dosco control.
 
 ## Multiple credentials and provider fallback
 
@@ -142,7 +142,7 @@ The LLM gateway tries credentials in this order:
 
 1. The canonical identifier that equals the key.
 2. Other identifiers by most recent update time, then identifier.
-3. The managed Kortix provider, when configured.
+3. The managed Dosco provider, when configured.
 
 An active personal override replaces its matching shared identifier. It does
 not remove other identifiers from the fallback list.
@@ -155,7 +155,7 @@ error. Existing provider and model fallback rules still handle their defined
 
 ## HTTPS broker
 
-The HTTP broker is for credentials that Kortix can inject into one controlled
+The HTTP broker is for credentials that Dosco can inject into one controlled
 HTTPS request. Its policy contains:
 
 - one or more exact approved hosts;
@@ -538,7 +538,7 @@ until every connector binding is removed.
 
 The web secret editor exposes the same binding as a connector checklist. It
 never reads or copies the secret value. Connector calls resolve the current
-value inside Kortix and send it only through the connector's declared
+value inside Dosco and send it only through the connector's declared
 authentication scheme.
 
 ## Product surfaces

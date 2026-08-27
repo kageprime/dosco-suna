@@ -30,7 +30,7 @@ $ curl -s localhost:4096/agent  | grep -c RELOAD-E2E-MARKER-A1B2C3
 The probe is valid — both endpoints contain other prompt text:
 
 ```
-$ curl -s localhost:4096/config | grep -c "Kortix general knowledge worker"
+$ curl -s localhost:4096/config | grep -c "Dosco general knowledge worker"
 1
 ```
 

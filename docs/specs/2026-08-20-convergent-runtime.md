@@ -42,10 +42,10 @@ Two corollaries that shape every decision below:
 
 | Component | Size | Served from | Swap safety |
 |---|---|---|---|
-| `agent` (`kortix-agent`) | ~95.6 MB | Kortix API | supervisor, boot-only |
-| `cli` (`kortix`) | ~104 MB | Kortix API | atomic rename, live-safe |
+| `agent` (`kortix-agent`) | ~95.6 MB | Dosco API | supervisor, boot-only |
+| `cli` (`kortix`) | ~104 MB | Dosco API | atomic rename, live-safe |
 | `opencode` (+ matching `@opencode-ai/plugin`) | ~167 MB | npm registry | idle-only, restarts opencode |
-| `managed-skills` | small | Kortix API | staged dir swap |
+| `managed-skills` | small | Dosco API | staged dir swap |
 
 `opencode` is fetched from npm by the daemon, not proxied through our API: the
 manifest states the *expected version*, and 167 MB per stale box has no business
@@ -183,7 +183,7 @@ is the signal that tells us when a fleet-drain gate has actually cleared.
 The daemon runs as root and this is a remote-code-execution channel by
 construction. Controls, in order of how much they carry:
 
-- Transport is TLS to an authenticated Kortix API; the token is the sandbox's.
+- Transport is TLS to an authenticated Dosco API; the token is the sandbox's.
 - Every artifact is verified by **sha256 against the manifest** before it is
   moved into place, and the supervisor **re-verifies** independently of the
   daemon.
@@ -205,7 +205,7 @@ guarantee for a stronger one.
 - `OPENCODE_VERSION` can eventually leave the snapshot identity, ending
   full-fleet template rebuilds on every bump. Identity stays as the *cache key*
   for fast boots; convergence is what guarantees correctness.
-- The daemon becomes the unit that makes any machine a Kortix machine, which is
+- The daemon becomes the unit that makes any machine a Dosco machine, which is
   the shape self-host and BYO-compute need. Those will want
   `policy.agent_self_update: false` and a pinned version, which the kill switch
   already expresses.

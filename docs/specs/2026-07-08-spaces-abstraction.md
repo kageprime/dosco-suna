@@ -32,7 +32,7 @@ same tables. See §4.
 
 ## 2. Motivation
 
-Two problems compound inside a Kortix project as it grows past a handful of people:
+Two problems compound inside a Dosco project as it grows past a handful of people:
 
 **Organization.** A project accumulates sessions from many contributors and many purposes —
 scheduled jobs, Slack threads, one-off explorations, a long-running initiative. A flat sidebar
@@ -63,7 +63,7 @@ Space
  └─ membership/grants — who can see it, and what they inherit by being in it
 ```
 
-A Space still belongs to exactly one Kortix project — it is not a peer of a project, it's a
+A Space still belongs to exactly one Dosco project — it is not a peer of a project, it's a
 sub-context inside one. A project can have many Spaces; a Space does not span projects. This
 keeps the mental model simple: **project = tenant/workspace boundary, Space = organizing +
 access boundary within it.**

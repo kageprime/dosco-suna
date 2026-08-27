@@ -39,7 +39,7 @@ The existing connector and connection credential routes accept one of these bodi
 
 ## Storage and execution
 
-- Kortix requests the first access token before it saves the credential.
+- Dosco requests the first access token before it saves the credential.
 - The encrypted credential contains the OAuth2 configuration and cached access token.
 - The Connector resolves the credential on every call.
 - A token with 60 seconds or less remaining is expired.

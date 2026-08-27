@@ -16,7 +16,7 @@ Implementation target: `apps/web/src/features/workspace/customize/` (renamed),
 
 ## Problem
 
-Kortix has three separate settings surfaces. They hold overlapping content, use
+Dosco has three separate settings surfaces. They hold overlapping content, use
 three different shells, and none of them uses the `Tabs` primitive.
 
 | Surface | File | Lines | Shell | Scope |
@@ -50,7 +50,7 @@ Four concrete defects follow from this split.
 
 ### Mobbin, closest product analogues
 
-Cursor is the nearest analogue to Kortix on Mobbin: an agent product with
+Cursor is the nearest analogue to Dosco on Mobbin: an agent product with
 projects, models, members, and metered spend, whose settings carry exactly the
 scope mix this panel has to solve.
 
@@ -127,7 +127,7 @@ and are cited in its place rather than inventing a link.
   covers destructive actions.
 - [Revolut Business](https://mobbin.com/screens/14dedbb5-61cc-4ef0-895d-a75d7a92767e)
   — full-screen settings overlay with a close control and an icon rail. This is
-  the shell Kortix already has.
+  the shell Dosco already has.
 - [Squarespace](https://mobbin.com/screens/0cb9a5e6-72e1-4cc8-a214-93c4a65a6c10)
   — breadcrumb above the pane title (`Selling › Business Information`).
 - [Google Drive](https://mobbin.com/screens/c026c57c-8eba-4d55-b68f-d99ebc4416f3)

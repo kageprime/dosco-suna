@@ -24,6 +24,6 @@ Show how agent work reaches `main` through a human decision. The panel must read
 ## Visual Rules
 
 - Fill the complete showcase height with the transcript and review gate.
-- Use semantic Kortix tokens, flat bordered surfaces, one state color, and Phosphor status icons.
+- Use semantic Dosco tokens, flat bordered surfaces, one state color, and Phosphor status icons.
 - Keep the complete pending and resolved states legible in the 256 px mobile frame.
 - Keep visible copy to the prompt, request title, decision, and status.

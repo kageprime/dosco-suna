@@ -2,7 +2,7 @@
 
 > This analysis measures the v2 OpenCode REST boot path.
 
-> Goal §1: *Performance: Kortix minimal harness + session boot optimization —
+> Goal §1: *Performance: Dosco minimal harness + session boot optimization —
 > **1-second threshold**.* This doc is the grounded scoping step before any
 > code: where are we today, what's the 1s target, and what's the attack
 > sequence to close the gap.
@@ -23,7 +23,7 @@ The stages, in order:
 | 3 | `repo-materialized` | Project repo cloned/seeded into the sandbox | Cold: full clone; warm: snapshot restore |
 | 4 | `config-deps` | OpenCode config deps installed (`/opt/kortix/opencode-config-deps`) | Cold: install; warm: pre-installed |
 | 5 | `opencode-spawned` | OpenCode process spawned | Always (spawn cost) |
-| 6 | `proxy-up` | Kortix proxy server (LLM + connector) up | Always |
+| 6 | `proxy-up` | Dosco proxy server (LLM + connector) up | Always |
 | 7 | `opencode-ready` | OpenCode reports ready (config loaded, providers initialized) | Always (OpenCode's own boot) |
 | 8 | `opencode-session-created` | First OpenCode conversation created (UI-usable) | If `initialOpenCodeSessionRequired` |
 
@@ -81,14 +81,14 @@ that can plausibly hit 1s.
    the **dominant cost** in the warm path (hundreds of ms to seconds).
    **Unknown: actual OpenCode boot time on a warm snapshot.** Second thing to
    measure.
-3. **Proxy up** (stage 6) — Kortix's own LLM + connector proxy. Should be fast
+3. **Proxy up** (stage 6) — Dosco's own LLM + connector proxy. Should be fast
    (in-process Hono server) but has startup work (gateway catalog refresh,
    connector proxy bind). **Likely <100ms** but unmeasured.
 4. **Repo materialization** (stage 3) — in warm mode this is a snapshot
    restore (fast); in cold mode it's a full `git clone` (slow, seconds). The
    warm path sidesteps this.
 5. **Network round-trips** — the API → sandbox provider → sandbox → API
-   callback chain. Each hop is latency. Platinum (Kortix's own microVM) may
+   callback chain. Each hop is latency. Platinum (Dosco's own microVM) may
    have lower latency than Daytona (external).
 
 ### What we DON'T know (and must measure before optimizing)
