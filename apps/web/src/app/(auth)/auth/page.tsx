@@ -59,6 +59,7 @@ import {
 } from './actions';
 
 const GoogleSignIn = lazy(() => import('@/features/auth/google-signin'));
+const GitHubSignIn = lazy(() => import('@/features/auth/github-signin'));
 
 type Step = 'entry' | 'sso' | 'credentials' | 'code';
 
@@ -174,6 +175,8 @@ function AuthCardForm({
       .filter(Boolean);
   }, []);
   const googleEnabled = enabledProviders.includes('google');
+  const githubEnabled = enabledProviders.includes('github');
+  const socialEnabled = googleEnabled || githubEnabled;
 
   // Only probe SSO when the Supabase instance actually has SAML enabled. A fresh
   // self-hosted deployment has it off, so probing every work-email Continue would
@@ -827,13 +830,23 @@ function AuthCardForm({
       <m.div {...rise(0.06)}>
         {info && <InfoStrip message={info} />}
 
-        {googleEnabled && (
-          <div className="mb-8">
+        {socialEnabled && (
+          <div className="mb-8 space-y-3">
             <Suspense fallback={null}>
-              <GoogleSignIn
-                returnUrl={returnUrl}
-                mobileCallbackState={mobileCallbackState ?? undefined}
-              />
+              {googleEnabled && (
+                <GoogleSignIn
+                  returnUrl={returnUrl}
+                  mobileCallbackState={mobileCallbackState ?? undefined}
+                />
+              )}
+            </Suspense>
+            <Suspense fallback={null}>
+              {githubEnabled && (
+                <GitHubSignIn
+                  returnUrl={returnUrl}
+                  mobileCallbackState={mobileCallbackState ?? undefined}
+                />
+              )}
             </Suspense>
           </div>
         )}

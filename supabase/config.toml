@@ -63,6 +63,21 @@ client_id = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
 redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"
 
+# Google OAuth — "Sign in with Google" on /auth.
+#
+# Requires a Google Cloud OAuth 2.0 Client ID (type: Web application) with the
+# Supabase callback registered under "Authorized redirect URIs":
+#   http://127.0.0.1:54321/auth/v1/callback
+# Set SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID and
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET in the supabase CLI environment
+# (see supabase/.env.example) before running `supabase start` /
+# `supabase stop && supabase start`.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"
+
 # ─── Realtime ─────────────────────────────────────────────────────────────────
 [realtime]
 enabled = false
