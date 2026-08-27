@@ -40,7 +40,7 @@ const helpData = {
       items: [
         {
           title: 'GitHub Repository',
-          url: 'https://github.com/kortix-ai/suna',
+          url: '?',
           external: true,
         },
         {

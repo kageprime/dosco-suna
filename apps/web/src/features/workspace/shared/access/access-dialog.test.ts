@@ -220,8 +220,8 @@ describe('accessDialogCopy', () => {
       current: { role: builtinRole('member') },
     };
     expect(accessDialogCopy(ACCOUNT, mode).description).toContain('in this account.');
-    expect(accessDialogCopy(ACCOUNT, mode, { accountName: 'Kortix' }).description).toContain(
-      'in Kortix.',
+    expect(accessDialogCopy(ACCOUNT, mode, { accountName: 'Dosco' }).description).toContain(
+      'in Dosco.',
     );
   });
 
@@ -249,11 +249,11 @@ describe('accessDialogCopy', () => {
         { type: 'member', id: 'u_2', label: 'b' },
       ],
     };
-    expect(accessDialogCopy(ACCOUNT, one, { accountName: 'Kortix' }).description).toBe(
-      'Change what 1 person can do in Kortix.',
+    expect(accessDialogCopy(ACCOUNT, one, { accountName: 'Dosco' }).description).toBe(
+      'Change what 1 person can do in Dosco.',
     );
-    expect(accessDialogCopy(ACCOUNT, many, { accountName: 'Kortix' }).description).toBe(
-      'Change what 2 people can do in Kortix.',
+    expect(accessDialogCopy(ACCOUNT, many, { accountName: 'Dosco' }).description).toBe(
+      'Change what 2 people can do in Dosco.',
     );
     expect(accessDialogCopy(ACCOUNT, many).submitLabel).toBe('Save');
   });

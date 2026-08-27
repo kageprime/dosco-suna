@@ -1104,7 +1104,7 @@ export function ConnectorDetail({
     connector.provider,
   );
   const usesProjectAuthorization = connector.authorizationStrategy === 'project';
-  // The connection's connection_id — the reference a backend (Kortix as a Backend)
+  // The connection's connection_id — the reference a backend (Dosco as a Backend)
   // passes in `connector_bindings` to run a session AS this connection. It isn't
   // surfaced anywhere else, so we expose + copy it here. Project-default connection
   // only (the account this connector is connected as for the whole project).
@@ -1969,7 +1969,7 @@ export function EmailConnectForm({
 }) {
   const mode = useEmailMode(projectId);
   const connect = useConnectEmail();
-  const [displayName, setDisplayName] = useState('Kortix Agent');
+  const [displayName, setDisplayName] = useState('Dosco Agent');
   const [username, setUsername] = useState(() =>
     connectorSlug
       .replace(/^email_/, '')
@@ -2043,7 +2043,7 @@ export function EmailConnectForm({
         title={managedAvailable ? 'Create managed Email inbox' : 'Managed Email is not configured'}
       >
         {managedAvailable
-          ? 'Kortix will create and manage the AgentMail inbox for this connection.'
+          ? 'Dosco will create and manage the AgentMail inbox for this connection.'
           : 'This deployment needs a project-specific AgentMail key before it can create an inbox.'}
       </InfoBanner>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -2054,7 +2054,7 @@ export function EmailConnectForm({
             aria-label="Email display name"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Kortix Agent"
+            placeholder="Dosco Agent"
           />
         </Field>
         {attachExisting ? (
@@ -2105,7 +2105,7 @@ export function EmailConnectForm({
               <Label htmlFor="email-channel-existing-inbox">Attach existing AgentMail inbox</Label>
               <p className="text-muted-foreground mt-1 text-xs">
                 Use this when the mailbox already exists or the AgentMail account has reached its
-                inbox limit. Kortix will still create the webhook for this connection.
+                inbox limit. Dosco will still create the webhook for this connection.
               </p>
             </div>
             {attachExisting ? (
@@ -2369,7 +2369,7 @@ export function SlackConnectForm({
           <InfoBanner
             tone="info"
             icon={<SlackLogo />}
-            title="Add Kortix to your Slack workspace"
+            title="Add Dosco to your Slack workspace"
             action={
               <Button size="sm" className="shrink-0 gap-1.5" asChild>
                 <a href={installUrl}>
@@ -2379,7 +2379,7 @@ export function SlackConnectForm({
               </Button>
             }
           >
-            One-click install - authorize Kortix in your workspace, no setup required.
+            One-click install - authorize Dosco in your workspace, no setup required.
           </InfoBanner>
         ) : (
           <InfoBanner
@@ -2681,7 +2681,7 @@ export function ConnectionSection({
                     <p className="text-sm font-medium">Credential</p>
                     <p className="text-muted-foreground text-xs">
                       {connector.secretSet
-                        ? 'Kortix holds this credential and attaches it to every call.'
+                        ? 'Dosco holds this credential and attaches it to every call.'
                         : 'Not connected yet — the agent and your triggers cannot call this connector.'}
                     </p>
                   </div>
@@ -3712,13 +3712,13 @@ function AddSlackConnectionCard({
           </div>
         </div>
         <p className="text-muted-foreground mt-2 line-clamp-2 min-h-[2rem] text-xs leading-relaxed">
-          Add Kortix to Slack so mentions and threaded replies route into Kortix agent sessions.
+          Add Dosco to Slack so mentions and threaded replies route into Dosco agent sessions.
         </p>
       </button>
       <Modal open={open} onOpenChange={setOpen}>
         <ModalContent className="lg:max-w-2xl">
           <ModalHeader>
-            <ModalTitle>Add Kortix to Slack</ModalTitle>
+            <ModalTitle>Add Dosco to Slack</ModalTitle>
             <ModalDescription>
               Connect the built-in Slack channel. The connection appears automatically after
               installation.
@@ -3915,7 +3915,7 @@ function AppCatalogue({
 /**
  * Slugify the source document's own name — OpenAPI `info.title`, Postman
  * `info.name` — so adding a spec proposes the slug the API calls itself
- * ("Kortix WhatsApp Gateway" → `kortix-whatsapp-gateway`). Derived from the
+ * ("Dosco WhatsApp Gateway" → `kortix-whatsapp-gateway`). Derived from the
  * document rather than its URL: a hostname is a guess, a title is a statement.
  */
 function slugFromTitle(title: string | null | undefined): string {
@@ -4345,7 +4345,7 @@ function ConnectorConfigFields({
             </Select>
             <FieldDescription>
               {oauth2Selected ? (
-                'Kortix obtains, refreshes, and injects a bearer token for this connector.'
+                'Dosco obtains, refreshes, and injects a bearer token for this connector.'
               ) : draft.auth === undefined && detectedAuth ? (
                 <>
                   Detected <span className="font-medium">{detectedAuth.type}</span>
@@ -4568,7 +4568,7 @@ export function CustomConnectorForm({
           {sharedOAuth2Selected && (
             <div className="space-y-4">
               <InfoBanner tone="info" title="OAuth 2.0 client credentials">
-                Kortix requests a token before saving. It encrypts the configuration and refreshes
+                Dosco requests a token before saving. It encrypts the configuration and refreshes
                 the access token before expiry.
               </InfoBanner>
               <OAuth2CredentialFields
@@ -4592,7 +4592,7 @@ export function CustomConnectorForm({
           )}
           {draft.auth === undefined && discovery.data?.status === 'unsupported' && (
             <InfoBanner tone="warning">
-              The source advertises authentication Kortix cannot inject yet. Choose a manual
+              The source advertises authentication Dosco cannot inject yet. Choose a manual
               override or None.
             </InfoBanner>
           )}
@@ -4797,7 +4797,7 @@ export function SetCredentialModal({
   /**
    * The endpoint/client fields only appear when automatic setup cannot finish
    * the job: the user asked for their own app, or the server publishes nothing
-   * Kortix can act on. `unknown` (discovery still running or not started) keeps
+   * Dosco can act on. `unknown` (discovery still running or not started) keeps
    * them visible so the modal is never empty.
    */
   /**
@@ -4815,7 +4815,7 @@ export function SetCredentialModal({
       ? oauth2CredentialFormValid(oauth2)
       : oauth2ApplicationFormValid(effectiveApplication);
   /**
-   * One click: register Kortix with the authorization server (RFC 7591), then
+   * One click: register Dosco with the authorization server (RFC 7591), then
    * start Authorization Code + PKCE. No client id, no secret, no endpoints.
    */
   const autoConnect = useMutation({
@@ -4926,7 +4926,7 @@ export function SetCredentialModal({
             {connector?.slug}
           </ModalTitle>
           <ModalDescription>
-            Kortix encrypts credentials and applies the selected authentication strategy to upstream
+            Dosco encrypts credentials and applies the selected authentication strategy to upstream
             requests.
           </ModalDescription>
         </ModalHeader>
@@ -4986,7 +4986,7 @@ export function SetCredentialModal({
               <TabsContent value="oauth2" className="space-y-4">
                 {discoveryPending ? (
                   <InfoBanner tone="neutral" title="Checking how this server authorizes">
-                    Kortix is reading the server's OAuth 2.0 metadata.
+                    Dosco is reading the server's OAuth 2.0 metadata.
                   </InfoBanner>
                 ) : plan.kind === 'no_authorization' ? (
                   <InfoBanner tone="neutral" title="No authorization needed">
@@ -4995,7 +4995,7 @@ export function SetCredentialModal({
                 ) : plan.kind === 'register' && !manualSetup ? (
                   <div className="space-y-3">
                     <InfoBanner tone="neutral" title="One-click OAuth 2.1 available">
-                      This server publishes its authorization metadata. Kortix registers itself as
+                      This server publishes its authorization metadata. Dosco registers itself as
                       an OAuth client, so there is no client ID or secret to create.
                       {plan.scopes.length ? ` Scopes: ${plan.scopes.join(', ')}.` : ''}
                     </InfoBanner>
@@ -5022,7 +5022,7 @@ export function SetCredentialModal({
                   </div>
                 ) : plan.kind === 'client_id_required' ? (
                   <InfoBanner tone="neutral" title="This server needs a pre-registered OAuth app">
-                    Kortix discovered its endpoints and scopes, but the server does not support
+                    Dosco discovered its endpoints and scopes, but the server does not support
                     dynamic client registration. Create an app there and paste its client ID below.
                   </InfoBanner>
                 ) : plan.kind === 'manual' && !manualSetup ? (
@@ -5044,7 +5044,7 @@ export function SetCredentialModal({
                   </InfoBanner>
                 ) : (
                   <InfoBanner tone="info">
-                    Kortix stores the application configuration, rotates refresh tokens, and revokes
+                    Dosco stores the application configuration, rotates refresh tokens, and revokes
                     the connection when you disconnect it.
                   </InfoBanner>
                 )}
@@ -5116,7 +5116,7 @@ export function SetCredentialModal({
                       </Button>
                     }
                   >
-                    Kortix checks the connection every {device.interval_seconds} seconds until{' '}
+                    Dosco checks the connection every {device.interval_seconds} seconds until{' '}
                     {new Date(device.expires_at).toLocaleTimeString()}.
                   </InfoBanner>
                 )}

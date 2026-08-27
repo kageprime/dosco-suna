@@ -287,7 +287,7 @@ const LogRow = forwardRef<
       </span>
       <span className="text-foreground text-right text-xs whitespace-nowrap tabular-nums">
         {/* What the request cost YOU — the full caller-facing total, not
-            just the Kortix-billed slice (`kortix_cost`, 0 on a plain BYOK
+            just the Dosco-billed slice (`kortix_cost`, 0 on a plain BYOK
             call with no platform fee). */}
         ${row.total_cost.toFixed(4)}
       </span>
@@ -313,17 +313,17 @@ function StatTile({ label, value }: { label: string; value: ReactNode }) {
 /**
  * Who charged for this request, in the caller's own terms.
  *
- * `credits` = Kortix-managed inference on Kortix's credentials, paid from the
- * wallet. `platform-fee` = your own provider key, plus the Kortix platform
- * fee. `none` = your own provider key with no Kortix charge at all (self-host
+ * `credits` = Dosco-managed inference on Dosco's credentials, paid from the
+ * wallet. `platform-fee` = your own provider key, plus the Dosco platform
+ * fee. `none` = your own provider key with no Dosco charge at all (self-host
  * and free tier), or a flat-rate subscription route such as ChatGPT Codex.
  */
 function billedByLabel(billingMode: string | null, provider: string): string {
   switch (billingMode) {
     case 'credits':
-      return 'Kortix credits';
+      return 'Dosco credits';
     case 'platform-fee':
-      return `your ${provider} key + Kortix fee`;
+      return `your ${provider} key + Dosco fee`;
     case 'none':
       return `your ${provider} key`;
     default:
@@ -499,11 +499,11 @@ function GatewayLogDetail({
             <StatusBadge ok={data.ok} status={data.status} />
           </div>
 
-          {/* Money tiles show only what the CALLER paid. On a Kortix-managed
-              (`credits`) request the upstream price is Kortix's wholesale cost,
+          {/* Money tiles show only what the CALLER paid. On a Dosco-managed
+              (`credits`) request the upstream price is Dosco's wholesale cost,
               not the caller's — the API never sends it, so there is no
               "provider cost" tile to render for one. A BYOK request that also
-              carries a Kortix platform fee is the only case with two payees,
+              carries a Dosco platform fee is the only case with two payees,
               and only that case gets the fourth tile. */}
           <div
             className={cn(
@@ -518,7 +518,7 @@ function GatewayLogDetail({
             />
             <StatTile label="Cost" value={`$${data.total_cost.toFixed(4)}`} />
             {data.kortix_cost > 0 && data.provider_cost > 0 && (
-              <StatTile label="Kortix fee" value={`$${data.kortix_cost.toFixed(4)}`} />
+              <StatTile label="Dosco fee" value={`$${data.kortix_cost.toFixed(4)}`} />
             )}
           </div>
 

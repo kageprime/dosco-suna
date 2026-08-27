@@ -20,7 +20,7 @@ const BASE: KortixProject = {
   project_id: 'p1',
   account_id: 'a1',
   name: 'Turtle Shop',
-  repo_url: 'https://github.com/kortix-ai/turtle-shop',
+  repo_url: '?/turtle-shop',
   default_branch: 'main',
   manifest_path: 'kortix.yaml',
   status: 'active',

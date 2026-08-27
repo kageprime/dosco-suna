@@ -256,7 +256,7 @@ function SaveStatus() {
 
 /**
  * The repository group: what it is connected to, whether that connection works,
- * and the two settings that change how Kortix uses it.
+ * and the two settings that change how Dosco uses it.
  *
  * These were two separate sections before — a read-only "Repository" summary
  * box and a "Repository settings" panel — which is what produced the duplicate
@@ -356,7 +356,7 @@ function RepositoryGroup({
   return (
     <section className="space-y-3">
       {connection?.last_error_message ? (
-        <InfoBanner tone="warning" icon={WarningIcon} title="Kortix can't reach this repository">
+        <InfoBanner tone="warning" icon={WarningIcon} title="Dosco can't reach this repository">
           {connection.last_error_message}
         </InfoBanner>
       ) : null}
@@ -402,7 +402,7 @@ function RepositoryGroup({
           label="Manifest file"
           description={
             <>
-              The file in your repository that tells Kortix how to run this workspace.{' '}
+              The file in your repository that tells Dosco how to run this workspace.{' '}
               <DocsLink href={DOCS_MANIFEST} />
             </>
           }
@@ -487,7 +487,7 @@ function LocalSetup({ projectId }: { projectId: string }) {
       <ol className="bg-popover divide-border divide-y overflow-hidden rounded-md border">
         <Step
           index={1}
-          title="Install the Kortix command line"
+          title="Install the Dosco command line"
           hint="A one-time setup on macOS or Linux. Skip this if you already have it."
         >
           <CommandLine value={installCommand} label="Install command" />
@@ -515,12 +515,12 @@ function LocalSetup({ projectId }: { projectId: string }) {
 /**
  * Advanced escape hatch, folded away by default.
  *
- * This is the old "Kortix proxy origin" section. It is behind a disclosure now
+ * This is the old "Dosco proxy origin" section. It is behind a disclosure now
  * because the numbered steps above are the supported path and this is the
  * alternative for people who already have a Git workflow — surfacing both at
  * equal weight was most of what made the pane feel like a config dump. The copy
  * leads with what you can do (`git clone`) and the thing that is genuinely
- * unusual about it (no token to create or store), not with how Kortix resolves
+ * unusual about it (no token to create or store), not with how Dosco resolves
  * the credential.
  */
 function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
@@ -554,7 +554,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
                 Use your own Git client
               </span>
               <span className="text-muted-foreground block text-xs font-normal text-pretty">
-                Clone with plain <code className="font-mono">git</code> instead of the Kortix
+                Clone with plain <code className="font-mono">git</code> instead of the Dosco
                 command line.
               </span>
             </span>
@@ -569,7 +569,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
         <DisclosureContent variant="outline" contentClassName="border-border border-t">
           <div className="space-y-2 px-4 py-3.5">
             <p className="text-muted-foreground text-xs text-pretty">
-              Clone from this address with any Git client. Kortix signs the request for you, so
+              Clone from this address with any Git client. Dosco signs the request for you, so
               there is no access token to create, paste, or keep on your machine.
             </p>
             <CommandLine value={gitCloneUrl(project)} label="Clone address" kind="address" />

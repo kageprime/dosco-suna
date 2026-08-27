@@ -35,7 +35,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   const breadcrumbs = getBreadcrumbItems(page.url, tree);
   // `page.path` is the loader's virtualized path relative to the content
   // directory (e.g. `sdk/getting-started.mdx`).
-  const editUrl = `https://github.com/kortix-ai/suna/blob/main/apps/web/content/docs/${page.path}`;
+  const editUrl = `?/blob/main/apps/web/content/docs/${page.path}`;
   // Same derivation as `sourceDocuments()` in `@/lib/seo/public-content.ts`:
   // strip the `.mdx` extension, then collapse a nested `<dir>/index` down to
   // `<dir>` (a bare `index` — the docs root — has no leading slash to strip,
@@ -157,16 +157,16 @@ export async function generateMetadata(props: {
   const page = source.getPage(slug);
   if (!page) return {};
 
-  // `absolute` opts out of the root `%s | Kortix` template so the title never
-  // doubles up. The docs index frontmatter title is "Kortix", so collapse that
-  // case to just "Kortix Docs" instead of "Kortix | Kortix Docs | Kortix".
+  // `absolute` opts out of the root `%s | Dosco` template so the title never
+  // doubles up. The docs index frontmatter title is "Dosco", so collapse that
+  // case to just "Dosco Docs" instead of "Dosco | Dosco Docs | Dosco".
   const pageTitle = page.data.title?.trim();
   const title =
     pageTitle && pageTitle.toLowerCase() !== 'kortix'
-      ? `${pageTitle} – Kortix Docs`
-      : 'Kortix Docs';
+      ? `${pageTitle} – Dosco Docs`
+      : 'Dosco Docs';
 
-  const description = page.data.description ?? 'Kortix developer documentation.';
+  const description = page.data.description ?? 'Dosco developer documentation.';
   const url = `${CANONICAL_ORIGIN}${page.url}`;
   return {
     title: { absolute: title },

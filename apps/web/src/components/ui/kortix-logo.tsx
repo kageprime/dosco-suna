@@ -10,13 +10,13 @@ interface KortixLogoProps
   extends Omit<ComponentPropsWithoutRef<'svg'>, 'width' | 'height' | 'viewBox'> {
   /** Pixel height. The brandmark scales its width to match; the icon is square. */
   size?: number;
-  /** `icon` = the Kortix symbol alone; `brandmark` = symbol + wordmark lockup. */
+  /** `icon` = the Dosco symbol alone; `brandmark` = symbol + wordmark lockup. */
   variant?: KortixLogoVariant;
   className?: string;
 }
 
 /**
- * The canonical Kortix logo. Renders in `currentColor` so it follows the
+ * The canonical Dosco logo. Renders in `currentColor` so it follows the
  * surrounding text color (`text-foreground` in app surfaces).
  *
  * Organization branding: when the active account carries its own marks
@@ -28,7 +28,7 @@ interface KortixLogoProps
  * `<img>` toggled by the theme class (`dark:` — the app theme is class-based,
  * `next-themes attribute="class"`), so the swap is hydration-safe and needs
  * no JS. Outside the provider — and for every unbranded account — this is
- * Kortix, which renders in `currentColor` and needs no variant.
+ * Dosco, which renders in `currentColor` and needs no variant.
  *
  * `@/components/sidebar/kortix-logo` re-exports this under its legacy
  * `symbol`/`logomark` variant names — new code should import from here.

@@ -350,7 +350,7 @@ function CustomProviderSnippetView({
       </InfoBanner>
 
       <InfoBanner tone="warning" icon={Info}>
-        This provider talks directly to its own endpoint, bypassing the Kortix gateway — no budgets,
+        This provider talks directly to its own endpoint, bypassing the Dosco gateway — no budgets,
         logs, or routing apply to it.
       </InfoBanner>
 

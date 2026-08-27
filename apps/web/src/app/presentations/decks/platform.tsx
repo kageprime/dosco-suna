@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 /**
- * The Kortix deck — the complete story end to end, styled 1:1 with the marketing
+ * The Dosco deck — the complete story end to end, styled 1:1 with the marketing
  * site (home + /developers + /enterprise). Same components and vocabulary:
  * marketing Button/Badge, mono-uppercase eyebrows, `font-medium tracking-tight`
  * titles, `rounded-sm` thin-border cards on bg-card, lucide icon features, code
@@ -201,7 +201,7 @@ export function useSlides(): SlideDef[] {
                 </Button>
               </div>
             </div>
-            <Shot src={`${SHOT}/01-command-center.png`} alt="The Kortix command center" />
+            <Shot src={`${SHOT}/01-command-center.png`} alt="The Dosco command center" />
           </div>
         </Slide>
       ),
@@ -647,7 +647,7 @@ export function useSlides(): SlideDef[] {
                 ))}
               </div>
             </div>
-            <Shot src={`${SHOT}/01-command-center.png`} alt="The Kortix command center" />
+            <Shot src={`${SHOT}/01-command-center.png`} alt="The Dosco command center" />
           </div>
         </Slide>
       ),
@@ -751,7 +751,7 @@ export function useSlides(): SlideDef[] {
               <Bullets
                 items={[
                   'Connector credentials never enter a sandbox',
-                  'Agents act through a single scoped Kortix token',
+                  'Agents act through a single scoped Dosco token',
                   'Allow, ask-first, or block — connector action rules you control',
                 ]}
               />

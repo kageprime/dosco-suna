@@ -9,7 +9,7 @@ import type { Detail } from './detail-view';
 import { PanelCard, type PanelCardProps } from './panel-card';
 
 const web: ContextItem[] = [
-  { callID: 'w1', label: 'Kortix docs', kind: 'web', url: 'https://kortix.com/docs' },
+  { callID: 'w1', label: 'Dosco docs', kind: 'web', url: 'https://dosco.example.com/docs' },
 ];
 const files: ContextItem[] = [
   { callID: 'f1', label: 'report.md', kind: 'file', path: 'report.md' },

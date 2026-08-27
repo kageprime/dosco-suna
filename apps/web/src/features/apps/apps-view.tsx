@@ -179,31 +179,31 @@ const ACCESS_COPY: Record<AppAccessMode, { label: string; desc: string }> = {
 };
 
 /**
- * What a Kortix-hosted App learns about the person looking at it.
+ * What a Dosco-hosted App learns about the person looking at it.
  *
  * Ordered the same way `ACCESS_COPY` is — least shared first — so the two
  * pickers in the same modal read as one ladder rather than two dialects. The
  * default is `identity`, which sits in the middle on purpose: an App that
  * greets you by name needs no login of its own, and one that acts as you on the
- * Kortix API is a deliberate step further.
+ * Dosco API is a deliberate step further.
  */
 const VIEWER_SCOPE_COPY: Record<AppViewerTokenScope, { label: string; desc: string }> = {
   off: { label: 'Shares nothing', desc: 'The App never learns who opened it' },
   identity: {
     label: 'Knows who is signed in',
-    desc: "The App sees the viewer's Kortix id, email and groups",
+    desc: "The App sees the viewer's Dosco id, email and groups",
   },
   api: {
-    label: 'Acts as them in Kortix',
-    desc: 'Also calls the Kortix API, limited by their own role',
+    label: 'Acts as them in Dosco',
+    desc: 'Also calls the Dosco API, limited by their own role',
   },
 };
 
 /**
- * Access modes that have no signed-in Kortix viewer to describe.
+ * Access modes that have no signed-in Dosco viewer to describe.
  *
  * A public App is opened by strangers and a password App by whoever holds the
- * password — neither carries a Kortix identity, so there is nothing to share
+ * password — neither carries a Dosco identity, so there is nothing to share
  * and the field is left untouched on save.
  */
 const ANONYMOUS_MODES: readonly AppAccessMode[] = ['public', 'password'];
@@ -835,7 +835,7 @@ function AppCard({ projectId, app, onOpen }: { projectId: string; app: App; onOp
 /**
  * The App, full screen, with its controls above it.
  *
- * Opening an App used to mean a new browser tab, which left Kortix behind and
+ * Opening an App used to mean a new browser tab, which left Dosco behind and
  * lost every control the moment you arrived. The App now runs in place and the
  * actions that used to crowd the card sit in one bar over the top of it.
  */
@@ -1194,7 +1194,7 @@ function AppAccessForm({
   const [viewerScope, setViewerScope] = useState<AppViewerTokenScope>(policy.viewer_token_scope);
   const incomplete = mode === 'restricted' && memberIds.length + groupIds.length === 0;
   const passwordMissing = mode === 'password' && !password && !policy.password_configured;
-  // Public and password Apps are opened without signing in to Kortix, so there
+  // Public and password Apps are opened without signing in to Dosco, so there
   // is no viewer identity to share — the control goes away and the field stays
   // as it is on the server rather than being written to a meaningless value.
   const hasSignedInViewer = !ANONYMOUS_MODES.includes(mode);
@@ -1283,8 +1283,8 @@ function AppAccessForm({
           ) : (
             <p className="text-muted-foreground text-xs">
               {mode === 'public'
-                ? 'A public App has no signed-in Kortix viewer.'
-                : 'A password-protected App has no signed-in Kortix viewer.'}
+                ? 'A public App has no signed-in Dosco viewer.'
+                : 'A password-protected App has no signed-in Dosco viewer.'}
             </p>
           )}
         </div>

@@ -18,7 +18,7 @@ describe('GitHub installation setup', () => {
     expect(source).toContain("searchParams.get('account_id')");
   });
 
-  test('proves GitHub identity via the App-native OAuth flow, never the Kortix Supabase session', () => {
+  test('proves GitHub identity via the App-native OAuth flow, never the Dosco Supabase session', () => {
     const popupSource = readFileSync(
       new URL('../../auth/github-connect/page.tsx', import.meta.url),
       'utf8',

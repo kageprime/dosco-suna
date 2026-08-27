@@ -33,7 +33,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
-const GITHUB_URL = 'https://github.com/kortix-ai/suna';
+const GITHUB_URL = '?';
 const DOCS_URL = '/docs';
 const fav = (d: string) => `https://www.google.com/s2/favicons?domain=${d}&sz=128`;
 
@@ -209,7 +209,7 @@ const CLI_GROUPS: { label: string; icon: typeof TerminalIcon; cmds: [string, str
     label: 'Operate',
     icon: KeyRound,
     cmds: [
-      ['kortix self-host', 'Run your own Kortix cloud'],
+      ['kortix self-host', 'Run your own Dosco cloud'],
       ['kortix hosts use', 'Switch cloud ↔ local'],
       ['kortix providers', 'Bring your own model keys'],
     ],
@@ -221,7 +221,7 @@ const RUNS_ANYWHERE = [
     icon: Server,
     title: 'Self-host anywhere',
     // ACCURACY: not "air-gapped" — `self-host start` pulls images from docker.io.
-    desc: 'A laptop, a VPS, or your own VPC — the exact same stack as Kortix cloud.',
+    desc: 'A laptop, a VPS, or your own VPC — the exact same stack as Dosco cloud.',
   },
   {
     icon: Cpu,
@@ -231,7 +231,7 @@ const RUNS_ANYWHERE = [
   {
     icon: KeyRound,
     title: 'Any model',
-    desc: 'Bring your own keys — Anthropic, OpenAI, or local models — or run on Kortix compute.',
+    desc: 'Bring your own keys — Anthropic, OpenAI, or local models — or run on Dosco compute.',
   },
 ];
 
@@ -974,7 +974,7 @@ export default function DevelopersPage() {
                 'Anything worth keeping comes back as a change request — and merges into main',
                 'Main is always the source of truth: every agent action is auditable Git history',
                 'It’s all Git under the hood — branch, diff, review, merge',
-                'The same Kortix CLI runs inside every sandbox — so running locally and in the cloud is identical',
+                'The same Dosco CLI runs inside every sandbox — so running locally and in the cloud is identical',
                 'Isolated compute per session; one runaway agent can’t touch another',
               ].map((b, i) => (
                 <li
@@ -1066,7 +1066,7 @@ export default function DevelopersPage() {
                 '3,000+ one-click apps via Pipedream — OAuth handled for you',
                 'Or bring any MCP, OpenAPI, GraphQL or HTTP endpoint — same interface',
                 'Credentials live server-side and never reach the sandbox',
-                'Agents hold one scoped Kortix token; connect once, shared org-wide, self-healing',
+                'Agents hold one scoped Dosco token; connect once, shared org-wide, self-healing',
               ].map((b, i) => (
                 <li
                   key={b}
@@ -1118,12 +1118,12 @@ export default function DevelopersPage() {
             {
               icon: GitPullRequest,
               title: 'Skills, git-backed and invisible',
-              body: 'Non-devs publish skills as markdown; Kortix handles the branch, PR and merge behind the scenes. Versioned, reviewable, auditable.',
+              body: 'Non-devs publish skills as markdown; Dosco handles the branch, PR and merge behind the scenes. Versioned, reviewable, auditable.',
             },
             {
               icon: Plug,
               title: 'Self-healing connections',
-              body: 'When a token expires or a service blips, Kortix refreshes it or asks you to reconnect in plain language — never a cryptic error.',
+              body: 'When a token expires or a service blips, Dosco refreshes it or asks you to reconnect in plain language — never a cryptic error.',
             },
             {
               icon: Cpu,

@@ -774,7 +774,7 @@ export default function AccountSettingsPage() {
             {activeSection === 'tokens' && canWriteAccount ? (
               <div className="space-y-10">
                 <ApiKeysSection accountId={account.account_id} canManage={canWriteAccount} />
-                {/* OAuth apps — "Sign in with Kortix" clients. A client secret
+                {/* OAuth apps — "Sign in with Dosco" clients. A client secret
                     is a credential the account issues to a machine, so it
                     sits with the other machine credentials and under the same
                     `token.*` permissions. */}
@@ -944,7 +944,7 @@ function GitHubConnectionCard({
         <div className="space-y-0.5">
           <span className="flex items-center gap-1">
             <p className="text-foreground text-sm font-medium">GitHub connections</p>
-            <Hint label="Kortix stores the GitHub App installation on the account, not on individual members — Git credentials are platform credentials.">
+            <Hint label="Dosco stores the GitHub App installation on the account, not on individual members — Git credentials are platform credentials.">
               <Button
                 type="button"
                 variant="ghost"

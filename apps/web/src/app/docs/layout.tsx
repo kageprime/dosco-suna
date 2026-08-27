@@ -18,7 +18,7 @@ import {
 function DocsLogo() {
   return (
     <span className="ml-1 flex items-center gap-2.5 no-underline">
-      {/* The canonical full Kortix logo (symbol + wordmark), via the shared
+      {/* The canonical full Dosco logo (symbol + wordmark), via the shared
           KortixLogo component so the docs stay in lockstep with the rest of
           the app's brand treatment. */}
       <KortixLogo variant="logomark" size={18} />

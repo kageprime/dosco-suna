@@ -94,10 +94,10 @@ const STATIC_SECTIONS: readonly ProjectSettingsSection[] = [
     icon: Container,
     // Combines the old Sandbox templates AND Snapshots panes — a snapshot is
     // the build history of a sandbox template, not a separate concept, so one
-    // section shows the template's recipe and the record of each time Kortix
+    // section shows the template's recipe and the record of each time Dosco
     // built a machine from it.
     description:
-      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+      'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
     docsHref: '/docs/work/runtime',
     gate: 'sandbox',
   },

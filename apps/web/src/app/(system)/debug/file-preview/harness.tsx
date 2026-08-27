@@ -12,18 +12,18 @@ import { useState } from 'react';
  */
 
 const MD = `---
-description: Generic Kortix general knowledge worker. Hands-on, full tool
+description: Generic Dosco general knowledge worker. Hands-on, full tool
 mode: primary
 permission: allow
 ---
 
-You are a **Kortix general knowledge worker** for kaab-demo.
+You are a **Dosco general knowledge worker** for kaab-demo.
 
 - one
 - two
 `;
 
-const YAML = `kortix_version: 2\ndefault_agent: kortix\nproject:\n  name: kaab-demo\n  description: A Kortix project.\nenv:\n  required: []\n`;
+const YAML = `kortix_version: 2\ndefault_agent: kortix\nproject:\n  name: kaab-demo\n  description: A Dosco project.\nenv:\n  required: []\n`;
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000"><rect width="1600" height="2000" fill="#111"/></svg>\n`;
 

@@ -101,7 +101,7 @@ export function PresentationsIndex() {
             Presentations
           </h1>
           <p className="text-muted-foreground mt-5 text-base leading-relaxed">
-            Every Kortix deck, built to be presented and screen recorded. Arrow keys drive it,{' '}
+            Every Dosco deck, built to be presented and screen recorded. Arrow keys drive it,{' '}
             <span className="text-foreground font-mono">F</span> goes fullscreen, and{' '}
             <span className="text-foreground font-mono">N</span> opens the spoken script without
             putting it on screen.

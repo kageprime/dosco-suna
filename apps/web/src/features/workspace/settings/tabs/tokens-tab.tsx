@@ -263,8 +263,8 @@ export function TokensTab({ accountId }: { accountId: string | undefined }) {
           title="No API keys yet"
           description={
             canCreate
-              ? 'An API key signs the Kortix CLI, a script, or a CI job in as you — no browser, no password.'
-              : 'An API key signs the Kortix CLI in as you. An admin of this workspace has to grant you permission to create one.'
+              ? 'An API key signs the Dosco CLI, a script, or a CI job in as you — no browser, no password.'
+              : 'An API key signs the Dosco CLI in as you. An admin of this workspace has to grant you permission to create one.'
           }
           action={
             canCreate ? (
@@ -484,7 +484,7 @@ function CreateApiKeyDialog({
             <ModalHeader>
               <ModalTitle>Create an API key</ModalTitle>
               <ModalDescription>
-                A key signs the Kortix CLI, a script, or a CI job in as you — it can do what you
+                A key signs the Dosco CLI, a script, or a CI job in as you — it can do what you
                 can do, and it stops working when you leave this workspace.
               </ModalDescription>
             </ModalHeader>

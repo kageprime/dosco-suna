@@ -146,7 +146,7 @@ export default function ProjectIndexPage() {
         // page, so just unlock the composer with the text still in it.
         onError: () => setSending(false),
         onNavigate: (sessionId) => {
-          // `sessionId` here is the route/Kortix session id, not the OpenCode
+          // `sessionId` here is the route/Dosco session id, not the OpenCode
           // pin the session page resolves later (`useCanonicalRuntimeSession`
           // /`ensureOpencodeSessionPin` mint a separate id). Stash under the
           // route id via the SDK's canonical `writeStartStash` — the session

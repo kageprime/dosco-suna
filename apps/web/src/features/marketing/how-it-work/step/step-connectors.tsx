@@ -109,7 +109,7 @@ const CENTER_ROW = (ROW_COUNT - 1) / 2;
 const CENTER_COL = (COLUMNS - 1) / 2;
 
 /**
- * Tiles come in from the middle outward, so the eye lands on the Kortix mark
+ * Tiles come in from the middle outward, so the eye lands on the Dosco mark
  * first and the catalog spreads out under it. Distance is measured in tiles,
  * halved on the row axis because rows are the shorter travel.
  */
@@ -120,7 +120,7 @@ function tileDelay(row: number, col: number): number {
 }
 
 /**
- * Layer 02 — the app wall with the Kortix mark sitting on top of it.
+ * Layer 02 — the app wall with the Dosco mark sitting on top of it.
  *
  * Geometry runs off two custom properties: `--tile` is the square, `--gap` the
  * space between two. Every other row is pushed half a pitch to the right, which

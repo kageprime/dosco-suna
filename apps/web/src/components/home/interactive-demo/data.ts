@@ -121,7 +121,7 @@ export const CORE_SKILLS: [string, string][] = [
   ['kortix-connectors', 'One interface to every connected connector'],
   ['kortix-memory', 'Read, write, and curate the project brain'],
   ['kortix-slack', 'Answer in Slack as a teammate'],
-  ['kortix-system', 'Canonical reference for a Kortix project'],
+  ['kortix-system', 'Canonical reference for a Dosco project'],
   ['thermo-nuclear-review', 'Strict maintainability & abstraction review'],
 ];
 
@@ -232,7 +232,7 @@ export type Provider = {
 export const PROVIDERS: Provider[] = [
   {
     domain: null,
-    name: 'Kortix Gateway',
+    name: 'Dosco Gateway',
     hint: 'Managed routing — injected into every sandbox',
     state: 'managed',
   },

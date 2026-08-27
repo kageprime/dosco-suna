@@ -39,7 +39,7 @@ export const DECKS: readonly DeckDef[] = [
     slug: 'security',
     title: 'Security walkthrough',
     description:
-      'How Kortix contains an agent: one sandbox per session, connector keys the machine never holds, a human gate before anything reaches main, and a record of every action.',
+      'How Dosco contains an agent: one sandbox per session, connector keys the machine never holds, a human gate before anything reaches main, and a record of every action.',
     kind: 'Product',
     tags: ['Built to present', 'Diagram-led'],
     useSlides: useSecuritySlides,
@@ -48,7 +48,7 @@ export const DECKS: readonly DeckDef[] = [
     slug: 'platform',
     title: 'Product deck',
     description:
-      'The in-depth platform walkthrough — the full Kortix surface, from projects and sessions to connectors, channels and change requests.',
+      'The in-depth platform walkthrough — the full Dosco surface, from projects and sessions to connectors, channels and change requests.',
     kind: 'Product',
     useSlides: usePlatformSlides,
   },
@@ -56,7 +56,7 @@ export const DECKS: readonly DeckDef[] = [
     slug: 'sales',
     title: 'Sales deck',
     description:
-      'The company narrative: where Kortix came from, what it is, and why a company runs on a repo and a workforce of agents.',
+      'The company narrative: where Dosco came from, what it is, and why a company runs on a repo and a workforce of agents.',
     kind: 'Sales',
     useSlides: useSalesSlides,
   },

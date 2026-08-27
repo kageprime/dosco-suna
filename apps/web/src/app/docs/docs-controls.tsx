@@ -148,10 +148,10 @@ export function DocsSidebarFooter() {
   return (
     <div className="text-muted-foreground flex w-full items-center justify-between">
       <a
-        href="https://github.com/kortix-ai/suna"
+        href="?"
         target="_blank"
         rel="noreferrer"
-        aria-label="Kortix on GitHub"
+        aria-label="Dosco on GitHub"
         // Sized and toned exactly like a theme segment, so the row reads as
         // one strip of icons rather than a link beside a control.
         className="hover:text-foreground inline-flex size-7 items-center justify-center rounded-md transition-colors duration-150 ease-out"

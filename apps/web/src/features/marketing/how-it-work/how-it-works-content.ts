@@ -48,13 +48,13 @@
  */
 
 export const SECTION = {
-  eyebrow: 'The Kortix stack',
+  eyebrow: 'The Dosco stack',
   title: 'Every layer an AI workforce needs — in one platform you own.',
   // Short on purpose: the section pins to the viewport, so every line here is
   // height taken away from the card that has to fit under it — and the stack
   // itself now names every layer, which is what the long enumeration did.
   description:
-    'Most tools hand you one layer and rent you the rest. Kortix is all six — they read in order, and the sixth commits the work back into the first.',
+    'Most tools hand you one layer and rent you the rest. Dosco is all six — they read in order, and the sixth commits the work back into the first.',
 } as const;
 
 export type Layer = {
@@ -112,7 +112,7 @@ export const LAYERS: Layer[] = [
     label: 'Large language models',
     title: 'Run any model. Keep your keys.',
     description:
-      'Kortix is model-agnostic. Pick the model per agent, per session or per message, and switch the day a better one lands.',
+      'Dosco is model-agnostic. Pick the model per agent, per session or per message, and switch the day a better one lands.',
     bullets: [
       'Bring your own API key from any major provider, or use ours',
       'Or sign in with the ChatGPT subscription you already pay for',

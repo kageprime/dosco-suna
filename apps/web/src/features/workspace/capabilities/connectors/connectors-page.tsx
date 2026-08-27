@@ -789,7 +789,7 @@ export function ConnectorsPage({ projectId }: { projectId: string }) {
           <ModalHeader>
             <ModalTitle>Add a custom connector</ModalTitle>
             <ModalDescription>
-              Point Kortix at an OpenAPI, Postman, GraphQL, MCP or HTTP source and it becomes a
+              Point Dosco at an OpenAPI, Postman, GraphQL, MCP or HTTP source and it becomes a
               connector your agents can call.
             </ModalDescription>
           </ModalHeader>

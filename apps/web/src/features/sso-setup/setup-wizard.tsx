@@ -649,7 +649,7 @@ function ImportForm({
   const [domain, setDomain] = useState('');
   const [claim, setClaim] = useState(config.groupClaimName);
   const [autoCreate, setAutoCreate] = useState(true);
-  // Default ON: connecting an IdP should make its groups appear in Kortix
+  // Default ON: connecting an IdP should make its groups appear in Dosco
   // without hand-mapping each claim — the admin just attaches project roles.
   // (Groups auto-created this way are source='sso' and never annex manual
   // groups; the toggle stays for admins who want mapping-only.)
@@ -828,7 +828,7 @@ function ImportForm({
         <span>
           <span className="font-medium">Auto-provision groups</span>
           <span className="text-muted-foreground block text-xs">
-            Create a Kortix group for every group your IdP sends — no per-group mapping.
+            Create a Dosco group for every group your IdP sends — no per-group mapping.
           </span>
         </span>
       </label>
@@ -1208,7 +1208,7 @@ function ProvisionedStatusPanel({
   const totalMembers = membersQuery.data?.length ?? null;
   const isLoading = membersQuery.isLoading || groupsQuery.isLoading;
 
-  // Kortix is the SCIM server: the freshest signal we own is when the IdP
+  // Dosco is the SCIM server: the freshest signal we own is when the IdP
   // last made an authenticated SCIM call (stamped on every request, including
   // no-change reconciliation reads). Active tokens only.
   const lastSyncAt = latestScimSyncAt(tokensQuery.data ?? []);
@@ -1291,7 +1291,7 @@ function ProvisionedStatusPanel({
       <p className="text-muted-foreground text-xs">
         Refreshes automatically every few seconds.{' '}
         {cadenceHint ??
-          'Your IdP pushes changes on its own schedule — no manual action needed on the Kortix side.'}
+          'Your IdP pushes changes on its own schedule — no manual action needed on the Dosco side.'}
       </p>
     </div>
   );
@@ -1352,7 +1352,7 @@ function StepBody({
               ) : (
                 <ShieldCheck className="size-3" />
               )}
-              {step.where === 'idp' ? providerName : 'Kortix dashboard'}
+              {step.where === 'idp' ? providerName : 'Dosco dashboard'}
             </Badge>
           )}
           {step.menuPath && (
@@ -1529,7 +1529,7 @@ function WizardCore({ accountId, flow }: { accountId: string; flow: Flow }) {
 
   const [activeStep, setActiveStep] = useState(0);
   const [completed, setCompleted] = useState<string[]>([]);
-  // Change-provider / start-over confirmation (Kortix allows ONE SSO provider
+  // Change-provider / start-over confirmation (Dosco allows ONE SSO provider
   // per account, so switching mid-setup abandons the current one). Declared
   // with the other hooks — above the early returns — so it can never be called
   // conditionally (react-hooks/rules-of-hooks).
@@ -1576,7 +1576,7 @@ function WizardCore({ accountId, flow }: { accountId: string; flow: Flow }) {
   };
 
   // In-progress state = anything that would be lost by switching away or
-  // resetting. Kortix allows ONE SSO provider per account, so changing
+  // resetting. Dosco allows ONE SSO provider per account, so changing
   // provider mid-setup abandons the current one — mirror Vercel and confirm
   // + actually reset it, rather than leaking stale half-configured state.
   // (confirmAction is declared with the hooks above — never after a return.)

@@ -99,7 +99,7 @@ export function useSlides(): SlideDef[] {
       id: 'title',
       label: 'Security',
       notes:
-        'If you are going to run a hundred agents inside your company, only one question really matters: what happens when one of them goes wrong?\n\nAn agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix those walls sit below the agent, in the platform, where a prompt cannot talk its way past them.\n\nLet me show you.',
+        'If you are going to run a hundred agents inside your company, only one question really matters: what happens when one of them goes wrong?\n\nAn agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco those walls sit below the agent, in the platform, where a prompt cannot talk its way past them.\n\nLet me show you.',
       node: (
         <Slide>
           <Rise i={0}>
@@ -166,7 +166,7 @@ export function useSlides(): SlideDef[] {
       steps: 3,
       notes: [
         'One. Isolation.\n\nA project is a repo. main is the thing everyone in the company actually relies on.',
-        'I start a session. Kortix cuts a branch and boots one machine for it — and that one-machine-per-session rule is a unique constraint in the database, not a convention two services agree to honour.\n\nThe agent in there can install packages, run code, break things.',
+        'I start a session. Dosco cuts a branch and boots one machine for it — and that one-machine-per-session rule is a unique constraint in the database, not a convention two services agree to honour.\n\nThe agent in there can install packages, run code, break things.',
         'Someone starts a second session. Own branch, own machine. Nothing crosses.\n\nAnd this is the line worth sitting on: separating two of your own sessions is the same mechanism as separating two different customers. There is no weaker internal wall.',
         'The machine is not precious. A bad install goes away with it, and the box is destroyed at the end anyway.\n\nOnly what the session commits survives — as a change request. That is the only way anything gets back to main.',
       ],
@@ -183,9 +183,9 @@ export function useSlides(): SlideDef[] {
       label: '02 · Credentials',
       steps: 4,
       notes: [
-        'Two. The agent never holds the key.\n\nA tool needs a real credential to do real work, so the honest question is not whether a machine ever holds one. It is which machine holds which key.\n\nA sandbox is a real Linux machine the model can run anything on — so the only credential in it is one Kortix token, scoped to the project.',
+        'Two. The agent never holds the key.\n\nA tool needs a real credential to do real work, so the honest question is not whether a machine ever holds one. It is which machine holds which key.\n\nA sandbox is a real Linux machine the model can run anything on — so the only credential in it is one Dosco token, scoped to the project.',
         'The agent wants to send an email. It calls a tool by name: connector, action, arguments. No URL, no host, no key. It cannot construct the request itself even if it wanted to.',
-        'The call crosses to our side. Kortix checks this agent may use this connector, resolves the policy, and decrypts the credential here — outside the machine the model is driving.',
+        'The call crosses to our side. Dosco checks this agent may use this connector, resolves the policy, and decrypts the credential here — outside the machine the model is driving.',
         'It attaches the credential to the outbound request. The API sees an ordinary authenticated call. The answer goes back to the agent. The credential stays behind.',
         'So watch what never crossed. API keys, OAuth tokens, refresh tokens, client secrets — none of them were ever in the box.\n\nWhich means turning a connector off takes effect on the next call, and there is nothing in the sandbox to rotate.',
       ],
@@ -253,7 +253,7 @@ export function useSlides(): SlideDef[] {
         >
           <Shot
             src="/media/connectors/connector-permissions.webp"
-            alt="The Permissions tab of the Google Drive connector in Kortix: a default rule, then every Drive tool set to Allow, Ask, Block or Default."
+            alt="The Permissions tab of the Google Drive connector in Dosco: a default rule, then every Drive tool set to Allow, Ask, Block or Default."
             url="kortix.com — Connectors → Permissions"
             imgClassName="max-h-[48vh] object-cover object-top"
           />
@@ -269,7 +269,7 @@ export function useSlides(): SlideDef[] {
       notes: [
         'Four. Everything is on the record — and the record starts with who was allowed to do what.\n\nA person acts through the roles you granted them, evaluated against the resource they are reaching for.',
         'An agent is a principal in exactly the same way. A service account is a first-class machine identity the account owns, not a human token wearing a hat.',
-        'And here is the edge that does not exist. Most AI tools give the agent whatever the person who started it can reach. Kortix has no inheritance edge to walk up.',
+        'And here is the edge that does not exist. Most AI tools give the agent whatever the person who started it can reach. Dosco has no inheritance edge to walk up.',
         'So what a session can touch is the intersection: what the person may do, and what the agent was declared to be allowed. Never the union.\n\nAn agent is a principal, not a loophole.',
       ],
       node: (step) => (

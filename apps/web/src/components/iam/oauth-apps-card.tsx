@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * OAuth apps: the account's "Sign in with Kortix" client registry.
+ * OAuth apps: the account's "Sign in with Dosco" client registry.
  *
  * A row here is a third-party app (Essentia's dashboards, a partner portal,
  * an internal tool on its own origin) that sends people to `/v1/oauth/authorize`
@@ -102,7 +102,7 @@ const OAUTH_CLIENTS_KEY = (accountId: string) => ['oauth-clients', accountId];
 export const SCOPE_HELP: Record<string, string> = {
   profile: 'Who the user is (id, email, accounts)',
   email: 'Email address',
-  kortix: 'Act as the user on the Kortix API (projects, sessions, files)',
+  kortix: 'Act as the user on the Dosco API (projects, sessions, files)',
 };
 
 const CLIENT_TYPE_LABEL: Record<OAuthClientType, string> = {
@@ -229,7 +229,7 @@ export function OAuthAppsCard({ accountId, canManage }: OAuthAppsCardProps) {
         title="OAuth apps"
         description={
           <>
-            Apps that sign users in with Kortix. Pair the client id and secret with{' '}
+            Apps that sign users in with Dosco. Pair the client id and secret with{' '}
             <code className="text-foreground font-mono">createKortixAuth</code> from{' '}
             <code className="text-foreground font-mono">@kortix/sdk/server</code>.{' '}
             <Link href="/docs/sdk/sign-in" className="text-foreground underline underline-offset-2">
@@ -622,7 +622,7 @@ function OAuthAppDialog({ accountId, open, onOpenChange, scopesSupported, client
               <ModalDescription>
                 {isEdit
                   ? 'Changes apply to the next sign-in. Tokens already issued keep working until they expire.'
-                  : 'An app that signs Kortix users in on its own origin. You get a client id and, for a confidential app, a secret shown once.'}
+                  : 'An app that signs Dosco users in on its own origin. You get a client id and, for a confidential app, a secret shown once.'}
               </ModalDescription>
             </ModalHeader>
             <form onSubmit={submit}>

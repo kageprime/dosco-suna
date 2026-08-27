@@ -27,7 +27,7 @@
  *     inside the session, readable by any command the agent runs — that is how
  *     a tool uses it. See docs/ENV_SECRET_EXPOSURE_BASELINE.md, which states it
  *     plainly. What IS true, and is all this page claims: connector credentials
- *     are resolved server-side and never enter the machine, Kortix's own
+ *     are resolved server-side and never enter the machine, Dosco's own
  *     upstream keys never enter it either, and a session only receives the
  *     secrets both the person's role and the agent's declared grant allow.
  *  2. "Each session runs in its own VM" / blanket "microVM" is NOT true of the
@@ -53,7 +53,7 @@
 export const hero = {
   eyebrow: 'Security',
   title: 'Built to survive a security review.',
-  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
+  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
   ctaPrimary: 'Talk to us',
   ctaPrimaryHref: '/contact',
   ctaSecondary: 'Read the docs',
@@ -92,7 +92,7 @@ export const isolation = {
     items: [
       'Another session — same project, same team, or another customer',
       'Connector credentials, which are resolved server-side',
-      'Kortix’s own upstream provider keys, which no sandbox may hold',
+      'Dosco’s own upstream provider keys, which no sandbox may hold',
       'Write access to main; a session can only propose',
     ],
   },
@@ -105,7 +105,7 @@ export const isolation = {
     {
       id: 'microvm',
       k: 'microVM where you ask for it',
-      v: 'On Kortix’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.',
+      v: 'On Dosco’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.',
     },
     {
       id: 'branch',
@@ -126,7 +126,7 @@ export const isolation = {
    envelope), apps/api/src/iam/agent-scope.ts (the userRole ∩ agentGrant rule),
    apps/api/src/connectors/pipedream.ts (connector credentials resolved
    server-side), apps/api/src/platform/sandbox-env.ts (the allowlist that keeps
-   Kortix's own upstream keys out of every sandbox) and
+   Dosco's own upstream keys out of every sandbox) and
    apps/kortix-sandbox-agent-server/src/agent-env-file.ts (tmpfs, 0600,
    shredded on shutdown).
 
@@ -175,7 +175,7 @@ export const credentials = {
     {
       id: 'connectors',
       k: 'Connector credentials never enter the machine',
-      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Kortix token and calls through it. The same rule covers Kortix’s own provider keys, which no sandbox is allowed to hold.',
+      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Dosco token and calls through it. The same rule covers Dosco’s own provider keys, which no sandbox is allowed to hold.',
     },
     {
       id: 'honest',
@@ -194,7 +194,7 @@ export const credentials = {
 export const identity = {
   eyebrow: 'Identity & permissions',
   title: 'An agent is a principal, not a loophole.',
-  sub: 'Most AI tools give the agent whatever the person who started it can reach. Kortix does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
+  sub: 'Most AI tools give the agent whatever the person who started it can reach. Dosco does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
   /** The permission matrix, drawn from the shipped resource types + presets. */
   matrix: {
     caption: 'Permissions attach to a principal, for an action, on a resource type.',
@@ -380,7 +380,7 @@ export const posture = {
   deployments: [
     {
       id: 'cloud',
-      k: 'Kortix Cloud',
+      k: 'Dosco Cloud',
       v: 'The managed service. We run the control plane and the compute; you run the company.',
     },
     {

@@ -21,7 +21,7 @@ import { flattenModels } from '@/features/session/session-chat-input';
 import { useModelConnectionGate } from '@/features/session/use-model-connection-gate';
 import { useRuntimeProviders } from '@kortix/sdk/react';
 
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { SelectionRow, StepShell } from '../step-shell';
 
 type PlanChoice = 'kortix' | 'byok' | 'later';
@@ -93,9 +93,9 @@ export function PlanStep({
           {showUpgradeOption && (
             <SelectionRow
               value="kortix"
-              label="Use Kortix models"
+              label="Use Dosco models"
               description="Instant access, higher limits, nothing to configure"
-              leading={<Kortix className="size-5 shrink-0" />}
+              leading={<Dosco className="size-5 shrink-0" />}
             />
           )}
           <SelectionRow

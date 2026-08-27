@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kortix — Presentations',
-  description: 'Internal Kortix presentations.',
+  title: 'Dosco — Presentations',
+  description: 'Internal Dosco presentations.',
   robots: { index: false, follow: false },
 };
 

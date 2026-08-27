@@ -76,7 +76,7 @@ const AREA_COPY: Record<string, { label: string; hint?: string; note?: string }>
     hint: 'Branches, change requests, and the review inbox.',
     note: 'Push access also grants Files, Customize and Triggers edit — a push rewrites those.',
   },
-  apps: { label: 'Apps', hint: 'Kortix Apps and what their public hostname serves.' },
+  apps: { label: 'Apps', hint: 'Dosco Apps and what their public hostname serves.' },
   spend: { label: 'Spend & gateway', hint: 'Model spend, request logs, budgets and BYOK keys.' },
   members: { label: 'Members', hint: 'Who has access.' },
   account: { label: 'Account', hint: 'Account name, settings, and deleting the account.' },

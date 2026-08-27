@@ -93,7 +93,7 @@ export function AgentSelector({
 
   // The trigger names the agent that will RUN, which is `selectedAgent` even
   // when the roster does not (yet) contain it: a session bound to `kortix`
-  // must read "Kortix" while the roster query is still in flight, not whatever
+  // must read "Dosco" while the roster query is still in flight, not whatever
   // happens to be first in someone else's list. The `primaryAgents[0]`
   // fallback stays only for a truly unresolved selection (no name at all),
   // matching the resolver's own first-accessible pre-selection.

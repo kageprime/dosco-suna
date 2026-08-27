@@ -93,11 +93,11 @@ export function SolutionsHubPage(): ReactNode {
                 },
                 {
                   k: 'Connector credentials never enter the machine',
-                  v: 'The sandbox carries one project-scoped Kortix token and no third-party keys. The real credential is decrypted server-side and attached to the outbound call. A runtime secret you deliberately grant is different: it is a real environment value the agent can read.',
+                  v: 'The sandbox carries one project-scoped Dosco token and no third-party keys. The real credential is decrypted server-side and attached to the outbound call. A runtime secret you deliberately grant is different: it is a real environment value the agent can read.',
                 },
                 {
                   k: 'Everything is a file you own',
-                  v: 'Agents, skills, connectors, triggers and memory are text in a git repo. You can read the whole company, diff what changed, and revert it. Open source and self-hostable — Kortix Cloud, your own VPC, or your own on-prem network.',
+                  v: 'Agents, skills, connectors, triggers and memory are text in a git repo. You can read the whole company, diff what changed, and revert it. Open source and self-hostable — Dosco Cloud, your own VPC, or your own on-prem network.',
                 },
               ]}
             />

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Hint from '@/components/ui/hint';
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { Slack } from '@/features/icon/icons/slack';
 import { ComposerChatInput, type ComposerOptions } from '@/features/session/composer-chat-input';
 import type { DraftScope } from '@/features/session/composer/draft/composer-draft';
@@ -610,7 +610,7 @@ const PROJECT_SETUP_TILES: SetupTile[] = [
     actions: [PROJECT_ACTIONS.PROJECT_MEMBERS_READ],
   },
   {
-    icon: Kortix,
+    icon: Dosco,
     title: 'Agent',
     desc: 'Shape how your agent thinks and acts.',
     // 'agent' (the route segment), not the old 'agents' overlay section —

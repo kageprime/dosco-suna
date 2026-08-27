@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The Snapshots tab — what Kortix prepared for this project, and when.
+ * The Snapshots tab — what Dosco prepared for this project, and when.
  *
  * **The problem this layout solves.** The pane used to open on a bare "Build
  * log" of `kortix-tpl-…` strings, provider names and raw stderr, with a
@@ -138,7 +138,7 @@ const XCircleFilled = ({ className }: { className?: string }) => (
 export const CATEGORY_LABEL: Record<SnapshotErrorCategory, string> = {
   quota: 'Snapshot quota reached',
   dockerfile: 'Dockerfile build failed',
-  layer: 'Kortix runtime layer failed',
+  layer: 'Dosco runtime layer failed',
   git: 'Repository access failed',
   tunnel: 'Sandbox callback unreachable',
   provider: 'Sandbox provider error',
@@ -152,7 +152,7 @@ export const CATEGORY_LABEL: Record<SnapshotErrorCategory, string> = {
  * jargon, addressed to whoever is reading the pane rather than to the engineer
  * who wrote the category.
  *
- * `CATEGORY_LABEL` alone names the failure without explaining it: "Kortix
+ * `CATEGORY_LABEL` alone names the failure without explaining it: "Dosco
  * runtime layer failed" tells a reader nothing they can act on. Every place
  * that shows a category now shows this line under it.
  */
@@ -162,17 +162,17 @@ export const CATEGORY_HELP: Record<SnapshotErrorCategory, string> = {
   dockerfile:
     'A command in this project’s Dockerfile returned an error. The log below ends on the command that failed.',
   layer:
-    'The image built, but Kortix could not install its own tools on top of it. This is usually temporary — try building again.',
-  git: 'Kortix could not read this project’s repository. Check that the repository connection is still authorised, then build again.',
+    'The image built, but Dosco could not install its own tools on top of it. This is usually temporary — try building again.',
+  git: 'Dosco could not read this project’s repository. Check that the repository connection is still authorised, then build again.',
   tunnel:
-    'The new machine could not call back to Kortix while it was being set up. This is usually temporary — try building again.',
+    'The new machine could not call back to Dosco while it was being set up. This is usually temporary — try building again.',
   provider:
     'The company that runs the machine returned an error. Nothing is wrong with your project — try building again.',
   timeout:
     'Preparing the machine took longer than the time limit allows. Move slow steps out of the Dockerfile, or try again when the provider is less busy.',
   runtime:
-    'The machine was prepared, but a file Kortix needs at start-up was missing from it. Build again; if it repeats, the template’s base image is the place to look.',
-  unknown: 'The build stopped on an error Kortix could not classify. The full log is below.',
+    'The machine was prepared, but a file Dosco needs at start-up was missing from it. Build again; if it repeats, the template’s base image is the place to look.',
+  unknown: 'The build stopped on an error Dosco could not classify. The full log is below.',
 };
 
 export const BUILD_SOURCE_LABEL: Record<NonNullable<ProjectSnapshotBuild['source']>, string> = {
@@ -584,7 +584,7 @@ const ENVIRONMENT_SUMMARY: Partial<
   // status colour it has not earned.
   not_built: {
     title: 'Nothing prepared yet',
-    body: 'Kortix prepares a machine the first time you start a session here. Nothing needs to be set up in advance.',
+    body: 'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.',
     tileBg: 'border-border border',
     iconColor: 'text-muted-foreground',
     Icon: StackIcon,
@@ -725,12 +725,12 @@ const HOW_IT_WORKS: readonly { question: string; answer: string }[] = [
   {
     question: 'What is a snapshot?',
     answer:
-      'A snapshot is a machine that has already been set up: this project’s repository, its dependencies, and the Kortix tools, all installed ahead of time. Starting a session copies that prepared machine instead of installing everything from scratch, which is why a session is ready in seconds rather than minutes.',
+      'A snapshot is a machine that has already been set up: this project’s repository, its dependencies, and the Dosco tools, all installed ahead of time. Starting a session copies that prepared machine instead of installing everything from scratch, which is why a session is ready in seconds rather than minutes.',
   },
   {
     question: 'Why do new rows keep appearing?',
     answer:
-      'Kortix prepares a new machine whenever the recipe changes — a new sandbox template, an edited Dockerfile, or a merged change — and each attempt gets its own row. Older rows are kept as a record. They are history, not a list of things to deal with.',
+      'Dosco prepares a new machine whenever the recipe changes — a new sandbox template, an edited Dockerfile, or a merged change — and each attempt gets its own row. Older rows are kept as a record. They are history, not a list of things to deal with.',
   },
   {
     question: 'One of them failed. Is that a problem?',
@@ -868,7 +868,7 @@ export function SnapshotsTabView({
             <section className="space-y-4">
               <SettingsSubsectionHeader
                 title="Build log"
-                description="One row for every time Kortix prepared a machine for this project. Open a row for the details."
+                description="One row for every time Dosco prepared a machine for this project. Open a row for the details."
               />
               {templateBuilds.length === 0 ? (
                 <div className="border-border rounded-md border">
@@ -896,7 +896,7 @@ export function SnapshotsTabView({
                     section already has, says it to the reader who needs it. */}
                 <SettingsSubsectionHeader
                   title="Project accelerator"
-                  description="An optional head start: Kortix clones this repository in advance so a later session opens faster. A missing or failed accelerator never stops a session."
+                  description="An optional head start: Dosco clones this repository in advance so a later session opens faster. A missing or failed accelerator never stops a session."
                 />
                 <ul className="space-y-2">
                   {acceleratorBuilds.slice(0, 5).map((b) => (

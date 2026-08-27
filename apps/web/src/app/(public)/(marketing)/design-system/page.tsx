@@ -693,7 +693,7 @@ function LogoCard({ asset, fmt }: { asset: LogoAsset; fmt: LogoFormat }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={asset.svgSrc}
-          alt={`Kortix ${asset.label} ${asset.variant}`}
+          alt={`Dosco ${asset.label} ${asset.variant}`}
           className={cn(
             'object-contain',
             isWide ? 'max-h-8 w-full md:max-h-10' : 'max-h-10 w-auto md:max-h-12',
@@ -733,7 +733,7 @@ function SocialCard({ asset }: { asset: SocialAsset }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={asset.pngSrc}
-          alt={`Kortix avatar ${asset.variant}`}
+          alt={`Dosco avatar ${asset.variant}`}
           className="size-full object-cover"
         />
 
@@ -782,7 +782,7 @@ function WallpaperCard({ wallpaper }: { wallpaper: WallpaperDownload }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={wallpaper.preview}
-          alt={`Kortix ${wallpaper.name} wallpaper, ${wallpaper.theme}`}
+          alt={`Dosco ${wallpaper.name} wallpaper, ${wallpaper.theme}`}
           className="size-full object-cover"
           loading="lazy"
         />
@@ -1471,7 +1471,7 @@ export default function BrandPage() {
                   Product
                 </h3>
                 <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  The wallpapers you can set on a Kortix home. Five of the six are live shader
+                  The wallpapers you can set on a Dosco home. Five of the six are live shader
                   compositions, so each one is rendered at full size in a browser and captured as a
                   still. Desktop is 5120&times;2880 and downsamples cleanly to 4K and 1440p; the
                   phone file is its own portrait render, not a crop.
@@ -3690,7 +3690,7 @@ export default function BrandPage() {
                         )}
                         size="sm"
                       />
-                      <EntityAvatar label="Kortix" />
+                      <EntityAvatar label="Dosco" />
                       <EntityAvatar icon={FolderGit2} />
                       <EntityAvatar icon={Users} size="lg" />
                     {/* `emoji` beats both the icon and the initial, and drops the

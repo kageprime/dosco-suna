@@ -80,7 +80,7 @@ export function resolveComposerAgent(input: {
    * existing project session. It is what the server RUNS for this session
    * regardless of roster membership, so with no explicit pick it is the truth
    * to display — never `selectable[0]`, which is somebody else's first grant
-   * and made a booting Kortix session read "Meta" until the runtime corrected
+   * and made a booting Dosco session read "Meta" until the runtime corrected
    * it.
    */
   boundAgent?: string | null;

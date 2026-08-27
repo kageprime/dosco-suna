@@ -183,7 +183,7 @@ export function AccessHelp({ accountId }: AccessHelpProps) {
           </p>
           <p className="text-foreground text-xs leading-relaxed">
             One vocabulary, two bindings. People, groups and agents get roles on an account, a
-            project, or a single resource. Agents additionally carry Kortix CLI scopes in{' '}
+            project, or a single resource. Agents additionally carry Dosco CLI scopes in{' '}
             <code className="text-foreground text-[11px]">kortix.yaml</code>; a session can only do
             what both allow.
           </p>

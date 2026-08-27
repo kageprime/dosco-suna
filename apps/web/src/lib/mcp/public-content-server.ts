@@ -16,7 +16,7 @@ type JsonRpcRequest = {
 const TOOL_DEFINITIONS = [
   {
     name: 'list_public_content',
-    description: 'List Kortix public documentation and marketing pages.',
+    description: 'List Dosco public documentation and marketing pages.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -37,7 +37,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_public_markdown',
-    description: 'Read the Markdown representation of a Kortix public page.',
+    description: 'Read the Markdown representation of a Dosco public page.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -122,7 +122,7 @@ function callTool(name: unknown, args: unknown) {
   if (name === 'get_public_markdown') {
     const path = typeof input.path === 'string' ? input.path : '';
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('://')) {
-      return { isError: true, ...toolText('path must be an absolute Kortix path') };
+      return { isError: true, ...toolText('path must be an absolute Dosco path') };
     }
     const resolved = resolveMarkdownFromHtmlPath(path);
     if (!resolved) return { isError: true, ...toolText(`No public Markdown exists for ${path}`) };
@@ -163,7 +163,7 @@ export function handlePublicContentMcp(request: JsonRpcRequest) {
       return result(id, callTool(request.params?.name, request.params?.arguments));
     case 'resources/list': {
       const resources = publicRecordData(undefined, 50).map((record) => ({
-        uri: `https://kortix.com${record.markdown_path}`,
+        uri: `https://dosco.example.com${record.markdown_path}`,
         name: record.title,
         description: record.description ?? undefined,
         mimeType: 'text/markdown',
@@ -176,7 +176,7 @@ export function handlePublicContentMcp(request: JsonRpcRequest) {
       let pathname = '';
       try {
         const url = new URL(uri);
-        if (url.origin !== 'https://kortix.com')
+        if (url.origin !== 'https://dosco.example.com')
           return error(id, -32602, 'uri must use kortix.com');
         pathname = url.pathname;
       } catch {

@@ -41,7 +41,7 @@ import { useEffect, useRef } from 'react';
 /**
  * Per-session pending-approval summary for the sidebar "needs input" badge.
  * Returns `{ sessions: { [sessionId]: count } }` keyed by BOTH the OpenCode and
- * Kortix session ids, so a caller can look up whichever id it holds. Polls
+ * Dosco session ids, so a caller can look up whichever id it holds. Polls
  * quietly (no error toast) since it's an ambient indicator.
  */
 export function useSessionsNeedingInput(projectId: string | undefined) {
@@ -60,7 +60,7 @@ export function useSessionsNeedingInput(projectId: string | undefined) {
  * the visible sessions belong to (their `projectID`), then merge. Avoids relying
  * on a route projectId — the sidebar renders on routes (e.g. /sessions/:id) where
  * the route param isn't a project. Returns `{ sessions, total }` where `sessions`
- * is keyed by both OpenCode + Kortix session ids.
+ * is keyed by both OpenCode + Dosco session ids.
  */
 export function useSessionsNeedingInputForProjects(projectIds: string[]) {
   const results = useQueries({

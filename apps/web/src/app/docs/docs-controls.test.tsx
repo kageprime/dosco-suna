@@ -29,10 +29,10 @@ describe('DocsSidebarFooter', () => {
   test('links out to the repo, in a new tab, with a label', () => {
     const markup = render();
 
-    expect(markup).toContain('href="https://github.com/kortix-ai/suna"');
+    expect(markup).toContain('href="?"');
     expect(markup).toContain('target="_blank"');
     // The mark is a decoration; the accessible name is on the anchor.
-    expect(markup).toContain('aria-label="Kortix on GitHub"');
+    expect(markup).toContain('aria-label="Dosco on GitHub"');
   });
 
   test("the mark is the app's own GitHub icon, not a phosphor glyph", () => {

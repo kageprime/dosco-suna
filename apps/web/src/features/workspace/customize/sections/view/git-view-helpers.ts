@@ -13,7 +13,7 @@
 
 export function providerLabel(provider: string | null | undefined): string {
   if (provider === 'github') return 'GitHub';
-  if (provider === 'code-storage' || provider === 'code_storage') return 'Kortix Code Storage';
+  if (provider === 'code-storage' || provider === 'code_storage') return 'Dosco Code Storage';
   if (provider === 'gitlab') return 'GitLab';
   return provider ? provider.replaceAll('_', ' ') : 'Git';
 }
@@ -23,7 +23,7 @@ export function providerLabel(provider: string | null | undefined): string {
  *
  * This is why the pane has no separate "Provider" row: the fact fits inside a
  * row that already exists. Code Storage reads "Stored in" rather than "Hosted
- * on" because it is Kortix's own storage, not a third-party host the user has
+ * on" because it is Dosco's own storage, not a third-party host the user has
  * an account with — the difference decides whether they go looking for a login
  * somewhere else.
  */

@@ -19,7 +19,7 @@ test('all deployment-aware CLI installer surfaces use the hook', () => {
   for (const path of DEPLOYMENT_AWARE_SURFACES) {
     const source = readFileSync(join(WEB_SRC, path), 'utf8');
     expect(source).toContain('useDeploymentCliInstallCommand(');
-    expect(source).not.toContain('https://kortix.com/install');
+    expect(source).not.toContain('https://dosco.example.com/install');
     expect(source).not.toContain('KORTIX_CLI_INSTALL_COMMAND');
   }
 });

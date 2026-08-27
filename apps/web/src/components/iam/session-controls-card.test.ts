@@ -49,7 +49,7 @@ describe('parseMinutes', () => {
     const result = parseMinutes('10081');
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toBe('10080 minutes (7 days) is the most Kortix allows.');
+      expect(result.error).toBe('10080 minutes (7 days) is the most Dosco allows.');
     }
   });
 });

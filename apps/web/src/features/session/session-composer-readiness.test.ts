@@ -355,13 +355,13 @@ describe('serverHoldsOpenTurn', () => {
 });
 
 describe('resolveLastTurnWorking', () => {
-  // The last turn's shimmer is the session's working state, and for a Kortix
+  // The last turn's shimmer is the session's working state, and for a Dosco
   // session that answer is the projection (`useSessionWorking` → GET .../turn),
   // never the raw SSE slot this tab can miss frames from. This is the decision
   // that removes the "last turn shimmers for ever" symptom: a dropped
   // end-of-turn frame latches the raw slot busy, and before this the turn card
   // read that slot directly and shimmered over a finished answer until reload.
-  test('a Kortix session answers from the projection — a latched-busy raw slot cannot shimmer a settled turn', () => {
+  test('a Dosco session answers from the projection — a latched-busy raw slot cannot shimmer a settled turn', () => {
     expect(
       resolveLastTurnWorking({ isChildSession: false, projectionBusy: false, rawSlotBusy: true }),
     ).toBe(false);
@@ -373,7 +373,7 @@ describe('resolveLastTurnWorking', () => {
     ).toBe(true);
   });
 
-  test('a child session has no Kortix row for /turn to answer about, so it keeps the raw slot', () => {
+  test('a child session has no Dosco row for /turn to answer about, so it keeps the raw slot', () => {
     // Same split `session-layout.tsx` makes for its busy indicator: a transient
     // sub-session's projection is disabled (no projectSessionId), so its
     // stream slot is the only witness it has.

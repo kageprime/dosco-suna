@@ -5,6 +5,7 @@ import { DownloadCloseButton } from '@/features/marketing/download/close-button'
 import {
   DESKTOP_CARD,
   DESKTOP_ROWS,
+  DESKTOP_STATUS,
   MOBILE_CARD,
   MOBILE_ROWS,
   MOBILE_STATUS,
@@ -20,11 +21,6 @@ import {
 } from '@/features/marketing/download/detect-os';
 import type { CardRow } from '@/features/marketing/download/platform-card';
 import { PlatformCard } from '@/features/marketing/download/platform-card';
-import {
-  formatSize,
-  getLatestRelease,
-  pickDesktopAsset,
-} from '@/features/marketing/download/releases';
 import { TerminalBlock } from '@/features/marketing/download/terminal-block';
 import type { Metadata } from 'next';
 import { marketingMetadata } from '@/lib/seo/metadata';
@@ -47,27 +43,21 @@ export default async function DownloadPage({
 }: {
   searchParams: Promise<{ platform?: string }>;
 }) {
-  const [headerList, params, release] = await Promise.all([
+  const [headerList, params] = await Promise.all([
     headers(),
     searchParams,
-    getLatestRelease(),
   ]);
 
   const detected: Platform =
     normalizePlatform(params.platform) ?? detectPlatform(headerList.get('user-agent'));
 
-  const desktopRows: CardRow[] = orderedDesktop(detected).map((os) => {
-    const size = release ? formatSize(pickDesktopAsset(release.assets, os)?.size ?? 0) : '';
-    return {
-      id: os,
-      label: DESKTOP_ROWS[os].label,
-      // The size drops out of the join when GitHub is unreachable, leaving just
-      // the copy. Never a placeholder, never a stale number.
-      meta: [DESKTOP_ROWS[os].hint, size].filter(Boolean).join(' · '),
-      href: DESKTOP_ROWS[os].href,
-      Mark: DESKTOP_MARKS[os],
-    };
-  });
+  const desktopRows: CardRow[] = orderedDesktop(detected).map((os) => ({
+    id: os,
+    label: DESKTOP_ROWS[os].label,
+    meta: DESKTOP_ROWS[os].hint,
+    status: DESKTOP_STATUS,
+    Mark: DESKTOP_MARKS[os],
+  }));
 
   const mobileRows: CardRow[] = orderedMobile(detected).map((os) => ({
     id: os,

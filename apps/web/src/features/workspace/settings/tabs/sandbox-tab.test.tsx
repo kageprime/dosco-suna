@@ -412,7 +412,7 @@ describe('template card readability', () => {
   });
 
   test('the source tag reads as plain English, not a raw enum', () => {
-    expect(describeSource(template({ source: 'platform' }), 2).label).toBe('Kortix platform');
+    expect(describeSource(template({ source: 'platform' }), 2).label).toBe('Dosco platform');
     expect(describeSource(template({ source: 'ui' }), 2).label).toBe('This dashboard');
     expect(describeSource(template({ source: 'toml' }), 2)).toMatchObject({
       label: 'kortix.yaml',
@@ -444,7 +444,7 @@ describe('template card readability', () => {
     // Neither declared — still a sentence, never an empty cell.
     expect(
       describeBase(template({ has_image: false, image: null, has_dockerfile: false })),
-    ).toMatchObject({ label: 'Base image', value: 'Kortix default', mono: false });
+    ).toMatchObject({ label: 'Base image', value: 'Dosco default', mono: false });
   });
 
   test('the spec grid is six single-track cells — two full rows, no spans', () => {

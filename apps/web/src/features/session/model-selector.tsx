@@ -107,7 +107,7 @@ export interface ModelDefaultControls {
  *
  * `groupProviderID` is the RESOLVED provider (`pickerGroupId`), never
  * `model.providerID`: under the gateway every model is registered as `kortix`,
- * so the model's own id would paint the Kortix mark on every row.
+ * so the model's own id would paint the Dosco mark on every row.
  */
 function ModelRow({
   model,
@@ -452,8 +452,8 @@ export function ModelSelector({
         groups.set(groupID, {
           providerID: groupID,
           // NEVER `m.providerName` here — under the gateway it's always
-          // "Kortix" (opencode's raw provider name), which is exactly the
-          // "every provider shows as Kortix" bug. Label by the resolved real
+          // "Dosco" (opencode's raw provider name), which is exactly the
+          // "every provider shows as Dosco" bug. Label by the resolved real
           // provider id instead. See pickerGroupLabel's doc comment.
           providerName: llmGatewayEnabled ? pickerGroupLabel(groupID, m) : m.providerName,
           models: [m],
@@ -649,7 +649,7 @@ export function ModelSelector({
                       {groupIndex > 0 && <CommandSeparator />}
                       {/* A provider heading only earns its row when there is a
                           second provider to tell apart. With one group (the
-                          common gateway case — everything is "Kortix") the
+                          common gateway case — everything is "Dosco") the
                           label answers a question nobody asked; cmdk skips the
                           heading element entirely when `heading` is undefined,
                           so no empty padding is left behind. */}

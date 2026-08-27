@@ -333,7 +333,7 @@ const DENSITY_PAGE_OPTIONS: {
   {
     id: 'normal',
     label: 'Normal',
-    description: 'Steps and thinking stream live while Kortix works',
+    description: 'Steps and thinking stream live while Dosco works',
   },
   {
     id: 'minimal',
@@ -1266,7 +1266,7 @@ export function CommandPalette() {
     >();
     for (const m of visibleModels) {
       // Under the gateway every model is registered as opencode provider
-      // `kortix`, so `m.providerName` is always "Kortix" — even for a BYOK
+      // `kortix`, so `m.providerName` is always "Dosco" — even for a BYOK
       // Anthropic/Bedrock model. Group/label by the resolved REAL upstream
       // provider instead. Safe to call unconditionally: for a native
       // (non-gateway) model `pickerGroupId` already returns `m.providerID`

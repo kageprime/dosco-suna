@@ -59,7 +59,7 @@ function fmtDate(s: string | null): string {
 
 /**
  * Gateway keys — `kortix_gw_…` credentials for calling THIS project's gateway
- * from outside Kortix.
+ * from outside Dosco.
  *
  * A SECTION, not a tab. It used to be its own tab labelled "API keys",
  * sitting four tabs away from another tab also labelled "API keys" (the
@@ -135,7 +135,7 @@ export function GatewayKeys({
           icon={KeyRound}
           size="sm"
           title="No keys yet"
-          description="Create a project-scoped key to call the gateway from outside a Kortix session."
+          description="Create a project-scoped key to call the gateway from outside a Dosco session."
           action={
             canWrite ? (
               <Button variant="outline" size="sm" onClick={() => setCreating(true)}>

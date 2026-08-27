@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import type * as React from 'react';
 
 /**
- * Kortix status palette — the SINGLE source of truth for "this means
+ * Dosco status palette — the SINGLE source of truth for "this means
  * success / warning / error / info" coloring.
  *
  * The design system already encapsulates this palette inside `<Badge>` and

@@ -23,7 +23,7 @@
 import type { DesktopOs, MobileOs } from './detect-os';
 
 export const hero = {
-  title: 'Download Kortix',
+  title: 'Download Dosco',
   sub: 'Get the app for your desktop, your phone, or your terminal.',
 };
 
@@ -34,7 +34,7 @@ export type ComingSoonRowCopy = { label: string; hint: string };
 
 export const DESKTOP_CARD: CardCopy = {
   title: 'Desktop app',
-  description: 'Run Kortix on your own machine, with your files and your terminal.',
+  description: 'Run Dosco on your own machine, with your files and your terminal.',
 };
 
 export const MOBILE_CARD: CardCopy = {
@@ -48,10 +48,12 @@ export const MOBILE_CARD: CardCopy = {
  * is unreachable the size disappears instead of printing a stale or invented
  * number.
  */
-export const DESKTOP_ROWS: Record<DesktopOs, RowCopy> = {
-  macos: { label: 'macOS', hint: 'Universal', href: '/download/macos' },
-  windows: { label: 'Windows', hint: '64-bit', href: '/download/windows' },
-  linux: { label: 'Linux', hint: 'AppImage · x86_64', href: '/download/linux' },
+export const DESKTOP_STATUS = 'Coming soon';
+
+export const DESKTOP_ROWS: Record<DesktopOs, ComingSoonRowCopy> = {
+  macos: { label: 'macOS', hint: 'Universal' },
+  windows: { label: 'Windows', hint: '64-bit' },
+  linux: { label: 'Linux', hint: 'AppImage · x86_64' },
 };
 
 /** The chip both mobile rows carry in place of a Download button. */
@@ -73,6 +75,6 @@ export const MOBILE_ROWS: Record<MobileOs, ComingSoonRowCopy> = {
 
 export const TERMINAL = {
   title: 'Terminal',
-  description: 'Install the CLI and drive Kortix from your shell.',
+  description: 'Install the CLI and drive Dosco from your shell.',
   support: 'macOS & Linux · WSL on Windows',
 };

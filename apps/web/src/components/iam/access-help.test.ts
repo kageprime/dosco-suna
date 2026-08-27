@@ -44,14 +44,14 @@ describe('access help page', () => {
 
   // The paragraph that keeps the two authority systems apart. Without it people
   // read "role" as covering what a running agent may do, which it does not —
-  // that is the manifest's Kortix CLI scopes. Same wording as
+  // that is the manifest's Dosco CLI scopes. Same wording as
   // `content/docs/accounts.mdx`'s "one vocabulary, two bindings".
   test('it states the one-vocabulary-two-bindings rule', () => {
     expect(flat).toContain('One vocabulary, two bindings.');
     expect(flat).toContain(
       'People, groups and agents get roles on an account, a project, or a single resource.',
     );
-    expect(flat).toContain('Agents additionally carry Kortix CLI scopes in');
+    expect(flat).toContain('Agents additionally carry Dosco CLI scopes in');
     expect(flat).toContain('a session can only do what both allow.');
   });
 

@@ -11,7 +11,7 @@ describe('createMarkdownSource', () => {
     let calls = 0;
     const source = createMarkdownSource('/markdown/docs/index.md', () => {
       calls += 1;
-      return response('# Kortix');
+      return response('# Dosco');
     });
 
     expect(source.peek()).toBeNull();
@@ -24,13 +24,13 @@ describe('createMarkdownSource', () => {
     let calls = 0;
     const source = createMarkdownSource('/markdown/docs/index.md', () => {
       calls += 1;
-      return response('# Kortix');
+      return response('# Dosco');
     });
 
     const [a, b, c] = await Promise.all([source.load(), source.load(), source.load()]);
 
     expect(calls).toBe(1);
-    expect([a, b, c]).toEqual(['# Kortix', '# Kortix', '# Kortix']);
+    expect([a, b, c]).toEqual(['# Dosco', '# Dosco', '# Dosco']);
   });
 
   test('once loaded, the text is there without a request', async () => {
@@ -40,12 +40,12 @@ describe('createMarkdownSource', () => {
     let calls = 0;
     const source = createMarkdownSource('/markdown/docs/index.md', () => {
       calls += 1;
-      return response('# Kortix');
+      return response('# Dosco');
     });
 
     await source.load();
 
-    expect(source.peek()).toBe('# Kortix');
+    expect(source.peek()).toBe('# Dosco');
     await source.load();
     expect(calls).toBe(1);
   });
@@ -56,13 +56,13 @@ describe('createMarkdownSource', () => {
     let calls = 0;
     const source = createMarkdownSource('/markdown/docs/index.md', () => {
       calls += 1;
-      return calls === 1 ? response('', false, 500) : response('# Kortix');
+      return calls === 1 ? response('', false, 500) : response('# Dosco');
     });
 
     await expect(source.load()).rejects.toThrow('500');
     expect(source.peek()).toBeNull();
 
-    expect(await source.load()).toBe('# Kortix');
+    expect(await source.load()).toBe('# Dosco');
     expect(calls).toBe(2);
   });
 
@@ -70,10 +70,10 @@ describe('createMarkdownSource', () => {
     let calls = 0;
     const source = createMarkdownSource('/markdown/docs/index.md', () => {
       calls += 1;
-      return calls === 1 ? Promise.reject(new Error('offline')) : response('# Kortix');
+      return calls === 1 ? Promise.reject(new Error('offline')) : response('# Dosco');
     });
 
     await expect(source.load()).rejects.toThrow('offline');
-    expect(await source.load()).toBe('# Kortix');
+    expect(await source.load()).toBe('# Dosco');
   });
 });

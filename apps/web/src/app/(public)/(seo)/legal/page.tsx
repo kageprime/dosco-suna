@@ -340,7 +340,7 @@ function LegalContent() {
           <p className="text-muted-foreground mt-5 max-w-xl text-base leading-relaxed text-pretty">
             {t.raw('appLegalPage.line93JsxTextInformationAccordingToLegalRequirements')}
             {' — '}
-            company details, how we handle your data, and the terms that govern Kortix.
+            company details, how we handle your data, and the terms that govern Dosco.
           </p>
         </header>
 

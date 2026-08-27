@@ -532,7 +532,7 @@ function SecretsAccessExplainer({ showEnforced }: { showEnforced: boolean }) {
                 <code className="font-mono">secrets: all</code> does not count.
               </>
             ) : null}{' '}
-            The last three are usages Kortix assigns —{' '}
+            The last three are usages Dosco assigns —{' '}
             <span className="text-foreground">LLM gateway</span> when you connect a model provider,{' '}
             <span className="text-foreground">Connector</span> when you bind a connector,{' '}
             <span className="text-foreground">Git</span> when you connect a repository — and each is
@@ -631,7 +631,7 @@ function buildRows(raw: ProjectSecretsResponse | ProjectSecret[] | null | undefi
 }
 
 function statusLabel(row: SecretRow): string {
-  if (row.system) return row.configured ? 'Managed by Kortix' : 'Not set';
+  if (row.system) return row.configured ? 'Managed by Dosco' : 'Not set';
   return row.configured ? 'Set' : 'Not set';
 }
 
@@ -650,7 +650,7 @@ function statusLabel(row: SecretRow): string {
  *
  * The other two become icons with a `Hint`, so they read at a glance and still
  * announce themselves to a screen reader:
- *   lock      — managed by Kortix, you cannot edit it
+ *   lock      — managed by Dosco, you cannot edit it
  *   asterisk  — required; orange while unset, muted once set, the same
  *               "required field" convention every form uses
  */
@@ -659,10 +659,10 @@ function SecretMarks({ row }: { row: SecretRow }) {
   return (
     <span className="flex shrink-0 items-center gap-1">
       {row.system ? (
-        <Hint label="Managed by Kortix" side="top">
+        <Hint label="Managed by Dosco" side="top">
           <Lock
             className="text-muted-foreground size-3.5 shrink-0"
-            aria-label="Managed by Kortix"
+            aria-label="Managed by Dosco"
           />
         </Hint>
       ) : null}
@@ -840,7 +840,7 @@ function SecretDialog({
   const [editedHosts, setEditedHosts] = useState<string | null>(null);
   const hosts = editedHosts ?? (row ? storedHosts : classification.hosts.join('\n'));
   /**
-   * A slot this row was created with, before Kortix substituted handles in
+   * A slot this row was created with, before Dosco substituted handles in
    * place. It rides through every save untouched unless the user removes it —
    * dropping it silently would stop a working injection on an unrelated edit
    * such as a value rotation.
@@ -1216,7 +1216,7 @@ function SecretDialog({
                   {classification.hosts.length > 0
                     ? `The approved host is prefilled with ${classification.hosts[0]}, so agent code can call ${classification.modelProvider.label} directly without ever holding the key.`
                     : `Add ${classification.modelProvider.label}'s API host below so agent code can call it directly without ever holding the key.`}{' '}
-                  If the Kortix model gateway should spend it for model requests instead, connect{' '}
+                  If the Dosco model gateway should spend it for model requests instead, connect{' '}
                   {classification.modelProvider.label} under LLM providers — one key is served by
                   one of the two, not both.
                 </InfoBanner>
@@ -1238,7 +1238,7 @@ function SecretDialog({
                       {selectedDelivery.label}
                     </Badge>
                     <p className="text-muted-foreground mt-2 text-xs text-pretty">
-                      {selectedDelivery.description} Kortix assigned this — it cannot be changed
+                      {selectedDelivery.description} Dosco assigned this — it cannot be changed
                       here.
                     </p>
                   </div>
@@ -1273,7 +1273,7 @@ function SecretDialog({
                 <InfoBanner tone="warning" title="Readable inside the sandbox">
                   Agent code and commands can read this value. Use this option only when the secret
                   must be available to a local process — a credential that signs requests, or a
-                  protocol Kortix cannot enforce.
+                  protocol Dosco cannot enforce.
                 </InfoBanner>
               )}
 
@@ -1349,7 +1349,7 @@ function SecretDialog({
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Approved hosts</p>
                     <p className="text-muted-foreground text-xs text-pretty">
-                      The sandbox holds a handle under this key. Kortix swaps the real value in
+                      The sandbox holds a handle under this key. Dosco swaps the real value in
                       outside the sandbox, and only on a request to one of these hosts.
                     </p>
                   </div>

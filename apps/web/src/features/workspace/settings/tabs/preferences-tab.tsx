@@ -102,7 +102,7 @@ const DENSITY_OPTIONS: { id: ConversationDensity; label: string; description: st
   {
     id: 'normal',
     label: 'Normal',
-    description: 'Steps and thinking stream live while Kortix works.',
+    description: 'Steps and thinking stream live while Dosco works.',
   },
   {
     id: 'minimal',
@@ -230,13 +230,13 @@ const NOTIFICATION_TYPE_TOGGLES: {
     key: 'onQuestion',
     icon: QuestionCircleSolid,
     label: 'Questions',
-    description: 'When Kortix needs your input to continue',
+    description: 'When Dosco needs your input to continue',
   },
   {
     key: 'onPermission',
     icon: ShieldCheckSolid,
     label: 'Permission requests',
-    description: 'When Kortix needs permission to use a tool',
+    description: 'When Dosco needs permission to use a tool',
   },
 ];
 
@@ -395,7 +395,7 @@ export function PreferencesTabView({
       <section className="flex flex-col items-start justify-between gap-4 md:flex-row md:gap-10">
         <SettingsSubsectionHeader
           title="Theme"
-          description="Choose how Kortix looks on this device."
+          description="Choose how Dosco looks on this device."
         />
         <div className="bg-foreground/10 flex w-fit items-center gap-1 rounded-md p-0.5">
           {THEME_OPTIONS.map(({ value, label, Icon }) => (
@@ -661,7 +661,7 @@ export function PreferencesTabView({
 
       {/* 7. Language */}
       <section className="space-y-3">
-        <SettingsSubsectionHeader title="Language" description="The language Kortix displays." />
+        <SettingsSubsectionHeader title="Language" description="The language Dosco displays." />
         <Select value={locale} onValueChange={(value) => onLocaleChange(value as Locale)}>
           <SelectTrigger id="preferences-language" className="!h-11 w-full max-w-xs">
             <SelectValue>{LANGUAGE_NAMES[locale] ?? locale}</SelectValue>

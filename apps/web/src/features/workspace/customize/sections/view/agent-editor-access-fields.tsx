@@ -4,7 +4,7 @@
  * The last two open sections of the agent editor: what the agent may reach
  * (Access) and where it runs (Workspace).
  *
- * These were the "Kortix layer" — named for the file they land in
+ * These were the "Dosco layer" — named for the file they land in
  * (`kortix.yaml`) rather than the question they answer. Same writes, same
  * platform enforcement; the heading now says what it governs.
  */
@@ -141,12 +141,12 @@ export function AccessSection({
         />
       </SettingBlock>
 
-      {/* Was "Kortix CLI" — the name of the tool, not of what it grants. What
+      {/* Was "Dosco CLI" — the name of the tool, not of what it grants. What
           the user is choosing is which project operations the agent may
           perform; the CLI is only how it performs them. */}
       <SettingBlock
         label="Project actions"
-        help="What this agent may do to the project itself, through the Kortix CLI."
+        help="What this agent may do to the project itself, through the Dosco CLI."
       >
         <KortixCliField
           value={draft.kortix_cli}

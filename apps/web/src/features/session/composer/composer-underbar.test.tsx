@@ -158,7 +158,7 @@ describe('ComposerUnderbar — the agent picker is unconditional', () => {
   test('renders with a populated roster', () => {
     const html = render({ agents: [{ name: 'kortix', mode: 'primary' } as unknown as Agent] });
     expect(agentTrigger(html)).toBeDefined();
-    expect(html).toContain('Kortix');
+    expect(html).toContain('Dosco');
   });
 
   test('renders with an empty roster too', () => {
