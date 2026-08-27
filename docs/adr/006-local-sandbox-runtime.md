@@ -6,13 +6,13 @@
 
 ## Context
 
-Self-hosted Kortix currently runs its control plane locally but requires a
+Self-hosted Dosco currently runs its control plane locally but requires a
 configured cloud sandbox provider for agent sessions. The retired
 `local-docker` provider did not meet the product contract. It mounted the host
 Docker socket into `kortix-api`, made the API process a container supervisor,
 and exposed the host through a root-equivalent control socket.
 
-The replacement must run a complete Kortix stack on one ordinary Linux VPS.
+The replacement must run a complete Dosco stack on one ordinary Linux VPS.
 The host might not expose nested virtualization or `/dev/kvm`. The operator has
 root access to the VPS, but does not control its hypervisor.
 
@@ -87,7 +87,7 @@ gvisor-systrap-ok
 ```
 
 This smoke proves the no-KVM execution path. It does not prove the complete
-Kortix workload contract.
+Dosco workload contract.
 
 ## Candidate Matrix
 
@@ -127,13 +127,13 @@ The relevant upstream limitations are:
   processes in one sandbox;
 - rootless modes have networking, UID mapping, and checkpoint restrictions.
 
-Kortix must apply CPU and memory limits to the whole `runsc` process tree with
+Dosco must apply CPU and memory limits to the whole `runsc` process tree with
 host cgroups. The first implementation should run `sandboxd` as a dedicated
 root-owned service. Rootless operation is a later hardening track, not an
 acceptance dependency.
 
 Chromium is a required compatibility risk. The prototype must execute the
-actual Kortix base image and browser toolchain. A BusyBox or Node.js smoke is
+actual Dosco base image and browser toolchain. A BusyBox or Node.js smoke is
 not sufficient.
 
 ## Prototype Acceptance Gate
@@ -156,7 +156,7 @@ The prototype passes only if all checks succeed:
 11. Upgrade the self-host stack without deleting active workspace data.
 12. Record cold start, warm start, build, CPU, memory, and disk overhead.
 
-Any compatibility failure in the Kortix base image, OpenCode, Chromium, Git,
+Any compatibility failure in the Dosco base image, OpenCode, Chromium, Git,
 or the proxy contract blocks implementation. A failed host-kernel prerequisite
 must produce a preflight error before the stack starts.
 
@@ -175,7 +175,7 @@ must produce a preflight error before the stack starts.
 - gVisor is not a VM boundary and shares the host kernel below its application
   kernel.
 - Linux compatibility is high but incomplete.
-- Kortix must own `sandboxd`, containerd, CNI, cgroup, storage, cleanup, and
+- Dosco must own `sandboxd`, containerd, CNI, cgroup, storage, cleanup, and
   upgrade behavior.
 - “Any VM” still excludes restricted VPS containers and unsupported kernels.
 

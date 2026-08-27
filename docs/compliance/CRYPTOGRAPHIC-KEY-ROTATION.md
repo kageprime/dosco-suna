@@ -6,7 +6,7 @@ Review cadence: Annual and after material cryptographic or access changes
 
 ## Scope
 
-This standard covers Kortix-managed AWS KMS keys used for encryption and
+This standard covers Dosco-managed AWS KMS keys used for encryption and
 digital signing. AWS-managed keys follow the provider's managed lifecycle.
 Application credentials and IAM access keys follow the separate secrets and
 credential-rotation process.

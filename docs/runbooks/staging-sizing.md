@@ -186,7 +186,7 @@ the only record. Update it if the tier changes.
 
 ### Reading and changing the tier (Supabase Management API)
 
-Requires a Supabase personal access token with access to the Kortix org.
+Requires a Supabase personal access token with access to the Dosco org.
 
 ```sh
 # read the current compute add-on
@@ -252,7 +252,7 @@ first** — it separates "the origin returned 503" from "the origin was
 unreachable".
 
 A trusted CI run can also opt out of the laundering entirely by sending
-`X-Kortix-CI-Passthrough: <secret>`, matched against the Worker's
+`X-Dosco-CI-Passthrough: <secret>`, matched against the Worker's
 `CI_PASSTHROUGH_SECRET` binding (deployed from the `CF_WORKER_CI_PASSTHROUGH_SECRET`
 repository secret). With a valid marker the true origin status and body pass
 through unmodified. Public behavior is unchanged.
