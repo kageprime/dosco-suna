@@ -322,9 +322,9 @@ export function gatewayCodexModels(
 const ZEN_FREE_IDS: string[] = [
   'hy3-free',
   'big-pickle',
-  'laguna-s-2.1-free',
   'mimo-v2.5-free',
-  'deepseek-v4-flash-free',
+  'nemotron-3-ultra-free',
+  'nemotron-3.5-lightning-free',
 ];
 
 export function gatewayZenFreeModels(

@@ -146,7 +146,7 @@ describe('gatewayModelCatalog — served catalog', () => {
     const z = gatewayZenFreeModels(synth);
     // Exactly the curated allowlist surfaces, all under `zen/`.
     expect(Object.keys(z).sort()).toEqual(
-      ['zen/big-pickle', 'zen/deepseek-v4-flash-free', 'zen/hy3-free', 'zen/laguna-s-2.1-free', 'zen/mimo-v2.5-free'].sort(),
+      ['zen/big-pickle', 'zen/hy3-free', 'zen/mimo-v2.5-free', 'zen/nemotron-3-ultra-free', 'zen/nemotron-3.5-lightning-free'].sort(),
     );
     expect(z['zen/hy3-free']?.provider).toBe('zen');
     expect(z['zen/hy3-free']?.name).toBe('Hy3 Free');

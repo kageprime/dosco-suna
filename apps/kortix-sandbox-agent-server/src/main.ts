@@ -74,10 +74,11 @@ import { opencodeDeliveryInFlight, opencodeTurnInFlight } from './opencode-turn-
 import { installCompiledRuntime } from './compiled-runtime'
 
 const LEGACY_OPENCODE_ZEN_FREE_MODELS = new Set([
-  'deepseek-v4-flash-free',
+  'hy3-free',
+  'big-pickle',
   'mimo-v2.5-free',
   'nemotron-3-ultra-free',
-  'north-mini-code-free',
+  'nemotron-3.5-lightning-free',
 ])
 
 interface InitialTurnClaim {
