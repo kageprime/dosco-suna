@@ -63,7 +63,7 @@ describe('content', () => {
   });
 });
 
-describe('Kortix visual contract', () => {
+describe('Dosco visual contract', () => {
   // Each of these is a rule from changes-view.tsx. A regression here is a
   // brand regression, which is why they are pinned rather than eyeballed.
   test('the status colour lives in the tinted tile', () => {

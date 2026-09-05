@@ -25,7 +25,7 @@
 // this file's sibling `sso-card.tsx` uses the same two-column `<dl>` for the
 // same job.
 //
-// On the hosted Kortix deployment (source 'env') the App is configured by the
+// On the hosted Dosco deployment (source 'env') the App is configured by the
 // operator via env vars — this card still renders there, but its footer says
 // so and offers no controls; the separate cloud `GitHubConnectionCard`
 // (per-account App installs) is what a hosted customer actually uses, gated on
@@ -343,7 +343,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
         description={
           status.configured
             ? 'Powers repository creation and pushes for every project on this instance.'
-            : 'Every Kortix project is a git repository the server creates and pushes to on your behalf. Connect GitHub once here to enable projects.'
+            : 'Every Dosco project is a git repository the server creates and pushes to on your behalf. Connect GitHub once here to enable projects.'
         }
         action={
           reconfiguring ? (
@@ -376,7 +376,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
           <RadioGroup
             value={method}
             onValueChange={(value) => setMethod(value as SetupMethod)}
-            aria-label="How Kortix authenticates to GitHub"
+            aria-label="How Dosco authenticates to GitHub"
             className="bg-popover divide-border gap-0 divide-y overflow-hidden rounded-md border"
           >
             {SETUP_METHODS.map((entry) => (
@@ -527,7 +527,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
                         <p className="text-muted-foreground text-xs">
                           From the App&apos;s GitHub settings page, under General →{' '}
                           &quot;Client secrets&quot;. Without this, members can&apos;t link an
-                          account to this App from Kortix.
+                          account to this App from Dosco.
                         </p>
                       </div>
                       <div className="space-y-1.5">
@@ -593,7 +593,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
                               Repository access
                             </dt>
                             <dd className="text-foreground leading-relaxed">
-                              All repositories — Kortix creates a new repo per project, so a fixed
+                              All repositories — Dosco creates a new repo per project, so a fixed
                               repo list cannot cover future ones.
                             </dd>
                           </div>
@@ -675,7 +675,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
         </div>
       ) : (
         <div className="bg-popover overflow-hidden rounded-md border">
-          {/* Identity: who owns the repositories Kortix is about to create. */}
+          {/* Identity: who owns the repositories Dosco is about to create. */}
           <div className="flex items-start gap-3 px-4 py-4">
             <span
               aria-hidden
@@ -775,7 +775,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
         open={confirmDisconnectOpen}
         onOpenChange={setConfirmDisconnectOpen}
         title="Disconnect GitHub?"
-        description="Projects that already have a repo keep working, but Kortix won't be able to create new managed repos until you reconnect."
+        description="Projects that already have a repo keep working, but Dosco won't be able to create new managed repos until you reconnect."
         confirmLabel="Disconnect"
         confirmVariant="destructive"
         onConfirm={() => disconnectMutation.mutate()}
@@ -790,7 +790,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
  *  read as the same panel rather than two unrelated blocks. */
 function CardHeading({
   badges,
-  description = 'Every Kortix project is a git repository the server creates and pushes to on your behalf.',
+  description = 'Every Dosco project is a git repository the server creates and pushes to on your behalf.',
   action,
 }: {
   badges?: React.ReactNode;

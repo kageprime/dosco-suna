@@ -13,7 +13,7 @@ const EMPTY_MODELS: FlatModel[] = [];
 
 /**
  * The single "no model connected" teaching moment — an icon, a plain-English
- * explanation, and the two ways out: upgrade to a Kortix plan, or bring an API
+ * explanation, and the two ways out: upgrade to a Dosco plan, or bring an API
  * key from any provider. Shared by the chat input's full-block gate and the
  * project onboarding wizard so the copy and actions never drift apart.
  */
@@ -37,7 +37,7 @@ export function ModelConnectionGate({
         title="Connect a model to start chatting"
         description={
           showUpgradeOption
-            ? "This session needs an LLM connected before it can respond. Upgrade for instant access to Kortix's managed models, or bring your own API key from any provider."
+            ? "This session needs an LLM connected before it can respond. Upgrade for instant access to Dosco's managed models, or bring your own API key from any provider."
             : 'This session needs an LLM connected before it can respond. Bring your own API key from any provider.'
         }
         action={

@@ -8,7 +8,7 @@
 //
 // The WRITE is platform-admin-only. `PUT /v1/accounts/{id}/iam/enterprise-demo`
 // answers 403 {code:'admin_required'} for everyone else, so an account admin
-// sees the state read-only plus a "contact Kortix" hint instead of a switch
+// sees the state read-only plus a "contact Dosco" hint instead of a switch
 // that would only ever fail. Platform admins keep the working switch here; the
 // operator console (/admin/accounts → Entitlements) is the other write path.
 //
@@ -85,7 +85,7 @@ export function EnterpriseDemoCard({ accountId, canManage }: EnterpriseDemoCardP
         }
         description={
           !isLoading && !isPlatformAdmin
-            ? 'Evaluation only, not a production plan. Contact Kortix to switch it on.'
+            ? 'Evaluation only, not a production plan. Contact Dosco to switch it on.'
             : 'Evaluation only, not a production plan.'
         }
       >

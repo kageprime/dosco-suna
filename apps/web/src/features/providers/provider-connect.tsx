@@ -30,7 +30,7 @@
  * The first cut of (3) deleted the disclosure AND the providers behind it:
  * with no search text the list was the three first-class ids plus whatever
  * already had a key, so 185 providers only existed for someone who typed a
- * name they already knew. That reads as "Kortix supports three providers".
+ * name they already knew. That reads as "Dosco supports three providers".
  * The whole catalog is in the list now (`orderProviderRows`), first-class ids
  * first, everything else in catalog order — the search field narrows a list
  * that is already all there instead of being the only door to it.
@@ -1132,7 +1132,7 @@ export function ProviderConnect({
                   {removeEntry.models.length === 1 ? '' : 's'}
                 </>
               )}
-              , for everyone on it. Kortix does not keep a copy — you will need the key again to put
+              , for everyone on it. Dosco does not keep a copy — you will need the key again to put
               it back.
             </span>
           ) : null

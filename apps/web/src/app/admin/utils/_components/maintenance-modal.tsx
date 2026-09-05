@@ -163,7 +163,7 @@ export function MaintenanceConfigModal({
                 <FieldLabel htmlFor="m-status-url">Status URL (optional)</FieldLabel>
                 <Input
                   id="m-status-url"
-                  placeholder="https://status.kortix.com"
+                  placeholder="?"
                   value={statusUrl}
                   onChange={(e) => setStatusUrl(e.target.value)}
                 />

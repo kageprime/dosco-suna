@@ -2,7 +2,7 @@
  * The settings row — a label on the left, its control on the right, stacked
  * with siblings inside one bordered group.
  *
- * **Why this exists.** Kortix settings panes stacked vertically: a section
+ * **Why this exists.** Dosco settings panes stacked vertically: a section
  * header, then its control underneath, then a gap, then the next header. That
  * reads as a series of small announcements and makes even a three-field form
  * feel long. Linear's settings — the reference Jay asked for — put the label

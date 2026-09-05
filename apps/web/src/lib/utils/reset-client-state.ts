@@ -49,7 +49,7 @@ import { resetAllRegisteredPersistedStores } from '@/stores/persisted-store-regi
  * that meant a user could not sign out AND the app could park on its loading
  * frame at sign-in, with no error shown either way.
  *
- * Outrunning step 5 is safe because it purges INERT data: nothing in Kortix
+ * Outrunning step 5 is safe because it purges INERT data: nothing in Dosco
  * reads those entries any more (see that module's own header), and they are
  * keyed `user:<id>` via `buildSessionCacheKey`, so the next account cannot read
  * them even if the purge never lands. Everything that would actually leak

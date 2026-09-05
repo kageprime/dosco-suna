@@ -71,7 +71,7 @@ describe('the two halves of the rotating pool', () => {
     expect(WORKFORCE_STARTER_PROMPTS.length).toBeGreaterThanOrEqual(10);
   });
 
-  test('every workforce prompt names a Kortix primitive', () => {
+  test('every workforce prompt names a Dosco primitive', () => {
     for (const prompt of WORKFORCE_STARTER_PROMPTS) {
       expect(`${prompt.label} ${prompt.prompt}`.toLowerCase()).toMatch(
         /agent|skill|trigger|memory|change request|connector|kortix\.yaml|repo/,

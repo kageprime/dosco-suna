@@ -198,7 +198,7 @@ function spanAround(html: string, text: string): string {
 
 describe('the panel row title has shrink priority (gate finding 1)', () => {
   const LONG_SUBTITLE =
-    'Use for every Kortix test task, behavior change, bug fix, refactor, or API route change';
+    'Use for every Dosco test task, behavior change, bug fix, refactor, or API route change';
 
   test('a SHORT title beside a long subtitle keeps its own width', () => {
     const html = renderPanel(

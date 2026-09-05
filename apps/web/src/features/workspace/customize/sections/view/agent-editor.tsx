@@ -15,7 +15,7 @@
  * fields out its own way:
  *
  *  - `useAgentDraft` owns the draft, the baseline, the two writers (`set` for
- *    the Kortix block, `setOc` for the nested runtime block) and the dirty
+ *    the Dosco block, `setOc` for the nested runtime block) and the dirty
  *    check. Pure state; no shell.
  *  - `useAgentEditorOptions` loads the three option lists the sections need
  *    (secrets, connectors, sandbox templates).
@@ -27,12 +27,12 @@
  * validated server-side against the manifest-schema validator before commit.
  *
  * ── How the sections are organised, and why ────────────────────────────────
- * The editor used to open with two headings, "Kortix" and "OpenCode", each
+ * The editor used to open with two headings, "Dosco" and "OpenCode", each
  * with an icon and a sentence naming the file it wrote to. That is a storage
  * taxonomy: to find "model" you first had to know that models are an OpenCode
  * concern. The sections are the questions you actually ask about an agent —
  * Model, Access, Workspace, Tools, Basics — and every field still writes to
- * exactly the same place it always did. `set` writes the Kortix block, `setOc`
+ * exactly the same place it always did. `set` writes the Dosco block, `setOc`
  * writes the nested runtime block; that split is a fact about the code, not a
  * heading in the UI.
  *

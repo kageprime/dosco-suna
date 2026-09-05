@@ -19,7 +19,7 @@ import type { ServiceAccount } from '@/lib/iam-client';
 import type { AccountToken, KortixProject } from '@kortix/sdk';
 
 /**
- * Kortix mints one of these per session and injects it into the sandbox as
+ * Dosco mints one of these per session and injects it into the sandbox as
  * `KORTIX_TOKEN` (`apps/api/src/platform/services/session-sandbox.ts`,
  * `mintConnectorToken` — `name: \`Connector Session ${sandboxId.slice(0, 8)}\``).
  * They land in the SAME table as human-created keys, so `/accounts/tokens`

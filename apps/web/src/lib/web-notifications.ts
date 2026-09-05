@@ -382,7 +382,7 @@ export function notifySessionError(
 }
 
 /**
- * Notify that Kortix is asking the user a question.
+ * Notify that Dosco is asking the user a question.
  */
 export function notifyQuestion(
   sessionId: string,
@@ -405,7 +405,7 @@ export function notifyQuestion(
 }
 
 /**
- * Notify that Kortix needs a permission grant.
+ * Notify that Dosco needs a permission grant.
  */
 export function notifyPermissionRequest(
   sessionId: string,

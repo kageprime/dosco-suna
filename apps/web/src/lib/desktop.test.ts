@@ -55,7 +55,7 @@ describe('desktop external routes', () => {
       remove() {},
     };
     Object.defineProperty(globalThis, 'window', {
-      value: { location: { origin: 'https://kortix.com' } },
+      value: { location: { origin: 'https://dosco.live' } },
       configurable: true,
       writable: true,
     });
@@ -71,8 +71,8 @@ describe('desktop external routes', () => {
     expect(openExternalRoute('/legal/terms')).toBe(true);
     expect(openExternalRoute('/legal?tab=privacy')).toBe(true);
     expect(clicks).toEqual([
-      { href: 'https://kortix.com/legal/terms', target: undefined, rel: undefined },
-      { href: 'https://kortix.com/legal?tab=privacy', target: undefined, rel: undefined },
+      { href: 'https://dosco.live/legal/terms', target: undefined, rel: undefined },
+      { href: 'https://dosco.live/legal?tab=privacy', target: undefined, rel: undefined },
     ]);
   });
 

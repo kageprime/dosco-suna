@@ -16,8 +16,8 @@ export interface Author {
   email: string;
   avatarUrl?: string;
   /**
-   * This author is Kortix itself, not a person — `<PostAuthorAvatar>` renders
-   * the Kortix symbol instead of initials. A flag rather than a check on
+   * This author is Dosco itself, not a person — `<PostAuthorAvatar>` renders
+   * the Dosco symbol instead of initials. A flag rather than a check on
    * `role`, because `role` is display copy: rewording it must not silently
    * change which mark renders.
    */
@@ -33,8 +33,8 @@ export const AUTHORS: Record<string, Author> = {
     email: 'marko@kortix.ai',
   },
   team: {
-    name: 'The Kortix Team',
-    role: 'Kortix',
+    name: 'The Dosco Team',
+    role: 'Dosco',
     email: 'team@kortix.ai',
     isKortix: true,
   },

@@ -181,10 +181,8 @@ export const companyMenu: NavMenu = {
       title: 'Company',
       links: [
         { name: 'About', href: '/about' },
-        { name: 'Careers', href: '/careers' },
+
         { name: 'Blog', href: '/blog' },
-        { name: 'X', href: 'https://x.com/kortix', external: true },
-        { name: 'LinkedIn', href: 'https://linkedin.com/company/kortix', external: true },
       ],
     },
   ],
@@ -204,15 +202,14 @@ export const siteConfig = {
     ] as NavLink[],
   },
   hero: {
-    description: 'Kortix – the open AI command center for your company.',
+    description: 'Dosco – the private AI command center for your company.',
   },
   footerLinks: [
     {
       title: 'Product',
       links: [
         { id: 4, title: 'Support', url: '/support' },
-        { id: 5, title: 'Contact', url: 'mailto:hey@kortix.com' },
-        { id: 13, title: 'Status', url: 'https://status.kortix.com' },
+        { id: 5, title: 'Contact', url: 'mailto:support@dosco.live' },
       ],
     },
     {
@@ -220,7 +217,6 @@ export const siteConfig = {
       links: [
         { id: 7, title: 'Documentation', url: '/docs' },
         { id: 8, title: 'Discord', url: 'https://discord.com/invite/RvFhXUdZ9H' },
-        { id: 9, title: 'GitHub', url: 'https://github.com/kortix-ai/suna' },
       ],
     },
     {
@@ -228,7 +224,6 @@ export const siteConfig = {
       links: [
         { id: 10, title: 'Privacy Policy', url: '/legal?tab=privacy' },
         { id: 11, title: 'Terms of Service', url: '/legal/terms' },
-        { id: 12, title: 'License', url: 'https://github.com/kortix-ai/suna/blob/main/LICENSE' },
       ],
     },
   ],

@@ -250,7 +250,7 @@ export function messageFor(error: unknown): string {
     // Two different 409s reach here now, and they must not share a message.
     // `provision_in_flight` carries a typed `code`
     // (`PROVISION_IN_FLIGHT_CODE`); the GitHub sources' 409s do not — they are
-    // "install the Kortix GitHub App first" (`create-repo` and
+    // "install the Dosco GitHub App first" (`create-repo` and
     // `link-repository`, `apps/api/src/projects/routes/r2.ts`) and "no
     // available repository name near X". Both of those already say exactly
     // what to do, so the server's own message is reused verbatim rather than

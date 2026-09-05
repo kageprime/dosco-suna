@@ -3,7 +3,7 @@
 /**
  * Organization branding — ONE provider, mounted once in the root layout.
  *
- * An Enterprise account can replace the Kortix marks its members see: the wide
+ * An Enterprise account can replace the Dosco marks its members see: the wide
  * brandmark, the square symbol, and the browser-tab icon — each with an
  * optional dark-scheme variant — plus the product name in the tab title.
  * The API decides what a member is SERVED (`KortixAccount.branding` on
@@ -19,7 +19,7 @@
  * costs no extra request. It renders nothing itself; `KortixLogo` swaps its
  * SVG for the org marks, and `BrandingDocumentEffect` (below) swaps the tab
  * icon and title once the account resolves. Before that — and on every
- * unauthenticated surface — the app is Kortix, by design: there is no account
+ * unauthenticated surface — the app is Dosco, by design: there is no account
  * to be branded as until someone signs in.
  */
 
@@ -113,16 +113,16 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The active account's branding, or `null` for default Kortix. Safe outside
+ * The active account's branding, or `null` for default Dosco. Safe outside
  * the provider (tests, isolated renders): resolves to `null`.
  */
 export function useBranding(): AccountBranding | null {
   return useContext(BrandingContext);
 }
 
-/** The product name to show in place of "Kortix". */
+/** The product name to show in place of "Dosco". */
 export function useAppName(): string {
-  return useBranding()?.app_name ?? 'Kortix';
+  return useBranding()?.app_name ?? 'Dosco';
 }
 
 
@@ -136,16 +136,16 @@ const originals = new WeakMap<HTMLLinkElement, { href: string; media: string | n
 /**
  * Next resolves `metadata.icons` and `title` on the server, above auth — so the
  * org favicon and name are applied client-side once the account is known. Cold
- * load shows the Kortix tab for the first paint; that is the accepted v1
+ * load shows the Dosco tab for the first paint; that is the accepted v1
  * trade-off (host-based tenancy would be the way to remove it).
  *
  * Title: Next writes `<title>` on every navigation from the route's metadata:
- * the site default (`Kortix – The AI Command Center for Your Company`) on
- * routes with no title of their own, `<page> | Kortix` elsewhere. A
+ * the site default (`Dosco – The AI Command Center for Your Company`) on
+ * routes with no title of their own, `<page> | Dosco` elsewhere. A
  * `MutationObserver` on `<head>` rewrites whatever Next just wrote, so the
  * swap survives navigation without touching every page's metadata: the site
- * default collapses to the org name alone (its tagline is Kortix's, not
- * theirs); anything else has the literal "Kortix" token replaced. It only
+ * default collapses to the org name alone (its tagline is Dosco's, not
+ * theirs); anything else has the literal "Dosco" token replaced. It only
  * writes when the result differs — no loops, no clobbering page titles.
  */
 const DARK_ICON_ATTR = 'data-kortix-dark-icon';
@@ -176,7 +176,7 @@ function BrandingDocumentEffect({ branding }: { branding: AccountBranding | null
       stash(link);
       if (href) {
         if (link.getAttribute('href') !== href) link.setAttribute('href', href);
-        // One branded image for both color schemes: the media-scoped Kortix
+        // One branded image for both color schemes: the media-scoped Dosco
         // dark variant must not win over it.
         if (link.hasAttribute('media')) link.removeAttribute('media');
         return;
@@ -238,7 +238,7 @@ function BrandingDocumentEffect({ branding }: { branding: AccountBranding | null
     if (typeof document === 'undefined' || !appName) return;
     const rewrite = () => {
       const current = document.title;
-      if (!current.includes('Kortix')) return;
+      if (!current.includes('Dosco')) return;
       const next =
         current === siteMetadata.title ? appName : current.replace(/\bKortix\b/g, appName);
       if (next !== current) document.title = next;

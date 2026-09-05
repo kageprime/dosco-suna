@@ -244,7 +244,7 @@ describe('resetClientState clears the impersonation session, module state includ
   // sessionStorage key (what the old delete-list would have done) leaves the
   // in-memory mirror live: `getImpersonationSession()` would keep returning
   // the stale session, and the admin banner would keep attaching
-  // `X-Kortix-Impersonate` to every request, for the rest of the tab's life.
+  // `X-Dosco-Impersonate` to every request, for the rest of the tab's life.
   test('a live impersonation session does not survive resetClientState()', async () => {
     setImpersonationSession({
       grantId: 'grant-1',

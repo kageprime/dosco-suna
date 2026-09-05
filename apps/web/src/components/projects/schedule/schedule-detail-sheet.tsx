@@ -120,7 +120,7 @@ function buildSampleRequest(url: string): string {
   return [
     `curl -X POST ${url} \\`,
     `  -H "Content-Type: application/json" \\`,
-    `  -H "X-Kortix-Signature: sha256=$(echo -n '$BODY' | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')" \\`,
+    `  -H "X-Dosco-Signature: sha256=$(echo -n '$BODY' | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')" \\`,
     `  -d '$BODY'`,
     ``,
     `# $BODY   is the JSON you want to send, e.g. {"event":"deploy.succeeded"}`,

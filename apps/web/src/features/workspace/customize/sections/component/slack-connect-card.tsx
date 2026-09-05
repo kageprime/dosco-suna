@@ -11,12 +11,12 @@
  * admin was asked to authorise an OAuth app on the strength of the word
  * "Install" in a table cell.
  *
- * So the payoff moves in front of the decision: the `Slack × Kortix` cover
+ * So the payoff moves in front of the decision: the `Slack × Dosco` cover
  * (`slack-connect-cover.tsx`, which delegates to the blog's own `BlogCover`),
  * three lines in plain language about what happens once it is on, and exactly
  * one primary button.
  *
- * **Two paths, one shape.** The managed Kortix Slack app (server has
+ * **Two paths, one shape.** The managed Dosco Slack app (server has
  * `SLACK_CLIENT_ID`/`SECRET`/`SIGNING_SECRET`, surfaced as
  * `mode.oauth_available`) is a single click. Self-hosted installs without
  * those env vars have to create their own app. That used to be an

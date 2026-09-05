@@ -129,7 +129,7 @@ export function StatCard({
   label: string;
   value: string;
   // ReactNode, not string: the spend card's sub-line carries a two-part
-  // Kortix / provider breakdown with its own dot markers.
+  // Dosco / provider breakdown with its own dot markers.
   sub?: ReactNode;
   icon: LucideIcon;
   accent: string;

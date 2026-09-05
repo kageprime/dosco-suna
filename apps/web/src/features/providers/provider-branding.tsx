@@ -169,7 +169,7 @@ export function ProviderLogo({
           height={iconSizes[size]}
           className={cn(
             'object-contain dark:invert',
-            // The Kortix mark is drawn edge-to-edge with no built-in padding,
+            // The Dosco mark is drawn edge-to-edge with no built-in padding,
             // so inside a tile it needs its own inset to match the other
             // logos' optical size. At `xs` there is no tile to inset from.
             iconDef.src === '/kortix-symbol.svg' && (size === 'xs' ? 'size-3.5' : 'size-3'),

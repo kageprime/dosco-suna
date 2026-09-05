@@ -36,16 +36,16 @@ const NEW_PROMPTS: Record<ConfigureKind, string> = {
   connector:
     'I want to connect an outside service to this project. Ask me which service ' +
     'and what the agents should be able to do with it, then add the connector ' +
-    'with the Kortix CLI and tell me what still needs authorizing.',
+    'with the Dosco CLI and tell me what still needs authorizing.',
   secret:
     'I want to add a secret to this project. Ask me what it is for and which ' +
     'agents need it — never ask me to paste the value in chat — then create the ' +
-    'secret with the Kortix CLI, grant it to those agents, and tell me where to ' +
+    'secret with the Dosco CLI, grant it to those agents, and tell me where to ' +
     'enter the value.',
   trigger:
     'I want to set up a trigger for this project. Ask me what should run, which ' +
     'agent should run it, and on what schedule or event, then create it with the ' +
-    'Kortix CLI and show me the result.',
+    'Dosco CLI and show me the result.',
 };
 
 export function newConfigPrompt(kind: ConfigureKind): string {

@@ -151,7 +151,7 @@ describe('Slack connect card — the payoff renders before the commitment', () =
 
   test('the lockup is hidden from screen readers, since the heading already says it', () => {
     expect(coverSource).toContain('aria-hidden');
-    // Labelling it would announce "Slack and Kortix" twice, next to <h3>Slack</h3>.
+    // Labelling it would announce "Slack and Dosco" twice, next to <h3>Slack</h3>.
     expect(coverSource).not.toContain('aria-label');
   });
 

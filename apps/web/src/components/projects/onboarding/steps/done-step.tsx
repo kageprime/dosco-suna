@@ -91,8 +91,8 @@ export function DoneStep({
         title="Your command center is live"
         description={
           connectedCount > 0
-            ? `${connectedCount} ${connectedCount === 1 ? 'tool' : 'tools'} connected. Opening starts your first conversation with Kortix.`
-            : 'Opening starts your first conversation with Kortix.'
+            ? `${connectedCount} ${connectedCount === 1 ? 'tool' : 'tools'} connected. Opening starts your first conversation with Dosco.`
+            : 'Opening starts your first conversation with Dosco.'
         }
         primaryLabel="Open project"
         onPrimary={onStart}

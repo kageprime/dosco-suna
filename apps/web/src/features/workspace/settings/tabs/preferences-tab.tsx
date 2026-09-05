@@ -112,7 +112,7 @@ export function PreferencesTabView({
       <section className="flex flex-col items-start justify-between gap-4 md:flex-row md:gap-10">
         <SettingsSubsectionHeader
           title="Language"
-          description="The language Kortix displays, everywhere in the app."
+          description="The language Dosco displays, everywhere in the app."
         />
         <Select value={locale} onValueChange={(value) => onLocaleChange(value as Locale)}>
           <SelectTrigger id="preferences-language" aria-label="Language" className="w-48">

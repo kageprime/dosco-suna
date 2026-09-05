@@ -6,7 +6,7 @@
  * ## Why this is a tab and not a section
  *
  * It used to be section 4 of the API-keys screen, behind an "Add a custom
- * provider" button. That put a job almost nobody does — pointing Kortix at a
+ * provider" button. That put a job almost nobody does — pointing Dosco at a
  * self-hosted or unlisted OpenAI-compatible endpoint — at the bottom of the
  * screen EVERYBODY uses to paste an Anthropic key, where it was one more
  * heading to read past on the way to nothing.

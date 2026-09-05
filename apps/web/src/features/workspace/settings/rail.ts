@@ -126,10 +126,10 @@ export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
     label: 'Sandbox templates',
     // Sandbox templates AND Snapshots — a snapshot is the build history of
     // a sandbox template, not a separate concept, so one row shows the
-    // template's recipe and the record of each time Kortix built a
+    // template's recipe and the record of each time Dosco built a
     // machine from it.
     description:
-      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+      'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
     docsHref: '/docs/work/runtime',
     icon: Container,
   },

@@ -7,7 +7,7 @@ import Loading from '@/components/ui/loading';
 import { Skeleton } from '@/components/ui/skeleton';
 import { errorToast, successToast } from '@/components/ui/toast';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { EmptyState } from '@/features/layout/section/empty-state';
 import { ErrorState } from '@/features/layout/section/error-state';
 import { ProjectFilesProvider } from '@/features/project-files';
@@ -107,7 +107,7 @@ function CheckpointRow({
           <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
             {byAgent ? (
               <span className="bg-foreground flex size-5 shrink-0 items-center justify-center rounded-sm border">
-                <Kortix className="text-background size-3" />
+                <Dosco className="text-background size-3" />
               </span>
             ) : (
               <UserAvatar

@@ -26,7 +26,7 @@ export interface CarriedDraft {
 }
 
 interface CarriedDraftState {
-  /** Kortix session id → the draft waiting to be handed to that session's
+  /** Dosco session id → the draft waiting to be handed to that session's
    *  real composer. */
   draftBySession: Record<string, CarriedDraft>;
   carryDraft: (sessionId: string, text: string, files: AttachedFile[]) => void;
@@ -82,7 +82,7 @@ export const useCarriedDraft = (sessionId: string): CarriedDraft | null =>
   useCarriedDraftStore((s) => s.draftBySession[sessionId] ?? null);
 
 interface FirstPromptPreviewState {
-  /** Kortix session id → the first prompt's text, for RENDER only. */
+  /** Dosco session id → the first prompt's text, for RENDER only. */
   previewBySession: Record<string, { text: string; files: AttachedFile[] }>;
   setFirstPromptPreview: (sessionId: string, text: string, files: AttachedFile[]) => void;
   clearFirstPromptPreview: (sessionId: string) => void;
@@ -99,7 +99,7 @@ interface FirstPromptPreviewState {
  * then gone, the transcript has not loaded yet, and the shell drew nothing
  * for a few seconds after showing the bubble on the home page. This is the
  * in-memory copy the producer leaves for the shell to draw meanwhile — the
- * same text, keyed by the Kortix session id, gone with the tab (a reload has
+ * same text, keyed by the Dosco session id, gone with the tab (a reload has
  * the row or the transcript to read from).
  */
 export const useFirstPromptPreviewStore = create<FirstPromptPreviewState>((set) => ({
@@ -118,5 +118,5 @@ export const useFirstPromptPreviewStore = create<FirstPromptPreviewState>((set) 
 // typed in the instant shell, consumed once by whichever `SessionChat` mounted
 // first. It carried no session id, so a message queued for one session could
 // be handed to another. Its replacement — a per-session browser queue — is gone
-// too: the queue is the server's prompt inbox, keyed by the Kortix session id,
+// too: the queue is the server's prompt inbox, keyed by the Dosco session id,
 // so there is no handoff, nothing to consume, and nothing a closed tab loses.

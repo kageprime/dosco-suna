@@ -4,7 +4,7 @@
  * The last two open sections of the agent editor: what the agent may reach
  * (Access) and where it runs (Workspace).
  *
- * These were the "Kortix layer" — named for the file they land in
+ * These were the "Dosco layer" — named for the file they land in
  * (`kortix.yaml`) rather than the question they answer. Same writes, same
  * platform enforcement; the heading now says what it governs.
  */
@@ -226,14 +226,14 @@ export function SecretsSection({ draft, set, options }: GrantSectionProps) {
   );
 }
 
-/** Was "Kortix CLI" — the name of the tool, not of what it grants. What the
+/** Was "Dosco CLI" — the name of the tool, not of what it grants. What the
  *  user is choosing is which project operations the agent may perform; the
  *  CLI is only how it performs them. */
 export function ProjectActionsSection({ draft, set }: Omit<GrantSectionProps, 'options'>) {
   return (
     <EditorSection
       title="Project actions"
-      description="What this agent may do to the project itself — sessions, triggers, secrets, members — through the Kortix CLI inside a session."
+      description="What this agent may do to the project itself — sessions, triggers, secrets, members — through the Dosco CLI inside a session."
       trailing={<GrantChip value={draft.kortix_cli} />}
     >
       <div className="py-4">

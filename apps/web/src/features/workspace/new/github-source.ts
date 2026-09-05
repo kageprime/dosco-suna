@@ -135,7 +135,7 @@ export function iconPayload(state: NewWorkspaceFormState): Record<string, unknow
 /**
  * The request body for `POST /v1/projects/create-repo`.
  *
- * `name` is the GITHUB repository name and `project_name` is the Kortix
+ * `name` is the GITHUB repository name and `project_name` is the Dosco
  * workspace name — two different fields the route reads separately
  * (`r2.ts`: `name` is charset-validated then passed to `createRepo`,
  * `project_name` falls back to `deriveProjectName(repo.full_name)`). Sending

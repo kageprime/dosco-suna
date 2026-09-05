@@ -86,13 +86,13 @@ const NOTIFICATION_TYPE_TOGGLES: {
     key: 'onQuestion',
     icon: QuestionCircleSolid,
     label: 'Questions',
-    description: 'When Kortix needs your input to continue',
+    description: 'When Dosco needs your input to continue',
   },
   {
     key: 'onPermission',
     icon: ShieldCheckSolid,
     label: 'Permission requests',
-    description: 'When Kortix needs permission to use a tool',
+    description: 'When Dosco needs permission to use a tool',
   },
 ];
 

@@ -3,7 +3,7 @@
 /**
  * Who may use this agent — managed here, on the agent's page.
  *
- * This is THE access path in Kortix: a project manager grants a person or a
+ * This is THE access path in Dosco: a project manager grants a person or a
  * group an agent, never a skill or a secret directly (`object_policies` marks
  * `agent` closed and everything else open — `apps/api/src/iam/authorize.ts`),
  * and the person inherits the agent's connectors and secrets through it.

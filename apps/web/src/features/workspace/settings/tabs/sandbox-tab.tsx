@@ -75,7 +75,7 @@
  *    holes. The sixth is "Routing", promoted out of the footer, where it had
  *    been a bare `Automatic` badge with a second label bolted on.
  *
- * The copy is de-jargoned to match: `source` renders as "Kortix platform" /
+ * The copy is de-jargoned to match: `source` renders as "Dosco platform" /
  * "This dashboard" / `kortix.yaml`, not `platform` / `UI` / `kortix.yaml`;
  * `is_default` is promoted out of the meta line into a `Default` badge.
  *
@@ -272,7 +272,7 @@ export function describeSource(
   manifestVersion: number | null,
 ): { label: string; icon: PhosphorIcon; mono: boolean } {
   if (template.source === 'platform')
-    return { label: 'Kortix platform', icon: ShippingContainerIcon, mono: false };
+    return { label: 'Dosco platform', icon: ShippingContainerIcon, mono: false };
   if (template.source === 'ui')
     return { label: 'This dashboard', icon: SquaresFourIcon, mono: false };
   return {
@@ -301,7 +301,7 @@ export function describeBase(template: SandboxTemplate): {
       icon: FileCodeIcon,
       mono: true,
     };
-  return { label: 'Base image', value: 'Kortix default', icon: CubeIcon, mono: false };
+  return { label: 'Base image', value: 'Dosco default', icon: CubeIcon, mono: false };
 }
 
 /** Where sessions built from this template actually run. Static configuration,
@@ -829,7 +829,7 @@ export function SandboxTabView({
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm text-pretty">
               Every session starts from a sandbox template — a prepared machine with your repository
-              already checked out at <code className="font-mono">/workspace</code>. The Kortix
+              already checked out at <code className="font-mono">/workspace</code>. The Dosco
               default works for most projects. Add your own below, or declare them as{' '}
               {manifestVersion === 2 ? (
                 <>

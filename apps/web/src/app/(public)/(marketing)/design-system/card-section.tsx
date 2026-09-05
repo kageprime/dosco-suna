@@ -542,7 +542,7 @@ export function CardSection() {
             <CardButton icon={ArrowsClockwiseIcon} iconPosition="end">
               Trailing icon
             </CardButton>
-            <CardButton href="https://kortix.com" external>
+            <CardButton href="https://dosco.live" external>
               External
             </CardButton>
             <CardButton disabled>Disabled</CardButton>

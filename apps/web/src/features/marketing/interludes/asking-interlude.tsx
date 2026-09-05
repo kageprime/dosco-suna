@@ -14,7 +14,7 @@ import { Interlude, Panel } from './interlude';
  * missing half — the sentence somebody typed — and it is also the rest between
  * the pinned wheel and the slab that follows it.
  *
- * WHY THE PANEL IS TEXT, NOT A SCREENSHOT. Kortix has real product footage
+ * WHY THE PANEL IS TEXT, NOT A SCREENSHOT. Dosco has real product footage
  * (`public/media/showcase/`), and the hero already uses it. A second video here
  * would be the opposite of a quiet section. What the panel shows instead is the
  * one thing that is honest to render as markup: the words a person types. It

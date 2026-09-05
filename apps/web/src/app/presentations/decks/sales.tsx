@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 /**
- * The Kortix deck — content & structure follow the official "Kortix pres ENG"
+ * The Dosco deck — content & structure follow the official "Dosco pres ENG"
  * sales narrative (origin → what it is → interface → shared machine →
  * connect/configure/deploy → no model lock-in → Slack/Teams → use cases →
  * thanks), rendered in the marketing-site visual style (home / developers /
@@ -190,7 +190,7 @@ export function useSlides(): SlideDef[] {
     /* 3 — WHAT IS KORTIX TODAY ───────────────────────────────────────────── */
     {
       id: 'what',
-      label: 'What is Kortix',
+      label: 'What is Dosco',
       node: (
         <Slide>
           <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -214,7 +214,7 @@ export function useSlides(): SlideDef[] {
                 ]}
               />
             </div>
-            <Shot src={`${SHOT}/01-command-center.png`} alt="The Kortix command center" />
+            <Shot src={`${SHOT}/01-command-center.png`} alt="The Dosco command center" />
           </div>
         </Slide>
       ),
@@ -415,7 +415,7 @@ export function useSlides(): SlideDef[] {
     /* 8 — WHERE KORTIX LIVES ────────────────────────────────────────────── */
     {
       id: 'lives',
-      label: 'Where Kortix lives',
+      label: 'Where Dosco lives',
       node: (
         <Slide>
           <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -441,7 +441,7 @@ export function useSlides(): SlideDef[] {
                 </Pill>
               </div>
             </div>
-            <Shot src={`${SHOT}/06-channels.png`} alt="Kortix inside Slack and Teams" />
+            <Shot src={`${SHOT}/06-channels.png`} alt="Dosco inside Slack and Teams" />
           </div>
         </Slide>
       ),

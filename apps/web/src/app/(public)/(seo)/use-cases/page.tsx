@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   keywords: [
-    'Kortix use cases',
+    'Dosco use cases',
     'AI agent case studies',
     'AI command center',
     'AI workforce',
@@ -25,15 +25,15 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: 'website',
-    title: `Kortix ${TITLE}`,
+    title: `Dosco ${TITLE}`,
     description: DESCRIPTION,
     url: URL,
-    siteName: 'Kortix',
+    siteName: 'Dosco',
     images: [{ url: `${siteMetadata.url}/banner.png` }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: `Kortix ${TITLE}`,
+    title: `Dosco ${TITLE}`,
     description: DESCRIPTION,
     images: [`${siteMetadata.url}/banner.png`],
   },
@@ -49,12 +49,12 @@ export default function UseCasesIndexPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Kortix Use Cases',
+    name: 'Dosco Use Cases',
     description: DESCRIPTION,
     url: URL,
     publisher: {
       '@type': 'Organization',
-      name: 'Kortix',
+      name: 'Dosco',
       logo: { '@type': 'ImageObject', url: `${siteMetadata.url}/favicon.svg` },
     },
     mainEntity: {

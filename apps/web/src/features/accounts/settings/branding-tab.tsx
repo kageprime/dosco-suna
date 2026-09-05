@@ -120,7 +120,7 @@ export function BrandingTab({ accountId, canManage }: { accountId: string; canMa
         <div className="space-y-1">
           <Label>Product name</Label>
           <p className="text-muted-foreground text-xs">
-            Replaces “Kortix” in the browser tab title.
+            Replaces “Dosco” in the browser tab title.
           </p>
         </div>
         <AppNameCard
@@ -138,7 +138,7 @@ export function BrandingTab({ accountId, canManage }: { accountId: string; canMa
         <div className="space-y-1">
           <Label>Marks</Label>
           <p className="text-muted-foreground text-xs">
-            Uploaded images replace the Kortix marks for every member of this account. The dark
+            Uploaded images replace the Dosco marks for every member of this account. The dark
             variant is optional — without one, the light image is used in both themes.
           </p>
         </div>
@@ -207,14 +207,14 @@ function AppNameCard({
           id="branding-app-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Kortix"
+          placeholder="Dosco"
           disabled={!canManage || mutation.isPending}
           maxLength={MAX_APP_NAME_LENGTH}
           className="max-w-md"
           autoComplete="off"
         />
         <p className="text-muted-foreground text-xs">
-          Leave empty to keep “Kortix”. Up to {MAX_APP_NAME_LENGTH} characters.
+          Leave empty to keep “Dosco”. Up to {MAX_APP_NAME_LENGTH} characters.
         </p>
       </div>
       <div className="border-border flex items-center justify-end border-t px-4 py-3">
@@ -326,7 +326,7 @@ function VariantCell({
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-xs font-medium capitalize">{scheme}</p>
         <p className="text-muted-foreground text-xs">
-          {url ? 'Uploaded' : fallbackUrl ? 'Uses the light image' : 'Kortix default'}
+          {url ? 'Uploaded' : fallbackUrl ? 'Uses the light image' : 'Dosco default'}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -380,7 +380,7 @@ function VariantCell({
  * Preview tile, painted in the scheme it previews (light cell on a light
  * ground, dark cell on a dark ground) so the mark is judged where it will
  * actually be seen. Shows the uploaded image, the inherited light image
- * (dimmed), or the Kortix default that slot falls back to.
+ * (dimmed), or the Dosco default that slot falls back to.
  */
 function Preview({
   slot,
@@ -437,7 +437,7 @@ function ResetRow({
   const mutation = useMutation({
     mutationFn: () => resetAccountBranding(accountId),
     onSuccess: (state) => {
-      successToast('Branding reset to Kortix defaults');
+      successToast('Branding reset to Dosco defaults');
       setConfirming(false);
       onSettled(state);
     },
@@ -449,7 +449,7 @@ function ResetRow({
       <div className="bg-popover rounded-md border px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-foreground text-sm font-medium">Reset to Kortix</p>
+            <p className="text-foreground text-sm font-medium">Reset to Dosco</p>
             <p className="text-muted-foreground text-xs">Removes every uploaded mark and the product name.</p>
           </div>
           <Button
@@ -467,7 +467,7 @@ function ResetRow({
         open={confirming}
         onOpenChange={setConfirming}
         title="Reset branding?"
-        description="Every member of this account will see the Kortix logo, icon, favicon, and name again. Uploaded images are deleted."
+        description="Every member of this account will see the Dosco logo, icon, favicon, and name again. Uploaded images are deleted."
         confirmLabel="Reset"
         confirmVariant="destructive"
         isPending={mutation.isPending}

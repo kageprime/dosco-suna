@@ -34,15 +34,15 @@
  */
 
 export const hero = {
-  eyebrow: 'About Kortix',
-  title: 'We are building the open AGI platform.',
-  lead: 'Every company should own all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration.',
-  ctaPrimary: 'We are hiring',
-  ctaPrimaryHref: '/careers',
-  ctaSecondary: 'Read the code',
-  ctaSecondaryHref: 'https://github.com/kortix-ai/suna',
-  imageAlt: 'The Kortix team',
-  starsCaption: 'stars on kortix-ai/suna',
+  eyebrow: 'About 火 Dosco Network',
+  title: 'Dosco delivers deliverables — not just chat.',
+  lead: 'Dosco is a flexible AI agent that becomes any role — UI engineer, logo designer, accountant, PR — at 100% capacity. Hand it a sprint and it drops in and executes. The perfect coworker.',
+  ctaPrimary: 'Talk to us',
+  ctaPrimaryHref: '/contact',
+  ctaSecondary: 'Request a demo',
+  ctaSecondaryHref: '/contact',
+  imageAlt: '火 Dosco Network team (illustration)',
+  starsCaption: 'the 火 Dosco Network',
 } as const;
 
 /** The three claims the page rests on. One headline, one paragraph, no more. */
@@ -50,20 +50,20 @@ export const statements = [
   {
     id: 'own',
     n: '01',
-    title: 'You own all of it.',
-    body: 'On your own infrastructure if you want it there. Kortix does not sit beside the company as one more tool. It becomes the company — where the work, the context and the operations live.',
+    title: 'Dosco delivers deliverables, not chat.',
+    body: 'Dosco is not a chatbot that returns text. It ships actual work that counts — finished designs, code, reports, filings. The output is the deliverable.',
   },
   {
     id: 'closed',
     n: '02',
-    title: 'The closed platforms are becoming AGI operating systems too.',
-    body: 'Claude Cowork, ChatGPT Work and the rest are heading for full agent management systems an entire company runs on. That is the direction of the industry. The difference is that you will never own those.',
+    title: 'One agent, every role at 100% capacity.',
+    body: '火 Dosco Network becomes whatever you need — UI engineer, logo designer, accountant, PR. Each role runs at full capacity, the moment you need it.',
   },
   {
     id: 'shift',
     n: '03',
-    title: 'Autonomy is shifting from humans to agents.',
-    body: 'Every company is already autonomous. Today people drive that autonomy. Agents will. Kortix is where the shift happens.',
+    title: 'The perfect coworker drops into your sprint.',
+    body: 'Hand Dosco a sprint and it executes — planning, building, and landing the work end to end. Autonomy shifts from humans to agents, and 火 Dosco Network is the teammate that does it.',
   },
 ] as const;
 
@@ -111,9 +111,9 @@ export const platform = {
 } as const;
 
 export const closing = {
-  title: 'Every lab will have an AGI platform. Ours is the one you own.',
-  ctaPrimary: 'Come build it',
-  ctaPrimaryHref: '/careers',
+  title: 'Every team will run on agents. 火 Dosco Network is the one you own.',
+  ctaPrimary: 'Talk to us',
+  ctaPrimaryHref: '/contact',
   ctaSecondary: 'Read the code',
-  ctaSecondaryHref: 'https://github.com/kortix-ai/suna',
+  ctaSecondaryHref: '#',
 } as const;

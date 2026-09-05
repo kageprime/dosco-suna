@@ -132,7 +132,7 @@ export function BillingTab({
       {showTeamCheckout ? (
         <section className="space-y-4">
           <div className="space-y-1">
-            <Label>Kortix Team</Label>
+            <Label>Dosco Team</Label>
             <p className="text-muted-foreground text-xs">
               {tI18nHardcoded.raw(
                 'autoFeaturesAccountsSettingsBillingTabJsxTextSubscribeToPut67032571',

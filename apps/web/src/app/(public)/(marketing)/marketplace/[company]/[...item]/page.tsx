@@ -39,8 +39,8 @@ export async function generateMetadata({
   const pathname = `/marketplace/${company}/${item.map(encodeURIComponent).join('/')}`;
   try {
     const detail = await getPublicMarketplaceItem(id);
-    const description = detail.description ?? `${detail.title} on the Kortix Marketplace.`;
-    const title = `${detail.title} — Kortix Marketplace`;
+    const description = detail.description ?? `${detail.title} on the Dosco Marketplace.`;
+    const title = `${detail.title} — Dosco Marketplace`;
     return {
       title: { absolute: title },
       description,
@@ -48,7 +48,7 @@ export async function generateMetadata({
       ...socialMetadata(title, description, `${CANONICAL_ORIGIN}${pathname}`),
     };
   } catch {
-    return { title: 'Marketplace — Kortix', robots: { index: false, follow: false } };
+    return { title: 'Marketplace — Dosco', robots: { index: false, follow: false } };
   }
 }
 

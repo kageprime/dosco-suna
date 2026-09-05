@@ -208,7 +208,7 @@ describe('EnterpriseDemoCard — the self-serve toggle is now admin-only', () =>
   // block. What is asserted is unchanged: a non-admin is told who can turn this
   // on, and is given a state badge instead of a switch that would only 403.
   test('non-admins get read-only state plus a contact hint, not a switch that 403s', () => {
-    expect(demoCardSource).toMatch(/!isPlatformAdmin\s*\?\s*'[^']*Contact Kortix/);
+    expect(demoCardSource).toMatch(/!isPlatformAdmin\s*\?\s*'[^']*Contact Dosco/);
     expect(demoCardSource).toMatch(/<Badge variant=\{enabled \? 'success' : 'muted'\}/);
   });
 });

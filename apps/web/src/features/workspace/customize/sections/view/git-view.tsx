@@ -269,7 +269,7 @@ function SaveStatus() {
 
 /**
  * The repository group: what it is connected to, whether that connection works,
- * and the two settings that change how Kortix uses it.
+ * and the two settings that change how Dosco uses it.
  *
  * These were two separate sections before — a read-only "Repository" summary
  * box and a "Repository settings" panel — which is what produced the duplicate
@@ -369,7 +369,7 @@ function RepositoryGroup({
   return (
     <section className="space-y-3">
       {connection?.last_error_message ? (
-        <InfoBanner tone="warning" icon={WarningIcon} title="Kortix can't reach this repository">
+        <InfoBanner tone="warning" icon={WarningIcon} title="Dosco can't reach this repository">
           {connection.last_error_message}
         </InfoBanner>
       ) : null}
@@ -415,7 +415,7 @@ function RepositoryGroup({
           label="Manifest file"
           description={
             <>
-              The file in your repository that tells Kortix how to run this workspace.{' '}
+              The file in your repository that tells Dosco how to run this workspace.{' '}
               <DocsLink href={DOCS_MANIFEST} />
             </>
           }
@@ -500,7 +500,7 @@ function LocalSetup({ projectId }: { projectId: string }) {
       <ol className="bg-popover divide-border divide-y overflow-hidden rounded-md border">
         <Step
           index={1}
-          title="Install the Kortix command line"
+          title="Install the Dosco command line"
           hint="A one-time setup on macOS or Linux. Skip this if you already have it."
         >
           <CommandLine value={installCommand} label="Install command" />
@@ -528,12 +528,12 @@ function LocalSetup({ projectId }: { projectId: string }) {
 /**
  * Advanced escape hatch, folded away by default.
  *
- * This is the old "Kortix proxy origin" section. It is behind a disclosure now
+ * This is the old "Dosco proxy origin" section. It is behind a disclosure now
  * because the numbered steps above are the supported path and this is the
  * alternative for people who already have a Git workflow — surfacing both at
  * equal weight was most of what made the pane feel like a config dump. The copy
  * leads with what you can do (`git clone`) and the thing that is genuinely
- * unusual about it (no token to create or store), not with how Kortix resolves
+ * unusual about it (no token to create or store), not with how Dosco resolves
  * the credential.
  */
 function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
@@ -567,7 +567,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
                 Use your own Git client
               </span>
               <span className="text-muted-foreground block text-xs font-normal text-pretty">
-                Clone with plain <code className="font-mono">git</code> instead of the Kortix
+                Clone with plain <code className="font-mono">git</code> instead of the Dosco
                 command line.
               </span>
             </span>
@@ -583,7 +583,7 @@ function OwnGitClient({ project }: { project: ProjectWithOrigin }) {
           <div className="space-y-2 px-4 py-3.5">
             <p className="text-muted-foreground text-xs text-pretty">
               Clone from this address with any Git client. When git asks, enter any username and a
-              Kortix API key as the password — the Kortix command line does this for you through its
+              Dosco API key as the password — the Dosco command line does this for you through its
               credential helper, plain <code className="font-mono">git</code> does not.
             </p>
             <CommandLine value={gitCloneUrl(project)} label="Clone address" kind="address" />
@@ -650,12 +650,12 @@ function RepoAccessSection({
 }
 
 /**
- * The body for a repository Kortix does not own.
+ * The body for a repository Dosco does not own.
  *
  * Collaborator invites go through the managed org's admin credential
  * (`managedAdminAuth`, `apps/api/src/projects/git-backends/github.ts`), which
- * only has repo-admin scope on repositories Kortix created — so for a BYO repo
- * there is nothing Kortix could do here even with the user's permission. The
+ * only has repo-admin scope on repositories Dosco created — so for a BYO repo
+ * there is nothing Dosco could do here even with the user's permission. The
  * honest answer is where to go instead, and for GitHub that is a real link
  * rather than a description of one.
  *
@@ -684,8 +684,8 @@ function ExternallyManagedRepoAccess({
     <div className="bg-popover rounded-md border px-4 py-3">
       <p className="text-muted-foreground text-xs text-pretty">
         {provider === 'github'
-          ? 'Kortix did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.'
-          : `This workspace’s repository is hosted on ${providerLabel(provider)}, which does not support collaborator invites from Kortix. Manage access where the repository lives.`}
+          ? 'Dosco did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.'
+          : `This workspace’s repository is hosted on ${providerLabel(provider)}, which does not support collaborator invites from Dosco. Manage access where the repository lives.`}
       </p>
       {webUrl ? (
         <Button asChild variant="outline" size="sm" className="mt-3 gap-1.5">
@@ -802,13 +802,13 @@ export function GitView({ projectId }: { projectId: string }) {
   const cans = useProjectCans(projectId, GIT_VIEW_ACTIONS);
   const canEdit = cans[PROJECT_ACTIONS.PROJECT_WRITE]?.allowed === true;
   const canManageMembers = cans[PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE]?.allowed === true;
-  // Managed = Kortix created this repository, so the managed-org admin
+  // Managed = Dosco created this repository, so the managed-org admin
   // credential has repo-admin scope on it. False for a BYO repo and for a
   // repository on any provider other than GitHub.
   // The connection row is the truth since repositories moved out of
   // `metadata.git` (`project_git_connections.managed`); the metadata check
   // is the fallback for a server that predates the field. Reading metadata
-  // alone said "Kortix did not create this repository" for every managed
+  // alone said "Dosco did not create this repository" for every managed
   // repo — the block only holds `seed` and `fast_boot` now.
   const managed =
     detail.data?.git_connection?.managed ?? (project ? isManagedGithubProject(project) : false);
@@ -856,7 +856,7 @@ export function GitView({ projectId }: { projectId: string }) {
             canManage={canEdit}
           />
           {/* The clone address right under the repository (Marko, 2026-09-03):
-              it is the Kortix-signed address of THIS repo, so it belongs with
+              it is the Dosco-signed address of THIS repo, so it belongs with
               the repo, not at the foot after who-can-access. */}
           <OwnGitClient project={project as ProjectWithOrigin} />
           {/* Who can reach the repo comes before how to work on it locally

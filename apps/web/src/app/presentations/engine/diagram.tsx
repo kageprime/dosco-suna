@@ -19,7 +19,7 @@
  * ── Accuracy ────────────────────────────────────────────────────────────
  * Every label here traces to `features/marketing/security-page/content.ts` or
  * `features/marketing/connectors/content.ts`. In particular the broker diagram
- * shows the credential resolved on the Kortix side of the wall and never drawn
+ * shows the credential resolved on the Dosco side of the wall and never drawn
  * inside the sandbox, which is the one claim this deck rests on.
  */
 
@@ -344,16 +344,16 @@ export function IsolationDiagram({ step }: { step: number }) {
 }
 
 /* ── 2 · the credential broker ──────────────────────────────────────────────
-   The centrepiece. Steps: 0 the shape · 1 the agent asks · 2 Kortix resolves ·
+   The centrepiece. Steps: 0 the shape · 1 the agent asks · 2 Dosco resolves ·
    3 the API answers · 4 what never crossed. Grounded in connectors/content.ts
    `broker`: the sandbox carries one KORTIX_TOKEN and zero third-party
    secrets; the credential is attached server-side at call time. */
 
 export function BrokerDiagram({ step }: { step: number }) {
   const captions = [
-    'A sandbox is a real Linux machine the model can run anything on. So the only credential in it is one Kortix token, scoped to the project.',
+    'A sandbox is a real Linux machine the model can run anything on. So the only credential in it is one Dosco token, scoped to the project.',
     'The agent calls a tool by name. It has no URL, no host and no key — it cannot construct the request itself.',
-    'Kortix checks that this agent may use this connector, applies the policy, and decrypts the credential on its own side of the wall.',
+    'Dosco checks that this agent may use this connector, applies the policy, and decrypts the credential on its own side of the wall.',
     'The third-party API sees an ordinary authenticated request. The answer goes back to the agent. The credential stays behind.',
     'These four never cross into the machine the model is driving. Turning the connector off takes effect on the next call — with nothing in the sandbox to rotate.',
   ];

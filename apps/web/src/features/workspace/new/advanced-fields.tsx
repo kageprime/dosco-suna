@@ -44,13 +44,13 @@ import { useEffect, useState } from 'react';
  * "project" in the managed line only, the other two already say neither word.
  */
 const SOURCE_DESCRIPTIONS: Record<RepositorySource, string> = {
-  managed: 'Kortix creates and manages a private repository for this workspace.',
-  'github-create': 'Kortix creates a private repository in your GitHub account.',
+  managed: 'Dosco creates and manages a private repository for this workspace.',
+  'github-create': 'Dosco creates a private repository in your GitHub account.',
   'github-import': 'Select an existing repository from your GitHub account.',
 };
 
 const SOURCE_LABELS: Record<RepositorySource, string> = {
-  managed: 'Kortix managed',
+  managed: 'Dosco managed',
   'github-create': 'Create in GitHub',
   'github-import': 'Import from GitHub',
 };
@@ -61,7 +61,7 @@ const SOURCE_LABELS: Record<RepositorySource, string> = {
  * `github-create` and `github-import` both need one — `POST
  * /projects/create-repo` and `POST /projects/link-repository` resolve their
  * credentials from it (`apps/api/src/projects/routes/r2.ts`), and answer 409
- * `Install the Kortix GitHub App…` when there is none. Sending the user to
+ * `Install the Dosco GitHub App…` when there is none. Sending the user to
  * `/github/setup` BEFORE they press Create is that 409 turned into a link.
  *
  * `rememberGitHubSetupReturn` is what makes it a round trip rather than a
@@ -144,7 +144,7 @@ function GitHubSourceFields({
   // standing for the server's managed-git token, and picking it lists
   // MANAGED_GIT_GITHUB_OWNER's ENTIRE repository set. On cloud that owner is
   // `managed-kortix`, which holds every customer's project repo — so on
-  // 2026-08-29 this picker showed a Kortix admin a list of other people's
+  // 2026-08-29 this picker showed a Dosco admin a list of other people's
   // private repositories, one click from importing one.
   //
   // The server no longer offers that entry to anyone but a self-host operator

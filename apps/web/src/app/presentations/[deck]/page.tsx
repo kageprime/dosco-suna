@@ -14,9 +14,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { deck: slug } = await params;
   const deck = findDeck(slug);
-  if (!deck) return { title: 'Kortix — Presentations', robots: { index: false, follow: false } };
+  if (!deck) return { title: 'Dosco — Presentations', robots: { index: false, follow: false } };
   return {
-    title: `Kortix — ${deck.title}`,
+    title: `Dosco — ${deck.title}`,
     description: deck.description,
     // Internal decks. They are shared by link, never indexed.
     robots: { index: false, follow: false },

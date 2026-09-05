@@ -67,7 +67,7 @@ export default function Error({
       });
       return;
     }
-    console.error('[Kortix Home Error]', error);
+    console.error('[Dosco Home Error]', error);
     Sentry.captureException(error);
   }, [error, runtimeNotReady]);
 

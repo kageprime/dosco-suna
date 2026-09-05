@@ -34,7 +34,7 @@ describe('groupWorkspacesByAccount', () => {
       accounts: [
         account('a-zebra', 'Zebra'),
         account('a-acme', 'Acme'),
-        account('a-kortix', 'Kortix'),
+        account('a-kortix', 'Dosco'),
       ],
       workspaces: [
         workspace('p1', 'a-zebra', 'zebra-one', null),
@@ -44,12 +44,12 @@ describe('groupWorkspacesByAccount', () => {
       activeWorkspaceId: 'p3',
     });
 
-    expect(groups.map((g) => g.accountName)).toEqual(['Kortix', 'Acme', 'Zebra']);
+    expect(groups.map((g) => g.accountName)).toEqual(['Dosco', 'Acme', 'Zebra']);
   });
 
   test('sorts workspaces inside a group by last_opened_at, most recent first', () => {
     const groups = groupWorkspacesByAccount({
-      accounts: [account('a1', 'Kortix')],
+      accounts: [account('a1', 'Dosco')],
       workspaces: [
         workspace('old', 'a1', 'older', '2026-01-01T00:00:00.000Z'),
         workspace('new', 'a1', 'newer', '2026-06-01T00:00:00.000Z'),
@@ -73,7 +73,7 @@ describe('groupWorkspacesByAccount', () => {
 
   test('drops accounts that have no workspaces', () => {
     const groups = groupWorkspacesByAccount({
-      accounts: [account('a1', 'Kortix'), account('a2', 'Empty')],
+      accounts: [account('a1', 'Dosco'), account('a2', 'Empty')],
       workspaces: [workspace('p1', 'a1', 'one', null)],
       activeWorkspaceId: null,
     });
@@ -195,7 +195,7 @@ describe('filterWorkspaceGroups', () => {
   const groups = [
     {
       accountId: 'a1',
-      accountName: 'Kortix',
+      accountName: 'Dosco',
       workspaces: [
         workspace('p1', 'a1', 'suna-web', null),
         workspace('p2', 'a1', 'kortix-api', null),
@@ -233,7 +233,7 @@ describe('filterWorkspaceGroups', () => {
   test('never truncates — 200 matching workspaces all survive', () => {
     const many = Array.from({ length: 200 }, (_, i) => workspace(`p${i}`, 'a1', `ws-${i}`, null));
     const result = filterWorkspaceGroups(
-      [{ accountId: 'a1', accountName: 'Kortix', workspaces: many }],
+      [{ accountId: 'a1', accountName: 'Dosco', workspaces: many }],
       'ws-',
     );
     expect(result[0].workspaces).toHaveLength(200);

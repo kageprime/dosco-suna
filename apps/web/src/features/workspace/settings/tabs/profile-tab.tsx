@@ -285,7 +285,7 @@ export function ProfileTabView({
           <span className="text-muted-foreground my-auto truncate text-sm">{userEmail}</span>
         </SettingsRow>
 
-        <SettingsRow label="Name" description="Your display name across Kortix.">
+        <SettingsRow label="Name" description="Your display name across Dosco.">
           <Input
             type="text"
             id="profile-name"

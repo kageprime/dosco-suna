@@ -19,70 +19,11 @@ type FooterSection = {
 
 const FOOTER_SECTIONS: FooterSection[] = [
   {
-    title: 'Product',
+    title: '火 Dosco',
     links: [
-      { label: 'Agent Computer', href: '/agent-computer' },
-      { label: 'Company as Code', href: '/company-as-code' },
-      { label: 'Connectors', href: '/connectors' },
-      { label: 'Automations', href: '/automations' },
-      { label: 'Channels', href: '/channels' },
-      { label: 'Agents & Skills', href: '/agents-and-skills' },
-      { label: 'Security', href: '/security' },
-      { label: 'Self-hosted', href: '/self-hosted' },
-      { label: 'Enterprise', href: '/enterprise' },
-      { label: 'Pricing', href: '/pricing' },
-    ],
-  },
-  {
-    // Pulled out of the top bar: eight roles is a wide menu beside Product and
-    // Company, and a reader looking for their own function looks down here.
-    title: 'Solutions',
-    links: [
-      { label: 'Sales', href: '/solutions/sales' },
-      { label: 'Marketing', href: '/solutions/marketing' },
-      { label: 'Engineering', href: '/solutions/engineering' },
-      { label: 'Product', href: '/solutions/product' },
-      { label: 'Finance', href: '/solutions/finance' },
-      { label: 'People', href: '/solutions/people' },
-      { label: 'IT', href: '/solutions/it' },
-      { label: 'Data Science', href: '/solutions/data-science' },
-    ],
-  },
-  {
-    title: 'Developers',
-    links: [
-      // /docs/reference/cli 404s — there is no reference/ directory. The page
-      // is content/docs/cli.mdx, routed at /docs/cli.
-      { label: 'Documentation', href: '/docs' },
-      { label: 'CLI', href: '/docs/cli' },
-      { label: 'SDK', href: '/docs/sdk' },
-      { label: 'Quickstart', href: '/docs/quickstart' },
-      { label: 'For developers', href: '/developers' },
-      { label: 'Marketplace', href: '/marketplace' },
-      { label: 'GitHub', href: 'https://github.com/kortix-ai/suna', external: true },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { label: 'About', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Changelog', href: '/changelog' },
-      { label: 'Use Cases', href: '/use-cases' },
-      { label: 'Brand', href: '/design-system' },
-    ],
-  },
-  {
-    title: 'Connect',
-    links: [
-      { label: 'X', href: 'https://x.com/kortix', external: true },
-      { label: 'LinkedIn', href: 'https://linkedin.com/company/kortix', external: true },
-      { label: 'Discord', href: 'https://discord.com/invite/RvFhXUdZ9H', external: true },
-      { label: 'Status', href: 'https://status.kortix.com', external: true },
-      { label: 'Support', href: '/support' },
-      { label: 'Terms', href: '/legal/terms' },
+      { label: 'Dosco', href: '/' },
       { label: 'Privacy', href: '/legal?tab=privacy' },
+      { label: 'Terms', href: '/legal/terms' },
     ],
   },
 ];
@@ -142,7 +83,7 @@ const Footer = () => {
           <div className="text-muted-foreground flex items-center gap-3 text-base">
             <small>
               {tI18nHardcoded.raw('autoComponentsHomeFooterJsxTextCopye99743e8')}
-              {currentYear} Kortix
+              {currentYear} Dosco
             </small>
           </div>
 

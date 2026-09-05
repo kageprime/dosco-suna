@@ -21,7 +21,7 @@ export interface UseCaseOption {
 
 /**
  * No longer collected by any step — the survey used to force a single-bucket
- * choice ("what will you use Kortix for?") even though a real team plausibly
+ * choice ("what will you use Dosco for?") even though a real team plausibly
  * uses it for several of these at once. The picker is gone; this table
  * survives only as the key set `STARTER_PROMPTS` and `starterPromptsFor` are
  * built from, and as the option list `starterPromptsFor`'s tests iterate to
@@ -314,10 +314,10 @@ export function starterPromptsFor(useCase: OnboardingUseCase | null): StarterPro
  *
  * There is no backend primitive for a session to open with an
  * agent-authored turn (every session starts on a user message), so this is
- * written in the user's voice, asking Kortix to do the thing the
+ * written in the user's voice, asking Dosco to do the thing the
  * company-step promised ("Your agent uses the domain to research your own
  * company"). The agent's real, live-researched reply is what actually reads
- * as Kortix talking — far better than any hardcoded greeting could.
+ * as Dosco talking — far better than any hardcoded greeting could.
  */
 export function buildOnboardingKickoffPrompt(domain: string, connectedTools: number): string {
   const trimmedDomain = domain.trim();

@@ -37,7 +37,7 @@ describe('shouldUseNextLink', () => {
   test('uses Next Link only for trusted app-router hrefs', () => {
     expect(shouldUseNextLink('/dashboard')).toBe(true);
     expect(shouldUseNextLink('#section')).toBe(true);
-    expect(shouldUseNextLink('https://kortix.com/legal/terms.')).toBe(false);
+    expect(shouldUseNextLink('https://dosco.live/legal/terms.')).toBe(false);
     expect(shouldUseNextLink('http://localhost:3000/dashboard')).toBe(false);
     expect(shouldUseNextLink('mailto:hi@kortix.ai')).toBe(false);
     expect(shouldUseNextLink('relative/path')).toBe(false);

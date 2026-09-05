@@ -1,7 +1,7 @@
 /**
  * Settings tab identifiers + helpers.
  *
- * This is the merged vocabulary for Kortix's three former settings surfaces —
+ * This is the merged vocabulary for Dosco's three former settings surfaces —
  * the project Customize overlay, the user settings modal, and the account
  * settings page — now collapsed into one project-scoped settings overlay at
  * `/projects/[id]/settings(/<tab>)?`. It reads its active tab from the path

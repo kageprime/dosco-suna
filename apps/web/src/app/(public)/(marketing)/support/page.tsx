@@ -34,7 +34,7 @@ import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 const SUPPORT_EMAIL = 'support@kortix.com';
 const SECURITY_EMAIL = 'security@kortix.com';
 const DISCORD_URL = 'https://discord.com/invite/RvFhXUdZ9H';
-const STATUS_URL = 'https://status.kortix.com';
+const STATUS_URL = '?';
 
 /**
  * One FAQ row, keeping the Accordion chrome from the marketing `FaqSection`:

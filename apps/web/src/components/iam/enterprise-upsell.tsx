@@ -24,7 +24,7 @@ import { useRequestDemo } from '@/features/contact/request-demo-provider';
 // The marketing enterprise page. CTAs no longer navigate here — they open the
 // in-app demo-request modal — but keep the constant exported for any surface
 // that still wants to link out.
-export const ENTERPRISE_PAGE_URL = 'https://kortix.com/enterprise';
+export const ENTERPRISE_PAGE_URL = 'https://dosco.live/enterprise';
 
 type UpsellFeature = 'groups' | 'audit' | 'identity' | 'branding';
 
@@ -69,7 +69,7 @@ const FEATURE_COPY: Record<
   branding: {
     title: 'Branding is an Enterprise feature',
     blurb:
-      'Put your own logo, icon, favicon, and product name on the app for everyone in this account — Kortix becomes your tool.',
+      'Put your own logo, icon, favicon, and product name on the app for everyone in this account — Dosco becomes your tool.',
     points: [
       'Your brandmark in the header and on every loading screen',
       'Your favicon and product name in the browser tab, with dark-mode variants',

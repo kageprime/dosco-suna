@@ -158,7 +158,7 @@ export function formatBytes(bytes: number): string {
 }
 \`\`\`
 
-Read more on the [Kortix design system](https://kortix.com) or ping me on
+Read more on the [Dosco design system](https://dosco.live) or ping me on
 Slack.
 `;
 
@@ -644,7 +644,7 @@ const GROUPS: Group[] = [
               title: 'server.ts',
               language: 'typescript',
               content:
-                "import { serve } from 'bun';\n\nserve({\n  port: 3000,\n  fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === '/health') return new Response('ok');\n    return new Response('Hello, Kortix', {\n      headers: { 'content-type': 'text/plain' },\n    });\n  },\n});\n",
+                "import { serve } from 'bun';\n\nserve({\n  port: 3000,\n  fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === '/health') return new Response('ok');\n    return new Response('Hello, Dosco', {\n      headers: { 'content-type': 'text/plain' },\n    });\n  },\n});\n",
             },
             '',
           ),
@@ -657,9 +657,9 @@ const GROUPS: Group[] = [
           done(
             {
               type: 'url',
-              title: 'Kortix',
+              title: 'Dosco',
               description: 'Your AI workforce, in one place.',
-              url: 'https://kortix.com',
+              url: 'https://dosco.live',
             },
             '',
           ),
@@ -1228,7 +1228,7 @@ name: kortix-design-system
 description: The tokens, primitives and rules for building any surface in apps/web. Load this before creating or editing a page, card, badge, modal or empty state.
 ---
 
-# Kortix design system
+# Dosco design system
 
 Compose from \`@/components/ui/*\` before inventing local chrome. Neutral
 surfaces, one earned accent, token-driven spacing.

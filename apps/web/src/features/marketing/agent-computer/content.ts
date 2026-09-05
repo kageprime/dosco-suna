@@ -165,7 +165,7 @@ export const declared = {
   },
   notes: [
     'One image per project, or a named image per agent.',
-    'The default image already carries the Kortix runtime layer.',
+    'The default image already carries the Dosco runtime layer.',
     'Change the image the way you change any other file: in a change request.',
   ],
 } as const;
@@ -209,7 +209,7 @@ export const isolation = {
     {
       id: 'machine',
       k: 'One machine per session',
-      v: 'Sessions never share a filesystem, a process table, or a network namespace. On Kortix’s own Platinum compute the boundary is a Cloud Hypervisor microVM; Daytona and E2B are also supported, and we will tell you which one you are on.',
+      v: 'Sessions never share a filesystem, a process table, or a network namespace. On Dosco’s own Platinum compute the boundary is a Cloud Hypervisor microVM; Daytona and E2B are also supported, and we will tell you which one you are on.',
     },
     {
       id: 'secrets',
@@ -232,7 +232,7 @@ export const isolation = {
 export const closing = {
   eyebrow: 'Get a computer',
   title: 'Start a session. Get a computer.',
-  sub: 'Open source, with support for any AI model. Use Kortix Cloud or run it on your own systems.',
+  sub: 'Open source, with support for any AI model. Use Dosco Cloud or run it on your own systems.',
   ctaPrimary: 'Start a session',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Talk to us about enterprise',

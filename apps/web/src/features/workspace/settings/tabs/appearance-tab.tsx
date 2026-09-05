@@ -37,7 +37,7 @@ const DENSITY_OPTIONS: { id: ConversationDensity; label: string; description: st
   {
     id: 'normal',
     label: 'Normal',
-    description: 'Steps and thinking stream live while Kortix works.',
+    description: 'Steps and thinking stream live while Dosco works.',
   },
   {
     id: 'minimal',
@@ -157,7 +157,7 @@ export function AppearanceTabView({
       <section className="flex flex-col items-start justify-between gap-4 md:flex-row md:gap-10">
         <SettingsSubsectionHeader
           title="Theme"
-          description="Choose how Kortix looks on this device."
+          description="Choose how Dosco looks on this device."
         />
         <div className="bg-foreground/10 flex w-fit items-center gap-1 rounded-md p-0.5">
           {THEME_OPTIONS.map(({ value, label, Icon }) => (

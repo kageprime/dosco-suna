@@ -82,8 +82,8 @@ describe('AdvancedFields: repository source', () => {
   });
 
   test('explains each source with the exact wording the old create modal uses, so the two never diverge', () => {
-    expect(code).toContain('Kortix creates and manages a private repository for this workspace.');
-    expect(code).toContain('Kortix creates a private repository in your GitHub account.');
+    expect(code).toContain('Dosco creates and manages a private repository for this workspace.');
+    expect(code).toContain('Dosco creates a private repository in your GitHub account.');
     expect(code).toContain('Select an existing repository from your GitHub account.');
   });
 
@@ -119,7 +119,7 @@ describe('AdvancedFields: the two GitHub sources are wired, not disabled', () =>
   });
 
   test('the dead-end apology is gone — no copy claiming GitHub sources cannot be used here', () => {
-    expect(code).not.toContain('Only Kortix-managed repositories can be created here for now');
+    expect(code).not.toContain('Only Dosco-managed repositories can be created here for now');
     expect(code).not.toContain('to prepare for repository-backed workspaces');
     expect(code).not.toContain('GitHubSourceNote');
   });
@@ -193,7 +193,7 @@ describe('AdvancedFields: exports', () => {
 
 describe('AdvancedFields: the managed org is never an import source', () => {
   /**
-   * Reported 2026-08-29: picking "Import from GitHub" as a Kortix platform
+   * Reported 2026-08-29: picking "Import from GitHub" as a Dosco platform
    * admin listed `managed-kortix/*` — other customers' private project repos —
    * and would have imported one on a click.
    *

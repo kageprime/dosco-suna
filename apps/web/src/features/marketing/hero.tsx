@@ -4,7 +4,7 @@ import { WallpaperBackground } from '@/components/ui/wallpaper-background';
 import { useRequestDemo } from '@/features/contact/request-demo-provider';
 import { Claude } from '@/features/icon/icons/claude';
 import { OpenAI } from '@/features/icon/icons/open-ai';
-import { HeroSurfaces } from '@/features/marketing/hero-surfaces';
+import { DeliverableRow } from '@/features/marketing/hero-deliverables';
 import { hero, heroEyebrow } from '@/features/marketing/landing/content';
 import { useAuth } from '@/features/providers/auth-provider';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
@@ -149,11 +149,10 @@ const Hero = () => {
 
         <div
           id="demo"
-          className="kx-hero-frame relative z-10 mx-auto mt-10 max-w-7xl scroll-mt-24 px-6 [--kx-enter:290ms] sm:mt-12 lg:mt-8"
+          className="kx-hero-frame relative z-10 mx-auto mt-12 max-w-4xl scroll-mt-24 px-6 [--kx-enter:290ms] sm:mt-14 lg:mt-10"
         >
-          <HeroSurfaces />
+          <DeliverableRow />
         </div>
-
         {/* 490ms + the 620ms text ramp lands this at 1110ms — the exact moment
             the frame (290ms + 820ms) finishes, so the fold closes on one beat. */}
         <p className="kx-hero-text text-muted-foreground/60 mx-auto mt-6 max-w-7xl px-6 text-center font-mono text-[11px] tracking-wide [--kx-enter:490ms]">

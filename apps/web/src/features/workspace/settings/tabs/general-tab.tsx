@@ -200,7 +200,7 @@ export const DELETE_WORKSPACE_CONSEQUENCES = [
 
 /** Stated because it is true and because its absence would be read as a
  *  denial. `archiveProject()` sends no `?purge=true`, which is the only thing
- *  that deletes a Kortix-managed repository (`apps/api/.../routes/r6.ts`);
+ *  that deletes a Dosco-managed repository (`apps/api/.../routes/r6.ts`);
  *  user-connected repositories are never touched at all. */
 export const DELETE_WORKSPACE_REASSURANCE =
   'Your connected Git repository is not deleted. Any code already pushed to it stays where it is.';
@@ -227,7 +227,7 @@ export interface GeneralTabViewProps {
    *  under `renderToStaticMarkup` with no providers. */
   generalFieldsSlot?: ReactNode;
   /** `GitView` — the repository connection, its status, and the two settings
-   *  that change how Kortix uses it. Repositories merged into General as a
+   *  that change how Dosco uses it. Repositories merged into General as a
    *  "Git repo" subsection (Jay's call, 2026-08-17); a slot for the same
    *  reason `generalFieldsSlot` is one — `GitView` owns its own
    *  `useQuery`/mutations, so it can't render under `renderToStaticMarkup`

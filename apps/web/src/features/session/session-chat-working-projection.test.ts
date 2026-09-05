@@ -207,7 +207,7 @@ describe('the turn card reads the same working answer', () => {
   test('the parent computes lastTurnWorking ONCE, with the child-session split', () => {
     // `resolveLastTurnWorking` (session-composer-readiness.ts) carries the
     // behavior tests; this pins that the component actually calls it and feeds
-    // the projection-backed delay-hidden `isBusy` as the Kortix answer.
+    // the projection-backed delay-hidden `isBusy` as the Dosco answer.
     expect(chat).toContain('resolveLastTurnWorking({');
     expect(chat).toContain('isChildSession');
     expect(chat).toContain('sessionWorking={lastTurnWorking}');

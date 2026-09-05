@@ -324,7 +324,7 @@ function SlackFollowUp({ projectId, canWrite }: { projectId: string; canWrite: b
     <div className="space-y-4">
       {bindings.length === 0 && !bindingsQuery.isLoading ? (
         <InfoBanner tone="neutral" icon={AtIcon} title="One more step, in Slack">
-          Invite <span className="text-foreground font-medium">@Kortix</span> to a channel, then
+          Invite <span className="text-foreground font-medium">@Dosco</span> to a channel, then
           mention it. Each mention starts a fresh run and the agent answers in that thread.
         </InfoBanner>
       ) : null}

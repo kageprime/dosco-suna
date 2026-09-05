@@ -65,7 +65,7 @@ export function isAdminNavActive(pathname: string | null, href: string): boolean
  * collapsed peek is still a floating flyout (that geometry is variant-agnostic,
  * applied only while peeking).
  *
- * The header carries two controls, per Jay: the Kortix mark (small, a `Link`
+ * The header carries two controls, per Jay: the Dosco mark (small, a `Link`
  * back to the app) and the collapse `SidebarTrigger`. No "Back to app" text row
  * — the mark is the way back.
  */

@@ -34,7 +34,7 @@ export type ConnectorBindingOption = {
  * The axes are now separate. This one has exactly three values and every one
  * of them is a real answer to "can your code read this value?":
  *
- *  - `enforced`    — no. The sandbox holds a handle; Kortix substitutes the
+ *  - `enforced`    — no. The sandbox holds a handle; Dosco substitutes the
  *                    real value server-side, only on an approved host.
  *  - `environment` — yes. The plaintext is an env var in the sandbox.
  *  - `disabled`    — nothing is delivered anywhere.
@@ -208,7 +208,7 @@ export type SecretDeliveryPresentation = {
  * lands in a process the agent can read, an honest label, not an alarm.
  * `enforced` sits second and is an EXPERIMENTAL opt-in behind the
  * `secrets_egress` flag (still in testing): the value never enters the sandbox,
- * Kortix substitutes it outside on an approved host. `disabled` closes the list
+ * Dosco substitutes it outside on an approved host. `disabled` closes the list
  * because it is an off switch, not a delivery mode.
  */
 const EXPOSURE_PRESENTATIONS: Record<SecretExposure, SecretDeliveryPresentation> = {
@@ -224,7 +224,7 @@ const EXPOSURE_PRESENTATIONS: Record<SecretExposure, SecretDeliveryPresentation>
   enforced: {
     label: 'Enforce at the network',
     description:
-      'The sandbox holds a handle. Kortix substitutes the real value only on requests to the approved hosts.',
+      'The sandbox holds a handle. Dosco substitutes the real value only on requests to the approved hosts.',
     tone: 'secondary',
   },
   disabled: {
@@ -233,7 +233,7 @@ const EXPOSURE_PRESENTATIONS: Record<SecretExposure, SecretDeliveryPresentation>
     // `bg-accent` (surface-1) sits one hairline off the page surface and reads
     // as bare text. `info` is the design system's neutral badge — a muted fill
     // plus a border in both themes — de-emphasized but unmistakably a pill.
-    description: 'Stored securely, but delivered to no session and no Kortix service.',
+    description: 'Stored securely, but delivered to no session and no Dosco service.',
     tone: 'info',
   },
 };
@@ -250,7 +250,7 @@ const ASSIGNED_USAGE_PRESENTATIONS: Record<
 > = {
   llm_gateway: {
     label: 'LLM gateway',
-    description: 'Spent by the Kortix model gateway. It never enters the sandbox.',
+    description: 'Spent by the Dosco model gateway. It never enters the sandbox.',
     tone: 'secondary',
   },
   connector: {
@@ -914,7 +914,7 @@ export function legacyInjectionDetail(
   if (path) lines.push(`Path: ${path}`);
   return {
     title: 'This secret still writes a fixed slot',
-    body: 'It was created before Kortix substituted handles in place. Kortix keeps writing the slot below exactly as it does today. Remove it to serve the secret by substitution instead — the approved hosts stay the same.',
+    body: 'It was created before Dosco substituted handles in place. Dosco keeps writing the slot below exactly as it does today. Remove it to serve the secret by substitution instead — the approved hosts stay the same.',
     lines,
   };
 }

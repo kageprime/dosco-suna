@@ -42,7 +42,6 @@ const SELF_HOST_MARKETING_ONLY = [
   '/channels',
   '/self-hosted',
   '/company-as-code',
-  '/careers',
   '/blog',
   '/changelog',
   '/contact',
@@ -81,7 +80,6 @@ const PUBLIC_ROUTES = [
   '/channels', // marketing page should be public
   '/self-hosted', // marketing page should be public
   '/company-as-code', // marketing page should be public
-  '/careers', // Careers page should be public
   '/changelog', // Public release notes (sourced from GitHub Releases)
   '/blog', // Public blog (MDX posts under content/blog) should be public
   '/install',
@@ -92,7 +90,7 @@ const PUBLIC_ROUTES = [
   '/presentation', // Legacy deck paths, now 307'd to /presentations (next.config.ts)
   '/presentations', // Deck index + every registered deck. Link-shared, noindex, no login
 
-  '/rauch', // Rauch-style particle rendering of the Kortix symbol — public, unauthenticated
+  '/rauch', // Rauch-style particle rendering of the Dosco symbol — public, unauthenticated
   '/contact', // Request-a-demo / contact page should be public
   '/developers', // Developer walkthrough landing page should be public
   '/countryerror', // Country restriction error page should be public
@@ -104,7 +102,7 @@ const PUBLIC_ROUTES = [
   '/security', // Security & trust page should be public
   '/maintenance', // Maintenance page must be accessible without auth
   '/debug', // Dev-only visual harnesses (tools, connecting, error) — unlinked
-  '/game-of-life', // Conway's Game of Life seeded from the Kortix logo — public, unauthenticated
+  '/game-of-life', // Conway's Game of Life seeded from the Dosco logo — public, unauthenticated
   '/a1o', // "All in one" — WebGL stack-layer cube landing page, public, unauthenticated
   ...locales.flatMap((locale) =>
     MARKETING_ROUTES.map((route) => `/${locale}${route === '/' ? '' : route}`),
@@ -207,7 +205,7 @@ export async function middleware(request: NextRequest) {
           ? { 'Cache-Control': 'no-store' }
           : {
               'Cache-Control': 'no-store',
-              'WWW-Authenticate': 'Basic realm="Kortix test environment", charset="UTF-8"',
+              'WWW-Authenticate': 'Basic realm="Dosco test environment", charset="UTF-8"',
             },
       },
     );

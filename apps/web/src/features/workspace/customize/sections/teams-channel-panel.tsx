@@ -54,7 +54,7 @@ import { useState } from 'react';
 
 /** One instruction per line, in the order a user performs them. */
 const TEAMS_MANIFEST_STEPS = [
-  'Grant admin consent so the Kortix bot can run in your tenant.',
+  'Grant admin consent so the Dosco bot can run in your tenant.',
   'In Teams Admin Center (or Teams → Apps → Manage your apps → Upload), upload an app package built from this manifest, plus color.png and outline.png icons.',
   'Add the app to a chat or channel, then paste your tenant ID below to bind it to this project.',
 ];
@@ -119,9 +119,9 @@ function InstallFlow({ projectId, mode }: { projectId: string; mode: TeamsMode |
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h3 className="text-foreground text-sm font-medium">Add Kortix to Microsoft Teams</h3>
+        <h3 className="text-foreground text-sm font-medium">Add Dosco to Microsoft Teams</h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Install the Kortix app into your Teams tenant, then bind this project to that tenant.
+          Install the Dosco app into your Teams tenant, then bind this project to that tenant.
         </p>
       </div>
 
@@ -166,13 +166,13 @@ function InstallFlow({ projectId, mode }: { projectId: string; mode: TeamsMode |
       {managedAvailable ? (
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="teams-byo" className="text-muted-foreground text-sm font-normal">
-            Use your own Azure bot instead of the managed Kortix bot
+            Use your own Azure bot instead of the managed Dosco bot
           </Label>
           <Switch id="teams-byo" checked={byo} onCheckedChange={setByo} />
         </div>
       ) : (
         <InfoBanner tone="neutral">
-          No managed Kortix Teams bot is configured on this server. Register a multi-tenant Azure
+          No managed Dosco Teams bot is configured on this server. Register a multi-tenant Azure
           Bot and connect its credentials below; after connecting, point its messaging endpoint at
           this project&apos;s Teams webhook.
         </InfoBanner>

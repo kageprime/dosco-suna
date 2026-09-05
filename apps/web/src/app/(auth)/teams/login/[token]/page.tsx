@@ -7,8 +7,8 @@ import { bindTeamsIdentity } from '@kortix/sdk';
 
 /**
  * Teams bind page — the Teams twin of `/slack/login/<token>`. The bot sends a
- * short-lived signed link; after a normal Kortix login this page binds the
- * Teams user to the signed-in Kortix account so the agent runs as them.
+ * short-lived signed link; after a normal Dosco login this page binds the
+ * Teams user to the signed-in Dosco account so the agent runs as them.
  */
 export default function TeamsLoginPage() {
   const params = useParams<{ token: string }>();
@@ -20,7 +20,7 @@ export default function TeamsLoginPage() {
       token={token}
       loginPath={`/teams/login/${token}`}
       bind={bindTeamsIdentity}
-      missingLinkMessage="This page is opened from a Kortix message in Teams. Start the login from Teams to get a fresh link."
+      missingLinkMessage="This page is opened from a Dosco message in Teams. Start the login from Teams to get a fresh link."
       disconnectNote={
         <>
           Disconnect anytime with the <span className="text-foreground font-mono">logout</span>{' '}

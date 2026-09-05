@@ -123,7 +123,7 @@ const CATEGORY_CAUSE: Record<string, string> = {
   quota: 'This project has no room for another sandbox image. Removing an old one frees space.',
   dockerfile: 'A step in the project’s Dockerfile did not finish.',
   git: 'The build could not read the project’s repository. Its access may have expired.',
-  tunnel: 'The sandbox could not reach Kortix while it was being built.',
+  tunnel: 'The sandbox could not reach Dosco while it was being built.',
   provider: 'The sandbox provider refused the build. This is usually temporary.',
   timeout: 'The build ran past its time limit and was stopped.',
   runtime: 'The build finished, but without the agent it needs to run.',

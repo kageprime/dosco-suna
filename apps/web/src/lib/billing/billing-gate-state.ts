@@ -193,7 +193,7 @@ export function billingModalCopy(
       return {
         title: 'Subscribe to start sessions',
         description:
-          'Your team isn’t on a plan yet. Subscribe to Kortix Team to run sessions, with LLM compute and AI Computers for every teammate.',
+          'Your team isn’t on a plan yet. Subscribe to Dosco Team to run sessions, with LLM compute and AI Computers for every teammate.',
       };
     default:
       // `active` — a voluntary top-up. Nothing is wrong, so nothing alarming.
@@ -247,7 +247,7 @@ export function billingGateCopy(state: Exclude<BillingState, 'active'>): Billing
       return {
         title: 'Subscribe to start sessions',
         message:
-          'Your team isn’t on a plan yet. Subscribe to Kortix Team to run sessions, with LLM compute and AI Computers for every teammate.',
+          'Your team isn’t on a plan yet. Subscribe to Dosco Team to run sessions, with LLM compute and AI Computers for every teammate.',
         ctaLabel: 'Subscribe to Team plan',
         dialogReason: 'subscription_required',
       };

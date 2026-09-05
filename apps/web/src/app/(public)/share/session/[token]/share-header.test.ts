@@ -16,7 +16,7 @@ describe('public share sources are loaded', () => {
 });
 
 describe('public share header chrome', () => {
-  test('identity is the Kortix logo plus the file name only', () => {
+  test('identity is the Dosco logo plus the file name only', () => {
     expect(page).toContain('KortixLogo');
     // The title comes from the file name, never the workspace path.
     expect(page).toContain('fileNameFromPath');
@@ -41,11 +41,11 @@ describe('public share header chrome', () => {
     expect(page).not.toContain('View only');
   });
 
-  test('Download and Full screen sit in the header next to Open in Kortix', () => {
+  test('Download and Full screen sit in the header next to Open in Dosco', () => {
     const header = page.slice(page.indexOf('<header'), page.indexOf('</header>'));
     expect(header).toContain('Download');
     expect(header).toContain('Full screen');
-    // 'Open in Kortix'
+    // 'Open in Dosco'
     expect(header).toContain('autoAppPublicShareSessionTokenPageJsxTextOpenIn2fdbf464');
   });
 

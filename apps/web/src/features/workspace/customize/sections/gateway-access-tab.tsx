@@ -11,7 +11,7 @@
  *  - `providers` — "API keys": paste YOUR provider key (Anthropic, OpenAI, …)
  *    so this project can call that provider. **Inbound.**
  *  - `keys` — "API keys": create a `kortix_gw_…` key so something OUTSIDE
- *    Kortix can call this project's gateway. **Outbound.**
+ *    Dosco can call this project's gateway. **Outbound.**
  *  - `api` — "API": how to make that outbound call, with the key from the tab
  *    four places to its left.
  *
@@ -90,7 +90,7 @@ export function GatewayAccessTab({
         title="Gateway keys"
         description={
           <>
-            A <code className="font-mono">kortix_gw_…</code> key lets an app outside Kortix call
+            A <code className="font-mono">kortix_gw_…</code> key lets an app outside Dosco call
             this project&apos;s gateway, using the provider keys on the Providers tab.
           </>
         }
