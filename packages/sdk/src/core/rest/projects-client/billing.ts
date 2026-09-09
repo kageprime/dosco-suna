@@ -602,6 +602,8 @@ export async function fetchAccountStateWithToken(
 // (`Record<string, unknown>`-ish) since the server schemas are opaque
 // (`z.record(...)`) on purpose.
 
+export type BillingProvider = 'stripe' | 'paystack';
+
 export interface CreateCheckoutSessionInput {
   accountId?: string;
   tierKey: string;
@@ -611,6 +613,8 @@ export interface CreateCheckoutSessionInput {
   locale?: string;
   serverType?: string;
   location?: string;
+  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  provider?: BillingProvider;
 }
 
 export interface CheckoutSessionResult {
@@ -636,6 +640,7 @@ export async function createCheckoutSession(
       locale: input.locale,
       server_type: input.serverType,
       location: input.location,
+      provider: input.provider ?? 'stripe',
     }),
     'Failed to create checkout session',
   );
@@ -758,6 +763,8 @@ export interface PurchaseCreditsInput {
   accountId?: string;
   successUrl?: string;
   cancelUrl?: string;
+  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  provider?: BillingProvider;
 }
 
 export interface PurchaseCreditsResult {
@@ -772,6 +779,7 @@ export async function purchaseCredits(input: PurchaseCreditsInput): Promise<Purc
       account_id: input.accountId,
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
+      provider: input.provider ?? 'stripe',
     }),
     'Failed to purchase credits',
   );
@@ -854,6 +862,8 @@ export interface CreatePerSeatCheckoutInput {
   successUrl: string;
   cancelUrl: string;
   locale?: string;
+  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  provider?: BillingProvider;
 }
 
 export interface CreatePerSeatCheckoutResult {
@@ -872,6 +882,7 @@ export async function createPerSeatCheckout(
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       locale: input.locale,
+      provider: input.provider ?? 'stripe',
     }),
     'Failed to create per-seat checkout',
   );

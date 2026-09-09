@@ -1737,7 +1737,10 @@
       "checkoutFailed": "Failed to create checkout session",
       "amountGroup": "Top-up amount",
       "customAmount": "Custom amount in dollars",
-      "custom": "Custom"
+      "custom": "Custom",
+      "paymentMethod": "Payment method",
+      "payWithStripe": "Pay with card (Stripe)",
+      "payWithPaystack": "Pay with Paystack"
     },
     "autoTopup": {
       "bufferError": "Reload amount must be at least {buffer} above the threshold enter {minimum} or more",

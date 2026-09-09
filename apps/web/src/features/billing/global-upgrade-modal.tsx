@@ -45,7 +45,8 @@ import {
   UserPlusIcon as UserPlus,
 } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 export interface UpgradePlansModalProps {
   open: boolean;
@@ -82,6 +83,8 @@ export function UpgradePlansModal({
   const createPerSeat = useCreatePerSeatCheckout();
   const openDemo = useRequestDemo();
   const billingReturnUrl = useBillingReturnUrl();
+  // Nigerian market: switch the team subscription checkout to Paystack.
+  const [provider, setProvider] = useState<'stripe' | 'paystack'>('stripe');
 
   // Which view? Resolved from the ONE billing-state resolver. The caller's
   // `billingState` (from the 402 or the gate that opened this) wins because
@@ -120,6 +123,7 @@ export function UpgradePlansModal({
     createPerSeat.mutate({
       success_url: billingReturnUrl('team_signup'),
       cancel_url: window.location.href,
+      provider,
     });
   };
 
@@ -204,6 +208,31 @@ export function UpgradePlansModal({
         </ModalHeader>
 
         <ModalBody className="space-y-4 px-6 pb-6">
+          {/* Nigerian market: Paystack hosted checkout instead of Stripe. */}
+          <div
+            role="radiogroup"
+            aria-label="Payment method"
+            className="bg-muted/60 flex w-fit items-center gap-0.5 rounded-md border p-0.5"
+          >
+            {(['stripe', 'paystack'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={provider === option}
+                onClick={() => setProvider(option)}
+                disabled={createPerSeat.isPending}
+                className={cn(
+                  'rounded-sm px-2.5 py-1 text-xs font-medium',
+                  provider === option
+                    ? 'bg-background text-foreground shadow-2xs'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {option === 'stripe' ? 'Card (Stripe)' : 'Paystack'}
+              </button>
+            ))}
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {UPGRADE_MODAL_PLANS.map((plan) => (
               <PricingPlanCard

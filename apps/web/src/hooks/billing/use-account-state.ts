@@ -46,6 +46,8 @@ export interface CreateCheckoutSessionRequest {
   locale?: string;
   server_type?: string;
   location?: string;
+  /** Nigerian market: 'paystack' routes to a Paystack checkout. Defaults to stripe. */
+  provider?: 'stripe' | 'paystack';
 }
 
 export interface CreatePortalSessionRequest {
@@ -277,6 +279,7 @@ export function useCreateCheckoutSession() {
         locale: request.locale,
         serverType: request.server_type,
         location: request.location,
+        provider: request.provider,
       }),
     onSuccess: (data) => {
       // Invalidate and refetch on upgrade/update - checkout redirects user anyway
@@ -299,12 +302,18 @@ export function useCreatePerSeatCheckout() {
   const accountId = useBillingAccountId();
 
   return useMutation({
-    mutationFn: (args: { success_url: string; cancel_url: string; locale?: string }) =>
+    mutationFn: (args: {
+      success_url: string;
+      cancel_url: string;
+      locale?: string;
+      provider?: 'stripe' | 'paystack';
+    }) =>
       createPerSeatCheckout({
         accountId,
         successUrl: args.success_url,
         cancelUrl: args.cancel_url,
         locale: args.locale,
+        provider: args.provider,
       }),
     onSuccess: async (data) => {
       if (data.status === 'subscription_created') {

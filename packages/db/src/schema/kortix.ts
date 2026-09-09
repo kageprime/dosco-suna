@@ -3427,6 +3427,12 @@ export const creditAccounts = kortixSchema.table(
     }),
     revenuecatPendingChangeType: text('revenuecat_pending_change_type'),
     revenuecatProductId: text('revenuecat_product_id'),
+    // Paystack subscription tracking (Nigerian market billing). The
+    // subscription code + email token come back from the Paystack
+    // subscription.create webhook / transaction metadata and are the handles
+    // for lifecycle management (subscription.disable / invoice.update).
+    paystackSubscriptionCode: varchar('paystack_subscription_code', { length: 255 }),
+    paystackEmailToken: varchar('paystack_email_token', { length: 255 }),
     planType: varchar('plan_type', { length: 50 }).default('monthly'),
     stripeSubscriptionStatus: varchar('stripe_subscription_status', { length: 50 }),
     lastDailyRefresh: timestamp('last_daily_refresh', { withTimezone: true, mode: 'string' }),
@@ -4011,6 +4017,11 @@ export const creditPurchases = kortixSchema.table('credit_purchases', {
   provider: varchar('provider', { length: 50 }).default('stripe'),
   revenuecatTransactionId: varchar('revenuecat_transaction_id', { length: 255 }),
   revenuecatProductId: varchar('revenuecat_product_id', { length: 255 }),
+  // Paystack one-off purchase tracking. `reference` is the idempotency handle
+  // we generate at transaction/initialize time; `accessCode` is the checkout
+  // session handle Paystack returns alongside the authorization_url.
+  paystackReference: varchar('paystack_reference', { length: 255 }),
+  paystackAccessCode: varchar('paystack_access_code', { length: 255 }),
 });
 
 // ─── Tunnel (Reverse-Tunnel to Local Machine) ──────────────────────────────

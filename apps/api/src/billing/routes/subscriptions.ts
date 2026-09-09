@@ -19,6 +19,10 @@ import { resolveScopedAccountId } from '../../shared/resolve-account';
 import { resolveBillingWriteAccountId } from '../require-billing-write';
 import { syncSeatQuantity } from '../services/seat-management';
 import { maybeMigrateLegacyAccount } from '../services/legacy-account-migration';
+import {
+  createPaystackSubscriptionCheckout,
+} from '../services/paystack';
+import { getCreditAccount } from '../repositories/credit-accounts';
 import { makeOpenApiApp, json, auth, errors } from '../../openapi';
 
 export const subscriptionsRouter = makeOpenApiApp<AppEnv>();
@@ -82,6 +86,17 @@ subscriptionsRouter.openapi(
     const email = c.get('userEmail');
     const body = await c.req.json();
 
+    // Nigerian market: Paystack subscription checkout.
+    if (body.provider === 'paystack') {
+      const result = await createPaystackSubscriptionCheckout({
+        accountId,
+        email,
+        tierKey: body.tier_key,
+        successUrl: body.success_url,
+      });
+      return c.json(result);
+    }
+
     const result = await createCheckoutSession({
       accountId,
       email,
@@ -114,6 +129,20 @@ subscriptionsRouter.openapi(
     const accountId = await resolveBillingWriteAccountId(c, 'body');
     const email = c.get('userEmail');
     const body = await c.req.json();
+
+    // Nigerian market: Paystack per-seat subscription checkout. Paystack plans
+    // are fixed-amount, so the seat count is baked into the plan name
+    // (see services/paystack.ts) — a seat change re-checks out.
+    if (body.provider === 'paystack') {
+      const result = await createPaystackSubscriptionCheckout({
+        accountId,
+        email,
+        tierKey: 'per_seat',
+        successUrl: body.success_url,
+        seats: (await getCreditAccount(accountId))?.seatCount ?? 1,
+      });
+      return c.json(result);
+    }
 
     const result = await createPerSeatCheckoutSession({
       accountId,

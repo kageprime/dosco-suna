@@ -144,6 +144,8 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
   const [isCustom, setIsCustom] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  // Nigerian market: Paystack hosted checkout instead of Stripe.
+  const [provider, setProvider] = useState<'stripe' | 'paystack'>('stripe');
 
   // The dollar amount that would actually be charged. Custom wins when the
   // custom cell is active; otherwise the selected preset.
@@ -184,6 +186,7 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
         amount: Math.round(amount),
         successUrl: successUrl ?? billingReturnUrl('credit_purchase'),
         cancelUrl: cancelUrl ?? window.location.href,
+        provider,
       });
       if (response.checkout_url) {
         window.location.href = response.checkout_url;
@@ -202,6 +205,40 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
 
   return (
     <div className={cn('space-y-2.5', className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="radiogroup"
+          aria-label={t('paymentMethod')}
+          className="bg-muted/60 flex items-center gap-0.5 rounded-md border p-0.5"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={provider === 'stripe'}
+            onClick={() => setProvider('stripe')}
+            disabled={isPurchasing}
+            className={cn(
+              'rounded-sm px-2.5 py-1 text-xs font-medium',
+              provider === 'stripe' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground',
+            )}
+          >
+            {t('payWithStripe')}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={provider === 'paystack'}
+            onClick={() => setProvider('paystack')}
+            disabled={isPurchasing}
+            className={cn(
+              'rounded-sm px-2.5 py-1 text-xs font-medium',
+              provider === 'paystack' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground',
+            )}
+          >
+            {t('payWithPaystack')}
+          </button>
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           role="radiogroup"

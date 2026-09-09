@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import type { AppEnv } from '../../types';
 import { getStripe } from '../../shared/stripe';
 import { getOrCreateStripeCustomer } from '../services/subscriptions';
+import { createPaystackCreditCheckout } from '../services/paystack';
 import { resolveCreditPriceId } from '../services/tiers';
 import { resolveAccountBilling } from '../services/billing-cache';
 import {
@@ -36,6 +37,7 @@ paymentsRouter.openapi(
               account_id: z.string().optional(),
               success_url: z.string().optional(),
               cancel_url: z.string().optional(),
+              provider: z.enum(['stripe', 'paystack']).default('stripe'),
             }),
           },
         },
@@ -67,6 +69,17 @@ paymentsRouter.openapi(
 
     if (!entitlements.canPurchaseCredits) {
       throw new BillingError('Your tier does not allow credit purchases');
+    }
+
+    // Nigerian market: Paystack checkout instead of Stripe when asked for.
+    if (body.provider === 'paystack') {
+      const result = await createPaystackCreditCheckout({
+        accountId,
+        email,
+        amount,
+        successUrl: body.success_url,
+      });
+      return c.json({ checkout_url: result.checkout_url });
     }
 
     const customerId = await getOrCreateStripeCustomer(accountId, email);
