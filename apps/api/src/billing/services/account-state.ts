@@ -3,6 +3,7 @@ import { AUTO_TOPUP_DEFAULT_AMOUNT, AUTO_TOPUP_DEFAULT_THRESHOLD } from '@kortix
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { config } from '../../config';
 import { db } from '../../shared/db';
+import { PAYSTACK_CHARGE_CURRENCY } from '../../shared/paystack';
 import { isPlatformAdmin } from '../../shared/platform-roles';
 import type { AccountStateResponse, CommitmentInfo, ScheduledChange } from '../../types';
 import { getCreditAccount } from '../repositories/credit-accounts';
@@ -45,6 +46,12 @@ type InstanceSummary = AccountStateResponse['instances'][number] & {
 
 function metadataString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
+}
+
+/** Configured USD→NGN rate for Paystack display, or null when unset. */
+function paystackUsdNgnRateOrNull(): number | null {
+  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
+  return Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
 async function countActiveSessions(accountId: string): Promise<number> {
@@ -293,6 +300,12 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
       entitlements,
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
+    // Paystack pre-redirect display ("≈ ₦X charged"). Null rate = rate
+    // unconfigured; the UI hides the figure and checkout fails clearly.
+    billing_fx: {
+      currency: PAYSTACK_CHARGE_CURRENCY,
+      usd_ngn_rate: paystackUsdNgnRateOrNull(),
+    },
     // Surface the per-account contracted-Enterprise flag so the admin console
     // and the frontend can distinguish a real Enterprise contract (entitlements
     // sourced from `enterprise_entitled`, independent of billing tier) from a
@@ -406,6 +419,10 @@ export function buildLocalAccountState(): AccountStateResponse {
       entitlements: getTierEntitlements('free'),
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
+    billing_fx: {
+      currency: PAYSTACK_CHARGE_CURRENCY,
+      usd_ngn_rate: paystackUsdNgnRateOrNull(),
+    },
     // No-DB local mode has no credit_accounts row, so the contracted-Enterprise
     // flag is false by construction (fail-closed).
     enterprise_entitled: false,

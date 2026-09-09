@@ -126,6 +126,9 @@ export function BillingTab({
   const hasActiveSubscription = Boolean(subscription?.subscription_id);
   const subscribedToTeam = isPerSeat && hasActiveSubscription;
   const showTeamCheckout = isBillingEnabled() && !hasActiveSubscription;
+  // The Stripe customer portal does not exist for Paystack-billed accounts
+  // (the portal route 400s for them) — hide its CTAs instead of erroring.
+  const isPaystackBilled = subscription?.provider === 'paystack';
 
   return (
     <div className="space-y-8">
@@ -149,18 +152,20 @@ export function BillingTab({
               >
                 {t('subscribe')}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground gap-1.5"
-                onClick={handleManageSubscription}
-                disabled={createPortalSessionMutation.isPending}
-              >
-                {createPortalSessionMutation.isPending ? (
-                  <Loading className="size-4 shrink-0" />
-                ) : null}
-                {t('manageBilling')}
-              </Button>
+              {isPaystackBilled ? null : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground gap-1.5"
+                  onClick={handleManageSubscription}
+                  disabled={createPortalSessionMutation.isPending}
+                >
+                  {createPortalSessionMutation.isPending ? (
+                    <Loading className="size-4 shrink-0" />
+                  ) : null}
+                  {t('manageBilling')}
+                </Button>
+              )}
             </div>
           </div>
         </section>
@@ -209,9 +214,10 @@ export function BillingTab({
           )}
 
           {/* The Stripe billing portal doesn't exist without billing enabled
-              (self-host with KORTIX_BILLING_INTERNAL_ENABLED=false) — hide the
-              button rather than let it 404/error on click. */}
-          {isBillingEnabled() ? (
+              (self-host with KORTIX_BILLING_INTERNAL_ENABLED=false) or for
+              Paystack-billed accounts — hide the button rather than let it
+              404/error on click. */}
+          {isBillingEnabled() && !isPaystackBilled ? (
             <section className="space-y-4">
               <Label>{t('billingPortal')}</Label>
               <div className="bg-popover rounded-md border px-4 py-3">

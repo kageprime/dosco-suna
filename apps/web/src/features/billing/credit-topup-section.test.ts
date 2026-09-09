@@ -84,4 +84,17 @@ describe('describeTopup', () => {
       expect(describeTopup(amount).hint.length).toBeGreaterThan(0);
     }
   });
+
+  test('paystack NGN label appends to a buyable hint only', () => {
+    expect(describeTopup(50, false, undefined, '≈ ₦75,000 charged').hint).toBe(
+      '5,000 credits · added as soon as you pay. · ≈ ₦75,000 charged',
+    );
+    // Beside a validation message or the idle line it would lie — never appended.
+    expect(describeTopup(3, false, undefined, '≈ ₦75,000 charged').hint).toBe(
+      'Minimum top-up is $5.',
+    );
+    expect(describeTopup(null, false, undefined, '≈ ₦75,000 charged').hint).toBe(
+      'Credits never expire. $1 = 100 credits.',
+    );
+  });
 });

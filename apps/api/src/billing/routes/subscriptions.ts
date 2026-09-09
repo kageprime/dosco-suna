@@ -86,8 +86,9 @@ subscriptionsRouter.openapi(
     const email = c.get('userEmail');
     const body = await c.req.json();
 
-    // Nigerian market: Paystack subscription checkout.
-    if (body.provider === 'paystack') {
+    // Paystack is the de facto default; only an explicit 'stripe' takes the
+    // Stripe path.
+    if (body.provider !== 'stripe') {
       const result = await createPaystackSubscriptionCheckout({
         accountId,
         email,
@@ -130,10 +131,11 @@ subscriptionsRouter.openapi(
     const email = c.get('userEmail');
     const body = await c.req.json();
 
-    // Nigerian market: Paystack per-seat subscription checkout. Paystack plans
-    // are fixed-amount, so the seat count is baked into the plan name
-    // (see services/paystack.ts) — a seat change re-checks out.
-    if (body.provider === 'paystack') {
+    // Paystack is the de facto default (only an explicit 'stripe' takes the
+    // Stripe path). Paystack plans are fixed-amount, so the seat count is
+    // baked into the plan name (see services/paystack.ts) — a seat change
+    // re-checks out.
+    if (body.provider !== 'stripe') {
       const result = await createPaystackSubscriptionCheckout({
         accountId,
         email,

@@ -19,11 +19,17 @@
  * by a signature-verified `charge.success`, which is Paystack's settled-
  * payment event (the analogue of Stripe's `invoice.paid`, not
  * `checkout.session.completed`).
+ *
+ * Billing currency is NGN (the merchant account cannot transact in USD):
+ * USD-denominated prices convert at PAYSTACK_USD_NGN_RATE, whole naira.
+ * The credit ledger stays USD; webhooks convert settled kobo back to USD
+ * at the same rate before granting.
  */
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { BillingError } from '../../errors';
+import { config } from '../../config';
 import { db } from '../../shared/db';
 import * as paystack from '../../shared/paystack';
 import { billingCustomers, creditAccounts, creditPurchases } from '@kortix/db';
@@ -41,6 +47,51 @@ export function paystackEnabled(): boolean {
 function requirePaystack(): void {
   if (!paystack.paystackConfigured()) {
     throw new BillingError('Paystack is not configured on this deployment');
+  }
+}
+
+/**
+ * Naira per 1 USD for Paystack CHECKOUT. Missing/zero → clear 400: never
+ * boot-blocking, and never a guessed charge — a wrong rate is real money.
+ */
+function checkoutUsdNgnRate(): number {
+  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new BillingError(
+      'Paystack NGN rate (PAYSTACK_USD_NGN_RATE) is not configured on this deployment',
+    );
+  }
+  return rate;
+}
+
+/**
+ * Same rate for the WEBHOOK path — but a missing rate here must stay a 500
+ * (plain Error), so Paystack retries delivery after the operator sets the
+ * rate. A 400 would acknowledge-and-drop a settled, already-paid charge.
+ */
+function webhookUsdNgnRate(): number {
+  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('PAYSTACK_USD_NGN_RATE is not configured; cannot settle Paystack charge');
+  }
+  return rate;
+}
+
+/**
+ * User-facing checkout calls must fail with a readable 400, never an opaque
+ * 500. Paystack rejects at the provider level (unknown customer, unsupported
+ * currency, closed account) and the buyer can only act on the real reason —
+ * e.g. "Currency not supported by merchant" tells the operator the merchant
+ * account needs USD enabled, where "Internal server error" tells nothing.
+ * Webhook handlers deliberately do NOT use this: a transient Paystack outage
+ * there should stay a 500 so Paystack retries delivery.
+ */
+async function paystackCheckout<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof BillingError) throw err;
+    throw new BillingError(`Paystack ${label} failed: ${(err as Error).message}`);
   }
 }
 
@@ -96,28 +147,38 @@ export async function createPaystackCreditCheckout(params: {
   successUrl?: string;
 }): Promise<{ checkout_url: string; reference: string }> {
   requirePaystack();
+  const rate = checkoutUsdNgnRate();
+  const amountNgn = paystack.usdToNgn(params.amount, rate);
 
-  const customerId = await getOrCreatePaystackCustomer(params.accountId, params.email);
   const purchase = await insertPurchase({
     accountId: params.accountId,
     amountDollars: String(params.amount),
     status: 'pending',
     description: `$${params.amount} credit purchase`,
     provider: 'paystack',
+    metadata: {
+      paystack_currency: paystack.PAYSTACK_CHARGE_CURRENCY,
+      paystack_amount_ngn: amountNgn,
+      usd_ngn_rate: rate,
+    },
   });
 
   const reference = `psk_${purchase!.id}`;
-  const init = await paystack.initializeTransaction({
-    email: params.email,
-    amountUsd: params.amount,
-    reference,
-    callbackUrl: params.successUrl,
-    metadata: {
-      account_id: params.accountId,
-      purchase_id: purchase!.id,
-      type: 'credit_purchase',
-      paystack_customer: customerId,
-    },
+  const init = await paystackCheckout('credit checkout', async () => {
+    const customerId = await getOrCreatePaystackCustomer(params.accountId, params.email);
+    return paystack.initializeTransaction({
+      email: params.email,
+      amountSubunits: paystack.toSubunits(amountNgn),
+      currency: paystack.PAYSTACK_CHARGE_CURRENCY,
+      reference,
+      callbackUrl: params.successUrl,
+      metadata: {
+        account_id: params.accountId,
+        purchase_id: purchase!.id,
+        type: 'credit_purchase',
+        paystack_customer: customerId,
+      },
+    });
   });
 
   await db
@@ -153,24 +214,29 @@ async function tierKeyFromPaystackPlan(planCode: string): Promise<string | null>
 async function ensurePaystackPlan(
   tierKey: string,
   seats?: number,
-): Promise<{ planCode: string; amountUsd: number }> {
+): Promise<{ planCode: string; amountNgn: number }> {
   const plan = resolvePlanRecord(tierKey);
   const seatsMultiplier = plan.price.unit === 'seat_month' ? Math.max(1, seats ?? 1) : 1;
   const amountUsd = plan.price.amountUsd * seatsMultiplier;
   if (amountUsd <= 0) throw new BillingError('This plan does not require payment');
 
+  // USD-denominated catalog price → whole naira at the configured rate.
+  const rate = checkoutUsdNgnRate();
+  const amountNgn = paystack.usdToNgn(amountUsd, rate);
+
   const name = paystackPlanName(tierKey, seats);
   const plans = await paystack.listPlans(name);
-  const hit = plans.find((p) => p.name === name && p.currency === 'USD');
-  if (hit) return { planCode: hit.plan_code, amountUsd };
+  const hit = plans.find((p) => p.name === name && p.currency === paystack.PAYSTACK_CHARGE_CURRENCY);
+  if (hit) return { planCode: hit.plan_code, amountNgn };
 
   const created = await paystack.createPlan({
     name,
-    amountUsd,
+    amountSubunits: paystack.toSubunits(amountNgn),
+    currency: paystack.PAYSTACK_CHARGE_CURRENCY,
     interval: 'monthly',
     description: `Dosco ${tierKey} plan${seatsMultiplier > 1 ? ` (${seatsMultiplier} seats)` : ''}`,
   });
-  return { planCode: created.plan_code, amountUsd };
+  return { planCode: created.plan_code, amountNgn };
 }
 
 export async function createPaystackSubscriptionCheckout(params: {
@@ -182,24 +248,28 @@ export async function createPaystackSubscriptionCheckout(params: {
 }): Promise<{ checkout_url: string; reference: string }> {
   requirePaystack();
 
-  const { planCode, amountUsd } = await ensurePaystackPlan(params.tierKey, params.seats);
-  const customerId = await getOrCreatePaystackCustomer(params.accountId, params.email);
+  const { init } = await paystackCheckout('subscription checkout', async () => {
+    const { planCode, amountNgn } = await ensurePaystackPlan(params.tierKey, params.seats);
+    const customerId = await getOrCreatePaystackCustomer(params.accountId, params.email);
 
-  const reference = `psk_sub_${randomUUID()}`;
-  const init = await paystack.initializeTransaction({
-    email: params.email,
-    amountUsd,
-    reference,
-    callbackUrl: params.successUrl,
-    planCode,
-    metadata: {
-      account_id: params.accountId,
-      tier_key: params.tierKey,
-      plan_key: params.tierKey,
-      type: 'subscription',
-      seats: params.seats ?? null,
-      paystack_customer: customerId,
-    },
+    const reference = `psk_sub_${randomUUID()}`;
+    const init = await paystack.initializeTransaction({
+      email: params.email,
+      amountSubunits: paystack.toSubunits(amountNgn),
+      currency: paystack.PAYSTACK_CHARGE_CURRENCY,
+      reference,
+      callbackUrl: params.successUrl,
+      planCode,
+      metadata: {
+        account_id: params.accountId,
+        tier_key: params.tierKey,
+        plan_key: params.tierKey,
+        type: 'subscription',
+        seats: params.seats ?? null,
+        paystack_customer: customerId,
+      },
+    });
+    return { init };
   });
 
   return { checkout_url: init.authorization_url, reference: init.reference };
@@ -213,10 +283,12 @@ export async function cancelPaystackSubscription(accountId: string): Promise<{ o
   if (!code || !account?.paystackEmailToken) {
     throw new BillingError('Account has no Paystack subscription to cancel');
   }
-  await paystack.disableSubscription({
-    code,
-    token: account.paystackEmailToken,
-  });
+  // Captured to a const: property narrowing does not survive into the
+  // closure below, and the guard above already proved it non-null.
+  const token = account.paystackEmailToken;
+  await paystackCheckout('cancel subscription', () =>
+    paystack.disableSubscription({ code, token }),
+  );
   return { ok: true };
 }
 
@@ -275,7 +347,20 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
   const reference: string | undefined = data?.reference;
   if (!reference || data?.status !== 'success') return;
 
-  const amountUsd = Number(data.amount ?? 0) / 100;
+  // This deployment charges NGN only. Anything else is a misrouted or legacy
+  // charge — refuse rather than convert under a wrong assumption.
+  const currency = String(data.currency ?? '').toUpperCase();
+  if (currency !== paystack.PAYSTACK_CHARGE_CURRENCY) {
+    console.warn(
+      `[Paystack] charge.success ${reference}: unsupported currency ${currency || '(missing)'} — refusing to grant`,
+    );
+    return;
+  }
+  const rate = webhookUsdNgnRate();
+  const amountNgn = Number(data.amount ?? 0) / 100;
+  // Kobo → naira → USD at the configured rate, rounded to the cent for the
+  // USD-denominated ledger.
+  const amountUsd = paystack.ngnSubunitsToUsd(Number(data.amount ?? 0), rate);
   const metadata = parseMetadata(data);
   const type = String(metadata.type ?? '');
 
@@ -293,10 +378,12 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
       return;
     }
     // Amount guard: the settled charge must match the pending purchase.
+    // Converted back at the same rate, so anything beyond a cent of
+    // rounding drift means underpayment.
     const expected = Number(purchaseRow.amountDollars);
-    if (amountUsd + 0.001 < expected) {
+    if (amountUsd + 0.01 < expected) {
       console.error(
-        `[Paystack] charge.success ${reference}: amount mismatch (got ${amountUsd}, expected ${expected}) — refusing to grant`,
+        `[Paystack] charge.success ${reference}: amount mismatch (got $${amountUsd} / ₦${amountNgn} at ${rate}, expected $${expected}) — refusing to grant`,
       );
       return;
     }
@@ -304,13 +391,13 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
       purchaseRow.accountId,
       amountUsd,
       'purchase',
-      `Credit purchase: $${amountUsd.toFixed(2)}`,
+      `Credit purchase: $${amountUsd.toFixed(2)} (Paystack ₦${amountNgn})`,
       false,
       undefined,
       { idempotencyKey: `paystack:${reference}` },
     );
     await updatePurchaseStatus(purchaseRow.id, 'completed', new Date().toISOString());
-    console.log(`[Paystack] Credit purchase: $${amountUsd} for ${purchaseRow.accountId}`);
+    console.log(`[Paystack] Credit purchase: $${amountUsd} (₦${amountNgn}) for ${purchaseRow.accountId}`);
     return;
   }
 

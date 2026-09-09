@@ -124,7 +124,7 @@ test('createCheckoutSession posts tier + urls to create-checkout-session', async
   });
   expect(last().url).toContain('/billing/create-checkout-session');
   expect(last().method).toBe('POST');
-  expect(last().body).toMatchObject({ tier_key: 'pro', success_url: 'https://app.example.com/success' });
+  expect(last().body).toMatchObject({ tier_key: 'pro', success_url: 'https://app.example.com/success', provider: 'paystack' });
 });
 
 test('confirmCheckoutSession posts session_id to confirm-checkout-session', async () => {
@@ -165,7 +165,7 @@ test('per-seat, sync, and auto-topup setup methods own their REST paths', async 
     accountId: 'acc-1',
   });
   expect(last().url).toContain('/billing/create-per-seat-checkout');
-  expect(last().body).toMatchObject({ account_id: 'acc-1' });
+  expect(last().body).toMatchObject({ account_id: 'acc-1', provider: 'paystack' });
 
   nextResponse = { status: 200, body: { ok: true, status: 'migrated' } };
   await claimPerSeatBilling('acc-1');
@@ -195,7 +195,7 @@ test('purchaseCredits posts amount + urls to purchase-credits', async () => {
   nextResponse = { status: 200, body: { checkout_url: 'https://checkout.stripe.com/credits' } };
   const result = await purchaseCredits({ amount: 20 });
   expect(last().url).toContain('/billing/purchase-credits');
-  expect(last().body).toMatchObject({ amount: 20 });
+  expect(last().body).toMatchObject({ amount: 20, provider: 'paystack' });
   expect(result.checkout_url).toContain('stripe.com');
 });
 

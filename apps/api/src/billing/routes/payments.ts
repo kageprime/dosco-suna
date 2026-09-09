@@ -37,7 +37,7 @@ paymentsRouter.openapi(
               account_id: z.string().optional(),
               success_url: z.string().optional(),
               cancel_url: z.string().optional(),
-              provider: z.enum(['stripe', 'paystack']).default('stripe'),
+              provider: z.enum(['stripe', 'paystack']).default('paystack'),
             }),
           },
         },

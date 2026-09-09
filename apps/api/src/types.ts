@@ -253,7 +253,7 @@ export interface AccountStateResponse {
     tier_display_name: string;
     status: string;
     billing_period: 'monthly' | 'yearly' | 'yearly_commitment' | null;
-    provider: 'stripe' | 'revenuecat' | 'local';
+    provider: 'stripe' | 'paystack' | 'revenuecat' | 'local';
     subscription_id: string | null;
     current_period_end: number | null;
     cancel_at_period_end: boolean;
@@ -282,6 +282,10 @@ export interface AccountStateResponse {
    *  any "Request enterprise access" upsell — there's nothing to demo-enable
    *  or upsell when the license already turned it on unconditionally. */
   enterprise_license_available: boolean;
+  /** Paystack billing currency + USD→NGN rate for pre-redirect display
+   *  ("≈ ₦X charged"). `usd_ngn_rate` null = rate unconfigured (Paystack
+   *  checkout paths fail with a clear 400; nothing charges). */
+  billing_fx: { currency: string; usd_ngn_rate: number | null };
   /** True when an operator has flagged this account as a contracted cloud
    *  Enterprise customer via `credit_accounts.enterprise_entitled`. The
    *  account then resolves all enterprise entitlements (SSO/SCIM/RBAC/audit)

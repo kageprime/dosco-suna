@@ -95,7 +95,7 @@ export interface AccountState {
     tier_display_name: string;
     status: string;
     billing_period: 'monthly' | 'yearly' | 'yearly_commitment' | null;
-    provider: 'stripe' | 'revenuecat' | 'local';
+    provider: 'stripe' | 'paystack' | 'revenuecat' | 'local';
     subscription_id: string | null;
     current_period_end: number | null;
     cancel_at_period_end: boolean;
@@ -181,6 +181,9 @@ export interface AccountState {
    *  hides the self-serve "Enterprise features — Demo" toggle and any
    *  "Request enterprise access" upsell when this is true. */
   enterprise_license_available?: boolean;
+  /** Paystack billing currency + USD→NGN rate for pre-redirect display
+   *  ("≈ ₦X charged"). `usd_ngn_rate` null = rate unconfigured. */
+  billing_fx?: { currency: string; usd_ngn_rate: number | null };
   /** True when an operator flagged this account as a contracted cloud
    *  Enterprise customer (`credit_accounts.enterprise_entitled`). The account
    *  then resolves all enterprise entitlements regardless of billing tier, so
@@ -613,7 +616,7 @@ export interface CreateCheckoutSessionInput {
   locale?: string;
   serverType?: string;
   location?: string;
-  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  /** Paystack checkout instead of Stripe. Defaults to paystack. */
   provider?: BillingProvider;
 }
 
@@ -640,7 +643,7 @@ export async function createCheckoutSession(
       locale: input.locale,
       server_type: input.serverType,
       location: input.location,
-      provider: input.provider ?? 'stripe',
+      provider: input.provider ?? 'paystack',
     }),
     'Failed to create checkout session',
   );
@@ -763,7 +766,7 @@ export interface PurchaseCreditsInput {
   accountId?: string;
   successUrl?: string;
   cancelUrl?: string;
-  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  /** Paystack checkout instead of Stripe. Defaults to paystack. */
   provider?: BillingProvider;
 }
 
@@ -779,7 +782,7 @@ export async function purchaseCredits(input: PurchaseCreditsInput): Promise<Purc
       account_id: input.accountId,
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
-      provider: input.provider ?? 'stripe',
+      provider: input.provider ?? 'paystack',
     }),
     'Failed to purchase credits',
   );
@@ -862,7 +865,7 @@ export interface CreatePerSeatCheckoutInput {
   successUrl: string;
   cancelUrl: string;
   locale?: string;
-  /** Nigerian market: Paystack checkout instead of Stripe. Defaults to stripe. */
+  /** Paystack checkout instead of Stripe. Defaults to paystack. */
   provider?: BillingProvider;
 }
 
@@ -882,7 +885,7 @@ export async function createPerSeatCheckout(
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       locale: input.locale,
-      provider: input.provider ?? 'stripe',
+      provider: input.provider ?? 'paystack',
     }),
     'Failed to create per-seat checkout',
   );

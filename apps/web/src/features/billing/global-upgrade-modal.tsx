@@ -45,8 +45,17 @@ import {
   UserPlusIcon as UserPlus,
 } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
+
+/** Whole-naira figure for pre-redirect display ("≈ ₦60,000 charged"). */
+function formatNgn(amountNgn: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amountNgn);
+}
 
 export interface UpgradePlansModalProps {
   open: boolean;
@@ -83,8 +92,8 @@ export function UpgradePlansModal({
   const createPerSeat = useCreatePerSeatCheckout();
   const openDemo = useRequestDemo();
   const billingReturnUrl = useBillingReturnUrl();
-  // Nigerian market: switch the team subscription checkout to Paystack.
-  const [provider, setProvider] = useState<'stripe' | 'paystack'>('stripe');
+  // Paystack is the de facto default payment provider; Stripe stays selectable.
+  const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
 
   // Which view? Resolved from the ONE billing-state resolver. The caller's
   // `billingState` (from the 402 or the gate that opened this) wins because
@@ -116,6 +125,8 @@ export function UpgradePlansModal({
   const pricePerSeat = accountState?.seats?.price_per_seat_usd ?? 40;
   const seatCount = Math.max(1, accountState?.member_count ?? accountState?.seats?.count ?? 1);
   const monthlyTotal = pricePerSeat * seatCount;
+  // FX rate for the pre-redirect NGN figure; null = unconfigured = no figure.
+  const fxRate = accountState?.billing_fx?.usd_ngn_rate ?? null;
   const hasSeatMath = seatCount > 1;
   const canManageBilling = accountState?.can_manage_billing !== false;
 
@@ -177,6 +188,13 @@ export function UpgradePlansModal({
             'autoFeaturesBillingTeamPlanCheckoutJsxTextAutoProratedCancelfa091962',
           )}
         </p>
+        {/* The buyer is charged the NGN equivalent on Paystack — show it
+            before they click. */}
+        {provider === 'paystack' && fxRate ? (
+          <p className="text-muted-foreground text-center text-xs tabular-nums">
+            ≈ {formatNgn(Math.round(monthlyTotal * fxRate))} charged via Paystack
+          </p>
+        ) : null}
       </div>
     ) : (
       <Button type="button" variant="outline" className="w-full" disabled>
@@ -208,13 +226,14 @@ export function UpgradePlansModal({
         </ModalHeader>
 
         <ModalBody className="space-y-4 px-6 pb-6">
-          {/* Nigerian market: Paystack hosted checkout instead of Stripe. */}
+          {/* Paystack first: it is the default provider. Stripe stays
+              available for deployments with Stripe keys configured. */}
           <div
             role="radiogroup"
             aria-label="Payment method"
             className="bg-muted/60 flex w-fit items-center gap-0.5 rounded-md border p-0.5"
           >
-            {(['stripe', 'paystack'] as const).map((option) => (
+            {(['paystack', 'stripe'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -330,6 +349,9 @@ function CreditTopUpModal({
     },
     tI18nComplete,
   );
+  // The Stripe customer portal does not exist for Paystack-billed accounts
+  // (the portal route 400s for them) — hide its CTA instead of erroring.
+  const isPaystackBilled = accountState?.subscription?.provider === 'paystack';
 
   // Trust the LIVE account state as the source of truth (same field the Plan
   // page reads) — the 402's `balance` is only a pre-load hint. Using `??` on the
@@ -406,19 +428,21 @@ function CreditTopUpModal({
           </div>
         </ModalBody>
 
-        <ModalFooter className="pt-4 pb-5 sm:justify-start">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground gap-1.5"
-            disabled={createPortal.isPending}
-            onClick={() => createPortal.mutate({ return_url: window.location.href })}
-          >
-            {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
-            {tI18nComplete.raw('text7ea27c63aff1')}
-          </Button>
-        </ModalFooter>
+        {isPaystackBilled ? null : (
+          <ModalFooter className="pt-4 pb-5 sm:justify-start">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground gap-1.5"
+              disabled={createPortal.isPending}
+              onClick={() => createPortal.mutate({ return_url: window.location.href })}
+            >
+              {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
+              {tI18nComplete.raw('text7ea27c63aff1')}
+            </Button>
+          </ModalFooter>
+        )}
       </ModalContent>
     </Modal>
   );

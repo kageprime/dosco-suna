@@ -10,10 +10,16 @@
  *                         inline checkout integrations.
  *   PAYSTACK_API_URL      defaults to https://api.paystack.co.
  *
- * Money: Paystack amounts are integer SUBUNITS of the currency. USD subunit is
- * the cent, so `toKobo(amountUsd)` is cents — the name is historical.
+ * Money: Paystack amounts are integer SUBUNITS of the charge currency.
+ * This deployment bills in NGN (the merchant account cannot transact in
+ * USD), so subunits are kobo. `toSubunits` works for any 2-decimal currency;
+ * the USD→NGN conversion itself lives in billing/services/paystack.ts, next
+ * to the rate config it depends on.
  */
 import { config } from '../config';
+
+/** The only currency this deployment charges on Paystack. */
+export const PAYSTACK_CHARGE_CURRENCY = 'NGN' as const;
 
 export interface PaystackInitTransaction {
   authorization_url: string;
@@ -54,9 +60,27 @@ export function paystackConfigured(): boolean {
   return Boolean(config.PAYSTACK_SECRET_KEY);
 }
 
-/** USD → Paystack subunits (cents for USD charges). */
-export function toSubunits(amountUsd: number): number {
-  return Math.round(amountUsd * 100);
+/** Major units → Paystack subunits (×100: naira→kobo, dollars→cents). */
+export function toSubunits(amountMajor: number): number {
+  return Math.round(amountMajor * 100);
+}
+
+/**
+ * USD → whole NGN at the given rate (naira per 1 USD). Whole naira only:
+ * kobo dust from FX math is rounded, never truncated — truncation would
+ * systematically undercharge by up to ₦1 per transaction.
+ */
+export function usdToNgn(amountUsd: number, usdNgnRate: number): number {
+  return Math.round(amountUsd * usdNgnRate);
+}
+
+/**
+ * NGN kobo (Paystack `data.amount`) → USD dollars at the given rate, rounded
+ * to the cent for the USD-denominated credit ledger. Inverts `usdToNgn`
+ * within a cent for any sane rate (round-trip error < half a kobo).
+ */
+export function ngnSubunitsToUsd(amountKobo: number, usdNgnRate: number): number {
+  return Math.round((amountKobo / 100 / usdNgnRate) * 100) / 100;
 }
 
 export function paystackWebhookKey(): string {
@@ -88,7 +112,8 @@ async function paystackFetch<T>(path: string, init?: RequestInit): Promise<T> {
 /** Hosted checkout: returns the authorization_url the browser redirects to. */
 export function initializeTransaction(params: {
   email: string;
-  amountUsd: number;
+  amountSubunits: number;
+  currency: string;
   reference: string;
   callbackUrl?: string;
   metadata?: Record<string, unknown>;
@@ -98,12 +123,12 @@ export function initializeTransaction(params: {
     method: 'POST',
     body: JSON.stringify({
       email: params.email,
-      currency: 'USD',
+      currency: params.currency,
       // With a plan_code Paystack uses the plan's amount; the explicit amount
       // is ignored — pass both only when there is no plan.
       ...(params.planCode
         ? { plan: params.planCode }
-        : { amount: toSubunits(params.amountUsd) }),
+        : { amount: params.amountSubunits }),
       reference: params.reference,
       ...(params.callbackUrl ? { callback_url: params.callbackUrl } : {}),
       ...(params.metadata ? { metadata: params.metadata } : {}),
@@ -138,7 +163,8 @@ export async function listPlans(search?: string): Promise<PaystackPlan[]> {
 
 export function createPlan(params: {
   name: string;
-  amountUsd: number;
+  amountSubunits: number;
+  currency: string;
   interval?: 'monthly' | 'annually';
   description?: string;
 }): Promise<PaystackPlan> {
@@ -146,9 +172,9 @@ export function createPlan(params: {
     method: 'POST',
     body: JSON.stringify({
       name: params.name,
-      amount: toSubunits(params.amountUsd),
+      amount: params.amountSubunits,
       interval: params.interval ?? 'monthly',
-      currency: 'USD',
+      currency: params.currency,
       ...(params.description ? { description: params.description } : {}),
     }),
   });

@@ -46,7 +46,7 @@ export interface CreateCheckoutSessionRequest {
   locale?: string;
   server_type?: string;
   location?: string;
-  /** Nigerian market: 'paystack' routes to a Paystack checkout. Defaults to stripe. */
+  /** 'paystack' routes to a Paystack checkout. Defaults to paystack. */
   provider?: 'stripe' | 'paystack';
 }
 
