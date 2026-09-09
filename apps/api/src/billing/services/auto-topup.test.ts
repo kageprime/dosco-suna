@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 let account: Record<string, unknown> | null = null;
-let customer: { id: string } | null = { id: 'cus_test' };
+let customer: { id: string; provider?: string } | null = { id: 'cus_test' };
 let stripeCustomer: Record<string, unknown> = {};
 let listedPaymentMethods: Array<{ id: string; type: string }> = [];
 let listedPaymentMethodParams: Record<string, unknown> | null = null;
@@ -36,6 +36,7 @@ mock.module('./credits', () => ({
 }));
 
 mock.module('../../shared/stripe', () => ({
+  stripeConfigured: () => true,
   getStripe: () => ({
     customers: { retrieve: async () => stripeCustomer },
     paymentMethods: {
@@ -161,5 +162,24 @@ describe('auto-topup with no payment method — the skip must be observable', ()
 
     expect(updates[0]?.autoTopupEnabled).toBe(false);
     expect(updates[0]?.autoTopupDisabledReason).toBe(NO_PAYMENT_METHOD_REASON);
+  });
+});
+
+describe('auto-topup on Paystack-billed accounts — Stripe has nothing to charge', () => {
+  test('the trigger skips without touching Stripe or recording a failure', async () => {
+    account = creditAccount({ provider: 'paystack' });
+
+    await checkAndTriggerAutoTopup('acct-1');
+
+    expect(paymentIntents).toHaveLength(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  test('setup status reports no payment method instead of calling Stripe', async () => {
+    customer = { id: 'CUS_paystack', provider: 'paystack' };
+
+    const status = await getAutoTopupSetupStatus('acct-1');
+    expect(status.has_payment_method).toBe(false);
+    expect(status.payment_method_source).toBeNull();
   });
 });

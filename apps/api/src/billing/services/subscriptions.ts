@@ -491,6 +491,17 @@ export async function createPortalSession(accountId: string, returnUrl: string, 
 
 export async function cancelSubscription(accountId: string, feedback?: string) {
   const account = await getCreditAccount(accountId);
+  // Paystack-billed accounts carry no Stripe subscription pointer — route them
+  // to the Paystack disable flow (stops renewals; the tier lapses on the
+  // `subscription.disable` webhook) instead of failing on the Stripe check.
+  if ((account?.provider ?? 'stripe') === 'paystack') {
+    const { cancelPaystackSubscription } = await import('./paystack');
+    await cancelPaystackSubscription(accountId);
+    return {
+      success: true,
+      message: 'Paystack subscription disabled — renewals stopped; the plan lapses when Paystack confirms',
+    };
+  }
   if (!account?.stripeSubscriptionId) throw new SubscriptionError('No active subscription');
 
   if (account.commitmentType && account.commitmentEndDate) {

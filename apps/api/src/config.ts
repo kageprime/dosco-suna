@@ -919,7 +919,8 @@ function validateEnv(): z.infer<typeof envSchema> {
   }
 
   // ── Conditional: Billing enabled → need at least one payment provider ──
-  // Stripe and Paystack are alternatives. Each provider's paths degrade to a
+  // Stripe and Paystack are alternatives. Every checkout route takes
+  // `provider: 'stripe' | 'paystack'`, and each provider's paths degrade to a
   // clear 400 when its own keys are unset — so billing boots when EITHER side
   // is complete, and a Paystack-only deployment never dies on Stripe keys.
   const billingWillBeEnabled =
@@ -1157,6 +1158,7 @@ export const config = {
   PAYSTACK_PUBLIC_KEY: env.PAYSTACK_PUBLIC_KEY,
   PAYSTACK_SECRET_KEY: env.PAYSTACK_SECRET_KEY,
   PAYSTACK_WEBHOOK_SECRET: env.PAYSTACK_WEBHOOK_SECRET,
+  PAYSTACK_USD_NGN_RATE: env.PAYSTACK_USD_NGN_RATE,
   SERPER_API_URL: env.SERPER_API_URL,
   SERPER_API_KEY: env.SERPER_API_KEY,
 
