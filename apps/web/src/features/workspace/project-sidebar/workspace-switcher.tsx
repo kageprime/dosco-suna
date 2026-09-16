@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations as useI18nTranslations } from '@/i18n/use-translations';
 /**
  * The project sidebar's one control: which workspace you are in, and everything
  * you can do from here.
@@ -45,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -57,13 +59,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { CreateAccountModal } from '@/features/accounts/create-account-modal';
 import { HelpSubmenu, ThemeSubmenu, useLogoutFlow } from '@/features/layout/user-menu-shared';
+import { newWorkspacePathForAccount } from '@/features/workspace/new/account-param';
 import { WorkspaceMenuSection } from '@/features/workspace/project-sidebar/workspace-menu-section';
+import { settingsShortcutLabel } from '@/features/workspace/settings/settings-shortcut';
 import { type SettingsTab } from '@/features/workspace/settings/settings-tabs';
+import { useAccountsQueryKey } from '@/hooks/account/use-accounts-list';
 import { useEnsureSelectedAccount } from '@/hooks/account/use-ensure-selected-account';
+import { useAdminRole } from '@/hooks/admin/use-admin-role';
+import { isAccountCreationRestricted } from '@/lib/config';
 import { cn } from '@/lib/utils';
+import { useCurrentAccountStore } from '@/stores/current-account-store';
 import { useSettingsPanelStore } from '@/stores/settings-panel-store';
-import { getProject } from '@kortix/sdk';
+import { getProject, type KortixAccount } from '@kortix/sdk';
 import { contract, qk } from '@kortix/sdk/react';
 import {
   ArrowsLeftRightIcon,
@@ -73,12 +82,14 @@ import {
   SignOutIcon as LogOut,
   PlusIcon,
 } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useState } from 'react';
 
 export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
+  const t = useI18nTranslations('sidebar');
   const sidebar = React.useContext(SidebarContext);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -91,9 +102,23 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
   // than being silently dropped: without it, every account-scoped settings tab
   // opened on a project whose detail query has not resolved yet has no account
   // id to probe with, and renders as though the permission were denied. Same
-  // `['accounts']` key and `staleTime` as every other caller, so React Query
-  // serves them all from one fetch.
+  // `useAccountsList()` hook as every other caller, so React Query serves them
+  // all from one user-scoped fetch.
   useEnsureSelectedAccount();
+
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { setSelectedAccountId } = useCurrentAccountStore();
+  // The exact key the account list reads, for the create-account seed below.
+  const accountsQueryKey = useAccountsQueryKey();
+  const [createAccountOpen, setCreateAccountOpen] = useState(false);
+  const { data: adminRole } = useAdminRole();
+  // Self-host hides the row for non-admins when account creation is restricted
+  // — admins are exempt (see `isAccountCreationRestricted()` /
+  // KORTIX_RESTRICT_ACCOUNT_CREATION). The backend 403
+  // (`account_creation_restricted`) is the authoritative gate; this only avoids
+  // offering an affordance the person cannot use.
+  const canCreateAccount = !isAccountCreationRestricted() || Boolean(adminRole?.isAdmin);
 
   // For the rows that OPEN something in place — the settings panel, the log-out
   // confirmation. Navigating rows do not use it: they are anchors now, and an
@@ -136,10 +161,9 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                aria-label="Switch workspace"
+                aria-label={t('workspace.switch')}
                 className={cn(
-                  'group/workspace relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2',
-                  'transition-colors duration-150',
+                  'group/workspace hover:bg-card relative flex cursor-pointer items-center gap-2 rounded-md px-1',
                   'group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!gap-0 group-data-[collapsible=icon]:!px-0',
                 )}
               >
@@ -148,15 +172,28 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                     shape that swaps content the moment the query lands. The
                     control keeps its size either way — the row is a fixed
                     `h-8` — so the empty state is a quiet gap, not a jump. */}
+                {/* `glyph` BEFORE `emoji` below, matching EntityAvatar's own
+                    precedence. Both are required: a project's icon is a union —
+                    an emoji XOR a named glyph — so passing only `emoji` renders
+                    a glyph project's chalk INITIAL here, while the projects grid
+                    (`projects/project-card.tsx`) and ⌘K
+                    (`workspace/command-palette.tsx`) both draw its glyph. The
+                    sidebar is where a person looks at their workspace all day,
+                    so that gap read as "I picked an icon and nothing changed". */}
                 {project ? (
-                  <EntityAvatar label={project.name} emoji={project.icon} size="sm" />
+                  <EntityAvatar
+                    label={project.name}
+                    glyph={project.icon_glyph}
+                    emoji={project.icon}
+                    size="sm"
+                  />
                 ) : null}
 
                 <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-medium tracking-tight group-data-[collapsible=icon]:hidden">
                   {project?.name ?? null}
                 </span>
 
-                <CaretUpDownIcon className="text-muted-foreground/50 group-hover/workspace:text-muted-foreground size-3.5 shrink-0 transition-colors duration-150 group-data-[collapsible=icon]:hidden" />
+                <CaretUpDownIcon className="text-muted-foreground/50 group-hover/workspace:text-muted-foreground size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
@@ -169,7 +206,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <ArrowsLeftRightIcon weight="fill" />
-                  Switch Workspace
+                  {t('workspace.switchMenu')}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="w-[264px] space-y-0.5" sideOffset={6}>
@@ -187,9 +224,30 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                     <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
                       <Link href="/new" prefetch>
                         <PlusIcon />
-                        Create a workspace…
+                        {t('workspace.create')}
                       </Link>
                     </DropdownMenuItem>
+
+                    {/* The account-level sibling of the row above, in the one
+                        menu already grouped BY account. A handler rather than
+                        an anchor: creating an account opens a modal, and the
+                        only other affordance that does so lives in the hub's
+                        account-list pane — which no live entry point reaches,
+                        because every one of them opens the hub ON an account
+                        (`hubTarget(accountId)`) and the list is `hubTarget(null)`.
+                        That pane is why this row is a second affordance rather
+                        than a move: reachable only by opening Account settings
+                        and then clicking the hub's root breadcrumb, it left the
+                        product with no discoverable way to create an account. */}
+                    {canCreateAccount && (
+                      <DropdownMenuItem
+                        onSelect={() => deferAfterClose(() => setCreateAccountOpen(true))}
+                        size="sm"
+                      >
+                        <PlusIcon />
+                        {t('workspace.createAccount')}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
@@ -208,16 +266,30 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                   header `UserMenu` has no such renderer and must navigate. */}
               <DropdownMenuItem onSelect={() => openUserSettings('profile')} size="sm">
                 <CogOne />
-                User Settings
+                {t('workspace.settings')}
+                {/* The keycap sits on this row because this row is what the
+                    keystroke does — `useSettingsKeyboardShortcut` calls the
+                    same `openSettings()`. It is the only row in the app that
+                    opens the overlay, so it is the only honest place to
+                    advertise Mod+, (the old sidebar Settings row that carried
+                    it was removed on 2026-08-17, and the shortcut has been
+                    undiscoverable since). The symbol follows the platform;
+                    the handler accepts Cmd and Ctrl on all of them.
+
+                    `DropdownMenuShortcut` (plain muted text, `MENU_SHORTCUT`)
+                    rather than `<Kbd>` chips: this is a menu row, and that is
+                    the recipe every menu row in the design system uses for a
+                    trailing keystroke. */}
+                <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
               </DropdownMenuItem>
 
               {/* `prefetch` explicitly: `(public)/download/page.tsx` awaits
                   `headers()` and has no `loading.tsx`, so the default `auto`
                   intent would cache nothing for a dynamic route. */}
               <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-                <Link href="/download" prefetch>
+                <Link href="/download" prefetch data-desktop-hidden>
                   <DownloadSimple />
-                  Download App
+                  {t('workspace.downloadApp')}
                 </Link>
               </DropdownMenuItem>
 
@@ -232,7 +304,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
 
               <DropdownMenuItem onClick={openLogoutConfirm} size="sm">
                 <LogOut />
-                Log out
+                {t('workspace.logOut')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -241,6 +313,37 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
 
       {/* Sibling of the dropdown, never a child — see `useLogoutFlow`. */}
       {logoutDialog}
+
+      <CreateAccountModal
+        open={createAccountOpen}
+        onOpenChange={setCreateAccountOpen}
+        onCreated={(account: KortixAccount) => {
+          // The reader's OWN key, not a hand-built one: writer and reader on
+          // different keys is silent — the create appears to succeed and the
+          // list never changes. Same seed as the hub's account-list pane.
+          queryClient.setQueryData<KortixAccount[]>(accountsQueryKey, (accounts) => {
+            const current = accounts ?? [];
+            return current.some((item) => item.account_id === account.account_id)
+              ? current.map((item) => (item.account_id === account.account_id ? account : item))
+              : [account, ...current];
+          });
+          // `scope()`, not `list(userId)`: the "account list changed" prefix,
+          // which reaches the only slot that can be live without the callback
+          // having to re-derive whose slot it is.
+          void queryClient.invalidateQueries({ queryKey: qk.accounts.scope() });
+          setSelectedAccountId(account.account_id);
+          void queryClient.invalidateQueries({ queryKey: qk.projects.scope() });
+          // `/new` scoped to the account just created — NOT the landing door.
+          // The door opens the first project found in ANY account
+          // (`resolve-landing-destination.ts`), so a brand-new empty account
+          // falls through to some other account's project, and
+          // `projects/start/page.tsx` then heals the persisted selection to
+          // THAT account — undoing the switch above and making the whole
+          // create look like it did nothing. A new account's honest next step
+          // is its first workspace.
+          router.push(newWorkspacePathForAccount(account.account_id));
+        }}
+      />
     </>
   );
 }

@@ -3,8 +3,10 @@
 import { ArrowLeftIcon as ArrowLeft } from '@phosphor-icons/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, m, useReducedMotion, type Variants } from 'motion/react';
+import { useTranslations } from '@/i18n/use-translations';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
+import { DesktopCloseButton } from '@/components/desktop/desktop-close-button';
 import { Button } from '@/components/ui/button';
 import { Modal, ModalContent } from '@/components/ui/modal';
 import { errorToast, successToast } from '@/components/ui/toast';
@@ -101,6 +103,7 @@ export function ProjectOnboardingWizard({
    */
   onSkip?: () => void;
 }) {
+  const t = useTranslations('projectOnboarding');
   const contactTier = usePersonalContactTier();
   const showFounderStep = contactTier === 'personal';
   const { user } = useAuth();
@@ -153,12 +156,12 @@ export function ProjectOnboardingWizard({
       .then(() => resetFn())
       .then(() => {
         setIndex(0);
-        successToast('Onboarding reset');
+        successToast(t('resetSuccess'));
       })
       .catch((err) => errorToast(err instanceof Error ? err.message : String(err)));
     url.searchParams.delete('onboarding-reset');
     window.history.replaceState(null, '', url.toString());
-  }, [resetHydrated, resetFn]);
+  }, [resetHydrated, resetFn, t]);
 
   // Who this wizard is FOR: someone who can set the project up. Every step
   // writes something a plain project member cannot — the company domain and
@@ -239,8 +242,14 @@ export function ProjectOnboardingWizard({
   // palette use for prefill-only handoffs; this is the only `autoSend: true`
   // caller.
   const kickoffPrompt = useMemo(
-    () => buildOnboardingKickoffPrompt(domain, connectorSlugs.length),
-    [domain, connectorSlugs.length],
+    () =>
+      buildOnboardingKickoffPrompt(domain, connectorSlugs.length, {
+        noDomain: (toolsClause) => t('kickoff.noDomain', { toolsClause }),
+        withDomain: (companyDomain, toolsClause) =>
+          t('kickoff.withDomain', { domain: companyDomain, toolsClause }),
+        tools: (count) => t('kickoff.tools', { count }),
+      }),
+    [domain, connectorSlugs.length, t],
   );
   const openProject = useCallback(() => {
     useComposerPrefillStore.getState().setPrefill(projectId, kickoffPrompt, { autoSend: true });
@@ -282,14 +291,19 @@ export function ProjectOnboardingWizard({
               failed silently as a visual collision rather than a broken control.
               Grid tracks cannot overlap: `1fr auto 1fr` keeps the progress optically
               centred (both side tracks are equal) while each control reserves its
-              own space at every width. Do not go back to absolute centring. */}
+              own space at every width. Do not go back to absolute centring.
+
+              On desktop `.kx-titlebar-spacer` above the bar drops it below the
+              title-bar band: the macOS traffic lights otherwise cover the Back
+              arrow. */}
+            <div className="kx-titlebar-spacer" aria-hidden />
             <div className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-4">
               <div className="flex justify-start">
                 {index > 0 && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Back"
+                    aria-label={t('back')}
                     className="text-muted-foreground hover:text-foreground active:scale-[0.96] motion-reduce:active:scale-100"
                     onClick={back}
                   >
@@ -300,7 +314,7 @@ export function ProjectOnboardingWizard({
 
               <StepProgress total={steps.length} current={index} />
 
-              <div className="flex justify-end">
+              <div className="flex items-center justify-end gap-2">
                 {/* Muted at rest — an escape hatch, never a call to action competing
                     with the step's own primary button.
 
@@ -315,19 +329,29 @@ export function ProjectOnboardingWizard({
                     type="button"
                     variant="ghost"
                     size="magic-sm"
-                    aria-label="Skip for now"
+                    aria-label={t('skipForNow')}
                     className="text-muted-foreground hover:text-foreground"
                     onClick={skip}
                   >
-                    <span className="sm:hidden">Skip</span>
-                    <span className="hidden sm:inline">Skip for now</span>
+                    <span className="sm:hidden">{t('skip')}</span>
+                    <span className="hidden sm:inline">{t('skipForNow')}</span>
                   </Button>
                 )}
+                {/* Desktop only, and on every host: the shell has no browser
+                    toolbar, and the project shell passes no `onSkip`. Closing
+                    stamps onboarding through `skip` — an unstamped close would
+                    reopen the wizard on the next project load. */}
+                <DesktopCloseButton onClose={skip} />
               </div>
             </div>
 
             <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 md:px-8">
-              <div className="w-full max-w-[520px] pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+              <div
+                className="w-full max-w-[520px] pt-8"
+                style={{
+                  paddingBottom: 'max(calc(var(--spacing) * 8), env(safe-area-inset-bottom, 0px))',
+                }}
+              >
                 {/* popLayout, not wait: `wait` runs the exit to completion before
                   the enter starts, which doubled every step to ~440ms of dead
                   air. popLayout takes the outgoing step out of flow so the two
@@ -370,6 +394,7 @@ export function ProjectOnboardingWizard({
                     {stepId === 'plan' && <PlanStep projectId={projectId} onContinue={next} />}
                     {stepId === 'done' && (
                       <DoneStep
+                        projectId={projectId}
                         domain={domain}
                         connectedCount={connectorSlugs.length}
                         showFounderCall={showFounderStep}
@@ -392,8 +417,8 @@ export function ProjectOnboardingWizard({
           calLink={CAL_LINK}
           calNamespace={CAL_NAMESPACE}
           source="onboarding-wizard"
-          title="Book a 20-minute setup call"
-          description="A couple of focused minutes with the team to get your command center dialed in."
+          title={t('demo.title')}
+          description={t('demo.description')}
           defaultName={defaultName}
           defaultEmail={defaultEmail}
           onBookingSuccessful={() => setCalOpen(false)}

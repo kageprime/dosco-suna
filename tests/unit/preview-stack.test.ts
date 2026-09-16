@@ -4,6 +4,7 @@ import {
   applyPreviewEnvironment,
   buildPreviewCaddyfile,
   buildPreviewComposeOverlay,
+  readPreviewRuntimeSecrets,
   validatePreviewRuntimeSecrets,
 } from '../src/core/preview-stack';
 
@@ -39,6 +40,34 @@ describe('ephemeral self-host preview stack', () => {
     expect(caddy).toContain('reverse_proxy frontend:3000');
   });
 
+  // 2026-08-30: pi.kortix.com answered 502 through every redeploy. A branch
+  // environment is reused in place, so `compose up -d` recreates `frontend` and
+  // `kortix-api` while `preview-edge` keeps running — and for the ~10-30s the
+  // swap takes, Caddy's dial is refused and the browser gets a raw 502. The
+  // stable hostname is only as stable as its worst upstream window.
+  it('rides out a container swap instead of 502ing through a redeploy', () => {
+    const caddy = buildPreviewCaddyfile('preview.example.test');
+    // A snippet is a TOP-LEVEL form. Declared inside the site block, the
+    // adapter fails outright with `File to import not found: swap_tolerant`.
+    expect(caddy.indexOf('(swap_tolerant) {')).toBeLessThan(caddy.indexOf(':8080 {'));
+    expect(caddy).toContain('lb_try_duration 30s');
+    expect(caddy).toContain('lb_try_interval 250ms');
+    // Every upstream that a deploy recreates, not just the frontend.
+    for (const upstream of [
+      'kortix-api:8008',
+      'supabase-kong:8000',
+      'llm-gateway:8090',
+      'frontend:3000',
+    ]) {
+      const block = caddy.slice(caddy.indexOf(`reverse_proxy ${upstream}`));
+      expect(block.slice(0, block.indexOf('\n  }'))).toContain('import swap_tolerant');
+    }
+    // And when the budget really is exhausted, a coherent page rather than the
+    // provider's bare 502.
+    expect(caddy).toContain('handle_errors {');
+    expect(caddy).toContain('Retry-After 15');
+  });
+
   it('accepts either a GitHub App or a PAT as managed-git configuration', () => {
     const base = [
       'POSTGRES_PASSWORD=p',
@@ -46,7 +75,13 @@ describe('ephemeral self-host preview stack', () => {
       'SUPABASE_SERVICE_ROLE_KEY=s',
       'INTERNAL_SERVICE_KEY=i',
     ].join('\n');
-    const stack = { origin: 'https://x.example.test', sha: SHA, apiImage: 'a', gatewayImage: 'g', frontendImage: 'f' };
+    const stack = {
+      origin: 'https://x.example.test',
+      sha: SHA,
+      apiImage: 'a',
+      gatewayImage: 'g',
+      frontendImage: 'f',
+    };
     const app = {
       KORTIX_GITHUB_APP_ID: '1',
       KORTIX_GITHUB_APP_PRIVATE_KEY: 'k',
@@ -58,9 +93,14 @@ describe('ephemeral self-host preview stack', () => {
     expect(applyPreviewEnvironment(base, stack, app).testEnv).toContain('KE2E_CAP_MANAGED_GIT=1');
     // A PAT alone is enough — an App that lacks `administration: write` cannot
     // create a repo, and before this the preview had no way to work around it.
-    const pat = { MANAGED_GIT_GITHUB_OWNER: 'o', MANAGED_GIT_GITHUB_TOKEN: 't' };
+    const pat = {
+      MANAGED_GIT_GITHUB_OWNER: 'o',
+      MANAGED_GIT_GITHUB_TOKEN: 't',
+    };
     const patEnv = applyPreviewEnvironment(base, stack, pat);
     expect(patEnv.testEnv).toContain('KE2E_CAP_MANAGED_GIT=1');
+    expect(patEnv.runtimeEnv).toContain('KORTIX_PUBLIC_DISABLE_LANDING_PAGE=false');
+    expect(patEnv.testEnv).toContain('E2E_APPS_BASE_DOMAIN=apps.example.test');
     expect(patEnv.runtimeEnv).toContain('MANAGED_GIT_GITHUB_TOKEN=t');
     // An owner on its own still is not managed git.
     expect(() => applyPreviewEnvironment(base, stack, { MANAGED_GIT_GITHUB_OWNER: 'o' })).toThrow(
@@ -79,6 +119,24 @@ describe('ephemeral self-host preview stack', () => {
     expect(overlay).not.toContain('volumes/db/data');
   });
 
+  // 2026-09-01: a redeploy of pi.kortix.com made every `POST /sessions` answer
+  // 500 `could not read Username for 'https://github.com'`. Cause: the git
+  // mirror lives at `/tmp/kortix/git-cache` (mirror.ts `cacheRoot()`) and
+  // kortix-api had NO volumes, so recreating the container deleted it. On a
+  // real deployment that is a slow re-clone; on a preview it is DATA LOSS,
+  // because the preview App cannot create repos (403) and a seeded project's
+  // history therefore exists nowhere else. The org held none of the preview's
+  // repos, and `/tmp/kortix/git-cache` was simply gone.
+  it('keeps the git mirror across a container recreate', () => {
+    const overlay = buildPreviewComposeOverlay('/workspace/suna/tests/test-results');
+    // Mounted at the PARENT of git-cache so sibling caches survive too.
+    expect(overlay).toContain('kortix-git-cache:/tmp/kortix');
+    // A named volume needs its top-level declaration or compose refuses the file.
+    expect(overlay).toMatch(/\nvolumes:\n  kortix-git-cache:/);
+    const apiBlock = overlay.slice(overlay.indexOf('  kortix-api:'));
+    expect(apiBlock.slice(0, apiBlock.indexOf('\n\nvolumes:'))).toContain('volumes:');
+  });
+
   it('rejects every runtime secret outside the explicit allowlist', () => {
     expect(PREVIEW_RUNTIME_SECRET_ALLOWLIST).toEqual([
       'DAYTONA_API_KEY',
@@ -91,6 +149,7 @@ describe('ephemeral self-host preview stack', () => {
       'MANAGED_GIT_GITHUB_OWNER',
       'MANAGED_GIT_GITHUB_TOKEN',
       'OPENROUTER_API_KEY',
+      'PLATINUM_API_KEY',
     ]);
     expect(() =>
       validatePreviewRuntimeSecrets({
@@ -100,9 +159,19 @@ describe('ephemeral self-host preview stack', () => {
     ).toThrow('DEV_DATABASE_URL');
   });
 
+  it('reads every allowed runtime secret from the deployment environment', () => {
+    const source = Object.fromEntries(
+      PREVIEW_RUNTIME_SECRET_ALLOWLIST.map((key) => [key, ` ${key}-value `]),
+    );
+
+    expect(readPreviewRuntimeSecrets({ ...source, DEV_DATABASE_URL: 'forbidden' })).toEqual(
+      Object.fromEntries(PREVIEW_RUNTIME_SECRET_ALLOWLIST.map((key) => [key, `${key}-value`])),
+    );
+  });
+
   it('pins exact images and configures the preview data plane', () => {
     const configured = applyPreviewEnvironment(
-      'POSTGRES_PASSWORD=generated\nSUPABASE_ANON_KEY=anon\nSUPABASE_SERVICE_ROLE_KEY=service\nINTERNAL_SERVICE_KEY=internal\n',
+      'POSTGRES_PASSWORD=generated\nSUPABASE_ANON_KEY=anon\nSUPABASE_SERVICE_ROLE_KEY=service\nINTERNAL_SERVICE_KEY=internal\nAPI_KEY_SECRET=tokenhash\n',
       {
         origin: 'https://preview.example',
         sha: SHA,
@@ -124,19 +193,69 @@ describe('ephemeral self-host preview stack', () => {
     );
 
     expect(configured.runtimeEnv).toContain(`API_IMAGE=kortix/kortix-api:pr-${SHA}`);
-    expect(configured.runtimeEnv).toContain('DATABASE_URL=postgresql://postgres:generated@supabase-db:5432/postgres');
+    expect(configured.runtimeEnv).toContain(
+      'DATABASE_URL=postgresql://postgres:generated@supabase-db:5432/postgres',
+    );
     expect(configured.runtimeEnv).toContain('SUPABASE_PUBLIC_URL=https://preview.example');
     expect(configured.runtimeEnv).toContain('INTERNAL_KORTIX_ENV=preview');
+    // The preview edge drops request bodies above ~124 KiB, Storage uploads included.
+    expect(configured.runtimeEnv).toContain('PROMPT_ATTACHMENT_UPLOAD_MODE=chunked');
+    expect(configured.runtimeEnv).toContain('KORTIX_FRONTEND_MEMORY_LIMIT=2048m');
     expect(configured.runtimeEnv).toContain('EMAIL_PROVIDER_ORDER=mailpit');
     expect(configured.runtimeEnv).toContain('MANAGED_GIT_PROVIDER=github');
     expect(configured.runtimeEnv).toContain('KORTIX_GITHUB_APP_PRIVATE_KEY=line-one\\nline-two');
     expect(configured.runtimeEnv).not.toContain('E2E_AGENTMAIL_API_KEY');
     expect(configured.testEnv).toContain('KE2E_TARGET=preview');
+    // Session-token fixtures use the token API; its signing secret stays private.
+    expect(configured.testEnv).not.toContain('KE2E_API_KEY_SECRET');
+    expect(configured.testEnv).not.toContain('tokenhash');
     expect(configured.testEnv).toContain(`KE2E_PREVIEW_AUTHORIZATION=approved:${SHA}`);
     expect(configured.testEnv).toContain('E2E_MAILPIT_URL=https://preview.example/_mailpit');
-    expect(configured.testEnv).toContain('KE2E_DATABASE_URL=postgresql://postgres:generated@127.0.0.1:15432/postgres');
+    expect(configured.testEnv).toContain(
+      'KE2E_DATABASE_URL=postgresql://postgres:generated@127.0.0.1:15432/postgres',
+    );
     expect(configured.testEnv).toContain('KE2E_CAP_MANAGED_GIT_PUSH=1');
     expect(configured.testEnv).toContain('E2E_AGENTMAIL_API_KEY=');
+  });
+
+  it('offers Platinum only when its key is present, and never forwards an AWS identity', () => {
+    const base = 'POSTGRES_PASSWORD=generated\nSUPABASE_ANON_KEY=anon\nSUPABASE_SERVICE_ROLE_KEY=service\nINTERNAL_SERVICE_KEY=internal\n';
+    const input = {
+      origin: 'https://preview.example',
+      sha: SHA,
+      apiImage: `kortix/kortix-api:pr-${SHA}`,
+      gatewayImage: `kortix/kortix-gateway:pr-${SHA}`,
+      frontendImage: `kortix/kortix-frontend:pr-${SHA}`,
+    };
+    const secrets = {
+      DAYTONA_API_KEY: 'daytona',
+      KORTIX_GITHUB_APP_ID: '12345',
+      KORTIX_GITHUB_APP_PRIVATE_KEY: 'k',
+      KORTIX_GITHUB_APP_SLUG: 'kortix-preview-test',
+      MANAGED_GIT_GITHUB_INSTALL_ID: '67890',
+      MANAGED_GIT_GITHUB_OWNER: 'kortix-preview',
+    };
+
+    // Without a Platinum key: exactly the old posture.
+    const plain = applyPreviewEnvironment(base, input, secrets);
+    expect(plain.runtimeEnv).toContain('ALLOWED_SANDBOX_PROVIDERS=daytona\n');
+    expect(plain.runtimeEnv).not.toContain('PLATINUM_API_KEY');
+
+    // With it: Platinum offered SECOND so Daytona stays the default for unpinned sessions.
+    const wired = applyPreviewEnvironment(
+      base,
+      { ...input, platinumApiUrl: 'https://api.platinum.dev' },
+      { ...secrets, PLATINUM_API_KEY: 'pt_live_example' },
+    );
+    expect(wired.runtimeEnv).toContain('ALLOWED_SANDBOX_PROVIDERS=daytona,platinum\n');
+    expect(wired.runtimeEnv).toContain('PLATINUM_API_URL=https://api.platinum.dev');
+    expect(wired.runtimeEnv).toContain('PLATINUM_API_KEY=pt_live_example');
+
+    // The preview pipeline holds no cloud identity (infra/scripts/test-ecs-preview-runtime.py):
+    // AWS credentials are outside the allowlist, so the project-snapshot bucket is never named.
+    expect(() => validatePreviewRuntimeSecrets({ AWS_ACCESS_KEY_ID: 'ASIAEXAMPLE' })).toThrow('AWS_ACCESS_KEY_ID');
+    expect(wired.runtimeEnv).not.toContain('AWS_');
+    expect(wired.runtimeEnv).not.toContain('KORTIX_PROJECT_SNAPSHOT_S3_BUCKET');
   });
 
   it('fails before boot when managed GitHub cannot run every target flow', () => {

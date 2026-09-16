@@ -55,10 +55,11 @@ mock.module('../../../config', () => ({
 mock.module('../../../shared/db', () => ({
   hasDatabase: () => true,
   db: {
-    select: () => ({
+    select: (projection?: Record<string, unknown>) => ({
       from: (table: unknown) => ({
         where: () => ({
           limit: async () => {
+            if (projection && 'result' in projection && 'payload' in projection) return [{ result: {}, payload: {} }];
             if (table === projectSessions) return sessionRow ? [sessionRow] : [];
             if (table === projects) return [{ projectId: PROJECT_ID, accountId: ACCOUNT_ID }];
             return [];
@@ -126,6 +127,13 @@ mock.module('../store', () => ({
   MAX_RUNTIME_UNREACHABLE_RETRIES: 3,
   parkPromptForUnreachableRuntime: async () => ({ parked: true, retries: 1 }),
   reArmRuntimeBlockedPrompts: async () => 0,
+  // The landing proof requeues a prompt the runtime never showed (fresh
+  // attempt, fresh idempotency key). `engine.ts` imports it by name, so every
+  // store mock has to carry it or the engine import fails outright. Nothing in
+  // this file fails a landing.
+  requeueUnlandedPrompt: async () => {
+    throw new Error('not expected: this test never fails a landing proof');
+  },
   markCommandFailed: async (commandId: string, message: string, opts: unknown) => {
     failedCalls.push({ commandId, message, opts });
   },

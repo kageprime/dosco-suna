@@ -205,7 +205,7 @@ A flag is a stable key (e.g. apps, voice, llm_gateway). State is stored on
 the project row, never in kortix.yaml.
 
 Subcommands:
-  ls                    List every flag: key, state, origin, stability. (--json)
+  ls                    List every flag: key, state, origin. (--json)
   enable <flag>         Set the project override to ON.
   disable <flag>        Set the project override to OFF.
   reset <flag>          Remove the override; the flag follows the platform default.
@@ -252,7 +252,7 @@ function printFeatureTable(rows: FeatureFlagRow[]): void {
         : `${C.dim}off  ${C.reset}`;
     const origin = !r.available ? 'unavailable' : r.overridden ? 'override' : 'default';
     process.stdout.write(
-      `  ${pad(r.key, keyW)}  ${state}  ${pad(origin, 10)}  ${pad(r.stability, 13)}${r.name}\n`,
+      `  ${pad(r.key, keyW)}  ${state}  ${pad(origin, 10)}  ${r.name}\n`,
     );
   }
   process.stdout.write('\n');
@@ -788,7 +788,7 @@ agents:
     secrets: all                  # renamed from v1's "env" — names | "all" | "none"
     kortix_cli: all                # kortix_cli leaf names | "all" | "none"
     skills: all                    # names of .kortix/opencode/skills/* this agent may invoke | "all" | "none"
-    workspace: runtime             # optional — runtime | read | branch
+    repository_access: false       # optional — true (default) | false
 \`\`\`
 
 That's the WHOLE block. No \`description\`, no \`model\`, no \`opencode:\` sub-object, no \`mode\`/\`temperature\`/\`permission\`/\`prompt\` — every one of those is a hard schema error if authored here. They already live in the \`.md\` and are staying there.

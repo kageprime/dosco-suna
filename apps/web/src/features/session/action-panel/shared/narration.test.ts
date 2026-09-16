@@ -1,5 +1,7 @@
-import { describe, expect, it, test } from 'bun:test';
 import type { ToolPart } from '@/ui';
+import { describe, expect, it, test } from 'bun:test';
+import { ToolRegistry } from '../../tool/tool-renderers';
+import '../../tool/tools/register';
 import {
   type StepFamily,
   contextLabelForTool,
@@ -8,8 +10,6 @@ import {
   narrateFailedStep,
   narrateStep,
 } from './narration';
-import { ToolRegistry } from '../../tool/tool-renderers';
-import '../../tool/tools/register';
 
 function part(tool: string, input: Record<string, unknown> = {}, output?: string): ToolPart {
   return {
@@ -152,7 +152,9 @@ describe('contextLabelForTool - plain-language Context row labels, keyed on fami
   });
 
   it('leaves every other family on humanizeToolName', () => {
-    expect(contextLabelForTool('linear/create_issue')).toBe(humanizeToolName('linear/create_issue'));
+    expect(contextLabelForTool('linear/create_issue')).toBe(
+      humanizeToolName('linear/create_issue'),
+    );
     expect(contextLabelForTool('trigger_create')).toBe('Trigger Create');
   });
 
@@ -311,25 +313,71 @@ describe('narrateStep - create family counts every media type in a mixed group',
   });
 });
 
-describe('narrateStep - apps distinguishes discovery from connection', () => {
+describe('narrateStep - connectors distinguishes discovery from connection', () => {
   it('never says "Connected to" for read-only discovery/description tools', () => {
     for (const t of [
       'kortix_connector_discover',
       'kortix_connector_describe',
       'kortix_connectors',
+      'kortix-connectors_connectors',
+      'kortix-connectors_discover',
+      'kortix-connectors_describe',
       'connector_get',
       'connector_list',
     ]) {
-      expect(narrateStep('apps', [part(t)])).not.toContain('Connected to');
+      expect(narrateStep('connectors', [part(t)])).toBe('Checked your connectors');
     }
   });
 
   it('still says "Connected" for connector_setup', () => {
-    expect(narrateStep('apps', [part('connector_setup')])).toContain('Connected');
+    expect(narrateStep('connectors', [part('connector_setup')])).toContain('Connected');
   });
 
   it('distinguishes running a connected tool from connecting to it', () => {
-    expect(narrateStep('apps', [part('kortix_connector_call')])).not.toContain('Connected to');
+    expect(narrateStep('connectors', [part('kortix_connector_call')])).toBe('Used a connector');
+  });
+
+  // The runtime registers the call tool as `kortix-connectors_call` (plural).
+  // Only the legacy singular name was mapped, so every real call fell through
+  // to 'read' and was narrated as "Checked" — the agent had acted, not looked.
+  it('narrates the registered kortix-connectors_call as a call, not a check', () => {
+    expect(narrateStep('connectors', [part('kortix-connectors_call')])).toBe('Used a connector');
+    expect(
+      narrateStep('connectors', [part('kortix-connectors_call'), part('kortix-connectors_call')]),
+    ).toBe('Made 2 connector calls');
+  });
+
+  // "App" is a Kortix product — a hosted web app. A connector call narrated
+  // as "an app" reads as that product.
+  it('never calls a connector an app', () => {
+    const tools = [
+      'connector_setup',
+      'connector_list',
+      'kortix-connectors_connectors',
+      'kortix-connectors_discover',
+      'kortix-connectors_describe',
+      'kortix-connectors_call',
+    ];
+    const sentences = [
+      ...tools.map((t) => narrateStep('connectors', [part(t)])),
+      ...tools.map((t) => narrateStep('connectors', [part(t), part(t)])),
+      narrateStep('connectors', [part('connector_list'), part('kortix-connectors_call')]),
+      narrateFailedStep('connectors', [part('kortix-connectors_call')]),
+    ];
+    for (const sentence of sentences) expect(sentence).not.toMatch(/\bapps?\b/i);
+  });
+
+  it('every registered connector tool resolves to the connectors family', () => {
+    for (const t of [
+      'kortix-connectors_connectors',
+      'kortix-connectors_discover',
+      'kortix-connectors_describe',
+      'kortix-connectors_call',
+      'connector_setup',
+      'connector_list',
+    ]) {
+      expect(familyForTool(t)).toBe('connectors');
+    }
   });
 });
 
@@ -342,7 +390,9 @@ describe('registry coverage', () => {
       // 'other' is legal, but a *registered* tool landing there means the map
       // has fallen behind — surface it loudly.
       if (family === 'other') {
-        throw new Error(`Registered tool "${key}" has no narration family — add it to narration.ts`);
+        throw new Error(
+          `Registered tool "${key}" has no narration family — add it to narration.ts`,
+        );
       }
     }
   });
@@ -370,7 +420,9 @@ describe('narrateStep - presentation_gen must resolve its own action, not always
   });
 
   it('never narrates list_presentations (read-only) as a mutation', () => {
-    const line = narrateStep('create', [part('presentation_gen', { action: 'list_presentations' })]);
+    const line = narrateStep('create', [
+      part('presentation_gen', { action: 'list_presentations' }),
+    ]);
     expect(line.toLowerCase()).not.toContain('built');
     expect(line.toLowerCase()).not.toContain('made');
     expect(line.toLowerCase()).not.toContain('delet');
@@ -406,9 +458,9 @@ describe('narrateStep - presentation_gen must resolve its own action, not always
   });
 
   it('falls back to a vague-but-true sentence when action is unrecognized (singular)', () => {
-    expect(narrateStep('create', [part('presentation_gen', { action: 'some_future_action' })])).toBe(
-      'Worked on a presentation',
-    );
+    expect(
+      narrateStep('create', [part('presentation_gen', { action: 'some_future_action' })]),
+    ).toBe('Worked on a presentation');
   });
 
   it('falls back to a vague-but-true sentence when action is missing/unrecognized (grouped)', () => {
@@ -539,7 +591,9 @@ describe('narrateStep - trigger_test is a dry run, not a mutation', () => {
 
   it('still says "Adjusted" for pause/resume (genuine control actions)', () => {
     expect(narrateStep('automations', [part('trigger_pause')]).toLowerCase()).toContain('adjusted');
-    expect(narrateStep('automations', [part('trigger_resume')]).toLowerCase()).toContain('adjusted');
+    expect(narrateStep('automations', [part('trigger_resume')]).toLowerCase()).toContain(
+      'adjusted',
+    );
   });
 });
 
@@ -568,7 +622,10 @@ describe('narrateStep - projects/skills are count-aware, not just parts[0]', () 
   });
 
   it('reports the count for multiple skills instead of only naming the first', () => {
-    const line = narrateStep('skills', [part('skill', { name: 'alpha' }), part('skill', { name: 'beta' })]);
+    const line = narrateStep('skills', [
+      part('skill', { name: 'alpha' }),
+      part('skill', { name: 'beta' }),
+    ]);
     expect(line).toContain('2 skills');
   });
 
@@ -650,9 +707,7 @@ describe('narrateStep - show/show_user never leak a raw path or URL', () => {
   });
 
   it('never renders an unparseable url — falls back to the generic "a link" label', () => {
-    const line = narrateStep('create', [
-      part('show', { url: '/internal/x?token=secret' }),
-    ]);
+    const line = narrateStep('create', [part('show', { url: '/internal/x?token=secret' })]);
     expect(line).not.toContain('token');
     expect(line).not.toContain('/internal');
     expect(line).toBe('Showed you a link');
@@ -706,8 +761,22 @@ describe('narrateStep - task_update/agent_task_update resolve their own action f
 
 describe('narrateFailedStep (W7)', () => {
   const FAMILIES: StepFamily[] = [
-    'explore', 'edit', 'run', 'web', 'create', 'plan', 'delegate', 'sessions',
-    'memory', 'apps', 'automations', 'projects', 'skills', 'ask', 'retired', 'other',
+    'explore',
+    'edit',
+    'run',
+    'web',
+    'create',
+    'plan',
+    'delegate',
+    'sessions',
+    'memory',
+    'connectors',
+    'automations',
+    'projects',
+    'skills',
+    'ask',
+    'retired',
+    'other',
   ];
 
   it('every family produces failure phrasing with no raw identifiers', () => {
@@ -744,4 +813,3 @@ describe('narrateFailedStep (W7)', () => {
     expect(s).not.toContain('Send Message');
   });
 });
-

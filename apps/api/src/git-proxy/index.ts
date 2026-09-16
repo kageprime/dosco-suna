@@ -25,7 +25,16 @@ import {
 } from '../projects';
 import type { GitScope, UpstreamGit } from '../projects/git-backends';
 import type { ProjectRow } from '../projects/lib/serializers';
+import type { AppEnv } from '../types';
 import { deriveRequestContext } from '../iam/cache';
+import {
+  MAX_COMMAND_SECTION_BYTES,
+  encodeReportStatus,
+  parseReceivePackCommands,
+  wantsSideband,
+} from './receive-pack';
+import { evaluateRefUpdates, principalLabel } from './ref-policy';
+import { denialsAfterScopes } from './ref-scopes';
 import {
   FORWARD_REQUEST_HEADERS,
   STRIP_RESPONSE_HEADERS,
@@ -71,8 +80,15 @@ import {
 } from './compiled-runtime';
 import { prebuildDefaultBranchArtifacts } from './compiled-prebuild';
 import { config } from '../config';
+import {
+  buildProjectSnapshotDescriptor,
+  queueProjectSnapshotForRef,
+  readReadyProjectSnapshot,
+  verifyReadyProjectSnapshotObjectsInBackground,
+} from './project-snapshot';
+import { projectSnapshotStorageConfigured } from './project-snapshot-store';
 
-export const gitProxyApp = makeOpenApiApp();
+export const gitProxyApp = makeOpenApiApp<AppEnv>();
 
 /**
  * The git smart-HTTP protocol streams raw binary pack data (pkt-line framed),
@@ -167,7 +183,25 @@ async function forward(c: any, projectId: string, scope: GitScope, suffix: strin
     if (auth.status === 401) return unauthorized(c, auth.message);
     return c.text(auth.message, auth.status);
   }
+  return forwardAuthorized(c, auth, scope, suffix, c.req.raw.body);
+}
 
+/**
+ * Stream an ALREADY-AUTHORIZED git request to the upstream.
+ *
+ * Split out of `forward` so the push route can sit between authorization and
+ * transmission: it reads the ref commands off the head of the body, applies the
+ * ref policy, and either refuses (without opening an upstream connection at
+ * all) or hands the reconstructed body back here untouched.
+ */
+async function forwardAuthorized(
+  c: any,
+  auth: Extract<GitProxyAuth, { ok: true }>,
+  scope: GitScope,
+  suffix: string,
+  body: ReadableStream<Uint8Array> | null,
+): Promise<Response> {
+  const projectId = auth.project.projectId;
   const upstream = await resolveProjectUpstreamMemo(auth.project, scope);
   if (!upstream || !upstream.url) {
     return c.text('No git upstream is configured for this project', 502);
@@ -204,7 +238,7 @@ async function forward(c: any, projectId: string, scope: GitScope, suffix: strin
       res = await fetch(target, {
         method,
         headers,
-        body: c.req.raw.body,
+        body,
         redirect: 'manual',
         // @ts-ignore — Bun extensions: stream the request body, don't decompress.
         duplex: 'half',
@@ -305,6 +339,17 @@ async function forward(c: any, projectId: string, scope: GitScope, suffix: strin
           }
         })();
 
+        // Queue the project snapshot archive for the new default-branch tip so
+        // the next fresh session boots from S3 instead of a clone. Idempotent
+        // per (project, sha); the mirror refresh is shared with the hint above.
+        if (projectSnapshotStorageConfigured()) {
+          void queueProjectSnapshotForRef(gitProject, gitProject.defaultBranch).catch((err) => {
+            console.warn(
+              `[git-proxy] project snapshot enqueue skipped for ${projectId}:`,
+              err instanceof Error ? err.message : err,
+            );
+          });
+        }
         const [compiledResult, piResult] = await Promise.allSettled([
           config.KORTIX_COMPILED_BOOT_MODE !== 'off' || piWorkerEnabled
             ? prebuildDefaultBranchArtifacts(
@@ -344,6 +389,113 @@ async function forward(c: any, projectId: string, scope: GitScope, suffix: strin
   }
 
   return new Response(res.body, { status: res.status, headers: respHeaders });
+}
+
+// ── ref policy on push ────────────────────────────────────────────────────
+/**
+ * Read the ref commands off the head of a receive-pack body and decide whether
+ * the push may proceed.
+ *
+ * Returns a `Response` when the push is refused — a real git report-status, so
+ * the user sees `! [remote rejected] <ref> (<reason>)` and a non-zero exit
+ * rather than a transport error. Otherwise returns the body to forward: the
+ * bytes already consumed, followed by the untouched remainder of the stream.
+ * Nothing is uploaded to the upstream on a refusal.
+ */
+async function gateReceivePack(
+  c: any,
+  auth: Extract<GitProxyAuth, { ok: true }>,
+): Promise<Response | { body: ReadableStream<Uint8Array> }> {
+  // git never content-encodes a receive-pack body (it gzips upload-pack
+  // requests only, verified against git 2.39.1). If one ever arrives encoded we
+  // cannot read the commands, so we refuse instead of forwarding unexamined.
+  const encoding = c.req.header('content-encoding');
+  if (encoding) {
+    return c.text(`git proxy cannot inspect a ${encoding}-encoded push`, 400);
+  }
+  const stream: ReadableStream<Uint8Array> | null = c.req.raw.body;
+  if (!stream) return c.text('empty receive-pack request', 400);
+
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let buffered = 0;
+  let parsed = parseReceivePackCommands(new Uint8Array(0));
+  while (parsed.status === 'need-more') {
+    if (buffered > MAX_COMMAND_SECTION_BYTES) {
+      reader.cancel().catch(() => {});
+      return c.text('receive-pack command section is implausibly large', 400);
+    }
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    buffered += value.length;
+    parsed = parseReceivePackCommands(concatChunks(chunks, buffered));
+  }
+  if (parsed.status !== 'ok') {
+    reader.cancel().catch(() => {});
+    const reason = parsed.status === 'invalid' ? parsed.reason : 'truncated receive-pack request';
+    return c.text(reason, 400);
+  }
+
+  // Pure policy first: it needs no I/O and answers every ordinary push. Only a
+  // denial is worth an authorization check, so a session pushing its own branch
+  // and a person pushing anything both reach the upstream without one.
+  const denials = await denialsAfterScopes(
+    c,
+    auth.principal,
+    { projectId: auth.project.projectId, accountId: auth.project.accountId },
+    evaluateRefUpdates(auth.principal, { defaultBranch: auth.project.defaultBranch }, parsed.updates),
+  );
+  if (denials.length > 0) {
+    // Refuse before a single pack byte is uploaded. The client is mid-send;
+    // git handles an early response and prints our per-ref reasons, so there is
+    // no need to drain the pack we are rejecting (verified against git 2.39.1).
+    reader.cancel().catch(() => {});
+    const denied = new Map(denials.map((d) => [d.ref, d.reason]));
+    console.warn('[git-proxy] push refused', {
+      projectId: auth.project.projectId,
+      principal: principalLabel(auth.principal),
+      refs: denials.map((d) => d.ref),
+    });
+    const report = encodeReportStatus(
+      parsed.updates.map((u) => ({ ref: u.ref, reason: denied.get(u.ref) })),
+      { sideband: wantsSideband(parsed.capabilities) },
+    );
+    return new Response(report as unknown as BodyInit, {
+      status: 200,
+      headers: { 'content-type': 'application/x-git-receive-pack-result' },
+    });
+  }
+
+  // Allowed: replay what we read, then hand the rest of the stream straight
+  // through. The pack itself is never buffered.
+  const prefix = concatChunks(chunks, buffered);
+  return {
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (prefix.length > 0) controller.enqueue(prefix);
+      },
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      },
+      cancel(reason) {
+        reader.cancel(reason).catch(() => {});
+      },
+    }),
+  };
+}
+
+function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
+  if (chunks.length === 1) return chunks[0]!;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 
 // Ref discovery — scope is determined by the requested service.
@@ -539,6 +691,70 @@ gitProxyApp.openapi(
       if (/is at |not an ancestor/.test(message)) return c.text(message, 409);
       console.warn('[git-proxy] fast-boot bundle unavailable', { projectId, ref, tip, parent, error: message });
       return c.text('fast-boot bundle unavailable', 503);
+    }
+  },
+);
+
+// ── project snapshot descriptor (S3 config provider) ─────────────────────
+// The sandbox env carries only the snapshot's IDENTITY
+// (KORTIX_PROJECT_SNAPSHOT_PIN = sha:sha256:bytes). The daemon exchanges it
+// here, with its session credential, for a short-lived presigned download
+// URL. Same authorization as a clone: whoever may `git-upload-pack` this
+// project may read this archive, so the route widens nothing. 404 = no
+// prepared archive for that exact SHA (the daemon records a miss and boots
+// from Git); never a build-on-demand — a session start does not wait for
+// archive creation.
+gitProxyApp.openapi(
+  createRoute({
+    method: 'get',
+    path: '/{project}/project-snapshot',
+    tags: ['git'],
+    summary: 'Short-lived download descriptor for a prepared project snapshot archive',
+    request: {
+      params: projectParam,
+      query: z.object({ sha: z.string().regex(/^[0-9a-f]{40}$/) }),
+    },
+    responses: {
+      200: {
+        description: 'Descriptor: identity, digest, size, presigned archive URL',
+        content: { 'application/json': { schema: z.any() } },
+      },
+      400: { description: 'Invalid project id or source SHA' },
+      401: gitResponses[401],
+      403: gitResponses[403],
+      404: { description: 'No prepared archive for this project at this SHA' },
+      503: { description: 'Project snapshot storage is not configured' },
+    },
+  }),
+  async (c) => {
+    const projectId = validProjectIdOrResponse(c, c.req.param('project'));
+    if (projectId instanceof Response) return projectId;
+    const auth = await authorize(c, projectId, 'read');
+    if (!auth.ok) {
+      if (auth.status === 401) return unauthorized(c, auth.message);
+      return c.text(auth.message, auth.status === 404 ? 404 : 403);
+    }
+    if (!projectSnapshotStorageConfigured()) {
+      return c.json({ error: 'project snapshot storage is not configured' }, 503);
+    }
+    const { sha } = c.req.valid('query');
+    const ready = await readReadyProjectSnapshot(projectId, sha);
+    if (!ready) return c.json({ error: 'not_prepared', sha }, 404);
+    // Off the request path: an object that expired re-queues the row for the
+    // next session; this daemon meets the 404 and takes the Git path. This
+    // route is the daemon's FALLBACK — a fresh session normally carries the
+    // descriptor presigned at create (KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR) and
+    // never calls it; a retry or an expired URL does.
+    verifyReadyProjectSnapshotObjectsInBackground(ready);
+    try {
+      return c.json(await buildProjectSnapshotDescriptor(ready));
+    } catch (error) {
+      console.warn('[git-proxy] project snapshot descriptor unavailable', {
+        projectId,
+        sha,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return c.json({ error: 'project snapshot descriptor unavailable' }, 503);
     }
   },
 );
@@ -763,6 +979,22 @@ gitProxyApp.openapi(
   async (c) => {
     const projectId = validProjectIdOrResponse(c, c.req.param('project'));
     if (projectId instanceof Response) return projectId;
-    return forward(c, projectId, 'write', '/git-receive-pack');
+    const auth = await authorize(c, projectId, 'write');
+    if (!auth.ok) {
+      if (auth.status === 401) return unauthorized(c, auth.message);
+      return c.text(auth.message, auth.status as 403 | 404);
+    }
+    // The ref-scope resolver reads the agent grant off the request context, the
+    // same slot the ordinary auth middleware fills on every non-git route. This
+    // route authenticates with its own token (git Basic/Bearer), so it must
+    // place the grant `authorizeGitProxy` resolved. Without it a session is
+    // default-denied beyond its own branch regardless of `project.gitops.ref.any`
+    // / `kortix_cli: all` — see projects/lib/git.ts.
+    c.set('agentGrant', auth.agentGrant ?? null);
+    // Ref policy runs HERE, between authorization and transmission — the only
+    // point where both the principal and the refs it wants to move are known.
+    const gated = await gateReceivePack(c, auth);
+    if (gated instanceof Response) return gated;
+    return forwardAuthorized(c, auth, 'write', '/git-receive-pack', gated.body);
   },
 );

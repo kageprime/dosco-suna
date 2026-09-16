@@ -9,7 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import * as React from 'react';
-import { MENU_LABEL, MENU_PANEL, MENU_SEPARATOR, menuRow, type MenuRowSize } from './menu-recipe';
+import { MENU_LABEL, MENU_PANEL_STATIC, MENU_SEPARATOR, menuRow, type MenuRowSize } from './menu-recipe';
 import {
   TRIGGER_CARET_CLASS,
   TRIGGER_ICON_SIZE,
@@ -24,8 +24,12 @@ import {
  * Local to a select: `max-h-96` plus the scroll buttons, because the option
  * list is data-length and a dropdown's is authored; and `min-w-56`, because a
  * select is anchored to a trigger it should not visibly undercut.
+ *
+ * No enter/exit animation, the same as `DropdownMenuContent`: the list paints
+ * on the frame it mounts and unmounts on the frame it closes. See
+ * `dropdown-menu.tsx` for why.
  */
-const SELECT_PANEL = cn(MENU_PANEL, 'max-h-96 min-w-56 overflow-hidden');
+const SELECT_PANEL = cn(MENU_PANEL_STATIC, 'max-h-96 min-w-56 overflow-hidden');
 
 const Select = SelectPrimitive.Root;
 
@@ -151,7 +155,7 @@ const SelectItem = React.forwardRef<
   // The removed `variant="secondary"` had no call sites in the app. It carried
   // its own radius (`rounded-[0.4rem]`), its own padding and `transition-all
   // duration-500`, so any row that ever used it would have broken the column.
->(({ className, children, size = 'md', description, ...props }, ref) => (
+>(({ className, children, size = 'sm', description, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(

@@ -563,8 +563,15 @@ import { files } from '@kortix/sdk';
 const tree = await files.list('/workspace/src');
 const { content } = await files.read('/workspace/README.md');
 const hits = await files.findText('TODO');
-await files.upload(file, '/workspace/uploads');
+await files.upload(file, '/workspace/uploads', file.name, {
+  onProgress: ({ loadedBytes, totalBytes }) => {
+    console.log(`${loadedBytes}/${totalBytes}`);
+  },
+});
 ```
+
+Uploads larger than 64 KiB cross the sandbox edge in verified chunks. The
+progress callback runs after each chunk reaches the session filesystem.
 
 `files` targets the globally active sandbox. If your host runs more than one
 session at a time, call `s.files` on the session handle instead. It always
@@ -888,6 +895,11 @@ part reports zero, they estimate cost from token counts using a
 `ModelPricingLookup`. Every total is multiplied by `COST_MARKUP` (`1.2`) to
 match what Kortix bills.
 
+ChatGPT/Codex subscription messages contribute `$0.00`, including historical
+messages with nonzero runtime costs. Token and context usage remain visible.
+Mixed sessions retain charges for paid API messages. OpenAI API models remain
+billable, including API models whose names contain `codex`.
+
 ### Child sessions and pending requests
 
 A `task` tool call delegates to a child session. These helpers connect a
@@ -1006,3 +1018,23 @@ defines `window.Kortix`.
 - [SDK](/docs/sdk) — install and your first session.
 - [Sessions](/docs/sdk/sessions) — lifecycle, streaming, and error handling.
 - [React hooks](/docs/sdk/react) — the reactive layer built on these modules.
+
+
+### Agent repository access
+
+Agent configuration accepts `repository_access?: boolean` (default `true`).
+Set `false` to run new sessions without the project repository or repository API access.
+Git, secret, connector, and tool permissions remain separate. Existing sessions retain their saved policy.
+`AgentConfigBlock.workspace` is deprecated. The SDK maps legacy `branch`/`runtime` to the boolean field.
+A legacy `read` write requires an explicit `repository_access` choice; it does not enable read-only repository access.
+
+
+## Provider and model access
+
+Read `kortix.projects.modelAccess(projectId)`. Change one target with `kortix.projects.setModelAccess(projectId, { target: 'provider' | 'model', id, enabled })`.
+
+Use provider ID `kortix` for Kortix Managed Models, or a catalog provider ID for BYOK, Codex, and custom providers. Use the full gateway wire ID for a model. Provider disable covers future models and preserves individual model preferences and saved credentials.
+
+The current default model and its provider require a replacement before disabling (`409 cannot_disable_default`). Direct gateway requests to disabled targets fail with `model_disabled` or `provider_disabled`. Existing in-flight upstream requests finish normally. The response's `enforced` flag is false when the project uses native OpenCode instead of the gateway.
+
+React consumers use `useModelAccess(projectId)` from `@kortix/sdk/react`. Its `setEnabled(change)` mutation refreshes the management catalog and session picker.

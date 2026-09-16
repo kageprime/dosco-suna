@@ -83,10 +83,44 @@ export function noteInboxObservation(
   prompts: readonly SessionPrompt[],
   atMs: number,
   serverAtMs?: number,
+  drainedAtMs?: number,
 ): void {
   useSessionWorkingStore
     .getState()
-    .noteInboxPending(sessionId, countLiveInboxPrompts(prompts), atMs, serverAtMs);
+    .noteInboxPending(sessionId, countLiveInboxPrompts(prompts), atMs, serverAtMs, drainedAtMs);
+}
+
+/**
+ * Did the SERVER take a prompt off this queue between these two readings?
+ *
+ * The count cannot answer it. A row that drains and a row the user just put on
+ * hold both take the live count to zero, and they mean opposite things: one is
+ * a turn opening, the other is the user asking for nothing to run. What tells
+ * them apart is the ROW — a held or failed prompt is still listed, a delivered
+ * one is not (`listInboxPrompts` drops it the moment the ledger confirms a turn
+ * consumed its wire id).
+ *
+ * So: a prompt this tab watched WAITING (`queued`) or already handed over
+ * (`delivering`) is simply absent now. That is the control plane saying it gave
+ * the prompt to the runtime — the one transition no other observer can report
+ * yet, and the reason `WorkingInboxInput.drainedAtMs` exists.
+ *
+ * This tab's own optimistic rows are excluded: the server lists the same
+ * submission under ITS prompt id, so an optimistic row "disappears" on every
+ * successful send. That is a rename, not a hand-off.
+ */
+export function inboxDrained(
+  previous: readonly SessionPrompt[] | undefined,
+  next: readonly SessionPrompt[],
+): boolean {
+  if (!previous || previous.length === 0) return false;
+  const listed = new Set(next.map((p) => p.prompt_id));
+  return previous.some(
+    (p) =>
+      (p.state === 'queued' || p.state === 'delivering') &&
+      !isOptimisticSessionPrompt(p) &&
+      !listed.has(p.prompt_id),
+  );
 }
 
 /**
@@ -117,10 +151,91 @@ export function applyInboxObservation(
     ...(serverAtMs != null ? { serverAtMs } : {}),
   };
   if (!inboxObservationSupersedes(candidate, current)) return [...(cached ?? [])];
-  noteInboxObservation(sessionId, prompts, atMs, serverAtMs);
+  // Only a reading that SUPERSEDES may report a drain: an older snapshot
+  // arriving late has not watched anything leave, it simply never saw it.
+  noteInboxObservation(
+    sessionId,
+    prompts,
+    atMs,
+    serverAtMs,
+    inboxDrained(cached, prompts) ? atMs : undefined,
+  );
   return reconcileOptimisticPrompts(cached, prompts);
 }
 
+
+// ============================================================================
+// Resume and remove answer on the click
+// ============================================================================
+
+/**
+ * The rows as they read once a hold is released: `reason: 'held'` cleared,
+ * everything else as the server last reported it. Applied optimistically by
+ * `hold(false)`, so the paused state leaves the screen on the click instead of
+ * one GET later — a GET `applyInboxObservation` may legitimately discard.
+ */
+export function releaseHeldPrompts(prompts: readonly SessionPrompt[]): SessionPrompt[] {
+  return prompts.map((prompt) => (prompt.reason === 'held' ? { ...prompt, reason: null } : prompt));
+}
+
+/**
+ * How long a removed row stays filtered out of later reads.
+ *
+ * `DELETE .../prompts/:id` returns no server stamp, so a GET issued before the
+ * delete can land after it with a NEWER `observed_at` and list the row again.
+ * The tombstone only has to outlive that one in-flight read (the poll is 1s);
+ * it is not a blocklist, so it expires.
+ */
+export const REMOVED_PROMPT_TOMBSTONE_MS = 15_000;
+
+const removedPromptTombstones = new Map<string, Map<string, number>>();
+
+export function tombstoneRemovedPrompt(
+  sessionId: string,
+  promptId: string,
+  nowMs: number = Date.now(),
+): void {
+  let session = removedPromptTombstones.get(sessionId);
+  if (!session) {
+    session = new Map();
+    removedPromptTombstones.set(sessionId, session);
+  }
+  session.set(promptId, nowMs + REMOVED_PROMPT_TOMBSTONE_MS);
+}
+
+export function releaseRemovedPromptTombstone(sessionId: string, promptId: string): void {
+  const session = removedPromptTombstones.get(sessionId);
+  if (!session) return;
+  session.delete(promptId);
+  if (session.size === 0) removedPromptTombstones.delete(sessionId);
+}
+
+/** `prompts` without the rows this tab removed. Expired tombstones are pruned. */
+export function withoutRemovedPrompts(
+  sessionId: string,
+  prompts: readonly SessionPrompt[],
+  nowMs: number = Date.now(),
+): SessionPrompt[] {
+  const session = removedPromptTombstones.get(sessionId);
+  if (!session) return [...prompts];
+  for (const [promptId, expiresAtMs] of session) {
+    if (expiresAtMs <= nowMs) session.delete(promptId);
+  }
+  if (session.size === 0) {
+    removedPromptTombstones.delete(sessionId);
+    return [...prompts];
+  }
+  return prompts.filter((prompt) => !session.has(prompt.prompt_id));
+}
+
+/**
+ * Did a failed DELETE leave the row in the inbox? Only a 404 says the row is
+ * gone. A 409 means a step is already answering it (it is still listed, as
+ * delivering), and a network failure never reached the server.
+ */
+export function removeFailureKeepsRow(error: unknown): boolean {
+  return (error as { status?: number } | null)?.status !== 404;
+}
 
 // ============================================================================
 // Optimistic queue rows — Enter paints the row in the SAME frame
@@ -240,14 +355,24 @@ export async function readSessionPromptsInbox(
   cached: readonly SessionPrompt[] | undefined,
 ): Promise<SessionPrompt[]> {
   if (!projectId || !sessionId) return [...(cached ?? [])];
-  // The SESSION-OPEN BUNDLE first. Two hooks mount this list on a session route
-  // and the open path reads it before either can, so the first reads of an open
-  // collapse onto one server answer. A claim only succeeds while a bundle is in
-  // flight or seconds old; every poll after it reads the endpoint.
-  const claimed = claimOpenBundle(projectId, sessionId);
+  // The SESSION-OPEN BUNDLE first — but ONLY for the open burst, i.e. a read
+  // issued before this tab holds any rows. Two hooks mount this list on a
+  // session route and the open path reads it before either can, so those first
+  // reads collapse onto one server answer.
+  //
+  // It used to be claimed by EVERY read inside the bundle's share window, and
+  // that is a window in which the queue changes: the drain re-mints the prompt
+  // and hands it to the runtime, the runtime echoes it under the new id, the
+  // transcript gains a bubble — and the poll, AND the repair refetch that new
+  // bubble fires, both got the pre-delivery snapshot back and drew the prompt
+  // twice for the rest of the window (measured 2026-09-08, on video: no
+  // `/prompts` request left the tab for 5s while the duplicate sat on screen).
+  // A read that already holds rows is a poll, and a poll asks the server.
+  const claimed = cached === undefined ? claimOpenBundle(projectId, sessionId) : null;
   if (claimed) {
     const bundle = await claimed;
-    const bundled = bundle ? openBundleQueue(bundle) : null;
+    const bundledRows = bundle ? openBundleQueue(bundle) : null;
+    const bundled = bundledRows ? withoutRemovedPrompts(sessionId, bundledRows) : null;
     if (bundled) {
       // TWO stamps, two clocks. Age is this tab's clock at receive time — the
       // bundle's `observed_at` is the API's clock, and ageing it against
@@ -275,7 +400,9 @@ export async function readSessionPromptsInbox(
   return applyInboxObservation(
     sessionId,
     cached,
-    prompts,
+    // A row this tab removed stays removed, even from a read that left before
+    // the DELETE landed — see `REMOVED_PROMPT_TOMBSTONE_MS`.
+    withoutRemovedPrompts(sessionId, prompts),
     atMs,
     Number.isFinite(serverAtMs) ? serverAtMs : undefined,
   );
@@ -407,8 +534,21 @@ export function useSessionPrompts(
   // IN ADDITION — a second, generic "Failed to perform action: …" for every
   // expected refusal (e.g. removing a prompt a step just started answering).
   const removeMutation = useMutation({
+    // The row leaves the list on the click, and a read already in flight cannot
+    // put it back (`tombstoneRemovedPrompt`).
+    onMutate: async (promptId: string) => {
+      tombstoneRemovedPrompt(sessionId!, promptId);
+      queryClient.setQueryData<SessionPrompt[]>(key, (prev) =>
+        (prev ?? []).filter((prompt) => prompt.prompt_id !== promptId),
+      );
+      await queryClient.cancelQueries({ queryKey: key });
+    },
     mutationFn: (promptId: string) => deleteSessionPrompt(projectId!, sessionId!, promptId),
-    onError: () => {},
+    onError: (error, promptId) => {
+      // The row is still in the inbox (a step owns it, or the request never
+      // arrived): let the next read list it again.
+      if (removeFailureKeepsRow(error)) releaseRemovedPromptTombstone(sessionId!, promptId);
+    },
     onSettled: invalidate,
   });
   const retryMutation = useMutation({
@@ -417,7 +557,28 @@ export function useSessionPrompts(
     onSettled: invalidate,
   });
   const holdMutation = useMutation({
+    // Releasing answers on the click: the paused state leaves the screen now,
+    // not one GET later (`releaseHeldPrompts`).
+    onMutate: async (held: boolean) => {
+      if (held) return;
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<SessionPrompt[]>(key, (prev) => releaseHeldPrompts(prev ?? []));
+    },
     mutationFn: (held: boolean) => holdSessionPrompts(projectId!, sessionId!, held),
+    // The response IS the queue after the change, stamped by the server — the
+    // same freshness rule as a list read, so a stale GET cannot undo it.
+    onSuccess: (result) => {
+      const serverAtMs = result.observed_at ? Date.parse(result.observed_at) : Number.NaN;
+      queryClient.setQueryData<SessionPrompt[]>(key, (prev) =>
+        applyInboxObservation(
+          sessionId!,
+          prev,
+          withoutRemovedPrompts(sessionId!, result.prompts),
+          Date.now(),
+          Number.isFinite(serverAtMs) ? serverAtMs : undefined,
+        ),
+      );
+    },
     onError: () => {},
     onSettled: invalidate,
   });
@@ -471,6 +632,12 @@ export async function startSessionWithPrompt(
   input: {
     parts: SessionPromptPart[];
     overrides?: SessionPromptOverrides;
+    /**
+     * When the user pressed Send, in milliseconds since epoch. Defaults to the
+     * POST time. A caller whose POST waited (for uploads) passes the Send time,
+     * so the server orders this prompt before messages sent after it.
+     */
+    clientSentAtMs?: number;
   },
   adapters?: StartSessionWithPromptAdapters,
 ): Promise<CreateSessionPromptResult> {
@@ -487,7 +654,7 @@ export async function startSessionWithPrompt(
       clientMessageId,
       messageId: mintSessionWireMessageId(sessionId, clientMessageId),
       parts: input.parts,
-      clientSentAtMs: now(),
+      clientSentAtMs: input.clientSentAtMs ?? now(),
       ...(input.overrides ? { overrides: input.overrides } : {}),
       remintOnDelivery: true,
     });

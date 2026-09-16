@@ -2,10 +2,10 @@
 
 import { useParams } from 'next/navigation';
 
-import ProjectHomeLoading from '../../loading';
 import { InstantSessionShell } from '@/features/session/instant-session-shell';
 import { useFirstPromptPreviewStore } from '@/stores/session-composer-handoff-store';
 import { readStartStash } from '@kortix/sdk/react';
+import ProjectHomeLoading from '../../loading';
 
 /**
  * Navigation Suspense boundary for /projects/[id]/sessions/[sessionId].
@@ -22,8 +22,8 @@ import { readStartStash } from '@kortix/sdk/react';
  * itself — the very component the page mounts first — with the first prompt
  * from the producer's preview store. The hand-over to the page is then
  * pixel-identical: same bubble, same waiting row, same composer. Every other
- * navigation into a session (sidebar, back/forward) has no preview and keeps
- * the project skeleton it always had.
+ * navigation into a session (sidebar, back/forward) has no preview and paints
+ * the project boundary's pulsing Kortix mark — never a skeleton.
  */
 export default function SessionLoading() {
   const params = useParams<{ id: string; sessionId: string }>();

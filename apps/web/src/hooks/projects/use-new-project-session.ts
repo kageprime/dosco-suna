@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from '@/i18n/use-translations';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -8,7 +9,10 @@ import { errorToast, loadingToast } from '@/components/ui/toast';
 import { createScopedSession } from '@/features/session/scope/create-scoped-session';
 import type { SessionScopeCommit } from '@/features/session/scope/session-scope-model';
 import {
+  confirmCommitted,
+  errorCode,
   getRequiredConnectorConnections,
+  isAmbiguousCreateFailure,
   resolveCreateFailure,
 } from '@/hooks/projects/new-session-failure';
 import {
@@ -32,14 +36,15 @@ import { useConnectorGateStore } from '@/stores/connector-gate-store';
 import { useUpgradeDialogStore } from '@/stores/upgrade-dialog-store';
 import {
   createProjectSession,
+  getProjectSession,
   getProjectSessionScope,
+  markSessionFresh,
   setProjectSessionScope,
   type PendingSessionPrompt,
   type ProjectSession,
   type SessionConnectorBindingsInput,
 } from '@kortix/sdk';
-import { markSessionFresh } from '@kortix/sdk/fresh-sessions';
-import { prefetchSessionStart, qk } from '@kortix/sdk/react';
+import { prefetchSessionStart, qk, upsertCachedProjectSession } from '@kortix/sdk/react';
 
 /**
  * The shared project-session entry path. Calls without options only open the
@@ -102,6 +107,7 @@ export type NewProjectSessionOpts = {
 };
 
 export function useNewProjectSession(projectId: string | undefined) {
+  const t = useTranslations('threads');
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -232,15 +238,37 @@ export function useNewProjectSession(projectId: string | undefined) {
         const sessionId = crypto.randomUUID();
         markSessionFresh(sessionId);
         router.prefetch(`/projects/${projectId}/sessions/${sessionId}`);
-        await createProjectSession(projectId, {
-          session_id: sessionId,
-          ...opts?.create,
-        });
+        try {
+          await createProjectSession(projectId, {
+            session_id: sessionId,
+            ...opts?.create,
+          });
+        } catch (error) {
+          // A timeout is not a refusal: the server keeps running the create and
+          // commits the session WITH its first prompt. Rejecting here left the
+          // user on the page they sent from, composer unlocked with a prompt the
+          // agent was already answering. The id is ours, so ask for it.
+          const committed =
+            isAmbiguousCreateFailure(errorCode(error)) &&
+            (await confirmCommitted(async () =>
+              Boolean(await getProjectSession(projectId, sessionId, { showErrors: false })),
+            ));
+          if (!committed) throw error;
+        }
         return sessionId;
       };
 
       const createSession = () =>
-        loadingToast('Starting session…', takeOrCreateSession(), { success: 'Session started' });
+        // `threads.*`, not `hardcodedUi.i18nComplete.*`. The two
+        // i18nComplete slots these used to read hold the literal strings
+        // "startingSession" and "sessionStarted" in en, fr, de, pt, sr and
+        // zh — the key id was written into the value slot — so the toast
+        // rendered its own key name. `threads.startingSession` /
+        // `threads.sessionStarted` are the canonical entries and are
+        // correctly translated in all nine catalogs.
+        loadingToast(t('startingSession'), takeOrCreateSession(), {
+          success: t('sessionStarted'),
+        });
 
       createScopedSession({
         create: createSession,
@@ -258,9 +286,18 @@ export function useNewProjectSession(projectId: string | undefined) {
           // taken but never made it this far (a scope-replacement failure,
           // say) never seeds a phantom row here — see warm-session-seed.ts.
           if (adoptedWarmSession) {
-            queryClient.setQueryData<ProjectSession[]>(qk.project.sessions(projectId), (current) =>
-              seedAdoptedWarmSession(current, adoptedWarmSession!, new Date().toISOString()),
+            // Every cached shape, not just the flat key. The sidebar caches
+            // PAGES now (`useProjectSessions`), so a write aimed at the flat
+            // list left a brand-new session invisible there until the next
+            // refetch — the one surface the user is watching when they start
+            // one. `seedAdoptedWarmSession` still owns what an adopted row
+            // looks like; the cache write is the only part that moved.
+            const [adopted] = seedAdoptedWarmSession(
+              undefined,
+              adoptedWarmSession!,
+              new Date().toISOString(),
             );
+            if (adopted) upsertCachedProjectSession(queryClient, projectId, adopted);
           }
           // The row exists — kick provisioning so it overlaps the navigation.
           // For an adopted warm session this is also the call that drops the
@@ -302,10 +339,12 @@ export function useNewProjectSession(projectId: string | undefined) {
               retry: () => startRef.current(opts),
             });
           } else {
-            errorToast(err instanceof Error ? err.message : 'Failed to start session');
+            errorToast(
+              err instanceof Error ? err.message : t('failedToStartSession'),
+            );
           }
         } else if (action === 'toast') {
-          errorToast(err instanceof Error ? err.message : 'Failed to start session');
+          errorToast(err instanceof Error ? err.message : t('failedToStartSession'));
         }
         // 'silent': the global 429 handler already surfaced the session cap.
         // No navigation happened, so release the claim now — the user stays
@@ -316,14 +355,15 @@ export function useNewProjectSession(projectId: string | undefined) {
     },
     [
       projectId,
-      router,
-      queryClient,
       billingLoading,
       canRun,
-      accountId,
-      openUpgradeDialog,
-      openConnectorGate,
       release,
+      router,
+      openUpgradeDialog,
+      accountId,
+      t,
+      queryClient,
+      openConnectorGate,
     ],
   );
   useEffect(() => {

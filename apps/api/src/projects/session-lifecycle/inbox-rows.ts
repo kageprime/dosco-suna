@@ -1,6 +1,7 @@
 import { sessionLifecycleCommands } from '@kortix/db';
-import { and, asc, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../shared/db';
+import { inboxOrderBy } from './inbox-order';
 import { type SessionLifecycleCommandRow, withNextDeliveryAttempt } from './store';
 
 /**
@@ -66,7 +67,7 @@ export async function listInboxPrompts(
         ),
       ),
     )
-    .orderBy(asc(sessionLifecycleCommands.createdAt))
+    .orderBy(...inboxOrderBy())
     .limit(limit);
 }
 
@@ -77,20 +78,30 @@ export type InboxPromptDeletion =
   | { outcome: 'delivering' }
   | { outcome: 'missing' };
 
+export async function deleteInboxRowsWithAttachmentGrace(predicate: SQL | undefined) {
+  return db.transaction(async (tx) => {
+    const rows = await tx.delete(sessionLifecycleCommands).where(predicate).returning();
+    for (const row of rows) {
+      if ((row.payload.parts as Array<{ attachment_id?: string }> | undefined)?.some((part) => part.attachment_id)) {
+        const { retainPromptAttachmentsForUndo } = await import('../prompt-attachments');
+        await retainPromptAttachmentsForUndo(tx, row);
+      }
+    }
+    return rows;
+  });
+}
+
 export async function deleteInboxPrompt(
   sessionId: string,
   promptId: string,
 ): Promise<InboxPromptDeletion> {
-  const deleted = await db
-    .delete(sessionLifecycleCommands)
-    .where(
+  const deleted = await deleteInboxRowsWithAttachmentGrace(
       and(
         eq(sessionLifecycleCommands.commandId, promptId),
         inboxScope(sessionId),
         inArray(sessionLifecycleCommands.status, ['queued', 'failed', 'dead_lettered']),
       ),
-    )
-    .returning();
+    );
   if (deleted[0]) return { outcome: 'deleted', row: deleted[0] };
 
   // A STOP-PAUSED row is the user's to remove, and a separate statement so the
@@ -101,17 +112,14 @@ export async function deleteInboxPrompt(
   // button. Nothing is going to deliver it (the hold is what took it out of the
   // drain's way) and only removing it takes it off the user's screen, so a
   // refusal there is a control that cannot work.
-  const stopPaused = await db
-    .delete(sessionLifecycleCommands)
-    .where(
+  const stopPaused = await deleteInboxRowsWithAttachmentGrace(
       and(
         eq(sessionLifecycleCommands.commandId, promptId),
         inboxScope(sessionId),
         eq(sessionLifecycleCommands.status, 'succeeded'),
         sql`COALESCE(${sessionLifecycleCommands.result}->>'stop_paused', '') = 'true'`,
       ),
-    )
-    .returning();
+    );
   if (stopPaused[0]) return { outcome: 'deleted', row: stopPaused[0] };
 
   // Separate the two "no row was removed" cases: a row that is on the wire
@@ -147,8 +155,8 @@ export async function deleteInboxPrompt(
  * This is both "retry" and "send now" — one primitive, because they are one
  * intent: the user pointed at a row and asked for THAT message. `promoted`
  * is what the admission gate reads to let it past the ordering rule
- * (`older_prompt_pending`). A live turn and an in-flight sibling still bind a
- * promoted row because both are unsafe delivery boundaries.
+ * (`older_prompt_pending`). An in-flight sibling still binds a promoted row
+ * because two concurrent network deliveries can reverse their arrival order.
  *
  * `payload.remintOnDelivery` is stamped because this row did NOT go out on its
  * first claim: whatever the session did in the meantime has written HIGHER wire
@@ -315,6 +323,7 @@ export async function holdInboxPrompts(sessionId: string, held: boolean): Promis
     const running = await db
       .update(sessionLifecycleCommands)
       .set({
+        result: sql`COALESCE(${sessionLifecycleCommands.result}, '{}'::jsonb) || '{"held": true}'::jsonb`,
         payload: sql`${sessionLifecycleCommands.payload} || '{"stopPausedOnDelivery": true, "remintOnDelivery": true}'::jsonb`,
         updatedAt: new Date(),
       })
@@ -358,7 +367,7 @@ export async function holdInboxPrompts(sessionId: string, held: boolean): Promis
     .where(
       and(
         inboxScope(sessionId),
-        eq(sessionLifecycleCommands.status, 'queued'),
+        inArray(sessionLifecycleCommands.status, ['queued', 'running']),
         sql`COALESCE(${sessionLifecycleCommands.result}->>'held', '') = 'true'`,
       ),
     )
@@ -479,7 +488,7 @@ export async function claimDueSessionInboxSiblings(input: {
         // rows are ordered by the batch itself; held rows stay excluded.
       ),
     )
-    .orderBy(asc(sessionLifecycleCommands.createdAt))
+    .orderBy(...inboxOrderBy())
     .limit(input.limit ?? 20);
   const claimed: SessionLifecycleCommandRow[] = [];
   for (const row of rows) {

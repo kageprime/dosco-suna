@@ -36,11 +36,11 @@ import { PROJECT_ACTIONS, VALID_ACTIONS } from '../iam/actions';
 import type { GitBackedProject } from './git';
 import type { AgentGrant } from '@kortix/db';
 import {
+  DEPRECATED_KORTIX_CLI_ALIASES,
   resolveGrantSet,
   SLUG_RE,
   WORKSPACE_MODES_V2,
   type GrantSetV2,
-  type WorkspaceModeV2,
 } from '@kortix/manifest-schema';
 import { normalizeRequiredConnectorAliases } from './lib/agent-config-v2';
 import { isMetaAgentName } from '@kortix/shared';
@@ -118,7 +118,8 @@ export interface AgentSpec {
   /** Default sandbox template slug for sessions started with this agent. */
   sandbox?: string | null;
   /** Project file delivery mode for sessions started with this agent. */
-  workspace?: WorkspaceModeV2 | null;
+  repositoryAccess?: boolean;
+  legacyReadWorkspace?: boolean;
 }
 
 export interface AgentParseError {
@@ -130,6 +131,12 @@ export interface AgentParseError {
 export interface LoadedAgents {
   specs: AgentSpec[];
   errors: AgentParseError[];
+  /** Where the specs came from: the manifest's blob sha and the commit it was
+   *  read at. `null` revision/commit = synthesized (no manifest on disk) or a
+   *  read with no git context; absent = the manifest could not be read at all.
+   *  Grants derived from these specs carry the same provenance
+   *  (`AgentGrant.manifestRevision` / `manifestCommit`). */
+  manifest?: { revision: string | null; commit: string | null } | null;
   /**
    * The manifest's own top-level `default_agent` (v2; v1 has no such
    * field, so this is always `null` for a v1 manifest). Lets grant resolution
@@ -300,10 +307,14 @@ export async function loadProjectAgents(
         error: (err as Error).message || 'Failed to read manifest',
       }],
       defaultAgent: null,
+      manifest: null,
     };
   }
   if (!manifest) manifest = synthesizeBlankManifest({ manifestPath: project.manifestPath });
-  return extractAgents(manifest);
+  return {
+    ...extractAgents(manifest),
+    manifest: { revision: manifest.revision ?? null, commit: manifest.commit ?? null },
+  };
 }
 
 /**
@@ -328,6 +339,52 @@ export async function resolveAgentGrant(
   project: GitBackedProject,
 ): Promise<AgentGrant | null> {
   return grantFromLoadedAgents(agentName, await loadProjectAgents(project));
+}
+
+/**
+ * Agents every OpenCode runtime reports as `native` (verified against a live
+ * sandbox roster, 2026-09-15: build, compaction, explore, general, plan,
+ * summary, title).
+ */
+export const OPENCODE_BUILTIN_AGENT_NAMES: ReadonlySet<string> = new Set([
+  'build',
+  'compaction',
+  'explore',
+  'general',
+  'plan',
+  'summary',
+  'title',
+]);
+
+/**
+ * May `agentName` be the RUNNING agent of a session in this project?
+ *
+ * A session token's grant follows the agent a prompt names (see
+ * `remintGrantForAgentSwitch`). Nothing may put a name on that token that the
+ * project does not declare: INC-2026-09-15 wrote `chief-of-staff`, an agent of a
+ * DIFFERENT project, onto ~50 session tokens of unrelated projects, and every
+ * one of those sessions lost its CLI and connector access.
+ *
+ *   - `default`, the platform meta agent and OpenCode's built-in agents are
+ *     always launchable: none of them is ever another project's agent.
+ *   - A project with no per-agent governance (no specs, no parse errors) keeps
+ *     the runtime roster as the authority, unchanged.
+ *   - Otherwise the name must be a declared, enabled spec. A manifest that
+ *     failed to parse proves nothing and answers `false`.
+ *
+ * Pure. Exported for tests and for the sandbox proxy.
+ */
+export function isLaunchableAgentName(agentName: string, loaded: LoadedAgents): boolean {
+  const name = agentName.trim();
+  if (!name) return false;
+  if (name === DEFAULT_AGENT_SENTINEL || isMetaAgentName(name)) return true;
+  // OpenCode ships these in every runtime and a governed project's picker can
+  // still send one. They are the runtime's own, not another project's, so they
+  // keep running exactly as before: an undeclared built-in resolves to the
+  // deny-all grant in `grantFromLoadedAgents`, never a widening.
+  if (OPENCODE_BUILTIN_AGENT_NAMES.has(name)) return true;
+  if (loaded.specs.length === 0 && loaded.errors.length === 0) return true;
+  return loaded.specs.some((s) => s.name === name && s.enabled);
 }
 
 /** Pure resolution rule (no I/O) — see `resolveAgentGrant`. Exported for tests. */
@@ -438,15 +495,15 @@ export function sandboxFromLoadedAgents(agentName: string, loaded: LoadedAgents)
 }
 
 /** Resolve the selected agent's project file delivery mode without repository I/O. */
-export function workspaceFromLoadedAgents(
-  agentName: string,
-  loaded: LoadedAgents,
-): WorkspaceModeV2 | null {
-  const concreteName =
-    agentName === DEFAULT_AGENT_SENTINEL && loaded.defaultAgent
-      ? loaded.defaultAgent
-      : agentName;
-  return loaded.specs.find((spec) => spec.name === concreteName && spec.enabled)?.workspace ?? null;
+export function repositoryAccessFromLoadedAgents(agentName: string, loaded: LoadedAgents): boolean {
+  const name = agentName === DEFAULT_AGENT_SENTINEL && loaded.defaultAgent ? loaded.defaultAgent : agentName;
+  return loaded.specs.find((spec) => spec.name === name && spec.enabled)?.repositoryAccess ?? true;
+}
+
+/** Legacy read remains unavailable until its owner explicitly chooses a boolean policy. */
+export function legacyReadWorkspaceFromLoadedAgents(agentName: string, loaded: LoadedAgents): boolean {
+  const name = agentName === DEFAULT_AGENT_SENTINEL && loaded.defaultAgent ? loaded.defaultAgent : agentName;
+  return loaded.specs.find((spec) => spec.name === name && spec.enabled)?.legacyReadWorkspace ?? false;
 }
 
 /**
@@ -631,7 +688,8 @@ export function manifestHashForAgent(spec: AgentSpec): string {
     kortixCli: spec.kortixCli,
     env: spec.env,
     file: spec.file,
-    workspace: spec.workspace,
+    repositoryAccess: spec.repositoryAccess,
+    legacyReadWorkspace: spec.legacyReadWorkspace,
   });
   return createHash('sha256').update(canonical).digest('hex');
 }
@@ -686,7 +744,7 @@ function parseAgentEntry(entry: unknown, index: number, filename: string = MANIF
       file,
       model,
       sandbox: null,
-      workspace: null,
+      repositoryAccess: true,
     },
   };
 }
@@ -742,7 +800,16 @@ function parseAgentEntryV2(name: string, block: unknown, filename: string): Pars
   ) {
     return err(name, `agents.${name}.workspace must be one of: ${WORKSPACE_MODES_V2.join(', ')}`);
   }
-  const workspace = (workspaceRaw as WorkspaceModeV2 | undefined) ?? null;
+  const repositoryAccessRaw = normalizedRow.repository_access;
+  if (repositoryAccessRaw !== undefined && typeof repositoryAccessRaw !== 'boolean') {
+    return err(name, `agents.${name}.repository_access must be a boolean`);
+  }
+  if (repositoryAccessRaw !== undefined && workspaceRaw !== undefined &&
+      repositoryAccessRaw !== (workspaceRaw === 'branch')) {
+    return err(name, `agents.${name}.repository_access conflicts with workspace`);
+  }
+  const repositoryAccess = repositoryAccessRaw ?? (workspaceRaw === undefined || workspaceRaw === 'branch');
+  const legacyReadWorkspace = workspaceRaw === 'read' && repositoryAccessRaw === undefined;
 
   const connectorsResolved = resolveGrantSet(normalizedRow.connectors, 'none');
 
@@ -787,7 +854,8 @@ function parseAgentEntryV2(name: string, block: unknown, filename: string): Pars
       file,
       model,
       sandbox,
-      workspace,
+      repositoryAccess,
+      legacyReadWorkspace,
     },
   };
 }
@@ -848,6 +916,12 @@ function parseGrantSet(
 /** Returns an error message if the action is not grantable to an agent, else null. */
 function validateKortixAction(action: string): string | null {
   if (GRANTABLE_KORTIX_CLI.has(action)) return null;
+  // A RENAMED action still resolves — `canonicalizeGrantActions` rewrites it to
+  // the live leaf. Accept it here: rejecting it would push the spec into
+  // `loaded.errors`, and an agent whose manifest failed to parse is given an
+  // EMPTY grant (see grantFromLoadedAgents), which strips every capability it
+  // holds over one outdated string.
+  if (action in DEPRECATED_KORTIX_CLI_ALIASES) return null;
   if (VALID_ACTIONS.has(action)) {
     return `\`kortix_cli\` action "${action}" is account-scoped and can never be granted to an agent — only project-scoped actions are allowed`;
   }

@@ -43,6 +43,8 @@ async function rejectFocusedTests(): Promise<void> {
       '*.test.tsx',
       '-g',
       '*.test.mts',
+      '-g',
+      '*.test.js',
     ],
     { cwd: root, stdout: 'pipe', stderr: 'inherit' },
   );
@@ -133,6 +135,9 @@ async function runWorkspaceTests(
         // The CLI includes an intentional 11-second idle-stream contract.
         // Concurrent API and agent workers can push it past 15 seconds.
         KORTIX_TEST_TIMEOUT_MS: '30000',
+        // Unit tests exercise offload with explicit temporary databases. Never
+        // let a proxy's background maintenance open the developer's transcript.
+        KORTIX_ATTACHMENT_OFFLOAD: '0',
         ...env,
       },
     },
@@ -156,13 +161,16 @@ await runAll([
 ]);
 
 // Run two explicit bounded waves. This avoids a generic workspace fan-out while
-// removing idle CPU time between independent load classes. The API has three
-// workers. The CLI has four. The agent server and pnpm each add one supervisor.
+// removing idle CPU time between independent load classes. Keep the CLI and
+// agent server sequential. Concurrent isolated Bun workers can spin indefinitely.
 await runAll([
   runWorkspaceTests(['kortix-api'], 1, {
     KORTIX_API_TEST_WORKERS: '3',
   }),
-  runWorkspaceTests(['@kortix/cli', '@kortix/sandbox-agent-server'], 2),
+  (async () => {
+    await runWorkspaceTests(['@kortix/cli'], 1);
+    await runWorkspaceTests(['kortixd'], 1);
+  })(),
 ]);
 await runAll([
   (async () => {
@@ -177,7 +185,7 @@ await runAll([
       './apps/**',
       '!kortix-api',
       '!@kortix/cli',
-      '!@kortix/sandbox-agent-server',
+      '!kortixd',
       '!@kortix/db',
       ...(skipSdkTests ? ['!@kortix/sdk'] : []),
     ],

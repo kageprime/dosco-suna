@@ -1,3 +1,9 @@
+import { promptConnectorRefusalBody } from '../lib/prompt-connector-refusal';
+import {
+  missingPromptConnectorConnections,
+  PromptConnectorPreflightUnresolved,
+} from '../lib/prompt-connector-preflight';
+import { DEFAULT_AGENT_SENTINEL } from '../agents';
 import { checkBillingActive } from '../../billing/services/billing-gate';
 import { config, type SandboxProviderName } from '../../config';
 import { auth, errors, json } from '../../openapi';
@@ -32,7 +38,8 @@ import {
   sessionIsTombstoned,
 } from '../lib/access';
 import { resolveAndAuthorizeAgent } from '../lib/agent-access';
-import { assertAgentScope } from '../../iam/agent-scope';
+import { assertAgentScope, isProjectSessionPrincipal } from '../../iam/agent-scope';
+import { resolveChangeRequestBase } from '../change-request-policy';
 import { PROJECT_ACTIONS } from '../../iam';
 import { callerKortixSessionId } from '../lib/caller-session';
 import { sandboxTokenMayActOnSession } from '../lib/sandbox-token-session';
@@ -432,6 +439,7 @@ const SessionPromptSchema = z.object({
   text: z.string(),
   attempts: z.number(),
   last_error: z.string().nullable(),
+  attachments: z.array(z.object({ filename: z.string(), mime: z.string() })),
   created_at: z.string(),
   available_at: z.string(),
 });
@@ -490,7 +498,7 @@ projectsApp.openapi(
     responses: {
       200: json(z.any(), 'Already queued (same client_message_id)'),
       202: json(z.any(), 'Prompt queued'),
-      ...errors(400, 402, 404, 409),
+      ...errors(400, 402, 403, 404, 409, 503),
     },
   }),
   async (c: any) => {
@@ -571,6 +579,26 @@ projectsApp.openapi(
     // agent and every one after it as any other agent in the manifest. Falls
     // back to the session's own agent when the prompt names none.
     await resolveAndAuthorizeAgent(c, loaded, projectId, overrides.agent, visible.row.agentName);
+
+    // Refuse before enqueueing: callers must see the actionable connector
+    // contract rather than a queue that looks like an active model turn.
+    try {
+      const refusal = promptConnectorRefusalBody(
+        await missingPromptConnectorConnections({
+          accountId: loaded.row.accountId,
+          projectId,
+          sessionId,
+          sessionAgent: visible.row.agentName ?? DEFAULT_AGENT_SENTINEL,
+          requestedAgent: overrides.agent,
+        }),
+      );
+      if (refusal) return c.json(refusal, 409);
+    } catch (error) {
+      if (error instanceof PromptConnectorPreflightUnresolved) {
+        return c.json({ error: error.message, code: 'CONNECTOR_REQUIREMENTS_UNRESOLVED' }, 503);
+      }
+      throw error;
+    }
 
     // Same gate as start/wake: a prompt spends compute.
     const billing = await checkBillingActive(loaded.row.accountId);
@@ -1030,15 +1058,13 @@ projectsApp.openapi(
     const description = normalizeString(body.description) ?? '';
     const headRef = normalizeString(body.head_ref ?? body.headRef);
     if (!headRef) return c.json({ error: 'head_ref is required' }, 400);
-    const baseRef = normalizeString(body.base_ref ?? body.baseRef) ?? loaded.row.defaultBranch;
-    if (baseRef === headRef) {
-      return c.json({ error: 'head_ref and base_ref must differ' }, 400);
-    }
-
+    // The session must be resolved BEFORE the base, because a session's own
+    // base is what the change request targets.
     let originSessionId: string | null = normalizeString(body.session_id ?? body.sessionId);
+    let sessionBaseRef: string | null = null;
     if (originSessionId) {
       const [sessionRow] = await db
-        .select({ sessionId: projectSessions.sessionId })
+        .select({ sessionId: projectSessions.sessionId, baseRef: projectSessions.baseRef })
         .from(projectSessions)
         .where(
           and(
@@ -1048,6 +1074,21 @@ projectsApp.openapi(
         )
         .limit(1);
       if (!sessionRow) originSessionId = null;
+      else sessionBaseRef = normalizeString(sessionRow.baseRef);
+    }
+
+    const baseDecision = resolveChangeRequestBase({
+      requested: normalizeString(body.base_ref ?? body.baseRef),
+      sessionBase: sessionBaseRef,
+      projectDefault: loaded.row.defaultBranch,
+      actorIsSession: isProjectSessionPrincipal(c),
+    });
+    if (!baseDecision.ok) {
+      return c.json({ error: baseDecision.error, code: baseDecision.code }, 400);
+    }
+    const baseRef = baseDecision.baseRef;
+    if (baseRef === headRef) {
+      return c.json({ error: 'head_ref and base_ref must differ' }, 400);
     }
 
     // Resolve current tips so the CR has anchored SHAs from the start, and

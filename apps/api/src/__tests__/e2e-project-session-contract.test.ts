@@ -320,14 +320,6 @@ mock.module('../snapshots/builder', () => ({
     built: false,
     isDefault: true,
   }),
-  ensureFastSandboxImage: async () => ({
-    snapshotName: 'kortix-fast-test',
-    slug: 'default',
-    contentHash: 'f'.repeat(64),
-    built: false,
-    isDefault: true,
-    runtimeProfile: 'fast',
-  }),
   ensureMetaSandboxImage: async () => ({
     snapshotName: 'kortix-meta-test',
     slug: 'meta',
@@ -643,7 +635,17 @@ mock.module('../shared/db', () => ({
               // asserting on the response alone would pass even if the filter
               // were never applied.
               lastSessionListWhere = predicate ?? null;
-              return Promise.resolve(sessionRow ? [sessionRow] : []);
+              const rows = sessionRow ? [sessionRow] : [];
+              // Thenable AND `.limit()`-able: the session list reads a bounded
+              // keyset PAGE (`.where().orderBy().limit()`), while other callers
+              // still await the ordered read directly.
+              return {
+                limit: async () => rows,
+                then: (
+                  resolve: (value: unknown[]) => unknown,
+                  reject?: (reason: unknown) => unknown,
+                ) => Promise.resolve(rows).then(resolve, reject),
+              };
             }
             return Promise.resolve([]);
           },
@@ -1009,6 +1011,19 @@ mock.module('../shared/db', () => ({
         }),
       }),
     }),
+  },
+}));
+
+// Session delete releases prompt attachment references. The contract DB mock
+// does not model those tables; the release SQL is covered by
+// integration-prompt-attachments.test.ts.
+const releasedAttachmentSessions: string[] = [];
+const realPromptAttachments = await import('../projects/prompt-attachments');
+mock.module('../projects/prompt-attachments', () => ({
+  ...realPromptAttachments,
+  releasePromptAttachmentsForSession: async (input: { sessionId: string }) => {
+    releasedAttachmentSessions.push(input.sessionId);
+    return 0;
   },
 }));
 
@@ -1866,7 +1881,7 @@ describe('project session API contract', () => {
   });
 
   test('runtime workspaces deny repository metadata and clone credentials to both session tokens', async () => {
-    sessionRow!.metadata = { workspace_mode: 'runtime' };
+    sessionRow!.metadata = { repository_access: false };
     sessionSandboxRows = [
       {
         sandboxId: SESSION_ID,
@@ -2284,6 +2299,10 @@ describe('project session API contract', () => {
       {
         body: { metadata: { workspace_mode: 'branch' } },
         message: 'metadata key is server-managed: workspace_mode',
+      },
+      {
+        body: { metadata: { repository_access: true } },
+        message: 'metadata key is server-managed: repository_access',
       },
       {
         body: { metadata: { sandbox_slug: 'default' } },
@@ -3937,7 +3956,7 @@ describe('project session API contract', () => {
     expect(drainClaim.params).toContain(`prompt:${SESSION_ID}:pending-first`);
   });
 
-  test('a pending prompt with data-URL file parts rides the row; an empty one makes no row', async () => {
+  test('a pending prompt with a staged ZIP rides the durable row; an empty one makes no row', async () => {
     const app = createApp();
     const withParts = await app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
       method: 'POST',
@@ -3945,14 +3964,14 @@ describe('project session API contract', () => {
       body: JSON.stringify({
         provider: 'daytona',
         pending_prompt: {
-          text: 'Look at this screenshot.',
+          text: 'Inspect the bundle.',
           parts: [
-            { type: 'text', text: 'Look at this screenshot.' },
+            { type: 'text', text: 'Inspect the bundle.' },
             {
               type: 'file',
-              mime: 'image/png',
-              url: 'data:image/png;base64,AAAA',
-              filename: 'shot.png',
+              mime: 'application/zip',
+              url: 'data:application/zip;base64,UEsDBA==',
+              filename: 'bundle.zip',
             },
           ],
         },
@@ -3961,8 +3980,13 @@ describe('project session API contract', () => {
     expect(withParts.status).toBe(201);
     expect(lifecycleCommandInserts.length).toBe(1);
     expect((lifecycleCommandInserts[0] as any).payload.parts).toEqual([
-      { type: 'text', text: 'Look at this screenshot.' },
-      { type: 'file', mime: 'image/png', url: 'data:image/png;base64,AAAA', filename: 'shot.png' },
+      { type: 'text', text: 'Inspect the bundle.' },
+      {
+        type: 'file',
+        mime: 'application/zip',
+        filename: 'bundle.zip',
+        url: 'data:application/zip;base64,UEsDBA==',
+      },
     ]);
 
     lifecycleCommandInserts.length = 0;
@@ -3979,6 +4003,34 @@ describe('project session API contract', () => {
     });
     expect(blank.status).toBe(201);
     expect(lifecycleCommandInserts.length).toBe(0);
+  });
+
+  test('session create rejects a remote ZIP pending prompt', async () => {
+    const app = createApp();
+    const response = await app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'daytona',
+        pending_prompt: {
+          text: 'Inspect the bundle.',
+          parts: [
+            { type: 'text', text: 'Inspect the bundle.' },
+            {
+              type: 'file',
+              mime: 'application/zip',
+              filename: 'bundle.zip',
+              url: 'https://files.example.test/bundle.zip',
+            },
+          ],
+        },
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'pending_prompt: file "bundle.zip" must be uploaded before it can be sent',
+    });
   });
 
   test('allows only user-owned PATCH fields', async () => {
@@ -4341,6 +4393,7 @@ describe('project session API contract', () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(sessionRow?.status).toBe('stopped');
     expect(sessionRow?.branchName).toBe(SESSION_ID);
+    expect(releasedAttachmentSessions).toContain(SESSION_ID);
 
     sessionRow = null;
     const missing = await app.request(`/v1/projects/${PROJECT_ID}/sessions/${SESSION_ID}`, {

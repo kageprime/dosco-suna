@@ -9,10 +9,19 @@ export const PREVIEW_RUNTIME_SECRET_ALLOWLIST = [
   'MANAGED_GIT_GITHUB_OWNER',
   'MANAGED_GIT_GITHUB_TOKEN',
   'OPENROUTER_API_KEY',
+  'PLATINUM_API_KEY',
 ] as const;
 
 export type PreviewRuntimeSecretName = (typeof PREVIEW_RUNTIME_SECRET_ALLOWLIST)[number];
 export type PreviewRuntimeSecrets = Partial<Record<PreviewRuntimeSecretName, string>>;
+
+export function readPreviewRuntimeSecrets(
+  environment: Readonly<Record<string, string | undefined>>,
+): PreviewRuntimeSecrets {
+  return Object.fromEntries(
+    PREVIEW_RUNTIME_SECRET_ALLOWLIST.map((key) => [key, environment[key]?.trim() ?? '']),
+  );
+}
 
 export interface PreviewStackInput {
   origin: string;
@@ -20,6 +29,8 @@ export interface PreviewStackInput {
   apiImage: string;
   gatewayImage: string;
   frontendImage: string;
+  /** Platinum API base URL, offered as a second session provider when PLATINUM_API_KEY is present. */
+  platinumApiUrl?: string;
 }
 
 function validatedOrigin(value: string): string {
@@ -70,7 +81,28 @@ export function validatePreviewRuntimeSecrets(
 }
 
 export function buildPreviewCaddyfile(publicHost: string): string {
-  return `:8080 {
+  // Ride out a redeploy instead of 502ing through it.
+  //
+  // A branch environment is REUSED in place: \`compose up -d\` recreates
+  // \`frontend\` and \`kortix-api\` while \`preview-edge\` keeps running. For the
+  // ~10-30s that takes, Caddy's dial to the upstream is refused and every
+  // request — the browser's own document included — answers 502. Observed on
+  // the pi-worker branch environment repeatedly: the edge started 19:08:58, the app containers
+  // were recreated at 22:12:45, and the 502 screenshot is stamped 22:12:52.
+  //
+  // \`lb_try_duration\` makes Caddy hold the request and re-dial until the new
+  // container listens, so a deploy costs latency rather than an error page. It
+  // retries CONNECTION failures only — a 502 the app itself returns is passed
+  // straight through, so this cannot mask a real upstream fault.
+  //
+  // A snippet is a TOP-LEVEL form: declaring it inside the site block fails the
+  // adapter with \`File to import not found: swap_tolerant\`.
+  return `(swap_tolerant) {
+  lb_try_duration 30s
+  lb_try_interval 250ms
+}
+
+:8080 {
   encode zstd gzip
 
   # A deployed environment gives the API a host of its own, so EVERY path it
@@ -80,16 +112,22 @@ export function buildPreviewCaddyfile(publicHost: string): string {
   # with the non-\`/v1\` mounts in \`apps/api/src/index.ts\`.
   @api path /v1* /health /health/* /metrics /scim/v2/* /internal/* /.well-known/oauth-authorization-server
   handle @api {
-    reverse_proxy kortix-api:8008
+    reverse_proxy kortix-api:8008 {
+      import swap_tolerant
+    }
   }
 
   @supabase path /auth/v1* /rest/v1* /storage/v1* /realtime/v1* /functions/v1* /graphql/v1*
   handle @supabase {
-    reverse_proxy supabase-kong:8000
+    reverse_proxy supabase-kong:8000 {
+      import swap_tolerant
+    }
   }
 
   handle_path /_gateway/* {
-    reverse_proxy llm-gateway:8090
+    reverse_proxy llm-gateway:8090 {
+      import swap_tolerant
+    }
   }
 
   handle_path /_tests/* {
@@ -98,7 +136,18 @@ export function buildPreviewCaddyfile(publicHost: string): string {
   }
 
   handle_path /_mailpit/* {
-    reverse_proxy mailpit:8025
+    reverse_proxy mailpit:8025 {
+      import swap_tolerant
+    }
+  }
+
+  # Only reached when the retry budget above is exhausted — i.e. the upstream is
+  # really gone, not merely restarting. A plain page beats the provider's raw
+  # 502, and \`Retry-After\` tells a client this is transient.
+  handle_errors {
+    header Retry-After 15
+    header Cache-Control "no-store"
+    respond "Deploying. This environment is restarting - retry in a few seconds." {http.error.status_code}
   }
 
   handle {
@@ -112,6 +161,7 @@ export function buildPreviewCaddyfile(publicHost: string): string {
       # host so the guard compares like with like.
       header_up X-Forwarded-Host ${publicHost}
       header_up X-Forwarded-Proto https
+      import swap_tolerant
     }
   }
 }
@@ -159,6 +209,28 @@ export function buildPreviewComposeOverlay(
   supabase-db:
     ports:
       - "127.0.0.1:15432:5432"
+  # The git mirror must outlive the container.
+  #
+  # \`cacheRoot()\` (apps/api/src/projects/git/mirror.ts) is
+  # \`/tmp/kortix/git-cache\`, and kortix-api runs with NO volumes — so every
+  # redeploy recreates the container and deletes every project's mirror. On a
+  # deployment whose managed repos exist on GitHub that is only a slow re-clone.
+  # On a PREVIEW it is data loss: the preview's GitHub App cannot create repos
+  # (403 \`Resource not accessible by integration\`), so a seeded project's
+  # history lives ONLY in that cache. Losing it leaves the project unopenable —
+  # \`POST /sessions\` answers 500 \`could not read Username for
+  # 'https://github.com'\` because the re-clone has no upstream to clone from.
+  #
+  # Measured on the pi-worker branch environment 2026-09-01: container restarted 10:14:06, and
+  # every session create for the branch's own test project failed from 10:12
+  # onward with that exact error; \`ls /tmp/kortix/git-cache\` -> no such
+  # directory, and the managed org held none of the preview's repos.
+  kortix-api:
+    volumes:
+      - "kortix-git-cache:/tmp/kortix"
+
+volumes:
+  kortix-git-cache:
 `;
 }
 
@@ -168,7 +240,8 @@ export function applyPreviewEnvironment(
   rawSecrets: Record<string, string>,
 ): { runtimeEnv: string; testEnv: string } {
   validatePreviewRuntimeSecrets(rawSecrets);
-  if (!/^[0-9a-f]{40}$/.test(input.sha)) throw new Error('preview SHA must contain 40 hex characters');
+  if (!/^[0-9a-f]{40}$/.test(input.sha))
+    throw new Error('preview SHA must contain 40 hex characters');
   const origin = validatedOrigin(input.origin);
   const runtime = parseEnvironment(baseEnvironmentText);
   const postgresPassword = runtime.POSTGRES_PASSWORD;
@@ -209,6 +282,8 @@ export function applyPreviewEnvironment(
     API_IMAGE: input.apiImage,
     GATEWAY_IMAGE: input.gatewayImage,
     FRONTEND_IMAGE: input.frontendImage,
+    // The full browser suite exhausted V8's heap under the 512 MiB self-host default.
+    KORTIX_FRONTEND_MEMORY_LIMIT: '2048m',
     KORTIX_VERSION: `pr-${input.sha}`,
     KORTIX_COMMIT: input.sha,
     INTERNAL_KORTIX_ENV: 'preview',
@@ -216,6 +291,9 @@ export function applyPreviewEnvironment(
     PUBLIC_URL: origin,
     API_PUBLIC_URL: origin,
     SUPABASE_PUBLIC_URL: origin,
+    // The preview edge drops request bodies above ~124 KiB, and browser Storage
+    // uploads cross the same origin. Attachments use bounded API chunks here.
+    PROMPT_ATTACHMENT_UPLOAD_MODE: 'chunked',
     KORTIX_URL: origin,
     FRONTEND_URL: origin,
     SITE_URL: origin,
@@ -224,7 +302,7 @@ export function applyPreviewEnvironment(
     CORS_ALLOWED_ORIGINS: origin,
     KORTIX_PUBLIC_APP_URL: origin,
     KORTIX_PUBLIC_AUTH_METHODS: 'magic,password',
-    KORTIX_PUBLIC_DISABLE_LANDING_PAGE: 'true',
+    KORTIX_PUBLIC_DISABLE_LANDING_PAGE: 'false',
     KORTIX_RESTRICT_ACCOUNT_CREATION: 'false',
     KORTIX_PUBLIC_RESTRICT_ACCOUNT_CREATION: 'false',
     // Billing ON, with the Stripe SANDBOX (test-mode) keys below — the same
@@ -245,7 +323,17 @@ export function applyPreviewEnvironment(
     SMTP_USER: 'unused',
     SMTP_PASS: 'unused',
     ENABLE_EMAIL_AUTOCONFIRM: 'false',
-    ALLOWED_SANDBOX_PROVIDERS: 'daytona',
+    // Daytona stays FIRST: the API takes the first allowed provider for an
+    // unpinned session, so the preview gate's behaviour does not change.
+    // Platinum is offered when its key is present so a session can be pinned
+    // to it ({"provider":"platinum"} on create) for provider-parity checks.
+    ALLOWED_SANDBOX_PROVIDERS: rawSecrets.PLATINUM_API_KEY ? 'daytona,platinum' : 'daytona',
+    ...(rawSecrets.PLATINUM_API_KEY
+      ? {
+          PLATINUM_API_URL: input.platinumApiUrl?.trim() || 'https://api.platinum.dev',
+          PLATINUM_API_KEY: rawSecrets.PLATINUM_API_KEY,
+        }
+      : {}),
     DATABASE_URL: `postgresql://postgres:${postgresPassword}@supabase-db:5432/postgres`,
     DAYTONA_API_KEY: rawSecrets.DAYTONA_API_KEY ?? '',
     MANAGED_GIT_PROVIDER: 'github',
@@ -276,6 +364,7 @@ export function applyPreviewEnvironment(
     KE2E_SUPABASE_URL: origin,
     E2E_SUPABASE_URL: origin,
     E2E_MAILPIT_URL: `${origin}/_mailpit`,
+    E2E_APPS_BASE_DOMAIN: runtime.KORTIX_APPS_BASE_DOMAIN || `apps.${new URL(origin).hostname.split('.').slice(1).join('.')}`,
     KE2E_DATABASE_URL: `postgresql://postgres:${postgresPassword}@127.0.0.1:15432/postgres`,
     E2E_DATABASE_URL: `postgresql://postgres:${postgresPassword}@127.0.0.1:15432/postgres`,
     KE2E_SUPABASE_ANON_KEY: anonKey,

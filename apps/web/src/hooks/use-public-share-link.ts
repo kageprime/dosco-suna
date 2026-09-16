@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/i18n/use-translations';
 /**
  * Mint a public share for a session resource and copy its link.
  *
@@ -19,10 +20,9 @@
 import {
   type CreateSessionPublicShareInput,
   createSessionPublicShare,
-  listProjectSessions,
 } from '@kortix/sdk';
-import { contract, qk } from '@kortix/sdk/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useProjectSession } from '@kortix/sdk/react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { errorToast, successToast } from '@/components/ui/toast';
@@ -36,6 +36,7 @@ export interface PublicShareLinkTarget {
 }
 
 export function usePublicShareLink({ projectId, sessionId, input }: PublicShareLinkTarget) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const queryClient = useQueryClient();
   // Minting a public link is the session OWNER's call — the link is
   // unauthenticated, so a project manager who cannot read the session must not
@@ -44,14 +45,14 @@ export function usePublicShareLink({ projectId, sessionId, input }: PublicShareL
   // control that can only fail. Only an explicit `false` withholds it: the
   // inventory is not loaded on every surface this hook serves, and an unknown
   // answer must not silently remove a control from the owner.
-  const { data: sessions } = useQuery({
-    queryKey: qk.project.sessions(projectId ?? ''),
-    queryFn: () => listProjectSessions(projectId!),
-    enabled: !!projectId && !!sessionId,
-    ...contract('inventory'),
-  });
-  const canManageSharing =
-    sessions?.find((s) => s.session_id === sessionId)?.can_manage_sharing !== false;
+  // By id, not by scanning the project's session list. The list is a bounded
+  // page now, so a session older than the first page was simply absent from it
+  // and the scan answered `undefined` — which this predicate reads as "not
+  // false", i.e. permitted. It happened to fail OPEN (see above), so the
+  // control stayed visible, but the answer was a coincidence rather than a
+  // verdict. The read-by-id is exact at any age.
+  const { data: session } = useProjectSession(projectId, sessionId);
+  const canManageSharing = session?.can_manage_sharing !== false;
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -86,10 +87,10 @@ export function usePublicShareLink({ projectId, sessionId, input }: PublicShareL
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 2000);
-      successToast('Public link copied');
+      successToast(tI18nComplete.raw('textd0f24de8dbc6'));
     },
     onError: (error) => {
-      errorToast(error instanceof Error ? error.message : 'Could not create public link');
+      errorToast(error instanceof Error ? error.message : tI18nComplete.raw('text6a9dc1a2ccf5'));
     },
   });
 

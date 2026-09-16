@@ -48,6 +48,7 @@ import {
   CONNECTOR_POLICY_ACTIONS,
   CONNECTOR_PROVIDERS,
   ENV_NAME_RE,
+  DEPRECATED_KORTIX_CLI_ALIASES,
   GRANTABLE_KORTIX_CLI_ACTIONS,
   HEX_COLOR_RE_V2,
   LEGACY_SANDBOX_KEYS,
@@ -119,9 +120,14 @@ function grantSetSchema(itemSchema: JsonSchemaFragment = NON_EMPTY_STRING): Json
  * is the live grantable catalog ONLY. Both always accept the `"*"` wildcard.
  */
 function kortixCliEnum(version: 1 | 2): readonly string[] {
+  // The renamed aliases are in BOTH enums: the validator accepts them (they
+  // still resolve), so an editor must not red-squiggle a file that passes
+  // `kortix validate`. They are absent from the grantable catalog, so nothing
+  // presents them as a live choice.
+  const renamed = Object.keys(DEPRECATED_KORTIX_CLI_ALIASES);
   return version === 2
-    ? [...GRANTABLE_KORTIX_CLI_ACTIONS, '*']
-    : [...GRANTABLE_KORTIX_CLI_ACTIONS, ...LEGACY_TOLERATED_KORTIX_CLI_ACTIONS, '*'];
+    ? [...GRANTABLE_KORTIX_CLI_ACTIONS, ...renamed, '*']
+    : [...GRANTABLE_KORTIX_CLI_ACTIONS, ...renamed, ...LEGACY_TOLERATED_KORTIX_CLI_ACTIONS, '*'];
 }
 
 function kortixCliGrantSetSchema(version: 1 | 2): JsonSchemaFragment {
@@ -587,9 +593,14 @@ function agentBlockV2Schema(): JsonSchemaFragment {
       secrets: grantSetSchema(),
       skills: grantSetSchema(),
       kortix_cli: kortixCliGrantSetSchema(2),
-      workspace: { type: 'string', enum: [...WORKSPACE_MODES_V2] },
+      repository_access: { type: 'boolean', description: 'Allow new sessions to access the project repository. Defaults to true.' },
+      workspace: { type: 'string', enum: [...WORKSPACE_MODES_V2], deprecated: true },
     },
     additionalProperties: false,
+    allOf: [
+      { if: { required: ['workspace'], properties: { workspace: { const: 'branch' } } }, then: { properties: { repository_access: { const: true } } } },
+      { if: { required: ['workspace'], properties: { workspace: { enum: ['runtime', 'read'] } } }, then: { properties: { repository_access: { const: false } } } },
+    ],
   };
 }
 
@@ -700,7 +711,7 @@ export function buildManifestV2Schema(): JsonSchemaFragment {
     title: 'Kortix manifest (kortix_version 2)',
     description:
       'kortix.yaml, schema version 2 — YAML-only. `agents` is a name→block MAP, ' +
-      'GOVERNANCE ONLY (connectors/secrets/skills/kortix_cli/workspace/enabled); every agent must ' +
+      'GOVERNANCE ONLY (connectors/secrets/skills/kortix_cli/repository_access/enabled); every agent must ' +
       'be declared, and OpenCode behavior (description/model/mode/temperature/permission/the ' +
       'prompt itself) lives entirely in that agent’s own native ' +
       '`.kortix/opencode/agents/<name>.md` frontmatter + body — authoring any of those fields ' +

@@ -27,6 +27,155 @@ import { isLikelyBinary, mimeTypeFor } from '../file-mime'
  */
 
 const DEFAULT_ALLOWED_ROOTS = ['/workspace', '/opt', '/tmp', '/home']
+const MAX_PROMPT_ATTACHMENT_BYTES = 50 * 1024 * 1024
+const IMPORT_TIMEOUT_MS = 120_000
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+type PromptAttachmentImportRequest = {
+  command_id: string
+  attachment_id: string
+  part_index: number
+}
+
+type PromptAttachmentDescriptor = PromptAttachmentImportRequest & {
+  version: 1
+  filename: string
+  mime: string
+  size_bytes: number
+  sha256: string
+  target_path: string
+  download_url: string
+  download_expires_at: string
+}
+
+function parseImportRequest(value: unknown): PromptAttachmentImportRequest | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  if (
+    Object.keys(record).length !== 3 ||
+    !UUID_PATTERN.test(String(record.command_id ?? '')) ||
+    !UUID_PATTERN.test(String(record.attachment_id ?? '')) ||
+    !Number.isSafeInteger(record.part_index) ||
+    (record.part_index as number) < 0
+  ) return null
+  return {
+    command_id: record.command_id as string,
+    attachment_id: record.attachment_id as string,
+    part_index: record.part_index as number,
+  }
+}
+
+function configuredApiUrl(raw: string): URL {
+  const url = new URL(raw)
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash) {
+    throw new Error('invalid API configuration')
+  }
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}${url.pathname.replace(/\/+$/, '').endsWith('/v1') ? '' : '/v1'}`
+  url.search = ''
+  return url
+}
+
+function parseDescriptor(
+  value: unknown,
+  request: PromptAttachmentImportRequest,
+  workspace: string,
+  apiProtocol: string,
+): PromptAttachmentDescriptor | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
+  if (
+    row.version !== 1 ||
+    row.command_id !== request.command_id ||
+    row.attachment_id !== request.attachment_id ||
+    row.part_index !== request.part_index ||
+    typeof row.filename !== 'string' || !row.filename ||
+    typeof row.mime !== 'string' || !row.mime ||
+    !Number.isSafeInteger(row.size_bytes) ||
+    (row.size_bytes as number) <= 0 ||
+    (row.size_bytes as number) > MAX_PROMPT_ATTACHMENT_BYTES ||
+    typeof row.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(row.sha256) ||
+    typeof row.target_path !== 'string' ||
+    typeof row.download_url !== 'string' ||
+    typeof row.download_expires_at !== 'string' ||
+    !Number.isFinite(Date.parse(row.download_expires_at)) ||
+    Date.parse(row.download_expires_at) <= Date.now()
+  ) return null
+
+  const commandRoot = path.resolve(workspace, 'uploads', '.kortix-inbox', request.command_id)
+  const target = path.resolve(row.target_path)
+  if (
+    target !== row.target_path ||
+    path.dirname(target) !== commandRoot ||
+    !path.basename(target).startsWith(`${request.part_index}-`)
+  ) return null
+
+  let download: URL
+  try {
+    download = new URL(row.download_url)
+  } catch {
+    return null
+  }
+  if (
+    download.username ||
+    download.password ||
+    download.hash ||
+    !['http:', 'https:'].includes(download.protocol) ||
+    (download.protocol === 'http:' && apiProtocol !== 'http:')
+  ) return null
+  return row as PromptAttachmentDescriptor
+}
+
+/**
+ * Refuse an inbox directory whose EXISTING components resolve outside the
+ * workspace. `mkdir -p` follows a symlinked component, so without this check it
+ * creates directories outside the workspace before the post-create realpath
+ * check rejects the target. A missing component ends the walk: everything below
+ * it is created inside a directory this walk verified.
+ */
+async function assertInboxContained(workspace: string, commandId: string): Promise<void> {
+  let lexical = path.resolve(workspace)
+  let expected = await fs.realpath(lexical)
+  for (const segment of ['uploads', '.kortix-inbox', commandId]) {
+    lexical = path.join(lexical, segment)
+    expected = path.join(expected, segment)
+    let real: string
+    try {
+      real = await fs.realpath(lexical)
+    } catch (error) {
+      // A dangling symlink also reports ENOENT; only an absent entry may be created.
+      const absent =
+        (error as NodeJS.ErrnoException).code === 'ENOENT' &&
+        !(await fs.lstat(lexical).then(() => true, () => false))
+      if (absent) return
+      throw new Error('attachment target escapes workspace')
+    }
+    if (real !== expected) throw new Error('attachment target escapes workspace')
+  }
+}
+
+async function verifiedFileDigest(filePath: string, expectedSize: number): Promise<string | null> {
+  let handle: fs.FileHandle | undefined
+  try {
+    handle = await fs.open(filePath, 'r')
+    const stat = await handle.stat()
+    if (!stat.isFile() || stat.size !== expectedSize) return null
+    const hash = crypto.createHash('sha256')
+    const buffer = Buffer.allocUnsafe(64 * 1024)
+    let offset = 0
+    while (offset < stat.size) {
+      const read = await handle.read(buffer, 0, Math.min(buffer.length, stat.size - offset), offset)
+      if (read.bytesRead === 0) return null
+      hash.update(buffer.subarray(0, read.bytesRead))
+      offset += read.bytesRead
+    }
+    return hash.digest('hex')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  } finally {
+    await handle?.close()
+  }
+}
 
 async function readFileSnapshot(filePath: string): Promise<{ data: Buffer; size: number }> {
   const handle = await fs.open(filePath, 'r')
@@ -388,6 +537,146 @@ export function createFilesRouter(cfg: Config): Hono {
     }
   })
 
+  /**
+   * Import one persisted prompt attachment without accepting a network target,
+   * destination, header, or integrity value from the proxy caller.
+   */
+  app.post('/import', async (c) => {
+    let request: PromptAttachmentImportRequest | null = null
+    try {
+      request = parseImportRequest(await c.req.json())
+    } catch {
+      // The response below deliberately does not echo the body.
+    }
+    if (!request) return c.json({ error: 'Invalid attachment import request' }, 400)
+    if (!cfg.apiUrl || !cfg.projectId || !cfg.sandboxToken) {
+      return c.json({ error: 'Attachment import is not configured' }, 503)
+    }
+
+    let temporaryPath: string | undefined
+    let downloadBody: NonNullable<Response['body']> | undefined
+    let downloadReader: ReturnType<NonNullable<Response['body']>['getReader']> | undefined
+    let importComplete = false
+    const operation = new AbortController()
+    const signal = AbortSignal.any([operation.signal, AbortSignal.timeout(IMPORT_TIMEOUT_MS)])
+    try {
+      const api = configuredApiUrl(cfg.apiUrl)
+      const descriptorUrl = new URL(api)
+      descriptorUrl.pathname = `${api.pathname}/projects/${encodeURIComponent(cfg.projectId)}/runtime/prompt-attachments/${encodeURIComponent(request.attachment_id)}`
+      descriptorUrl.searchParams.set('command_id', request.command_id)
+      descriptorUrl.searchParams.set('part_index', String(request.part_index))
+      const descriptorResponse = await fetch(descriptorUrl, {
+        headers: { Authorization: `Bearer ${cfg.sandboxToken}` },
+        redirect: 'error',
+        signal,
+      })
+      if (!descriptorResponse.ok) throw new Error('descriptor request failed')
+      const descriptor = parseDescriptor(
+        await descriptorResponse.json().catch(() => null),
+        request,
+        workspace,
+        api.protocol,
+      )
+      if (!descriptor) throw new Error('descriptor validation failed')
+      // Before the digest read and before any mkdir: both follow symlinks.
+      await assertInboxContained(workspace, request.command_id)
+
+      if ((await verifiedFileDigest(descriptor.target_path, descriptor.size_bytes)) === descriptor.sha256) {
+        importComplete = true
+        return c.json({
+          path: descriptor.target_path,
+          size: descriptor.size_bytes,
+          sha256: descriptor.sha256,
+        })
+      }
+
+      const downloadResponse = await fetch(descriptor.download_url, {
+        redirect: 'error',
+        signal,
+      })
+      if (!downloadResponse.ok || !downloadResponse.body) throw new Error('download failed')
+      downloadBody = downloadResponse.body
+      const declaredLength = downloadResponse.headers.get('content-length')
+      if (
+        declaredLength !== null &&
+        (!/^\d+$/.test(declaredLength) || Number(declaredLength) > descriptor.size_bytes)
+      ) throw new Error('download size invalid')
+
+      const parent = path.dirname(descriptor.target_path)
+      await fs.mkdir(parent, { recursive: true })
+      const [realWorkspace, realParent] = await Promise.all([fs.realpath(workspace), fs.realpath(parent)])
+      const expectedParent = path.join(
+        realWorkspace,
+        'uploads',
+        '.kortix-inbox',
+        request.command_id,
+      )
+      if (realParent !== expectedParent) throw new Error('attachment target escapes workspace')
+
+      temporaryPath = path.join(parent, `.kortix-import-${crypto.randomUUID()}`)
+      const handle = await fs.open(temporaryPath, 'wx', 0o600)
+      let received = 0
+      const hash = crypto.createHash('sha256')
+      const reader = downloadBody.getReader()
+      downloadReader = reader
+      try {
+        for (;;) {
+          const chunk = await reader.read()
+          if (chunk.done) break
+          received += chunk.value.byteLength
+          if (received > descriptor.size_bytes) {
+            await reader.cancel()
+            throw new Error('download exceeds expected size')
+          }
+          hash.update(chunk.value)
+          let written = 0
+          while (written < chunk.value.byteLength) {
+            const result = await handle.write(
+              chunk.value,
+              written,
+              chunk.value.byteLength - written,
+            )
+            if (result.bytesWritten <= 0) throw new Error('attachment write made no progress')
+            written += result.bytesWritten
+          }
+        }
+        if (received !== descriptor.size_bytes || hash.digest('hex') !== descriptor.sha256) {
+          throw new Error('download integrity check failed')
+        }
+        await handle.sync()
+      } finally {
+        reader.releaseLock()
+        downloadReader = undefined
+        await handle.close()
+      }
+
+      await fs.rename(temporaryPath, descriptor.target_path)
+      temporaryPath = undefined
+      importComplete = true
+      return c.json({
+        path: descriptor.target_path,
+        size: descriptor.size_bytes,
+        sha256: descriptor.sha256,
+      })
+    } catch (error) {
+      if (temporaryPath) await fs.rm(temporaryPath, { force: true }).catch(() => {})
+      logger.warn('[files] attachment import failed', {
+        command_id: request.command_id,
+        attachment_id: request.attachment_id,
+        reason: error instanceof DOMException && error.name === 'TimeoutError' ? 'timeout' : 'failed',
+      })
+      return c.json({ error: 'Attachment import failed' }, 502)
+    } finally {
+      operation.abort()
+      if (!importComplete && downloadReader) {
+        await downloadReader.cancel().catch(() => {})
+        downloadReader.releaseLock()
+      } else if (!importComplete && downloadBody && !downloadBody.locked) {
+        await downloadBody.cancel().catch(() => {})
+      }
+    }
+  })
+
   // POST /file/upload — upload one or more files via multipart form data.
   //
   // Two client conventions are supported (see apps/web opencode-files.ts):
@@ -461,6 +750,85 @@ export function createFilesRouter(cfg: Config): Hono {
     if (!results.length) return c.json({ error: 'No files found in request body' }, 400)
     logger.info('[files] uploaded', { count: results.length, paths: results.map((r) => r.path) })
     return c.json(results)
+  })
+
+  /**
+   * POST /file/append — write ONE bounded chunk of a larger file.
+   *
+   * `/file/upload` carries a whole file in one request body, and the sandbox
+   * provider's edge discards a body over its size ceiling — measured
+   * 2026-09-04 against a live box: ~104 KB arrives, ~115 KB is dropped, and
+   * the drop is silent (the retry answers 200 for a request that never
+   * reached this process). So a photo or a PDF could not be delivered at all.
+   *
+   * This route is the other half: the caller splits the bytes and sends them
+   * in order. `first=true` CREATES OR TRUNCATES, every later chunk appends.
+   * The response carries the file's CUMULATIVE size, which is what lets the
+   * caller prove the whole file landed rather than trusting a status code.
+   *
+   * Deliberately NOT `writeUploadUnique`: a chunked write has to land on one
+   * known path across many requests, so collision-suffixing would scatter the
+   * chunks across several files. The caller therefore writes to a temporary
+   * name it owns and renames on completion (`/file/rename`).
+   */
+  app.post('/append', async (c) => {
+    let body: Record<string, string | File | (string | File)[]>
+    try {
+      body = (await c.req.parseBody({ all: true })) as typeof body
+    } catch (err) {
+      logger.warn('[files] append parseBody failed', { error: (err as Error).message })
+      return c.json({ error: 'Invalid multipart form data' }, 400)
+    }
+
+    const targetDir = typeof body['path'] === 'string' ? (body['path'] as string) : undefined
+    if (!targetDir) return c.json({ error: 'append requires a target path' }, 400)
+    const name = safeUploadName(typeof body['filename'] === 'string' ? body['filename'] : undefined)
+    if (!name) return c.json({ error: 'append requires a usable filename' }, 400)
+    const first = body['first'] === 'true'
+    const rawOffset = typeof body['offset'] === 'string' ? body['offset'] : undefined
+    const offset = rawOffset === undefined ? undefined : Number(rawOffset)
+    if (offset !== undefined && (!Number.isSafeInteger(offset) || offset < 0)) {
+      return c.json({ error: 'append offset must be a non-negative integer' }, 400)
+    }
+
+    const part = body['file']
+    const file = Array.isArray(part) ? part[0] : part
+    if (!file || typeof file === 'string' || !(file instanceof globalThis.File)) {
+      return c.json({ error: 'append requires a file part' }, 400)
+    }
+
+    try {
+      const dest = resolveUploadDest(targetDir, name)
+      await fs.mkdir(path.dirname(dest), { recursive: true })
+      const chunk = Buffer.from(await file.arrayBuffer())
+      if (!first && offset !== undefined) {
+        const currentSize = await fs.stat(dest).then((stat) => stat.size).catch((err) => {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0
+          throw err
+        })
+        if (currentSize === offset + chunk.byteLength) {
+          logger.info('[files] append replay accepted', { path: dest, offset, total: currentSize })
+          return c.json({ path: dest, size: currentSize })
+        }
+        if (currentSize !== offset) {
+          return c.json(
+            { error: `append offset mismatch: expected ${currentSize}, received ${offset}` },
+            409,
+          )
+        }
+      }
+      // 'w' truncates, 'a' extends. A retried upload starts over with
+      // first=true so it can never append onto a half-written attempt.
+      await fs.writeFile(dest, chunk, { flag: first ? 'w' : 'a' })
+      const stat = await fs.stat(dest)
+      logger.info('[files] appended', { path: dest, chunk: chunk.byteLength, total: stat.size })
+      return c.json({ path: dest, size: stat.size })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const denied = message.startsWith('Access denied')
+      logger.warn('[files] append failed', { error: message })
+      return c.json({ error: message }, denied ? 403 : 500)
+    }
   })
 
   // DELETE /file — recursively delete a file or directory.
@@ -545,5 +913,6 @@ export function createFilesRouter(cfg: Config): Hono {
     return c.json(true)
   })
 
+  app.all('*', (c) => c.json({ error: 'unknown file route' }, 404))
   return app
 }

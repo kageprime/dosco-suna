@@ -10,18 +10,20 @@ import {
   SessionChatInput,
   type SessionChatInputProps,
 } from '@/features/session/session-chat-input';
-import { useRuntimeConfig } from '@kortix/sdk/react';
-import { type ModelKey, useSessionModelSelection } from '@kortix/sdk/react';
+import type { AttachmentSubmission } from './composer/attachment-submission';
 import {
   type Command,
+  type ModelKey,
+  useProjectConfig,
   useRuntimeAgents,
   useRuntimeCommands,
+  useRuntimeConfig,
   useRuntimeProviders,
+  useSessionModelSelection,
 } from '@kortix/sdk/react';
-import { useProjectConfig } from '@kortix/sdk/react';
 import { isMetaAgentName } from '@kortix/shared';
-import type { DraftScope } from './composer/draft/composer-draft';
 import { resolveComposerAgent } from './composer/composer-agent-access';
+import type { DraftScope } from './composer/draft/composer-draft';
 
 export interface ComposerOptions {
   agent?: string;
@@ -64,8 +66,14 @@ export function ComposerChatInput({
   onAgentSelectionChange,
   sandboxSlot,
   draftScope,
+  promptAttachments,
 }: {
-  onSend: (text: string, files: AttachedFile[] | undefined, options: ComposerOptions) => void;
+  onSend: (
+    text: string,
+    files: AttachedFile[] | undefined,
+    options: ComposerOptions,
+    attachments?: AttachmentSubmission,
+  ) => void | Promise<void>;
   onCommand?: (command: Command, args: string | undefined, options: ComposerOptions) => void;
   sessionId?: string;
   projectId?: string;
@@ -107,6 +115,8 @@ export function ComposerChatInput({
   sandboxSlot?: SessionOverrideSlot;
   /** Persist the unsent draft under this scope — see `composer/draft/`. */
   draftScope?: DraftScope | null;
+  /** Host-owned upload controller. See `SessionChatInputProps.promptAttachments`. */
+  promptAttachments?: SessionChatInputProps['promptAttachments'];
 }) {
   const { data: agents } = useRuntimeAgents({ projectId });
   const { data: providers, isLoading: providersLoading } = useRuntimeProviders();
@@ -207,7 +217,10 @@ export function ComposerChatInput({
 
   return (
     <SessionChatInput
-      onSend={(text, files) => onSend(text, files, options())}
+      onSend={(text, files, _mentions, attachments) =>
+        onSend(text, files, options(), attachments)
+      }
+      promptAttachments={promptAttachments}
       onCommand={onCommand ? (cmd, args) => onCommand(cmd, args, options()) : undefined}
       clearOnSend={clearOnSend}
       isBusy={isBusy}

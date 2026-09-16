@@ -3,7 +3,8 @@
 /** Moved from session-chat.tsx (`UserMessageRow`) so the turn module owns the
  *  user-message card. Full-width card, no reference chips. */
 
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '@/i18n/use-translations';
+import { sanitizePromptUploadFilename } from '@kortix/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -40,15 +41,21 @@ import {
   type Command,
   type FilePart,
   type MessageWithParts,
+  type Part,
   type TextPart,
 } from '@/ui';
 import {
-  FILE_TILE_SURFACE,
-  FileTileBody,
+  AttachmentTile,
   TILE_INTERACTIVE,
   TILE_SURFACE,
+  isPreviewableImage,
 } from '../attachment-tile';
 import { MentionChip } from '../mention-chip';
+import {
+  releaseSentAttachmentPreview,
+  sentAttachmentPreview,
+  type SentAttachment,
+} from '../sent-attachment-previews';
 import { buildMentionSegments, type MentionSourceRef } from '../mention-segments';
 import {
   parseAgentMentionReferences,
@@ -62,10 +69,10 @@ import {
   SystemNotificationCard,
 } from '../message-parsing';
 
+import { useProjectSessionHref } from '@/lib/navigation/session-href';
 import { messageCreatedAt } from './message-time';
 import { MessageTimeLabel } from './message-time-label';
 import { PlanCard, useHasPlan } from './plan-card';
-import { useProjectSessionHref } from '@/lib/navigation/session-href';
 
 // ============================================================================
 // Fixed channel brand colors + DCP (dynamic context pruning) notifications —
@@ -310,7 +317,9 @@ function DCPNotificationCard({ notification }: { notification: DCPNotification }
       >
         <Scissors className="text-muted-foreground/70 size-3.5 flex-shrink-0" />
         <span className="text-muted-foreground/70 text-xs font-medium tracking-wider uppercase">
-          {isPrune ? 'Context Pruned' : 'Context Compressed'}
+          {isPrune
+            ? tHardcodedUi.raw('i18nComplete.textec5c2f7304b1')
+            : tHardcodedUi.raw('i18nComplete.text01c88f6e4fdd')}
         </span>
 
         {/* Stats pills */}
@@ -322,21 +331,23 @@ function DCPNotificationCard({ notification }: { notification: DCPNotification }
           )}
           {isPrune && notification.prunedCount > 0 && (
             <Badge variant="warning" size="sm">
-              {notification.prunedCount} pruned
+              {notification.prunedCount} {tHardcodedUi.raw('i18nComplete.text0fedead8d392')}
             </Badge>
           )}
           {!isPrune && notification.messagesCount && notification.messagesCount > 0 && (
             <Badge variant="info" size="sm">
-              {notification.messagesCount} msgs
+              {notification.messagesCount} {tHardcodedUi.raw('i18nComplete.text8dc321b9135e')}
             </Badge>
           )}
           {notification.batchSaved > 0 && (
             <Badge variant="success" size="sm">
-              -{formatDCPTokens(notification.batchSaved)} tokens
+              -{formatDCPTokens(notification.batchSaved)}{' '}
+              {tHardcodedUi.raw('i18nComplete.textc51e455b41df')}
             </Badge>
           )}
           <Badge variant="muted" size="sm">
-            {formatDCPTokens(notification.tokensSaved)} saved
+            {formatDCPTokens(notification.tokensSaved)}{' '}
+            {tHardcodedUi.raw('i18nComplete.textd81c55f49c5b')}
           </Badge>
           {hasDetails && (
             <ChevronDown
@@ -379,7 +390,9 @@ function DCPNotificationCard({ notification }: { notification: DCPNotification }
           {/* Compress topic */}
           {notification.topic && (
             <div className="text-muted-foreground/80 text-xs">
-              <span className="text-muted-foreground/50">Topic:</span>{' '}
+              <span className="text-muted-foreground/50">
+                {tHardcodedUi.raw('i18nComplete.textce46f520653b')}
+              </span>{' '}
               <span>{notification.topic}</span>
             </div>
           )}
@@ -388,7 +401,7 @@ function DCPNotificationCard({ notification }: { notification: DCPNotification }
           {notification.distilled && (
             <div className="border-border/30 mt-1.5 border-t pt-1.5">
               <div className="text-muted-foreground/60 mb-1 text-xs font-medium tracking-wider uppercase">
-                Distilled
+                {tHardcodedUi.raw('i18nComplete.text8e077406440b')}
               </div>
               <div className="text-muted-foreground/80 max-h-32 overflow-y-auto text-xs wrap-break-word whitespace-pre-wrap">
                 {notification.distilled}
@@ -400,7 +413,7 @@ function DCPNotificationCard({ notification }: { notification: DCPNotification }
           {notification.summary && (
             <div className="border-border/30 mt-1.5 border-t pt-1.5">
               <div className="text-muted-foreground/60 mb-1 text-xs font-medium tracking-wider uppercase">
-                Summary
+                {tHardcodedUi.raw('i18nComplete.text8e76a94ac832')}
               </div>
               <div className="text-muted-foreground/80 max-h-32 overflow-y-auto text-xs wrap-break-word whitespace-pre-wrap">
                 {notification.summary}
@@ -433,47 +446,179 @@ export const BUBBLE_SURFACE = cn(
 
 export interface NormalizedAttachment {
   key: string;
+  /** The attachment identity of a file this tab sent — see `sent-attachment-previews.ts`. */
+  id?: string;
   filename: string;
   mime?: string;
   src?: string;
   path?: string;
-  /** The bytes are still on their way to the sandbox. */
-  pending?: boolean;
+}
+
+interface OrderedUploadReference {
+  path: string;
+  mime: string;
+  filename: string;
+  attachment?: string;
+  sourcePartIndex: number;
+}
+
+interface ParsedAttachmentContent {
+  rawText: string;
+  textAfterFiles: string;
+  replyContext: string | null;
+  uploads: OrderedUploadReference[];
 }
 
 /**
- * The attachment strip's input: message file-parts plus parsed upload refs.
+ * Parse visible text parts once while retaining each upload reference's source
+ * part. The source index lets the attachment normalizer merge references and
+ * native file parts without changing their persisted order.
+ */
+function parseAttachmentContent(parts: readonly Part[]): ParsedAttachmentContent {
+  const rawTextParts: string[] = [];
+  const cleanTextParts: string[] = [];
+  const uploads: OrderedUploadReference[] = [];
+  let replyContext: string | null = null;
+
+  parts.forEach((part, sourcePartIndex) => {
+    if (
+      !isTextPart(part) ||
+      !(part as TextPart).text?.trim() ||
+      (part as TextPart).synthetic ||
+      (part as TextPart & { ignored?: boolean }).ignored
+    ) {
+      return;
+    }
+
+    const rawPartText = stripSystemPtyText((part as TextPart).text);
+    rawTextParts.push(rawPartText);
+
+    const parsedReply = replyContext
+      ? { cleanText: rawPartText, replyContext: null }
+      : parseReplyContext(rawPartText);
+    if (parsedReply.replyContext) replyContext = parsedReply.replyContext;
+
+    const parsedFiles = parseFileReferences(parsedReply.cleanText);
+    cleanTextParts.push(parsedFiles.cleanText);
+    uploads.push(
+      ...parsedFiles.files.map((file) => ({
+        ...file,
+        sourcePartIndex,
+      })),
+    );
+  });
+
+  return {
+    rawText: rawTextParts.join('\n'),
+    textAfterFiles: cleanTextParts.join('\n'),
+    replyContext,
+    uploads,
+  };
+}
+
+/**
+ * The attachment strip's input, merged in original message-part order.
  *
- * Uploads are keyed by POSITION first, then by their pending id or path. Keying
- * on the path alone was a duplicate-key generator: an optimistic ref carries no
- * path at all until the daemon answers, and three screenshots pasted in one
- * message are all named `image.png`, so they used to produce three identical
- * `upload:/workspace/uploads/image.png` keys and React collapsed them.
+ * A sent ref is keyed by its attachment identity. Any other upload is keyed by
+ * POSITION first, then its path: three screenshots pasted in one message are
+ * all named `image.png`, and path-only keys made React collapse them.
  *
- * A ref with no path is still in flight, so it renders `pending` — a spinner
- * over its own name — instead of asking the sandbox for a file that does not
- * exist yet.
+ * A user attachment is never pending. A ref with no path is a file the runtime
+ * does not hold yet; it draws its sent picture or its name, never a spinner.
  */
 export function normalizeAttachments(
-  parts: FilePart[],
-  uploads: ReadonlyArray<{ path: string; mime: string; filename: string; pending?: string }>,
+  parts: readonly Part[],
+  uploads: ReadonlyArray<{
+    path: string;
+    mime: string;
+    filename: string;
+    attachment?: string;
+    sourcePartIndex?: number;
+  }>,
 ): NormalizedAttachment[] {
-  return [
-    ...parts.map((file) => ({
-      key: file.id,
-      filename: file.filename || 'File',
-      mime: file.mime,
-      src: file.url,
-    })),
-    ...uploads.map((file, index) => ({
-      key: `upload:${index}:${file.pending ?? file.path}`,
+  const normalized: NormalizedAttachment[] = [];
+  const uploadsByPart = new Map<number, Array<{ file: (typeof uploads)[number]; index: number }>>();
+  const unpositionedUploads: Array<{ file: (typeof uploads)[number]; index: number }> = [];
+
+  uploads.forEach((file, index) => {
+    if (file.sourcePartIndex === undefined) {
+      unpositionedUploads.push({ file, index });
+      return;
+    }
+    const references = uploadsByPart.get(file.sourcePartIndex) ?? [];
+    references.push({ file, index });
+    uploadsByPart.set(file.sourcePartIndex, references);
+  });
+
+  const addUpload = (file: (typeof uploads)[number], index: number) => {
+    normalized.push({
+      key: file.attachment ? `attachment:${file.attachment}` : `upload:${index}:${file.path}`,
+      ...(file.attachment ? { id: file.attachment } : {}),
       filename: file.filename || getFilename(file.path),
       mime: file.mime,
       src: file.path || undefined,
       path: file.path || undefined,
-      pending: Boolean(file.pending) || !file.path,
-    })),
-  ];
+    });
+  };
+
+  parts.forEach((part, sourcePartIndex) => {
+    if (isFilePart(part)) {
+      const file = part as FilePart;
+      normalized.push({
+        key: file.id,
+        filename: file.filename || 'File',
+        mime: file.mime,
+        src: file.url,
+      });
+    }
+    for (const { file, index } of uploadsByPart.get(sourcePartIndex) ?? []) {
+      addUpload(file, index);
+    }
+  });
+
+  for (const { file, index } of unpositionedUploads) addUpload(file, index);
+  return normalized;
+}
+
+/**
+ * The strip of a message this tab sent: its submitted list in send order, each
+ * entry keyed by its attachment identity.
+ *
+ * An entry draws the delivered tile that matches it (same identity, else the
+ * next unclaimed tile with the same filename), or its own tile until that part
+ * renders. The runtime streams the text part before the file parts, so the
+ * strip never shrinks and no tile remounts. Unclaimed delivered tiles follow.
+ * A reload has no submitted list and draws what arrived.
+ */
+export function mergeSentAttachments(
+  arrived: NormalizedAttachment[],
+  sent: ReadonlyArray<SentAttachment> | undefined,
+): NormalizedAttachment[] {
+  if (!sent?.length) return arrived;
+  const unclaimed = [...arrived];
+  const claim = (entry: SentAttachment) => {
+    let index = entry.id ? unclaimed.findIndex((tile) => tile.id === entry.id) : -1;
+    if (index < 0) {
+      // The API stores a sanitized name for an attachment and a trimmed name for an inline part.
+      const names = new Set([
+        entry.filename,
+        entry.filename.trim(),
+        sanitizePromptUploadFilename(entry.filename),
+      ]);
+      index = unclaimed.findIndex((tile) => !tile.id && names.has(tile.filename));
+    }
+    return index < 0 ? undefined : unclaimed.splice(index, 1)[0];
+  };
+  const drawn = sent.map((entry, index): NormalizedAttachment => {
+    const tile = claim(entry);
+    const identity = entry.id
+      ? { key: `attachment:${entry.id}`, id: entry.id }
+      : { key: `sent:${index}:${entry.filename}` };
+    return tile
+      ? { ...tile, ...identity }
+      : { ...identity, filename: entry.filename, mime: entry.mime };
+  });
+  return [...drawn, ...unclaimed];
 }
 
 /**
@@ -510,52 +655,42 @@ export function planAttachmentGrid(
   };
 }
 
-/** True when we can actually paint this attachment rather than name it. */
+/** A picture tile: a previewable image with a delivered source or a sent identity. */
 const isImageAttachment = (file: NormalizedAttachment) =>
-  Boolean(file.mime?.startsWith('image/') && file.src);
+  isPreviewableImage(file.filename, file.mime) && Boolean(file.src || file.id);
 
-// TILE_SURFACE, TILE_INTERACTIVE and FileTileBody (icon top-left, filename
-// two-line-clamped along the bottom) live in `../attachment-tile` — shared
-// with the composer's preview tiles so the two can never drift apart. See
-// that module for why.
+// `AttachmentTile` (name top-left, extension badge bottom-left, or the picture
+// itself) lives in `../attachment-tile` — shared with the composer's preview so
+// the two can never drift apart. See that module for why.
 
 /**
  * An image attachment: a square tile that opens full-size on click.
  *
- * Resolving the src here (rather than handing the path to `SandboxImage`) buys
- * two things: the lightbox gets the same URL the tile is already showing, and
- * the tile is free to be any size — `SandboxImage` pins its loading and error
- * states to an 80px minimum, which is what produced the oversized "Image
- * unavailable" block.
+ * Source order: the picture the composer showed (a file this tab sent, from
+ * the first frame), then the delivered source. The delivered source loads
+ * offscreen, and the tile swaps to it only after `img.decode()` resolves, so it
+ * never passes through a spinner or a name tile. With neither (a reload, bytes
+ * still loading) the tile is the named tile and swaps once when they decode.
  *
- * A tile that cannot resolve falls back to the named treatment. It used to
- * render an empty `<span>`, which is how eleven attachments became eleven blank
- * boxes — the layout looked broken on top of being ugly, and nothing on screen
- * said which picture was missing.
+ * Resolving the src here (rather than handing the path to `SandboxImage`) gives
+ * the lightbox the URL the tile shows, at any tile size.
  */
-function AttachmentImage({
-  file,
-  className,
-  pending,
-}: {
-  file: NormalizedAttachment;
-  className?: string;
-  /** The whole message is still being sent. */
-  pending?: boolean;
-}) {
-  const { resolvedSrc, isLoading } = useSandboxImageSrc(file.src!);
+function AttachmentImage({ file, className }: { file: NormalizedAttachment; className?: string }) {
+  // Read at mount: the cache revokes this URL once the delivered source decodes.
+  const [sentPreview] = useState(() => sentAttachmentPreview(file.id));
+  const { resolvedSrc } = useSandboxImageSrc(file.src ?? '');
+  // With no sent picture on screen, bytes the browser already holds show on the first frame. A
+  // sent picture stays until the delivered source decodes. HEIC may not decode here, so it waits.
+  const decodedSrc = useDecodedImageSrc(resolvedSrc, !sentPreview && !isHeicImage(file));
+  const shownSrc = decodedSrc ?? sentPreview;
 
-  if (!resolvedSrc) {
-    // An image that has not resolved is either still arriving or never will.
-    // Both used to render an empty box; now the first spins and the second
-    // falls back to the named tile, so the tile always says which it is.
-    return (
-      <span title={file.filename} className={className}>
-        <FileTileBody filename={file.filename} pending={pending || isLoading || file.pending} />
-      </span>
-    );
+  useEffect(() => {
+    if (decodedSrc && file.id) releaseSentAttachmentPreview(file.id);
+  }, [decodedSrc, file.id]);
+
+  if (!shownSrc) {
+    return <AttachmentTile filename={file.filename} mime={file.mime} className={className} />;
   }
-
   return (
     <PreviewImage>
       <PreviewImageTrigger asChild>
@@ -563,15 +698,52 @@ function AttachmentImage({
           type="button"
           title={file.filename}
           onClick={(e) => e.stopPropagation()}
-          className={className}
+          className={cn(TILE_SURFACE, TILE_INTERACTIVE, className)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={resolvedSrc} alt={file.filename} className="size-full object-cover" />
+          <AttachmentTile
+            filename={file.filename}
+            mime={file.mime}
+            imageSrc={shownSrc}
+            className="border-0 bg-transparent"
+          />
         </button>
       </PreviewImageTrigger>
-      <PreviewImageContent fileContent={resolvedSrc} fileName={file.filename} fullscreen />
+      <PreviewImageContent fileContent={shownSrc} fileName={file.filename} fullscreen />
     </PreviewImage>
   );
+}
+
+/** Bytes the browser already holds: an inline part or a local object URL. */
+const IN_BROWSER_SOURCE = /^(data|blob):/i;
+
+const isHeicImage = (file: NormalizedAttachment) =>
+  /^image\/hei[cf]\b/i.test(file.mime ?? '') || /\.hei[cf]$/i.test(file.filename);
+
+/**
+ * `src` once it can show without a visible swap. With `showBytesNow`, a `data:` or `blob:`
+ * source shows on the first frame. Any other source decodes offscreen first; until then the
+ * last decoded source, or null.
+ */
+function useDecodedImageSrc(src: string | null, showBytesNow: boolean): string | null {
+  const [decoded, setDecoded] = useState<string | null>(null);
+  const now = showBytesNow && !!src && IN_BROWSER_SOURCE.test(src);
+  useEffect(() => {
+    if (!src || now) return;
+    let cancelled = false;
+    const image = new Image();
+    image.src = src;
+    image.decode().then(
+      () => {
+        if (!cancelled) setDecoded(src);
+      },
+      // Undecodable here (a HEIC echo, a broken file): keep what is on screen.
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [src, now]);
+  return now ? src : decoded;
 }
 
 /**
@@ -586,90 +758,116 @@ function AttachmentImage({
  * Shared attachment strip — used by the real user turn and the optimistic turn
  * so the shell → chat crossfade never swaps card chrome for tile chrome.
  */
+/**
+ * A failed send, the one attachment state the strip says out loud.
+ *
+ * Upload progress lives on the composer tile only. A sent message is a
+ * finished object from its first frame, so the strip has no uploading state.
+ */
+export interface AttachmentUploadStatus {
+  state: 'failed';
+  /** Why it failed, shown verbatim. */
+  message?: string;
+  /** Sends the message again. Present when the host kept a failed send on screen. */
+  onRetry?: () => void;
+}
+
 export function MessageAttachments({
   attachments,
-  pending,
+  status,
 }: {
   attachments: NormalizedAttachment[];
-  /** The whole message is still being sent, so every tile is still uploading. */
-  pending?: boolean;
+  /** A failed send — see {@link AttachmentUploadStatus}. */
+  status?: AttachmentUploadStatus;
 }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tComposerAttachments = useTranslations('hardcodedUi.composerAttachments');
   const openFileInComputer = useKortixComputerStore((s) => s.openFileInComputer);
   const [expanded, setExpanded] = useState(false);
 
   const { visible, hidden } = planAttachmentGrid(attachments, expanded);
-  if (visible.length === 0) return null;
+
+  // A sent message never shows upload chrome: no spinner, no progress, no
+  // status text. A failed send is the one state a tile cannot show, so only it
+  // gets a line: "Couldn't send", then the reason when one is known. A kept
+  // send with no files (a text-only send delivered detached) gets the line too.
+  const failed = status?.state === 'failed' ? status : null;
+  if (visible.length === 0 && !failed) return null;
 
   return (
-    // Fixed 5rem squares that simply wrap, packed against the right rail. No
-    // grid, no column track.
-    //
-    // The cap only reads as deliberate if the rows come out even, and with free
-    // wrapping the row length follows whatever width happens to be available —
-    // at 579px seven fit, so a cap of 8 left one orphan tile stranded on its own
-    // row. `max-w` in the same units as the tile pins it: 4 × 5rem + 3 × 0.5rem
-    // = 21.5rem, so a row is always four and the cap is always two clean rows,
-    // at any root font size.
-    <ul className="flex max-w-[21.5rem] flex-wrap justify-end gap-2">
-      {visible.map((file, index) => {
-        // The LAST visible tile carries the overflow count over its own
-        // contents, so the grid never shows a blank slot — the count is an
-        // overlay, not a placeholder. It opens the rest instead of the file, so
-        // it is a plain button: nesting one inside the preview trigger would be
-        // two buttons deep and invalid.
-        if (hidden > 0 && index === visible.length - 1) {
-          return (
-            <li key={file.key} className="contents">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpanded(true);
-                }}
-                aria-label={`Show ${hidden} more attachment${hidden === 1 ? '' : 's'}`}
-                className={cn(
-                  TILE_SURFACE,
-                  TILE_INTERACTIVE,
-                  'text-muted-foreground flex items-center justify-center text-sm font-medium',
-                )}
-              >
-                +{hidden}
-              </button>
-            </li>
-          );
-        }
+    <div className="flex flex-col items-end gap-1.5">
+      {visible.length > 0 && (
+        <ul className="flex max-w-md flex-wrap justify-end gap-2">
+          {visible.map((file, index) => {
+            // The LAST visible tile carries the overflow count over its own
+            // contents, so the grid never shows a blank slot — the count is an
+            // overlay, not a placeholder. It opens the rest instead of the file, so
+            // it is a plain button: nesting one inside the preview trigger would be
+            // two buttons deep and invalid.
+            if (hidden > 0 && index === visible.length - 1) {
+              return (
+                <li key={file.key} className="contents">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpanded(true);
+                    }}
+                    aria-label={tI18nComplete('textf9c98eec768a', {
+                      value0: hidden,
+                      value1: hidden === 1 ? '' : 's',
+                    })}
+                    className={cn(
+                      TILE_SURFACE,
+                      TILE_INTERACTIVE,
+                      'text-muted-foreground flex items-center justify-center text-sm font-medium',
+                    )}
+                  >
+                    +{hidden}
+                  </button>
+                </li>
+              );
+            }
 
-        if (isImageAttachment(file)) {
-          return (
-            <li key={file.key} className="contents">
-              <AttachmentImage
-                file={file}
-                pending={pending}
-                className={cn(TILE_SURFACE, TILE_INTERACTIVE)}
-              />
-            </li>
-          );
-        }
+            if (isImageAttachment(file)) {
+              return (
+                <li key={file.key} className="contents">
+                  <AttachmentImage file={file} />
+                </li>
+              );
+            }
 
-        const canOpen = Boolean(file.path);
-        return (
-          <li key={file.key} className="contents">
-            <button
-              type="button"
-              disabled={!canOpen}
-              title={file.filename}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (file.path) openFileInComputer(file.path);
-              }}
-              className={cn(FILE_TILE_SURFACE, canOpen && TILE_INTERACTIVE)}
-            >
-              <FileTileBody filename={file.filename} pending={pending || file.pending} />
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+            const canOpen = Boolean(file.path);
+            return (
+              <li key={file.key} className="contents">
+                <AttachmentTile
+                  filename={file.filename}
+                  mime={file.mime}
+                  onOpen={canOpen ? () => openFileInComputer(file.path!) : undefined}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {failed && (
+        // Right-aligned under the strip, on the same rail as the tiles. Muted
+        // text, not a status card: the WORDS carry the failure, so it needs no
+        // colour the palette does not have.
+        <p
+          className="text-muted-foreground max-w-md text-right text-xs leading-tight"
+          role="alert"
+        >
+          {tComposerAttachments('couldNotSend')}
+          {failed.message && <span className="block">{failed.message}</span>}
+        </p>
+      )}
+      {failed?.onRetry && (
+        <Button type="button" variant="ghost" size="xs" onClick={failed.onRetry}>
+          {tI18nComplete('text942087cc2d41')}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -727,6 +925,7 @@ export function UserMessageBubble({
   replyContext?: string | null;
   children?: React.ReactNode;
 }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <div
       className={cn(
@@ -781,7 +980,11 @@ export function UserMessageBubble({
           {canExpand && (
             <button
               type="button"
-              aria-label={expanded ? 'Collapse message' : 'Expand message'}
+              aria-label={
+                expanded
+                  ? tI18nComplete.raw('text8820bd428377')
+                  : tI18nComplete.raw('text737f67f9918f')
+              }
               aria-expanded={expanded}
               aria-controls={textId}
               onClick={(e) => {
@@ -835,9 +1038,7 @@ export function UserMessageActions({
   rewindPromptText,
   onRewind,
   rewindDisabled,
-  leading,
   leadingStatus,
-  alwaysVisible = false,
 }: {
   /** Epoch milliseconds, or `null` when the backend never stamped one. */
   timestamp: number | null;
@@ -850,29 +1051,20 @@ export function UserMessageActions({
   onRewind?: (messageId: string, text: string) => void;
   rewindDisabled?: boolean;
   /**
-   * Rendered FIRST in the fade group: a queued prompt's controls
-   * (`QueuedPromptActions`) — remove, send-now, retry. Same row as copy /
-   * rewind so a pending bubble does not grow a second strip, and so the X
-   * does not reserve a column beside the bubble.
-   */
-  leading?: React.ReactNode;
-  /**
    * Rendered before `leading` and ALWAYS visible — a queued prompt's status
    * word (`QueuedPromptStatus`). The dim is what marks a bubble as queued;
    * the word is what makes the dim legible, so it does not wait for a hover.
    */
   leadingStatus?: React.ReactNode;
-  /** Keep the row visible without hover — a failed send must not be a thing
-   *  the user has to hunt for. */
-  alwaysVisible?: boolean;
 }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   // Copy stays available while the agent is busy / rewind is locked.
   // Only edit-from-here is gated — hiding the whole bar was wrong.
   const canRewind = Boolean(onRewind && messageId && !rewindDisabled);
   const hasMeta = timestamp !== null || Boolean(edited);
 
   // Nothing to say and nothing to do — don't leave an empty row behind.
-  if (!hasMeta && !copyText && !leading && !leadingStatus) return null;
+  if (!hasMeta && !copyText && !leadingStatus) return null;
 
   return (
     // The fade sits on the ROW, so the timestamp and the buttons reveal
@@ -886,30 +1078,27 @@ export function UserMessageActions({
       <div
         className={cn(
           'flex items-center gap-2 transition-opacity duration-150',
-          alwaysVisible
-            ? 'opacity-100'
-            : // `max-md:opacity-100` — the reveal is a DESKTOP affordance only.
-              //
-              // A touch screen has no hover, so under 768px this row would sit
-              // at zero opacity for the whole session: the timestamp, Copy and
-              // Edit-from-here all present, all invisible, all unreachable.
-              // Worse than absent, because the row still holds its height.
-              //
-              // Touch browsers also emulate `:hover` on tap and leave it stuck
-              // on the last-tapped element until you tap elsewhere — so the
-              // pre-fix behavior was not "never shows", it was "one arbitrary
-              // turn's actions stay lit while every other turn's stay hidden".
-              //
-              // Appended rather than folded into the desktop classes on
-              // purpose: the only utility it truly conflicts with is the bare
-              // `opacity-0`, and a variant always sorts after its bare
-              // counterpart. The two `opacity-100` variants it sits beside
-              // agree with it, so no ordering assumption is being made and the
-              // desktop string is unchanged.
-              'opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 max-md:opacity-100',
+          // `max-md:opacity-100` — the reveal is a DESKTOP affordance only.
+          //
+          // A touch screen has no hover, so under 768px this row would sit
+          // at zero opacity for the whole session: the timestamp, Copy and
+          // Edit-from-here all present, all invisible, all unreachable.
+          // Worse than absent, because the row still holds its height.
+          //
+          // Touch browsers also emulate `:hover` on tap and leave it stuck
+          // on the last-tapped element until you tap elsewhere — so the
+          // pre-fix behavior was not "never shows", it was "one arbitrary
+          // turn's actions stay lit while every other turn's stay hidden".
+          //
+          // Appended rather than folded into the desktop classes on
+          // purpose: the only utility it truly conflicts with is the bare
+          // `opacity-0`, and a variant always sorts after its bare
+          // counterpart. The two `opacity-100` variants it sits beside
+          // agree with it, so no ordering assumption is being made and the
+          // desktop string is unchanged.
+          'opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 max-md:opacity-100',
         )}
       >
-        {leading}
         {/* `InlineMeta` owns the `·` separator and drops absent children, so a
           message with no stamp never renders a leading bullet. Skipped
           entirely when there is no meta at all — the optimistic turn would
@@ -923,7 +1112,7 @@ export function UserMessageActions({
         {copyText && (
           <div className="flex shrink-0 items-center gap-0.5">
             {canRewind && (
-              <Hint label="Edit from here" side="top" align="center">
+              <Hint label={tI18nComplete.raw('textc72e5d059e24')} side="top" align="center">
                 <Button
                   type="button"
                   variant="ghost"
@@ -931,7 +1120,7 @@ export function UserMessageActions({
                   // 24px visible, 40px target — grown with a pseudo-element so the
                   // dense action row keeps its rhythm.
                   className="hit-area-2"
-                  aria-label="Edit message and rewind session"
+                  aria-label={tI18nComplete.raw('text673d6a594efa')}
                   onClick={() => onRewind?.(messageId as string, rewindPromptText ?? '')}
                 >
                   <PencilSimpleIcon weight="regular" className="text-foreground size-4" />
@@ -979,6 +1168,7 @@ export function UserMessageEditor({
   onCancel: () => void;
   onSend: (text: string) => void;
 }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const [draft, setDraft] = useState(initialText);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const canSend = Boolean(draft.trim()) && !pending;
@@ -1022,7 +1212,7 @@ export function UserMessageEditor({
             if (canSend) onSend(draft);
           }
         }}
-        aria-label="Edit message"
+        aria-label={tI18nComplete.raw('text9757ccd5ef12')}
         className={cn(
           BUBBLE_TEXT,
           'max-h-[50vh] w-full resize-none overflow-y-auto bg-transparent outline-none',
@@ -1030,7 +1220,7 @@ export function UserMessageEditor({
       />
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="secondary" size="sm" disabled={pending} onClick={onCancel}>
-          Cancel
+          {tI18nComplete.raw('text19766ed6ccb2')}
         </Button>
         <Button
           type="button"
@@ -1039,7 +1229,7 @@ export function UserMessageEditor({
           onClick={() => canSend && onSend(draft)}
         >
           {pending && <Loading variant="spokes" className="size-3.5 shrink-0" />}
-          Send
+          {tI18nComplete.raw('textf6f4688ff23d')}
         </Button>
       </div>
     </div>
@@ -1063,9 +1253,10 @@ export function UserMessage({
   editPending,
   onEditCancel,
   onEditSend,
-  leadingActions,
   leadingStatus,
-  actionsAlwaysVisible = false,
+  pendingAttachments,
+  uploadStatus,
+  pendingText,
 }: {
   message: MessageWithParts;
   agentNames?: string[];
@@ -1096,38 +1287,41 @@ export function UserMessage({
   onEditCancel?: () => void;
   /** Send the edit: stage the rewind at this message and deliver `text`. */
   onEditSend?: (messageId: string, text: string) => void;
-  /** See `UserMessageActions.leading` — a queued prompt's status + controls. */
-  leadingActions?: React.ReactNode;
   /** See `UserMessageActions.leadingStatus`. */
   leadingStatus?: React.ReactNode;
-  /** See `UserMessageActions.alwaysVisible`. */
-  actionsAlwaysVisible?: boolean;
+  /**
+   * The files this message's Send carried, in send order. The runtime streams
+   * a message's parts text-first and the file parts seconds later; these keep
+   * every tile on screen, keyed by identity, until its delivered part renders
+   * (`mergeSentAttachments`).
+   */
+  pendingAttachments?: ReadonlyArray<SentAttachment>;
+  /** A failed accepted send remains visible until retry. */
+  uploadStatus?: AttachmentUploadStatus;
+  /**
+   * The prompt's text as the sender knew it, for the frames where this
+   * message has no text part of its own — the store swaps the optimistic copy
+   * for the runtime's echo and the parts stream back in over ~176 ms. Without
+   * it the bubble blanked for that window (2026-09-06).
+   */
+  pendingText?: string;
 }) {
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const openFileInComputer = useKortixComputerStore((s) => s.openFileInComputer);
   const { attachments, stickyParts } = useMemo(
     () => splitUserParts(message.parts),
     [message.parts],
   );
 
-  // Extract text from sticky parts, parse out <file> and <session_ref> XML references
-  // Filter out both synthetic AND ignored parts from user-visible text
-  const visibleTextParts = stickyParts.filter(
-    (p) =>
-      isTextPart(p) &&
-      (p as TextPart).text?.trim() &&
-      !(p as TextPart).synthetic &&
-      !(p as any).ignored,
-  ) as TextPart[];
-  const rawVisibleText = visibleTextParts.map((p) => p.text).join('\n');
-  const rawText = stripSystemPtyText(rawVisibleText);
-  const { cleanText: textAfterReply, replyContext } = useMemo(
-    () => parseReplyContext(rawText),
-    [rawText],
-  );
-  const { cleanText: textAfterFiles, files: uploadedFiles } = useMemo(
-    () => parseFileReferences(textAfterReply),
-    [textAfterReply],
-  );
+  // Extract visible text and file references in original part order. This must
+  // keep the source part index because a later native file cannot move ahead
+  // of workspace references that appeared in earlier text parts.
+  const {
+    rawText,
+    textAfterFiles,
+    replyContext,
+    uploads: uploadedFiles,
+  } = useMemo(() => parseAttachmentContent(message.parts), [message.parts]);
   const { cleanText: textAfterProjects } = useMemo(
     () => parseProjectReferences(textAfterFiles),
     [textAfterFiles],
@@ -1159,8 +1353,9 @@ export function UserMessage({
   // Both attachment routes, drawn as one strip. `uploadedFiles` used to be
   // parsed and then discarded — see `normalizeAttachments`.
   const allAttachments = useMemo(
-    () => normalizeAttachments(attachments, uploadedFiles),
-    [attachments, uploadedFiles],
+    () =>
+      mergeSentAttachments(normalizeAttachments(message.parts, uploadedFiles), pendingAttachments),
+    [message.parts, uploadedFiles, pendingAttachments],
   );
 
   /**
@@ -1209,7 +1404,9 @@ export function UserMessage({
     ? commandSplit
       ? commandSplit.after
       : (effectiveCommandInfo.args ?? '')
-    : text;
+    : // While this message has no text part of its own (the store is swapping
+      // in the runtime's echo), the sender's copy keeps the bubble on screen.
+      text || (pendingText ?? '');
 
   const copyText = useMemo(() => {
     const lines: string[] = [];
@@ -1276,7 +1473,14 @@ export function UserMessage({
   }, [ignoredRawText]);
 
   // Check if any text part was edited
-  const isEdited = visibleTextParts.some((p) => (p as any).metadata?.edited);
+  const isEdited = message.parts.some(
+    (part) =>
+      isTextPart(part) &&
+      (part as TextPart).text?.trim() &&
+      !(part as TextPart).synthetic &&
+      !(part as TextPart & { ignored?: boolean }).ignored &&
+      Boolean((part as TextPart & { metadata?: { edited?: boolean } }).metadata?.edited),
+  );
 
   // Built once and rendered by every branch below — channel card, trigger card,
   // command card, bubble — so all four carry the same meta line.
@@ -1293,9 +1497,7 @@ export function UserMessage({
       rewindPromptText={rewindPromptText}
       onRewind={onRewind}
       rewindDisabled={rewindDisabled}
-      leading={leadingActions}
       leadingStatus={leadingStatus}
-      alwaysVisible={actionsAlwaysVisible}
     />
   );
 
@@ -1391,7 +1593,12 @@ export function UserMessage({
     if (raw.startsWith('ses_')) {
       const href = sessionHref(raw);
       if (!href) return;
-      openTabAndNavigate({ id: raw, title: 'Session', type: 'session', href });
+      openTabAndNavigate({
+        id: raw,
+        title: tI18nComplete.raw('text6959b4159575'),
+        type: 'session',
+        href,
+      });
       return;
     }
     const ref = sessionRefs.find((s) => s.title === raw);
@@ -1493,11 +1700,11 @@ export function UserMessage({
           <div className="flex items-center gap-2">
             <Timer className="text-muted-foreground size-3.5 shrink-0" />
             <span className="text-foreground font-mono text-sm">
-              {triggerEventInfo.data?.trigger || 'Scheduled Task'}
+              {triggerEventInfo.data?.trigger || tI18nComplete.raw('text512618790549')}
             </span>
             {triggerEventInfo.data?.data?.manual && (
               <Badge variant="muted" size="sm">
-                Manual
+                {tI18nComplete.raw('textb0b9fe24ffa9')}
               </Badge>
             )}
           </div>
@@ -1537,7 +1744,10 @@ export function UserMessage({
         showPlan ? 'max-w-full' : 'max-w-[80%]',
       )}
     >
-      {allAttachments.length > 0 && <MessageAttachments attachments={allAttachments} />}
+      {/* A kept failed send with no files still states its failure, with Retry. */}
+      {(allAttachments.length > 0 || uploadStatus?.state === 'failed') && (
+        <MessageAttachments attachments={allAttachments} status={uploadStatus} />
+      )}
 
       {/* DCP notifications from ignored parts (rendered below user bubble if mixed) */}
       {dcpNotifications.length > 0 && (

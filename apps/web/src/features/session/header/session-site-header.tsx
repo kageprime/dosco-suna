@@ -1,6 +1,7 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '@/i18n/use-translations';
+import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 
 import { sessionDisplayLabel } from '@/components/projects/session-label';
 import { Button } from '@/components/ui/button';
@@ -38,8 +39,8 @@ import {
   useReadyChip,
   useToggleActionPanel,
 } from '@/stores/kortix-computer-store';
-import { listProjectSessions, restartProjectSession, stopProjectSession } from '@kortix/sdk';
-import { contract, qk } from '@kortix/sdk/react';
+import { restartProjectSession, stopProjectSession } from '@kortix/sdk';
+import { qk, useProjectSession } from '@kortix/sdk/react';
 import {
   ArrowsClockwiseIcon,
   CaretDoubleLeftIcon,
@@ -56,7 +57,7 @@ import {
   TerminalIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -88,6 +89,7 @@ export function SessionSiteHeader({
 }: SessionSiteHeaderProps) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tHardcodedUi = useTranslations('hardcodedUi');
+  const devTools = useLocalizedUiCatalog(DEV_TOOLS);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -113,13 +115,15 @@ export function SessionSiteHeader({
   const projectSessionId = projectRoute?.[2];
   const isProjectSession = !!projectId && !!projectSessionId;
 
-  const { data: projectSessions } = useQuery({
-    queryKey: qk.project.sessions(projectId ?? ''),
-    queryFn: () => listProjectSessions(projectId!),
+  // The header needs ONE session — the one in the URL. It used to fetch the
+  // project's whole session list and find that row in it, which broke the
+  // moment the list became a bounded page: a session older than the first page
+  // is absent from it, and `projectSession` fell back to null — which reads as
+  // "you may not share or stop this", silently hiding Share, Stop and Reload.
+  // The read-by-id is exact at any age.
+  const { data: projectSession = null } = useProjectSession(projectId, projectSessionId, {
     enabled: isProjectSession,
-    ...contract('inventory'),
   });
-  const projectSession = projectSessions?.find((s) => s.session_id === projectSessionId) ?? null;
   // Two verdicts, deliberately not one flag. `can_manage_sharing` is the
   // owner's right to change who can open the session; `can_manage_lifecycle`
   // is the manager-tier right to stop/restart/reload it. Reading the first for
@@ -149,22 +153,26 @@ export function SessionSiteHeader({
   const restartMutation = useMutation({
     mutationFn: () => restartProjectSession(projectId!, projectSessionId!),
     onSuccess: () => {
-      successToast('Restarting session…');
+      successToast(tI18nHardcoded.raw('i18nComplete.text7538e921d62a'));
       queryClient.invalidateQueries({ queryKey: qk.project.sessionsScope(projectId ?? '') });
     },
     onError: (err) => {
-      errorToast(err instanceof Error ? err.message : 'Failed to restart session');
+      errorToast(
+        err instanceof Error ? err.message : tI18nHardcoded.raw('i18nComplete.text1604d2906a45'),
+      );
     },
   });
 
   const stopMutation = useMutation({
     mutationFn: () => stopProjectSession(projectId!, projectSessionId!),
     onSuccess: () => {
-      successToast('Session stopped');
+      successToast(tI18nHardcoded.raw('i18nComplete.texte68e737da34d'));
       queryClient.invalidateQueries({ queryKey: qk.project.sessionsScope(projectId ?? '') });
     },
     onError: (err) => {
-      errorToast(err instanceof Error ? err.message : 'Failed to stop session');
+      errorToast(
+        err instanceof Error ? err.message : tI18nHardcoded.raw('i18nComplete.texte0e30badc30c'),
+      );
     },
   });
   const canStop = !!projectSession && projectSession.status === 'running' && canManageLifecycle;
@@ -194,7 +202,7 @@ export function SessionSiteHeader({
             <Share />
             {canManageSharing
               ? tI18nHardcoded.raw('autoFeaturesSessionHeaderSessionSiteHeaderJsxTextShared7d34d4f')
-              : 'Who has access'}
+              : tI18nHardcoded.raw('i18nComplete.textadc01d813da0')}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -205,7 +213,7 @@ export function SessionSiteHeader({
             onClick={() => restartMutation.mutate()}
           >
             {restartMutation.isPending ? <Loading /> : <RotateCcw />}
-            Restart
+            {tI18nHardcoded.raw('i18nComplete.text6b983a81e5e8')}
           </DropdownMenuItem>
           {canManageLifecycle && (
             <DropdownMenuItem
@@ -214,7 +222,7 @@ export function SessionSiteHeader({
               onClick={() => reloadConfig.reload()}
             >
               {reloadConfig.isPending ? <Loading /> : <ArrowsClockwiseIcon />}
-              Reload config
+              {tI18nHardcoded.raw('i18nComplete.textb4b21a20cc58')}
             </DropdownMenuItem>
           )}
           {canStop && (
@@ -224,7 +232,7 @@ export function SessionSiteHeader({
               onClick={() => stopMutation.mutate()}
             >
               {stopMutation.isPending ? <Loading /> : <Square />}
-              Stop
+              {tI18nHardcoded.raw('i18nComplete.textcae7d57bc067')}
             </DropdownMenuItem>
           )}
 
@@ -237,7 +245,7 @@ export function SessionSiteHeader({
         onClick={() => setExportOpen(true)}
       >
         <FileDown />
-        Export conversation
+        {tI18nHardcoded.raw('i18nComplete.text5d974f9e80c3')}
       </DropdownMenuItem>
 
       <DropdownMenuItem
@@ -245,7 +253,7 @@ export function SessionSiteHeader({
         onClick={() => setCompactOpen(true)}
       >
         <Layers />
-        Summarize conversation
+        {tI18nHardcoded.raw('i18nComplete.textca838377bb5a')}
       </DropdownMenuItem>
 
       {isProjectSession && (
@@ -254,7 +262,7 @@ export function SessionSiteHeader({
 
           <DropdownMenuItem className="cursor-pointer" onClick={() => setDeleteOpen(true)}>
             <TrashIcon />
-            Delete
+            {tI18nHardcoded.raw('i18nComplete.texte2d0a54968ea')}
           </DropdownMenuItem>
         </>
       )}
@@ -344,7 +352,7 @@ export function SessionSiteHeader({
             )}
 
             <div className="hidden items-center gap-1.5 lg:flex">
-              {DEV_TOOLS.map(({ view, label, Icon }) => (
+              {devTools.map(({ view, label, Icon }) => (
                 <Hint key={view} side="bottom" sideOffset={4} delayDuration={300} label={label}>
                   <Button
                     variant="ghost"
@@ -360,12 +368,17 @@ export function SessionSiteHeader({
             </div>
 
             <DropdownMenu>
-              <Hint side="bottom" sideOffset={4} delayDuration={300} label="Developer tools">
+              <Hint
+                side="bottom"
+                sideOffset={4}
+                delayDuration={300}
+                label={tI18nHardcoded.raw('i18nComplete.text96f0c06bbcb7')}
+              >
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Developer tools"
+                    aria-label={tI18nHardcoded.raw('i18nComplete.text96f0c06bbcb7')}
                     className="text-foreground/80 hover:text-foreground cursor-pointer transition-colors active:scale-[0.96] lg:hidden"
                   >
                     <Code2 className="h-4 w-4" />
@@ -374,7 +387,7 @@ export function SessionSiteHeader({
               </Hint>
 
               <DropdownMenuContent align="end" className="w-44">
-                {DEV_TOOLS.map(({ view, label, Icon }) => (
+                {devTools.map(({ view, label, Icon }) => (
                   <DropdownMenuItem
                     key={view}
                     className="cursor-pointer"
@@ -400,11 +413,16 @@ export function SessionSiteHeader({
                 drawer both use, so exactly one control exists at any width and
                 the two can never both show. */}
             {isMobileViewport && (
-              <Hint side="bottom" sideOffset={4} delayDuration={300} label="Show panel">
+              <Hint
+                side="bottom"
+                sideOffset={4}
+                delayDuration={300}
+                label={tI18nHardcoded.raw('i18nComplete.text2534086de9fe')}
+              >
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Show panel"
+                  aria-label={tI18nHardcoded.raw('i18nComplete.text2534086de9fe')}
                   aria-expanded={isActionPanelOpen}
                   onClick={toggleActionPanel}
                   className="text-foreground/80 hover:text-foreground cursor-pointer transition-colors active:scale-[0.96]"

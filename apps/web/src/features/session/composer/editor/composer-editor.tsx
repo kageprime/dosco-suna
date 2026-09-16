@@ -5,16 +5,19 @@ import type { Agent, Command, Session } from '@kortix/sdk/react';
 import type { Editor, JSONContent } from '@tiptap/core';
 import type { EditorView } from '@tiptap/pm/view';
 import { EditorContent, useEditor } from '@tiptap/react';
+import { useTranslations } from '@/i18n/use-translations';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 
 import { textToParagraphs } from '../composer-logic';
+import { COMPOSER_TEXT_METRICS } from '../composer-text-metrics';
 import { createMentionSuggestion } from '../menus/mention-controller';
 import type { SlashAction } from '../menus/slash-actions';
-import { SLASH_ACTIONS } from '../menus/slash-actions';
-import type { SlashFile } from '../menus/slash-files';
+import { localizedSlashActions } from '../menus/slash-actions';
 import { createSlashSuggestion } from '../menus/slash-controller';
+import type { SlashFile } from '../menus/slash-files';
 import type { TrackedMention } from '../types';
 import { baseExtensions } from './extensions';
+import { isCursorOnFirstVisualLine } from './first-visual-line';
 import { MentionNode } from './mention-node';
 import { serializeDocument } from './serialize';
 import { createSuggestionExtension } from './suggestion';
@@ -115,6 +118,8 @@ export interface ComposerEditorProps {
   disabled?: boolean;
   autoFocus?: boolean;
   onSubmit: () => void;
+  /** Up with the caret on the first visual row — see `createSubmitOnEnterHandler`. */
+  onArrowUpAtStart?: () => boolean;
   /**
    * Fires ONLY on the empty↔non-empty boundary — once when the first character
    * is typed, once when the last is deleted, never in between. This is the
@@ -266,12 +271,32 @@ export function createUpdateHandler(
 export function createSubmitOnEnterHandler(
   onSubmit: () => void,
   isDisabled: () => boolean,
+  /**
+   * Up from the first visual row. Returns whether it acted — `false` leaves
+   * the key to ProseMirror, so Up still moves the caret when there is nothing
+   * to take back.
+   */
+  onArrowUpAtStart?: () => boolean,
 ): (view: EditorView, event: KeyboardEvent) => boolean {
-  return (_view, event) => {
+  return (view, event) => {
     if (isDisabled()) return false;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       onSubmit();
+      return true;
+    }
+    if (
+      event.key === 'ArrowUp' &&
+      onArrowUpAtStart &&
+      !event.shiftKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.isComposing &&
+      isCursorOnFirstVisualLine(view) &&
+      onArrowUpAtStart()
+    ) {
+      event.preventDefault();
       return true;
     }
     return false;
@@ -304,7 +329,10 @@ export function setEditorDocument(editor: Editor | null, doc: JSONContent): void
   if (!editor) return;
   const content = doc.content ?? [];
   editor.commands.setContent({ type: 'doc', content });
-  editor.commands.focus('end');
+  // `scrollIntoView: false` — see the note on the `setContent` handle below.
+  // This is the same programmatic whole-document replace, so it wants the same
+  // treatment: put the caret at the end, move nothing.
+  editor.commands.focus('end', { scrollIntoView: false });
 }
 
 /**
@@ -336,6 +364,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
       disabled,
       autoFocus,
       onSubmit,
+      onArrowUpAtStart,
       onEmptyChange,
       onDocChange,
       agents,
@@ -351,6 +380,9 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     },
     ref,
   ) {
+    const t = useTranslations('threads');
+    const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+    const defaultActions = useMemo(() => localizedSlashActions(tI18nComplete), [tI18nComplete]);
     // Mirrors use-composer-focus.ts's onTypeAheadRef: @tiptap/react only
     // resyncs `onUpdate`/other callback options when some OTHER option also
     // changed (it explicitly ignores their identity in its own option
@@ -370,6 +402,11 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     useEffect(() => {
       onSubmitRef.current = onSubmit;
     }, [onSubmit]);
+
+    const onArrowUpAtStartRef = useRef(onArrowUpAtStart);
+    useEffect(() => {
+      onArrowUpAtStartRef.current = onArrowUpAtStart;
+    }, [onArrowUpAtStart]);
 
     const disabledRef = useRef(disabled ?? false);
     useEffect(() => {
@@ -411,10 +448,10 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     // (buildSlashSections' own default, made explicit here rather than left
     // implicit) so an unset `actions` prop is byte-identical to before this
     // prop existed.
-    const actionsRef = useRef(actions ?? SLASH_ACTIONS);
+    const actionsRef = useRef(actions ?? defaultActions);
     useEffect(() => {
-      actionsRef.current = actions ?? SLASH_ACTIONS;
-    }, [actions]);
+      actionsRef.current = actions ?? defaultActions;
+    }, [actions, defaultActions]);
 
     // Same live-getter reasoning again, and it matters MORE here than for any
     // ref above: this list grows while the user watches. The agent finishes a
@@ -523,6 +560,9 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
         createSubmitOnEnterHandler(
           () => onSubmitRef.current(),
           () => disabledRef.current || mentionOwnsEnterRef.current || slashOwnsEnterRef.current,
+          // An open `@`/`/` menu claims arrow keys through `mentionOwnsEnterRef`
+          // / `slashOwnsEnterRef` above, so Up never reaches this while one is open.
+          () => onArrowUpAtStartRef.current?.() ?? false,
         ),
       [],
     );
@@ -562,6 +602,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
             getCommands: () => commandsRef.current,
             getActions: () => actionsRef.current,
             getFiles: () => filesRef.current,
+            actionsHeading: tI18nComplete.raw('textff8059dc6752'),
             // NOT read through a ref, unlike every getter around it. This is
             // frozen at construction on purpose: it is a per-instance
             // selector string that identifies this composer's dock element
@@ -585,7 +626,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
         attributes: {
           role: 'textbox',
           'aria-multiline': 'true',
-          'aria-label': 'Message input',
+          'aria-label': t('messageInput'),
           /**
            * `min-h-[3.5em]` — taller than one line by design. History: was
            * `1.5em` (exactly one line) on the reasoning that a taller floor
@@ -608,7 +649,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
            * curve is now monotonic: 45vh below 640px (a phone keyboard eats the
            * rest of the screen anyway), 40vh above it.
            */
-          class: 'outline-none min-h-[1.7em] max-h-[45vh] sm:max-h-[40vh] overflow-y-auto',
+          class: `outline-none min-h-[1.7em] max-h-[45vh] sm:max-h-[40vh] overflow-y-auto ${COMPOSER_TEXT_METRICS}`,
         },
         handleKeyDown,
       },
@@ -633,7 +674,32 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
           if (!editor) return;
           const paragraphs = textToParagraphs(text);
           editor.commands.setContent({ type: 'doc', content: paragraphs });
-          editor.commands.focus('end');
+          /*
+           * `scrollIntoView: false`, and it is the whole fix for a jerk that
+           * read as a missing animation.
+           *
+           * TipTap's `focus()` defaults to `scrollIntoView: true`, which
+           * dispatches a ProseMirror transaction carrying `.scrollIntoView()`.
+           * ProseMirror then walks EVERY scrollable ancestor and scrolls the
+           * caret into view. On project home that ancestor is the hero column's
+           * own `overflow-y-auto` wrapper (`project-layout/home/welcome-body.tsx`),
+           * and the scroll is computed in the same frame the card is growing by
+           * several lines of freshly-inserted text — so it lands against a box
+           * that is mid-reflow and yanks the column.
+           *
+           * Nothing is gained by the scroll here. This method REPLACES the whole
+           * document programmatically — a starter prompt, a `?q=` deep link, a
+           * command-palette prefill, a draft restore — and in every one of those
+           * the composer is already fully on screen. The caret still lands at
+           * the end, so typing continues immediately; only the involuntary
+           * scroll is dropped.
+           *
+           * NOT applied to the bare `focus()` handle below. That one is an
+           * explicit "put the caret here" from `useComposerFocus`, which can
+           * fire while the composer is genuinely scrolled out of view in a long
+           * session — there the scroll is the point.
+           */
+          editor.commands.focus('end', { scrollIntoView: false });
         },
         getDocument: () => getEditorDocument(editor),
         setDocument: (doc) => setEditorDocument(editor, doc),
@@ -654,7 +720,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
           // page on focus for any input under 16px, and the composer is the one
           // field on the screen. `sm:text-sm` above 640px, which is the size
           // `globals.css`'s slash-trigger rule already documents.
-          'kortix-composer-editor w-full text-base sm:text-sm',
+          'kortix-composer-editor w-full text-sm',
           disabled && 'opacity-50',
         )}
       />

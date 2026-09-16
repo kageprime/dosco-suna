@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { catalogModelForWireModel, gatewayModelCatalog } from './catalog-models';
+import { catalogModelForWireModel, gatewayCodexModels, gatewayModelCatalog } from './catalog-models';
 
 // The sandbox agent server injects this catalog into OpenCode verbatim and does NO
 // client-side limit backfill — so the gateway MUST guarantee a usable context window
@@ -8,6 +8,19 @@ import { catalogModelForWireModel, gatewayModelCatalog } from './catalog-models'
 // pins at 100% context. These tests lock that server-side guarantee.
 describe('gatewayModelCatalog — served catalog', () => {
   const full = gatewayModelCatalog('proj');
+
+  test('serves managed Astra with vision, tools, and its supported effort ladder', () => {
+    expect(full['gpt-6-astra']).toMatchObject({
+      name: 'GPT-6 Astra',
+      provider: 'kortix',
+      attachment: true,
+      tool_call: true,
+      temperature: false,
+      reasoning_options: [{ type: 'effort', values: ['low', 'medium', 'high', 'xhigh', 'max'] }],
+      limit: { context: 1_050_000, output: 128_000 },
+      cost: { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+    });
+  });
 
   test('brands managed DeepSeek V4 Flash with the Kortix provider', () => {
     expect(full['deepseek-v4-flash']?.provider).toBe('kortix');
@@ -200,7 +213,7 @@ describe('gatewayModelCatalog — free-tier visibility', () => {
 
   test('free tier sees no managed Kortix models', () => {
     expect(freeFull.auto).toBeUndefined();
-    for (const id of ['claude-opus-4.8', 'claude-sonnet-4.6', 'glm-5.3-flash', 'kimi-k3', 'deepseek-v4-flash']) {
+    for (const id of ['claude-opus-4.8', 'claude-sonnet-4.6', 'glm-5.3-flash', 'kimi-k3', 'deepseek-v4-flash', 'gpt-6-astra']) {
       expect(freeFull[id], id).toBeUndefined();
     }
   });
@@ -268,5 +281,27 @@ describe('catalogModelForWireModel — generation-controls capability lookup', (
 
   test('returns undefined for a completely unknown wire model', () => {
     expect(catalogModelForWireModel('nonexistent-provider/nonexistent-model')).toBeUndefined();
+  });
+});
+
+describe('ChatGPT subscription pricing', () => {
+  test('every subscription model has explicit zero rates without paid context tiers', () => {
+    const models = gatewayCodexModels();
+    expect(Object.keys(models).length).toBeGreaterThan(0);
+    for (const model of Object.values(models)) {
+      expect(model.cost).toEqual({
+        input: 0,
+        output: 0,
+        cache_read: 0,
+        cache_write: 0,
+      });
+      expect(model.limit!.context).toBeGreaterThan(0);
+    }
+  });
+
+  test('OpenAI API pricing remains positive for the same model', () => {
+    const models = gatewayModelCatalog('proj');
+    expect(models['openai/gpt-5.6-sol']!.cost!.input).toBeGreaterThan(0);
+    expect(models['codex/gpt-5.6-sol']!.cost!.input).toBe(0);
   });
 });

@@ -193,3 +193,134 @@ describe('extractGatewayErrorDetails — recovering the structured envelope', ()
     expect(extractGatewayErrorDetails(openCodeApiError)).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Real persisted shapes. Pulled verbatim from `kortix.session_transcript_messages`
+// `info.error` on a local stack (2026-09-02). OpenCode's `UnknownError` stores
+// `String(err)` as `data.message`, and when the thrown error's message was an
+// HTTP body, that body — JSON, prefixed, truncated, or HTML — is what the
+// transcript renders unless it is unwrapped again.
+// ---------------------------------------------------------------------------
+describe('unwrapError — a message that is itself a serialized body is unwrapped again', () => {
+  test("OpenCode UnknownError whose data.message is a JSON string (the 401 'token expired' row)", () => {
+    expect(
+      unwrapError({
+        name: 'UnknownError',
+        data: {
+          message: '{"message":"Provided authentication token is expired.","code":401}',
+        },
+      }),
+    ).toBe('Provided authentication token is expired.');
+  });
+
+  test("OpenCode UnknownError whose data.message is a JSON string (the 429 'usage limit' row)", () => {
+    expect(
+      unwrapError({
+        name: 'UnknownError',
+        data: { message: '{"message":"The usage limit has been reached","code":429}' },
+      }),
+    ).toBe('The usage limit has been reached');
+  });
+
+  test('a plain UnknownError message stays untouched', () => {
+    expect(
+      unwrapError({
+        name: 'UnknownError',
+        data: { message: "'file part media type application/zip' functionality not supported." },
+      }),
+    ).toBe("'file part media type application/zip' functionality not supported.");
+  });
+
+  test('a message nested two bodies deep resolves to the innermost human sentence', () => {
+    expect(
+      unwrapError({
+        message: JSON.stringify({ error: { message: JSON.stringify({ message: 'Overloaded' }) } }),
+      }),
+    ).toBe('Overloaded');
+  });
+
+  test('an AI SDK class-name prefix is stripped like "Error: " is', () => {
+    expect(unwrapError('AI_APICallError: Bad Gateway')).toBe('Bad Gateway');
+    expect(unwrapError('AI_APICallError: {"error":{"message":"Overloaded"}}')).toBe('Overloaded');
+    expect(
+      unwrapError(
+        'Error: 402 Error: {"error":true,"message":"Insufficient credits","status":402}',
+      ),
+    ).toBe('Insufficient credits');
+  });
+
+  test('provider bodies that key the sentence differently still yield the sentence', () => {
+    expect(unwrapError({ detail: 'Not authenticated' })).toBe('Not authenticated');
+    expect(unwrapError({ error: { error: { message: 'deep' } } })).toBe('deep');
+    expect(unwrapError({ errors: [{ message: 'first of many' }] })).toBe('first of many');
+    expect(unwrapError({ error_description: 'The access token expired' })).toBe(
+      'The access token expired',
+    );
+  });
+
+  test('a truncated JSON body still gives up its "message" field instead of the fragment', () => {
+    const truncated =
+      '{"error":{"message":"Your input exceeds the context window of this model.","type":"invalid_request_err';
+    expect(unwrapError(truncated)).toBe('Your input exceeds the context window of this model.');
+  });
+
+  test('an HTML error page collapses to its title', () => {
+    const html =
+      '<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>';
+    expect(unwrapError(html)).toBe('502 Bad Gateway');
+  });
+
+  // CodeQL js/bad-tag-filter: `<\/script>` does not match a close tag with
+  // whitespace before the bracket, which HTML permits. The script body then
+  // survives the strip and lands in the user's transcript row.
+  test('a close tag with whitespace still strips the script body out of the visible text', () => {
+    const html = '<html><body><script >alert(1)</script >Service unavailable</body></html>';
+    expect(unwrapError(html)).toBe('Service unavailable');
+  });
+
+  test('the same holds for style, and for an uppercase close tag', () => {
+    const html = '<html><body><STYLE>.a{color:red}</STYLE >Gateway timeout</body></html>';
+    expect(unwrapError(html)).toBe('Gateway timeout');
+  });
+
+  // CodeQL js/polynomial-redos: `<title[^>]*>` and `<script[\s\S]*?<\/script>`
+  // each rescan the tail from every match position, so an error page that is a
+  // long run of unclosed tags costs O(n^2). The body is attacker-influenced —
+  // it is whatever an upstream gateway returned — so this must stay linear.
+  test('a pathological unclosed-tag body is parsed in linear time, not quadratically', () => {
+    const hostile = `<html>${'<title'.repeat(30_000)}`;
+    const started = Date.now();
+    unwrapError(hostile);
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
+
+  test('the same bound holds for a long run of unclosed script tags', () => {
+    const hostile = `<html><body>${'<script'.repeat(30_000)}`;
+    const started = Date.now();
+    unwrapError(hostile);
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
+
+  test('a body with no recognizable sentence never renders "[object Object]" or empty', () => {
+    // A code or status is still a sentence's worth of information — say it.
+    expect(unwrapError({ status: 500 })).toBe('Request failed with status 500');
+    expect(unwrapError({ type: 'overloaded_error' })).toBe('Overloaded error');
+    const cyclic: Record<string, unknown> = { code: 'loop' };
+    cyclic.error = cyclic;
+    expect(unwrapError(cyclic)).toBe('Loop');
+    expect(unwrapError('{}')).toBe('An error occurred');
+    expect(unwrapError('   ')).toBe('An error occurred');
+  });
+});
+
+describe('extractGatewayErrorDetails — a gateway body serialized into data.message', () => {
+  test('recovers the envelope from an UnknownError whose data.message is the gateway JSON', () => {
+    const details = extractGatewayErrorDetails({
+      name: 'UnknownError',
+      data: { message: JSON.stringify(gatewayBody()) },
+    });
+    expect(details?.provider).toBe('openai');
+    expect(details?.code).toBe('provider_not_connected');
+    expect(details?.requestId).toBe('req_abc123');
+  });
+});

@@ -52,6 +52,76 @@
  * can ever prefix-match the other. Do not "tidy" this back to `'kortix'`.
  */
 export const qk = {
+  /**
+   * The account LIST — `listAccounts()`, `GET /accounts`, `KortixAccount[]`.
+   *
+   * The ONLY family here keyed by the signed-in USER rather than by an
+   * account or a project, and the only one that could not be keyed any other
+   * way: this list is the answer to "which accounts does the CALLER belong
+   * to", so the caller is the only thing that partitions it.
+   *
+   * ## Why the user segment is load-bearing, not tidiness
+   *
+   * Before this family existed, 13 `apps/web` readers and 7 writers /
+   * invalidators shared one bare `['accounts']` array literal with no user
+   * segment. One document that saw two users in its lifetime therefore held
+   * ONE cache entry for both, and nothing but an imperative
+   * `queryClient.clear()` on the sign-out path stood between user B and user
+   * A's list. `clear()` is the wrong shape for that job — it has to fire on
+   * every exit path, finish before anything refetches, and never be undone,
+   * and it leaves mounted observers attached, which immediately refetch.
+   *
+   * The failure that escaped through that gap: `/new` resolves its create
+   * target out of this list, so a leftover single-account list belonging to
+   * user A made `POST /projects/provision` go out with A's `account_id`
+   * under B's JWT — a 403 the user cannot act on.
+   *
+   * That instance could not be closed by inspecting the list CONTENTS. A
+   * legitimate invited admin — a user with no personal account who
+   * administers someone else's org — has a byte-identical input: one
+   * `KortixAccount` whose `account_id !== user.id`, whose `name` is
+   * `"<owner-email>'s Account"`, and whose `is_primary_owner` is merely
+   * `accountRole === 'owner'`. No field on the response answers "which user
+   * was this fetched FOR". Rejecting that shape would permanently lock that
+   * population out of creating any workspace. Only the KEY carries the
+   * answer — which is why it is here, and why `list` takes the user id as a
+   * REQUIRED argument (see below).
+   */
+  accounts: {
+    /**
+     * Invalidation prefix covering EVERY user's list. Never pass this as a
+     * `queryKey`.
+     *
+     * This is the correct target for every "an account changed" invalidation
+     * (rename, create, leave, branding write): those all run inside a
+     * mutation callback, which has no reliable signed-in user id in hand,
+     * and guessing the wrong one would leave the live reader stale while
+     * appearing to work. `list(userId)` nests directly under this, so one
+     * prefix call provably reaches the only slot that can be live.
+     */
+    scope: () => ['kx', 'accounts'] as const,
+
+    /**
+     * One user's account list.
+     *
+     * `userId` is REQUIRED — deliberately not optional. Omitting it is the
+     * exact bug this family exists to make unrepresentable, so it has to be
+     * a type error rather than a silently shared slot. `null`/`undefined`
+     * are still accepted, because a reader legitimately renders for one
+     * paint before `useAuth()` resolves; they route to a dedicated
+     * `'anonymous'` slot that is not, and cannot prefix-match, any signed-in
+     * user's entry. Nothing ever writes that slot: every reader is gated
+     * `enabled: !!user`, so an identity-less reader fails CLOSED (it sees
+     * `undefined`) instead of falling back to whoever was here last.
+     *
+     * `'anonymous'` matches `use-kortix-master.ts`'s existing convention for
+     * the same situation (`identity.userId ?? 'anonymous'`), so the two
+     * identity-bearing key families in this package spell it one way.
+     */
+    list: (userId: string | null | undefined) =>
+      [...qk.accounts.scope(), userId ?? 'anonymous'] as const,
+  },
+
   projects: {
     /** Invalidation prefix covering every account's list AND the accountless
      *  slot. Never pass this as a `queryKey` — `list(accountId)` and
@@ -116,6 +186,9 @@ export const qk = {
      */
     modelPicker: (id: string) => [...qk.project.config(id), 'models'] as const,
 
+    /** Persisted provider/model inference restrictions and the effective default. */
+    modelAccess: (projectId: string) => [...qk.project.scope(projectId), 'model-access'] as const,
+
     /**
      * Invalidation prefix for the WHOLE sessions family: the list, in every
      * scope, and every individual session/message beneath it. Never pass
@@ -162,6 +235,25 @@ export const qk = {
      */
     sessions: (id: string, scope: 'visible' | 'project' = 'visible') =>
       [...qk.project.sessionsScope(id), 'list', scope] as const,
+
+    /**
+     * The PAGED session list — `useInfiniteQuery` over
+     * `listProjectSessionsPage`. A separate slot from `sessions(...)` because
+     * the two hold different SHAPES: this one caches
+     * `{ pages: ProjectSessionPage[], pageParams }`, that one caches a bare
+     * `ProjectSession[]`. react-query does not tag a cache entry with the hook
+     * that wrote it, so sharing one key between `useQuery` and
+     * `useInfiniteQuery` hands each hook the other's shape and both render
+     * garbage.
+     *
+     * It still nests under `sessionsScope(id)`, so the existing prefix
+     * invalidation every mutation already performs
+     * (`invalidateQueries({ queryKey: qk.project.sessionsScope(id) })`)
+     * reaches the paged list too. That is the point of the shared prefix — a
+     * new slot must not need a second invalidation nobody remembers to add.
+     */
+    sessionsPaged: (id: string, scope: 'visible' | 'project' = 'visible') =>
+      [...qk.project.sessionsScope(id), 'list-paged', scope] as const,
 
     /**
      * One session, by id. Nests directly under the scope-LESS

@@ -1,3 +1,5 @@
+import { readModelAccess } from '../../llm-gateway/model-access';
+import { changeProjectModelAccess } from '../../repositories/project-model-access';
 import { createRoute, z } from '@hono/zod-openapi';
 import {
   ConnectionMetadataSchema,
@@ -53,10 +55,10 @@ import { teamsDeepLink, teamsMode } from '../../channels/teams-mode';
 import { teamsOrgConsentUrl } from '../../channels/teams-oauth';
 import { downloadTeamsFile, initiateTeamsUpload } from '../../channels/teams/file-proxy';
 import {
-  relayTurnAnswer,
+  relayTurnAnswerDetailed,
   relayTurnEnd,
   relayTurnQuestion,
-  relayTurnStep,
+  relayTurnStepDetailed,
 } from '../../channels/turn-relay';
 import { config } from '../../config';
 import {
@@ -169,6 +171,7 @@ import {
   acceptSandboxTurn,
   adoptRuntimeSandboxTurn,
   completeSandboxTurn,
+  turnCompletionAllowsQueuePromotion,
 } from '../sandbox-turn-lifecycle';
 
 // Body keys that change the trigger's *repo manifest* (committed to git). A PATCH
@@ -2700,7 +2703,7 @@ projectsApp.openapi(
       // event. Returning before this write finished made a transient DB failure
       // look successful, so the daemon deduped the event and the active record
       // survived until reaper reconciliation.
-      await completeSandboxTurn(
+      const turnCompletion = await completeSandboxTurn(
         sessionId,
         status,
         {
@@ -2743,14 +2746,36 @@ projectsApp.openapi(
         void captureSessionTranscriptMirror(sessionId);
       }
       // THE TURN ENDED — the session's next queued prompt is admissible NOW.
-      // Fire-and-forget: the drain re-runs admission itself, and a lost kick
-      // falls back to the scheduler tick (bounded by the admission backoff).
+      // Await the durable promotion before acknowledging the terminal relay.
+      // The targeted drain remains asynchronous and re-runs admission itself;
+      // a lost kick falls back to the scheduler tick.
       // This is what makes the queue "send between every turn" without a
       // clock: the daemon's idle relay is the trigger.
+      let promotedPromptId: string | null = null;
       if (!childSession) {
-        void promoteNextInboxRow(sessionId)
-          .then((key) => (key ? drainSessionLifecycleQueue({ idempotencyKey: key }) : null))
-          .catch(() => undefined);
+        if (turnCompletionAllowsQueuePromotion(turnCompletion)) {
+          promotedPromptId = await promoteNextInboxRow(sessionId);
+          if (promotedPromptId) {
+            void drainSessionLifecycleQueue({ idempotencyKey: promotedPromptId }).catch((error) =>
+              console.warn('[turn-stream] targeted queue drain failed', {
+                sessionId,
+                promptId: promotedPromptId,
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            );
+          }
+        }
+        console.info('[turn-stream] terminal turn settlement', {
+          sessionId,
+          opencodeSessionId:
+            typeof body.opencode_session_id === 'string' ? body.opencode_session_id : null,
+          turnMessageId: typeof body.turn_message_id === 'string' ? body.turn_message_id : null,
+          outcome: turnCompletion.outcome,
+          activeTurnCount: turnCompletion.activeTurnCount,
+          closedTurnCount: turnCompletion.closedTurnCount,
+          queuePromoted: promotedPromptId !== null,
+          promotedPromptId,
+        });
       }
       // Second-chance auto-title: create-time generation is a single in-memory
       // best-effort call, and a session whose only prompt was baked in-guest
@@ -2776,8 +2801,32 @@ projectsApp.openapi(
           ),
         );
       }
-      const ok = await relayTurnEnd(sessionId, status, errorInfo);
-      return c.json({ ok });
+      // An end whose identity does not match the ledger's active turn is a
+      // replay of some OTHER turn (a runtime waking for a follow-up re-emits
+      // the previous turn's idle). Relaying it closed and deleted the Slack
+      // turn row of the run that had just started
+      // (INC-2026-09-08-CONNECTOR-GATEWAY, S2/S3). The ledger already refused
+      // to close its own turn for this; the channel relay now agrees.
+      const relayEnd = turnCompletion.outcome !== 'identity_mismatch';
+      if (!relayEnd) {
+        console.warn('[turn-stream] turn-end relay skipped — identity mismatch with the active turn', {
+          sessionId,
+          status,
+          turnMessageId: typeof body.turn_message_id === 'string' ? body.turn_message_id : null,
+          activeTurnCount: turnCompletion.activeTurnCount,
+        });
+      }
+      const ok = relayEnd ? await relayTurnEnd(sessionId, status, errorInfo) : false;
+      return c.json({
+        ok,
+        turn_completion: {
+          outcome: turnCompletion.outcome,
+          active_turn_count: turnCompletion.activeTurnCount,
+          closed_turn_count: turnCompletion.closedTurnCount,
+        },
+        queue_promoted: promotedPromptId !== null,
+        promoted_prompt_id: promotedPromptId,
+      });
     }
 
     // `opencode_session` carries the canonical opencode ROOT id the sandbox just
@@ -2814,15 +2863,19 @@ projectsApp.openapi(
       : undefined;
     const blocks = Array.isArray(body.blocks) && body.blocks.length > 0 ? body.blocks : undefined;
 
-    const ok =
+    // `reason` is what makes `ok: false` actionable in the sandbox: `slack
+    // step` and `slack send` print it, so an agent can tell "no Slack turn is
+    // open for this run" from "Slack refused the post" and act on it instead
+    // of assuming its progress was delivered.
+    const relayed =
       body.kind === 'answer'
-        ? await relayTurnAnswer(sessionId, text, blocks)
-        : await relayTurnStep(sessionId, text, {
+        ? await relayTurnAnswerDetailed(sessionId, text, blocks)
+        : await relayTurnStepDetailed(sessionId, text, {
             detail,
             outputForPrev,
             sourcesForPrev,
           });
-    return c.json({ ok });
+    return c.json(relayed.ok ? { ok: true } : { ok: false, reason: relayed.reason });
   },
 );
 
@@ -3140,6 +3193,64 @@ projectsApp.openapi(
     return c.json(catalog);
   },
 );
+
+// Explicit inference controls are separate from legacy picker visibility.
+const modelAccessChangeBody = z.object({
+  target: z.enum(['provider', 'model']),
+  id: z.string().trim().min(1).max(256),
+  enabled: z.boolean(),
+}).strict();
+
+projectsApp.openapi(createRoute({
+  method: 'get', path: '/{projectId}/model-access', tags: ['projects'],
+  summary: 'Read project provider and model access', ...auth,
+  request: { params: z.object({ projectId: z.string() }) },
+  responses: { 200: { description: 'OK', content: { 'application/json': { schema: z.any() } } }, ...errors(403, 404) },
+}), async (c: any) => {
+  const projectId = c.req.param('projectId');
+  const loaded = await loadProjectForUser(c, projectId, 'read');
+  if (!loaded) return c.json({ error: 'Not found' }, 404);
+  const defaults = await getAccountModelDefaults(loaded.row.accountId, projectId);
+  return c.json({
+    ...readModelAccess(loaded.row.metadata),
+    defaultModel: toWireModel(defaults.projects[projectId] ?? defaults.account ?? platformDefaultModelId() ?? '') || undefined,
+    enforced: projectLlmGatewayEnabled(loaded.row.metadata),
+  });
+});
+
+projectsApp.openapi(createRoute({
+  method: 'put', path: '/{projectId}/model-access', tags: ['projects'],
+  summary: 'Enable or disable a project provider or model', ...auth,
+  request: { params: z.object({ projectId: z.string() }),
+    body: { content: { 'application/json': { schema: modelAccessChangeBody } } } },
+  responses: { 200: { description: 'OK', content: { 'application/json': { schema: z.any() } } }, ...errors(400, 403, 404, 409) },
+}), async (c: any) => {
+  const projectId = c.req.param('projectId');
+  const loaded = await loadProjectForUser(c, projectId, 'read');
+  if (!loaded) return c.json({ error: 'Not found' }, 404);
+  await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CUSTOMIZE_WRITE);
+  const parsed = modelAccessChangeBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'Invalid body', code: 'invalid_body' }, 400);
+  const change = parsed.data;
+  if (change.target === 'provider' && !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(change.id)) {
+    return c.json({ error: 'Invalid provider id', code: 'invalid_body' }, 400);
+  }
+  if (change.target === 'model') {
+    change.id = toWireModel(change.id);
+    if (!change.id || change.id === 'auto' || /\s/.test(change.id)) {
+      return c.json({ error: 'Use a concrete model id', code: 'invalid_body' }, 400);
+    }
+  }
+  const defaults = await getAccountModelDefaults(loaded.row.accountId, projectId);
+  const defaultModel = toWireModel(defaults.projects[projectId] ?? defaults.account ?? platformDefaultModelId() ?? '') || undefined;
+  const result = await changeProjectModelAccess({ projectId, updatedBy: c.get('userId'), defaultModel, change });
+  if (result.conflict) return c.json({
+    error: 'Change the project default to another enabled provider or model first.',
+    code: 'cannot_disable_default', defaultModel,
+  }, 409);
+  invalidateAccountModelDefaults(loaded.row.accountId);
+  return c.json({ ...result.policy, defaultModel, enforced: projectLlmGatewayEnabled(loaded.row.metadata) });
+});
 
 // PUT /v1/projects/:projectId/model-enablement  { modelOverrides: {id: boolean} }
 // Replace the project's EXCEPTIONS to the default model set (the newest model

@@ -223,20 +223,31 @@ describe('queries return the rows they name', () => {
     expect(hits('customize')).toEqual(['nav:proj-customize']);
   });
 
-  test('"project" returns the two rows that say the word, not every project-scoped row', () => {
+  test('"project" returns the three rows that say the word, not every project-scoped row', () => {
     // `account-access-projects` is the account hub's "Projects" pane — the
     // word is its own label, which is exactly the bar this file sets. Ten
     // `proj-*` rows used to answer this by their ids.
+    //
+    // `proj-members` joined them when the product settled on ONE noun for a
+    // unit of work: its label is now "Project members" (it was "Workspace
+    // members"), so it answers by visible text like the other two — not by its
+    // id (`features/workspace/workspace-vocabulary.test.ts`).
     expect(hits('project').sort()).toEqual([
       'nav:account-access-projects',
       'nav:nav-projects',
+      'nav:proj-members',
     ]);
   });
 
   test('"proj" matches nothing by id', () => {
-    // Ten `proj-*` rows used to answer this. The two that survive both carry
-    // "Projects" as visible label text.
-    expect(hits('proj').sort()).toEqual(['nav:account-access-projects', 'nav:nav-projects']);
+    // Ten `proj-*` rows used to answer this. The three that survive all carry
+    // the word as visible label text — "Projects" for two, "Project members"
+    // for `proj-members` — so the `proj-*` id itself still matches nothing.
+    expect(hits('proj').sort()).toEqual([
+      'nav:account-access-projects',
+      'nav:nav-projects',
+      'nav:proj-members',
+    ]);
   });
 
   test('"nav" and "pref" are not queries at all', () => {
@@ -277,7 +288,9 @@ describe('queries return the rows they name', () => {
       'nav:account-tokens',
       'nav:account-usage',
       'nav:nav-accounts',
-      'settings:connected',
+      // Credits and Plan left the overlay for the account page on 2026-09-03;
+      // their `nav:account-usage` / `nav:account-billing` rows above own the
+      // word now.
       'settings:profile',
     ]);
   });
@@ -349,6 +362,8 @@ describe('queries return the rows they name', () => {
     // either of them in.
     expect(hits('log')).not.toContain('nav:proj-config-sandbox');
     expect(hits('log')).not.toContain('nav:proj-models');
+    // The settings overlay's Sandbox templates row is the one door since the
+    // config page was retired on 2026-09-02.
     expect(hits('snapshots')).toEqual(['nav:proj-config-sandbox']);
   });
 });
@@ -407,9 +422,11 @@ describe('genuine synonyms still answer', () => {
     ['agentmail', 'nav:proj-channels'],
     ['roster', 'nav:proj-members'],
     ['collaborators', 'nav:proj-members'],
+    // The config page's four rows became overlay rows (derived from the rail)
+    // and one capability tab on 2026-09-02.
     ['danger', 'nav:proj-config-general'],
     ['sandbox', 'nav:proj-config-sandbox'],
-    ['approvals', 'nav:proj-config-review'],
+    ['approvals', 'nav:proj-review-inbox'],
     ['experimental', 'nav:proj-config-feature-flags'],
     ['labs', 'nav:proj-config-feature-flags'],
     ['migration', 'nav:proj-config-upgrades'],

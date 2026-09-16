@@ -18,8 +18,6 @@ import {
   stableStringify,
   THEME_COLOR_SWATCH,
   THEME_COLORS,
-  WORKSPACE_MODE_LABEL,
-  WORKSPACE_MODES,
 } from './agent-editor';
 
 const read = (file: string) => readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
@@ -35,10 +33,17 @@ const allEditorSources = [...sectionSources, editorSource, primitivesSource, gra
 describe('agent environment editor', () => {
   test('loads sandbox templates and exposes the Environment field', () => {
     expect(editorSource).toContain('listProjectSandboxTemplates(projectId)');
-    expect(editorSource).toContain('options.set(initial.sandbox, initial.sandbox)');
-    expect(accessFieldsSource).toContain('label="Environment"');
+    // The project default is named, not just called "default": the hook hands
+    // the page `default_slug`, and the Workspace page resolves it to a name.
+    expect(editorSource).toContain('default_slug');
+    // A stale pin (a slug the project no longer declares) shows as itself
+    // instead of snapping to "Project default" and rewriting the manifest.
+    expect(accessFieldsSource).toContain('stalePin');
+    // The Environment control IS the shared sandbox menu the composer uses.
+    expect(accessFieldsSource).toContain('<SandboxTemplateMenu');
+    expect(accessFieldsSource).toContain("raw('text9e471951a1b4')");
     expect(accessFieldsSource).toContain("set('sandbox'");
-    expect(accessFieldsSource).toContain('Project default');
+    expect(accessFieldsSource).toContain("raw('texte8cb80e5c5cb')");
   });
 });
 
@@ -51,7 +56,10 @@ describe('section structure — questions, not storage layers', () => {
     for (const section of [
       'BasicsSection',
       'ModelSection',
-      'AccessSection',
+      'SkillsSection',
+      'ConnectorsSection',
+      'SecretsSection',
+      'ProjectActionsSection',
       'WorkspaceSection',
       'ToolsSection',
     ]) {
@@ -114,6 +122,11 @@ describe('stableStringify — the dirty check', () => {
     );
   });
 
+  test('disabled repository access remains distinct from an omitted or enabled policy', () => {
+    expect(stableStringify({ repository_access: false })).not.toBe(stableStringify({}));
+    expect(stableStringify({ repository_access: false })).not.toBe(stableStringify({ repository_access: true }));
+  });
+
   test('an undefined value reads the same as an absent key', () => {
     expect(stableStringify({ a: 1, b: undefined })).toBe(stableStringify({ a: 1 }));
   });
@@ -155,20 +168,24 @@ describe('mode pickers use the shared component library', () => {
     }
   });
 
-  test('Tabs stay scoped to the grant-mode field — every section uses Select', () => {
+  test('Tabs stay scoped to grants; repository access uses a Switch and enums use Select', () => {
     for (const source of sectionSources) {
       expect(source).not.toContain('@/components/ui/tabs');
-      expect(source).toContain("from '@/components/ui/select'");
+      expect(source).toContain(source === accessFieldsSource
+        ? "from '@/components/ui/switch'"
+        : "from '@/components/ui/select'");
     }
   });
 
   // The control these replaced hid "unset" behind clicking the already-active
   // segment. Every inherit-capable picker must now NAME that option.
   test('every inherit-capable picker names its inherit option', () => {
-    expect(accessFieldsSource).toContain('Project default');
-    expect(basicsFieldsSource).toContain('Project default');
+    expect(accessFieldsSource).toContain("raw('texte8cb80e5c5cb')");
+    expect(basicsFieldsSource).toContain("raw('text64f405e80a8d')");
     expect(permissionEditorSource).toContain('inheritLabel');
-    expect(permissionEditorSource).toContain('inheritLabel="Inherit"');
+    expect(permissionEditorSource).toContain(
+      "inheritLabel={tI18nComplete.raw('text3f72f0385768')}",
+    );
   });
 });
 
@@ -176,7 +193,6 @@ describe('display-name maps — Select renders the value verbatim', () => {
   test('every mode and action has a non-empty capitalized label', () => {
     const cases: [readonly string[], Record<string, string>][] = [
       [AGENT_MODES, AGENT_MODE_LABEL],
-      [WORKSPACE_MODES, WORKSPACE_MODE_LABEL],
       [PERMISSION_ACTIONS, PERMISSION_ACTION_LABEL],
     ];
     for (const [values, labels] of cases) {

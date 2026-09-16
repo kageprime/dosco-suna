@@ -54,6 +54,11 @@ code.
 
 ## CI lanes
 
+Desktop UI parity is part of the browser lane in `27-desktop-parity.spec.ts`.
+Run the same journey in native Electron with `E2E_DESKTOP_NATIVE=1` and
+`E2E_GREP='27 — desktop parity'`. See
+[`desktop-verification.md`](../docs/runbooks/desktop-verification.md).
+
 GitHub Actions uses `.github/workflows/tests.yml` for local-profile PR tests.
 `tests-pr.yml` calls it once for pull requests into `main` or `staging`. Full
 mode runs four lanes in parallel, each natively on one Blacksmith runner
@@ -74,6 +79,12 @@ was removed after the provider chain failed on its own (Platinum restore
 timeouts, then a Daytona guest whose kernel could not mount overlay2) on about
 every third lane. Pull-request previews below still use a sandbox: they need a
 long-lived public HTTPS origin.
+
+Live sandbox flows first provision one tracked session and wait up to 15 minutes
+for the default image and runtime. This setup runs before individual flow timers.
+The normal flow deadlines still apply after the image is ready. `SNAP-2` runs in
+the global lane after concurrent flows because rebuilding the shared default image
+invalidates it for every project using the same content hash.
 
 ## Pull request preview sandboxes
 

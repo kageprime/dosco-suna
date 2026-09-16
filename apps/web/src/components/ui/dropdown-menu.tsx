@@ -7,7 +7,7 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import * as React from 'react';
 import {
   MENU_LABEL,
-  MENU_PANEL,
+  MENU_PANEL_STATIC,
   MENU_SEPARATOR,
   MENU_SHORTCUT,
   menuRow,
@@ -24,8 +24,20 @@ import { triggerVariants, type TriggerVariantProps } from './trigger-variants';
  * A dropdown is anchored to a trigger, so its panel is at least as wide as a
  * typical trigger. A right-click menu has no trigger width to match and floors
  * itself lower.
+ *
+ * No enter/exit animation on the root panel or the submenu. The root panel
+ * used to `animate-in` (fade + `zoom-in-95` + a 2-unit slide, ~150ms). Radix
+ * Presence also keeps the node mounted until `animate-out` fires
+ * `animationend`, so every open AND every close waited on the animation. People
+ * open these menus tens of times a day; the project sidebar's workspace
+ * switcher is the worst case. The motion read as the menu lagging behind the
+ * click, and it dropped frames under load. The panel now paints on the frame it
+ * mounts and unmounts on the frame it closes.
+ *
+ * The submenu lost its animation earlier for a second reason: it opens INTO the
+ * pointer's path, so the slide moved its rows away from the cursor.
  */
-const DROPDOWN_PANEL = cn(MENU_PANEL, 'min-w-[14rem] overflow-hidden');
+const DROPDOWN_PANEL = cn(MENU_PANEL_STATIC, 'min-w-[14rem] overflow-hidden');
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
@@ -90,24 +102,19 @@ const DropdownMenuSubContent = React.forwardRef<
     side?: 'top' | 'bottom' | 'left' | 'right';
     align?: 'start' | 'center' | 'end';
   }
->(({ className, side, align, sideOffset = 5, style, ...props }, ref) => {
+  // `side` and `align` are accepted, swallowed, and unused. Radix's SubContent
+  // places itself (a submenu always opens on the inline edge of its trigger)
+  // and does not take either prop, so they are destructured only to keep them
+  // off the DOM node. They previously selected a `slide-in-from-*` class; that
+  // was the enter animation, which no dropdown panel has any more.
+>(({ className, side: _side, align: _align, sideOffset = 5, style, ...props }, ref) => {
   const depth = useDialogDepth();
 
   return (
     <DropdownMenuPrimitive.SubContent
       ref={ref}
       sideOffset={sideOffset}
-      className={cn(
-        DROPDOWN_PANEL,
-        className,
-        side === 'top' && 'data-[side=top]:slide-in-from-bottom-2',
-        side === 'bottom' && 'data-[side=bottom]:slide-in-from-top-2',
-        side === 'left' && 'data-[side=left]:slide-in-from-right-2',
-        side === 'right' && 'data-[side=right]:slide-in-from-left-2',
-        align === 'start' && 'data-[align=start]:slide-in-from-end-2',
-        align === 'center' && 'data-[align=center]:slide-in-from-center-2',
-        align === 'end' && 'data-[align=end]:slide-in-from-start-2',
-      )}
+      className={cn(DROPDOWN_PANEL, className)}
       style={{ zIndex: floatingZ(depth), ...style }}
       {...props}
     />

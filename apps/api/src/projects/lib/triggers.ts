@@ -1,3 +1,6 @@
+import { qualifiedColumn } from '../../shared/sql-qualified-column';
+import { toOpencodeModelRef } from '../../llm-gateway/resolution/effective';
+import type { PromptOverridesWire } from '../session-lifecycle/store';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import type { TriggerList } from '@kortix/api-contract';
@@ -527,12 +530,12 @@ async function selectManifestCatalogProjects(): Promise<ProjectRow[]> {
     sql`exists (
       select 1
       from ${projectTriggerRuntime}
-      where ${projectTriggerRuntime.projectId} = ${projects.projectId}
+      where ${projectTriggerRuntime.projectId} = ${qualifiedColumn(projects.projectId)}
     )`,
     sql`exists (
       select 1
       from ${connectors}
-      where ${connectors.projectId} = ${projects.projectId}
+      where ${connectors.projectId} = ${qualifiedColumn(projects.projectId)}
     )`,
   );
   const rows = await db
@@ -880,6 +883,22 @@ export async function findKeyedTriggerSession(
  * a missing/failed/deleted session must keep falling through to the create
  * path exactly like the old direct call's 'no-session'/'failed' outcomes.
  */
+/**
+ * A trigger's `model` is a wire ref (`codex/gpt-5.6-luna`, `kortix/glm-5.2`).
+ * A FRESH session bakes it into the session (`opencode_model`); a re-prompted
+ * session must carry it on the prompt itself, or the prompt silently runs on
+ * whatever default the session was created with — on prod that was a July
+ * session pinned to a managed model the account can no longer use.
+ */
+export function triggerModelOverride(model: string | null | undefined): PromptOverridesWire | undefined {
+  const trimmed = (model ?? '').trim();
+  if (!trimmed) return undefined;
+  const ref = toOpencodeModelRef(trimmed);
+  const slash = ref.indexOf('/');
+  if (slash <= 0 || slash === ref.length - 1) return undefined;
+  return { model: { providerID: ref.slice(0, slash), modelID: ref.slice(slash + 1) } };
+}
+
 async function enqueueTriggerPrompt(input: {
   project: ProjectRow;
   sessionId: string;
@@ -888,6 +907,8 @@ async function enqueueTriggerPrompt(input: {
   source: TriggerFireSource;
   triggerSlug: string;
   idempotencyKey?: string | null;
+  /** The trigger's configured model; carried on the prompt for a re-prompted session. */
+  model?: string | null;
 }): Promise<'queued' | 'no-session' | 'failed'> {
   const [session] = await db
     .select({ status: projectSessions.status, metadata: projectSessions.metadata })
@@ -910,6 +931,7 @@ async function enqueueTriggerPrompt(input: {
     // Same per-due-slot key the create path uses — a fire the sweep timed out
     // on but that actually enqueued isn't duplicated when the next tick retries.
     idempotencyKey: input.idempotencyKey ?? null,
+    overrides: triggerModelOverride(input.model),
   });
   // Fast path only — the scheduler's 60s drain tick is the delivery guarantee.
   drainSessionLifecycleQueue({ limit: 1 }).catch(() => {});
@@ -935,6 +957,9 @@ export async function fireGitTrigger(input: {
   sessionId?: string;
   commandId?: string;
   error?: string;
+  /** Machine-readable failure code when `createSession` rejected the fire
+   *  (e.g. `insufficient_credits`, `subscription_required`, `no_account`). */
+  errorCode?: string;
   reason?: string;
   deduped?: boolean;
 }> {
@@ -960,6 +985,7 @@ export async function fireGitTrigger(input: {
       text: renderedPrompt,
       source,
       triggerSlug: spec.slug,
+      model: spec.model,
       idempotencyKey: input.idempotencyKey ?? null,
     });
     if (outcome === 'queued') {
@@ -995,6 +1021,7 @@ export async function fireGitTrigger(input: {
         text: renderedPrompt,
         source,
         triggerSlug: spec.slug,
+      model: spec.model,
         idempotencyKey: input.idempotencyKey ?? null,
       });
       if (outcome === 'queued') {
@@ -1019,6 +1046,7 @@ export async function fireGitTrigger(input: {
         text: renderedPrompt,
         source,
         triggerSlug: spec.slug,
+      model: spec.model,
         idempotencyKey: input.idempotencyKey ?? null,
       });
       if (outcome === 'queued') {
@@ -1091,9 +1119,18 @@ export async function fireGitTrigger(input: {
     };
   }
   if (sessionResult.error) {
+    // `body.code` is the machine-readable rejection reason (billing gate carries
+    // `insufficient_credits` / `subscription_required` / `no_account`). Preserve
+    // it so a credit blackout is distinguishable from a transient fire failure,
+    // and so `executeTriggerExecution` can treat a permanent rejection as
+    // terminal instead of retrying it five times.
+    const code = typeof sessionResult.error.body.code === 'string'
+      ? sessionResult.error.body.code
+      : undefined;
     return {
       status: 'failed',
       error: String(sessionResult.error.body.error ?? 'Failed to create trigger session'),
+      errorCode: code,
     };
   }
   const firedSessionId = sessionResult.sessionId ?? sessionResult.row?.sessionId;
@@ -1187,6 +1224,20 @@ async function executeTriggerExecution(
     );
     const completedAt = new Date();
     if (result.status === 'fired' || result.status === 'queued') {
+      // `queued` means two different things to `fireGitTrigger`. A reuse/keyed/
+      // pinned fire that hands the prompt to an EXISTING session (`reason:
+      // 'prompt queued for delivery'`) is a COMPLETE fire — the session exists
+      // and the prompt is durably queued. Recording that as `last_status:
+      // 'queued'` left a healthy fire indistinguishable from a create still
+      // waiting on backpressure, so the reliability operator's
+      // `QUEUED_OVER_15M` attention flagged every `session_mode: reuse`
+      // trigger permanently. Only a create that is genuinely still pending
+      // (no session yet) stays `queued`; the delivery handoff is `fired`, the
+      // same status the webhook fire path records for the identical outcome.
+      const runtimeStatus =
+        result.status === 'queued' && result.reason === 'prompt queued for delivery'
+          ? 'fired'
+          : result.status;
       await Promise.all([
         markTriggerExecutionSucceeded({
           row,
@@ -1194,17 +1245,21 @@ async function executeTriggerExecution(
           sessionId: result.sessionId,
           commandId: result.commandId,
         }),
-        markGitTriggerFired(
-          row.projectId,
-          row.slug,
-          completedAt,
-          result.status === 'queued' ? 'queued' : 'fired',
-        ),
+        markGitTriggerFired(row.projectId, row.slug, completedAt, runtimeStatus),
       ]);
       return result.status;
     }
     const error = result.error ?? result.reason ?? 'scheduled trigger execution failed';
-    const state = await markTriggerExecutionFailed({ row, failedAt: completedAt, error });
+    // A billing-gate rejection (wallet drained / no plan / no account) is
+    // PERMANENT — a retry re-runs the same `createSession` → `checkBillingActive`
+    // → atomic-hold `deductCredits` only to fail identically, so retrying five
+    // times over ~30s only delays the terminal state and re-burns the same
+    // admission attempt. Mark it terminal on the first failure so the trigger
+    // runtime row shows `failed` + the machine-readable reason immediately.
+    const terminal = result.errorCode === 'insufficient_credits'
+      || result.errorCode === 'subscription_required'
+      || result.errorCode === 'no_account';
+    const state = await markTriggerExecutionFailed({ row, failedAt: completedAt, error, terminal });
     await markGitTriggerAttemptFailed(row.projectId, row.slug, completedAt, error);
     return state === 'queued' ? 'queued' : 'failed';
   } catch (error) {
@@ -1769,9 +1824,17 @@ function hasResolvedGitAuth(project: ManifestProject): project is ProjectRow & {
   return 'gitAuthToken' in project || 'gitAuthHeaders' in project;
 }
 
+/**
+ * The manifest a Customize editor shows or rewrites. Always read after a forced
+ * mirror refresh: each API replica refreshes its own git mirror at most every
+ * 60 s, and a write refreshes only the replica that handled it, so an
+ * unforced read on another replica serves the manifest from before the save.
+ * Editor reads are not a hot path; one `git fetch` per read is the price of
+ * showing what was committed.
+ */
 export async function loadManifestForEdit(project: ManifestProject): Promise<ParsedManifest> {
   const gitProject = hasResolvedGitAuth(project) ? project : await withProjectGitAuth(project);
-  const existing = await readManifest(gitProject);
+  const existing = await readManifest(gitProject, { forceRefresh: true });
   if (existing) return existing;
   return synthesizeBlankManifest({ name: project.name, manifestPath: project.manifestPath });
 }

@@ -17,10 +17,10 @@
  * aliases must always resolve to the same family and the same sentence.
  */
 
-import { getToolPrimaryArg, normalizeName } from '../../tool/tool-meta';
-import { parseWebSearchOutput, wsDomain } from '../../tool/shared/web-helpers';
 import { safeHttpUrl } from '@/lib/safe-url';
 import type { ToolPart } from '@/ui';
+import { parseWebSearchOutput, wsDomain } from '../../tool/shared/web-helpers';
+import { getToolPrimaryArg, normalizeName } from '../../tool/tool-meta';
 
 export type StepFamily =
   | 'explore'
@@ -32,7 +32,7 @@ export type StepFamily =
   | 'delegate'
   | 'sessions'
   | 'memory'
-  | 'apps'
+  | 'connectors'
   | 'automations'
   | 'projects'
   | 'skills'
@@ -52,8 +52,13 @@ assign('explore', ['read', 'glob', 'grep', 'list']);
 assign('edit', ['write', 'edit', 'morph_edit', 'apply_patch']);
 assign('run', ['bash', 'pty_spawn', 'pty_read', 'pty_write', 'pty_input', 'pty_kill']);
 assign('web', [
-  'web_search', 'websearch', 'web_fetch', 'webfetch',
-  'scrape_webpage', 'scrapewebpage', 'image_search',
+  'web_search',
+  'websearch',
+  'web_fetch',
+  'webfetch',
+  'scrape_webpage',
+  'scrapewebpage',
+  'image_search',
 ]);
 assign('create', ['image_gen', 'video_gen', 'presentation_gen', 'show', 'show_user']);
 
@@ -71,49 +76,93 @@ assign('plan', ['todo_write', 'todowrite']);
 // model happened to emit.
 assign('delegate', [
   // spawn a helper agent to do work (renders AgentSpawnTool / SessionSpawnTool)
-  'agent_spawn', 'agent_task', 'agent_task_create', 'agent_task_start',
-  'task', 'task_create', 'task_start',
-  'session_spawn', 'session_start_background',
+  'agent_spawn',
+  'agent_task',
+  'agent_task_create',
+  'agent_task_start',
+  'task',
+  'task_create',
+  'task_start',
+  'session_spawn',
+  'session_start_background',
   // send an instruction/update to a running helper (AgentMessageTool / AgentTaskUpdateTool)
-  'agent_message', 'agent_task_message', 'task_message',
-  'agent_task_update', 'task_update',
+  'agent_message',
+  'agent_task_message',
+  'task_message',
+  'agent_task_update',
+  'task_update',
   'session_message',
   // read-only status check on helpers/tasks (AgentStatusTool / TaskListTool)
-  'agent_status', 'agent_task_list', 'agent_task_get', 'task_list', 'task_get',
+  'agent_status',
+  'agent_task_list',
+  'agent_task_get',
+  'task_list',
+  'task_get',
   // stop a running helper (AgentStopTool)
-  'agent_stop', 'agent_task_cancel', 'task_cancel',
+  'agent_stop',
+  'agent_task_cancel',
+  'task_cancel',
   // mark a helper's task done (TaskDoneTool)
-  'agent_task_approve', 'task_approve', 'task_done',
+  'agent_task_approve',
+  'task_approve',
+  'task_done',
   // remove a task (TaskDeleteTool)
   'task_delete',
 ]);
 // Genuine read-only lookups of past/other session state — no delegation happens here.
 assign('sessions', [
-  'session_get', 'session_read', 'session_search',
-  'session_lineage', 'session_stats', 'session_list', 'session_list_background',
+  'session_get',
+  'session_read',
+  'session_search',
+  'session_lineage',
+  'session_stats',
+  'session_list',
+  'session_list_background',
   'session_list_spawned',
 ]);
 assign('memory', ['memory', 'memory_search', 'mem_search', 'ltm_search', 'get_mem']);
-assign('apps', [
-  'connector_get', 'connector_list', 'connector_setup',
-  'kortix_connector_call', 'kortix_connectors',
-  'kortix_connectors_connectors', 'kortix_connectors_discover',
-  'kortix_connectors_describe', 'kortix_connectors_call',
-  'kortix_connector_describe', 'kortix_connector_discover',
+assign('connectors', [
+  'connector_get',
+  'connector_list',
+  'connector_setup',
+  'kortix_connector_call',
+  'kortix_connectors',
+  'kortix_connectors_connectors',
+  'kortix_connectors_discover',
+  'kortix_connectors_describe',
+  'kortix_connectors_call',
+  'kortix_connector_describe',
+  'kortix_connector_discover',
 ]);
 assign('automations', [
-  'triggers', 'trigger_create', 'trigger_delete', 'trigger_get', 'trigger_list',
-  'trigger_pause', 'trigger_resume', 'trigger_test', 'trigger_update',
+  'triggers',
+  'trigger_create',
+  'trigger_delete',
+  'trigger_get',
+  'trigger_list',
+  'trigger_pause',
+  'trigger_resume',
+  'trigger_test',
+  'trigger_update',
 ]);
 assign('projects', [
-  'project_create', 'project_delete', 'project_get',
-  'project_list', 'project_select', 'project_update',
+  'project_create',
+  'project_delete',
+  'project_get',
+  'project_list',
+  'project_select',
+  'project_update',
 ]);
 assign('skills', ['skill']);
 assign('ask', ['question', 'ask']);
 assign('retired', [
-  'integration_list', 'integration_connect', 'integration_search', 'integration_actions',
-  'integration_run', 'integration_request', 'integration_exec',
+  'integration_list',
+  'integration_connect',
+  'integration_search',
+  'integration_actions',
+  'integration_run',
+  'integration_request',
+  'integration_exec',
 ]);
 
 export function familyForTool(toolName: string): StepFamily | 'hidden' {
@@ -304,22 +353,31 @@ function automationAction(part: ToolPart): AutomationAction {
   return classifyAutomationAction(m ? m[1] : 'list');
 }
 
-// ─── apps: discovery/reads vs actually connecting vs running a connected tool ─
+// ─── connectors: discovery/reads vs actually connecting vs running a connector action ─
+//
+// "Connector", never "app": an App is a Kortix product (a hosted web app), so a
+// connector narrated as "an app" reads as that product.
 
-type AppAction = 'connect' | 'read' | 'call';
+type ConnectorAction = 'connect' | 'read' | 'call';
 
-const APP_ACTION: Record<string, AppAction> = {
+const CONNECTOR_ACTION: Record<string, ConnectorAction> = {
   connector_setup: 'connect',
   connector_get: 'read',
   connector_list: 'read',
   kortix_connector_discover: 'read',
   kortix_connector_describe: 'read',
   kortix_connectors: 'read',
+  kortix_connectors_connectors: 'read',
+  kortix_connectors_discover: 'read',
+  kortix_connectors_describe: 'read',
   kortix_connector_call: 'call',
+  // The name the runtime registers today. Unmapped, it fell through to 'read'
+  // and a real call was narrated as "Checked".
+  kortix_connectors_call: 'call',
 };
 
-function appAction(part: ToolPart): AppAction {
-  return APP_ACTION[normalizeName(part.tool)] ?? 'read';
+function connectorAction(part: ToolPart): ConnectorAction {
+  return CONNECTOR_ACTION[normalizeName(part.tool)] ?? 'read';
 }
 
 // ─── projects: opening/viewing vs creating vs updating vs a delete that is a no-op ─
@@ -589,7 +647,8 @@ function mixedCreateSentence(keys: string[]): string {
   const segments: string[] = [];
   (Object.keys(counts) as CreateMedia[]).forEach((media) => {
     const c = counts[media];
-    if (c) segments.push(`${c} ${plural(c, CREATE_MEDIA_NOUN[media], `${CREATE_MEDIA_NOUN[media]}s`)}`);
+    if (c)
+      segments.push(`${c} ${plural(c, CREATE_MEDIA_NOUN[media], `${CREATE_MEDIA_NOUN[media]}s`)}`);
   });
   return `Worked on ${joinWithAnd(segments)}`;
 }
@@ -707,20 +766,22 @@ export function narrateStep(family: StepFamily, parts: ToolPart[]): string {
       }
       return 'Worked with its memory';
     }
-    case 'apps': {
-      const actions = parts.map(appAction);
+    case 'connectors': {
+      const actions = parts.map(connectorAction);
       if (allSame(actions)) {
         switch (actions[0]) {
           case 'connect':
-            if (n === 1) return arg ? `Connected to ${arg}` : 'Connected to an app';
-            return `Connected to ${n} apps`;
+            if (n === 1) return arg ? `Connected to ${arg}` : 'Connected a connector';
+            return `Connected ${n} connectors`;
           case 'call':
-            return n === 1 ? 'Used a connected app' : `Used ${n} connected apps`;
+            // `n` counts calls, not distinct connectors: two calls to Gmail
+            // are not "2 connectors".
+            return n === 1 ? 'Used a connector' : `Made ${n} connector calls`;
           case 'read':
-            return 'Checked your connected apps';
+            return 'Checked your connectors';
         }
       }
-      return 'Worked with your connected apps';
+      return 'Worked with your connectors';
     }
     case 'automations': {
       const actions = parts.map(automationAction);
@@ -821,8 +882,8 @@ export function narrateFailedStep(family: StepFamily, parts: ToolPart[]): string
       return "Couldn't check earlier work";
     case 'memory':
       return "Couldn't reach its memory";
-    case 'apps':
-      return "Couldn't reach a connected app";
+    case 'connectors':
+      return "Couldn't reach a connector";
     case 'automations':
       return 'Hit a problem with your automations';
     case 'projects':

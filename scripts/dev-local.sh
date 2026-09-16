@@ -73,9 +73,12 @@ load_local_env() {
   # this machine's localhost — so they need a public tunnel URL. The dashboard
   # keeps talking to the API on localhost via NEXT_PUBLIC_BACKEND_URL, so only
   # the sandbox -> API direction goes through the tunnel.
-  export NEXT_PUBLIC_BACKEND_URL="http://localhost:8008/v1"
-  export KORTIX_PUBLIC_BACKEND_URL="http://localhost:8008/v1"
-  export BACKEND_URL="http://localhost:8008/v1"
+  # Follows PORT and honours a pre-set value, so a worktree booted on its own
+  # api port bakes ITS port into the web bundle. Hardcoding 8008 sent every
+  # hand-booted worktree's browser to the primary api (2026-09-06).
+  export NEXT_PUBLIC_BACKEND_URL="${NEXT_PUBLIC_BACKEND_URL:-http://localhost:${PORT:-8008}/v1}"
+  export KORTIX_PUBLIC_BACKEND_URL="${KORTIX_PUBLIC_BACKEND_URL:-http://localhost:${PORT:-8008}/v1}"
+  export BACKEND_URL="${BACKEND_URL:-http://localhost:${PORT:-8008}/v1}"
 
   # Route sandbox model calls through the local standalone gateway. Proxy mode
   # (empty BASE_URL): the API reverse-proxies /v1/llm-gateway/* to the gateway.
@@ -471,13 +474,40 @@ run_sandbox_dev() {
     for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
   fi
 
+  # A sandbox image MAY bake the Supabase service images as Docker-loadable
+  # tarballs (crane keeps the registry's gzipped blobs, so ~2 GB for the full
+  # set). Load them before `supabase start`, or the bake is dead weight and the
+  # stack pulls the same bytes over the network anyway — which is exactly what
+  # happened between 2026-06-07 and 2026-09-16: the loader was written and never
+  # merged, so one project's image carried ~2 GB it never used and pulled on
+  # every boot regardless. Absent directory = no-op, so this is inert in every
+  # image that does not bake.
+  if [[ -d /opt/sb-images ]]; then
+    shopt -s nullglob
+    local sb_image_tars=(/opt/sb-images/*.tar)
+    shopt -u nullglob
+    if (( ${#sb_image_tars[@]} > 0 )); then
+      echo "[dev] loading ${#sb_image_tars[@]} baked Supabase image(s)…"
+      for image_tar in "${sb_image_tars[@]}"; do
+        # A failed load is not fatal: `supabase start` falls back to pulling.
+        docker load -i "$image_tar" >/dev/null 2>&1 \
+          || echo "[dev] WARNING: could not load $(basename "$image_tar"); will pull instead" >&2
+      done
+    fi
+  fi
+
   # Local Supabase (Postgres + auth + REST + storage). Stop first for a clean
   # slate — a partial/leftover start holds ports (e.g. 54324) and makes the
   # next `supabase start` fail with "address already in use".
+  #
+  # `studio` is the Supabase web DASHBOARD and `imgproxy` only serves storage
+  # image transforms; an agent driving this stack over HTTP uses neither, and
+  # starting them costs a 376 MB pull on every cold boot. Excluding them here is
+  # what lets the sandbox image stop baking them too.
   if ! (cd "$SUPABASE_DIR" && supabase status >/dev/null 2>&1); then
     echo "[dev] supabase start…"
     (cd "$SUPABASE_DIR" && supabase stop --no-backup >/dev/null 2>&1 || true)
-    (cd "$SUPABASE_DIR" && supabase start)
+    (cd "$SUPABASE_DIR" && supabase start -x studio,imgproxy)
   fi
   # Deterministic local dev credentials from the running stack.
   eval "$(cd "$SUPABASE_DIR" && supabase status -o env 2>/dev/null | sed 's/^/export SB_/')"
@@ -571,7 +601,7 @@ EOF
   source "$ROOT_DIR/apps/web/.env.local"
   set +a
 
-  kill_dev_ports 3000 8008 "${PORT:-8008}"
+  kill_dev_ports "${WEB_PORT:-3000}" "${PORT:-8008}"
 
   # A freshly-cloned session has no node_modules — install first. (Warm volumes
   # / a baked pnpm store make this near-instant later; cold it's a few minutes.)
@@ -617,7 +647,9 @@ if [[ -d /opt/kortix || -n "${KORTIX_SESSION_ID:-}" ]]; then
 fi
 
 load_local_env
-kill_dev_ports 3000 8008 "${PORT:-8008}" "$GATEWAY_PORT"
+# ONLY the ports THIS run will bind. Hardcoding 3000/8008 made every worktree
+# `pnpm dev` kill the primary checkout's web and API (2026-09-04, repeatedly).
+kill_dev_ports "${WEB_PORT:-3000}" "${PORT:-8008}" "$GATEWAY_PORT"
 
 echo "[dev] Checking Supabase configuration..."
 if ! docker info >/dev/null 2>&1; then

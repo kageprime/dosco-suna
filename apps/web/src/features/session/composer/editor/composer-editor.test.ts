@@ -3,7 +3,8 @@ import { PLUGIN_KEY as PLACEHOLDER_PLUGIN_KEY } from '@tiptap/extensions';
 import type { EditorView } from '@tiptap/pm/view';
 import { describe, expect, test } from 'bun:test';
 
-import { baseExtensions } from './extensions';
+import { mergeFailedSubmissionText } from '../../composer-draft-recovery';
+import { planPrefillMerge, textToDocument } from '../composer-logic';
 import {
   createSubmitOnEnterHandler,
   createUpdateHandler,
@@ -12,8 +13,7 @@ import {
   setEditorDocument,
   trackEmptyBoundary,
 } from './composer-editor';
-import { mergeFailedSubmissionText } from '../../composer-draft-recovery';
-import { planPrefillMerge, textToDocument } from '../composer-logic';
+import { baseExtensions } from './extensions';
 import { MentionNode } from './mention-node';
 import { serializeDocument } from './serialize';
 
@@ -210,7 +210,11 @@ describe('trackEmptyBoundary — fires ONLY on the empty<->non-empty boundary', 
 describe('createSubmitOnEnterHandler', () => {
   function fakeEvent(key: string, shiftKey = false) {
     let prevented = false;
-    const event = { key, shiftKey, preventDefault: () => (prevented = true) } as unknown as KeyboardEvent;
+    const event = {
+      key,
+      shiftKey,
+      preventDefault: () => (prevented = true),
+    } as unknown as KeyboardEvent;
     return { event, wasPrevented: () => prevented };
   }
 
@@ -262,6 +266,69 @@ describe('createSubmitOnEnterHandler', () => {
     expect(handled).toBe(false);
   });
 
+  describe('Up from the first visual row', () => {
+    const atFirstRow = {
+      state: { selection: { empty: true, $head: { index: () => 0 } } },
+      endOfTextblock: () => true,
+    } as unknown as EditorView;
+    const belowFirstRow = {
+      state: { selection: { empty: true, $head: { index: () => 1 } } },
+      endOfTextblock: () => true,
+    } as unknown as EditorView;
+    const arrowUp = (mods: Partial<KeyboardEvent> = {}) => {
+      let prevented = false;
+      const event = {
+        key: 'ArrowUp',
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+        isComposing: false,
+        ...mods,
+        preventDefault: () => (prevented = true),
+      } as unknown as KeyboardEvent;
+      return { event, wasPrevented: () => prevented };
+    };
+
+    test('takes the key when the host acts on it', () => {
+      let calls = 0;
+      const handler = createSubmitOnEnterHandler(
+        () => {},
+        () => false,
+        () => (++calls, true),
+      );
+      const { event, wasPrevented } = arrowUp();
+      expect(handler(atFirstRow, event)).toBe(true);
+      expect(calls).toBe(1);
+      expect(wasPrevented()).toBe(true);
+    });
+
+    test('leaves the key to ProseMirror when the host has nothing to take back', () => {
+      const handler = createSubmitOnEnterHandler(
+        () => {},
+        () => false,
+        () => false,
+      );
+      const { event, wasPrevented } = arrowUp();
+      expect(handler(atFirstRow, event)).toBe(false);
+      expect(wasPrevented()).toBe(false);
+    });
+
+    test('below the first row, with a modifier, or while disabled, the host is never asked', () => {
+      let calls = 0;
+      const onUp = () => (++calls, true);
+      expect(createSubmitOnEnterHandler(() => {}, () => false, onUp)(belowFirstRow, arrowUp().event)).toBe(false);
+      expect(
+        createSubmitOnEnterHandler(() => {}, () => false, onUp)(atFirstRow, arrowUp({ shiftKey: true }).event),
+      ).toBe(false);
+      expect(
+        createSubmitOnEnterHandler(() => {}, () => false, onUp)(atFirstRow, arrowUp({ isComposing: true }).event),
+      ).toBe(false);
+      expect(createSubmitOnEnterHandler(() => {}, () => true, onUp)(atFirstRow, arrowUp().event)).toBe(false);
+      expect(calls).toBe(0);
+    });
+  });
+
   test('any other key is a no-op regardless of disabled state', () => {
     let submitted = 0;
     const handler = createSubmitOnEnterHandler(
@@ -305,7 +372,9 @@ describe('createSubmitOnEnterHandler', () => {
  */
 describe('baseExtensions — Placeholder reads a live getter, not a value frozen at construction', () => {
   function currentPlaceholderText(editor: Editor): string | undefined {
-    const plugin = editor.extensionManager.plugins.find((p) => p.spec.key === PLACEHOLDER_PLUGIN_KEY);
+    const plugin = editor.extensionManager.plugins.find(
+      (p) => p.spec.key === PLACEHOLDER_PLUGIN_KEY,
+    );
     if (!plugin?.props.decorations) return undefined;
     // .call(plugin, ...), not plugin.props.decorations(...): the declared
     // signature types `decorations` with `this: Plugin<any>` (ProseMirror
@@ -314,7 +383,8 @@ describe('baseExtensions — Placeholder reads a live getter, not a value frozen
     // which tsc correctly rejects (TS2684).
     const decorations = plugin.props.decorations.call(plugin, editor.state as never);
     const decoration = (decorations as { find?: () => unknown[] } | null)?.find?.()[0];
-    const attrs = (decoration as { type?: { attrs?: Record<string, string> } } | undefined)?.type?.attrs;
+    const attrs = (decoration as { type?: { attrs?: Record<string, string> } } | undefined)?.type
+      ?.attrs;
     return attrs?.['data-placeholder'];
   }
 
@@ -659,7 +729,6 @@ describe('merge-mode prefill and transcription round-trip to the old strings', (
       { kind: 'file', label: 'draft.ts' },
     ]);
   });
-
 });
 
 describe('createUpdateHandler — per-change doc snapshots alongside the empty boundary', () => {
