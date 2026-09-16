@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // provider's initial value on the server so SSR matches the first client paint.
   const cookieStore = await cookies();
   const raw = cookieStore.get('admin_sidebar_state')?.value;
-  const initialOpen = raw === 'false' ? false : true;
+  const initialOpen = raw === 'true' ? true : false;
 
   return <AdminShell initialOpen={initialOpen}>{children}</AdminShell>;
 }

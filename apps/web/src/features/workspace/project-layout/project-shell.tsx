@@ -71,7 +71,11 @@ function readSidebarOpenCookie(): boolean | undefined {
 }
 
 export function ProjectShell({ projectId, initialSidebarOpen, children }: ProjectShellProps) {
-  const resolvedSidebarOpen = initialSidebarOpen ?? readSidebarOpenCookie();
+  // Collapsed by default. A stored `sidebar_state=true` pin is still honored
+  // (click pins the panel docked), but first paint with no cookie is collapsed
+  // and the full panel arrives as a hover flyout from the top-left toggle or
+  // the left-edge peek strip.
+  const resolvedSidebarOpen = initialSidebarOpen ?? readSidebarOpenCookie() ?? false;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();

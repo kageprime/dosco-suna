@@ -116,7 +116,7 @@ function useOptionalSidebar() {
 }
 
 function SidebarProvider({
-  defaultOpen = true,
+  defaultOpen = false,
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -571,8 +571,9 @@ function Sidebar({
   );
 }
 
-function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+function SidebarTrigger({ className, onClick, onPointerEnter, onPointerLeave, ...props }: React.ComponentProps<typeof Button>) {
+  const { toggleSidebar, state, peekEnter, peekLeave } = useSidebar();
+  const collapsed = state === 'collapsed';
 
   return (
     <Button
@@ -586,6 +587,14 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
         // Pass the event through: Enter/Space activation reports `detail === 0`
         // and collapses with no motion, a real click animates.
         toggleSidebar(event);
+      }}
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        if (collapsed) peekEnter();
+      }}
+      onPointerLeave={(event) => {
+        onPointerLeave?.(event);
+        if (collapsed) peekLeave();
       }}
       {...props}
     >
