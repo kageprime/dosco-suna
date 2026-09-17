@@ -1,6 +1,6 @@
 // Generated from application option and presentation registries.
 export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A laptop, a VPS, or your own VPC — the exact same stack as Kortix cloud.': 'text5f303c017ed7',
+  'A laptop, a VPS, or your own VPC — the exact same stack as Dosco cloud.': 'text5f303c017ed7',
   'A new machine is being prepared. Sessions started now wait for it to finish — they don’t fail.':
     'textb16ecefb1aec',
   Account: 'text7e1b0d5641f2',
@@ -22,7 +22,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Automate: 'textf9dcbb55deba',
   Billing: 'text3ac8bbca9a74',
   'Branding is an Enterprise feature': 'textc44722e44ce4',
-  'Bring your own keys — Anthropic, OpenAI, or local models — or run on Kortix compute.':
+  'Bring your own keys — Anthropic, OpenAI, or local models — or run on Dosco compute.':
     'text0ced428dea65',
   'Categorizes, prioritizes and routes inbound tickets, drafting an empathetic first reply.':
     'text75c341902d77',
@@ -57,7 +57,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Home: 'text3a78695388b3',
   'How this works': 'textbdbd7706de64',
   'IdP groups map to roles on your projects': 'textb978cac03a79',
-  'Kortix prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
+  'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
     'text5c48b158361a',
   'LLM Overage': 'text3f6365f81e08',
   'Machine Bonus': 'text917ffd97c41a',

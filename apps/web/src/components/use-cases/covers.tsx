@@ -131,7 +131,7 @@ function IconTile({ children, className }: { children: ReactNode; className?: st
   return <div className={cn(TILE, 'bg-card', className)}>{children}</div>;
 }
 
-const Kortix = () => <Avatar src="/usecases/logos/kortix.png" alt="Kortix" />;
+const Dosco = () => <Avatar src="/usecases/logos/kortix.png" alt="Dosco" />;
 const Plain = () => <Avatar src="/usecases/logos/plain.png" alt="Plain" />;
 const Slack = () => <Mark src="/usecases/logos/slack.webp" alt="Slack" />;
 const GitHub = () => <Mark src="/usecases/logos/github.svg" alt="GitHub" />;
@@ -228,14 +228,14 @@ const big = 'size-8 sm:size-9';
 export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> = {
   'customer-support': () => (
     <RowCover>
-      <Kortix />
+      <Dosco />
       <Plain />
-      <Kortix />
+      <Dosco />
     </RowCover>
   ),
   'slack-control-pane': () => (
     <OrbitCover
-      center={<Kortix />}
+      center={<Dosco />}
       satellites={[
         <Slack key="s" />,
         <GitHub key="g" />,
@@ -251,7 +251,7 @@ export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> =
       <IconTile>
         <GitMerge className={cn(ic, 'text-foreground/70')} />
       </IconTile>
-      <Kortix />
+      <Dosco />
       <IconTile>
         <FileText className={cn(ic, 'text-foreground/70')} />
       </IconTile>
@@ -262,7 +262,7 @@ export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> =
       <IconTile>
         <GitPullRequest className={cn(ic, 'text-foreground/70')} />
       </IconTile>
-      <Kortix />
+      <Dosco />
       <div className={cn(TILE, 'bg-emerald-500 text-white')}>
         <CheckCircle2 className={ic} />
       </div>
@@ -278,7 +278,7 @@ export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> =
   'release-notes': () => (
     <RowCover>
       <GitHub />
-      <Kortix />
+      <Dosco />
       <IconTile>
         <Tag className={cn(ic, 'text-foreground/70')} />
       </IconTile>
@@ -289,13 +289,13 @@ export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> =
       <IconTile>
         <CalendarClock className={cn(ic, 'text-foreground/70')} />
       </IconTile>
-      <Kortix />
+      <Dosco />
       <Linear />
     </RowCover>
   ),
   'employee-onboarding': () => (
     <OrbitCover
-      center={<Kortix />}
+      center={<Dosco />}
       satellites={[
         <Slack key="s" />,
         <Linear key="l" />,
@@ -480,7 +480,7 @@ export const USE_CASE_COVERS: Record<string, ComponentType<UseCaseCoverProps>> =
       <IconTile>
         <CreditCard className={cn(ic, 'text-rose-500')} />
       </IconTile>
-      <Kortix />
+      <Dosco />
       <div className={cn(TILE, 'bg-emerald-500 text-white')}>
         <CircleDollarSign className={ic} />
       </div>

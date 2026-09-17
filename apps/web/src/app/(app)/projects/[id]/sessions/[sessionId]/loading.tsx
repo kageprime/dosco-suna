@@ -23,7 +23,7 @@ import ProjectHomeLoading from '../../loading';
  * from the producer's preview store. The hand-over to the page is then
  * pixel-identical: same bubble, same waiting row, same composer. Every other
  * navigation into a session (sidebar, back/forward) has no preview and paints
- * the project boundary's pulsing Kortix mark — never a skeleton.
+ * the project boundary's pulsing Dosco mark — never a skeleton.
  */
 export default function SessionLoading() {
   const params = useParams<{ id: string; sessionId: string }>();

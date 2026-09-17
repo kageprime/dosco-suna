@@ -51,7 +51,7 @@ describe('change vocabulary — no git words reach a screen', () => {
     expect(changeKind('quantum-entangled').label).toBe('Edited');
   });
 
-  test('tones follow the Kortix status palette', () => {
+  test('tones follow the Dosco status palette', () => {
     expect(changeKind('added').tone).toBe('success');
     expect(changeKind('deleted').tone).toBe('destructive');
   });

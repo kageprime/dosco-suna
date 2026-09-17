@@ -25,8 +25,8 @@ describe('SessionsTabView', () => {
           notificationTypesCopy: {
             onCompletion: { label: 'Завршетак задатка', description: 'Када се задатак заврши' },
             onError: { label: 'Грешке', description: 'Када дође до грешке' },
-            onQuestion: { label: 'Питања', description: 'Када Kortix тражи одговор' },
-            onPermission: { label: 'Захтеви за дозволу', description: 'Када Kortix тражи дозволу' },
+            onQuestion: { label: 'Питања', description: 'Када Dosco тражи одговор' },
+            onPermission: { label: 'Захтеви за дозволу', description: 'Када Dosco тражи дозволу' },
           },
           notificationBehaviorCopy: {
             onlyWhenHidden: {
@@ -40,7 +40,7 @@ describe('SessionsTabView', () => {
           soundPacks: {
             off: { label: 'Искључено', description: 'Сви звуци су искључени' },
             opencode: { label: 'Подразумевано', description: 'Подразумевани пакет' },
-            kortix: { label: 'Kortix пакет', description: 'Звиждук' },
+            kortix: { label: 'Dosco пакет', description: 'Звиждук' },
           },
           volume: 'Јачина звука',
           preview: 'Послушај',

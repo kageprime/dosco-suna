@@ -19,7 +19,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   className = '',
 }) => {
   // The default agent wears the platform mark — which is the org's own symbol
-  // when the account is branded (Enterprise `branding`), else the Kortix one.
+  // when the account is branded (Enterprise `branding`), else the Dosco one.
   const branding = useBranding();
   const borderRadius = Math.min(size * 0.4, 16);
   const borderRadiusStyle = { borderRadius: `${borderRadius}px` };
@@ -48,10 +48,10 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
               ? (branding.icon_dark_url ?? branding.icon_url)
               : '/kortix-symbol.svg'
           }
-          alt={branding?.app_name ?? 'Kortix'}
+          alt={branding?.app_name ?? 'Dosco'}
           className={cn(
             'shrink-0 object-contain',
-            // The Kortix symbol is black-on-transparent and inverts onto the
+            // The Dosco symbol is black-on-transparent and inverts onto the
             // dark tile; an uploaded mark keeps its own colors.
             !branding?.icon_url && 'invert dark:invert-0',
             branding?.icon_dark_url && 'dark:hidden',
@@ -87,7 +87,7 @@ interface AgentNameProps {
   name?: string;
 }
 
-export const AgentName: React.FC<AgentNameProps> = ({ name, fallback = 'Kortix' }) => {
+export const AgentName: React.FC<AgentNameProps> = ({ name, fallback = 'Dosco' }) => {
   return <span>{name || fallback}</span>;
 };
 

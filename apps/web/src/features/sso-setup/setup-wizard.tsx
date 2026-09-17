@@ -687,7 +687,7 @@ function ImportForm({
   const [domain, setDomain] = useState('');
   const [claim, setClaim] = useState(config.groupClaimName);
   const [autoCreate, setAutoCreate] = useState(true);
-  // Default ON: connecting an IdP should make its groups appear in Kortix
+  // Default ON: connecting an IdP should make its groups appear in Dosco
   // without hand-mapping each claim — the admin just attaches project roles.
   // (Groups auto-created this way are source='sso' and never annex manual
   // groups; the toggle stays for admins who want mapping-only.)
@@ -1240,7 +1240,7 @@ function ProvisionedStatusPanel({
   const totalMembers = membersQuery.data?.length ?? null;
   const isLoading = membersQuery.isLoading || groupsQuery.isLoading;
 
-  // Kortix is the SCIM server: the freshest signal we own is when the IdP
+  // Dosco is the SCIM server: the freshest signal we own is when the IdP
   // last made an authenticated SCIM call (stamped on every request, including
   // no-change reconciliation reads). Active tokens only.
   const lastSyncAt = latestScimSyncAt(tokensQuery.data ?? []);
@@ -1577,7 +1577,7 @@ function WizardCore({ accountId, flow }: { accountId: string; flow: Flow }) {
 
   const [activeStep, setActiveStep] = useState(0);
   const [completed, setCompleted] = useState<string[]>([]);
-  // Change-provider / start-over confirmation (Kortix allows ONE SSO provider
+  // Change-provider / start-over confirmation (Dosco allows ONE SSO provider
   // per account, so switching mid-setup abandons the current one). Declared
   // with the other hooks — above the early returns — so it can never be called
   // conditionally (react-hooks/rules-of-hooks).
@@ -1637,7 +1637,7 @@ function WizardCore({ accountId, flow }: { accountId: string; flow: Flow }) {
   };
 
   // In-progress state = anything that would be lost by switching away or
-  // resetting. Kortix allows ONE SSO provider per account, so changing
+  // resetting. Dosco allows ONE SSO provider per account, so changing
   // provider mid-setup abandons the current one — mirror Vercel and confirm
   // + actually reset it, rather than leaking stale half-configured state.
   // (confirmAction is declared with the hooks above — never after a return.)

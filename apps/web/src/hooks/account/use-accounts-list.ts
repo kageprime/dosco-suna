@@ -45,7 +45,7 @@
  * a build failure.
  *
  * The KEY itself is not defined here — it comes from `qk` in `@kortix/sdk/react`,
- * which is the source of truth for every Kortix cache key. This hook only binds
+ * which is the source of truth for every Dosco cache key. This hook only binds
  * it to the host's own auth context, which the framework-free SDK cannot see.
  */
 

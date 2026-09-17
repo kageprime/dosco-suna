@@ -16,7 +16,7 @@ import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 
 import { formatSessionCostUsd } from '../session-cost-format';
 
-// Monochrome + one accent per the Kortix palette law: llm_cost and
+// Monochrome + one accent per the Dosco palette law: llm_cost and
 // compute_cost are two shades of the same warm chart ramp (--chart-1 /
 // --chart-2), not two unrelated colours competing for attention.
 const chartConfig = {

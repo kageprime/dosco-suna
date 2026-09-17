@@ -144,8 +144,8 @@ function GitHubSetup() {
           setState('empty');
           setMessage(
             result.installations.length > 0
-              ? `Every installation available to ${result.github_login} is already linked to this Kortix account.`
-              : `No existing Kortix App installation is available to ${result.github_login}.`,
+              ? `Every installation available to ${result.github_login} is already linked to this Dosco account.`
+              : `No existing Dosco App installation is available to ${result.github_login}.`,
           );
         } else {
           setState('select');

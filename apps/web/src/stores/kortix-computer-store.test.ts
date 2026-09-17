@@ -846,7 +846,7 @@ describe('setActiveSession — boot handoff continuity', () => {
 
   test('transient shell → real chat for the SAME project session keeps the panel open', () => {
     const s = useKortixComputerStore.getState();
-    // The boot shell activates under the Kortix session id…
+    // The boot shell activates under the Dosco session id…
     s.setActiveSession('kortix-sess-1', { projectSessionId: 'kortix-sess-1', transient: true });
     useKortixComputerStore.getState().setIsSidePanelOpen(true);
     useKortixComputerStore.getState().setIsActionPanelOpen(true);

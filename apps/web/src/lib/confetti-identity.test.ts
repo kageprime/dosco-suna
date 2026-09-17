@@ -64,7 +64,7 @@ describe('emoji normalisation', () => {
   // budget (CLAUDE.md). A fourth would make that budget a moving target.
   for (const emoji of [null, undefined, '', '   '] as const) {
     test(`${JSON.stringify(emoji)} is "no emoji" and falls to the initial`, () => {
-      expect(resolveConfettiFace({ emoji, label: 'Kortix' })).toMatchObject({
+      expect(resolveConfettiFace({ emoji, label: 'Dosco' })).toMatchObject({
         kind: 'initial',
         initial: 'K',
       });
@@ -105,7 +105,7 @@ describe('confettiChalkSeed', () => {
   });
 
   test('trims, so a padded label and a clean one are the same colour', () => {
-    expect(confettiChalkSeed('  Kortix  ', 'K')).toBe('Kortix');
+    expect(confettiChalkSeed('  Dosco  ', 'K')).toBe('Dosco');
   });
 
   // Deliberately reproduces entity-avatar.tsx's `${label?.trim()}` quirk — an

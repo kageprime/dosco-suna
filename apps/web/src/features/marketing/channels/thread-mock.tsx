@@ -1,13 +1,13 @@
 'use client';
 
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { Slack } from '@/features/icon/icons/slack';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/i18n/use-translations';
 import type { ReactNode } from 'react';
 import { getLocalizedChannelsContent } from './content';
 
-/** The square avatar every turn carries: an initial for a person, the Kortix
+/** The square avatar every turn carries: an initial for a person, the Dosco
  *  mark for the agent. Drawn rather than imported so nothing here needs an
  *  image request or a real face. */
 function Avatar({ kind, who }: { kind: string; who: string }): ReactNode {
@@ -26,7 +26,7 @@ function Avatar({ kind, who }: { kind: string; who: string }): ReactNode {
       aria-hidden
       className="border-border bg-background flex size-7 shrink-0 items-center justify-center rounded-sm border"
     >
-      <Kortix className="size-3" />
+      <Dosco className="size-3" />
     </span>
   );
 }

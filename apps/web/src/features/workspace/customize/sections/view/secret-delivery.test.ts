@@ -334,7 +334,7 @@ describe('secretDeliveryPresentation', () => {
     expect(secretDeliveryPresentation('egress', 'network')).toEqual({
       label: 'Enforce at the network',
       description:
-        'The sandbox holds a handle. Kortix substitutes the real value only on requests to the approved hosts.',
+        'The sandbox holds a handle. Dosco substitutes the real value only on requests to the approved hosts.',
       tone: 'secondary',
     });
     // A legacy HTTPS-broker row shows the same badge: same guarantee.
@@ -346,7 +346,7 @@ describe('secretDeliveryPresentation', () => {
   test('a disabled secret is stored and delivered nowhere', () => {
     expect(secretDeliveryPresentation('denied')).toEqual({
       label: 'Disabled',
-      description: 'Stored securely, but delivered to no session and no Kortix service.',
+      description: 'Stored securely, but delivered to no session and no Dosco service.',
       // `info` is the design system's neutral filled pill, not the near-invisible
       // `outline` (bg-accent sits one hairline off the page surface).
       tone: 'info',
@@ -358,7 +358,7 @@ describe('secretDeliveryPresentation', () => {
     // beside a working provider key would be a lie.
     expect(secretDeliveryPresentation('broker', 'llm_gateway')).toMatchObject({
       label: 'LLM gateway',
-      description: 'Spent by the Kortix model gateway. It never enters the sandbox.',
+      description: 'Spent by the Dosco model gateway. It never enters the sandbox.',
     });
     expect(secretDeliveryPresentation('broker', 'connector')).toMatchObject({
       label: 'Connector',

@@ -16,7 +16,7 @@
  * Seeding a PRNG from the calendar day would give the same answer with no
  * storage at all, and it is genuinely simpler. It is not what this does,
  * because it also gives EVERY person the same five prompts on the same day. A
- * stored random pick makes the rotation per-browser: two people opening Kortix
+ * stored random pick makes the rotation per-browser: two people opening Dosco
  * on the same morning see different work, which is the point of having a
  * hundred of them.
  *

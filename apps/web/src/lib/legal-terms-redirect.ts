@@ -21,7 +21,7 @@ type Locale = (typeof locales)[number];
 
 /**
  * Canonical public Google Drive file that owns the Terms of Service
- * (Kortix Terms of Service - Version 2026-07-14.pdf).
+ * (Dosco Terms of Service - Version 2026-07-14.pdf).
  * The `usp=sharing` param is what lets Drive render the file publicly
  * without forcing a sign-in — it must always be present on the destination
  * and must never be overwritten by an incoming `usp` value.

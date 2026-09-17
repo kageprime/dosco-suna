@@ -1,7 +1,7 @@
 /**
  * Prefixes this app writes `localStorage` / `sessionStorage` keys under.
  *
- * A key that starts with one of these belongs to Kortix, not the browser or a
+ * A key that starts with one of these belongs to Dosco, not the browser or a
  * third party, so it is safe — and, unless it is on `KEEP_STORAGE_KEYS`,
  * REQUIRED — to erase on an identity change. This is the single source of
  * truth for "does this app own this key": `sweepStorage()` below uses it to

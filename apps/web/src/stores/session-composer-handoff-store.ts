@@ -30,7 +30,7 @@ export interface CarriedDraft {
 }
 
 interface CarriedDraftState {
-  /** Kortix session id → the draft waiting to be handed to that session's
+  /** Dosco session id → the draft waiting to be handed to that session's
    *  real composer. */
   draftBySession: Record<string, CarriedDraft>;
   carryDraft: (sessionId: string, text: string, files: AttachedFile[]) => void;
@@ -86,7 +86,7 @@ export const useCarriedDraft = (sessionId: string): CarriedDraft | null =>
   useCarriedDraftStore((s) => s.draftBySession[sessionId] ?? null);
 
 interface FirstPromptPreviewState {
-  /** Kortix session id → the first prompt's text, for RENDER only. */
+  /** Dosco session id → the first prompt's text, for RENDER only. */
   previewBySession: Record<
     string,
     { text: string; files: AttachedFile[]; uploadStatus?: AttachmentUploadStatus }
@@ -111,7 +111,7 @@ interface FirstPromptPreviewState {
  * then gone, the transcript has not loaded yet, and the shell drew nothing
  * for a few seconds after showing the bubble on the home page. This is the
  * in-memory copy the producer leaves for the shell to draw meanwhile — the
- * same text, keyed by the Kortix session id, gone with the tab (a reload has
+ * same text, keyed by the Dosco session id, gone with the tab (a reload has
  * the row or the transcript to read from).
  *
  * A first prompt whose POST waits on its uploads is not durable yet. When that
@@ -158,7 +158,7 @@ export interface HeldSendFailure {
 }
 
 interface HeldSendFailureState {
-  /** Kortix session id → message id → the painted send whose upload failed. */
+  /** Dosco session id → message id → the painted send whose upload failed. */
   failuresBySession: Record<string, Record<string, HeldSendFailure>>;
   setHeldSendFailure: (sessionId: string, messageId: string, failure: HeldSendFailure) => void;
   clearHeldSendFailure: (sessionId: string, messageId: string) => void;
@@ -225,5 +225,5 @@ export function retryHeldSend(
 // typed in the instant shell, consumed once by whichever `SessionChat` mounted
 // first. It carried no session id, so a message queued for one session could
 // be handed to another. Its replacement — a per-session browser queue — is gone
-// too: the queue is the server's prompt inbox, keyed by the Kortix session id,
+// too: the queue is the server's prompt inbox, keyed by the Dosco session id,
 // so there is no handoff, nothing to consume, and nothing a closed tab loses.

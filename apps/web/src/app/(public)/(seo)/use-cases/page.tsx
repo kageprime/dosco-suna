@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords: [
-      'Kortix use cases',
+      'Dosco use cases',
       'AI agent case studies',
       'AI command center',
       'AI workforce',
@@ -26,15 +26,15 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     openGraph: {
       type: 'website',
-      title: `Kortix ${title}`,
+      title: `Dosco ${title}`,
       description,
       url: URL,
-      siteName: 'Kortix',
+      siteName: 'Dosco',
       images: [{ url: `${siteMetadata.url}/banner.png` }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `Kortix ${title}`,
+      title: `Dosco ${title}`,
       description,
       images: [`${siteMetadata.url}/banner.png`],
     },
@@ -60,7 +60,7 @@ export default async function UseCasesIndexPage() {
     url: URL,
     publisher: {
       '@type': 'Organization',
-      name: 'Kortix',
+      name: 'Dosco',
       logo: { '@type': 'ImageObject', url: `${siteMetadata.url}/favicon.svg` },
     },
     mainEntity: {

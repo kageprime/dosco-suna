@@ -606,7 +606,7 @@ PtyTerminal.displayName = 'PtyTerminal';
  * into the shell buffer: a countdown there reads as a stuck loop and is left
  * behind in the scrollback after the shell comes back.
  *
- * It is app chrome, not shell output, so it paints Kortix tokens. Before the
+ * It is app chrome, not shell output, so it paints Dosco tokens. Before the
  * first connect it replaces the empty shell with the app background; after it,
  * it floats over the scrollback as a popover pill.
  */

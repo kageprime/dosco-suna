@@ -27,7 +27,7 @@ import { useState } from 'react';
 
 export function SessionPendingApprovalsIndicator({ sessionId }: { sessionId: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  // Route params: `id` = projectId, `sessionId` = the Kortix (route) session id
+  // Route params: `id` = projectId, `sessionId` = the Dosco (route) session id
   // the audit endpoint keys on — distinct from the OpenCode `sessionId` prop we
   // use to drive the panel's tab store.
   const { id: projectId, sessionId: projectSessionId } = useParams<{

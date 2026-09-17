@@ -122,7 +122,7 @@ function LogosBlock({ label, items }: { label?: string; items: Logo[] }) {
   );
 }
 
-/* ── verdict (Choose X if / Choose Kortix if) ────────────────────────────── */
+/* ── verdict (Choose X if / Choose Dosco if) ────────────────────────────── */
 
 function VerdictBlock({
   themLabel,

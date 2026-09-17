@@ -11,7 +11,7 @@ import {
 } from './particle-mark';
 
 /**
- * A Rauch-style hard-pixel particle canvas that resolves into the Kortix
+ * A Rauch-style hard-pixel particle canvas that resolves into the Dosco
  * brandmark, then lets pointer/touch movement disturb and settle the mark.
  */
 export function KortixParticleMark() {

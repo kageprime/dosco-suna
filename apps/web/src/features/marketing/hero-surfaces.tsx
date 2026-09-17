@@ -183,9 +183,9 @@ function ChatSurface({ brand }: { brand: 'slack' | 'teams' }) {
       {/* justify-start, not justify-end. The thread is short enough to fit on a
           laptop either way, but at phone width it can still run past the frame,
           and the two choices fail in opposite directions: end-justified, the
-          overflow eats the ask and the "Kortix APP" attribution off the top, so
+          overflow eats the ask and the "Dosco APP" attribution off the top, so
           the panel reads as a stray bullet list by nobody. Start-justified, it
-          eats the last bullet instead — you always keep "someone asked, Kortix
+          eats the last bullet instead — you always keep "someone asked, Dosco
           answered", which is the entire claim the panel exists to make. */}
       <div
         className={cn(
@@ -197,7 +197,7 @@ function ChatSurface({ brand }: { brand: 'slack' | 'teams' }) {
           <span className="text-foreground/70">{tI18nComplete.raw('text476b90bdc143')}</span>{' '}
           {active.ask}
         </ChatBubble>
-        <ChatBubble name="Kortix" app avatar={<KortixAvatar />}>
+        <ChatBubble name="Dosco" app avatar={<KortixAvatar />}>
           {active.reply}
         </ChatBubble>
       </div>
@@ -302,7 +302,7 @@ function EmailSurface() {
           Teams is behind an operator switch, and email is experimental.
 
           Hidden on phones. It wraps to three lines there and takes ~56px off a
-          frame that could not already fit the Kortix reply — and a rollout
+          frame that could not already fit the Dosco reply — and a rollout
           caveat is worth nothing if the thing it qualifies is off screen. The
           same status is stated on /channels, which is where a reader who cares
           about it goes. */}

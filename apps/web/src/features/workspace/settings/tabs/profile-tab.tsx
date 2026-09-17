@@ -158,7 +158,7 @@ export const DEFAULT_PROFILE_TAB_COPY: ProfileTabCopy = {
   email: 'Email',
   emailDescription: 'Used to sign in — cannot be changed here.',
   name: 'Name',
-  nameDescription: 'Your display name across Kortix.',
+  nameDescription: 'Your display name across Dosco.',
   namePlaceholder: 'Your name',
   save: 'Save',
   organizations: {

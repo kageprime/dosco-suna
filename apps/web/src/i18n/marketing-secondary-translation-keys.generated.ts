@@ -6,7 +6,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   '@markokraemer': 'text8ee44827f076',
   'A model on its own answers. The harness gives it planning, tool use and multi-step runs it actually finishes — powered by OpenCode, configured by a file in the repo.':
     'textb4d40882ef59',
-  'About Kortix': 'text56d4e6956bc3',
+  'About Dosco': 'text56d4e6956bc3',
   'Agent computer': 'texta62359767c2b',
   'Agentic harness': 'text1d8297cfb60c',
   'Agents and skills are markdown; memory is files that accumulate': 'texteb266e1c6389',
@@ -16,7 +16,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
     'text8abce8d69fe4',
   'An OpenCode agent: markdown, plus the tools and plugins beside it': 'text4132201cc99c',
   Apply: 'text31e392d1c037',
-  'Apply to Kortix': 'textc8fece67fd58',
+  'Apply to Dosco': 'textc8fece67fd58',
   'Ask for help, ask questions, redo things. Never quietly assume someone else will catch the part you skipped.':
     'textf01b71d254cc',
   'Autonomy is shifting from humans to agents.': 'text8fdced5e1b26',
@@ -40,7 +40,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   'Cron schedules and signed webhooks start sessions with no one asking': 'texta098482113d7',
   'Daily platform and feature explainers.': 'text889485d2bdde',
   'End to end': 'text6b5cb4175706',
-  'Every company is already autonomous. Today people drive that autonomy. Agents will. Kortix is where the shift happens.':
+  'Every company is already autonomous. Today people drive that autonomy. Agents will. Dosco is where the shift happens.':
     'text3885f30292f3',
   'Every lab will have an AGI platform. Ours is the one you own.': 'text6df4611282ac',
   'Every layer an AI workforce needs — in one platform you own.': 'text1cf441545609',
@@ -60,18 +60,18 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
     'text0547f5c8932c',
   'Influencer and UGC motion on X and LinkedIn.': 'textc1bd8f2b8d0e',
   'It is not done if': 'textb2d544129223',
-  'Kortix is model-agnostic. Pick the model per agent, per session or per message, and switch the day a better one lands.':
+  'Dosco is model-agnostic. Pick the model per agent, per session or per message, and switch the day a better one lands.':
     'textcc65757529c4',
   'Large language models': 'text5f69c8b42ef2',
-  'Make Kortix the instant answer to "what is the open-source Claude Cowork or ChatGPT Work?"':
+  'Make Dosco the instant answer to "what is the open-source Claude Cowork or ChatGPT Work?"':
     'texteed85df67313',
-  'Most tools hand you one layer and rent you the rest. Kortix is all six — they read in order, and the sixth commits the work back into the first.':
+  'Most tools hand you one layer and rent you the rest. Dosco is all six — they read in order, and the sixth commits the work back into the first.':
     'text85e7ee9efd75',
   'No PMs, no QA': 'text1367ae07eb66',
   'Not "the tests pass". Prove it, then confirm it is live in production, which is not the same as merged.':
     'textcb36b767438f',
   'On the frontier of AI by habit, not by assignment.': 'text559fe9cfeadb',
-  'On your own infrastructure if you want it there. Kortix does not sit beside the company as one more tool. It becomes the company — where the work, the context and the operations live.':
+  'On your own infrastructure if you want it there. Dosco does not sit beside the company as one more tool. It becomes the company — where the work, the context and the operations live.':
     'textcc6b627af0fa',
   'Onboard customers, teach them, build their first agents, and create their connections.':
     'text03763ff9a63b',
@@ -116,7 +116,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   'Strong systems-thinking judgement.': 'text0983d3e38ba5',
   'Technical enough to build the automations yourself on day one.': 'text30b60a3c8efe',
   'Tell me what you have worked on.': 'text83cf3d0fc7c1',
-  'The Kortix stack': 'text892fc6b36621',
+  'The Dosco stack': 'text892fc6b36621',
   'The agent can install, run and break anything — only commits survive': 'text11e9a34decaa',
   'The closed platforms are becoming AGI operating systems too.': 'textdcb912de1250',
   'The filter': 'text0d0fce8dc78a',

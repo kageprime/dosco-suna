@@ -123,7 +123,7 @@ function getSessionContextMetrics(
   const total = tokenTotal(last);
 
   // The gateway registers every model under the single synthetic `kortix`
-  // opencode provider, so `provider.name` is always "Kortix" — even for a
+  // opencode provider, so `provider.name` is always "Dosco" — even for a
   // BYOK Anthropic/Bedrock/OpenAI model. The gateway separately serves the
   // REAL upstream provider on the model itself (`model.provider`, e.g.
   // "anthropic"); prefer that for display, same fallback order as

@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from '@/i18n/get-translations';
 
 const DESCRIPTION =
-  'Kortix is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.';
+  'Dosco Network is where work gets done. A flexible AI agent becomes any role — UI engineer, logo designer, accountant, PR — at 100% capacity, dropping into your sprint to deliver actual work.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('hardcodedUi.i18nComplete');
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords:
-      'Kortix, about Kortix, open AGI platform, open source AI management system, autonomous companies, AI agents, self-hosted agent platform',
+      'Dosco, about Dosco, open AGI platform, open source AI management system, autonomous companies, AI agents, self-hosted agent platform',
     openGraph: {
       title: socialTitle,
       description,

@@ -3,7 +3,7 @@
 import { useTranslations } from '@/i18n/use-translations';
 /**
  * Shared connect-account surface for chat identity binding (Slack, Teams).
- * The bot DMs the user a short-lived signed link; after a normal Kortix
+ * The bot DMs the user a short-lived signed link; after a normal Dosco
  * login this page POSTs the token so the bot runs as the signed-in user
  * instead of the workspace installer.
  */

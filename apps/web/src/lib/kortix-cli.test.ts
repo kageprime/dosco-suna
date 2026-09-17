@@ -36,10 +36,10 @@ describe('getDeploymentCliInstallCommand', () => {
   });
 
   test('on kortix.com the rendered command is unchanged', () => {
-    expect(getDeploymentCliInstallCommand('1.2.3', 'https://kortix.com')).toBe(
+    expect(getDeploymentCliInstallCommand('1.2.3', 'https://dosco.live')).toBe(
       KORTIX_CLI_INSTALL_COMMAND,
     );
-    expect(getDeploymentCliInstallCommand('1.2.3-dev.4', 'https://kortix.com')).toBe(
+    expect(getDeploymentCliInstallCommand('1.2.3-dev.4', 'https://dosco.live')).toBe(
       KORTIX_CLI_DEV_INSTALL_COMMAND,
     );
   });

@@ -95,7 +95,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'text11c1a5b0fa54',
   'An agent decides whether to load a skill from its name and description alone. A vague description means the skill never fires — which is why the description reads like a list of the things a person would actually say.':
     'textf4b3042a5a94',
-  'An agent has exactly two homes. The markdown file carries how it thinks — its prompt, its mode, its model, its permission tree — and it is a stock OpenCode agent file, because Kortix adds no dialect to it. The manifest block carries what it may touch. Nothing about an agent lives in a database you cannot read.':
+  'An agent has exactly two homes. The markdown file carries how it thinks — its prompt, its mode, its model, its permission tree — and it is a stock OpenCode agent file, because Dosco adds no dialect to it. The manifest block carries what it may touch. Nothing about an agent lives in a database you cannot read.':
     'text7b6762537105',
   'An agent is': 'text586ce9d865c1',
   'An agent is an OpenCode agent: markdown at baseline, and past that your own tools, plugins, models and a per-capability permission tree. A grant in kortix.yaml decides what it reaches — its machine, its connectors and channels, its secrets, its skills. A skill encodes how your company does one specific job. Both are files in your repo. Both are reviewed like code.':
@@ -117,7 +117,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Browse agents, skills and whole projects, add one to your project in a click, and what arrives is files in your repo — not a dependency you rent. It is labelled beta because sources and updates are still moving, and it is on for every project.':
     'text0970b91b1fea',
   'Browse the marketplace': 'textfd5be8c298fd',
-  'Browse the marketplace without signing in. Kortix ships its own registry — 62 agents, 61 skills and 62 project templates — and you can switch on curated outside registries with one click. None load by default.':
+  'Browse the marketplace without signing in. Dosco ships its own registry — 62 agents, 61 skills and 62 project templates — and you can switch on curated outside registries with one click. None load by default.':
     'text43298f298ad8',
   'Build the workforce': 'text63803e6b696c',
   'Builds the outbound campaign and runs it.': 'textdf0b5ba1b462',
@@ -143,7 +143,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Engineering: 'text729bb48d0f86',
   'Every agent gets its own computer — its own isolated Linux machine, pre-set-up with your repo, tools and dependencies. It can install, run and break anything. Nothing to configure, no local machine required.':
     'text2f64ffb3d90b',
-  'Every layer above brought together in one platform your team owns, deploys and scales end to end — from the model to the finished work. That’s Kortix.':
+  'Every layer above brought together in one platform your team owns, deploys and scales end to end — from the model to the finished work. That’s Dosco.':
     'text72af875c4c3d',
   'Every layer an AI workforce needs — unified.': 'text8de470893fb4',
   'Every morning it sweeps the day’s errors, groups them, reproduces the worst one on its own machine, patches it and opens a change request against main.':
@@ -154,7 +154,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textb21276f9e4bb',
   'Everything is files': 'text81c55672efb4',
   'Excerpt of a skill that ships in every new project.': 'text0bc2032da091',
-  'Excerpt of the default agent in every new Kortix project.': 'textbb650fd852da',
+  'Excerpt of the default agent in every new Dosco project.': 'textbb650fd852da',
   'Export times out over 10k rows': 'textb39845ffaebd',
   'Filter state lost on reload': 'textd1d6f38c037e',
   Finance: 'textb696d75511dc',
@@ -174,7 +174,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'H1 plan': 'text65d23c2e3efe',
   'Has Monday’s numbers before Monday.': 'text9dbd9adc95ad',
   'hiring/staff-infra-pipeline.xlsx': 'text4f660d25cd0f',
-  'How Kortix is secured': 'textae799eb0e384',
+  'How Dosco is secured': 'textae799eb0e384',
   'how this company drives a browser': 'text06f5a933a39f',
   'How your company does one job, written down once.': 'text3b349c99c012',
   'If the item needs a key or a connected app, the agent hands you a fill-in link in the same turn. You never paste a credential into a chat, and the agent never sees the value.':
@@ -198,8 +198,8 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'It tracks the queries you care about, finds the pages losing ground, rewrites them against the brief, and opens each rewrite as a change request.':
     'text06cf627597d9',
   'It wires itself up': 'textf87700ba8e67',
-  Kortix: 'textab54cf5e1d9d',
-  'Kortix Cloud, your own VPC, or your own on-prem network. It is open source, so you can read every line of what you are trusting.':
+  Dosco: 'textab54cf5e1d9d',
+  'Dosco Cloud, your own VPC, or your own on-prem network. It is open source, so you can read every line of what you are trusting.':
     'textb6de6f87c92d',
   'kortix.yaml': 'text1965f383021e',
   'Large Language Models': 'text0340bfb383fc',
@@ -215,7 +215,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Mobile: 'textcbaad3cf4a65',
   'month end close': 'textecc7ed048b32',
   'More than prose': 'text11ad216eb380',
-  'Most tools hand you one layer and rent you the rest. Kortix is all of them, open source, running wherever you put it.':
+  'Most tools hand you one layer and rent you the rest. Dosco is all of them, open source, running wherever you put it.':
     'text3c579d4ff304',
   new: 'text11507a0e2f5e',
   'No systems depth': 'textdfa2cff42f0c',
@@ -232,7 +232,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Open source': 'text67a0d2e0dab4',
   'Open source · Any model, your keys · Self-host, VPC, or on-prem': 'textb205e3c57a77',
   'Open source · SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
-  'Open source and self-hostable. Any model, your keys. Kortix Cloud, your own VPC, or fully on-prem.':
+  'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
     'text1d9a8dde5629',
   OpenAI: 'text8b7d1a3187ab',
   OpenCode: 'text3af0e55ccc96',
@@ -272,7 +272,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'reports/win-rate-weekly.md': 'textb093a8be33b1',
   'Request demo': 'text915b64b69378',
   right: 'text27042f4e6eca',
-  'Run any frontier model and switch between them as they improve. Bring your own API keys, the subscription you already pay for, or your own models running on your hardware. Kortix stays model-agnostic, so every agent uses the best model for the job.':
+  'Run any frontier model and switch between them as they improve. Bring your own API keys, the subscription you already pay for, or your own models running on your hardware. Dosco stays model-agnostic, so every agent uses the best model for the job.':
     'text3de53020a79f',
   'Run your whole company from one repo you own.': 'textda780699fda4',
   'Runs freely. No prompt, no pause.': 'texta80791a70348',
@@ -310,7 +310,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'The description is the trigger': 'text9f0729000e20',
   'The editor writes a branch, not a row': 'textab0cd0201348',
   'the generalist, in every project': 'text573c97ef1fcf',
-  'The grant block covers the whole surface, not just tools: which sandbox image the agent boots, which connectors and channels it may call, which secrets it may receive, which skills it may invoke, and what it may do to Kortix itself. An agent with no grants gets none of it. You grant explicitly, or the answer is no — and on top of that sits a ceiling nothing in the config can lift.':
+  'The grant block covers the whole surface, not just tools: which sandbox image the agent boots, which connectors and channels it may call, which secrets it may receive, which skills it may invoke, and what it may do to Dosco itself. An agent with no grants gets none of it. You grant explicitly, or the answer is no — and on top of that sits a ceiling nothing in the config can lift.':
     'text2abfd058360d',
   'The grant that applies at session start is what the agent declares, intersected with the role of whoever launched it. Grant an agent everything and it still gets exactly your own permissions — no more, on any path.':
     'textea25cb521ec9',

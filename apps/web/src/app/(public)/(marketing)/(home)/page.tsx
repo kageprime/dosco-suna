@@ -6,7 +6,6 @@ import { HowItWorks } from '@/features/marketing/how-it-work/how-it-works';
 import { LogoStrip } from '@/features/marketing/landing/logo-strip';
 import { TrustSection } from '@/features/marketing/landing/trust-section';
 import { UseCaseWheel } from '@/features/marketing/landing/use-case-wheel';
-import { OpenSourceSection } from '@/features/marketing/open-source/open-source-section';
 
 /**
  * The arc, in the order a reader needs it: what it is, what it is made of, what
@@ -44,7 +43,6 @@ export default function Home() {
       {/* Then why any of it is trustworthy in the first place: it is open,
           and the reason it is open. One centred note between the mechanism
           and the badges. */}
-      <OpenSourceSection />
 
       {/* 4 · Where we stand on certification */}
       <TrustSection />

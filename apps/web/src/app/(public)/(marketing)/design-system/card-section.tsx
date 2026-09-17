@@ -556,7 +556,7 @@ export function CardSection() {
             <CardButton icon={ArrowsClockwiseIcon} iconPosition="end">
               {tI18nComplete.raw('textfc62c144fc7a')}
             </CardButton>
-            <CardButton href="https://kortix.com" external>
+            <CardButton href="https://dosco.live" external>
               {tI18nComplete.raw('text68c114ea9c8c')}
             </CardButton>
             <CardButton disabled>{tI18nComplete.raw('text75081b593d15')}</CardButton>

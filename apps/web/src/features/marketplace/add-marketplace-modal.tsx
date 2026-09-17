@@ -31,7 +31,7 @@ import { MarketplaceAvatar } from './marketplace-avatar';
 import { displayCompanyLabel } from './marketplace-company-filter';
 
 /**
- * "Add a source" — pointing Kortix at any git registry is the primary action
+ * "Add a source" — pointing Dosco at any git registry is the primary action
  * (it's just git: a repo with SKILL.md / marketplace.json). Below that, a
  * searchable list of curated, one-click featured registries. Enabled items
  * merge into the catalog.

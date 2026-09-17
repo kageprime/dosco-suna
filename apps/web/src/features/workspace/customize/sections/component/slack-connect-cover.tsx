@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The Slack hero's cover art — the `Slack × Kortix` lockup, on the Kortix
+ * The Slack hero's cover art — the `Slack × Dosco` lockup, on the Dosco
  * gradient, from the same component the blog uses.
  *
  * ## What this replaced, and why
@@ -13,7 +13,7 @@
  * DARK theme, so a black rectangle on a light panel. Avoiding the JPEG was
  * right; hand-drawing the replacement was not, because `BlogCover`
  * (`@/components/blog/blog-cover`) already renders exactly this treatment:
- * real brand SVGs on chips over the Kortix gradient with the grain overlay,
+ * real brand SVGs on chips over the Dosco gradient with the grain overlay,
  * theme-aware, already used by `post-card.tsx` and the blog post page.
  *
  * So the cover is now the shipped component, and this module is the thin
@@ -46,7 +46,7 @@ export function SlackConnectCover({ className }: { className?: string }) {
     // just `logos`/`withKortix`/`className` — widening them to spread div
     // attributes would change a component the blog renders, for one caller.
     //
-    // Decorative, deliberately: the lockup says "Slack and Kortix", and the
+    // Decorative, deliberately: the lockup says "Slack and Dosco", and the
     // <h3>Slack</h3> plus the lede directly beneath it already say exactly that
     // in text. Labelling it would make a screen reader announce it twice.
     <div aria-hidden className={cn('w-full scale-120 overflow-hidden', className)}>

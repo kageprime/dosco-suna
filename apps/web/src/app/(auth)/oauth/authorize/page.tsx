@@ -25,7 +25,7 @@ const SCOPE_DESCRIPTIONS: Record<string, string> = {
   profile: 'View your account information',
   email: 'View your email address',
   kortix:
-    'Act on your behalf in Kortix — projects, sessions, files and everything your role allows',
+    'Act on your behalf in Dosco — projects, sessions, files and everything your role allows',
   'machines:read': 'View your project session sandboxes',
 };
 

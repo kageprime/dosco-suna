@@ -4,7 +4,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text5e2ce6656b32',
   '/enterprise': 'text28346646cd67',
   '2 vCPU / 4 GB floor, 4 vCPU / 16 GB for real use': 'text66dee8fd0152',
-  '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Kortix token and calls through it. The same rule covers Kortix’s own provider keys, which no sandbox is allowed to hold.':
+  '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Dosco token and calls through it. The same rule covers Dosco’s own provider keys, which no sandbox is allowed to hold.':
     'text1c81f8a26f00',
   'A change request is a diff. An agent rewriting its own prompt is reviewed the same way a code change is — because it is one. A change request whose manifest does not validate cannot merge at all.':
     'textd4edcc30c8f6',
@@ -23,7 +23,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text36f80c38222d',
   'A self-hosted instance has no managed model lineup and does not want one. You connect the providers you already pay for, and every model call routes through the gateway running on your own box.':
     'text45ba74fd89a9',
-  'A self-hosted instance runs its own gateway for its own model routing. It never sees or routes to Kortix credentials, and there is no platform fee on a self-hosted account.':
+  'A self-hosted instance runs its own gateway for its own model routing. It never sees or routes to Dosco credentials, and there is no platform fee on a self-hosted account.':
     'text2c9254d4dcde',
   'A service account is a first-class machine identity the account owns, not a human token wearing a hat. Policies attach to it directly, and a request it makes is evaluated purely against its own policies — it never inherits the reach of whoever created it.':
     'text93cf8ed6d1fd',
@@ -54,7 +54,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'An agent declares in kortix.yaml which secrets it may ever be given. A session receives the intersection of that grant and the role of the person who started it — so an agent can never reach past its own declaration, or past the human behind it.':
     'text4f0fb30e3bee',
   'An agent is a principal, not a loophole.': 'textbc346bfb5269',
-  'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix they sit below the agent, in the platform, where a prompt cannot talk its way past them.':
+  'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco they sit below the agent, in the platform, where a prompt cannot talk its way past them.':
     'textb9c1352c8c67',
   'Another session — same project, same team, or another customer': 'text0686a22fbf7d',
   'Anthropic, OpenAI, Google, Groq, xAI, DeepSeek, Mistral, Bedrock and OpenRouter, or the ChatGPT and Copilot subscription you already hold.':
@@ -76,7 +76,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Certified: 'textc9996efd134f',
   'Change request, default-deny merge': 'textedca37f6aca7',
   channel: 'text69e36568cd8b',
-  'choose which Kortix you are talking to': 'text893dc256bfc8',
+  'choose which Dosco you are talking to': 'text893dc256bfc8',
   cloudflared: 'textfc8932c70118',
   'Configuration is files. Who changed which agent, which skill and which policy, and who approved it, is git history you already know how to read.':
     'text5acfbdbae44a',
@@ -154,7 +154,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'It keeps itself current': 'text51b143371424',
   'Its own sandbox, with its own filesystem and its own lifetime': 'text58f084456f75',
   kortix: 'text388f7968512c',
-  'Kortix Cloud': 'text493bdb7154e4',
+  'Dosco Cloud': 'text493bdb7154e4',
   'kortix self-host start': 'textdbef6cc84fef',
   'kortix self-host start registers the selfhost host for you and makes it active.':
     'text8ea44187f958',
@@ -162,7 +162,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'kortix-migrate': 'text763fafcec9c0',
   'kortix-updater': 'text52b1035fcd14',
   'kortix.yaml': 'text1965f383021e',
-  'Kortix’s own upstream provider keys, which no sandbox may hold': 'text9fac860db4d4',
+  'Dosco’s own upstream provider keys, which no sandbox may hold': 'text9fac860db4d4',
   'llm-gateway': 'text1a89c40bda2b',
   Machine: 'text8f1cc42d7c1c',
   'Manage members, groups, roles and tokens.': 'text186c10caa2d2',
@@ -176,7 +176,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Merging is default-deny': 'text829e67c6a623',
   'microVM where you ask for it': 'textb3960c7e6888',
   Models: 'textd17d2d78d76e',
-  'Most AI tools give the agent whatever the person who started it can reach. Kortix does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.':
+  'Most AI tools give the agent whatever the person who started it can reach. Dosco does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.':
     'text1aeb8993945b',
   'Need it inside your own network, with SSO and a licence? Talk to us.': 'text0eae7ee74fc9',
   'never crosses in': 'text818da9a35cdc',
@@ -187,7 +187,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Not a community edition.': 'texte3bbf2902a7f',
   'not on your box': 'textaa57cad004f0',
   'Nothing is shared, because nothing is shared.': 'text9045e34e96f2',
-  'On Kortix’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.':
+  'On Dosco’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.':
     'text8368ff24d89c',
   'on your box': 'text425aa668a9e4',
   'One branch per session': 'textb0f2f6dd1e38',
@@ -249,15 +249,15 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'See enterprise': 'text08c74a58ac03',
   'Self-host free': 'text6cad1856bada',
   'Self-hosted': 'textbeafec79ffdd',
-  'Self-hosting is free and always will be. Kortix Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
+  'Self-hosting is free and always will be. Dosco Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
     'text2461783e77d5',
-  'Self-hosting is not a smaller Kortix with the interesting parts removed. It is the whole control plane — accounts, projects, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
+  'Self-hosting is not a smaller Dosco with the interesting parts removed. It is the whole control plane — accounts, projects, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
     'text4e1407fe77a8',
   'Send the questionnaire, the architecture questions, the deployment constraints. We would rather answer them properly than have you guess from a marketing page.':
     'text5b643170d839',
   'service account': 'textd7da08389824',
   'Service accounts': 'text1642d9e225e6',
-  'Sessions call the gateway inside your own stack, over your own domain or tunnel. Kortix has no credential in that path and no visibility into it.':
+  'Sessions call the gateway inside your own stack, over your own domain or tunnel. Dosco has no credential in that path and no visibility into it.':
     'text23ad3a862df5',
   'Set the default you want': 'text2bf623481fd8',
   Shredded: 'texta69c197df026',
@@ -281,7 +281,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The database password, the JWT signing secret and the API keys derived from it':
     'text7d0d0e55bc3e',
   'The file is wiped on shutdown and the machine is destroyed with it.': 'text68631de30841',
-  'The frontend, the API and the gateway are the published Kortix images. A self-hosted instance never builds its own — it consumes exactly what the release pipeline already produced.':
+  'The frontend, the API and the gateway are the published Dosco images. A self-hosted instance never builds its own — it consumes exactly what the release pipeline already produced.':
     'texte46c387f3dee',
   'The gateway is yours': 'textea59a002b930',
   'The gateway, service and tunnel signing tokens': 'text841050a9c1e6',
@@ -303,7 +303,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The same artifact runs on a laptop, a VPS or a cloud VM. A domain is one environment variable, not a different deployment. Everything lives in one instance directory you can back up by copying it.':
     'text894031366a18',
   'The same images': 'text92f91971fba0',
-  'The same Kortix, on your box.': 'textf99aa2b72432',
+  'The same Dosco, on your box.': 'textf99aa2b72432',
   'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. Open source, so what you are trusting is code you can read.':
     'textcbb8b2ff8cdf',
   'The same product surface': 'text01ea7ab2073a',
@@ -318,7 +318,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text931f3ba125af',
   'The web app': 'text5b265f545bde',
   'The whole docker-compose.yml and .env, written at mode 0600': 'text13c531d3fe85',
-  'There is no separate provisioning step and no console to click through. One command brings the stack up. One more decides which Kortix your CLI is talking to.':
+  'There is no separate provisioning step and no console to click through. One command brings the stack up. One more decides which Dosco your CLI is talking to.':
     'text8bf73992ff9b',
   'This is not a stripped build with the good parts held back for the paid tier. Self-hosted instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train.':
     'textc01240eae6d5',
@@ -333,7 +333,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Unlocks SAML SSO, SCIM directory sync, custom roles, groups and audit read on this instance.':
     'textaea3a7e97183',
   Updates: 'text22e2bada8f1c',
-  'Use Kortix Cloud': 'textb627f853304f',
+  'Use Dosco Cloud': 'textb627f853304f',
   Used: 'textae7d8dfac9ff',
   'Values are sealed with AES-256-GCM. The key is derived per project with HKDF-SHA256, so one project’s ciphertext cannot be opened with another project’s key. The envelope is versioned, so the scheme can move forward without a flag day.':
     'text1ece34602eea',

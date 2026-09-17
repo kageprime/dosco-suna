@@ -61,7 +61,7 @@
  *    let it imply a harness menu.
  *  - WHAT AN AGENT IS. Markdown is the FLOOR, never the ceiling. Do not write
  *    "an agent is a markdown file" and stop there. Verified:
- *      · Behavior is a stock OpenCode agent `.md` — Kortix adds no dialect.
+ *      · Behavior is a stock OpenCode agent `.md` — Dosco adds no dialect.
  *        `compile-agent-config.ts` passes the frontmatter straight through as
  *        `OpencodeAgentConfig`: description, mode, model, variant, temperature,
  *        top_p, prompt, disable, hidden, options, color, steps, permission.
@@ -163,7 +163,7 @@ export type Passage = {
  * "An OpenCode agent: markdown, plus the tools and plugins beside it" — true,
  * and far too small for what the frontmatter and the grant actually hold. Cut
  * this passage and the grant surface (the machine it boots, its connectors and
- * channels, its secrets, its skills, its Kortix verbs) appears in no card at all.
+ * channels, its secrets, its skills, its Dosco verbs) appears in no card at all.
  *
  * `control` is the strongest structural case: `how-it-works-content.ts:11-13`
  * says in as many words that "Security and governance is deliberately not a
@@ -180,7 +180,7 @@ export const agents: Passage = {
   title: 'An agent is a prompt and a set of grants.',
   paragraphs: [
     'An agent is an OpenCode agent. At baseline that is one markdown file — frontmatter setting its mode, its model and a per-capability permission tree, a body that is the system prompt — but markdown is the floor, not the ceiling. The whole OpenCode surface sits in the same repo and is yours to edit: your own TypeScript tools, plugins that hook the runtime, the skills it loads, the model and provider config.',
-    'What it may reach is a block in kortix.yaml, and it covers far more than tools: which sandbox image it boots, which connectors and channels it can call, which secrets it may receive, which skills it may invoke, and what it may do to Kortix itself. A grant left out resolves to none. Whatever is granted is then intersected with the role of whoever started the session, so an agent never exceeds its human.',
+    'What it may reach is a block in kortix.yaml, and it covers far more than tools: which sandbox image it boots, which connectors and channels it can call, which secrets it may receive, which skills it may invoke, and what it may do to Dosco itself. A grant left out resolves to none. Whatever is granted is then intersected with the role of whoever started the session, so an agent never exceeds its human.',
   ],
   facts: ['OpenCode agent', 'Tools, plugins, models', 'Omitted grants are none'],
   href: '/agents-and-skills',

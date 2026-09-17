@@ -250,7 +250,7 @@ function ProjectAccessForUser({ projectId, children }: ProjectAccessBoundaryProp
     forgetLastProjectId(user?.id, projectId);
   }, [unrenderable, projectId, user?.id]);
 
-  // The full-page frame every "opening a project" surface shares — the Kortix
+  // The full-page frame every "opening a project" surface shares — the Dosco
   // mark, nothing else. This is what a hard refresh of `/projects/<id>` or of
   // a session route shows for the length of one session check plus one
   // getProject, so it is the most-seen loading surface in the product.

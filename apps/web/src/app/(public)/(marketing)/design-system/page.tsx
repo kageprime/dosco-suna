@@ -697,7 +697,7 @@ function LogoCard({ asset, fmt }: { asset: LogoAsset; fmt: LogoFormat }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={asset.svgSrc}
-          alt={`Kortix ${asset.label} ${asset.variant}`}
+          alt={`Dosco ${asset.label} ${asset.variant}`}
           className={cn(
             'object-contain',
             isWide ? 'max-h-8 w-full md:max-h-10' : 'max-h-10 w-auto md:max-h-12',

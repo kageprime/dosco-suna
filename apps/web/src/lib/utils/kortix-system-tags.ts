@@ -1,6 +1,6 @@
 import type { UiTranslator } from '@/i18n/translator';
 /**
- * Kortix System XML — utilities for handling <kortix_system> tags.
+ * Dosco System XML — utilities for handling <kortix_system> tags.
  *
  * Backend plugins wrap internal content (session context, memory, orchestrator
  * state, PTY output, etc.) in <kortix_system type="..." source="..."> tags.

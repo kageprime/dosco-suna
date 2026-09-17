@@ -177,8 +177,8 @@ describe('resolveAuthRedirectBaseUrl', () => {
     expect(resolveAuthRedirectBaseUrl('http://localhost:3000', 'https://staging.example.com')).toBe(
       'http://localhost:3000',
     );
-    expect(resolveAuthRedirectBaseUrl('https://kortix.com', 'https://kortix.com')).toBe(
-      'https://kortix.com',
+    expect(resolveAuthRedirectBaseUrl('https://dosco.live', 'https://dosco.live')).toBe(
+      'https://dosco.live',
     );
   });
 

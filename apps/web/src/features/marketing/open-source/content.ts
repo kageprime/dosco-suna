@@ -57,7 +57,7 @@
  *     "Active host is now <host>"). This section now shows neither.
  *  8. Do NOT claim you can fork someone else's company / project, or publish
  *     your own. The `registry:project` machinery ships, but the catalog holds
- *     exactly one project item — Kortix's own starter
+ *     exactly one project item — Dosco's own starter
  *     (`apps/api/src/marketplace/catalog.ts:487` `buildStarterKitProjectItem`;
  *     `packages/starter/src/index.test.ts:459` pins the template list to `[]`),
  *     and there is no publish route at all
@@ -92,5 +92,5 @@ export const openSource = {
 
   /** Secondary: the proof the number is about something real. */
   repoLabel: 'Read the source',
-  repoHref: 'https://github.com/kortix-ai/suna',
+  repoHref: '?',
 } as const;

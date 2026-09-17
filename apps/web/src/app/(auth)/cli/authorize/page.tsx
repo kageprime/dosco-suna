@@ -107,7 +107,7 @@ function CliAuthorizeInner() {
       const minted = await withTimeout(
         createAccountToken({ name }),
         MINT_TIMEOUT_MS,
-        'Timed out asking the Kortix API to mint an API key. Is the API reachable?',
+        'Timed out asking the Dosco API to mint an API key. Is the API reachable?',
       );
 
       const controller = new AbortController();

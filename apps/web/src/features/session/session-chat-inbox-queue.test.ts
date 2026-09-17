@@ -76,7 +76,7 @@ describe('a send paints first and holds its POST on the handed-off uploads', () 
     // The composer's dispatch settles at the paint for a send with uploads, or for
     // a send behind an earlier send of this session (`deliverAfterPaint`, tested in
     // `attachment-submission.test.ts` and `composer-submit-latch.test.ts`). The
-    // chain key is the Kortix session id, the key the boot shell and project home use.
+    // chain key is the Dosco session id, the key the boot shell and project home use.
     const detach = send.indexOf(
       'return deliverAfterPaint(projectSessionId ?? sessionId, attachments, deliver, messageID, {',
     );

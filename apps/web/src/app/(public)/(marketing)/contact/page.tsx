@@ -18,11 +18,11 @@ import { DemoQualifierModal } from '@/features/contact/demo-qualifier-modal';
 import { CONTACT_TRANSLATION_KEYS } from '@/i18n/contact-translation-keys.generated';
 import { localizeUiCatalog } from '@/i18n/localize-ui-catalog';
 
-const CONTACT_EMAIL = 'hey@kortix.ai';
+const CONTACT_EMAIL = 'support@dosco.live';
 
-// Public demo event (cal.com/team/kortix/demo) + a namespace unique to it.
-const CAL_LINK = 'team/kortix/demo';
-const CAL_NAMESPACE = 'kortix-enterprise-demo';
+// Public demo event (cal.com/team/dosco/demo) + a namespace unique to it.
+const CAL_LINK = 'team/dosco/demo';
+const CAL_NAMESPACE = 'dosco-enterprise-demo';
 
 const VALUE_PROPS = [
   {

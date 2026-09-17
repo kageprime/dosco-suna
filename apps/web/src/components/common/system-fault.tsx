@@ -54,7 +54,7 @@ export function SystemFaultView({
 
     let eventId = EMPTY;
     if (report && !shouldIgnoreBrowserRuntimeNoise({ message: error.message, error })) {
-      console.error('[Kortix System Fault]', error);
+      console.error('[Dosco System Fault]', error);
       eventId =
         Sentry.captureException(error, {
           tags: { area: 'global-error-boundary' },

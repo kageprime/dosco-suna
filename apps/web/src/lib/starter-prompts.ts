@@ -11,7 +11,7 @@
  *
  * This band is the first thing a person reads on a brand-new project. It is not
  * a feature list — it is the answer to "what is this FOR", and every row is a
- * claim about what Kortix is.
+ * claim about what Dosco is.
  *
  * An earlier version of this file failed that test. It was written under the
  * rule "every prompt must map to a skill in the `general-knowledge-worker`
@@ -21,7 +21,7 @@
  * powerful tool?" A prompt has to name a REASON, not a capability.
  *
  * Worse, that rule excluded the things that make this an AI Management System
- * rather than a chat box. The most valuable prompts here operate on Kortix's
+ * rather than a chat box. The most valuable prompts here operate on Dosco's
  * OWN primitives — they are the first group below, and they are first on
  * purpose:
  *
@@ -190,14 +190,14 @@ const GUESS =
  * pool made that worse, not better, which is exactly when a uniform pick stops
  * being the right tool.
  *
- * Everything here operates on a Kortix primitive that exists in the shipped
+ * Everything here operates on a Dosco primitive that exists in the shipped
  * `base` template: agents in `.kortix/opencode/agents/`, skills in
  * `.kortix/opencode/skills/`, cron and webhook triggers in `kortix.yaml`,
  * memory in `.kortix/memory/`, and work landing through `kortix cr`.
  */
 export const WORKFORCE_STARTER_PROMPTS: StarterPrompt[] = [
   // ── Build the workforce ───────────────────────────────────────────────
-  // Kortix's own primitives: agents, skills, triggers, connectors, memory,
+  // Dosco's own primitives: agents, skills, triggers, connectors, memory,
   // change requests. These are the rows that say what this product IS, so they
   // lead the file.
   {
@@ -888,7 +888,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
   },
   // ── Engineering, on the repo this session cloned ─────────────────────
   // The biggest gap in the first pass, and the least defensible one:
-  // developers are Kortix's primary audience (comms skill, §9) and the sandbox
+  // developers are Dosco's primary audience (comms skill, §9) and the sandbox
   // is a real Linux machine with the repo already checked out. Every row here
   // is work the agent does in `/workspace`, landing through a change request.
   {
@@ -1438,7 +1438,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
 
   // ── My own week ──────────────────────────────────────────────────────
   // Personal rather than company-wide. Short, high-frequency, and the reason
-  // someone opens Kortix on a Monday morning rather than on a launch day.
+  // someone opens Dosco on a Monday morning rather than on a launch day.
   {
     id: 'plan-week',
     icon: CalendarIcon,

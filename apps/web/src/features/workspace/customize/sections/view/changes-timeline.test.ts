@@ -74,7 +74,7 @@ describe('isKortixAgent', () => {
 
   test('matches legacy display names case-insensitively', () => {
     expect(
-      isKortixAgent(commit({ author_email: 'other@example.com', author_name: 'Kortix Agent' })),
+      isKortixAgent(commit({ author_email: 'other@example.com', author_name: 'Dosco Agent' })),
     ).toBe(true);
     expect(
       isKortixAgent(commit({ author_email: 'other@example.com', author_name: 'Cortex Agent' })),

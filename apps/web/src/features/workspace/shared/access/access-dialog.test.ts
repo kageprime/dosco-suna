@@ -234,8 +234,8 @@ describe('accessDialogCopy', () => {
       'in this account.',
     );
     expect(
-      accessDialogCopy(ACCOUNT, mode, { accountName: 'Kortix' }, testUiTranslator).description,
-    ).toContain('in Kortix.');
+      accessDialogCopy(ACCOUNT, mode, { accountName: 'Dosco' }, testUiTranslator).description,
+    ).toContain('in Dosco.');
   });
 
   test('attach reads as a grant and submits as Attach', () => {
@@ -263,11 +263,11 @@ describe('accessDialogCopy', () => {
       ],
     };
     expect(
-      accessDialogCopy(ACCOUNT, one, { accountName: 'Kortix' }, testUiTranslator).description,
-    ).toBe('Change what 1 person can do in Kortix.');
+      accessDialogCopy(ACCOUNT, one, { accountName: 'Dosco' }, testUiTranslator).description,
+    ).toBe('Change what 1 person can do in Dosco.');
     expect(
-      accessDialogCopy(ACCOUNT, many, { accountName: 'Kortix' }, testUiTranslator).description,
-    ).toBe('Change what 2 people can do in Kortix.');
+      accessDialogCopy(ACCOUNT, many, { accountName: 'Dosco' }, testUiTranslator).description,
+    ).toBe('Change what 2 people can do in Dosco.');
     expect(accessDialogCopy(ACCOUNT, many, undefined, testUiTranslator).submitLabel).toBe('Save');
   });
 

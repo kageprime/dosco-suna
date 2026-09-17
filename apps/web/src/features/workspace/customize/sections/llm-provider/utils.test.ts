@@ -261,7 +261,7 @@ describe('gatewayModelId', () => {
     );
   });
 
-  test('managed Kortix provider stays bare (single-segment)', () => {
+  test('managed Dosco provider stays bare (single-segment)', () => {
     expect(gatewayModelId({ id: 'kortix', managed: true }, 'claude-opus-4.8')).toBe(
       'claude-opus-4.8',
     );

@@ -38,7 +38,7 @@ const DENSITY_OPTIONS: { id: ConversationDensity; label: string; description: st
   {
     id: 'normal',
     label: 'Normal',
-    description: 'Steps and thinking stream live while Kortix works.',
+    description: 'Steps and thinking stream live while Dosco works.',
   },
   {
     id: 'minimal',
@@ -64,7 +64,7 @@ export interface AppearanceTabCopy {
 
 export const DEFAULT_APPEARANCE_TAB_COPY: AppearanceTabCopy = {
   theme: 'Theme',
-  themeDescription: 'Choose how Kortix looks on this device.',
+  themeDescription: 'Choose how Dosco looks on this device.',
   conversationDensity: 'Conversation density',
   conversationDensityDescription:
     'How much detail the agent shows in the conversation while it works.',
@@ -75,7 +75,7 @@ export const DEFAULT_APPEARANCE_TAB_COPY: AppearanceTabCopy = {
   densities: {
     normal: {
       label: 'Normal',
-      description: 'Steps and thinking stream live while Kortix works.',
+      description: 'Steps and thinking stream live while Dosco works.',
     },
     minimal: { label: 'Minimal', description: 'One status line until you expand it.' },
   },

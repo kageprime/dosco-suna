@@ -13,7 +13,7 @@ export const REVIEW_MOCK_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Emerald: 'textaf1ccb31304d',
   'Fix the signup form validation': 'text532694dbdcc4',
   'I can go either way — your call decides the schema work': 'texte755529076b6',
-  'Kortix blue': 'text10bf2c029ba5',
+  'Dosco blue': 'text10bf2c029ba5',
   'Landing page · built from the Q3 brief · not live yet': 'text7cb0ef82159f',
   'Migrate the blog to MDX': 'text703a3d810fc0',
   'Migration running': 'text574e85a71662',
@@ -39,5 +39,5 @@ export const REVIEW_MOCK_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'You approved this 4 minutes ago — deploy in progress': 'textb835b4d2630c',
   'You approved this yesterday': 'textd3f53ac72951',
   'You approved this — the agent is running the migration now': 'text217a15820752',
-  'You chose “Kortix blue”': 'text1210229a6f14',
+  'You chose “Dosco blue”': 'text1210229a6f14',
 };

@@ -24,7 +24,7 @@ const FAQ: readonly FaqItem[] = [
     id: 'free-include',
     question: 'What does Free include?',
     answer:
-      'Free includes 200 credits each month for sandbox compute and 1 project. Bring your own API key or connect your ChatGPT subscription for premium access. Managed Claude, GPT, and Gemini on Kortix keys are paid.',
+      'Free includes 200 credits each month for sandbox compute and 1 project. Bring your own API key or connect your ChatGPT subscription for premium access. Managed Claude, GPT, and Gemini on Dosco keys are paid.',
   },
   {
     id: 'team-seat-include',
@@ -36,7 +36,7 @@ const FAQ: readonly FaqItem[] = [
     id: 'models-and-compute',
     question: 'How are models and compute priced?',
     answer:
-      'Agent Computer compute is billed per second, per resource — $0.0000168/vCPU, $0.0000054/GiB RAM, $0.000000036/GiB storage — about $0.20/hour for the default 2 vCPU / 4 GiB / 20 GiB machine, and $0 while stopped. Bring your own key or connect ChatGPT to pay your model provider directly. If you choose Kortix-managed models, their input, output, and cached tokens use Team credits at that model’s rate. Free credits remain sandbox-only.',
+      'Agent Computer compute is billed per second, per resource — $0.0000168/vCPU, $0.0000054/GiB RAM, $0.000000036/GiB storage — about $0.20/hour for the default 2 vCPU / 4 GiB / 20 GiB machine, and $0 while stopped. Bring your own key or connect ChatGPT to pay your model provider directly. If you choose Dosco-managed models, their input, output, and cached tokens use Team credits at that model’s rate. Free credits remain sandbox-only.',
   },
   {
     id: 'seat-or-usage',

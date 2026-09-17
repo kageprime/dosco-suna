@@ -62,7 +62,7 @@ describe('project home loading boundary', () => {
     expect(source).toContain('return <ProjectHomeLoading />');
   });
 
-  test('paints the Kortix mark sized to the content pane', async () => {
+  test('paints the Dosco mark sized to the content pane', async () => {
     const markup = await renderBoundary();
 
     expect(markup).toContain('data-slot="project-pending-screen"');

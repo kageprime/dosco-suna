@@ -56,7 +56,7 @@ export function parseDaysField(label: string, raw: string, max: number): DaysFie
     return { ok: false, error: `${label}: use a whole number of days, or leave it empty.` };
   }
   if (parsed > max) {
-    return { ok: false, error: `${label}: ${max} days is the most Kortix allows.` };
+    return { ok: false, error: `${label}: ${max} days is the most Dosco allows.` };
   }
   return { ok: true, value: parsed };
 }

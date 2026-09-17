@@ -396,7 +396,7 @@ function VariantCell({
  * Preview tile, painted in the scheme it previews (light cell on a light
  * ground, dark cell on a dark ground) so the mark is judged where it will
  * actually be seen. Shows the uploaded image, the inherited light image
- * (dimmed), or the Kortix default that slot falls back to.
+ * (dimmed), or the Dosco default that slot falls back to.
  */
 function Preview({
   slot,

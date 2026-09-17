@@ -60,7 +60,7 @@ const SOURCE_KEYS: Record<RepositorySource, 'managed' | 'githubCreate' | 'github
  * `github-create` and `github-import` both need one — `POST
  * /projects/create-repo` and `POST /projects/link-repository` resolve their
  * credentials from it (`apps/api/src/projects/routes/r2.ts`), and answer 409
- * `Install the Kortix GitHub App…` when there is none. Sending the user to
+ * `Install the Dosco GitHub App…` when there is none. Sending the user to
  * `/github/setup` BEFORE they press Create is that 409 turned into a link.
  *
  * `rememberGitHubSetupReturn` is what makes it a round trip rather than a
@@ -146,7 +146,7 @@ function GitHubSourceFields({
   // standing for the server's managed-git token, and picking it lists
   // MANAGED_GIT_GITHUB_OWNER's ENTIRE repository set. On cloud that owner is
   // `managed-kortix`, which holds every customer's project repo — so on
-  // 2026-08-29 this picker showed a Kortix admin a list of other people's
+  // 2026-08-29 this picker showed a Dosco admin a list of other people's
   // private repositories, one click from importing one.
   //
   // The server no longer offers that entry to anyone but a self-host operator

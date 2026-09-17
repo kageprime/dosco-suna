@@ -12,7 +12,7 @@ import { ProjectPendingScreen } from '@/components/projects/project-pending-scre
  *     this route is skipped altogether and every click pays a full server
  *     round-trip.
  *
- * It paints the pulsing Kortix mark — the same frame a hard refresh of this
+ * It paints the pulsing Dosco mark — the same frame a hard refresh of this
  * route shows (`ProjectPendingScreen`), sized to the content pane. A skeleton
  * used to stand here: a greeting bar, a composer block and three chips. It
  * flashed on every sidebar click into an existing session, because

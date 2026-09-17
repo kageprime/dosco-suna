@@ -42,8 +42,8 @@ const copyControl = readFileSync(
 );
 
 test('formats the live Code Storage provider identifier', () => {
-  expect(providerLabel('code-storage')).toBe('Kortix Code Storage');
-  expect(providerLabel('code_storage')).toBe('Kortix Code Storage');
+  expect(providerLabel('code-storage')).toBe('Dosco Code Storage');
+  expect(providerLabel('code_storage')).toBe('Dosco Code Storage');
 });
 
 test('only links repository providers with a human web page', () => {
@@ -56,9 +56,9 @@ test('only links repository providers with a human web page', () => {
 test('states the provider as a sentence, and says Code Storage is stored not hosted', () => {
   expect(providerSentence('github')).toBe('Hosted on GitHub.');
   expect(providerSentence('gitlab')).toBe('Hosted on GitLab.');
-  // Code Storage is Kortix's own storage, not a third-party host the user has
+  // Code Storage is Dosco's own storage, not a third-party host the user has
   // an account with — "Hosted on" would send them looking for a login.
-  expect(providerSentence('code-storage')).toBe('Stored in Kortix Code Storage.');
+  expect(providerSentence('code-storage')).toBe('Stored in Dosco Code Storage.');
 });
 
 test('never echoes a raw connection status enum at the user', () => {
@@ -109,8 +109,8 @@ test('the comment-stripped view of the source can still fail', () => {
   // code. `OwnGitClient`'s doc comment quotes the old section name verbatim to
   // say what it replaced, so it exists in `source` and must not survive into
   // `code` — which is the whole reason that assertion reads `code` at all.
-  expect(source).toContain('Kortix proxy origin');
-  expect(code).not.toContain('Kortix proxy origin');
+  expect(source).toContain('Dosco proxy origin');
+  expect(code).not.toContain('Dosco proxy origin');
 });
 
 test('renders no heading of its own — the Git repo section pane owns the title', () => {
@@ -128,7 +128,7 @@ test('renders no heading of its own — the Git repo section pane owns the title
 });
 
 test('does not name internal mechanisms in user-facing copy', () => {
-  // "Kortix proxy origin" / "resolves the current provider credential just in
+  // "Dosco proxy origin" / "resolves the current provider credential just in
   // time" named the mechanism and never said when a person would use it.
   expect(code).not.toContain('proxy origin');
   expect(code).not.toContain('Proxy URL');
@@ -267,7 +267,7 @@ test('the provider sentence follows the same fallback the value does', () => {
 
 /**
  * "People with access" — the gate, and what shows when the repository is not
- * one Kortix can invite into.
+ * one Dosco can invite into.
  *
  * The reported symptom was "some users don't see People with access". Two
  * independent causes, both fixed here and both pinned below: the section was

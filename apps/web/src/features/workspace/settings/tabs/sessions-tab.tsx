@@ -109,10 +109,10 @@ export const DEFAULT_SESSIONS_TAB_COPY: SessionsTabCopy = {
   notificationTypesCopy: {
     onCompletion: { label: 'Task completions', description: 'When a session finishes its task' },
     onError: { label: 'Errors', description: 'When a session encounters an error' },
-    onQuestion: { label: 'Questions', description: 'When Kortix needs your input to continue' },
+    onQuestion: { label: 'Questions', description: 'When Dosco needs your input to continue' },
     onPermission: {
       label: 'Permission requests',
-      description: 'When Kortix needs permission to use a tool',
+      description: 'When Dosco needs permission to use a tool',
     },
   },
   notificationBehaviorCopy: {
@@ -166,13 +166,13 @@ const NOTIFICATION_TYPE_TOGGLES: {
     key: 'onQuestion',
     icon: QuestionCircleSolid,
     label: 'Questions',
-    description: 'When Kortix needs your input to continue',
+    description: 'When Dosco needs your input to continue',
   },
   {
     key: 'onPermission',
     icon: ShieldCheckSolid,
     label: 'Permission requests',
-    description: 'When Kortix needs permission to use a tool',
+    description: 'When Dosco needs permission to use a tool',
   },
 ];
 

@@ -7,7 +7,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: t.raw('text16b9d8d63ecb') },
     description: t.raw('textf48bdbd4d197'),
-    alternates: { canonical: 'https://kortix.com/a1o' },
+    alternates: { canonical: 'https://dosco.live/a1o' },
   };
 }
 

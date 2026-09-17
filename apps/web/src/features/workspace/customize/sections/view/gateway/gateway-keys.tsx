@@ -60,7 +60,7 @@ function fmtDate(s: string | null): string {
 
 /**
  * Gateway keys — `kortix_gw_…` credentials for calling THIS project's gateway
- * from outside Kortix.
+ * from outside Dosco.
  *
  * A SECTION, not a tab. It used to be its own tab labelled "API keys",
  * sitting four tabs away from another tab also labelled "API keys" (the

@@ -4,10 +4,10 @@ import type { Author } from '@/lib/blog';
 import { cn } from '@/lib/utils';
 
 /**
- * Tile geometry mirrors `SIZE_MAP` in `<UserAvatar>` so a Kortix byline and a
+ * Tile geometry mirrors `SIZE_MAP` in `<UserAvatar>` so a Dosco byline and a
  * human byline line up on the same baseline in the same list.
  *
- * The symbol is set to roughly 55% of the tile — the Kortix mark is an open
+ * The symbol is set to roughly 55% of the tile — the Dosco mark is an open
  * asterisk with no bounding shape, so it needs more clear space than a glyph
  * of initials to avoid reading as a smudge at size-6.
  */
@@ -22,9 +22,9 @@ const TILE: Record<UserAvatarSize, { box: string; mark: number }> = {
 /**
  * The avatar beside a post byline.
  *
- * Kortix-authored posts get the Kortix symbol on a solid brand tile; everyone
+ * Dosco-authored posts get the Dosco symbol on a solid brand tile; everyone
  * else falls through to `<UserAvatar>`. Without this, `initialsFromIdentity`
- * reduces "The Kortix Team" to first-word + last-word initials — "TT" — which
+ * reduces "The Dosco Team" to first-word + last-word initials — "TT" — which
  * drops the only word that identifies the brand.
  */
 export function PostAuthorAvatar({

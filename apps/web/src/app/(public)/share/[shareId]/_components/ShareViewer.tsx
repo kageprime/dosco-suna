@@ -266,7 +266,7 @@ function AssistantBlock({ text }: { text: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <div className="flex flex-col gap-2">
-      {/* Agent header — Kortix logomark (matches Suna AgentHeader for name="Kortix") */}
+      {/* Agent header — Dosco logomark (matches Suna AgentHeader for name="Dosco") */}
       <div className="flex items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

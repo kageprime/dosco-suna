@@ -15,7 +15,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
  *
  * Collapsed, it is a label and nothing else. Expanded, it lists the two
  * commands as plain lines: no wells, no borders, no fills. It is app chrome,
- * so it paints Kortix tokens; only the shell itself uses the terminal palette.
+ * so it paints Dosco tokens; only the shell itself uses the terminal palette.
  */
 export function SessionTerminalConnectBar({ projectSessionId }: { projectSessionId: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');

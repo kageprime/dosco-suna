@@ -22,13 +22,11 @@ import { errorToast, successToast } from '@/components/ui/toast';
 import { useRequestDemo } from '@/features/contact/request-demo-provider';
 import { ChatGPT } from '@/features/icon/icons/chat-gpt';
 import { Claude } from '@/features/icon/icons/claude';
-import { Github } from '@/features/icon/icons/github';
 import { OpenClaw } from '@/features/icon/icons/open-claw';
 import { Viktor } from '@/features/icon/icons/viktor';
 import { Zapier } from '@/features/icon/icons/zapier';
 import { useAuth } from '@/features/providers/auth-provider';
 import { useIsMobile } from '@/hooks/utils';
-import { useGitHubStars } from '@/hooks/utils/use-github-stars';
 import { localizeUiCatalog } from '@/i18n/localize-ui-catalog';
 import { SITE_CONFIG_TRANSLATION_KEYS } from '@/i18n/site-config-translation-keys.generated';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
@@ -40,7 +38,6 @@ import {
   ArrowRightIcon,
   DiscordLogoIcon,
   DownloadSimpleIcon as Download,
-  GithubLogoIcon,
   StackIcon as Layers,
   LinkedinLogoIcon,
   ListIcon as Menu,
@@ -103,10 +100,9 @@ function drawerSubLinks(item: NavLink): NavSubLink[] {
 const DRAWER_ROW = 'flex items-center py-2 text-lg font-medium transition-colors';
 
 const DRAWER_SOCIALS = [
-  { label: 'X', href: 'https://x.com/kortix', icon: XLogoIcon },
-  { label: 'LinkedIn', href: 'https://linkedin.com/company/kortix', icon: LinkedinLogoIcon },
+  { label: 'X', href: '?', icon: XLogoIcon },
+  { label: 'LinkedIn', href: '?', icon: LinkedinLogoIcon },
   { label: 'Discord', href: 'https://discord.com/invite/RvFhXUdZ9H', icon: DiscordLogoIcon },
-  { label: 'GitHub', href: 'https://github.com/kortix-ai/suna', icon: GithubLogoIcon },
 ] as const;
 
 interface NavbarProps {
@@ -147,7 +143,6 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
     tI18nComplete,
     SITE_CONFIG_TRANSLATION_KEYS,
   );
-  const { stars, formattedStars, loading: starsLoading } = useGitHubStars('kortix-ai', 'kortix');
   const openDemo = useRequestDemo();
 
   const isNavActive = useCallback(
@@ -387,30 +382,6 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {/* `stars`, not `formattedStars`: the formatter returns an en dash
-                for a missing count, so keying on it printed a GitHub chip
-                reading "–" whenever /api/github-stars failed. No number, no
-                chip. */}
-            {stars !== null && !starsLoading && (
-              <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
-                <Link
-                  href="https://github.com/kortix-ai/suna"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="text-foreground size-4" />
-                  <span
-                    className={cn(
-                      'text-foreground font-medium tabular-nums',
-                      starsLoading && 'opacity-50',
-                    )}
-                  >
-                    {formattedStars}
-                  </span>
-                </Link>
-              </Button>
-            )}
-
             {user ? (
               <Button size="sm" asChild>
                 <Link href={projectsHref} prefetch>

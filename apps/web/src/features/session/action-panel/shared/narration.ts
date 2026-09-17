@@ -355,7 +355,7 @@ function automationAction(part: ToolPart): AutomationAction {
 
 // ─── connectors: discovery/reads vs actually connecting vs running a connector action ─
 //
-// "Connector", never "app": an App is a Kortix product (a hosted web app), so a
+// "Connector", never "app": an App is a Dosco product (a hosted web app), so a
 // connector narrated as "an app" reads as that product.
 
 type ConnectorAction = 'connect' | 'read' | 'call';

@@ -46,7 +46,7 @@ const RETURNS = [
       await invalidateAccountState(queryClient);
     },
     title: 'Subscription activated',
-    description: 'Your team is on Kortix Team. Compute and LLM credits are ready.',
+    description: 'Your team is on Dosco Team. Compute and LLM credits are ready.',
   },
   {
     param: 'credit_purchase',

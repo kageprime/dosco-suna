@@ -6,7 +6,6 @@ import { ArrowRightIcon } from '@/features/icon/arrow-right';
 import SectionHeader from '@/features/marketing/component/section-header';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/i18n/use-translations';
-import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getLocalizedAboutContent } from './content';
@@ -36,14 +35,16 @@ function Hero(): ReactNode {
     <section className="mx-auto max-w-7xl px-6 pt-28 pb-14 sm:pt-36 sm:pb-28">
       <Reveal>
         <div className="relative aspect-[2/1] w-full overflow-hidden rounded-sm border lg:aspect-[21/9]">
-          <Image
-            src="/images/team.webp"
-            alt={hero.imageAlt}
-            fill
-            priority
-            className="object-cover object-bottom"
-            sizes="100vw"
-          />
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-orange-500/10 to-transparent"
+            role="img"
+            aria-label={hero.imageAlt}
+          >
+            <span className="text-6xl" aria-hidden>火</span>
+            <span className="text-muted-foreground px-4 text-center text-sm font-medium">
+              火 Dosco Network team — illustration coming soon
+            </span>
+          </div>
         </div>
 
         <div className="mt-14 flex w-full flex-col items-start gap-6 sm:mt-16">
@@ -159,7 +160,7 @@ function PlatformSection(): ReactNode {
 }
 
 /**
- * `/about` — why Kortix exists, in the founder's framing.
+ * `/about` — why Dosco exists, in the founder's framing.
  *
  * The team opens the page, then the thesis at the largest type on the site.
  * Everything after it is support: three claims, the six-verb platform table,

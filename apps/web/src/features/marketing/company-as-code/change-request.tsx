@@ -3,7 +3,7 @@ import { useTranslations } from '@/i18n/use-translations';
 import type { ReactNode } from 'react';
 import { getLocalizedCompanyAsCodeContent } from './content';
 
-/* Kortix is monochrome, so this diff cannot lean on the red/green every diff
+/* Dosco is monochrome, so this diff cannot lean on the red/green every diff
    viewer uses. It separates the three line kinds the way print does instead:
    an added line is at full contrast with a solid rule down its left edge, a
    removed line is dimmed onto a filled band, and context sits between them. */

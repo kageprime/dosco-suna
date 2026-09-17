@@ -39,7 +39,7 @@ describe('parseDaysField', () => {
     const result = parseDaysField('Longest a key can last', '900', 730);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toBe('Longest a key can last: 730 days is the most Kortix allows.');
+      expect(result.error).toBe('Longest a key can last: 730 days is the most Dosco allows.');
     }
   });
 

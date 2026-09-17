@@ -16,7 +16,7 @@ export type TabSwitchModifier = 'meta' | 'ctrl';
 export type PanelMode = 'easy' | 'advanced';
 
 /**
- * How much live activity the session chat shows while Kortix works.
+ * How much live activity the session chat shows while Dosco works.
  * 'normal' auto-expands the activity burst — steps and streaming thinking
  * text appear as they happen. 'minimal' keeps the burst collapsed to its
  * one-line summary until the user opens it.
@@ -32,7 +32,7 @@ export interface KeyboardShortcutPreferences {
 
 export interface UserPreferences {
   keyboard: KeyboardShortcutPreferences;
-  /** Selected Kortix theme ID (e.g. 'default', 'ember', 'aurora') */
+  /** Selected Dosco theme ID (e.g. 'default', 'ember', 'aurora') */
   themeId: string;
   /** Selected desktop wallpaper ID */
   wallpaperId: string;
@@ -71,7 +71,7 @@ interface UserPreferencesState {
   /** Update keyboard shortcut preferences (partial merge) */
   setKeyboardPreferences: (prefs: Partial<KeyboardShortcutPreferences>) => void;
 
-  /** Set the active Kortix theme by ID */
+  /** Set the active Dosco theme by ID */
   setThemeId: (themeId: string) => void;
 
   /** Set the active desktop wallpaper by ID */

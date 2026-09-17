@@ -658,7 +658,7 @@ export function buildRows(
 }
 
 function statusLabel(row: SecretRow): string {
-  if (row.system) return row.configured ? 'Managed by Kortix' : 'Not set';
+  if (row.system) return row.configured ? 'Managed by Dosco' : 'Not set';
   return row.configured ? 'Set' : 'Not set';
 }
 
@@ -677,7 +677,7 @@ function statusLabel(row: SecretRow): string {
  *
  * The other two become icons with a `Hint`, so they read at a glance and still
  * announce themselves to a screen reader:
- *   lock      — managed by Kortix, you cannot edit it
+ *   lock      — managed by Dosco, you cannot edit it
  *   asterisk  — required; orange while unset, muted once set, the same
  *               "required field" convention every form uses
  */
@@ -935,7 +935,7 @@ function SecretDialog({
   const [editedHosts, setEditedHosts] = useState<string | null>(null);
   const hosts = editedHosts ?? (row ? storedHosts : classification.hosts.join('\n'));
   /**
-   * A slot this row was created with, before Kortix substituted handles in
+   * A slot this row was created with, before Dosco substituted handles in
    * place. It rides through every save untouched unless the user removes it —
    * dropping it silently would stop a working injection on an unrelated edit
    * such as a value rotation.

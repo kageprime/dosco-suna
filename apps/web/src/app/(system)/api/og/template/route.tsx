@@ -16,11 +16,11 @@ const OG_TEXT = {
   officialTemplate: '✨ Official Template',
   aiAgentMarketplace: 'AI Agent Marketplace',
   aiAgentTemplate: 'AI Agent Template',
-  discover: 'Discover powerful AI agents on Kortix',
+  discover: 'Discover powerful AI agents on Dosco',
   connectors: 'connectors',
   defaultDescription: 'An AI agent template ready to be customized for your needs.',
   by: 'by',
-  kortix: 'Kortix',
+  kortix: 'Dosco',
   installs: 'installs',
 } as const;
 

@@ -18,7 +18,7 @@ const member: KortixAccount = { account_id: 'a3', name: 'Member Co', account_rol
 const roleless: KortixAccount = { account_id: 'a4', name: 'No Role Co' };
 
 describe('INITIAL_FORM_STATE', () => {
-  test('defaults to a Kortix-managed repo on main, with no icon', () => {
+  test('defaults to a Dosco-managed repo on main, with no icon', () => {
     expect(INITIAL_FORM_STATE).toEqual({
       name: '',
       icon: null,

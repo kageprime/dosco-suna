@@ -24,7 +24,7 @@
  *    attachment.
  *  - Naming opencode / Codex / Claude Code / Pi under Product / Eng describes
  *    ecosystem fluency wanted in a CANDIDATE. It must never read as a claim
- *    that Kortix supports those harnesses. OpenCode is the Kortix harness, and
+ *    that Dosco supports those harnesses. OpenCode is the Dosco harness, and
  *    the same opening says so.
  *  - Competitor names, exactly: **Claude Cowork** (one word, lowercase `w`) and
  *    **ChatGPT Work** (two words).
@@ -40,7 +40,7 @@ export const hero = {
   title: 'Open positions.',
   lead: 'Belgrade, Serbia and San Francisco.',
   ctaPrimary: 'Apply',
-  ctaSecondary: 'Why Kortix exists',
+  ctaSecondary: 'Why Dosco exists',
   ctaSecondaryHref: '/about',
 } as const;
 
@@ -50,7 +50,7 @@ export const openings = [
     id: 'marketing',
     name: 'Marketing / Content',
     summary:
-      'Make Kortix the instant answer to "what is the open-source Claude Cowork or ChatGPT Work?"',
+      'Make Dosco the instant answer to "what is the open-source Claude Cowork or ChatGPT Work?"',
     bullets: [
       'Build the content baseline, and the system that keeps producing it.',
       'Daily platform and feature explainers.',
@@ -103,8 +103,8 @@ export const openings = [
       'Can recruit.',
     ],
     /** Guards the coding-agent bullet: fluency in a candidate, never a claim
-     *  about what Kortix runs. */
-    note: 'Kortix runs on the OpenCode harness. That bullet is about your fluency in the ecosystem, not about what the platform supports.',
+     *  about what Dosco runs. */
+    note: 'Dosco runs on the OpenCode harness. That bullet is about your fluency in the ecosystem, not about what the platform supports.',
   },
   {
     id: 'rnd',
@@ -180,7 +180,7 @@ export const apply = {
 
 /** Copy for `ApplyModal`. Short, and one open question carries the weight. */
 export const applyForm = {
-  title: 'Apply to Kortix',
+  title: 'Apply to Dosco',
   description: 'Short. One open question does the work.',
   areaLabel: 'Which opening',
   areaPlaceholder: 'Pick the closest one',

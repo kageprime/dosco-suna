@@ -2,7 +2,7 @@
  * Maintenance configuration store.
  *
  * Production reads and writes use Vercel Edge Config. This keeps maintenance
- * control available when the Kortix API or production database is unavailable.
+ * control available when the Dosco API or production database is unavailable.
  * Local development uses an in-memory store.
  */
 
@@ -223,8 +223,8 @@ async function readMaintenanceConfig(): Promise<MaintenanceConfig> {
  * `api.kortix.com` with a 503 whose body carries that config's `message`. So a
  * missing `maintenance_config` key — or one failed network call from a Vercel
  * instance to Edge Config — locked production writes and surfaced to every user
- * as `ApiError: Kortix is temporarily unavailable. Service will resume
- * automatically.` (Better Stack, Kortix Frontend prod: 1,000+ occurrences).
+ * as `ApiError: Dosco is temporarily unavailable. Service will resume
+ * automatically.` (Better Stack, Dosco Frontend prod: 1,000+ occurrences).
  * Nothing an admin did produced it.
  *
  * The two outcomes are now separated:

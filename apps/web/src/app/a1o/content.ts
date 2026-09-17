@@ -3,7 +3,7 @@ import { REMAINING_UI_TRANSLATION_KEYS } from '@/i18n/remaining-ui-translation-k
 import type { UiTranslator } from '@/i18n/translator';
 
 /**
- * Copy for /a1o — "all in one". Six layers of the Kortix stack, one per face of
+ * Copy for /a1o — "all in one". Six layers of the Dosco stack, one per face of
  * a die you roll around the table. Whichever face lands up is the layer shown.
  *
  * `slot` is the die face this layer is printed on. Slots are laid out so that
@@ -42,7 +42,7 @@ export const LAYERS = [
     ordinal: '02',
     title: 'Agent loop',
     teaser: 'What turns a model into a coworker',
-    body: 'A model answers; an agent finishes the job. Kortix runs the loop around it — reading the repo, planning, calling tools, checking its own work, returning a branch you can review.',
+    body: 'A model answers; an agent finishes the job. Dosco runs the loop around it — reading the repo, planning, calling tools, checking its own work, returning a branch you can review.',
   },
   {
     slot: 3,
@@ -75,7 +75,7 @@ export const LAYERS = [
 ] as const satisfies readonly Layer[];
 
 export const COPY = {
-  wordmark: 'Kortix',
+  wordmark: 'Dosco',
   title: 'All in one',
   lede: 'Six layers of the agent stack. One platform. Roll the die to read a face.',
   hint: 'Drag to roll',

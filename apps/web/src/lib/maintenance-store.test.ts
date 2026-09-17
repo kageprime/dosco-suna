@@ -184,8 +184,8 @@ describe('maintenance store', () => {
 
     const config = await getEdgeMaintenanceConfig();
 
-    // Better Stack, Kortix Frontend prod: this path produced 1,000+
-    // `ApiError: Kortix is temporarily unavailable. Service will resume
+    // Better Stack, Dosco Frontend prod: this path produced 1,000+
+    // `ApiError: Dosco is temporarily unavailable. Service will resume
     // automatically.` with no admin action behind it.
     expect(config.level).toBe('none');
     expect(config.message).toBe('');

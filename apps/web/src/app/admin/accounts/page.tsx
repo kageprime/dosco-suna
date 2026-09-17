@@ -334,7 +334,7 @@ function PlanBadge({
  *
  * The badge describes the STORED tier: a grandfathered `pro` row renders
  * "Team · $20/mo · grandfathered" even when the live subscription is a $40/mo
- * "Kortix Computer" machine sub. An operator reading only the badge mis-priced
+ * "Dosco Computer" machine sub. An operator reading only the badge mis-priced
  * the customer. Renders nothing while loading, and nothing when the account has
  * no subscription on file — the badge alone is correct in that case.
  */

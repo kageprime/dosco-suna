@@ -316,7 +316,7 @@ type AgentDef = {
 
 const AGENTS: AgentDef[] = [
   {
-    name: 'Kortix',
+    name: 'Dosco',
     desc: 'General knowledge worker — full tool access; codes, researches, writes and runs ops end-to-end in an isolated sandbox.',
     icon: Bot,
     trigger: 'primary',
@@ -662,7 +662,7 @@ type Provider = {
 const PROVIDERS: Provider[] = [
   {
     domain: null,
-    name: 'Kortix Gateway',
+    name: 'Dosco Gateway',
     hint: 'Managed routing — injected into every sandbox',
     state: 'managed',
   },

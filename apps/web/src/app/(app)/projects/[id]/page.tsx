@@ -219,7 +219,7 @@ export default function ProjectIndexPage() {
             reject(new Error('Session creation failed'));
           },
           onNavigate: (sessionId) => {
-            // `sessionId` here is the route/Kortix session id, not the OpenCode
+            // `sessionId` here is the route/Dosco session id, not the OpenCode
             // pin the session page resolves later (`useCanonicalRuntimeSession`
             // /`ensureOpencodeSessionPin` mint a separate id). Stash under the
             // route id via the SDK's canonical `writeStartStash` — the session

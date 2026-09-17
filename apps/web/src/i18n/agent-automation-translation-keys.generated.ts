@@ -45,7 +45,7 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'An automation gets no privileges a person would not get. The same isolation, the same scoped reach, the same one road back to main.':
     'textac57cd102037',
   'An automation is a file, not a dashboard setting.': 'text0befde5f2be6',
-  'An external service POSTs to the trigger URL. Kortix checks the signature, renders the payload into the prompt, and starts the session. A payload that fails your filter is accepted and ignored.':
+  'An external service POSTs to the trigger URL. Dosco checks the signature, renders the payload into the prompt, and starts the session. A payload that fails your filter is accepted and ignored.':
     'textdd80c157b521',
   'and every other session you start, each on its own machine': 'textb4518309c8a3',
   'Automate it': 'textb63bc1453631',
@@ -56,7 +56,7 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'Both carry a prompt template that becomes the session’s first message.': 'text003569c8b673',
   'Both types name the agent they run as, and inherit that agent’s deny-by-default reach.':
     'textbefd6c156056',
-  'By default every fire is a clean slate. When the work is a running thread rather than a fresh errand, a trigger can re-prompt a session it already owns. Kortix tries the modes in order and falls through on failure, so a fire never simply disappears.':
+  'By default every fire is a clean slate. When the work is a running thread rather than a fresh errand, a trigger can re-prompt a session it already owns. Dosco tries the modes in order and falls through on failure, so a fire never simply disappears.':
     'textab4962ab35a6',
   'change request': 'textb6e3ca291ec2',
   'Change request to main': 'text895615cd8ca9',
@@ -120,9 +120,9 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'One machine per session · Pre-configured · Nothing runs on your laptop': 'text7a04f383ef22',
   'one OpenCode agent per file': 'text18a59ffd5fa8',
   'One switch pauses everything': 'textfb2ab460e464',
-  'Open source and self-hostable. Any model, your keys. Kortix Cloud, your own VPC, or fully on-prem.':
+  'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
     'text1d9a8dde5629',
-  'Open source, with support for any AI model. Use Kortix Cloud or run it on your own systems.':
+  'Open source, with support for any AI model. Use Dosco Cloud or run it on your own systems.':
     'text5b6a9e140d4b',
   OpenCode: 'text3af0e55ccc96',
   'OpenCode runs inside the machine as the agent harness, with your models, your tools and your secrets injected at runtime. The machine is ready. The agent begins.':
@@ -152,10 +152,10 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'sandbox image, triggers, channels, connectors, secrets': 'text84a8a60f0a66',
   Schedule: 'textf4830a1dae29',
   'Session strategy': 'text1747233af590',
-  'Sessions never share a filesystem, a process table, or a network namespace. On Kortix’s own Platinum compute the boundary is a Cloud Hypervisor microVM; Daytona and E2B are also supported, and we will tell you which one you are on.':
+  'Sessions never share a filesystem, a process table, or a network namespace. On Dosco’s own Platinum compute the boundary is a Cloud Hypervisor microVM; Daytona and E2B are also supported, and we will tell you which one you are on.':
     'text05e646f156e2',
   'Signature and token both missing or wrong. Nothing runs.': 'textf83d7ceb0541',
-  'Signature valid. The session fired, queued behind the concurrency limit, or deduped against a delivery Kortix already saw.':
+  'Signature valid. The session fired, queued behind the concurrency limit, or deduped against a delivery Dosco already saw.':
     'texte2a5b5794be9',
   'Signed, or it does not fire.': 'textbdec5adcbac2',
   'Start a session': 'textb7a2eb97cb86',
@@ -166,7 +166,7 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'The automation itself has a history': 'textf17660b6d284',
   'The company is clonable': 'textc4a32a06810b',
   'The cron surface': 'text5eae34fc9718',
-  'The default image already carries the Kortix runtime layer.': 'text09761bceefe9',
+  'The default image already carries the Dosco runtime layer.': 'text09761bceefe9',
   'The machine clones the project repo into /workspace. Your agents, skills, memory, connectors and triggers arrive with it, because all of them are files in that repo.':
     'texte26a38466159',
   'The machine comes up': 'textaf4350fd72f4',
@@ -211,7 +211,7 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'texta11894f9c85d',
   'Work that starts without anyone asking.': 'text90aa768f3864',
   'Write the schedule. Read the change request.': 'text904cdac178a7',
-  'X-Kortix-Signature: sha256=<hmac>': 'texte6d103e79843',
+  'X-Dosco-Signature: sha256=<hmac>': 'texte6d103e79843',
   'You do not have to write cron': 'textaccfa007425f',
   'Your agent can use the tools it needs, just as it would on a regular computer.':
     'texte5b104783abd',

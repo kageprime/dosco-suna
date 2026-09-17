@@ -31,7 +31,7 @@ import { useTranslations } from '@/i18n/use-translations';
  * The first cut of (3) deleted the disclosure AND the providers behind it:
  * with no search text the list was the three first-class ids plus whatever
  * already had a key, so 185 providers only existed for someone who typed a
- * name they already knew. That reads as "Kortix supports three providers".
+ * name they already knew. That reads as "Dosco supports three providers".
  * The whole catalog is in the list now (`orderProviderRows`), first-class ids
  * first, everything else in catalog order — the search field narrows a list
  * that is already all there instead of being the only door to it.
@@ -115,7 +115,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 /**
  * The three providers JAY-510 makes first-class: "Anthropic (Claude), OpenAI
- * (ChatGPT), Google Gemini". They lead the BYOK rows after Kortix, not the only rows —
+ * (ChatGPT), Google Gemini". They lead the BYOK rows after Dosco, not the only rows —
  * every other provider follows them in catalog order. Deliberately NOT
  * `POPULAR_PROVIDER_IDS` (`provider-branding.tsx:10-17`), which is a
  * different, six-member list that also carries `github-copilot`, `openrouter`
@@ -790,7 +790,7 @@ export function ProviderConnect({
   const pickerCatalog = useProjectModelPickerCatalog(enabled ? projectId : null);
   const managedProvider = useMemo<LlmProviderEntry>(() => ({
     id: 'kortix',
-    label: 'Kortix',
+    label: 'Dosco',
     envVars: [],
     authRequirement: { methods: [] },
     helpUrl: null,

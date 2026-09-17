@@ -375,7 +375,7 @@ describe('UserMessage persisted attachments', () => {
           messageID: 'message-svg-batch',
           type: 'file',
           mime: 'application/pdf',
-          filename: 'Account Settings _ Kortix Slack.pdf',
+          filename: 'Account Settings _ Dosco Slack.pdf',
           url: 'data:application/pdf;base64,JVBERi0=',
         },
       ],
@@ -385,13 +385,13 @@ describe('UserMessage persisted attachments', () => {
     expect(html).toContain('HII');
     expect(html).toContain('Jay Suthar.svg');
     expect(html).toContain('Jay Suthar@2x.svg');
-    expect(html).toContain('Account Settings _ Kortix Slack.pdf');
+    expect(html).toContain('Account Settings _ Dosco Slack.pdf');
     // Raw XML must never leak into the bubble as text.
     expect(html).not.toContain('&lt;file path=');
     // Attached order is send order.
     expect(html.indexOf('Jay Suthar.svg')).toBeLessThan(html.indexOf('Jay Suthar@2x.svg'));
     expect(html.indexOf('Jay Suthar@2x.svg')).toBeLessThan(
-      html.indexOf('Account Settings _ Kortix Slack.pdf'),
+      html.indexOf('Account Settings _ Dosco Slack.pdf'),
     );
   });
 

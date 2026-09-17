@@ -27,7 +27,7 @@ import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 // this file's sibling `sso-card.tsx` uses the same two-column `<dl>` for the
 // same job.
 //
-// On the hosted Kortix deployment (source 'env') the App is configured by the
+// On the hosted Dosco deployment (source 'env') the App is configured by the
 // operator via env vars — this card still renders there, but its footer says
 // so and offers no controls; the separate cloud `GitHubConnectionCard`
 // (per-account App installs) is what a hosted customer actually uses, gated on
@@ -675,7 +675,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
         </div>
       ) : (
         <div className="bg-popover overflow-hidden rounded-md border">
-          {/* Identity: who owns the repositories Kortix is about to create. */}
+          {/* Identity: who owns the repositories Dosco is about to create. */}
           <div className="flex items-start gap-3 px-4 py-4">
             <span
               aria-hidden
@@ -794,7 +794,7 @@ export function GitHubAppSetupCard({ canManage }: GitHubAppSetupCardProps) {
  *  read as the same panel rather than two unrelated blocks. */
 function CardHeading({
   badges,
-  description = 'Every Kortix project is a git repository the server creates and pushes to on your behalf.',
+  description = 'Every Dosco project is a git repository the server creates and pushes to on your behalf.',
   action,
 }: {
   badges?: React.ReactNode;

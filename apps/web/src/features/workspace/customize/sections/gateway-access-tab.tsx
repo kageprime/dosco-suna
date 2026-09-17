@@ -12,7 +12,7 @@ import { useTranslations } from '@/i18n/use-translations';
  *  - `providers` — "API keys": paste YOUR provider key (Anthropic, OpenAI, …)
  *    so this project can call that provider. **Inbound.**
  *  - `keys` — "API keys": create a `kortix_gw_…` key so something OUTSIDE
- *    Kortix can call this project's gateway. **Outbound.**
+ *    Dosco can call this project's gateway. **Outbound.**
  *  - `api` — "API": how to make that outbound call, with the key from the tab
  *    four places to its left.
  *

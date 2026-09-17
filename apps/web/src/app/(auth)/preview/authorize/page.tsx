@@ -2,7 +2,7 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 /**
- * The hand-off that turns "you are signed in to Kortix" into "this preview
+ * The hand-off that turns "you are signed in to Dosco" into "this preview
  * origin will serve you".
  *
  * A preview lives on its own hostname (`{env}-p{port}-{sandbox}.p.kortix.com`),
@@ -10,7 +10,7 @@ import { useTranslations } from '@/i18n/use-translations';
  * of the web app's credentials reach it. Opening such a URL cold gets a page
  * asking to sign in; that page sends the person here with `?to=<preview url>`.
  *
- * Here we are on the Kortix origin, so we have the session. We take the access
+ * Here we are on the Dosco origin, so we have the session. We take the access
  * token and bounce back with a ONE-SHOT `?token=`, which the proxy exchanges
  * for a host-scoped cookie and strips from the address bar.
  *

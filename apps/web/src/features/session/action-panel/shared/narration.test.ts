@@ -347,7 +347,7 @@ describe('narrateStep - connectors distinguishes discovery from connection', () 
     ).toBe('Made 2 connector calls');
   });
 
-  // "App" is a Kortix product — a hosted web app. A connector call narrated
+  // "App" is a Dosco product — a hosted web app. A connector call narrated
   // as "an app" reads as that product.
   it('never calls a connector an app', () => {
     const tools = [

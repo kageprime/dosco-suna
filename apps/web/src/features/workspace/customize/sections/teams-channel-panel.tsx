@@ -55,7 +55,7 @@ import { useState } from 'react';
 
 /** One instruction per line, in the order a user performs them. */
 const TEAMS_MANIFEST_STEPS = [
-  'Grant admin consent so the Kortix bot can run in your tenant.',
+  'Grant admin consent so the Dosco bot can run in your tenant.',
   'In Teams Admin Center (or Teams → Apps → Manage your apps → Upload), upload an app package built from this manifest, plus color.png and outline.png icons.',
   'Add the app to a chat or channel, then paste your tenant ID below to bind it to this project.',
 ];

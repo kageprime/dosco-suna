@@ -18,7 +18,7 @@ export function isCanonicalRobotsHost(host: string | null): boolean {
 // dev.kortix.com, staging.kortix.com, Vercel previews, self-hosted deployments
 // — gets a blanket Disallow so non-canonical copies of the site never enter a
 // search index alongside the canonical one.
-const CANONICAL_ROBOTS = `# Kortix Robots.txt
+const CANONICAL_ROBOTS = `# Dosco Robots.txt
 User-agent: *
 Allow: /
 Allow: /api/ai

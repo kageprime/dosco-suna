@@ -71,7 +71,7 @@ interface KortixComputerState {
    */
   isActionPanelOpen: boolean;
   _activeSessionId: string | null;
-  /** The Kortix project session behind `_activeSessionId`, when the layout
+  /** The Dosco project session behind `_activeSessionId`, when the layout
    *  declared one — see `setActiveSession`'s `continuity` parameter. */
   _activeProjectSessionId: string | null;
   /** Whether `_activeSessionId` was activated by the transient boot shell. */
@@ -224,7 +224,7 @@ interface KortixComputerState {
    *  `continuity` identifies the KORTIX project session behind the layout id,
    *  plus whether the caller is the transient boot shell. The one transition it
    *  changes: transient shell → real chat for the SAME project session (the
-   *  boot→ready crossfade renames the layout from the Kortix session id to the
+   *  boot→ready crossfade renames the layout from the Dosco session id to the
    *  OpenCode id). That is not a session change — a panel the user opened while
    *  the sandbox booted must survive the handoff, not flicker shut. */
   setActiveSession: (
@@ -496,7 +496,7 @@ export const useKortixComputerStore = create<KortixComputerState>()(
           return;
         }
         // Boot handoff, NOT a session change: the transient shell (layout id =
-        // Kortix session id) crossfades into the real chat (layout id =
+        // Dosco session id) crossfades into the real chat (layout id =
         // OpenCode id) for the SAME project session. The user is looking at
         // the same session the whole time — a panel opened during boot must
         // survive, so only the identity fields move. Everything the user can

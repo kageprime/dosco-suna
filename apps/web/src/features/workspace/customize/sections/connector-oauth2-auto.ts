@@ -2,7 +2,7 @@
  * One-click OAuth for a connector whose server publishes its own authorization
  * metadata (the MCP authorization chain, RFC 9728 + RFC 8414 + RFC 7591).
  *
- * The user's job shrinks to pressing one button: Kortix discovers the
+ * The user's job shrinks to pressing one button: Dosco discovers the
  * authorization server, registers itself as a client, and starts the
  * Authorization Code + PKCE flow. These helpers are the pure decisions behind
  * that button, kept out of the component so they are testable on their own.

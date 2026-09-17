@@ -255,7 +255,7 @@ export default function PublicSessionSharePage() {
               </Hint>
             )}
             {/* One CTA in both auth states. A signed-out visitor still wants
-                "Open in Kortix"; sign-in is a step on the way there, not a
+                "Open in Dosco"; sign-in is a step on the way there, not a
                 different destination. */}
             <Button size="sm" asChild>
               <Link href={hasAuth ? sessionHref : authHref} prefetch>

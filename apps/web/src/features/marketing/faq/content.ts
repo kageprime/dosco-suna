@@ -98,7 +98,7 @@ export const faq = {
   eyebrow: 'Frequently asked questions',
   title: 'The questions people ask before the first session.',
   /** One link out, to the page that carries the longest of these answers. */
-  /* No trailing link. One 'How Kortix is secured →' under a list of six
+  /* No trailing link. One 'How Dosco is secured →' under a list of six
      questions pointed at the answer to only one of them, and reads as an
      apology for the section. Each answer carries its own link where it needs
      one. */

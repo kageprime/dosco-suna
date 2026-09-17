@@ -2,7 +2,7 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 /**
- * The Kortix deck — the complete story end to end, styled 1:1 with the marketing
+ * The Dosco deck — the complete story end to end, styled 1:1 with the marketing
  * site (home + /developers + /enterprise). Same components and vocabulary:
  * marketing Button/Badge, mono-uppercase eyebrows, `font-medium tracking-tight`
  * titles, `rounded-sm` thin-border cards on bg-card, lucide icon features, code

@@ -75,7 +75,7 @@
  *    holes. The sixth is "Routing", promoted out of the footer, where it had
  *    been a bare `Automatic` badge with a second label bolted on.
  *
- * The copy is de-jargoned to match: `source` renders as "Kortix platform" /
+ * The copy is de-jargoned to match: `source` renders as "Dosco platform" /
  * "This dashboard" / `kortix.yaml`, not `platform` / `UI` / `kortix.yaml`;
  * `is_default` is promoted out of the meta line into a `Default` badge.
  *
@@ -282,7 +282,7 @@ export function describeSource(
 ): { label: string; icon: PhosphorIcon; mono: boolean } {
   if (template.source === 'platform')
     return {
-      label: labels.platform ?? 'Kortix platform',
+      label: labels.platform ?? 'Dosco platform',
       icon: ShippingContainerIcon,
       mono: false,
     };
@@ -324,7 +324,7 @@ export function describeBase(
     };
   return {
     label: labels.baseImage ?? 'Base image',
-    value: labels.kortixDefault ?? 'Kortix default',
+    value: labels.kortixDefault ?? 'Dosco default',
     icon: CubeIcon,
     mono: false,
   };
@@ -911,7 +911,7 @@ const DEFAULT_SANDBOX_VIEW_COPY: SandboxTabViewCopy = {
   descriptionStart:
     'Every session starts from a sandbox template — a prepared machine with your repository already checked out at',
   descriptionEnd:
-    'The Kortix default works for most projects. Add your own below, or declare them as',
+    'The Dosco default works for most projects. Add your own below, or declare them as',
   configReadFailed: 'Couldn’t read project sandbox config:',
   emptyTitle: 'No templates resolved yet.',
   emptyDescription: "Create one, or add it to your project's manifest.",

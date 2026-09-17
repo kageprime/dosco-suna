@@ -29,7 +29,7 @@ const ROW_ICONS = {
 } as const;
 type IconKey = keyof typeof ROW_ICONS;
 
-/** Models Kortix can run, and a sample of the tools it connects to. These are
+/** Models Dosco can run, and a sample of the tools it connects to. These are
  *  capabilities we actually ship — not customer logos, which we neither name
  *  nor have permission to show. OpenCode is the agent harness, not a model, so
  *  it does not belong in this row. */

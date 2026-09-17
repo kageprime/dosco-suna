@@ -7,8 +7,8 @@ import { useTranslations } from '@/i18n/use-translations';
 // create/import UI whenever there's no usable managed git on this server
 // (self-host with no GitHub App or PAT configured yet). Routes the user to
 // the account's Git settings tab instead of the cloud-only "Connect the
-// Kortix GitHub App" install card, which only makes sense on the hosted
-// deployment (there's no hosted Kortix App to install on self-host).
+// Dosco GitHub App" install card, which only makes sense on the hosted
+// deployment (there's no hosted Dosco App to install on self-host).
 
 import { GithubLogoIcon as Github } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';

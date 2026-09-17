@@ -8,7 +8,7 @@
  * lets one component serve a change request, a schedule and a GitHub pull
  * request without a `kind` switch in its body.
  *
- * The visual contract is `changes-view.tsx`'s row, which the Kortix design
+ * The visual contract is `changes-view.tsx`'s row, which the Dosco design
  * system names as the reference for this shape: a tinted `size-9` tile carries
  * the colour, the chip stays neutral, the enter is a staggered CSS animation.
  * Expressed through `Item` slots so the anatomy is named rather than implied.

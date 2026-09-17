@@ -64,7 +64,7 @@ export async function runConnectLinkFlow(
   }
 
   try {
-    // The hosted page does not need access to the Kortix tab through window.opener.
+    // The hosted page does not need access to the Dosco tab through window.opener.
     // Setting this on the same-origin blank page prevents reverse-tabnabbing after
     // navigation while keeping our Window reference for polling cleanup.
     try {

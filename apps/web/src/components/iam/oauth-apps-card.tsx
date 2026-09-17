@@ -2,7 +2,7 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 /**
- * OAuth apps: the account's "Sign in with Kortix" client registry.
+ * OAuth apps: the account's "Sign in with Dosco" client registry.
  *
  * A row here is a third-party app (Essentia's dashboards, a partner portal,
  * an internal tool on its own origin) that sends people to `/v1/oauth/authorize`
@@ -103,7 +103,7 @@ const OAUTH_CLIENTS_KEY = (accountId: string) => ['oauth-clients', accountId];
 export const SCOPE_HELP: Record<string, string> = {
   profile: 'Who the user is (id, email, accounts)',
   email: 'Email address',
-  kortix: 'Act as the user on the Kortix API (projects, sessions, files)',
+  kortix: 'Act as the user on the Dosco API (projects, sessions, files)',
 };
 
 const CLIENT_TYPE_LABEL: Record<OAuthClientType, string> = {

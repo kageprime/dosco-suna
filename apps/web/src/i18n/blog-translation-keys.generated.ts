@@ -3,9 +3,9 @@ export const BLOG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'A frontier without an ecosystem is not stable': 'text062dddbbb151',
   'A workforce of AI agents that do real work across your tools — defined as files in a git repo, run in isolated sandboxes, governed by review, and built enterprise-first. Here is the whole thing, A to Z.':
     'text7a269e6be11f',
-  'AGI-ready architecture: what it really means, and how Kortix is built for it':
+  'AGI-ready architecture: what it really means, and how Dosco is built for it':
     'textcff5be799324',
-  "AGI-ready doesn't mean an architecture that produces AGI. It means one that absorbs a 100× capability jump without losing state or granting uncontrolled access. How Kortix is built for it.":
+  "AGI-ready doesn't mean an architecture that produces AGI. It means one that absorbs a 100× capability jump without losing state or granting uncontrolled access. How Dosco is built for it.":
     'text838bb7d9fdc0',
   'AI transformation needs a company OS': 'textba66db5df698',
   "Beyond the chat box: why ChatGPT, Claude, and Grok aren't an AI workforce": 'text9b69c39a29da',
@@ -20,46 +20,46 @@ export const BLOG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Connect the tools, keep the keys out of the agent.': 'texte69556252880',
   'Connect your first tool and watch it come back with something you can use. Free to start, free to self-host.':
     'text2e531f2487d9',
-  'Connect your tools and hand a Kortix agent a real task. Free to start, free to self-host.':
+  'Connect your tools and hand a Dosco agent a real task. Free to start, free to self-host.':
     'text7da07ad47ba0',
-  'Create a Kortix project, start an isolated session, and review the change your agent brings back. Self-host it or use Kortix Cloud.':
+  'Create a Dosco project, start an isolated session, and review the change your agent brings back. Self-host it or use Dosco Cloud.':
     'text5203cb730f22',
   "Don't just find the work. Run it.": 'textd65407c0111d',
-  'Every AI product is converging on the same architecture. The only defensible advantage is a data flywheel — a learning loop where every interaction makes your system better. Here is what that means, and why Kortix is built for it.':
+  'Every AI product is converging on the same architecture. The only defensible advantage is a data flywheel — a learning loop where every interaction makes your system better. Here is what that means, and why Dosco is built for it.':
     'textc26857e5267c',
   'Every AI product is the same: the convergence nobody is talking about': 'textb1871012f227',
   "Glean is the best permission-aware enterprise search. But search finds work — it doesn't do it. Here's where you outgrow it, and the open runtime alternative.":
     'textdf401def2586',
   'Go from asking questions to running the work.': 'text1d72184afeaf',
   'Good businesses don’t need moats (and why that’s fine)': 'text65b8fb5119ec',
-  'Hand a Kortix agent a real task and get a finished result back. Free to start, free to self-host.':
+  'Hand a Dosco agent a real task and get a finished result back. Free to start, free to self-host.':
     'text2928e9dd01ed',
   'How to give AI agents production tool access without raw API keys: scoped connectors, approval policies, server-side credentials, and reviewed work.':
     'textd203efbea730',
   'How to give AI agents tool access safely': 'text04717e6e8e3f',
-  'Introducing Kortix: the AI command center for your company': 'textebb63fcaf908',
-  'Kortix is built on the feedback loop. Deploy it, use it, and watch it compound. Start building yours.':
+  'Introducing Dosco: the AI command center for your company': 'textebb63fcaf908',
+  'Dosco is built on the feedback loop. Deploy it, use it, and watch it compound. Start building yours.':
     'textbf1d5331564b',
-  'Kortix is open-source and built for companies that want to own their AI future. Self-host it, connect your own models, and build something that compounds.':
+  'Dosco is open-source and built for companies that want to own their AI future. Self-host it, connect your own models, and build something that compounds.':
     'text0977ca269624',
-  'Kortix is the Autonomous Company Operating System — open-source, self-hostable, any model. Start one project free.':
+  'Dosco is the Autonomous Company Operating System — open-source, self-hostable, any model. Start one project free.':
     'text06272d336a8c',
-  'Kortix is the open-source AI OS where your company’s knowledge compounds. Free to start, free to self-host, free to own your learning loop.':
+  'Dosco is the open-source AI OS where your company’s knowledge compounds. Free to start, free to self-host, free to own your learning loop.':
     'text11776662ccda',
-  "Kortix is the open-source AI operating system where your company's knowledge compounds. Connect your tools, deploy an agent, and start accumulating your own token capital. Free to start, free to self-host.":
+  "Dosco is the open-source AI operating system where your company's knowledge compounds. Connect your tools, deploy an agent, and start accumulating your own token capital. Free to start, free to self-host.":
     'texte60053964d37',
-  'Kortix is the platform for companies that want to own their AI learning loop. Self-host it, connect your models, and build something that compounds over time.':
+  'Dosco is the platform for companies that want to own their AI learning loop. Self-host it, connect your models, and build something that compounds over time.':
     'text9b1f46268884',
-  'Kortix is the platform for dynamic software. Deploy on-prem, own your data, and build systems that learn.':
+  'Dosco is the platform for dynamic software. Deploy on-prem, own your data, and build systems that learn.':
     'texta7e22100c375',
-  'Kortix passes the test of sovereignty. Free to start, free to self-host, free to own your AI future.':
+  'Dosco passes the test of sovereignty. Free to start, free to self-host, free to own your AI future.':
     'text7ee0ad224441',
-  'Kortix vs Claude Cowork: a desktop assistant, or a company-wide agent platform?':
+  'Dosco vs Claude Cowork: a desktop assistant, or a company-wide agent platform?':
     'text369629299bb2',
-  'Kortix vs Glean: search or an agent platform that runs work?': 'text235c1b41991b',
-  'Kortix vs Poetic: both turn workflows into code — the difference is who owns the code':
+  'Dosco vs Glean: search or an agent platform that runs work?': 'text235c1b41991b',
+  'Dosco vs Poetic: both turn workflows into code — the difference is who owns the code':
     'text7fc00a40fb11',
-  'Kortix vs QM: two open agent platforms, two different units of work': 'text149bdc09a5a9',
+  'Dosco vs QM: two open agent platforms, two different units of work': 'text149bdc09a5a9',
   'Love a great open-source agent? Get one built for your whole company.': 'textb2ec3bd97bbc',
   'Love agents that do the work? Run a whole fleet — on your own terms.': 'text9cb532588c13',
   'One git repo is the source of truth for the agents, the skills, the memory and the connector config. Every session gets its own isolated machine and its own branch. Any model, your keys. Work lands through a change request. Self-hosted or managed cloud. The long version of that sentence.':
@@ -69,11 +69,11 @@ export const BLOG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Open the command center and hand an agent a real task.': 'text590b2d04d8a8',
   'OpenClaw and Hermes are brilliant open-source personal agents — and we genuinely recommend them for individuals. But a personal "Jarvis" and a governed company platform are different things. Here is exactly where the line is.':
     'text42f3ceed281b',
-  'Personal AI agents vs a company OS: Kortix, OpenClaw, and Hermes': 'text13b96b3a60d2',
-  'Poetic compiles your procedures into a purpose-built language it runs for you. Kortix keeps the workflow as ordinary code in a repo you own, and gates the boundary where it touches the world. A technical comparison of two answers to the same problem.':
+  'Personal AI agents vs a company OS: Dosco, OpenClaw, and Hermes': 'text13b96b3a60d2',
+  'Poetic compiles your procedures into a purpose-built language it runs for you. Dosco keeps the workflow as ordinary code in a repo you own, and gates the boundary where it touches the world. A technical comparison of two answers to the same problem.':
     'textbcc3be342ea1',
   'Put the project model to work.': 'text1ee690876b9c',
-  'QM and Kortix both give teams persistent agents, isolated computers, Slack and web access, and self-hosting. The decisive difference is deeper: QM organizes work around people and rooms; Kortix organizes it around git-backed projects and reviewable sessions.':
+  'QM and Dosco both give teams persistent agents, isolated computers, Slack and web access, and self-hosting. The decisive difference is deeper: QM organizes work around people and rooms; Dosco organizes it around git-backed projects and reviewable sessions.':
     'textfa5ef912b226',
   'Run the test on your AI platform': 'textc4b488c86e1d',
   'Run your whole company from one repo you own.': 'textda780699fda4',
@@ -106,7 +106,7 @@ export const BLOG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The way we build software is fundamentally changing. Static software no longer creates a defensible advantage. The shift is to dynamic software that improves through feedback loops.':
     'textfac03f6bbe21',
   'Turn the workflow into code — and keep the code.': 'text3a1d1fd93c2a',
-  'What Kortix actually is: the open-source AI Management System, layer by layer':
+  'What Dosco actually is: the open-source AI Management System, layer by layer':
     'text2ff50f0be011',
   'Why consultancies and AI-transformation teams need one Git-backed workspace for agents, memory, connectors, policy, and auditable work.':
     'text8c03a1555d80',

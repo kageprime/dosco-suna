@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import * as React from 'react';
 
 /**
- * Kortix <SectionCard> — the one panel pattern.
+ * Dosco <SectionCard> — the one panel pattern.
  *
  * Composes the design-system <Card> (rounded-2xl surface) and adds the
  * divided header every settings/list panel needs: a title, an optional

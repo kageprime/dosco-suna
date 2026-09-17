@@ -4,16 +4,16 @@ import { useBranding } from '@/features/branding/branding-provider';
 import { cn } from '@/lib/utils';
 
 /**
- * The Kortix symbol as a semantic icon (`size-4`, `currentColor`).
+ * The Dosco symbol as a semantic icon (`size-4`, `currentColor`).
  *
  * Organization branding: when the active account carries its own square mark
  * (`icon_url`, Enterprise `branding` entitlement) this renders that image in
  * the same box — with the dark variant toggled by the theme class when one is
  * set — so every "this is your agent / platform" glyph follows the brand,
  * not just the header. Marketing surfaces sit outside any account and keep
- * the Kortix symbol.
+ * the Dosco symbol.
  */
-export const Kortix = ({ className }: { className?: string }) => {
+export const Dosco = ({ className }: { className?: string }) => {
   const branding = useBranding();
   const light = branding?.icon_url ?? null;
   const dark = branding?.icon_dark_url ?? null;

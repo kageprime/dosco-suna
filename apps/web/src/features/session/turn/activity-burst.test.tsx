@@ -124,7 +124,7 @@ describe('ActivityGroupStep', () => {
   });
 
   test('two connector calls are ONE row that says connector, never app', () => {
-    // An App is a hosted Kortix web app. A connector call is not one.
+    // An App is a hosted Dosco web app. A connector call is not one.
     const markup = render(false, [
       tool('1', 'kortix-connectors_call', {
         status: 'completed',

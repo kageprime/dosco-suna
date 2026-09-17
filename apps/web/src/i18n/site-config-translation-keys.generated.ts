@@ -30,7 +30,7 @@ export const SITE_CONFIG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   GitHub: 'textf911e414cf6b',
   'Isolation, credentials, permissions and audit': 'text1493d5e5a577',
   IT: 'textf415bf7b07a9',
-  'Kortix – the open AI command center for your company.': 'text75f8cf60c514',
+  'Dosco – the open AI command center for your company.': 'text75f8cf60c514',
   Legal: 'text4787eaf7c938',
   License: 'textc011d6097bfb',
   LinkedIn: 'textdd84425b72da',

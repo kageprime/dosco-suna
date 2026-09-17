@@ -11,7 +11,7 @@ import { useTranslations as useI18nTranslations } from '@/i18n/use-translations'
  * agent's markdown file, via `setOc` — but the grouping now follows the
  * question being answered, not the file being written.
  *
- * `Basics` spans both writers on purpose: "Enabled" is a Kortix-side key
+ * `Basics` spans both writers on purpose: "Enabled" is a Dosco-side key
  * (`set`) and everything beside it is runtime-side (`setOc`). Splitting the
  * section to match would strand one switch in a section of its own for a
  * reason no reader could see.

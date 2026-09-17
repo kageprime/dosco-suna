@@ -1138,7 +1138,7 @@ export function ConnectorDetail({
     connector.provider,
   );
   const usesProjectAuthorization = connector.authorizationStrategy === 'project';
-  // The connection's connection_id — the reference a backend (Kortix as a Backend)
+  // The connection's connection_id — the reference a backend (Dosco as a Backend)
   // passes in `connector_bindings` to run a session AS this connection. It isn't
   // surfaced anywhere else, so we expose + copy it here. Project-default connection
   // only (the account this connector is connected as for the whole project).
@@ -2018,7 +2018,7 @@ export function EmailConnectForm({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const mode = useEmailMode(projectId);
   const connect = useConnectEmail();
-  const [displayName, setDisplayName] = useState('Kortix Agent');
+  const [displayName, setDisplayName] = useState('Dosco Agent');
   const [username, setUsername] = useState(() =>
     connectorSlug
       .replace(/^email_/, '')
@@ -4027,7 +4027,7 @@ function AppCatalogue({
 /**
  * Slugify the source document's own name — OpenAPI `info.title`, Postman
  * `info.name` — so adding a spec proposes the slug the API calls itself
- * ("Kortix WhatsApp Gateway" → `kortix-whatsapp-gateway`). Derived from the
+ * ("Dosco WhatsApp Gateway" → `kortix-whatsapp-gateway`). Derived from the
  * document rather than its URL: a hostname is a guess, a title is a statement.
  */
 function slugFromTitle(title: string | null | undefined): string {
@@ -4980,7 +4980,7 @@ export function SetCredentialModal({
   /**
    * The endpoint/client fields only appear when automatic setup cannot finish
    * the job: the user asked for their own app, or the server publishes nothing
-   * Kortix can act on. `unknown` (discovery still running or not started) keeps
+   * Dosco can act on. `unknown` (discovery still running or not started) keeps
    * them visible so the modal is never empty.
    */
   /**
@@ -4998,7 +4998,7 @@ export function SetCredentialModal({
       ? oauth2CredentialFormValid(oauth2)
       : oauth2ApplicationFormValid(effectiveApplication);
   /**
-   * One click: register Kortix with the authorization server (RFC 7591), then
+   * One click: register Dosco with the authorization server (RFC 7591), then
    * start Authorization Code + PKCE. No client id, no secret, no endpoints.
    */
   const autoConnect = useMutation({

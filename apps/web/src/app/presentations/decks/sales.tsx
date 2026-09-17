@@ -2,7 +2,7 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 /**
- * The Kortix deck — content & structure follow the official "Kortix pres ENG"
+ * The Dosco deck — content & structure follow the official "Dosco pres ENG"
  * sales narrative (origin → what it is → interface → shared machine →
  * connect/configure/deploy → no model lock-in → Slack/Teams → use cases →
  * thanks), rendered in the marketing-site visual style (home / developers /

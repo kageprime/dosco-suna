@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Install Kortix into Slack.
+ * Install Dosco into Slack.
  *
  * The managed and custom install paths stay in one fixed decision lane. Custom
  * setup, waiting, and confirmed states render under the chooser in that same

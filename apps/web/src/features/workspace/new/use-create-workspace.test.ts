@@ -865,7 +865,7 @@ describe('runCreate: the full create() orchestration', () => {
 
   test('a failed GitHub create surfaces the error like any other source', async () => {
     const err = new ApiError(
-      'Install the Kortix GitHub App before creating GitHub-backed projects',
+      'Install the Dosco GitHub App before creating GitHub-backed projects',
       {
         status: 409,
       },

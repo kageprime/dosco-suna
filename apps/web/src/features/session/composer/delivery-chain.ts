@@ -12,7 +12,7 @@
  * POST. The link is reserved at Send, so a text-only send made while an earlier
  * send still uploads waits behind it. A link settles on success and on failure
  * alike, so a failed send never blocks the sends after it. Chains are keyed by
- * the Kortix session id, and one session never waits on another.
+ * the Dosco session id, and one session never waits on another.
  *
  * Host code on purpose, beside `deliverAfterPaint`; the POSTs themselves stay
  * SDK calls. Moving the chain into `@kortix/sdk` is a recorded follow-up.
