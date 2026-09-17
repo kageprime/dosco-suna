@@ -903,23 +903,43 @@ function validateEnv(): z.infer<typeof envSchema> {
     });
   }
 
-  // ── Conditional: Billing enabled → need Stripe keys ────────────────────
+  // ── Conditional: Billing enabled → need at least one payment provider ──
+  // Stripe and Paystack are alternatives. Each provider's paths degrade to a
+  // clear 400 when its own keys are unset — so billing boots when EITHER side
+  // is complete, and a Paystack-only deployment never dies on Stripe keys.
   const billingWillBeEnabled =
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === 'true' ||
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === true;
   if (billingWillBeEnabled) {
-    if (!raw.STRIPE_SECRET_KEY)
+    const stripeReady = Boolean(raw.STRIPE_SECRET_KEY && raw.STRIPE_WEBHOOK_SECRET);
+    const paystackReady = Boolean(raw.PAYSTACK_SECRET_KEY);
+    if (!stripeReady && !paystackReady) {
       issues.push({
         var: 'STRIPE_SECRET_KEY',
-        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
+        message:
+          'Billing is enabled but no payment provider is configured — set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, or PAYSTACK_SECRET_KEY',
         level: 'error',
       });
-    if (!raw.STRIPE_WEBHOOK_SECRET)
-      issues.push({
-        var: 'STRIPE_WEBHOOK_SECRET',
-        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
-        level: 'error',
-      });
+    } else {
+      if (!raw.STRIPE_SECRET_KEY)
+        issues.push({
+          var: 'STRIPE_SECRET_KEY',
+          message: 'Not set — Stripe checkout/portal/sync paths return 400; Paystack paths are unaffected',
+          level: 'warn',
+        });
+      if (!raw.STRIPE_WEBHOOK_SECRET)
+        issues.push({
+          var: 'STRIPE_WEBHOOK_SECRET',
+          message: 'Not set — Stripe webhooks are rejected; Paystack webhooks are unaffected',
+          level: 'warn',
+        });
+      if (!raw.PAYSTACK_SECRET_KEY)
+        issues.push({
+          var: 'PAYSTACK_SECRET_KEY',
+          message: 'Not set — Paystack checkout/webhook paths return 400; Stripe paths are unaffected',
+          level: 'warn',
+        });
+    }
   }
 
   // ── Conditional: GitHub App configured → need its OAuth client too ─────
