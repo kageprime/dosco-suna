@@ -263,6 +263,30 @@ describe('kortix self-host (generic Docker CLI)', () => {
     expect(readEnv().KORTIX_APP_REPLICAS).toBe('1');
   });
 
+  test('KORTIX_APP_REPLICAS_OVERRIDE=1 pins a single replica behind Caddy and survives re-render', async () => {
+    await run(['init', '--yes']);
+    expect((await run(['env', 'set', 'KORTIX_DOMAIN=kortix.example.com'])).code).toBe(0);
+    expect(readEnv().KORTIX_APP_REPLICAS).toBe('2');
+
+    const set = await run(['env', 'set', 'KORTIX_APP_REPLICAS_OVERRIDE=1']);
+    expect(set.code).toBe(0);
+    expect(readEnv().KORTIX_APP_REPLICAS).toBe('1');
+    const compose = readCompose() as { services: Record<string, { deploy?: { replicas?: number }; ports?: string[] }> };
+    for (const name of ['kortix-api', 'llm-gateway', 'frontend'] as const) {
+      expect(compose.services[name]?.deploy?.replicas, name).toBe(1);
+      expect(compose.services[name]?.ports, name).toBeUndefined();
+    }
+    expect(compose.services.caddy).toBeDefined();
+
+    // A later write (e.g. unrelated env set) must not clobber the override.
+    expect((await run(['env', 'set', 'KORTIX_UPDATE_TIME=03:00'])).code).toBe(0);
+    expect(readEnv().KORTIX_APP_REPLICAS).toBe('1');
+
+    // Clearing the override returns to the domain-derived default.
+    expect((await run(['env', 'set', 'KORTIX_APP_REPLICAS_OVERRIDE='])).code).toBe(0);
+    expect(readEnv().KORTIX_APP_REPLICAS).toBe('2');
+  });
+
   test('KORTIX_INSTANCE_DIR is the absolute instance directory and is wired into the rendered kortix-updater service (DinD self-referential mount)', async () => {
     // Regression coverage for the "mounts denied" self-host update bug: the
     // in-compose kortix-updater runs `docker compose` against the HOST daemon

@@ -283,6 +283,15 @@ export interface RenderComposeOptions {
    * container because the official cloudflared image ships no shell at all.
    */
   namedTunnelConfigured?: boolean;
+  /**
+   * Explicit operator override for the app-tier replica count (1-4). When set,
+   * it wins over the domain-derived default (2 with a domain, 1 without), so a
+   * small box can run a single replica behind Caddy instead of the HA pair.
+   * Caddy's `dynamic a` upstream re-resolves to one IP — no config change
+   * needed there. Sourced from KORTIX_APP_REPLICAS_OVERRIDE via
+   * normalizeFullSupabaseEnv(); empty/undefined = auto (domain-derived).
+   */
+  appReplicas?: number;
 }
 
 /**
@@ -524,7 +533,9 @@ export function renderFullDockerCompose(composeProject: string, options: RenderC
   // in-compose auto-updater (updater.sh) reads this same signal back out of
   // .env via KORTIX_APP_REPLICAS so its start-first rollout targets the right
   // replica count without re-deriving it from the compose file at runtime.
-  applyReplicaTopology(services, Boolean(options.domainConfigured));
+  // KORTIX_APP_REPLICAS_OVERRIDE (options.appReplicas) wins over the
+  // domain-derived default so a small box can run 1 replica behind Caddy.
+  applyReplicaTopology(services, Boolean(options.domainConfigured), options.appReplicas);
 
   // Every one of the ~20 containers in this stack logged to stdout with no
   // rotation — an unattended VPS eventually fills its disk from container
@@ -584,9 +595,20 @@ function writeSupabaseDataDirectories(root: string): void {
  * `ports` (Caddy is the only thing that ever needs to reach them, over the
  * Compose network by service name). Laptop mode: single replica, existing
  * loopback `ports` mapping left untouched.
+ * An explicit appReplicas override (1-4, from KORTIX_APP_REPLICAS_OVERRIDE)
+ * wins over the domain-derived default for the replica count only — ports and
+ * Caddy presence still follow domainConfigured, so a single replica behind
+ * Caddy keeps working via its `dynamic a` DNS upstream.
  */
-function applyReplicaTopology(services: Record<string, YamlRecord>, domainConfigured: boolean): void {
-  const replicas = domainConfigured ? PROD_APP_REPLICAS : LAPTOP_APP_REPLICAS;
+export function resolveAppReplicas(domainConfigured: boolean, appReplicas?: number): number {
+  if (Number.isInteger(appReplicas) && (appReplicas as number) >= 1 && (appReplicas as number) <= 4) {
+    return appReplicas as number;
+  }
+  return domainConfigured ? PROD_APP_REPLICAS : LAPTOP_APP_REPLICAS;
+}
+
+function applyReplicaTopology(services: Record<string, YamlRecord>, domainConfigured: boolean, appReplicas?: number): void {
+  const replicas = resolveAppReplicas(domainConfigured, appReplicas);
   for (const name of ROLLING_APP_SERVICES) {
     const service = services[name];
     if (!service) continue;

@@ -311,7 +311,10 @@ export const KEY_SERVICE_MAP: Record<string, readonly string[]> = {
   // App-serving block is added/removed by KORTIX_APPS_BASE_DOMAIN; Caddy does
   // not hot-reload a bind-mounted config on its own).
   KORTIX_APPS_BASE_DOMAIN: ['kortix-api', 'caddy'],
-  // Same shape as the Apps domain: the API builds preview hostnames from it and
+  // Replica-count override: re-renders compose (deploy.replicas) and restarts
+  // the rolling app tier plus the updater so TARGET_REPLICAS picks it up.
+  // Caddy needs no restart — its `dynamic a` upstream re-resolves to 1 IP.
+  KORTIX_APP_REPLICAS_OVERRIDE: ['kortix-api', 'llm-gateway', 'frontend', 'kortix-updater'],  // Same shape as the Apps domain: the API builds preview hostnames from it and
   // Caddy's *.<preview base domain> site block is added/removed by it.
   KORTIX_PREVIEW_BASE_DOMAIN: ['kortix-api', 'caddy'],
   KORTIX_PREVIEW_ALLOW_DIRECT_EDGE: ['kortix-api'],

@@ -74,6 +74,10 @@ describe('secrets-registry pure helpers', () => {
     expect(servicesForKeys(['NOT_A_REAL_KEY'])).toEqual(['kortix-api']);
     expect(servicesForKeys(['COMPOSIO_API_KEY'])).toEqual(['kortix-api']);
     expect(servicesForKeys(['KORTIX_FRONTEND_MEMORY_LIMIT'])).toEqual(['frontend']);
+    // Replica override re-renders compose and restarts the rolling tier + updater.
+    expect(servicesForKeys(['KORTIX_APP_REPLICAS_OVERRIDE'])).toEqual(
+      ['frontend', 'kortix-api', 'kortix-updater', 'llm-gateway'],
+    );
     expect(servicesForKeys([])).toEqual([]);
   });
 
@@ -92,6 +96,9 @@ describe('secrets-registry pure helpers', () => {
     // normalizeFullSupabaseEnv in commands/self-host.ts) exactly like
     // KORTIX_APP_REPLICAS, so hand-setting it is refused for the same reason.
     expect(isUpdaterManagedKey('KORTIX_INSTANCE_DIR')).toBe(true);
+    // The replica override is operator-settable; only the derived count is managed.
+    expect(isUpdaterManagedKey('KORTIX_APP_REPLICAS_OVERRIDE')).toBe(false);
+    expect(isUpdaterManagedKey('KORTIX_APP_REPLICAS')).toBe(true);
     expect(isUpdaterManagedKey('OPENROUTER_API_KEY')).toBe(false);
     expect(isUpdaterManagedKey('DAYTONA_API_KEY')).toBe(false);
   });

@@ -17,8 +17,8 @@ import {
 import type { SelfHostCommandFlags } from '../self-host/types.ts';
 import {
   LAPTOP_APP_REPLICAS,
-  PROD_APP_REPLICAS,
   renderFullDockerCompose,
+  resolveAppReplicas,
   writeKortixRuntimeAssets,
   writeSupabaseVendorAssets,
 } from '../self-host/compose-assets.ts';
@@ -130,6 +130,12 @@ interface SelfHostEnv {
   // 1 with no domain configured. Recomputed from KORTIX_DOMAIN on every write (see
   // normalizeFullSupabaseEnv), not operator-set.
   KORTIX_APP_REPLICAS: string;
+  // Explicit operator override for the app-tier replica count (1-4, empty =
+  // auto from KORTIX_DOMAIN). Set via `env set KORTIX_APP_REPLICAS_OVERRIDE=1`
+  // for a small box that cannot hold the HA pair behind Caddy. normalize()
+  // copies the resolved count into KORTIX_APP_REPLICAS and the compose render,
+  // so the updater and Caddy keep working unchanged.
+  KORTIX_APP_REPLICAS_OVERRIDE: string;
   // This instance's config directory (docker-compose.yml, .env, updater.sh,
   // Supabase volumes/...), as an ABSOLUTE HOST PATH. Recomputed from
   // instanceDir() on every write (see normalizeFullSupabaseEnv) — not
@@ -2299,6 +2305,8 @@ function defaultEnv(flags: GlobalFlags): SelfHostEnv {
     // Recomputed from KORTIX_DOMAIN on every write in normalizeFullSupabaseEnv;
     // this initial value only matters before that first normalize pass.
     KORTIX_APP_REPLICAS: String(LAPTOP_APP_REPLICAS),
+    // Empty = auto (domain-derived). Operator-settable via `env set`.
+    KORTIX_APP_REPLICAS_OVERRIDE: '',
     // Recomputed from instanceDir() on every write in normalizeFullSupabaseEnv
     // (see the field's own doc comment on SelfHostEnv above); this initial
     // value only matters before that first normalize pass.
@@ -2474,15 +2482,21 @@ function writeCompose(instance: string, env: SelfHostEnv): void {
     appsHostingConfigured: Boolean(env.KORTIX_APPS_BASE_DOMAIN?.trim()),
     previewHostingConfigured: Boolean(env.KORTIX_PREVIEW_BASE_DOMAIN?.trim()),
   });
-  writeFileSync(
-    composePath(instance),
-    renderFullDockerCompose(composeProject(instance), {
-      domainConfigured: Boolean(env.KORTIX_DOMAIN?.trim()),
-      tunnelConfigured: reachabilityMode(env) === 'tunnel',
-      namedTunnelConfigured: namedTunnelConfigured(env),
-    }),
-    { encoding: 'utf8', mode: 0o600 },
-  );
+  {
+    const raw = (env.KORTIX_APP_REPLICAS_OVERRIDE ?? '').trim();
+    const parsed = /^\d+$/.test(raw) ? Number.parseInt(raw, 10) : undefined;
+    const appReplicas = parsed !== undefined && parsed >= 1 && parsed <= 4 ? parsed : undefined;
+    writeFileSync(
+      composePath(instance),
+      renderFullDockerCompose(composeProject(instance), {
+        domainConfigured: Boolean(env.KORTIX_DOMAIN?.trim()),
+        tunnelConfigured: reachabilityMode(env) === 'tunnel',
+        namedTunnelConfigured: namedTunnelConfigured(env),
+        appReplicas,
+      }),
+      { encoding: 'utf8', mode: 0o600 },
+    );
+  }
 }
 function loadEnv(instance: string): SelfHostEnv | null {
   const path = envPath(instance);
@@ -2548,7 +2562,14 @@ function normalizeFullSupabaseEnv(instance: string, env: SelfHostEnv): void {
   // no host ports) once a domain is configured, else 1 (loopback host ports,
   // no LB) — must always track KORTIX_DOMAIN, the same signal
   // renderFullDockerCompose() uses to decide the Compose-side topology.
-  env.KORTIX_APP_REPLICAS = String(env.KORTIX_DOMAIN?.trim() ? PROD_APP_REPLICAS : LAPTOP_APP_REPLICAS);
+  // KORTIX_APP_REPLICAS_OVERRIDE (1-4) wins when set, so a small box can pin
+  // a single replica behind Caddy. Invalid values fall back to auto.
+  {
+    const raw = (env.KORTIX_APP_REPLICAS_OVERRIDE ?? '').trim();
+    const parsed = Number.parseInt(raw, 10);
+    const override = /^\d+$/.test(raw) && parsed >= 1 && parsed <= 4 ? parsed : undefined;
+    env.KORTIX_APP_REPLICAS = String(resolveAppReplicas(Boolean(env.KORTIX_DOMAIN?.trim()), override));
+  }
 
   // KORTIX_URL — the PUBLIC origin cloud (Daytona) sandboxes and other
   // external callers (webhooks, Slack/Teams OAuth, git-proxy clone) reach this

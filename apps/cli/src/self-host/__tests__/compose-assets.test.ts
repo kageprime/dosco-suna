@@ -10,6 +10,7 @@ import {
   officialSupabaseDockerAssets,
   renderCaddyfile,
   renderFullDockerCompose,
+  resolveAppReplicas,
   SUPABASE_IMAGE_DIGESTS,
   SUPABASE_UPSTREAM_COMMIT,
   supabaseUpstreamDockerAssets,
@@ -255,6 +256,30 @@ describe('full self-host Docker distribution', () => {
     // llm-gateway is never reached directly by a client in either mode.
     expect(gateway?.ports).toBeUndefined();
     expect(document.services).not.toHaveProperty('caddy');
+  });
+
+  test('resolveAppReplicas: explicit override wins over the domain default, invalid falls back to auto', () => {
+    expect(resolveAppReplicas(true)).toBe(2);
+    expect(resolveAppReplicas(false)).toBe(1);
+    expect(resolveAppReplicas(true, 1)).toBe(1);
+    expect(resolveAppReplicas(false, 2)).toBe(2);
+    expect(resolveAppReplicas(true, 0)).toBe(2);
+    expect(resolveAppReplicas(true, 5)).toBe(2);
+    expect(resolveAppReplicas(true, Number.NaN)).toBe(2);
+  });
+
+  test('domain mode with appReplicas=1: single replica behind Caddy, still no host ports', () => {
+    const document = parse(
+      renderFullDockerCompose('kortix-default', { domainConfigured: true, appReplicas: 1 }),
+    ) as {
+      services: Record<string, { ports?: string[]; deploy?: { replicas?: number } }>;
+    };
+    for (const name of ['kortix-api', 'llm-gateway', 'frontend'] as const) {
+      const service = document.services[name];
+      expect(service?.deploy?.replicas, `${name} replicas`).toBe(1);
+      expect(service?.ports, `${name} must publish no host port in prod mode`).toBeUndefined();
+    }
+    expect(document.services.caddy).toBeDefined();
   });
 
   test('the API gives remote sandboxes the public self-host gateway route', () => {
