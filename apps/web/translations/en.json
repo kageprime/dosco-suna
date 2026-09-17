@@ -46,17 +46,17 @@
     "tryFree": "My Dosco"
   },
   "newWorkspace": {
-    "title": "Create a workspace",
-    "description": "A workspace is where your agents, files and sessions live",
-    "templateSeed": "This workspace will be seeded from the template you picked",
+    "title": "Create a project",
+    "description": "A project is where your agents, files and sessions live.",
+    "templateSeed": "This project will be seeded from the template you picked.",
     "account": {
       "label": "Account",
       "createIn": "Create in {account}",
       "choose": "Choose an account"
     },
     "name": {
-      "label": "Workspace name",
-      "placeholder": "Workspace name"
+      "label": "Project name",
+      "placeholder": "Project name"
     },
     "validation": {
       "nameRequired": "Name is required",
@@ -64,12 +64,12 @@
       "nameTooLong": "Name must be {max} characters or fewer"
     },
     "permissions": {
-      "noCreatableAccount": "You need owner or admin access in an account to create a workspace",
+      "noCreatableAccount": "You need owner or admin access in an account to create a project.",
       "unknownAccountPrefix": "We can't tell which of your accounts is yours, so we're not guessing. Email",
       "unknownAccountSuffix": "and we'll get it fixed"
     },
     "actions": {
-      "create": "Create workspace",
+      "create": "Create project",
       "tryAgain": "Try again",
       "logOut": "Log out",
       "signingOut": "Signing out"
@@ -77,19 +77,16 @@
     "repository": {
       "label": "Repository",
       "defaultBranch": "Default branch",
-      "noGitHubAccount": "No GitHub account is connected to this workspace's account yet",
+      "noGitHubAccount": "No GitHub account is connected to this project's account yet.",
       "connectGitHub": "Connect a GitHub account",
-      "connectGitHubSuffix": "to use this option",
-      "loadingGitHubAccounts": "Loading GitHub accounts…",
-      "loadGitHubAccountsError": "Could not load GitHub accounts: {error}",
-      "githubAccount": "GitHub account",
-      "selectGitHubAccount": "Select a GitHub account",
+      "connectGitHubSuffix": "to use this option.",
+      "loadGitHubAccountsError": "Could not load GitHub accounts. Try again.",
       "createsPath": "Creates <path>{path}</path>",
-      "loadRepositoriesError": "Could not load repositories: {error}",
+      "loadRepositoriesError": "Could not load repositories. Try again.",
       "sources": {
         "managed": {
           "label": "Dosco managed",
-          "description": "The platform creates and manages a private repository for this workspace"
+          "description": "The platform creates and manages a private repository for this project."
         },
         "githubCreate": {
           "label": "Create in GitHub",
@@ -99,7 +96,17 @@
           "label": "Import from GitHub",
           "description": "Select an existing repository from your GitHub account"
         }
-      }
+      },
+      "repositoryLabel": "Repository",
+      "createInOwner": "Create a repository in {owner}",
+      "importFromOwner": "Import a repository from {owner}",
+      "selectOption": "Select a repository option",
+      "loadingOptions": "Loading repository options…",
+      "managedUnavailable": "Dosco-managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
+      "installationUnreachable": "This GitHub connection no longer works. Reconnect it to list repositories.",
+      "reconnect": "Reconnect in Git settings",
+      "managedImportLabel": "Import an existing managed repository",
+      "managedImportHint": "Self-host operators only. Lists repositories the managed git owner already holds."
     }
   },
   "projectHome": {
@@ -166,14 +173,14 @@
       "close": "Close",
       "docs": "Docs",
       "groups": {
-        "workspace": "Workspace",
+        "workspace": "Project",
         "personal": "Personal",
         "account": "Account"
       },
       "items": {
         "workspace": {
           "label": "General",
-          "description": "Name and icon for this workspace"
+          "description": "Name and icon for this project."
         },
         "sandbox": {
           "label": "Sandbox templates",
@@ -185,7 +192,7 @@
         },
         "upgrades": {
           "label": "Upgrades",
-          "description": "Changes an agent makes to this workspace. Every run opens a change request for you to review nothing merges on its own"
+          "description": "Changes an agent makes to this project. Every run opens a change request for you to review — nothing merges on its own."
         },
         "profile": {
           "label": "Profile",
@@ -324,7 +331,7 @@
       "conversationDensity": "Conversation density",
       "conversationDensityDescription": "How much detail the agent shows in the conversation while it works",
       "wallpaper": "Wallpaper",
-      "wallpaperDescription": "The background behind your workspace",
+      "wallpaperDescription": "The background behind your project.",
       "defaultWallpaper": "Default",
       "themes": {
         "light": "Light",
@@ -447,18 +454,18 @@
       "baseBranchDescription": "New sessions and change requests start from this branch",
       "saving": "Saving…",
       "manifestFile": "Manifest file",
-      "manifestDescription": "The file in your repository that tells Dosco how to run this workspace",
+      "manifestDescription": "The file in your repository that tells the platform how to run this project.",
       "learnMore": "Learn more",
       "localTitle": "Work on this locally",
-      "localDescription": "Put a copy of this workspace on your own computer and edit it in your own editor",
+      "localDescription": "Put a copy of this project on your own computer and edit it in your own editor.",
       "installTitle": "Install the command line",
-      "installHint": "A one-time setup on macOS or Linux. Skip this if you already have it",
+      "installHint": "A one-time setup on macOS or Linux. Skip this if you already have it.",
       "installCommand": "Install command",
-      "cloneTitle": "Copy the workspace to your computer",
-      "cloneHint": "Downloads the code into a new folder and links that folder to this workspace",
+      "cloneTitle": "Copy the project to your computer",
+      "cloneHint": "Downloads the code into a new folder and links that folder to this project.",
       "cloneCommand": "Clone command",
       "setupTitle": "Finish setup inside the new folder",
-      "setupHint": "Writes the local config, then fetches this workspace's secrets so the code can run",
+      "setupHint": "Writes the local config, then fetches this project's secrets so the code can run.",
       "setupCommand": "Setup command",
       "secretsCommand": "Secrets command",
       "ownClientTitle": "Use your own Git client",
@@ -466,10 +473,10 @@
       "cloneAddressDescription": "Clone from this address with any Git client. The platform signs the request for you, so there is no access token to create, paste, or keep on your machine",
       "cloneAddress": "Clone address",
       "peopleTitle": "People with access",
-      "peopleManagedDescription": "Invite someone by their GitHub username. GitHub emails them an invite to accept",
-      "peopleExternalDescription": "Who can read and write this workspace’s repository",
-      "externalGithubDescription": "Dosco did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub",
-      "externalProviderDescription": "This workspace’s repository is hosted on {provider}, which does not support collaborator invites from Dosco. Manage access where the repository lives",
+      "peopleManagedDescription": "Invite someone by their GitHub username. GitHub emails them an invite to accept.",
+      "peopleExternalDescription": "Who can read and write this project’s repository.",
+      "externalGithubDescription": "The platform did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.",
+      "externalProviderDescription": "This project’s repository is hosted on {provider}, which does not support collaborator invites from the platform. Manage access where the repository lives.",
       "manageOnGithub": "Manage on GitHub",
       "alreadyHasAccess": "@{username} already has access to this repo",
       "inviteSent": "Invite sent to @{username} they accept it on GitHub to get access",
@@ -480,35 +487,35 @@
       "canView": "Can view",
       "invite": "Invite",
       "title": "Git repo",
-      "loadFailed": "Could not load this workspace's repository",
+      "loadFailed": "Could not load this project's repository",
       "retry": "Retry"
     },
     "workspace": {
-      "updateFailed": "Failed to update workspace",
-      "iconUpdateFailed": "Failed to update workspace icon",
+      "updateFailed": "Failed to update project",
+      "iconUpdateFailed": "Failed to update project icon",
       "icon": "Icon",
-      "iconDescription": "Shown next to the workspace name",
-      "name": "Workspace name",
-      "nameDescription": "Shown in the workspace switcher and anywhere this workspace is listed",
+      "iconDescription": "Shown next to the project name.",
+      "name": "Project name",
+      "nameDescription": "Shown in the project switcher and anywhere this project is listed.",
       "saving": "Saving…",
-      "archived": "Workspace archived",
-      "archiveFailed": "Failed to archive workspace",
-      "loadFailed": "Failed to load workspace",
+      "archived": "Project archived",
+      "archiveFailed": "Failed to archive project",
+      "loadFailed": "Failed to load project",
       "retry": "Retry",
       "dangerZone": "Danger zone",
-      "deleteWorkspace": "Delete workspace",
-      "deleteDescription": "Removes this workspace and everything inside it, for every member. This cannot be undone",
-      "deleteTitle": "Delete workspace?",
-      "deleteDialog": "This deletes {name} for everyone with access to it. It cannot be undone",
+      "deleteWorkspace": "Delete project",
+      "deleteDescription": "Removes this project and everything inside it, for every member. This cannot be undone.",
+      "deleteTitle": "Delete project?",
+      "deleteDialog": "This deletes {name} for everyone with access to it. It cannot be undone.",
       "consequencesTitle": "You immediately lose:",
       "consequences": {
-        "sessions": "Every session in this workspace, with its files, history, and outputs",
-        "automation": "All scheduled runs and triggers they stop firing straight away",
-        "integrations": "Every connected integration, secret, and API key scoped to this workspace",
-        "access": "Access for everyone on the team nobody can reach this workspace again"
+        "sessions": "Every session in this project, with its files, history, and outputs",
+        "automation": "All scheduled runs and triggers — they stop firing straight away",
+        "integrations": "Every connected integration, secret, and API key scoped to this project",
+        "access": "Access for everyone on the team — nobody can reach this project again"
       },
-      "reassurance": "Your connected Git repository is not deleted. Any code already pushed to it stays where it is",
-      "keepWorkspace": "Keep workspace"
+      "reassurance": "Your connected Git repository is not deleted. Any code already pushed to it stays where it is.",
+      "keepWorkspace": "Keep project"
     },
     "sandbox": {
       "states": {
@@ -629,7 +636,7 @@
       "categories": {
         "quota": {
           "label": "Snapshot quota reached",
-          "help": "This workspace has stored as many prepared machines as its plan allows. Delete a sandbox template you no longer use, or raise the limit, then build again"
+          "help": "This project has stored as many prepared machines as its plan allows. Delete a sandbox template you no longer use, or raise the limit, then build again."
         },
         "dockerfile": {
           "label": "Dockerfile build failed",
@@ -795,10 +802,6 @@
           "name": "LLM Gateway",
           "description": "Route this project through the managed LLM gateway for managed models, metering, and budgets"
         },
-        "review_center": {
-          "name": "Review Center",
-          "description": "Review change requests, approvals, and agent outputs from one inbox on the web or in Slack"
-        },
         "meta_agent": {
           "name": "Meta Agent",
           "description": "Add a coordinator agent that manages specialized sessions and multi-step work across the project"
@@ -827,9 +830,9 @@
     },
     "upgrades": {
       "available": "Available upgrades",
-      "readOnly": "Read-only running an upgrade needs write access to this workspace",
+      "readOnly": "Read-only — running an upgrade needs write access to this project.",
       "none": "No upgrades available",
-      "upToDateDescription": "This workspace is already up to date",
+      "upToDateDescription": "This project is already up to date.",
       "upToDate": "Up to date",
       "run": "Run",
       "oneOff": "One-off upgrade",
@@ -928,7 +931,7 @@
       "namePlaceholder": "For example, Laptop CLI",
       "nameHint": "Use a name that identifies where you will use this key",
       "scope": "Scope",
-      "wholeWorkspace": "Whole workspace",
+      "wholeWorkspace": "Whole project",
       "oneProject": "One project",
       "scopeHint": "A project-scoped key can access only the selected project",
       "expires": "Expires",
@@ -969,7 +972,7 @@
         "switchToLastTab": "Switch to last tab",
         "newSession": "New session",
         "commandPalette": "Command palette",
-        "switchWorkspace": "Switch workspace",
+        "switchWorkspace": "Switch project",
         "settings": "Settings",
         "toggleLeftSidebar": "Toggle left sidebar",
         "toggleRightSidebar": "Toggle right sidebar",
@@ -1209,7 +1212,7 @@
     "searchResults": "Search Results",
     "recent": "Recent",
     "personalAccount": "Personal Account",
-    "workspaces": "Workspaces",
+    "workspaces": "Projects",
     "servers": "Servers",
     "searchServers": "Search servers",
     "addServer": "Add Server",
@@ -1251,8 +1254,6 @@
     "metaCoordinator": "Meta coordinator",
     "files": "Files",
     "retry": "Try again",
-    "proposedChanges": "Proposed changes",
-    "untitledChange": "Untitled change",
     "review": "Review",
     "connectGpt": "Connect GPT subscription",
     "upgradePlan": "Upgrade plan",
@@ -1288,18 +1289,20 @@
       }
     },
     "workspace": {
-      "switch": "Switch workspace",
-      "switchMenu": "Switch Workspace",
-      "create": "Create a workspace…",
+      "switch": "Switch project",
+      "switchMenu": "Switch Project",
+      "create": "Create a project…",
+      "createAccount": "Create an account…",
       "settings": "Settings",
       "downloadApp": "Download app",
       "logOut": "Log out",
-      "find": "Find a workspace…",
+      "find": "Find a project…",
       "accountSettings": "Account settings",
-      "noMatches": "No matching workspaces",
-      "empty": "No workspaces yet",
+      "noMatches": "No matching projects",
+      "empty": "No projects yet",
       "account": "Account",
-      "loadError": "Failed to load workspaces"
+      "loadError": "Failed to load projects",
+      "createIn": "Create a project in {account}"
     },
     "manifestUpgrade": {
       "title": "Upgrade to v2",
@@ -1353,7 +1356,9 @@
         "mine": "My chats",
         "shared": "Shared"
       }
-    }
+    },
+    "loadingMore": "Loading…",
+    "loadMoreSessions": "Load more sessions"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1536,7 +1541,9 @@
       "bringKey": "Bring your own key",
       "barTitle": "No model connected",
       "barDescription": "connect one to start chatting",
-      "connectModel": "Connect model"
+      "connectModel": "Connect model",
+      "imagesUnsupported": "{model} can’t read images",
+      "imagesUnsupportedHint": "remove them or pick another model"
     },
     "providerRecovery": {
       "savedPrompt": "Saved prompt",
@@ -1665,7 +1672,11 @@
     "title": "Threads",
     "newThread": "New Thread",
     "sendMessage": "Send message",
-    "placeholder": "Type your message",
+    "queueList": "Queue List",
+    "stopUnconfirmed": "Could not confirm Stop. The agent may still be running. Try Stop again.",
+    "queued": "Queued",
+    "queuedFiles": "{count, plural, one {# file} other {# files}}",
+    "placeholder": "Type your message...",
     "messageInput": "Message input",
     "attachFiles": "Attach files",
     "selectAgent": "Select agent",
@@ -1680,7 +1691,7 @@
     "failedToStartSession": "Failed to start session",
     "hintSkills": "Type / for skills, commands, and files",
     "hintMentions": "Type @ to mention files and agents",
-    "hintWorkspaceFile": "Ask about any file in your workspace",
+    "hintWorkspaceFile": "Ask about any file in your project",
     "hintCommandPalette": "Press {modifier}K to open the command palette",
     "hintSwitchAgents": "Press Tab to switch agents",
     "hintAttachFiles": "Drag and drop files to attach them",
@@ -9339,9 +9350,28 @@
     "autoFeaturesSessionToolRenderersJsxTextInputSchema878a1df6": "Input schema",
     "autoLibErrorHandlerJsxTextTopUp3587309b": "Top up",
     "autoLibErrorHandlerJsxTextManagePlan6ec7a5f9": "Manage plan",
+    "composerAttachments": {
+      "couldNotAttach": "Could not attach files",
+      "couldNotRetry": "Could not retry attachment",
+      "couldNotSend": "Couldn't send",
+      "failedBlocksSend": "Retry or remove the failed attachment.",
+      "uploadFailed": "Upload failed. Check your connection.",
+      "retryNamed": "Retry upload of {name}",
+      "didNotUpload": "{name} did not upload.",
+      "billingRequired": "Your plan or credits do not allow uploads right now.",
+      "budgetExceeded": "Too many unsent uploads. Unused uploads expire within 24 hours.",
+      "tooLarge": "This file is larger than 50 MiB.",
+      "expired": "This upload expired. Remove it and attach the file again.",
+      "checkConnection": "Check your connection, then retry."
+    },
     "i18nComplete": {
-      "text0005b85debac": "Sound pack played for session events",
-      "text000c02c11c7a": "Reusable instructions your agents load on demand",
+      "text25ab55af92b1": "Started attachment upload",
+      "text40078a553439": "Uploaded attachment chunk",
+      "text4c7f8000aabd": "Completed attachment upload",
+      "text91420d2587c2": "Removed attachment upload",
+      "text3aab5b3be2b9": "Resolved runtime attachment descriptor",
+      "text0005b85debac": "Sound pack played for session events.",
+      "text000c02c11c7a": "Reusable instructions your agents load on demand.",
       "text0017bda47853": "URL copied",
       "text002474e36821": "Badge",
       "text0026c5053478": "Revert",
@@ -9803,7 +9833,7 @@
       "text0dcb80086189": "The live channel. Mention the bot in a thread and that thread becomes a session; the answer, and any file it produced, comes back into the same thread. Teams is shipped but off until your deployment turns it on",
       "text0dd131944c00": "Exactly one session",
       "text0def42d1eccc": "Customer in Stripe",
-      "text0df337fc286c": "Connected an app",
+      "text0df337fc286c": "Set up connectors",
       "text0df3614110d5": "I’ve created an enterprise application",
       "text0df6f1cad36c": "Show",
       "text0df9df285277": "Only {value0}",
@@ -10732,7 +10762,7 @@
       "text29300070ca98": "19 days",
       "text29306928fdc1": "6-field cron, any IANA timezone",
       "text293b5ec8aac7": "Your favicon and product name in the browser tab, with dark-mode variants",
-      "text2945df36c2f9": "App details",
+      "text2945df36c2f9": "Inspected a connector action",
       "text29490fc13cfc": "Could not reach the agent",
       "text29521c5c7df3": "may not merge project.cr.merge is default-deny",
       "text2952938846ef": "Disconnect the stored connector credential before using a project secret",
@@ -10840,7 +10870,7 @@
       "text2c1c62f284fb": "Product name saved",
       "text2c1cff23cb89": "Couldn't load",
       "text2c1ef1ad75b5": "Written to an audit record",
-      "text2c496ac4ee78": "App actions",
+      "text2c496ac4ee78": "Searched connector actions",
       "text2c4de2851235": "Full audit trail",
       "text2c6041fda32c": "Removed from queue",
       "text2c6e8e7b3b77": "Show {value0} key",
@@ -12391,9 +12421,8 @@
       "text588032878324": "Send now",
       "text5885ace14d89": "Session Get",
       "text5887e718dea1": "picked",
-      "text58a34c9573cf": "Install GitHub App",
-      "text58a4ba90dc79": "Take back the week the coordination ate",
-      "text58aede554b21": "Connect a tool once, for the whole company. Agents reach it through one scoped token that the platform brokers server-side so the raw credential never lands in the machine the model is driving",
+      "text58a4ba90dc79": "Take back the week the coordination ate.",
+      "text58aede554b21": "Connect a tool once, for the whole company. Agents reach it through one scoped token that the platform brokers server-side — so the raw credential never lands in the machine the model is driving.",
       "text58bf3410b028": "Set value",
       "text58bf4682555d": "34%",
       "text58c3939c4ce9": "Operate",
@@ -13498,9 +13527,9 @@
       "text77fe4eba38d8": "All repositories",
       "text77ff6343ff46": "Anyone whose project role includes the project.trigger.update permission Project admin by default plus account owners and admins. The trigger's own agent always can",
       "text7804f7a79a9e": "Finished",
-      "text7812d84e3512": "Used an app",
-      "text781fbdd4840f": "Each entry: context, decision, date",
-      "text782a07562e97": "and",
+      "text7812d84e3512": "Used a connector",
+      "text781fbdd4840f": "- Each entry: context, decision, date",
+      "text782a07562e97": "Open source and self-hostable",
       "text783487161e9f": "\"Give me the four variants\"",
       "text7847decf864b": "Context & Connections",
       "text7859cc3ee2ae": "",
@@ -14719,8 +14748,8 @@
       "text9acf3e31d12e": "No content",
       "text9ad125fe331f": "Sort by {value0}",
       "text9ad1905ba13a": "Changed account member role",
-      "text9ad6baffd025": "Switch Workspace",
-      "text9ada0e627aed": "An agent rewriting its own prompt shows up the same way a code change does: a commit, on a branch, in a change request someone reads",
+      "text9ad6baffd025": "Switch Project",
+      "text9ada0e627aed": "An agent rewriting its own prompt shows up the same way a code change does: a commit, on a branch, in a change request someone reads.",
       "text9adff6870471": "Copy link",
       "text9ae2faa5b263": "Connect the first one in a minute",
       "text9aeb1eef4643": "and the ones you installed",
@@ -15299,7 +15328,7 @@
       "textab8fcb695b84": "Create a \"SCIM Outbound\" provisioning connection and point it at the two values shown above",
       "textab93638292af": "Could not load Discover",
       "textab936b802fa6": "SCIM Version",
-      "textab95d456c6bb": "Workspace members",
+      "textab95d456c6bb": "Project members",
       "textab986ad2d8e6": "Declared in the repo",
       "textab9a61284668": "Feedback arrives in six places and gets read in none of them. The agent reads all six, groups the requests that are really the same, and writes the spec with every quote cited. You decide what to build",
       "textaba314822529": "Revoked SCIM token",
@@ -16025,8 +16054,8 @@
       "textc00080b272bc": "Failed to update sensitivity",
       "textc009fe87348b": "Unable to load the PDF preview",
       "textc011d6097bfb": "License",
-      "textc01240eae6d5": "This is not a stripped build with the good parts held back for the paid tier. ed instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train",
-      "textc023d120dd17": "Connected apps",
+      "textc01240eae6d5": "This is not a stripped build with the good parts held back for the paid tier. Self-hosted instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train.",
+      "textc023d120dd17": "Listed connectors",
       "textc02977b07ec9": "Test Connection",
       "textc02ba0f7bece": "463,900",
       "textc0472b8d5a10": "PingOne runs an initial full sync when the rule goes Active, then pushes incremental changes as your directory changes",
@@ -17626,14 +17655,14 @@
       "textec5855a78ab3": "kortix-ai/suna",
       "textec5ba0abb717": "Access",
       "textec5c2f7304b1": "Context Pruned",
-      "textec69732f4600": "The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own.md file",
-      "textec70b4a614bf": "Switch workspace",
-      "textec73f9f19e7c": "Write it once. Every session knows it",
-      "textec7a4e3094f9": "Authorization owner changed, but synchronization failed: {value0}. Use Sync to retry",
-      "textec81d7aae411": "The machine clones the repo and cuts a branch named after the session. Every edit and commit that session makes lives on that branch and nowhere else",
-      "textec82b000fd57": "Project secrets handed to this agent as environment variables",
-      "textec8676c7cf83": "Removes every uploaded mark and the product name",
-      "textec89d54062ea": "Route your domain's sign-ins through your identity provider Configure walks Entra, Okta, Google and more step by step, including everything your IdP asks for",
+      "textec69732f4600": "The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.",
+      "textec70b4a614bf": "Switch project",
+      "textec73f9f19e7c": "Write it once. Every session knows it.",
+      "textec7a4e3094f9": "Authorization owner changed, but synchronization failed: {value0}. Use Sync to retry.",
+      "textec81d7aae411": "The machine clones the repo and cuts a branch named after the session. Every edit and commit that session makes lives on that branch and nowhere else.",
+      "textec82b000fd57": "Project secrets handed to this agent as environment variables.",
+      "textec8676c7cf83": "Removes every uploaded mark and the product name.",
+      "textec89d54062ea": "Route your domain's sign-ins through your identity provider — Configure walks Entra, Okta, Google and more step by step, including everything your IdP asks for.",
       "textec9036582701": "Access updated",
       "textec90ac92e442": "Dosco for data science teams",
       "textec91fdd9256c": "optional",
@@ -18002,6 +18031,9 @@
       "textf771f4d32eee": "p95",
       "textf785c3ce1d58": "ms",
       "textf786f0ee4793": "Reconnect now",
+      "text8a8b956178c8": "Reconnecting…",
+      "text3915f5ca49b3": "The workspace went to sleep",
+      "textc64d601209b6": "Wake up",
       "textf7870941f5a8": "Listed pending project invites",
       "textf7873b149941": "You are not allowed to see this call’s parameters, so it cannot be approved here. Ask a project manager to review it",
       "textf78817ccb153": "Plan, write, and rank a piece of content",
@@ -18367,7 +18399,26 @@
       "textb38cb5e18525": "that loop and shows its working. Worth twenty minutes?",
       "textff5bd8333c4e": "You, and anyone who can manage this project",
       "text36d8691ae566": "Anyone with the URL, plus your team",
-      "text4fb2abecc0a6": "Anyone with the password, plus your team"
+      "text4fb2abecc0a6": "Anyone with the password, plus your team",
+      "text03a01dd53ffa": "Press ↑ to edit queued messages",
+      "text1eb132d9d4da": "Queue paused",
+      "textf8e64a37950a": "Queued messages",
+      "textcd5f943d5863": "Not sent",
+      "text42888e8dc93e": "One connection for the whole instance. The platform creates and pushes every project repository through it, in every account.",
+      "textf40d94365439": "This instance's GitHub identity comes from environment variables on the server. It cannot be changed here.",
+      "textbd6cc9a4cf4b": "Set by",
+      "text39481fc24bd5": "Dosco-managed repositories on this instance are created under {value0}.",
+      "text89a9816ffa6f": "Dosco-managed repositories are available on this instance.",
+      "textb79bb0e54e4f": "Dosco-managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
+      "textf7be8a17b0e7": "Add a GitHub account",
+      "text659d5668b62b": "Link a GitHub personal account or organization to this account.",
+      "textdc520b664af2": "GitHub lists every personal account and organization you administer. Pick one, choose which repositories the App may reach, and that owner is linked to this account.",
+      "text8d3f36f31348": "Install the GitHub App",
+      "text183bc0d276cc": "This instance has no GitHub App to install. A platform admin sets this up in the admin console.",
+      "text7f59f014cd7b": "Already installed on the owner you want?",
+      "text9180f7df8906": "Link an installation you already administer",
+      "text0b0e4c425624": "Already linked to {value0, plural, one {# other account} other {# other accounts}}.",
+      "text7dac2ca010fe": "Preparing the full transcript…"
     }
   },
   "projectOnboarding": {
@@ -18381,9 +18432,9 @@
       "description": "A couple of focused minutes with the team to get your command center dialed in"
     },
     "kickoff": {
-      "tools": "I connected these tools too: {count}. Use them if they help",
-      "noDomain": "I finished setting up my workspace.{toolsClause} Introduce yourself, explain what you can do, and ask what I need help with first",
-      "withDomain": "I finished setting up my workspace for {domain}. Research the company and tell me what you find.{toolsClause} Then ask what I need help with first"
+      "tools": " I connected these tools too: {count}. Use them if they help.",
+      "noDomain": "I finished setting up my project.{toolsClause} Introduce yourself, explain what you can do, and ask what I need help with first.",
+      "withDomain": "I finished setting up my project for {domain}. Research the company and tell me what you find.{toolsClause} Then ask what I need help with first."
     },
     "company": {
       "title": "Tell us about your company",
@@ -19231,5 +19282,29 @@
         "prompt": "Write the document a new hire reads in their first week how we work, where things live, who to ask, what good looks like. Take what you can from project memory, and list anything you had to guess at the end rather than stopping to ask me"
       }
     }
+  },
+  "repositoryAccess": {
+    "label": "Project repository access",
+    "enabled": "New sessions receive the project repository. Git permissions still apply. Existing sessions keep their access setting.",
+    "disabled": "New sessions run without the project repository. They can still create files and use granted tools. Existing sessions keep their access setting."
+  },
+  "modelAccess": {
+    "manageProvider": "{name} settings",
+    "enableProviderAction": "Enable provider",
+    "disableProviderAction": "Disable provider",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enableProvider": "Enable {name}",
+    "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
+    "credentialsHint": "Disable inference without removing credentials.",
+    "providerError": "Could not update provider access.",
+    "managedTitle": "Managed Models",
+    "managedDescription": "Managed models billed with credits. No API key needed.",
+    "hiddenHint": "Hidden from the picker. Direct requests are still allowed; use the model menu to disable them.",
+    "hidden": "Hidden from picker",
+    "disableModel": "Disable model",
+    "modelError": "Could not update model access.",
+    "hiddenShort": "Hidden from the picker. Direct requests are still allowed.",
+    "resetError": "Could not reset the model list."
   }
 }

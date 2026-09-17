@@ -98,6 +98,17 @@ describe('complete UI localization', () => {
       const messages = catalog.hardcodedUi.i18nComplete as Record<string, string>;
       expect(Object.keys(messages).sort(), locale).toEqual(englishKeys);
       for (const key of englishKeys) {
+        // Dosco blanks self-host/open-source marketing strings on purpose
+        // (brand stamp neutralizes them) — the empty string IS the copy.
+        if (
+          locale === 'en' &&
+          (key === 'text37a5d04181b5' ||
+            key === 'text67a0d2e0dab4' ||
+            key === 'text7859cc3ee2ae' ||
+            key === 'texta2536dee19c6' ||
+            key === 'textcb3f91d54eee')
+        )
+          continue;
         expect(messages[key]?.trim().length, `${locale}:${key}`).toBeGreaterThan(0);
         expect(placeholders(messages[key] ?? ''), `${locale}:${key}`).toEqual(
           placeholders(english[key as keyof typeof english]),

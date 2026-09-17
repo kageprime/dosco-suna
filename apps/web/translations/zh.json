@@ -46,17 +46,17 @@
     "tryFree": "开始"
   },
   "newWorkspace": {
-    "title": "创建工作区",
-    "description": "工作区用于存放您的智能体、文件和会话。",
-    "templateSeed": "此工作区将使用您选择的模板进行初始化。",
+    "title": "创建项目",
+    "description": "项目用于存放您的智能体、文件和会话。",
+    "templateSeed": "此项目将使用您选择的模板进行初始化。",
     "account": {
       "label": "账户",
       "createIn": "在 {account} 中创建",
       "choose": "选择账户"
     },
     "name": {
-      "label": "工作区名称",
-      "placeholder": "工作区名称"
+      "label": "项目名称",
+      "placeholder": "项目名称"
     },
     "validation": {
       "nameRequired": "名称为必填项",
@@ -64,12 +64,12 @@
       "nameTooLong": "名称不得超过 {max} 个字符"
     },
     "permissions": {
-      "noCreatableAccount": "您需要拥有账户的所有者或管理员权限才能创建工作区。",
+      "noCreatableAccount": "您需要拥有账户的所有者或管理员权限才能创建项目。",
       "unknownAccountPrefix": "我们无法确定哪个账户属于您，因此不会擅自选择。请发送电子邮件至",
       "unknownAccountSuffix": "，我们会解决此问题。"
     },
     "actions": {
-      "create": "创建工作区",
+      "create": "创建项目",
       "tryAgain": "重试",
       "logOut": "退出登录",
       "signingOut": "正在退出"
@@ -77,19 +77,16 @@
     "repository": {
       "label": "代码仓库",
       "defaultBranch": "默认分支",
-      "noGitHubAccount": "此工作区的账户尚未连接 GitHub 账户。",
+      "noGitHubAccount": "此项目的账户尚未连接 GitHub 账户。",
       "connectGitHub": "连接 GitHub 账户",
       "connectGitHubSuffix": "以使用此选项。",
-      "loadingGitHubAccounts": "正在加载 GitHub 账户…",
-      "loadGitHubAccountsError": "无法加载 GitHub 账户：{error}",
-      "githubAccount": "GitHub 账户",
-      "selectGitHubAccount": "选择 GitHub 账户",
+      "loadGitHubAccountsError": "无法加载 GitHub 账户。请重试。",
       "createsPath": "创建 <path>{path}</path>",
-      "loadRepositoriesError": "无法加载代码仓库：{error}",
+      "loadRepositoriesError": "无法加载仓库。请重试。",
       "sources": {
         "managed": {
           "label": "由 Kortix 管理",
-          "description": "Kortix 为此工作区创建并管理私有代码仓库。"
+          "description": "Kortix 为此项目创建并管理私有代码仓库。"
         },
         "githubCreate": {
           "label": "在 GitHub 中创建",
@@ -99,7 +96,17 @@
           "label": "从 GitHub 导入",
           "description": "从您的 GitHub 账户中选择现有代码仓库。"
         }
-      }
+      },
+      "repositoryLabel": "仓库",
+      "createInOwner": "在 {owner} 中创建仓库",
+      "importFromOwner": "从 {owner} 导入仓库",
+      "selectOption": "选择仓库选项",
+      "loadingOptions": "正在加载仓库选项…",
+      "managedUnavailable": "此实例无法使用由 Kortix 托管的仓库。平台管理员可在管理控制台中完成设置。",
+      "installationUnreachable": "此 GitHub 连接已失效。请重新连接以列出仓库。",
+      "reconnect": "在 Git 设置中重新连接",
+      "managedImportLabel": "导入现有的托管仓库",
+      "managedImportHint": "仅限自托管运维人员。列出托管 git 所有者已持有的仓库。"
     }
   },
   "projectHome": {
@@ -313,14 +320,14 @@
       "close": "关闭",
       "docs": "文档",
       "groups": {
-        "workspace": "工作区",
+        "workspace": "项目",
         "personal": "个人",
         "account": "账户"
       },
       "items": {
         "workspace": {
           "label": "常规",
-          "description": "此工作区的名称和图标。"
+          "description": "此项目的名称和图标。"
         },
         "sandbox": {
           "label": "沙盒模板",
@@ -332,7 +339,7 @@
         },
         "upgrades": {
           "label": "升级",
-          "description": "代理对此工作区进行的更改。每次运行都会创建变更请求供你审核。任何内容都不会自动合并。"
+          "description": "代理对此项目进行的更改。每次运行都会创建变更请求供你审核。任何内容都不会自动合并。"
         },
         "profile": {
           "label": "个人资料",
@@ -391,7 +398,7 @@
         "switchToLastTab": "切换到最后一个选项卡",
         "newSession": "新会议",
         "commandPalette": "命令面板",
-        "switchWorkspace": "切换工作空间",
+        "switchWorkspace": "切换项目",
         "settings": "设置",
         "toggleLeftSidebar": "切换左侧边栏",
         "toggleRightSidebar": "切换右侧边栏",
@@ -498,7 +505,7 @@
       "conversationDensity": "对话密度",
       "conversationDensityDescription": "选择智能体工作时在对话中显示多少细节。",
       "wallpaper": "壁纸",
-      "wallpaperDescription": "工作区背后的背景。",
+      "wallpaperDescription": "项目背后的背景。",
       "defaultWallpaper": "默认",
       "themes": {
         "light": "浅色",
@@ -621,18 +628,18 @@
       "baseBranchDescription": "新会话和变更请求从此分支开始。",
       "saving": "正在保存…",
       "manifestFile": "清单文件",
-      "manifestDescription": "存储库中用于告诉 Kortix 如何运行此工作区的文件。",
+      "manifestDescription": "存储库中用于告诉 Kortix 如何运行此项目的文件。",
       "learnMore": "了解更多",
       "localTitle": "在本地工作",
-      "localDescription": "将此工作区复制到你的计算机，并在自己的编辑器中修改。",
+      "localDescription": "将此项目复制到你的计算机，并在自己的编辑器中修改。",
       "installTitle": "安装 Kortix 命令行",
       "installHint": "在 macOS 或 Linux 上只需设置一次。如果已经安装，请跳过。",
       "installCommand": "安装命令",
-      "cloneTitle": "将工作区复制到计算机",
-      "cloneHint": "将代码下载到新文件夹，并将该文件夹关联到此工作区。",
+      "cloneTitle": "将项目复制到计算机",
+      "cloneHint": "将代码下载到新文件夹，并将该文件夹关联到此项目。",
       "cloneCommand": "克隆命令",
       "setupTitle": "在新文件夹中完成设置",
-      "setupHint": "写入本地配置，然后获取此工作区的密钥，以便运行代码。",
+      "setupHint": "写入本地配置，然后获取此项目的密钥，以便运行代码。",
       "setupCommand": "设置命令",
       "secretsCommand": "密钥命令",
       "ownClientTitle": "使用自己的 Git 客户端",
@@ -641,9 +648,9 @@
       "cloneAddress": "克隆地址",
       "peopleTitle": "有权访问的人员",
       "peopleManagedDescription": "使用 GitHub 用户名邀请人员。GitHub 会向对方发送邀请以供接受。",
-      "peopleExternalDescription": "可以读取和写入此工作区存储库的人员。",
+      "peopleExternalDescription": "可以读取和写入此项目存储库的人员。",
       "externalGithubDescription": "Kortix 未创建此存储库，因此无法添加协作者。请在 GitHub 的存储库设置中管理访问权限。",
-      "externalProviderDescription": "此工作区的存储库托管在 {provider} 上，该提供商不支持 Kortix 发起协作者邀请。请在存储库所在位置管理访问权限。",
+      "externalProviderDescription": "此项目的存储库托管在 {provider} 上，该提供商不支持 Kortix 发起协作者邀请。请在存储库所在位置管理访问权限。",
       "manageOnGithub": "在 GitHub 上管理",
       "alreadyHasAccess": "@{username} 已有此存储库的访问权限",
       "inviteSent": "已向 @{username} 发送邀请 — 对方需在 GitHub 上接受",
@@ -654,35 +661,35 @@
       "canView": "可查看",
       "invite": "邀请",
       "title": "Git 存储库",
-      "loadFailed": "无法加载此工作区的存储库",
+      "loadFailed": "无法加载此项目的存储库",
       "retry": "重试"
     },
     "workspace": {
-      "updateFailed": "无法更新工作区",
-      "iconUpdateFailed": "无法更新工作区图标",
+      "updateFailed": "无法更新项目",
+      "iconUpdateFailed": "无法更新项目图标",
       "icon": "图标",
-      "iconDescription": "显示在工作区名称旁边。",
-      "name": "工作区名称",
-      "nameDescription": "显示在工作区切换器以及列出此工作区的所有位置。",
+      "iconDescription": "显示在项目名称旁边。",
+      "name": "项目名称",
+      "nameDescription": "显示在项目切换器以及列出此项目的所有位置。",
       "saving": "正在保存…",
-      "archived": "工作区已归档",
-      "archiveFailed": "无法归档工作区",
-      "loadFailed": "无法加载工作区",
+      "archived": "项目已归档",
+      "archiveFailed": "无法归档项目",
+      "loadFailed": "无法加载项目",
       "retry": "重试",
       "dangerZone": "危险区域",
-      "deleteWorkspace": "删除工作区",
-      "deleteDescription": "为所有成员删除此工作区及其中的所有内容。此操作无法撤销。",
-      "deleteTitle": "删除工作区？",
-      "deleteDialog": "这会为所有有权访问 {name} 的人删除该工作区。此操作无法撤销。",
+      "deleteWorkspace": "删除项目",
+      "deleteDescription": "为所有成员删除此项目及其中的所有内容。此操作无法撤销。",
+      "deleteTitle": "删除项目？",
+      "deleteDialog": "这会为所有有权访问 {name} 的人删除该项目。此操作无法撤销。",
       "consequencesTitle": "你将立即失去：",
       "consequences": {
-        "sessions": "此工作区中的每个会话及其文件、历史记录和输出",
+        "sessions": "此项目中的每个会话及其文件、历史记录和输出",
         "automation": "所有计划运行和触发器 — 它们会立即停止",
-        "integrations": "此工作区范围内的每个已连接集成、密钥和 API 密钥",
-        "access": "整个团队的访问权限 — 任何人都无法再次访问此工作区"
+        "integrations": "此项目范围内的每个已连接集成、密钥和 API 密钥",
+        "access": "整个团队的访问权限 — 任何人都无法再次访问此项目"
       },
       "reassurance": "已连接的 Git 存储库不会被删除。已推送的代码将保留在原处。",
-      "keepWorkspace": "保留工作区"
+      "keepWorkspace": "保留项目"
     },
     "sandbox": {
       "states": {
@@ -803,7 +810,7 @@
       "categories": {
         "quota": {
           "label": "已达到快照限额",
-          "help": "此工作区保存的预备机器数量已达到套餐上限。请删除不再使用的沙盒模板或提高限额，然后重新构建。"
+          "help": "此项目保存的预备机器数量已达到套餐上限。请删除不再使用的沙盒模板或提高限额，然后重新构建。"
         },
         "dockerfile": {
           "label": "Dockerfile 构建失败",
@@ -969,10 +976,6 @@
           "name": "LLM 网关",
           "description": "通过 Kortix 托管 LLM 网关路由此项目，以使用托管模型、计量和预算。"
         },
-        "review_center": {
-          "name": "审查中心",
-          "description": "在网页或 Slack 的统一收件箱中审查变更请求、批准和智能体输出。"
-        },
         "meta_agent": {
           "name": "元智能体",
           "description": "添加一个协调智能体，用于管理项目中的专业会话和多步骤工作。"
@@ -1001,9 +1004,9 @@
     },
     "upgrades": {
       "available": "可用升级",
-      "readOnly": "只读 — 运行升级需要此工作区的写入权限。",
+      "readOnly": "只读 — 运行升级需要此项目的写入权限。",
       "none": "没有可用升级",
-      "upToDateDescription": "此工作区已经是最新版本。",
+      "upToDateDescription": "此项目已经是最新版本。",
       "upToDate": "已是最新",
       "run": "运行",
       "oneOff": "一次性升级",
@@ -1102,7 +1105,7 @@
       "namePlaceholder": "例如，笔记本电脑 CLI",
       "nameHint": "使用能说明此密钥使用位置的名称。",
       "scope": "范围",
-      "wholeWorkspace": "整个工作区",
+      "wholeWorkspace": "整个项目",
       "oneProject": "一个项目",
       "scopeHint": "项目范围的密钥只能访问所选项目。",
       "expires": "过期时间",
@@ -1209,7 +1212,7 @@
     "searchResults": "搜索结果",
     "recent": "最近",
     "personalAccount": "个人账户",
-    "workspaces": "工作区",
+    "workspaces": "项目",
     "servers": "服务器",
     "searchServers": "搜索服务器...",
     "addServer": "添加服务器",
@@ -1251,8 +1254,6 @@
     "metaCoordinator": "Meta 协调器",
     "files": "文件",
     "retry": "重试",
-    "proposedChanges": "建议的更改",
-    "untitledChange": "未命名更改",
     "review": "审阅",
     "connectGpt": "连接 GPT 订阅",
     "upgradePlan": "升级方案",
@@ -1288,18 +1289,20 @@
       }
     },
     "workspace": {
-      "switch": "切换工作空间",
-      "switchMenu": "切换工作空间",
-      "create": "创建工作区…",
+      "switch": "切换项目",
+      "switchMenu": "切换项目",
+      "create": "创建项目…",
+      "createAccount": "创建账户…",
       "settings": "设置",
       "downloadApp": "下载应用",
       "logOut": "退出登录",
-      "find": "查找工作区…",
+      "find": "查找项目…",
       "accountSettings": "账户设置",
-      "noMatches": "没有匹配的工作区",
-      "empty": "暂无工作区",
+      "noMatches": "没有匹配的项目",
+      "empty": "暂无项目",
       "account": "账户",
-      "loadError": "工作区加载失败"
+      "loadError": "项目加载失败",
+      "createIn": "在 {account} 中创建项目"
     },
     "manifestUpgrade": {
       "title": "升级到 v2",
@@ -1353,7 +1356,9 @@
         "mine": "我的聊天",
         "shared": "共享"
       }
-    }
+    },
+    "loadingMore": "加载中…",
+    "loadMoreSessions": "加载更多会话"
   },
   "dashboard": {
     "title": "仪表板",
@@ -1536,7 +1541,9 @@
       "bringKey": "使用自己的密钥",
       "barTitle": "未连接模型",
       "barDescription": "连接一个模型以开始聊天",
-      "connectModel": "连接模型"
+      "connectModel": "连接模型",
+      "imagesUnsupported": "{model} 无法读取图片",
+      "imagesUnsupportedHint": "请移除图片或选择其他模型"
     },
     "providerRecovery": {
       "savedPrompt": "已保存的提示词",
@@ -1680,14 +1687,18 @@
     "failedToStartSession": "无法启动会话",
     "hintSkills": "输入 / 以使用技能、命令和文件",
     "hintMentions": "输入 @ 以提及文件和智能体",
-    "hintWorkspaceFile": "询问工作区中的任何文件",
+    "hintWorkspaceFile": "询问项目中的任何文件",
     "hintCommandPalette": "按 {modifier}K 打开命令面板",
     "hintSwitchAgents": "按 Tab 切换智能体",
     "hintAttachFiles": "拖放文件以添加附件",
     "hintChanged": "询问项目中发生了哪些变化",
     "hintNewLine": "按 Shift+Enter 换行",
     "hintSettings": "按 {modifier}, 打开设置",
-    "hintCompact": "会话过长时，请要求压缩会话"
+    "hintCompact": "会话过长时，请要求压缩会话",
+    "queueList": "Queue List",
+    "stopUnconfirmed": "无法确认停止。代理可能仍在运行。请再次尝试停止。",
+    "queued": "排队中",
+    "queuedFiles": "{count, plural, one {# 个文件} other {# 个文件}}"
   },
   "billing": {
     "plan": {
@@ -9336,7 +9347,26 @@
     "autoFeaturesSessionToolRenderersJsxAttrMessageNoQuestions511286a8": "没有问题",
     "autoLibErrorHandlerJsxTextTopUp3587309b": "充值",
     "autoLibErrorHandlerJsxTextManagePlan6ec7a5f9": "管理计划",
+    "composerAttachments": {
+      "couldNotAttach": "无法添加文件",
+      "couldNotRetry": "无法重试附件",
+      "couldNotSend": "发送失败",
+      "failedBlocksSend": "请重试或移除上传失败的附件。",
+      "uploadFailed": "上传失败。请检查网络连接。",
+      "retryNamed": "重试上传 {name}",
+      "didNotUpload": "{name} 未上传。",
+      "billingRequired": "你的套餐或额度当前不允许上传。",
+      "budgetExceeded": "未发送的上传过多。未使用的上传会在 24 小时内过期。",
+      "tooLarge": "此文件超过 50 MiB。",
+      "expired": "此上传已过期。请移除后重新添加文件。",
+      "checkConnection": "请检查网络连接，然后重试。"
+    },
     "i18nComplete": {
+      "text25ab55af92b1": "已开始上传附件",
+      "text40078a553439": "已上传附件分块",
+      "text4c7f8000aabd": "附件上传完成",
+      "text91420d2587c2": "已移除附件上传",
+      "text3aab5b3be2b9": "已解析运行时附件描述符",
       "text0005b85debac": "为会话事件播放声音包。",
       "text000c02c11c7a": "代理按需加载的可复用指令。",
       "text0017bda47853": "URL 已复制",
@@ -9800,7 +9830,7 @@
       "text0dcb80086189": "实时渠道。在帖子中提及机器人，该线程就会成为会话；答案及其生成的文件都会回到同一线程。Teams 已随产品提供，但默认关闭，需在部署中启用。",
       "text0dd131944c00": "恰好一个会话",
       "text0def42d1eccc": "Stripe 中的客户",
-      "text0df337fc286c": "已连接应用",
+      "text0df337fc286c": "设置了连接器",
       "text0df3614110d5": "我已创建企业应用",
       "text0df6f1cad36c": "Show",
       "text0df9df285277": "仅限 {value0}",
@@ -10729,7 +10759,7 @@
       "text29300070ca98": "19 天",
       "text29306928fdc1": "6 字段 cron，支持任意 IANA 时区",
       "text293b5ec8aac7": "浏览器标签页显示你的 favicon 和产品名称，并支持深色模式变体",
-      "text2945df36c2f9": "应用详情",
+      "text2945df36c2f9": "查看了连接器操作",
       "text29490fc13cfc": "无法连接到代理",
       "text29521c5c7df3": "不得合并——project.cr.merge 默认拒绝",
       "text2952938846ef": "使用项目密钥前，请断开已存储的连接器凭据。",
@@ -10837,7 +10867,7 @@
       "text2c1c62f284fb": "产品名称已保存",
       "text2c1cff23cb89": "无法加载",
       "text2c1ef1ad75b5": "写入审计记录",
-      "text2c496ac4ee78": "应用操作",
+      "text2c496ac4ee78": "搜索了连接器操作",
       "text2c4de2851235": "完整审计追踪",
       "text2c6041fda32c": "已从队列中移除",
       "text2c6e8e7b3b77": "显示 {value0} 键",
@@ -12388,7 +12418,6 @@
       "text588032878324": "立即发送",
       "text5885ace14d89": "获取会话",
       "text5887e718dea1": "挑选的",
-      "text58a34c9573cf": "安装 GitHub App",
       "text58a4ba90dc79": "夺回被协调工作吞噬的一周。",
       "text58aede554b21": "连接一次，全公司使用。Agents 通过 Kortix 在服务器端代理的单个受限令牌访问工具——因此原始凭据永远不会落到模型操控的机器上。",
       "text58bf3410b028": "设置值",
@@ -13495,7 +13524,7 @@
       "text77fe4eba38d8": "所有仓库",
       "text77ff6343ff46": "项目角色包括 project.trigger.update 权限（默认为项目管理员）的任何人以及帐户所有者和管理员。触发器自己的代理始终可以。",
       "text7804f7a79a9e": "已完成",
-      "text7812d84e3512": "使用了应用",
+      "text7812d84e3512": "使用了连接器",
       "text781fbdd4840f": "- 每条记录：背景、决策、日期",
       "text782a07562e97": "开源且可自行托管",
       "text783487161e9f": "“给我四个版本”",
@@ -14716,7 +14745,7 @@
       "text9acf3e31d12e": "无内容。",
       "text9ad125fe331f": "按 {value0} 排序",
       "text9ad1905ba13a": "已更改账户成员角色",
-      "text9ad6baffd025": "切换工作区",
+      "text9ad6baffd025": "切换项目",
       "text9ada0e627aed": "代理重写自身提示词的过程与代码变更完全相同：在分支上的提交，以及某人阅读的变更请求。",
       "text9adff6870471": "复制链接",
       "text9ae2faa5b263": "一分钟内连接第一个应用。",
@@ -15296,7 +15325,7 @@
       "textab8fcb695b84": "创建一个“SCIM Outbound”provisioning connection，并将其指向上面显示的两个值。",
       "textab93638292af": "无法加载 Discover",
       "textab936b802fa6": "SCIM Version",
-      "textab95d456c6bb": "工作区成员",
+      "textab95d456c6bb": "项目成员",
       "textab986ad2d8e6": "在代码仓库中声明",
       "textab9a61284668": "反馈来自六个地方，却没有一个被完整阅读。代理会读取全部六处，将实质相同的请求归组，并为每条引用标注来源后写成规格说明。要构建什么，由你决定。",
       "textaba314822529": "已撤销 SCIM 令牌",
@@ -16023,7 +16052,7 @@
       "textc009fe87348b": "无法加载 PDF 预览。",
       "textc011d6097bfb": "许可证",
       "textc01240eae6d5": "这不是为了将优秀功能留给付费层级而制作的精简版本。自托管实例运行与托管云相同的镜像，由同一条流水线生成，并遵循同一发布轨道。",
-      "textc023d120dd17": "已连接的应用",
+      "textc023d120dd17": "列出了连接器",
       "textc02977b07ec9": "测试连接",
       "textc02ba0f7bece": "463,900",
       "textc0472b8d5a10": "规则变为 Active 后，PingOne 会执行首次全量同步，之后在目录发生变化时推送增量变更。",
@@ -17624,7 +17653,7 @@
       "textec5ba0abb717": "访问权限",
       "textec5c2f7304b1": "上下文已修剪",
       "textec69732f4600": "清单会拒绝治理块中的行为字段，并将错误指向智能体自己的 .md 文件。",
-      "textec70b4a614bf": "切换工作区",
+      "textec70b4a614bf": "切换项目",
       "textec73f9f19e7c": "写一次。每个会话都知道。",
       "textec7a4e3094f9": "授权所有者已更改，但同步失败：{value0}。使用 Sync 重试。",
       "textec81d7aae411": "机器会克隆仓库，并创建以会话命名的分支。该会话进行的每次编辑和提交都只存在于该分支中。",
@@ -17999,6 +18028,9 @@
       "textf771f4d32eee": "p95",
       "textf785c3ce1d58": "毫秒",
       "textf786f0ee4793": "立即重新连接",
+      "text8a8b956178c8": "正在重新连接…",
+      "text3915f5ca49b3": "工作区已休眠",
+      "textc64d601209b6": "唤醒",
       "textf7870941f5a8": "已列出待处理的项目邀请",
       "textf7873b149941": "你无权查看此次调用的参数，因此无法在此处批准。请项目经理审核。",
       "textf78817ccb153": "规划、撰写并提升内容排名。",
@@ -18364,7 +18396,26 @@
       "textb38cb5e18525": "这个流程并展示工作过程。愿意聊二十分钟吗？",
       "textff5bd8333c4e": "你，以及可以管理此项目的人",
       "text36d8691ae566": "知道链接的任何人，以及你的团队",
-      "text4fb2abecc0a6": "知道密码的任何人，以及你的团队"
+      "text4fb2abecc0a6": "知道密码的任何人，以及你的团队",
+      "text03a01dd53ffa": "按 ↑ 编辑排队的消息",
+      "text1eb132d9d4da": "队列已暂停",
+      "textf8e64a37950a": "排队的消息",
+      "textcd5f943d5863": "未发送",
+      "text42888e8dc93e": "整个实例只有一个连接。Kortix 在所有账户中都通过它创建并推送每个项目的仓库。",
+      "textf40d94365439": "此实例的 GitHub 身份来自服务器上的环境变量，无法在此处更改。",
+      "textbd6cc9a4cf4b": "设置来源",
+      "text39481fc24bd5": "此实例中由 Kortix 托管的仓库将创建在 {value0} 下。",
+      "text89a9816ffa6f": "此实例可以使用由 Kortix 托管的仓库。",
+      "textb79bb0e54e4f": "此实例无法使用由 Kortix 托管的仓库。平台管理员可在管理控制台中完成设置。",
+      "textf7be8a17b0e7": "添加 GitHub 账户",
+      "text659d5668b62b": "将 GitHub 个人账户或组织关联到此 Kortix 账户。",
+      "textdc520b664af2": "GitHub 会列出你管理的所有个人账户和组织。选择其中一个，指定 Kortix 应用可以访问哪些仓库，该所有者便会关联到此 Kortix 账户。",
+      "text8d3f36f31348": "安装 Kortix 应用",
+      "text183bc0d276cc": "此实例没有可安装的 GitHub 应用。平台管理员可在管理控制台中完成设置。",
+      "text7f59f014cd7b": "已经安装在你想要的所有者上了吗？",
+      "text9180f7df8906": "关联你已管理的安装",
+      "text0b0e4c425624": "已关联到 {value0, plural, other {# 个其他 Kortix 账户}}。",
+      "text7dac2ca010fe": "正在准备完整记录…"
     }
   },
   "projectOnboarding": {
@@ -18379,8 +18430,8 @@
     },
     "kickoff": {
       "tools": "我也连接了这些工具：{count}。如果有帮助就使用它们。",
-      "noDomain": "我完成了工作区的设置。{toolsClause} 介绍一下你自己，解释一下你能做什么，并首先询问我需要什么帮助。",
-      "withDomain": "我完成了 {domain} 的工作区设置。研究一下这家公司并告诉我你发现了什么。{toolsClause}然后首先询问我需要什么帮助。"
+      "noDomain": "我完成了项目的设置。{toolsClause} 介绍一下你自己，解释一下你能做什么，并首先询问我需要什么帮助。",
+      "withDomain": "我完成了 {domain} 的项目设置。研究一下这家公司并告诉我你发现了什么。{toolsClause}然后首先询问我需要什么帮助。"
     },
     "company": {
       "title": "告诉我们您的公司",
@@ -19228,5 +19279,29 @@
         "prompt": "编写一份新员工第一周阅读的文档——介绍我们的工作方式、资料存放位置、可以向谁求助，以及什么才算做好。尽可能从项目记忆中提取信息，并在最后列出所有不得不猜测的内容，而不是停下来询问我。"
       }
     }
+  },
+  "repositoryAccess": {
+    "label": "项目仓库访问权限",
+    "enabled": "新会话会获得项目仓库。Git 权限仍然适用。现有会话保留原有的访问设置。",
+    "disabled": "新会话在没有项目仓库的情况下运行。仍可创建文件并使用已授权的工具。现有会话保留原有的访问设置。"
+  },
+  "modelAccess": {
+    "manageProvider": "{name} 设置",
+    "enableProviderAction": "启用提供商",
+    "disableProviderAction": "禁用提供商",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "enableProvider": "启用{name}",
+    "defaultProviderHint": "禁用此提供商前，请将其他提供商的模型设为项目默认模型。",
+    "credentialsHint": "禁用推理但保留凭据。",
+    "providerError": "无法更新提供商访问权限。",
+    "managedTitle": "Kortix 托管模型",
+    "managedDescription": "使用 Kortix 额度计费的托管模型。无需 API 密钥。",
+    "hiddenHint": "已从选择器中隐藏。仍允许直接请求；请通过模型菜单禁用。",
+    "hidden": "已从选择器中隐藏",
+    "disableModel": "禁用模型",
+    "modelError": "无法更新模型访问权限。",
+    "hiddenShort": "已从选择器中隐藏。仍允许直接请求。",
+    "resetError": "无法重置模型列表。"
   }
 }

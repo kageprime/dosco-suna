@@ -17,6 +17,7 @@ const PROJECT_B = 'project-bbb';
 const SANDBOX_A = 'sandbox-for-a';
 const SANDBOX_B = 'sandbox-for-b';
 const ACCOUNT = 'acct-shared';
+const ATTACHMENT_ID = '22222222-2222-4222-8222-222222222222';
 
 const sandboxProjectByOwnSandboxId: Record<string, string> = {
   [SANDBOX_A]: PROJECT_A,
@@ -72,7 +73,16 @@ mock.module('../repositories/service-accounts', () => ({
 }));
 
 mock.module('../repositories/api-keys', () => ({
-  validateSecretKey: async () => ({ isValid: false, error: 'Invalid Kortix token' }),
+  validateSecretKey: async (token: string) =>
+    token === 'kortix_sb_attachment_runtime'
+      ? {
+          isValid: true,
+          type: 'sandbox',
+          sandboxId: SANDBOX_A,
+          accountId: ACCOUNT,
+          keyId: 'legacy-key',
+        }
+      : { isValid: false, error: 'Invalid Kortix token' },
 }));
 
 mock.module('../shared/jwt-verify', () => ({
@@ -111,7 +121,7 @@ mock.module('../lib/sentry', () => ({ ...realSentry, setSentryUser: () => {} }))
 mock.module('../lib/request-context', () => ({ ...realRequestContext, setContextField: () => {} }));
 mock.module('../iam/sso-sync', () => ({ ...realSsoSync, syncSsoMembership: async () => {} }));
 
-const { combinedAuth } = await import('./auth');
+const { combinedAuth, supabaseAuth } = await import('./auth');
 
 function appWithProbe() {
   const app = new Hono();
@@ -136,8 +146,24 @@ function appWithProbe() {
       sessionId: c.get('sessionId' as never),
     }),
   );
+  app.post('/v1/platform/boot-timeline', (c) =>
+    c.json({
+      ok: true,
+      sandboxId: c.get('sandboxId' as never),
+      sessionId: c.get('sessionId' as never),
+    }),
+  );
   app.get('/v1/skills/:name', (c) => c.json({ ok: true, name: c.req.param('name') }));
   app.get('/v1/skills/:name/file', (c) => c.json({ ok: true }));
+  return app;
+}
+
+function appWithSandboxDescriptorProbe() {
+  const app = new Hono();
+  app.use('/*', supabaseAuth);
+  app.get('/v1/projects/:projectId/runtime/prompt-attachments/:attachmentId', (c) =>
+    c.json({ sandboxId: c.get('sandboxId' as never) }),
+  );
   return app;
 }
 
@@ -285,5 +311,85 @@ describe('project-scoped PAT on the sandbox-proxy path', () => {
 
     expect(res.status).toBe(403);
     expect(await res.text()).toContain('Project-scoped token cannot call this surface');
+  });
+
+  // Same defect as runtime-projection above, one route over, and it reached
+  // production: `POST /v1/platform/boot-timeline -> 403 [HTTPException]` fired
+  // 2,338 times in the 7 days to 2026-09-09 (1,414 in the last two days) against
+  // 47 successes. The route IS in `sandboxTokenPathAllowed`, but that allowlist
+  // only governs `kortix_`/`kortix_sb_` API keys — and prod minted 583
+  // session-scoped PATs and ZERO sandbox API keys in that window, so every
+  // modern box was judged by enforceTokenProjectScope's default-deny instead.
+  test('a session-BOUND project PAT reaches the boot-timeline sink', async () => {
+    const res = await appWithProbe().request('/v1/platform/boot-timeline', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer kortix_pat_session_bound_a' },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // The handler's isSessionSandboxCredential needs both, equal.
+    expect(body.sessionId).toBe(SANDBOX_A);
+    expect(body.sandboxId).toBe(SANDBOX_A);
+  });
+
+  test('a plain project PAT (no session binding) still cannot reach boot-timeline', async () => {
+    const res = await appWithProbe().request('/v1/platform/boot-timeline', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer kortix_pat_project_a' },
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain('Project-scoped token cannot call this surface');
+  });
+
+  // The denial must name WHY: which check rejected, and which principal it
+  // rejected. Without this the global onError line (`-> 403 [HTTPException]`)
+  // is the same string for a cross-project attempt, a foreign sandbox, and an
+  // unmounted daemon sink.
+  test('a scope denial names the check and the principal that was rejected', async () => {
+    const res = await appWithProbe().request('/v1/platform/boot-timeline', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer kortix_pat_project_a' },
+    });
+    const text = await res.text();
+
+    expect(text).toContain('check=token-project-scope:default-deny');
+    expect(text).toContain('principal=project-scoped-pat');
+    expect(text).toContain(`project=${PROJECT_A}`);
+    expect(text).toContain('path=/v1/platform/boot-timeline');
+  });
+
+  test('a cross-project denial names its own check, not the default-deny', async () => {
+    const res = await appWithProbe().request(`/v1/projects/${PROJECT_B}`, {
+      headers: { Authorization: 'Bearer kortix_pat_project_a' },
+    });
+    const text = await res.text();
+
+    expect(res.status).toBe(403);
+    expect(text).toContain('check=token-project-scope:cross-project');
+    expect(text).not.toContain('default-deny');
+  });
+});
+
+describe('legacy sandbox credential route allowlist', () => {
+  test('accepts only the exact runtime prompt attachment descriptor path', async () => {
+    const exact = await appWithSandboxDescriptorProbe().request(
+      `/v1/projects/${PROJECT_A}/runtime/prompt-attachments/${ATTACHMENT_ID}`,
+      { headers: { Authorization: 'Bearer kortix_sb_attachment_runtime' } },
+    );
+    expect(exact.status).toBe(200);
+    expect((await exact.json()).sandboxId).toBe(SANDBOX_A);
+
+    for (const path of [
+      `/v1/projects/${PROJECT_A}/runtime/prompt-attachments`,
+      `/v1/projects/${PROJECT_A}/runtime/prompt-attachments/${ATTACHMENT_ID}/extra`,
+      `/v1/projects/${PROJECT_A}/runtime/prompt-attachments-not/${ATTACHMENT_ID}`,
+    ]) {
+      const response = await appWithSandboxDescriptorProbe().request(path, {
+        headers: { Authorization: 'Bearer kortix_sb_attachment_runtime' },
+      });
+      expect(response.status).toBe(401);
+    }
   });
 });

@@ -12,8 +12,9 @@ import {
   getProjectSecretValueForConsumer,
 } from '../secrets';
 import { recordAuditEvent } from '../../shared/audit';
-import { accountGithubInstallationStates, accountGithubInstallations, accountMembers, projectGitConnections, projectGitCredentials, projectSessions, projects, sessionSandboxes } from '@kortix/db';
-import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { accountGithubInstallationStates, accountGithubInstallations, accountTokens, projectGitConnections, projectGitCredentials, projectSessions, projects, sessionSandboxes } from '@kortix/db';
+import type { AgentGrant } from '@kortix/db';
+import { and, asc, countDistinct, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { ttlMemo } from '../../shared/ttl-memo';
 import {
@@ -78,14 +79,83 @@ export async function getAccountMembership(userId: string, accountId: string) {
 }
 
 
-export async function listAccountGitHubInstallations(accountId: string) {
-  return await db
+/**
+ * Every account connection, oldest first. The order is explicit because
+ * callers that pass no installation id take the FIRST row, and an unordered
+ * select returns whatever the heap hands back — so the same request could
+ * resolve to a different connection between two calls.
+ */
+export function accountGitHubInstallationsQuery(accountId: string) {
+  return db
     .select()
     .from(accountGithubInstallations)
-    .where(eq(accountGithubInstallations.accountId, accountId));
+    .where(eq(accountGithubInstallations.accountId, accountId))
+    .orderBy(
+      asc(accountGithubInstallations.createdAt),
+      asc(accountGithubInstallations.installationId),
+    );
 }
 
 
+export async function listAccountGitHubInstallations(accountId: string) {
+  return await accountGitHubInstallationsQuery(accountId);
+}
+
+
+/**
+ * How many OTHER accounts hold each of these installations. A count only: the
+ * picker may say "also connected to 2 other accounts" and can never say which,
+ * so one tenant cannot read another tenant's name out of it.
+ */
+export async function countInstallationsLinkedToOtherAccounts(
+  accountId: string,
+  installationIds: string[],
+): Promise<Map<string, number>> {
+  const ids = [...new Set(installationIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const rows = await installationsLinkedToOtherAccountsQuery(accountId, ids);
+  return new Map(rows.map((row) => [row.installationId, Number(row.accounts)]));
+}
+
+
+export function installationsLinkedToOtherAccountsQuery(
+  accountId: string,
+  installationIds: string[],
+) {
+  return db
+    .select({
+      installationId: accountGithubInstallations.installationId,
+      accounts: countDistinct(accountGithubInstallations.accountId),
+    })
+    .from(accountGithubInstallations)
+    .where(
+      and(
+        inArray(accountGithubInstallations.installationId, installationIds),
+        ne(accountGithubInstallations.accountId, accountId),
+      ),
+    )
+    .groupBy(accountGithubInstallations.installationId);
+}
+
+
+/** Raised when a caller must say WHICH connection it means. */
+export class GitHubInstallationAmbiguousError extends Error {
+  constructor(
+    readonly accountId: string,
+    readonly installationIds: string[],
+  ) {
+    super('This account has several GitHub connections — pass installation_id to choose one');
+    this.name = 'GitHubInstallationAmbiguousError';
+  }
+}
+
+
+/**
+ * One account connection. With an explicit id it is exact. Without one it
+ * returns the OLDEST connection — deterministic, and only correct for a
+ * caller that genuinely has no id to pass. Anything a user drives should pass
+ * the id and let `requireAccountGitHubInstallation` refuse an ambiguity.
+ */
 export async function getAccountGitHubInstallation(accountId: string, installationId?: string | null) {
   const rows = await listAccountGitHubInstallations(accountId);
   if (installationId) {
@@ -95,10 +165,33 @@ export async function getAccountGitHubInstallation(accountId: string, installati
 }
 
 
+/**
+ * Like `getAccountGitHubInstallation`, but refuses to GUESS: with no id and
+ * more than one connection it throws instead of silently picking one. Every
+ * write path that creates or links a repository uses this.
+ */
+export async function requireAccountGitHubInstallation(
+  accountId: string,
+  installationId?: string | null,
+) {
+  const rows = await listAccountGitHubInstallations(accountId);
+  if (installationId) {
+    return rows.find((row) => row.installationId === installationId) ?? null;
+  }
+  if (rows.length > 1) {
+    throw new GitHubInstallationAmbiguousError(
+      accountId,
+      rows.map((row) => row.installationId),
+    );
+  }
+  return rows[0] ?? null;
+}
+
+
 export async function createGitHubInstallationInstallUrl(accountId: string, userId: string): Promise<string | null> {
   if (!isGithubAppConfigured()) return null;
   const nonce = randomUUID();
-  const installUrl = buildGitHubAppInstallUrl(
+  const installUrl = await buildGitHubAppInstallUrl(
     accountId,
     nonce,
     'account_link',
@@ -198,7 +291,7 @@ export async function resolveGitHubRepoAuth(accountId: string, installationId?: 
   authSource: 'app_installation';
   installation?: typeof accountGithubInstallations.$inferSelect;
 }> {
-  const installation = await getAccountGitHubInstallation(accountId, installationId);
+  const installation = await requireAccountGitHubInstallation(accountId, installationId);
   if (installation) {
     const token = await createInstallationToken(installation.installationId);
     return {
@@ -740,7 +833,20 @@ export async function resolveProjectUpstream(
 
 
 export type GitProxyAuth =
-  | { ok: true; project: ProjectRow; principal: GitPrincipal }
+  | {
+      ok: true;
+      project: ProjectRow;
+      principal: GitPrincipal;
+      /**
+       * The resolved agent grant for a session principal (null otherwise). The
+       * receive-pack route places this on the request context so the ref-scope
+       * resolver can honor `project.gitops.ref.any` / `kortix_cli: all` for the
+       * session pushing. Without it a session is default-denied beyond its own
+       * branch no matter what its manifest grants — the exact failure behind the
+       * 2026-09-07 monitoring-metadata persistence incident.
+       */
+      agentGrant: AgentGrant | null;
+    }
   | { ok: false; status: number; message: string };
 
 /**
@@ -902,6 +1008,8 @@ async function authorizeGitProxyUncached(
         kind: 'session',
         sessionId: sessionRow.sessionId,
         branch: sessionRow.branchName,
+        userId: result.userId ?? null,
+        tokenId: result.tokenId ?? null,
       };
     }
     if (result.accountId !== project.accountId) {
@@ -920,6 +1028,10 @@ async function authorizeGitProxyUncached(
           userId: result.userId ?? null,
           tokenId: result.tokenId ?? null,
         },
+      // A session-scoped PAT already carries the resolved grant on the token row
+      // (`validateAccountToken` returns it). Only meaningful for the session
+      // principal; null for the laptop-CLI-PAT user principal.
+      agentGrant: sessionPrincipal ? (result.agentGrant ?? null) : null,
     };
   }
 
@@ -966,7 +1078,9 @@ async function authorizeGitProxyUncached(
           accountId: result.accountId,
           sandboxId: result.sandboxId,
         });
-        if (monitorBox) return { ok: true, project, principal: { kind: 'monitor' } };
+        if (monitorBox) {
+          return { ok: true, project, principal: { kind: 'monitor' }, agentGrant: null };
+        }
         return { ok: false, status: 403, message: 'sandbox token is not scoped to this project' };
       }
       if (!workspaceMetadataAllowsRepositoryAccess(sandbox.sessionMetadata)) {
@@ -979,6 +1093,27 @@ async function authorizeGitProxyUncached(
       if (!sandbox.branchName) {
         return { ok: false, status: 403, message: 'session has no branch to push' };
       }
+      // Resolve the session's agent grant so the ref-scope resolver can widen a
+      // session that deliberately holds `project.gitops.ref.any` / `kortix_cli:
+      // all`. The grant lives on the session's connector token(s) in
+      // `account_tokens`; a sandbox key carries no grant of its own. Missing row
+      // (or a project with no per-agent governance) reads null = default-deny.
+      const [grantRow] = await db
+        .select({
+          agentGrant: accountTokens.agentGrant,
+          userId: accountTokens.userId,
+          tokenId: accountTokens.tokenId,
+        })
+        .from(accountTokens)
+        .where(
+          and(
+            eq(accountTokens.sessionId, sandbox.sessionId),
+            eq(accountTokens.accountId, result.accountId),
+            eq(accountTokens.status, 'active'),
+            isNull(accountTokens.revokedAt),
+          ),
+        )
+        .limit(1);
       return {
         ok: true,
         project,
@@ -986,7 +1121,10 @@ async function authorizeGitProxyUncached(
           kind: 'session',
           sessionId: sandbox.sessionId,
           branch: sandbox.branchName,
+          userId: grantRow?.userId ?? null,
+          tokenId: grantRow?.tokenId ?? null,
         },
+        agentGrant: grantRow?.agentGrant ?? null,
       };
     }
     // Account-scoped user API key. No per-project fallback here: an API key
@@ -995,7 +1133,7 @@ async function authorizeGitProxyUncached(
     if (result.accountId !== project.accountId) {
       return { ok: false, status: 403, message: 'token does not own this project' };
     }
-    return { ok: true, project, principal: { kind: 'user', userId: null } };
+    return { ok: true, project, principal: { kind: 'user', userId: null }, agentGrant: null };
   }
 
   return { ok: false, status: 401, message: 'git proxy requires a token' };

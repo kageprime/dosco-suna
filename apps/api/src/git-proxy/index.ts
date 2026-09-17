@@ -25,6 +25,7 @@ import {
 } from '../projects';
 import type { GitScope, UpstreamGit } from '../projects/git-backends';
 import type { ProjectRow } from '../projects/lib/serializers';
+import type { AppEnv } from '../types';
 import { deriveRequestContext } from '../iam/cache';
 import {
   MAX_COMMAND_SECTION_BYTES,
@@ -79,8 +80,15 @@ import {
 } from './compiled-runtime';
 import { prebuildDefaultBranchArtifacts } from './compiled-prebuild';
 import { config } from '../config';
+import {
+  buildProjectSnapshotDescriptor,
+  queueProjectSnapshotForRef,
+  readReadyProjectSnapshot,
+  verifyReadyProjectSnapshotObjectsInBackground,
+} from './project-snapshot';
+import { projectSnapshotStorageConfigured } from './project-snapshot-store';
 
-export const gitProxyApp = makeOpenApiApp();
+export const gitProxyApp = makeOpenApiApp<AppEnv>();
 
 /**
  * The git smart-HTTP protocol streams raw binary pack data (pkt-line framed),
@@ -331,6 +339,17 @@ async function forwardAuthorized(
           }
         })();
 
+        // Queue the project snapshot archive for the new default-branch tip so
+        // the next fresh session boots from S3 instead of a clone. Idempotent
+        // per (project, sha); the mirror refresh is shared with the hint above.
+        if (projectSnapshotStorageConfigured()) {
+          void queueProjectSnapshotForRef(gitProject, gitProject.defaultBranch).catch((err) => {
+            console.warn(
+              `[git-proxy] project snapshot enqueue skipped for ${projectId}:`,
+              err instanceof Error ? err.message : err,
+            );
+          });
+        }
         const [compiledResult, piResult] = await Promise.allSettled([
           config.KORTIX_COMPILED_BOOT_MODE !== 'off' || piWorkerEnabled
             ? prebuildDefaultBranchArtifacts(
@@ -676,6 +695,70 @@ gitProxyApp.openapi(
   },
 );
 
+// ── project snapshot descriptor (S3 config provider) ─────────────────────
+// The sandbox env carries only the snapshot's IDENTITY
+// (KORTIX_PROJECT_SNAPSHOT_PIN = sha:sha256:bytes). The daemon exchanges it
+// here, with its session credential, for a short-lived presigned download
+// URL. Same authorization as a clone: whoever may `git-upload-pack` this
+// project may read this archive, so the route widens nothing. 404 = no
+// prepared archive for that exact SHA (the daemon records a miss and boots
+// from Git); never a build-on-demand — a session start does not wait for
+// archive creation.
+gitProxyApp.openapi(
+  createRoute({
+    method: 'get',
+    path: '/{project}/project-snapshot',
+    tags: ['git'],
+    summary: 'Short-lived download descriptor for a prepared project snapshot archive',
+    request: {
+      params: projectParam,
+      query: z.object({ sha: z.string().regex(/^[0-9a-f]{40}$/) }),
+    },
+    responses: {
+      200: {
+        description: 'Descriptor: identity, digest, size, presigned archive URL',
+        content: { 'application/json': { schema: z.any() } },
+      },
+      400: { description: 'Invalid project id or source SHA' },
+      401: gitResponses[401],
+      403: gitResponses[403],
+      404: { description: 'No prepared archive for this project at this SHA' },
+      503: { description: 'Project snapshot storage is not configured' },
+    },
+  }),
+  async (c) => {
+    const projectId = validProjectIdOrResponse(c, c.req.param('project'));
+    if (projectId instanceof Response) return projectId;
+    const auth = await authorize(c, projectId, 'read');
+    if (!auth.ok) {
+      if (auth.status === 401) return unauthorized(c, auth.message);
+      return c.text(auth.message, auth.status === 404 ? 404 : 403);
+    }
+    if (!projectSnapshotStorageConfigured()) {
+      return c.json({ error: 'project snapshot storage is not configured' }, 503);
+    }
+    const { sha } = c.req.valid('query');
+    const ready = await readReadyProjectSnapshot(projectId, sha);
+    if (!ready) return c.json({ error: 'not_prepared', sha }, 404);
+    // Off the request path: an object that expired re-queues the row for the
+    // next session; this daemon meets the 404 and takes the Git path. This
+    // route is the daemon's FALLBACK — a fresh session normally carries the
+    // descriptor presigned at create (KORTIX_PROJECT_SNAPSHOT_DESCRIPTOR) and
+    // never calls it; a retry or an expired URL does.
+    verifyReadyProjectSnapshotObjectsInBackground(ready);
+    try {
+      return c.json(await buildProjectSnapshotDescriptor(ready));
+    } catch (error) {
+      console.warn('[git-proxy] project snapshot descriptor unavailable', {
+        projectId,
+        sha,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return c.json({ error: 'project snapshot descriptor unavailable' }, 503);
+    }
+  },
+);
+
 gitProxyApp.openapi(
   createRoute({
     method: 'get',
@@ -901,6 +984,13 @@ gitProxyApp.openapi(
       if (auth.status === 401) return unauthorized(c, auth.message);
       return c.text(auth.message, auth.status as 403 | 404);
     }
+    // The ref-scope resolver reads the agent grant off the request context, the
+    // same slot the ordinary auth middleware fills on every non-git route. This
+    // route authenticates with its own token (git Basic/Bearer), so it must
+    // place the grant `authorizeGitProxy` resolved. Without it a session is
+    // default-denied beyond its own branch regardless of `project.gitops.ref.any`
+    // / `kortix_cli: all` — see projects/lib/git.ts.
+    c.set('agentGrant', auth.agentGrant ?? null);
     // Ref policy runs HERE, between authorization and transmission — the only
     // point where both the principal and the refs it wants to move are known.
     const gated = await gateReceivePack(c, auth);

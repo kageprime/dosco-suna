@@ -19,6 +19,7 @@
 // middleware first (its first statement), then the remaining route groups.
 import './routes/r1';
 import './routes/github-repositories';
+import './routes/git-backend';
 import './routes/r2';
 import './routes/r3';
 import './routes/secret-broker';
@@ -42,6 +43,7 @@ import './routes/session-scope';
 import './routes/session-config';
 import './routes/public-shares';
 import './routes/r8';
+import './routes/prompt-attachments';
 import './routes/r9';
 import './routes/r10';
 import './routes/r11';

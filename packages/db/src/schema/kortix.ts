@@ -265,6 +265,28 @@ export const accountMemberships = kortixSchema.table(
   (table) => [primaryKey({ columns: [table.userId, table.accountId] })],
 );
 
+export const accountScimUsers = kortixSchema.table(
+  'account_scim_users',
+  {
+    scimId: uuid('scim_id').notNull(),
+    accountId: uuid('account_id').notNull().references(() => accounts.accountId, { onDelete: 'cascade' }),
+    userId: uuid('user_id'),
+    invitationId: uuid('invitation_id'),
+    userName: text('user_name').notNull(),
+    externalId: text('external_id'),
+    active: boolean('active').default(true).notNull(),
+    profile: jsonb('profile').$type<Record<string, unknown>>().default({}).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.scimId] }),
+    uniqueIndex('account_scim_users_account_email').on(table.accountId, table.userName),
+    index('account_scim_users_account_user').on(table.accountId, table.userId),
+  ],
+);
+
 // Pending invitations for users not yet members (or not yet signed up). On
 // signup or first /v1/accounts call we auto-claim invites matching the user's
 // email and convert them into account_members rows.
@@ -469,6 +491,66 @@ export const projectGitConnections = kortixSchema.table(
     uniqueIndex('idx_project_git_connections_project').on(table.projectId),
     index('idx_project_git_connections_provider_repo').on(table.provider, table.externalRepoId),
     index('idx_project_git_connections_status').on(table.status),
+  ],
+);
+
+/**
+ * Readiness ledger for prebuilt project snapshot archives (S3 config provider).
+ *
+ * One row per (project, exact commit SHA). The producer worker
+ * (`apps/api/src/git-proxy/project-snapshot-worker.ts`) claims `queued` rows,
+ * builds a `.tar.gz` of the committed tree + sanitized shallow `.git` from the
+ * API's Git mirror, uploads the archive THEN the manifest to the immutable
+ * layout `<owner>/<repo>/<sha>/<external_repo_id>/project-snapshot-v1/`, and
+ * only then flips the row to `ready`. The session-create path reads `ready`
+ * rows to pin a prepared archive into the sandbox env; the daemon downloads it
+ * through a short-lived descriptor minted by the Git proxy.
+ *
+ * Immutable by construction: a SHA never changes content, so a `ready` row is
+ * never overwritten by later work and an older job cannot regress newer state.
+ */
+export const projectSnapshotArchives = kortixSchema.table(
+  'project_snapshot_archives',
+  {
+    snapshotId: uuid('snapshot_id').defaultRandom().primaryKey(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.projectId, { onDelete: 'cascade' }),
+    /** Normalized branch name the SHA was resolved from (`main`, never `refs/heads/main`). */
+    ref: varchar('ref', { length: 255 }).notNull(),
+    commitSha: varchar('commit_sha', { length: 40 }).notNull(),
+    /** Repository identity copied from project_git_connections at enqueue time. */
+    repoOwner: varchar('repo_owner', { length: 255 }).notNull(),
+    repoName: varchar('repo_name', { length: 255 }).notNull(),
+    externalRepoId: text('external_repo_id').notNull(),
+    /** 'queued' | 'building' | 'ready' | 'failed' */
+    status: varchar('status', { length: 16 }).default('queued').notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).defaultNow().notNull(),
+    lockedBy: text('locked_by'),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+    /**
+     * Archive layout this row was (or will be) built as. A row whose format is
+     * older than the API's current one is a cache miss and gets re-queued.
+     */
+    format: varchar('format', { length: 32 }).default('project-snapshot-v1').notNull(),
+    /** Object key prefix (`…/project-snapshot-v2/`), set when ready. */
+    objectPrefix: text('object_prefix'),
+    /** The boot object: working tree + blobless `.git` (v2), or the whole checkout (v1). */
+    archiveSha256: varchar('archive_sha256', { length: 64 }),
+    archiveBytes: bigint('archive_bytes', { mode: 'number' }),
+    entryCount: integer('entry_count'),
+    /** The hydration object (v2): the tip's blob pack, fetched after activation. */
+    blobsSha256: varchar('blobs_sha256', { length: 64 }),
+    blobsBytes: bigint('blobs_bytes', { mode: 'number' }),
+    lastError: text('last_error'),
+    readyAt: timestamp('ready_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_project_snapshot_archives_project_sha').on(table.projectId, table.commitSha),
+    index('idx_project_snapshot_archives_claim').on(table.status, table.nextAttemptAt),
   ],
 );
 
@@ -3017,12 +3099,10 @@ export const auditEvents = kortixSchema.table(
       table.sessionId,
       table.sessionSequence,
     ),
-    index('idx_audit_events_account_source_phase_time').on(
-      table.accountId,
-      table.authoritativeSource,
-      table.phase,
-      table.occurredAt,
-    ),
+    // `idx_audit_events_account_source_phase_time` was dropped 2026-09-09
+    // (migration 20260909083000000): 8.6 GB, zero scans in 2.5 months, one
+    // index write on every audit row. A filter on (authoritative_source, phase)
+    // uses `idx_audit_events_account_time` for the account+time prefix.
     index('idx_audit_events_account_client_source_time')
       .on(table.accountId, table.clientReportedSource, table.occurredAt)
       .where(sql`${table.clientReportedSource} is not null`),
@@ -5803,6 +5883,53 @@ export const connectorCalls = kortixSchema.table(
   ],
 );
 
+// Ownership IDs intentionally have no FK: metadata must outlive project/account
+// deletion until maintenance has removed every private storage object.
+export const promptAttachments = kortixSchema.table(
+  'prompt_attachments',
+  {
+    attachmentId: uuid('attachment_id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id').notNull(),
+    projectId: uuid('project_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    objectPath: text('object_path').notNull().unique(),
+    filename: text('filename').notNull(),
+    mime: text('mime').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    /** Chunked mode only: acknowledged bytes, advanced by compare-and-set. */
+    receivedBytes: integer('received_bytes').default(0).notNull(),
+    sha256: text('sha256'),
+    status: varchar('status', { length: 16 }).default('uploading').notNull(),
+    finalizeToken: uuid('finalize_token'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check('prompt_attachments_status_check', sql`${table.status} IN ('uploading', 'finalizing', 'ready', 'failed', 'deleting')`),
+    check('prompt_attachments_size_check', sql`${table.sizeBytes} > 0 AND ${table.sizeBytes} <= 52428800`),
+    check('prompt_attachments_received_check', sql`${table.receivedBytes} >= 0 AND ${table.receivedBytes} <= ${table.sizeBytes}`),
+    // Reader: the per-user upload budget in `beginPromptAttachment`.
+    index('idx_prompt_attachments_user_status').on(table.userId, table.status),
+    index('idx_prompt_attachments_expiry').on(table.expiresAt),
+  ],
+);
+
+export const promptAttachmentReferences = kortixSchema.table(
+  'prompt_attachment_references',
+  {
+    commandId: uuid('command_id').notNull(),
+    attachmentId: uuid('attachment_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.commandId, table.attachmentId] }),
+    foreignKey({ name: 'prompt_attachment_refs_command_fk', columns: [table.commandId], foreignColumns: [sessionLifecycleCommands.commandId] }).onDelete('cascade'),
+    foreignKey({ name: 'prompt_attachment_refs_attachment_fk', columns: [table.attachmentId], foreignColumns: [promptAttachments.attachmentId] }).onDelete('restrict'),
+    index('idx_prompt_attachment_references_attachment').on(table.attachmentId),
+  ],
+);
+
 /**
  * Private, short-lived files staged for one Connector email call.
  *
@@ -5924,3 +6051,54 @@ export const connectorProjectSettingsRelations = relations(connectorProjectSetti
     references: [projects.projectId],
   }),
 }));
+
+/** Reusable LLM credentials owned by one user, independent of any project. */
+export const userProviderConnections = kortixSchema.table('user_provider_connections', {
+  connectionId: uuid('connection_id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  providerId: varchar('provider_id', { length: 128 }).notNull(),
+  authType: varchar('auth_type', { length: 32 }).notNull(),
+  slot: varchar('slot', { length: 64 }).default('default').notNull(),
+  label: varchar('label', { length: 100 }).default('').notNull(),
+  valueEnc: text('value_enc').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('user_provider_connections_user_provider_slot').on(table.userId, table.providerId, table.slot),
+  unique('user_provider_connections_owner_identity').on(table.connectionId, table.userId, table.providerId),
+  check('user_provider_connections_auth_type', sql`${table.authType} in ('api_key', 'device_oauth')`),
+]);
+
+/** An explicit grant to use a personal provider connection in one project. */
+export const projectUserProviderConnections = kortixSchema.table('project_user_provider_connections', {
+  projectId: uuid('project_id').notNull().references(() => projects.projectId, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
+  providerId: varchar('provider_id', { length: 128 }).notNull(),
+  connectionId: uuid('connection_id').notNull(),
+  pool: boolean('pool').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.projectId, table.userId, table.providerId] }),
+  foreignKey({
+    columns: [table.connectionId, table.userId, table.providerId],
+    foreignColumns: [userProviderConnections.connectionId, userProviderConnections.userId, userProviderConnections.providerId],
+    name: 'project_user_provider_connections_owner_fk',
+  }).onDelete('cascade'),
+  index('project_user_provider_connections_connection').on(table.connectionId),
+]);
+
+/** A session retains its selected personal pool member across API replicas. */
+export const sessionUserProviderConnections = kortixSchema.table('session_user_provider_connections', {
+  sessionId: text('session_id').notNull().references(() => projectSessions.sessionId, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
+  providerId: varchar('provider_id', { length: 128 }).notNull(),
+  connectionId: uuid('connection_id').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.sessionId, table.userId, table.providerId] }),
+  foreignKey({
+    columns: [table.connectionId, table.userId, table.providerId],
+    foreignColumns: [userProviderConnections.connectionId, userProviderConnections.userId, userProviderConnections.providerId],
+    name: 'session_user_provider_connections_owner_fk',
+  }).onDelete('cascade'),
+  index('session_user_provider_connections_connection').on(table.connectionId),
+]);
