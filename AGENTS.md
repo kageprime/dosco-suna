@@ -205,6 +205,8 @@ not replace the deployed check, and a dev smoke test does not replace focused
 local tests. Record the PR, merge SHA, deploy run, deployed SHA evidence, and
 exact dev command or interaction in the final response.
 
+Keeping a branch current with upstream (`kortix-ai/suna`): `docs/runbooks/fork-sync.md`.
+
 ## Architecture: `@kortix/sdk` is the source of truth
 
 `@kortix/sdk` is the **single source of truth** for everything that talks to the
