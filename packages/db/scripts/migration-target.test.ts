@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { migrationCheckOrder, migrationBootstrapsPrerequisites } from './migration-target';
+import {
+  assertBootstrapTargetAllowed,
+  migrationCheckOrder,
+  migrationBootstrapsPrerequisites,
+} from './migration-target';
 
 describe('migration target mode', () => {
   test('keeps migration ordering strict for normal commands', () => {
@@ -26,5 +30,37 @@ describe('migration target mode', () => {
     expect(migrationBootstrapsPrerequisites('bootstrap')).toBe(true);
     expect(migrationBootstrapsPrerequisites('up')).toBe(false);
     expect(migrationBootstrapsPrerequisites('status')).toBe(false);
+  });
+
+  test('bootstrap/local-up run on loopback and the self-host Compose database', () => {
+    for (const host of ['127.0.0.1:5432', 'localhost:5432', 'supabase-db:5432']) {
+      expect(() =>
+        assertBootstrapTargetAllowed('bootstrap', `postgresql://postgres:pw@${host}/postgres`),
+      ).not.toThrow();
+    }
+    expect(() =>
+      assertBootstrapTargetAllowed('local-up', 'postgresql://postgres:pw@127.0.0.1:5432/postgres'),
+    ).not.toThrow();
+  });
+
+  test('bootstrap/local-up refuse managed/provisioned targets without --allow-remote', () => {
+    for (const host of ['aws-0-eu-west-1.pooler.supabase.com', 'db.abcdefgh.supabase.co', 'db.example.com']) {
+      expect(() =>
+        assertBootstrapTargetAllowed('bootstrap', `postgresql://postgres:pw@${host}:5432/postgres`),
+      ).toThrow(`bootstrap refuses remote database host: ${host}`);
+      expect(() =>
+        assertBootstrapTargetAllowed('local-up', `postgresql://postgres:pw@${host}:5432/postgres`),
+      ).toThrow('refuses remote database host');
+    }
+  });
+
+  test('bootstrap allows a remote target with --allow-remote, and ignores other commands', () => {
+    const cloud = 'postgresql://postgres:pw@aws-0-eu-west-1.pooler.supabase.com:6543/postgres';
+    expect(() => assertBootstrapTargetAllowed('bootstrap', cloud, ['--allow-remote'])).not.toThrow();
+    expect(() => assertBootstrapTargetAllowed('up', cloud)).not.toThrow();
+    expect(() => assertBootstrapTargetAllowed('status', cloud)).not.toThrow();
+    expect(() => assertBootstrapTargetAllowed('bootstrap', 'not-a-url')).toThrow(
+      'bootstrap requires a valid DATABASE_URL',
+    );
   });
 });
