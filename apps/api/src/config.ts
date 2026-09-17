@@ -496,6 +496,16 @@ const envSchema = z.object({
   // ── Billing — Stripe (optional, only for cloud billing) ──────────────────
   STRIPE_SECRET_KEY: optStr,
   STRIPE_WEBHOOK_SECRET: optStr,
+  // ── Billing — Paystack (optional, Nigerian-market billing) ───────────────
+  // Charges bill in NGN: PAYSTACK_USD_NGN_RATE is the naira per 1 USD used to
+  // convert USD-denominated prices. 0/unset means "no rate" — checkout paths
+  // fail with a clear 400 rather than charging a wrong amount. Never a boot
+  // error on its own; the billing gate below only needs one provider ready.
+  PAYSTACK_API_URL: optUrl('https://api.paystack.co'),
+  PAYSTACK_PUBLIC_KEY: optStr,
+  PAYSTACK_SECRET_KEY: optStr,
+  PAYSTACK_WEBHOOK_SECRET: optStr,
+  PAYSTACK_USD_NGN_RATE: optNum(0),
 
   // ── Billing — RevenueCat (optional) ──────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: optStr,
