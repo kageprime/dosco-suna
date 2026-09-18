@@ -27,6 +27,16 @@ import { errorSqlstate } from './error-cause';
  * and the queue behind it drains 4x faster. statement_timeout still covers the
  * non-lock case.
  *
+ * TIMEOUT MECHANISM (pooler incident, 2026-09-18): the 10s/2.5s caps used to
+ * ride as connection startup parameters. Supavisor transaction mode rejects
+ * those (08P01), so they now inherit the role-level `statement_timeout`
+ * (25s, see createDb in @kortix/db) on every backend, pooled or direct. The
+ * audit convoy still drains via 57014 contention handling — at the 25s budget
+ * instead of 10s — and 55P03 lock diagnostics go dormant without a
+ * lock_timeout. The constants below document the detector's assumptions and
+ * stay asserted by audit-db.test.ts; re-tighten them only with a
+ * pooler-compatible mechanism (role GUCs are role-wide, not per-pool).
+ *
  * Use ONLY for the audit event queue flush, OpenCode audit ingestion, and
  * gateway_request_logs writes (whose trigger fans out an audit row). Never route
  * auth/app/billing queries here.
@@ -39,13 +49,11 @@ function intFromEnv(name: string, fallback: number): number {
 }
 
 const AUDIT_POOL_MAX = intFromEnv('DB_AUDIT_POOL_MAX', DEFAULT_AUDIT_POOL_MAX);
+// Documented intent for the contention detector (see above); enforcement is
+// the role-level statement_timeout, NOT startup params (Supavisor rejects
+// those — 08P01). Kept exported: audit-db.test.ts asserts the relationship.
 export const AUDIT_STATEMENT_TIMEOUT_MS_DEFAULT = 10_000;
-const AUDIT_STATEMENT_TIMEOUT_MS = intFromEnv(
-  'DB_AUDIT_STATEMENT_TIMEOUT_MS',
-  AUDIT_STATEMENT_TIMEOUT_MS_DEFAULT,
-);
 export const AUDIT_LOCK_TIMEOUT_MS_DEFAULT = 2_500;
-const AUDIT_LOCK_TIMEOUT_MS = intFromEnv('DB_AUDIT_LOCK_TIMEOUT_MS', AUDIT_LOCK_TIMEOUT_MS_DEFAULT);
 
 let dedicatedPool: Database | null = null;
 function dedicated(): Database {
@@ -55,12 +63,10 @@ function dedicated(): Database {
     // tests that mock '@kortix/db' without createDb would SyntaxError on a
     // load-time value import. Resolving it here keeps them untouched.
     const { createDb } = require('@kortix/db') as typeof import('@kortix/db');
+    // No per-pool GUCs here: Supavisor transaction mode rejects connection
+    // startup parameters, so timeouts come from the role-level default.
     dedicatedPool = createDb(config.DATABASE_URL, {
       max: AUDIT_POOL_MAX,
-      connection: {
-        statement_timeout: AUDIT_STATEMENT_TIMEOUT_MS,
-        lock_timeout: AUDIT_LOCK_TIMEOUT_MS,
-      },
     });
   }
   return dedicatedPool;

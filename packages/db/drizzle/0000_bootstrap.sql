@@ -644,3 +644,9 @@ insert into storage.buckets (id,name,public) values ('staged-files','staged-file
 insert into storage.buckets (id,name,public) values ('ui_grounding','ui_grounding','f') on conflict (id) do nothing;
 --> statement-breakpoint
 insert into storage.buckets (id,name,public) values ('ui_grounding_trajs','ui_grounding_trajs','f') on conflict (id) do nothing;
+--> statement-breakpoint
+-- Request-path statement cap as a role default (not a startup parameter:
+-- Supavisor transaction pooling rejects unknown startup params with 08P01).
+-- 25s sits below the frontend's 30s client abort; per-migration SET overrides
+-- still win. Idempotent; re-running is a no-op.
+ALTER ROLE postgres SET statement_timeout = '25s';

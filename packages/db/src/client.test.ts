@@ -15,4 +15,16 @@ describe('createDb input validation', () => {
     expect(client).toBeDefined();
     expect(typeof client.select).toBe('function');
   });
+
+  test('sends no GUC startup parameters (Supavisor transaction mode rejects them with 08P01)', () => {
+    // Regression (2026-09-18): `connection: { statement_timeout }` failed
+    // EVERY query through the pooler. Timeouts now live as role-level
+    // defaults; only postgres.js's own application_name may remain.
+    const client = createDb('postgres://user:pass@127.0.0.1:5432/lazy') as unknown as {
+      $client?: { options?: { connection?: Record<string, unknown> } };
+    };
+    const connection = client.$client?.options?.connection ?? {};
+    expect(connection.statement_timeout).toBeUndefined();
+    expect(connection.lock_timeout).toBeUndefined();
+  });
 });

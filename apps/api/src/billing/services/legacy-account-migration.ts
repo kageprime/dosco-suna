@@ -294,6 +294,14 @@ async function withAdvisoryLock<T>(
   accountId: string,
   fn: () => Promise<T>,
 ): Promise<T> {
+  // NOTE (pooler, 2026-09-18): these are SESSION-level locks, so behind
+  // Supavisor transaction pooling the lock and unlock may land on different
+  // backends (unlock no-ops, the orphaned lock clears on backend reset).
+  // Mutual exclusion is therefore best-effort on pooled connections. Accepted:
+  // this is a rare legacy-model path, and the in-body re-checks make a
+  // concurrent double-run converge instead of corrupting. Do NOT "fix" by
+  // wrapping the body in one transaction — it mixes Stripe calls with DB
+  // writes and the current partial-commit behavior is load-bearing.
   const key = lockKey(accountId);
   await db.execute(sql`SELECT pg_advisory_lock(${key})`);
   try {

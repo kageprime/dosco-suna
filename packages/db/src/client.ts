@@ -33,31 +33,39 @@ function intFromEnv(name: string, fallback: number): number {
  *   2. An env-tunable `max` so normal concurrent page loads can run without
  *      letting a rolling deployment exhaust the PostgreSQL server.
  *
- * SIZING: prod connects DIRECTLY to Postgres (db.<ref>.supabase.co:5432), NOT
- * the Supavisor pooler. Every client connection consumes one real backend.
- * PostgreSQL exposes 237 non-reserved slots. ECS can overlap 10 old tasks and
- * 10 new tasks during a rolling deployment. The API also owns an audit pool,
- * a leader-election connection, and a transient startup schema probe. The
- * capacity invariant in apps/api/src/shared/database-capacity.test.ts accounts
- * for all four sources and preserves a non-API reserve. If replica count or
- * pool size grows, update that invariant before changing this default.
+ * WHERE THE TIMEOUT LIVES (pooler incident, 2026-09-18): this used to be sent
+ * as a connection startup parameter (`connection: { statement_timeout }`).
+ * Supavisor in transaction-pooling mode rejects unknown startup parameters
+ * with `08P01 unsupported startup parameter`, failing EVERY query — so the
+ * timeout is now enforced as a ROLE-LEVEL default instead:
+ *   ALTER ROLE postgres IN DATABASE postgres SET statement_timeout = '25s';
+ * (applied to Supabase Cloud at the 2026-09-18 migration; fresh self-host
+ * installs get it from 0000_bootstrap.sql). Role defaults apply at backend
+ * startup, so they survive pooling, and per-migration `SET statement_timeout`
+ * overrides (see the checksum-guarded runtime overrides) still win wherever
+ * a job legitimately needs longer.
+ *
+ * SIZING: prod may connect directly (db.<ref>.supabase.co:5432) or through the
+ * pooler (db.<ref>.supabase.co:6543) — both are supported; `prepare: false`
+ * below is what makes the pooler safe. Every client connection consumes one
+ * real backend on direct. PostgreSQL exposes 237 non-reserved slots. ECS can
+ * overlap 10 old tasks and 10 new tasks during a rolling deployment. The API
+ * also owns an audit pool, a leader-election connection, and a transient
+ * startup schema probe. The capacity invariant in
+ * apps/api/src/shared/database-capacity.test.ts accounts for all four sources
+ * and preserves a non-API reserve. If replica count or pool size grows, update
+ * that invariant before changing this default.
  *
  * All knobs are env-overridable so prod can tune without a code change. The
  * app's background workers (maintenance sweeps, migration workers) only ever run
  * small batched/indexed statements, so the 25s cap is safe for them; if a future
  * job needs a longer single statement it should `SET LOCAL statement_timeout`
- * inside its own transaction rather than raising this request-path default.
+ * inside its own transaction rather than raising the request-path default.
  */
 const POOL_MAX = intFromEnv('DB_POOL_MAX', DEFAULT_DB_POOL_MAX);
 const IDLE_TIMEOUT_S = intFromEnv('DB_IDLE_TIMEOUT_S', 30);
 const CONNECT_TIMEOUT_S = intFromEnv('DB_CONNECT_TIMEOUT_S', 10);
 const MAX_LIFETIME_S = intFromEnv('DB_MAX_LIFETIME_S', 60 * 30); // 30 min
-// 25s — deliberately *below* the frontend's 30s client abort so a stuck query
-// is killed and its connection returned to the pool *before* clients give up,
-// letting queued requests actually complete instead of all riding to 30s. Still
-// enormous for any single OLTP statement; background jobs that legitimately need
-// longer should `SET LOCAL statement_timeout` inside their own transaction.
-const STATEMENT_TIMEOUT_MS = intFromEnv('DB_STATEMENT_TIMEOUT_MS', 25_000);
 
 /**
  * Create a Drizzle database client.
@@ -74,20 +82,16 @@ export function createDb(databaseUrl: string, options?: postgres.Options<{}>) {
   const client = postgres(databaseUrl, {
     // prepare: false keeps us compatible with the Supabase transaction pooler
     // (Supavisor multiplexes connections, so server-side prepared statements
-    // can't be reused). Prod currently uses the DIRECT connection where prepared
-    // statements would be fine, but leaving this off keeps a pooler switch a
-    // pure connection-string change with no code impact.
+    // can't be reused). Both direct and pooled connection strings are supported.
     prepare: false,
     max: POOL_MAX,
     idle_timeout: IDLE_TIMEOUT_S,
     connect_timeout: CONNECT_TIMEOUT_S,
     max_lifetime: MAX_LIFETIME_S,
-    // statement_timeout is a server-side GUC (milliseconds) applied to every
-    // connection at startup. This is what stops a single hung query from
-    // pinning a pooled connection forever and starving the whole fleet.
-    connection: {
-      statement_timeout: STATEMENT_TIMEOUT_MS,
-    },
+    // NOTE: no `connection: { statement_timeout }` here on purpose — Supavisor
+    // transaction mode rejects unknown startup parameters (08P01), failing
+    // every query. The 25s request-path cap lives as a role-level default
+    // (see the header comment) so it applies on direct and pooled alike.
     ...options,
   });
 
