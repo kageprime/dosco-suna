@@ -33,8 +33,8 @@ export function socialMetadata(title: string, description: string | undefined, u
       card: 'summary_large_image',
       title,
       description,
-      site: '@kortix',
-      creator: '@kortix',
+      site: '@dosco',
+      creator: '@dosco',
       images: [DEFAULT_OG_IMAGE.url],
     },
   } satisfies Pick<Metadata, 'openGraph' | 'twitter'>;

@@ -123,7 +123,7 @@ function MembersLaunchLink({ projectId }: { projectId: string }) {
         project: projectId,
         from: 'customize',
       })}
-      className="text-muted-foreground hover:text-foreground ml-auto flex w-fit flex-none items-center gap-1 px-1 py-3 text-sm font-medium whitespace-nowrap transition-colors"
+      className="text-muted-foreground hover:text-foreground flex w-fit flex-none snap-start items-center gap-1 px-2 py-3.5 text-[15px] font-medium whitespace-nowrap transition-colors"
     >
       {tI18nComplete.raw('text1044a4c056d0')}
       <ArrowUpRightIcon className="size-3 opacity-60" aria-hidden />
@@ -192,8 +192,19 @@ export function CapabilityTabs({ projectId }: { projectId: string }) {
   const primary = leading.filter((tab) => PRIMARY_TABS.includes(tab.key));
   const library = leading.filter((tab) => !PRIMARY_TABS.includes(tab.key));
   const trailing = tabs.filter((tab) => TRAILING_TABS.includes(tab.key));
+  // Tabs center in the space the in-flow sidebar toggle leaves (~32px off
+  // true viewport center — exact centering needs an absolute toggle, which
+  // the overlay prohibition forbids). `justify-safe-center` keeps the row
+  // readable when tabs overflow: it falls back to start instead of clipping
+  // the first tab off-screen. Triggers carry `snap-start` so touch scrolling
+  // lands on a tab, not between two.
   const renderTab = (tab: CapabilityTab) => (
-    <TabsTrigger key={tab.key} value={tab.key} asChild className="w-fit flex-none px-1 py-3">
+    <TabsTrigger
+      key={tab.key}
+      value={tab.key}
+      asChild
+      className="w-fit flex-none snap-start px-2 py-3.5 text-[15px]"
+    >
       <Link href={capabilityTabHref(projectId, tab.key)} prefetch={true}>
         {tab.label}
       </Link>
@@ -210,13 +221,14 @@ export function CapabilityTabs({ projectId }: { projectId: string }) {
         orientation="horizontal"
         fadeColor="from-background"
         rootClassName="min-w-0 flex-1"
+        className="snap-x snap-proximity"
       >
         <Tabs value={activeKey ?? ''} className="w-max min-w-full">
           <TabsList
             type="underline"
             underlineSize="md"
             size="lg"
-            className="kx-titlebar-tabs h-auto w-full justify-start gap-5 border-b-0 px-2"
+            className="kx-titlebar-tabs h-auto w-full justify-safe-center gap-6 border-b-0 px-2"
           >
             {primary.map(renderTab)}
             {/* The seam only earns its pixel when both groups are drawn — a

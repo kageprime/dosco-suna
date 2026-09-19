@@ -449,7 +449,7 @@ describe('/new page: foreign-accounts-list state (B3)', () => {
   test('renders a reason with an escape hatch instead of a silent dead end', () => {
     expect(code).toContain('!accountsQuery.isLoading && foreignAccountList');
     expect(code).toContain("t('permissions.unknownAccountPrefix')");
-    expect(code).toContain('mailto:support@kortix.ai');
+    expect(code).toContain('mailto:support@dosco.live');
     // Same restrained treatment as the sibling zero-accounts note — no new
     // chrome introduced for this one state.
     expect(code).not.toContain('<InfoBanner');

@@ -2638,7 +2638,7 @@
       "faqWhatCreditsQuestion": "What are credits, and what do they cost?",
       "faqWhatCreditsAnswerBefore": "Credits are Dosco's unit of platform usage, and model calls are the main driver. Dosco adds 20% on model cost, 50% on most tool calls, and charges a flat 10% platform fee instead if you bring your own API key. The full rate card, the two kinds of credit, and how to make a balance last are in",
       "faqWhatCreditsLink": "Credits & usage",
-      "faqWhatCreditsAnswerAfter": ""
+      "faqWhatCreditsAnswerAfter": "."
     }
   },
   "hardcodedUi": {
@@ -4238,7 +4238,7 @@
       "line367JsxTextTheAppFailedToLoadOurTeamHas": "The app failed to load. Our team has been notified the details below help support reproduce your session",
       "line410JsxTextReturnHome": "Return Home",
       "line422JsxTextIfThisPersistsContact": "If this persists, contact",
-      "line423JsxTextSupportKortixAi": "support@kortix.ai"
+      "line423JsxTextSupportKortixAi": "support@dosco.live"
     },
     "appHome2Page": {
       "line206JsxTextKortixInitCompanyOs": "kortix init company-os",
@@ -15518,7 +15518,7 @@
       "textb1895f6ddd9d": "Create in chat",
       "textb18b93a52cd2": "Everything is paused",
       "textb18cf0d798a5": "/guides/payouts",
-      "textb18f581a06eb": "support@kortix.ai",
+      "textb18f581a06eb": "support@dosco.live",
       "textb192017da47f": "arguments",
       "textb1a36d25d963": "select",
       "textb1a390ad4e70": "skills 2 calls, closed",

@@ -26,10 +26,10 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 
-const SUPPORT_EMAIL = 'support@kortix.com';
-const SECURITY_EMAIL = 'security@kortix.com';
+const SUPPORT_EMAIL = 'support@dosco.live';
+const SECURITY_EMAIL = 'security@dosco.live';
 const DISCORD_URL = 'https://discord.com/invite/RvFhXUdZ9H';
-const STATUS_URL = '?';
+const STATUS_URL = 'https://status.dosco.live';
 
 /**
  * One FAQ row, keeping the Accordion chrome from the marketing `FaqSection`:
@@ -126,7 +126,7 @@ function SupportPageContent() {
             <ChannelCard
               icon={PulseIcon}
               title={t('channelStatusTitle')}
-              detail="status.kortix.com"
+              detail="Dosco status"
               note={t('channelStatusNote')}
               href={STATUS_URL}
               external
@@ -191,7 +191,7 @@ function SupportPageContent() {
                 answer={t('faqConnectAnswer')}
               />
               <Faq
-                value="what-is-kortix"
+                value="what-is-dosco"
                 question={t('faqWhatQuestion')}
                 answer={t('faqWhatAnswer')}
               />

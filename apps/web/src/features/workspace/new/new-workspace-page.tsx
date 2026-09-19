@@ -532,7 +532,7 @@ export function NewWorkspacePage() {
                   <p className="text-muted-foreground text-xs">
                     {t('permissions.unknownAccountPrefix')}{' '}
                     <a
-                      href="mailto:support@kortix.ai"
+                      href="mailto:support@dosco.live"
                       className="text-foreground underline underline-offset-2"
                     >
                       {tI18nComplete.raw('textb18f581a06eb')}

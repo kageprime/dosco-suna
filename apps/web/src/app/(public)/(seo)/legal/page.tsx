@@ -144,7 +144,7 @@ function Imprint() {
       <Section id="imprint-contact" title={t.raw('i18nComplete.text2b5c3d26721a')}>
         <P>
           {t.raw('i18nComplete.text969ccbd3cf63')}{' '}
-          <a href="mailto:info@kortix.com" className={LINK}>
+          <a href="mailto:support@dosco.live" className={LINK}>
             {t.raw('appLegalPage.line130JsxTextInfoKortixCom')}
           </a>
           .
@@ -279,7 +279,7 @@ function PrivacyPolicy() {
       <Section id="privacy-contact" title={t.raw('appLegalPage.line1739JsxTextContactUs')}>
         <P>
           {t.raw('appLegalPage.line1742JsxTextYouCanGetInTouchByEmailingUs')}{' '}
-          <a href="mailto:info@kortix.com" className={LINK}>
+          <a href="mailto:support@dosco.live" className={LINK}>
             {t.raw('appLegalPage.line1747JsxTextInfoKortixCom')}
           </a>
           .

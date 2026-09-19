@@ -198,7 +198,7 @@ export function SystemFaultView({
           {tI18nHardcoded.raw(
             'autoComponentsCommonSystemFaultJsxTextIfThisPersistsContact38b14ac8',
           )}
-          <a href="mailto:support@kortix.ai">
+          <a href="mailto:support@dosco.live">
             {tI18nHardcoded.raw('autoComponentsCommonSystemFaultJsxTextSupportKortixAi314bf854')}
           </a>
         </p>

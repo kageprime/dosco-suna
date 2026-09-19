@@ -63,7 +63,7 @@ export default function CountryError() {
               className="h-12 w-full rounded-lg font-medium"
             >
               <Link
-                href="mailto:support@kortix.ai"
+                href="mailto:support@dosco.live"
                 className="flex items-center justify-center gap-2"
               >
                 <Mail className="h-4 w-4" />

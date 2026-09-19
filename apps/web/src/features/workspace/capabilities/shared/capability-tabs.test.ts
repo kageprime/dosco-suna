@@ -90,15 +90,32 @@ describe('CapabilityTabs right-aligns Settings', () => {
     expect(body).toContain('{trailing.map(renderTab)}');
   });
 
-  test('ml-auto lands on MembersLaunchLink, the first trailing element, inside the one shared TabsList', () => {
+  test('no ml-auto: MembersLaunchLink centers with the tabs in the one shared TabsList', () => {
     const body = code(source);
     // Members isn't a CapabilityTab (it launches the account hub, not a
-    // capability page) so it can't carry `tab.key === TRAILING_TABS[0]` — the
-    // push instead lives on its own className.
-    expect(body).toContain('ml-auto');
+    // capability page), and the row centers now — a margin push would skew
+    // it. It stays in the single list so keyboard order is unchanged.
+    expect(body).not.toContain('ml-auto');
     expect(body).toContain('<MembersLaunchLink projectId={projectId} />');
     // One list, not two — this is a visual push, not a second `role="tablist"`.
     expect((body.match(/<TabsList\b/g) ?? []).length).toBe(1);
+  });
+
+  test('tabs center safely and snap on touch', () => {
+    const body = code(source);
+    // `justify-safe-center`: centered when the row fits, start-aligned when
+    // it overflows so the first tab never clips off-screen.
+    expect(body).toContain('justify-safe-center');
+    // Touch scrolling lands on a tab, not between two.
+    expect(body).toContain('snap-x');
+    expect(body).toContain('snap-start');
+  });
+
+  test('tab targets read bigger: padded, gapped, larger type', () => {
+    const body = code(source);
+    expect(body).toContain('px-2 py-3.5');
+    expect(body).toContain('text-[15px]');
+    expect(body).toContain('gap-6');
   });
 });
 

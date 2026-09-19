@@ -414,7 +414,7 @@ export const posture = {
    Grounded in docs/SECURITY.md. The mailbox is ALREADY published publicly on
    /support (support/page.tsx), so naming it here adds no new exposure, and the
    three timelines below are that document's policy quoted exactly.
-   ⚠️ BEFORE THIS PAGE GOES LIVE: docs/SECURITY.md marks security@kortix.com as
+   ⚠️ BEFORE THIS PAGE GOES LIVE: docs/SECURITY.md marks security@dosco.live as
    a PLACEHOLDER that "must be created and monitored before this policy is
    published externally". Confirm the mailbox is real and watched, or cut the
    SLA rows — publishing a 3-day acknowledgement against an unread inbox is
@@ -423,7 +423,7 @@ export const disclosure = {
   eyebrow: 'Responsible disclosure',
   title: 'Found something? Tell us privately.',
   sub: 'Please do not open a public issue for a vulnerability. Mail the security contact with the affected version or commit, the reproduction, and the impact.',
-  email: 'security@kortix.com',
+  email: 'security@dosco.live',
   slas: [
     { k: 'Acknowledgement', v: 'Within 3 business days' },
     { k: 'Triage & severity', v: 'Within 5 business days' },
