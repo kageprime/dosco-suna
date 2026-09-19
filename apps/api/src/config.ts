@@ -619,6 +619,11 @@ const envSchema = z.object({
   E2B_API_KEY: optStr,
   E2B_DOMAIN: optStrDefault('e2b.dev'),
   E2B_TEMPLATE: optStr,
+  // Per-webhook signature secret chosen at E2B webhook registration
+  // (`POST api.e2b.app/events/webhooks`, field `signatureSecret`). Optional —
+  // same backstop story as Daytona's/Platinum's: unset means 503 here and the
+  // reaper sweep alone keeps billing correct.
+  E2B_WEBHOOK_SECRET: optStr,
 
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // Public API base URL, without a route suffix. Auto-derived from PORT in local mode.
@@ -1271,6 +1276,7 @@ export const config = {
   E2B_API_KEY: env.E2B_API_KEY,
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
+  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,

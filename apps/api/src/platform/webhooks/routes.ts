@@ -1,6 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { makeOpenApiApp, json, errors } from '../../openapi';
-import { handleDaytonaWebhook, handlePlatinumWebhook } from './sandbox-webhooks';
+import { handleDaytonaWebhook, handleE2bWebhook, handlePlatinumWebhook } from './sandbox-webhooks';
 
 /**
  * Sandbox lifecycle webhook ingress (NOT billing — these are provider state
@@ -52,6 +52,24 @@ sandboxWebhooksApp.openapi(
   async (c: any) => {
     const rawBody = await c.req.text();
     const { status, body } = await handlePlatinumWebhook(rawBody, (h: string) => c.req.header(h));
+    return c.json(body, status);
+  },
+);
+
+sandboxWebhooksApp.openapi(
+  createRoute({
+    method: 'post',
+    path: '/e2b',
+    tags: ['webhooks'],
+    summary: 'E2B sandbox lifecycle webhook (base64 sha256(secret + body), public)',
+    responses: {
+      200: json(z.record(z.string(), z.any()), 'Webhook processing result'),
+      ...errors(400, 401, 503),
+    },
+  }),
+  async (c: any) => {
+    const rawBody = await c.req.text();
+    const { status, body } = await handleE2bWebhook(rawBody, (h: string) => c.req.header(h));
     return c.json(body, status);
   },
 );

@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { createHmac } from 'node:crypto';
 import * as realSandboxReaper from '../../projects/sandbox-reaper';
 
-const cfg: { DAYTONA_WEBHOOK_SECRET?: string; PLATINUM_WEBHOOK_SECRET?: string } = {};
+const cfg: {
+  DAYTONA_WEBHOOK_SECRET?: string;
+  PLATINUM_WEBHOOK_SECRET?: string;
+  E2B_WEBHOOK_SECRET?: string;
+} = {};
 let stoppedCalls: string[] = [];
 let stoppedOptions: Array<Record<string, unknown> | undefined> = [];
 let removedCalls: string[] = [];
@@ -40,13 +44,17 @@ const {
   classifyLifecycle,
   verifyHmacSha256,
   verifySvix,
+  verifyE2bSignature,
+  classifyE2bLifecycle,
   handleDaytonaWebhook,
   handlePlatinumWebhook,
+  handleE2bWebhook,
 } = await import('./sandbox-webhooks');
 
 beforeEach(() => {
   cfg.DAYTONA_WEBHOOK_SECRET = undefined;
   cfg.PLATINUM_WEBHOOK_SECRET = undefined;
+  cfg.E2B_WEBHOOK_SECRET = undefined;
   stoppedCalls = [];
   stoppedOptions = [];
   removedCalls = [];
@@ -184,5 +192,102 @@ describe('handlePlatinumWebhook', () => {
     expect(r.status).toBe(200);
     expect(stoppedCalls).toEqual([]);
     expect(removedCalls).toEqual([]);
+  });
+});
+
+describe('verifyE2bSignature', () => {
+  const secret = 'e2b-sig-secret';
+  const e2bSign = (body: string) =>
+    createHmac('sha256', secret).update(body, 'utf8').digest('base64').replace(/=+$/, '');
+  test('accepts the stripped base64 form', async () => {
+    const body = JSON.stringify({ sandbox_id: 'sb', type: 'sandbox.lifecycle.killed' });
+    expect(verifyE2bSignature(body, secret, e2bSign(body))).toBe(true);
+  });
+  test('rejects tampered bodies and missing headers', async () => {
+    const body = JSON.stringify({ sandbox_id: 'sb', type: 'sandbox.lifecycle.killed' });
+    expect(verifyE2bSignature(body, secret, e2bSign(`${body} `))).toBe(false);
+    expect(verifyE2bSignature(body, secret, undefined)).toBe(false);
+    expect(verifyE2bSignature(body, 'wrong', e2bSign(body))).toBe(false);
+  });
+});
+
+describe('classifyE2bLifecycle', () => {
+  test('killed → removed, paused → stopped, the rest → noop', () => {
+    expect(classifyE2bLifecycle('sandbox.lifecycle.killed')).toBe('removed');
+    expect(classifyE2bLifecycle('sandbox.lifecycle.paused')).toBe('stopped');
+    for (const t of [
+      'sandbox.lifecycle.created',
+      'sandbox.lifecycle.updated',
+      'sandbox.lifecycle.resumed',
+      'sandbox.lifecycle.checkpointed',
+    ]) {
+      expect(classifyE2bLifecycle(t)).toBe('noop');
+    }
+  });
+});
+
+describe('handleE2bWebhook', () => {
+  const secret = 'e2b-sig-secret';
+  function sigHeader(body: string, deliveryId = 'd1'): (h: string) => string | undefined {
+    const sig = createHmac('sha256', secret).update(body, 'utf8').digest('base64').replace(/=+$/, '');
+    return (h: string) => {
+      const k = h.toLowerCase();
+      if (k === 'e2b-signature') return sig;
+      if (k === 'e2b-delivery-id') return deliveryId;
+      return undefined;
+    };
+  }
+  test('503 when not configured', async () => {
+    const r = await handleE2bWebhook('{}', () => undefined);
+    expect(r.status).toBe(503);
+  });
+  test('401 on bad signature', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const r = await handleE2bWebhook('{"sandbox_id":"sb"}', () => 'bad');
+    expect(r.status).toBe(401);
+  });
+  test('400 on invalid json', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const r = await handleE2bWebhook('not-json{', sigHeader('not-json{'));
+    expect(r.status).toBe(400);
+  });
+  test('removes billing on killed', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const body = JSON.stringify({
+      sandbox_id: 'sbK',
+      type: 'sandbox.lifecycle.killed',
+      timestamp: '2026-09-19T00:00:00Z',
+    });
+    const r = await handleE2bWebhook(body, sigHeader(body));
+    expect(r.status).toBe(200);
+    expect(removedCalls).toEqual(['sbK']);
+  });
+  test('parks on paused, with mid-turn confirmation', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const body = JSON.stringify({ sandbox_id: 'sbP', type: 'sandbox.lifecycle.paused' });
+    const r = await handleE2bWebhook(body, sigHeader(body, 'd2'));
+    expect(r.status).toBe(200);
+    expect(stoppedCalls).toEqual(['sbP']);
+    expect(stoppedOptions).toEqual([{ confirmMidTurnStop: true }]);
+  });
+  test('noop on created, ignored without id', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const created = JSON.stringify({ sandbox_id: 'sbC', type: 'sandbox.lifecycle.created' });
+    const r = await handleE2bWebhook(created, sigHeader(created, 'd3'));
+    expect(r.status).toBe(200);
+    expect(stoppedCalls).toEqual([]);
+    expect(removedCalls).toEqual([]);
+    const noId = JSON.stringify({ type: 'sandbox.lifecycle.killed' });
+    const r2 = await handleE2bWebhook(noId, sigHeader(noId, 'd4'));
+    expect(r2.status).toBe(200);
+    expect(r2.body).toMatchObject({ ignored: 'no sandbox id' });
+  });
+  test('dedupes a repeated delivery', async () => {
+    cfg.E2B_WEBHOOK_SECRET = secret;
+    const body = JSON.stringify({ sandbox_id: 'sbD', type: 'sandbox.lifecycle.killed' });
+    const hdr = sigHeader(body, 'd5');
+    await handleE2bWebhook(body, hdr);
+    await handleE2bWebhook(body, hdr);
+    expect(removedCalls).toEqual(['sbD']); // second is deduped
   });
 });
