@@ -165,13 +165,13 @@ function MembersLaunchLink({ projectId }: { projectId: string }) {
  * visual: a screen reader walks seven tabs either way.
  */
 /**
- * Settings trails the row, on the right, after the Members link — one
- * `TabsList`, so the underline indicator, keyboard roving and `role="tablist"`
- * stay unified; only the visual position of this tab changes. It reads as
- * "how the project is configured", a different register from the build-the-
- * agent tabs to its left, and the gap says so without a second list.
+ * Project settings left the bar for its own sidebar entry
+ * (`WorkspaceSettingsNavItem`) at the same URL — configuration is a different
+ * area from the agent library now, so no tab trails the row any more. The
+ * empty list stays (rather than deleting the trailing machinery) so a future
+ * trailing tab is a one-line addition.
  */
-const TRAILING_TABS: readonly CapabilityTab['key'][] = ['config'];
+const TRAILING_TABS: readonly CapabilityTab['key'][] = [];
 
 function GroupSeam() {
   return <span aria-hidden className="bg-border mx-1 h-4 w-px shrink-0 self-center" />;
@@ -199,6 +199,21 @@ export function CapabilityTabs({ projectId }: { projectId: string }) {
       </Link>
     </TabsTrigger>
   );
+
+  // Project settings has its own sidebar entry at the same URL — the bar
+  // would show seven unrelated tabs above a configuration page. Collapse to
+  // the toggle row so the opener survives and the layout height stays
+  // predictable.
+  if (activeKey === 'config') {
+    return (
+      <div
+        className="kx-titlebar-row relative flex shrink-0 items-center gap-1 border-b px-2"
+        data-sidebar-collapsed={sidebar?.state === 'collapsed' || undefined}
+      >
+        <SidebarToggle />
+      </div>
+    );
+  }
 
   return (
     <div

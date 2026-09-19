@@ -71,21 +71,20 @@ describe('CapabilityTabs carries no capability-specific control', () => {
 });
 
 /**
- * Settings reads as "how it's configured" — a different register from the
- * build-the-agent tabs (Connectors through Secrets) to its left. Jay's call
- * (2026-08-17): push it to the far right of the row, in one `TabsList` — not
- * a second list — so the underline indicator and keyboard roving stay
- * unified.
+ * Settings left the bar for its own sidebar entry (`WorkspaceSettingsNavItem`)
+ * at the same URL — configuration is a different area from the agent library
+ * now, so no tab trails the row any more. MembersLaunchLink is the last
+ * element. The trailing machinery stays (empty) so a future trailing tab is
+ * a one-line addition.
  */
-describe('CapabilityTabs right-aligns Settings', () => {
-  test('the trailing group is exactly Settings', () => {
-    // `/projects/<id>/config` was retired on 2026-09-02 and came back on
-    // 2026-09-03 (Marko): it trails the row, after Members, in the one list.
+describe('CapabilityTabs has no trailing tab', () => {
+  test('the trailing group is empty', () => {
+    // Project settings moved out of the bar; nothing trails Members.
     const body = code(source);
     const trailingStart = body.indexOf('TRAILING_TABS');
     expect(trailingStart).toBeGreaterThan(-1);
     const trailingDecl = body.slice(trailingStart, body.indexOf(';', trailingStart));
-    expect(trailingDecl).toContain("'config'");
+    expect(trailingDecl).not.toContain("'config'");
     expect(trailingDecl).not.toContain("'members'");
     expect(body).toContain('{trailing.map(renderTab)}');
   });

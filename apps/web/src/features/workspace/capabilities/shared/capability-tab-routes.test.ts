@@ -9,7 +9,7 @@ import {
 } from './capability-tab-routes';
 
 describe('CAPABILITY_TABS', () => {
-  test('lists agent, skills, connectors, triggers, review, models, secrets, config in that order', () => {
+  test('lists agent, skills, connectors, triggers, review, models, secrets in that order', () => {
     // Agents lead the bar (Marko, 2026-09-01): an agent is the one object a
     // person is granted access to, so it is the object Customize is built
     // around. Skills — the other thing you BUILD — follows; the rest is what
@@ -24,7 +24,6 @@ describe('CAPABILITY_TABS', () => {
       'review',
       'models',
       'secrets',
-      'config',
     ]);
   });
 
@@ -61,14 +60,20 @@ describe('CAPABILITY_TABS', () => {
   });
 });
 
-describe('the Settings tab', () => {
-  test('keys on `config`, never on `settings`', () => {
-    // `/projects/<id>/settings` is the settings OVERLAY's deep-link route. Two
-    // routes cannot share one segment, so the tab that holds project
-    // configuration takes `config` and keeps the label a person reads.
-    const settings = CAPABILITY_TABS.find((t) => t.label === 'Settings');
-    expect(settings?.key).toBe('config');
+describe('the Settings area', () => {
+  test('is not a tab, but keeps its key, segment, and URL', () => {
+    // Project settings left the bar for its own sidebar entry
+    // (`WorkspaceSettingsNavItem`) at the same URL. The entry, bookmarks,
+    // and redirects still resolve through this module, so the key stays in
+    // the union, the segment map, and the active-tab matcher — only the bar
+    // array drops it.
+    // `/projects/<id>/settings` is the settings OVERLAY's deep-link route.
+    // Two routes cannot share one segment, so the area keeps the `config`
+    // key and the label a person reads lives on the sidebar row.
+    expect(CAPABILITY_TABS.map((t) => t.key)).not.toContain('config');
     expect(CAPABILITY_TABS.map((t) => t.key)).not.toContain('settings');
+    expect(capabilityTabHref('p1', 'config')).toBe('/projects/p1/customize/settings');
+    expect(activeCapabilityTab('/projects/p1/customize/settings')).toBe('config');
   });
 });
 

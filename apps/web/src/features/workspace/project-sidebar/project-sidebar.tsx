@@ -23,6 +23,7 @@ import { ProjectFilesNavItem } from '@/features/workspace/project-sidebar/footer
 import { ProjectManifestUpgradeAlert } from '@/features/workspace/project-sidebar/footer/project-manifest-upgrade-alert';
 import { ProjectMarketplaceNavItem } from '@/features/workspace/project-sidebar/footer/project-marketplace-nav';
 import { ProjectSandboxAlert } from '@/features/workspace/project-sidebar/footer/project-sandbox-alert';
+import { WorkspaceSettingsNavItem } from '@/features/workspace/project-sidebar/footer/project-workspace-settings-nav';
 import { ProjectSessionList } from '@/features/workspace/project-sidebar/project-session-list';
 import { ProjectCustomizeNavItem } from '@/features/workspace/project-sidebar/project-settings-nav';
 import { useIsCreatingProjectSession } from '@/hooks/projects/new-session-guard';
@@ -216,6 +217,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               <ProjectCustomizeNavItem />
               <ProjectMarketplaceNavItem />
               <ProjectAppsNavItem />
+              <WorkspaceSettingsNavItem />
             </SidebarMenu>
           </SidebarGroup>
 

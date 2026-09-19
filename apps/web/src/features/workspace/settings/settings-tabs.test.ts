@@ -236,8 +236,8 @@ describe('legacySectionRedirect', () => {
     }
   });
 
-  test('marketplace redirects to the Customize index — the product removed it, it did not move', () => {
-    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/customize');
+  test('marketplace redirects to its sidebar entry — same URL it always had', () => {
+    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/customize/marketplace');
   });
 
   test('graduated capability pages still leave the overlay', () => {

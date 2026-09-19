@@ -91,7 +91,6 @@ export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'review', label: 'Review' },
   { key: 'models', label: 'Models' },
   { key: 'secrets', label: 'Secrets' },
-  { key: 'config', label: 'Settings' },
 ];
 
 /**
