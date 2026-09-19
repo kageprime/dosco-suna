@@ -9,7 +9,7 @@ import {
 } from './capability-tab-routes';
 
 describe('CAPABILITY_TABS', () => {
-  test('lists agent, skills, connectors, marketplace, triggers, review, models, secrets, config in that order', () => {
+  test('lists agent, skills, connectors, triggers, review, models, secrets, config in that order', () => {
     // Agents lead the bar (Marko, 2026-09-01): an agent is the one object a
     // person is granted access to, so it is the object Customize is built
     // around. Skills — the other thing you BUILD — follows; the rest is what
@@ -20,7 +20,6 @@ describe('CAPABILITY_TABS', () => {
       'agent',
       'skills',
       'connectors',
-      'marketplace',
       'triggers',
       'review',
       'models',
@@ -79,6 +78,9 @@ describe('capabilityTabHref', () => {
     expect(capabilityTabHref('p1', 'agent')).toBe('/projects/p1/customize/agents');
     expect(capabilityTabHref('p1', 'triggers')).toBe('/projects/p1/customize/triggers');
     expect(capabilityTabHref('p1', 'review')).toBe('/projects/p1/customize/review');
+    // Marketplace left the tab bar for its own sidebar entry but keeps its
+    // URL — the row, bookmarks, and redirects all still resolve through here.
+    expect(capabilityTabHref('p1', 'marketplace')).toBe('/projects/p1/customize/marketplace');
   });
 });
 
@@ -104,6 +106,7 @@ describe('activeCapabilityTab', () => {
     expect(activeCapabilityTab('/projects/p1/customize/skills')).toBe('skills');
     expect(activeCapabilityTab('/projects/p1/customize/triggers')).toBe('triggers');
     expect(activeCapabilityTab('/projects/p1/customize/review')).toBe('review');
+    expect(activeCapabilityTab('/projects/p1/customize/marketplace')).toBe('marketplace');
   });
   test('ignores a trailing slash', () => {
     expect(activeCapabilityTab('/projects/p1/customize/skills/')).toBe('skills');

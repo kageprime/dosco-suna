@@ -6,6 +6,7 @@ import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
@@ -20,6 +21,7 @@ import { ProjectChangeRequestsNavItem } from '@/features/workspace/project-sideb
 import { ProjectChatGptConnectNavItem } from '@/features/workspace/project-sidebar/footer/project-chatgpt-connect-nav';
 import { ProjectFilesNavItem } from '@/features/workspace/project-sidebar/footer/project-files-nav';
 import { ProjectManifestUpgradeAlert } from '@/features/workspace/project-sidebar/footer/project-manifest-upgrade-alert';
+import { ProjectMarketplaceNavItem } from '@/features/workspace/project-sidebar/footer/project-marketplace-nav';
 import { ProjectSandboxAlert } from '@/features/workspace/project-sidebar/footer/project-sandbox-alert';
 import { ProjectSessionList } from '@/features/workspace/project-sidebar/project-session-list';
 import { ProjectCustomizeNavItem } from '@/features/workspace/project-sidebar/project-settings-nav';
@@ -106,7 +108,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
 
   return (
     <Sidebar
-      collapsible="offcanvas"
+      collapsible="push"
       variant="inset"
       // No background here. This className lands on the sidebar CONTAINER —
       // the square positioning box — while the visible card is the rounded
@@ -121,27 +123,12 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
             'max(calc(var(--spacing) * 2), env(safe-area-inset-top, 0px), var(--kx-titlebar-inset, 0px))',
         }}
       >
-        {/* Offcanvas everywhere: the whole panel slides, so the header keeps a
-            single layout. Three controls on one 240px row, all 32px tall: the
-            merged brand/switcher control, search, and the panel's own collapse
-            toggle — so the collapse control sits inside the thing it collapses
-            and the session header no longer has to carry a toggle while the
-            panel is docked open.
-
-            ONE control answers "who am I / where am I / where can I go". It was
-            three: a `<Link>` carrying the Dosco mark fused to a separate
-            dropdown trigger carrying the workspace name up here, plus the user
-            menu as a third control down in the footer — two of the three being
-            dropdowns. The link is gone, because a control that is half
-            navigation and half disclosure makes you guess which half you are
-            pointing at. The workspace directory is now a second VIEW of this
-            menu, behind "Switch Workspace", which is why there is no footer
-            control below any more. */}
+        {/* Header keeps the two panel tools: search and the panel's own
+            collapse toggle. The who-am-I / where-am-I control
+            (`WorkspaceSwitcher`: account, settings, appearance, logout) lives
+            in the footer, bottom of the panel, where a user menu belongs. */}
         <div className="flex w-full items-center gap-1">
-          <div className="min-w-0">
-            <WorkspaceSwitcher projectId={projectId} />
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0.5">
             {/* Search is the palette's only pointer-reachable entry point —
                 ⌘K is otherwise the whole discovery story. Renders on mobile
                 too: there is no keystroke to fall back on there. */}
@@ -227,6 +214,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               </SidebarMenuItem>
 
               <ProjectCustomizeNavItem />
+              <ProjectMarketplaceNavItem />
               <ProjectAppsNavItem />
             </SidebarMenu>
           </SidebarGroup>
@@ -251,6 +239,12 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
           </SidebarGroup>
         </div>
       </SidebarContent>
+
+      {/* The user/account control: settings, appearance, logout, workspace
+          switching. Bottom of the panel, full width, menu opening upward. */}
+      <SidebarFooter className="pt-0">
+        <WorkspaceSwitcher projectId={projectId} />
+      </SidebarFooter>
 
       <SidebarRail aria-label={t('resize')} title={t('resizeHelp')} />
     </Sidebar>

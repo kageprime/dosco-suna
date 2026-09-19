@@ -14,8 +14,9 @@ import { cn } from '@/lib/utils';
 /**
  * THE sidebar opener. One control, one file, every surface.
  *
- * The project sidebar is `collapsible="offcanvas"` — collapsed means gone, not
- * an icon rail — so every view that can be looked at with it hidden needs a way
+ * The project sidebar is `collapsible="push"` — collapsed parks the panel
+ * off-screen (no icon rail), expanded docks it pushing the content — so
+ * every view that can be looked at with it hidden needs a way
  * back. `sidebar-opener.ts` already unified the RULE ("should this view draw
  * one?"); the CONTROL stayed copy-pasted, and six files ended up carrying the
  * same eighteen lines of `Hint` + ghost icon `Button` + peek wiring:

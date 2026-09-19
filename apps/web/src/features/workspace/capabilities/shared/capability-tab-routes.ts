@@ -50,6 +50,11 @@ export interface CapabilityTab {
  * `project-sidebar/project-settings-nav.tsx` mirrors it and is asserted
  * against it, so reordering here moves the landing tab too.
  *
+ * Marketplace is NOT a tab: it has its own top-level sidebar entry
+ * (`ProjectMarketplaceNavItem`, below New session + Customize) but keeps its
+ * `/customize/marketplace` URL, so `CAPABILITY_SEGMENT`, `capabilityTabHref`
+ * and `activeCapabilityTab` still cover it below.
+ *
  * ## Agents lead, everything else is their library
  *
  * Customize is agent-centric (Marko, 2026-09-01). An agent is the only
@@ -82,7 +87,6 @@ export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'agent', label: 'Agents' },
   { key: 'skills', label: 'Skills' },
   { key: 'connectors', label: 'Connectors' },
-  { key: 'marketplace', label: 'Marketplace' },
   { key: 'triggers', label: 'Triggers' },
   { key: 'review', label: 'Review' },
   { key: 'models', label: 'Models' },
@@ -177,6 +181,11 @@ export function activeCapabilityTab(pathname: string): CapabilityTab['key'] | nu
   if (segments[0] !== 'projects' || segments[2] !== 'customize') return null;
   if (segments.length === 5 && segments[3] === CAPABILITY_SEGMENT.agent) return 'agent';
   if (segments.length !== 4) return null;
-  const hit = CAPABILITY_TABS.find((t) => CAPABILITY_SEGMENT[t.key] === segments[3]);
-  return hit ? hit.key : null;
+  // Matched against the segment map, not the tab bar: Marketplace left the
+  // bar for its own sidebar entry but keeps its URL, and its row still needs
+  // to light. Same shape check otherwise.
+  const hit = (Object.keys(CAPABILITY_SEGMENT) as CapabilityTab['key'][]).find(
+    (key) => CAPABILITY_SEGMENT[key] === segments[3],
+  );
+  return hit ?? null;
 }

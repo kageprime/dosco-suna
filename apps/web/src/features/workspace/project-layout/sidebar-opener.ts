@@ -8,8 +8,9 @@ import { desktopShellPlatform, type DesktopShellPlatform } from '@/lib/desktop';
 /**
  * Who is allowed to draw a "bring the sidebar back" control.
  *
- * The project sidebar is `collapsible="offcanvas"` — collapsed means gone, not
- * an icon rail — so every view that can be looked at with it hidden needs a way
+ * The project sidebar is `collapsible="push"` — collapsed parks the panel
+ * off-screen (no icon rail), expanded docks it in-flow pushing the content —
+ * so every view that can be looked at with it hidden needs a way
  * back. Five of them grew their own copy of that control, each with its own
  * visibility rule, and the rules drifted apart:
  *

@@ -350,11 +350,20 @@ function Sidebar({
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right';
   variant?: 'sidebar' | 'floating' | 'inset';
-  collapsible?: 'offcanvas' | 'icon' | 'none';
+  /**
+   * `offcanvas` — collapsed means gone: the gap goes `w-0` and the panel
+   * parks off-screen (overlay/flyout only).
+   *
+   * `push` — collapsed behaves exactly like offcanvas (gap `w-0`, parked
+   * panel, hover flyout), but expanded docks the panel IN-FLOW (`relative`,
+   * inside the gap) so the content pane is pushed aside instead of slid
+   * under. Opening still lands in one frame — same rule as offcanvas.
+   */
+  collapsible?: 'offcanvas' | 'icon' | 'none' | 'push';
 }) {
   const { isMobile, state, openMobile, setOpenMobile, peek, peekEnter, peekLeave, instantToggle } =
     useSidebar();
-  const slides = collapsible === 'offcanvas' && side === 'left';
+  const slides = (collapsible === 'offcanvas' || collapsible === 'push') && side === 'left';
   const peekable = slides && state === 'collapsed';
   const peeking = peekable && peek;
 
@@ -447,6 +456,11 @@ function Sidebar({
         className={cn(
           'relative w-(--sidebar-width) bg-transparent',
           'group-data-[collapsible=offcanvas]:w-0',
+          // Push keeps a full gap while expanded (the panel docks inside
+          // it) and collapses it exactly like offcanvas. `data-collapsible`
+          // on the parent carries the variant only while collapsed, so this
+          // rule fires only there — same mechanism as offcanvas above.
+          'group-data-[collapsible=push]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
             ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
@@ -508,6 +522,13 @@ function Sidebar({
                 // Above the content headers for the whole collapsed
                 // lifecycle, so the exit slide is never clipped by one.
                 state === 'collapsed' && 'z-40',
+                // Push docks in-flow while expanded: `relative` overrides the
+                // base `fixed` (same twMerge position group), so the panel
+                // occupies the gap and pushes the content pane instead of
+                // sliding over it. The leftover `inset-y-0 left-0` offsets are
+                // no-ops on relative positioning. Collapsed push is identical
+                // to offcanvas: fixed, parked, flyout on hover.
+                collapsible === 'push' && state === 'expanded' && 'relative',
                 // The radius is declared on BOTH boxes on purpose. The card
                 // itself is `sidebar-inner`; this outer box only positions and
                 // transforms it — but `className` from the consumer lands

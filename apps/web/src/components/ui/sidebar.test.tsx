@@ -40,8 +40,7 @@ function renderRail(defaultOpen: boolean) {
 const slotClass = (html: string, slot: string) =>
   html.match(new RegExp(`data-slot="${slot}"[^>]*class="([^"]*)"`))?.[1] ?? '';
 
-describe('Sidebar offcanvas peek styling', () => {
-  test('collapsed sidebar parks off-screen already in flyout geometry', () => {
+describe('Sidebar offcanvas peek styling', () => {  test('collapsed sidebar parks off-screen already in flyout geometry', () => {
     const html = renderShell(false);
     expect(html).toContain('data-collapsible="offcanvas"');
     expect(html).toContain('-translate-x-[calc(100%+2rem)]');
@@ -82,6 +81,50 @@ describe('Sidebar offcanvas peek styling', () => {
     expect(slotClass(renderShell(false), 'sidebar-container')).toContain(
       'ease-[cubic-bezier(0.32,0.72,0,1)]',
     );
+  });
+});
+
+function renderPushShell(defaultOpen: boolean) {
+  return renderToStaticMarkup(
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <Sidebar collapsible="push" variant="inset">
+        <span>content</span>
+      </Sidebar>
+      <SidebarEdgePeek />
+    </SidebarProvider>,
+  );
+}
+
+describe('Sidebar push variant', () => {
+  test('expanded push docks in-flow instead of overlaying', () => {
+    const html = renderPushShell(true);
+    // Expanded carries no collapsible value, so no collapse rule fires.
+    expect(html).toContain('data-collapsible=""');
+    const cls = slotClass(html, 'sidebar-container');
+    // `relative` overrides the base `fixed` (same twMerge position group):
+    // the panel occupies the gap and pushes the content pane.
+    expect(cls).toContain('relative');
+    expect(cls).toContain('translate-x-0');
+    expect(cls).not.toContain('-translate-x-');
+    // Full gap while docked — the push the variant exists for. The collapse
+    // rule is present in the class list but inert: it only fires when
+    // `data-collapsible="push"`, which the parent sets solely while collapsed.
+    expect(slotClass(html, 'sidebar-gap')).toContain('w-(--sidebar-width)');
+  });
+
+  test('collapsed push parks exactly like offcanvas', () => {
+    const html = renderPushShell(false);
+    expect(html).toContain('data-collapsible="push"');
+    expect(html).toContain('-translate-x-[calc(100%+2rem)]');
+    expect(html).toContain('top-13');
+    expect(html).not.toContain('data-peek');
+    expect(slotClass(html, 'sidebar-gap')).toContain('group-data-[collapsible=push]:w-0');
+    expect(slotClass(html, 'sidebar-container')).not.toContain('relative');
+  });
+
+  test('push keeps the hover flyout and edge peek', () => {
+    // EdgePeek renders only while collapsed (mobile excluded here).
+    expect(renderPushShell(false)).toContain('data-slot="sidebar-edge-peek"');
   });
 });
 

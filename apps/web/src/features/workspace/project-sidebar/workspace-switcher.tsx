@@ -199,7 +199,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
 
             <DropdownMenuContent
               align="start"
-              side="bottom"
+              side="top"
               sideOffset={6}
               className="border-foreground/10 w-[15rem] space-y-0.5 overflow-hidden shadow-lg"
             >

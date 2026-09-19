@@ -3,19 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * The sidebar header row: the workspace switcher, search, and the panel's own
- * collapse toggle.
+ * The sidebar header row: search and the panel's own collapse toggle.
  *
- * That first control used to be three. A `<Link>` carrying the Dosco mark was
- * fused to a separate dropdown trigger carrying the workspace name, and the user
- * menu was a third control down in the footer — two of the three being
- * dropdowns, all answering some slice of "where am I / where can I go / who am
- * I". It is one `WorkspaceSwitcher` now, named for the question it exists to
- * answer, with the directory behind a "Switch Workspace" submenu.
- *
- * Asserted against the source because the alternative is mounting the whole
- * sidebar (sidebar + auth + query + i18n providers) to observe which controls
- * one header row renders.
+ * The who-am-I / where-am-I control (`WorkspaceSwitcher`: account, settings,
+ * appearance, logout) lives in the footer, bottom of the panel — a user menu
+ * belongs at the bottom, and the header stays two tools. Asserted against the
+ * source because the alternative is mounting the whole sidebar (sidebar +
+ * auth + query + i18n providers) to observe which controls one header row
+ * renders.
  */
 const source = readFileSync(join(import.meta.dir, 'project-sidebar.tsx'), 'utf8');
 
@@ -31,40 +26,30 @@ const header = source.slice(source.indexOf('<SidebarHeader'), source.indexOf('</
 const headerCode = header.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 describe('project sidebar header', () => {
-  test('the workspace switcher leads the row', () => {
-    expect(header).toContain('<WorkspaceSwitcher projectId={projectId} />');
+  test('the header carries tools, not the workspace switcher', () => {
+    expect(header).not.toContain('<WorkspaceSwitcher');
+    expect(header).toContain("aria-label={t('search')}");
+    expect(header).toContain('onClick={toggleSidebar}');
   });
 
-  // The whole point of the merge: one control. The old split brand/name control
-  // and the standalone mark button may not come back.
-  test('no standalone Dosco mark button beside it', () => {
+  test('the user control lives in the footer and opens upward', () => {
+    const footer = source.slice(source.indexOf('<SidebarFooter'));
+    expect(footer).toContain('<WorkspaceSwitcher projectId={projectId} />');
+  });
+
+  // The sidebar has exactly one dropdown: the footer user control. No
+  // standalone mark button in the header, no second menu anywhere.
+  test('exactly one dropdown: the footer user control', () => {
     expect(headerCode).not.toContain('<Icon.Dosco');
     expect(headerCode).not.toContain('<Link');
-  });
-
-  // The user menu was the third control, at the other end of the same panel.
-  // It belongs to the app header now; the sidebar has exactly one dropdown.
-  test('the footer carries no second menu', () => {
-    expect(source).not.toContain('<SidebarFooter');
+    expect(headerCode).not.toContain('<WorkspaceSwitcher');
     expect(source).not.toContain('UserMenu');
   });
 
-  // The bug: a `w-fit` trigger inside a full-width wrapper left an inert strip
-  // between the project name and search that looked clickable and was not.
-  //
-  // It was fixed by making the switcher span the row, and this test pinned that
-  // MECHANISM (`min-w-0 flex-1` on the wrapper). The row carries three controls
-  // now — switcher, search, collapse toggle — so the switcher cannot own it,
-  // and the mechanism no longer applies. The INVARIANT does, and is what this
-  // now pins: the wrapper hugs its trigger and the trailing controls are pushed
-  // off by `ml-auto` on their own group, so the gap in between belongs to no
-  // control and cannot paint as one.
-  //
-  // What must never come back is the original shape — a wrapper that grows
-  // while the trigger inside it does not.
-  test('no dead strip beside the workspace switcher', () => {
-    expect(header).toContain('<div className="min-w-0">');
-    expect(header).toContain('className="ml-auto flex shrink-0 items-center gap-0.5"');
+  // The header row is two icon tools now that the switcher lives in the
+  // footer — no dead strip can form beside a control that spans nothing.
+  test('no dead strip in the header tools row', () => {
+    expect(header).toContain('className="flex shrink-0 items-center gap-0.5"');
     expect(header).not.toContain('min-w-0 flex-1');
     expect(header).not.toContain('max-w-full');
     expect(header).not.toContain('w-fit');

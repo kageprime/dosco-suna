@@ -61,6 +61,7 @@ import {
   MagnifyingGlassIcon as Search,
   ShieldCheckIcon as ShieldCheck,
   SlidersHorizontalIcon as SlidersHorizontal,
+  StorefrontIcon as Storefront,
   TerminalIcon as Terminal,
   TextAlignLeftIcon as TextAlignLeft,
   TrayIcon as Tray,
@@ -637,6 +638,17 @@ export const menuRegistry: MenuItemDef[] = [
     // one-word query for that page returned Connectors as well. 'connector' /
     // 'connectors' / 'connections' still cover everything this row is called.
     keywords: 'connectors connections pipedream mcp openapi postman collections connector',
+  },
+  {
+    id: 'proj-marketplace',
+    label: 'Marketplace',
+    icon: Storefront,
+    group: 'navigation',
+    showIn: ['commandPalette'],
+    kind: 'navigate',
+    href: '/projects/{projectId}/customize/marketplace',
+    requiresProject: true,
+    keywords: 'marketplace browse install vendors registries catalog community',
   },
   {
     id: 'proj-channels',

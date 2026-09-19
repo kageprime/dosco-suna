@@ -5,7 +5,7 @@ import { shouldShowPageSidebarOpener, sidebarOpenerLabel } from './sidebar-opene
 /**
  * One panel, one opener.
  *
- * The project sidebar is `collapsible="offcanvas"` — collapsed means gone —
+ * The project sidebar is `collapsible="push"` — collapsed parks it off-screen —
  * so five views grew their own "bring it back" control and each carried its
  * own copy of this rule. Four of them omitted the desktop-shell clause, which
  * is how the macOS build ended up drawing a second opener at `top-2 left-2`,

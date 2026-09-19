@@ -396,7 +396,6 @@ describe('the registry no longer carries palette settings destinations', () => {
     for (const id of [
       'proj-git',
       'proj-sandbox',
-      'proj-marketplace',
       'proj-llm',
       'proj-review',
       'proj-voice',
@@ -407,6 +406,19 @@ describe('the registry no longer carries palette settings destinations', () => {
     ]) {
       expect(paletteItems.find((item) => item.id === id)).toBeUndefined();
     }
+  });
+
+  test('Marketplace is a registry row again, pointing at its sidebar entry', () => {
+    // `proj-marketplace` was in the gone-list while Marketplace had no
+    // surface of its own. It is back because Marketplace left the capability
+    // tab bar for a top-level sidebar entry at the same URL — same
+    // arrangement as `proj-triggers`.
+    const href = '/projects/{projectId}/customize/marketplace';
+    const item = paletteItems.find((entry) => entry.id === 'proj-marketplace');
+    expect(item?.href).toBe(href);
+    expect(item?.kind).toBe('navigate');
+    expect(item?.requiresProject).toBe(true);
+    expect(resolveSettingsOverlayHref(href).opensOverlay).toBe(false);
   });
 
   test('Triggers is a registry row, pointing at its own page', () => {

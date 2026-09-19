@@ -240,11 +240,9 @@ const GRADUATED: Record<string, (projectId: string) => string> = {
   'llm-budgets': (p) => capabilityTabHref(p, 'models'),
   'llm-keys': (p) => capabilityTabHref(p, 'models'),
   'llm-api': (p) => capabilityTabHref(p, 'models'),
-  // Marketplace was removed from the product outright, not relocated. The
-  // closest honest destination for a stale bookmark is the Customize index —
-  // it lists every surface that replaced it, rather than a 404 or a pane that
-  // no longer exists.
-  marketplace: (p) => `/projects/${p}/customize`,
+  // Marketplace lives as a top-level sidebar entry at its own
+  // `/customize/marketplace` URL — a stale bookmark lands straight on it.
+  marketplace: (p) => capabilityTabHref(p, 'marketplace'),
 };
 
 /**
