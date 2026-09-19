@@ -1,6 +1,6 @@
 {
   "id": "686da7f6-ffd8-4b46-831a-9e8dd01264ae",
-  "prevId": "0405819a-1a99-4063-a899-028e0eb7dca1",
+  "prevId": "150f4625-bf24-4c6d-84b6-a1ae70303cff",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7762,6 +7762,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "paystack_subscription_code": {
+          "name": "paystack_subscription_code",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paystack_email_token": {
+          "name": "paystack_email_token",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "plan_type": {
           "name": "plan_type",
           "type": "varchar(50)",
@@ -8182,6 +8194,18 @@
         },
         "revenuecat_product_id": {
           "name": "revenuecat_product_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paystack_reference": {
+          "name": "paystack_reference",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paystack_access_code": {
+          "name": "paystack_access_code",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false

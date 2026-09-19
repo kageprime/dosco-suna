@@ -519,6 +519,13 @@
       "when": 1789563642253,
       "tag": "20260916130042_prompt_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789781552651,
+      "tag": "20260919013232___ci_schema_sync",
+      "breakpoints": true
     }
   ]
 }
