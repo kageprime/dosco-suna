@@ -75,6 +75,13 @@ export const TAB_PREFERENCE: readonly { key: CapabilityTab['key']; action: strin
   // same leaf the Connectors row above already probes, so folding it in
   // removed a duplicate probe rather than a gate.
   { key: 'secrets', action: PROJECT_ACTIONS.PROJECT_SECRET_READ },
+  // Settings (`/projects/<id>/config`) holds the project configuration that
+  // did not earn its own top-level tab. It reuses `project.customize.write`,
+  // the SAME leaf the row itself gates on above, rather than inventing a
+  // narrower one: anyone who can see the Customize row at all can open this
+  // tab, so a second, stricter probe here could only ever produce a row that
+  // leads nowhere. Retired 2026-09-02, back 2026-09-03 (Marko).
+  { key: 'config', action: PROJECT_ACTIONS.PROJECT_CUSTOMIZE_WRITE },
 ];
 
 /**
