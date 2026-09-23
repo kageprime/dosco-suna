@@ -7,7 +7,7 @@
   "homepage": "https://github.com/kortix-ai/suna/tree/main/packages/sdk",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kortix-ai/suna.git",
+    "url": "git+https://github.com/kageprime/dosco-suna.git",
     "directory": "packages/sdk"
   },
   "keywords": ["kortix", "agent", "sdk", "sessions", "streaming", "opencode"],

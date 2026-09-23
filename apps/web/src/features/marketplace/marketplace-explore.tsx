@@ -425,6 +425,7 @@ export function MarketplaceExplore({
           search={searchNode}
           filters={pillsNode}
           scrollRef={pageScrollRef}
+          compact
         >
           {contentNode}
         </CapabilityPageShell>

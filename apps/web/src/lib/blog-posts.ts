@@ -1942,7 +1942,7 @@ triggers:
     { type: 'h2', text: 'Read every line, then run it on your own box' },
     {
       type: 'p',
-      text: 'All of it is open source. Dosco is developed in the open at [kortix-ai/suna](?) — clone the repo, read what you are trusting, fork it if you want it different. Then run that same product on hardware you control. One Docker Compose stack, built from the images the managed cloud runs, so it is the whole platform rather than a cut-down edition, and the database, the file storage, every project repo, the secrets, the policies and the audit record sit on disk you control.',
+      text: 'All of it is open source. Dosco is developed in the open at [dosco-suna](https://github.com/kageprime/dosco-suna) — clone the repo, read what you are trusting, fork it if you want it different. Then run that same product on hardware you control. One Docker Compose stack, built from the images the managed cloud runs, so it is the whole platform rather than a cut-down edition, and the database, the file storage, every project repo, the secrets, the policies and the audit record sit on disk you control.',
     },
     {
       type: 'code',

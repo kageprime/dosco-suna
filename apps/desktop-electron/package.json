@@ -5,7 +5,7 @@
   "private": true,
   "description": "Kortix desktop shell — Electron wrapper around the web app",
   "author": "Dosco",
-  "repository": "https://github.com/kortix-ai/suna",
+  "repository": "https://github.com/kageprime/dosco-suna",
   "main": "src/main.js",
   "scripts": {
     "test": "bun test src",

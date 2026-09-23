@@ -6,7 +6,7 @@
   "homepage": "https://github.com/kortix-ai/suna/tree/main/packages/llm-catalog",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kortix-ai/suna.git",
+    "url": "git+https://github.com/kageprime/dosco-suna.git",
     "directory": "packages/llm-catalog"
   },
   "keywords": ["kortix", "llm-catalog", "models", "ai", "sdk"],

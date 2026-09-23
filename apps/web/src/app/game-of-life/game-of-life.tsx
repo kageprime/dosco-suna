@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Conway's Game of Life that seeds itself from the current Dosco logo,
  * then lets the simulation evolve. A port of the original kortix-web
- * landing animation (github.com/kortix-ai/kortix-web) onto the latest
+ * landing animation (github.com/kageprime/dosco-suna) onto the latest
  * Dosco brandmark, rendered on a blank white page.
  */
 export function GameOfLife() {

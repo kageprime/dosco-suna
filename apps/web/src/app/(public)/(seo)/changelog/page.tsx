@@ -54,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // Rebuild hourly so new releases show up without a deploy.
 export const revalidate = 3600;
 
-const REPO = 'kortix-ai/suna';
+const REPO = 'kageprime/dosco-suna';
 
 interface GitHubRelease {
   tag_name: string;

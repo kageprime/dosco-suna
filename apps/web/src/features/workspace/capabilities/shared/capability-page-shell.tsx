@@ -17,6 +17,10 @@ interface CapabilityPageShellProps {
   /** External scroll element (the marketplace passes its own so the
    *  virtualized grids observe it). Defaults to an internal ref. */
   scrollRef?: RefObject<HTMLDivElement | null>;
+  /** Compact chrome for embedded-style pages (in-project marketplace):
+   *  tighter top padding so content starts near the panel top instead of
+   *  below a full marketing header. Sibling tabs keep the roomy default. */
+  compact?: boolean;
 }
 
 /**
@@ -43,12 +47,19 @@ export function CapabilityPageShell({
   filters,
   children,
   scrollRef,
+  compact = false,
 }: CapabilityPageShellProps) {
   const internalRef = useCapabilityScrollRootRef();
   const resolvedRef = scrollRef ?? internalRef;
   return (
     <div ref={resolvedRef} className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-10 pb-20 lg:py-14">
+      <div
+        className={
+          compact
+            ? 'mx-auto w-full max-w-5xl space-y-4 px-4 pt-6 pb-16'
+            : 'mx-auto w-full max-w-5xl space-y-5 px-4 py-10 pb-20 lg:py-14'
+        }
+      >
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <h1 className="text-foreground text-xl font-medium text-balance">{title}</h1>

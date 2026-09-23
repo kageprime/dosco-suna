@@ -15,7 +15,7 @@
 
 import type { DesktopOs } from './detect-os';
 
-const REPO = 'kortix-ai/suna';
+const REPO = 'kageprime/dosco-suna';
 const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 /** Where every download falls back to when the API is unreachable. */
