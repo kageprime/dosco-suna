@@ -23,7 +23,7 @@ describe('sandboxCallbackDeadTunnelReason', () => {
       throw new Error('must not be called');
     }) as unknown as typeof fetch;
     expect(
-      await sandboxCallbackDeadTunnelReason(Date.now(), 'https://api.kortix.com/v1', explodingFetch),
+      await sandboxCallbackDeadTunnelReason(Date.now(), 'https://api.dosco.live/v1', explodingFetch),
     ).toBeNull();
   });
 

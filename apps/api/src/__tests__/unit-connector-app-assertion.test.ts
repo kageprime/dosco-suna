@@ -1,7 +1,7 @@
 /**
- * Connector → Kortix App (spec docs/specs/2026-09-22-agents-as-principals.md
+ * Connector → Dosco App (spec docs/specs/2026-09-22-agents-as-principals.md
  * §2.5). The incident: a connector built from an App's OpenAPI document put the
- * App's OWN key in `Authorization`; the App gate read it as a Kortix credential
+ * App's OWN key in `Authorization`; the App gate read it as a Dosco credential
  * and answered `401 app_auth_required`. The gateway now adds a short-lived
  * signed assertion for the calling session in `X-Kortix-App-Authorization` —
  * only for openapi/http connectors, only for an agent session, and only when
@@ -17,7 +17,7 @@ import {
 } from '../connectors/gateway';
 import { executeCall } from '../connectors/call';
 
-const APP_BASE = 'https://dev-dashboards-cccccccccccccccc.apps.kortix.com';
+const APP_BASE = 'https://dev-dashboards-cccccccccccccccc.apps.dosco.live';
 
 const APP_CONNECTOR: GatewayConnector = {
   connectorId: 'conn-dash',

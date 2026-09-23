@@ -19,7 +19,7 @@ import {
 
 describe('marketplace catalog', () => {
   test('no external marketplaces are enabled by default — Anthropic and Hermes both stay opt-in', () => {
-    // Only Kortix loads out of the box; every external source (Anthropic
+    // Only Dosco loads out of the box; every external source (Anthropic
     // included) is a one-click "Add a source" from FEATURED_MARKETPLACES.
     expect(DEFAULT_MARKETPLACES).toEqual([]);
     expect(DEFAULT_MARKETPLACES).not.toContain('NousResearch/hermes-agent');
@@ -29,7 +29,7 @@ describe('marketplace catalog', () => {
   test('surfaces the starter project and its skills through browse; support types stay internal', async () => {
     const all = await listCatalogItems();
 
-    // The marketplace leads with the "Kortix Starter" project as the hero, but
+    // The marketplace leads with the "Dosco Starter" project as the hero, but
     // individual kortix-starter skills are ALSO browseable top-level tiles
     // (each one also ships inside the project). Support types (bundles/tools/
     // files) stay internal for dependency handling.
@@ -42,7 +42,7 @@ describe('marketplace catalog', () => {
     // Browseable: a starter skill like `pdf` is a top-level browse tile again…
     const pdf = all.find((i) => i.name === 'pdf');
     expect(pdf).toBeTruthy();
-    expect(pdf!.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Kortix Starter' });
+    expect(pdf!.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Dosco Starter' });
 
     // …and it's still resolvable by id and shows up typed inside the starter
     // project's "what's inside" list.
@@ -52,7 +52,7 @@ describe('marketplace catalog', () => {
   });
 
   test('the starter project lists only the starter floor; marketplace-layer skills stay out', async () => {
-    // "What's inside" the Kortix Starter is exactly what a cloned starter repo
+    // "What's inside" the Dosco Starter is exactly what a cloned starter repo
     // ships: the general-knowledge-worker floor. Marketplace-layer extras and
     // use-case runbook skills must not be badged as starter contents.
     const starterDetail = await getCatalogItemDetail('kortix-projects:starter');
@@ -72,7 +72,7 @@ describe('marketplace catalog', () => {
     const all = await listCatalogItems({ source: 'kortix' });
 
     // A marketplace-layer extra (deep-research) is a standalone browse tile
-    // WITHOUT the "Part of Kortix Starter" badge.
+    // WITHOUT the "Part of Dosco Starter" badge.
     const deepResearch = all.find((i) => i.name === 'deep-research');
     expect(deepResearch).toBeTruthy();
     expect(deepResearch!.partOfProject).toBeUndefined();
@@ -96,7 +96,7 @@ describe('marketplace catalog', () => {
     expect(pack).toBeTruthy();
     expect(pack!.type).toBe('registry:project');
     // Every runbook skill lives in the pack's "what's inside" list — dozens of
-    // them — and none of them leak into the Kortix Starter.
+    // them — and none of them leak into the Dosco Starter.
     expect(pack!.dependencyItems.length).toBeGreaterThan(40);
     expect(pack!.dependencyItems.some((d) => d.name === 'invoice-math')).toBe(true);
     expect(pack!.dependencyItems.every((d) => d.type === 'registry:skill')).toBe(true);
@@ -110,7 +110,7 @@ describe('marketplace catalog', () => {
     expect(targets.every((t) => !t.startsWith('runtime/'))).toBe(true);
   });
 
-  test('lists optional Kortix skills through the marketplace', async () => {
+  test('lists optional Dosco skills through the marketplace', async () => {
     // agent-browser is browseable alongside every other kortix-starter skill,
     // and it stays fully resolvable by id and shows up inside the starter
     // project's dependencyItems.
@@ -131,7 +131,7 @@ describe('marketplace catalog', () => {
     // capability), so it is no longer an opt-in default marketplace install —
     // it arrives with the repo and is badged as part of the starter instead.
     expect(agentBrowserDetail!.defaultProjectInstall).toBe(false);
-    expect(agentBrowserDetail!.partOfProject?.title).toBe('Kortix Starter');
+    expect(agentBrowserDetail!.partOfProject?.title).toBe('Dosco Starter');
 
     const starterDetail = await getCatalogItemDetail('kortix-projects:starter');
     expect(starterDetail!.dependencyItems.some((d) => d.name === 'agent-browser')).toBe(true);
@@ -180,7 +180,7 @@ describe('marketplace catalog', () => {
     expect(all.find((i) => i.name === 'research-report')).toBeUndefined();
   });
 
-  test('marks only kortix-* runtime skills as Kortix-managed', async () => {
+  test('marks only kortix-* runtime skills as Dosco-managed', async () => {
     // Managed system skills are excluded from the starter project's
     // dependencyItems (they're server-injected platform floor, not a project's
     // "what's inside" list) and from browse/detail (not browseable) — so managed
@@ -248,9 +248,9 @@ describe('marketplace catalog', () => {
     const mkts = await listMarketplaces();
     const kortix = mkts.find((m) => m.id === 'kortix')!;
     expect(kortix).toBeTruthy();
-    expect(kortix.label).toBe('Kortix');
+    expect(kortix.label).toBe('Dosco');
     expect(kortix.external).toBe(false);
-    // Kortix browses as the "Kortix Starter" + "Use-case pack" projects PLUS
+    // Dosco browses as the "Dosco Starter" + "Use-case pack" projects PLUS
     // every individual kortix-starter skill as its own top-level browse tile
     // (starter-floor and runbook skills carry a partOfProject badge, so the
     // web folds them under their project tile) — the facet count is the full
@@ -283,7 +283,7 @@ describe('marketplace catalog', () => {
   test('item detail carries files + a readme', async () => {
     const all = await listCatalogItems({ source: 'kortix' });
     const pdf = all.find((i) => i.name === 'pdf')!;
-    expect(pdf.partOfProject?.title).toBe('Kortix Starter');
+    expect(pdf.partOfProject?.title).toBe('Dosco Starter');
     const detail = (await getCatalogItemDetail(pdf.id))!;
     expect(detail.files.length).toBeGreaterThan(1);
     expect(detail.files.every((f) => f.target.startsWith('@skills/'))).toBe(true);

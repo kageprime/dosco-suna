@@ -23,7 +23,7 @@ function chain(result: unknown[]): any {
   return c;
 }
 mock.module('../shared/db', () => ({ hasDatabase: true, db: { insert: () => chain([{ eventId: 'x' }]), delete: () => chain([]), select: () => chain([]) } }));
-mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.kortix.com' } }));
+mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.dosco.live' } }));
 mock.module('../feature-flags/for-project', () => ({ projectFeatureFlagEnabled: async () => true }));
 mock.module('../channels/teams-api', () => ({
   sendCard: async (_ref: unknown, card: unknown) => {

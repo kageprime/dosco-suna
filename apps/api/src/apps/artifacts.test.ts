@@ -100,16 +100,16 @@ describe('App artifacts', () => {
     const archive = join(fixture, 'source.tar.gz');
     const output = join(fixture, 'output');
     await mkdir(join(source, 'public'), { recursive: true });
-    await writeFile(join(source, 'public', 'index.html'), '<h1>Kortix App</h1>');
+    await writeFile(join(source, 'public', 'index.html'), '<h1>Dosco App</h1>');
     await tar.c({ cwd: source, file: archive, gzip: true }, ['public']);
 
     expect(await inspectAppArchive(archive)).toEqual({
       files: 1,
-      extractedBytes: Buffer.byteLength('<h1>Kortix App</h1>'),
+      extractedBytes: Buffer.byteLength('<h1>Dosco App</h1>'),
     });
     await extractAppArchive(archive, output);
     expect(await readFile(join(output, 'public', 'index.html'), 'utf8')).toBe(
-      '<h1>Kortix App</h1>',
+      '<h1>Dosco App</h1>',
     );
   });
 });

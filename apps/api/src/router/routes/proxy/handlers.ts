@@ -51,14 +51,14 @@ function usageRoute(service: ProxyServiceConfig, subPath: string): string {
 //
 // Three authentication/billing modes:
 //
-// 1. Kortix token (kortix_/kortix_sb_ in our DB) in Authorization header
-//    → Inject Kortix's API key, forward, bill at KORTIX_MARKUP (1.2×).
+// 1. Dosco token (kortix_/kortix_sb_ in our DB) in Authorization header
+//    → Inject Dosco's API key, forward, bill at KORTIX_MARKUP (1.2×).
 //
-// 2. User's own API key in Authorization + Kortix token in X-Kortix-Token header
-//    → Passthrough (no key injection), with no Kortix LLM charge.
+// 2. User's own API key in Authorization + Dosco token in X-Kortix-Token header
+//    → Passthrough (no key injection), with no Dosco LLM charge.
 //
-// 3. User's own API key, no Kortix token anywhere
-//    → Pure passthrough. No billing, no gating (self-hosted / non-Kortix user).
+// 3. User's own API key, no Dosco token anywhere
+//    → Pure passthrough. No billing, no gating (self-hosted / non-Dosco user).
 
 export async function handleProxy(c: any, service: ProxyServiceConfig, prefix: string) {
   const fullPath = new URL(c.req.url).pathname;
@@ -72,17 +72,17 @@ export async function handleProxy(c: any, service: ProxyServiceConfig, prefix: s
   const auth = await tryAuthenticate(c);
 
   if (auth.isKortixUser && auth.accountId && !auth.isPassthrough) {
-    // Mode 1: Kortix-owned key — inject our key, bill at 1.2×
+    // Mode 1: Dosco-owned key — inject our key, bill at 1.2×
     return handleKortixProxy(c, service, subPath, queryString, method, auth.accountId);
   } else if (auth.isPassthrough && auth.accountId) {
-    // Mode 2: User's own key — passthrough with no Kortix LLM charge.
+    // Mode 2: User's own key — passthrough with no Dosco LLM charge.
     return handleKortixPassthrough(c, service, subPath, queryString, method, auth.accountId);
   } else {
-    // Mode 3: No Kortix token — pure passthrough, no billing.
+    // Mode 3: No Dosco token — pure passthrough, no billing.
     // When billing is enabled, reject: only kortix_ tokens with billing are accepted.
     if (config.KORTIX_BILLING_INTERNAL_ENABLED) {
       throw new HTTPException(401, {
-        message: 'Kortix API key required. Get one at https://kortix.com',
+        message: 'Dosco API key required. Get one at https://dosco.live',
       });
     }
     // Self-hosted: allow passthrough for BYOC users with their own API keys.
@@ -90,7 +90,7 @@ export async function handleProxy(c: any, service: ProxyServiceConfig, prefix: s
   }
 }
 
-// === Kortix User: match allowed route, inject our key, bill with route-specific pricing ===
+// === Dosco User: match allowed route, inject our key, bill with route-specific pricing ===
 
 async function handleKortixProxy(
   c: any,
@@ -135,11 +135,11 @@ async function handleKortixProxy(
 
   const actor = resolveActorFromRequest(c, { logPrefix: '[PROXY]' });
 
-  // Use alternate target/key injection for Kortix-managed if configured (e.g. OpenRouter)
+  // Use alternate target/key injection for Dosco-managed if configured (e.g. OpenRouter)
   const baseUrl = service.kortixTargetBaseUrl || service.targetBaseUrl;
   const targetUrl = `${baseUrl}${subPath}${queryString}`;
   const headers = buildForwardHeaders(c);
-  // Strip Kortix-specific and auth headers — upstream gets injected key only
+  // Strip Dosco-specific and auth headers — upstream gets injected key only
   headers.delete('x-kortix-token');
   headers.delete('x-api-key');
   headers.delete('authorization');
@@ -234,7 +234,7 @@ async function handleKortixProxy(
   });
 }
 
-// === Kortix-managed LLM Billing ===
+// === Dosco-managed LLM Billing ===
 //
 // Handles both response formats based on upstream:
 // - OpenAI-compatible: usage.prompt_tokens / completion_tokens
@@ -453,7 +453,7 @@ async function extractUsageFromKortixProxyStream(
   }
 }
 
-// === Kortix user with own key: passthrough with no Kortix LLM charge ===
+// === Dosco user with own key: passthrough with no Dosco LLM charge ===
 
 async function handleKortixPassthrough(
   c: any,
@@ -510,7 +510,7 @@ async function handleKortixPassthrough(
 
   if (isLlm) {
     // BYOK provider usage belongs to the provider account. Do not create a
-    // Kortix reservation, debit, or refund for either success or failure.
+    // Dosco reservation, debit, or refund for either success or failure.
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
@@ -532,7 +532,7 @@ async function handleKortixPassthrough(
   });
 }
 
-// === Not Kortix user: pure passthrough ===
+// === Not Dosco user: pure passthrough ===
 
 async function handlePassthrough(
   c: any,

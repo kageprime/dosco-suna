@@ -7,7 +7,7 @@ import { canonicalConnectorAlias } from '../shared/connector-alias';
  * This runs BESIDE the role check (`assertAuthorized` / `loadProjectForUser`),
  * not inside the IAM engine (which stays role-only). The account token a
  * session presents carries a resolved `agentGrant` (see projects/agents.ts);
- * a route asserts the Kortix action it performs is in that grant. Combined with
+ * a route asserts the Dosco action it performs is in that grant. Combined with
  * the route's existing user-role check, the net effect is `userRole ∩ agentGrant`
  * — an agent can never exceed the human who launched it, nor its own grant.
  *
@@ -108,7 +108,7 @@ export function agentMayUseConnector(grant: AgentGrant | null, slug: string): bo
 }
 
 /**
- * True if the agent-session grant lists the Kortix App `slug` in `apps`
+ * True if the agent-session grant lists the Dosco App `slug` in `apps`
  * (spec 2026-09-22 §2.5). Unlike the other predicates, a missing `apps` key is
  * NONE, not "all": the field is new, deny-by-default in both manifest
  * versions, and the resolver omits it for an agent that declares no Apps.

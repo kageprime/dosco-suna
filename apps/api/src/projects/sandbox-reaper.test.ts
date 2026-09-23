@@ -2347,7 +2347,7 @@ describe('reapAndReconcileSandboxes — the one rule: deadline_at <= now', () =>
     expect(r.lifecycleRenewed).toBe(1);
   });
 
-  test('every provider renews its native lifecycle while the Kortix deadline is live', async () => {
+  test('every provider renews its native lifecycle while the Dosco deadline is live', async () => {
     candidates = (['daytona', 'platinum', 'e2b'] as const).map((provider, index) =>
       candidate({
         sandboxId: `sb-${provider}`,
@@ -2385,7 +2385,7 @@ describe('reapAndReconcileSandboxes — the one rule: deadline_at <= now', () =>
     expect(stops).toEqual(['ext-1']);
   });
 
-  test('a renewal failure never turns a live Kortix deadline into a stop decision', async () => {
+  test('a renewal failure never turns a live Dosco deadline into a stop decision', async () => {
     candidates = [candidate({ provider: 'e2b', deadlineAt: new Date(NOW.getTime() + HOUR) })];
     statusByExternal['ext-1'] = 'running';
     lifecycleRenewErrorByExternal['ext-1'] = new Error('provider renewal unavailable');

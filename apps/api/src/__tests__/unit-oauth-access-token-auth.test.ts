@@ -1,4 +1,4 @@
-// Sign in with Kortix: a `kortix_oat_` OAuth access token is a first-class
+// Sign in with Dosco: a `kortix_oat_` OAuth access token is a first-class
 // credential on every auth middleware, resolving to the user who granted it.
 // The `kortix` scope is what opens the general API; without it the token
 // reaches only the identity probes (`/v1/accounts/me`, `/v1/oauth/userinfo`).
@@ -60,7 +60,7 @@ mock.module('../repositories/service-accounts', () => ({
 mock.module('../repositories/api-keys', () => ({
   validateSecretKey: async (t: string) => {
     secretKeyValidations.push(t);
-    return { isValid: false, error: 'Invalid Kortix token' };
+    return { isValid: false, error: 'Invalid Dosco token' };
   },
 }));
 
@@ -142,7 +142,7 @@ describe('OAuth access tokens on the auth middlewares', () => {
     });
   });
 
-  test('never falls through to the generic Kortix-key validator', async () => {
+  test('never falls through to the generic Dosco-key validator', async () => {
     await appWith(combinedAuth).request('/v1/projects', {
       headers: { Authorization: 'Bearer kortix_oat_full' },
     });

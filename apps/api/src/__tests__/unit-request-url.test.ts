@@ -12,20 +12,20 @@ describe('getRequestUrl', () => {
 
   it('normalizes relative Bun request URLs using host header', () => {
     const req = new Request('http://placeholder.invalid', {
-      headers: { host: 'api.kortix.com' },
+      headers: { host: 'api.dosco.live' },
     });
     Object.defineProperty(req, 'url', { value: '/', configurable: true });
 
     const url = getRequestUrl(req, 8008);
 
-    expect(url.toString()).toBe('http://api.kortix.com/');
+    expect(url.toString()).toBe('http://api.dosco.live/');
   });
 
   it('prefers forwarded proto and host when present', () => {
     const req = new Request('http://placeholder.invalid', {
       headers: {
         host: 'internal:8008',
-        'x-forwarded-host': 'kortix.com',
+        'x-forwarded-host': 'dosco.live',
         'x-forwarded-proto': 'https',
       },
     });
@@ -33,7 +33,7 @@ describe('getRequestUrl', () => {
 
     const url = getRequestUrl(req, 8008);
 
-    expect(url.toString()).toBe('https://kortix.com/status?full=1');
+    expect(url.toString()).toBe('https://dosco.live/status?full=1');
   });
 
   // ── Regression: BS pattern 28e9a65c… — path-only req.url from no-Host
@@ -75,7 +75,7 @@ describe('getRequestUrl', () => {
     it('preserves host header and forwarded-proto when rebuilding', () => {
       const req = new Request('http://placeholder.invalid', {
         headers: {
-          host: 'api.kortix.com',
+          host: 'api.dosco.live',
           'x-forwarded-proto': 'https',
         },
       });
@@ -83,9 +83,9 @@ describe('getRequestUrl', () => {
 
       const rebuilt = ensureAbsoluteRequestUrl(req, 8008);
 
-      expect(rebuilt.url).toBe('https://api.kortix.com/v1/health');
+      expect(rebuilt.url).toBe('https://api.dosco.live/v1/health');
       // Headers preserved (the rebuilt Request keeps the original headers).
-      expect(rebuilt.headers.get('host')).toBe('api.kortix.com');
+      expect(rebuilt.headers.get('host')).toBe('api.dosco.live');
     });
 
     it('preserves method, body, and headers when rebuilding', () => {
@@ -105,7 +105,7 @@ describe('getRequestUrl', () => {
     });
 
     it('is a no-op for an already-absolute request URL (no rebuild, same instance)', () => {
-      const req = new Request('http://api.kortix.com/v1/health');
+      const req = new Request('http://api.dosco.live/v1/health');
 
       const rebuilt = ensureAbsoluteRequestUrl(req, 8008);
 

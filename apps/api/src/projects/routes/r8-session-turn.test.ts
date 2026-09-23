@@ -226,7 +226,7 @@ let visibleSession: Record<string, unknown> | null = { row: { sessionId: SESSION
 let loadProjectCalls: Array<{ projectId: string; action: string }> = [];
 let capabilityCalls: Array<{ accountId: string; projectId: string; action: string }> = [];
 /** The third argument the handler hands `loadVisibleSession` — the CALLER's
- *  Kortix session id, which drives the KaaB sibling-session gate. */
+ *  Dosco session id, which drives the KaaB sibling-session gate. */
 let visibleSessionCallerIds: Array<string | null> = [];
 
 mock.module('../../shared/db', () => ({ db: databaseMock, hasDatabase: true }));
@@ -254,7 +254,7 @@ mock.module('../lib/access', () => ({
 const { projectsApp } = await import('../lib/app');
 await import('./r8');
 
-/** `c.get('sessionId')` is OVERLOADED: a Kortix project-session id under a
+/** `c.get('sessionId')` is OVERLOADED: a Dosco project-session id under a
  *  connector token, the SUPABASE AUTH session id under a browser JWT. The
  *  caller decides which by its `authType`, so tests set both. */
 function buildApp(caller: { authType: string; sessionId?: string } = { authType: 'pat' }) {
@@ -337,7 +337,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
 
   test('passes a browser caller NO session id to the visibility gate', async () => {
     // A Supabase JWT's `c.get('sessionId')` is the BROWSER LOGIN's id, not a
-    // Kortix project session. Every KaaB isolation guard reads a non-null
+    // Dosco project session. Every KaaB isolation guard reads a non-null
     // caller session as "a sandbox acting for one end-user, narrow it", so
     // handing it that value makes `isSessionTargetVisibleToCaller` refuse a
     // signed-in human reaching a sibling `origin='backend'` session — a 404 on
@@ -350,7 +350,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
     expect(visibleSessionCallerIds).toEqual([null]);
   });
 
-  test('passes a connector caller its Kortix session id to the visibility gate', async () => {
+  test('passes a connector caller its Dosco session id to the visibility gate', async () => {
     // The other half of the same contract: a session-bound agent MUST still be
     // narrowed to its own session, so the value cannot simply be dropped.
     await getTurn(SESSION_ID, { authType: 'pat', sessionId: SESSION_ID });

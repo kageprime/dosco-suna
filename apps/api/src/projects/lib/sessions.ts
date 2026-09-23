@@ -257,7 +257,7 @@ export async function enforceConcurrentSessionCap(
     console.error('[projects] Failed to record session cap audit event:', error);
   });
 
-  const message = `You've reached your plan's concurrent-session limit (${limit}). Upgrade your plan for a higher limit, or contact the Kortix team to raise it for your account.`;
+  const message = `You've reached your plan's concurrent-session limit (${limit}). Upgrade your plan for a higher limit, or contact the Dosco team to raise it for your account.`;
   return {
     status: 429,
     headers: {
@@ -677,7 +677,7 @@ export async function buildSessionSandboxEnvVars(input: {
     KORTIX_PROJECT_SECRETS_REVISION: runtimeSecrets.revision,
     [SECRET_CAPABILITIES_ENV_NAME]: runtimeSecrets.capabilitiesJson,
     // No partial-clone filter. Blobless (`blob:none`) defers file blobs to
-    // on-demand fetches, which stall through the Kortix git proxy when its
+    // on-demand fetches, which stall through the Dosco git proxy when its
     // partial-clone capability isn't advertised consistently — the clone then
     // never finishes and the session never reaches runtimeReady. It is also
     // simply slower: measured on kortix-ai/company, blobless 6161ms vs a full
@@ -694,7 +694,7 @@ export async function buildSessionSandboxEnvVars(input: {
     ...buildSessionRuntimeEnv({
       projectId: input.projectId,
       sessionId: input.sessionId,
-      // Every sandbox clones through the Kortix Git proxy with KORTIX_TOKEN.
+      // Every sandbox clones through the Dosco Git proxy with KORTIX_TOKEN.
       // Direct upstream origins are never delivered to the guest because they
       // require exposing a provider credential to the sandbox.
       repoUrl: proxyGitUrl(input.projectId),
@@ -738,8 +738,8 @@ export function deriveKortixApiBase(): string {
 }
 
 /**
- * The Kortix git-proxy origin for a project — the UNIVERSAL client-facing git
- * URL. Clients clone/push this with a Kortix token; the API resolves the real
+ * The Dosco git-proxy origin for a project — the UNIVERSAL client-facing git
+ * URL. Clients clone/push this with a Dosco token; the API resolves the real
  * upstream + mints the host credential server-side.
  */
 

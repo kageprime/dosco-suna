@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
-// `handleReview` checked only that the presser had SOME linked Kortix identity
+// `handleReview` checked only that the presser had SOME linked Dosco identity
 // in the tenant — never that they had access to the project. So anyone in the
 // Teams tenant who had ever run `/login` could Approve or Deny a review item
 // for a project they are not a member of. The card is posted to the whole
 // conversation, so the check has to happen on the press.
 //
 // Slack has applied the right bar since its own review cards shipped:
-// "The actor must be a linked Kortix user with write access to this project."
+// "The actor must be a linked Dosco user with write access to this project."
 
 const TENANT = 'tenant-1';
 const CONVO = '19:abc@thread.tacv2';

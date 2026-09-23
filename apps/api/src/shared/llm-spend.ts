@@ -8,10 +8,10 @@ import { sql, type SQL } from 'drizzle-orm';
  * answer on its own:
  *
  *   `upstream_cost_precise` — what the upstream provider charged for the call.
- *   `final_cost_precise`    — what Kortix debited from the account's wallet.
+ *   `final_cost_precise`    — what Dosco debited from the account's wallet.
  *
  * Every spend rollup in this repo used to sum `final_cost` alone. That is only
- * correct for Kortix-managed inference. On a BYOK deployment the resolver hands
+ * correct for Dosco-managed inference. On a BYOK deployment the resolver hands
  * back `billingMode: 'none'` with `markup: 0` (resolve-candidates.ts), so
  * `final_cost` is 0 for every request ever made — and the gateway dashboard,
  * the org-wide cost explorer, per-session cost, and gateway budgets all
@@ -21,14 +21,14 @@ import { sql, type SQL } from 'drizzle-orm';
  *
  * | `billing_mode` | you paid                        | your spend                    |
  * |----------------|---------------------------------|-------------------------------|
- * | `credits`      | Kortix (managed inference)      | `final_cost`                  |
- * | `platform-fee` | your provider + Kortix's 10% fee| `upstream_cost + final_cost`  |
+ * | `credits`      | Dosco (managed inference)      | `final_cost`                  |
+ * | `platform-fee` | your provider + Dosco's 10% fee| `upstream_cost + final_cost`  |
  * | `none`         | your provider directly          | `upstream_cost`               |
  *
  * On a `credits` row `upstream_cost` is KORTIX'S wholesale cost, not the
  * customer's — it is cost of goods sold. It is deliberately excluded from
  * `provider_cost` here (and zeroed on the wire in the gateway log serializer)
- * so no surface publishes the Kortix margin on a managed request.
+ * so no surface publishes the Dosco margin on a managed request.
  */
 
 /** Numeric columns come back from postgres as strings; usage hints arrive as numbers. */
@@ -41,7 +41,7 @@ export interface LlmSpendRow {
 }
 
 export interface LlmSpendBreakdown {
-  /** Debited from the Kortix wallet. Current BYOK requests always report 0. */
+  /** Debited from the Dosco wallet. Current BYOK requests always report 0. */
   kortix_cost: number;
   /** Paid straight to your own provider on your own key. Always 0 for managed inference. */
   provider_cost: number;
@@ -58,7 +58,7 @@ function numberValue(value: NumericValue): number {
  * `billing_mode` is nullable and postdates the earliest gateway rows. Infer the
  * mode of a legacy row from whether it billed anything: a row that charged the
  * wallet was managed inference, one that charged nothing was BYOK. Defaulting
- * every legacy row to BYOK instead would add Kortix's wholesale cost on top of
+ * every legacy row to BYOK instead would add Dosco's wholesale cost on top of
  * what the customer was already charged and double-count managed spend.
  */
 function billedByKortix(row: LlmSpendRow): boolean {
@@ -89,10 +89,10 @@ const rowBilledByKortixSql = sql`coalesce(
   case when ${gatewayRequestLogs.finalCost} > 0 then 'credits' else 'none' end
 ) = 'credits'`;
 
-/** Per-row: what YOU paid your own provider (0 on a Kortix-managed row). */
+/** Per-row: what YOU paid your own provider (0 on a Dosco-managed row). */
 export const rowProviderBilledSpendSql: SQL<string> = sql`(case when ${rowBilledByKortixSql} then 0 else ${gatewayRequestLogs.upstreamCost} end)`;
 
-/** Per-row: what Kortix debited from your wallet. */
+/** Per-row: what Dosco debited from your wallet. */
 export const rowKortixBilledSpendSql: SQL<string> = sql`${gatewayRequestLogs.finalCost}`;
 
 /** Per-row: every dollar the request cost you. */
@@ -104,7 +104,7 @@ const aggregate = (rowExpression: SQL<string>) =>
 /** Windowed total LLM spend for gateway observability. */
 export const totalSpendSql = aggregate(rowTotalSpendSql);
 
-/** Windowed spend debited from the Kortix wallet. */
+/** Windowed spend debited from the Dosco wallet. */
 export const kortixBilledSpendSql = aggregate(rowKortixBilledSpendSql);
 
 /** Windowed spend paid directly to your own providers. */

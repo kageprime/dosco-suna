@@ -24,8 +24,8 @@ async function createRemoteWithBranches(branchCount: number) {
   const cache = join(root, 'cache');
 
   await exec('git', ['init', work]);
-  await exec('git', ['-C', work, 'config', 'user.name', 'Kortix Test']);
-  await exec('git', ['-C', work, 'config', 'user.email', 'test@kortix.ai']);
+  await exec('git', ['-C', work, 'config', 'user.name', 'Dosco Test']);
+  await exec('git', ['-C', work, 'config', 'user.email', 'test@dosco.live']);
   await Bun.write(join(work, 'README.md'), '# test\n');
   await exec('git', ['-C', work, 'add', 'README.md']);
   await exec('git', ['-C', work, 'commit', '-m', 'initial']);

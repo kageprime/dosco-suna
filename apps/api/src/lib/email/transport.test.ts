@@ -12,7 +12,7 @@ const mockConfig = {
   MAILPIT_API_URL: '',
   MAILTRAP_API_TOKEN: '',
   MAILTRAP_FROM_EMAIL: 'noreply@example.test',
-  MAILTRAP_FROM_NAME: 'Kortix Test',
+  MAILTRAP_FROM_NAME: 'Dosco Test',
 };
 
 mock.module('../../config', () => ({
@@ -117,11 +117,11 @@ describe('configuredEmailProviders', () => {
     expect(calls[0].url).toBe('http://127.0.0.1:54324/api/v1/send');
     const payload = JSON.parse(String(calls[0].init.body));
     expect(payload).toEqual({
-      From: { Email: 'noreply@example.test', Name: 'Kortix Test' },
+      From: { Email: 'noreply@example.test', Name: 'Dosco Test' },
       To: [{ Email: 'user@example.test' }],
       Subject: 'Test',
       HTML: '<p>hello</p>',
-      // Empty: this caller passes no `text`. Kortix templates all supply one
+      // Empty: this caller passes no `text`. Dosco templates all supply one
       // (see template.ts renderText); nothing is derived from the HTML.
       Text: '',
       Tags: ['unit-test'],
@@ -148,7 +148,7 @@ describe('sendEmail', () => {
     );
     expect(headers['X-Amz-Date']).toMatch(/^\d{8}T\d{6}Z$/);
     const payload = JSON.parse(String(calls[0].init.body));
-    expect(payload.FromEmailAddress).toBe('Kortix Test <noreply@example.test>');
+    expect(payload.FromEmailAddress).toBe('Dosco Test <noreply@example.test>');
     expect(payload.Destination.ToAddresses).toEqual(['user@example.test']);
     expect(payload.EmailTags).toEqual([{ Name: 'category', Value: 'unit-test' }]);
   });
@@ -211,7 +211,7 @@ describe('sendEmail', () => {
     expect(result).toEqual({ ok: true, provider: 'resend', status: 200 });
     expect(calls[0].url).toBe('https://api.resend.com/emails');
     const payload = JSON.parse(String(calls[0].init.body));
-    expect(payload.from).toBe('Kortix Test <noreply@example.test>');
+    expect(payload.from).toBe('Dosco Test <noreply@example.test>');
     expect(payload.to).toEqual(['user@example.test']);
     expect(payload.reply_to).toBeUndefined();
     expect(payload.tags).toEqual([{ name: 'category', value: 'unit-test' }]);
@@ -222,7 +222,7 @@ describe('sendEmail', () => {
     mockConfig.RESEND_FROM_EMAIL = 'noreply@fallback.test';
     await sendEmail(MSG);
     const payload = JSON.parse(String(calls[0].init.body));
-    expect(payload.from).toBe('Kortix Test <noreply@fallback.test>');
+    expect(payload.from).toBe('Dosco Test <noreply@fallback.test>');
     expect(payload.reply_to).toBe('noreply@example.test');
   });
 

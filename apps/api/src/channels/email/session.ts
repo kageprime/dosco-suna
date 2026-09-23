@@ -385,7 +385,7 @@ function emailTurnInstructions(event: AgentMailMessageReceivedEvent): string {
   });
   return [
     'How to work:',
-    '- You are operating an AgentMail inbox assigned to this Kortix project.',
+    '- You are operating an AgentMail inbox assigned to this Dosco project.',
     '- Use the Connector MCP meta-tools `connectors`, `discover`, `describe`, and `call`. Connector actions are not direct tools.',
     '- Start with `connectors`. Use `discover` to find an action and `describe` to confirm its input schema before the first call.',
     `- Read the current thread with \`call\`: \`${readThreadCall}\`.`,
@@ -416,7 +416,7 @@ function renderAgentPrompt(event: AgentMailMessageReceivedEvent, revived: boolea
     );
   }
   lines.push(
-    "You're answering an email thread as the Kortix agent.",
+    "You're answering an email thread as the Dosco agent.",
     '',
     `Inbox ID:   ${event.message.inbox_id}`,
     `Thread ID:  ${event.message.thread_id}`,

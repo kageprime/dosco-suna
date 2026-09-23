@@ -160,7 +160,7 @@ describe('channelTurnModel', () => {
 
   /**
    * The catalog is NOT a usable pre-filter for this. `deepseek-v4-flash` is in
-   * `gatewayModelCatalog` and still answers "requires Kortix's managed
+   * `gatewayModelCatalog` and still answers "requires Dosco's managed
    * provider, which is disabled on this deployment" upstream. Two live Teams
    * sessions were pinned to it on 2026-09-21, failing every message with
    * nothing shown to the user; a catalog pre-filter would have skipped exactly

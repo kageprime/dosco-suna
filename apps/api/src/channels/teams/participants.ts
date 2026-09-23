@@ -116,7 +116,7 @@ export async function ensureTeamsThreadParticipant(input: {
   if (policy === 'owner_only') {
     return {
       allowed: false,
-      notice: 'This Kortix session is owner-only. Start a new conversation if you want Kortix to work with you separately.',
+      notice: 'This Dosco session is owner-only. Start a new conversation if you want Dosco to work with you separately.',
     };
   }
 
@@ -128,7 +128,7 @@ export async function ensureTeamsThreadParticipant(input: {
   if (existing?.status === 'denied') {
     return {
       allowed: false,
-      notice: "You don't have access to this Kortix session — the owner declined your request. Start a new conversation to work with Kortix separately.",
+      notice: "You don't have access to this Dosco session — the owner declined your request. Start a new conversation to work with Dosco separately.",
     };
   }
 
@@ -195,7 +195,7 @@ export async function ensureTeamsThreadParticipant(input: {
   return {
     allowed: false,
     notice: inserted
-      ? "This Kortix session is private. I've asked the session owner to approve you — I won't send your message until they do."
+      ? "This Dosco session is private. I've asked the session owner to approve you — I won't send your message until they do."
       : "You're still waiting for the session owner to approve access to this conversation.",
   };
 }
@@ -252,14 +252,14 @@ export async function decideTeamsThreadJoin(input: {
   ref: TeamsConversationRef;
 }): Promise<{ ok: boolean; text: string }> {
   const decider = await lookupTeamsIdentity(input.tenantId, input.deciderTeamsUserId);
-  if (!decider) return { ok: false, text: 'Connect your Kortix account (`/login`) before approving session access.' };
+  if (!decider) return { ok: false, text: 'Connect your Dosco account (`/login`) before approving session access.' };
 
   const [session] = await db
     .select({ createdBy: projectSessions.createdBy })
     .from(projectSessions)
     .where(eq(projectSessions.sessionId, input.sessionId))
     .limit(1);
-  if (!session) return { ok: false, text: 'This Kortix session no longer exists.' };
+  if (!session) return { ok: false, text: 'This Dosco session no longer exists.' };
   if (!session.createdBy || session.createdBy !== decider.userId) {
     return { ok: false, text: 'Only the session owner can approve people for this conversation.' };
   }
@@ -306,14 +306,14 @@ export async function decideTeamsThreadJoin(input: {
     input.ref,
     buildNoticeCard(
       input.decision === 'approved'
-        ? `${label} — you're approved for this Kortix session. Send your message again and I'll continue. You can also [open the session in Kortix](${sessionUrl}).`
-        : `${label} — the session owner declined your request for this Kortix session. Start a new conversation to work with Kortix separately.`,
+        ? `${label} — you're approved for this Dosco session. Send your message again and I'll continue. You can also [open the session in Dosco](${sessionUrl}).`
+        : `${label} — the session owner declined your request for this Dosco session. Start a new conversation to work with Dosco separately.`,
       input.decision === 'approved' ? '✅' : '🚫',
     ),
   ).catch((err) => console.warn('[teams-participants] decision notice failed', err));
 
   return {
     ok: true,
-    text: input.decision === 'approved' ? `Approved ${label} for this Kortix session.` : `Denied ${label} for this Kortix session.`,
+    text: input.decision === 'approved' ? `Approved ${label} for this Dosco session.` : `Denied ${label} for this Dosco session.`,
   };
 }

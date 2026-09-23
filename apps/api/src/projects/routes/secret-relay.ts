@@ -26,7 +26,7 @@
  * ## The one rule a reader must not lose
  *
  * `x-kortix-relay-status` PRESENT ⟺ we reached the upstream, and the payload's
- * `status` is the upstream's. ABSENT ⟺ Kortix itself refused or failed. The
+ * `status` is the upstream's. ABSENT ⟺ Dosco itself refused or failed. The
  * relay's own status is therefore ALWAYS 200 on success, whatever the upstream
  * said — mirroring the upstream status would make a bare 403 ambiguous between
  * "policy denied" and "Stripe said 403", which is a distinction the agent needs.
@@ -314,7 +314,7 @@ projectsApp.openapi(
       'The streaming sibling of /broker. The request body is the guest body verbatim; ' +
       'url, method and headers ride in x-kortix-relay-meta. On success the response is ' +
       'always 200 and the UPSTREAM status rides in x-kortix-relay-status — the presence ' +
-      'of that header is what distinguishes "Kortix refused" from "the upstream refused".',
+      'of that header is what distinguishes "Dosco refused" from "the upstream refused".',
     ...auth,
     request: {
       // NO body schema, deliberately. A zod request body buffers and LOCKS the

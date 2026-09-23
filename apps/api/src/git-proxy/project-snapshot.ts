@@ -112,7 +112,7 @@ function repoNameFromUrl(repoUrl: string): { owner: string; name: string } | nul
 /**
  * Identity for the object layout, from the project's Git connection — never a
  * provider lookup. A connection without an external repository id (a linked
- * bare repo, a legacy row) falls back to a Kortix-owned id so the layout stays
+ * bare repo, a legacy row) falls back to a Dosco-owned id so the layout stays
  * total; its owner/name come from the URL.
  */
 export async function resolveSnapshotRepository(

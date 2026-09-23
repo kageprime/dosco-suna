@@ -1,7 +1,7 @@
 /**
  * Where a sandbox port is reachable in a browser.
  *
- * ONE resolver, used by BOTH the shape Kortix hands to clients
+ * ONE resolver, used by BOTH the shape Dosco hands to clients
  * (`previewUrlTemplate`) and the matcher that accepts inbound preview traffic
  * (`resolvePreviewHost`) — the same split-brain that once published Apps on a
  * domain an operator did not own is exactly as available here, so the two
@@ -19,18 +19,18 @@
  * routes previews by hostname.
  *
  * There is a second reason. Under the path form, arbitrary sandbox code runs on
- * the SAME origin as the Kortix API, so two of a user's previews share cookies,
+ * the SAME origin as the Dosco API, so two of a user's previews share cookies,
  * storage, and a same-origin relationship with `/v1/p/…`. A per-preview origin
  * puts each app in its own security principal.
  *
  * ## The shape
  *
  *   deployed   {env}-p{port}-{sandbox-label}.{previewBaseDomain}
- *              dev-p8081-sbx-01m0g4hxcm32bx5r1gpyzdyc1h.p.kortix.com
+ *              dev-p8081-sbx-01m0g4hxcm32bx5r1gpyzdyc1h.p.dosco.live
  *   local      p{port}-{sandbox-label}.localhost:{apiPort}
  *
  * The env prefix is what lets dev, staging and prod share one wildcard
- * certificate and one edge Worker, exactly as Kortix Apps does. The sandbox
+ * certificate and one edge Worker, exactly as Dosco Apps does. The sandbox
  * label is the external id lowercased with `_` → `-`, because DNS labels are
  * case-insensitive and cannot carry an underscore;
  * `resolveExternalIdFromHostLabel` resolves a label back to the canonical id
@@ -146,7 +146,7 @@ export function resolvePreviewHost(hostname: string): ResolvedPreviewHost | null
 }
 
 /**
- * Cross-origin access to a preview, granted to the Kortix web app and nobody
+ * Cross-origin access to a preview, granted to the Dosco web app and nobody
  * else.
  *
  * The preview cookie is `SameSite=None` — it must be, for the session panel to

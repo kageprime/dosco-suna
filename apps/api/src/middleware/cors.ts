@@ -1,15 +1,15 @@
 import { cors } from 'hono/cors';
 
 const CLOUD_ORIGINS = [
-  'https://www.kortix.com',
-  'https://kortix.com',
-  'https://dev.kortix.com',
-  'https://new-dev.kortix.com',
-  'https://dev-new.kortix.com',
-  'https://staging.kortix.com',
-  'https://kortix.cloud',
-  'https://www.kortix.cloud',
-  'https://new.kortix.com',
+  'https://dosco.live',
+  'https://dosco.live',
+  'https://dev.dosco.live',
+  'https://new-dev.dosco.live',
+  'https://dev-new.dosco.live',
+  'https://staging.dosco.live',
+  'https://dosco.live',
+  'https://www.dosco.live',
+  'https://new.dosco.live',
 ];
 
 const LOCAL_ORIGINS = [

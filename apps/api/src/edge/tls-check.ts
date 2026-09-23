@@ -2,7 +2,7 @@
  * The on-demand-TLS gate a SELF-HOST's own reverse proxy calls before it issues
  * a certificate for a hostname.
  *
- * Kortix Cloud fronts its wildcard domains with a Cloudflare Worker and one
+ * Dosco Cloud fronts its wildcard domains with a Cloudflare Worker and one
  * advanced certificate pack. A self-host has neither: it runs the bundled Caddy,
  * which issues a certificate PER HOSTNAME on first request via ACME HTTP-01
  * (`tls { on_demand }`) — so the operator needs only a `*.<domain>` DNS record,

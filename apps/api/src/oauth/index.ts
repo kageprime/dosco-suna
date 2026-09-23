@@ -1,5 +1,5 @@
 /**
- * Kortix as an OAuth 2.1 authorization server — "Sign in with Kortix".
+ * Dosco as an OAuth 2.1 authorization server — "Sign in with Dosco".
  *
  * A registered client (see ../accounts/iam/oauth-clients.ts) sends a user to
  * `/authorize`; the pending request is persisted, the user approves on the
@@ -426,7 +426,7 @@ oauthApp.openapi(
       codeChallengeMethod,
     });
 
-    const frontendUrl = config.FRONTEND_URL || 'https://kortix.com';
+    const frontendUrl = config.FRONTEND_URL || 'https://dosco.live';
     const consentUrl = new URL(`${frontendUrl.replace(/\/$/, '')}/oauth/authorize`);
     consentUrl.searchParams.set('request_id', requestId);
     return c.redirect(consentUrl.toString());

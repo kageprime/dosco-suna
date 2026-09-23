@@ -106,11 +106,11 @@ describe('buildLayeredDockerfile', () => {
     expect(merged).toContain('ENV KORTIX_WORKSPACE=/workspace\nUSER kortix\nWORKDIR /workspace');
   });
 
-  test('preserves the user Dockerfile verbatim and appends the Kortix layer', () => {
+  test('preserves the user Dockerfile verbatim and appends the Dosco layer', () => {
     const user = 'FROM ubuntu:24.04\nRUN apt-get install -y foo\n';
     const merged = buildLayeredDockerfile({ userDockerfile: user, ...COMMON });
     expect(merged.startsWith('FROM ubuntu:24.04\nRUN apt-get install -y foo')).toBe(true);
-    expect(merged).toContain('Kortix runtime layer (auto-injected)');
+    expect(merged).toContain('Dosco runtime layer (auto-injected)');
     expect(merged).toContain(`opencode-ai@${OPENCODE_VERSION}`);
     expect(merged).toContain(`agent-browser@${AGENT_BROWSER_VERSION}`);
     expect(merged).toContain('uv python install --default 3.12.13');
@@ -257,7 +257,7 @@ describe('buildLayeredDockerfile', () => {
   test('strips only the generated starter baseline apt block', () => {
     const user = `FROM ubuntu:24.04
 
-# Bring in baseline tooling. The Kortix layer on top also installs
+# Bring in baseline tooling. The Dosco layer on top also installs
 # git/curl/ca-certificates/nodejs/npm, but having them in your base
 # makes interactive sessions snappier.
 RUN apt-get update \\
@@ -295,7 +295,7 @@ WORKDIR /workspace
     });
     expect(merged.startsWith('# syntax=docker/dockerfile:1.7')).toBe(true);
     expect(merged).toContain('FROM ubuntu:24.04');
-    expect(merged).toContain('Kortix runtime layer (auto-injected)');
+    expect(merged).toContain('Dosco runtime layer (auto-injected)');
   });
 });
 

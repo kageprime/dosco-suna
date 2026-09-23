@@ -1,18 +1,18 @@
 /**
- * Where an App is reachable. One resolver, used by BOTH the URL Kortix hands
+ * Where an App is reachable. One resolver, used by BOTH the URL Dosco hands
  * out (appPublicUrl) and the host matcher that accepts inbound App traffic
  * (resolveAppHost). They used to carry separate copies of the same
- * `KORTIX_APPS_BASE_DOMAIN || 'apps.kortix.com'` fallback with different
+ * `KORTIX_APPS_BASE_DOMAIN || 'apps.dosco.live'` fallback with different
  * normalization, which is how a self-hosted deployment ended up publishing
- * `https://prod-<slug>-<key>.apps.kortix.com` — a hostname on Kortix's domain,
- * pointing at Kortix's Cloudflare Worker, for an App running on the operator's
+ * `https://prod-<slug>-<key>.apps.dosco.live` — a hostname on Dosco's domain,
+ * pointing at Dosco's Cloudflare Worker, for an App running on the operator's
  * own hardware. The operator could not serve it and did not own it.
  *
  * Resolution order:
  *   1. local development / worktrees → `<route-key>.apps.localhost:<port>`;
  *   2. `KORTIX_APPS_BASE_DOMAIN` when the operator sets one;
  *   3. otherwise DERIVED from this deployment's own public API origin, so
- *      `api.kortix.com` still yields `apps.kortix.com` (managed cloud keeps its
+ *      `api.dosco.live` still yields `apps.dosco.live` (managed cloud keeps its
  *      exact hostnames, including the dev- and staging- prefixed variants) and
  *      a self-host at `api.acme.com` yields `apps.acme.com` — a domain that
  *      operator actually controls and can point DNS at.
@@ -48,8 +48,8 @@ function normalizeDomain(value: string): string {
 
 /**
  * The registrable domain of this deployment's public API origin: drop the
- * leftmost label once there are three or more, so `api.kortix.com` and
- * `dev-api.kortix.com` both give `kortix.com`, and a bare `acme.com` is left
+ * leftmost label once there are three or more, so `api.dosco.live` and
+ * `dev-api.dosco.live` both give `dosco.live`, and a bare `acme.com` is left
  * alone. Good enough for deriving a sibling `apps.` domain; an operator whose
  * DNS does not fit this shape sets KORTIX_APPS_BASE_DOMAIN explicitly.
  */
@@ -86,7 +86,7 @@ export function appPublicUrl(row: { slug: string; routeKey: string }): string {
   const domain = appsBaseDomain();
   if (!domain) {
     throw new Error(
-      'Kortix Apps has no base domain: set KORTIX_APPS_BASE_DOMAIN to a wildcard domain this deployment serves.',
+      'Dosco Apps has no base domain: set KORTIX_APPS_BASE_DOMAIN to a wildcard domain this deployment serves.',
     );
   }
   return `https://${config.INTERNAL_KORTIX_ENV}-${row.slug}-${row.routeKey}.${domain}`;

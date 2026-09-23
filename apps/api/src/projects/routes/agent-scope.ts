@@ -13,7 +13,7 @@
 // Manager-gated: an agent's scope decides what flows to everyone who inherits
 // it, so it's a governance control, not an editor convenience.
 //
-// `kortix_permissions` is intentionally NOT editable here — granting Kortix permissions
+// `kortix_permissions` is intentionally NOT editable here — granting Dosco permissions
 // is a sharper escalation; it stays a manifest change.
 //
 // Second route in this file: POST /:projectId/secrets/:identifier/grant, the

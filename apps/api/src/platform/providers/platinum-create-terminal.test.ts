@@ -87,7 +87,7 @@ test("create() does NOT tear down a still-'provisioning' box (FE poll picks it u
   expect(deleted).toBe(false);
 });
 
-test('routeIngress() sends Kortix-native PTY websockets through the authenticated agent bridge', async () => {
+test('routeIngress() sends Dosco-native PTY websockets through the authenticated agent bridge', async () => {
   const p = await makeProvider();
   expect(p.routeIngress({
     port: 8000,

@@ -2,7 +2,7 @@
 // email change, reauthentication code.
 //
 // GoTrue can only render its own plain templates and can only send over SMTP.
-// Routing it through the send-email hook means these use the same Kortix shell,
+// Routing it through the send-email hook means these use the same Dosco shell,
 // the same sender identity and the same provider chain as invites, so an
 // operator who configures Resend or SES (no SMTP anywhere) still gets working
 // magic links.
@@ -39,28 +39,28 @@ const COPY: Record<Exclude<AuthEmailActionType, 'reauthentication'>, Copy> = {
     subject: 'Confirm your email',
     kicker: 'Confirm your email',
     title: 'Confirm your email address',
-    lead: 'Confirm this address to finish creating your Kortix account.',
+    lead: 'Confirm this address to finish creating your Dosco account.',
     cta: 'Confirm email',
-    note: 'If you did not create a Kortix account, you can ignore this email.',
+    note: 'If you did not create a Dosco account, you can ignore this email.',
   },
   invite: {
-    subject: 'You have been invited to Kortix',
+    subject: 'You have been invited to Dosco',
     kicker: "You're invited",
     title: 'You have been invited',
-    lead: 'Accept the invitation to create your Kortix account.',
+    lead: 'Accept the invitation to create your Dosco account.',
     cta: 'Accept invite',
     note: 'If you were not expecting this invitation, you can ignore this email.',
   },
   magiclink: {
-    subject: 'Your Kortix sign-in link',
+    subject: 'Your Dosco sign-in link',
     kicker: 'Sign in',
-    title: 'Sign in to Kortix',
+    title: 'Sign in to Dosco',
     lead: 'Use the link below to sign in. It expires shortly and can be used once.',
     cta: 'Sign in',
     note: 'If you did not request this link, you can ignore this email.',
   },
   recovery: {
-    subject: 'Reset your Kortix password',
+    subject: 'Reset your Dosco password',
     kicker: 'Password reset',
     title: 'Reset your password',
     lead: 'Use the link below to choose a new password.',
@@ -71,7 +71,7 @@ const COPY: Record<Exclude<AuthEmailActionType, 'reauthentication'>, Copy> = {
     subject: 'Confirm your new email address',
     kicker: 'Email change',
     title: 'Confirm your new email address',
-    lead: 'Confirm this change to move your Kortix account to the new address.',
+    lead: 'Confirm this change to move your Dosco account to the new address.',
     cta: 'Confirm change',
     note: 'If you did not request this change, reset your password immediately.',
   },
@@ -79,7 +79,7 @@ const COPY: Record<Exclude<AuthEmailActionType, 'reauthentication'>, Copy> = {
     subject: 'Confirm your email change',
     kicker: 'Email change',
     title: 'Confirm your email change',
-    lead: 'Confirm from your current address to move your Kortix account.',
+    lead: 'Confirm from your current address to move your Dosco account.',
     cta: 'Confirm change',
     note: 'If you did not request this change, reset your password immediately.',
   },
@@ -87,7 +87,7 @@ const COPY: Record<Exclude<AuthEmailActionType, 'reauthentication'>, Copy> = {
     subject: 'Confirm your new email address',
     kicker: 'Email change',
     title: 'Confirm your new email address',
-    lead: 'Confirm this address to finish moving your Kortix account to it.',
+    lead: 'Confirm this address to finish moving your Dosco account to it.',
     cta: 'Confirm change',
     note: 'If you did not request this change, you can ignore this email.',
   },
@@ -105,7 +105,7 @@ function renderCode(token: string): AuthEmailContent {
   const title = 'Confirm it is you';
   const note = 'The code expires shortly. If you did not request it, you can ignore this email.';
   return {
-    subject: 'Your Kortix confirmation code',
+    subject: 'Your Dosco confirmation code',
     html: renderEmail({ kicker: 'Confirmation code', title, body }),
     text: renderText({
       title,

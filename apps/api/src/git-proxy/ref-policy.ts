@@ -88,7 +88,7 @@ export type GitPrincipal =
    * carries no user identity.
    */
   | { kind: 'user'; userId: string | null; tokenId?: string | null }
-  /** Server-side Kortix machinery. Never reaches the proxy today. */
+  /** Server-side Dosco machinery. Never reaches the proxy today. */
   | { kind: 'internal' };
 
 export interface RefPolicyContext {

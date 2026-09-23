@@ -16,8 +16,8 @@ const ALL: PreviewState[] = [
 ];
 
 const BASE = {
-  returnTo: 'https://dev-p8081-sbx-a.p.kortix.com/learn',
-  frontendUrl: 'https://dev.kortix.com',
+  returnTo: 'https://dev-p8081-sbx-a.p.dosco.live/learn',
+  frontendUrl: 'https://dev.dosco.live',
 };
 
 describe('every preview state renders a page a person can read', () => {

@@ -1,7 +1,7 @@
 /**
  * The credential a preview ORIGIN carries after its first authenticated request.
  *
- * A preview host (`dev-p8081-<label>.p.kortix.com`) is not the API host, so none
+ * A preview host (`dev-p8081-<label>.p.dosco.live`) is not the API host, so none
  * of the API's own credentials reach it: no Authorization header (the browser is
  * navigating, not calling), and not the host-only `__preview_session` cookie
  * scoped to `Path=/v1/p/`. The first request therefore carries a one-shot
@@ -19,7 +19,7 @@
  *
  * ## Why two cookies
  *
- * A preview is normally an iframe inside the Kortix web app, which makes it a
+ * A preview is normally an iframe inside the Dosco web app, which makes it a
  * THIRD-PARTY context. Chrome's third-party cookie restrictions and Safari's
  * partitioning mean an ordinary cookie may never come back. `Partitioned`
  * (CHIPS) is the supported form there, but a partitioned cookie set inside that
@@ -169,13 +169,13 @@ export function previewSessionCookies(
 
 /**
  * The Cookie header as the APP should see it: everything the browser sent,
- * minus the cookies that belong to Kortix.
+ * minus the cookies that belong to Dosco.
  *
  * On the path proxy every cookie is stripped, because the preview shares an
  * origin with the API and the jar therefore contains the caller's own API
  * credential — handing that to arbitrary sandbox code would be a credential
  * leak. A preview ORIGIN has no such problem: it is a different host, so the
- * API's cookies are never sent here at all, and the only Kortix cookies in the
+ * API's cookies are never sent here at all, and the only Dosco cookies in the
  * jar are the two this module sets. Removing exactly those and forwarding the
  * rest is what makes a cookie-session app (Django, Rails, next-auth, PHP) work
  * through the proxy the same way it works when reached directly.

@@ -48,7 +48,7 @@ describe('session connector binding security contracts', () => {
     expect(resolveTokenBoundSessionId(null, 'session-b')).toEqual({ ok: false });
   });
 
-  test('Supabase authentication session identity is not a Kortix project session identity', () => {
+  test('Supabase authentication session identity is not a Dosco project session identity', () => {
     expect(projectSessionIdForProjectPrincipal(undefined, 'supabase-auth-session')).toBeNull();
     expect(
       projectSessionIdForProjectPrincipal('11111111-1111-4111-a111-111111111111', 'kortix-session'),

@@ -8,7 +8,7 @@ import { stripTeamsMentions, teamsMessageText } from '../channels/teams/util';
 // "ask @Alice" arrived as "ask".
 
 const BOT = '28:bot';
-const botMention = (name = 'Kortix') => ({
+const botMention = (name = 'Dosco') => ({
   type: 'mention',
   mentioned: { id: BOT, name },
   text: `<at>${name}</at>`,
@@ -34,7 +34,7 @@ describe('teamsMessageText', () => {
 
   test('drops the bot`s own mention wherever it sits', () => {
     const activity = {
-      text: 'hey <at>Kortix</at> summarize the README',
+      text: 'hey <at>Dosco</at> summarize the README',
       entities: [botMention()],
       recipient: { id: BOT },
     };
@@ -43,7 +43,7 @@ describe('teamsMessageText', () => {
 
   test('keeps anyone else mentioned, by name', () => {
     const activity = {
-      text: '<at>Kortix</at> ask <at>Alice Park</at> about the deploy',
+      text: '<at>Dosco</at> ask <at>Alice Park</at> about the deploy',
       entities: [botMention(), userMention('Alice Park', '29:alice')],
       recipient: { id: BOT },
     };
@@ -51,8 +51,8 @@ describe('teamsMessageText', () => {
   });
 
   test('without mention entities, only a leading mention is taken as the address', () => {
-    expect(teamsMessageText({ text: '<at>Kortix Dev</at>summarize the README' })).toBe('summarize the README');
-    expect(teamsMessageText({ text: '<at>Kortix</at> loop in <at>Bob</at>' })).toBe('loop in @Bob');
+    expect(teamsMessageText({ text: '<at>Dosco Dev</at>summarize the README' })).toBe('summarize the README');
+    expect(teamsMessageText({ text: '<at>Dosco</at> loop in <at>Bob</at>' })).toBe('loop in @Bob');
   });
 
   test('decodes the entities Teams escapes, and <br> line breaks', () => {
@@ -67,11 +67,11 @@ describe('teamsMessageText', () => {
 
   test('an empty or missing text is an empty string', () => {
     expect(teamsMessageText({})).toBe('');
-    expect(teamsMessageText({ text: '<at>Kortix</at>', entities: [botMention()], recipient: { id: BOT } })).toBe('');
+    expect(teamsMessageText({ text: '<at>Dosco</at>', entities: [botMention()], recipient: { id: BOT } })).toBe('');
   });
 
   test('the command parser still gets one flattened line', () => {
     // Titles and slash commands want one line; that is what stripTeamsMentions is for.
-    expect(stripTeamsMentions('<at>Kortix</at> /new\nsecond line')).toBe('/new second line');
+    expect(stripTeamsMentions('<at>Dosco</at> /new\nsecond line')).toBe('/new second line');
   });
 });

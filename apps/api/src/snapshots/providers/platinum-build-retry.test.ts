@@ -70,7 +70,7 @@ describe('Platinum build-error retry classifier', () => {
     ['an explicit "template size cap" message', new Error('Platinum template kortix-default-abc123 exceeded its template size cap')],
     ['the wrapped PlatinumSizeCapBuildError itself', new PlatinumSizeCapBuildError('kortix-default-abc123', new Error('size_mb too_big'))],
     // ALSO a 429, but the opposite of transient: the per-org template COUNT cap.
-    // Nothing frees a template row on its own and Kortix has no org-wide GC for
+    // Nothing frees a template row on its own and Dosco has no org-wide GC for
     // Platinum, so retrying burns BUILD_ATTEMPTS against a wall and buries the
     // one error an operator needs to see.
     [

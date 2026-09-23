@@ -90,7 +90,7 @@ const AgentBlockSchema = z
     connectors_personal: z.array(z.string().min(1).max(200)).max(500).optional(),
     secrets: GrantSetSchema.optional(),
     skills: GrantSetSchema.optional(),
-    // Kortix Apps (by slug) this agent may open when restricted/private (§2.5).
+    // Dosco Apps (by slug) this agent may open when restricted/private (§2.5).
     apps: GrantSetSchema.optional(),
     kortix_permissions: GrantSetSchema.optional(),
     // Deprecated request alias of kortix_permissions. The handler normalizes it

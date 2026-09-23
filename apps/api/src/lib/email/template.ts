@@ -1,9 +1,9 @@
-// The Kortix email shell. Every email the platform sends — invites, access
+// The Dosco email shell. Every email the platform sends — invites, access
 // requests, magic links, signup confirmations, password recovery — is rendered
 // through renderEmail() so they are visibly one product rather than a branded
 // invite next to a default GoTrue plain-text link.
-const BRAND_WORDMARK = 'Kortix';
-const BRAND_FOOTER = 'Kortix — The Autonomous Company Operating System';
+const BRAND_WORDMARK = 'Dosco';
+const BRAND_FOOTER = 'Dosco — The Autonomous Company Operating System';
 
 const COLOR_BG = '#f6f7f9';
 const COLOR_CARD = '#ffffff';

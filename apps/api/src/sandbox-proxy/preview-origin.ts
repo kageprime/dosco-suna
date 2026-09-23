@@ -80,7 +80,7 @@ function previewDirectEdgeMode(): boolean {
  * Which preview (if any) a request targets.
  *
  * The edge Worker forwards to the API's own origin, so the upstream `Host` is
- * `dev-api.kortix.com` and the browser's hostname survives only in the SIGNED
+ * `dev-api.dosco.live` and the browser's hostname survives only in the SIGNED
  * `x-kortix-preview-host` header. Trusting that header unsigned would let any
  * caller reaching the API origin name any preview — and would put sandbox
  * content back on the API origin, which is the whole thing this design removes.

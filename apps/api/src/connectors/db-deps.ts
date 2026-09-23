@@ -359,7 +359,7 @@ export function composioConnectionMetadata(input: {
   authRequestId?: string;
   connectedAccountId?: string;
   isNoAuth: boolean;
-  /** Kortix session whose agent asked for this connector. Deliberately NOT
+  /** Dosco session whose agent asked for this connector. Deliberately NOT
    *  `session_id` — that key is Composio's Tool Router session (`trs_…`). */
   requestingSessionId?: string | null;
 }): Record<string, unknown> {
@@ -376,7 +376,7 @@ export function composioConnectionMetadata(input: {
 }
 
 /**
- * The Kortix session whose agent asked for this connector, as stored on the
+ * The Dosco session whose agent asked for this connector, as stored on the
  * connection row. Provider-neutral on purpose: Composio writes it inside
  * `composioConnectionMetadata`, Pipedream through `mergeRequestingSession`,
  * and finalize reads both through this one accessor.
@@ -635,7 +635,7 @@ async function personalTunnelOwnersFor(
 export function makeDbGatewayDeps(principal: ConnectorPrincipal): GatewayDeps {
   return {
     attachmentStore: connectorAttachmentStore,
-    // Spec 2026-09-22 §2.5: an agent session calling a same-project Kortix App.
+    // Spec 2026-09-22 §2.5: an agent session calling a same-project Dosco App.
     appAuthorizationFor: (input) => appAuthorizationForConnectorCall(input),
     loadConnectorBySlug: async (projectId, slug) => {
       const [row] = await db
@@ -1010,7 +1010,7 @@ export function resolveTokenBoundSessionId(
 }
 
 /**
- * Only project-scoped tokens carry a Kortix project session identity.
+ * Only project-scoped tokens carry a Dosco project session identity.
  * Supabase JWTs also set `sessionId`, but that value identifies the Supabase
  * authentication session. It must not enter connection resolution.
  */

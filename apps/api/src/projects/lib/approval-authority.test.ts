@@ -188,7 +188,7 @@ describe('the browser human (regression: the Supabase sessionId collision)', () 
   });
 
   test('a browser human still sees a session’s approvals when unbound', () => {
-    // Same collision: comparing a Supabase auth-session UUID to a Kortix session
+    // Same collision: comparing a Supabase auth-session UUID to a Dosco session
     // id made needs-input return 0 for every browser caller.
     expect(
       maySeeSessionApprovals({

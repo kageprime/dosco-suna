@@ -3,16 +3,16 @@ import { decideParkedRuntime } from './parked-runtime-verification';
 
 /**
  * Incident 2026-08-12 (Platinum deleted sbx_01KZP370WDB8DGYNAQM1B875VR while it
- * held a completed backup). The Kortix-side finding this file exists for:
+ * held a completed backup). The Dosco-side finding this file exists for:
  *
  * NOTHING EVER RE-VERIFIED A PARKED SANDBOX. The box reaper's candidate
  * predicate is `status = 'active'` (reaping/box-queries.ts), and the wake
  * reconciler only looks at rows with a live wake fence. A row that is parked and
  * then left alone was never asked about again — so when the provider lost it,
- * Kortix kept advertising it as resumable until a human happened to open it.
+ * Dosco kept advertising it as resumable until a human happened to open it.
  *
  * Measured on prod 2026-08-13: 16,243 parked rows had never been re-verified,
- * and 16 of them were already dead provider-side without Kortix knowing.
+ * and 16 of them were already dead provider-side without Dosco knowing.
  */
 describe('decideParkedRuntime', () => {
   const base = {

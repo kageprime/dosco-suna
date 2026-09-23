@@ -126,10 +126,10 @@ describe('markdownToCardElements — structure', () => {
   });
 
   test('bullet lists and links pass through untouched — Teams renders those natively', () => {
-    const md = '- one\n- two [docs](https://kortix.com)\n\n1. first\n2. second';
+    const md = '- one\n- two [docs](https://dosco.live)\n\n1. first\n2. second';
     const els = markdownToCardElements(md) as El[];
     expect(els).toHaveLength(2);
-    expect(els[0].text).toBe('- one\n- two [docs](https://kortix.com)');
+    expect(els[0].text).toBe('- one\n- two [docs](https://dosco.live)');
     expect(els[1].text).toBe('1. first\n2. second');
   });
 

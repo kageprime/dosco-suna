@@ -190,7 +190,7 @@ export function resolveConfigAgents(
           enabled: spec.enabled,
           sandbox: spec.sandbox ?? null,
           // Surface the per-agent allowlists so the UI can show (read-only) what
-          // secrets/connectors/Kortix permissions each declared agent is scoped to.
+          // secrets/connectors/Dosco permissions each declared agent is scoped to.
           // `kortix_cli` is the deprecated wire alias of `kortix_permissions`,
           // kept so clients released before the rename still read it.
           scope: {
@@ -198,7 +198,7 @@ export function resolveConfigAgents(
             connectors: spec.connectors,
             kortix_permissions: spec.permissions,
             kortix_cli: spec.permissions,
-            // Kortix Apps this agent may open when restricted/private (§2.5).
+            // Dosco Apps this agent may open when restricted/private (§2.5).
             apps: spec.apps ?? [],
           },
         };

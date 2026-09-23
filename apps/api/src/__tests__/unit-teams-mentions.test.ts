@@ -8,7 +8,7 @@ describe('isBotMentioned', () => {
     expect(
       isBotMentioned({
         recipient: { id: BOT },
-        entities: [{ type: 'mention', mentioned: { id: BOT, name: 'Kortix Dev' }, text: '<at>Kortix Dev</at>' }],
+        entities: [{ type: 'mention', mentioned: { id: BOT, name: 'Dosco Dev' }, text: '<at>Dosco Dev</at>' }],
       }),
     ).toBe(true);
   });

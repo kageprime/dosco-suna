@@ -5,7 +5,7 @@
  * These are the state tokens GitHub round-trips through the browser on the
  * App install flow (buildGitHubAppInstallUrl → GitHub → GET /install-callback
  * → verifyGitHubAppInstallStatePayload). They correlate an installation back
- * to the initiating Kortix account and carry a 30-minute TTL.
+ * to the initiating Dosco account and carry a 30-minute TTL.
  *
  * Regression coverage for a real bug the ke2e suite surfaced (GHA-2): a bare
  * GET /install-callback with NO `state` query param used to 500 because

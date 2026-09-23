@@ -45,7 +45,7 @@ beforeAll(async () => {
 });
 
 // Regression for Better Stack pattern `ec26b248…`
-// `DaytonaRateLimitError: ThrottlerException: Too Many Requests` (Kortix API
+// `DaytonaRateLimitError: ThrottlerException: Too Many Requests` (Dosco API
 // prod, application_id 2346961). Prior PRs (#3567, #4605) guarded specific
 // Daytona call sites one-by-one, but new call sites kept reintroducing the same
 // fingerprint because a 429 still propagated to `app.onError` →

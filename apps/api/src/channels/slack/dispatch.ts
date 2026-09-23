@@ -130,7 +130,7 @@ export async function ensureProjectChannelBinding(
   // Any project whose Slack app merely observes a channel (both manifests
   // subscribe `message.channels`) was enough to take it. Prod 2026-08-28,
   // workspace T07FUFNT3RV: `kortix-incident-reporter` (installed 2026-08-17)
-  // held `C0AASKRLRBR`, where `Kortix Company` had run 71 sessions through
+  // held `C0AASKRLRBR`, where `Dosco Company` had run 71 sessions through
   // 2026-08-14 and then went silent for 14 days.
   //
   // Re-assignment is a DELIBERATE act and has its own paths, untouched by this:
@@ -319,12 +319,12 @@ async function postProjectPicker(opts: {
 }
 
 // The AI-Assistant DM pane fires `assistant_thread_started` when a user opens
-// (or starts a new) Kortix DM — the natural "which project is this connected
+// (or starts a new) Dosco DM — the natural "which project is this connected
 // to?" moment, exactly like inviting the bot to a channel. We run the IDENTICAL
 // resolution the channel path uses (resolveOauthProject): one project →
 // auto-bind silently, two+ unbound → the same project picker right in the
 // assistant thread, already bound → nothing. So a DM user gets the exact same
-// "choose your Kortix project" experience as a channel, without needing a slash
+// "choose your Dosco project" experience as a channel, without needing a slash
 // command (which the Assistant pane can't run).
 export async function handleAssistantThreadStarted(
   teamId: string,
@@ -366,7 +366,7 @@ async function postSlashResponseToChannel(
   resp: SlashResponse,
 ): Promise<void> {
   if (resp.blocks && resp.blocks.length > 0) {
-    await postBlocks(token, channelId, resp.text ?? 'Kortix', resp.blocks, threadTs);
+    await postBlocks(token, channelId, resp.text ?? 'Dosco', resp.blocks, threadTs);
   } else if (resp.text) {
     await postMessage(token, channelId, resp.text, threadTs);
   }
@@ -448,14 +448,14 @@ export async function classifyEvent(
 ): Promise<EventClass> {
   // AN app_mention MUST ACTUALLY MENTION THIS PROJECT'S BOT.
   //
-  // PROD 2026-08-20. A user typed `@Kortix hey man` in a channel that also has
+  // PROD 2026-08-20. A user typed `@Dosco hey man` in a channel that also has
   // the "Incident reporter" bot in it, and Incident reporter answered:
   //
-  //   mentioned bot   U0B7QL26690  (Kortix)
+  //   mentioned bot   U0B7QL26690  (Dosco)
   //   bot that replied U0B5W5XN49Y  (Incident reporter)
   //   session created inside kortix-incident-reporter
   //
-  // Two Kortix-platform apps in one workspace, each with its own BYO webhook at
+  // Two Dosco-platform apps in one workspace, each with its own BYO webhook at
   // /slack/events/{projectId}. Whichever project the callback lands on answers,
   // because this line accepted EVERY app_mention on the strength of its type
   // alone. `botUserId` was already loaded and already passed in — it was simply
@@ -476,7 +476,7 @@ export async function classifyEvent(
     if (!botUserId) {
       console.warn(
         '[slack] app_mention accepted without verifying the mentioned bot: this project has no ' +
-          'recorded bot user id (run `link-bot`). In a workspace with more than one Kortix app ' +
+          'recorded bot user id (run `link-bot`). In a workspace with more than one Dosco app ' +
           'installed, this is how the wrong bot answers.',
       );
       return 'mention';
@@ -525,12 +525,12 @@ export async function classifyEvent(
 
 // A thread is owned only by the project recorded on its `chat_threads` row.
 //
-// PROD 2026-09-22. `chat_threads` is keyed workspace-wide, and every Kortix app
+// PROD 2026-09-22. `chat_threads` is keyed workspace-wide, and every Dosco app
 // in a workspace receives every `message.channels` event. Unscoped, this made a
-// plain reply in a `Kortix Company` thread a follow-up for
+// plain reply in a `Dosco Company` thread a follow-up for
 // `kortix-incident-reporter` too. Incident reporter won the exactly-once claim,
-// posted an "Open session" card linking its own project to Kortix Company's
-// session, and Kortix Company's own delivery lost the claim and went silent.
+// posted an "Open session" card linking its own project to Dosco Company's
+// session, and Dosco Company's own delivery lost the claim and went silent.
 // Same two-app workspace as the 2026-08-20 and 2026-08-28 incidents above.
 async function threadIsOwned(teamId: string, threadTs: string, projectId?: string): Promise<boolean> {
   const [row] = await db
@@ -548,7 +548,7 @@ async function threadIsOwned(teamId: string, threadTs: string, projectId?: strin
   return !!row;
 }
 
-const CHANNEL_INTRO_FALLBACK = "Kortix is now connected to this channel. Mention @Kortix with a task to get started.";
+const CHANNEL_INTRO_FALLBACK = "Dosco is now connected to this channel. Mention @Dosco with a task to get started.";
 
 async function postChannelIntro(projectId: string, channelId: string): Promise<void> {
   const token = await loadSlackTokenForProject(projectId);
@@ -560,25 +560,25 @@ async function postChannelIntro(projectId: string, channelId: string): Promise<v
     .limit(1);
   const projectLine = project?.name
     ? `This channel is connected to *${escapeMrkdwn(project.name)}*.`
-    : 'This channel is connected to a Kortix project.';
+    : 'This channel is connected to a Dosco project.';
   const blocks: Array<Record<string, unknown>> = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: 'Kortix is connected to this channel', emoji: false },
+      text: { type: 'plain_text', text: 'Dosco is connected to this channel', emoji: false },
     },
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
         text: [
-          '`@`-mention Kortix with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Follow-ups stay in the same conversation, with full context.',
+          '`@`-mention Dosco with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Follow-ups stay in the same conversation, with full context.',
           projectLine,
           'Agent, model, and session policy settings are shared by this Slack channel.',
           '',
           'Try something like:',
-          '• `@Kortix summarize this thread and draft a reply to the customer`',
-          '• `@Kortix pull last week’s signups, group them by source, and drop a CSV here`',
-          '• `@Kortix put together a one-pager on our Q2 numbers`',
+          '• `@Dosco summarize this thread and draft a reply to the customer`',
+          '• `@Dosco pull last week’s signups, group them by source, and drop a CSV here`',
+          '• `@Dosco put together a one-pager on our Q2 numbers`',
           '',
           'Use the app slash command with `help` to see channel settings.',
         ].join('\n'),
@@ -722,7 +722,7 @@ export async function dispatchSlackEvent(
       await postMessage(
         token,
         event.channel,
-        "Mention @Kortix with a task and I'll get on it.",
+        "Mention @Dosco with a task and I'll get on it.",
         event.thread_ts ?? event.ts,
       );
     }
@@ -742,7 +742,7 @@ export async function spawnAgentTurn(
 
   // Resolve who the agent runs AS. Gated by SLACK_REQUIRE_USER_IDENTITY:
   //  • ON  — every sender (first message OR follow-up, channel OR button click)
-  //    must be linked to a Kortix account that is a member of this project's
+  //    must be linked to a Dosco account that is a member of this project's
   //    account. No live mapping → block and nudge to `/login`; never fall back
   //    to the owner (the impersonation this fixes).
   //  • OFF — legacy behavior: run as the account owner stand-in.
@@ -760,7 +760,7 @@ export async function spawnAgentTurn(
     if ('reason' in actor) {
       // A BOT cannot act on this. postIdentityPrompt posts an ephemeral AND a DM
       // to slackUserId, so for a bot sender both land where no human will ever
-      // see them, and the mention reads as "Kortix ignored it" — which is how
+      // see them, and the mention reads as "Dosco ignored it" — which is how
       // this went undiagnosed. Link it with `<cmd> link-bot @TheBot` instead.
       if (!event.bot_id) {
         await postIdentityPrompt({
@@ -842,7 +842,7 @@ export async function spawnAgentTurn(
         await saveTurn(handle);
       }
       // Per-Slack-user identity: once a thread participant is authorized, deliver
-      // their follow-up as that validated Kortix user. The thread/session gate
+      // their follow-up as that validated Dosco user. The thread/session gate
       // above decides whether they are allowed to join this conversation at all.
       const outcome = await deliverSlackFollowUpToSession({
         sessionId: existing.sessionId,
@@ -890,14 +890,14 @@ export async function spawnAgentTurn(
         // the thread lands right back here (`session.status === 'failed'` is sticky)
         // and, unguarded, re-posts the identical line — the thread jammed on repeat.
         // The first failure claims a durable per-thread notice and posts it with a
-        // direct link to open the session in Kortix; every later one just clears its
+        // direct link to open the session in Dosco; every later one just clears its
         // ⏳ ack and stays silent, so the thread isn't spammed forever.
         if (handle) {
           await deleteTurn(existing.sessionId);
           if (await claimThreadErrorNotice(teamId, threadId)) {
             const url = sessionWebUrl(config.FRONTEND_URL, projectId, existing.sessionId);
             await finalizeTurn(handle, {
-              error: `This thread's session hit an error and couldn't start. <${url}|Open it in Kortix> to see what happened.`,
+              error: `This thread's session hit an error and couldn't start. <${url}|Open it in Dosco> to see what happened.`,
             });
           } else {
             // Suppressing the repeated notice must not turn a failed start

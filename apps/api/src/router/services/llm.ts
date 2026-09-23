@@ -7,8 +7,8 @@ import { getModel, getAllModels, resolveOpenRouterId, type ModelConfig } from '.
  * When cache metrics are available, uses differential pricing for cached/written tokens.
  *
  * @param markup - Multiplier applied to the raw provider cost.
- *   Defaults to KORTIX_MARKUP (1.2× = 20% markup) when Kortix provides the key.
- *   BYOK callers use 0 because Kortix never charges for provider-owned keys.
+ *   Defaults to KORTIX_MARKUP (1.2× = 20% markup) when Dosco provides the key.
+ *   BYOK callers use 0 because Dosco never charges for provider-owned keys.
  */
 export function calculateCost(
   modelConfig: ModelConfig,

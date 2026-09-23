@@ -5,8 +5,8 @@ import { describe, expect, test } from 'bun:test';
 const { portUnreachableResponse } = await import('./routes/preview');
 const { PREVIEW_STATE_HEADER } = await import('./preview-state-page');
 
-const BROWSER = new Headers({ accept: 'text/html', host: 'dev-p8081-sbx-a.p.kortix.com' });
-const MACHINE = new Headers({ accept: 'application/json', host: 'dev-p8081-sbx-a.p.kortix.com' });
+const BROWSER = new Headers({ accept: 'text/html', host: 'dev-p8081-sbx-a.p.dosco.live' });
+const MACHINE = new Headers({ accept: 'application/json', host: 'dev-p8081-sbx-a.p.dosco.live' });
 
 /**
  * The design's load-bearing invariant, asserted on real Responses: a browser is

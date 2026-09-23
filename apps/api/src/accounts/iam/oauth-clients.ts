@@ -1,6 +1,6 @@
-// IAM V2 routes: OAuth clients — "Sign in with Kortix" app registration.
+// IAM V2 routes: OAuth clients — "Sign in with Dosco" app registration.
 //
-// A client is a third-party app that signs Kortix users in through /v1/oauth
+// A client is a third-party app that signs Dosco users in through /v1/oauth
 // and then acts as them (scope `kortix`) or just identifies them (`profile`).
 // It is an account-owned credential like a service account, so it lives under
 // the same `token.*` permission family: reading the registry needs
@@ -72,7 +72,7 @@ iamRouter.openapi(
     method: 'get',
     path: '/{accountId}/iam/oauth-clients',
     tags: ['iam'],
-    summary: 'List OAuth clients (Sign in with Kortix apps)',
+    summary: 'List OAuth clients (Sign in with Dosco apps)',
     ...auth,
     request: { params: AccountIdParam },
     responses: {

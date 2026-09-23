@@ -57,7 +57,7 @@ export function rowToHandle(row: typeof chatTurnStreams.$inferSelect, token: str
  * and started its own `while sleep 200; do slack step` keepalive at 13:37; by
  * then there was nothing left to keep alive. Three incident threads that week
  * (d91f2ff5, d08cccb4, 11f9e9e9) died the same way and read in Slack as
- * "Kortix ignored the incident".
+ * "Dosco ignored the incident".
  *
  * The GC sweep below is the reaper, and the honest one: it is keyed on
  * `updated_at` (30 minutes with no relay at all) and it POSTS before it deletes.
@@ -378,7 +378,7 @@ export async function finalizeTurn(
           body,
           [
             ...toSectionBlocks(body, truncated),
-            { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Kortix ↗>` }] },
+            { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }] },
           ],
           threadRoot,
         );
@@ -441,7 +441,7 @@ function toSectionBlocks(body: string, truncated = false): Array<Record<string, 
 function plainFallback(handle: LiveTurn, body: string): string {
   if (handle.projectId && handle.sessionId) {
     const url = sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId);
-    return `${body}\n\n<${url}|Open session in Kortix ↗>`;
+    return `${body}\n\n<${url}|Open session in Dosco ↗>`;
   }
   return body;
 }
@@ -501,12 +501,12 @@ function buildFinalPlanBlocks(
     for (const b of toSectionBlocks(body, truncated)) blocks.push(b);
   }
   // Footer: a link to open this session on the web. Lets anyone in the thread
-  // jump straight to the full session (logs, files, diff) in Kortix.
+  // jump straight to the full session (logs, files, diff) in Dosco.
   if (handle.projectId && handle.sessionId) {
     const url = sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId);
     blocks.push({
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Kortix ↗>` }],
+      elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }],
     });
   }
   return blocks;
@@ -735,14 +735,14 @@ export async function postAnswerWithoutTurnDetailed(
   const truncated = rendered.length > MAX_BODY;
   const body = rendered.slice(0, MAX_BODY);
   const url = sessionWebUrl(config.FRONTEND_URL, row.projectId, sessionId);
-  const footer = { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Kortix ↗>` }] };
+  const footer = { type: 'context', elements: [{ type: 'mrkdwn', text: `<${url}|Open session in Dosco ↗>` }] };
   const finalBlocks =
     blocks && blocks.length > 0 ? [...blocks, footer] : [...toSectionBlocks(body, truncated), footer];
 
   const ts = await postBlocks(token, channel, body, finalBlocks, threadTs);
   if (ts) return { ok: true };
   // Block render rejected (a section caps at 3000 chars) — never lose the answer.
-  const fallback = await postMessage(token, channel, `${body}\n\n<${url}|Open session in Kortix ↗>`, threadTs);
+  const fallback = await postMessage(token, channel, `${body}\n\n<${url}|Open session in Dosco ↗>`, threadTs);
   return fallback != null ? { ok: true } : { ok: false, reason: 'post_failed' };
 }
 

@@ -598,7 +598,7 @@ export class PlatinumProvider implements SandboxProvider {
   }
 
   async remove(externalId: string): Promise<void> {
-    // No credential replicas to erase first: Kortix stopped registering secrets
+    // No credential replicas to erase first: Dosco stopped registering secrets
     // at the Platinum edge when one mechanism took over every provider
     // (docs/specs/2026-08-19-secrets-exposure-usage-model.md §4). The value is
     // substituted server-side per request and never leaves the API.
@@ -736,7 +736,7 @@ export class PlatinumProvider implements SandboxProvider {
   async resolveEndpoint(externalId: string): Promise<ResolvedEndpoint> {
     // Expose the agent port through Platinum's edge. PUBLIC (no HMAC ?t= token)
     // because Platinum's edge reads the token from the query string only, which
-    // doesn't compose with the Kortix proxy appending a path — and the sandbox
+    // doesn't compose with the Dosco proxy appending a path — and the sandbox
     // is already gated by the KORTIX serviceKey bearer below (same effective
     // auth as Daytona's preview link + serviceKey). Idempotent: re-exposing an
     // already-exposed port returns the same URL.

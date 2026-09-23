@@ -2,7 +2,7 @@
  * Regression coverage for the `/projects/:projectId/sandbox-health` poll's
  * whole-handler wall-clock budget.
  *
- * Incident: the frontend (Kortix Frontend, prod) reported
+ * Incident: the frontend (Dosco Frontend, prod) reported
  *   "ApiError — Request timed out after 30s: /projects/<id>/sandbox-health"
  * (Better Stack error f49bbe8a9ec0ad587e5ad540cbdce3917361004fba8d0c914146d2cbbd119fff).
  *

@@ -106,7 +106,7 @@ describe.skipIf(!existsSync(WORKER_DIST))('compiled pi runtime artifact (real bu
   }, 15_000);
 });
 
-// The Kortix Runtime API on the worker (/kortix/opencode/*): the surface the
+// The Dosco Runtime API on the worker (/kortix/opencode/*): the surface the
 // web session page reads since #6987 — /state, paged /messages, the sequenced
 // /events SSE — served by the REAL compiled artifact, driven through a real
 // faux turn. Skipped like the sibling when dist has not been built.

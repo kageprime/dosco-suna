@@ -11,7 +11,7 @@ import * as realAccess from './access';
 import * as realCrypto from '../shared/crypto';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 
 const APP_ID = '11111111-1111-4111-8111-111111111111';
 const ACCOUNT_ID = '55555555-5555-4555-8555-555555555555';
@@ -92,9 +92,9 @@ function appRow(overrides: Record<string, unknown> = {}) {
   } as never;
 }
 
-const URL_HTTPS = new URL('https://dev-dashboards-abc.apps.kortix.com/');
+const URL_HTTPS = new URL('https://dev-dashboards-abc.apps.dosco.live/');
 
-/** The cookie the gate itself mints after a Kortix sign-in. */
+/** The cookie the gate itself mints after a Dosco sign-in. */
 function sessionCookie(revision = 3, kind: 'kortix' | 'password' = 'kortix') {
   const token = createAppAccessToken(
     {
@@ -211,7 +211,7 @@ describe('resolveAppViewerUserId', () => {
     ).toBeNull();
   });
 
-  test('a PASSWORD App still carries no Kortix identity — its cookie is not a person', () => {
+  test('a PASSWORD App still carries no Dosco identity — its cookie is not a person', () => {
     // A password session proves knowledge of a shared secret, not who you are.
     // `kind !== 'kortix'` is what keeps it out, so this holds without a
     // special case on access mode.
@@ -281,9 +281,9 @@ describe('the viewer header the container receives', () => {
   test('a client-supplied viewer header is DELETED, never forwarded', () => {
     const forged = req({ headers: { [APP_VIEWER_HEADER]: 'forged.header', cookie: sessionCookie() } });
     // No gate-resolved viewer → the header must not survive.
-    expect(appUpstreamHeaders(forged, {}, 'x.apps.kortix.com', null).get(APP_VIEWER_HEADER)).toBeNull();
+    expect(appUpstreamHeaders(forged, {}, 'x.apps.dosco.live', null).get(APP_VIEWER_HEADER)).toBeNull();
     // With one → exactly the gate's value, never the client's.
-    const carried = appUpstreamHeaders(forged, {}, 'x.apps.kortix.com', {
+    const carried = appUpstreamHeaders(forged, {}, 'x.apps.dosco.live', {
       context: 'gate.value',
       token: 'kortix_oat_minted',
     });
@@ -334,7 +334,7 @@ describe('GET /_kortix/viewer', () => {
     expect((await res.json()).error).toBe('viewer_disabled');
   });
 
-  test('a server-side caller may present its own Kortix credential — and must pass the App policy', async () => {
+  test('a server-side caller may present its own Dosco credential — and must pass the App policy', async () => {
     const allowed = await appViewerEndpointResponse(
       req({ headers: { authorization: 'Bearer kortix_pat_member' } }, '/_kortix/viewer'),
       URL_HTTPS,

@@ -30,9 +30,9 @@ mock.module('../config', () => ({
     SLACK_SIGNING_SECRET: 'state-secret',
     SLACK_CLIENT_ID: 'client-id',
     SLACK_CLIENT_SECRET: 'client-secret',
-    SLACK_REDIRECT_URI: 'https://dev-api.kortix.com/v1/webhooks/slack/oauth/callback',
+    SLACK_REDIRECT_URI: 'https://dev-api.dosco.live/v1/webhooks/slack/oauth/callback',
     SLACK_OAUTH_SCOPES: 'app_mentions:read,chat:write,commands',
-    FRONTEND_URL: 'https://dev.kortix.com',
+    FRONTEND_URL: 'https://dev.dosco.live',
   },
 }));
 
@@ -97,7 +97,7 @@ describe('Slack OAuth callback', () => {
 
     expect(res.status).toBe(302);
     expect(redirectLocation(res)).toBe(
-      `https://dev.kortix.com/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&success=1&customize=connectors`,
+      `https://dev.dosco.live/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&success=1&customize=connectors`,
     );
     expect(saveCalls).toEqual([{
       projectId: PROJECT_ID,
@@ -115,7 +115,7 @@ describe('Slack OAuth callback', () => {
 
     expect(res.status).toBe(302);
     expect(redirectLocation(res)).toBe(
-      `https://dev.kortix.com/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=slack_install_save_failed&customize=connectors`,
+      `https://dev.dosco.live/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=slack_install_save_failed&customize=connectors`,
     );
     expect(saveCalls).toHaveLength(1);
   });
@@ -129,7 +129,7 @@ describe('Slack OAuth callback', () => {
 
     expect(res.status).toBe(302);
     expect(redirectLocation(res)).toBe(
-      `https://dev.kortix.com/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=oauth_exchange_failed&customize=connectors`,
+      `https://dev.dosco.live/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=oauth_exchange_failed&customize=connectors`,
     );
     expect(saveCalls).toHaveLength(0);
   });
@@ -145,7 +145,7 @@ describe('Slack OAuth callback', () => {
 
     expect(res.status).toBe(302);
     expect(redirectLocation(res)).toBe(
-      `https://dev.kortix.com/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=invalid_code&customize=connectors`,
+      `https://dev.dosco.live/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&error=invalid_code&customize=connectors`,
     );
     expect(saveCalls).toHaveLength(0);
   });

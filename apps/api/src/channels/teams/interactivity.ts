@@ -283,7 +283,7 @@ async function handleReview(
   const item = await getReviewItemById(reviewItemId, projectId);
   if (!item) return cardResponse(buildNoticeCard('That review item no longer exists.'));
 
-  // The actor must be a linked Kortix user with WRITE access to this project —
+  // The actor must be a linked Dosco user with WRITE access to this project —
   // the same bar Slack has always applied (channels/slack/interactivity.ts).
   // This checked only that the presser had *some* linked identity in the
   // tenant, so anyone who had ever run `/login` could approve or deny a review
@@ -297,7 +297,7 @@ async function handleReview(
     return cardResponse(
       buildNoticeCard(
         actor.reason === 'unlinked'
-          ? 'Connect your Kortix account (`/login`) to act on reviews.'
+          ? 'Connect your Dosco account (`/login`) to act on reviews.'
           : "You don't have access to act on this project's reviews.",
       ),
     );
@@ -395,11 +395,11 @@ async function handleRequestAccess(
         accountId: outcome.accountId,
         requesterUserId: outcome.requesterUserId,
       });
-      return cardResponse(buildNoticeCard('Access requested. An admin will approve it in Kortix.', '✅'));
+      return cardResponse(buildNoticeCard('Access requested. An admin will approve it in Dosco.', '✅'));
     case 'already-member':
       return cardResponse(buildNoticeCard("You already have access — send your message again and I'll pick it up."));
     case 'no-identity':
-      return cardResponse(buildNoticeCard('Connect your Kortix account first, then request access.'));
+      return cardResponse(buildNoticeCard('Connect your Dosco account first, then request access.'));
     case 'no-project':
       return cardResponse(buildNoticeCard("I couldn't find that project."));
   }

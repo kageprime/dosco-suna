@@ -139,7 +139,7 @@ function grantAppsKey(apps: string[] | 'all' | undefined): string {
 
 /**
  * True when running `requestedAgent` instead of `sessionAgent` would change ANY
- * part of the authorization grant — secrets, connectors, or Kortix permissions.
+ * part of the authorization grant — secrets, connectors, or Dosco permissions.
  *
  * This is the RE-MINT predicate, not a refusal. A session's `agentGrant` is
  * written onto its token row ONCE, at mint (`account_tokens.agent_grant`), from
@@ -228,7 +228,7 @@ export async function resolveSessionSecretGrant(
 
 /**
  * The FULL grant of the agent a prompt will actually run — secrets, connectors
- * and Kortix permissions.
+ * and Dosco permissions.
  *
  * Same resolution and same failure mode as `resolveSessionSecretGrant` (which
  * is this function's `env` leg): callers get `SecretGrantResolutionError` on an

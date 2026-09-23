@@ -21,9 +21,9 @@
  */
 import { createHash } from 'node:crypto';
 
-export const COMPILED_PI_RUNTIME_FORMAT = 'kortix.compiled-pi-runtime.v1' as const;
+export const COMPILED_PI_RUNTIME_FORMAT = 'dosco.livepiled-pi-runtime.v1' as const;
 export const COMPILED_PI_RUNTIME_CONTENT_TYPE =
-  'application/vnd.kortix.compiled-pi-runtime.v1+javascript';
+  'application/vnd.dosco.livepiled-pi-runtime.v1+javascript';
 
 export interface CompiledPiRuntimeManifest {
   format: typeof COMPILED_PI_RUNTIME_FORMAT;

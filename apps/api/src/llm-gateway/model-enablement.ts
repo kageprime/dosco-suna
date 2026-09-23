@@ -58,7 +58,7 @@ export function defaultEnabledFromCatalog(
     })),
   );
   for (const id of Object.keys(catalog)) {
-    // Kortix-managed models are a small hand-curated set, not the models.dev
+    // Dosco-managed models are a small hand-curated set, not the models.dev
     // firehose the recency rule exists to tame — every one of them is in the
     // catalog precisely because we want it offered. Several managed models (the
     // PLATFORM DEFAULT) publish no release date or family at all, so the rule

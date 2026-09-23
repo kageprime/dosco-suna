@@ -1,6 +1,6 @@
 /**
  * End-to-end coverage for the in-sandbox `slack` CLI surface. The test runs the
- * real Bun entrypoint against a live fake Kortix API so command parsing,
+ * real Bun entrypoint against a live fake Dosco API so command parsing,
  * project-explicit Connector routing, turn-stream relays, file upload/download,
  * and manifest fetching are all exercised without touching real Slack.
  */
@@ -82,7 +82,7 @@ function slackDataFor(action: string, args: Record<string, unknown>): unknown {
         ok: true,
         user_id: 'Ubot',
         user: 'kortix',
-        team: 'Kortix',
+        team: 'Dosco',
         team_id: 'T1',
         bot_id: 'B1',
       };
@@ -191,7 +191,7 @@ beforeEach(() => {
 
       if (url.pathname === `/v1/webhooks/slack/${PROJECT}/manifest`) {
         world.manifests.push(url.searchParams.get('name') ?? '');
-        return json({ display_information: { name: url.searchParams.get('name') ?? 'Kortix' } });
+        return json({ display_information: { name: url.searchParams.get('name') ?? 'Dosco' } });
       }
 
       return json({ error: `unexpected ${url.pathname}` }, 404);

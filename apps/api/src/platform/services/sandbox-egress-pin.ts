@@ -17,7 +17,7 @@
  * ## Why an IP pin, and why this one
  *
  * The obvious alternative — an egress allow-list restricting the sandbox to
- * Kortix — was measured and rejected: both dev-api and api.kortix.com are
+ * Dosco — was measured and rejected: both dev-api and api.dosco.live are
  * Cloudflare-fronted (AS13335, and the SAME anycast addresses), so pinning them
  * by CIDR means trusting 1,524,736 addresses that front a large share of the
  * internet. An agent would exfiltrate through a Cloudflare Worker and the

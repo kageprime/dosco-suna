@@ -335,7 +335,7 @@ describe('spawnAgentTurn — unauthenticated Slack prompt placement', () => {
       expect(ephemerals[0]).toMatchObject({
         channel: 'C1',
         user: 'U1',
-        text: 'Kortix needs a linked Kortix account to continue.',
+        text: 'Dosco needs a linked Dosco account to continue.',
       });
       expect(ephemerals[0].threadTs).toBeUndefined();
     } finally {
@@ -397,7 +397,7 @@ describe('spawnAgentTurn — permanent 1:1 thread↔session, never a second sess
     expect(finalizeCalls.at(-1)?.error).toContain('error');
     // The notice links straight to the session so the thread isn't a dead end.
     expect(finalizeCalls.at(-1)?.error).toContain('proj-1/sessions/sess-1');
-    expect(finalizeCalls.at(-1)?.error).toContain('Open it in Kortix');
+    expect(finalizeCalls.at(-1)?.error).toContain('Open it in Dosco');
   });
 
   test('failed AGAIN → notice already claimed → stay silent (no repeat, the thread isn’t spammed)', async () => {
@@ -466,7 +466,7 @@ describe('createOrJoinThreadSession — atomic claim arbitrates a brand-new thre
   });
 });
 
-// The exactly-once gate is THE regression guard for "@Kortix answered the same
+// The exactly-once gate is THE regression guard for "@Dosco answered the same
 // question 3×". Slack delivers one user message as several events (a channel
 // @mention arrives as BOTH `app_mention` and `message`), can retry it with a
 // fresh event_id, and fans it across replicas — every one of which shares the
@@ -521,7 +521,7 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     expect(ephemerals[0]).toMatchObject({
       channel: 'C1',
       user: 'U1',
-      text: 'Kortix needs a linked Kortix account to continue.',
+      text: 'Dosco needs a linked Dosco account to continue.',
     });
 
     dbResults = [
@@ -560,7 +560,7 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
 
 // ─── THE 2026-08-20 WRONG-BOT REPLY, at the level the damage happened ─────────
 //
-// `@Kortix hey man` in a channel that also has the "Incident reporter" bot, and
+// `@Dosco hey man` in a channel that also has the "Incident reporter" bot, and
 // Incident reporter answered — a session was created inside the wrong project
 // and a message was posted as the wrong bot. classifyEvent's unit test pins the
 // routing decision; this pins the consequence, which is what the user saw:

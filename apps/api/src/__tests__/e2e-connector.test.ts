@@ -783,7 +783,7 @@ describe('connector-scoped policy enforcement', () => {
       retryable: false,
       approval_url: 'https://app.kortix.test/approve/token-exec-1',
       approval_instructions:
-        'Share approval_url with a human, then stop this turn. Kortix resumes the session after approve or deny.',
+        'Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny.',
     });
   });
 

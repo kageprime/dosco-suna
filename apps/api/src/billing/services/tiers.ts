@@ -141,7 +141,7 @@ export const INCLUDED_CREDITS_RATIO = INCLUDED_CREDITS_PER_SEAT_USD / PER_SEAT_P
  *   3. Everything else that PAID — the legacy zoo (machine subscriptions,
  *      legacy `pro`, retired tier_* keys with no grant): the money that
  *      actually moved × INCLUDED_CREDITS_RATIO. Before this rule those
- *      renewals granted 0: a $40/mo "Kortix Computer" customer paid every
+ *      renewals granted 0: a $40/mo "Dosco Agent" customer paid every
  *      month, sat at a $0 wallet, and could not run anything. There is no
  *      per-key mapping table to maintain — the paid invoice IS the mapping.
  *
@@ -200,12 +200,12 @@ export function getComputeDisplayPriceCents(serverType: string): number | null {
 
 /**
  * Human-readable line for Stripe checkout / invoice descriptions.
- * Example: "Kortix Computer · Pro — 8 vCPU, 16 GB RAM, 320 GB SSD"
+ * Example: "Dosco Agent · Pro — 8 vCPU, 16 GB RAM, 320 GB SSD"
  */
 export function getComputeDescription(serverType: string): string {
   const t = COMPUTE_TIERS[serverType];
-  if (!t) return 'Kortix Computer';
-  return `Kortix Computer · ${t.label} — ${t.cores} vCPU, ${t.memoryGb} GB RAM, ${t.diskGb} GB SSD`;
+  if (!t) return 'Dosco Agent';
+  return `Dosco Agent · ${t.label} — ${t.cores} vCPU, ${t.memoryGb} GB RAM, ${t.diskGb} GB SSD`;
 }
 
 // ─── Tiers ──────────────────────────────────────────────────────────────────
@@ -304,13 +304,13 @@ const TIERS: Record<string, TierConfig> = {
   // The plan carries the credit pool and the concurrency limit; headcount does
   // not enter the price. Seats priced humans, but the cost driver is agents,
   // and agents run unattended — a team of two could run fifty of them, and a
-  // Kortix-as-a-Backend customer serves end users who are not seats at all.
+  // Dosco-as-a-Backend customer serves end users who are not seats at all.
   //
   // `models: []` — NO included managed LLM. `tierGrantsAllModels` is false, so
   // the wallet funds sandbox compute only, exactly as the free tier already
   // works. BYOK, OpenCode and ChatGPT-subscription paths are untouched; a
   // managed key is billed against the wallet only for tiers that grant models.
-  // This takes Kortix out of a short position on model prices: an upstream
+  // This takes Dosco out of a short position on model prices: an upstream
   // increase can no longer eat a fixed plan's margin.
   //
   // Price : credits holds at 1.6 : 1, which is ~48% gross margin when a plan
@@ -512,7 +512,7 @@ const STRIPE_PRICES_PROD: StripePriceConfig = {
   subscriptions: {
     free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
     pro: { monthly: 'price_1RILb4G6l1KZGqIrhomjgDnO' }, // TODO: create prod Pro price and replace
-    per_seat: { monthly: 'price_1TdyruG6l1KZGqIrMzPVmQSO' }, // live "Kortix seat" $40/mo
+    per_seat: { monthly: 'price_1TdyruG6l1KZGqIrMzPVmQSO' }, // live "Dosco seat" $40/mo
     // Legacy price → tier mappings (for webhook resolution of existing subs)
     tier_2_20: {
       monthly: 'price_1RILb4G6l1KZGqIrhomjgDnO',
@@ -558,7 +558,7 @@ const STRIPE_PRICES_PROD: StripePriceConfig = {
   computeProductId: 'prod_SCl7AQ2C8kK1CD', // TODO: create prod compute product
 };
 
-// Staging shares the MAIN Kortix Stripe account TEST mode (acct_1R5BVvG6l1KZGqIr)
+// Staging shares the MAIN Dosco Stripe account TEST mode (acct_1R5BVvG6l1KZGqIr)
 // — the same test sandbox as STRIPE_PRICES_DEV, which is the account staging's
 // deployed STRIPE_SECRET_KEY (sk_test_…) actually points at. The subscription
 // price + product ids therefore mirror the dev test catalog. The older
@@ -569,7 +569,7 @@ const STRIPE_PRICES_STAGING: StripePriceConfig = {
   subscriptions: {
     free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
     pro: { monthly: 'price_1TeyA7G6l1KZGqIr7ZhEpoVm' },
-    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Kortix seat" $40/mo
+    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Dosco seat" $40/mo
   },
   credits: {
     10: 'price_1RxXOvG6l1KZGqIrMqsiYQvk',
@@ -584,7 +584,7 @@ const STRIPE_PRICES_STAGING: StripePriceConfig = {
 };
 
 // Local-dev Stripe TEST-mode sandbox. Every id here lives in the test mode of
-// the main Kortix Stripe account (acct_1R5BVvG6l1KZGqIr) — the account your
+// the main Dosco Stripe account (acct_1R5BVvG6l1KZGqIr) — the account your
 // local `STRIPE_SECRET_KEY` (sk_test_…) points at. The prod/staging configs
 // above are LIVE-mode ids in other accounts and 404 with a test key ("No such
 // price"), which is why local per-seat checkout was failing. Created via the
@@ -594,7 +594,7 @@ const STRIPE_PRICES_DEV: StripePriceConfig = {
   subscriptions: {
     free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
     pro: { monthly: 'price_1TeyA7G6l1KZGqIr7ZhEpoVm' },
-    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Kortix seat" $40/mo
+    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Dosco seat" $40/mo
   },
   credits: {
     10: 'price_1TeyA8G6l1KZGqIrWYDbPN0O',
@@ -746,7 +746,7 @@ export function tierGrantsAllModels(tierName: string): boolean {
 }
 
 /**
- * Whether a resolved billing tier is blocked from Kortix-managed models.
+ * Whether a resolved billing tier is blocked from Dosco-managed models.
  *
  * The environment argument remains for source compatibility. It has no effect.
  * `free`, `none`, and unknown tiers are blocked in every environment.

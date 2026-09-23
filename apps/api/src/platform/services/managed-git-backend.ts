@@ -1,6 +1,6 @@
 /**
  * The instance GIT BACKEND — the one owner plus credential this deployment
- * uses to create Kortix-managed repositories.
+ * uses to create Dosco-managed repositories.
  *
  * It is NOT an account connection, and it is not the App identity. An account
  * connects its own installations (`kortix.account_github_installations`); the

@@ -259,9 +259,9 @@ export async function discoverConnectionOAuth2Resource(
 }
 
 /**
- * Register Kortix as an OAuth2 client (RFC 7591) at the discovered
+ * Register Dosco as an OAuth2 client (RFC 7591) at the discovered
  * registration endpoint and save the issued client as the connection's
- * application. The callback URL is the one public redirect URI Kortix owns.
+ * application. The callback URL is the one public redirect URI Dosco owns.
  */
 export async function registerConnectionOAuth2Client(
   input: {

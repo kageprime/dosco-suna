@@ -527,7 +527,7 @@ projectsApp.openapi(
   }
 
   // opencode_session_id is SERVER-MANAGED: the backend is the sole authority
-  // for the OpenCode↔Kortix mapping (see ensure-opencode + opencode-mapping.ts).
+  // for the OpenCode↔Dosco mapping (see ensure-opencode + opencode-mapping.ts).
   // Clients must never set it, so a stale/forged client value can't drift it.
     const opencodeManagedField = ['opencode_session_id', 'opencodeSessionId'].find((f) =>
       hasOwn(body, f),

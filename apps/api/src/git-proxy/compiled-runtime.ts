@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 
-export const COMPILED_RUNTIME_FORMAT = 'kortix.compiled-runtime.v1' as const;
+export const COMPILED_RUNTIME_FORMAT = 'dosco.livepiled-runtime.v1' as const;
 export const COMPILED_RUNTIME_CONTENT_TYPE =
-  'application/vnd.kortix.compiled-runtime.v1+javascript';
+  'application/vnd.dosco.livepiled-runtime.v1+javascript';
 
 export interface CompiledRuntimeManifest {
   format: typeof COMPILED_RUNTIME_FORMAT;
@@ -110,13 +110,13 @@ if (typeof globalThis.Bun === "undefined") {
   process.on("SIGTERM", () => forward("SIGTERM"));
   const result = await new Promise((resolve) => {
     child.once("error", (error) => {
-      process.stderr.write("Failed to start compiled Kortix daemon: " + error.message + "\\n");
+      process.stderr.write("Failed to start compiled Dosco daemon: " + error.message + "\\n");
       resolve({ code: 127, signal: null });
     });
     child.once("exit", (code, signal) => resolve({ code, signal }));
   });
   if (result.signal) {
-    process.stderr.write("Compiled Kortix daemon exited from signal " + result.signal + "\\n");
+    process.stderr.write("Compiled Dosco daemon exited from signal " + result.signal + "\\n");
     process.exit(1);
   }
   process.exit(result.code ?? 1);

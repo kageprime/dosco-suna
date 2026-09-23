@@ -119,7 +119,7 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
       viewer_token_scope: 'identity',
     });
 
-    const request = new Request('https://dev-access-test-bbbbbbbbbbbbbbbb.apps.kortix.com/asset.js', {
+    const request = new Request('https://dev-access-test-bbbbbbbbbbbbbbbb.apps.dosco.live/asset.js', {
       headers: { cookie: `__Host-kortix_app_access=${oldCookie}` },
     });
     const denied = await authorizeAppRequest(request, new URL(request.url), updated);
@@ -210,7 +210,7 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
     });
   });
 
-  test('Kortix App cookies stop working after account access is revoked', async () => {
+  test('Dosco App cookies stop working after account access is revoked', async () => {
     const app = await seedApp();
     await testDb().insert(accountMembers).values({
       accountId: ACCOUNT_ID,
@@ -225,7 +225,7 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
       expiresAt: new Date(Date.now() + 60_000),
     });
     const request = new Request(
-      'https://dev-access-test-bbbbbbbbbbbbbbbb.apps.kortix.com/assets/app.js',
+      'https://dev-access-test-bbbbbbbbbbbbbbbb.apps.dosco.live/assets/app.js',
       { headers: { cookie: `__Host-kortix_app_access=${token}` } },
     );
 

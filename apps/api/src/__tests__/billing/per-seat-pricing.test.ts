@@ -148,7 +148,7 @@ describe('resolveRenewalGrant — the ONE renewal-grant rule', () => {
   });
 
   test('legacy zero-grant tiers resolve by the money that moved (stranded-payer regression)', () => {
-    // The $40/mo "Kortix Computer · Pro" machine sub on legacy tier `pro`
+    // The $40/mo "Dosco Agent · Pro" machine sub on legacy tier `pro`
     // (monthlyCredits 0) used to grant NOTHING on every paid renewal.
     expect(
       resolveRenewalGrant({ tierName: 'pro', billingModel: 'legacy', seatCount: null, amountPaidUsd: 40 }),

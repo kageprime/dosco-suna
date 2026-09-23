@@ -31,7 +31,7 @@ mock.module('../shared/db', () => ({
     select: () => chain([]),
   },
 }));
-mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.kortix.com' } }));
+mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.dosco.live' } }));
 mock.module('../feature-flags/for-project', () => ({ projectFeatureFlagEnabled: async () => true }));
 mock.module('../channels/teams-api', () => ({ sendCard: async () => 'card-1' }));
 mock.module('../channels/teams/binding', () => ({
@@ -70,7 +70,7 @@ function activity(over: Record<string, unknown>) {
   };
 }
 
-const mention = [{ type: 'mention', mentioned: { id: BOT, name: 'Kortix Dev' }, text: '<at>Kortix Dev</at>' }];
+const mention = [{ type: 'mention', mentioned: { id: BOT, name: 'Dosco Dev' }, text: '<at>Dosco Dev</at>' }];
 
 beforeEach(() => {
   threadHasSession = false;
@@ -108,12 +108,12 @@ describe('un-mentioned channel messages', () => {
 
 describe('mentioned and personal messages are unchanged', () => {
   test('a mention in a channel starts a session even with no owned thread', async () => {
-    await handleTeamsActivity(activity({ text: '<at>Kortix Dev</at> summarize the README', entities: mention }) as never);
+    await handleTeamsActivity(activity({ text: '<at>Dosco Dev</at> summarize the README', entities: mention }) as never);
     expect(started).toHaveLength(1);
   });
 
   test('a mentioned /help in a channel runs the command', async () => {
-    await handleTeamsActivity(activity({ text: '<at>Kortix Dev</at> /help', entities: mention }) as never);
+    await handleTeamsActivity(activity({ text: '<at>Dosco Dev</at> /help', entities: mention }) as never);
     expect(commands).toEqual(['help']);
   });
 

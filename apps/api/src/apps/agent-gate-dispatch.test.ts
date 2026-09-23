@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as realCrypto from '../shared/crypto';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 process.env.KORTIX_APPS_ALLOW_LOCAL_EDGE = 'true';
 
 const ACCOUNT = '99999999-9999-4999-8999-999999999999';
@@ -113,7 +113,7 @@ const app = (over: Record<string, unknown> = {}) => ({
   agentPrincipal: true,
   ...over,
 });
-const URL_ = 'https://dev-dashboards-cccccccccccccccc.apps.kortix.com/api/things';
+const URL_ = 'https://dev-dashboards-cccccccccccccccc.apps.dosco.live/api/things';
 
 /** Records whether the legacy human verifier ran; answers `humanAllowed`. */
 let humanCalls: Array<{ userId: string; tokenId?: string }> = [];
@@ -268,7 +268,7 @@ describe('connector → App assertion in X-Kortix-App-Authorization', () => {
 });
 
 describe('/_kortix/viewer for an agent session', () => {
-  const viewerUrl = 'https://dev-dashboards-cccccccccccccccc.apps.kortix.com/_kortix/viewer';
+  const viewerUrl = 'https://dev-dashboards-cccccccccccccccc.apps.dosco.live/_kortix/viewer';
   test('flag ON: identity is returned but no api token is minted for the launching human', async () => {
     minted = [];
     const res = await appViewerEndpointResponse(

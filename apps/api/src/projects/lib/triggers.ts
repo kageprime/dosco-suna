@@ -433,7 +433,7 @@ export function triggerExecutionConcurrency(): number {
  * When paused, the platform does NOT auto-run any of the project's triggers —
  * the cron sweep skips it and inbound webhooks are ignored — even though each
  * trigger is still `enabled` in the repo. This is how you stop ONE repo
- * deployed to TWO independent control planes (e.g. dev.kortix.com + kortix.com,
+ * deployed to TWO independent control planes (e.g. dev.dosco.live + dosco.live,
  * separate DBs/schedulers with no cross-platform dedup) from double-firing every
  * cron: pause it on the deployment you don't want firing. A manual
  * `…/triggers/:slug/fire` is an explicit action and still runs. Toggle via
@@ -1961,7 +1961,7 @@ export async function commitRepoFile(
   }
 
   try {
-    const commit = { message, branch, authorName: 'Kortix', authorEmail: 'noreply@kortix.ai' };
+    const commit = { message, branch, authorName: 'Dosco', authorEmail: 'noreply@dosco.live' };
     if (extra) {
       // A manifest with `imports:` — every changed source file in ONE commit,
       // guarded by the root revision plus every imported file's revision.

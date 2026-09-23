@@ -1,5 +1,5 @@
 /**
- * Connector → Kortix App: which connector calls carry an App assertion.
+ * Connector → Dosco App: which connector calls carry an App assertion.
  *
  * Spec docs/specs/2026-09-22-agents-as-principals.md §2.5. The connector
  * gateway asks this module for the `X-Kortix-App-Authorization` value of an

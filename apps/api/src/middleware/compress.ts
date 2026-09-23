@@ -121,7 +121,7 @@ function baseContentType(value: string | null): string | null {
  *
  * Only `gzip` and `deflate` are offered: they are what `CompressionStream`
  * implements, and every client in front of this API (browsers, Cloudflare, the
- * ALB, the Kortix CLI, the sandbox daemon) speaks gzip. `q=0` is honoured — a
+ * ALB, the Dosco CLI, the sandbox daemon) speaks gzip. `q=0` is honoured — a
  * client can explicitly refuse an encoding it also advertised.
  */
 export function negotiateEncoding(

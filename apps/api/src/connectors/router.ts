@@ -174,7 +174,7 @@ export interface ConnectorPrincipal {
   projectId: string;
   sessionId: string | null;
   /** The presented account token's id, when the caller used one. With
-   *  `sessionId`, identifies the agent session a Kortix App assertion names. */
+   *  `sessionId`, identifies the agent session a Dosco App assertion names. */
   tokenId?: string | null;
   /** The acting identity resolved to its group memberships. */
   subject: { userId: string; groupIds: string[] };

@@ -99,7 +99,7 @@ export async function postToTeamsConversation(
   }
 
   // Markdown lands as a notice card so a proactive post reads like every other
-  // Kortix message in the conversation instead of raw text.
+  // Dosco message in the conversation instead of raw text.
   const posted = await sendCard(ref, buildNoticeCard(text!));
   if (posted) return { ok: true, conversationId, delivered: 'card' };
 

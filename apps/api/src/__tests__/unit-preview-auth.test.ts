@@ -43,7 +43,7 @@ mock.module('../repositories/api-keys', () => ({
     if (token === 'kortix_other') {
       return { isValid: true, accountId: 'acct-other' };
     }
-    return { isValid: false, error: 'Invalid Kortix token' };
+    return { isValid: false, error: 'Invalid Dosco token' };
   },
 }));
 
@@ -285,7 +285,7 @@ describe('preview auth ownership', () => {
 
   test('still requires auth for remote hosts hitting the sandbox preview route', async () => {
     const app = createApp();
-    const res = await app.request('https://app.kortix.com/v1/p/sb-ext-1/8000/session/status');
+    const res = await app.request('https://app.dosco.live/v1/p/sb-ext-1/8000/session/status');
     expect(res.status).toBe(401);
   });
 });

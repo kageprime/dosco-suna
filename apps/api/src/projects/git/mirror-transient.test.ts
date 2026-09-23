@@ -5,7 +5,7 @@ import {
   isTransientGitMirrorError,
 } from './mirror';
 
-// Regression for incident `incident-20260923T100537Z-hbcr` (Better Stack: Kortix
+// Regression for incident `incident-20260923T100537Z-hbcr` (Better Stack: Dosco
 // API prod, 2026-09-23T10:06:22Z). The KX-HOURLY heartbeat probe's
 // `sessions new` cold-cloned the private mirror of project `an internal project` and the
 // clone failed with:

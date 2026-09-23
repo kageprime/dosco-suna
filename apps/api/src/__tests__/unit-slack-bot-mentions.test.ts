@@ -2,7 +2,7 @@ import { afterAll, describe, expect, mock, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// @Kortix from another bot did nothing, and the code that was supposed to allow
+// @Dosco from another bot did nothing, and the code that was supposed to allow
 // it had never been reachable.
 //
 // dispatchSlackEvent gated on:
@@ -119,7 +119,7 @@ describe('isOwnBotEvent — blocks ourselves, not every bot', () => {
 
   test('THE FIX: a webhook / Workflow Builder post (bot_id, NO user) is NOT ours', () => {
     // Incoming webhooks and Workflow Builder post with bot_id and no user at
-    // all. These were blocked outright, so an automation could never tag Kortix.
+    // all. These were blocked outright, so an automation could never tag Dosco.
     expect(isOwnBotEvent(ev({ bot_id: 'B999', subtype: 'bot_message', text: '<@B1> deploy done' }), BOT)).toBe(false);
   });
 
@@ -214,7 +214,7 @@ describe('source contracts', () => {
 //
 // Worse, it returned LOUDLY into a void: postIdentityPrompt posts an ephemeral
 // AND opens a DM, both addressed to slackUserId — the bot. Nobody sees either,
-// so the mention reads as "Kortix ignored it". Verified on dev f07c04f0 with a
+// so the mention reads as "Dosco ignored it". Verified on dev f07c04f0 with a
 // real bot-to-bot mention (Slack ts 1787153374.887479).
 
 describe('a bot sender is never sent an identity prompt', () => {

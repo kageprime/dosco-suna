@@ -412,7 +412,7 @@ accountInvitesRouter.openapi(
     if (seatBlock) {
       return c.json(
         {
-          error: `This team's trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Ask the owner to contact the Kortix team.`,
+          error: `This team's trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Ask the owner to contact the Dosco team.`,
           code: 'trial_seat_limit_reached',
           limit: seatBlock.limit,
           members: seatBlock.members,

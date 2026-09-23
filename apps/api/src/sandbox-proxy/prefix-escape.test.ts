@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { resolvePrefixEscape } from './prefix-escape';
 
-const ORIGIN = 'https://dev-api.kortix.com';
+const ORIGIN = 'https://dev-api.dosco.live';
 const PREVIEW = `${ORIGIN}/v1/p/sbx_01M0G4HXCM32BX5R1GPYZDYC1H/8081/`;
 
 function navigation(path: string, extra: Record<string, string> = {}, method = 'GET') {

@@ -79,7 +79,7 @@ mock.module('../../projects/secrets', () => ({
 
 mock.module('../credentials/codex', () => ({
   // Not a self-host managed-provider concern (Codex routes through the
-  // caller's own ChatGPT OAuth credential, never Kortix's shared creds) —
+  // caller's own ChatGPT OAuth credential, never Dosco's shared creds) —
   // stubbed purely so importing the REAL descriptors.ts/resolve-candidates.ts
   // below doesn't pull in the real module's DB import chain.
   CHATGPT_CODEX_BASE_URL: 'https://chatgpt.com/backend-api/codex',
@@ -136,7 +136,7 @@ describe('managed provider disabled (KORTIX_MANAGED_PROVIDER_ENABLED=false, the 
     expect(openrouterKeyReads).toBe(0);
   });
 
-  test('a request explicitly naming a managed model resolves to NO candidates — never a silent fallback to Kortix credits', async () => {
+  test('a request explicitly naming a managed model resolves to NO candidates — never a silent fallback to Dosco credits', async () => {
     await expect(
       resolveCandidates(
         { userId: 'u-managed', accountId: 'a-managed', projectId: 'p-managed' },

@@ -62,7 +62,7 @@ export async function canAccessSandboxSession(input: {
    *  Only the trigger-session manager override reads it — see share.ts. */
   boundCredentialSessionId: string | null;
 }): Promise<boolean> {
-  // callerSessionId MUST be in the key. In Kortix-as-a-Backend every end-user
+  // callerSessionId MUST be in the key. In Dosco-as-a-Backend every end-user
   // shares one `userId` (the wrapper credential), so without it end-user A and
   // end-user B collide on one entry for the same target session — and the first
   // `true` would be served to everyone else for the whole TTL, silently

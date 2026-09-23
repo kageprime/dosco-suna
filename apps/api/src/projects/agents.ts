@@ -11,7 +11,7 @@ import { canonicalizeGrantActions, canonicalizeGrantConnectors } from '../iam/ag
  *
  *   1. `connectors` — which connectors (by `connectors[].slug`) the
  *      agent may call. Default: none.
- *   2. `kortix_permissions` — what the agent may do to Kortix itself
+ *   2. `kortix_permissions` — what the agent may do to Dosco itself
  *      (project-scoped iam actions: deploy, open CRs, triggers, …), through
  *      any surface — CLI, API, git. `kortix_cli` is the deprecated alias.
  *      Default: none. Account-scoped admin actions are NEVER grantable.
@@ -26,7 +26,7 @@ import { canonicalizeGrantActions, canonicalizeGrantConnectors } from '../iam/ag
  *     kortix: {}                          # default GP agent — connectors/kortix_permissions = "all" (∩ user)
  *     release-bot:
  *       connectors: ["github"]            # which connectors
- *       kortix_permissions: ["project.trigger.create", "project.gitops.push"]   # Kortix permissions
+ *       kortix_permissions: ["project.trigger.create", "project.gitops.push"]   # Dosco permissions
  *
  * Parser mirrors `projects/connectors.ts`: never throws on a bad entry, collects
  * them in `errors` so the UI can render them next to the good ones.
@@ -97,7 +97,7 @@ export interface AgentSpec {
   connectors: GrantSet;
   /** Connectors that must resolve before the session starts. */
   connectorsRequired?: string[];
-  /** Kortix permissions (project-scoped iam actions). `[]` = none (default). */
+  /** Dosco permissions (project-scoped iam actions). `[]` = none (default). */
   permissions: GrantSet;
   /** Project-secret IDENTIFIERS (project_secrets.identifier, not raw env-var
    *  keys) this agent receives as sandbox env + may read via the secrets API.
@@ -105,7 +105,7 @@ export interface AgentSpec {
    *  omitted — a NEW dimension, so omitting it must not starve existing
    *  agents); an explicit list narrows it; `[]` = none. */
   env: GrantSet;
-  /** Kortix Apps (by App slug) this agent may open when the App is
+  /** Dosco Apps (by App slug) this agent may open when the App is
    *  `restricted`/`private` (spec 2026-09-22 §2.5). `[]` = none (default, both
    *  manifest versions). Optional so hand-built specs (tests, fixtures) need
    *  not set it; absent reads as none. */
@@ -334,7 +334,7 @@ export async function loadProjectAgents(
  *   - Agent IS listed → its declared overlay (connectors + kortix_permissions).
  *   - Project adopted `[[agents]]` but the agent is NOT listed → default-DENY
  *     (the agent still runs its `.md` behavior, but with no connectors and no
- *     Kortix permissions).
+ *     Dosco permissions).
  *
  * The `∩ launching-user role` is NOT applied here — it's enforced for free at
  * the route layer (the account token resolves to the user, whose role is
@@ -808,7 +808,7 @@ function parseAgentEntryV2(name: string, block: unknown, filename: string): Pars
   if (!normalizedRequired.ok) return err(name, `agents.${name}.${normalizedRequired.error}`);
   const normalizedRow = normalizedRequired.block;
 
-  // v2's `enabled` is a top-level Kortix-governance boolean (validated
+  // v2's `enabled` is a top-level Dosco-governance boolean (validated
   // upstream by manifest-schema); only a literal `false` disables. Behavior
   // (`file`/`model`) is NOT read from the manifest anymore (2026-07-05
   // redirect, spec §2.2: "one home per concern") — it lives entirely in the

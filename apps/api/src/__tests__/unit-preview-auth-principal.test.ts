@@ -159,7 +159,7 @@ describe('authenticatePreviewPrincipal', () => {
     expect(await authenticatePreviewPrincipal('kortix_sa_owner', SANDBOX_ID)).toBeNull();
   });
 
-  // ── Kortix API token — ownership checked by account ────────────────────────
+  // ── Dosco API token — ownership checked by account ────────────────────────
   test('accepts a kortix token for the owning account and returns the account id', async () => {
     expect(await authenticatePreviewPrincipal('kortix_owner', SANDBOX_ID)).toBe('acct-owner');
   });

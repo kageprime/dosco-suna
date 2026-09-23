@@ -34,7 +34,7 @@ describe('compileOpenCodeRuntime', () => {
 
     expect(second).toEqual(first);
     expect(first.manifest).toEqual({
-      format: 'kortix.compiled-runtime.v1',
+      format: 'dosco.livepiled-runtime.v1',
       engine: 'opencode',
       project_id: 'project-1',
       ref: 'main',
@@ -109,7 +109,7 @@ writeFileSync(process.env.CAPTURE_PATH, JSON.stringify({
       projectId: 'project-1',
       ref: 'main',
       sourceSha: 'a'.repeat(40),
-      runtimeFormat: 'kortix.compiled-runtime.v1',
+      runtimeFormat: 'dosco.livepiled-runtime.v1',
       agentConfig: INPUT.agentConfig,
       token: 'runtime-only-token',
     });

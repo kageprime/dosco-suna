@@ -1,4 +1,4 @@
-// Sign in with Kortix: the self-serve OAuth client registry under
+// Sign in with Dosco: the self-serve OAuth client registry under
 // /accounts/{id}/iam/oauth-clients — permission leaves, input validation, and
 // the secret-shown-once contract.
 

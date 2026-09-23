@@ -8,7 +8,7 @@
 import { describe, expect, test } from 'bun:test';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 
 const {
   agentAppAccessDecision,
@@ -136,7 +136,7 @@ describe('connector → App assertion (short-lived, HMAC, App + project bound)',
 });
 
 describe('header carriage', () => {
-  const host = 'dev-dash-cccccccccccccccc.apps.kortix.com';
+  const host = 'dev-dash-cccccccccccccccc.apps.dosco.live';
 
   test('the header name is X-Kortix-App-Authorization', () => {
     expect(APP_AUTHORIZATION_HEADER).toBe('x-kortix-app-authorization');
@@ -154,7 +154,7 @@ describe('header carriage', () => {
     expect(headers.get('authorization')).toBe('Bearer app-own-write-key');
   });
 
-  test('the Kortix credential is read from X-Kortix-App-Authorization first, then Authorization', () => {
+  test('the Dosco credential is read from X-Kortix-App-Authorization first, then Authorization', () => {
     const both = new Request(`https://${host}/`, {
       headers: { authorization: 'Bearer app-own-write-key', 'x-kortix-app-authorization': 'Bearer kortix_pat_a' },
     });

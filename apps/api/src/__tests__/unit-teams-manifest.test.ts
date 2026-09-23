@@ -3,16 +3,16 @@ import { buildTeamsManifest } from '../channels/teams-manifest';
 
 describe('buildTeamsManifest', () => {
   test('declares the bot with the app id and derives validDomains from the base url', () => {
-    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.kortix.com' });
+    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.dosco.live' });
     expect(m.id).toBe('app-123');
     expect(m.bots[0]!.botId).toBe('app-123');
     expect(m.bots[0]!.scopes).toEqual(['personal', 'team', 'groupchat']);
-    expect(m.validDomains).toEqual(['api.kortix.com']);
+    expect(m.validDomains).toEqual(['api.dosco.live']);
     expect(m.manifestVersion).toBe('1.16');
   });
 
   test('requests RSC for channels AND group chats so thread replies reach the bot without a mention', () => {
-    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.kortix.com' });
+    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.dosco.live' });
     expect(m.webApplicationInfo).toEqual({ id: 'app-123', resource: 'https://RscBasedStoreApp' });
     expect(m.authorization.permissions.resourceSpecific).toEqual([
       { name: 'ChannelMessage.Read.Group', type: 'Application' },
@@ -25,7 +25,7 @@ describe('buildTeamsManifest', () => {
   });
 
   test('the command menu offers /policy', () => {
-    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.kortix.com' });
+    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.dosco.live' });
     const titles = m.bots[0]!.commandLists![0]!.commands.map((c) => c.title);
     expect(titles).toContain('/policy');
     // Teams' own command menu is where a user looks for the lever that ends a
@@ -37,7 +37,7 @@ describe('buildTeamsManifest', () => {
   });
 
   test('a new command in the menu ships under a new version, so the catalog takes it', () => {
-    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.kortix.com' });
+    const m = buildTeamsManifest({ appId: 'app-123', baseUrl: 'https://api.dosco.live' });
     // 1.3.0 is the manifest without /new.
     expect(m.version).not.toBe('1.3.0');
   });
@@ -48,16 +48,16 @@ const { teamsMode } = await import('../channels/teams-mode');
 
 describe('teamsMode', () => {
   test('enabled + configured → exposes the messaging endpoint and admin-consent url', () => {
-    const mode = teamsMode('https://api.kortix.com/', { enabled: true });
+    const mode = teamsMode('https://api.dosco.live/', { enabled: true });
     expect(mode.enabled).toBe(true);
     expect(mode.available).toBe(true);
     expect(mode.appId).toBe('app-123');
-    expect(mode.messagingEndpoint).toBe('https://api.kortix.com/v1/webhooks/teams/messages');
+    expect(mode.messagingEndpoint).toBe('https://api.dosco.live/v1/webhooks/teams/messages');
     expect(mode.adminConsentUrl).toContain('client_id=app-123');
   });
 
   test('project has the `teams` experiment off → nothing is exposed even though the server is configured', () => {
-    const mode = teamsMode('https://api.kortix.com/', { enabled: false });
+    const mode = teamsMode('https://api.dosco.live/', { enabled: false });
     expect(mode.enabled).toBe(false);
     expect(mode.available).toBe(false);
     expect(mode.appId).toBeNull();
@@ -66,7 +66,7 @@ describe('teamsMode', () => {
   });
 
   test('bring-your-own bot routes the webhook at the project and needs no server credentials', () => {
-    const mode = teamsMode('https://api.kortix.com/', {
+    const mode = teamsMode('https://api.dosco.live/', {
       enabled: true,
       projectId: 'p-1',
       byoAppId: 'byo-app-9',
@@ -74,6 +74,6 @@ describe('teamsMode', () => {
     expect(mode.byo).toBe(true);
     expect(mode.available).toBe(true);
     expect(mode.appId).toBe('byo-app-9');
-    expect(mode.messagingEndpoint).toBe('https://api.kortix.com/v1/webhooks/teams/p-1/messages');
+    expect(mode.messagingEndpoint).toBe('https://api.dosco.live/v1/webhooks/teams/p-1/messages');
   });
 });

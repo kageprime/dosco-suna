@@ -14,8 +14,8 @@ const mockConfig = {
   RESEND_FROM_EMAIL: '',
   MAILPIT_API_URL: '',
   MAILTRAP_API_TOKEN: '',
-  MAILTRAP_FROM_EMAIL: 'noreply@kortix.com',
-  MAILTRAP_FROM_NAME: 'Kortix',
+  MAILTRAP_FROM_EMAIL: 'noreply@dosco.live',
+  MAILTRAP_FROM_NAME: 'Dosco',
   SMTP_HOST: '',
   SMTP_PORT: '',
   SMTP_USER: '',
@@ -87,7 +87,7 @@ describe('EMAIL_URL configuration', () => {
     mockConfig.EMAIL_FROM = 'Acme Support <no-reply@acme.test>';
     expect(emailSender()).toEqual({ email: 'no-reply@acme.test', name: 'Acme Support' });
     mockConfig.EMAIL_FROM = '';
-    expect(emailSender()).toEqual({ email: 'noreply@kortix.com', name: 'Kortix' });
+    expect(emailSender()).toEqual({ email: 'noreply@dosco.live', name: 'Dosco' });
   });
 
   test('the sender reaches the provider payload', async () => {

@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 // "env owns the identity".
 const FAKE_ENV_PEM = ['-----BEGIN', ' RSA PRIVATE KEY', '-----env-----'].join('');
 
-process.env.FRONTEND_URL = 'https://dev.kortix.com';
+process.env.FRONTEND_URL = 'https://dev.dosco.live';
 
 const realAuth = await import('../../middleware/auth');
 mock.module('../../middleware/auth', () => ({
@@ -163,7 +163,7 @@ describe('platform-setup redirects land on /admin/git', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/admin/git?github=error&reason=invalid_state',
+      'https://dev.dosco.live/admin/git?github=error&reason=invalid_state',
     );
   });
 
@@ -173,7 +173,7 @@ describe('platform-setup redirects land on /admin/git', () => {
     );
 
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/admin/git?github=error&reason=access_denied',
+      'https://dev.dosco.live/admin/git?github=error&reason=access_denied',
     );
   });
 
@@ -184,7 +184,7 @@ describe('platform-setup redirects land on /admin/git', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/admin/git?github=error&reason=instance_identity_is_env_managed',
+      'https://dev.dosco.live/admin/git?github=error&reason=instance_identity_is_env_managed',
     );
   });
 
@@ -199,7 +199,7 @@ describe('platform-setup redirects land on /admin/git', () => {
     );
 
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/admin/git?github=error&reason=missing_installation_id',
+      'https://dev.dosco.live/admin/git?github=error&reason=missing_installation_id',
     );
   });
 
@@ -207,7 +207,7 @@ describe('platform-setup redirects land on /admin/git', () => {
     const res = await githubAppSetupRouter.request('/install-callback?installation_id=42&state=bad');
 
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/admin/git?github=error&reason=invalid_state',
+      'https://dev.dosco.live/admin/git?github=error&reason=invalid_state',
     );
   });
 });
@@ -225,7 +225,7 @@ describe('account-link redirects land on /github/setup', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/github/setup?github=error&reason=missing_installation_id&account_id=account-7',
+      'https://dev.dosco.live/github/setup?github=error&reason=missing_installation_id&account_id=account-7',
     );
   });
 
@@ -233,7 +233,7 @@ describe('account-link redirects land on /github/setup', () => {
     const state = buildGitHubAppInstallState('account-7', {
       nonce: 'n3',
       purpose: 'account_link',
-      frontendOrigin: 'https://preview.kortix.com',
+      frontendOrigin: 'https://preview.dosco.live',
     });
 
     const res = await githubAppSetupRouter.request(
@@ -241,7 +241,7 @@ describe('account-link redirects land on /github/setup', () => {
     );
 
     expect(res.headers.get('location')).toBe(
-      'https://preview.kortix.com/github/setup?github=error&reason=missing_installation_id&account_id=account-7',
+      'https://preview.dosco.live/github/setup?github=error&reason=missing_installation_id&account_id=account-7',
     );
   });
 });
@@ -251,7 +251,7 @@ describe('an install started on GitHub itself', () => {
     const res = await githubAppSetupRouter.request('/install-callback?installation_id=140097279');
 
     expect(res.headers.get('location')).toBe(
-      'https://dev.kortix.com/?github=install_received&reason=direct_install&installation_id=140097279',
+      'https://dev.dosco.live/?github=install_received&reason=direct_install&installation_id=140097279',
     );
   });
 });

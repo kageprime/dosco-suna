@@ -27,7 +27,7 @@ const PreviewConfigSchema = z.object({
         '`{sandbox}` takes the raw external id, lowercased with `_` replaced by `-`. ' +
         'Null when this deployment serves no preview domain; clients then use ' +
         '`/v1/p/{sandbox}/{port}/`.',
-      example: 'https://dev-p{port}-{sandbox}.p.kortix.com',
+      example: 'https://dev-p{port}-{sandbox}.p.dosco.live',
     }),
 });
 

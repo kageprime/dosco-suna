@@ -200,7 +200,7 @@ export interface TeamsConversationSession {
 }
 
 /**
- * The Kortix session this conversation is running, if any.
+ * The Dosco session this conversation is running, if any.
  *
  * A Teams conversation holds exactly one at a time — `chat_threads` is keyed on
  * the thread — which is what lets `/stop` and `/status` name a run without the

@@ -286,7 +286,7 @@ describe('isSandboxAuthored — provenance is decided by the CREDENTIAL', () => 
   });
 
   // The corollary, and the reason every CALL SITE must resolve the session id
-  // through `callerKortixSessionId`: this function cannot tell a Kortix session
+  // through `callerKortixSessionId`: this function cannot tell a Dosco session
   // binding from a Supabase auth session, so it treats any non-null value as the
   // box. Passing a browser's auth session here reads every human as a sandbox.
   test('it cannot distinguish which KIND of session id it was handed', () => {

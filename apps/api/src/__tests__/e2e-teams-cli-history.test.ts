@@ -50,7 +50,7 @@ function graphFor(action: string): unknown {
     case 'list_replies':
       return {
         value: [
-          msg('r2', '2026-09-22T09:05:00Z', 'Ivan', '<p><at id="0">Kortix</at> can you check?</p>'),
+          msg('r2', '2026-09-22T09:05:00Z', 'Ivan', '<p><at id="0">Dosco</at> can you check?</p>'),
           msg('r1', '2026-09-22T09:02:00Z', 'Marko', '<p>Looks like the migration.</p>'),
           msg('rd', '2026-09-22T09:03:00Z', 'Marko', '<p>oops</p>', { deletedDateTime: '2026-09-22T09:04:00Z' }),
         ],
@@ -130,7 +130,7 @@ describe('teams thread', () => {
     expect(body.messages.map((m: any) => m.text)).toEqual([
       'Is the deploy blocked?',
       'Looks like the migration.',
-      '@Kortix can you check?',
+      '@Dosco can you check?',
     ]);
     expect(body.messages.map((m: any) => m.from)).toEqual(['Ana', 'Marko', 'Ivan']);
   });
@@ -150,7 +150,7 @@ describe('teams thread', () => {
 
   test('--limit keeps the most recent messages', async () => {
     const { body } = await runTeams(['thread', '--limit', '2'], inChannelThread);
-    expect(body.messages.map((m: any) => m.text)).toEqual(['Looks like the migration.', '@Kortix can you check?']);
+    expect(body.messages.map((m: any) => m.text)).toEqual(['Looks like the migration.', '@Dosco can you check?']);
   });
 });
 

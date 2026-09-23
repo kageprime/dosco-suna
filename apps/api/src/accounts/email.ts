@@ -1,5 +1,5 @@
 // Account- and project-scoped invite / access-request email. Rendering uses the
-// shared Kortix email shell (lib/email/template.ts); delivery goes through the
+// shared Dosco email shell (lib/email/template.ts); delivery goes through the
 // one platform transport (lib/email/transport.ts).
 import { config } from '../config';
 import { escapeHtml, renderEmail, renderText, actionButton, S } from '../lib/email/template';
@@ -79,12 +79,12 @@ export async function sendAccountInviteEmail(opts: {
 
   const body = `
     <p style="${S.p}">
-      ${inviterLine} to join ${target} on Kortix.
+      ${inviterLine} to join ${target} on Dosco.
     </p>
     ${roleChip}
     ${actionButton(url, 'Review invite')}
     <p style="${S.smallNote}">
-      Don't have a Kortix account yet? You'll be prompted to sign up first —
+      Don't have a Dosco account yet? You'll be prompted to sign up first —
       ${signupTail}
     </p>
   `;
@@ -96,8 +96,8 @@ export async function sendAccountInviteEmail(opts: {
   const html = renderEmail({
     kicker: "You're invited",
     title: opts.projectName
-      ? `Join ${opts.projectName} on Kortix`
-      : `Join ${opts.accountName} on Kortix`,
+      ? `Join ${opts.projectName} on Dosco`
+      : `Join ${opts.accountName} on Dosco`,
     body,
   });
 
@@ -108,18 +108,18 @@ export async function sendAccountInviteEmail(opts: {
 
   return send({
     to: opts.email,
-    subject: `You're invited to ${subjectTarget} on Kortix`,
+    subject: `You're invited to ${subjectTarget} on Dosco`,
     html,
     text: renderText({
       title: opts.projectName
-        ? `Join ${opts.projectName} on Kortix`
-        : `Join ${opts.accountName} on Kortix`,
+        ? `Join ${opts.projectName} on Dosco`
+        : `Join ${opts.accountName} on Dosco`,
       paragraphs: [
-        `${inviterText} to join ${targetText} on Kortix.`,
+        `${inviterText} to join ${targetText} on Dosco.`,
         ...(opts.role ? [`Role: ${opts.role.toUpperCase()}`] : []),
       ],
       cta: { url, label: 'Review invite' },
-      note: `Don't have a Kortix account yet? You'll be prompted to sign up first — ${signupTail}`,
+      note: `Don't have a Dosco account yet? You'll be prompted to sign up first — ${signupTail}`,
     }),
     category: 'account-invite',
   });
@@ -132,7 +132,7 @@ export async function sendProjectAccessRequestEmail(opts: {
   reviewUrl: string;
   message?: string | null;
 }): Promise<EmailDeliveryResult> {
-  const projectName = opts.projectName?.trim() || 'a Kortix project';
+  const projectName = opts.projectName?.trim() || 'a Dosco project';
   const message = opts.message?.trim();
   const messageBlock = message
     ? `<p style="${S.p}"><span style="${S.strong}">Message:</span><br />${escapeHtml(message)}</p>`

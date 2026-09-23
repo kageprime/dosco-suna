@@ -1,7 +1,7 @@
 /**
  * MCP streamable-HTTP session handshake. Servers built on the official SDKs in
  * stateful mode answer any request that arrives without `Mcp-Session-Id` with
- * HTTP 400 "Server not initialized" / "Missing session ID". Kortix must then
+ * HTTP 400 "Server not initialized" / "Missing session ID". Dosco must then
  * run `initialize` → `notifications/initialized`, keep the issued session id,
  * and replay the request — exactly what every MCP client does.
  */

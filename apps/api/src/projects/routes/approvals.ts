@@ -158,7 +158,7 @@ projectsApp.openapi(
         ),
       );
 
-    // Count per (Kortix) session id.
+    // Count per (Dosco) session id.
     const byKortix: Record<string, number> = {};
     for (const r of pendingRows) {
       const sid = r.sessionId ? String(r.sessionId) : null;
@@ -337,7 +337,7 @@ projectsApp.openapi(
             }
           : verdict.reason === 'non_human_caller'
             ? {
-                error: 'Sign in with a Kortix account to resolve this approval',
+                error: 'Sign in with a Dosco account to resolve this approval',
                 code: 'APPROVAL_REQUIRES_HUMAN',
               }
             : { error: 'Only a project manager or the session launcher can resolve this' },

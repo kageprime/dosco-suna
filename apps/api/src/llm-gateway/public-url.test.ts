@@ -4,11 +4,11 @@ import { publicGatewayBaseUrl } from './public-url';
 
 describe('publicGatewayBaseUrl', () => {
   test('derives the public origin from the configured base url', () => {
-    expect(publicGatewayBaseUrl('https://gateway-dev.kortix.com/v1/llm')).toBe(
-      'https://gateway-dev.kortix.com',
+    expect(publicGatewayBaseUrl('https://gateway-dev.dosco.live/v1/llm')).toBe(
+      'https://gateway-dev.dosco.live',
     );
-    expect(publicGatewayBaseUrl('https://gateway.kortix.com/v1/llm')).toBe(
-      'https://gateway.kortix.com',
+    expect(publicGatewayBaseUrl('https://gateway.dosco.live/v1/llm')).toBe(
+      'https://gateway.dosco.live',
     );
   });
 

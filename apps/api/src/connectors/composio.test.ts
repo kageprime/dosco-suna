@@ -465,7 +465,7 @@ test('executeComposio supports no-auth direct tools without an account id', asyn
       isNoAuth: true,
     },
     execute: async () => ({
-      data: { results: [{ title: 'Kortix' }] },
+      data: { results: [{ title: 'Dosco' }] },
       error: null,
       logId: 'log-search',
     }),
@@ -477,14 +477,14 @@ test('executeComposio supports no-auth direct tools without an account id', asyn
     sessionId: 'persisted-session',
     toolkit: 'composio_search',
     toolSlug: 'COMPOSIO_SEARCH_DUCK_DUCK_GO',
-    args: { query: 'Kortix' },
+    args: { query: 'Dosco' },
     connectedAccountId: null,
     runtime: fakeRuntime({ resumed }),
   });
   expect(result.ok).toBe(true);
   expect(result.data).toMatchObject({
     logId: 'log-search',
-    result: { results: [{ title: 'Kortix' }] },
+    result: { results: [{ title: 'Dosco' }] },
   });
 });
 

@@ -569,13 +569,13 @@ projectsApp.openapi(
   // kortix.yaml entry, and a change to that entry needs a human merge. A raw
   // provider push credential would let the agent write the default branch
   // directly — its own grant included — past the session ref policy and the
-  // merge guard. Under the flag an agent session pushes through the Kortix git
+  // merge guard. Under the flag an agent session pushes through the Dosco git
   // proxy only.
   if (isProjectSessionPrincipal(c) && resolveFeatureFlag(loaded.row.metadata, 'agent_principal')) {
     throw buildDenialError(
       PROJECT_ACTIONS.PROJECT_GITOPS_PUSH,
       'agent_human_only_action',
-      'An agent session cannot receive a raw git push credential. Push through the Kortix git origin (git_origin_url).',
+      'An agent session cannot receive a raw git push credential. Push through the Dosco git origin (git_origin_url).',
     );
   }
 
@@ -592,15 +592,15 @@ projectsApp.openapi(
   if (gitAuth.authSource === 'pat') {
     // This host's managed git runs on an org-wide token. Exporting it to a
     // client would hand out write access to EVERY managed repo, so we refuse —
-    // clients push through the Kortix git proxy (`git_origin_url`) with their
-    // own Kortix token instead, which needs no provider credential client-side.
+    // clients push through the Dosco git proxy (`git_origin_url`) with their
+    // own Dosco token instead, which needs no provider credential client-side.
     // Say so explicitly: the old message read as a server misconfiguration and
     // sent people hunting for GitHub App settings that aren't the problem.
     return c.json(
       {
         error:
           "This host's managed git uses an org-wide token, which is never exported. " +
-          "Push through the project's Kortix git origin instead (git_origin_url) — " +
+          "Push through the project's Dosco git origin instead (git_origin_url) — " +
           'run `kortix update` if your CLI still asks for a push token.',
         git_origin_url: serializeProject(loaded.row).git_origin_url,
       },
@@ -670,7 +670,7 @@ projectsApp.openapi(
 );
 
 // Invite a GitHub user as a collaborator on a MANAGED repo — lets the project
-// creator pull "their" Kortix-managed repo into their own GitHub account and
+// creator pull "their" Dosco-managed repo into their own GitHub account and
 // work on it on github.com directly. Managed repos only (the user already owns
 // BYO repos). GitHub sends a pending invite the user accepts.
 
@@ -748,7 +748,7 @@ projectsApp.openapi(
   const installUrl = canManageGit
     ? await createGitHubInstallationInstallUrl(scope.accountId, scope.userId)
     : null;
-  // Account connections only. "Kortix managed" is the INSTANCE backend and
+  // Account connections only. "Dosco managed" is the INSTANCE backend and
   // has its own namespace (GET /v1/projects/git/backend[/repositories]); it
   // used to appear here as a synthetic installation, which made an
   // instance-global credential look like this account's own connection.
@@ -757,7 +757,7 @@ projectsApp.openapi(
 );
 
 // GET /v1/projects/github/installations?account_id=...
-// Vercel-style account Git connections surface. A Kortix account can connect
+// Vercel-style account Git connections surface. A Dosco account can connect
 // multiple GitHub users/orgs and pick the exact installation during import.
 
 projectsApp.openapi(
@@ -780,7 +780,7 @@ projectsApp.openapi(
   const installUrl = canManageGit
     ? await createGitHubInstallationInstallUrl(scope.accountId, scope.userId)
     : null;
-  // Account connections only. "Kortix managed" is the INSTANCE backend and
+  // Account connections only. "Dosco managed" is the INSTANCE backend and
   // has its own namespace (GET /v1/projects/git/backend[/repositories]); it
   // used to appear here as a synthetic installation, which made an
   // instance-global credential look like this account's own connection.
@@ -836,7 +836,7 @@ async function upsertAccountGitHubInstallation(
 
 // POST /v1/projects/github/installations/linkable
 // The GitHub OAuth token cannot call GET /user/installations. GitHub restricts
-// that route to GitHub App user tokens. Kortix lists this App's installations
+// that route to GitHub App user tokens. Dosco lists this App's installations
 // with the App JWT, then filters them with the authorized user's identity and
 // active organization-admin memberships.
 

@@ -49,10 +49,10 @@ function allowedRedirectUri(value: string | undefined, projectId: string): strin
   const configuredOrigin = new URL(config.FRONTEND_URL).origin;
   const allowedOrigins = new Set([
     configuredOrigin,
-    'https://kortix.com',
-    'https://www.kortix.com',
-    'https://dev.kortix.com',
-    'https://staging.kortix.com',
+    'https://dosco.live',
+    'https://dosco.live',
+    'https://dev.dosco.live',
+    'https://staging.dosco.live',
   ]);
   if (!allowedOrigins.has(uri.origin)) throw new Error('redirect URI origin is not allowed');
   if (!uri.pathname.startsWith(`/projects/${projectId}`) && uri.origin !== configuredOrigin) {
@@ -236,7 +236,7 @@ projectsApp.post(
   },
 );
 
-/** RFC 7591: register Kortix with the authorization server and save the
+/** RFC 7591: register Dosco with the authorization server and save the
  * issued client as this connection's OAuth2 application. */
 projectsApp.post('/:projectId/connections/:connectionId/oauth2/register', async (c: any) => {
   const projectId = c.req.param('projectId');

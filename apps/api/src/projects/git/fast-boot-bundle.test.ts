@@ -37,11 +37,11 @@ describe('buildSingleParentDeltaBundle', () => {
       git(['init', '-b', 'main'], source);
       writeFileSync(join(source, 'README.md'), 'generic scaffold\n');
       git(['add', 'README.md'], source);
-      git(['commit', '-m', 'chore: scaffold Kortix project'], source, {
-        GIT_AUTHOR_NAME: 'Kortix',
-        GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-        GIT_COMMITTER_NAME: 'Kortix',
-        GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+      git(['commit', '-m', 'chore: scaffold Dosco project'], source, {
+        GIT_AUTHOR_NAME: 'Dosco',
+        GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+        GIT_COMMITTER_NAME: 'Dosco',
+        GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
       });
       const scaffoldSha = git(['rev-parse', 'HEAD'], source);
       git(['clone', '--bare', source, scaffoldRepo], root);
@@ -49,10 +49,10 @@ describe('buildSingleParentDeltaBundle', () => {
       writeFileSync(join(source, 'README.md'), 'customer project\n');
       git(['add', 'README.md'], source);
       git(['commit', '-m', 'chore: project setup'], source, {
-        GIT_AUTHOR_NAME: 'Kortix',
-        GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-        GIT_COMMITTER_NAME: 'Kortix',
-        GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+        GIT_AUTHOR_NAME: 'Dosco',
+        GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+        GIT_COMMITTER_NAME: 'Dosco',
+        GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
       });
       const baseSha = git(['rev-parse', 'HEAD'], source);
 
@@ -85,15 +85,15 @@ describe('buildSingleParentDeltaBundle', () => {
       mkdirSync(providerSource);
 
       const identity = {
-        GIT_AUTHOR_NAME: 'Kortix',
-        GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-        GIT_COMMITTER_NAME: 'Kortix',
-        GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+        GIT_AUTHOR_NAME: 'Dosco',
+        GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+        GIT_COMMITTER_NAME: 'Dosco',
+        GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
       };
       git(['init', '-b', 'main'], bakedSource);
       writeFileSync(join(bakedSource, 'README.md'), 'generic scaffold\n');
       git(['add', 'README.md'], bakedSource);
-      git(['commit', '-m', 'chore: scaffold Kortix project'], bakedSource, {
+      git(['commit', '-m', 'chore: scaffold Dosco project'], bakedSource, {
         ...identity,
         GIT_AUTHOR_DATE: '2026-01-01T00:00:00Z',
         GIT_COMMITTER_DATE: '2026-01-01T00:00:00Z',
@@ -105,7 +105,7 @@ describe('buildSingleParentDeltaBundle', () => {
       git(['init', '-b', 'main'], providerSource);
       writeFileSync(join(providerSource, 'README.md'), 'generic scaffold\n');
       git(['add', 'README.md'], providerSource);
-      git(['commit', '-m', 'chore: scaffold Kortix project'], providerSource, {
+      git(['commit', '-m', 'chore: scaffold Dosco project'], providerSource, {
         ...identity,
         GIT_AUTHOR_DATE: '2026-01-02T00:00:00Z',
         GIT_COMMITTER_DATE: '2026-01-02T00:00:00Z',
@@ -164,11 +164,11 @@ describe('buildSingleParentDeltaBundle', () => {
         writeFileSync(path, file.content);
       }
       git(['add', '-A'], source);
-      git(['commit', '-m', 'chore: scaffold Kortix project'], source, {
-        GIT_AUTHOR_NAME: 'Kortix',
-        GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-        GIT_COMMITTER_NAME: 'Kortix',
-        GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+      git(['commit', '-m', 'chore: scaffold Dosco project'], source, {
+        GIT_AUTHOR_NAME: 'Dosco',
+        GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+        GIT_COMMITTER_NAME: 'Dosco',
+        GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
       });
       for (const file of seed.files) {
         const path = join(source, file.path);
@@ -177,10 +177,10 @@ describe('buildSingleParentDeltaBundle', () => {
       }
       git(['add', '-A'], source);
       git(['commit', '-m', 'chore: project setup'], source, {
-        GIT_AUTHOR_NAME: 'Kortix',
-        GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-        GIT_COMMITTER_NAME: 'Kortix',
-        GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+        GIT_AUTHOR_NAME: 'Dosco',
+        GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+        GIT_COMMITTER_NAME: 'Dosco',
+        GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
       });
 
       const bundle = await buildSingleParentDeltaBundle(source, 'main');
@@ -196,10 +196,10 @@ describe('buildSingleParentDeltaBundle', () => {
 
 describe('buildScaffoldDeltaBundle', () => {
   const PINNED = {
-    GIT_AUTHOR_NAME: 'Kortix',
-    GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-    GIT_COMMITTER_NAME: 'Kortix',
-    GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+    GIT_AUTHOR_NAME: 'Dosco',
+    GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+    GIT_COMMITTER_NAME: 'Dosco',
+    GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
   };
 
   function seedProject(root: string, commits: number, opts: { bigFile?: number } = {}) {
@@ -209,7 +209,7 @@ describe('buildScaffoldDeltaBundle', () => {
     git(['init', '-b', 'main'], source);
     writeFileSync(join(source, 'README.md'), 'generic scaffold\n');
     git(['add', 'README.md'], source);
-    git(['commit', '-m', 'chore: scaffold Kortix project'], source, PINNED);
+    git(['commit', '-m', 'chore: scaffold Dosco project'], source, PINNED);
     const scaffoldSha = git(['rev-parse', 'HEAD'], source);
     const scaffoldTree = git(['rev-parse', 'HEAD^{tree}'], source);
     git(['clone', '--bare', '-q', source, scaffoldRepo], root);

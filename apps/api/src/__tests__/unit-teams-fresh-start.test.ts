@@ -47,7 +47,7 @@ let requireIdentity = true;
 mock.module('../config', () => ({
   SANDBOX_VERSION: 'test',
   config: {
-    FRONTEND_URL: 'https://dev.kortix.com',
+    FRONTEND_URL: 'https://dev.dosco.live',
     get TEAMS_REQUIRE_USER_IDENTITY() {
       return requireIdentity;
     },
@@ -217,8 +217,8 @@ describe('messageAfterFreshStart', () => {
   test('the bot mention in a group chat is not part of the message', () => {
     expect(
       messageAfterFreshStart({
-        text: '<at>Kortix</at> /new plan the sprint',
-        entities: [{ type: 'mention', mentioned: { id: '28:bot' }, text: '<at>Kortix</at>' }],
+        text: '<at>Dosco</at> /new plan the sprint',
+        entities: [{ type: 'mention', mentioned: { id: '28:bot' }, text: '<at>Dosco</at>' }],
         recipient: { id: '28:bot' },
       }),
     ).toBe('plan the sprint');

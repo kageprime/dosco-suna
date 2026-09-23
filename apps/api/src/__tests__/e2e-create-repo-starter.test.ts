@@ -26,7 +26,7 @@ const TEST_AUTH_KEY = '__KORTIX_E2E_AUTH__';
 // -worker skill pack). Ordered by `path.localeCompare` to match getStarterFiles'
 // stable sort. Regenerate from `packages/starter/templates/base` when the base
 // scaffold changes.
-// The starter floor ships the core Kortix OpenCode files plus default runtime
+// The starter floor ships the core Dosco OpenCode files plus default runtime
 // tools/plugins. Optional skills (agent-browser and knowledge-work skills) are
 // marketplace installable instead.
 const BASE_STARTER_PATHS = [
@@ -965,7 +965,7 @@ describe('create-repo starter scaffold contract', () => {
 
   test('THE FIX: a cloud platform admin is NOT a self-host operator — the managed org stays closed', async () => {
     // Reported 2026-08-29: "why can I import anyone else's project". The PAT
-    // paths were gated on `isPlatformAdmin`, which is ALSO true for Kortix
+    // paths were gated on `isPlatformAdmin`, which is ALSO true for Dosco
     // staff. On cloud, MANAGED_GIT_GITHUB_OWNER is `managed-kortix` — every
     // customer's project repo — so a staff admin was shown the whole org in
     // the /new import picker and could have imported any of it.
@@ -1180,7 +1180,7 @@ describe('create-repo starter scaffold contract', () => {
     });
 
     // The department templates were retired; the marketplace now leads with the
-    // single Kortix Starter project. Asking for a gone id must fail outright
+    // single Dosco Starter project. Asking for a gone id must fail outright
     // rather than create a repo and commit a partial tree into it.
     expect(res.status).not.toBe(201);
     expect(commitCalls.length).toBe(0);

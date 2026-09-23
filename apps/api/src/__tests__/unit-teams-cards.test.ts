@@ -142,14 +142,14 @@ describe('step citations + answer card', () => {
         status: 'complete',
         title: 'Reading the incident logs',
         sources: [
-          { type: 'url', url: 'https://kortix.com/a', text: 'incident 42' },
-          { type: 'url', url: 'https://kortix.com/b', text: 'deploy log' },
+          { type: 'url', url: 'https://dosco.live/a', text: 'incident 42' },
+          { type: 'url', url: 'https://dosco.live/b', text: 'deploy log' },
         ],
       }),
     ]);
     const flat = JSON.stringify(card);
-    expect(flat).toContain('[incident 42](https://kortix.com/a)');
-    expect(flat).toContain('[deploy log](https://kortix.com/b)');
+    expect(flat).toContain('[incident 42](https://dosco.live/a)');
+    expect(flat).toContain('[deploy log](https://dosco.live/b)');
   });
 
   test('buildAnswerCard renders a provided Adaptive Card verbatim instead of the text body', () => {

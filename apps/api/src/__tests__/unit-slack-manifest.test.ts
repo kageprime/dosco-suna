@@ -68,7 +68,7 @@ describe('BYO per-project manifest endpoints', () => {
   test('BYO is self-installed → no OAuth redirect; canonical → has one', () => {
     expect(m.oauth_config.redirect_urls).toBeUndefined();
     expect(buildSlackManifest(CANONICAL_PROD).oauth_config.redirect_urls).toEqual([
-      'https://api.kortix.com/v1/webhooks/slack/oauth/callback',
+      'https://api.dosco.live/v1/webhooks/slack/oauth/callback',
     ]);
   });
   test('requests the commands scope', () => {
@@ -77,11 +77,11 @@ describe('BYO per-project manifest endpoints', () => {
 });
 
 describe('BYO slash command naming', () => {
-  test('keeps a normal Kortix BYO app on /kortix', () => {
+  test('keeps a normal Dosco BYO app on /kortix', () => {
     const manifest = generateSlackManifest({
       baseUrl: 'https://api.example.com',
       projectId: 'proj-123',
-      appName: 'Kortix',
+      appName: 'Dosco',
       botName: 'kortix',
     });
 
@@ -97,7 +97,7 @@ describe('BYO slash command naming', () => {
     });
 
     expect(manifest.features.slash_commands[0]?.command).toBe('/kortix-no-access');
-    expect(defaultByoSlashCommand('Kortix No Access', 'Kortix No Access')).toBe('/kortix-no-access');
+    expect(defaultByoSlashCommand('Dosco No Access', 'Dosco No Access')).toBe('/kortix-no-access');
   });
 
   test('allows an explicit command override', () => {

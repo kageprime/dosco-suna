@@ -2,8 +2,8 @@ import type { EmailAddress } from './types';
 
 /**
  * Parse EMAIL_FROM. Accepts the forms operators actually write:
- *   Kortix <noreply@example.com>
- *   "Kortix Support" <noreply@example.com>
+ *   Dosco <noreply@example.com>
+ *   "Dosco Support" <noreply@example.com>
  *   noreply@example.com
  * Returns null when the value has no usable address, so the caller can fall
  * back rather than send from an empty envelope.

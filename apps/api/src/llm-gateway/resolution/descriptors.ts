@@ -67,7 +67,7 @@ const BEDROCK_ANTHROPIC_GEO_PREFIXES = ['us-gov', 'us', 'eu', 'apac', 'jp', 'au'
 // endpoint accepts. A profile's geography MUST match the endpoint region's
 // geography — invoking `jp.anthropic.*` against a us-east-1 endpoint 400s "The
 // provided model identifier is invalid." (verified against real Bedrock). Only
-// geographies Kortix has validated are mapped; an unrecognized region returns
+// geographies Dosco has validated are mapped; an unrecognized region returns
 // undefined so normalization is skipped — never rewrite toward a prefix we
 // can't vouch for.
 function regionInferenceGeoPrefix(region: string): string | undefined {

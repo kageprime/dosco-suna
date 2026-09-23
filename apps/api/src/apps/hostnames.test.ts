@@ -24,28 +24,28 @@ function setApiOrigin(url: string) {
 
 describe('App hostnames', () => {
   test('managed cloud keeps the exact hostnames it publishes today', () => {
-    for (const origin of ['https://api.kortix.com', 'https://dev-api.kortix.com']) {
+    for (const origin of ['https://api.dosco.live', 'https://dev-api.dosco.live']) {
       setApiOrigin(origin);
-      expect(appsBaseDomain()).toBe('apps.kortix.com');
-      expect(appPublicUrl(ROW)).toBe('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com');
+      expect(appsBaseDomain()).toBe('apps.dosco.live');
+      expect(appPublicUrl(ROW)).toBe('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live');
     }
   });
 
-  test('a self-host publishes on ITS OWN domain, never on kortix.com', () => {
-    // The defect: the fallback was a hard-coded 'apps.kortix.com', so a
-    // self-hosted deployment handed its users a hostname on Kortix's domain,
-    // pointing at Kortix's Cloudflare Worker, for an App running on the
+  test('a self-host publishes on ITS OWN domain, never on dosco.live', () => {
+    // The defect: the fallback was a hard-coded 'apps.dosco.live', so a
+    // self-hosted deployment handed its users a hostname on Dosco's domain,
+    // pointing at Dosco's Cloudflare Worker, for an App running on the
     // operator's hardware. They could neither serve it nor own it.
     setApiOrigin('https://api.acme.com');
     expect(appsBaseDomain()).toBe('apps.acme.com');
     expect(appPublicUrl(ROW)).toBe('https://dev-store-aaaaaaaaaaaaaaaa.apps.acme.com');
-    expect(appPublicUrl(ROW)).not.toContain('kortix.com');
+    expect(appPublicUrl(ROW)).not.toContain('dosco.live');
 
     // ...and it accepts inbound traffic on that same domain, and only there.
     expect(resolveAppHost('dev-store-aaaaaaaaaaaaaaaa.apps.acme.com')).toEqual({
       routeKey: 'aaaaaaaaaaaaaaaa', local: false,
     });
-    expect(resolveAppHost('dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com')).toBeNull();
+    expect(resolveAppHost('dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live')).toBeNull();
   });
 
   test('an explicit base domain always wins, scheme and dots tolerated', () => {
@@ -58,10 +58,10 @@ describe('App hostnames', () => {
     });
   });
 
-  test('the URL Kortix hands out and the host it accepts are the same domain', () => {
+  test('the URL Dosco hands out and the host it accepts are the same domain', () => {
     // These were two independent copies of the fallback. A drift between them
     // is an App whose published URL the API refuses to route.
-    for (const origin of ['https://api.kortix.com', 'https://api.acme.com', 'https://kortix.example']) {
+    for (const origin of ['https://api.dosco.live', 'https://api.acme.com', 'https://kortix.example']) {
       setApiOrigin(origin);
       const url = new URL(appPublicUrl(ROW));
       expect(resolveAppHost(url.hostname)).toEqual({ routeKey: ROW.routeKey, local: false });
@@ -80,7 +80,7 @@ describe('App hostnames', () => {
     setApiOrigin('not-a-url');
     expect(appsBaseDomain()).toBeNull();
     expect(() => appPublicUrl(ROW)).toThrow('no base domain');
-    expect(resolveAppHost('dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com')).toBeNull();
+    expect(resolveAppHost('dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live')).toBeNull();
   });
 
   test('routing stays keyed on the environment and the immutable route key', () => {

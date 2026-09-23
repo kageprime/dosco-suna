@@ -67,7 +67,7 @@ describe('toWireModel / toOpencodeModelRef', () => {
     expect(toWireModel('glm-5.3-flash')).toBe('glm-5.3-flash');
   });
 
-  test('maps stored Morph-prefixed managed ids to the new Kortix ids', () => {
+  test('maps stored Morph-prefixed managed ids to the new Dosco ids', () => {
     expect(toWireModel('morph-dsv41flash')).toBe('deepseek-v4.1-flash');
     expect(toWireModel('kortix/morph-kimik3')).toBe('kimi-k3');
     expect(toOpencodeModelRef('kortix/morph-kimik3-fast')).toBe('kortix/kimi-k3-fast');

@@ -3,14 +3,14 @@ import { parseTeamsCommand, stripTeamsMentions } from '../channels/teams/util';
 
 describe('stripTeamsMentions', () => {
   test('removes <at> mentions and collapses whitespace', () => {
-    expect(stripTeamsMentions('<at>Kortix</at> do the thing')).toBe('do the thing');
-    expect(stripTeamsMentions('<at id="1">Kortix Bot</at>&nbsp;hello')).toBe('hello');
+    expect(stripTeamsMentions('<at>Dosco</at> do the thing')).toBe('do the thing');
+    expect(stripTeamsMentions('<at id="1">Dosco Bot</at>&nbsp;hello')).toBe('hello');
   });
 });
 
 describe('parseTeamsCommand', () => {
   test('parses a slash command after a mention', () => {
-    expect(parseTeamsCommand('<at>Kortix</at> /help')).toEqual({ verb: 'help', arg: '' });
+    expect(parseTeamsCommand('<at>Dosco</at> /help')).toEqual({ verb: 'help', arg: '' });
     expect(parseTeamsCommand('/model anthropic/claude-sonnet-4.6')).toEqual({
       verb: 'model',
       arg: 'anthropic/claude-sonnet-4.6',
@@ -29,7 +29,7 @@ describe('parseTeamsCommand', () => {
 
 describe('parseTeamsCommand — /policy', () => {
   test('parses the policy verb and its argument', () => {
-    expect(parseTeamsCommand('<at>Kortix Dev</at> /policy approval')).toEqual({ verb: 'policy', arg: 'approval' });
+    expect(parseTeamsCommand('<at>Dosco Dev</at> /policy approval')).toEqual({ verb: 'policy', arg: 'approval' });
     expect(parseTeamsCommand('/policy')).toEqual({ verb: 'policy', arg: '' });
   });
 });
@@ -39,7 +39,7 @@ describe('parseTeamsCommand — /policy', () => {
 describe('parseTeamsCommand — /new', () => {
   test('/new and /reset both parse, with or without a message after them', () => {
     expect(parseTeamsCommand('/new')).toEqual({ verb: 'new', arg: '' });
-    expect(parseTeamsCommand('<at>Kortix</at> /reset')).toEqual({ verb: 'reset', arg: '' });
+    expect(parseTeamsCommand('<at>Dosco</at> /reset')).toEqual({ verb: 'reset', arg: '' });
     expect(parseTeamsCommand('/new plan the sprint')).toEqual({ verb: 'new', arg: 'plan the sprint' });
   });
 
@@ -53,7 +53,7 @@ describe('parseTeamsCommand — /new', () => {
 describe('parseTeamsCommand — /stop', () => {
   test('/stop and /cancel both parse', () => {
     expect(parseTeamsCommand('/stop')).toEqual({ verb: 'stop', arg: '' });
-    expect(parseTeamsCommand('<at>Kortix</at> /cancel')).toEqual({ verb: 'cancel', arg: '' });
+    expect(parseTeamsCommand('<at>Dosco</at> /cancel')).toEqual({ verb: 'cancel', arg: '' });
   });
 
   test('a trailing word is carried, not treated as an unknown command', () => {

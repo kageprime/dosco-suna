@@ -49,7 +49,7 @@ beforeAll(async () => {
 
 // Regression for Better Stack pattern `e98d61f1…`
 // `DaytonaError` with message `<html>…<h1>502 Bad Gateway</h1>…</html>`
-// (Kortix API prod, application_id 2346961). The Daytona API gateway 502-ed
+// (Dosco API prod, application_id 2346961). The Daytona API gateway 502-ed
 // with an HTML error page on an unguarded provider call inside
 // `POST /v1/projects/:projectId/turn-stream` (kind: execution_lease_discover
 // → discoverExecutionKeepAliveEndpoint → provider.resolveEndpoint → Daytona

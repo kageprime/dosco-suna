@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { classifyPtyWebSocketPath } from './pty-ingress';
 
 describe('classifyPtyWebSocketPath', () => {
-  test('distinguishes OpenCode and Kortix-native PTY websocket paths', () => {
+  test('distinguishes OpenCode and Dosco-native PTY websocket paths', () => {
     expect(classifyPtyWebSocketPath('/pty/pty_test/connect')).toBe('opencode');
     expect(classifyPtyWebSocketPath('/kortix/pty/kpty_test/connect')).toBe('kortix');
   });

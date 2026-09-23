@@ -22,7 +22,7 @@ describe('personal-email classification', () => {
   });
 
   test('company domains are business', () => {
-    for (const email of ['jane@acme.com', 'cto@startup.io', 'ops@kortix.ai']) {
+    for (const email of ['jane@acme.com', 'cto@startup.io', 'ops@dosco.live']) {
       expect(classifyEmailKind(email)).toBe('business');
     }
   });

@@ -107,7 +107,7 @@ describe('a GitHub App with no OAuth client', () => {
   });
 });
 
-describe('installing from GitHub instead of from Kortix', () => {
+describe('installing from GitHub instead of from Dosco', () => {
   test('a state-less install callback is reported as an install, not a bad state', () => {
     const start = githubAppSource.indexOf('const state = verifyGitHubAppInstallStatePayload');
     expect(start).toBeGreaterThan(-1);
@@ -124,7 +124,7 @@ describe('installing from GitHub instead of from Kortix', () => {
     // unrecoverable — nothing else identifies it.
     expect(body).toContain("qs.set('installation_id'");
     // Absent, not merely falsy: `?state=` arrives as '' and is malformed — GitHub
-    // always sends a real state on a flow Kortix started — so it must fall
+    // always sends a real state on a flow Dosco started — so it must fall
     // through to the error branch, not be greeted as a fresh install.
     expect(body).toContain('query.state === undefined');
     expect(body).not.toContain('if (!query.state)');

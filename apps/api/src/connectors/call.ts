@@ -593,7 +593,7 @@ function buildGraphqlRequest(opts: {
  * rejects any request that arrives without `Mcp-Session-Id` — HTTP 400, JSON-RPC
  * "Server not initialized" / "Bad Request: Mcp-Session-Id header is required".
  * The protocol's answer is `initialize` → `notifications/initialized`, keep the
- * session id the server issues, and send it on every later request. Kortix has
+ * session id the server issues, and send it on every later request. Dosco has
  * no long-lived MCP client process, so the session is established lazily on the
  * first request that needs it and cached in-process.
  *
@@ -976,7 +976,7 @@ export async function executeCall(opts: {
   args?: Record<string, unknown>;
   paramHints?: Record<string, ParamLoc>;
   /**
-   * The Kortix App gate credential (`Bearer <assertion>`) for a connector
+   * The Dosco App gate credential (`Bearer <assertion>`) for a connector
    * whose base URL is an App of this deployment in the caller's project — see
    * gateway.ts `appAuthorizationFor`. Sent as `X-Kortix-App-Authorization` on
    * openapi/http requests only, so the App keeps `Authorization` for its own

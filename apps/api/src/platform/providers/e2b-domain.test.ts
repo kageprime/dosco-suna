@@ -21,7 +21,7 @@ function setDomain(value: string) {
 
 describe('E2B cluster resolution', () => {
   test('the configured cluster is the one both halves use', () => {
-    // The bug this pins: the SDK defaults `domain` to `e2b.app` while Kortix
+    // The bug this pins: the SDK defaults `domain` to `e2b.app` while Dosco
     // config defaults E2B_DOMAIN to `e2b.dev`. Whichever value wins, template
     // builds and sandbox creation must agree on it — passing it explicitly is
     // the only way that holds when an operator has not exported the variable.

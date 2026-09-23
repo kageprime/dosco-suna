@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 
-// Regression guard for "@Kortix goes silent when re-tagged in an existing thread."
+// Regression guard for "@Dosco goes silent when re-tagged in an existing thread."
 //
 // Slack does NOT reliably deliver an `app_mention` for a mention made INSIDE an
 // existing thread — notably a thread that predates the bot joining the channel.
@@ -229,14 +229,14 @@ describe('classifyEvent — non-mention routing is unchanged', () => {
 
 // ─── THE 2026-08-20 WRONG-BOT REPLY ──────────────────────────────────────────
 //
-// A user typed `@Kortix hey man` in a channel that also contains the "Incident
+// A user typed `@Dosco hey man` in a channel that also contains the "Incident
 // reporter" bot, and Incident reporter answered:
 //
-//   mentioned bot    U0B7QL26690  (Kortix)
+//   mentioned bot    U0B7QL26690  (Dosco)
 //   bot that replied U0B5W5XN49Y  (Incident reporter)
 //   session created  inside kortix-incident-reporter
 //
-// Two Kortix-platform apps in one workspace, each with its own BYO webhook at
+// Two Dosco-platform apps in one workspace, each with its own BYO webhook at
 // /slack/events/{projectId}. classifyEvent accepted EVERY app_mention on the
 // strength of its type alone, so whichever project the callback landed on
 // answered — while the plain-`message` branch had checked botUserId all along.

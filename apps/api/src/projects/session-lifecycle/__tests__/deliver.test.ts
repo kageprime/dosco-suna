@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { deliverWithRetry, type DeliveryTarget } from '../deliver';
 
-// Regression guard for "@Kortix replied 'Still waking this thread's session back
+// Regression guard for "@Dosco replied 'Still waking this thread's session back
 // up — send that again' on a session that was already awake." The runtime was
 // ready; the prompt hand-off just had a transient post-wake hiccup (a rotated
 // opencode session 404, a daemon 5xx, a briefly-null externalId). The old path

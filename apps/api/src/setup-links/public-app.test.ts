@@ -136,7 +136,7 @@ beforeEach(() => {
   enqueued.length = 0;
   finalizeCalls.length = 0;
   sessionRows = [];
-  projectRows = [{ name: 'Kortix Company' }];
+  projectRows = [{ name: 'Dosco Company' }];
   connectorRows = [
     { connectorId: CONNECTOR_ID, providerType: 'pipedream', authorizationStrategy: 'project' },
   ];

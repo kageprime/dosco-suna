@@ -27,7 +27,7 @@ getAuthToken.openapi(
     tags: ['preview'],
     summary: 'Exchange a bearer token for a preview session cookie',
     description:
-      'Validates the Authorization bearer token (Supabase JWT or Kortix token) and ' +
+      'Validates the Authorization bearer token (Supabase JWT or Dosco token) and ' +
       'sets the host-only __preview_session cookie scoped to Path=/v1/p/, enabling ' +
       'subdomain-based preview routing without ?token= on every request.',
     ...auth,
@@ -54,7 +54,7 @@ getAuthToken.openapi(
     if (isKortixToken(token)) {
       const result = await validateSecretKey(token);
       if (!result.isValid) {
-        return c.json({ error: result.error || 'Invalid Kortix token' }, 401);
+        return c.json({ error: result.error || 'Invalid Dosco token' }, 401);
       }
     } else {
       try {

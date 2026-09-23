@@ -15,8 +15,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'b
 
 const PROJECT_ID = '40c2e222-c4c2-47f6-ba40-05e8f40098b3';
 const TENANT_ID = '36009a52-46d2-44bc-ba56-57a87e485e0a';
-const BASE_URL = 'https://dev-api.kortix.com';
-const CHANNELS_URL = `https://dev.kortix.com/projects/${PROJECT_ID}/customize/connectors?scope=channels`;
+const BASE_URL = 'https://dev-api.dosco.live';
+const CHANNELS_URL = `https://dev.dosco.live/projects/${PROJECT_ID}/customize/connectors?scope=channels`;
 
 let flagOn = true;
 let tokenExchangeOk = true;
@@ -31,8 +31,8 @@ mock.module('../config', () => ({
   config: {
     MICROSOFT_APP_ID: '62b4470a-e8e6-4e13-a73f-363de2209dfc',
     MICROSOFT_APP_PASSWORD: 'app-secret',
-    FRONTEND_URL: 'https://dev.kortix.com',
-    TEAMS_APP_NAME: 'Kortix Dev',
+    FRONTEND_URL: 'https://dev.dosco.live',
+    TEAMS_APP_NAME: 'Dosco Dev',
   },
 }));
 
@@ -227,6 +227,6 @@ describe('Teams one-click install callback', () => {
 
   test('tampered or expired state → home with ?teams_error=expired', async () => {
     const res = await teamsOauthApp.request(`/callback?code=c8&state=${state()}x`);
-    expect(location(res)).toBe('https://dev.kortix.com/?teams_error=expired');
+    expect(location(res)).toBe('https://dev.dosco.live/?teams_error=expired');
   });
 });

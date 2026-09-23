@@ -7,9 +7,9 @@ describe('describeTeamsConversation', () => {
     expect(
       describeTeamsConversation({
         conversation: { conversationType: 'channel' },
-        channelData: { team: { name: 'Kortix SSO Test' }, channel: { name: 'Opći' } },
+        channelData: { team: { name: 'Dosco SSO Test' }, channel: { name: 'Opći' } },
       }),
-    ).toEqual({ channelName: 'Kortix SSO Test › Opći', channelType: 'channel' });
+    ).toEqual({ channelName: 'Dosco SSO Test › Opći', channelType: 'channel' });
   });
 
   test('the General channel arrives without a channel name', () => {

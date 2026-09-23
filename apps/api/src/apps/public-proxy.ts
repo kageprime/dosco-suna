@@ -56,9 +56,9 @@ const WAKE_LEASE_MS = 2 * 60_000;
 const ACTIVITY_LEASE_MS = 60_000;
 // The `frame-ancestors` directive for App responses. It decides which origins
 // may embed an App in an iframe — the dashboard's App preview does exactly this.
-// Managed cloud embeds from kortix.com; a SELF-HOST box embeds from the
-// operator's OWN frontend origin (e.g. https://essentia.kortix.cloud), which is
-// NOT kortix.com, so the browser would block the preview. Build the allowlist
+// Managed cloud embeds from dosco.live; a SELF-HOST box embeds from the
+// operator's OWN frontend origin (e.g. https://essentia.dosco.live), which is
+// NOT dosco.live, so the browser would block the preview. Build the allowlist
 // dynamically to ALWAYS include the configured frontend origin (config.FRONTEND_URL)
 // plus a wildcard for its domain, so the preview frames reliably on any
 // self-host domain. Falls back to the managed base list if FRONTEND_URL is
@@ -66,8 +66,8 @@ const ACTIVITY_LEASE_MS = 60_000;
 function appFrameAncestors(): string {
   const parts = new Set<string>([
     "'self'",
-    'https://kortix.com',
-    'https://*.kortix.com',
+    'https://dosco.live',
+    'https://*.dosco.live',
     'http://localhost:*',
     'http://127.0.0.1:*',
   ]);
@@ -80,7 +80,7 @@ function appFrameAncestors(): string {
     if ((u.protocol === 'https:' || u.protocol === 'http:') && !isLocal) {
       parts.add(u.origin);
       // Also allow any sibling subdomain of the operator's registrable-ish
-      // domain (drop the leftmost label): essentia.kortix.cloud -> *.kortix.cloud.
+      // domain (drop the leftmost label): essentia.dosco.live -> *.dosco.live.
       const labels = host.split('.');
       if (labels.length >= 3 && !/^\d+$/.test(labels[labels.length - 1])) {
         parts.add(`${u.protocol}//*.${labels.slice(1).join('.')}`);
@@ -132,70 +132,70 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   queued: {
     title: 'Deployment queued',
-    message: 'Kortix will start this deployment shortly.',
+    message: 'Dosco will start this deployment shortly.',
     code: 'app_deployment_queued',
     progress: true,
   },
   validating: {
     title: 'Validating your App',
-    message: 'Kortix is checking the source and deployment configuration.',
+    message: 'Dosco is checking the source and deployment configuration.',
     code: 'app_deployment_validating',
     progress: true,
   },
   building: {
     title: 'Building your App',
-    message: 'Kortix is producing an immutable runtime image.',
+    message: 'Dosco is producing an immutable runtime image.',
     code: 'app_deployment_building',
     progress: true,
   },
   provisioning: {
     title: 'Provisioning your App',
-    message: 'Kortix is creating the serverless runtime.',
+    message: 'Dosco is creating the serverless runtime.',
     code: 'app_deployment_provisioning',
     progress: true,
   },
   checking: {
     title: 'Checking readiness',
-    message: 'Kortix is waiting for the App to accept traffic.',
+    message: 'Dosco is waiting for the App to accept traffic.',
     code: 'app_deployment_checking',
     progress: true,
   },
   ready: {
     title: 'Activating your App',
-    message: 'The deployment is ready. Kortix is assigning stable traffic.',
+    message: 'The deployment is ready. Dosco is assigning stable traffic.',
     code: 'app_deployment_activating',
     progress: true,
   },
   starting: {
     title: 'Starting your App',
-    message: 'Kortix is resuming the serverless runtime. This page will continue automatically.',
+    message: 'Dosco is resuming the serverless runtime. This page will continue automatically.',
     code: 'app_starting',
     progress: true,
   },
   budget: {
     title: 'App paused',
-    message: 'This App reached its monthly compute limit. The owner can increase the limit in Kortix Apps.',
+    message: 'This App reached its monthly compute limit. The owner can increase the limit in Dosco Apps.',
     code: 'app_budget_exceeded',
     progress: false,
     httpStatus: 402,
   },
   unfunded: {
     title: 'App paused',
-    message: 'This Kortix account cannot start compute right now. The owner can restore it in Billing.',
+    message: 'This Dosco account cannot start compute right now. The owner can restore it in Billing.',
     code: 'app_account_unfunded',
     progress: false,
     httpStatus: 402,
   },
   capacity: {
     title: 'App paused',
-    message: 'This account is already running its maximum number of Apps. The owner can stop one in Kortix Apps.',
+    message: 'This account is already running its maximum number of Apps. The owner can stop one in Dosco Apps.',
     code: 'app_concurrency_limit',
     progress: false,
     httpStatus: 429,
   },
   failed: {
     title: 'Deployment failed',
-    message: 'Open Kortix Apps or run kortix apps logs to inspect the deployment.',
+    message: 'Open Dosco Apps or run kortix apps logs to inspect the deployment.',
     code: 'app_deployment_failed',
     progress: false,
   },
@@ -279,14 +279,14 @@ export function appPublicStatusResponse(
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh}<title>${documentTitle}</title>
 <style>:root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:light-dark(#f6f6f3,#10100f);color:light-dark(#171716,#f4f4f1);font:14px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{width:min(100%,420px);padding:24px;border:1px solid light-dark(#deded9,#30302e);border-radius:12px;background:light-dark(#fff,#191918)}.mark{display:flex;align-items:center;gap:9px;margin-bottom:28px;font-weight:650}.glyph{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:currentColor}.glyph:after{content:"K";color:light-dark(#fff,#191918);font-size:12px}.state{display:flex;align-items:center;gap:9px;color:light-dark(#666662,#aaa9a3);font-size:12px}.dot{width:8px;height:8px;border-radius:999px;background:${copy.progress ? '#e6a522' : '#d74a4a'}${copy.progress ? ';animation:pulse 1.4s ease-in-out infinite' : ''}}h1{margin:12px 0 6px;font-size:20px;line-height:1.25;letter-spacing:-.02em}p{margin:0;color:light-dark(#666662,#aaa9a3)}code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}@keyframes pulse{50%{opacity:.35;transform:scale(.8)}}@media(prefers-reduced-motion:reduce){.dot{animation:none}}</style></head>
-<body><main class="card"><div class="mark"><span class="glyph"></span>Kortix Apps</div><div class="state"><span class="dot"></span>${escapeHtml(status)}</div><h1>${heading}</h1><p>${escapeHtml(copy.message)}</p></main></body></html>`, {
+<body><main class="card"><div class="mark"><span class="glyph"></span>Dosco Apps</div><div class="state"><span class="dot"></span>${escapeHtml(status)}</div><h1>${heading}</h1><p>${escapeHtml(copy.message)}</p></main></body></html>`, {
     status: httpStatus,
     headers,
   });
 }
 
 export function appPublicUnavailableResponse(
-  request = new Request('https://apps.kortix.com/'),
+  request = new Request('https://apps.dosco.live/'),
   app: { name: string } = { name: 'App' },
 ): Response {
   return appPublicStatusResponse(request, app, { status: 'starting' });
@@ -419,11 +419,11 @@ function appAccessResponse(
   const isPassword = mode === 'password';
   const action = isPassword
     ? `<form method="post" action="/_kortix/access/password"><label for="password">Password</label><input id="password" name="password" type="password" minlength="8" required autocomplete="current-password"><input type="hidden" name="return_to" value="${escapeHtml(returnTo)}"><button type="submit">Open App</button>${invalidPassword ? '<p class="error" role="alert">The password is incorrect.</p>' : ''}</form>`
-    : `<a class="button" href="${escapeHtml(`${config.FRONTEND_URL.replace(/\/$/, '')}/projects/${app.projectId}/apps?open_app=${app.appId}`)}">Continue with Kortix</a>`;
+    : `<a class="button" href="${escapeHtml(`${config.FRONTEND_URL.replace(/\/$/, '')}/projects/${app.projectId}/apps?open_app=${app.appId}`)}">Continue with Dosco</a>`;
   const message = isPassword
     ? 'Enter the password configured by the App owner.'
-    : 'Sign in with a Kortix account that can access this App.';
-  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Access ${name}</title><style>:root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:light-dark(#f6f6f3,#10100f);color:light-dark(#171716,#f4f4f1);font:14px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{width:min(100%,420px);padding:24px;border:1px solid light-dark(#deded9,#30302e);border-radius:12px;background:light-dark(#fff,#191918)}.mark{margin-bottom:28px;font-weight:650}h1{margin:0 0 6px;font-size:20px;letter-spacing:-.02em}p{margin:0 0 20px;color:light-dark(#666662,#aaa9a3)}form{display:grid;gap:10px}label{font-size:12px;font-weight:600}input{width:100%;height:42px;padding:0 12px;border:1px solid light-dark(#c9c9c3,#3a3a37);border-radius:8px;background:transparent;color:inherit}button,.button{display:flex;align-items:center;justify-content:center;height:42px;padding:0 16px;border:0;border-radius:999px;background:light-dark(#171716,#f4f4f1);color:light-dark(#fff,#171716);font:inherit;font-weight:600;text-decoration:none;cursor:pointer}.error{margin:0;color:#d74a4a;font-size:12px}</style></head><body><main class="card"><div class="mark">Kortix Apps</div><h1>${name}</h1><p>${escapeHtml(message)}</p>${action}</main></body></html>`, {
+    : 'Sign in with a Dosco account that can access this App.';
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Access ${name}</title><style>:root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:light-dark(#f6f6f3,#10100f);color:light-dark(#171716,#f4f4f1);font:14px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{width:min(100%,420px);padding:24px;border:1px solid light-dark(#deded9,#30302e);border-radius:12px;background:light-dark(#fff,#191918)}.mark{margin-bottom:28px;font-weight:650}h1{margin:0 0 6px;font-size:20px;letter-spacing:-.02em}p{margin:0 0 20px;color:light-dark(#666662,#aaa9a3)}form{display:grid;gap:10px}label{font-size:12px;font-weight:600}input{width:100%;height:42px;padding:0 12px;border:1px solid light-dark(#c9c9c3,#3a3a37);border-radius:8px;background:transparent;color:inherit}button,.button{display:flex;align-items:center;justify-content:center;height:42px;padding:0 16px;border:0;border-radius:999px;background:light-dark(#171716,#f4f4f1);color:light-dark(#fff,#171716);font:inherit;font-weight:600;text-decoration:none;cursor:pointer}.error{margin:0;color:#d74a4a;font-size:12px}</style></head><body><main class="card"><div class="mark">Dosco Apps</div><h1>${name}</h1><p>${escapeHtml(message)}</p>${action}</main></body></html>`, {
     status: 401,
     headers: {
       'content-type': 'text/html; charset=utf-8',
@@ -437,7 +437,7 @@ function appAccessResponse(
 
 
 /**
- * A Kortix credential presented as a bearer token, resolved to the identity it
+ * A Dosco credential presented as a bearer token, resolved to the identity it
  * carries — or null when there is no usable one.
  *
  * WHY THE GATEWAY NEEDS THIS
@@ -456,7 +456,7 @@ function appAccessResponse(
  * path uses. This adds a way to present an identity, not a way to skip one.
  *
  * `password` mode is deliberately excluded: there the secret IS the password,
- * and a Kortix credential is not it.
+ * and a Dosco credential is not it.
  */
 interface AppBearerPrincipal {
   userId: string;
@@ -477,10 +477,10 @@ interface AppBearerPrincipal {
 }
 
 /**
- * The header that carries a Kortix credential for the App gate WITHOUT taking
+ * The header that carries a Dosco credential for the App gate WITHOUT taking
  * `Authorization` from the App (spec 2026-09-22 §2.5). An App that authorizes
  * its own API with `Authorization: Bearer <app key>` keeps that header; the
- * caller's Kortix identity travels here. `appUpstreamHeaders` deletes it, so
+ * caller's Dosco identity travels here. `appUpstreamHeaders` deletes it, so
  * the App never sees it.
  */
 export const APP_AUTHORIZATION_HEADER = 'x-kortix-app-authorization';
@@ -489,7 +489,7 @@ export const APP_AUTHORIZATION_HEADER = 'x-kortix-app-authorization';
  * Bearer values a request offers the gate, in the order they are tried:
  * `X-Kortix-App-Authorization` first (it exists only for the gate), then
  * `Authorization` (which may equally be the App's own key — a value that is
- * not a Kortix credential resolves to no identity).
+ * not a Dosco credential resolves to no identity).
  */
 export function appCredentialFromRequest(
   request: Request,
@@ -642,7 +642,7 @@ export function resolveAppViewerUserId(
 export interface AppViewerHeaders {
   /** Signed identity — always present when a viewer is signed in. */
   context: string;
-  /** The viewer's App-scoped Kortix token. Only for `viewer_token_scope: 'api'`. */
+  /** The viewer's App-scoped Dosco token. Only for `viewer_token_scope: 'api'`. */
   token: string | null;
 }
 
@@ -670,7 +670,7 @@ export async function appViewerContextHeader(
           {
             appId: app.appId,
             accountId: app.accountId,
-            name: app.name ?? 'Kortix App',
+            name: app.name ?? 'Dosco App',
             viewerTokenScope: scope,
           },
           userId,
@@ -716,7 +716,7 @@ export async function appViewerEndpointResponse(
   let userId = resolveAppViewerUserId(request, url, app);
   let agentViewer = false;
   if (!userId && app.accessMode !== 'password') {
-    // A server-side caller inside the App can present its own Kortix credential
+    // A server-side caller inside the App can present its own Dosco credential
     // instead of a browser cookie. It still has to pass the App's access policy.
     const principal = await kortixCredentialUser(request, app);
     if (
@@ -736,8 +736,8 @@ export async function appViewerEndpointResponse(
         error: 'no_viewer_identity',
         error_description:
           app.accessMode === 'public' || app.accessMode === 'password'
-            ? `A ${app.accessMode} App has no signed-in Kortix viewer.`
-            : 'No Kortix session on this request.',
+            ? `A ${app.accessMode} App has no signed-in Dosco viewer.`
+            : 'No Dosco session on this request.',
         access_mode: app.accessMode,
       },
       { status: 401, headers: noStore },
@@ -820,7 +820,7 @@ export async function authorizeAppRequest(
   ) {
     return null;
   }
-  // A Kortix credential, for callers that are not browsers. Checked after the
+  // A Dosco credential, for callers that are not browsers. Checked after the
   // cookie so the common path stays one HMAC verification with no database
   // work, and before the challenge so an API client gets its answer instead of
   // an HTML login page it cannot read.
@@ -1186,7 +1186,7 @@ function withoutFrameAncestors(value: string): string[] {
     .filter((directive) => directive && !/^frame-ancestors(?:\s|$)/i.test(directive));
 }
 
-/** Preserve App security policy while allowing the Kortix preview browser to frame it. */
+/** Preserve App security policy while allowing the Dosco preview browser to frame it. */
 export function appPublicResponseHeaders(upstreamHeaders: Headers): Headers {
   const headers = new Headers(upstreamHeaders);
   headers.delete('x-frame-options');

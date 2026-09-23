@@ -136,7 +136,7 @@ describe('sandbox provider parity across shared subsystems', () => {
   test('E2B cannot size an App disk, so an App on E2B is not billed for one', () => {
     // e2b 2.37.0 Template.build takes cpuCount and memoryMB only — there is no
     // disk parameter — so disk_gb is provider-managed there. Charging the
-    // requested disk billed storage Kortix never asked E2B to allocate.
+    // requested disk billed storage Dosco never asked E2B to allocate.
     expect(getProvider('e2b').appMachineSupport).toEqual({ cpu: true, memoryGb: true, diskGb: false });
     expect(effectiveAppMachine(getProvider('e2b'), { cpuCores: 4, memoryGb: 8, diskGb: 50 }))
       .toEqual({ cpuCores: 4, memoryGb: 8, diskGb: 0 });

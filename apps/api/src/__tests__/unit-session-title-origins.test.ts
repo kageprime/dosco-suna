@@ -97,7 +97,7 @@ describe('session-title origins — create-time title source', () => {
     expect(title).not.toContain('Conversation:');
 
     // The words the person typed — minus the `<at>…</at>` markup Teams wraps
-    // around a channel mention of the bot (a title of "<at>Kortix Dev</at>summ…"
+    // around a channel mention of the bot (a title of "<at>Dosco Dev</at>summ…"
     // is what the first live channel run produced).
     const source = createBody('channels/teams/session.ts', 'teamsSessionLifecycle.createSession(');
     expect(source).toContain('title_source: activity.text ? stripTeamsMentions(activity.text) || null : null');

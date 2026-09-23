@@ -311,9 +311,9 @@ describe('checkBudget spend measurement', () => {
     const [expression] = spendExpressions;
     // The BYOK side — absent from the old `sum(final_cost)` query entirely.
     expect(expression).toContain('upstream_cost_precise');
-    // The Kortix-billed side, still counted.
+    // The Dosco-billed side, still counted.
     expect(expression).toContain('final_cost_precise');
-    // ...and excluded on managed rows, where the upstream price is Kortix's own
+    // ...and excluded on managed rows, where the upstream price is Dosco's own
     // cost of goods and was never the caller's spend.
     expect(expression).toContain("'credits'");
   });

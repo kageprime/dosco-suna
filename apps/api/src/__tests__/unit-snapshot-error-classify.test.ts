@@ -22,7 +22,7 @@ describe('classifySnapshotError', () => {
     expect(classifySnapshotError('COPY failed: no such file or directory')).toBe('dockerfile');
   });
 
-  test('missing Kortix runtime artifacts', () => {
+  test('missing Dosco runtime artifacts', () => {
     expect(classifySnapshotError('Required artifact missing: /path/kortix-agent. Set KORTIX_SNAPSHOT_AGENT_BIN_PATH')).toBe('runtime');
     expect(classifySnapshotError('Required directory missing: slack-cli')).toBe('runtime');
   });
@@ -43,7 +43,7 @@ describe('classifySnapshotError', () => {
     expect(classifySnapshotError('build timed out after 600s')).toBe('timeout');
   });
 
-  test('Kortix runtime layer failures outrank the generic dockerfile bucket', () => {
+  test('Dosco runtime layer failures outrank the generic dockerfile bucket', () => {
     // The real incident: a project apt-installed gdal-bin → dpkg-owned
     // python3-numpy, and OUR injected pip floor tried to uninstall it. The user's
     // Dockerfile was CORRECT — classifying this as 'dockerfile' dispatched an
@@ -93,7 +93,7 @@ describe('describeSnapshotError fixability', () => {
     // A layer failure is OUR bug: never send an agent at the user's Dockerfile,
     // and say so in the hint.
     expect(describeSnapshotError('layer').fixableByAgent).toBe(false);
-    expect(describeSnapshotError('layer').hint).toContain('Kortix runtime layer');
+    expect(describeSnapshotError('layer').hint).toContain('Dosco runtime layer');
   });
 
   test('classify + describe compose to a full descriptor', () => {

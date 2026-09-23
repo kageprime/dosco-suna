@@ -570,7 +570,7 @@ const MAX_BODY_CHARS = 60_000;
 const TEXT_BUDGET_BYTES = 20_000;
 
 function fitTextMessage(body: string, sessionUrl?: string): string {
-  const link = sessionUrl ? `\n\n[Open session in Kortix ↗](${sessionUrl})` : '';
+  const link = sessionUrl ? `\n\n[Open session in Dosco ↗](${sessionUrl})` : '';
   let out = body;
   if (Buffer.byteLength(out + link, 'utf8') > TEXT_BUDGET_BYTES) {
     // Characters, not bytes, are what slice counts: shrink until the bytes fit.

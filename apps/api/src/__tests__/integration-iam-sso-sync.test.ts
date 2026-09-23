@@ -101,7 +101,7 @@ describe('Azure AD directory-sync → authorization', () => {
     const gm = await db.select().from(accountGroupMembers).where(and(eq(accountGroupMembers.groupId, MKT_GROUP), eq(accountGroupMembers.userId, user)));
     expect(gm.length).toBe(1);
 
-    // Full chain authorizes: Entra group → mapping → Kortix group → project grant.
+    // Full chain authorizes: Entra group → mapping → Dosco group → project grant.
     expect(await canWrite(user)).toBe(true);
 
     // Entra removes the user from the group → claim disappears on next login →

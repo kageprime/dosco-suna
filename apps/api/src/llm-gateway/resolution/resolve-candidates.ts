@@ -321,8 +321,8 @@ export async function resolveCandidates(
         apiKey: value,
         credentialRef: identifier,
         ...(selectedPool?.configured ? { poolSecretId: identifier } : {}),
-        // BYOK bills the provider account directly. Kortix records provider
-        // spend for observability but never debits Kortix credits.
+        // BYOK bills the provider account directly. Dosco records provider
+        // spend for observability but never debits Dosco credits.
         billingMode: 'none',
         markup: 0,
         resolvedModel: invokeModelId,
@@ -340,8 +340,8 @@ export async function resolveCandidates(
         reasoning: capabilities.reasoning,
         temperature: capabilities.temperature,
       }));
-      // Never append a Kortix-managed fallback. A failed BYOK key must fail as
-      // BYOK; it must not silently convert the request into a Kortix charge.
+      // Never append a Dosco-managed fallback. A failed BYOK key must fail as
+      // BYOK; it must not silently convert the request into a Dosco charge.
       return byokDescriptors;
     }
     // No shared key configured for this project — provider keys are always
@@ -359,14 +359,14 @@ export async function resolveCandidates(
   // is on (RUNTIME_MANAGED_MODELS is empty otherwise — see managed-models.ts), so
   // a self-host never reaches this branch for an explicitly-named managed model;
   // it falls through to the checks below → a clear "model not available on this
-  // deployment" error, never a silent fallback to Kortix credits. A BYOK catalog
+  // deployment" error, never a silent fallback to Dosco credits. A BYOK catalog
   // model (bare `provider/model`) is handled above and requires the user's own
   // key; it never falls through here.
   const managed = getRuntimeManagedModel(effectiveModel);
   if (managed && config.LLM_GATEWAY_ENABLED && config.KORTIX_MANAGED_PROVIDER_ENABLED) {
     if (access.disabledProviders.includes('kortix')) {
-      throw new GatewayResolutionError('provider_disabled', 'Kortix Managed Models are disabled for this project.',
-        'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
+      throw new GatewayResolutionError('provider_disabled', 'Dosco Managed Models are disabled for this project.',
+        'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
     }
     if (principal.freeModelsOnly) {
       throw new GatewayResolutionError(
@@ -402,7 +402,7 @@ export async function resolveCandidates(
   if (isKnownManagedModelId(effectiveModel)) {
     throw new GatewayResolutionError(
       'model_disabled_on_deployment',
-      `The "${effectiveModel}" model requires Kortix's managed provider, which is disabled on this deployment.`,
+      `The "${effectiveModel}" model requires Dosco's managed provider, which is disabled on this deployment.`,
       'Connect your own API key for a BYOK-compatible model, or ask your deployment operator to enable the managed provider.',
     );
   }

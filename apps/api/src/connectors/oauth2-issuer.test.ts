@@ -67,7 +67,7 @@ describe('validateAuthorizationIssuer (RFC 9207)', () => {
 
 describe('oauth2ApplicationTypeFor (SEP-837)', () => {
   test('an https callback is a web client', () => {
-    expect(oauth2ApplicationTypeFor('https://api.kortix.com/v1/connectors/oauth2/callback')).toBe('web');
+    expect(oauth2ApplicationTypeFor('https://api.dosco.live/v1/connectors/oauth2/callback')).toBe('web');
   });
 
   test('a loopback callback is a native client — OIDC servers reject localhost for web', () => {

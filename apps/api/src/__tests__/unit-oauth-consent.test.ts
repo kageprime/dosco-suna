@@ -1,4 +1,4 @@
-// Sign in with Kortix: the authorization request is persisted (not held in an
+// Sign in with Dosco: the authorization request is persisted (not held in an
 // in-process Map), the consent screen sees only an opaque request id, approval
 // mints a code bound to the STORED request fields, remembers the consent, and
 // a replayed decision is refused.

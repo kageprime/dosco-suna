@@ -10,7 +10,7 @@ const CONVO = 'a:synthetic-chat';
 
 mock.module('../config', () => ({
   SANDBOX_VERSION: 'test',
-  config: { FRONTEND_URL: 'https://dev.kortix.com', TEAMS_REQUIRE_USER_IDENTITY: true },
+  config: { FRONTEND_URL: 'https://dev.dosco.live', TEAMS_REQUIRE_USER_IDENTITY: true },
 }));
 
 // commands.ts reaches the model picker and the gateway through other verbs.
@@ -115,7 +115,7 @@ describe('/new', () => {
 
     expect(posted).toHaveLength(1);
     expect(cardText(posted[0]!)).toContain('Your next message starts a new session.');
-    expect(cardText(posted[0]!)).toContain(`https://dev.kortix.com/projects/${PROJECT}/sessions/sess-old`);
+    expect(cardText(posted[0]!)).toContain(`https://dev.dosco.live/projects/${PROJECT}/sessions/sess-old`);
     expect(started).toEqual([]);
   });
 

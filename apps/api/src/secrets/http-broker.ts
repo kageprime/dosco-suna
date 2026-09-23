@@ -162,7 +162,7 @@ function sanitizeHeaders(input: Record<string, string> | undefined): Record<stri
       throw new SecretBrokerError('invalid_request', `invalid request header: ${rawName}`, 400);
     }
     if (BLOCKED_REQUEST_HEADERS.has(name)) {
-      throw new SecretBrokerError('invalid_request', `request header is managed by Kortix: ${name}`, 400);
+      throw new SecretBrokerError('invalid_request', `request header is managed by Dosco: ${name}`, 400);
     }
     // Drop any caller-supplied accept-encoding. The broker forces `identity` on
     // its own upstream leg (below), so the response body reaches
@@ -591,7 +591,7 @@ export function prepareSecretBrokerRequest(
   // `sanitizeHeaders`. Running the head first silently changed the answer for a
   // request that is wrong in two ways at once — e.g. a 2 MiB body plus a
   // blocked `host` header went from `413 request body exceeds 1 MiB` to
-  // `400 request header is managed by Kortix: host`. Keep the old precedence.
+  // `400 request header is managed by Dosco: host`. Keep the old precedence.
   let body = decodeBody(input.body_base64);
   if ((input.method === 'GET' || input.method === 'HEAD') && body && body.byteLength > 0) {
     throw new SecretBrokerError(

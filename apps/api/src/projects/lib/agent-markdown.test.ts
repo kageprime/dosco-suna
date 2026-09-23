@@ -3,9 +3,9 @@ import { parseAgentMarkdown, serializeAgentMarkdown } from './agent-markdown';
 
 describe('parseAgentMarkdown', () => {
   test('body-only file with no fence parses to empty frontmatter', () => {
-    const result = parseAgentMarkdown('You are the Kortix agent.');
+    const result = parseAgentMarkdown('You are the Dosco agent.');
     expect(result.frontmatter).toEqual({});
-    expect(result.body).toBe('You are the Kortix agent.');
+    expect(result.body).toBe('You are the Dosco agent.');
   });
 
   test('fenced frontmatter parses to fields + body', () => {

@@ -28,11 +28,11 @@
 export interface StartErrorCommands {
   /** What the user calls this place — Slack says "channel", Teams "conversation". */
   surface: string;
-  /** Opens this conversation's Kortix settings. */
+  /** Opens this conversation's Dosco settings. */
   settings: string;
   /** Re-points this conversation at a project. */
   switchProject: string;
-  /** Links the user's Kortix account. */
+  /** Links the user's Dosco account. */
   login: string;
 }
 
@@ -65,9 +65,9 @@ export function startErrorMessage(
   // Most specific: known error CODES from the create path.
   switch (code) {
     case 'UNKNOWN_SANDBOX_TEMPLATE':
-      return "I couldn't start a session — the sandbox template configured for this project no longer exists. Update it in the project's Kortix settings, then send your message again.";
+      return "I couldn't start a session — the sandbox template configured for this project no longer exists. Update it in the project's Dosco settings, then send your message again.";
     case 'KORTIX_URL_UNREACHABLE':
-      return "I couldn't start a session — Kortix couldn't reach the sandbox runtime just now. This is usually a brief infrastructure hiccup; give it a moment and send your message again.";
+      return "I couldn't start a session — Dosco couldn't reach the sandbox runtime just now. This is usually a brief infrastructure hiccup; give it a moment and send your message again.";
     case 'WORKSPACE_MODE_UNAVAILABLE':
       return "I couldn't start a session because the agent uses the `read` workspace mode. Restricted workspace artifacts are not enabled yet. Set the agent's workspace to `runtime` or `branch`, then send your message again.";
   }
@@ -75,22 +75,22 @@ export function startErrorMessage(
   // Then HTTP status.
   switch (status) {
     case 400:
-      return `I couldn't start a session — the request was rejected${shortDetail ? ` (${shortDetail})` : ''}. Check this ${commands.surface}'s Kortix settings with ${commands.settings}, then send your message again.`;
+      return `I couldn't start a session — the request was rejected${shortDetail ? ` (${shortDetail})` : ''}. Check this ${commands.surface}'s Dosco settings with ${commands.settings}, then send your message again.`;
     case 402:
-      return "This workspace is out of credits, so I can't start a session. Top up in the Kortix dashboard and send your message again.";
+      return "This workspace is out of credits, so I can't start a session. Top up in the Dosco dashboard and send your message again.";
     case 403:
-      return "I couldn't start a session — this workspace doesn't have permission to run one here. Ask a Kortix workspace admin to grant access, then send your message again.";
+      return "I couldn't start a session — this workspace doesn't have permission to run one here. Ask a Dosco workspace admin to grant access, then send your message again.";
     case 404:
-      return `I couldn't find this project to start a session — it may have been moved or deleted. Reconnect Kortix to this ${commands.surface} with ${commands.switchProject}, then try again.`;
+      return `I couldn't find this project to start a session — it may have been moved or deleted. Reconnect Dosco to this ${commands.surface} with ${commands.switchProject}, then try again.`;
     case 409:
-      return `I couldn't find a Kortix account to run this session as. Connect your account with ${commands.login}, then send your message again.`;
+      return `I couldn't find a Dosco account to run this session as. Connect your account with ${commands.login}, then send your message again.`;
     case 429:
       return 'This workspace is at its concurrent-session limit right now. Close or finish a running session, then send your message again.';
     case 500:
     case 502:
     case 503:
     case 504:
-      return "I couldn't start a session — Kortix hit a temporary error. Give it a moment and send your message again — I'll reply right here.";
+      return "I couldn't start a session — Dosco hit a temporary error. Give it a moment and send your message again — I'll reply right here.";
   }
 
   // Unknown status/code — never leave the user without a next step.

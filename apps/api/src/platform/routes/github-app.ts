@@ -109,7 +109,7 @@ export function buildGithubAppManifest(opts: {
   // ("url wasn't supplied"), so it is kept separate and always a valid FQDN.
   const base = opts.apiBaseUrl.replace(/\/+$/, '');
   return {
-    name: opts.appName ?? `Kortix Self-Host ${randomBytes(4).toString('hex')}`,
+    name: opts.appName ?? `Dosco Self-Host ${randomBytes(4).toString('hex')}`,
     url: opts.homepageUrl,
     redirect_url: `${base}/v1/platform/github-app/manifest-callback`,
     setup_url: `${base}/v1/platform/github-app/install-callback`,
@@ -409,7 +409,7 @@ function apiBaseUrl(c: any): string {
 function homepageUrl(): string {
   const pub = (process.env.PUBLIC_URL || '').replace(/\/+$/, '');
   if (/^https:\/\/[^/.]+\.[^/]+/.test(pub)) return pub;
-  return 'https://kortix.ai';
+  return 'https://dosco.live';
 }
 
 function frontendUrl(): string {
@@ -529,7 +529,7 @@ githubAppSetupRouter.openapi(
 
 // ─── GET /manifest-callback ───────────────────────────────────────────────────
 // PUBLIC by necessity — GitHub redirects the browser here with `?code=&state=`
-// after the operator submits the manifest form. No Kortix auth header is
+// after the operator submits the manifest form. No Dosco auth header is
 // possible on a cross-site browser redirect; the signed `state` (HMAC,
 // SUPABASE_JWT_SECRET, ~10min TTL, single-use-in-spirit nonce) is the only
 // thing standing between this route and an attacker who guesses the URL — a
@@ -661,7 +661,7 @@ githubAppSetupRouter.openapi(
       return c.redirect(fail('missing_installation_id'), 302);
     }
     // Installing straight from the App's GitHub page (rather than through
-    // Kortix's Connect button) is a perfectly normal thing to do, and GitHub
+    // Dosco's Connect button) is a perfectly normal thing to do, and GitHub
     // then calls this Setup URL with an installation_id but NO state — we never
     // minted one. Reporting that as `invalid_state` read like a security
     // failure and dead-ended at the site root, stranding a real installation
@@ -669,7 +669,7 @@ githubAppSetupRouter.openapi(
     // the installation id, so the frontend can offer to link it once the user
     // is signed in (POST /projects/github/installations/{linkable,link}).
     // Strictly ABSENT, not merely empty. `?state=` reaches the handler as ''
-    // and is malformed — GitHub always sends a real state on a flow Kortix
+    // and is malformed — GitHub always sends a real state on a flow Dosco
     // started — so it belongs with the errors below. Only a state that was
     // never provided at all means the install began on GitHub's own App page.
     if (query.state === undefined) {
@@ -761,12 +761,12 @@ githubAppSetupRouter.openapi(
 //
 // Both routes are PUBLIC (unauthenticated) by necessity, same reasoning as
 // manifest-callback/install-callback above: the popup opens `oauth/authorize`
-// directly (no Kortix session is attached to that navigation), and GitHub's
-// redirect back to `oauth/callback` cannot carry a Kortix auth header either.
+// directly (no Dosco session is attached to that navigation), and GitHub's
+// redirect back to `oauth/callback` cannot carry a Dosco auth header either.
 // The resulting token proves nothing on its own — every route that consumes
 // it (POST /projects/github/installations/{linkable,link}, POST
 // /projects/github/installation) independently re-verifies it against GitHub
-// and is itself Kortix-auth-gated, so an unauthenticated caller minting a
+// and is itself Dosco-auth-gated, so an unauthenticated caller minting a
 // token here gains nothing they couldn't already get by signing into GitHub.
 //
 // The signed `state` carries ONLY a CSRF nonce and an expiry. The redirect
@@ -1251,7 +1251,7 @@ export async function verifyRepoAdminToken(
   const name = `kortix-credential-probe-${randomBytes(6).toString('hex')}`;
   const created = await call(isOrg ? `/orgs/${encodeURIComponent(owner)}/repos` : '/user/repos', {
     method: 'POST',
-    body: JSON.stringify({ name, private: true, auto_init: false, description: 'Kortix managed-git credential probe — safe to delete' }),
+    body: JSON.stringify({ name, private: true, auto_init: false, description: 'Dosco managed-git credential probe — safe to delete' }),
   });
   if (created.status !== 201) {
     return {

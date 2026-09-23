@@ -2,7 +2,7 @@
  * Billing v3 — flat credit plans, and the seat plan they replace.
  *
  * Seats priced humans. The cost driver is agents, and agents run unattended: a
- * two-person team can run fifty of them, and a Kortix-as-a-Backend customer
+ * two-person team can run fifty of them, and a Dosco-as-a-Backend customer
  * serves end users who are not seats at all. So the plan now carries the credit
  * pool and the concurrency limit, and headcount leaves the price.
  *

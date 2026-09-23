@@ -43,7 +43,7 @@ export function validateAuthorizationIssuer(input: {
 
 /**
  * SEP-837. OpenID Connect defines `application_type` `web` (https redirect,
- * no localhost) and `native` (loopback allowed). A self-hosted Kortix on a
+ * no localhost) and `native` (loopback allowed). A self-hosted Dosco on a
  * loopback origin registered as `web` is rejected by any OIDC-based server.
  */
 export function oauth2ApplicationTypeFor(redirectUri: string): 'web' | 'native' {

@@ -42,7 +42,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = originalFetch; });
 
 describe('BYOK passthrough billing', () => {
-  test('forwards an LLM response without touching Kortix credits', async () => {
+  test('forwards an LLM response without touching Dosco credits', async () => {
     const context = { req: { url: 'https://api.example/v1/openai/chat/completions', method: 'POST' } };
     const service = {
       name: 'openai',

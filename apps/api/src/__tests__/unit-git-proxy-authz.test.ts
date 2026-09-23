@@ -274,7 +274,7 @@ describe('authorizeGitProxy — account API key', () => {
     expect(res.ok).toBe(true);
   });
 
-  test('a non-Kortix credential is 401', async () => {
+  test('a non-Dosco credential is 401', async () => {
     const res = await authorizeGitProxy('ghp_something', PROJECT_ID, 'read');
     expect(res).toMatchObject({ ok: false, status: 401 });
   });

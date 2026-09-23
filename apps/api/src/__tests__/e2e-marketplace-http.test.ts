@@ -39,7 +39,7 @@ describe('marketplace HTTP contract', () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { items: Array<{ id: string; name: string; type: string; managedBy?: string; partOfProject?: { id: string; title: string } }> };
 
-    // Kortix-managed system skills (kortix-computer/connectors/memory/slack/system/
+    // Dosco-managed system skills (kortix-computer/connectors/memory/slack/system/
     // marketplace/meet/onboarding) are server-injected platform floor now — they
     // never show up as browse-and-install cards.
     expect(body.items.some((item) => item.managedBy === 'kortix')).toBe(false);
@@ -47,13 +47,13 @@ describe('marketplace HTTP contract', () => {
       expect(body.items.find((item) => item.name === name)).toBeUndefined();
     }
 
-    // Browse leads with the "Kortix Starter" project AND lists the individual
+    // Browse leads with the "Dosco Starter" project AND lists the individual
     // kortix-starter skills (agent-browser, pdf, …) as their own top-level
     // tiles again — each one carries a `partOfProject` badge back to the project.
     expect(body.items.find((item) => item.id === 'kortix-projects:starter')).toBeTruthy();
     const agentBrowser = body.items.find((item) => item.name === 'agent-browser');
     expect(agentBrowser).toBeTruthy();
-    expect(agentBrowser?.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Kortix Starter' });
+    expect(agentBrowser?.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Dosco Starter' });
     expect(body.items.find((item) => item.name === 'pdf')).toBeTruthy();
     expect(body.items.find((item) => item.name === 'pty')).toBeUndefined();
     expect(body.items.find((item) => item.name === 'web_search')).toBeUndefined();
@@ -112,9 +112,9 @@ describe('marketplace HTTP contract', () => {
     };
     expect(skillBody.name).toBe('agent-browser');
     expect(skillBody.type).toBe('registry:skill');
-    expect(skillBody.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Kortix Starter' });
+    expect(skillBody.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Dosco Starter' });
 
-    // Kortix-managed system skills are server-injected platform truth — never a
+    // Dosco-managed system skills are server-injected platform truth — never a
     // browse-and-detail card, even by a hand-built id.
     const managed = await fetch(`${baseUrl}/marketplace/items/${encodeURIComponent('kortix-starter:kortix-system')}`, {
       headers: { Authorization: 'Bearer test-token' },

@@ -507,7 +507,7 @@ describe('maintenance renewal', () => {
     expect(executed).toEqual([]);
   });
 
-  test('fresh evidence for the exact accepted turn renews the Kortix deadline', async () => {
+  test('fresh evidence for the exact accepted turn renews the Dosco deadline', async () => {
     executeResults = [[{ renewed: true }]];
     expect(await renewActiveSandboxTurn('sb-1', 'turn-token')).toBe('renewed');
 

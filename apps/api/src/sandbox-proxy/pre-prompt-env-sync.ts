@@ -68,7 +68,7 @@ export function errorMessage(error: unknown, fallback: string): string {
 // (conventionally `kortix`). It is therefore non-binding: a "default" session's
 // connector token carries the least-privileged grant (null = full for ungoverned
 // projects, deny for governed ones — see `grantFromLoadedAgents`), so a prompt
-// can never use it to escalate into another agent's connector / Kortix-CLI grant.
+// can never use it to escalate into another agent's connector / Dosco-CLI grant.
 export const DEFAULT_AGENT_SENTINEL = 'default';
 
 const RETRYABLE_ENV_SYNC_NETWORK_ERROR_RE =
@@ -280,7 +280,7 @@ export async function runPrePromptEnvSync(
   const { record, sandboxId, port, userId, origin, requestedAgent } = input;
   const sessionAgent = record.agentName ?? DEFAULT_AGENT_SENTINEL;
   // A prompt is the one moment this sandbox is guaranteed awake, so off it we
-  // (1) generate the Kortix-owned session title from this first prompt, using
+  // (1) generate the Dosco-owned session title from this first prompt, using
   // the model the user picked, and (2) refresh the opencode_sessions snapshot
   // the conversation list reads. Both are fire-and-forget and never block the
   // prompt.

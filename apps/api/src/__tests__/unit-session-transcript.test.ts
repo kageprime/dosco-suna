@@ -48,7 +48,7 @@ function session(overrides: Record<string, unknown> = {}) {
     status: 'running',
     // Embeds the external id (/p/<externalId>/) so resolveSessionExternalId
     // short-circuits without a DB hit.
-    sandboxUrl: 'https://preview.kortix.com/v1/p/sandbox-ext-1/8000',
+    sandboxUrl: 'https://preview.dosco.live/v1/p/sandbox-ext-1/8000',
     metadata: {},
     ...overrides,
   } as any;

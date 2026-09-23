@@ -17,7 +17,7 @@ const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment).sql;
 // three billing modes route money to different payees, so each one has its own
 // answer, and summing final_cost alone reports $0 for every BYOK deployment.
 describe('splitLlmSpend', () => {
-  test('credits: you paid Kortix — upstream_cost is Kortix COGS, never yours', () => {
+  test('credits: you paid Dosco — upstream_cost is Dosco COGS, never yours', () => {
     expect(
       splitLlmSpend({ billingMode: 'credits', upstreamCost: 0.0423, finalCost: 0.0846 }),
     ).toEqual({ kortix_cost: 0.0846, provider_cost: 0, total_cost: 0.0846 });
@@ -31,7 +31,7 @@ describe('splitLlmSpend', () => {
     });
   });
 
-  test('platform-fee (BYOK on cloud): you paid the provider AND the Kortix fee', () => {
+  test('platform-fee (BYOK on cloud): you paid the provider AND the Dosco fee', () => {
     expect(
       splitLlmSpend({ billingMode: 'platform-fee', upstreamCost: 0.05, finalCost: 0.005 }),
     ).toEqual({ kortix_cost: 0.005, provider_cost: 0.05, total_cost: 0.055 });
@@ -80,7 +80,7 @@ describe('spend SQL expressions', () => {
     expect(rendered).toContain('then 0');
   });
 
-  test('the row total adds the provider side to the Kortix side', () => {
+  test('the row total adds the provider side to the Dosco side', () => {
     const rendered = render(rowTotalSpendSql);
     expect(rendered).toContain('final_cost_precise');
     expect(rendered).toContain('upstream_cost_precise');
@@ -94,7 +94,7 @@ describe('spend SQL expressions', () => {
     }
   });
 
-  test('the Kortix-billed aggregate is final_cost alone', () => {
+  test('the Dosco-billed aggregate is final_cost alone', () => {
     const rendered = render(kortixBilledSpendSql);
     expect(rendered).toContain('final_cost_precise');
     expect(rendered).not.toContain('upstream_cost_precise');

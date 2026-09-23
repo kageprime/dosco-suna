@@ -250,7 +250,7 @@ agents:
 `);
     const content = supportMd(
       ['mode: primary', 'model: anthropic/claude-sonnet-5', 'permission: allow'].join('\n'),
-      'You are a general-purpose Kortix agent.',
+      'You are a general-purpose Dosco agent.',
     );
     expect(() =>
       compileAgentConfig(manifest, 'opencode', { '.kortix/opencode/agents/kortix.md': content }),
@@ -262,7 +262,7 @@ agents:
       mode: 'primary',
       model: 'anthropic/claude-sonnet-5',
       permission: 'allow',
-      prompt: 'You are a general-purpose Kortix agent.',
+      prompt: 'You are a general-purpose Dosco agent.',
     });
   });
 });

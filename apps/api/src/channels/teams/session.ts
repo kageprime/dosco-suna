@@ -347,7 +347,7 @@ async function deliverFollowUp(input: {
       if (await claimConversationErrorNotice(tenantId, conversationId)) {
         const url = sessionWebUrl(config.FRONTEND_URL, projectId, sessionId);
         await finalizeTurn(handle, {
-          error: `This conversation's session hit an error and couldn't start. [Open it in Kortix](${url}) to see what happened.`,
+          error: `This conversation's session hit an error and couldn't start. [Open it in Dosco](${url}) to see what happened.`,
         });
       } else {
         // The notice is suppressed so a jammed conversation does not repeat
@@ -667,7 +667,7 @@ async function waitForConversationSession(tenantId: string, conversationId: stri
 const TURN_INSTRUCTIONS = [
   'How to work:',
   '- First, load the `kortix-teams` skill via the `skill` tool for the canonical reference on posting in Teams (step/send semantics, Adaptive Cards, tone).',
-  '- The `teams` CLI needs no token in your sandbox — every command runs through the Kortix Connector (the bot credential is resolved server-side).',
+  '- The `teams` CLI needs no token in your sandbox — every command runs through the Dosco Connector (the bot credential is resolved server-side).',
   '- As you go, post a short progress checkpoint before each major step:',
   '    teams step "Reading the incident logs"',
   '  Keep them human and brief — a few per task — and post one right before anything slow so the conversation always shows fresh progress.',

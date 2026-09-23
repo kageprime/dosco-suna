@@ -60,7 +60,7 @@ describe('classifyLedgerKind', () => {
     // the query filters on these lists, so returning null did not leave the
     // money uncategorised — it excluded the row from the result set entirely
     // and the spend vanished from the total. 10,859 such rows, $107.67, on the
-    // production Kortix account. Money that left the wallet has to appear
+    // production Dosco account. Money that left the wallet has to appear
     // somewhere; "other" is honest, silence is not.
     expect(classifyLedgerKind('usage')).toBe('other');
     expect(classifyLedgerKind('admin_debit')).toBe('other');
@@ -154,7 +154,7 @@ describe('getUsageBreakdownThisPeriod', () => {
 /**
  * "Spend this period" was anchored on Stripe's FIXED subscription anchor, which
  * never moves — so the window never reset and the figure quietly accumulated
- * LIFETIME spend under a this-period label. Production Kortix account: anchor
+ * LIFETIME spend under a this-period label. Production Dosco account: anchor
  * 2026-06-07, still being used two months later.
  */
 describe('currentPeriodStart', () => {
@@ -207,10 +207,10 @@ describe('currentPeriodStart', () => {
 });
 
 /**
- * `usage` is what the router writes for a Kortix tool call. It was in neither
+ * `usage` is what the router writes for a Dosco tool call. It was in neither
  * kind list, and the query filters on those lists — so the money was not merely
  * uncategorised, it was excluded from the result set and vanished from the
- * total. 10,859 such rows on the production Kortix account.
+ * total. 10,859 such rows on the production Dosco account.
  */
 describe('classifyLedgerKind covers every kind that is actually written', () => {
   test.each([

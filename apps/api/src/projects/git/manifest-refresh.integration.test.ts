@@ -55,7 +55,7 @@ beforeEach(async () => {
   await mkdir(repositoryPath);
   await git(['init', '--bare', remotePath]);
   await git(['init', '--initial-branch=main', repositoryPath]);
-  await git(['config', 'user.name', 'Kortix Test'], repositoryPath);
+  await git(['config', 'user.name', 'Dosco Test'], repositoryPath);
   await git(['config', 'user.email', 'test@kortix.invalid'], repositoryPath);
   await writeManifest(false);
   await git(['add', 'kortix.yaml'], repositoryPath);

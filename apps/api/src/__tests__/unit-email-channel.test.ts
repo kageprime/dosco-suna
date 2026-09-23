@@ -508,7 +508,7 @@ describe('dispatchAgentMailEvent', () => {
     const policy = {
       mode: 'restricted' as const,
       allowedEmails: ['customer@example.com'],
-      allowedDomains: ['kortix.com'],
+      allowedDomains: ['dosco.live'],
       allowedRegex: '^vip-[0-9]+@example\\.org$',
     };
 
@@ -519,7 +519,7 @@ describe('dispatchAgentMailEvent', () => {
           ...event,
           message: {
             ...event.message,
-            from: 'Teammate <person@ops.kortix.com>',
+            from: 'Teammate <person@ops.dosco.live>',
           },
         },
         policy,

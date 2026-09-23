@@ -12,14 +12,14 @@ const ctx = (authType?: string, sessionId?: string) =>
 describe('callerKortixSessionId', () => {
   test('a browser Supabase JWT is NOT session-bound, whatever sessionId holds', () => {
     // THE BUG. supabaseAuth sets sessionId to the SUPABASE AUTH session so the
-    // per-account gate can do idle/force-logout. Treating it as a Kortix session
+    // per-account gate can do idle/force-logout. Treating it as a Dosco session
     // made every isolation guard classify a logged-in human as an agent:
     // approvals 403'd, the needs-input badge read 0, and a KaaB operator could
     // not see their own backend sessions in the dashboard.
     expect(callerKortixSessionId(ctx('supabase', 'e2b1d6a0-supabase-auth-session'))).toBeNull();
   });
 
-  test('a sandbox PAT keeps its real Kortix session id — the guards depend on it', () => {
+  test('a sandbox PAT keeps its real Dosco session id — the guards depend on it', () => {
     // If this returned null, the cross-end-user isolation guard would stop
     // firing and one end-user's sandbox could reach another's session again.
     expect(callerKortixSessionId(ctx('pat', 'sess-123'))).toBe('sess-123');

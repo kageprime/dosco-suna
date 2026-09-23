@@ -24,10 +24,10 @@ beforeAll(async () => {
   await writeFile(join(work, 'kortix.yaml'), 'kortix_version: 2\n', 'utf8');
   const env = {
     ...process.env,
-    GIT_AUTHOR_NAME: 'Kortix',
-    GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-    GIT_COMMITTER_NAME: 'Kortix',
-    GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+    GIT_AUTHOR_NAME: 'Dosco',
+    GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+    GIT_COMMITTER_NAME: 'Dosco',
+    GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
   };
   await run('git', ['add', '-A'], { cwd: work, env });
   await run('git', ['commit', '-m', 'chore: project setup'], { cwd: work, env });

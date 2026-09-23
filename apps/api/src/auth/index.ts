@@ -292,7 +292,7 @@ authRouter.openapi(
     method: 'post',
     path: '/sign-out',
     tags: ['auth'],
-    summary: 'Sign out at Supabase and revoke the Kortix session (headless)',
+    summary: 'Sign out at Supabase and revoke the Dosco session (headless)',
     ...auth,
     request: { body: { content: { 'application/json': { schema: z.object({ scope: z.enum(['global', 'local', 'others']).optional() }) } }, required: false } },
     responses: { 200: json(z.object({ ok: z.literal(true) }), 'Signed out (always 200)'), ...errors(401) },
@@ -301,7 +301,7 @@ authRouter.openapi(
     const token = bearerOf(c);
     const scope = ((await c.req.json().catch(() => ({}))) as { scope?: string }).scope ?? 'global';
     if (token && (c.get('authType') as string) === 'supabase') {
-      // Best effort: the local revoke below is what the Kortix gate reads.
+      // Best effort: the local revoke below is what the Dosco gate reads.
       await gotrue('/logout', { method: 'POST', bearer: token, body: {}, query: { scope } });
     }
     const userId = c.get('userId') as string;

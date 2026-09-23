@@ -13,7 +13,7 @@
  * accepts exactly the set `combinedAuth` accepts for preview routes:
  *   - CLI Personal Access Tokens (kortix_pat_…)  → the minting user's id
  *   - Service-account tokens       (kortix_sa_…)  → the service-account id
- *   - Kortix API/sandbox tokens    (kortix_…)     → the owning account id
+ *   - Dosco API/sandbox tokens    (kortix_…)     → the owning account id
  *   - Supabase JWTs                               → the user's id
  * and enforces sandbox ownership via `canAccessPreviewSandbox`.
  *
@@ -41,7 +41,7 @@ export interface PreviewPrincipal {
   userId: string;
   /**
    * The session this credential is BOUND to, when it is a sandbox token. Null
-   * for a laptop CLI PAT, a service account, or a JWT. Kortix-as-a-Backend
+   * for a laptop CLI PAT, a service account, or a JWT. Dosco-as-a-Backend
    * shares one `created_by` across every end-user, so this is the only thing
    * that distinguishes one end-user's sandbox from another's.
    */
@@ -78,7 +78,7 @@ export async function authenticatePreviewPrincipalDetailed(
         : null;
     }
 
-    // Kortix API / sandbox token — ownership is checked against the account.
+    // Dosco API / sandbox token — ownership is checked against the account.
     if (isKortixToken(token)) {
       const r = await validateSecretKey(token);
       if (!r.isValid || !r.accountId) return null;

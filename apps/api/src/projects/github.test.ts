@@ -33,7 +33,7 @@ describe('GitHub repository branches', () => {
     }) as typeof fetch;
 
     const branches = await listRepositoryBranches({
-      owner: 'Kortix AI',
+      owner: 'Dosco AI',
       repo: 'suna/web',
       auth: { token: 'test-token' },
     });
@@ -42,8 +42,8 @@ describe('GitHub repository branches', () => {
     expect(branches[0]).toEqual({ name: 'branch-0', protected: true });
     expect(branches[100]).toEqual({ name: 'release/next', protected: true });
     expect(requests).toEqual([
-      'https://api.github.com/repos/Kortix%20AI/suna%2Fweb/branches?per_page=100&page=1',
-      'https://api.github.com/repos/Kortix%20AI/suna%2Fweb/branches?per_page=100&page=2',
+      'https://api.github.com/repos/Dosco%20AI/suna%2Fweb/branches?per_page=100&page=1',
+      'https://api.github.com/repos/Dosco%20AI/suna%2Fweb/branches?per_page=100&page=2',
     ]);
   });
 

@@ -188,7 +188,7 @@ describe('livePricing + stripBedrockInferenceProfilePrefix — the actual $0 bug
 });
 
 describe('managed OpenRouter descriptor', () => {
-  test('routes DeepSeek through its pinned ZDR endpoint with Kortix credits', () => {
+  test('routes DeepSeek through its pinned ZDR endpoint with Dosco credits', () => {
     expect(managedCandidates({
       id: 'deepseek-v4.1-flash',
       name: 'DeepSeek V4.1 Flash',

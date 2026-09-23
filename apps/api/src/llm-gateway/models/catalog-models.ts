@@ -15,7 +15,7 @@ import { SERVED_MANAGED_MODELS } from './served-managed-models';
 // under `codex/<id>` — kept as one named constant so this file, the sandbox
 // agent server, and the web picker can never drift on the string.
 const CODEX_PROVIDER_ID = 'codex';
-// The real upstream "provider" for every Kortix-managed model.
+// The real upstream "provider" for every Dosco-managed model.
 const KORTIX_PROVIDER_ID = 'kortix';
 
 interface GatewayModel {
@@ -327,7 +327,7 @@ function refreshedCatalogs(): {
 
 // `projectId` gates BYOK/codex visibility (anonymous callers see managed only).
 // `freeManagedOnly` (a free-tier account with internal billing on) hides every
-// managed Kortix model. A free user's own connected provider keys still work,
+// managed Dosco model. A free user's own connected provider keys still work,
 // but there is no unreliable platform-managed free default.
 export function gatewayModelCatalog(
   projectId: string | undefined,

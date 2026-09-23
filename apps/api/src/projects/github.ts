@@ -50,7 +50,7 @@ export function githubRetryAfterSeconds(
 
 /**
  * The GitHub App (scope `app`) or one installation of it (scope
- * `installation`) lacks a permission a Kortix flow depends on. It is an
+ * `installation`) lacks a permission a Dosco flow depends on. It is an
  * operator or organization-owner fault, never the caller's: keep it apart from
  * "the caller is not an admin" so the UI does not blame the wrong party.
  */
@@ -75,7 +75,7 @@ export class GitHubAppPermissionError extends Error {
 export class GitHubIpAllowListError extends Error {
   constructor(readonly organization: string) {
     super(
-      `${organization} restricts GitHub access with an IP allow list, and it blocked Kortix. ` +
+      `${organization} restricts GitHub access with an IP allow list, and it blocked Dosco. ` +
         `An owner of ${organization} must enable "IP allow list configuration for installed GitHub Apps" ` +
         '(organization Settings → Authentication security), then verify again.',
     );
@@ -85,7 +85,7 @@ export class GitHubIpAllowListError extends Error {
 
 /**
  * The organization enforces SAML single sign-on and the caller authorized
- * Kortix without an active SSO session for it, so GitHub refuses the user
+ * Dosco without an active SSO session for it, so GitHub refuses the user
  * token for that organization. The caller resolves it: sign in to the
  * organization through its SSO in the same browser, then verify again.
  */
@@ -104,7 +104,7 @@ export function isGitHubIpAllowListRefusal(error: unknown): boolean {
   return error instanceof GitHubApiError && error.status === 403 && /IP allow list/i.test(error.message);
 }
 
-// 'managed' = a Kortix-managed git token minted server-side by the managed backend.
+// 'managed' = a Dosco-managed git token minted server-side by the managed backend.
 // 'project_credential' = provider-neutral git credential stored outside
 // user-readable runtime secrets.
 // Both ride this auth context because callers only consume `.token` for git
@@ -279,7 +279,7 @@ const slugMismatchLogged = new Set<string>();
 const permissionDriftLogged = new Set<string>();
 
 /**
- * Every permission a Kortix flow reads or writes through the App. The
+ * Every permission a Dosco flow reads or writes through the App. The
  * self-host manifest (platform/routes/github-app.ts) requests exactly this
  * set, and `resolveGitHubAppPermissions()` compares a hand-made App against it.
  *
@@ -287,7 +287,7 @@ const permissionDriftLogged = new Set<string>();
  * - `contents: write` — commits and pushes.
  *
  * `pull_requests` is NOT here: no API route calls a pulls endpoint and no GitHub
- * token reaches a sandbox (git goes through the Kortix git proxy). The manifest
+ * token reaches a sandbox (git goes through the Dosco git proxy). The manifest
  * still requests it (`GITHUB_APP_MANIFEST_PERMISSIONS`) so a future pulls flow
  * needs no re-consent, but its absence breaks nothing and must not alarm.
  * - `members: read` — the account-linking identity proof
@@ -734,7 +734,7 @@ async function membersPermissionError(
         'the App has no "Members: read" organization permission',
     );
     return new GitHubAppPermissionError(
-      'This Kortix instance cannot verify GitHub organizations: its GitHub App is missing the ' +
+      'This Dosco instance cannot verify GitHub organizations: its GitHub App is missing the ' +
         '"Members: read" organization permission. Your GitHub role is not the cause. ' +
         'Contact the instance operator.',
       'app',
@@ -743,7 +743,7 @@ async function membersPermissionError(
   }
   const where = installation.html_url ? ` at ${installation.html_url}` : ' in its GitHub App settings';
   return new GitHubAppPermissionError(
-    `${owner} has not granted the Kortix GitHub App the "Members: read" permission. ` +
+    `${owner} has not granted the Dosco GitHub App the "Members: read" permission. ` +
       `An owner of ${owner} must accept the updated permissions${where}, then verify again.`,
     'installation',
     ['members'],
@@ -1156,11 +1156,11 @@ export async function commitFile(opts: {
   // Pin the commit identity explicitly. Without an `author`/`committer` the
   // Contents API attributes the commit to whoever owns the token — which, on a
   // server-side PAT, surfaces a personal GitHub user (e.g. "markokraemer
-  // committed") instead of Kortix. Defaulting here mirrors the identity used by
+  // committed") instead of Dosco. Defaulting here mirrors the identity used by
   // every git-CLI commit path (branches.ts / merge.ts / seed.ts).
   const ident = {
-    name: opts.authorName || 'Kortix',
-    email: opts.authorEmail || 'noreply@kortix.ai',
+    name: opts.authorName || 'Dosco',
+    email: opts.authorEmail || 'noreply@dosco.live',
   };
   const body: Record<string, unknown> = {
     message: opts.message,

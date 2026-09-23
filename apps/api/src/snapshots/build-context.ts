@@ -1,7 +1,7 @@
 /**
  * Shared build-context staging for sandbox snapshots.
  *
- * Both providers build the SAME image: the user's Dockerfile + the Kortix
+ * Both providers build the SAME image: the user's Dockerfile + the Dosco
  * runtime layer (agent binary + CLI + entrypoint + slack-cli +
  * opencode/agent-browser). Daytona ships this context to its build service via
  * `Image.fromDockerfile(ctx)`; Platinum ships it to `POST /v1/templates/
@@ -110,7 +110,7 @@ async function removeStagedContextOnFailure<T>(
 }
 
 /**
- * Stage one provider-neutral Kortix App build context. The user's Dockerfile
+ * Stage one provider-neutral Dosco App build context. The user's Dockerfile
  * remains the base. This function adds only the supervisor, ingress binary,
  * and immutable non-secret runtime specification. Provider credentials and App
  * secrets never enter the build context.
@@ -155,7 +155,7 @@ export async function stageAppBuildContext(
     const dockerfileName = '.kortix-app.Dockerfile';
     const composedPath = join(contextDir, dockerfileName);
     const composed = `${userDockerfile.trimEnd()}\n\n` +
-      `# Kortix Apps runtime ${snapshotName}\n` +
+      `# Dosco Apps runtime ${snapshotName}\n` +
       'COPY .kortix-app-runtime/kortix-appd /kortix/bin/kortix-appd\n' +
       'COPY .kortix-app-runtime/caddy /kortix/bin/caddy\n' +
       'COPY .kortix-app-runtime/app.json /kortix/config/app.json\n' +
@@ -837,16 +837,16 @@ async function stageScaffoldRepo(contextDir: string): Promise<void> {
   }
   const env = {
     ...process.env, GIT_TERMINAL_PROMPT: '0',
-    GIT_AUTHOR_NAME: 'Kortix', GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-    GIT_COMMITTER_NAME: 'Kortix', GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+    GIT_AUTHOR_NAME: 'Dosco', GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+    GIT_COMMITTER_NAME: 'Dosco', GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
     GIT_AUTHOR_DATE: '2026-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2026-01-01T00:00:00Z',
   };
   const g = (args: string[], cwd: string) => execFileAsyncBC('git', args, { cwd, env, timeout: 60_000 });
   await g(['init', '-b', 'main'], work);
-  await g(['config', 'user.name', 'Kortix'], work);
-  await g(['config', 'user.email', 'noreply@kortix.ai'], work);
+  await g(['config', 'user.name', 'Dosco'], work);
+  await g(['config', 'user.email', 'noreply@dosco.live'], work);
   await g(['add', '-A'], work);
-  await g(['commit', '-m', 'chore: scaffold Kortix project'], work);
+  await g(['commit', '-m', 'chore: scaffold Dosco project'], work);
   const scaffoldGit = join(contextDir, 'scaffold.git');
   await rename(join(work, '.git'), scaffoldGit);
   await g(['--git-dir', scaffoldGit, 'config', 'core.bare', 'true'], contextDir);

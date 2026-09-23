@@ -56,7 +56,7 @@ export function decideSessionOnBehalfOf(input: OnBehalfOfInput): string | null {
   if (meta.trigger_kind != null || meta.trigger_slug != null || meta.trigger_source != null) return null;
   const source = typeof meta.source === 'string' ? meta.source : '';
   // Email and Telegram sessions run as the account-owner stand-in: the sender
-  // is not a Kortix identity.
+  // is not a Dosco identity.
   if (source === 'email' || source === 'telegram') return null;
   if (source === 'slack' && !input.slackRequiresUserIdentity) return null;
   if (source === 'teams' && !input.teamsRequiresUserIdentity) return null;

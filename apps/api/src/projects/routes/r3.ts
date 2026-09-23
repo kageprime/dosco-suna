@@ -398,7 +398,7 @@ projectsApp.openapi(
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
 
   if (await hasServerManagedGitAuth(loaded.row)) {
-    return c.json({ error: 'Git auth is already managed by Kortix for this project' }, 409);
+    return c.json({ error: 'Git auth is already managed by Dosco for this project' }, 409);
   }
 
   const token =
@@ -482,7 +482,7 @@ projectsApp.openapi(
   const loaded = await loadProjectForUser(c, projectId, 'read');
   if (!loaded) return c.json({ error: 'Not found' }, 404);
   // Leaf-gate the read (a custom role can omit project.secret.read) — and, via
-  // the central agent-grant fold, an agent token must hold it in its Kortix permissions.
+  // the central agent-grant fold, an agent token must hold it in its Dosco permissions.
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SECRET_READ);
 
   const canManageShared = roleAllows(loaded.effectiveRole, 'manage');
@@ -921,7 +921,7 @@ projectsApp.openapi(
       return c.json({ error: 'Agent sessions cannot change secret delivery policy' }, 403);
     }
     if (isSystemProjectSecretName(identifier)) {
-      return c.json({ error: `${identifier} is managed by Kortix` }, 403);
+      return c.json({ error: `${identifier} is managed by Dosco` }, 403);
     }
     let nextPolicy = null;
     const policyBackend = parsed.data.egress_policy?.backend;
@@ -1179,7 +1179,7 @@ projectsApp.openapi(
 // memory), so start and poll need not hit the same pod. The detached task
 // isn't tied to a client connection, so nothing the edge does can kill it.
 
-// Kortix provider id → the secret we persist the resulting auth.json under.
+// Dosco provider id → the secret we persist the resulting auth.json under.
 // Only OpenAI (ChatGPT) is wired today; the shape generalizes to others.
 // `legacySecretNames` are older names for the same login. Nothing writes them
 // any more, but clients and the gateway still count them as connected, so a
@@ -1700,7 +1700,7 @@ projectsApp.openapi(
   // manifest never lets a human create one), so this alone protects it — no
   // DB read needed before the delete.
   if (isSystemProjectSecretName(identifier)) {
-    return c.json({ error: `${identifier} is managed by Kortix and cannot be removed` }, 403);
+    return c.json({ error: `${identifier} is managed by Dosco and cannot be removed` }, 403);
   }
   if (identifier.toUpperCase() === CODEX_AUTH_JSON_SECRET_NAME) {
     return c.json(

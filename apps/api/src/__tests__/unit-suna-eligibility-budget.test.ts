@@ -2,7 +2,7 @@
  * Regression coverage for the `/projects/suna-migration/eligibility` GET's
  * whole-handler wall-clock budget.
  *
- * Incident: the frontend (Kortix Frontend, prod) reported
+ * Incident: the frontend (Dosco Frontend, prod) reported
  *   "ApiError — Request timed out after 30s: /projects/suna-migration/eligibility"
  * (Better Stack error a60262aa384c136ac6fcca845cabe89756ed46b9c12c26ab1adfb6fc7217ef04).
  *

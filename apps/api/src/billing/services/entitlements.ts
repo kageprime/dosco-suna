@@ -30,7 +30,7 @@ function enterpriseGates(resolved: ResolvedBilling): TierEntitlements {
 }
 
 /**
- * The entitlement set a self-host Kortix Enterprise license grants. Read from
+ * The entitlement set a self-host Dosco Enterprise license grants. Read from
  * the plan catalog rather than `getTierEntitlements('enterprise')` so this
  * module never imports `tiers.ts` (which boots env validation at module scope).
  * The parity test pins the two to the same values.
@@ -75,7 +75,7 @@ export async function getCachedAccountTier(
 }
 
 /**
- * Whether the account may use Kortix-managed model credentials (vs BYOK only).
+ * Whether the account may use Dosco-managed model credentials (vs BYOK only).
  * THE single request-time answer for the whole control plane — the gateway auth
  * hot path, resolveCandidates' managed gate, the Slack/Teams channel model
  * gate, the sandbox-provision gateway mount, and every model-picker/catalog
@@ -107,7 +107,7 @@ export function invalidateCachedAccountTier(accountId?: string): void {
  * The full enterprise entitlement set for an account.
  *
  * Resolution order (all but the first live inside `resolveBillingFromRow`):
- *   1. `ENTERPRISE_LICENSE_AVAILABLE` — a self-host operator holding a Kortix
+ *   1. `ENTERPRISE_LICENSE_AVAILABLE` — a self-host operator holding a Dosco
  *      Enterprise license unlocks every enterprise entitlement platform-wide,
  *      regardless of billing tier (self-host has no Stripe-backed tier to
  *      assign 'enterprise' to). An ENV fact, not a row fact, so it stays here.

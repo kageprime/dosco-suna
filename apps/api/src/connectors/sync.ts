@@ -1045,7 +1045,7 @@ async function resolveGithubDefaultBranch(owner: string, repo: string): Promise<
   const response = await safeEgressFetch(url, {
     headers: {
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'Kortix-Postman-Importer',
+      'User-Agent': 'Dosco-Postman-Importer',
     },
   });
   if (!response.ok) throw new Error(`failed to inspect GitHub repository: HTTP ${response.status}`);

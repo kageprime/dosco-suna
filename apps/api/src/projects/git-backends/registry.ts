@@ -3,7 +3,7 @@
  * (`projectGitConnections.provider`), so backends can run simultaneously: a
  * GitHub-managed project resolves through the GitHub backend while a future
  * Forgejo/Artifacts project resolves through its own — all behind the same
- * Kortix git proxy.
+ * Dosco git proxy.
  *
  * GitHub is the managed backend for every NEW project, in every environment.
  *

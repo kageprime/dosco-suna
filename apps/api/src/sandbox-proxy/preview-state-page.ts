@@ -56,7 +56,7 @@ export type PreviewState =
 export interface PreviewStateCopy {
   title: string;
   body: string;
-  /** Offer the Kortix sign-in hand-off. */
+  /** Offer the Dosco sign-in hand-off. */
   signIn: boolean;
   /** Reload on a timer — only for states that resolve on their own. */
   autoRetry: boolean;
@@ -67,14 +67,14 @@ export function previewStateCopy(state: PreviewState, port?: number): PreviewSta
     case 'signed-out':
       return {
         title: 'Sign in to open this preview',
-        body: 'This is a private preview of a Kortix sandbox. Sign in with the account that owns it and you will come straight back here.',
+        body: 'This is a private preview of a Dosco sandbox. Sign in with the account that owns it and you will come straight back here.',
         signIn: true,
         autoRetry: false,
       };
     case 'forbidden':
       return {
         title: 'This preview address is not signed',
-        body: 'The request reached Kortix without the edge signature that binds it to this hostname. Open the preview from your Kortix session.',
+        body: 'The request reached Dosco without the edge signature that binds it to this hostname. Open the preview from your Dosco session.',
         signIn: true,
         autoRetry: false,
       };
@@ -128,7 +128,7 @@ export function previewStatePage(input: {
   port?: number;
   /** Where the person is trying to get to — shown, and carried into sign-in. */
   returnTo: string;
-  /** The Kortix web app, for the sign-in hand-off. Empty disables the action. */
+  /** The Dosco web app, for the sign-in hand-off. Empty disables the action. */
   frontendUrl?: string;
 }): string {
   const copy = previewStateCopy(input.state, input.port);
@@ -140,7 +140,7 @@ export function previewStatePage(input: {
   // preview pane. Break out to the tab instead.
   const action =
     copy.signIn && base
-      ? `<a class="btn" id="signin" href="${escapeHtml(href)}" target="_top" rel="noopener">Sign in to Kortix</a>`
+      ? `<a class="btn" id="signin" href="${escapeHtml(href)}" target="_top" rel="noopener">Sign in to Dosco</a>`
       : copy.autoRetry
         ? `<button class="btn" id="retry" type="button">Retry now</button>`
         : '';

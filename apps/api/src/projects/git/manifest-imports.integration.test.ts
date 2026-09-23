@@ -95,7 +95,7 @@ beforeEach(async () => {
   seedPath = join(testRoot, 'seed');
   await git(['init', '--bare', remotePath]);
   await git(['init', '--initial-branch=main', seedPath]);
-  await git(['config', 'user.name', 'Kortix Test'], seedPath);
+  await git(['config', 'user.name', 'Dosco Test'], seedPath);
   await git(['config', 'user.email', 'test@kortix.invalid'], seedPath);
   await git(['remote', 'add', 'origin', remotePath], seedPath);
   await push(SEED, 'seed split manifest');

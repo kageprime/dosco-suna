@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Interactivity: agent/model picker clicks persist the channel selection, and
-// the "Open in Kortix" message shortcut resolves a thread to its session URL.
+// the "Open in Dosco" message shortcut resolves a thread to its session URL.
 
 let dbResults: unknown[][] = [];
 function makeChain(): any {
@@ -137,7 +137,7 @@ describe('agent/model picker clicks', () => {
   });
 });
 
-describe('Open in Kortix message shortcut', () => {
+describe('Open in Dosco message shortcut', () => {
   test('resolves the thread to its session URL', async () => {
     dbResults = [[{ sessionId: 'sess-9', projectId: 'proj-1' }]];
     await handleMessageShortcut({
@@ -163,7 +163,7 @@ describe('Open in Kortix message shortcut', () => {
       message: { ts: '5.5' },
       response_url: 'https://hooks.slack/response',
     } as any);
-    expect(posts[0]?.body.text).toContain('No Kortix session is attached');
+    expect(posts[0]?.body.text).toContain('No Dosco session is attached');
   });
 
   test('ignores unrelated callback_ids', async () => {

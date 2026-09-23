@@ -2,7 +2,7 @@
  * Headless regular auth — `/v1/auth/*` public routes.
  *
  * Sign-up, password sign-in, magic link + OTP, social sign-in (PKCE), refresh
- * and password reset, served by the Kortix API so a client (the SDK, a CLI, a
+ * and password reset, served by the Dosco API so a client (the SDK, a CLI, a
  * native app, a third-party backend) never talks to Supabase. Each route is a
  * thin, rate-limited translation to GoTrue (./gotrue.ts); the responses are
  * GoTrue's session and user, with errors passed through as

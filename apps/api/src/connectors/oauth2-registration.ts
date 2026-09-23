@@ -1,5 +1,5 @@
 /**
- * RFC 7591 dynamic client registration. Kortix registers itself as an OAuth2
+ * RFC 7591 dynamic client registration. Dosco registers itself as an OAuth2
  * client with a third-party authorization server so the user never has to
  * create an app, copy a client_id, or paste a secret. Registration happens
  * once per connection; the issued client lives (encrypted) in the
@@ -15,10 +15,10 @@ import {
   safeError,
 } from './oauth2-lifecycle';
 
-export const KORTIX_OAUTH2_CLIENT_NAME = 'Kortix';
-export const KORTIX_OAUTH2_CLIENT_URI = 'https://kortix.com';
+export const KORTIX_OAUTH2_CLIENT_NAME = 'Dosco';
+export const KORTIX_OAUTH2_CLIENT_URI = 'https://dosco.live';
 
-/** Confidential first — Kortix is a server and can keep a secret — then public. */
+/** Confidential first — Dosco is a server and can keep a secret — then public. */
 const AUTH_METHOD_PREFERENCE: OAuth2TokenEndpointAuthMethod[] = [
   'client_secret_basic',
   'client_secret_post',
@@ -63,7 +63,7 @@ export async function registerOAuth2Client(
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     // SEP-837: without this an OIDC-based server rejects a loopback redirect
-    // URI, which is exactly the self-hosted Kortix case.
+    // URI, which is exactly the self-hosted Dosco case.
     application_type: oauth2ApplicationTypeFor(input.redirectUri),
     token_endpoint_auth_method: requested,
     ...(input.scopes?.length ? { scope: input.scopes.join(' ') } : {}),

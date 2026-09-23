@@ -27,10 +27,10 @@ let identityPromise: Promise<ScaffoldIdentity> | null = null;
 
 const PINNED_GIT_ENV = {
   GIT_TERMINAL_PROMPT: '0',
-  GIT_AUTHOR_NAME: 'Kortix',
-  GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-  GIT_COMMITTER_NAME: 'Kortix',
-  GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+  GIT_AUTHOR_NAME: 'Dosco',
+  GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
+  GIT_COMMITTER_NAME: 'Dosco',
+  GIT_COMMITTER_EMAIL: 'noreply@dosco.live',
   GIT_AUTHOR_DATE: '2026-01-01T00:00:00Z',
   GIT_COMMITTER_DATE: '2026-01-01T00:00:00Z',
 } as const;
@@ -52,10 +52,10 @@ async function computeScaffoldIdentity(): Promise<ScaffoldIdentity> {
     const g = async (args: string[]) =>
       (await execFileAsync('git', args, { cwd: work, env, timeout: 60_000 })).stdout.trim();
     await g(['init', '-q', '-b', 'main']);
-    await g(['config', 'user.name', 'Kortix']);
-    await g(['config', 'user.email', 'noreply@kortix.ai']);
+    await g(['config', 'user.name', 'Dosco']);
+    await g(['config', 'user.email', 'noreply@dosco.live']);
     await g(['add', '-A']);
-    await g(['commit', '-q', '-m', 'chore: scaffold Kortix project']);
+    await g(['commit', '-q', '-m', 'chore: scaffold Dosco project']);
     const rootSha = await g(['rev-parse', 'HEAD']);
     const treeSha = await g(['rev-parse', 'HEAD^{tree}']);
     return { rootSha, treeSha };

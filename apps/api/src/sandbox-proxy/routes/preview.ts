@@ -190,7 +190,7 @@ export type { PrePromptEnvSyncDeps } from '../pre-prompt-env-sync';
 const previewUseThrottle = createExtendThrottle(60_000);
 
 /**
- * Bind the provider-facing sandbox identifier to its canonical Kortix scope.
+ * Bind the provider-facing sandbox identifier to its canonical Dosco scope.
  * The request audit middleware runs after the proxy handler returns and reads
  * this request-local context. Without this binding, `/v1/p/...` activity is
  * present only in the account log and disappears from project/session history.
@@ -217,7 +217,7 @@ function stripFrameAncestors(csp: string): string | null {
 
 // Build the response headers we send back to the browser: clone the upstream
 // headers, neutralize framing restrictions, and apply CORS. Previews are
-// embedded in the Kortix session UI via an <iframe>, so any app that ships
+// embedded in the Dosco session UI via an <iframe>, so any app that ships
 // `X-Frame-Options` or a CSP `frame-ancestors` (Next.js, and most frameworks,
 // default to these) would otherwise refuse to load in the panel. Stripping them
 // at the proxy makes embedding work for ANY project without per-app config —
@@ -247,8 +247,8 @@ function clientResponseHeaders(upstreamHeaders: Headers, origin: string): Header
 
   // The app inside the sandbox writes its own cookies, and they are forwarded —
   // that is what makes a cookie-session app work. What it may NOT do is widen
-  // their scope: `p.kortix.com` is not on the Public Suffix List, so a
-  // `Domain=kortix.com` cookie from a preview would be accepted for the web app
+  // their scope: `p.dosco.live` is not on the Public Suffix List, so a
+  // `Domain=dosco.live` cookie from a preview would be accepted for the web app
   // and the API too. Strip `Domain` (leaving a host-only cookie, which is what
   // the app actually needs) and drop any attempt to overwrite ours.
   const setCookies = headers.getSetCookie?.() ?? [];
@@ -579,7 +579,7 @@ function isConcreteAgentSwitch(requestedAgent: string | null, sessionAgent: stri
   // (CWE-863): the body's `agent` is only stripped when the REQUESTED agent is
   // the sentinel (see the `bodyWithoutPromptAgent` call site), so a
   // `default`-bound session naming a CONCRETE agent really did run that agent
-  // and really did have the token re-minted to its connector/Kortix-CLI grant —
+  // and really did have the token re-minted to its connector/Dosco-CLI grant —
   // while skipping the `project.agent.read` check entirely. Anyone who could
   // use a default-bound session could therefore run any agent in the project.
   //
@@ -617,7 +617,7 @@ export type PreviewProxyAccess =
       kind: 'principal';
       userId: string;
       /** The caller's own session when the credential is bound to one (a sandbox
-       *  token). Kortix-as-a-Backend shares ONE userId across every end-user, so
+       *  token). Dosco-as-a-Backend shares ONE userId across every end-user, so
        *  this is what separates them. Null means a non-session-bound principal.
        *  REQUIRED so a new entry point cannot silently omit it and fail open. */
       callerSessionId: string | null;

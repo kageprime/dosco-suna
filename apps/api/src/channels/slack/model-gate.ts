@@ -16,7 +16,7 @@ export interface ChannelModelContext {
   accountId: string;
   /** A representative project-owner user (for codex credential lookups). */
   ownerUserId: string;
-  /** The account may not use platform-managed Kortix models. */
+  /** The account may not use platform-managed Dosco models. */
   freeManagedOnly: boolean;
   /** The project's `llm_gateway` flag. Off ⇒ native OpenCode mode: the gateway
    *  picker/servability machinery does not apply — a channel model is a native

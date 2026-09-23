@@ -1,8 +1,8 @@
-// OAuth client registry for "Sign in with Kortix".
+// OAuth client registry for "Sign in with Dosco".
 //
 // A client is a third-party app that signs users in through /v1/oauth. It is
 // owned by ONE account (self-serve: /accounts/{id}/iam/oauth-clients) and its
-// secret is stored hashed with the same scrypt path as every other Kortix
+// secret is stored hashed with the same scrypt path as every other Dosco
 // credential. The plaintext secret is returned exactly once — at create and at
 // rotate. Legacy rows inserted by hand before registration existed carry
 // account_id = NULL and are invisible to every account.

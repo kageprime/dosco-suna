@@ -129,7 +129,7 @@ const EMAIL_ATTACHMENT_SCHEMA = {
  * through: POST → JSON body, GET → query string, with `Authorization: Bearer`.
  *
  * NOT included here (handled outside the gateway, by design):
- *   • step / send(answer) — the turn-stream relay (Kortix-internal, kept as-is).
+ *   • step / send(answer) — the turn-stream relay (Dosco-internal, kept as-is).
  *   • typing               — a Slack Web-API no-op.
  *   • download / manifest  — sandbox-FS write / server-meta fetch (CLI-side).
  *   • send --file          — multi-step external upload (CLI-side helper).

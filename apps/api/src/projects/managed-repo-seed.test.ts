@@ -344,7 +344,7 @@ describe('shouldSelfHealManagedRepoSeed', () => {
     expect(shouldSelfHealManagedRepoSeed({ managed: true, metadata })).toBe(false);
   });
 
-  test('never touches a repo Kortix does not manage', () => {
+  test('never touches a repo Dosco does not manage', () => {
     expect(shouldSelfHealManagedRepoSeed({ managed: false, metadata: null })).toBe(false);
   });
 });

@@ -30,7 +30,7 @@ mock.module('../repositories/service-accounts', () => ({
 mock.module('../repositories/api-keys', () => ({
   validateSecretKey: async (t: string) => {
     secretKeyValidations.push(t);
-    return { isValid: false, error: 'Invalid Kortix token' };
+    return { isValid: false, error: 'Invalid Dosco token' };
   },
 }));
 
@@ -110,7 +110,7 @@ describe('combinedAuth accepts service-account bearers', () => {
     expect(body.iamTokenId).toBe('sa-1');
   });
 
-  test('kortix_sa_ never falls through to the generic Kortix-key validator', async () => {
+  test('kortix_sa_ never falls through to the generic Dosco-key validator', async () => {
     await appWith(combinedAuth).request('/probe', {
       headers: { Authorization: 'Bearer kortix_sa_live' },
     });

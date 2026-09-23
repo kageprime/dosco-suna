@@ -329,7 +329,7 @@ describe('a refused final card', () => {
     expect(apiCalls.map((c) => c.fn)).toEqual(['updateCard', 'updateCard', 'sendText']);
     expect(JSON.stringify(cardOf(apiCalls[1]))).toContain('The answer is in the next message.');
     expect(apiCalls[2]!.args[1]).toContain('The deploy finished at 12:04.');
-    expect(apiCalls[2]!.args[1]).toContain('Open session in Kortix');
+    expect(apiCalls[2]!.args[1]).toContain('Open session in Dosco');
   });
 
   test('a card the agent built that Teams refuses still leaves a reply', async () => {

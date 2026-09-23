@@ -19,7 +19,7 @@
  * The managed-git PAT import path (the synthetic `pat` installation in
  * `serializeGitHubInstallations`) lists that owner's repositories wholesale.
  * Gating it on `isPlatformAdmin` therefore offered every customer's private
- * repository to any Kortix staff admin, one click from `/new` — reported
+ * repository to any Dosco staff admin, one click from `/new` — reported
  * 2026-08-29 as "why can I import anyone else's project". It must ask THIS
  * question instead.
  *

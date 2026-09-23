@@ -131,7 +131,7 @@ describe('appCookieHeader', () => {
     expect(appCookieHeader('sessionid=abc; csrftoken=xyz')).toBe('sessionid=abc; csrftoken=xyz');
   });
 
-  test('removes every Kortix cookie and keeps the rest', () => {
+  test('removes every Dosco cookie and keeps the rest', () => {
     const header = `sessionid=abc; ${PREVIEW_COOKIE}=k1; theme=dark; ${PREVIEW_COOKIE_PARTITIONED}=k2; __preview_session=k3`;
     expect(appCookieHeader(header)).toBe('sessionid=abc; theme=dark');
   });

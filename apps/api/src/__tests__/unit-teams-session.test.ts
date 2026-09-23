@@ -74,7 +74,7 @@ mock.module('../shared/db', () => ({
 
 mock.module('../config', () => ({
   SANDBOX_VERSION: 'test',
-  config: { TEAMS_REQUIRE_USER_IDENTITY: true, FRONTEND_URL: 'https://dev.kortix.com' },
+  config: { TEAMS_REQUIRE_USER_IDENTITY: true, FRONTEND_URL: 'https://dev.dosco.live' },
 }));
 
 mock.module('../channels/teams/turn', () => ({
@@ -280,7 +280,7 @@ describe('createOrJoinTeamsConversationSession — the live card goes out first'
 describe('mention markup never reaches the session', () => {
   const mentioned = {
     ...activity,
-    text: '<at>Kortix Dev</at>summarize the README in two sentences',
+    text: '<at>Dosco Dev</at>summarize the README in two sentences',
   };
 
   test('the session title source and the agent prompt carry the words, not <at> tags', async () => {
@@ -292,7 +292,7 @@ describe('mention markup never reaches the session', () => {
   });
 
   test('a follow-up prompt is stripped the same way', () => {
-    const prompt = session.renderFollowUpPrompt({ ...mentioned, text: '<at>Kortix Dev</at> now count the lines' });
+    const prompt = session.renderFollowUpPrompt({ ...mentioned, text: '<at>Dosco Dev</at> now count the lines' });
     expect(prompt).not.toContain('<at>');
     expect(prompt).toContain('\nnow count the lines\n');
   });
@@ -396,9 +396,9 @@ describe('join policy on a follow-up', () => {
   });
 
   test('not allowed: the requester\'s live card becomes the notice, nothing is delivered, the session is untouched', async () => {
-    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
     await createOrJoinTeamsConversationSession({ projectId: PROJECT_ID, tenantId: TENANT_ID, conversationId: CONVERSATION_ID, activity });
-    expect(notices).toEqual(['This Kortix session is owner-only.']);
+    expect(notices).toEqual(['This Dosco session is owner-only.']);
     expect(continued).toHaveLength(0);
     expect(saved).toHaveLength(0);
     expect(created).toHaveLength(0);

@@ -425,7 +425,7 @@ describe('seedFiles (mocked HTTP, commit-pack ndjson)', () => {
       ref(),
       'git-write-token',
       [{ path: 'README.md', content: '# hello' }],
-      { branch: 'main', message: 'chore: scaffold Kortix project' },
+      { branch: 'main', message: 'chore: scaffold Dosco project' },
     );
 
     expect(urls).toHaveLength(1);
@@ -434,7 +434,7 @@ describe('seedFiles (mocked HTTP, commit-pack ndjson)', () => {
     );
     const lines = parseNdjson(bodies[0]!);
     expect(lines[0].metadata.target_branch).toBe('main');
-    expect(lines[0].metadata.commit_message).toBe('chore: scaffold Kortix project');
+    expect(lines[0].metadata.commit_message).toBe('chore: scaffold Dosco project');
     expect(lines[0].metadata.files).toEqual([
       { path: 'README.md', operation: 'upsert', content_id: 'blob-0', mode: '100644' },
     ]);
@@ -458,7 +458,7 @@ describe('seedFiles (mocked HTTP, commit-pack ndjson)', () => {
 
     expect(urls).toHaveLength(2);
     const first = parseNdjson(bodies[0]!);
-    expect(first[0].metadata.commit_message).toBe('chore: scaffold Kortix project');
+    expect(first[0].metadata.commit_message).toBe('chore: scaffold Dosco project');
     expect(first[0].metadata.files[0].path).toBe('.kortix/agent.md');
 
     const second = parseNdjson(bodies[1]!);

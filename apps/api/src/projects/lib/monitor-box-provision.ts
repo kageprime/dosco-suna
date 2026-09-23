@@ -212,7 +212,7 @@ async function buildMonitorBoxEnv(input: {
     KORTIX_API_URL: deriveKortixApiBase(),
     KORTIX_FRONTEND_URL: sandboxFrontendBaseUrl(),
     KORTIX_SERVICE_PORT: '8000',
-    // Clone through the Kortix Git proxy with the box's own sandbox token.
+    // Clone through the Dosco Git proxy with the box's own sandbox token.
     KORTIX_REPO_URL: proxyGitUrl(input.project.projectId),
     KORTIX_DEFAULT_BRANCH: input.gitProject.defaultBranch,
     KORTIX_BASE_REF: input.gitProject.defaultBranch,

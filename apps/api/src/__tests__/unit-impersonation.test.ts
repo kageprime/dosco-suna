@@ -173,7 +173,7 @@ describe('decideImpersonation', () => {
 
   // Every one of these converts one hour of act-as into access that still
   // works after it, with no banner and no impersonation marker. The membership
-  // route is the cheapest: it adds an EXISTING Kortix user straight into the
+  // route is the cheapest: it adds an EXISTING Dosco user straight into the
   // account, optionally as `admin`, with no invite to accept.
   test('durable ACCESS is unreachable too, not just credentials', () => {
     for (const path of [

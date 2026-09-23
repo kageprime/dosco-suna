@@ -266,7 +266,7 @@ projectsApp.openapi(
 
 // POST /v1/projects/create-repo
 // Creates a new GitHub repository using the account's GitHub App installation,
-// then registers it as a Kortix project.
+// then registers it as a Dosco project.
 
 projectsApp.openapi(
   createRoute({
@@ -346,7 +346,7 @@ projectsApp.openapi(
   }
   if (!githubAuth.installation || !githubAuth.auth) {
     return c.json({
-      error: 'Install the Kortix GitHub App before creating GitHub-backed projects',
+      error: 'Install the Dosco GitHub App before creating GitHub-backed projects',
       install_url: await createGitHubInstallationInstallUrl(scope.accountId, scope.userId),
     }, 409);
   }
@@ -390,7 +390,7 @@ projectsApp.openapi(
   const projectName = normalizeString(body.project_name ?? body.projectName) ?? deriveProjectName(repo.full_name);
   const defaultBranch = repo.default_branch || 'main';
 
-  // Commit the Kortix starter into the fresh repo so users land with a
+  // Commit the Dosco starter into the fresh repo so users land with a
   // working project shape on first session boot. GitHub's Contents API
   // updates the branch tip on every write, so these must be sequential.
   // A partial starter is not a usable project.

@@ -19,7 +19,7 @@ describe('publishTeamsAppToCatalog — delegated org-catalog publish', () => {
       return jsonRes(201, { id: 'catalog-123' });
     }) as any;
 
-    const r = await publishTeamsAppToCatalog({ accessToken: 'tok', baseUrl: 'https://dev-api', appId: 'app-1', appName: 'Kortix Dev' });
+    const r = await publishTeamsAppToCatalog({ accessToken: 'tok', baseUrl: 'https://dev-api', appId: 'app-1', appName: 'Dosco Dev' });
 
     expect(r).toMatchObject({ ok: true, published: true, teamsAppId: 'catalog-123' });
     expect(calls[0]?.method).toBe('POST');

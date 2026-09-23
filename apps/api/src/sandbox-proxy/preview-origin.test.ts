@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const configState: Record<string, unknown> = {
-  FRONTEND_URL: 'https://dev.kortix.com',
-  KORTIX_URL: 'https://dev-api.kortix.com',
+  FRONTEND_URL: 'https://dev.dosco.live',
+  KORTIX_URL: 'https://dev-api.dosco.live',
   INTERNAL_KORTIX_ENV: 'dev',
   PORT: 8008,
   API_KEY_SECRET: 'test-secret-value-32-chars-long!!',
@@ -113,7 +113,7 @@ describe('preview origin auth gate', () => {
   });
 
   test('a hostname that is not a preview falls through to normal API routing', async () => {
-    expect(await handlePreviewOriginRequest(...request('/v1/health', {}, 'dev-api.kortix.com'))).toBeNull();
+    expect(await handlePreviewOriginRequest(...request('/v1/health', {}, 'dev-api.dosco.live'))).toBeNull();
   });
 
   test('an unknown preview with a credential answers 404, not 401', async () => {
@@ -195,7 +195,7 @@ describe('preview origin auth gate', () => {
   test('direct-edge mode ignores a claimed host header — only the real Host counts', async () => {
     // Otherwise anyone reaching a self-host API directly could name any preview
     // by setting a header, which is the whole reason the header is signed on
-    // Kortix Cloud.
+    // Dosco Cloud.
     configState.KORTIX_PREVIEW_BASE_DOMAIN = 'p.acme.com';
     process.env.KORTIX_PREVIEW_ALLOW_DIRECT_EDGE = 'true';
     try {
@@ -213,11 +213,11 @@ describe('preview origin auth gate', () => {
   });
 
   test('a claimed preview host without an edge signature is refused', async () => {
-    configState.KORTIX_PREVIEW_BASE_DOMAIN = 'p.kortix.com';
+    configState.KORTIX_PREVIEW_BASE_DOMAIN = 'p.dosco.live';
     const [req, url] = request(
       '/learn?token=good',
-      { headers: { 'x-kortix-preview-host': 'dev-p8081-sbx-known.p.kortix.com' } },
-      'dev-api.kortix.com',
+      { headers: { 'x-kortix-preview-host': 'dev-p8081-sbx-known.p.dosco.live' } },
+      'dev-api.dosco.live',
     );
     const res = await handlePreviewOriginRequest(req, url);
     expect(res?.status).toBe(403);
@@ -243,7 +243,7 @@ describe('what a browser is shown instead of JSON', () => {
     const html = await res!.text();
     expect(html).toContain('Sign in to open this preview');
     // The action carries them to the web app, which brings them back here.
-    expect(html).toContain('https://dev.kortix.com/preview/authorize?to=');
+    expect(html).toContain('https://dev.dosco.live/preview/authorize?to=');
     expect(html).toContain(encodeURIComponent('http://p8081-sbx-known.localhost:8008/learn'));
     // A sign-in flow must never try to render inside the preview frame.
     expect(html).toContain('target="_top"');
@@ -274,12 +274,12 @@ describe('what a browser is shown instead of JSON', () => {
   });
 
   test('an unsigned claimed host explains itself rather than dumping JSON', async () => {
-    configState.KORTIX_PREVIEW_BASE_DOMAIN = 'p.kortix.com';
+    configState.KORTIX_PREVIEW_BASE_DOMAIN = 'p.dosco.live';
     try {
       const [req, url] = request(
         '/learn',
-        { headers: { 'x-kortix-preview-host': 'dev-p8081-sbx-known.p.kortix.com', 'sec-fetch-dest': 'document' } },
-        'dev-api.kortix.com',
+        { headers: { 'x-kortix-preview-host': 'dev-p8081-sbx-known.p.dosco.live', 'sec-fetch-dest': 'document' } },
+        'dev-api.dosco.live',
       );
       const res = await handlePreviewOriginRequest(req, url);
       expect(res?.status).toBe(403);
@@ -397,15 +397,15 @@ describe('a preview answers only the origins it should', () => {
     expect(res?.headers.get('access-control-allow-credentials')).toBeNull();
   });
 
-  test('the Kortix web app IS allowed, and the answer varies by Origin', async () => {
+  test('the Dosco web app IS allowed, and the answer varies by Origin', async () => {
     // Asserted on a response this module builds itself — the 200 path's CORS
     // headers come from clientResponseHeaders, which this file mocks away.
     const [req, url] = request('/api', {
       method: 'OPTIONS',
-      headers: { Origin: 'https://dev.kortix.com' },
+      headers: { Origin: 'https://dev.dosco.live' },
     });
     const res = await handlePreviewOriginRequest(req, url);
-    expect(res?.headers.get('access-control-allow-origin')).toBe('https://dev.kortix.com');
+    expect(res?.headers.get('access-control-allow-origin')).toBe('https://dev.dosco.live');
     expect(res?.headers.get('vary')).toContain('Origin');
   });
 

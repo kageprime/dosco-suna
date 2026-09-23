@@ -161,7 +161,7 @@ describe('buildSecretCapabilities', () => {
 
 /**
  * The substitution is invisible from inside the sandbox by design: the agent
- * sends a handle and Kortix swaps it upstream. An agent told nothing invents an
+ * sends a handle and Dosco swaps it upstream. An agent told nothing invents an
  * explanation for every symptom it meets (a real session concluded that an echo
  * service had "legacy HTTP/1.1 ALPN negotiation" problems). The catalog is the
  * only channel that can correct that before the guess happens.

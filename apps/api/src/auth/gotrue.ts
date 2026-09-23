@@ -1,8 +1,8 @@
 /**
  * Server-side GoTrue (Supabase Auth) client for the headless `/v1/auth/*`
  * routes. The API calls Supabase with its own key and forwards the caller's
- * IP, so a client never needs a Supabase URL or anon key — the Kortix API is
- * the only thing it talks to, on kortix.com and on every self-host alike.
+ * IP, so a client never needs a Supabase URL or anon key — the Dosco API is
+ * the only thing it talks to, on dosco.live and on every self-host alike.
  *
  * Every function returns `{ ok, status, body }` instead of throwing: the
  * routes pass GoTrue's status and `{error, error_description}` through

@@ -1,6 +1,6 @@
 /**
  * Unit tests for matchAllowedRoute() — the route-matching function used by
- * the proxy handler to gate Kortix-user requests to allowed upstream paths.
+ * the proxy handler to gate Dosco-user requests to allowed upstream paths.
  *
  * Route data is imported from the real getProxyServices() registry to avoid
  * test data drifting from production config.

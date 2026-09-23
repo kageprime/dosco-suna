@@ -6,7 +6,7 @@ describe('project model access', () => {
     expect(readModelAccess(null)).toEqual({ disabledProviders: [], disabledModels: [] });
     expect(modelAccessAllows(readModelAccess({ modelOverrides: { old: false } }), 'old')).toBe(true);
   });
-  test('Kortix runtime namespace does not swallow BYOK identity', () => {
+  test('Dosco runtime namespace does not swallow BYOK identity', () => {
     expect(modelAccessProvider('kortix/glm-5.3-flash')).toBe('kortix');
     expect(modelAccessProvider('kortix/openrouter/vendor/model')).toBe('openrouter');
     expect(modelAccessProvider('codex/gpt-test')).toBe('codex');

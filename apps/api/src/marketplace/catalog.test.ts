@@ -9,7 +9,7 @@ import {
 
 // Default fixtures use a neutral external registry ('acme') so generic
 // filter/pagination behavior is tested independent of the `kortix-starter`
-// fold rule (those skills live inside the "Kortix Starter" project now and are
+// fold rule (those skills live inside the "Dosco Starter" project now and are
 // covered by their own test below).
 function item(overrides: Partial<CatalogItem> = {}): CatalogItem {
   return {
@@ -131,7 +131,7 @@ describe('pageCatalogItems', () => {
   });
 
   test('query/type/source filters compose with paging and the visible-type filter stays intact', () => {
-    // 'kortix-projects' is a browseable Kortix registry (maps to source 'kortix');
+    // 'kortix-projects' is a browseable Dosco registry (maps to source 'kortix');
     // 'kortix-starter' items are folded away, so we use projects here.
     const items = [
       ...synthetic(3, (i) => ({ name: `alpha-${i}`, title: `Alpha ${i}`, type: 'registry:skill', registry: 'kortix-projects', marketplaceId: 'kortix' })),
@@ -144,14 +144,14 @@ describe('pageCatalogItems', () => {
     expect(result.items.every((it) => it.name.startsWith('alpha'))).toBe(true);
   });
 
-  test('surfaces kortix-starter skills in the browse list alongside the Kortix Starter project', () => {
+  test('surfaces kortix-starter skills in the browse list alongside the Dosco Starter project', () => {
     const items = [
       item({
         id: 'kortix-starter:pdf',
         name: 'pdf',
         type: 'registry:skill',
         registry: 'kortix-starter',
-        partOfProject: { id: 'kortix-projects:starter', title: 'Kortix Starter' },
+        partOfProject: { id: 'kortix-projects:starter', title: 'Dosco Starter' },
       }),
       item({ id: 'kortix-projects:starter', name: 'starter', type: 'registry:project', registry: 'kortix-projects' }),
     ];
@@ -159,7 +159,7 @@ describe('pageCatalogItems', () => {
     expect(result.items.map((it) => it.name).sort()).toEqual(['pdf', 'starter']);
     expect(result.total).toBe(2);
     const pdf = result.items.find((it) => it.name === 'pdf')!;
-    expect(pdf.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Kortix Starter' });
+    expect(pdf.partOfProject).toEqual({ id: 'kortix-projects:starter', title: 'Dosco Starter' });
   });
 
   test('surfaces skills and projects as browseable; hides agents/commands/bundles/support types', () => {

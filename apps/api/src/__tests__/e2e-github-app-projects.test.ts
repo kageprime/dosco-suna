@@ -206,12 +206,12 @@ describe('GitHub App project repository auth', () => {
     expect((readFile?.init?.headers as Record<string, string>).Authorization).toBe('Bearer installation-token');
     expect((writeFile?.init?.headers as Record<string, string>).Authorization).toBe('Bearer installation-token');
 
-    // Contents-API commits MUST pin the Kortix identity explicitly. Otherwise
+    // Contents-API commits MUST pin the Dosco identity explicitly. Otherwise
     // GitHub attributes the commit to whoever owns the token (a personal PAT
-    // surfaces "<user> committed" instead of Kortix).
+    // surfaces "<user> committed" instead of Dosco).
     const writeBody = JSON.parse(String(writeFile?.init?.body));
-    expect(writeBody.author).toEqual({ name: 'Kortix', email: 'noreply@kortix.ai' });
-    expect(writeBody.committer).toEqual({ name: 'Kortix', email: 'noreply@kortix.ai' });
+    expect(writeBody.author).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
+    expect(writeBody.committer).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
   });
 
   test('accepts the personal installation owner', async () => {
@@ -372,7 +372,7 @@ describe('GitHub App project repository auth', () => {
   });
 
   // An Enterprise Cloud organization can restrict access by IP address. GitHub
-  // then refuses the membership read from the Kortix API address with a 403.
+  // then refuses the membership read from the Dosco API address with a 403.
   test('names the organization IP allow list instead of blaming the caller', async () => {
     resetGitHubAppSlugCache();
     globalThis.fetch = mock(async (url: string | URL | Request) => {

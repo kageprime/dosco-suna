@@ -155,7 +155,7 @@ export const TEAMS_STOP_VERB = 'teams_stop';
 /**
  * The live "working on it" card.
  *
- * `sessionId` adds the Stop button. Every other Kortix surface can end a run
+ * `sessionId` adds the Stop button. Every other Dosco surface can end a run
  * the moment it goes wrong; in Teams the only lever was to wait out the
  * 30-minute GC, and a wedged turn swallowed every later message in the
  * conversation (dev 2026-09-19). The button carries the session id because the
@@ -186,7 +186,7 @@ export function buildFinalCard(opts: {
   if (opts.sessionUrl) {
     elements.push({
       type: 'TextBlock',
-      text: `[Open session in Kortix ↗](${opts.sessionUrl})`,
+      text: `[Open session in Dosco ↗](${opts.sessionUrl})`,
       wrap: true,
       isSubtle: true,
       size: 'small',
@@ -209,7 +209,7 @@ export function buildAnswerCard(
       const bodyEls = Array.isArray(out.body) ? [...(out.body as CardElement[])] : [];
       bodyEls.push({
         type: 'TextBlock',
-        text: `[Open session in Kortix ↗](${sessionUrl})`,
+        text: `[Open session in Dosco ↗](${sessionUrl})`,
         wrap: true,
         isSubtle: true,
         size: 'small',
@@ -224,7 +224,7 @@ export function buildAnswerCard(
   if (sessionUrl) {
     elements.push({
       type: 'TextBlock',
-      text: `[Open session in Kortix ↗](${sessionUrl})`,
+      text: `[Open session in Dosco ↗](${sessionUrl})`,
       wrap: true,
       isSubtle: true,
       size: 'small',
@@ -248,7 +248,7 @@ export function buildConnectAccountCard(loginUrl: string): Record<string, unknow
   return card(
     headerBlock(
       '🔗',
-      'Connect your Kortix account',
+      'Connect your Dosco account',
       'Link once so I run as you — your own credentials, secrets and connected apps, never the installer’s.',
     ),
     [openUrlAction('Connect or create account', loginUrl)],
@@ -368,7 +368,7 @@ export function buildPanelCard(opts: {
     ...headerBlock(opts.emoji ?? 'ℹ️', opts.title),
     emphasisContainer([{ type: 'FactSet', facts: opts.rows.map((r) => ({ title: r.label, value: r.value })) }]),
   ];
-  const actions = opts.url ? [openUrlAction('Open in Kortix', opts.url)] : undefined;
+  const actions = opts.url ? [openUrlAction('Open in Dosco', opts.url)] : undefined;
   return card(body, actions);
 }
 
@@ -460,7 +460,7 @@ export function buildQuestionCard(questions: TeamsQuestion[]): Record<string, un
   for (const [i, q] of list.entries()) {
     const id = questionFieldId(q.question, i);
     const opts = q.options?.filter((o) => o?.label?.trim()) ?? [];
-    // Shape of the Kortix web question UI: each question carries its short
+    // Shape of the Dosco web question UI: each question carries its short
     // header, and several questions say where they sit ("2 of 3") so
     // "question 2" means one thing. The position lives in the caption, never
     // as a "2. " prefix on the label: Teams renders TextBlock markdown, and a
@@ -551,7 +551,7 @@ export function buildReviewCard(opts: {
     executeAction('Request changes', 'teams_review', { reviewItemId: opts.reviewItemId, verdict: 'changes' }),
     { type: 'Action.Execute', title: 'Deny', verb: 'teams_review', data: { verb: 'teams_review', reviewItemId: opts.reviewItemId, verdict: 'reject' }, style: 'destructive' },
   ];
-  if (opts.viewUrl) actions.push(openUrlAction('View in Kortix', opts.viewUrl));
+  if (opts.viewUrl) actions.push(openUrlAction('View in Dosco', opts.viewUrl));
   return card(body, actions);
 }
 
@@ -573,7 +573,7 @@ export function buildJoinRequestCard(opts: {
   return card(
     headerBlock(
       '🔒',
-      `${opts.requesterLabel} wants to join this Kortix session`,
+      `${opts.requesterLabel} wants to join this Dosco session`,
       'This conversation is private until you approve them. Only the session owner can decide.',
     ),
     [
@@ -591,7 +591,7 @@ export function buildProjectPickerCard(
     headerBlock(
       '📁',
       'Which project should this conversation use?',
-      "Several Kortix projects are connected to this team. Pick one — I'll remember it here and run your message.",
+      "Several Dosco projects are connected to this team. Pick one — I'll remember it here and run your message.",
     ),
     projects.slice(0, 8).map((p) =>
       executeAction(p.name, 'teams_pick_project', { projectId: p.projectId, ...(pendingId ? { pendingId } : {}) }),
@@ -602,10 +602,10 @@ export function buildProjectPickerCard(
 export function buildWelcomeCard(opts: { projectUrl?: string }): Record<string, unknown> {
   const body = headerBlock(
     '👋',
-    'Kortix is connected here',
+    'Dosco is connected here',
     '@-mention me with a task and an agent gets on it — replying right here with live progress. Type `/help` to see what I can do.',
   );
-  const actions = opts.projectUrl ? [openUrlAction('Open in Kortix', opts.projectUrl)] : undefined;
+  const actions = opts.projectUrl ? [openUrlAction('Open in Dosco', opts.projectUrl)] : undefined;
   return card(body, actions);
 }
 
@@ -620,7 +620,7 @@ export function buildHelpCard(commands: Array<{ cmd: string; desc: string }>): R
     ],
   }));
   return card([
-    ...headerBlock('⚡', 'Kortix commands', 'Run a command, or just @-mention me with a task.'),
+    ...headerBlock('⚡', 'Dosco commands', 'Run a command, or just @-mention me with a task.'),
     emphasisContainer(rows),
   ]);
 }

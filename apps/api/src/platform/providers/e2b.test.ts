@@ -264,7 +264,7 @@ describe('E2B provider lifecycle', () => {
     );
   });
 
-  test('create is private, filesystem-persistent, explicit-resume-only, and launches Kortix', async () => {
+  test('create is private, filesystem-persistent, explicit-resume-only, and launches Dosco', async () => {
     const sandbox = fakeSandbox('sb-secure', 'traffic-secret');
     createFactory = () => sandbox;
     const provider = new E2BProvider();
@@ -529,7 +529,7 @@ describe('E2B provider lifecycle', () => {
     expect(connected[0]).toMatchObject({ sandboxId: 'sb-lifecycle' });
   });
 
-  test('cold resume verifies the Kortix entrypoint on the same sandbox identity', async () => {
+  test('cold resume verifies the Dosco entrypoint on the same sandbox identity', async () => {
     const resumed = fakeSandbox('sb-cold-resume');
     connectFactory = () => resumed;
     const provider = new E2BProvider();
@@ -555,7 +555,7 @@ describe('E2B provider lifecycle', () => {
   });
 
   // E2B's filesystem-only pause has no autostart contract: `lifecycle.autoResume`
-  // needs a MEMORY snapshot, and Kortix sets no template `startCmd`. So apps/api
+  // needs a MEMORY snapshot, and Dosco sets no template `startCmd`. So apps/api
   // is the ONLY thing that starts the runtime after a resume — and a resume that
   // brings the VM back with a DEAD process tree (Essentia box
   // igu3qpz1ctv0pg2agda1x: no new boot lines in /opt/kortix/logs/daemon.log after
@@ -976,7 +976,7 @@ describe('E2B provider lifecycle', () => {
     expect(performance.now() - startedAt).toBeLessThan(500);
   });
 
-  test('the orphan reaper list is scoped to Kortix and the current environment', async () => {
+  test('the orphan reaper list is scoped to Dosco and the current environment', async () => {
     listed = [
       { sandboxId: 'sb-1', startedAt: new Date('2026-07-13T12:00:00Z') },
       { sandboxId: 'sb-2', startedAt: null },

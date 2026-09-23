@@ -1,6 +1,6 @@
 // One transactional-email transport for the whole platform.
 //
-// Every email Kortix sends — account invites, project invites, access
+// Every email Dosco sends — account invites, project invites, access
 // requests, demo leads, and (via the Supabase send-email hook) magic links,
 // signup confirmations and password recovery — goes through sendEmail() here.
 // One sender identity, one provider chain, one place to add a provider.
@@ -31,7 +31,7 @@ import type {
 export type { EmailAddress, EmailMessage, EmailProvider, EmailSendResult } from './types';
 export { closeSmtpTransports } from './providers/smtp';
 
-const FALLBACK_FROM: EmailAddress = { email: 'noreply@kortix.com', name: 'Kortix' };
+const FALLBACK_FROM: EmailAddress = { email: 'noreply@dosco.live', name: 'Dosco' };
 
 let loggedUrlErrors = '';
 
@@ -75,7 +75,7 @@ function resolveSender(): EmailAddress {
 }
 
 /**
- * Build the chain from the pre-EMAIL_URL environment variables. Deployed Kortix
+ * Build the chain from the pre-EMAIL_URL environment variables. Deployed Dosco
  * (dev/staging/prod) still runs on these, so this path is load-bearing, not a
  * deprecation shim.
  */
@@ -190,7 +190,7 @@ function resolve(msg: EmailMessage, from: EmailAddress): ResolvedEmailMessage {
   return {
     ...msg,
     from: msg.from ?? from,
-    // Every Kortix template supplies its own plain-text alternative, rendered
+    // Every Dosco template supplies its own plain-text alternative, rendered
     // from the same structured content as the HTML (see template.ts). There is
     // deliberately no HTML-to-text fallback.
     text: msg.text ?? '',

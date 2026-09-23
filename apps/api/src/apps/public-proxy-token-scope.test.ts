@@ -19,7 +19,7 @@ import { describe, expect, mock, test } from 'bun:test';
 import * as realCrypto from '../shared/crypto';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 process.env.KORTIX_APPS_ALLOW_LOCAL_EDGE = 'true';
 
 const USER = 'user-1';
@@ -149,7 +149,7 @@ const appInProject = (projectId: string) => ({
 });
 
 const openApp = (projectId: string, token: string) => {
-  const url = new URL('https://dev-scoped-cccccccccccccccc.apps.kortix.com/api/things');
+  const url = new URL('https://dev-scoped-cccccccccccccccc.apps.dosco.live/api/things');
   return authorizeAppRequest(
     new Request(url, { headers: { authorization: `Bearer ${token}` } }),
     url,

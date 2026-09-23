@@ -1,5 +1,5 @@
 /**
- * The one public redirect URI Kortix registers with third-party authorization
+ * The one public redirect URI Dosco registers with third-party authorization
  * servers. It is derived from the PUBLIC API origin (`KORTIX_URL`), never from
  * the incoming request: behind the load balancer the API sees
  * `http://<internal-host>/…`, and an authorization server rejects a redirect_uri

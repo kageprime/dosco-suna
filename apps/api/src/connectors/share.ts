@@ -136,7 +136,7 @@ export type SessionVisibility = 'private' | 'project' | 'restricted';
  * Context needed to decide whether `created_by` may confer ownership.
  *
  * For an INTERACTIVE session created_by is one human, so ownership is real. For
- * a Kortix-as-a-Backend session it is the WRAPPER's credential — identical for
+ * a Dosco-as-a-Backend session it is the WRAPPER's credential — identical for
  * every one of that wrapper's end-users — so it identifies nobody, and letting
  * it short-circuit would make every end-user's session visible to every other.
  */
@@ -201,7 +201,7 @@ export function isSessionTargetVisibleToCaller(
   // `resolveSupabaseAuth` sets `c.get('sessionId')` to the SUPABASE LOGIN
   // session id for every signed-in human (middleware/auth.ts), so
   // `callerSessionId` is non-null for ordinary dashboard users and can never
-  // equal a Kortix session id. Reading it here made all three conditions below
+  // equal a Dosco session id. Reading it here made all three conditions below
   // true for ANY human opening ANY backend-origin session, so the narrowing
   // returned false and `/start` answered 404 — a session listed in the sidebar
   // that could never be opened. Measured on a live self-host (essentia,

@@ -338,7 +338,7 @@ app.use('*', logger());
 // because the API->gateway hop itself traverses Cloudflare
 // (LLM_GATEWAY_PROXY_TARGET is a proxied hostname whose ALB only accepts
 // Cloudflare IPs), so an internal-hop failure arrives as a CF HTML page with a
-// 52x status and gets relayed onward. No Kortix handler ever returns 52x, so
+// 52x status and gets relayed onward. No Dosco handler ever returns 52x, so
 // normalizing them is unambiguous.
 const EDGE_REWRITTEN_STATUSES = new Set([502, 504, 520, 521, 522, 523, 524]);
 app.use('*', async (c, next) => {
@@ -603,7 +603,7 @@ function hasInternalObservabilityAuth(c: any): boolean {
   return (!!bearer && safeEq(bearer, expected)) || (!!header && safeEq(header, expected));
 }
 
-// Sign in with Kortix — RFC 8414 discovery at the API root. The issuer is the
+// Sign in with Dosco — RFC 8414 discovery at the API root. The issuer is the
 // configured public API origin (KORTIX_URL); the request origin is only the
 // fallback for a bare local run. Mirrored under /v1/oauth/.well-known/… for
 // edges that route only /v1/*.
@@ -942,10 +942,10 @@ app.use('/v1/platform/boot-timeline', supabaseAuth);
 app.use('/v1/platform/runtime-projection', supabaseAuth);
 app.route('/v1/platform', platformApp); // /v1/platform, /v1/platform/sandbox/version
 registerSunaMigrationRoutes(projectsApp); // /v1/projects/suna-migration/* (OG Suna → opencode, user-triggered)
-app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Kortix projects
+app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Dosco projects
 app.route('/v1/marketplace', marketplaceApp); // /v1/marketplace — browse the registry catalog
 
-// /v1/skills — the kortix-managed system skills (how Kortix itself works), served
+// /v1/skills — the kortix-managed system skills (how Dosco itself works), served
 // straight out of @kortix/starter so the text always matches this deploy. This is
 // what lets an agent in ANY harness, holding only the `kortix` binary and a token,
 // read the platform's own instructions with no repo checkout and no sandbox.
@@ -1443,7 +1443,7 @@ void primeDaytonaTransientClassifier();
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                  Kortix API Starting                      ║
+║                  Dosco API Starting                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  Port: ${config.PORT.toString().padEnd(49)}║
 ║  Env:  ${config.INTERNAL_KORTIX_ENV.padEnd(49)}║

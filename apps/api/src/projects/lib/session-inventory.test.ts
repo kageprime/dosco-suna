@@ -305,7 +305,7 @@ describe('mergeSessionOwnerIdentities', () => {
     const identities = mergeSessionOwnerIdentities({
       ownerIds: [humanId, agentId, staleId],
       users: new Map([
-        [humanId, { exists: true, email: 'ari@kortix.ai', displayName: 'Ari' }],
+        [humanId, { exists: true, email: 'ari@dosco.live', displayName: 'Ari' }],
         [agentId, { exists: false, email: null, displayName: null }],
         [staleId, { exists: false, email: null, displayName: null }],
       ]),
@@ -321,7 +321,7 @@ describe('mergeSessionOwnerIdentities', () => {
     expect(identities.get(humanId)).toEqual({
       type: 'user',
       name: 'Ari',
-      email: 'ari@kortix.ai',
+      email: 'ari@dosco.live',
     });
     expect(identities.get(agentId)).toEqual({
       type: 'service_account',

@@ -83,9 +83,9 @@ export interface AuthVariables {
   accountId?: string;
   authType?: 'supabase' | 'pat' | 'apiKey' | 'service_account' | 'oauth';
   apiKeyType?: 'user' | 'sandbox';
-  /** Sign in with Kortix: the OAuth client the `kortix_oat_` token was minted for. */
+  /** Sign in with Dosco: the OAuth client the `kortix_oat_` token was minted for. */
   oauthClientId?: string;
-  /** Sign in with Kortix: scopes granted to the token (`profile`, `email`, `kortix`). */
+  /** Sign in with Dosco: scopes granted to the token (`profile`, `email`, `kortix`). */
   oauthScopes?: string[];
   keyId?: string;
   sandboxId?: string;
@@ -96,7 +96,7 @@ export interface AuthVariables {
   /** PAT token identity for the IAM engine (token-as-principal evaluation). */
   iamTokenId?: string;
   /** Per-agent authorization grant — non-null only for agent-session tokens.
-   *  Read by assertAgentScope() to gate Kortix CLI/API actions on top of the
+   *  Read by assertAgentScope() to gate Dosco CLI/API actions on top of the
    *  user's own role (net = userRole ∩ agentGrant). Null = full access. */
   agentGrant?: AgentGrant | null;
   /** The human an agent-session token acts on behalf of (spec
@@ -151,7 +151,7 @@ export interface TierEntitlements {
    */
   auditAccess: boolean;
   /**
-   * Organization branding: replace the Kortix logo, icon, favicon (light +
+   * Organization branding: replace the Dosco logo, icon, favicon (light +
    * dark), and product name with the account's own for every member of the account
    * (`accounts.branding`, written only through `/accounts/:id/branding*`).
    * Reads and the reset/remove routes stay ungated so a downgraded account can

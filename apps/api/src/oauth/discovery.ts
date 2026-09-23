@@ -1,5 +1,5 @@
 /**
- * RFC 8414 authorization-server metadata for "Sign in with Kortix".
+ * RFC 8414 authorization-server metadata for "Sign in with Dosco".
  *
  * Served at `/.well-known/oauth-authorization-server` on the API origin and
  * mirrored under `/v1/oauth/.well-known/oauth-authorization-server` for edges

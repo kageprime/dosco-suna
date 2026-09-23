@@ -689,7 +689,7 @@ describe('getCostSummary', () => {
     // ordering alone leaves it to whatever order Postgres happens to scan
     // rows in, which can flip between refreshes.
     const [spend, provider, model] = renderOrderBy(modelsRecord());
-    // Account Billing orders by the amount Kortix charged. Provider-side BYOK
+    // Account Billing orders by the amount Dosco charged. Provider-side BYOK
     // spend remains an observability metric and is excluded here.
     expect(spend).toContain('final_cost_precise');
     expect(spend).not.toContain('upstream_cost_precise');

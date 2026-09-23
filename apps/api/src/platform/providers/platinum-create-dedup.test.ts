@@ -159,7 +159,7 @@ describe('S1 deterministic name + Idempotency-Key derivation', () => {
 describe('S1 ambiguous-retry / replay handling', () => {
   test('a same-attempt retry after an ambiguous timeout replays the SAME committed box (no second box)', async () => {
     // Model retrySandboxProvisionCreate's own retry: the FIRST create() call
-    // times out (ambiguous — Kortix doesn't know if Platinum committed it),
+    // times out (ambiguous — Dosco doesn't know if Platinum committed it),
     // the caller (session-sandbox.ts) retries with the SAME createAttempt,
     // and the CP's Idempotency-Key replay returns the ALREADY-committed box.
     createSequence = [

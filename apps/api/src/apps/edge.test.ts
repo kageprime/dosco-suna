@@ -26,7 +26,7 @@ describe('appTlsCheckStatus (on-demand-TLS gate decision)', () => {
     expect(await appTlsCheckStatus('evil.example.com', appExists)).toBe(403);
     // Right shape, wrong base domain — still 403 (never issue on a domain this
     // deployment does not serve).
-    expect(await appTlsCheckStatus(`dev-store-${ROUTE_KEY}.apps.kortix.com`, appExists)).toBe(403);
+    expect(await appTlsCheckStatus(`dev-store-${ROUTE_KEY}.apps.dosco.live`, appExists)).toBe(403);
     // Missing / empty domain.
     expect(await appTlsCheckStatus(undefined, appExists)).toBe(403);
     expect(await appTlsCheckStatus('', appExists)).toBe(403);

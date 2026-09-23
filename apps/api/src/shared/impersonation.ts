@@ -136,7 +136,7 @@ const IMPERSONATION_FORBIDDEN_ROUTES: ForbiddenRoute[] = [
   { re: /^\/v1\/projects\/[^/]+\/cli-token(\/|$)/ },
   { re: /^\/v1\/projects\/[^/]+\/git-token(\/|$)/ },
   { re: /^\/v1\/projects\/[^/]+\/gateway\/keys(\/|$)/ },
-  // Membership. `POST /v1/accounts/:id/members` adds an EXISTING Kortix user
+  // Membership. `POST /v1/accounts/:id/members` adds an EXISTING Dosco user
   // straight into the account (optionally as `admin`) with no invite to
   // accept — the single cheapest way to convert one hour of act-as into
   // permanent, unmarked access. Reading the member list stays allowed; it is

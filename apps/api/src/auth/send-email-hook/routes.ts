@@ -2,7 +2,7 @@
 //
 // GoTrue calls this instead of sending auth mail itself, so magic links,
 // signup confirmations, password resets and email changes go out through the
-// same provider chain, sender identity and templates as every other Kortix
+// same provider chain, sender identity and templates as every other Dosco
 // email. Configure once (EMAIL_URL) and both halves of the system work.
 //
 // The route is unauthenticated by design and gated on a Standard Webhooks HMAC

@@ -31,11 +31,11 @@ afterEach(() => {
 
 describe('buildGithubAppManifest', () => {
   test('points redirect_url/setup_url at this API, sets public:false and the required permissions', () => {
-    const manifest = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://kortix.ai', appName: 'Kortix Self-Host test' });
-    expect(manifest.name).toBe('Kortix Self-Host test');
+    const manifest = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://dosco.live', appName: 'Dosco Self-Host test' });
+    expect(manifest.name).toBe('Dosco Self-Host test');
     // Homepage URL is separate from the API base — GitHub validates it as a
     // public FQDN, so it is never the (possibly localhost) API origin.
-    expect(manifest.url).toBe('https://kortix.ai');
+    expect(manifest.url).toBe('https://dosco.live');
     expect(manifest.redirect_url).toBe('https://api.kortix.example/v1/platform/github-app/manifest-callback');
     expect(manifest.setup_url).toBe('https://api.kortix.example/v1/platform/github-app/install-callback');
     // The OAuth callback is a SEPARATE registration from redirect_url —
@@ -45,7 +45,7 @@ describe('buildGithubAppManifest', () => {
       'https://api.kortix.example/v1/platform/github-app/oauth/callback',
     ]);
     expect(manifest.public).toBe(false);
-    expect(manifest.hook_attributes).toEqual({ url: 'https://kortix.ai', active: false });
+    expect(manifest.hook_attributes).toEqual({ url: 'https://dosco.live', active: false });
     expect(manifest.default_events).toEqual([]);
     expect(manifest.default_permissions).toEqual({
       administration: 'write',
@@ -60,14 +60,14 @@ describe('buildGithubAppManifest', () => {
   });
 
   test('strips a trailing slash from apiBaseUrl before appending route paths', () => {
-    const manifest = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example/', homepageUrl: 'https://kortix.ai' });
+    const manifest = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example/', homepageUrl: 'https://dosco.live' });
     expect(manifest.redirect_url).toBe('https://api.kortix.example/v1/platform/github-app/manifest-callback');
   });
 
   test('generates a unique-ish name when none is given', () => {
-    const a = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://kortix.ai' });
-    const b = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://kortix.ai' });
-    expect(a.name).toMatch(/^Kortix Self-Host [0-9a-f]+$/);
+    const a = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://dosco.live' });
+    const b = buildGithubAppManifest({ apiBaseUrl: 'https://api.kortix.example', homepageUrl: 'https://dosco.live' });
+    expect(a.name).toMatch(/^Dosco Self-Host [0-9a-f]+$/);
     expect(a.name).not.toBe(b.name);
   });
 });

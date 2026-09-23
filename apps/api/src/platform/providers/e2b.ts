@@ -1,4 +1,4 @@
-/** E2B Cloud implementation of Kortix's unified sandbox runtime contract. */
+/** E2B Cloud implementation of Dosco's unified sandbox runtime contract. */
 
 import type { SandboxExecOptions, SandboxExecResult } from './index';
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
@@ -24,7 +24,7 @@ import type {
 import { assertWorkloadCredential, sandboxWorkloadType } from './index';
 
 // One hour is the maximum accepted by every E2B plan (Pro permits 24 hours).
-// Kortix's own idle reaper normally pauses much sooner; this is the provider
+// Dosco's own idle reaper normally pauses much sooner; this is the provider
 // backstop and must not make sandbox creation plan-dependent.
 const E2B_RUNTIME_BACKSTOP_MS = configuredTimeoutMs(
   'KORTIX_E2B_RUNTIME_BACKSTOP_MS',
@@ -99,7 +99,7 @@ const E2B_STOP_TIMEOUT_MS = configuredTimeoutMs('KORTIX_E2B_STOP_TIMEOUT_MS', 25
 /**
  * Every E2B SDK call this provider makes. `domain` is explicit and required:
  * the SDK defaults it to the E2B_DOMAIN process variable or `e2b.app`, while
- * Kortix's own config defaults E2B_DOMAIN to `e2b.dev`. Leaving it off pointed
+ * Dosco's own config defaults E2B_DOMAIN to `e2b.dev`. Leaving it off pointed
  * sandbox creation at a DIFFERENT cluster than the one the snapshot adapter
  * built the template on whenever an operator did not export the variable —
  * which is exactly the self-hosted-E2B case, where the cluster is neither.
@@ -313,7 +313,7 @@ async function launchKortixEntrypoint(
     ...(envs ? { envs } : {}),
     // E2B applies timeoutMs to the total lifetime of a background command;
     // its default is 60s and our former 20s value deterministically killed
-    // the Kortix daemon after boot. Zero is the SDK's documented no-timeout
+    // the Dosco daemon after boot. Zero is the SDK's documented no-timeout
     // value. The sandbox lifecycle/reaper remains the authority that stops it.
     timeoutMs: 0,
   });
@@ -338,13 +338,13 @@ async function kortixHealthy(
 }
 
 /**
- * Bring the Kortix daemon up on a box and prove it answers.
+ * Bring the Dosco daemon up on a box and prove it answers.
  *
  * `reviveOnStall` is the RESUME path's extra guarantee. E2B's filesystem-only
  * pause has no autostart contract to lean on: `lifecycle.autoResume` requires a
  * MEMORY snapshot (`keepMemory: true`), and the E2B SDK documents a
  * filesystem-only snapshot as one that "cold-boots" and "must be resumed
- * explicitly via connect()". Kortix sets no template `startCmd` either, so
+ * explicitly via connect()". Dosco sets no template `startCmd` either, so
  * apps/api is the ONLY thing that starts the runtime after a resume — and a
  * resume that leaves the process tree dead (observed on Essentia box
  * `igu3qpz1ctv0pg2agda1x`: `/opt/kortix/logs/daemon.log` gained no boot entries
@@ -498,7 +498,7 @@ export class E2BProvider implements SandboxProvider {
       // the private rootfs so a cold resume (including after an API restart)
       // can relaunch the authenticated daemon — sealed, because the guest never
       // needs to read it back (see persistRuntimeEnv). Never put these secrets
-      // in E2B metadata or Kortix DB metadata.
+      // in E2B metadata or Dosco DB metadata.
       await persistRuntimeEnv(sandbox, envVars);
       if (workloadType === 'app') await ensureAppEntrypoint(sandbox, envVars);
       else await ensureKortixEntrypoint(sandbox, envVars);
@@ -506,7 +506,7 @@ export class E2BProvider implements SandboxProvider {
       invalidateConnectedSandbox(sandbox.sandboxId);
       await sandbox.kill({ requestTimeoutMs: 20_000 }).catch(() => false);
       throw new Error(
-        `[e2b] failed to launch Kortix entrypoint: ${error instanceof Error ? error.message : String(error)}`,
+        `[e2b] failed to launch Dosco entrypoint: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -536,7 +536,7 @@ export class E2BProvider implements SandboxProvider {
       }
       // A filesystem-only pause cold-boots on connect. E2B normally runs the
       // template start command during that boot; this explicit check makes the
-      // Kortix runtime invariant independent of provider startup behavior.
+      // Dosco runtime invariant independent of provider startup behavior.
       const envVars = await loadRuntimeEnv(sandbox);
       if (envVars.KORTIX_WORKLOAD_TYPE === 'app') await ensureAppEntrypoint(sandbox, envVars);
       // RESUME, not create: this is the path that has to survive a provider
@@ -556,7 +556,7 @@ export class E2BProvider implements SandboxProvider {
   /**
    * E2B's Template.build takes cpuCount and memoryMB and has no disk parameter
    * (e2b 2.37.0), so an App's disk_gb is provider-managed here and must not be
-   * billed as if Kortix had allocated it.
+   * billed as if Dosco had allocated it.
    */
   readonly appMachineSupport: AppMachineSupport = { cpu: true, memoryGb: true, diskGb: false };
 
@@ -605,7 +605,7 @@ export class E2BProvider implements SandboxProvider {
     // A 204 is not proof. E2B's KeepAliveFor clamps every renewal to the
     // team's `max_length_hours` (tier + project_limits), so on a team capped
     // at 1h the deadline never moves past `startedAt + 1h` and the sandbox is
-    // paused mid-turn exactly one hour after create/resume — while Kortix
+    // paused mid-turn exactly one hour after create/resume — while Dosco
     // logged a successful renewal every 20 s (Essentia 2026-08-25: 375 blind
     // 204s, 4 turns killed). Read the deadline back and refuse to call a
     // renewal that did not land a renewal.

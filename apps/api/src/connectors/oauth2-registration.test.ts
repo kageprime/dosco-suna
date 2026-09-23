@@ -15,7 +15,7 @@ describe('selectTokenEndpointAuthMethod', () => {
   test('RFC 8414 default when the server does not say', () => {
     expect(selectTokenEndpointAuthMethod(undefined)).toBe('client_secret_basic');
   });
-  test('falls back to none when nothing Kortix supports is offered', () => {
+  test('falls back to none when nothing Dosco supports is offered', () => {
     expect(selectTokenEndpointAuthMethod(['tls_client_auth'])).toBe('none');
   });
 });
@@ -26,7 +26,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
     const result = await registerOAuth2Client(
       {
         registrationEndpoint: 'https://api.example.com/oauth/register',
-        redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+        redirectUri: 'https://api.dosco.live/v1/connectors/oauth2/callback',
         scopes: ['openid', 'offline_access', 'mcp:execute'],
         tokenEndpointAuthMethodsSupported: ['client_secret_post', 'client_secret_basic', 'none'],
       },
@@ -39,7 +39,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
               client_secret: 'issued-secret',
               client_secret_expires_at: 0,
               token_endpoint_auth_method: 'client_secret_basic',
-              redirect_uris: ['https://api.kortix.com/v1/connectors/oauth2/callback'],
+              redirect_uris: ['https://api.dosco.live/v1/connectors/oauth2/callback'],
               registration_access_token: 'reg-token',
               registration_client_uri: 'https://authn.example.com/oauth2/register/issued-client',
             }),
@@ -52,9 +52,9 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
     expect(seen!.init?.method).toBe('POST');
     const body = JSON.parse(String(seen!.init?.body));
     expect(body).toEqual({
-      client_name: 'Kortix',
-      client_uri: 'https://kortix.com',
-      redirect_uris: ['https://api.kortix.com/v1/connectors/oauth2/callback'],
+      client_name: 'Dosco',
+      client_uri: 'https://dosco.live',
+      redirect_uris: ['https://api.dosco.live/v1/connectors/oauth2/callback'],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       application_type: 'web',
@@ -75,7 +75,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
     await registerOAuth2Client(
       {
         registrationEndpoint: 'https://api.example.com/oauth/register',
-        // A self-hosted Kortix on loopback. Registered as `web`, an
+        // A self-hosted Dosco on loopback. Registered as `web`, an
         // OIDC-based server rejects the redirect URI outright.
         redirectUri: 'http://localhost:8008/v1/connectors/oauth2/callback',
       },
@@ -93,7 +93,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
     const result = await registerOAuth2Client(
       {
         registrationEndpoint: 'https://api.example.com/oauth/register',
-        redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+        redirectUri: 'https://api.dosco.live/v1/connectors/oauth2/callback',
         tokenEndpointAuthMethodsSupported: ['none'],
       },
       {
@@ -109,7 +109,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
       registerOAuth2Client(
         {
           registrationEndpoint: 'https://api.example.com/oauth/register',
-          redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+          redirectUri: 'https://api.dosco.live/v1/connectors/oauth2/callback',
         },
         {
           fetchImpl: async () =>
@@ -125,7 +125,7 @@ describe('registerOAuth2Client — RFC 7591 dynamic client registration', () => 
       registerOAuth2Client(
         {
           registrationEndpoint: 'https://api.example.com/oauth/register',
-          redirectUri: 'https://api.kortix.com/v1/connectors/oauth2/callback',
+          redirectUri: 'https://api.dosco.live/v1/connectors/oauth2/callback',
         },
         {
           fetchImpl: async (_url, init) => {

@@ -129,7 +129,7 @@ export interface GatewayDeps {
   loadConnectorBySlug(projectId: string, slug: string): Promise<GatewayConnector | null>;
   /**
    * Spec 2026-09-22 §2.5: the `X-Kortix-App-Authorization` value for a call
-   * whose base URL is a Kortix App of THIS deployment in the caller's OWN
+   * whose base URL is a Dosco App of THIS deployment in the caller's OWN
    * project — a ≤ 60 s signed assertion naming the calling session token.
    * Null for any other host. Optional: absent = never attach.
    */
@@ -287,7 +287,7 @@ export interface CallInput {
   sessionId?: string | null;
   /** The presented account token's id (`account_tokens.token_id`), when the
    *  caller authenticated with one. With `sessionId` it identifies an agent
-   *  session — the only caller that gets a Kortix App assertion. */
+   *  session — the only caller that gets a Dosco App assertion. */
   actingTokenId?: string | null;
   connectorSlug: string;
   /** Connector-relative action path (e.g. `charges.create`). */
@@ -614,7 +614,7 @@ export async function handleCall(deps: GatewayDeps, input: CallInput): Promise<C
         ...(url
           ? {
               approvalInstructions: input.sessionId
-                ? 'Share approval_url with a human, then stop this turn. Kortix resumes the session after approve or deny.'
+                ? 'Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny.'
                 : 'Share approval_url with a human. Retry this exact call once they approve it.',
             }
           : {}),

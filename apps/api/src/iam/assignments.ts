@@ -937,7 +937,7 @@ async function audit(
 // ─── Pending (invitee) assignments ──────────────────────────────────────────
 
 /**
- * A grant staged on an invitation, for an email with no Kortix user yet.
+ * A grant staged on an invitation, for an email with no Dosco user yet.
  *
  * `account_invitations.bootstrap_grants` is a jsonb blob nothing but the accept
  * path can read; as an assignment with `principal_type='pending'` the SAME

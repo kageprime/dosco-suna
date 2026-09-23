@@ -258,7 +258,7 @@ describe('resolveCandidates — selected account key pool', () => {
 });
 
 describe('resolveCandidates — BYOK billing', () => {
-  test('paid tier: BYOK has no Kortix charge and no managed fallback', async () => {
+  test('paid tier: BYOK has no Dosco charge and no managed fallback', async () => {
     catalogUpstream = {
       baseUrl: 'https://api.anthropic.com/v1',
       envVar: 'ANTHROPIC_API_KEY',

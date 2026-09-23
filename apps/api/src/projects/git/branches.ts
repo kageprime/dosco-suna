@@ -542,8 +542,8 @@ export async function commitMultipleFilesToBranch(
     throw new Error('alsoExpect requires expectedFileRevision');
   }
 
-  const author = opts.authorName || 'Kortix';
-  const email = opts.authorEmail || 'noreply@kortix.ai';
+  const author = opts.authorName || 'Dosco';
+  const email = opts.authorEmail || 'noreply@dosco.live';
   const identEnv = {
     GIT_AUTHOR_NAME: author,
     GIT_AUTHOR_EMAIL: email,

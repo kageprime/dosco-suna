@@ -56,7 +56,7 @@ function conversationRef(activity: TeamsActivity, projectId?: string): TeamsConv
 }
 
 function dashboardBase(): string {
-  return (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
+  return (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
 }
 
 export async function handleTeamsCommand(input: {
@@ -125,7 +125,7 @@ export async function handleTeamsCommand(input: {
       case 'new':
       case 'reset': {
         // A chat is one conversation id for life, so without this every task
-        // anyone ever asked shared one session. The old one stays in Kortix.
+        // anyone ever asked shared one session. The old one stays in Dosco.
         const selection = await currentChannelSelection(ctx);
         const outcome = await startFreshTeamsConversation({
           tenantId: input.tenantId,
@@ -140,7 +140,7 @@ export async function handleTeamsCommand(input: {
         }
         const message = messageAfterFreshStart(input.activity);
         const previous = outcome.previousSessionId
-          ? ` The previous session stays in Kortix — [open it](${sessionWebUrl(config.FRONTEND_URL, input.projectId, outcome.previousSessionId)}).`
+          ? ` The previous session stays in Dosco — [open it](${sessionWebUrl(config.FRONTEND_URL, input.projectId, outcome.previousSessionId)}).`
           : '';
         await post(
           buildNoticeCard(
@@ -216,7 +216,7 @@ async function ensureBinding(
 
 function helpCard() {
   return buildHelpCard([
-    { cmd: '/login', desc: 'connect your Kortix account' },
+    { cmd: '/login', desc: 'connect your Dosco account' },
     { cmd: '/logout', desc: 'disconnect your account' },
     { cmd: '/whoami', desc: 'show who you are linked as' },
     { cmd: '/status', desc: 'show the effective project, agent and model' },
@@ -362,7 +362,7 @@ async function buildModelsCard(ctx: ReturnType<typeof teamsChannelCtx>) {
     subtitle: current ? `Currently ${labelForModelRef(current)}` : 'Currently the project default',
     verb: 'teams_set_model',
     options,
-    footer: 'Or set any provider/model-id you have connected in Kortix: `/model anthropic/claude-sonnet-4.6`.',
+    footer: 'Or set any provider/model-id you have connected in Dosco: `/model anthropic/claude-sonnet-4.6`.',
   });
 }
 
@@ -393,7 +393,7 @@ async function setModel(ctx: ReturnType<typeof teamsChannelCtx>, arg: string) {
     model: id,
   });
   if (!servable) {
-    return buildNoticeCard(`\`${id}\` isn't available here. Pick one with /models or connect that provider in Kortix.`);
+    return buildNoticeCard(`\`${id}\` isn't available here. Pick one with /models or connect that provider in Dosco.`);
   }
   const stored = toOpencodeModelRef(id);
   await setChannelModel(ctx, stored);
@@ -454,7 +454,7 @@ async function setPolicy(ctx: ReturnType<typeof teamsChannelCtx>, arg: string) {
 async function buildProjectsCard(tenantId: string, currentProjectId: string) {
   const projects = await listTenantProjects(tenantId);
   if (projects.length === 0) {
-    return buildNoticeCard('No Kortix projects are connected to this Teams tenant yet.', '📁');
+    return buildNoticeCard('No Dosco projects are connected to this Teams tenant yet.', '📁');
   }
   const options: SelectOption[] = projects.slice(0, 8).map((p) => ({
     label: p.name,

@@ -368,8 +368,8 @@ async function tokenCredential(
 }
 
 /**
- * An Actor for a caller that carries NO Kortix credential of its own — a channel
- * webhook acting as the Kortix user a Slack/Teams identity is linked to, a
+ * An Actor for a caller that carries NO Dosco credential of its own — a channel
+ * webhook acting as the Dosco user a Slack/Teams identity is linked to, a
  * background job acting as a stored owner, an internal composite read.
  *
  * `jwt` is the honest classification: there is no token to scope, no agent grant

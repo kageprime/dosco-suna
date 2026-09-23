@@ -32,7 +32,7 @@ import { accountMayUseManagedModels } from '../billing/services/entitlements';
  *    it produced *"the model I'm running on right now can't process images"*.
  *    So the predicate is `modalities.input` containing `image`.
  * 2. **A configured target is not necessarily servable.** `gpt-5.6-luna`
- *    answers `requires Kortix's managed provider, which is disabled on this
+ *    answers `requires Dosco's managed provider, which is disabled on this
  *    deployment`, and pinning a prompt to it turns a degraded answer into a
  *    failed turn. Candidates therefore come from `servableProjectCatalog` —
  *    the same list the sandbox registers and the picker shows — and each is
@@ -210,7 +210,7 @@ export async function channelTurnModel(input: {
   // A pin IS checked on every message, and presence in `gatewayModelCatalog`
   // is NOT used as a cheap pre-filter, because the catalog and the servability
   // gate disagree — `deepseek-v4-flash` is in the catalog and still answers
-  // `requires Kortix's managed provider, which is disabled on this deployment`
+  // `requires Dosco's managed provider, which is disabled on this deployment`
   // upstream. Two live Teams sessions were pinned to it on 2026-09-21, failing
   // every message with nothing shown to the user. A pre-filter on the catalog
   // would have skipped exactly those. The probe is cached per

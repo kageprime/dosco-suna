@@ -11,7 +11,7 @@
  *
  * INVARIANT 2 — no phantom billing across a wake. A provider can keep
  * answering `stopped` while `start()` is still changing the VM, so reconcile
- * must not convert that transitional read into a durable Kortix stop: doing so
+ * must not convert that transitional read into a durable Dosco stop: doing so
  * closes the compute meter and records a later provider-RUNNING VM as stopped.
  * The wake fence is the exemption that prevents it.
  *

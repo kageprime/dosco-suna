@@ -144,8 +144,8 @@ describe('longTurnTimeoutResponse', () => {
   });
 
   test('reflects CORS origin like every other proxy response', () => {
-    const res = longTurnTimeoutResponse('https://app.kortix.ai');
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.kortix.ai');
+    const res = longTurnTimeoutResponse('https://app.dosco.live');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.dosco.live');
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
   });
 
@@ -199,9 +199,9 @@ describe('secretGrantErrorResponse', () => {
   test('reflects CORS origin like every other proxy response', () => {
     const res = secretGrantErrorResponse(
       new SecretGrantResolutionError('a', new Error('git unreachable')),
-      'https://app.kortix.ai',
+      'https://app.dosco.live',
     );
-    expect(res?.headers.get('Access-Control-Allow-Origin')).toBe('https://app.kortix.ai');
+    expect(res?.headers.get('Access-Control-Allow-Origin')).toBe('https://app.dosco.live');
   });
 });
 
@@ -376,7 +376,7 @@ describe('portUnreachableResponse carries hop attribution', () => {
     expect(await res.text()).toContain('<!doctype html>');
   });
 
-  // The probe runs cross-origin (dev.kortix.com → dev-api.kortix.com). Without
+  // The probe runs cross-origin (dev.dosco.live → dev-api.dosco.live). Without
   // this the browser hides both headers from JS and every failure reads as an
   // unattributed one — the exact ambiguity this step removes.
   test('both hop headers are CORS-exposed so a cross-origin probe can read them', () => {

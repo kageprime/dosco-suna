@@ -60,7 +60,7 @@ function codeBlock(code: string, fence = ''): CardElement {
   const lines = code.split('\n');
   const shown = lines.slice(0, FALLBACK_CODE_LINES).map((l) => escapeCardMarkdown(l) || ' ');
   const more = lines.length - shown.length;
-  if (more > 0) shown.push(`_… ${more} more lines — open this on desktop or in Kortix._`);
+  if (more > 0) shown.push(`_… ${more} more lines — open this on desktop or in Dosco._`);
   return {
     type: 'CodeBlock',
     codeSnippet: code,

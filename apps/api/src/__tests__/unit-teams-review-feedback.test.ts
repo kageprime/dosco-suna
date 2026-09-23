@@ -13,7 +13,7 @@ const card = (risk = 'high') =>
     title: 'Delete the staging bucket',
     summary: 'Removes 400 objects',
     risk,
-    viewUrl: 'https://dev.kortix.com/x',
+    viewUrl: 'https://dev.dosco.live/x',
   }) as unknown as { body: Array<Record<string, any>>; actions: Array<Record<string, any>> };
 
 describe('buildReviewCard — the reviewer can say why', () => {
@@ -30,7 +30,7 @@ describe('buildReviewCard — the reviewer can say why', () => {
     // `Action.Execute` returns every input whichever button was pressed, so
     // feedback rides along with Approve and Deny too, not only "changes".
     const c = card();
-    expect(c.actions.map((a) => a.title)).toEqual(['Approve', 'Request changes', 'Deny', 'View in Kortix']);
+    expect(c.actions.map((a) => a.title)).toEqual(['Approve', 'Request changes', 'Deny', 'View in Dosco']);
     for (const a of c.actions.filter((x) => x.verb === 'teams_review')) {
       expect(a.data.reviewItemId).toBe('ri_1');
     }

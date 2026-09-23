@@ -1,12 +1,12 @@
 /**
- * The App viewer — who is looking at a Kortix App, told to the App itself.
+ * The App viewer — who is looking at a Dosco App, told to the App itself.
  *
  * The Apps gate already authenticates every visitor of a non-public App
- * (`authorizeAppRequest`: Kortix login → 8h HMAC cookie, or a Kortix
+ * (`authorizeAppRequest`: Dosco login → 8h HMAC cookie, or a Dosco
  * credential). Until now it kept that entirely to itself: the container saw
  * "someone allowed" and nothing more, so an App that wanted per-user data had
  * to build a second login. This module closes that gap WITHOUT handing an App
- * the viewer's own Kortix session:
+ * the viewer's own Dosco session:
  *
  *   1. **A signed viewer header on every proxied request**
  *      (`x-kortix-app-viewer`). Identity only — user id, email, group ids —
@@ -18,7 +18,7 @@
  *      session: it expires in an hour, it carries only the scopes the App was
  *      granted, and deleting the App revokes every token it ever minted.
  *
- * The user signs in to Kortix once. Every App they open is authenticated
+ * The user signs in to Dosco once. Every App they open is authenticated
  * instantly — no second login, no consent screen, no redirect — and the blast
  * radius of App code is one App-scoped token instead of a full session.
  *
@@ -26,7 +26,7 @@
  *   `off`      — share nothing (pre-2026-08-27 behaviour).
  *   `identity` — header + a `profile email` token (default).
  *   `api`      — the above with `kortix`: the App acts AS the viewer on the
- *                Kortix API. The viewer's own IAM role is still the ceiling.
+ *                Dosco API. The viewer's own IAM role is still the ceiling.
  */
 import { createHmac, timingSafeEqual } from 'crypto';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -47,7 +47,7 @@ import { appAccessSecret } from './access';
 /** The signed identity the gate adds to every proxied request. */
 export const APP_VIEWER_HEADER = 'x-kortix-app-viewer';
 /**
- * The viewer's App-scoped Kortix token, added alongside the identity when the
+ * The viewer's App-scoped Dosco token, added alongside the identity when the
  * App carries `viewer_token_scope: 'api'`. Only then: an `identity` token opens
  * nothing on the API, so shipping it on every request would be noise.
  */
@@ -221,8 +221,8 @@ async function ensureAppOAuthClient(app: AppViewerTokenApp): Promise<string> {
     .values({
       appId: app.appId,
       accountId: app.accountId,
-      name: `Kortix App — ${app.name}`,
-      description: 'Implicit client for a Kortix-hosted App. Tokens are minted by the Apps gate for an already-authenticated viewer; it has no redirect URI and cannot run the authorization-code flow.',
+      name: `Dosco App — ${app.name}`,
+      description: 'Implicit client for a Dosco-hosted App. Tokens are minted by the Apps gate for an already-authenticated viewer; it has no redirect URI and cannot run the authorization-code flow.',
       clientType: 'public',
       redirectUris: [],
       scopes: ['profile', 'email', 'kortix'],

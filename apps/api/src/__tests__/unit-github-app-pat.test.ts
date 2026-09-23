@@ -4,7 +4,7 @@
  *
  *   - `verifyPastedGithubAppInstallation` — proves a pasted App (app id +
  *     private key + installation id) owns that installation, and resolves the
- *     owner Kortix will store with it, BEFORE anything is written.
+ *     owner Dosco will store with it, BEFORE anything is written.
  *   - `verifyRepoAdminToken` — proves a token can create AND delete a
  *     repository under the owner, the write managed git actually needs.
  *

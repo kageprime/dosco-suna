@@ -30,7 +30,7 @@ async function spendForPeriod(
   ];
   if (subjectUserId) conds.push(eq(gatewayRequestLogs.actorUserId, subjectUserId));
   const [agg] = await db
-    // TOTAL spend, not the Kortix-billed slice. A gateway budget caps what a
+    // TOTAL spend, not the Dosco-billed slice. A gateway budget caps what a
     // project spends on inference; measuring it with `final_cost` alone made
     // every budget on a BYOK project permanently inert, because BYOK routes
     // resolve to `billingMode: 'none'` with `markup: 0` and bill 0 no matter

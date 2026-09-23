@@ -41,7 +41,7 @@ export function accountDisplayName(
 // ─── Shared response/request schemas (power the Scalar docs) ────────────────
 
 /** Organization branding as members SEE it (see ../branding.ts). Absent or
- *  null = default Kortix marks — either nothing is set or the account's plan
+ *  null = default Dosco marks — either nothing is set or the account's plan
  *  no longer carries the `branding` entitlement. */
 export const EffectiveBrandingSchema = z
   .object({

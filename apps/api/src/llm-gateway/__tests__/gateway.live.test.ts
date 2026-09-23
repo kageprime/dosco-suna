@@ -22,7 +22,7 @@ function makeGateway() {
     billingMode: 'credits',
     markup: 1.2,
     resolvedModel: CHEAP_MODEL,
-    appName: 'Kortix-LiveTests',
+    appName: 'Dosco-LiveTests',
   };
   const hooks: GatewayHooks = {
     authenticate: async () => ({ userId: 'live-user', accountId: 'live-acct' }),

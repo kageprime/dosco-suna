@@ -57,13 +57,13 @@ describe('BYOK billing invariant', () => {
       .join('\n');
   }
 
-  test('BYOK always resolves with no Kortix billing', () => {
+  test('BYOK always resolves with no Dosco billing', () => {
     const src = code();
     expect(src).toMatch(/billingMode:\s*'none'/);
     expect(src).toMatch(/markup:\s*0/);
   });
 
-  test('BYOK never appends a Kortix-managed fallback', () => {
+  test('BYOK never appends a Dosco-managed fallback', () => {
     const src = code();
     expect(src).not.toContain('byokFallbackCandidates');
     expect(src).not.toMatch(/return[^;]*byokDescriptors[^;]*managedCandidates/);

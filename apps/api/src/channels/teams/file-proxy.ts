@@ -110,7 +110,7 @@ function imageContentType(filename: string): string | null {
  *   recipient's OneDrive once they accept; `handleFileConsentInvoke` finishes).
  * - channel / group chat, image → inline attachment (base64 data URI).
  * - channel with a known team → upload to the team's SharePoint drive under
- *   `/Kortix/` and post an organization-scoped link.
+ *   `/Dosco/` and post an organization-scoped link.
  * Anything else is refused with a reason the agent can relay.
  */
 export async function initiateTeamsUpload(
@@ -155,7 +155,7 @@ export async function initiateTeamsUpload(
   // An IMAGE is shown inline first, in every scope — the way Slack shows one.
   //
   // A personal chat used to skip this and send every file, images included,
-  // through the consent card: "Kortix wants to send you chart.png — Accept /
+  // through the consent card: "Dosco wants to send you chart.png — Accept /
   // Decline", then a file in OneDrive. That is the most common way people use
   // the bot, and it was the worst image experience of the three scopes.
   //
@@ -217,7 +217,7 @@ export async function initiateTeamsUpload(
       {
         contentType: 'application/vnd.microsoft.teams.card.file.consent',
         content: {
-          description: args.description ?? `Kortix wants to send you ${args.filename}.`,
+          description: args.description ?? `Dosco wants to send you ${args.filename}.`,
           sizeInBytes: size,
           acceptContext: { uploadId },
           declineContext: { uploadId },
@@ -237,7 +237,7 @@ export async function initiateTeamsUpload(
 }
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
-const DRIVE_FOLDER = 'Kortix';
+const DRIVE_FOLDER = 'Dosco';
 
 /**
  * Does the channel this conversation belongs to live in that team? A Teams

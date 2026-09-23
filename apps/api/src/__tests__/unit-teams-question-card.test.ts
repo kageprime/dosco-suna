@@ -198,7 +198,7 @@ describe('buildQuestionCard — the answer carries its question', () => {
   });
 });
 
-// Measured against the Kortix web question UI, a realistic three-question ask
+// Measured against the Dosco web question UI, a realistic three-question ask
 // rendered with two identical bold "Something else" labels, one question whose
 // options were hidden in a dropdown, and every question header dropped.
 describe('buildQuestionCard — the form reads like the web question UI', () => {

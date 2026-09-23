@@ -53,7 +53,7 @@ export interface SessionCostSummary {
   created_at: string;
   updated_at: string;
   last_activity_at: string | null;
-  /** LLM charges debited from the Kortix wallet. Excludes provider-side BYOK spend. */
+  /** LLM charges debited from the Dosco wallet. Excludes provider-side BYOK spend. */
   llm_cost: number;
   /** Alias of `llm_cost`, retained for the additive payee breakdown. */
   llm_kortix_cost: number;

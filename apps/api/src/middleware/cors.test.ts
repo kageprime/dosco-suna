@@ -23,7 +23,7 @@ describe('createCorsMiddleware', () => {
     const response = await app.request('/v1/read', {
       method: 'OPTIONS',
       headers: {
-        Origin: 'https://kortix.com',
+        Origin: 'https://dosco.live',
         'Access-Control-Request-Method': 'GET',
         'Access-Control-Request-Headers':
           'authorization,content-type,last-event-id,x-kortix-client',
@@ -31,7 +31,7 @@ describe('createCorsMiddleware', () => {
     });
 
     expect(response.status).toBe(204);
-    expect(response.headers.get('access-control-allow-origin')).toBe('https://kortix.com');
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://dosco.live');
     expect(response.headers.get('access-control-allow-credentials')).toBe('true');
     expect(response.headers.get('access-control-allow-headers')?.toLowerCase()).toContain(
       'last-event-id',
@@ -53,7 +53,7 @@ describe('createCorsMiddleware', () => {
     const response = await app.request('/v1/read', {
       method: 'OPTIONS',
       headers: {
-        Origin: 'https://kortix.com',
+        Origin: 'https://dosco.live',
         'Access-Control-Request-Method': 'GET',
         'Access-Control-Request-Headers': 'authorization,x-kortix-impersonate',
       },
@@ -65,8 +65,8 @@ describe('createCorsMiddleware', () => {
   });
 
   // The proxy attributes a failure with `X-Kortix-Proxy-Hop`, and the health
-  // probe that reads it is ALWAYS cross-origin (dev.kortix.com →
-  // dev-api.kortix.com). A response header the browser does not expose is
+  // probe that reads it is ALWAYS cross-origin (dev.dosco.live →
+  // dev-api.dosco.live). A response header the browser does not expose is
   // invisible to JS, so the probe reads null and is back to guessing.
   //
   // `portUnreachableResponse` sets `Access-Control-Expose-Headers` itself, but
@@ -82,7 +82,7 @@ describe('createCorsMiddleware', () => {
       portUnreachableResponse({
         port: 8000,
         status: 502,
-        origin: 'https://dev.kortix.com',
+        origin: 'https://dev.dosco.live',
         incomingHeaders: new Headers({ accept: 'application/json' }),
         reason: 'sandbox upstream unreachable',
         hop: 'daemon',
@@ -91,7 +91,7 @@ describe('createCorsMiddleware', () => {
     );
 
     const response = await app.request('/v1/p/box/8000/kortix/health', {
-      headers: { Origin: 'https://dev.kortix.com', accept: 'application/json' },
+      headers: { Origin: 'https://dev.dosco.live', accept: 'application/json' },
     });
 
     const exposed = response.headers.get('access-control-expose-headers')?.toLowerCase() ?? '';
@@ -116,7 +116,7 @@ describe('createCorsMiddleware', () => {
     });
 
     const response = await app.request('/v1/p/box/8000/kortix/health', {
-      headers: { Origin: 'https://dev.kortix.com' },
+      headers: { Origin: 'https://dev.dosco.live' },
     });
 
     const exposed = response.headers.get('access-control-expose-headers')?.toLowerCase() ?? '';
@@ -161,12 +161,12 @@ describe('createCorsMiddleware', () => {
       headers: { Origin: 'https://customer.example' },
     });
     const preview = await app.request('/v1/read', {
-      headers: { Origin: 'https://change-123.preview.kortix.com' },
+      headers: { Origin: 'https://change-123.preview.dosco.live' },
     });
 
     expect(configured.headers.get('access-control-allow-origin')).toBe('https://customer.example');
     expect(preview.headers.get('access-control-allow-origin')).toBe(
-      'https://change-123.preview.kortix.com',
+      'https://change-123.preview.dosco.live',
     );
   });
 });

@@ -34,7 +34,7 @@ function dependencies(calls: string[]) {
         sourceSha,
         cacheHit: true,
         manifest: {
-          format: 'kortix.compiled-runtime.v1' as const,
+          format: 'dosco.livepiled-runtime.v1' as const,
           engine: 'opencode' as const,
           project_id: 'project-1',
           ref,

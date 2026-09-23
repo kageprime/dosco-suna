@@ -4,7 +4,7 @@ const mockConfig = {
   FRONTEND_URL: 'https://app.example.test',
   MAILTRAP_API_TOKEN: 'mailtrap-token',
   MAILTRAP_FROM_EMAIL: 'noreply@example.test',
-  MAILTRAP_FROM_NAME: 'Kortix Test',
+  MAILTRAP_FROM_NAME: 'Dosco Test',
 };
 
 mock.module('../config', () => ({
@@ -49,9 +49,9 @@ describe('notification emails', () => {
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer mailtrap-token');
 
     const payload = sentPayload();
-    expect(payload.from).toEqual({ email: 'noreply@example.test', name: 'Kortix Test' });
+    expect(payload.from).toEqual({ email: 'noreply@example.test', name: 'Dosco Test' });
     expect(payload.to).toEqual([{ email: 'teammate@example.test' }]);
-    expect(payload.subject).toBe('You\'re invited to join "Acme <Labs>" on Kortix');
+    expect(payload.subject).toBe('You\'re invited to join "Acme <Labs>" on Dosco');
     expect(payload.category).toBe('account-invite');
     expect(payload.html).toContain('https://app.example.test/invites/invite-account-123');
     expect(payload.html).toContain('Acme &lt;Labs&gt;');

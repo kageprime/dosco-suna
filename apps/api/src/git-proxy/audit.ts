@@ -1,5 +1,5 @@
 /**
- * Audit rows for the Kortix Git proxy (`/v1/git/*`).
+ * Audit rows for the Dosco Git proxy (`/v1/git/*`).
  *
  * The proxy authenticates its own git Basic/Bearer credential, so the API
  * request middleware (`auditApiRequest`) never sees an identity here and wrote

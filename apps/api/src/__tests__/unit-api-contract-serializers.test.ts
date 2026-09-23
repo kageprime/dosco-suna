@@ -82,7 +82,7 @@ function sandboxRow(
     activeSince: NOW,
     deadlineAt: NOW,
     externalId: 'sbx-123',
-    baseUrl: 'https://sbx-123.proxy.kortix.com',
+    baseUrl: 'https://sbx-123.proxy.dosco.live',
     status: 'active',
     config: { serviceKey: 'sensitive', region: 'eu' },
     metadata: {},
@@ -211,7 +211,7 @@ describe('serializeSession ⇄ ProjectSessionSchema', () => {
     expect(parsed.custom_name).toBe('Mine');
   });
 
-  test('runtime snapshot root title wins over the Kortix auto title', () => {
+  test('runtime snapshot root title wins over the Dosco auto title', () => {
     const out = serializeSession(
       sessionRow({
         metadata: {
@@ -260,28 +260,28 @@ describe('serializeSession ⇄ ProjectSessionSchema', () => {
     expect(ProjectSessionSchema.strict().parse(out).name).toBe('Tree Root Title');
   });
 
-  test('placeholder or blank runtime titles fall back to the Kortix auto title', () => {
+  test('placeholder or blank runtime titles fall back to the Dosco auto title', () => {
     const placeholder = serializeSession(
       sessionRow({
         metadata: {
-          name: 'Real Kortix Title',
+          name: 'Real Dosco Title',
           opencode_sessions: [
             { id: 'ses_abc', title: 'New session - 2026-08-09T10:00:00.000Z', parent_id: null },
           ],
         },
       }),
     );
-    expect(ProjectSessionSchema.strict().parse(placeholder).name).toBe('Real Kortix Title');
+    expect(ProjectSessionSchema.strict().parse(placeholder).name).toBe('Real Dosco Title');
 
     const blank = serializeSession(
       sessionRow({
         metadata: {
-          name: 'Real Kortix Title',
+          name: 'Real Dosco Title',
           opencode_sessions: [{ id: 'ses_abc', title: '   ', parent_id: null }],
         },
       }),
     );
-    expect(ProjectSessionSchema.strict().parse(blank).name).toBe('Real Kortix Title');
+    expect(ProjectSessionSchema.strict().parse(blank).name).toBe('Real Dosco Title');
   });
 
   test('custom_name wins over the runtime snapshot title', () => {

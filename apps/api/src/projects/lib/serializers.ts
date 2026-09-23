@@ -229,7 +229,7 @@ export function serializeSession(
  */
 
 function dashboardBaseUrl(): string {
-  return (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
+  return (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
 }
 
 /** True when a GitHub repo-create error is a name collision (HTTP 422). On
@@ -249,7 +249,7 @@ export function serializeProject(
     account_id: row.accountId,
     name: row.name,
     repo_url: row.repoUrl,
-    // Runtime clients clone and push only through the Kortix Git proxy. The
+    // Runtime clients clone and push only through the Dosco Git proxy. The
     // upstream origin and its credential remain server-side.
     git_origin_url: proxyGitUrl(row.projectId),
     default_branch: row.defaultBranch,
@@ -329,7 +329,7 @@ export function serializeProjectGitConnection(row: ProjectGitConnectionRow | nul
     installation_id: row.installationId,
     // The flag the web's repo-access section keys on. It used to be read off
     // `metadata.git.managed`, which is empty once the connection lives in
-    // this table — every managed repo then read as "Kortix did not create it".
+    // this table — every managed repo then read as "Dosco did not create it".
     managed: row.managed ?? false,
     credential_ref: row.credentialRef,
     permissions: row.permissions ?? {},
@@ -641,7 +641,7 @@ export function serializeGitHubInstallation(
 }
 
 /**
- * Account connections only. The instance backend ("Kortix managed") used to
+ * Account connections only. The instance backend ("Dosco managed") used to
  * be injected here as a synthetic entry, which made one instance-global
  * credential look like this account's own GitHub connection.
  */
@@ -701,7 +701,7 @@ export function hasOwn(body: Record<string, unknown>, key: string): boolean {
 }
 
 export function deriveKortixApiRoot(kortixUrl: string): string {
-  return (kortixUrl || 'https://api.kortix.com')
+  return (kortixUrl || 'https://api.dosco.live')
     .replace(/\/+$/, '')
     .replace(/\/v1\/router$/, '')
     .replace(/\/v1$/, '');

@@ -54,7 +54,7 @@ mock.module('../repositories/account-tokens', () => ({
     }
     if (t === 'kortix_pat_session_bound_a') {
       // The in-sandbox KORTIX_TOKEN shape: project+SESSION-scoped
-      // ("One sandbox, one session-scoped Kortix credential").
+      // ("One sandbox, one session-scoped Dosco credential").
       return {
         isValid: true,
         userId: 'user-1',
@@ -82,7 +82,7 @@ mock.module('../repositories/api-keys', () => ({
           accountId: ACCOUNT,
           keyId: 'legacy-key',
         }
-      : { isValid: false, error: 'Invalid Kortix token' },
+      : { isValid: false, error: 'Invalid Dosco token' },
 }));
 
 mock.module('../shared/jwt-verify', () => ({

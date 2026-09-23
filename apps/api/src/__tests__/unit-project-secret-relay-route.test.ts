@@ -332,7 +332,7 @@ describe('the relay-200 vs relay-error disambiguation — the load-bearing rule'
 
   test('an upstream 429 is relay 200 WITH a status header carrying 429', async () => {
     // The distinction the legacy JSON envelope preserves and this contract must
-    // not lose: "Kortix denied you" and "Stripe rate-limited you" are different
+    // not lose: "Dosco denied you" and "Stripe rate-limited you" are different
     // facts and the agent acts differently on each.
     upstreamStatus = 429;
     upstreamHeaders = [

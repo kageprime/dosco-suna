@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import { TEAMS_STOP_VERB, buildPlanCard } from '../channels/teams/cards';
 
-// Every other Kortix surface can end a run the moment it goes wrong. In Teams
+// Every other Dosco surface can end a run the moment it goes wrong. In Teams
 // the only lever was to wait out the 30-minute GC — and a wedged turn swallows
 // every later message in the conversation until it fires (dev 2026-09-19: two
 // messages lost over two days). These pin the button and who may press it.

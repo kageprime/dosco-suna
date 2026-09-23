@@ -303,12 +303,12 @@ export const REAPER_TURN_CAUSES = {
   /** The daemon said no turn is running, yet OpenCode held the reply open. */
   huskFinalized: {
     name: 'TurnHuskFinalized',
-    message: 'The agent stopped responding in the middle of this turn, so Kortix closed it.',
+    message: 'The agent stopped responding in the middle of this turn, so Dosco closed it.',
   },
   /** The daemon said the turn failed; the frame that said why was lost. */
   runtimeFailed: {
     name: 'RuntimeTurnFailed',
-    message: 'The sandbox reported that this turn failed, but the error did not reach Kortix.',
+    message: 'The sandbox reported that this turn failed, but the error did not reach Dosco.',
   },
 } as const satisfies Record<string, SessionTurnEndErrorRecord>;
 

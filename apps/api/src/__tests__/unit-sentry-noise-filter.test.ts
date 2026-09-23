@@ -3,14 +3,14 @@
  *
  * Better Stack pattern c672fb5e8c4f366e2aecab35a4abf23c8bb3fa26f0eb1d8cafddf3cd3ca26e55
  * — an UNHANDLED `TimeoutError: The operation timed out.` from prod
- * (Kortix API, application_id 2346961), 3 occurrences, 0 users, last seen
+ * (Dosco API, application_id 2346961), 3 occurrences, 0 users, last seen
  * 2026-07-14 19:34:39 UTC, first seen 2026-06-10. The raw Sentry event carried:
  *
  *   - mechanism: auto.node.onunhandledrejection (handled: false)
  *   - type: TimeoutError, value: "The operation timed out."
  *   - call_site_function / call_site_file: null  (NO JS stack)
  *   - runtime: bun 1.2.23, environment: prod
- *   - url: http://new-api.kortix.com/v1/router/tavily/search
+ *   - url: http://new-api.dosco.live/v1/router/tavily/search
  *
  * Root cause: the /v1/router/tavily/* catch-all billed-upstream proxy returns
  * `new Response(upstream.body, …)` to the client (handlers.ts). When the Tavily

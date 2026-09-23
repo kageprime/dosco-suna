@@ -4,7 +4,7 @@ mock.module('../config', () => ({
   config: {
     MICROSOFT_APP_PASSWORD: 'teams-secret',
     KORTIX_URL: '',
-    FRONTEND_URL: 'https://app.kortix.com',
+    FRONTEND_URL: 'https://app.dosco.live',
   },
 }));
 
@@ -35,7 +35,7 @@ describe('teams login token', () => {
 
   test('builds a web login url with the signed token', () => {
     const url = buildTeamsLoginUrl({ tenantId: 't', teamsUserId: 'u' });
-    expect(url.startsWith('https://app.kortix.com/teams/login/')).toBe(true);
+    expect(url.startsWith('https://app.dosco.live/teams/login/')).toBe(true);
     const token = url.split('/teams/login/')[1]!;
     expect(verifyTeamsLoginState(token)?.tenantId).toBe('t');
   });

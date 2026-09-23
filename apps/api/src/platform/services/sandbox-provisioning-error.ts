@@ -51,7 +51,7 @@ const GIT_AUTH_PATTERN =
  * The project's own network-boundary config is unusable, so `resolveNetworkBoundaryBindings`
  * refuses the whole set before any provider is contacted.
  *
- * A Kortix-side configuration error, and it used to be indistinguishable from a provider fault:
+ * A Dosco-side configuration error, and it used to be indistinguishable from a provider fault:
  * with no pattern here it fell through to `sandbox-provider`, whose copy blames the provider and
  * says "Try again" — for a state where retrying can never succeed. Two secrets claiming the same
  * (host, header) is now rejected at save time, so this classifies the configs that predate that

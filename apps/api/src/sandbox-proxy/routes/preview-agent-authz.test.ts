@@ -4,7 +4,7 @@
 // `project.agent.read` was asserted only at session create (projects/routes/project-sessions.ts),
 // against `body.agent_name`. The prompt path never re-checked, so a member scoped
 // to agent A could create the session as A and then prompt `{"agent":"B"}` — and
-// `remintGrantForAgentSwitch` would hand them B's connector / Kortix-CLI grant,
+// `remintGrantForAgentSwitch` would hand them B's connector / Dosco-CLI grant,
 // because the re-mint is a re-scoping mechanism, not an authorization one
 // (`remintDecisionFor` refuses only the fully-null UNRESTRICTED widening).
 //
@@ -234,7 +234,7 @@ test('naming the session own agent is not a switch and is not gated', async () =
 // naming a concrete agent reached neither the authorization check nor a refusal.
 // That was not harmless. The body's `agent` is stripped only when the REQUESTED
 // agent is the sentinel, so the named agent really ran, and the token really was
-// re-minted to its connector/Kortix-CLI grant. Anyone who could use a
+// re-minted to its connector/Dosco-CLI grant. Anyone who could use a
 // default-bound session could run any agent in the project.
 test('a default-bound session naming a concrete agent IS authorized', async () => {
   sessionAgentName = 'default';

@@ -20,7 +20,7 @@ export function addPlatformMetaAgent(config: ProjectConfigSummary): ProjectConfi
       {
         name: META_AGENT_NAME,
         path: '/workspace/AGENTS.md',
-        description: 'Starts specialized Kortix sessions and coordinates their work.',
+        description: 'Starts specialized Dosco sessions and coordinates their work.',
         mode: 'primary',
         source: 'opencode',
         enabled: true,
@@ -42,10 +42,10 @@ export function buildPlatformMetaOpenCodeConfig(): string {
   return JSON.stringify({
     agent: {
       [META_AGENT_NAME]: {
-        description: 'Starts specialized Kortix sessions and coordinates their work.',
+        description: 'Starts specialized Dosco sessions and coordinates their work.',
         mode: 'primary',
         prompt:
-          'Follow /workspace/AGENTS.md. Coordinate work through the Kortix CLI. You are the only coordinator: spawn specialized sessions to do the work, give each one bounded task via --prompt, and never ask a session to spawn further sessions.',
+          'Follow /workspace/AGENTS.md. Coordinate work through the Dosco CLI. You are the only coordinator: spawn specialized sessions to do the work, give each one bounded task via --prompt, and never ask a session to spawn further sessions.',
       },
     },
   });

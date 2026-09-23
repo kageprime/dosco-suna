@@ -265,7 +265,7 @@ describe('initiateTeamsUpload outside a personal chat', () => {
     });
     expect(r).toMatchObject({ ok: true, delivered: 'drive_link' });
     const put = fetchCalls.find((c) => c.method === 'PUT');
-    expect(put?.url).toBe('https://graph.microsoft.com/v1.0/groups/group-1/drive/root:/Kortix/report.pdf:/content');
+    expect(put?.url).toBe('https://graph.microsoft.com/v1.0/groups/group-1/drive/root:/Dosco/report.pdf:/content');
     expect(put?.headers?.Authorization).toBe('Bearer graph-tok');
     const link = fetchCalls.find((c) => c.method === 'POST' && c.url.endsWith('/createLink'));
     expect(link).toBeDefined();
@@ -381,7 +381,7 @@ describe('file proxy — token and drive authorization', () => {
 
 
 // An agent's image in a PERSONAL chat used to go through the consent card —
-// "Kortix wants to send you chart.png — Accept / Decline", then OneDrive — the
+// "Dosco wants to send you chart.png — Accept / Decline", then OneDrive — the
 // worst image experience of the three scopes, in the most common one. A group
 // chat or channel posted inline with NO fallback: a refused post was a 502.
 describe('initiateTeamsUpload — an image is shown inline first, in every scope', () => {

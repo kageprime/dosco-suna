@@ -1,7 +1,7 @@
 /**
  * OAuth access tokens (`kortix_oat_…`) as a first-class API credential.
  *
- * "Sign in with Kortix" hands a third-party app a token minted by
+ * "Sign in with Dosco" hands a third-party app a token minted by
  * `POST /v1/oauth/token`. Before this module that token opened exactly one
  * route (`/v1/oauth/userinfo`); every other middleware saw the `kortix_`
  * prefix, ran it through the API-key table and 401'd. Now both auth
@@ -22,7 +22,7 @@ export const OAUTH_REFRESH_TOKEN_PREFIX = 'kortix_ort_';
 export const OAUTH_SCOPE_PROFILE = 'profile';
 /** Email address (OIDC-shaped clients ask for it by this name; same data as `profile`). */
 export const OAUTH_SCOPE_EMAIL = 'email';
-/** Act as the user on the whole Kortix API. The scope that makes the token a credential. */
+/** Act as the user on the whole Dosco API. The scope that makes the token a credential. */
 export const OAUTH_SCOPE_KORTIX = 'kortix';
 
 export const OAUTH_SCOPES = [OAUTH_SCOPE_PROFILE, OAUTH_SCOPE_EMAIL, OAUTH_SCOPE_KORTIX] as const;

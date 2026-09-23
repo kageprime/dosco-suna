@@ -55,7 +55,7 @@ export async function resolveTeamsActor(
   if (!link) return { reason: 'unlinked' };
 
   if (!(await isAccountMember(link.userId, accountId))) return { reason: 'not_member' };
-  // A channel webhook carries no Kortix credential: it acts AS the Kortix user
+  // A channel webhook carries no Dosco credential: it acts AS the Dosco user
   // the Slack/Teams identity is linked to. Role-only is the honest classification
   // and is exactly the authority this call had when the trailing `actingTokenId`
   // was omitted.
@@ -218,7 +218,7 @@ export async function createTeamsAccessRequest(input: {
     projectId: input.projectId,
     requesterUserId: identity.userId,
     requesterEmail: email || identity.userId,
-    message: 'Requested from Microsoft Teams. Approve so they can run Kortix from Teams.',
+    message: 'Requested from Microsoft Teams. Approve so they can run Dosco from Teams.',
   });
   return { status: 'created', ...base };
 }

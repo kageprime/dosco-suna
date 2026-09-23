@@ -14,7 +14,7 @@ import { isSelfHostOperatorEmail, selfHostOperatorAllowlist } from './self-host-
  *
  * The managed-git PAT import path (the synthetic `pat` installation) lists that
  * org wholesale. Gating it on `isPlatformAdmin` therefore offered every
- * customer's private repo to any Kortix staff admin, one click from `/new` —
+ * customer's private repo to any Dosco staff admin, one click from `/new` —
  * reported 2026-08-29 as "why can I import anyone else's project".
  *
  * `isSelfHostOperatorEmail` is the narrower question that path must ask
@@ -51,11 +51,11 @@ describe('isSelfHostOperatorEmail', () => {
   });
 
   test('THE REGRESSION: false on cloud, where the allowlist is unset', () => {
-    // This is the whole point. A Kortix staff platform admin has a
+    // This is the whole point. A Dosco staff platform admin has a
     // `platform_user_roles` row and no allowlist entry, so the managed-org
     // import path must not open for them.
-    expect(isSelfHostOperatorEmail('staff@kortix.ai', undefined)).toBe(false);
-    expect(isSelfHostOperatorEmail('staff@kortix.ai', '')).toBe(false);
+    expect(isSelfHostOperatorEmail('staff@dosco.live', undefined)).toBe(false);
+    expect(isSelfHostOperatorEmail('staff@dosco.live', '')).toBe(false);
   });
 
   test('false for a missing email, never a blank match', () => {

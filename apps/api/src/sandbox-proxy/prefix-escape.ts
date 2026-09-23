@@ -5,9 +5,9 @@
  * emits a ROOT-ABSOLUTE link (`<a href="/learn">`) hands the browser a URL that
  * resolves against the API ORIGIN, dropping the prefix entirely:
  *
- *   served at  https://dev-api.kortix.com/v1/p/sbx_01M0…/8081/
+ *   served at  https://dev-api.dosco.live/v1/p/sbx_01M0…/8081/
  *   click      <a href="/learn">
- *   browser go https://dev-api.kortix.com/learn        ← prefix gone → API 404
+ *   browser go https://dev-api.dosco.live/learn        ← prefix gone → API 404
  *
  * `sanitizeRedirectLocation` already covers the server-redirect form of this
  * (`Location: /learn`); it cannot cover a link the browser resolved on its own,

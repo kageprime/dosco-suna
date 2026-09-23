@@ -1,5 +1,5 @@
 /**
- * The instance git backend — "Kortix managed" git, ONE deployment-wide thing.
+ * The instance git backend — "Dosco managed" git, ONE deployment-wide thing.
  *
  * It has its own namespace on purpose. It used to ride inside
  * `GET /projects/github/installations` as a synthetic installation with the
@@ -59,7 +59,7 @@ projectsApp.openapi(
 //
 // `isSelfHostOperator`, NOT `isPlatformAdmin`. This lists the WHOLE backend
 // owner, which on cloud is `managed-kortix` — every customer's project repo.
-// Kortix staff are platform admins too, so gating on that role once put every
+// Dosco staff are platform admins too, so gating on that role once put every
 // customer's private repository in the import picker (reported 2026-08-29).
 
 projectsApp.openapi(

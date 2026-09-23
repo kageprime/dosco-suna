@@ -75,9 +75,9 @@ async function jitSyncSso(
 // ═══════════════════════════════════════════════════════════════════════════════
 // Auth Middleware (3 middlewares — one per auth strategy)
 //
-//   1. apiKeyAuth      — Kortix API keys only (header)
+//   1. apiKeyAuth      — Dosco API keys only (header)
 //   2. supabaseAuth    — Supabase JWT only (header)
-//   3. combinedAuth    — Kortix OR Supabase (header + cookie fallback)
+//   3. combinedAuth    — Dosco OR Supabase (header + cookie fallback)
 //
 // Token is read from query parameters ONLY as a last resort for preview proxy
 // routes (/v1/p/*) — browser WebSocket API can't set custom headers, so PTY
@@ -96,7 +96,7 @@ async function jitSyncSso(
 
 /**
  * API key auth for search, LLM, and router routes.
- * Always validates Kortix tokens (kortix_, kortix_sb_) via validateSecretKey()
+ * Always validates Dosco tokens (kortix_, kortix_sb_) via validateSecretKey()
  * against the api_keys table.
  */
 export async function apiKeyAuth(c: Context, next: Next) {
@@ -159,7 +159,7 @@ export async function apiKeyAuth(c: Context, next: Next) {
 }
 
 /**
- * Sign in with Kortix: resolve a `kortix_oat_` OAuth access token to the user
+ * Sign in with Dosco: resolve a `kortix_oat_` OAuth access token to the user
  * who granted it. Shared by supabaseAuth and combinedAuth so both middlewares
  * hand a route the same principal (see unit-oauth-access-token-auth.test.ts).
  * Throws on any failure; sets the context and returns on success.
@@ -286,7 +286,7 @@ async function resolveSupabaseAuth(c: Context, next: Next) {
     }
     if (result.tokenId) c.set('iamTokenId', result.tokenId);
     // Per-agent authorization grant (non-null only for agent-session tokens).
-    // Read by requireScope() to gate Kortix CLI/API actions on top of the
+    // Read by requireScope() to gate Dosco CLI/API actions on top of the
     // user's own role — net effect = userRole ∩ agentGrant.
     c.set('agentGrant', result.agentGrant ?? null);
     // The human this agent session acts on behalf of (null = unattended, or
@@ -307,7 +307,7 @@ async function resolveSupabaseAuth(c: Context, next: Next) {
     return;
   }
 
-  // OAuth access token (Sign in with Kortix) — acts as the granting user.
+  // OAuth access token (Sign in with Dosco) — acts as the granting user.
   // MUST precede every `kortix_`-prefix branch: the generic key validator
   // would otherwise reject it against the api_keys table.
   if (isOAuthAccessToken(token)) {
@@ -352,7 +352,7 @@ async function resolveSupabaseAuth(c: Context, next: Next) {
   if (isKortixToken(token) && sandboxTokenPathAllowed) {
     const result = await validateSecretKey(token);
     if (!result.isValid) {
-      throw new HTTPException(401, { message: result.error || 'Invalid Kortix token' });
+      throw new HTTPException(401, { message: result.error || 'Invalid Dosco token' });
     }
     if (result.type !== 'sandbox' || !result.sandboxId) {
       throw new HTTPException(403, { message: 'This route requires a sandbox token' });
@@ -473,7 +473,7 @@ async function resolveSupabaseAuth(c: Context, next: Next) {
 }
 
 /**
- * Combined auth — accepts Kortix tokens OR Supabase JWTs.
+ * Combined auth — accepts Dosco tokens OR Supabase JWTs.
  *
  * Token resolution order:
  *   1. Authorization: Bearer <token> header
@@ -544,7 +544,7 @@ async function resolveCombinedAuth(c: Context, next: Next) {
   const isPreviewRoute = c.req.path.startsWith('/v1/p/') || c.req.path === '/v1/p';
 
   // 0. Service-account bearer (non-human IAM principal) — mirrors the
-  // supabaseAuth branch. MUST run before the generic Kortix-token branch:
+  // supabaseAuth branch. MUST run before the generic Dosco-token branch:
   // `kortix_sa_` also matches the `kortix_` prefix, so without this check the
   // token falls into validateSecretKey and every combinedAuth-mounted route
   // (preview proxy, cron, secrets, providers, SSE) rejects service accounts
@@ -638,7 +638,7 @@ async function resolveCombinedAuth(c: Context, next: Next) {
     return;
   }
 
-  // 1b. OAuth access token (Sign in with Kortix) — acts as the granting user.
+  // 1b. OAuth access token (Sign in with Dosco) — acts as the granting user.
   // Precedes the generic `kortix_` branch for the same reason kortix_sa_ does.
   if (isOAuthAccessToken(token)) {
     await applyOAuthAccessTokenPrincipal(c, token);
@@ -647,7 +647,7 @@ async function resolveCombinedAuth(c: Context, next: Next) {
     return;
   }
 
-  // 2. Try Kortix token (kortix_ or kortix_sb_) — used by agents inside the sandbox
+  // 2. Try Dosco token (kortix_ or kortix_sb_) — used by agents inside the sandbox
   if (isKortixToken(token)) {
     const result = await validateSecretKey(token);
     if (!result.isValid) {
@@ -656,7 +656,7 @@ async function resolveCombinedAuth(c: Context, next: Next) {
         reason: result.error ?? 'invalid_kortix_token',
         authType: 'apiKey',
       });
-      throw new HTTPException(401, { message: result.error || 'Invalid Kortix token' });
+      throw new HTTPException(401, { message: result.error || 'Invalid Dosco token' });
     }
     if (
       previewSandboxId &&
@@ -887,7 +887,7 @@ async function enforceTokenProjectScope(
 
   // Daemon-only platform sinks (SESSION_BOUND_PLATFORM_SINKS). A session
   // sandbox holds exactly ONE credential — a project+SESSION-scoped PAT ("One
-  // sandbox, one session-scoped Kortix credential",
+  // sandbox, one session-scoped Dosco credential",
   // platform/services/session-sandbox.ts) — so without this branch the daemon's
   // push can never reach the sink on any environment. Allowed ONLY for a
   // session-BOUND token; an ordinary project PAT stays denied. Each handler
@@ -901,7 +901,7 @@ async function enforceTokenProjectScope(
   // "what project/session/agent am I bound to?".
   if (path === '/v1/accounts/me') return;
 
-  // `/v1/skills` — the kortix-managed system skills (how Kortix itself works).
+  // `/v1/skills` — the kortix-managed system skills (how Dosco itself works).
   // This function is default-deny, and the in-sandbox `KORTIX_TOKEN` is
   // exactly a project+session-scoped PAT, so without this branch the ONE caller
   // these routes exist for gets a 403: every baked sandbox seeds a kortix-system

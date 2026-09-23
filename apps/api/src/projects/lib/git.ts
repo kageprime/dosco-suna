@@ -337,7 +337,7 @@ export interface ProjectGitRemote {
   externalRepoId: string | null;
   /** Real upstream host git URL, distinct from the client-facing proxy URL. */
   upstreamUrl: string | null;
-  /** True when Kortix provisioned the repo. */
+  /** True when Dosco provisioned the repo. */
   managed: boolean;
 }
 
@@ -384,7 +384,7 @@ export async function upsertProjectGitConnection(input: {
   repoUrl: string;
   /** Real upstream host git URL (distinct from the client-facing repoUrl). */
   upstreamUrl?: string | null;
-  /** True when Kortix provisioned the repo. */
+  /** True when Dosco provisioned the repo. */
   managed?: boolean;
   repoOwner?: string | null;
   repoName?: string | null;
@@ -821,7 +821,7 @@ export async function withProjectGitAuth(project: ProjectRow): Promise<ProjectRo
 
 /**
  * Resolve a project to a real upstream git endpoint + short-lived host auth
- * headers — the single seam consumed by the Kortix git proxy (and, post-M2,
+ * headers — the single seam consumed by the Dosco git proxy (and, post-M2,
  * server-side git). Token resolution reuses `resolveProjectGitAuth` (managed +
  * BYO GitHub / project credential); the backend formats
  * the URL + headers for the provider. Returns null when no upstream is
@@ -863,7 +863,7 @@ export type GitProxyAuth =
   | { ok: false; status: number; message: string };
 
 /**
- * Authorize a Kortix git-proxy request: a bare credential (extracted from the
+ * Authorize a Dosco git-proxy request: a bare credential (extracted from the
  * git Basic/Bearer header) + the target project + the operation scope.
  *
  * The owning account is the trust boundary:
@@ -1177,7 +1177,7 @@ async function authorizeGitProxyUncached(
     return { ok: true, project, principal: { kind: 'user', userId: null }, agentGrant: null };
   }
 
-  return { ok: false, status: 401, message: 'git proxy requires a Kortix token' };
+  return { ok: false, status: 401, message: 'git proxy requires a Dosco token' };
 }
 
 
@@ -1217,7 +1217,7 @@ export async function resolveGitHubImport(input: {
   }
   if (parsed.owner.toLowerCase() !== installation.ownerLogin.toLowerCase()) {
     throw new Error(
-      `GitHub App installation is for ${installation.ownerLogin}; install Kortix on ${parsed.owner} to link this repo`,
+      `GitHub App installation is for ${installation.ownerLogin}; install Dosco on ${parsed.owner} to link this repo`,
     );
   }
 

@@ -15,7 +15,7 @@ import { listProjectAgents, type ProjectAgent } from './slack/selection';
  * declaration until 2026-09-21. Shared here so a third platform cannot repeat
  * it.
  *
- * `userId` is the Kortix user behind the chat identity, or null when the
+ * `userId` is the Dosco user behind the chat identity, or null when the
  * person has not linked an account. An unlinked user sees the unscoped set —
  * the agents nothing restricts — which is the same answer Slack gives and
  * strictly narrower than the full declaration.

@@ -144,7 +144,7 @@ describe('session sharing — default private; team-wide or select-members', () 
     expect(isSessionVisibleTo('private', ALICE, [], { userId: BOB, groupIds: [] }, INTERACTIVE)).toBe(false);
   });
 
-  // ── Kortix-as-a-Backend isolation ──
+  // ── Dosco-as-a-Backend isolation ──
   // Every KaaB session is created by the SAME wrapper credential, so created_by
   // is identical for every end-user. The ownership short-circuit above therefore
   // makes every backend session look owned by whoever asks — which, for a token
@@ -501,7 +501,7 @@ describe('isSessionTargetVisibleToCaller — the binding, not the login id', () 
     expect(
       isSessionTargetVisibleToCaller({
         ...BACKEND,
-        // A Supabase LOGIN session id — non-null, and never a Kortix session id.
+        // A Supabase LOGIN session id — non-null, and never a Dosco session id.
         callerSessionId: 'supabase-login-abc',
         boundCredentialSessionId: null,
       }),

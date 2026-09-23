@@ -128,7 +128,7 @@ connectors = []
   });
 
   // The security feature is preserved: an unlisted CONCRETE agent still denies.
-  // Default-deny is total — no connectors, no Kortix-CLI, and (per the secrets-
+  // Default-deny is total — no connectors, no Dosco-CLI, and (per the secrets-
   // scoping rule) no project env either.
   test('concrete unlisted agent under governance still default-denies (≠ sentinel)', () => {
     const loaded = loadAgents(`

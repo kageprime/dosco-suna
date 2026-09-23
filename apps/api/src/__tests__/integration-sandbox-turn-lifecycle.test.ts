@@ -1429,7 +1429,7 @@ describe('clearSandboxTurn: the reaper names what it saw', () => {
               ${ACCOUNT_ID}::uuid, ${ROOT}, ${messageId}, 'active', now(), now(), now())`);
     return token;
   }
-  const HUSK = { name: 'TurnHuskFinalized', message: 'The agent stopped responding in the middle of this turn, so Kortix closed it.' };
+  const HUSK = { name: 'TurnHuskFinalized', message: 'The agent stopped responding in the middle of this turn, so Dosco closed it.' };
 
   test('a failed clear records the cause it was given', async () => {
     const token = await openTurn(t('reap-husk'), 'msg_r1');

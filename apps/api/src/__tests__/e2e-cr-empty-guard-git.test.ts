@@ -50,7 +50,7 @@ function makeFixture() {
   mkdirSync(source, { recursive: true });
   git(['init', '-b', 'main'], source);
   git(['config', 'user.email', 'e2e@kortix.test'], source);
-  git(['config', 'user.name', 'Kortix E2E'], source);
+  git(['config', 'user.name', 'Dosco E2E'], source);
   writeFileSync(join(source, 'README.md'), '# test repo\n', 'utf8');
   git(['add', 'README.md'], source);
   git(['commit', '-m', 'initial'], source);

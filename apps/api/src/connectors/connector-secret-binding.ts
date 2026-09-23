@@ -29,7 +29,7 @@ export function validateConnectorSecretBinding(
   }
   if (!input.secretCompatible) {
     return {
-      error: 'Secret must be active and use Kortix service delivery for a connector',
+      error: 'Secret must be active and use Dosco service delivery for a connector',
       status: 409,
     };
   }

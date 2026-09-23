@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as realAccess from '../projects/lib/access';
 
-// Stage A of the Slack access-flow redesign: connecting your Kortix account is
+// Stage A of the Slack access-flow redesign: connecting your Dosco account is
 // decoupled from having access, and a connected-but-no-access user requests
 // access right in the thread (no DM wall). These tests pin (1) the action_id
 // contract the interactivity router dispatches on, and (2) the branch logic of
@@ -91,10 +91,10 @@ const firstButton = (blocks: any[]) =>
 
 describe('access nudge blocks — the action_id contract the router relies on', () => {
   test('connect block carries the login URL and the slack_login_connect action_id', () => {
-    const btn = firstButton(connectAccountBlocks('https://kortix.com/login?x=1', 'pending-1') as any[]);
+    const btn = firstButton(connectAccountBlocks('https://dosco.live/login?x=1', 'pending-1') as any[]);
     expect(btn.action_id).toBe('slack_login_connect');
     expect(btn.url).toBeUndefined();
-    expect(JSON.parse(btn.value)).toEqual({ url: 'https://kortix.com/login?x=1', pendingId: 'pending-1' });
+    expect(JSON.parse(btn.value)).toEqual({ url: 'https://dosco.live/login?x=1', pendingId: 'pending-1' });
   });
 
   test('request-access block carries slack_request_access and the projectId in its value', () => {

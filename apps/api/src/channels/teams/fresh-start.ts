@@ -28,7 +28,7 @@ export type TeamsFreshStartOutcome =
  * In a Teams chat every task anyone ever asked landed in the same session,
  * and nothing short of deleting that session gave the agent a clean slate.
  *
- * The previous session is not touched. It keeps its history in Kortix, and
+ * The previous session is not touched. It keeps its history in Dosco, and
  * its sandbox parks on its own schedule. Only the conversation's pointers go:
  *
  *  - the thread mapping, so the next message creates a session;

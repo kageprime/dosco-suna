@@ -71,11 +71,11 @@ function startSmtpServer(opts: { advertiseAuth: boolean }): Promise<{
 
 const MESSAGE: ResolvedEmailMessage = {
   to: ['user@example.test'],
-  subject: 'Sign in to Kortix',
+  subject: 'Sign in to Dosco',
   html: '<p>hello <b>world</b></p>',
   text: 'hello world',
   category: 'auth-magiclink',
-  from: { email: 'noreply@example.test', name: 'Kortix' },
+  from: { email: 'noreply@example.test', name: 'Dosco' },
 };
 
 afterEach(() => {
@@ -101,8 +101,8 @@ describe('sendViaSmtp', () => {
     expect(captured.commands.some((line) => line.startsWith('RCPT TO:<user@example.test>'))).toBe(true);
     // RFC 2047-encoded or literal, the subject must survive; nodemailer emits
     // the header verbatim when it is pure ASCII.
-    expect(captured.data).toContain('Subject: Sign in to Kortix');
-    expect(captured.data).toContain('From: Kortix <noreply@example.test>');
+    expect(captured.data).toContain('Subject: Sign in to Dosco');
+    expect(captured.data).toContain('From: Dosco <noreply@example.test>');
     expect(captured.data).toContain('X-Kortix-Category: auth-magiclink');
     expect(captured.data).toContain('multipart/alternative');
     server.close();

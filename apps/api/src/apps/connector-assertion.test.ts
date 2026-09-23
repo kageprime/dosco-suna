@@ -1,12 +1,12 @@
 /**
- * Which connector base URLs get a Kortix App assertion (spec 2026-09-22 §2.5):
+ * Which connector base URLs get a Dosco App assertion (spec 2026-09-22 §2.5):
  * only an App host of THIS deployment, only in the caller's own project.
  * A foreign host never receives one — it would hand a stranger a credential.
  */
 import { describe, expect, test } from 'bun:test';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 
 const { appAuthorizationForConnectorCall } = await import('./connector-assertion');
 const { verifyAppAgentAssertion } = await import('./access');
@@ -16,7 +16,7 @@ const OTHER_PROJECT = '44444444-4444-4444-8444-444444444444';
 const APP_ID = '11111111-1111-4111-8111-111111111111';
 const TOKEN = 'a0000000-0000-4000-8000-000000000001';
 const ROUTE_KEY = 'cccccccccccccccc';
-const HOST = `https://dev-dashboards-${ROUTE_KEY}.apps.kortix.com`;
+const HOST = `https://dev-dashboards-${ROUTE_KEY}.apps.dosco.live`;
 
 const loader = (projectId: string | null, agentPrincipal = true) => {
   const seen: string[] = [];
@@ -57,8 +57,8 @@ describe('appAuthorizationForConnectorCall', () => {
     for (const url of [
       'https://api.stripe.com',
       'https://dev-dashboards-cccccccccccccccc.apps.evil.example',
-      'https://prod-dashboards-cccccccccccccccc.apps.kortix.com', // another environment
-      'https://dev-dashboards-cccccccccccccccc.apps.kortix.com.evil.example',
+      'https://prod-dashboards-cccccccccccccccc.apps.dosco.live', // another environment
+      'https://dev-dashboards-cccccccccccccccc.apps.dosco.live.evil.example',
       'not a url',
     ]) {
       const { load, seen } = loader(PROJECT);

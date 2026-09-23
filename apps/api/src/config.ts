@@ -128,7 +128,7 @@ const envSchema = z.object({
   // Public origin for CLIENT-facing Supabase Storage URLs. On a self-host box
   // SUPABASE_URL is an internal Docker hostname (http://supabase-kong:8000) that
   // no browser/CLI/remote-sandbox can resolve; this is the box's public origin
-  // (e.g. https://essentia.kortix.cloud) used to rewrite signed URLs on the way
+  // (e.g. https://essentia.dosco.live) used to rewrite signed URLs on the way
   // out (see toPublicStorageUrl). Optional: unset on managed cloud, where
   // SUPABASE_URL is already public and no rewrite is needed.
   SUPABASE_PUBLIC_URL: z
@@ -221,7 +221,7 @@ const envSchema = z.object({
   KORTIX_RELAY_HEADERS_TIMEOUT_MS: optInt(30_000),
   // IDLE on the upstream response socket — never a total duration. 0 = off.
   KORTIX_RELAY_UPSTREAM_IDLE_TIMEOUT_MS: optInt(600_000),
-  // Kortix-owned session titles: the moment a session's first prompt text is
+  // Dosco-owned session titles: the moment a session's first prompt text is
   // known server-side (at create when it carries one, else on the first HTTP
   // prompt), generate the title ourselves via the internal LLM gateway instead
   // of relying on the harness summarizer. On by default; the kill-switch
@@ -239,7 +239,7 @@ const envSchema = z.object({
   // deployment turn the whole docs/spec surface OFF so no route shapes publish.
   OPENAPI_PUBLIC_DOCS: optBoolTrue,
   // Self-host enterprise license: when the operator has purchased/holds a
-  // Kortix Enterprise license, this bypasses the sales-assigned `enterprise`
+  // Dosco Enterprise license, this bypasses the sales-assigned `enterprise`
   // tier check and unlocks every enterprise entitlement (SSO, SCIM, RBAC,
   // audit access) regardless of the account's billing tier — see
   // getAccountEntitlements()/accountHasEntitlement() in
@@ -282,7 +282,7 @@ const envSchema = z.object({
   // `defaultManagedProviderId()` — a deployed bundle that still names it
   // provisions on github and logs a warning. Existing code.storage repos keep
   // resolving through their own connection row. The GitHub backend creates repos under
-  // MANAGED_GIT_GITHUB_OWNER (a Kortix-owned org) via the Kortix App
+  // MANAGED_GIT_GITHUB_OWNER (a Dosco-owned org) via the Dosco App
   // installed there (MANAGED_GIT_GITHUB_INSTALL_ID). Reuses KORTIX_GITHUB_APP_*
   // for the App JWT. Each backend's isConfigured() checks its own vars, so
   // leaving these blank keeps the managed-git path inert.
@@ -352,7 +352,7 @@ const envSchema = z.object({
   // Optional banner image rendered at the top of the App Home tab. Must be a
   // public HTTPS URL Slack can fetch (no auth). Recommended 1600×400 PNG.
   SLACK_HOME_HERO_URL: optStr,
-  // Per-Slack-user identity. Default-on: each sender must link their own Kortix
+  // Per-Slack-user identity. Default-on: each sender must link their own Dosco
   // account via `/kortix login` and the agent runs AS them; unlinked senders
   // are blocked. Set explicitly to "false" only for legacy fallback where
   // Slack messages should run as the bound project owner.
@@ -364,7 +364,7 @@ const envSchema = z.object({
   AGENTMAIL_WEBHOOK_SECRET: optStr,
 
   // ── Channels — Microsoft Teams adapter (optional) ────────────────────────
-  // One Kortix-owned multi-tenant Azure AD bot app. The same app id/password
+  // One Dosco-owned multi-tenant Azure AD bot app. The same app id/password
   // serve every tenant; the per-conversation tenant id arrives on each inbound
   // activity. Outbound auth is a short-lived AAD token minted per scope at call
   // time (channels/teams-auth.ts) — there is no static bot token to store.
@@ -381,7 +381,7 @@ const envSchema = z.object({
   TEAMS_REQUIRE_USER_IDENTITY: optBoolTrue,
   // Whether the Teams channel is offered is NOT an operator env var — it is the
   // per-project `teams` feature flag (feature-flags/registry.ts).
-  TEAMS_APP_NAME: optStrDefault('Kortix'),
+  TEAMS_APP_NAME: optStrDefault('Dosco'),
 
   // ── LLM Providers (optional — only needed in cloud mode) ─────────────────
   OPENROUTER_API_URL: optUrl('https://openrouter.ai/api/v1'),
@@ -411,12 +411,12 @@ const envSchema = z.object({
   // sandbox model call here. Off by default.
   LLM_GATEWAY_ENABLED: optBoolFalse,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
-  // deployment. The lineup routes through Kortix's shared Bedrock and
-  // OpenRouter credentials. Kortix bills each route as platform credits.
+  // deployment. The lineup routes through Dosco's shared Bedrock and
+  // OpenRouter credentials. Dosco bills each route as platform credits.
   // This flag is independent of
   // LLM_GATEWAY_ENABLED above: a self-host still runs the gateway for its own
   // BYOK routing (every sandbox model call goes through `/v1/llm`), it just
-  // must never see or route to Kortix's shared credentials. When unset it
+  // must never see or route to Dosco's shared credentials. When unset it
   // follows KORTIX_BILLING_INTERNAL_ENABLED (derived below): billing on =
   // managed cloud where the managed lineup is the product; billing off =
   // self-host where it must stay dark. An explicit true/false always wins.
@@ -456,14 +456,14 @@ const envSchema = z.object({
   LLM_GATEWAY_CATALOG_URL: optUrl('https://models.dev/api.json'),
   // BYOK resilience: when a user's own provider key hits a rate-limit / quota /
   // billing error (429/402/403), fall over to THIS managed model (billed as
-  // Kortix credits) so the turn survives instead of erroring. Empty disables.
+  // Dosco credits) so the turn survives instead of erroring. Empty disables.
   LLM_GATEWAY_BYOK_FALLBACK_MODEL: optStrDefault('deepseek-v4.1-flash'),
   // Dev: reverse-proxy /v1/llm-gateway/* to a standalone gateway on this port,
   // so sandboxes reach it through the API's own tunnel (no separate tunnel).
   LLM_GATEWAY_PROXY_PORT: optInt(0),
   // Where the /v1/llm-gateway/* reverse-proxy forwards. Defaults to
   // 127.0.0.1:LLM_GATEWAY_PROXY_PORT (local, gateway same host). In K8s set to
-  // the in-cluster gateway service, e.g. http://kortix-gateway:8090, so the
+  // the in-cluster gateway service, e.g. http://llm-gateway:8090, so the
   // gateway stays internal and sandboxes reach it via the API's public origin.
   LLM_GATEWAY_PROXY_TARGET: optStr,
   OPENAI_API_URL: optUrl('https://api.openai.com/v1'),
@@ -729,7 +729,7 @@ const envSchema = z.object({
   AUTH_EMAIL_HOOK_SECRET: optStr,
 
   // ── Transactional email: pre-EMAIL_URL variables (still supported) ────────
-  // Deployed Kortix runs on these today. They are used whenever EMAIL_URL is
+  // Deployed Dosco runs on these today. They are used whenever EMAIL_URL is
   // unset; setting EMAIL_URL overrides all of them.
   // `smtp` is last but present by default: an existing self-host that
   // configured SMTP_* for GoTrue before EMAIL_URL shipped starts sending
@@ -759,15 +759,15 @@ const envSchema = z.object({
   // Supabase Mailpit. Deployed environments leave it unset.
   MAILPIT_API_URL: optStr,
   MAILTRAP_API_TOKEN: optStr,
-  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@kortix.com'),
-  MAILTRAP_FROM_NAME: optStrDefault('Kortix'),
+  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@dosco.live'),
+  MAILTRAP_FROM_NAME: optStrDefault('Dosco'),
   // Where public demo-request / "book a demo" lead notifications are sent.
   // Comma-separated list; every address gets every submission.
-  DEMO_LEAD_NOTIFY_EMAIL: optStrDefault('marko@kortix.ai,hey@kortix.ai'),
-  // Sender for those notifications. kortix.ai (not the global MAILTRAP_FROM_
-  // EMAIL on kortix.com) so the send is DKIM-aligned with the kortix.ai
-  // recipient inboxes — the kortix.com sender was landing in spam.
-  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@kortix.ai'),
+  DEMO_LEAD_NOTIFY_EMAIL: optStrDefault('marko@dosco.live,hey@dosco.live'),
+  // Sender for those notifications. dosco.live (not the global MAILTRAP_FROM_
+  // EMAIL on dosco.live) so the send is DKIM-aligned with the dosco.live
+  // recipient inboxes — the dosco.live sender was landing in spam.
+  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@dosco.live'),
 
   // ── Mailtrap contact sync (signup → automation lists) ─────────────────────
   // The email automations themselves live in Mailtrap's Automations UI; the
@@ -1030,7 +1030,7 @@ function validateEnv(): z.infer<typeof envSchema> {
   if (raw.LLM_GATEWAY_ENABLED === 'true' && raw.KORTIX_MANAGED_PROVIDER_ENABLED === 'true' && !raw.OPENROUTER_API_KEY) {
     issues.push({
       var: 'OPENROUTER_API_KEY',
-      message: 'Gateway is on but OPENROUTER_API_KEY is unset — Kortix managed models are unavailable',
+      message: 'Gateway is on but OPENROUTER_API_KEY is unset — Dosco managed models are unavailable',
       level: 'warn',
     });
   }
@@ -1438,10 +1438,10 @@ export const config = {
 
 // ─── Billing Markup Constants ────────────────────────────────────────────────
 //
-// Kortix-managed inference uses 1.2x provider cost (20% markup).
-// BYOK inference always has a zero Kortix charge.
+// Dosco-managed inference uses 1.2x provider cost (20% markup).
+// BYOK inference always has a zero Dosco charge.
 
-/** Markup when Kortix provides the API key. */
+/** Markup when Dosco provides the API key. */
 export const KORTIX_MARKUP = 1.2;
 
 // ─── Tool Pricing (Router) ──────────────────────────────────────────────────

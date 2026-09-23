@@ -23,7 +23,7 @@ beforeAll(async () => {
 
 // Regression for Better Stack pattern `e98d61f1…`
 // `DaytonaError` with message `<html>…<h1>502 Bad Gateway</h1>…</html>`
-// (Kortix API prod, application_id 2346961). When the Daytona API gateway
+// (Dosco API prod, application_id 2346961). When the Daytona API gateway
 // 502s with an HTML error page, the SDK's `extractAxiosErrorMessage` falls
 // through to `error.response.data` (the raw HTML string), and
 // `errorClassFromStatusCode(502)` returns the generic `DaytonaError` (502 is

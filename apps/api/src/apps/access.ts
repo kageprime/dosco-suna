@@ -188,7 +188,7 @@ export async function appAccessibleToAgentSession(
 /* ─── Connector → App assertion ───────────────────────────────────────────────
  *
  * A connector built from an App's OpenAPI document puts the App's OWN key in
- * `Authorization` — which the gate reads as a Kortix credential, fails to
+ * `Authorization` — which the gate reads as a Dosco credential, fails to
  * validate, and answers `401 app_auth_required`. When the connector gateway
  * calls an App of this deployment in the caller's own project, it adds this
  * assertion in `X-Kortix-App-Authorization` instead. It names the calling
@@ -674,9 +674,9 @@ export function appAccessSessionUrl(
  * `SameSite=None; Partitioned` in BOTH environments, which is not the obvious
  * choice and is the only one that works.
  *
- * Kortix embeds an App in an iframe on its own pages, and that iframe is always
- * cross-site: `kortix.com` (or a customer's console origin) framing
- * `*.apps.kortix.com`. A `SameSite=Lax` cookie is sent on a top-level
+ * Dosco embeds an App in an iframe on its own pages, and that iframe is always
+ * cross-site: `dosco.live` (or a customer's console origin) framing
+ * `*.apps.dosco.live`. A `SameSite=Lax` cookie is sent on a top-level
  * navigation and on nothing else — so the framed document authenticates via the
  * `?__kortix_access=` exchange in its URL and then every fetch it makes arrives
  * WITHOUT the cookie. The App renders and its first API call answers
@@ -689,7 +689,7 @@ export function appAccessSessionUrl(
  *
  * `Partitioned` (CHIPS) is what makes `None` acceptable here: the cookie is
  * keyed to the embedding top-level site, so it is not a general-purpose
- * cross-site credential — it only exists inside the Kortix page that framed it,
+ * cross-site credential — it only exists inside the Dosco page that framed it,
  * and separately in a direct tab. The token itself is already App-scoped and
  * revision-checked, so a stolen cookie grants one App until its access policy
  * changes.

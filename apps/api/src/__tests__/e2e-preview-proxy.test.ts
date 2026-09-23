@@ -633,7 +633,7 @@ describe('Preview proxy: websocket upstream resolution', () => {
     }
   });
 
-  test('signs the user context into Platinum Kortix-native PTY websocket URLs', async () => {
+  test('signs the user context into Platinum Dosco-native PTY websocket URLs', async () => {
     mockDbSandbox = { ...mockDbSandbox, provider: 'platinum' };
     mockPreviewUrl = 'https://8000-platinum.sbx.example';
     mockPreviewToken = null;

@@ -7,7 +7,7 @@ const nativeAgents = [
   {
     name: 'kortix',
     path: '.kortix/opencode/agents/kortix.md',
-    description: 'Default Kortix agent',
+    description: 'Default Dosco agent',
     mode: 'primary',
   },
   {
@@ -73,7 +73,7 @@ describe('project config agent discovery', () => {
       {
         name: 'kortix',
         path: '.kortix/opencode/agents/kortix.md',
-        description: 'Default Kortix agent',
+        description: 'Default Dosco agent',
         mode: 'primary',
         // The roster carries the agent's model since #7083 — `null` here
         // because neither the spec nor the native summary names one, and the

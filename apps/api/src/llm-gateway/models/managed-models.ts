@@ -66,7 +66,7 @@ export function parseManagedModels(
 }
 
 /**
- * Kortix-credit managed models. This registry is empty
+ * Dosco-credit managed models. This registry is empty
  * when the cloud managed-provider flag is off. The picker, catalog, and gateway
  * all use this registry, so self-host users never receive the shared key.
  */

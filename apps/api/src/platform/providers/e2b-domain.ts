@@ -3,10 +3,10 @@ import { config } from '../../config';
 /**
  * The one E2B cluster this deployment talks to.
  *
- * Three defaults used to disagree. Kortix config defaults `E2B_DOMAIN` to
+ * Three defaults used to disagree. Dosco config defaults `E2B_DOMAIN` to
  * `e2b.dev`; the E2B SDK defaults its `domain` option to the `E2B_DOMAIN`
  * process variable or `e2b.app`; and the snapshot adapter's raw `/templates`
- * fetch derived its own base URL from the Kortix value. An operator who never
+ * fetch derived its own base URL from the Dosco value. An operator who never
  * exported the variable therefore built templates against one cluster and
  * created sandboxes against another, and a self-hosted E2B deployment — where
  * the cluster is neither default — could not work at all. Both halves now read

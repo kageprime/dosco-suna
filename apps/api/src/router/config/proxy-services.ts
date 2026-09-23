@@ -34,21 +34,21 @@ export interface ProxyServiceConfig {
   name: string;
   /** Real upstream base URL (e.g. "https://api.tavily.com") — used for passthrough (Mode 2/3) */
   targetBaseUrl: string;
-  /** Alternate upstream base URL for Kortix-managed requests (Mode 1). Falls back to targetBaseUrl. */
+  /** Alternate upstream base URL for Dosco-managed requests (Mode 1). Falls back to targetBaseUrl. */
   kortixTargetBaseUrl?: string;
-  /** Kortix-owned API key for this upstream service */
+  /** Dosco-owned API key for this upstream service */
   getKortixApiKey: () => string;
   /** How to inject the API key into upstream requests (passthrough) */
   keyInjection: KeyInjectionMethod;
-  /** Alternate key injection for Kortix-managed requests (Mode 1). Falls back to keyInjection. */
+  /** Alternate key injection for Dosco-managed requests (Mode 1). Falls back to keyInjection. */
   kortixKeyInjection?: KeyInjectionMethod;
-  /** Only these routes are allowed when using Kortix's key (prevents cost abuse) */
+  /** Only these routes are allowed when using Dosco's key (prevents cost abuse) */
   allowedRoutes: AllowedRoute[];
   /** Default tool name for billing attribution (can be overridden per-route) */
   billingToolName: string;
   /**
    * Whether this is an LLM provider (affects passthrough handling).
-   * LLM passthrough uses the customer's provider key with no Kortix charge.
+   * LLM passthrough uses the customer's provider key with no Dosco charge.
    * Tool passthrough uses fixed per-call billing.
    */
   isLlm?: boolean;
@@ -120,13 +120,13 @@ export function getProxyServices(): Record<string, ProxyServiceConfig> {
     // ─── LLM Providers ─────────────────────────────────────────────────────
     //
     // Dual-mode:
-    // - Kortix-managed (Mode 1): uses Kortix-owned provider keys.
+    // - Dosco-managed (Mode 1): uses Dosco-owned provider keys.
     //   Anthropic/OpenAI go direct to native providers.
     //   xAI/Gemini/Groq route through OpenRouter.
     // - Passthrough (Mode 2): forwards the user's own API key to the real
-    //   upstream provider with no Kortix LLM charge.
+    //   upstream provider with no Dosco LLM charge.
     //
-    // Mode 1 (Kortix token in auth): inject provider key configured in service
+    // Mode 1 (Dosco token in auth): inject provider key configured in service
     // Mode 2 (user key + X-Kortix-Token): passthrough to real provider
     //
     // The proxy handler picks targetBaseUrl for Mode 2/3 and

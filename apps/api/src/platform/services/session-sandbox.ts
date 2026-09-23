@@ -193,7 +193,7 @@ export async function mintSessionToken(opts: {
     userId: opts.userId,
     projectId: opts.projectId,
     // session_id == sandbox_id by construction. This is the sandbox's one
-    // Kortix credential. Every API surface derives its narrower authority from
+    // Dosco credential. Every API surface derives its narrower authority from
     // these claims and the route's own authorization gate.
     sessionId: opts.sandboxId,
     name: `Session ${opts.sandboxId.slice(0, 8)}`,
@@ -498,7 +498,7 @@ export async function provisionSessionSandbox(opts: {
     createOrClaimSandboxRow(),
     // Resolve the per-agent grant and mint the sole sandbox credential. Token
     // minting is fail-closed: a sandbox without its session identity cannot
-    // securely reach any Kortix service.
+    // securely reach any Dosco service.
     mintSessionToken({
       accountId,
       userId,
@@ -553,7 +553,7 @@ export async function provisionSessionSandbox(opts: {
     location,
     envVars: {
       ...(opts.extraEnvVars ?? {}),
-      // One sandbox, one session-scoped Kortix credential. Provider, connector,
+      // One sandbox, one session-scoped Dosco credential. Provider, connector,
       // executor and Git credentials stay server-side. The route being called
       // determines what this token may do.
       KORTIX_TOKEN: sessionToken,

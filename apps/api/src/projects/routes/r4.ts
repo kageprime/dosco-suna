@@ -1207,7 +1207,7 @@ projectsApp.openapi(
     const loaded = await loadProjectForUser(c, projectId, 'read');
     if (!loaded) return c.json({ error: 'Not found' }, 404);
     // Leaf-gate the read (a custom role can omit project.trigger.read) — and, via
-    // the central agent-grant fold, an agent token must hold it in its Kortix permissions.
+    // the central agent-grant fold, an agent token must hold it in its Dosco permissions.
     await assertProjectCapability(
       c,
       loaded.userId,
@@ -2269,7 +2269,7 @@ projectsApp.openapi(
       body.display_name ??
       body.displayName ??
       loaded.row.name ??
-      'Kortix Agent'
+      'Dosco Agent'
     ).trim();
     const username = normalizeAgentMailUsername(body.username ?? loaded.row.name);
     const existingInboxId =
@@ -2971,7 +2971,7 @@ projectsApp.openapi(
 
     // `opencode_session` carries the canonical opencode ROOT id the sandbox just
     // bootstrapped (or reused after a restart). Persist it as the durable pin so
-    // the Kortix session resolves to the LIVE root with NO dependency on a browser
+    // the Dosco session resolves to the LIVE root with NO dependency on a browser
     // ever opening it — closing the null-pin gap that left Slack/trigger/cron
     // sessions resolving lazily onto the wrong (orphaned) root. The sandbox token
     // is already scoped to this project (checked above); the daemon only ever

@@ -1229,7 +1229,7 @@ adminApp.openapi(
 
 // ── Set the account managed-models override ──────────────────────────────────
 // `override: null` restores "the effective tier decides". true grants managed
-// (Kortix-credential) models regardless of tier; false forces BYOK-only.
+// (Dosco-credential) models regardless of tier; false forces BYOK-only.
 adminApp.openapi(
   createRoute({
     method: 'post',

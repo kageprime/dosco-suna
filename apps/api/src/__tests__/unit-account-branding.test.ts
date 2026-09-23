@@ -4,7 +4,7 @@
 // (tests/src/flows/accounts.flow.ts). What is pinned here is everything a
 // handler decides WITHOUT the network: which bytes count as an image (and
 // which SVGs are refused), how the stored jsonb normalizes to the wire shape,
-// when serving falls back to Kortix, the content-addressed object name, and
+// when serving falls back to Dosco, the content-addressed object name, and
 // the product-name rules.
 import { describe, expect, test } from 'bun:test';
 import {
@@ -150,7 +150,7 @@ describe('effectiveBranding — what members are SERVED', () => {
     });
   });
 
-  test('stored but the entitlement lapsed → null (fall back to Kortix, no write)', async () => {
+  test('stored but the entitlement lapsed → null (fall back to Dosco, no write)', async () => {
     entitled = false;
     expect(await effectiveBranding('acc', { logo_url: 'http://x/l.svg' }, check)).toBeNull();
   });

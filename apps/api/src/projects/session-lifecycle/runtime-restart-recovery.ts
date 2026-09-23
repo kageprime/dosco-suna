@@ -1,6 +1,6 @@
 /**
  * A runtime that is started again after the provider had it STOPPED comes back
- * with nothing in memory: every pause Kortix issues or observes is a
+ * with nothing in memory: every pause Dosco issues or observes is a
  * `keepMemory:false` pause (E2B), a stop (Daytona) or a lifecycle stop
  * (Platinum). Any turn that was open on that box is therefore over — the
  * OpenCode process that owned it is gone — and its last assistant message sits

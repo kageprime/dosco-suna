@@ -1,9 +1,9 @@
 // Organization branding — an Enterprise entitlement (`branding`).
 //
-// An account can replace the Kortix marks its members see in the web app: the
+// An account can replace the Dosco marks its members see in the web app: the
 // wide brandmark (`logo`), the square symbol (`icon`), and the browser-tab
 // icon (`favicon`), each with an optional dark-scheme variant (`*_dark`), plus
-// the product name shown in place of "Kortix" (`app_name`).
+// the product name shown in place of "Dosco" (`app_name`).
 // Everything lives in ONE jsonb column, `accounts.branding`, and every URL in
 // it is API-owned: uploads come through this module and land in the public
 // `branding` Storage bucket under `<account_id>/<kind>-<sha256:12>.<ext>`.
@@ -17,7 +17,7 @@
 //     downgraded account can still see and unwind what it set;
 //   - SERVING is entitlement-checked: `effectiveBranding` (used by
 //     `GET /accounts` and `GET /accounts/:id`) returns `null` the moment the
-//     entitlement lapses, so members fall back to Kortix without any write.
+//     entitlement lapses, so members fall back to Dosco without any write.
 
 import { createHash } from 'node:crypto';
 import { createRoute, z } from '@hono/zod-openapi';
@@ -292,7 +292,7 @@ async function loadBrandingRow(accountId: string) {
 
 async function writeBranding(accountId: string, next: AccountBrandingRecord): Promise<AccountBranding> {
   // Store only the keys that carry a value: `{}` stays the canonical "default
-  // Kortix" record, and `effectiveBranding` can short-circuit on it.
+  // Dosco" record, and `effectiveBranding` can short-circuit on it.
   const compact: AccountBrandingRecord = {};
   for (const [key, value] of Object.entries(next) as Array<[keyof AccountBrandingRecord, unknown]>) {
     if (typeof value === 'string' && value.length > 0) compact[key] = value;
@@ -548,7 +548,7 @@ export function registerBrandingRoutes(): void {
     },
   );
 
-  // DELETE — reset everything to Kortix defaults. Permission only.
+  // DELETE — reset everything to Dosco defaults. Permission only.
   accountsRouter.openapi(
     createRoute({
       method: 'delete',

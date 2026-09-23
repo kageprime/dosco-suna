@@ -30,7 +30,7 @@ describe('gatewayModelCatalog — served catalog', () => {
     expect(full['kimi-k3-fast']).toBeUndefined();
   });
 
-  test('brands managed DeepSeek V4.1 Flash with the Kortix provider', () => {
+  test('brands managed DeepSeek V4.1 Flash with the Dosco provider', () => {
     expect(full['deepseek-v4.1-flash']?.provider).toBe('kortix');
   });
 
@@ -43,7 +43,7 @@ describe('gatewayModelCatalog — served catalog', () => {
     expect(full['glm-5.3-flash']).toMatchObject({ provider: 'kortix', attachment: true });
   });
 
-  test('does not serve retired DeepSeek V4 Pro under Kortix', () => {
+  test('does not serve retired DeepSeek V4 Pro under Dosco', () => {
     expect(full['deepseek-v4-pro-0813']).toBeUndefined();
   });
 
@@ -105,7 +105,7 @@ describe('gatewayModelCatalog — served catalog', () => {
     expect(anthropic?.release_date).toBe(anthropic?.released);
   });
 
-  // Regression coverage for the "every provider shows as Kortix" picker bug:
+  // Regression coverage for the "every provider shows as Dosco" picker bug:
   // every served model MUST carry the REAL upstream provider id explicitly,
   // never leaving the client to string-split the wire model id (fragile —
   // see model-selector.tsx's pickerGroupId / use-model-store.ts's subProviderOf).
@@ -175,7 +175,7 @@ describe('gatewayModelCatalog — served catalog', () => {
 describe('gatewayModelCatalog — free-tier visibility', () => {
   const freeFull = gatewayModelCatalog('proj', { freeManagedOnly: true });
 
-  test('free tier sees no managed Kortix models', () => {
+  test('free tier sees no managed Dosco models', () => {
     expect(freeFull.auto).toBeUndefined();
     for (const id of ['claude-opus-4.8', 'claude-sonnet-4.6', 'glm-5.3-flash', 'deepseek-v4.1-flash', 'deepseek-v4-flash-0731', 'kimi-k3', 'gpt-6-astra']) {
       expect(freeFull[id], id).toBeUndefined();

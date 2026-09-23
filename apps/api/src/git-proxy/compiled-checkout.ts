@@ -8,9 +8,9 @@ import { validateRef, validateSha } from '../projects/git-ref';
 import { refreshMirror, runGit } from '../projects/git/mirror';
 import type { GitBackedProject } from '../projects/git/types';
 
-export const COMPILED_CHECKOUT_FORMAT = 'kortix.compiled-checkout.v1';
+export const COMPILED_CHECKOUT_FORMAT = 'dosco.livepiled-checkout.v1';
 export const COMPILED_CHECKOUT_CONTENT_TYPE =
-  'application/vnd.kortix.compiled-checkout.v1+gzip';
+  'application/vnd.dosco.livepiled-checkout.v1+gzip';
 
 export interface CompiledCheckoutManifest {
   format: typeof COMPILED_CHECKOUT_FORMAT;

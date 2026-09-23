@@ -84,7 +84,7 @@ export interface ReapResult {
   reconciled: number; // provider already not-running; we synced our row
   billingClosed: number;
   skipped: number; // deadline still in the future, or provider said 'unknown'
-  lifecycleRenewed: number; // provider-native timer renewed for a live Kortix deadline
+  lifecycleRenewed: number; // provider-native timer renewed for a live Dosco deadline
   husksFinalized: number; // an orphaned open assistant turn we closed server-side
   turnsSettled: number; // ledger rows still open on a box that is no longer running
   errors: number;
@@ -716,10 +716,10 @@ export async function reapAndReconcileSandboxes(
           // decision — no probe, no lease, no activity clock, no ceiling
           // arithmetic, and nothing the box itself can influence upward.
           if (row.deadlineAt.getTime() > now.getTime()) {
-            // Keep the PROVIDER'S own timer subordinate to Kortix's deadline.
+            // Keep the PROVIDER'S own timer subordinate to Dosco's deadline.
             // E2B has an absolute one-hour timeout; Daytona and Platinum have
             // native idle timers. Without this provider-neutral renewal, any
-            // one of them can stop a box while the Kortix deadline still says a
+            // one of them can stop a box while the Dosco deadline still says a
             // live agent turn owns it. The sandbox cannot call this method.
             await provider.renewLifecycle(row.externalId);
             result.lifecycleRenewed += 1;

@@ -12,7 +12,7 @@ import { describe, expect, test } from 'bun:test';
 // anywhere recording why.
 //
 // Prod, workspace T07FUFNT3RV: `kortix-incident-reporter` (installed
-// 2026-08-17) held channel C0AASKRLRBR, where `Kortix Company` had run 71
+// 2026-08-17) held channel C0AASKRLRBR, where `Dosco Company` had run 71
 // sessions through 2026-08-14 and then went silent for 14 days.
 //
 // Re-assignment is a deliberate act with its own paths — the channel picker and

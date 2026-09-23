@@ -30,8 +30,8 @@ describe('Composio connector connection metadata', () => {
     expect(Object.keys(metadata)).not.toContain('credential');
   });
 
-  test('records the Kortix session that asked, distinctly from the provider session', () => {
-    // `session_id` is Composio's Tool Router session (`trs_…`). The Kortix
+  test('records the Dosco session that asked, distinctly from the provider session', () => {
+    // `session_id` is Composio's Tool Router session (`trs_…`). The Dosco
     // session that minted the link is a different id under a different key, and
     // finalize reads it to tell that agent the account landed. Collapsing the
     // two would make finalize try to resume a Composio session id.

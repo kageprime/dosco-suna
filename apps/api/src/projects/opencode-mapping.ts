@@ -1,7 +1,7 @@
 /**
- * Backend-owned OpenCode ↔ Kortix session mapping.
+ * Backend-owned OpenCode ↔ Dosco session mapping.
  *
- * The authoritative source of a Kortix session's OpenCode root id is the
+ * The authoritative source of a Dosco session's OpenCode root id is the
  * sandbox's own local OpenCode DB. This module lets the API resolve and pin
  * that id SERVER-SIDE so the mapping no longer depends on any client (browser,
  * CLI, cron) doing the right thing.

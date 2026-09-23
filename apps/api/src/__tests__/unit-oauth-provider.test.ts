@@ -1,4 +1,4 @@
-// Sign in with Kortix: the token endpoint authenticates confidential clients by
+// Sign in with Dosco: the token endpoint authenticates confidential clients by
 // secret and public clients by PKCE alone, /revoke kills a token pair, the
 // RFC 8414 document is served, and userinfo carries `sub`.
 

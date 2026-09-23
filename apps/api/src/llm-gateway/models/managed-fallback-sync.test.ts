@@ -33,7 +33,7 @@ describe('daemon bundled managed set vs the managed lineup', () => {
     expect(bundledIds).toEqual(Object.keys(gatewayModelCatalog(undefined)).sort());
   });
 
-  test('every bundled managed entry is branded as a Kortix-managed bare id', () => {
+  test('every bundled managed entry is branded as a Dosco-managed bare id', () => {
     for (const [id, model] of Object.entries(BUNDLED_MANAGED_MODELS)) {
       expect(id).not.toInclude('/');
       expect(model.provider).toBe('kortix');

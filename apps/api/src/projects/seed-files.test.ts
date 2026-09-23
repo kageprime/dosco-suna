@@ -52,7 +52,7 @@ describe('defaultAgentFromSeedFiles', () => {
 });
 
 describe('buildProjectSeedFilesFromItem', () => {
-  test('interpolates the destination name into the Kortix starter project', async () => {
+  test('interpolates the destination name into the Dosco starter project', async () => {
     const seed = await buildProjectSeedFilesFromItem({
       id: 'kortix-projects:starter',
       projectName: 'Company OS',
@@ -89,7 +89,7 @@ describe('buildProjectSeedFilesFromItem', () => {
 
   /**
    * The bundled department projects (SEO / Marketing / Website Studio) were
-   * retired — the marketplace leads with the single Kortix Starter project.
+   * retired — the marketplace leads with the single Dosco Starter project.
    * What matters now is that asking for a project id that no longer exists
    * FAILS CLEANLY rather than throwing inside project creation.
    */

@@ -30,7 +30,7 @@ import {
   isKortixManagedSkillName,
 } from '@kortix/starter';
 
-/** Where skills live inside a Kortix project (and inside the starter templates). */
+/** Where skills live inside a Dosco project (and inside the starter templates). */
 const SKILLS_PREFIX = '.kortix/opencode/skills/';
 
 export interface ManagedSkillOverlayFile {
@@ -46,7 +46,7 @@ export interface ManagedSkillOverlayFile {
 export function managedSkillOverlayFiles(): ManagedSkillOverlayFile[] {
   const files = [
     ...getManagedSkillFiles(),
-    ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),
+    ...getStarterFiles({ projectName: 'Dosco', template: 'general-knowledge-worker' }),
   ];
   const byPath = new Map<string, string>();
   for (const file of files) {

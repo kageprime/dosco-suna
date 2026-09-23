@@ -144,7 +144,7 @@ export interface ScaffoldDeltaBundle {
 
 /**
  * Locate the bundle boundary for `tip`: the first-parent ROOT commit. Every
- * project seeded from the Kortix starter starts life as the deterministic
+ * project seeded from the Dosco starter starts life as the deterministic
  * scaffold commit, so the root is the one commit the sandbox image can supply
  * from `/opt/kortix/scaffold.git` — either byte-for-byte (same SHA) or by tree
  * (a provider rewrote commit metadata; the daemon re-creates the commit object

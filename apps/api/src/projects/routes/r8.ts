@@ -1014,10 +1014,10 @@ projectsApp.openapi(
 );
 
 // ─── Change Requests ────────────────────────────────────────────────────────
-// Kortix-native PR layer. The CR is metadata stored alongside the project;
+// Dosco-native PR layer. The CR is metadata stored alongside the project;
 // the underlying merge runs through ./git.ts which works against any git
 // backend (GitHub, GitLab, plain git) — so the merge UI lives in
-// Kortix even when the repo is hosted elsewhere.
+// Dosco even when the repo is hosted elsewhere.
 //
 // v1 is intentionally minimal: open / merged / closed, head_ref + base_ref,
 // head/base commit SHAs auto-refreshed on read. No reviews, no comments,
@@ -1280,7 +1280,7 @@ projectsApp.openapi(
       PROJECT_ACTIONS.PROJECT_GITOPS_PUSH,
     );
 
-    // The capability check above is PROJECT-wide, and in Kortix-as-a-Backend the
+    // The capability check above is PROJECT-wide, and in Dosco-as-a-Backend the
     // sandbox's own token holds it — every KaaB session shares the wrapper's
     // credential, so "may push in this project" is true for every end-user's
     // agent. Without this, end-user A's sandbox could commit and push end-user
