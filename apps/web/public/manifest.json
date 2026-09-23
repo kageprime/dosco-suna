@@ -1,7 +1,7 @@
 {
   "name": "Dosco Agent Network",
   "short_name": "Dosco",
-  "description": "Dosco is the AI command center for your company \u2014 one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
+  "description": "Dosco is the agentic OS for your company \u2014 one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
