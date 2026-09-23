@@ -241,8 +241,7 @@ const GRADUATED: Record<string, (projectId: string) => string> = {
   'llm-keys': (p) => capabilityTabHref(p, 'models'),
   'llm-api': (p) => capabilityTabHref(p, 'models'),
   // Marketplace lives as a top-level sidebar entry at its own
-  // `/projects/<id>/marketplace` URL (`marketplaceHref`) — a stale bookmark
-  // to `/customize/marketplace` redirects straight onto it.
+  // `/customize/marketplace` URL — a stale bookmark lands straight on it.
   marketplace: (p) => capabilityTabHref(p, 'marketplace'),
 };
 

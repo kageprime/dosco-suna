@@ -236,8 +236,8 @@ describe('legacySectionRedirect', () => {
     }
   });
 
-  test('marketplace redirects to its top-level sidebar entry', () => {
-    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/marketplace');
+  test('marketplace redirects to its sidebar entry — same URL it always had', () => {
+    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/customize/marketplace');
   });
 
   test('graduated capability pages still leave the overlay', () => {

@@ -410,10 +410,10 @@ describe('the registry no longer carries palette settings destinations', () => {
 
   test('Marketplace is a registry row again, pointing at its sidebar entry', () => {
     // `proj-marketplace` was in the gone-list while Marketplace had no
-    // surface of its own. It is back because Marketplace left Customize for
-    // a top-level sidebar entry at its own URL — same arrangement as
-    // `proj-triggers`.
-    const href = '/projects/{projectId}/marketplace';
+    // surface of its own. It is back because Marketplace left the capability
+    // tab bar for a top-level sidebar entry at the same URL — same
+    // arrangement as `proj-triggers`.
+    const href = '/projects/{projectId}/customize/marketplace';
     const item = paletteItems.find((entry) => entry.id === 'proj-marketplace');
     expect(item?.href).toBe(href);
     expect(item?.kind).toBe('navigate');

@@ -78,9 +78,9 @@ describe('capabilityTabHref', () => {
     expect(capabilityTabHref('p1', 'agent')).toBe('/projects/p1/customize/agents');
     expect(capabilityTabHref('p1', 'triggers')).toBe('/projects/p1/customize/triggers');
     expect(capabilityTabHref('p1', 'review')).toBe('/projects/p1/customize/review');
-    // Marketplace left Customize for its own top-level URL — the sidebar
-    // row, bookmarks, and redirects all still resolve through here.
-    expect(capabilityTabHref('p1', 'marketplace')).toBe('/projects/p1/marketplace');
+    // Marketplace left the tab bar for its own sidebar entry but keeps its
+    // URL — the row, bookmarks, and redirects all still resolve through here.
+    expect(capabilityTabHref('p1', 'marketplace')).toBe('/projects/p1/customize/marketplace');
   });
 });
 
@@ -106,10 +106,8 @@ describe('activeCapabilityTab', () => {
     expect(activeCapabilityTab('/projects/p1/customize/skills')).toBe('skills');
     expect(activeCapabilityTab('/projects/p1/customize/triggers')).toBe('triggers');
     expect(activeCapabilityTab('/projects/p1/customize/review')).toBe('review');
-    // Marketplace lights on its own top-level route; the retired
-    // `/customize/marketplace` URL redirects there and lights nothing itself.
-    expect(activeCapabilityTab('/projects/p1/marketplace')).toBe('marketplace');
-    expect(activeCapabilityTab('/projects/p1/customize/marketplace')).toBeNull();
+    expect(activeCapabilityTab('/projects/p1/customize/marketplace')).toBe('marketplace');
+    expect(activeCapabilityTab('/projects/p1/marketplace')).toBeNull();
   });
   test('ignores a trailing slash', () => {
     expect(activeCapabilityTab('/projects/p1/customize/skills/')).toBe('skills');
