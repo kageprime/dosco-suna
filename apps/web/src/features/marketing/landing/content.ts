@@ -25,7 +25,7 @@ export const hero = {
   sub: "Dosco doesn't return chat. It returns work. Drop it into a sprint and it takes the role that sprint needs — engineer, accountant, analyst — every role run at full capacity. You don't get a paragraph back. You get the deliverable.",
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',
-  trust: 'Any model, your keys · Self-host, VPC, or on-prem',
+  trust: 'Any model, your keys · VPC or on-prem',
 } as const;
 
 /** The eyebrow renders as a row with the two competitor marks, so its parts
@@ -491,7 +491,7 @@ export const stack = {
       id: 'kortix',
       name: '火 Dosco Network',
       body: 'Every layer above brought together in one platform your team owns, deploys and scales end to end — from the model to the finished work. That’s 火 Dosco Network.',
-      chips: ['火 Dosco Network', 'Self-hostable', 'Yours down to the metal'],
+      chips: ['火 Dosco Network', 'No lock-in', 'Yours down to the metal'],
     },
   ] satisfies readonly StackLayer[],
 } as const;

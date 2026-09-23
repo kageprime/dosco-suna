@@ -51,7 +51,7 @@ export const productMenu: NavMenu = {
           icon: 'git-branch',
         },
         {
-          name: 'Self-hosted',
+          name: 'On-prem',
           href: '/self-hosted',
           // ACCURACY: never "air-gapped" — `self-host start` pulls images from
           // docker.io, so a fully disconnected install is not shipped.

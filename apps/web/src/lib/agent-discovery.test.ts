@@ -163,7 +163,7 @@ describe('agent discovery documents', () => {
   });
 
   test('declares content signals and agent discovery routes in robots.txt', () => {
-    const robots = renderRobotsTxt('kortix.com');
+    const robots = renderRobotsTxt('dosco.live');
     expect(robots).toContain('Content-Signal: ai-train=no, search=yes, ai-input=yes');
     expect(robots).toContain('Allow: /.well-known/');
     expect(robots).toContain('Allow: /auth.md');

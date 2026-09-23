@@ -1,7 +1,7 @@
 {
   "name": "Dosco Agent Network",
   "short_name": "Dosco",
-  "description": "Dosco is the  AI command center for your company \u2014 one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
+  "description": "Dosco is the AI command center for your company \u2014 one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
@@ -29,16 +29,5 @@
   "scope": "/",
   "lang": "en-US",
   "dir": "ltr",
-  "related_applications": [
-    {
-      "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=com.kortix.app",
-      "id": "com.kortix.app"
-    },
-    {
-      "platform": "itunes",
-      "url": "https://apps.apple.com/ie/app/kortix/id6754448524"
-    }
-  ],
-  "prefer_related_applications": true
+  "prefer_related_applications": false
 }

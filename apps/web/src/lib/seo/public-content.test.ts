@@ -387,7 +387,7 @@ describe('bounded public agent index', () => {
   });
 
   test('robots explicitly allows the machine-readable routes on the canonical host', () => {
-    const robots = renderRobotsTxt('kortix.com');
+    const robots = renderRobotsTxt('dosco.live');
     for (const route of SEO_COVERAGE_MANIFEST.machineRoutes) {
       expect(robots).toContain(`Allow: ${route}`);
     }
@@ -396,7 +396,7 @@ describe('bounded public agent index', () => {
   });
 
   test('robots blocks crawling on every non-canonical host', () => {
-    for (const host of ['dev.kortix.com', 'staging.kortix.com', 'seo-fix.vercel.app', null]) {
+    for (const host of ['dev.dosco.live', 'staging.dosco.live', 'seo-fix.vercel.app', null]) {
       const robots = renderRobotsTxt(host);
       expect(robots, String(host)).toContain('Disallow: /');
       expect(robots, String(host)).not.toContain('Sitemap:');

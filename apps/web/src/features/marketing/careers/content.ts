@@ -167,7 +167,7 @@ export const apply = {
   cta: 'Apply',
   directLead: 'Or write to me directly:',
   links: [
-    { id: 'email', label: 'marko@kortix.com', href: 'mailto:marko@kortix.com', external: false },
+    { id: 'email', label: 'support@dosco.live', href: 'mailto:support@dosco.live', external: false },
     { id: 'x', label: '@markokraemer', href: 'https://x.com/markokraemer', external: true },
     {
       id: 'linkedin',

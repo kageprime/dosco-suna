@@ -292,7 +292,7 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
                 <ContextMenuItem
                   onClick={() => {
                     const a = document.createElement('a');
-                    a.href = '/brandkit/kortix-brand-assets.zip';
+                    a.href = '/brandkit/dosco-brand-assets.zip';
                     a.download = 'kortix-brand-assets.zip';
                     a.click();
                   }}
