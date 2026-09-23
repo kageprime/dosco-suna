@@ -3446,7 +3446,12 @@
       "changeEmail": "メールアドレスを変更",
       "forgotPassword": "パスワードをお忘れですか？",
       "emailPlaceholder": "メールアドレスを入力",
-      "useDifferentEmail": "別のメールアドレスを使用"
+      "useDifferentEmail": "別のメールアドレスを使用",
+      "brandHeadline": "The agentic OS for your company.",
+      "brandSub": "One agent that becomes any role — engineer, accountant, analyst — at full capacity. Hand it a sprint and it returns the deliverable.",
+      "brandPoint1": "Your tools, your data, your infra",
+      "brandPoint2": "Every agent, skill and memory is a file you own",
+      "brandPoint3": "Any model, your keys. No lock-in."
     },
     "goToDashboard": "ダッシュボードへ",
     "returnToHome": "ホームに戻る"

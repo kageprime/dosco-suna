@@ -3446,7 +3446,12 @@
       "changeEmail": "E-Mail ändern",
       "forgotPassword": "Passwort vergessen?",
       "emailPlaceholder": "Deine E-Mail-Adresse",
-      "useDifferentEmail": "Andere E-Mail-Adresse verwenden"
+      "useDifferentEmail": "Andere E-Mail-Adresse verwenden",
+      "brandHeadline": "The agentic OS for your company.",
+      "brandSub": "One agent that becomes any role — engineer, accountant, analyst — at full capacity. Hand it a sprint and it returns the deliverable.",
+      "brandPoint1": "Your tools, your data, your infra",
+      "brandPoint2": "Every agent, skill and memory is a file you own",
+      "brandPoint3": "Any model, your keys. No lock-in."
     },
     "goToDashboard": "Zum Dashboard",
     "returnToHome": "Zur Startseite zurückkehren"

@@ -28,6 +28,7 @@ import { ProjectPendingScreen } from '@/components/projects/project-pending-scre
 import Loading from '@/components/ui/loading';
 import { errorToast } from '@/components/ui/toast';
 import { AuthBrowserNoiseGuard } from '@/features/auth/auth-browser-noise-guard';
+import { AuthBrandPanel } from '@/features/auth/auth-brand-panel';
 import { AuthFrame } from '@/features/auth/auth-card-shell';
 import { CodeInput, FieldLabel, InfoStrip, StepHeader } from '@/features/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
@@ -1051,7 +1052,7 @@ function AuthContent() {
   // A stale/invalidated session (sessionExpired, or forceForm from the
   // safety-net timeout) also lands here — never a dead shell.
   return (
-    <AuthFrame footerVariant="continue">
+    <AuthFrame footerVariant="continue" aside={<AuthBrandPanel />}>
       <AuthCardForm returnUrl={returnUrl} mobileCallbackState={mobileCallbackState} />
     </AuthFrame>
   );
