@@ -5,6 +5,7 @@ import { PlusIcon as Plus, MagnifyingGlassIcon as Search } from '@phosphor-icons
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   InputGroupSearch,
@@ -82,41 +83,6 @@ function SourceRow({
     >
       {avatar ? <span className="shrink-0">{avatar}</span> : null}
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-      {count !== undefined ? (
-        <span className="text-muted-foreground/60 shrink-0 text-xs tabular-nums">{count}</span>
-      ) : null}
-    </button>
-  );
-}
-
-/** One pill in the in-project filter row (the rail's SourceRow, horizontal). */
-function SourcePill({
-  label,
-  count,
-  active,
-  avatar,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active: boolean;
-  avatar?: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? 'true' : undefined}
-      className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm transition-colors',
-        active
-          ? 'bg-primary/[0.06] text-foreground font-medium'
-          : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
-      )}
-    >
-      {avatar ? <span className="shrink-0">{avatar}</span> : null}
-      <span className="min-w-0 truncate">{label}</span>
       {count !== undefined ? (
         <span className="text-muted-foreground/60 shrink-0 text-xs tabular-nums">{count}</span>
       ) : null}
@@ -269,48 +235,39 @@ export function MarketplaceExplore({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         variant="popover"
+        size="sm"
       />
       <InputGroupSearchClear onClick={() => setQuery('')} />
     </InputGroupSearch>
   );
 
-  const pillsNode = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <SourcePill
-        label={tI18nComplete.raw('text08e774c5bacc')}
-        active={isAll}
-        onClick={() => selectSource(ALL_SOURCES)}
-      />
-      {marketplaces.map((m) => (
-        <SourcePill
-          key={m.id}
-          label={displayCompanyLabel(m.id, m.label)}
-          count={m.count}
-          active={source === m.id}
-          avatar={
-            <MarketplaceAvatar
-              id={m.id}
-              owner={m.owner}
-              sourceUrl={m.sourceUrl}
-              label={m.label}
-              size="xs"
-            />
-          }
-          onClick={() => selectSource(m.id)}
-        />
-      ))}
-      {canManageSources ? (
-        <button
-          type="button"
-          onClick={() => setAddSourceOpen(true)}
-          className="text-muted-foreground hover:text-foreground inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-sm transition-colors"
-        >
-          <Plus className="size-3.5 shrink-0" />
-          {tI18nComplete.raw('text9fd728c66c9a')}
-        </button>
-      ) : null}
-    </div>
+  const scopesNode = (
+    <Tabs value={source} onValueChange={(value) => selectSource(value)}>
+      <TabsList>
+        <TabsTrigger value={ALL_SOURCES}>
+          {tI18nComplete.raw('text08e774c5bacc')}
+        </TabsTrigger>
+        {marketplaces.map((m) => (
+          <TabsTrigger key={m.id} value={m.id}>
+            {m.count !== undefined ? (
+              <span className="tabular-nums">{m.count}</span>
+            ) : null}{' '}
+            {displayCompanyLabel(m.id, m.label)}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
+
+  // The page's one header action, carrying its label like the Connectors
+  // page's New-menu: a bare "+" glyph makes the reader guess, and what it
+  // opens — a source catalogue, not a form — is not guessable from it.
+  const addActionNode = canManageSources ? (
+    <Button onClick={() => setAddSourceOpen(true)}>
+      <Plus className="size-4 shrink-0" />
+      {tI18nComplete.raw('text9fd728c66c9a')}
+    </Button>
+  ) : undefined;
 
   const contentNode = loading ? (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -423,7 +380,8 @@ export function MarketplaceExplore({
           title={tI18nComplete.raw('texta9ab23617be7')}
           description={tI18nComplete.raw('texte09bc645d309')}
           search={searchNode}
-          filters={pillsNode}
+          action={addActionNode}
+          filters={scopesNode}
           scrollRef={pageScrollRef}
           compact
         >
