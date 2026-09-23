@@ -21,7 +21,6 @@ import { getServerPublicEnv } from '@/lib/public-env-server';
 import { safeJsonForHtml } from '@/lib/security/safe-json';
 import { siteMetadata } from '@/lib/site-metadata';
 import { cn } from '@/lib/utils';
-import { featureFlags } from '@kortix/sdk';
 import type { Metadata, Viewport } from 'next';
 import { getLocale, getMessages, getTranslations } from '@/i18n/get-translations';
 import { headers } from 'next/headers';
@@ -143,8 +142,8 @@ const ROOT_METADATA: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@kortix',
-    site: '@kortix',
+    creator: '@dosco',
+    site: '@dosco',
     images: ['/banner.png'],
   },
   icons: {
@@ -292,13 +291,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
 
-        {/* iOS Smart App Banner - shows native install banner in Safari */}
-        {!featureFlags.disableMobileAdvertising ? (
-          <meta
-            name="apple-itunes-app"
-            content={"app-id=6754448524, app-argument=kortix://"}
-          />
-        ) : null}
+        {/* No smart app banner: Dosco ships no native app, and the old slot
+            advertised the Kortix App Store listing. */}
 
         <script
           type="application/ld+json"

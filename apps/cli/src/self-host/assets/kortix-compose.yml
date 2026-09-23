@@ -15,8 +15,10 @@ services:
       KORTIX_PUBLIC_BILLING_ENABLED: ${KORTIX_PUBLIC_BILLING_ENABLED}
       KORTIX_PUBLIC_CONNECTORS_ENABLED: ${KORTIX_PUBLIC_CONNECTORS_ENABLED}
       KORTIX_PUBLIC_RESTRICT_ACCOUNT_CREATION: ${KORTIX_PUBLIC_RESTRICT_ACCOUNT_CREATION}
+      HOSTNAME: "::"
       KORTIX_PUBLIC_APP_URL: ${PUBLIC_URL}
       KORTIX_PUBLIC_AUTH_METHODS: ${KORTIX_PUBLIC_AUTH_METHODS}
+      KORTIX_PUBLIC_AUTH_PROVIDERS: ${KORTIX_PUBLIC_AUTH_PROVIDERS}
       KORTIX_PUBLIC_DISABLE_LANDING_PAGE: ${KORTIX_PUBLIC_DISABLE_LANDING_PAGE}
       SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
       SUPABASE_SERVER_URL: http://supabase-kong:8000
@@ -58,6 +60,7 @@ services:
       - .env
     environment:
       PORT: "8008"
+      HOSTNAME: "::"
       SUPABASE_URL: http://supabase-kong:8000
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@supabase-db:5432/postgres
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
@@ -116,6 +119,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       PORT: "8090"
+      HOSTNAME: "::"
       KORTIX_API_URL: http://kortix-api:8008
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
       # Per-request body cap override (bytes). Unset = the gateway default,

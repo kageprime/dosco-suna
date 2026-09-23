@@ -7,6 +7,10 @@ const { app, traces, inflightRequests } = buildServer();
 
 const server = Bun.serve({
   port: config.port,
+  // Dual-stack bind (see apps/api/src/index.ts): the edge resolves container
+  // hostnames to v6 first, and a refused v6 dial retried on v4 corrupts POST
+  // bodies into Caddy 502s. :: serves both families; override for v6-less hosts.
+  hostname: process.env.HOSTNAME ?? '0.0.0.0',
   // idleTimeout DISABLED (0). Bun's default is 10s and its MAX is 255s — and
   // crucially Bun does NOT reset idleTimeout on server->client stream writes, so
   // relayStream's 10s keep-alives do NOT keep the socket alive: the timer fires

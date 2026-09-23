@@ -1694,6 +1694,12 @@ import {
 
 export default {
   port: config.PORT,
+  // Dual-stack bind: Docker networks hand out v6 addresses first and the
+  // edge retries a refused v6 dial on v4 — a retry that corrupts POST bodies
+  // into Caddy 502s. Listening on :: serves both families on one socket, so
+  // the first dial succeeds and no retry ever happens. Overridable for hosts
+  // without an IPv6 stack at all (there binding :: fails; default 0.0.0.0).
+  hostname: process.env.HOSTNAME ?? '0.0.0.0',
 
   // idleTimeout DISABLED (0). Bun's default is 10s and its MAX is 255s, and Bun
   // does NOT reset idleTimeout on server->client writes — so ANY fixed ceiling
