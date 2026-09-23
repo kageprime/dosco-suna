@@ -5,7 +5,6 @@ import { useMemo, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
 import Loading from '@/components/ui/loading';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useMarketplaceItem, useMarketplaceItems, useMarketplaces } from '@/hooks/marketplace';
 import { useMarketplaceDetailStore } from '@/stores/marketplace-detail-store';
 import { MarketplaceDetail, useDetailNav } from './marketplace-detail';
@@ -17,19 +16,18 @@ import { MarketplaceSurfaceProvider, type MarketplaceSurface } from './marketpla
  *  `Set` purely so `MarketplaceSurface` consumers still compile. */
 const NO_INSTALLED_NAMES = new Set<string>();
 
-/** In-project marketplace (Customize → Marketplace). Renders the exact same
- *  `MarketplaceExplore` as the public `/marketplace` page — same source rail,
- *  projects showcase, featured + sectioned skills, cards, and detail — just
- *  embedded in the panel and driven through the "project" surface (adds
- *  start an agent-import session in THIS project, in-panel overlay
- *  navigation). */
+/** In-project marketplace (top-level sidebar entry). Renders the same
+ *  `MarketplaceExplore` content as the public `/marketplace` page — projects
+ *  showcase, skills sections, cards, and detail — but in the shared
+ *  `CapabilityPageShell` layout (title + search + filter pills) instead of
+ *  the public rail, driven through the "project" surface (adds start an
+ *  agent-import session in THIS project, in-panel overlay navigation). */
 export function MarketplaceView({ projectId }: { projectId: string }) {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const openId = useMarketplaceDetailStore((s) => s.openId);
   const openItem = useMarketplaceDetailStore((s) => s.openItem);
   const closeDetail = useMarketplaceDetailStore((s) => s.close);
 
-  const browseScrollContainerRef = useRef<HTMLDivElement>(null);
+  const shellScrollRef = useRef<HTMLDivElement | null>(null);
 
   const surface = useMemo<MarketplaceSurface>(
     () => ({ variant: 'project', projectId, installedNames: NO_INSTALLED_NAMES, openItem }),
@@ -43,29 +41,19 @@ export function MarketplaceView({ projectId }: { projectId: string }) {
           <MarketplaceDetailOverlay onBack={closeDetail} />
         </div>
       ) : (
-        <div className="flex h-full min-h-0 flex-col">
-          {/* Fixed top bar — stays put; the content below scrolls. */}
-          <div className="border-border/60 flex shrink-0 items-center gap-3 border-b px-4 py-2.5">
-            <h2 className="text-foreground text-sm font-medium">
-              {tI18nComplete.raw('textc608981d8d68')}
-            </h2>
-          </div>
-
-          <div className="h-full min-h-0 flex-1 px-4 py-4">
-            <MarketplaceExploreTab scrollContainerRef={browseScrollContainerRef} />
-          </div>
-        </div>
+        <MarketplaceExploreTab shellScrollRef={shellScrollRef} />
       )}
     </MarketplaceSurfaceProvider>
   );
 }
 
 /** Fetches the catalog client-side (no SSR in-project) and renders the shared
- *  explore, embedded + scoped to authenticated reads. */
+ *  explore in the capability-shell layout, embedded + scoped to
+ *  authenticated reads. */
 function MarketplaceExploreTab({
-  scrollContainerRef,
+  shellScrollRef,
 }: {
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+  shellScrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const marketplacesQuery = useMarketplaces({ publicOnly: false });
   const itemsQuery = useMarketplaceItems({ publicOnly: false });
@@ -77,16 +65,6 @@ function MarketplaceExploreTab({
     [allItems],
   );
 
-  if (itemsQuery.isLoading || marketplacesQuery.isLoading) {
-    return (
-      <div className="grid gap-3 sm:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[72px] rounded-md" />
-        ))}
-      </div>
-    );
-  }
-
   return (
     <MarketplaceExplore
       items={allItems}
@@ -95,7 +73,9 @@ function MarketplaceExploreTab({
       embedded
       syncUrl={false}
       publicOnly={false}
-      scrollContainerRef={scrollContainerRef}
+      pageShell
+      pageScrollRef={shellScrollRef}
+      loading={itemsQuery.isLoading || marketplacesQuery.isLoading}
     />
   );
 }

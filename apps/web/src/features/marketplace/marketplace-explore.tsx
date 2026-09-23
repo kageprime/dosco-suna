@@ -18,6 +18,7 @@ import { MarketplaceProjectsGrid } from '@/features/marketplace/marketplace-proj
 import { type MarketplaceItem, type MarketplaceSummary } from '@/lib/marketplace-client';
 import { companyIdFromSlug, marketplaceSourceHref } from '@/lib/marketplace-slug';
 import { cn } from '@/lib/utils';
+import { CapabilityPageShell } from '@/features/workspace/capabilities/shared/capability-page-shell';
 import { AddMarketplaceModal } from './add-marketplace-modal';
 import {
   MARKETPLACE_GRID_COLUMNS,
@@ -87,6 +88,41 @@ function SourceRow({
   );
 }
 
+/** One pill in the in-project filter row (the rail's SourceRow, horizontal). */
+function SourcePill({
+  label,
+  count,
+  active,
+  avatar,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  avatar?: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'true' : undefined}
+      className={cn(
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm transition-colors',
+        active
+          ? 'bg-primary/[0.06] text-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
+      )}
+    >
+      {avatar ? <span className="shrink-0">{avatar}</span> : null}
+      <span className="min-w-0 truncate">{label}</span>
+      {count !== undefined ? (
+        <span className="text-muted-foreground/60 shrink-0 text-xs tabular-nums">{count}</span>
+      ) : null}
+    </button>
+  );
+}
+
 export function MarketplaceExplore({
   items: catalogItems,
   marketplaces,
@@ -95,6 +131,9 @@ export function MarketplaceExplore({
   syncUrl = true,
   publicOnly = true,
   scrollContainerRef,
+  pageShell = false,
+  pageScrollRef,
+  loading = false,
 }: {
   /** SSR-bounded first page of the catalog (all sources) — feeds the
    *  "All sources" sectioned preview + Featured rail. */
@@ -111,6 +150,15 @@ export function MarketplaceExplore({
   publicOnly?: boolean;
   /** Ancestor scroll element to virtualize the grids against (in-project). */
   scrollContainerRef?: RefObject<HTMLElement | null>;
+  /** In-project page layout: the CapabilityPageShell (title + search +
+   *  filter pills) instead of the public rail. Public surface unchanged. */
+  pageShell?: boolean;
+  /** Scroll element the shell attaches (pageShell only) — also handed to the
+   *  virtualized grids and the source-switch scroller. */
+  pageScrollRef?: RefObject<HTMLDivElement | null>;
+  /** Catalog still loading (pageShell only — the shell renders with a
+   *  skeleton body instead of flashing bare). Public data is preloaded. */
+  loading?: boolean;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   // Source filter lives in the left rail — one surface, filtered in place. On
@@ -131,11 +179,13 @@ export function MarketplaceExplore({
         window.history.replaceState(null, '', marketplaceSourceHref(id));
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        scrollContainerRef?.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        scroller?.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }
     },
-    [syncUrl, scrollContainerRef],
+    [syncUrl, scroller],
   );
+
+  const scroller = pageShell ? pageScrollRef : scrollContainerRef;
 
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -208,10 +258,184 @@ export function MarketplaceExplore({
         { label: sourceLabel ?? source },
       ];
 
+  const searchNode = (
+    <InputGroupSearch>
+      <InputGroupSearchIcon>
+        <Search />
+      </InputGroupSearchIcon>
+      <InputGroupSearchInput
+        placeholder={tI18nComplete.raw('text0a6ea1b07058')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        variant="popover"
+      />
+      <InputGroupSearchClear onClick={() => setQuery('')} />
+    </InputGroupSearch>
+  );
+
+  const pillsNode = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <SourcePill
+        label={tI18nComplete.raw('text08e774c5bacc')}
+        active={isAll}
+        onClick={() => selectSource(ALL_SOURCES)}
+      />
+      {marketplaces.map((m) => (
+        <SourcePill
+          key={m.id}
+          label={displayCompanyLabel(m.id, m.label)}
+          count={m.count}
+          active={source === m.id}
+          avatar={
+            <MarketplaceAvatar
+              id={m.id}
+              owner={m.owner}
+              sourceUrl={m.sourceUrl}
+              label={m.label}
+              size="xs"
+            />
+          }
+          onClick={() => selectSource(m.id)}
+        />
+      ))}
+      {canManageSources ? (
+        <button
+          type="button"
+          onClick={() => setAddSourceOpen(true)}
+          className="text-muted-foreground hover:text-foreground inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-sm transition-colors"
+        >
+          <Plus className="size-3.5 shrink-0" />
+          {tI18nComplete.raw('text9fd728c66c9a')}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const contentNode = loading ? (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-[72px] rounded-md" />
+      ))}
+    </div>
+  ) : (
+      <div className="space-y-16">
+        {showProjects ? (
+          <section className="scroll-mt-28">
+            <SectionHeading
+              title={tI18nComplete.raw('text4b11e510f62b')}
+              subtitle={tI18nComplete.raw('textc068cf296b8d')}
+            />
+            <MarketplaceProjectsGrid items={projectItems} query={debounced} size="featured" />
+          </section>
+        ) : null}
+
+        {/* Hidden entirely when there's nothing to show — no empty-state placeholder. */}
+        {searching || !isAll || componentItems.length > 0 ? (
+          <div className="space-y-12">
+            <SectionHeading
+              title={sourceLabel ?? 'Skills'}
+              subtitle={tI18nComplete.raw('text705edc563dcc')}
+            />
+
+            {searching ? (
+              <MarketplacePagedGrid
+                query={debounced}
+                source={isAll ? undefined : source}
+                publicOnly={publicOnly}
+                scrollContainerRef={scroller}
+                columns={MARKETPLACE_GRID_COLUMNS}
+                gridClassName="sm:grid-cols-3"
+                showSource={isAll}
+                emptyTitle={tI18nComplete.raw('text2df01a03ff43')}
+                emptyDescription={tI18nComplete('text05f82c79bce3', { value0: debounced })}
+                emptyAction={
+                  <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                    {tI18nComplete.raw('text3b7ea51793e9')}
+                  </Button>
+                }
+                header={({ total }) => (
+                  <div className="text-muted-foreground text-sm">
+                    <span className="tabular-nums">{total}</span>{' '}
+                    {total === 1 ? 'result' : 'results'} {tI18nComplete.raw('text0981ce2e694b')}
+                    {debounced}
+                    {tI18nComplete.raw('textd1fc8381e22d')}
+                  </div>
+                )}
+              />
+            ) : isAll ? (
+              // Show the whole catalog at once — one virtualized, scrollable grid
+              // per type. Single type (skills) → no redundant per-type heading
+              // (the "Skills" section heading above already names it). When there's
+              // nothing here, the section is hidden entirely (see the wrapper below).
+              <div className="space-y-12">
+                {groups.map((g) => (
+                  <section key={g.type} id={sectionId(g.type)} className="scroll-mt-28">
+                    {groups.length > 1 ? (
+                      <h2 className="text-foreground mb-3 text-lg font-medium tracking-tight text-balance">
+                        {g.label}
+                      </h2>
+                    ) : null}
+                    <MarketplacePagedGrid
+                      type={g.type}
+                      publicOnly={publicOnly}
+                      scrollContainerRef={scroller}
+                      columns={MARKETPLACE_GRID_COLUMNS}
+                      gridClassName="sm:grid-cols-3"
+                      emptyTitle=""
+                      emptyDescription=""
+                    />
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <MarketplacePagedGrid
+                source={source}
+                publicOnly={publicOnly}
+                scrollContainerRef={scroller}
+                columns={MARKETPLACE_GRID_COLUMNS}
+                gridClassName="sm:grid-cols-3"
+                showSource={false}
+                emptyTitle={tI18nComplete.raw('text49abaf804ab3')}
+                emptyDescription={tI18nComplete.raw('text99f521dcb3fa')}
+                emptyAction={
+                  <Button variant="outline" size="sm" onClick={() => selectSource(ALL_SOURCES)}>
+                    {tI18nComplete.raw('text09d2aacd2ac9')}
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        ) : null}
+      </div>
+  );
+
+  const manageModal = canManageSources ? (
+    <AddMarketplaceModal open={addSourceOpen} onOpenChange={setAddSourceOpen} />
+  ) : null;
+
+  // In-project page layout: the shared capability shell (title + search +
+  // filter pills) instead of the public rail. Same sections underneath.
+  if (pageShell) {
+    return (
+      <>
+        <CapabilityPageShell
+          title={tI18nComplete.raw('texta9ab23617be7')}
+          description={tI18nComplete.raw('texte09bc645d309')}
+          search={searchNode}
+          filters={pillsNode}
+          scrollRef={pageScrollRef}
+        >
+          {contentNode}
+        </CapabilityPageShell>
+        {manageModal}
+      </>
+    );
+  }
+
   return (
     <MarketplaceShell
       embedded={embedded}
-      scrollRef={scrollContainerRef}
+      scrollRef={scroller}
       crumbs={crumbs}
       sidebar={
         <>
@@ -224,18 +448,7 @@ export function MarketplaceExplore({
             </p>
           </div>
 
-          <InputGroupSearch>
-            <InputGroupSearchIcon>
-              <Search />
-            </InputGroupSearchIcon>
-            <InputGroupSearchInput
-              placeholder={tI18nComplete.raw('text0a6ea1b07058')}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              variant="popover"
-            />
-            <InputGroupSearchClear onClick={() => setQuery('')} />
-          </InputGroupSearch>
+          {searchNode}
 
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2 px-2.5 pb-1">
@@ -284,95 +497,7 @@ export function MarketplaceExplore({
         </>
       }
     >
-      <div className="space-y-16">
-        {showProjects ? (
-          <section className="scroll-mt-28">
-            <SectionHeading
-              title={tI18nComplete.raw('text4b11e510f62b')}
-              subtitle={tI18nComplete.raw('textc068cf296b8d')}
-            />
-            <MarketplaceProjectsGrid items={projectItems} query={debounced} size="featured" />
-          </section>
-        ) : null}
-
-        {/* Hidden entirely when there's nothing to show — no empty-state placeholder. */}
-        {searching || !isAll || componentItems.length > 0 ? (
-          <div className="space-y-12">
-            <SectionHeading
-              title={sourceLabel ?? 'Skills'}
-              subtitle={tI18nComplete.raw('text705edc563dcc')}
-            />
-
-            {searching ? (
-              <MarketplacePagedGrid
-                query={debounced}
-                source={isAll ? undefined : source}
-                publicOnly={publicOnly}
-                scrollContainerRef={scrollContainerRef}
-                columns={MARKETPLACE_GRID_COLUMNS}
-                gridClassName="sm:grid-cols-3"
-                showSource={isAll}
-                emptyTitle={tI18nComplete.raw('text2df01a03ff43')}
-                emptyDescription={tI18nComplete('text05f82c79bce3', { value0: debounced })}
-                emptyAction={
-                  <Button variant="outline" size="sm" onClick={() => setQuery('')}>
-                    {tI18nComplete.raw('text3b7ea51793e9')}
-                  </Button>
-                }
-                header={({ total }) => (
-                  <div className="text-muted-foreground text-sm">
-                    <span className="tabular-nums">{total}</span>{' '}
-                    {total === 1 ? 'result' : 'results'} {tI18nComplete.raw('text0981ce2e694b')}
-                    {debounced}
-                    {tI18nComplete.raw('textd1fc8381e22d')}
-                  </div>
-                )}
-              />
-            ) : isAll ? (
-              // Show the whole catalog at once — one virtualized, scrollable grid
-              // per type. Single type (skills) → no redundant per-type heading
-              // (the "Skills" section heading above already names it). When there's
-              // nothing here, the section is hidden entirely (see the wrapper below).
-              <div className="space-y-12">
-                {groups.map((g) => (
-                  <section key={g.type} id={sectionId(g.type)} className="scroll-mt-28">
-                    {groups.length > 1 ? (
-                      <h2 className="text-foreground mb-3 text-lg font-medium tracking-tight text-balance">
-                        {g.label}
-                      </h2>
-                    ) : null}
-                    <MarketplacePagedGrid
-                      type={g.type}
-                      publicOnly={publicOnly}
-                      scrollContainerRef={scrollContainerRef}
-                      columns={MARKETPLACE_GRID_COLUMNS}
-                      gridClassName="sm:grid-cols-3"
-                      emptyTitle=""
-                      emptyDescription=""
-                    />
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <MarketplacePagedGrid
-                source={source}
-                publicOnly={publicOnly}
-                scrollContainerRef={scrollContainerRef}
-                columns={MARKETPLACE_GRID_COLUMNS}
-                gridClassName="sm:grid-cols-3"
-                showSource={false}
-                emptyTitle={tI18nComplete.raw('text49abaf804ab3')}
-                emptyDescription={tI18nComplete.raw('text99f521dcb3fa')}
-                emptyAction={
-                  <Button variant="outline" size="sm" onClick={() => selectSource(ALL_SOURCES)}>
-                    {tI18nComplete.raw('text09d2aacd2ac9')}
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        ) : null}
-      </div>
+{contentNode}
     </MarketplaceShell>
   );
 }

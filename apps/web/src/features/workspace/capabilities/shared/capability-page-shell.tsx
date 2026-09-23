@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { CapabilityScrollRootProvider, useCapabilityScrollRootRef } from './capability-scroll-root';
 
@@ -14,6 +14,9 @@ interface CapabilityPageShellProps {
   search?: ReactNode;
   filters?: ReactNode;
   children: ReactNode;
+  /** External scroll element (the marketplace passes its own so the
+   *  virtualized grids observe it). Defaults to an internal ref. */
+  scrollRef?: RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -39,10 +42,12 @@ export function CapabilityPageShell({
   search,
   filters,
   children,
+  scrollRef,
 }: CapabilityPageShellProps) {
-  const scrollRef = useCapabilityScrollRootRef();
+  const internalRef = useCapabilityScrollRootRef();
+  const resolvedRef = scrollRef ?? internalRef;
   return (
-    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+    <div ref={resolvedRef} className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-10 pb-20 lg:py-14">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
