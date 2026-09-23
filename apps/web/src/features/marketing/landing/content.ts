@@ -33,7 +33,7 @@ export const hero = {
  *  20,000+ GitHub stars — cite that number if the claim is ever challenged.
  *  Never add "better"; extensibility belongs in the sub, as a fact. */
 export const heroEyebrow = {
-  lead: 'The AI command center that replaces',
+  lead: 'The agentic OS that replaces',
   rivals: [
     { id: 'cowork', icon: 'Claude', label: 'Claude Cowork' },
     { id: 'chatgpt-work', icon: 'OpenAI', label: 'ChatGPT Work' },

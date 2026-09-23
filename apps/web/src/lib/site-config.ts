@@ -202,7 +202,7 @@ export const siteConfig = {
     ] as NavLink[],
   },
   hero: {
-    description: 'Dosco – the private AI command center for your company.',
+    description: 'Dosco – the private agentic OS for your company.',
   },
   footerLinks: [
     {

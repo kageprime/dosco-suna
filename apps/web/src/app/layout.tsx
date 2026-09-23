@@ -310,7 +310,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               alternateName: [
                 'Dosco',
                 "Dosco AI",
-                "Dosco – The AI Command Center for Your Company",
+                "Dosco – The Agentic OS for Your Company",
               ],
               url: siteMetadata.url,
               logo: `${siteMetadata.url}/favicon.svg`,

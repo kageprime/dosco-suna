@@ -137,7 +137,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'blog',
     title: 'Dosco Blog',
     description:
-      'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco command center.',
+      'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco agentic OS.',
     htmlPath: '/blog',
   },
   {

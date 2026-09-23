@@ -12,13 +12,13 @@ import { siteMetadata } from '@/lib/site-metadata';
 
 const TITLE = 'Blog';
 const DESCRIPTION =
-  'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco command center.';
+  'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco agentic OS.';
 const URL = `${siteMetadata.url}/blog`;
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  keywords: ['Dosco blog', 'AI agents', 'AI command center', 'AI workforce', 'agent automation'],
+  keywords: ['Dosco blog', 'AI agents', 'agentic OS', 'AI workforce', 'agent automation'],
   openGraph: {
     type: 'website',
     title: `Dosco ${TITLE}`,

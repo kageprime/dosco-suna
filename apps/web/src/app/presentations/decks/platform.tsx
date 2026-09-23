@@ -624,7 +624,7 @@ export function useSlides(): SlideDef[] {
       ),
     },
 
-    /* 9 — COMMAND CENTER OVERVIEW ───────────────────────────────────────── */
+    /* 9 — AGENTIC OS OVERVIEW ────────────────────────────────────────────── */
     {
       id: 'command-center',
       label: tI18nHardcoded.raw('i18nComplete.text2522f9d16f3b'),
