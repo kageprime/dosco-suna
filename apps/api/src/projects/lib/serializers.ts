@@ -556,7 +556,9 @@ export function buildSecretView(input: {
 
 export async function loadSecretViewsForUser(input: {
   projectId: string;
-  userId: string;
+  /** Whose personal overrides merge in; null = shared rows only (an
+   *  agent-principal session with no on-behalf-of human, spec 2026-09-22 §2.3). */
+  userId: string | null;
   canManageShared: boolean;
   /** The project's loaded config. Callers that have already read it pass it so
    *  every row reports the agent-grant axis; omitting it reports null. */
@@ -572,7 +574,9 @@ export async function loadSecretViewsForUser(input: {
     .where(
       and(
         eq(projectSecrets.projectId, projectId),
-        or(isNull(projectSecrets.ownerUserId), eq(projectSecrets.ownerUserId, userId)),
+        userId
+          ? or(isNull(projectSecrets.ownerUserId), eq(projectSecrets.ownerUserId, userId))
+          : isNull(projectSecrets.ownerUserId),
       ),
     )
     .orderBy(desc(projectSecrets.updatedAt));
@@ -637,54 +641,15 @@ export function serializeGitHubInstallation(
 }
 
 /**
- * Sentinel `installation_id` for the managed-git PAT backend ("Use a token"
- * self-host setup, platform/routes/github-app.ts POST /pat) when an account
- * has no real GitHub App installation. Real installation ids are GitHub's own
- * numeric ids, so this string can never collide with one. Lets the
- * Import-repo UI — which only understands the "installations" shape — pick
- * the PAT the same way it picks a real App install, instead of needing a
- * parallel UI/API surface just for the token backend. GET /github/repositories
- * and POST /link-repository both recognize this id and route to the PAT.
+ * Account connections only. The instance backend ("Kortix managed") used to
+ * be injected here as a synthetic entry, which made one instance-global
+ * credential look like this account's own GitHub connection.
  */
-export const PAT_MANAGED_GIT_INSTALLATION_ID = 'pat';
-
 export function serializeGitHubInstallations(
   rows: Array<typeof accountGithubInstallations.$inferSelect>,
   accountId: string,
   installUrl: string | null,
-  /** Owner of the account-level managed-git PAT, when this account has no
-   *  real App installation but the server has a working token configured —
-   *  see the route handlers in routes/r1.ts. */
-  patFallbackOwner?: string | null,
 ) {
-  if (rows.length === 0 && patFallbackOwner) {
-    const patInstallation = {
-      account_id: accountId,
-      installation_row_id: null,
-      installed: true,
-      configured: true,
-      requires_installation: false,
-      install_url: null,
-      installation_id: PAT_MANAGED_GIT_INSTALLATION_ID,
-      owner_login: patFallbackOwner,
-      owner_type: null,
-      repository_selection: 'all',
-      permissions: {},
-      installation_url: null,
-      updated_at: null,
-    };
-    return {
-      ...patInstallation,
-      // The PAT is a valid existing-repository import option, but it is not a
-      // GitHub App installation and cannot back POST /projects/create-repo.
-      // Keep the App install URL visible so the default create flow can offer
-      // a real user/org installation alongside the legacy PAT fallback.
-      requires_installation: Boolean(installUrl),
-      install_url: installUrl,
-      installations: [patInstallation],
-    };
-  }
-
   const primary = rows[0] ?? null;
   const base = serializeGitHubInstallation(primary, accountId, installUrl);
   return {

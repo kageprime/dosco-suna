@@ -1813,6 +1813,13 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 			// deliberately left as-is here.)
 			let droppedPhantoms: Set<string> | null = null;
 			const provisional = fromCache ? undefined : cacheSourcedIds.get(sessionID);
+			if (provisional && incoming.length === 0) {
+				for (const id of [...provisional]) {
+					if (isOptimistic(sessionID, id)) continue;
+					untrackId(cacheSourcedIds, sessionID, id);
+					(droppedPhantoms ??= new Set()).add(id);
+				}
+			}
 			if (provisional && provisional.size > 0 && incoming.length > 0) {
 				let oldestIncoming = incoming[0].id;
 				for (const m of incoming) if (m.id < oldestIncoming) oldestIncoming = m.id;
@@ -2007,12 +2014,10 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				}
 			}
 
-			// Pass 2 — ordinal fallback, for an echo the server accepted but whose
-			// parts have not landed yet (no part ids to match on). Restricted to
-			// DISPATCHED messages: one that has not been POSTed cannot be a
-			// duplicate of anything the server holds, so it is never eligible.
-			// That restriction is what keeps a message sent from another tab from
-			// consuming this tab's in-flight bubble.
+			// Pass 2 — use the inbox's exact alias first. For sends without an
+			// inbox row, a dispatched message may use the ordinal fallback when
+			// the echo's parts have not landed yet. Inbox-backed prompts wait for
+			// their row's identity; position alone cannot identify their echo.
 			const claimed = new Set<string>();
 			for (const m of unmatchedOptimisticUsers) {
 				// Alias first: the inbox row announced this message's echo id.
@@ -2031,6 +2036,9 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				if (supersededBy.has(m.id)) continue;
 				const echo =
 					isDispatched(sessionID, m.id) &&
+					// Inbox rows identify their own echo. An unrelated new user
+					// message must never take a prompt still waiting in that inbox.
+					!hasTrackedId(inboxBackedOptimisticIds, sessionID, m.id) &&
 					// Known-different echo → never consume someone else's.
 					!optimisticEchoes.get(sessionID)?.get(m.id)
 						? claimable[next]
@@ -2303,7 +2311,7 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				if (!info?.sessionID) return;
 				// The user cancelled this message; the runtime's husk stays dead.
 				if (cancelledMessageIds.get(info.sessionID)?.has(info.id)) return;
-					// When a real user message arrives from the server, swap out the
+				// When a real user message arrives from the server, swap out the
 				// optimistic message(s) in a SINGLE atomic set() call.
 				// This prevents the intermediate render where the user bubble
 				// vanishes (optimistic removed) before the real one appears.
@@ -2323,6 +2331,13 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				if (info.role === "user" && !isOptimistic(info.sessionID, info.id)) {
 					const msgs = get().messages[info.sessionID];
 					if (msgs) {
+						// A later update to an already placed user message is not a
+						// new echo. The sole waiting prompt may be the only optimistic
+						// message left after the running prompt was confirmed.
+						if (msgs.some((message) => message.id === info.id)) {
+							store.upsertMessage(info.sessionID, info);
+							return;
+						}
 						// ONE confirmation retires ONE optimistic message.
 						//
 						// This used to retire every optimistic user message in the
@@ -2333,10 +2348,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 						// message and the one still uploading its attachment vanished
 						// too. Same defect `hydrate` had, on the SSE path.
 						//
-						// Correlate the same way `hydrate` does: exact part id first
-						// (hosts send the client-generated id WITH the prompt), then
-						// the oldest dispatched message as a fallback for a
-						// confirmation that carries no parts yet.
+						// Correlate by part id or the inbox row's alias. Only a send
+						// without an inbox row may use the ordinal fallback.
 						const state = get();
 						const optimisticUsers = msgs.filter(
 							(m) => m.role === "user" && isOptimistic(info.sessionID, m.id),
@@ -2376,8 +2389,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 						const byAlias = optimisticUsers.find(
 							(m) => optimisticEchoes.get(info.sessionID)?.get(m.id) === info.id,
 						);
-						// The ordinal guess is only safe when there is exactly ONE
-						// in-flight send it could be. With a burst in flight, a
+						// The ordinal guess is only available when there is exactly ONE
+						// eligible send without an inbox row. With a burst in flight, a
 						// part-less echo that matches neither a part id nor a
 						// registered alias consumes NOTHING: taking the oldest
 						// bubble handed one message's echo another message's text
@@ -2399,6 +2412,7 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 						const eligible = optimisticUsers.filter(
 							(m) =>
 								isDispatched(info.sessionID, m.id) &&
+								!hasTrackedId(inboxBackedOptimisticIds, info.sessionID, m.id) &&
 								// An optimistic message whose OWN echo is known to be a
 								// DIFFERENT id must not be consumed by someone else's.
 								!optimisticEchoes.get(info.sessionID)?.get(m.id),

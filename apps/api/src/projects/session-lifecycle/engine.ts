@@ -1,3 +1,6 @@
+import { sessionAttachmentStore } from '../lib/session-attachments';
+import { stableSessionAttachmentId } from '../lib/session-attachment-identity';
+import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { PromptDeliveryRefused, throwIfPromptRefused } from './prompt-delivery-refusal';
 import {
   assertInboxDeliveryActive,
@@ -34,6 +37,8 @@ import { serviceKeyForExternalId } from '../../platform/service-key';
 import type { ProviderName } from '../../platform/providers';
 import { sandboxOpencodeEndpoint } from '../opencode-mapping';
 import { sandboxRuntimeRequestHeaders } from '../sandbox-fetch';
+import { sendQuickQueueControl } from './quick-queue-control';
+import { clearTurnStopRequest, markTurnStopRequested } from '../sandbox-turn-lifecycle';
 import {
   currentInstanceId,
   sandboxBelongsToThisInstance,
@@ -44,12 +49,11 @@ import { db } from '../../shared/db';
 import { markTriggerRuntimeDelivered } from '../trigger-execution-store';
 import { connectorBindingPayloadConflicts } from '../lib/session-connector-bindings';
 import { secretsAllowlistPayloadConflicts } from '../secrets';
-import {
-  requireConnectorsConflicts,
-  runtimeContextConflicts,
-} from './idempotency-conflicts';
+import { runtimeContextConflicts } from './idempotency-conflicts';
 import { createProjectSession } from '../lib/sessions';
 import { syncSandboxEnvForPrompt } from '../lib/sandbox-env-sync';
+import { recordSessionActivity } from '../session-activity';
+import { deliveryCountsAsActivity } from './delivery-activity';
 import { applyTriggerSessionAccess } from '../trigger-session-access';
 import { openSession } from '../routes/shared';
 import { generateSessionTitleFromFirstPrompt } from '../session-title-generate';
@@ -203,6 +207,12 @@ export async function createSession(
         },
       };
     }
+    if (JSON.stringify(existingBody.provider_secret_pools ?? null) !== JSON.stringify(command.body.provider_secret_pools ?? null)) {
+      return {
+        status: 'failed', commandId: claimed.row.commandId, retryable: false,
+        error: { status: 409, body: { error: 'Idempotency key was already used with different provider secret pools', code: 'IDEMPOTENCY_PROVIDER_POOL_CONFLICT' } },
+      };
+    }
     if (
       secretsAllowlistPayloadConflicts(
         existingBody.secrets as string[] | null | undefined,
@@ -232,25 +242,6 @@ export async function createSession(
           body: {
             error: 'Idempotency key was already used with a different runtime_context',
             code: 'IDEMPOTENCY_CONTEXT_CONFLICT',
-          },
-        },
-      };
-    }
-    // require_connectors resolves to member bindings at create; a replay with a
-    // different required set would otherwise return the first session, which was
-    // resolved against a different set of the user's own connections.
-    if (
-      requireConnectorsConflicts(existingBody.require_connectors, command.body.require_connectors)
-    ) {
-      return {
-        status: 'failed',
-        commandId: claimed.row.commandId,
-        retryable: false,
-        error: {
-          status: 409,
-          body: {
-            error: 'Idempotency key was already used with a different require_connectors',
-            code: 'IDEMPOTENCY_REQUIRE_CONNECTORS_CONFLICT',
           },
         },
       };
@@ -425,6 +416,7 @@ export async function continueSession(
       projectId: projectSessions.projectId,
       status: projectSessions.status,
       metadata: projectSessions.metadata,
+      projectMetadata: sql<Record<string, unknown> | null>`(SELECT p.metadata FROM kortix.projects p WHERE p.project_id = "kortix"."project_sessions"."project_id")`,
     })
     .from(projectSessions)
     .where(eq(projectSessions.sessionId, sessionId))
@@ -483,6 +475,7 @@ export async function continueSession(
           userId,
           materializationKey: key,
           writeFile: writeRuntimePromptFile,
+          readAttachment: (scope) => sessionAttachmentStore().read(scope),
           // The runtime already holds this message's native images inline;
           // only the legacy non-native parts need a file behind them.
           inlineBudgetBytes: Number.POSITIVE_INFINITY,
@@ -517,6 +510,8 @@ export async function continueSession(
         overrides: command.overrides,
         wireMessageId: command.wireMessageId,
         materializationKey: command.materializationKey,
+        attachmentProjectId: resolveFeatureFlag(session.projectMetadata, 'session_transcript_history')
+          ? session.projectId : undefined,
         accountId: session.accountId,
         projectId: session.projectId,
       },
@@ -735,7 +730,22 @@ export async function continueSession(
       return healed ? toTarget(healed) : null;
     },
     send: sendPrompt,
-  }).catch(notLandedOutcome);
+  })
+    .then((outcome) => {
+      // Stamp the sidebar's sort key for a prompt the PLATFORM delivered — a
+      // spawned sub-session, a trigger, a channel message, an approval resume.
+      // The preview proxy already does this for a prompt a browser sends; this
+      // path never did, so those sessions fell back to `updated_at`, which a
+      // dozen background writers advance with no turn behind them, and they
+      // visibly reordered themselves in the sidebar. Best-effort and never
+      // awaited, exactly as at the proxy: a failed stamp degrades ordering and
+      // must never degrade the prompt.
+      if (deliveryCountsAsActivity(outcome)) {
+        void recordSessionActivity({ sessionId, projectId: session.projectId });
+      }
+      return outcome;
+    })
+    .catch(notLandedOutcome);
 }
 
 /** A refused landing proof is its own outcome; anything else keeps throwing. */
@@ -756,6 +766,8 @@ export async function drainSessionLifecycleQueue(
     limit?: number;
     /** Drain one freshly-enqueued callback without waiting behind older work. */
     idempotencyKey?: string;
+    /** Completion wakes target rows already in the inbox; they need no burst delay. */
+    coalesce?: boolean;
     /** Only drain commands due before this instant — see claimDueLifecycleCommands. */
     availableBefore?: Date;
   } = {},
@@ -767,7 +779,7 @@ export async function drainSessionLifecycleQueue(
   // the rest of the burst was even durable (measured: one of four boot sends
   // delivered a step behind, out of order). A quarter second collects the
   // stragglers and is invisible next to the ~1.3 s delivery itself.
-  if (input.idempotencyKey) {
+  if (input.idempotencyKey && input.coalesce !== false) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   const rows = await claimDueLifecycleCommands({
@@ -1108,6 +1120,58 @@ export async function resolveSessionOpencodeEndpoint(
   return { endpoint, opencodeSessionId: session.opencodeSessionId };
 }
 
+/** Cancel a pending boundary interrupt when its inbox prompt is removed. */
+export async function disarmQuickQueueInterrupt(
+  sessionId: string,
+  actorUserId: string,
+  promptId: string,
+): Promise<void> {
+  const resolved = await resolveSessionOpencodeEndpoint(sessionId, actorUserId).catch(() => null);
+  if (!resolved) return;
+  await sendQuickQueueControl(resolved.endpoint, { kind: 'disarm', promptId });
+  // Only the head prompt arms an interrupt, so there is one mark to withdraw.
+  await clearTurnStopRequest(sessionId, 'QueueInterrupt');
+}
+
+/** Stop holds all inbox rows, so no automatic boundary interrupt may remain. */
+export async function disarmAllQuickQueueInterrupt(
+  sessionId: string,
+  actorUserId: string,
+): Promise<void> {
+  const resolved = await resolveSessionOpencodeEndpoint(sessionId, actorUserId).catch(() => null);
+  if (!resolved) return;
+  await sendQuickQueueControl(resolved.endpoint, { kind: 'disarm-all' });
+  await clearTurnStopRequest(sessionId, 'QueueInterrupt');
+}
+
+async function armQuickQueueInterrupt(
+  row: SessionLifecycleCommandRow,
+  identity: { opencodeSessionId: string; messageId: string },
+): Promise<void> {
+  const resolved = await resolveSessionOpencodeEndpoint(row.sessionId, row.actorUserId).catch(() => null);
+  if (!resolved || resolved.opencodeSessionId !== identity.opencodeSessionId) return;
+  const armed = await sendQuickQueueControl(resolved.endpoint, {
+    kind: 'arm',
+    promptId: row.commandId,
+    opencodeSessionId: identity.opencodeSessionId,
+    messageId: identity.messageId,
+  });
+  if (!armed) {
+    logger.warn('[session-lifecycle] Quick Queue boundary interrupt unavailable', {
+      sessionId: row.sessionId,
+      commandId: row.commandId,
+    });
+    return;
+  }
+  // The daemon now aborts this turn at its next tool boundary because the user
+  // sent a prompt into it. That abort is asked for, not a failure.
+  if (!row.sessionId) return;
+  await markTurnStopRequested(row.sessionId, 'QueueInterrupt', {
+    opencodeSessionId: identity.opencodeSessionId,
+    messageId: identity.messageId,
+  });
+}
+
 /** What one read of the root transcript tells the drain about this prompt. */
 interface InboxTranscriptState {
   /** The highest id clock on record, for placing a re-mint above it. */
@@ -1131,6 +1195,14 @@ interface InboxTranscriptState {
 /** Newest-N read for placement. Only the tip decides where a re-mint lands,
  *  and a first delivery has no delivered id an `answered` check could match. */
 const INBOX_TRANSCRIPT_TIP_LIMIT = 8;
+/** A full read serves only the redelivery answered check. A long transcript
+ *  with inline attachments is megabytes, so it gets more than the tip's 5s. */
+const INBOX_TRANSCRIPT_FULL_READ_TIMEOUT_MS = 15_000;
+const INBOX_TRANSCRIPT_TIP_READ_TIMEOUT_MS = 5_000;
+/** First wait before re-checking an unreadable redelivery; doubles per failure. */
+const ANSWER_CHECK_RETRY_BASE_MS = 5_000;
+/** How many redelivery answered-checks may fail before the prompt is sent anyway. */
+const MAX_ANSWER_CHECK_FAILURES = 3;
 
 async function readInboxTranscriptState(
   row: SessionLifecycleCommandRow,
@@ -1151,7 +1223,9 @@ async function readInboxTranscriptState(
     const res = await fetch(url, {
       method: 'GET',
       headers: sandboxRuntimeRequestHeaders(resolved.endpoint.headers),
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(
+        opts.full ? INBOX_TRANSCRIPT_FULL_READ_TIMEOUT_MS : INBOX_TRANSCRIPT_TIP_READ_TIMEOUT_MS,
+      ),
     });
     if (!res.ok) return empty;
     const tip = parsePlacementTip(await res.json().catch(() => null));
@@ -1554,6 +1628,7 @@ export async function executeQueuedContinue(
   let admission: Awaited<ReturnType<typeof admitInboxPrompt>>;
   try {
     admission = await admitInboxPrompt(row);
+    if (admission.admit) await lifecycleStore.markInboxDeliveryStarted(row.commandId);
     tl.mark('admission');
   } catch (err) {
     await markCommandFailed(
@@ -1577,6 +1652,28 @@ export async function executeQueuedContinue(
         { retryable: true, attempts: row.attempts, sessionId: row.sessionId },
       );
       return 'failed';
+    }
+    // The row is durable before the daemon may end this turn. The terminal
+    // relay then promotes this same row and delivers it as the next turn.
+    if (admission.interruptAtBoundary) {
+      await armQuickQueueInterrupt(row, admission.interruptAtBoundary);
+    }
+    // A terminal relay can arrive while this row is claimed, before it becomes
+    // queued again. Recheck after the write so that completion cannot lose its wake.
+    if (admission.reason === 'turn_active') {
+      try {
+        if (!(await sessionHoldsLiveTurn(row.sessionId))) {
+          const idempotencyKey = await lifecycleStore.promoteNextInboxRow(row.sessionId);
+          if (idempotencyKey) {
+            void drainSessionLifecycleQueue({ idempotencyKey, coalesce: false }).catch((error) => {
+              logger.error('[session-lifecycle] completion handoff drain failed', { sessionId: row.sessionId, error });
+            });
+          }
+        }
+      } catch (error) {
+        // The row is durably queued. The retry worker remains its fallback.
+        logger.warn('[session-lifecycle] completion handoff check failed', { sessionId: row.sessionId, error });
+      }
     }
     return 'queued';
   }
@@ -1749,6 +1846,31 @@ export async function executeQueuedContinue(
     }
     const transcript = await transcriptPromise;
     tl.mark('transcript-read');
+    // A prompt POSTed before may already be answered. An unreadable transcript
+    // cannot prove it is not, so the redelivery waits and re-checks instead of
+    // re-sending blind, up to MAX_ANSWER_CHECK_FAILURES times. A first delivery
+    // was never posted, so its fail-open read stays safe.
+    const alreadyPosted = deliveryAttempt > 0 || redeliveries > 0;
+    const answerCheckFailures = Number(
+      (row.result as { answer_check_failures?: unknown } | null)?.answer_check_failures ?? 0,
+    );
+    if (
+      alreadyPosted &&
+      !transcript.read &&
+      answerCheckFailures < MAX_ANSWER_CHECK_FAILURES
+    ) {
+      console.warn('[session-lifecycle] redelivery waits — the answered check could not read the transcript', {
+        sessionId: row.sessionId,
+        commandId: row.commandId,
+        redeliveries,
+        answerCheckFailures,
+      });
+      await lifecycleStore.requeueUnverifiedRedelivery(
+        row.commandId,
+        new Date(Date.now() + ANSWER_CHECK_RETRY_BASE_MS * 2 ** answerCheckFailures),
+      );
+      return 'queued';
+    }
     // The already-answered guard is not redelivery-only. Every re-mint path
     // re-reads the transcript, and an assistant reply parented on one of THIS
     // prompt's delivered ids proves the same thing on all of them: the turn
@@ -2432,6 +2554,7 @@ async function postPrompt(
     overrides?: PromptOverridesWire;
     wireMessageId?: string;
     materializationKey?: string;
+    attachmentProjectId?: string;
     accountId?: string;
     projectId?: string;
   },
@@ -2448,6 +2571,16 @@ async function postPrompt(
         projectId: prompt.projectId,
         materializationKey: prompt.materializationKey,
         writeFile: writeRuntimePromptFile,
+        readAttachment: (scope) => sessionAttachmentStore().read(scope),
+        saveAttachment: prompt.attachmentProjectId ? async (file) => {
+          const saved = await sessionAttachmentStore().put({
+            ...file,
+            projectId: prompt.attachmentProjectId!,
+            sessionId: callerSessionId,
+            attachmentId: stableSessionAttachmentId(`${callerSessionId}:${prompt.materializationKey}:${file.index}`),
+          });
+          return saved.url;
+        } : undefined,
       })
     : parts;
   const overrides = prompt?.overrides;

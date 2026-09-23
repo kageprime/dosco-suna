@@ -61,6 +61,7 @@ import {
   teamsIdentityApp,
   teamsOauthApp,
   teamsWebhookApp,
+  startTeamsBotTokenRefresh,
   telegramWebhookApp,
 } from './channels';
 import { connectorApp } from './connectors';
@@ -94,7 +95,7 @@ import {
   stopProjectTriggerScheduler,
 } from './projects';
 import { startActiveTurnRenewal, stopActiveTurnRenewal } from './projects/active-turn-renewal';
-import { GitOperationError, isGitOperationError } from './projects/git/mirror';
+import { GitOperationError, isGitOperationError, isTransientGitMirrorError } from './projects/git/mirror';
 import { startProjectMaintenance, stopProjectMaintenance } from './projects/maintenance';
 import {
   startProviderTransitionWorker,
@@ -151,6 +152,7 @@ import { isPlatinumSandboxNotRunningError } from './shared/platinum';
 import { skillsApp } from './skills';
 import { kickStartupPreBuild } from './snapshots/builder';
 import { startTmpReaper, stopTmpReaper } from './snapshots/tmp-reaper';
+import { startSessionLifecycleWorker, stopSessionLifecycleWorker } from './projects/session-lifecycle/worker';
 import {
   startTunnelService,
   stopTunnelService,
@@ -987,6 +989,9 @@ app.route('/v1/webhooks/slack/oauth', slackOauthApp); // /v1/webhooks/slack/oaut
 app.route('/v1/webhooks/slack', slackWebhookApp); // /v1/webhooks/slack/:projectId — raw Slack events (BYO mode)
 app.route('/v1/webhooks/teams/oauth', teamsOauthApp); // /v1/webhooks/teams/oauth/callback — admin-consent + catalog publish
 app.route('/v1/webhooks/teams', teamsWebhookApp); // /v1/webhooks/teams/messages — Bot Framework activities
+// Keep the shared Teams bot token warm so the first message after a deploy
+// does not wait on login.microsoftonline.com before its live card is posted.
+startTeamsBotTokenRefresh();
 app.route('/v1/channels/slack/identity', slackIdentityApp); // /v1/channels/slack/identity/bind — authed /login bind
 app.route('/v1/channels/teams/identity', teamsIdentityApp); // /v1/channels/teams/identity/bind — authed login bind
 app.route('/v1/webhooks/telegram', telegramWebhookApp); // /v1/webhooks/telegram/:projectId — Telegram updates
@@ -1142,24 +1147,31 @@ app.onError((err, c) => {
     );
   }
 
-  // A bare-clone / fetch of a project's git mirror that exceeds its timeout
-  // (SIGTERM mid-transfer, large repo, transient network) is EXPECTED and
-  // retryable — the mirror already retries once internally before surfacing.
-  // Previously these surfaced as the opaque Better Stack pattern `8d0cffbb…`
-  // ("Cloning into bare repository '/tmp/kortix/git-cache/….git'…" — git's
-  // progress line captured on stderr before the kill, masking the real cause).
-  // `runGit` now throws a typed `GitOperationError` (kind 'timeout') whose
-  // message names the timeout; classify the transient kind into a retryable
+  // A bare-clone / fetch of a project's git mirror that fails for a TRANSIENT,
+  // upstream reason is EXPECTED and retryable — the mirror already retries a
+  // bounded number of times internally before surfacing. Two shapes:
+  //   * `kind: 'timeout'` (SIGTERM mid-transfer, large repo, transient network)
+  //     — previously surfaced as the opaque Better Stack pattern `8d0cffbb…`
+  //     ("Cloning into bare repository '/tmp/kortix/git-cache/….git'…" — git's
+  //     progress line captured on stderr before the kill, masking the cause).
+  //   * `kind: 'failed'` whose message is a transient upstream failure — the
+  //     network/DNS/socket class, GitHub's 5xx, and GitHub's ambiguous
+  //     `fatal: repository '<url>' not found` for a PRIVATE mirror whose
+  //     credential is momentarily unusable (incident
+  //     `incident-20260923T100537Z-hbcr`: KX-HOURLY `sessions new` hard-failed
+  //     with an unhandled 500 on exactly this, while the git proxy served the
+  //     same repo 200 seconds before and after).
+  // Both are classified by `isTransientGitMirrorError` into a retryable
   // 503 + Retry-After WITHOUT paging Sentry (mirroring Platinum /
-  // request-deadline), while a real `failed` kind (auth / missing repo) still
-  // falls through to Sentry with a meaningful `fatal:` message. See
-  // projects/git/mirror.ts.
-  if (isGitOperationError(err) && err.kind === 'timeout') {
-    appLogger.warn(`${method} ${path} -> 503 [GitOperationError:timeout] ${err.message}`, {
+  // request-deadline). A PERMANENT failure (bad ref, real auth denial, corrupt
+  // local repo) still falls through to Sentry with a meaningful `fatal:`
+  // message. See projects/git/mirror.ts.
+  if (isTransientGitMirrorError(err)) {
+    appLogger.warn(`${method} ${path} -> 503 [GitOperationError:${err.kind}] ${err.message}`, {
       method,
       path,
       errorType: 'GitOperationError',
-      gitKind: 'timeout',
+      gitKind: err.kind,
       gitArgs: err.gitArgs,
       signal: err.signal,
     });
@@ -1494,16 +1506,21 @@ async function startReplicaServices() {
   await import('./platform/services/runtime-settings')
     .then((m) => m.refreshRuntimeSettings())
     .catch(() => {});
-  // Warm the managed-GitHub-App config cache too — so a self-host instance
-  // whose operator just ran the in-app GitHub App setup flow (rather than
-  // `.env`) gets its DB-stored creds from request #1, not after a 30s TTL.
-  await import('./platform/services/managed-github-app')
-    .then((m) => m.refreshManagedGithubAppConfig())
+  // Warm the instance GitHub identity + git backend caches too — so a
+  // self-host instance whose operator just ran the in-app setup flow (rather
+  // than `.env`) serves its stored configuration from request #1, not after a
+  // 30s TTL.
+  await import('./platform/services/github-app-identity')
+    .then((m) => m.refreshAppIdentity())
+    .catch(() => {});
+  await import('./platform/services/managed-git-backend')
+    .then((m) => m.refreshGitBackend())
     .catch(() => {});
   // Every replica stages snapshot/session-boot build contexts in tmpdir and can
   // leak them on error paths; sweep stale ones so they don't fill node disk and
   // trip DiskPressure evictions. Runs on all replicas (not leader-gated).
   startTmpReaper();
+  startSessionLifecycleWorker();
 }
 
 // Singleton background WORKERS — must run on EXACTLY ONE replica at a time
@@ -1626,6 +1643,7 @@ async function shutdown(signal: string) {
   stopTunnelService();
   stopAccessControlCache();
   stopTmpReaper();
+  stopSessionLifecycleWorker();
   // Flush observability data before exit. The audit queue is drained here
   // because audit rows are buffered off the request path — without this, the
   // last ~250 ms of events would be lost on every SIGTERM (i.e. every rollout).

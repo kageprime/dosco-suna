@@ -114,6 +114,57 @@ to a prod incident. After resolving ANY incident or near-miss, append its rule
 there in the same session — an incident that leaves no learning behind is not
 finished.
 
+## NEVER write customer data or PII into anything we publish or commit
+
+This is a hard rule. No exceptions, no "just this once", no "it's only
+internal".
+
+**Never write any of these:**
+
+- customer or company names, and the names of their people;
+- email addresses, phone numbers, or other personal data;
+- real account, project, session, user, or sandbox IDs from prod, staging, or
+  a customer deployment;
+- customer repository names, hostnames, or URLs that contain any of the above;
+- customer prompts, messages, files, or log lines;
+- screenshots of a real customer workspace.
+
+**Never write them into:**
+
+- commits, commit messages, or branch names;
+- PR titles, PR bodies, PR comments, or review comments;
+- issues;
+- code comments, test names, or test fixtures;
+- docs, runbooks, skills, `AGENTS.md`, changelogs, or release notes;
+- artifacts, Slack posts, or any public or team-visible text.
+
+**Write the class instead:** "a customer reported", "an enterprise
+workspace", "a prod session", `<session_id>`. Build test data from synthetic
+values. Evidence that contains real data stays local: the gitignored
+`output/` folder, your scratchpad, or the private agent memory. It never goes
+into a tracked file.
+
+**If you find customer data** in the tree or in a PR, remove it in the same
+branch and say so. Do not rewrite history on `main`. Report the SHA to the user
+instead.
+
+**A guard enforces this on every commit and push.**
+`scripts/check-blocked-terms.sh` runs from `.githooks/pre-commit`,
+`.githooks/commit-msg`, and `.githooks/pre-push`. It refuses any added line,
+commit message, or pushed branch name that contains a blocked term. Matching is
+case-insensitive and whole-word. The list is itself customer data, so it lives
+encrypted in `apps/api/.env` as `BLOCKED_COMMIT_TERMS`, comma-separated.
+
+- Add a customer the day they sign: `dotenvx set BLOCKED_COMMIT_TERMS
+  "<existing>,<new>" -f apps/api/.env`. Read the current value first with
+  `dotenvx get BLOCKED_COMMIT_TERMS -f apps/api/.env`.
+- In a worktree the guard decrypts with the primary checkout's
+  `apps/api/.env.keys`. Without a key it warns and allows.
+- Deleting a line that contains a term is always allowed.
+- Never bypass the guard with `--no-verify`. If it fires, remove the term.
+- The hooks do not see PR titles, PR bodies, or comments. Those stay your
+  responsibility.
+
 ## How to communicate: precise, technically accurate, no fluff
 
 Write every response — chat, PR text, commit messages, code comments, docs — in
@@ -149,61 +200,86 @@ technical precision with zero filler. Apply these rules:
 This standard governs how you talk. It does not override the technical rules
 below; it is how you report on them.
 
-## First, at session start: where do you work?
+## First, at session start: which canonical branch are you in?
 
-Before starting any non-trivial change, **ask the user which environment to work
-in** — don't assume. Three choices:
+Every change belongs to **one canonical branch** — the branch for whatever is
+being worked on. One canonical branch, one worktree. Establish which one you are
+in before any non-trivial change. **Do not create a branch by reflex.**
 
-1. **A new isolated worktree** (`pnpm worktree`) — the default for any feature,
-   bugfix, refactor, or experiment beyond a one-line edit. Own branch, own port
-   block, own `node_modules`, own tunnel; runs in parallel without touching the
-   primary web/API stack. By default it reuses the primary checkout's standard
-   local Supabase DB for fast setup and consistent auth. Provision non-blocking with
-   `pnpm worktree create --name <feat> --yes --no-start`, then do all edits/runs
-   under the sibling checkout `../suna-<feat>`. If the change needs database
-   migrations, destructive data work, schema drift, or independent auth/storage
-   state, opt into the full isolated data plane with
-   `pnpm worktree create --name <feat> --db --yes --no-start`. See the
-   **worktree** skill.
-2. **Straight in this primary checkout** via `pnpm dev` (web `3000` / api `8008`)
-   — on `main` or whatever branch is already checked out here. Simplest; fine
-   for small or quick iterative work where isolation isn't needed.
-3. **An existing worktree** — list them with `git worktree list` and work in the
-   one the user names.
+1. **Join the canonical branch that already exists** for this work. List them
+   with `git worktree list` and `git branch -r`. If the work continues, extends,
+   fixes, or cleans up something already in flight, it belongs on that branch.
+   Ask the user which branch when it is not obvious.
+2. **Start a new canonical branch** only when the work is genuinely a new thing.
+   Give it its own worktree: `pnpm worktree create --name <slug> --yes
+   --no-start`, then do all edits and runs under `../suna-<slug>`. Add `--db`
+   only when the work needs migrations, destructive data work, schema drift, or
+   independent auth/storage state. See the **worktree** skill.
+3. **The primary checkout** (`pnpm dev`, web `3000` / api `8008`) is for running
+   and investigating. Do not park feature work there.
 
-Carve-outs where you don't need to ask — just proceed: read-only
-investigation/questions, and trivial single-file typo/comment fixes on the
-current branch.
+**Pack more into one branch, not less.** A follow-up fix, a rename cleanup, a
+stale-reference sweep, and the change that caused them all belong on the same
+branch and land together. Splitting one objective across several branches is how
+a half-finished cutover reaches `main` in pieces — each piece green alone, the
+whole thing broken.
 
-## Default delivery: PR, merge to main, then prove it on dev
+Sub-branches are allowed. Agents may cut working branches off the canonical
+branch and merge back into it. **A sub-branch never opens a PR against `main`.**
+Only the canonical branch does.
 
-Unless the user explicitly asks for a different delivery path, complete every
-non-trivial change through this full lifecycle:
+Carve-outs where you just proceed: read-only investigation and questions, and
+trivial single-file typo/comment fixes on the current branch.
 
-1. Work on a dedicated branch in an isolated worktree and keep the commit scoped
-   to that change.
-2. Run the relevant local unit, type, integration, and end-to-end checks with
-   real inputs and outputs.
-3. Push the branch, open a PR against `main`, wait for required checks, and merge
-   it. Do not leave finished work only on a branch or stop after opening the PR.
-4. Dev **auto-deploys on merge to `main`** — every push builds the surfaces that
-   changed vs dev's live SHA and cancels any superseded in-flight deploy. Follow
-   the resulting **Deploy Dev** run through completion. Confirm the deployed
-   artifact contains the merged SHA; a successful `/health` response alone is not
-   deployment proof. A newer push cancels an older run by design — if yours was
-   cancelled before it deployed, the next push re-picks-up your still-stale
-   surface, or force it with `gh workflow run deploy-dev.yml -f surface=all`.
-   Full procedure, surfaces, and verification: `docs/runbooks/deploy-dev.md`.
-5. Re-run the user-visible behavior against `https://dev.kortix.com` and/or
+## Default delivery: share by preview, merge to `main` only when told
+
+`main` auto-deploys to dev, so **merging to `main` publishes to the whole team.**
+It is not a save point, and it is not how you show someone your work.
+
+1. Work on the canonical branch in its worktree. Commit as often as you want.
+2. Open a **draft PR against `main` on the first commit** and apply the
+   `preview` label. That builds a complete self-host preview for the branch — its
+   own PostgreSQL, Supabase, API, gateway, frontend, and HTTPS origin. This is how
+   work is shared and reviewed internally. **Sharing never requires merging.**
+   The `preview` label also runs the six-lane `Tests` suite on the PR.
+3. Run the relevant local unit, type, integration, and end-to-end checks with
+   real inputs and outputs. **CI does not run the local suite on a PR into
+   `main`** — run it yourself (narrowest command first, then `pnpm test`), or
+   add the `test` label to get the six CI lanes (~8 min, no push needed). Keep
+   the PR green as you go, not at the end.
+4. Merge `main` into the canonical branch daily. A branch that diverges for weeks
+   detonates on merge exactly like a 1,500-line PR does.
+5. **Never merge to `main` without the user's explicit approval of that merge.**
+   Not "the task is done", not "the checks are green" — the user says merge.
+   The only machine-enforced rule is that every change reaches `main` and
+   `staging` through a pull request — no required approvals, no required status
+   checks, no bypass actors. Anyone may merge their own PR. The discipline is
+   yours, not the ruleset's, so the bar is what you verified, not what CI let
+   through.
+6. **A change to a client-facing runtime contract** — the `@kortix/sdk` public
+   surface, session/thread transport, the streaming protocol — merges only after
+   the whole objective ran on its own preview origin through a real session.
+   Green tests are not the bar. Someone used it.
+7. After the merge, follow the **Deploy Dev** run to completion. Confirm the
+   deployed artifact contains the merged SHA; a successful `/health` response
+   alone is not deployment proof. A newer push cancels an older run by design —
+   if yours was cancelled before it deployed, the next push re-picks-up your
+   still-stale surface, or force it with
+   `gh workflow run deploy-dev.yml -f surface=all`. Full procedure, surfaces,
+   and verification: `docs/runbooks/deploy-dev.md`. The same push runs the
+   `Tests` suite on the merge commit in parallel. It does not gate the deploy.
+   A red run comments on the commit and names the failing lanes — read it.
+8. Re-run the user-visible behavior against `https://dev.kortix.com` and/or
    `https://dev-api.kortix.com`. Prefer the real Dosco CLI configured for the
    dev API for CLI/project/session flows, and direct authenticated HTTP calls for
    API contracts. For web behavior, drive the deployed UI and assert its network
    request plus visible result.
 
-Local verification and dev verification are both required. A local pass does
-not replace the deployed check, and a dev smoke test does not replace focused
-local tests. Record the PR, merge SHA, deploy run, deployed SHA evidence, and
-exact dev command or interaction in the final response.
+Preview verification, local verification, and dev verification are all required.
+A local pass does not replace the preview origin, and a dev smoke test does not
+replace focused local tests. Record the branch, PR, preview origin, merge SHA,
+deploy run, deployed SHA evidence, and the exact dev command or interaction in
+the final response.
 
 ## Architecture: `@kortix/sdk` is the source of truth
 
@@ -214,8 +290,7 @@ and auth-token plumbing. The apps
 (`apps/web`, `apps/whitelabel-demo`, `apps/mobile`) are **thin consumers**. Treat
 these as standing rules whenever you touch the data/runtime layer:
 
-> **Editing `packages/sdk` itself? Read `packages/sdk/PROGRESS.md` (current state,
-> claim your task) and `packages/sdk/AGENTS.md` (the rules) first.** It is a
+> **Editing `packages/sdk` itself? Load the **sdk** skill (the rules) first.** It is a
 > **published npm package** with its own hard rules that have no analogue
 > elsewhere in this repo: **TDD is mandatory** (failing test first, run it, watch
 > it fail, then implement — and every turn ends with the gates run, the real
@@ -365,26 +440,45 @@ See `tests/e2e/helpers/session-auth.ts` for the exact calls.
 - Every Linux CI job runs on Blacksmith through `runs-on: ${{ vars.CI_RUNNER_<tier>
   || '<label>' }}`. Tiers, the kill switch back to GitHub-hosted runners, and
   the Docker layer cache: `docs/runbooks/ci-runners.md`.
-- GitHub Actions runs four lanes — `core`, `browser-1`, `browser-2`, `packages` —
-  natively, one Blacksmith runner each (`CI_RUNNER_L`), through
-  `.github/workflows/tests.yml`. The two browser lanes are halves of one sharded
-  run (`--browser-shard=1/2` and `2/2`). The slowest lane defines the gate
-  duration. Each lane is the unchanged root command at the exact PR head SHA;
-  browser lanes install Chromium and prestart Supabase first. Do not add
-  CI-only test logic. (The Platinum/Daytona sandbox-worker path was removed on
-  2026-08-26; only `deploy-preview.yml` still uses a cloud sandbox.)
+- GitHub Actions runs six lanes — `core`, `browser-1` … `browser-4`, `packages`
+  — natively, one Blacksmith runner each (`CI_RUNNER_L`), through
+  `.github/workflows/tests.yml`. The four browser lanes are quarters of one
+  sharded run (`--browser-shard=N/4`, Playwright's native `--shard`). The suite
+  measures 8m17s wall clock; `packages` (~8 min) is the slowest lane, so a fifth
+  browser shard buys nothing and the concurrency settings in
+  `tests/bin/package-quality.ts` must not be raised. Each lane is the unchanged
+  root command at the exact requested SHA; browser lanes install Chromium and
+  prestart Supabase first. Do not add CI-only test logic. (The Platinum/Daytona
+  sandbox-worker path was removed on 2026-08-26; only `deploy-preview.yml` still
+  uses a cloud sandbox.)
+- The suite runs on every push to `main`, on a pull request into `staging`, on a
+  pull request labelled `test` or `preview`, and on manual dispatch. The label
+  re-triggers an open pull request without a push. A plain pull request into
+  `main` skips it, and its check shows as skipped. A push-to-`main` run
+  blocks nothing: a red run comments the failing lanes on the commit, a cancelled
+  run means a newer commit superseded it. A pull request into `prod` runs
+  `tests-release.yml` against deployed staging instead.
+- Run the suite locally before merging into `main`: the narrowest relevant
+  command first, then `pnpm test`. The old per-pull-request gate cost ~11 min
+  median and 68 min worst case and gated nothing, because `main` and `staging`
+  require no status check.
 - Release tests run `pnpm test -- --target-full` against deployed staging. They block
   production when API or gateway health reports a SHA other than
   `RELEASE_SOURCE_SHA`, when any API flow is excluded, or when a configured
   Playwright journey fails.
 - The `preview` label creates one full self-host preview in a persistent warm
-  Platinum sandbox. `auto` uses Daytona only for a Platinum infrastructure
-  failure. The preview has its own PostgreSQL, Supabase, API, gateway, frontend,
-  Mailpit, and HTTPS origin.
+  Platinum sandbox. Previews run on Platinum only: the preview host and every
+  session inside it. A Platinum failure fails the preview; there is no Daytona
+  fallback. Daytona code remains only to delete previews created before
+  2026-09-22. The preview has its own PostgreSQL, Supabase, API, gateway,
+  frontend, Mailpit, and HTTPS origin.
 - Preview CI runs `pnpm test -- --target-full` against that origin. The sticky
   pull request comment links the origin and its `/_tests/` HTML report.
-- A preview head change deletes the sandbox and removes the stale `preview`
-  label. Unlabel, close, and scheduled reconciliation also delete the sandbox.
+- A push to a `preview`-labelled branch redeploys its environment in place; the
+  label stays. Removing the label or deleting the branch tears it down. Closing
+  the pull request does not. A daily reconciler deletes environments whose
+  branch no longer exists (`deploy-preview.yml` `teardown`, `teardown-branch`,
+  `reconcile`).
 - Preview warm images contain dependencies and Docker layers only. They never
   contain a database or runtime secret.
 - Preview Mailpit handles authentication and invite email. The dedicated

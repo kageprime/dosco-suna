@@ -1,10 +1,5 @@
-import { promptConnectorRefusalBody } from '../lib/prompt-connector-refusal';
-import {
-  missingPromptConnectorConnections,
-  PromptConnectorPreflightUnresolved,
-} from '../lib/prompt-connector-preflight';
-import { DEFAULT_AGENT_SENTINEL } from '../agents';
-import { checkBillingActive } from '../../billing/services/billing-gate';
+import { parseSessionAttachmentRef } from '@kortix/shared';
+import { checkBillingAdmission } from '../../billing/services/billing-gate';
 import { config, type SandboxProviderName } from '../../config';
 import { auth, errors, json } from '../../openapi';
 import { getProvider } from '../../platform/providers';
@@ -38,13 +33,18 @@ import {
   sessionIsTombstoned,
 } from '../lib/access';
 import { resolveAndAuthorizeAgent } from '../lib/agent-access';
+import { clearSessionOnBehalfOfForPrompt } from '../lib/on-behalf-of';
 import { assertAgentScope, isProjectSessionPrincipal } from '../../iam/agent-scope';
-import { resolveChangeRequestBase } from '../change-request-policy';
+import { resolveChangeRequestBase, resolveChangeRequestOrigin } from '../change-request-policy';
 import { PROJECT_ACTIONS } from '../../iam';
 import { callerKortixSessionId } from '../lib/caller-session';
 import { sandboxTokenMayActOnSession } from '../lib/sandbox-token-session';
 import { AnyObject, ChangeRequestSchema, SessionStartResultSchema, projectsApp } from '../lib/app';
 import { withProjectGitAuth } from '../lib/git';
+import {
+  sessionUsesCurrentRepository,
+} from '../lib/repository-generation';
+import { backfillSessionTranscriptMirrorOnWake } from '../lib/session-transcript-capture';
 import { UUID_V4_REGEX, normalizeString, readBody } from '../lib/serializers';
 import {
   continueSession,
@@ -60,6 +60,7 @@ import {
   stopSession,
 } from '../session-lifecycle';
 import { settleInboxHoldAfterStopInBackground } from '../session-lifecycle/inbox-hold-settle';
+import { disarmAllQuickQueueInterrupt, disarmQuickQueueInterrupt } from '../session-lifecycle/engine';
 import { cancelForwardedPrompt, findInboxRowIdByMessageId } from '../session-lifecycle/cancel-forwarded';
 import {
   flattenPromptText,
@@ -91,10 +92,14 @@ projectsApp.openapi(
     ...auth,
     request: {
       params: z.object({ projectId: z.string(), sessionId: z.string() }),
+      query: z.object({
+        wait_ms: z.string().optional(),
+        repository_mode: z.enum(['previous']).optional(),
+      }),
     },
     responses: {
       200: json(SessionStartResultSchema, 'Session readiness payload'),
-      ...errors(400, 402, 404),
+      ...errors(400, 402, 403, 404, 409),
     },
   }),
   async (c) => {
@@ -122,6 +127,10 @@ projectsApp.openapi(
     // restartable and the UI offers a Restart that can never work. 404, the
     // same answer the read-by-id gives (see sessionIsTombstoned).
     if (sessionIsTombstoned(visible.row)) return c.json({ error: 'Not found' }, 404);
+    const projectMetadata = loaded.row.metadata as Record<string, unknown>;
+    const sessionMetadata = visible.row.metadata as Record<string, unknown>;
+    const repositoryMode = c.req.query('repository_mode');
+    const usesCurrentRepository = sessionUsesCurrentRepository(projectMetadata, sessionMetadata);
     // The agent this session will actually run has to still be one the caller
     // may run — grants change after a session is created, and `/start` is what
     // resumes a hibernated box days later. The session's stored `agent_name`
@@ -142,7 +151,7 @@ projectsApp.openapi(
     }
 
     // Same gate as wake/create: resuming or provisioning spends compute.
-    const billing = await checkBillingActive(loaded.row.accountId);
+    const billing = await checkBillingAdmission(loaded.row.accountId);
     stl.mark('billing-checked');
     if (!billing.ok) {
       return c.json(
@@ -176,7 +185,24 @@ projectsApp.openapi(
       waitMs,
     });
     stl.mark(`open-session:${result.start.stage}`);
-    stl.log({ waitMs });
+    // THE RUNTIME IS UP — mirror what is already in it, once.
+    //
+    // Capture otherwise runs only at turn end, so enabling
+    // `session_transcript_history` did nothing for a project's EXISTING
+    // sessions: each one stayed blank on open until somebody sent it another
+    // message. Opening the session is exactly when the user waits and the
+    // feature is supposed to pay off, so that is where the backfill belongs.
+    //
+    // Fire-and-forget and self-limiting: at most one attempt per session per
+    // process, skipped entirely when the flag is off or the mirror already
+    // proves it holds the session's first message. It cannot fail or delay
+    // this response.
+    if (result.start.stage === 'ready') void backfillSessionTranscriptMirrorOnWake(sessionId);
+    stl.log({
+      waitMs,
+      repositoryMode: usesCurrentRepository ? 'current' : 'previous',
+      compatibilityModeRequested: repositoryMode === 'previous',
+    });
     return c.json(
       {
         ...result.start,
@@ -315,8 +341,19 @@ const SessionTurnSchema = z.object({
 
 const SessionTurnLastEndedSchema = z.object({
   turn_token: z.string(),
+  message_id: z.string().optional(),
   end_reason: z.string().nullable(),
   ended_at: z.string().nullable(),
+  error: z
+    .object({ name: z.string().nullable(), message: z.string().nullable() })
+    .optional(),
+});
+
+const SessionTurnFailureSchema = z.object({
+  message_id: z.string(),
+  ended_at: z.string().nullable(),
+  // Null when the turn failed and nobody named why.
+  error: z.object({ name: z.string().nullable(), message: z.string().nullable() }).nullable(),
 });
 
 const SessionTurnResponseSchema = z.object({
@@ -328,6 +365,7 @@ const SessionTurnResponseSchema = z.object({
   // caller reconciling by `message_id`.
   turns: z.array(SessionTurnSchema),
   last_ended: SessionTurnLastEndedSchema.optional(),
+  recent_failures: z.array(SessionTurnFailureSchema).optional(),
 });
 
 // GET /v1/projects/:projectId/sessions/:sessionId/turn
@@ -423,12 +461,13 @@ projectsApp.openapi(
 // Admission — "may this prompt be delivered NOW?" — is not decided here. It is
 // decided at drain time by `admitInboxPrompt`, on the ORDER of this session's
 // own rows, because that answer changes between the POST and the delivery. A
-// live turn does not hold a prompt back: OpenCode queues it by arrival.
+// live turn holds later prompts until its terminal event releases the next row.
 
 const PROMPT_WIRE_MESSAGE_ID = /^msg_[0-9a-f]{12}[A-Za-z0-9]{14}$/;
 const PROMPT_LIST_LIMIT = 200;
 
 const SessionPromptSchema = z.object({
+  placement: z.enum(['transcript', 'composer']).optional(),
   prompt_id: z.string(),
   client_message_id: z.string(),
   message_id: z.string(),
@@ -437,6 +476,7 @@ const SessionPromptSchema = z.object({
   state: z.enum(['queued', 'delivering', 'waiting', 'failed']),
   reason: z.string().nullable(),
   text: z.string(),
+  full_text: z.string().optional(),
   attempts: z.number(),
   last_error: z.string().nullable(),
   attachments: z.array(z.object({ filename: z.string(), mime: z.string() })),
@@ -449,6 +489,7 @@ const SessionPromptSchema = z.object({
  *  text PREVIEW and no parts at all, which is a display shape, not a restore
  *  shape. */
 const RemovedSessionPromptSchema = z.object({
+  placement: z.enum(['transcript', 'composer']).optional(),
   prompt_id: z.string(),
   client_message_id: z.string(),
   removed_message_ids: z.array(z.string()).optional(),
@@ -462,6 +503,7 @@ function serializeRemovedPrompt(row: PromptRow) {
   const payload = (row.payload ?? {}) as Record<string, unknown>;
   const parts = Array.isArray(payload.parts) ? payload.parts : [];
   return {
+    placement: payload.placement === 'transcript' ? 'transcript' as const : 'composer' as const,
     prompt_id: row.commandId,
     client_message_id: typeof payload.clientMessageId === 'string' ? payload.clientMessageId : '',
     // The ORIGINAL wire id, never the re-minted one: an undo re-creates the
@@ -546,6 +588,9 @@ projectsApp.openapi(
     const body = await readBody(c);
     const clientMessageId = normalizeString(body.client_message_id);
     const messageId = normalizeString(body.message_id);
+    if (body.placement !== undefined && body.placement !== 'transcript' && body.placement !== 'composer') {
+      return c.json({ error: 'placement must be transcript or composer' }, 400);
+    }
     const rawParts = Array.isArray(body.parts) ? body.parts : [];
     if (!clientMessageId || clientMessageId.length > 128) {
       return c.json({ error: 'client_message_id is required (1..128 chars)' }, 400);
@@ -559,6 +604,12 @@ projectsApp.openapi(
     const sanitized = sanitizeInboxPromptParts(rawParts);
     if ('error' in sanitized) return c.json({ error: sanitized.error }, 400);
     const parts = sanitized.parts;
+    for (const part of parts) {
+      const attachment = parseSessionAttachmentRef(part.url);
+      if (attachment && (attachment.projectId !== projectId || attachment.sessionId !== sessionId)) {
+        return c.json({ error: 'Attachment belongs to another session' }, 400);
+      }
+    }
     const text = flattenPromptText(parts);
 
     const overridesInput = (body.overrides ?? {}) as Record<string, unknown>;
@@ -580,28 +631,32 @@ projectsApp.openapi(
     // back to the session's own agent when the prompt names none.
     await resolveAndAuthorizeAgent(c, loaded, projectId, overrides.agent, visible.row.agentName);
 
-    // Refuse before enqueueing: callers must see the actionable connector
-    // contract rather than a queue that looks like an active model turn.
-    try {
-      const refusal = promptConnectorRefusalBody(
-        await missingPromptConnectorConnections({
-          accountId: loaded.row.accountId,
-          projectId,
-          sessionId,
-          sessionAgent: visible.row.agentName ?? DEFAULT_AGENT_SENTINEL,
-          requestedAgent: overrides.agent,
-        }),
-      );
-      if (refusal) return c.json(refusal, 409);
-    } catch (error) {
-      if (error instanceof PromptConnectorPreflightUnresolved) {
-        return c.json({ error: error.message, code: 'CONNECTOR_REQUIREMENTS_UNRESOLVED' }, 503);
-      }
-      throw error;
+    // Spec 2026-09-22 §2.3 (closes V6): the first prompt from a HUMAN other than
+    // the session's `on_behalf_of` clears it permanently. The agent keeps its
+    // own authority; it loses the creator's personal resources, so the person
+    // prompting never acts through another person's accounts. An agent-session
+    // credential is not a human prompter and clears nothing.
+    if (!isProjectSessionPrincipal(c)) {
+      await clearSessionOnBehalfOfForPrompt({
+        accountId: loaded.row.accountId,
+        sessionId,
+        prompterUserId: loaded.userId,
+      });
     }
 
+    // NO connector pre-flight here. A prompt used to be refused 409
+    // `CONNECTOR_CONNECTION_REQUIRED` when a connector the session declared had
+    // nothing connected. That gate could not be cleared from the product: a
+    // `user`-strategy connector has no project account to offer, so the web
+    // card had no button, and the warm-session path swallowed the 409 and left
+    // the composer on "Thinking" forever.
+    //
+    // The connector CALL denies instead (`connector_not_connected`), naming the
+    // connector and carrying a connect link. The turn runs, the agent reports
+    // what is missing, and the human fixes it in one click.
+
     // Same gate as start/wake: a prompt spends compute.
-    const billing = await checkBillingActive(loaded.row.accountId);
+    const billing = await checkBillingAdmission(loaded.row.accountId);
     if (!billing.ok) {
       return c.json(
         {
@@ -632,6 +687,7 @@ projectsApp.openapi(
       idempotencyKey,
       clientMessageId,
       wireMessageId: messageId,
+      ...(body.placement ? { placement: body.placement } : {}),
       // OPT-IN, and only one producer sets it: the localStorage migration,
       // whose id is minted at page load — against a transcript this tab has
       // not read yet — for a message the user typed before their last reload.
@@ -795,6 +851,7 @@ projectsApp.openapi(
     // restores a 2000-char preview with no attachments and no model override —
     // a silent, unannounced loss on a button labelled "Undo".
     if (outcome.outcome === 'deleted') {
+      await disarmQuickQueueInterrupt(sessionId, loaded.userId, effectivePromptId);
       return c.json({ removed: serializeRemovedPrompt(outcome.row) }, 200);
     }
     if (outcome.outcome === 'delivering') {
@@ -804,12 +861,14 @@ projectsApp.openapi(
       // invisible to the model). Only "a step is answering it" still refuses.
       const cancelled = await cancelForwardedPrompt(sessionId, effectivePromptId);
       if (cancelled.outcome === 'cancelled') {
+        await disarmQuickQueueInterrupt(sessionId, loaded.userId, effectivePromptId);
         return c.json({ removed: serializeRemovedPrompt(cancelled.row) }, 200);
       }
       if (cancelled.outcome === 'not_forwarded') {
         // The row fell back into the queue while the cancel watched it.
         const retried = await deleteInboxPrompt(sessionId, effectivePromptId);
         if (retried.outcome === 'deleted') {
+          await disarmQuickQueueInterrupt(sessionId, loaded.userId, effectivePromptId);
           return c.json({ removed: serializeRemovedPrompt(retried.row) }, 200);
         }
       }
@@ -937,6 +996,7 @@ projectsApp.openapi(
     }
 
     await holdInboxPrompts(sessionId, body.held);
+    if (body.held) await disarmAllQuickQueueInterrupt(sessionId, loaded.userId);
     // After the write, before the read-back — either instant orders this
     // snapshot correctly against the hold it just applied (JAY-728).
     const observedAt = new Date().toISOString();
@@ -1060,7 +1120,18 @@ projectsApp.openapi(
     if (!headRef) return c.json({ error: 'head_ref is required' }, 400);
     // The session must be resolved BEFORE the base, because a session's own
     // base is what the change request targets.
-    let originSessionId: string | null = normalizeString(body.session_id ?? body.sessionId);
+    const actorIsSession = isProjectSessionPrincipal(c);
+    const originDecision = resolveChangeRequestOrigin({
+      actorIsSession,
+      actingSessionId: actorIsSession
+        ? ((c.get('sessionId') as string | null | undefined) ?? null)
+        : null,
+      requestedSessionId: normalizeString(body.session_id ?? body.sessionId),
+    });
+    if (!originDecision.ok) {
+      return c.json({ error: originDecision.error, code: originDecision.code }, 400);
+    }
+    let originSessionId = originDecision.originSessionId;
     let sessionBaseRef: string | null = null;
     if (originSessionId) {
       const [sessionRow] = await db
@@ -1073,15 +1144,21 @@ projectsApp.openapi(
           ),
         )
         .limit(1);
-      if (!sessionRow) originSessionId = null;
-      else sessionBaseRef = normalizeString(sessionRow.baseRef);
+      if (!sessionRow) {
+        if (actorIsSession) {
+          return c.json({ error: 'Authenticated session not found in this project', code: 'CR_SESSION_NOT_FOUND' }, 403);
+        }
+        originSessionId = null;
+      } else {
+        sessionBaseRef = normalizeString(sessionRow.baseRef);
+      }
     }
 
     const baseDecision = resolveChangeRequestBase({
       requested: normalizeString(body.base_ref ?? body.baseRef),
       sessionBase: sessionBaseRef,
       projectDefault: loaded.row.defaultBranch,
-      actorIsSession: isProjectSessionPrincipal(c),
+      actorIsSession,
     });
     if (!baseDecision.ok) {
       return c.json({ error: baseDecision.error, code: baseDecision.code }, 400);

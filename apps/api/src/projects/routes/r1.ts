@@ -1,16 +1,19 @@
 import { projectRoleGrants } from '../../iam/read-models';
 import { ACCOUNT_ACTIONS, PROJECT_ACTIONS, assertAuthorized, authorize, listAccessible } from '../../iam';
 import { actorOf } from '../../iam/actor';
+import { isProjectSessionPrincipal } from '../../iam/agent-scope';
+import { buildDenialError } from '../../iam/denial-message';
+import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { setContextField } from '../../lib/request-context';
 import { supabaseAuth } from '../../middleware/auth';
 import { auth, errors, json } from '../../openapi';
 import { db } from '../../shared/db';
-import { isSelfHostOperator } from '../../shared/platform-roles';
 import { kickProjectTemplatePrebuilds } from '../../snapshots/builder';
 import { isAccountManager, type ProjectRole } from '../access';
-import { getBackend, hasBackend, managedGithubOwner, managedGithubToken, parseBasicAuthHeader, type GitScope } from '../git-backends';
+import { getBackend, hasBackend, parseBasicAuthHeader, type GitScope } from '../git-backends';
 import {
   getGitHubAppInstallation,
+  githubVerificationStatus,
   listLinkableGitHubAppInstallations,
   type GitHubAppInstallation,
   verifyGitHubAppInstallStatePayload,
@@ -26,7 +29,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { enforceProjectQuota, loadProjectForUser, resolveProjectAccount, assertProjectCapability } from '../lib/access';
 import { AnyObject, ProjectSchema, projectWebhooksApp, projectsApp } from '../lib/app';
-import { GitHubInstallationRequiredError, buildConnectionRef, consumeGitHubInstallationState, createGitHubInstallationInstallUrl, getAccountGitHubInstallation, getProjectGitConnection, getProjectGitRemote, listAccountGitHubInstallations, resolveGitHubImport, resolveProjectGitAuth, resolveProjectGitConnection, resolveProjectUpstream, withProjectGitAuth } from '../lib/git';
+import { GitHubInstallationRequiredError, buildConnectionRef, consumeGitHubInstallationState, countInstallationsLinkedToOtherAccounts, createGitHubInstallationInstallUrl, getAccountGitHubInstallation, getProjectGitConnection, getProjectGitRemote, listAccountGitHubInstallations, resolveGitHubImport, resolveProjectGitAuth, resolveProjectGitConnection, resolveProjectUpstream, withProjectGitAuth } from '../lib/git';
 import { registerGitHubLinkedProject } from '../lib/project-registration';
 import { UUID_V4_REGEX, deriveProjectName, normalizeRepoUrl, normalizeString, readBody, requestAuditContext, serializeGitHubInstallation, serializeGitHubInstallations, serializeProject } from '../lib/serializers';
 import { extractWebhookToken, fireGitTrigger, markGitTriggerFired, renderPromptTemplate, triggerFilterMatches, triggersPausedForProject, verifyWebhookSignature, verifyWebhookToken, webhookPayload } from '../lib/triggers';
@@ -220,6 +223,11 @@ projectsApp.openapi(
     'project',
   );
 
+  // Empty, whatever the reason. `account_mfa_required` cannot reach here: the
+  // listing is deliberately not MFA-gated, because challenging someone for
+  // opening the project switcher is worse than showing the names and
+  // challenging them when they open one. `authorize` still denies every
+  // per-project action with the coded 403 the step-up dialog keys on.
   if (accessible.mode === 'none') return c.json([]);
 
   // Build the project rows + the per-row role label the UI renders. The engine
@@ -420,7 +428,7 @@ projectsApp.openapi(
     // here on purpose — /provision's response shape is depended on by the CLI
     // (`kortix ship`) and the SDK and must not change.
   });
-  return c.json(result.body, result.status);
+  return c.json(result.body, result.status, result.headers);
 },
 );
 
@@ -557,6 +565,19 @@ projectsApp.openapi(
   // token and bypass every CR/commit gate. Gate on gitops.push: a custom role
   // can withhold it, and the agent fold requires it in the token's grant.
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_GITOPS_PUSH);
+  // Agents as principals (spec 2026-09-22 §2.4): an agent's authority is its
+  // kortix.yaml entry, and a change to that entry needs a human merge. A raw
+  // provider push credential would let the agent write the default branch
+  // directly — its own grant included — past the session ref policy and the
+  // merge guard. Under the flag an agent session pushes through the Kortix git
+  // proxy only.
+  if (isProjectSessionPrincipal(c) && resolveFeatureFlag(loaded.row.metadata, 'agent_principal')) {
+    throw buildDenialError(
+      PROJECT_ACTIONS.PROJECT_GITOPS_PUSH,
+      'agent_human_only_action',
+      'An agent session cannot receive a raw git push credential. Push through the Kortix git origin (git_origin_url).',
+    );
+  }
 
   const connection = await getProjectGitConnection(projectId);
   const remote = getProjectGitRemote(loaded.row, connection);
@@ -727,21 +748,11 @@ projectsApp.openapi(
   const installUrl = canManageGit
     ? await createGitHubInstallationInstallUrl(scope.accountId, scope.userId)
     : null;
-  // No account-level GitHub App installation, but the server has a working
-  // managed-git PAT ("Use a token" self-host setup) — fall back to it so this
-  // account isn't told "GitHub isn't connected" just because it never
-  // installed an App (see serializeGitHubInstallations).
-  // `isSelfHostOperator`, NOT `isPlatformAdmin`. The synthetic entry exposes
-  // MANAGED_GIT_GITHUB_OWNER's whole repository list, and on cloud that owner
-  // is `managed-kortix` — every customer's project repo. `isPlatformAdmin` is
-  // also true for Kortix staff, so gating on it put every customer's private
-  // repo in the `/new` import picker (reported 2026-08-29). Only the self-host
-  // operator, for whom that org is their own, may see it.
-  const patFallbackOwner =
-    rows.length === 0 && managedGithubToken() && (await isSelfHostOperator(scope.userId))
-      ? managedGithubOwner()
-      : null;
-  return c.json(serializeGitHubInstallations(rows, scope.accountId, installUrl, patFallbackOwner));
+  // Account connections only. "Kortix managed" is the INSTANCE backend and
+  // has its own namespace (GET /v1/projects/git/backend[/repositories]); it
+  // used to appear here as a synthetic installation, which made an
+  // instance-global credential look like this account's own connection.
+  return c.json(serializeGitHubInstallations(rows, scope.accountId, installUrl));
 },
 );
 
@@ -769,21 +780,11 @@ projectsApp.openapi(
   const installUrl = canManageGit
     ? await createGitHubInstallationInstallUrl(scope.accountId, scope.userId)
     : null;
-  // No account-level GitHub App installation, but the server has a working
-  // managed-git PAT ("Use a token" self-host setup) — fall back to it so this
-  // account isn't told "GitHub isn't connected" just because it never
-  // installed an App (see serializeGitHubInstallations).
-  // `isSelfHostOperator`, NOT `isPlatformAdmin`. The synthetic entry exposes
-  // MANAGED_GIT_GITHUB_OWNER's whole repository list, and on cloud that owner
-  // is `managed-kortix` — every customer's project repo. `isPlatformAdmin` is
-  // also true for Kortix staff, so gating on it put every customer's private
-  // repo in the `/new` import picker (reported 2026-08-29). Only the self-host
-  // operator, for whom that org is their own, may see it.
-  const patFallbackOwner =
-    rows.length === 0 && managedGithubToken() && (await isSelfHostOperator(scope.userId))
-      ? managedGithubOwner()
-      : null;
-  return c.json(serializeGitHubInstallations(rows, scope.accountId, installUrl, patFallbackOwner));
+  // Account connections only. "Kortix managed" is the INSTANCE backend and
+  // has its own namespace (GET /v1/projects/git/backend[/repositories]); it
+  // used to appear here as a synthetic installation, which made an
+  // instance-global credential look like this account's own connection.
+  return c.json(serializeGitHubInstallations(rows, scope.accountId, installUrl));
 },
 );
 
@@ -879,6 +880,10 @@ projectsApp.openapi(
     const linkedRows = await listAccountGitHubInstallations(scope.accountId);
     const linkedIds = new Set(linkedRows.map((row) => row.installationId));
     const installUrl = await createGitHubInstallationInstallUrl(scope.accountId, scope.userId);
+    const otherAccountCounts = await countInstallationsLinkedToOtherAccounts(
+      scope.accountId,
+      linkable.installations.map((installation) => String(installation.id)),
+    );
 
     return c.json({
       account_id: scope.accountId,
@@ -893,6 +898,9 @@ projectsApp.openapi(
         permissions: installation.permissions ?? {},
         installation_url: installation.html_url ?? null,
         linked: linkedIds.has(String(installation.id)),
+        // A COUNT, never a name. Which other tenants hold this installation is
+        // their business; that it is shared is this caller's.
+        linked_to_other_accounts: otherAccountCounts.get(String(installation.id)) ?? 0,
       })),
     });
   },
@@ -952,7 +960,7 @@ projectsApp.openapi(
         {
           error: (error as Error).message || 'GitHub administrator verification failed',
         },
-        403,
+        githubVerificationStatus(error),
       );
     }
 
@@ -1028,7 +1036,7 @@ projectsApp.openapi(
     await verifyGitHubInstallationAdmin(githubUserToken, installation);
   } catch (error) {
     const message = (error as Error).message || 'GitHub administrator verification failed';
-    return c.json({ error: message }, 403);
+    return c.json({ error: message }, githubVerificationStatus(error));
   }
 
   const stateStatus = await consumeGitHubInstallationState({

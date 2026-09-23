@@ -50,7 +50,7 @@ flow(
   async (ctx) => {
     const body = {
       principal: { accountId: '00000000-0000-4000-a000-000000000000' },
-      input: { requestedModel: 'glm-5.3-flash' },
+      input: { requestedModel: 'morph-dsv41flash' },
     };
     await ctx.step('no internal token → 401', async () => {
       const r = await ctx.client.as(ctx.P.ANON).post('/internal/gateway/resolve-route', body);
@@ -179,7 +179,7 @@ flow(
       });
     }
 
-    await ctx.step('enabled catalog reports zero subscription rates and positive OpenAI API rates', async () => {
+    await ctx.step('enabled catalog retains published rates for ChatGPT picker rows', async () => {
       (await ctx.client.as(ctx.P.OWNER).patch(
         '/v1/projects/:projectId/experimental',
         { feature: 'llm_gateway', enabled: true },
@@ -190,11 +190,9 @@ flow(
       response.status(200);
       const models = response.json<{ models: Record<string, { cost?: Record<string, unknown> }> }>().models;
       const subscription = models['codex/gpt-5.6-sol']?.cost;
-      if (JSON.stringify(subscription) !== JSON.stringify({ input: 0, output: 0, cache_read: 0, cache_write: 0 })) {
-        throw new Error(`ChatGPT must have zero rates without paid tiers: ${JSON.stringify(subscription)}`);
-      }
-      if (!(Number(models['openai/gpt-5.6-sol']?.cost?.input) > 0)) {
-        throw new Error('Paid OpenAI API input rate must remain positive');
+      const api = models['openai/gpt-5.6-sol']?.cost;
+      if (!(Number(api?.input) > 0) || JSON.stringify(subscription) !== JSON.stringify(api)) {
+        throw new Error(`ChatGPT picker must retain published API rate context: ${JSON.stringify(subscription)}`);
       }
     });
 
@@ -314,12 +312,12 @@ flow(
     const params = { projectId: project.id };
     const policy = {
       defaultModel: 'codex/gpt-5.6-sol',
-      visionModel: 'glm-5.3-flash',
-      defaultFallback: { models: ['glm-5.3-flash'], fallbackOn: 'any-error' },
+      visionModel: 'morph-dsv41flash',
+      defaultFallback: { models: ['morph-dsv41flash'], fallbackOn: 'any-error' },
       rules: [
         {
           model: 'openai/gpt-5.5',
-          fallbackModels: ['glm-5.3-flash'],
+          fallbackModels: ['morph-dsv41flash'],
           fallbackOn: 'transient',
         },
       ],
@@ -376,7 +374,7 @@ flow(
         .body()
         .has('$.project', savedProject)
         .has('$.effective.defaultModel', 'codex/gpt-5.6-sol')
-        .has('$.effective.defaultFallback.models', ['glm-5.3-flash']);
+        .has('$.effective.defaultFallback.models', ['morph-dsv41flash']);
 
       const read = await ctx.client
         .as(ctx.P.OWNER)
@@ -397,10 +395,10 @@ flow(
         .body()
         .has('$.route.policyId', 'project:default')
         .has('$.route.primaryModel', 'codex/gpt-5.6-sol')
-        .has('$.route.fallbackModels', ['glm-5.3-flash'])
+        .has('$.route.fallbackModels', ['morph-dsv41flash'])
         .has('$.route.fallbackOn', 'any-error')
         .has('$.models[0].model', 'codex/gpt-5.6-sol')
-        .has('$.models[1].model', 'glm-5.3-flash')
+        .has('$.models[1].model', 'morph-dsv41flash')
         .exists('$.models[0].available')
         .exists('$.models[1].available');
 
@@ -416,7 +414,7 @@ flow(
         .body()
         .has('$.route.policyId', 'project:exact:openai/gpt-5.5')
         .has('$.route.primaryModel', 'openai/gpt-5.5')
-        .has('$.route.fallbackModels', ['glm-5.3-flash'])
+        .has('$.route.fallbackModels', ['morph-dsv41flash'])
         .has('$.route.fallbackOn', 'transient');
     });
 
@@ -466,16 +464,6 @@ flow(
     });
   },
 );
-
-// A model the catalog does not know resolves differently on a DEPLOYED target:
-// the managed upstream answers 503 before the gateway can classify the name as
-// `model_not_found` (400). Pre-existing — the v0.13.17 release gate failed the
-// same assertion (run 35012251397, job 104544285765) and that release shipped.
-// Accepted here on deployed targets only so the other five steps of this flow
-// keep gating releases; locally the 400 is still required.
-// FOLLOW-UP: classify an unknown model as 400 before the upstream call.
-const KE2E_TARGET = process.env.KE2E_TARGET ?? process.env.E2E_TARGET ?? 'local';
-const DEPLOYED_TARGET = KE2E_TARGET !== 'local';
 
 flow('GW-ACCESS-1', {
   domain: 'llm-gateway',
@@ -531,7 +519,7 @@ flow('GW-ACCESS-1', {
   await ctx.step('managed disable persists and blocks a direct managed request', async () => {
     (await set('provider', 'kortix', false)).status(200).body().has('$.disabledProviders', ['kortix']);
     (await owner.get(path, { params })).status(200).body().has('$.disabledProviders', ['kortix']);
-    (await request('glm-5.3-flash')).status(400).body().has('$.error.code', 'provider_disabled');
+    (await request('morph-dsv41flash')).status(400).body().has('$.error.code', 'provider_disabled');
     const picker = await owner.get('/v1/projects/:projectId/model-picker', { params });
     picker.status(200);
     for (const [id, model] of Object.entries(picker.json<any>().models)) {
@@ -551,9 +539,7 @@ flow('GW-ACCESS-1', {
     (await set('provider', 'custom-test', true)).status(200).body().has('$.disabledModels', ['custom-test/model']);
     (await request('custom-test/model')).status(400).body().has('$.error.code', 'model_disabled');
     (await set('model', 'kortix/custom-test/model', true)).status(200).body().has('$.disabledModels', []);
-    const notFound = await request('custom-test/model');
-    if (DEPLOYED_TARGET) notFound.status([400, 503]);
-    else notFound.status(400).body().has('$.error.code', 'model_not_found');
+    (await request('custom-test/model')).status(400).body().has('$.error.code', 'model_not_found');
   });
   await ctx.step('invalid changes and selecting a disabled default leave policy unchanged', async () => {
     (await owner.put(path, { target: 'provider', id: 'bad/provider', enabled: false }, { params })).status(400);
