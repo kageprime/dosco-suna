@@ -79,15 +79,16 @@ describe('projectSettingsSections', () => {
     expect(projectSettingsSection('sandbox')?.label).toBe('Sandbox templates');
   });
 
-  test('Marketplace is gone, not merely hidden', () => {
+  test('Marketplace is not a section here — it graduated to its own tab', () => {
     expect(keys()).not.toContain('marketplace');
     expect(parseProjectSettingsSection('marketplace')).toBeNull();
   });
 
-  test('Models, Channels, Secrets, and Members are not sections here — they graduated to their own tabs', () => {
+  test('Models, Channels, Secrets, Members, and Marketplace are not sections here — they graduated to their own tabs', () => {
     const all = keys();
     expect(all).not.toContain('models');
     expect(all).not.toContain('channels');
+    expect(all).not.toContain('marketplace');
     expect(all).not.toContain('secrets');
     expect(all).not.toContain('members');
   });

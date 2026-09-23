@@ -50,10 +50,8 @@ export interface CapabilityTab {
  * `project-sidebar/project-settings-nav.tsx` mirrors it and is asserted
  * against it, so reordering here moves the landing tab too.
  *
- * Marketplace is NOT a tab: it has its own top-level sidebar entry
- * (`ProjectMarketplaceNavItem`, below New session + Customize) but keeps its
- * `/customize/marketplace` URL, so `CAPABILITY_SEGMENT`, `capabilityTabHref`
- * and `activeCapabilityTab` still cover it below.
+ * Marketplace is a tab like the rest: its `/customize/marketplace` URL is
+ * built and matched here alongside the bar's tabs.
  *
  * ## Agents lead, everything else is their library
  *
@@ -86,6 +84,7 @@ export interface CapabilityTab {
 export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'agent', label: 'Agents' },
   { key: 'skills', label: 'Skills' },
+  { key: 'marketplace', label: 'Marketplace' },
   { key: 'connectors', label: 'Connectors' },
   { key: 'triggers', label: 'Triggers' },
   { key: 'review', label: 'Review' },

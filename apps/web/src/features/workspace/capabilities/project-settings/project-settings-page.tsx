@@ -415,6 +415,8 @@ export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 
   // PAGE is the target; `projectCapabilityNavHref` adds the scope.
   if (tab === 'channels') return 'connectors';
   if (tab === 'secrets') return 'secrets';
+  // Marketplace is a tab again (sidebar entry removed) — same vocabulary.
+  if (tab === 'marketplace') return 'marketplace';
   // `'members'` — not a `CapabilityTab['key']` any more: Members graduated a
   // THIRD time, off the project entirely, onto the account hub's Access tab.
   // Still named here (rather than left to the `isAccountGraduatedSection`

@@ -140,7 +140,10 @@ describe('projectCapabilityNavTarget', () => {
   test('anything this page owns, or the overlay owns, is not a capability target', () => {
     expect(projectCapabilityNavTarget('general')).toBeNull();
     expect(projectCapabilityNavTarget('profile')).toBeNull();
-    expect(projectCapabilityNavTarget('marketplace')).toBeNull();
+  });
+
+  test('marketplace is a capability tab again', () => {
+    expect(projectCapabilityNavTarget('marketplace')).toBe('marketplace');
   });
 });
 
@@ -213,10 +216,10 @@ describe('buildProjectSettingsNav', () => {
     expect(useSettingsPanelStore.getState().tab).toBe('preferences');
   });
 
-  test('navigate() to an id nobody owns does nothing at all', () => {
+  test("navigate() to a capability tab routes to the tab's URL", () => {
     const { nav, pushed } = navFor('sandbox');
     nav.navigate('marketplace');
-    expect(pushed).toEqual([]);
+    expect(pushed).toEqual(['/projects/p1/customize/marketplace']);
     expect(useSettingsPanelStore.getState().open).toBe(false);
   });
 

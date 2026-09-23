@@ -330,10 +330,10 @@ RUN mkdir -p /app/${SERVICE}/.kortix-data && \
     chown -R bun:bun /app/${SERVICE}/.kortix-data
 
 LABEL org.opencontainers.image.title="kortix-api" \
-      org.opencontainers.image.description="Kortix API server" \
+      org.opencontainers.image.description="Dosco API server" \
       org.opencontainers.image.source="https://github.com/kortix-ai/suna" \
       org.opencontainers.image.licenses="Elastic-2.0" \
-      org.opencontainers.image.vendor="Kortix"
+      org.opencontainers.image.vendor="Dosco"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD bun -e "fetch('http://localhost:'+(process.env.PORT||8000)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

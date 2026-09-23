@@ -46,6 +46,8 @@ export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 
   // PAGE is the target; `projectCapabilityNavHref` adds the scope.
   if (tab === 'channels') return 'connectors';
   if (tab === 'secrets') return 'secrets';
+  // Marketplace is a tab again (sidebar entry removed) — same vocabulary.
+  if (tab === 'marketplace') return 'marketplace';
   // Review — its own tab since 2026-09-02, when the config page it was a
   // section of was retired.
   if (tab === 'review') return 'review';

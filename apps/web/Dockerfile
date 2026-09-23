@@ -26,10 +26,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 LABEL org.opencontainers.image.title="kortix-frontend" \
-      org.opencontainers.image.description="Kortix web frontend (Next.js standalone)" \
+      org.opencontainers.image.description="Dosco web frontend (Next.js standalone)" \
       org.opencontainers.image.source="https://github.com/kortix-ai/suna" \
       org.opencontainers.image.licenses="Elastic-2.0" \
-      org.opencontainers.image.vendor="Kortix"
+      org.opencontainers.image.vendor="Dosco"
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
