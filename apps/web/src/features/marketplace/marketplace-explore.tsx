@@ -172,6 +172,8 @@ export function MarketplaceExplore({
     if (slug) setSource(companyIdFromSlug(slug));
   }, [syncUrl]);
 
+  const scroller = pageShell ? pageScrollRef : scrollContainerRef;
+
   const selectSource = useCallback(
     (id: string) => {
       setSource(id);
@@ -184,8 +186,6 @@ export function MarketplaceExplore({
     },
     [syncUrl, scroller],
   );
-
-  const scroller = pageShell ? pageScrollRef : scrollContainerRef;
 
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
