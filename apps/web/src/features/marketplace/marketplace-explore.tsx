@@ -5,6 +5,7 @@ import { PlusIcon as Plus, MagnifyingGlassIcon as Search } from '@phosphor-icons
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   InputGroupSearch,
   InputGroupSearchClear,
