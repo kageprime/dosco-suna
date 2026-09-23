@@ -18,8 +18,9 @@ import {
 
 /**
  * Top-level Marketplace entry, directly under New session + Customize — not a
- * capability-tab-bar tab. Links the same `/customize/marketplace` URL the tab
- * used, so bookmarks and the catalog's own links keep working and
+ * capability-tab-bar tab. Links the top-level `/projects/<id>/marketplace`
+ * URL (`marketplaceHref`); the old `/customize/marketplace` URL redirects
+ * there, so bookmarks and the catalog's own links keep working and
  * `activeCapabilityTab` still lights this row.
  *
  * Gated twice, mirroring the old tab: the project `marketplace` feature flag

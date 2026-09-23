@@ -51,9 +51,9 @@ export interface CapabilityTab {
  * against it, so reordering here moves the landing tab too.
  *
  * Marketplace is NOT a tab: it has its own top-level sidebar entry
- * (`ProjectMarketplaceNavItem`, below New session + Customize) but keeps its
- * `/customize/marketplace` URL, so `CAPABILITY_SEGMENT`, `capabilityTabHref`
- * and `activeCapabilityTab` still cover it below.
+ * (`ProjectMarketplaceNavItem`, below New session + Customize) at its own
+ * top-level URL (`marketplaceHref`), so `CAPABILITY_SEGMENT`,
+ * `capabilityTabHref` and `activeCapabilityTab` still cover it below.
  *
  * ## Agents lead, everything else is their library
  *
@@ -130,7 +130,21 @@ export function customizeHref(projectId: string): string {
 }
 
 export function capabilityTabHref(projectId: string, key: CapabilityTab['key']): string {
+  // Marketplace left Customize for its own top-level sidebar entry: its URL
+  // is `/projects/<id>/marketplace`, not a `/customize/<segment>` tab.
+  // `/customize/marketplace` still resolves as a redirect (bookmarks, catalog
+  // links), same arrangement as the retired `/channels` route.
+  if (key === 'marketplace') return marketplaceHref(projectId);
   return `${customizeHref(projectId)}/${CAPABILITY_SEGMENT[key]}`;
+}
+
+/**
+ * Where Marketplace lives now: a top-level project route, not a Customize
+ * tab. `/projects/<id>/customize/marketplace` still resolves — it redirects
+ * here — so every bookmark taken while it WAS under Customize keeps working.
+ */
+export function marketplaceHref(projectId: string): string {
+  return `/projects/${projectId}/marketplace`;
 }
 
 /**
@@ -178,14 +192,23 @@ export function channelsHref(projectId: string): string {
  */
 export function activeCapabilityTab(pathname: string): CapabilityTab['key'] | null {
   const segments = pathname.split('/').filter(Boolean);
+  // Marketplace's own top-level route (moved out from Customize; the old
+  // `/customize/marketplace` URL redirects here and still lights the row).
+  if (
+    segments[0] === 'projects' &&
+    segments.length === 3 &&
+    segments[2] === 'marketplace'
+  )
+    return 'marketplace';
   if (segments[0] !== 'projects' || segments[2] !== 'customize') return null;
   if (segments.length === 5 && segments[3] === CAPABILITY_SEGMENT.agent) return 'agent';
   if (segments.length !== 4) return null;
   // Matched against the segment map, not the tab bar: Marketplace left the
-  // bar for its own sidebar entry but keeps its URL, and its row still needs
-  // to light. Same shape check otherwise.
+  // bar for its own sidebar entry at its own top-level URL, and its row
+  // still needs to light. Same shape check otherwise — except the retired
+  // `/customize/marketplace` URL, which redirects and lights nothing itself.
   const hit = (Object.keys(CAPABILITY_SEGMENT) as CapabilityTab['key'][]).find(
-    (key) => CAPABILITY_SEGMENT[key] === segments[3],
+    (key) => key !== 'marketplace' && CAPABILITY_SEGMENT[key] === segments[3],
   );
   return hit ?? null;
 }

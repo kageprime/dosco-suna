@@ -646,7 +646,7 @@ export const menuRegistry: MenuItemDef[] = [
     group: 'navigation',
     showIn: ['commandPalette'],
     kind: 'navigate',
-    href: '/projects/{projectId}/customize/marketplace',
+    href: '/projects/{projectId}/marketplace',
     requiresProject: true,
     keywords: 'marketplace browse install vendors registries catalog community',
   },
