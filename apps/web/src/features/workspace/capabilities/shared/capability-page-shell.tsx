@@ -68,7 +68,7 @@ export function CapabilityPageShell({
         {filters ? (
           <div className="flex flex-wrap items-center justify-between gap-2">{filters}</div>
         ) : null}
-        <CapabilityScrollRootProvider scrollRef={scrollRef}>
+        <CapabilityScrollRootProvider scrollRef={resolvedRef}>
           {children}
         </CapabilityScrollRootProvider>
       </div>

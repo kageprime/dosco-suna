@@ -2,7 +2,7 @@ import { AppleMark, LinuxMark, PlayStoreMark, WindowsMark } from '@/components/b
 import { ConsentGate } from '@/components/consent-gate';
 import { DesktopCardImage, MobileCardImage } from '@/features/marketing/download/card-images';
 import { DownloadCloseButton } from '@/features/marketing/download/close-button';
-import { localizedDownloadContent } from '@/features/marketing/download/content';
+import { DESKTOP_STATUS, localizedDownloadContent } from '@/features/marketing/download/content';
 import type { DesktopOs, MobileOs, Platform } from '@/features/marketing/download/detect-os';
 import {
   detectPlatform,
@@ -36,10 +36,9 @@ export default async function DownloadPage({
 }: {
   searchParams: Promise<{ platform?: string }>;
 }) {
-  const [headerList, params, release, tI18nComplete] = await Promise.all([
+  const [headerList, params, tI18nComplete] = await Promise.all([
     headers(),
     searchParams,
-    getLatestRelease(),
     getTranslations('hardcodedUi.i18nComplete'),
   ]);
   const {
