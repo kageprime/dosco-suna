@@ -19,20 +19,16 @@ describe('SETTINGS_TABS', () => {
     expect(SETTINGS_TABS).toContain(DEFAULT_SETTINGS_TAB);
   });
 
-  test('carries the seven person-scoped tabs, the plan, and the four workspace tabs', () => {
+  test('carries the person-scoped tabs plus the project and account groups', () => {
     // `tokens` rejoined the list on 2026-08-18: a person's own API keys are
     // person-scoped, not account configuration, so they came back from
     // `/accounts/[id]` while the service-account half stayed there.
     //
-    // `workspace` joined on 2026-09-01 and is the ONLY project-scoped id here.
-    // Renaming a workspace and changing its icon had become four surfaces deep
-    // under Customize with no label naming what it did; see `SettingsTab`'s own
-    // comment for why this one row is not "configuration" in the sense the
-    // graduation below means. Its position is last on purpose — the rail orders
+    // Project configuration (workspace, sandbox, feature-flags, upgrades)
+    // and the account surface (connected, credits, plan) are live tabs again:
+    // one overlay, three scopes, grouped so ownership stays explicit.
+    // Its position is last on purpose — the rail orders
     // itself (`rail.ts`), this list does not.
-    // Seven personal tabs and nothing else since 2026-09-03 (Marko): the
-    // Workspace group is the Customize bar's Settings tab and the Account
-    // group (Credits, Plan) is the account page.
     expect([...SETTINGS_TABS]).toEqual([
       'profile',
       'security',
@@ -40,22 +36,29 @@ describe('SETTINGS_TABS', () => {
       'sessions',
       'preferences',
       'tokens',
+      'workspace',
+      'sandbox',
+      'feature-flags',
+      'upgrades',
+      'connected',
+      'credits',
+      'plan',
     ]);
   });
 
   // The id has to stay `workspace`. `general` is spent on a GRADUATED redirect
   // to `/projects/<id>/config`, and a live tab under that key would shadow
   // every bookmark pointing at the config page.
-  test('neither the workspace tab nor the graduated `general` id is live', () => {
-    expect(SETTINGS_TABS).not.toContain('workspace' as never);
-    expect(SETTINGS_TABS).not.toContain('general' as never);
-  });
-
-  // Every project-configuration id left for `/projects/[id]/customize/settings`. Asserted
-  // absent rather than merely left out of the list above, so re-adding one
-  // without re-adding a pane fails here instead of shipping a rail row that
-  // opens onto nothing.
-  test('no project-configuration id is a settings tab any more', () => {
+  test('project-configuration ids are live tabs again (general stays a redirect)', () => {
+    for (const live of [
+      'workspace',
+      'sandbox',
+      'feature-flags',
+      'upgrades',
+    ]) {
+      expect(SETTINGS_TABS).toContain(live as never);
+      expect(parseSettingsTab(live)).toBe(live);
+    }
     for (const gone of [
       'general',
       'members',
@@ -70,13 +73,6 @@ describe('SETTINGS_TABS', () => {
     ]) {
       expect(SETTINGS_TABS).not.toContain(gone as never);
       expect(parseSettingsTab(gone)).toBeNull();
-    }
-  });
-
-  test('sandbox and feature-flags are not live tabs; their ids open the Settings tab sections', () => {
-    for (const id of ['sandbox', 'feature-flags'] as const) {
-      expect(parseSettingsTab(id)).toBeNull();
-      expect(legacySectionRedirect('p1', id)).toBe(`/projects/p1/customize/settings?section=${id}`);
     }
   });
 
@@ -150,7 +146,11 @@ describe('legacySectionRedirect', () => {
   test('the old settings section, general and workspace open the Settings tab; git and repositories its Git repo section', () => {
     // `workspace` was the overlay's own id for General between 2026-09-02
     // and 2026-09-03.
-    for (const id of ['settings', 'general', 'workspace']) {
+    for (const id of ['workspace']) {
+      expect(legacySectionRedirect('p1', id)).toBe('/projects/p1/settings/workspace');
+      expect(resolveOverlayTab(id)).toBe(id);
+    }
+    for (const id of ['settings', 'general']) {
       expect(legacySectionRedirect('p1', id)).toBe('/projects/p1/customize/settings');
       expect(resolveOverlayTab(id)).toBeNull();
     }
@@ -160,22 +160,22 @@ describe('legacySectionRedirect', () => {
     }
   });
 
-  test('upgrades is a Settings tab section, and the old singular spelling folds into it', () => {
-    expect(parseSettingsTab('upgrades')).toBeNull();
-    expect(legacySectionRedirect('p1', 'upgrades')).toBe('/projects/p1/customize/settings?section=upgrades');
+  test('upgrades is a live overlay tab, and the old singular spelling still folds into it', () => {
+    expect(parseSettingsTab('upgrades')).toBe('upgrades');
+    expect(legacySectionRedirect('p1', 'upgrades')).toBe('/projects/p1/settings/upgrades');
     expect(legacySectionRedirect('p1', 'upgrade')).toBe('/projects/p1/customize/settings?section=upgrades');
     expect(resolveSettingsOverlayHref('/projects/p1/settings/upgrades')).toEqual({
-      opensOverlay: false,
+      opensOverlay: true,
+      tab: 'upgrades',
     });
   });
 
-  test('experimental is renamed to feature-flags, and both ids open the Settings tab section', () => {
+  test('experimental still folds into feature-flags, which is a live overlay tab', () => {
     expect(legacySectionRedirect('p1', 'experimental')).toBe(
       '/projects/p1/customize/settings?section=feature-flags',
     );
-    expect(legacySectionRedirect('p1', 'feature-flags')).toBe(
-      '/projects/p1/customize/settings?section=feature-flags',
-    );
+    expect(parseSettingsTab('feature-flags')).toBe('feature-flags');
+    expect(legacySectionRedirect('p1', 'feature-flags')).toBe('/projects/p1/settings/feature-flags');
     expect(resolveOverlayTab('experimental')).toBeNull();
   });
 
@@ -188,21 +188,30 @@ describe('legacySectionRedirect', () => {
       settings: '/projects/p1/customize/settings',
       git: '/projects/p1/customize/settings?section=git',
       repositories: '/projects/p1/customize/settings?section=git',
-      workspace: '/projects/p1/customize/settings',
-      sandbox: '/projects/p1/customize/settings?section=sandbox',
+      // Live overlay tabs now — same ids, dialog instead of page.
+      workspace: '/projects/p1/settings/workspace',
+      sandbox: '/projects/p1/settings/sandbox',
       // Snapshots merged INTO the sandbox pane — a snapshot is the build
       // history of a sandbox template, not a separate pane any more.
       snapshots: '/projects/p1/customize/settings?section=sandbox',
       experimental: '/projects/p1/customize/settings?section=feature-flags',
-      'feature-flags': '/projects/p1/customize/settings?section=feature-flags',
-      upgrades: '/projects/p1/customize/settings?section=upgrades',
+      'feature-flags': '/projects/p1/settings/feature-flags',
+      upgrades: '/projects/p1/settings/upgrades',
       upgrade: '/projects/p1/customize/settings?section=upgrades',
     };
     for (const [legacyId, href] of Object.entries(sections)) {
       expect(legacySectionRedirect('p1', legacyId)).toBe(href);
-      // None of them is an overlay tab any more — a `/settings/<id>` link
-      // redirects instead of opening the dialog.
-      expect(resolveSettingsOverlayHref(`/projects/p1/settings/${legacyId}`)).toEqual({
+    }
+    // The live-tab ids open the dialog; the alias spellings still redirect
+    // to the config page instead.
+    for (const live of ['workspace', 'sandbox', 'feature-flags', 'upgrades']) {
+      expect(resolveSettingsOverlayHref(`/projects/p1/settings/${live}`)).toEqual({
+        opensOverlay: true,
+        tab: live,
+      });
+    }
+    for (const alias of ['general', 'snapshots', 'experimental', 'upgrade']) {
+      expect(resolveSettingsOverlayHref(`/projects/p1/settings/${alias}`)).toEqual({
         opensOverlay: false,
       });
     }
@@ -312,7 +321,8 @@ describe('account-scoped sections redirect to /accounts/[id]', () => {
   // rename here fails immediately. Two are not 1:1 — the account page calls
   // Organization `settings` and Usage `transactions`. `api-keys` and `tokens`
   // are deliberately absent: both resolve back INTO the overlay now that it
-  // hosts a `tokens` tab again (see the `api-keys` case below).
+  // hosts a `tokens` tab again (see the `api-keys` case below). `credits`,
+  // `plan` and `connected` are absent for the same reason: live overlay tabs.
   const ACCOUNT_SECTIONS: Record<string, string> = {
     organization: 'settings',
     billing: 'billing',
@@ -323,10 +333,6 @@ describe('account-scoped sections redirect to /accounts/[id]', () => {
     identity: 'identity',
     audit: 'audit',
     members: 'access-projects',
-    // The overlay's Account group (Credits, Plan) left on 2026-09-03.
-    credits: 'transactions',
-    plan: 'billing',
-    connected: 'git',
   };
 
   test('the mirror above is the whole map', () => {

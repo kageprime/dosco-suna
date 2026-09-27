@@ -145,9 +145,13 @@ describe('offered tabs survive the panel filter', () => {
     }
   });
 
-  test('with NO project, every live tab is offered — all of them are personal', () => {
+  test('with NO project, every live tab is offered except the project-scoped four', () => {
     const offered: string[] = tabsFor({ hasProject: false });
-    expect([...offered].sort()).toEqual([...SETTINGS_TABS].sort());
+    expect([...offered].sort()).toEqual(
+      [...SETTINGS_TABS].filter(
+        (t) => !['workspace', 'sandbox', 'feature-flags', 'upgrades'].includes(t),
+      ).sort(),
+    );
     for (const tab of offered) expect(ACCOUNT_SCOPED_SETTINGS_TABS).toContain(tab);
     // The project configuration tabs specifically — these were the ones the
     // old `Customize · X` entries offered from `/accounts/**`. They are not

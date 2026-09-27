@@ -22,36 +22,43 @@ describe('railGroups', () => {
   test('translates every group, item label, and item description from stable message keys', () => {
     const translated = railGroups((key) => `translated:${key}`);
 
-    expect(translated[0]?.label).toBe('translated:groups.personal');
-    expect(translated[0]?.items[0]?.label).toBe('translated:items.profile.label');
-    expect(translated[0]?.items[0]?.description).toBe('translated:items.profile.description');
-    expect(translated[0]?.items.find((entry) => entry.tab === 'tokens')?.description).toBe(
+    expect(translated.map((g) => g.label)).toEqual([
+      'translated:groups.workspace',
+      'translated:groups.personal',
+      'translated:groups.account',
+    ]);
+    const personal = translated.find((g) => g.label === 'translated:groups.personal');
+    expect(personal?.items[0]?.label).toBe('translated:items.profile.label');
+    expect(personal?.items[0]?.description).toBe('translated:items.profile.description');
+    expect(personal?.items.find((entry) => entry.tab === 'tokens')?.description).toBe(
       'translated:items.tokens.description',
     );
   });
 
-  // Workspace FIRST. The overlay is entered from a row labelled "User
-  // Settings", but that row names its default TAB, not the rail's order — so
-  // leading with the workspace's own identity costs the personal tabs nothing
-  // and is what makes renaming findable again.
-  test('renders one group: Personal', () => {
-    // Workspace (project configuration) is the Customize bar's Settings tab
-    // and Account (Credits, Plan) is the account page — Marko, 2026-09-03:
-    // the overlay is the person's own settings and nothing else.
-    expect(railGroups().map((g) => g.label)).toEqual(['Personal']);
+  // Project first. The overlay is one door for every scope now — project
+  // rows lead because a project context is where the overlay most often
+  // opens, then the person's own rows, then the account rows.
+  test('renders three groups: Project, Personal, Account', () => {
+    expect(railGroups().map((g) => g.label)).toEqual(['Project', 'Personal', 'Account']);
   });
 
-  test('holds the workspace tabs first, then the person-scoped tabs, then the plan', () => {
-    // The 2026-09-02 segmentation (Jay): Security, Appearance and Sessions
-    // split out of Profile and Preferences; Sandbox templates and Feature
-    // flags back under Workspace; Plan as the one Account row.
+  test('holds the project tabs first, then the person-scoped tabs, then the account rows', () => {
+    // Scopes read top to bottom: project configuration, the person's own
+    // rows, then the organisation wallet and subscription.
     expect(tabsOf()).toEqual([
+      'workspace',
+      'sandbox',
+      'feature-flags',
+      'upgrades',
       'profile',
       'security',
       'appearance',
       'sessions',
       'preferences',
       'tokens',
+      'connected',
+      'credits',
+      'plan',
     ]);
   });
 
@@ -59,10 +66,12 @@ describe('railGroups', () => {
   // and `general` was already spent on a redirect, but "General" is what this
   // pane has always been called. Pinned so a future tidy-up cannot silently
   // rename the row to match the id and break the word people look for.
-  test('the retired project rows keep their labels for the panes that still render them', () => {
-    // `railItemForTab` still resolves them — the Settings tab's sections
-    // render `SettingsTabHeader` off these rows — but no group lists them.
-    expect(RETIRED_RAIL_ITEMS.map((i) => i.label)).toEqual([
+  test('the three scopes list every row; nothing is retired any more', () => {
+    // Project + Personal + Account groups now hold every item — the retired
+    // list is empty and every group item resolves to itself.
+    expect(RETIRED_RAIL_ITEMS).toEqual([]);
+    const listed = railGroups().flatMap((g) => g.items.map((i) => i.label));
+    for (const label of [
       'General',
       'Sandbox templates',
       'Feature flags',
@@ -70,10 +79,10 @@ describe('railGroups', () => {
       'Connected accounts',
       'Credits',
       'Plan',
-    ]);
-    for (const item of RETIRED_RAIL_ITEMS) expect(railItemForTab(item.tab)).toBe(item);
+    ])
+      expect(listed).toContain(label);
     for (const group of railGroups()) {
-      for (const item of group.items) expect(RETIRED_RAIL_ITEMS).not.toContain(item);
+      for (const item of group.items) expect(railItemForTab(item.tab)).toBe(item);
     }
   });
 
