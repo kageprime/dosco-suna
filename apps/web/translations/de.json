@@ -19634,5 +19634,27 @@
     "templateLabel": "Vorlage",
     "chartSingular": "Diagramm",
     "describeTask": "Beschreibe die Aufgabe, die dein Worker erledigen soll..."
+  },
+  "projectHomeEasy": {
+    "easyDayMorning": "Good morning",
+    "easyDayAfternoon": "Good afternoon",
+    "easyDayEvening": "Good evening",
+    "easyGreetingWithName": "{daypart}, {name}",
+    "easyGreeting": "{daypart}",
+    "easyComposerPlaceholder": "Describe the outcome you want…",
+    "easySuggest1": "Summarize my inbox",
+    "easySuggest2": "Draft the weekly report",
+    "easySuggest3": "Check my calendar",
+    "easyRecentWork": "Recent work",
+    "easySeeAll": "See all",
+    "easyStateDone": "Done",
+    "easyStateWorking": "Working…",
+    "easyStateWaiting": "Waiting on you",
+    "easyTeam": "Your team",
+    "easyTeamCount": "{count} helpers",
+    "easyMarketplace": "Marketplace",
+    "easyMarketplaceSub": "Browse skills",
+    "easyEmpty": "Nothing yet — describe your first outcome above and your team gets to work.",
+    "easyShowEverything": "Show everything"
   }
 }
