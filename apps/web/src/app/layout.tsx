@@ -292,7 +292,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
 
         {/* No smart app banner: Dosco ships no native app, and the old slot
-            advertised the Kortix App Store listing. */}
+            advertised a third-party app-store listing. */}
 
         <script
           type="application/ld+json"
