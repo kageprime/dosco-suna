@@ -867,7 +867,7 @@ function ProjectSessionRow({
       aria-busy={isSwitching || undefined}
       aria-current={isActive ? 'page' : undefined}
       aria-describedby={descriptionId}
-      className="focus-visible:ring-kortix-base flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-md py-1 focus-visible:ring-[0.6px] focus-visible:outline-none"
+      className="focus-visible:ring-dosco-base flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-md py-1 focus-visible:ring-[0.6px] focus-visible:outline-none"
     >
       <div className="size-4 shrink-0">
         <SessionStatusDot session={session} reviewCount={reviewCount} />

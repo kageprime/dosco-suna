@@ -242,7 +242,7 @@ export function ConfigEntityView<T extends ConfigEntity>(props: ConfigEntityView
           title={compactRows ? (entity.description ?? undefined) : undefined}
           className={cn(
             'group flex w-full flex-col rounded-md text-left transition-colors',
-            'focus-visible:ring-kortix-blue/50 focus-visible:ring-2 focus-visible:outline-none',
+            'focus-visible:ring-dosco-base/50 focus-visible:ring-2 focus-visible:outline-none',
             compactRows ? 'gap-0 py-1 pr-2 pl-2.5' : 'gap-0.5 py-2 pr-2.5 pl-3',
             isActive ? 'bg-primary/[0.06]' : 'hover:bg-muted/40',
           )}
@@ -428,7 +428,7 @@ export function ConfigEntityView<T extends ConfigEntity>(props: ConfigEntityView
                           className={cn(
                             'text-muted-foreground/70 hover:text-foreground flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5',
                             'text-[11px] font-medium tracking-wide uppercase transition-colors',
-                            'focus-visible:ring-kortix-blue/50 focus-visible:ring-2 focus-visible:outline-none',
+                            'focus-visible:ring-dosco-base/50 focus-visible:ring-2 focus-visible:outline-none',
                           )}
                         >
                           <ChevronRight
@@ -512,7 +512,7 @@ export function ConfigEntityView<T extends ConfigEntity>(props: ConfigEntityView
         className={cn(
           'group border-border/60 bg-card hover:border-border flex flex-col gap-1.5 rounded-lg border p-4 text-left',
           'hover:bg-muted/30 transition-colors',
-          'focus-visible:ring-kortix-blue/50 focus-visible:ring-2 focus-visible:outline-none',
+          'focus-visible:ring-dosco-base/50 focus-visible:ring-2 focus-visible:outline-none',
         )}
       >
         <span className="flex w-full items-start gap-2">
@@ -586,7 +586,7 @@ export function ConfigEntityView<T extends ConfigEntity>(props: ConfigEntityView
                       className={cn(
                         'text-muted-foreground/70 hover:text-foreground mb-3 flex items-center gap-1.5 rounded-md',
                         'text-[11px] font-medium tracking-wide uppercase transition-colors',
-                        'focus-visible:ring-kortix-blue/50 focus-visible:ring-2 focus-visible:outline-none',
+                        'focus-visible:ring-dosco-base/50 focus-visible:ring-2 focus-visible:outline-none',
                       )}
                     >
                       <ChevronRight

@@ -253,7 +253,7 @@ function TabsTrigger({
       data-variant={variant}
       value={value}
       className={cn(
-        "focus-visible:ring-kortix-blue duration-normal ease-default inline-flex flex-1 cursor-pointer items-center justify-center rounded-[calc(var(--radius)-2.5px)] border border-transparent whitespace-nowrap transition-[color,background-color,border-color,box-shadow] focus-visible:ring-[0.6px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus-visible:ring-dosco-base duration-normal ease-default inline-flex flex-1 cursor-pointer items-center justify-center rounded-[calc(var(--radius)-2.5px)] border border-transparent whitespace-nowrap transition-[color,background-color,border-color,box-shadow] focus-visible:ring-[0.6px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         tabsTriggerTextVariants({ size }),
         tabsTriggerPaddingVariants({ size }),
         isUnderlineList ? 'h-full' : tabsTriggerHeightVariants({ size }),
@@ -382,7 +382,7 @@ function TabsTriggerCompact({
       data-variant={variant}
       value={value}
       className={cn(
-        'focus-visible:ring-kortix-blue relative z-10 inline-flex flex-1 cursor-pointer items-center justify-center border border-transparent text-xs font-medium whitespace-nowrap focus-visible:ring-[0.6px] focus-visible:outline-none',
+        'focus-visible:ring-dosco-base relative z-10 inline-flex flex-1 cursor-pointer items-center justify-center border border-transparent text-xs font-medium whitespace-nowrap focus-visible:ring-[0.6px] focus-visible:outline-none',
         tabsTriggerPaddingVariants({ size: 'xs' }),
         isUnderlineList ? 'h-full rounded-none' : tabsTriggerHeightVariants({ size: 'xs' }),
         isUnderlineList &&

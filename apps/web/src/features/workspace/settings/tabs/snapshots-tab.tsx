@@ -503,7 +503,7 @@ export function BuildRow({
         transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       >
         <DisclosureTrigger>
-          <div className="focus-visible:ring-kortix-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors outline-none focus-visible:ring-[0.6px]">
+          <div className="focus-visible:ring-dosco-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors outline-none focus-visible:ring-[0.6px]">
             <span
               className={cn(
                 'flex size-9 shrink-0 items-center justify-center rounded-sm',
@@ -881,7 +881,7 @@ function HowItWorks({ copy = DEFAULT_SNAPSHOTS_COPY }: { copy?: SnapshotsCopy })
               transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
             >
               <DisclosureTrigger>
-                <div className="focus-visible:ring-kortix-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors outline-none focus-visible:ring-[0.6px]">
+                <div className="focus-visible:ring-dosco-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors outline-none focus-visible:ring-[0.6px]">
                   <span className="text-foreground min-w-0 flex-1 text-sm font-medium text-pretty">
                     {question}
                   </span>

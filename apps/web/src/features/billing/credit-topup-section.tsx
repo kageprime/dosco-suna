@@ -383,7 +383,7 @@ function AmountCell({
       className={cn(
         'relative h-7 cursor-pointer rounded-sm px-2.5 text-xs font-medium tabular-nums',
         'duration-normal transition-[color,transform] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none',
-        'focus-visible:ring-kortix-base focus-visible:ring-[0.6px] focus-visible:outline-none',
+        'focus-visible:ring-dosco-base focus-visible:ring-[0.6px] focus-visible:outline-none',
         selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >

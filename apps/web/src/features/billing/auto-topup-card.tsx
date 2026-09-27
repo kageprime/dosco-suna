@@ -352,7 +352,7 @@ function MoneyInput({
   return (
     <span
       className={cn(
-        'bg-popover focus-within:ring-kortix-base relative inline-flex h-7 items-center rounded-md border',
+        'bg-popover focus-within:ring-dosco-base relative inline-flex h-7 items-center rounded-md border',
         'focus-within:ring-[0.6px]',
       )}
     >

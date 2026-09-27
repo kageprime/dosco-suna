@@ -309,7 +309,7 @@ function ModelRow({
               /* A 0.6px ring with `outline-none` is not a focus indicator —
                  on a 1x display it rounds away entirely, so keyboard users
                  tabbing to the default-star had no visible target at all. */
-              'focus-visible:ring-kortix-base focus-visible:ring-2 focus-visible:outline-none',
+              'focus-visible:ring-dosco-base focus-visible:ring-2 focus-visible:outline-none',
               /* The default keeps its star at rest ONLY when the check is not
                  already using the slot. Selected wins; see above. */
               isAccountDefault && 'text-foreground cursor-default hover:bg-transparent',

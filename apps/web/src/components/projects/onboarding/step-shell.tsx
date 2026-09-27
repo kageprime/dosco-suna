@@ -32,7 +32,7 @@ const rowClassName = cn(
   'border-border bg-popover text-foreground flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-left',
   'duration-normal transition-[background-color,border-color,opacity,scale] active:scale-[0.99] motion-reduce:active:scale-100',
   'hover:border-primary/30 hover:bg-primary/[0.03]',
-  'focus-visible:ring-kortix-base focus-visible:ring-[0.6px] focus-visible:outline-none',
+  'focus-visible:ring-dosco-base focus-visible:ring-[0.6px] focus-visible:outline-none',
   'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
 );
 
@@ -165,7 +165,7 @@ export function SelectionRow({
       className={cn(
         rowClassName,
         'has-data-[state=checked]:border-primary/40 has-data-[state=checked]:bg-primary/[0.05]',
-        'has-focus-visible:ring-kortix-base has-focus-visible:ring-[0.6px] has-focus-visible:outline-none',
+        'has-focus-visible:ring-dosco-base has-focus-visible:ring-[0.6px] has-focus-visible:outline-none',
         disabled && 'pointer-events-none cursor-not-allowed opacity-50',
       )}
     >

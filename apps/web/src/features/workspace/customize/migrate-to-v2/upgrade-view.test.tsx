@@ -95,7 +95,7 @@ describe('UpgradesViewContent — pane chrome', () => {
    */
   test('no brand-tinted, shadowed card — in-flow surfaces are flat with a border', () => {
     // The three tinted-SURFACE utilities, not the bare token: every `Button`
-    // carries `focus-visible:ring-kortix-base`, which is the accent doing its
+    // carries `focus-visible:ring-dosco-base`, which is the accent doing its
     // job. Asserting on `kortix-base` alone would fail on that and tell nobody
     // anything about this row.
     expect(html).not.toContain('bg-kortix-base/');

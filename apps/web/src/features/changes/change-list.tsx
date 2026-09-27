@@ -186,7 +186,7 @@ function ChangeRow({
             title={`${kind.label} — ${entry.path}`}
             className={cn(
               'group/trigger hover:bg-muted/40 flex min-h-10 w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left transition-colors',
-              'focus-visible:ring-kortix-base outline-none focus-visible:ring-[0.6px]',
+              'focus-visible:ring-dosco-base outline-none focus-visible:ring-[0.6px]',
             )}
           >
             {/* One 14px slot holding both glyphs, so the swap shifts nothing.

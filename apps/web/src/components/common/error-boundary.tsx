@@ -40,7 +40,7 @@ function CopyErrorButton({ report, label }: { report: string; label: string }) {
       className={cn(
         'text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10',
         'hit-area-3 inline-flex size-7 shrink-0 items-center justify-center rounded-sm',
-        'focus-visible:ring-kortix-base cursor-pointer outline-none focus-visible:ring-[0.6px]',
+        'focus-visible:ring-dosco-base cursor-pointer outline-none focus-visible:ring-[0.6px]',
       )}
     >
       {/* Fixed-size box so the check/copy swap never shifts the row. */}

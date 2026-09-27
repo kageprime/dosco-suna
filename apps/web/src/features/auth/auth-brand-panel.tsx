@@ -31,7 +31,7 @@ export function AuthBrandPanel() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(110% 70% at 85% 10%, rgba(249,115,22,0.28) 0%, rgba(249,115,22,0) 55%), radial-gradient(90% 60% at 10% 100%, rgba(234,88,12,0.18) 0%, rgba(234,88,12,0) 60%)',
+            'radial-gradient(110% 70% at 85% 10%, rgba(218,12,11,0.30) 0%, rgba(218,12,11,0) 55%), radial-gradient(90% 60% at 10% 100%, rgba(218,12,11,0.16) 0%, rgba(218,12,11,0) 60%)',
         }}
       />
       <KortixLogo variant="default" size={30} className="relative" />
@@ -48,7 +48,7 @@ export function AuthBrandPanel() {
           {points.map(({ icon: Icon, text }) => (
             <li key={text} className="flex items-center gap-3">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-                <Icon className="size-4 text-orange-400" />
+                <Icon className="size-4 text-dosco-base" />
               </span>
               <span className="text-sm text-stone-300">{text}</span>
             </li>
