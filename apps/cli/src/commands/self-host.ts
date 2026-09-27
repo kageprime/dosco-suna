@@ -1829,8 +1829,8 @@ async function configureConnections(env: SelfHostEnv, flags: GlobalFlags): Promi
     // an instance runs on exactly one sandbox provider.
     process.stdout.write(
       `  ${C.cyan}daytona${C.reset}      ${C.dim}https://app.daytona.io (default, recommended)${C.reset}\n` +
-        `  ${C.cyan}platinum${C.reset}     ${C.dim}https://www.platinum.dev (recommended) — Kortix's own microVM sandbox provider${C.reset}\n` +
-        `  ${C.cyan}e2b${C.reset}          ${C.dim}https://e2b.dev (also supported)${C.reset}\n`,
+        `  ${C.cyan}platinum${C.reset}     ${C.dim}https://www.platinum.dev (recommended) — our own microVM sandbox provider${C.reset}\n` +
+        `  ${C.cyan}e2b${C.reset}          ${C.dim}https://e2b.app (also supported)${C.reset}\n`,
     );
     provider = await selectFrom('Sandbox provider', SANDBOX_PROVIDER_CHOICES, defaultProvider);
   }
@@ -1842,12 +1842,12 @@ async function configureConnections(env: SelfHostEnv, flags: GlobalFlags): Promi
     env.DAYTONA_TARGET = await prompt('Daytona target/region', env.DAYTONA_TARGET || 'us');
   } else if (provider === 'e2b') {
     env.E2B_API_KEY = await promptSecret('E2B API key', env.E2B_API_KEY);
-    // The cluster this instance talks to. E2B Cloud is e2b.dev; a self-hosted
+    // The cluster this instance talks to. E2B Cloud is e2b.app; a self-hosted
     // E2B cluster has its own base domain. Both the template builds and the
     // sandbox creates use this one value (apps/api platform/providers/e2b-domain).
     env.E2B_DOMAIN = await prompt(
-      'E2B base domain (E2B Cloud: e2b.dev — a self-hosted E2B cluster uses its own)',
-      env.E2B_DOMAIN || 'e2b.dev',
+      'E2B base domain (E2B Cloud: e2b.app — a self-hosted E2B cluster uses its own)',
+      env.E2B_DOMAIN || 'e2b.app',
     );
   } else if (provider === 'platinum') {
     env.PLATINUM_API_KEY = await promptSecret('Platinum API key', env.PLATINUM_API_KEY);

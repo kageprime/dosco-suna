@@ -667,7 +667,7 @@ const envSchema = z.object({
   // E2B_TEMPLATE is an optional ready fallback template. Project-specific
   // templates built by the shared snapshot system take precedence.
   E2B_API_KEY: optStr,
-  E2B_DOMAIN: optStrDefault('e2b.dev'),
+  E2B_DOMAIN: optStrDefault('e2b.app'),
   E2B_TEMPLATE: optStr,
   // Per-webhook signature secret chosen at E2B webhook registration
   // (`POST api.e2b.app/events/webhooks`, field `signatureSecret`). Optional —

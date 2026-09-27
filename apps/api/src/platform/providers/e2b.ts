@@ -99,7 +99,7 @@ const E2B_STOP_TIMEOUT_MS = configuredTimeoutMs('KORTIX_E2B_STOP_TIMEOUT_MS', 25
 /**
  * Every E2B SDK call this provider makes. `domain` is explicit and required:
  * the SDK defaults it to the E2B_DOMAIN process variable or `e2b.app`, while
- * Dosco's own config defaults E2B_DOMAIN to `e2b.dev`. Leaving it off pointed
+ * Dosco's own config defaults E2B_DOMAIN to `e2b.app`. Leaving it off pointed
  * sandbox creation at a DIFFERENT cluster than the one the snapshot adapter
  * built the template on whenever an operator did not export the variable —
  * which is exactly the self-hosted-E2B case, where the cluster is neither.

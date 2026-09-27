@@ -1511,14 +1511,6 @@ export async function forwardToSandbox(
         await abandonTurnLifecycle();
         const respHeaders = clientResponseHeaders(upstream.headers, origin);
         const rawLocation = upstream.headers.get('location');
-        // TEMPORARY diagnostic (PREVIEW_REDIRECT_DEBUG=true): log every
-        // upstream redirect so escape/loop chains are observable server-side.
-        // Remove after the E2B token-gate investigation closes.
-        if (process.env.PREVIEW_REDIRECT_DEBUG === 'true') {
-          console.log(
-            `[preview-redirect] ${sandboxId}:${port} ${method} ${remainingPath}${queryString} -> ${upstream.status} ${rawLocation ?? '(no location)'} | upstream=${targetUrl} xfp=${headers.get('x-forwarded-proto')}`,
-          );
-        }
         const safeLocation = sanitizeRedirectLocation(
           previewUrl,
           rawLocation,
