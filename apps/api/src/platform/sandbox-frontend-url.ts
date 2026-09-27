@@ -10,10 +10,7 @@ import { config } from '../config';
  * `api-prod.dosco.live/projects/…` links instead of `dosco.live/projects/…`.
  * This hands it the server's own `config.FRONTEND_URL`, verbatim, so it never
  * has to guess. It is a public URL, not a secret, so it does not weaken the
- * sandbox secret/routing contract in ./sandbox-env.ts.
- *
- * Kept in its own module (not in sandbox-env.ts) so that file's predicates stay
- * import-free of `config` and testable without booting the server.
+ * sandbox env-name contract in ../projects/lib/sandbox-env-names.ts.
  */
 export function sandboxFrontendBaseUrl(): string {
   return (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');

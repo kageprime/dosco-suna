@@ -1,17 +1,36 @@
 /**
- * SettingsNavPage — project settings (web parity: customize/sections/
- * settings-view). Opened from the drawer's gear button, top right of the
- * Kortix logo (Jay, 2026-09-22) — the only entry point; there is no
- * `PageHeader onBack`, same law as every other Customize-sheet page.
+ * SettingsNavPage — the project Settings page (`page:settings`; web parity:
+ * customize/sections/settings-view). One entry point: the Account page's
+ * project row (`app/projects/[id]/account.tsx`, COR-120 Task 2), which pushes
+ * it as a sub-page (`openSubPage('page:settings')`, the `page` route) over
+ * Settings (the drawer's own gear button, its other entry point, was removed
+ * — COR-124/COR-157 Task 4). As a sub-page its `PageHeader` shows Go back
+ * (`onBack`) in place of the hamburger, and back returns to Settings. The
+ * Customize rows push Schedules, Secrets and Members the same way (`onOpenPage`), so
+ * back from them returns here. `PageHeader title` is the project's name, not
+ * the tab label "Settings" (Jay, 2026-09-23), with the tab label as a
+ * loading fallback.
  *
- * Groups (Jay, 2026-09-22: `SettingsGroup`/`SettingsRow`, no group titles —
- * just the rounded card of rows; tap a row to edit, never an inline form on
- * the page):
- *   • General — the project name.
- *   • Repository — the git repo backing the project: open on GitHub, edit the
- *     default branch + manifest path, and (managed repos) invite a GitHub
- *     collaborator.
- *   • Danger zone (managers only) — delete the project, a two-step confirm:
+ * Groups (Jay, 2026-09-23 — titled, unlike the rest of this page's earlier
+ * shape: `SettingsGroup`/`SettingsRow`, tap a row to edit, never an inline
+ * form on the page):
+ *   • Customize — Schedules, Secrets and Members (`PROJECT_CUSTOMIZE_ITEMS`,
+ *     `lib/session/dock-menu.ts`; each opens its page as a sub-page), then
+ *     Connectors (KRTX-249, moved here from the project drawer's `NavPill`: a
+ *     `kind: 'web-handoff'` row that opens `WebHandoffSheet` — "Customize in
+ *     the web app" — whose Continue runs the connectors web flow, unchanged
+ *     from the old drawer row's auth session + query invalidation), then one
+ *     web-handoff row opened directly in the in-app browser
+ *     (`lib/projects/web-project-links.ts`): "More on kortix.com" (the
+ *     project's full Customize hub). This group replaces the project sheet
+ *     (`CustomizeSheet`), deleted in COR-123/COR-160 Task 3: Agents, Skills
+ *     and Terminal have no mobile page; Members was a web handoff until it
+ *     came back as an in-app page (Jay, 2026-09-24); Review moves into the
+ *     drawer (Task 4).
+ *   • Details — Name (was "Project name"), Repository (open on GitHub, edit
+ *     the default branch + manifest path), and (managed repos) invite a
+ *     GitHub collaborator.
+ *   • Delete project (managers only, alone, untitled) — a two-step confirm:
  *     type the exact project name to enable Continue, then a native "are you
  *     sure" (Jay, 2026-09-22, GitHub's repo-delete shape). The SDK call is
  *     `archiveProject` (there is no hard delete); "Delete project" is the
@@ -20,17 +39,18 @@
  *
  * Every sheet here renders through `KortixBottomSheetModal` directly (Jay,
  * 2026-09-22: not the `<Sheet>` convenience wrapper) — the same shape as the
- * Schedules/Webhooks/Secrets detail sheets.
+ * Schedules/Secrets detail sheets.
  */
 
 import React, { useRef, useState } from 'react';
-import { View, Alert, Linking } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'nativewind';
+import * as WebBrowser from 'expo-web-browser';
 import { BottomSheetView } from '@gorhom/bottom-sheet';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   GitBranchIcon as GitBranch,
@@ -38,6 +58,7 @@ import {
   UserPlusIcon as UserPlus,
   GithubLogoIcon as Github,
   CheckIcon as Check,
+  GlobeIcon as Globe,
 } from '@/lib/icons';
 import { PressableSurface } from '@/components/kortix/pressable-surface';
 import { Text } from '@/components/ui/text';
@@ -53,17 +74,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { PageHeader } from '@/components/kortix/page-header';
+import { useToast } from '@/components/kortix/toast-provider';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageList } from '@/components/kortix/page-list';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
-import { KortixBottomSheetModal } from '@/components/kortix/sheet';
+import { KortixBottomSheetModal, type SheetRef } from '@/components/kortix/sheet';
 import { SheetTextInput } from '@/components/kortix/SheetInput';
+import { WebHandoffSheet } from '@/components/session/WebHandoffSheet';
 import { useThemeColors } from '@/lib/theme-colors';
 import { THEME, withAlpha } from '@/lib/utils/theme';
-import { useProject, useUpdateProject, useArchiveProject } from '@/lib/projects/hooks';
+import { projectKeys, useProject, useUpdateProject, useArchiveProject } from '@/lib/projects/hooks';
 import { inviteRepoCollaborator, isManagedGithubProject } from '@/lib/projects/projects-client';
 import type { KortixProject } from '@/lib/projects/projects-client';
+import { KORTIX_WEB_URL } from '@/lib/kortix-web';
+import {
+  CONNECTORS_DONE_URI,
+  CONNECTORS_RETURN_URL,
+  projectConnectorsWebUrl,
+  projectCustomizeWebUrl,
+} from '@/lib/projects/web-project-links';
+import { PROJECT_CUSTOMIZE_ITEMS } from '@/lib/session/dock-menu';
+import type { SubPageId } from '@/lib/session/project-stack';
+import { DOCK_ICONS } from '@/components/session/dock-icons';
 import { haptics } from '@/lib/haptics';
+import { log } from '@/lib/logger';
+import { openLink } from '@/lib/utils/open-link';
 
 interface PageTabLike {
   id: string;
@@ -73,6 +108,10 @@ interface PageTabLike {
 interface SettingsNavPageProps {
   page: PageTabLike;
   projectId: string;
+  /** Pushed as a sub-page: Go back in the header, in place of the hamburger. */
+  onBack?: () => void;
+  /** Open a Customize row's page (Schedules, Secrets, Members) as a sub-page over this one. */
+  onOpenPage: (pageId: SubPageId) => void;
   onOpenDrawer?: () => void;
   onOpenRightDrawer?: () => void;
   isDrawerOpen?: boolean;
@@ -116,6 +155,7 @@ const EditFieldSheet = React.forwardRef<EditFieldSheetRef, unknown>(function Edi
   const [config, setConfig] = useState<EditFieldConfig | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   React.useImperativeHandle(ref, () => ({
     open: (next) => {
@@ -137,7 +177,8 @@ const EditFieldSheet = React.forwardRef<EditFieldSheetRef, unknown>(function Edi
       haptics.success();
       modalRef.current?.dismiss();
     } catch (e: any) {
-      Alert.alert('Failed', e?.message || `Failed to update ${config.title.toLowerCase()}.`);
+      haptics.warning();
+      toast.error(`Unable to update the ${config.title.toLowerCase()}`, { description: e?.message || 'Try again.' });
     } finally {
       setSaving(false);
     }
@@ -180,6 +221,7 @@ function AddCollaboratorSheet({ projectId, modalRef }: { projectId: string; moda
   const fg = isDark ? THEME.dark.foreground : THEME.light.foreground;
   const [username, setUsername] = useState('');
   const [permission, setPermission] = useState<'read' | 'write'>('write');
+  const toast = useToast();
 
   const invite = useMutation({
     mutationFn: () => inviteRepoCollaborator(projectId, username.trim(), permission),
@@ -187,14 +229,13 @@ function AddCollaboratorSheet({ projectId, modalRef }: { projectId: string; moda
       haptics.success();
       setUsername('');
       modalRef.current?.dismiss();
-      Alert.alert(
-        res.alreadyCollaborator ? 'Already has access' : 'Invite sent',
-        res.alreadyCollaborator
+      toast.success(res.alreadyCollaborator ? 'Already has access' : 'Invite sent', {
+        description: res.alreadyCollaborator
           ? `@${res.username} already has access to this repo.`
-          : `Invite sent to @${res.username} — they accept it on GitHub to get access.`
-      );
+          : `@${res.username} accepts it on GitHub to get access.`,
+      });
     },
-    onError: (e: any) => Alert.alert('Failed', e?.message || 'Failed to add collaborator.'),
+    onError: (e: any) => toast.error('Unable to add the collaborator', { description: e?.message || 'Try again.' }),
   });
   const canSubmit = username.trim().length > 0 && !invite.isPending;
 
@@ -311,6 +352,8 @@ function DeleteProjectSheet({
 export function SettingsNavPage({
   page,
   projectId,
+  onBack,
+  onOpenPage,
   onOpenDrawer,
   onOpenRightDrawer,
   isDrawerOpen,
@@ -319,6 +362,7 @@ export function SettingsNavPage({
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const toast = useToast();
 
   const { data: project, isLoading, isError, error, refetch } = useProject(projectId);
   const canManage = project?.effective_project_role === 'manager';
@@ -330,6 +374,8 @@ export function SettingsNavPage({
   const editFieldRef = useRef<EditFieldSheetRef>(null);
   const collaboratorModalRef = useRef<BottomSheetModal>(null);
   const deleteModalRef = useRef<BottomSheetModal>(null);
+  const connectorsHandoffRef = useRef<SheetRef>(null);
+  const queryClient = useQueryClient();
 
   const openNameEditor = (current: KortixProject) =>
     editFieldRef.current?.open({
@@ -372,7 +418,7 @@ export function SettingsNavPage({
         haptics.success();
         router.replace('/projects');
       },
-      onError: (e: any) => Alert.alert('Failed', e?.message || 'Failed to delete project.'),
+      onError: (e: any) => toast.error('Unable to delete the project', { description: e?.message || 'Try again.' }),
     });
   };
 
@@ -380,11 +426,41 @@ export function SettingsNavPage({
   const repoLabel = githubUrl?.replace('https://github.com/', '') || project?.repo_url || null;
   const managed = project ? isManagedGithubProject(project) : false;
 
+  const openCustomizeOnWeb = () => {
+    haptics.tap();
+    WebBrowser.openBrowserAsync(projectCustomizeWebUrl(KORTIX_WEB_URL, projectId)).catch((error) => {
+      log.error('Error opening project customize page:', error);
+    });
+  };
+
+  // Connectors (KRTX-249): moved here from the project drawer's `NavPill`.
+  // Mobile still has no connector catalog, so web's Customize → Connectors
+  // page still owns connecting — only the entry point changed, from a full
+  // drawer row to a "Customize in the web app" hand-off sheet. Continue opens
+  // the page in an in-app auth session with `return_to=kortix://connectors/done`:
+  // its bottom bar sends the browser there once the user is done, and the
+  // session closes itself on that redirect (or on the user closing the
+  // browser by hand). Either way the project's connector list refetches, so a
+  // thread's connector rows see the new connections.
+  const runConnectorsHandoff = async () => {
+    try {
+      await WebBrowser.openAuthSessionAsync(
+        projectConnectorsWebUrl(KORTIX_WEB_URL, projectId, CONNECTORS_DONE_URI),
+        CONNECTORS_RETURN_URL
+      );
+    } catch {
+      // The browser failed to open; nothing changed on the server.
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: projectKeys.connectors(projectId) });
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <PageHeader
-        title={page.label}
-        onOpenDrawer={onOpenDrawer}
+        title={project?.name || page.label}
+        onBack={onBack}
+        onOpenDrawer={onBack ? undefined : onOpenDrawer}
         onOpenRightDrawer={onOpenRightDrawer}
         isDrawerOpen={isDrawerOpen}
         isRightDrawerOpen={isRightDrawerOpen}
@@ -397,21 +473,34 @@ export function SettingsNavPage({
           onRetry={() => void refetch()}>
           {project ? (
             <View className="gap-6 px-4 pt-1">
-              <SettingsGroup>
+              <SettingsGroup title="Customize">
+                {PROJECT_CUSTOMIZE_ITEMS.map((item) => (
+                  <SettingsRow
+                    key={item.label}
+                    icon={DOCK_ICONS[item.icon]}
+                    label={item.label}
+                    onPress={() => {
+                      haptics.tap();
+                      if (item.kind === 'item') onOpenPage(item.pageId);
+                      else connectorsHandoffRef.current?.open();
+                    }}
+                  />
+                ))}
+                <SettingsRow icon={Globe} label="More on kortix.com" external onPress={openCustomizeOnWeb} />
+              </SettingsGroup>
+
+              <SettingsGroup title="Details">
                 <SettingsRow
-                  label="Project name"
+                  label="Name"
                   value={project.name}
                   onPress={canManage ? () => openNameEditor(project) : undefined}
                 />
-              </SettingsGroup>
-
-              <SettingsGroup>
                 <SettingsRow
                   icon={githubUrl ? Github : GitBranch}
                   label="Repository"
                   value={repoLabel ?? '—'}
                   external={!!githubUrl}
-                  onPress={githubUrl ? () => { haptics.tap(); void Linking.openURL(githubUrl); } : undefined}
+                  onPress={githubUrl ? () => { haptics.tap(); void openLink(githubUrl).catch(() => {}); } : undefined}
                 />
                 <SettingsRow
                   label="Default branch"
@@ -449,6 +538,12 @@ export function SettingsNavPage({
 
       <EditFieldSheet ref={editFieldRef} />
       <AddCollaboratorSheet projectId={projectId} modalRef={collaboratorModalRef} />
+      <WebHandoffSheet
+        ref={connectorsHandoffRef}
+        title="Customize in the web app"
+        line="Connectors are set up on kortix.com."
+        run={runConnectorsHandoff}
+      />
       {project ? (
         <DeleteProjectSheet
           project={project}

@@ -10,7 +10,6 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  ActivityIndicator,
   ActionSheetIOS,
   Keyboard,
   Platform,
@@ -24,8 +23,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useQueryClient } from '@tanstack/react-query';
 
-const monoFont = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+const monoFont = MONO_FONT_FAMILY;
 import { Text } from '@/components/ui/text';
+import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -39,6 +39,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetScrollView, BottomSheetTe
 // inside a BottomSheetModal. Use the gesture-handler `Pressable` directly.
 const BottomSheetTouchable = GestureHandlerPressable;
 import { useThemeColors } from '@/lib/theme-colors';
+import { MONO_FONT_FAMILY } from '@/lib/utils/mono-font';
 import { THEME, withAlpha } from '@/lib/utils/theme';
 import {
   GitBranchIcon as FolderGit2,
@@ -169,14 +170,6 @@ export function ProjectDetailPage({
   const startTask = useStartKortixTask(sandboxUrl);
   const approveTask = useApproveKortixTask(sandboxUrl);
 
-  // Store project name in tab state for TabsOverview title
-  useEffect(() => {
-    if (project?.name) {
-      useTabStore
-        .getState()
-        .setTabState(`page:project:${projectId}`, { projectName: project.name });
-    }
-  }, [project?.name, projectId]);
 
   const [tab, setTab] = useState<Tab>('files');
   const editSheetRef = useRef<BottomSheetModal>(null);
@@ -597,7 +590,7 @@ export function ProjectDetailPage({
     return (
       <View
         style={{ flex: 1, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={muted} />
+        <KortixLoader />
       </View>
     );
   }
@@ -661,7 +654,9 @@ export function ProjectDetailPage({
           <Pressable
             onPress={handleDelete}
             style={{ padding: 6, marginRight: 4 }}
-            hitSlop={8}>
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete project">
             <Trash2 size={18} color={isDark ? THEME.light.mutedForeground : THEME.dark.mutedForeground} />
           </Pressable>
         }
@@ -766,7 +761,7 @@ export function ProjectDetailPage({
                   }}>
                   <ArrowLeftIcon size={16} color={mutedStrong} />
                   <RNText
-                    style={{ fontSize: 12, fontFamily: 'Menlo', color: mutedStrong }}
+                    style={{ fontSize: 12, fontFamily: monoFont, color: mutedStrong }}
                     numberOfLines={1}>
                     {filePath.split('/').pop() || filePath}
                   </RNText>
@@ -775,7 +770,7 @@ export function ProjectDetailPage({
 
               {filesLoading && folders.length === 0 && regularFiles.length === 0 && (
                 <View style={{ padding: 30, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={muted} />
+                  <KortixLoader size="small" />
                 </View>
               )}
 
@@ -1015,7 +1010,7 @@ export function ProjectDetailPage({
                   returnKeyType="search"
                 />
                 {taskSearch.length > 0 && (
-                  <Pressable onPress={() => setTaskSearch('')} hitSlop={8}>
+                  <Pressable onPress={() => setTaskSearch('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
                     <XIcon size={14} color={isDark ? THEME.light.mutedForeground : THEME.dark.mutedForeground} />
                   </Pressable>
                 )}
@@ -1119,7 +1114,7 @@ export function ProjectDetailPage({
                     <RNText
                       style={{
                         fontSize: 11,
-                        fontFamily: 'Menlo',
+                        fontFamily: monoFont,
                         color: mutedStrong,
                         marginLeft: 2,
                       }}
@@ -1133,6 +1128,8 @@ export function ProjectDetailPage({
                       onPress={startContextEdit}
                       hitSlop={8}
                       disabled={contextLoading}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit context"
                     >
                       <Pencil size={14} color={mutedStrong} />
                     </Pressable>
@@ -1173,7 +1170,7 @@ export function ProjectDetailPage({
                         }}
                       >
                         {contextSaving ? (
-                          <ActivityIndicator size="small" color={themeColors.primaryForeground} />
+                          <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
                         ) : (
                           <RNText
                             style={{
@@ -1213,7 +1210,7 @@ export function ProjectDetailPage({
                   />
                 ) : contextLoading ? (
                   <View style={{ paddingVertical: 18, alignItems: 'center' }}>
-                    <ActivityIndicator color={muted} />
+                    <KortixLoader size="small" />
                   </View>
                 ) : contextError || !contextContent ? (
                   <Pressable onPress={startContextEdit} className="active:opacity-70">
@@ -1263,7 +1260,7 @@ export function ProjectDetailPage({
                 <RNText style={{ fontSize: 14, fontFamily: 'Roobert-Medium', color: fg }}>
                   Description
                 </RNText>
-                <Pressable onPress={() => handleEdit('description')} hitSlop={8}>
+                <Pressable onPress={() => handleEdit('description')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit description">
                   <Pencil size={14} color={mutedStrong} />
                 </Pressable>
               </View>
@@ -1312,7 +1309,7 @@ export function ProjectDetailPage({
                   <RNText
                     style={{
                       fontSize: 13,
-                      fontFamily: 'Menlo',
+                      fontFamily: monoFont,
                       color: isDark ? THEME.light.mutedForeground : THEME.dark.mutedForeground,
                     }}>
                     {project.path}
@@ -1364,7 +1361,7 @@ export function ProjectDetailPage({
                   <RNText
                     style={{
                       fontSize: 12,
-                      fontFamily: 'Menlo',
+                      fontFamily: monoFont,
                       color: isDark ? THEME.light.mutedForeground : THEME.dark.mutedForeground,
                     }}>
                     {project.opencode_id}
@@ -1460,7 +1457,9 @@ export function ProjectDetailPage({
                         );
                       }}
                       hitSlop={10}
-                      style={{ padding: 4 }}>
+                      style={{ padding: 4 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete task">
                       <Trash2 size={18} color={isDark ? THEME.light.mutedForeground : THEME.dark.mutedForeground} />
                     </Pressable>
                   </View>
@@ -1841,7 +1840,6 @@ export function ProjectDetailPage({
         backdropComponent={(p) => <SheetBackdrop {...p} opacity={0.35} />}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
         onDismiss={() => {
           setEditValue('');
         }}
@@ -1952,7 +1950,6 @@ export function ProjectDetailPage({
         backdropComponent={(p) => <SheetBackdrop {...p} opacity={0.35} />}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
 >
         <BottomSheetScrollView
           keyboardShouldPersistTaps="handled"
@@ -2179,6 +2176,8 @@ export function ProjectDetailPage({
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove file"
                   >
                     <XIcon size={10} color="#FFFFFF" /> {/* hex-allowlist: icon on a fixed near-black badge, never themed */}
                   </Pressable>
@@ -2314,7 +2313,7 @@ export function ProjectDetailPage({
                   opacity: canSubmit ? 1 : 0.55,
                 }}>
                 {isBusy ? (
-                  <ActivityIndicator size="small" color={themeColors.primaryForeground} />
+                  <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
                 ) : autoRun ? (
                   <Play
                     size={14}

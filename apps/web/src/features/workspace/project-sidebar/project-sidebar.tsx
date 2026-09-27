@@ -6,7 +6,6 @@ import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
@@ -28,17 +27,18 @@ import { useIsCreatingProjectSession } from '@/hooks/projects/new-session-guard'
 import { useNewProjectSession } from '@/hooks/projects/use-new-project-session';
 import { useIsMobile } from '@/hooks/utils';
 import { useTranslations } from '@/i18n/use-translations';
+import { cn } from '@/lib/utils';
 import { useBillingAccountId } from '@/stores/billing-account-context';
 import {
   MagnifyingGlassIcon,
   NavigationArrowIcon,
-  SidebarSimpleIcon as PanelLeft,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef } from 'react';
 import { SidebarBalanceWarning } from './footer/project-balance-warning';
 import { SidebarUpgradeButton } from './footer/project-upgrade-button';
 import { WorkspaceSwitcher } from './workspace-switcher';
+import { SidebarToggle as PanelLeft } from '@/features/icon/icons/sidebar-toggle';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 const modSymbol = isMac ? '⌘' : 'Ctrl';
@@ -46,7 +46,7 @@ const modSymbol = isMac ? '⌘' : 'Ctrl';
 export function ProjectSidebar({ projectId }: { projectId: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('sidebar');
-  const { state, setOpenMobile, toggleSidebar } = useSidebar();
+  const { state, setOpenMobile, toggleSidebar, peek } = useSidebar();
   const isExpanded = state === 'expanded';
   const isMobile = useIsMobile();
   const sessionsGroupRef = useRef<HTMLDivElement>(null);
@@ -107,7 +107,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
 
   return (
     <Sidebar
-      collapsible="push"
+      collapsible="offcanvas"
       variant="inset"
       // No background here. This className lands on the sidebar CONTAINER —
       // the square positioning box — while the visible card is the rounded
@@ -116,18 +116,35 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
       className="[scrollbar-width:'none'] [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden"
     >
       <SidebarHeader
-        className="space-y-2"
-        style={{
-          paddingTop:
-            'max(calc(var(--spacing) * 2), env(safe-area-inset-top, 0px), var(--kx-titlebar-inset, 0px))',
-        }}
+        className="kx-project-sidebar-header space-y-2"
+        data-peek={peek ? '' : undefined}
       >
-        {/* Header keeps the two panel tools: search and the panel's own
-            collapse toggle. The who-am-I / where-am-I control
-            (`WorkspaceSwitcher`: account, settings, appearance, logout) lives
-            in the footer, bottom of the panel, where a user menu belongs. */}
-        <div className="flex w-full items-center gap-1">
-          <div className="flex shrink-0 items-center gap-0.5">
+        {/* Offcanvas everywhere: the whole panel slides, so the header keeps a
+            single layout. Three controls on one 240px row, all 32px tall: the
+            merged brand/switcher control, search, and the panel's own collapse
+            toggle — so the collapse control sits inside the thing it collapses
+            and the session header no longer has to carry a toggle while the
+            panel is docked open.
+
+            ONE control answers "who am I / where am I / where can I go". It was
+            three: a `<Link>` carrying the Dosco mark fused to a separate
+            dropdown trigger carrying the workspace name up here, plus the user
+            menu as a third control down in the footer — two of the three being
+            dropdowns. The link is gone, because a control that is half
+            navigation and half disclosure makes you guess which half you are
+            pointing at. The workspace directory is now a second VIEW of this
+            menu, behind "Switch Workspace", which is why there is no footer
+            control below any more. */}
+        <div
+          className={cn(
+            'flex w-full items-center gap-1',
+            !peek && 'kx-titlebar-row kx-titlebar-band-height kx-project-sidebar-titlebar',
+          )}
+        >
+          <div className="min-w-0">
+            <WorkspaceSwitcher projectId={projectId} />
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
             {/* Search is the palette's only pointer-reachable entry point —
                 ⌘K is otherwise the whole discovery story. Renders on mobile
                 too: there is no keystroke to fall back on there. */}
@@ -158,7 +175,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
                 state to collapse (`state` there still reads the desktop cookie),
                 and it already dismisses by backdrop/swipe. Clicking while the
                 panel is a hover flyout docks it open, hence the "Pin" label. */}
-            {!isMobile && (
+            {!isMobile && !peek && (
               <Hint
                 side="bottom"
 
@@ -237,12 +254,6 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
           </SidebarGroup>
         </div>
       </SidebarContent>
-
-      {/* The user/account control: settings, appearance, logout, workspace
-          switching. Bottom of the panel, full width, menu opening upward. */}
-      <SidebarFooter className="pt-0">
-        <WorkspaceSwitcher projectId={projectId} />
-      </SidebarFooter>
 
       <SidebarRail aria-label={t('resize')} title={t('resizeHelp')} />
     </Sidebar>

@@ -129,8 +129,10 @@ export const isolation = {
    from HKDF-SHA256 over API_KEY_SECRET salted with the project id, versioned
    envelope), apps/api/src/iam/agent-scope.ts (the userRole ∩ agentGrant rule),
    apps/api/src/connectors/pipedream.ts (connector credentials resolved
-   server-side), apps/api/src/platform/sandbox-env.ts (the allowlist that keeps
-   Dosco's own upstream keys out of every sandbox) and
+   server-side), apps/api/src/projects/lib/sessions.ts
+   (buildSessionSandboxEnvVars builds the sandbox env from project secrets, never
+   from the API's own env) with apps/api/src/projects/lib/sandbox-env-names.ts
+   (the names a sandbox never receives) and
    apps/kortix-sandbox-agent-server/src/agent-env-file.ts (tmpfs, 0600,
    shredded on shutdown).
 
@@ -307,7 +309,7 @@ export const control = {
 } as const;
 
 /* ── 5 · change request ────────────────────────────────────────────────────
-   Grounded in apps/api/src/projects/routes/r9.ts, which gates merge twice: the
+   Grounded in apps/api/src/projects/routes/change-request-actions.ts, which gates merge twice: the
    human capability `project.gitops.merge` and the per-agent `project.cr.merge`,
    which is DEFAULT-DENY. CORRECTION: "only a human can merge" is too strong —
    an admin can grant an agent that capability. The grant lives in kortix.yaml,
@@ -414,7 +416,7 @@ export const posture = {
    Grounded in docs/SECURITY.md. The mailbox is ALREADY published publicly on
    /support (support/page.tsx), so naming it here adds no new exposure, and the
    three timelines below are that document's policy quoted exactly.
-   ⚠️ BEFORE THIS PAGE GOES LIVE: docs/SECURITY.md marks security@dosco.live as
+   ⚠️ BEFORE THIS PAGE GOES LIVE: docs/SECURITY.md marks security@kortix.com as
    a PLACEHOLDER that "must be created and monitored before this policy is
    published externally". Confirm the mailbox is real and watched, or cut the
    SLA rows — publishing a 3-day acknowledgement against an unread inbox is

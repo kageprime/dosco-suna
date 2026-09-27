@@ -1,8 +1,8 @@
 /**
  * Presentation metadata for Review Center items — the single place that maps a
- * kind / risk / status / source to its icon, Dosco tone, and label. Mirrors the
- * tinted-icon-tile pattern from changes-view.tsx: a faint Dosco-token fill behind
- * a solid Dosco-token icon.
+ * kind / risk / status / source to its icon, Dosco tone, and label. Uses the
+ * tinted-icon-tile pattern: a faint Dosco-token fill behind a solid Dosco-token
+ * icon.
  */
 
 import { localizeUiCatalog } from '@/i18n/localize-ui-catalog';

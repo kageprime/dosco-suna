@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import pg from 'pg';
 
-const databaseUrl = process.env.AUDIT_V2_DATABASE_URL;
+const databaseUrl = process.env.TEST_DATABASE_URL;
 const ACCOUNT = 'a7100000-0000-4000-a000-000000000001';
 const DELETE_ACCOUNT = 'a7100000-0000-4000-a000-000000000002';
 const PROJECT = 'a7200000-0000-4000-a000-000000000001';
@@ -427,7 +427,7 @@ describe.skipIf(!databaseUrl)('centralized audit v2 — migrated PostgreSQL', ()
   });
 
   /**
-   * The Essentia audit convoy (2026-08-26).
+   * The SampleCo audit convoy (2026-08-26).
    *
    * `audit_prepare_event` allocates the per-session sequence and hash-chain
    * head out of `kortix.audit_session_sequences`, and PostgreSQL holds that row

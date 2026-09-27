@@ -39,7 +39,7 @@ mock.module('e2b', () => ({
 mock.module('../../config', () => ({
   config: {
     E2B_API_KEY: 'e2b-test-key',
-    E2B_DOMAIN: 'e2b.essentia.dosco.live',
+    E2B_DOMAIN: 'e2b.sampleco.dosco.live',
   },
 }));
 mock.module('../build-context', () => ({
@@ -190,10 +190,10 @@ describe('E2B template adapter', () => {
     await e2bProvider.deleteSnapshot('kortix-e2b-template');
 
     expect(requests.at(-1)).toEqual({
-      url: 'https://api.e2b.essentia.dosco.live/templates/tpl-target',
+      url: 'https://api.e2b.sampleco.dosco.live/templates/tpl-target',
       method: 'DELETE',
       apiKey: 'e2b-test-key',
     });
-    expect(requests[0]?.url).toBe('https://api.e2b.essentia.dosco.live/templates');
+    expect(requests[0]?.url).toBe('https://api.e2b.sampleco.dosco.live/templates');
   });
 });

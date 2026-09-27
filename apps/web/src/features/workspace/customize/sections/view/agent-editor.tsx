@@ -194,24 +194,40 @@ const CONNECTOR_STATUS_BADGE: Record<string, { label: string; variant: 'destruct
  */
 const EMPTY_TEMPLATES: SandboxTemplate[] = [];
 
+/**
+ * The three reads behind {@link useAgentEditorOptions}, as query options. The
+ * agent page starts them next to the agent-config read, so the editor mounts
+ * onto a warm cache instead of opening a third round of requests. One
+ * definition keeps both callers on the same keys: a second key would be a
+ * second fetch.
+ */
+export function agentEditorOptionQueries(projectId: string) {
+  return {
+    secrets: {
+      queryKey: qk.project.secrets(projectId),
+      queryFn: () => listProjectSecrets(projectId),
+      ...contract('config'),
+    },
+    connectors: {
+      queryKey: qk.project.connectors(projectId),
+      queryFn: () => listConnectors(projectId),
+      ...contract('config'),
+    },
+    sandboxes: {
+      queryKey: qk.project.sandboxTemplates(projectId),
+      queryFn: () => listProjectSandboxTemplates(projectId),
+      ...contract('config'),
+    },
+  };
+}
+
 export function useAgentEditorOptions(projectId: string): AgentEditorOptions {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const connectorStatusBadge = useLocalizedUiCatalog(CONNECTOR_STATUS_BADGE);
-  const secretsQuery = useQuery({
-    queryKey: qk.project.secrets(projectId),
-    queryFn: () => listProjectSecrets(projectId),
-    ...contract('config'),
-  });
-  const connectorsQuery = useQuery({
-    queryKey: qk.project.connectors(projectId),
-    queryFn: () => listConnectors(projectId),
-    ...contract('config'),
-  });
-  const sandboxesQuery = useQuery({
-    queryKey: qk.project.sandboxTemplates(projectId),
-    queryFn: () => listProjectSandboxTemplates(projectId),
-    ...contract('config'),
-  });
+  const queries = agentEditorOptionQueries(projectId);
+  const secretsQuery = useQuery(queries.secrets);
+  const connectorsQuery = useQuery(queries.connectors);
+  const sandboxesQuery = useQuery(queries.sandboxes);
   // One row per identifier: a secret with a shared value AND a personal
   // override lists twice in the API, once per layer.
   const secretOptions = useMemo<GrantOption[]>(() => {
@@ -278,9 +294,14 @@ export type AgentConfigSectionGroup = (typeof AGENT_CONFIG_SECTION_GROUPS)[numbe
  *
  * General is the agent itself and who runs it: overview, identity, people,
  * triggers. Access is one topic per grant set — skills, connectors, secrets,
- * project actions — each its own page (Marko, 2026-09-03: "split up ACCESS
- * … into its own standalone menu items on the left & we can have nicer UX/UI
- * for each"). Runtime is what a session runs on: model, tools, workspace.
+ * Apps, project actions — each its own page (Marko, 2026-09-03: "split up
+ * ACCESS … into its own standalone menu items on the left & we can have nicer
+ * UX/UI for each"). Runtime is what a session runs on: model, tools,
+ * workspace.
+ *
+ * `apps` is listed here unconditionally — this module is pure data — and the
+ * PAGE drops it when the project's `apps` feature flag is off, so a project
+ * without Dosco Apps never sees a grant page for them.
  */
 export const AGENT_CONFIG_SECTIONS = [
   { key: 'overview', label: 'Overview', group: 'General' },
@@ -290,6 +311,7 @@ export const AGENT_CONFIG_SECTIONS = [
   { key: 'skills', label: 'Skills', group: 'Access' },
   { key: 'connectors', label: 'Connectors', group: 'Access' },
   { key: 'secrets', label: 'Secrets', group: 'Access' },
+  { key: 'apps', label: 'Apps', group: 'Access' },
   { key: 'actions', label: 'Dosco permissions', group: 'Access' },
   { key: 'model', label: 'Model', group: 'Runtime' },
   { key: 'tools', label: 'Tools', group: 'Runtime' },
@@ -332,6 +354,7 @@ export function AgentConfigSections({
   skills,
   connectors,
   secrets,
+  apps,
   authority,
 }: {
   section: AgentConfigSectionKey;
@@ -350,6 +373,9 @@ export function AgentConfigSections({
   skills?: React.ReactNode;
   connectors?: React.ReactNode;
   secrets?: React.ReactNode;
+  /** Which Dosco Apps the agent may open. Page-owned only: the picker needs
+   *  the project's App list, which no checklist fallback has. */
+  apps?: React.ReactNode;
   /** What the agent can do once its Dosco permissions meet its IAM ceiling —
    *  a page-owned card under the Dosco permissions checklist. */
   authority?: React.ReactNode;
@@ -375,6 +401,8 @@ export function AgentConfigSections({
         return (
           secrets ?? <SecretsSection draft={draft} set={set} options={options.secretOptions} />
         );
+      case 'apps':
+        return <>{apps}</>;
       case 'actions':
         return (
           <>

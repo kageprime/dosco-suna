@@ -14,13 +14,12 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
-  ActivityIndicator,
-  Platform,
   LayoutAnimation,
 } from 'react-native';
 import { Pressable as GestureHandlerPressable } from 'react-native-gesture-handler';
 import { PressableSurface } from '@/components/kortix/pressable-surface';
 import { Text } from '@/components/ui/text';
+import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
@@ -48,6 +47,7 @@ import { SearchBar } from '@/components/kortix/SearchBar';
 import type { PageTab } from '@/stores/tab-store';
 import { PageHeader } from '@/components/kortix/page-header';
 import { PageContent } from '@/components/kortix/page-content';
+import { MONO_FONT_FAMILY } from '@/lib/utils/mono-font';
 import { THEME, withAlpha } from '@/lib/utils/theme';
 import { KortixBottomSheetModal } from '@/components/kortix/sheet';
 
@@ -171,7 +171,7 @@ function useMemory(sandboxUrl: string | undefined) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const monoFont = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+const monoFont = MONO_FONT_FAMILY;
 
 function formatDate(dateStr: string): string {
   try {
@@ -514,11 +514,13 @@ export function MemoryPage({ page, onOpenDrawer, onOpenRightDrawer, isDrawerOpen
       {/* List */}
       <ScrollView
         style={{ flex: 1 }}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} tintColor={mutedColor} />}
+        // The first load shows the loader below; the pull spinner only
+        // refreshes rows already on screen (KRTX-244: one loader).
+        refreshControl={<RefreshControl refreshing={isLoading && entries.length > 0} onRefresh={handleRefresh} tintColor={mutedColor} />}
       >
         {isLoading && entries.length === 0 && (
           <View style={{ padding: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={mutedColor} />
+            <KortixLoader />
           </View>
         )}
         {error && (

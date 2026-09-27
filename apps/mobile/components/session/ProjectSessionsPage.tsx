@@ -1,20 +1,31 @@
 /**
  * ProjectSessionsPage — every session of a project, at `/projects/[id]/sessions`
- * (opened from the project drawer's Sessions button).
+ * (opened from the project drawer's Search row, `autoFocusSearch` true so the
+ * field is already focused; a session row's own navigation opens it without
+ * that focus).
  *
  *   header   `PageHeader` (Jay, 2026-09-22): hamburger, "Sessions" title, and
  *            a Filter action at the right — the same header every other
  *            project tool page uses.
- *   search   SearchListHeader, filters by display title
+ *   search   SearchListHeader, matches title, agent name and session id
  *   filter   Filter sheet (`SettingsGroup` of toggleable status rows: Needs
- *            you / Running / Starting / Stopped / Failed). Empty selection
- *            shows every status; toggling narrows the timeline to just the
- *            checked ones. Basic on purpose — no date range or sort, unlike
- *            web's fuller filter panel.
+ *            you / Running / Stopped / Failed; Running covers starting
+ *            sessions). Empty selection shows every status; toggling narrows
+ *            the timeline to just the checked ones. Basic on purpose — no
+ *            date range or sort, unlike web's fuller filter panel. Picked
+ *            statuses show as a chip under the search field; the chip, the
+ *            sheet and the no-match state share one Reset (search + statuses).
+ *            Search and filter live in `useSessionFilterStore` per project, so
+ *            they survive opening a session and coming back (KRTX-250).
  *   list     Today / Yesterday / This week / Older, one `SettingsGroup` of
  *            `SettingsRow`s each (the settings screens' layout); a group's title
  *            shows only when more than one group has sessions.
- *            Row: status mark · title · time
+ *            Row: status mark · title (· sub-session count, inline after the
+ *            title, only above 4) · time at the far right. Its sub-session
+ *            rows always follow inside the same tile, joined by a connector
+ *            under the status mark, titles on the parent title's edge, time
+ *            at the far right (`SubsessionTree`); a tap opens the parent
+ *            session on that sub-session.
  *   button   New session, pinned at the bottom right over a fade of the page:
  *            the project drawer's bottom bar (`PinnedBar`). The list scrolls
  *            under it. It returns to project home, whose composer starts the
@@ -22,11 +33,10 @@
  *
  * Tap a row → the session opens in the view route, which replaces this page
  * (useCoveringRoute), so the stack stays one screen over project home.
- * Long press → the options sheet (`KortixBottomSheetModal`, no close button,
- * content height with a full-height stop above it): Rename, Share, Restart, Stop
- * (running only), Delete. Rename and Share push their form in place of the
- * options (`sheet-push`), with Back to return. Delete confirms in a dialog that
- * opens only after the sheet has closed, so two overlays never stack.
+ * Long press → `SessionActionsSheet` (Rename, Share, Restart sandbox, Stop,
+ * Delete), opened through `openSessionActions` on `ProjectRouteValue` — the
+ * same sheet instance the thread's `···` and the drawer's session-row long
+ * press use (COR-140 Task 5, `components/session/SessionActionsSheet.tsx`).
  *
  * The list is always newest activity first (no sort control). Title, status,
  * grouping, relative time, search and status filtering all come from
@@ -37,61 +47,58 @@ import * as React from 'react';
 import { FlatList, RefreshControl, View, type ListRenderItem } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { BottomSheetScrollView, type BottomSheetModal } from '@gorhom/bottom-sheet';
-import Animated from 'react-native-reanimated';
-import { FunnelIcon as Funnel, NavigationArrowIcon, PencilIcon as Pencil, ArrowCounterClockwiseIcon as RotateCcw, ExportIcon as Share, SquareIcon as Square, TrashIcon as Trash2 } from '@/lib/icons';
+import { ArrowElbowDownRightIcon, FunnelIcon as Funnel, NavigationArrowIcon, XIcon } from '@/lib/icons';
 
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
+import { PixelDeadFlower } from '@/components/kortix/PixelDeadFlower';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageHeader } from '@/components/kortix/page-header';
 import { PinnedBar, usePinnedBarInset } from '@/components/kortix/pinned-bar';
 import { SearchListHeader } from '@/components/kortix/search-list-header';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
-import { KortixBottomSheetModal, SheetTitleRow } from '@/components/kortix/sheet';
-import { POP_IN, PUSH_IN, SheetBackButton } from '@/components/kortix/sheet-push';
-import { useToast } from '@/components/kortix/toast-provider';
+import { KortixBottomSheetModal } from '@/components/kortix/sheet';
 import { useCoveringRoute, useProjectRoute } from '@/components/session/ProjectRoutes';
-import { SessionRenameForm } from '@/components/session/SessionRenameForm';
-import { SessionShareForm } from '@/components/session/SessionShareForm';
 import { SessionStatusMark } from '@/components/session/SessionStatusMark';
-import { haptics } from '@/lib/haptics';
-import { projectKeys, useProjectSessionsPaged } from '@/lib/projects/hooks';
-import { shouldLoadMoreSessions } from '@/lib/session/session-pages';
 import {
-  deleteProjectSession,
-  restartProjectSession,
-  stopProjectSession,
-  type ProjectSession,
-} from '@/lib/projects/projects-client';
+  SubsessionCountBadge,
+  SubsessionTree,
+  subsessionCountLabel,
+} from '@/components/session/SessionSubsessionTree';
+import { haptics } from '@/lib/haptics';
+import { useProjectSessionsPaged } from '@/lib/projects/hooks';
+import {
+  sessionListState,
+  shouldAutoFetchForFilter,
+  shouldLoadMoreSessions,
+} from '@/lib/session/session-pages';
+import { needsYouBySession } from '@/lib/session/needs-you';
+import { useReviewItems } from '@/lib/review/use-review';
+import type { ProjectSession } from '@/lib/projects/projects-client';
 import {
   SESSION_STATUS_FILTERS,
+  directSubsessions,
+  showSubsessionCountBadge,
+  filterSessionsBySearch,
   filterSessionsByStatus,
-  filterSessionsByTitle,
   groupSessionsByActivity,
+  groupSessionsByCoordinator,
+  isSessionFilterActive,
   sessionDisplayStatus,
   sessionDisplayTitle,
   sessionLastActivityAt,
+  sessionStatusFilterSummary,
   sessionStatusLabel,
   shortRelative,
   spokenRelative,
-  type SessionDisplayStatus,
+  type SessionStatusFilter,
 } from '@/lib/session/session-list';
 import { THEME } from '@/lib/utils/theme';
-import { useTabStore } from '@/stores/tab-store';
+import { EMPTY_SESSION_FILTER, useSessionFilterStore } from '@/stores/session-filter-store';
 
 /** Relative times ("5m") re-render on this interval so they do not freeze. */
 const NOW_TICK_MS = 60_000;
@@ -108,46 +115,107 @@ function GroupGap() {
 interface SessionRowProps {
   session: ProjectSession;
   now: number;
-  onOpen: (session: ProjectSession) => void;
+  /** A sub-agent session (spawned by another session in this group, COR-162):
+   *  a small branch mark joins the status mark, indenting the label past the
+   *  usual leading slot — the row's own tile stays full width. */
+  nested?: boolean;
+  /** Pending review-inbox items from this session (`needsYouBySession`): > 0 marks it `needs-you`. */
+  needsYouCount: number;
+  /** A row tap opens the session on its root; a sub-session row passes that sub-session's id. */
+  onOpen: (session: ProjectSession, focusOpenCodeId?: string) => void;
   onActions: (session: ProjectSession) => void;
 }
 
-/** One `SettingsRow`: status mark · title · time. No chevron: the time holds the right edge. */
+/**
+ * Sub-session tree geometry, from the tile's left edge. The trunk runs down
+ * the centre of the row's status mark: `SettingsRow` `px-4` (16) + half the
+ * 20pt slot (10). Each sub-session title starts on the row's label edge:
+ * `px-4` + the 20pt leading slot + its `mr-3` (12). A nested row's leading
+ * adds the 12pt branch mark and its `gap-1.5` (6) before the mark to both.
+ */
+const NESTED_LEAD = 12 + 6;
+const TRUNK_X_TOP_LEVEL = 16 + 10;
+const TEXT_X_TOP_LEVEL = 16 + 20 + 12;
+
+/**
+ * One `SettingsRow`: status mark · title · time (· sub-session count). No
+ * chevron: the time holds the right edge. The session's sub-sessions follow
+ * under it in the same tile (`SubsessionTree`), always.
+ */
 const SessionRow = React.memo(function SessionRow({
   session,
   now,
+  nested = false,
+  needsYouCount,
   onOpen,
   onActions,
 }: SessionRowProps) {
   const title = sessionDisplayTitle(session);
-  const status = sessionDisplayStatus(session);
+  const status = sessionDisplayStatus(session, needsYouCount);
   const lastActivity = sessionLastActivityAt(session);
+  const subsessions = React.useMemo(() => directSubsessions(session), [session]);
+  const subsessionCount = subsessions.length;
+  const openSubsession = React.useCallback(
+    (childId: string) => onOpen(session, childId),
+    [onOpen, session]
+  );
+  const accessibilityLabel = [
+    title,
+    nested ? 'sub-agent session' : null,
+    sessionStatusLabel(status),
+    spokenRelative(lastActivity, now),
+    subsessionCount > 0 ? subsessionCountLabel(subsessionCount) : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
-  return (
+  const row = (
     <SettingsRow
-      leading={<SessionStatusMark status={status} />}
+      leading={
+        nested ? (
+          <View className="flex-row items-center gap-1.5">
+            <Icon as={ArrowElbowDownRightIcon} size={12} className="text-muted-foreground/60" />
+            <SessionStatusMark status={status} />
+          </View>
+        ) : (
+          <SessionStatusMark status={status} />
+        )
+      }
       label={title}
       value={shortRelative(lastActivity, now)}
+      labelAccessory={
+        showSubsessionCountBadge(subsessionCount) ? <SubsessionCountBadge count={subsessionCount} /> : undefined
+      }
       right={null}
       onPress={() => onOpen(session)}
       onLongPress={() => onActions(session)}
       longPressLabel="Session actions"
-      accessibilityLabel={`${title}, ${sessionStatusLabel(status)}, ${spokenRelative(lastActivity, now)}`}
+      accessibilityLabel={accessibilityLabel}
       accessibilityHint="Opens the session"
     />
+  );
+  if (subsessionCount === 0) return row;
+  return (
+    <View>
+      {row}
+      {/* No thread is open while this page shows (useCoveringRoute), so no
+          sub-session row is highlighted. */}
+      <View className="pb-2">
+        <SubsessionTree
+          subsessions={subsessions}
+          parentTitle={title}
+          activeOpenCodeId={null}
+          trunkX={TRUNK_X_TOP_LEVEL + (nested ? NESTED_LEAD : 0)}
+          textX={TEXT_X_TOP_LEVEL + (nested ? NESTED_LEAD : 0)}
+          showTime
+          onPressSubsession={openSubsession}
+        />
+      </View>
+    </View>
   );
 });
 
 // ── Page ─────────────────────────────────────────────────────────────────────
-
-/** The options sheet's view: its rows, or a form pushed over them. */
-type SheetView = 'options' | 'rename' | 'share';
-const PUSHED_VIEW_TITLE: Record<Exclude<SheetView, 'options'>, string> = {
-  rename: 'Rename session',
-  share: 'Share session',
-};
-/** The full-height stop above the content height: drag the sheet up to reach it. */
-const OPTIONS_SHEET_SNAP_POINTS = ['100%'];
 
 interface SessionSection {
   key: string;
@@ -155,23 +223,29 @@ interface SessionSection {
   data: ProjectSession[];
 }
 
-export function ProjectSessionsPage() {
-  const { projectId, openDrawer, newSession } = useProjectRoute();
+export interface ProjectSessionsPageProps {
+  /** Focus the search field on mount — the drawer's Search row. */
+  autoFocusSearch?: boolean;
+}
+
+export function ProjectSessionsPage({ autoFocusSearch = false }: ProjectSessionsPageProps = {}) {
+  const { projectId, openDrawer, newSession, openSessionActions, isDrawerOpen } = useProjectRoute();
   // Opens a row's session once; also replaces this page with the view when a
   // session opens without a row tap (drawer row, notification, deep link).
   const openSession = useCoveringRoute();
   const isFocused = useIsFocused();
+  // One loader at a time (KRTX-244): this page's loaders draw only while it is
+  // the surface in front — not under the open drawer (which loads the same
+  // list with its own loader), not while the view replaces it on a row tap.
+  const showLoaders = isFocused && !isDrawerOpen;
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const toast = useToast();
-  const queryClient = useQueryClient();
 
   // Poll for provisioning rows only while this page is on top.
   // Every session, a page (50) at a time: the list loads the next page as it
-  // nears its end. Search and groups work on the rows loaded so far; a search
-  // with few matches leaves the list short, so it reaches its end at once and
-  // keeps loading pages until the matches fill the screen or the list ends.
+  // nears its end. Search and groups work on the rows loaded so far; a filter
+  // with too few matches loads older pages on its own (auto-fetch, below).
   const sessionsQuery = useProjectSessionsPaged(projectId, { poll: isFocused });
   const allSessions = sessionsQuery.sessions;
 
@@ -188,36 +262,46 @@ export function ProjectSessionsPage() {
   }, [sessionsQuery.dataUpdatedAt]);
 
   // ── Search, status filter, and grouping ──
-  const [query, setQuery] = React.useState('');
+  // Per project, in `useSessionFilterStore`: opening a session unmounts this
+  // page, and coming back must find the same search and filter (KRTX-250).
+  const storedFilter =
+    useSessionFilterStore((state) => state.byProject[projectId]) ?? EMPTY_SESSION_FILTER;
+  const query = storedFilter.query;
+  // Empty set = no filter (every session passes).
+  const statusFilter = React.useMemo<ReadonlySet<SessionStatusFilter>>(
+    () => new Set(storedFilter.statuses),
+    [storedFilter.statuses]
+  );
   const hasSessions = allSessions.length > 0;
-  React.useEffect(() => {
-    // Nothing left to search: leave no hidden query behind.
-    if (!hasSessions && query) setQuery('');
-  }, [hasSessions, query]);
+  const filterActive = isSessionFilterActive(query, statusFilter);
+  const statusFilterActive = statusFilter.size > 0;
 
-  // Empty set = no filter (every session passes). The filter sheet toggles
-  // membership; `Clear filters` (shown only when non-empty) resets to it.
-  const [statusFilter, setStatusFilter] = React.useState<Set<SessionDisplayStatus>>(
-    () => new Set()
+  const setQuery = React.useCallback(
+    (text: string) => useSessionFilterStore.getState().setQuery(projectId, text),
+    [projectId]
   );
   const filterSheetRef = React.useRef<BottomSheetModal>(null);
-  const toggleStatusFilter = React.useCallback((status: SessionDisplayStatus) => {
-    haptics.selection();
-    setStatusFilter((current) => {
-      const next = new Set(current);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
-  }, []);
-  const clearStatusFilter = React.useCallback(() => {
+  const toggleStatusFilter = React.useCallback(
+    (status: SessionStatusFilter) => {
+      haptics.selection();
+      useSessionFilterStore.getState().toggleStatus(projectId, status);
+    },
+    [projectId]
+  );
+  // The page's one Reset: search and statuses together (chip, sheet, no-match state).
+  const resetFilters = React.useCallback(() => {
     haptics.tap();
-    setStatusFilter(new Set());
-  }, []);
+    useSessionFilterStore.getState().resetProject(projectId);
+  }, [projectId]);
+
+  // Sessions that wait on the user, from the review inbox. ProjectScreen
+  // polls it; this reads the same query cache without a second poll.
+  const reviewItems = useReviewItems(projectId, { poll: false });
+  const needsYou = React.useMemo(() => needsYouBySession(reviewItems.data ?? []), [reviewItems.data]);
 
   const filtered = React.useMemo(
-    () => filterSessionsByStatus(filterSessionsByTitle(allSessions, query), statusFilter),
-    [allSessions, query, statusFilter]
+    () => filterSessionsByStatus(filterSessionsBySearch(allSessions, query), statusFilter, needsYou),
+    [allSessions, query, statusFilter, needsYou]
   );
   const grouped = React.useMemo(() => groupSessionsByActivity(filtered, now), [filtered, now]);
   const sections = React.useMemo<SessionSection[]>(
@@ -231,10 +315,6 @@ export function ProjectSessionsPage() {
   );
 
   // ── Refresh ──
-  const invalidateSessions = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: projectKeys.projectSessions(projectId) }),
-    [queryClient, projectId]
-  );
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -245,190 +325,113 @@ export function ProjectSessionsPage() {
     }
   }, [sessionsQuery]);
 
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = sessionsQuery;
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = sessionsQuery;
   const onEndReached = React.useCallback(() => {
     if (shouldLoadMoreSessions({ hasNextPage, isFetchingNextPage, isRefreshing: refreshing })) {
       void fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, refreshing, fetchNextPage]);
 
-  // ── Action sheet ──
-  const actionSheetRef = React.useRef<BottomSheetModal>(null);
-  const [sheetView, setSheetView] = React.useState<SheetView>('options');
-  // True once the user came back from Rename: only then the options slide in.
-  const [returning, setReturning] = React.useState(false);
-  const [menuSession, setMenuSession] = React.useState<ProjectSession | null>(null);
-  // Set before the sheet closes; read when its close animation ends.
-  // Delete confirms in a dialog, which opens only after the sheet has closed.
-  const deleteAfterCloseRef = React.useRef(false);
-
-  const openActions = React.useCallback((session: ProjectSession) => {
-    haptics.medium();
-    setMenuSession(session);
-  }, []);
-
-  React.useEffect(() => {
-    if (menuSession) actionSheetRef.current?.present();
-  }, [menuSession]);
-
-  // The live row, so a refetch while the sheet is open reaches its forms.
-  const liveRow = (session: ProjectSession) =>
-    allSessions.find((s) => s.session_id === session.session_id) ?? session;
-
-  const [confirmDelete, setConfirmDelete] = React.useState<ProjectSession | null>(null);
-  // The title of the last delete target. It is not cleared on close, so the
-  // dialog keeps its text while its close animation runs.
-  const [deleteTitle, setDeleteTitle] = React.useState('');
-  const [deleteFailed, setDeleteFailed] = React.useState(false);
-
-  const handleSheetDismiss = React.useCallback(() => {
-    const session = menuSession;
-    const confirm = deleteAfterCloseRef.current;
-    deleteAfterCloseRef.current = false;
-    setMenuSession(null);
-    setSheetView('options');
-    setReturning(false);
-    if (!session || !confirm) return;
-    setDeleteFailed(false);
-    setDeleteTitle(sessionDisplayTitle(session));
-    setConfirmDelete(session);
-  }, [menuSession]);
-
-  const pushView = React.useCallback((view: Exclude<SheetView, 'options'>) => {
-    haptics.tap();
-    setSheetView(view);
-    // Rename goes to full height (Jay, 2026-09-22): the field sits at the top,
-    // clear of the keyboard, and the sheet does not resize as the keyboard moves.
-    if (view === 'rename') actionSheetRef.current?.snapToPosition('100%');
-  }, []);
-  const popView = React.useCallback(() => {
-    haptics.tap();
-    setReturning(true);
-    setSheetView('options');
-    // Back to the content height: index 0, the stop under the full-height one.
-    actionSheetRef.current?.snapToIndex(0);
-  }, []);
-  const closeSheet = React.useCallback(() => actionSheetRef.current?.dismiss(), []);
-
-  // Restart and Stop open no overlay: close the sheet and run at once.
-  const busyRef = React.useRef(new Set<string>());
-  const runLifecycle = React.useCallback(
-    async (
-      session: ProjectSession,
-      kind: 'restart' | 'stop',
-      call: (projectId: string, sessionId: string) => Promise<unknown>,
-      messages: { success: string; failure: string }
-    ) => {
-      const key = `${kind}:${session.session_id}`;
-      if (busyRef.current.has(key)) return;
-      busyRef.current.add(key);
-      try {
-        await call(projectId, session.session_id);
-        haptics.success();
-        toast.success(messages.success);
-      } catch {
-        haptics.warning();
-        toast.error(messages.failure);
-      } finally {
-        busyRef.current.delete(key);
-        void invalidateSessions();
-      }
-    },
-    [projectId, toast, invalidateSessions]
-  );
-
-  const handleRestart = React.useCallback(() => {
-    if (!menuSession) return;
-    haptics.tap();
-    actionSheetRef.current?.dismiss();
-    void runLifecycle(menuSession, 'restart', restartProjectSession, {
-      success: 'Session restarting',
-      failure: 'Unable to restart the session. Try again.',
-    });
-  }, [menuSession, runLifecycle]);
-
-  const handleStop = React.useCallback(() => {
-    if (!menuSession) return;
-    haptics.tap();
-    actionSheetRef.current?.dismiss();
-    void runLifecycle(menuSession, 'stop', stopProjectSession, {
-      success: 'Session stopped',
-      failure: 'Unable to stop the session. Try again.',
-    });
-  }, [menuSession, runLifecycle]);
-
-  // ── Delete ──
-  const deleteSession = useMutation({
-    mutationFn: (session: ProjectSession) => deleteProjectSession(projectId, session.session_id),
+  // KRTX-250: a filter whose loaded pages hold too few matches loads older
+  // pages itself. `onEndReached` alone strands it: a filtered list that stays
+  // empty never changes size, so FlatList never calls it again. This effect
+  // re-runs after each page lands and stops at a screen of matches, at the
+  // last page, or after a failed page fetch.
+  const autoFetchForFilter = shouldAutoFetchForFilter({
+    filterActive,
+    matchCount: filtered.length,
+    hasNextPage,
+    isFetchingNextPage,
+    isRefreshing: refreshing,
+    fetchNextPageFailed: isFetchNextPageError,
   });
-
-  const confirmDeleteSession = React.useCallback(async () => {
-    if (!confirmDelete || deleteSession.isPending) return;
-    haptics.medium();
-    setDeleteFailed(false);
-    try {
-      await deleteSession.mutateAsync(confirmDelete);
-      // Mirrors ProjectScreen's delete: drop the session's tab, so the store
-      // never points at a deleted session and no dead tab survives.
-      const tabs = useTabStore.getState();
-      if (confirmDelete.opencode_session_id) {
-        tabs.closeTab(confirmDelete.opencode_session_id);
-      } else if (tabs.activeSessionId === confirmDelete.session_id) {
-        tabs.navigateToSession(null);
-      }
-      haptics.success();
-      toast.success('Session deleted');
-      setConfirmDelete(null);
-    } catch {
-      haptics.warning();
-      setDeleteFailed(true);
-    } finally {
-      void invalidateSessions();
-    }
-  }, [confirmDelete, deleteSession, toast, invalidateSessions]);
+  React.useEffect(() => {
+    if (autoFetchForFilter) void fetchNextPage();
+  }, [autoFetchForFilter, fetchNextPage]);
+  // No match yet, older pages still loading: one loader in place of the
+  // no-match copy (never the copy and the footer loader together).
+  const searchingOlder = filterActive && filtered.length === 0 && (isFetchingNextPage || autoFetchForFilter);
 
   // ── Render ──
   // One list item per group: a `SettingsGroup` of `SettingsRow`s, the settings
   // screens' layout. The title shows only when more than one group has sessions.
+  //
+  // Within each activity-day section, a sub-agent session (spawned by
+  // another session in that SAME section, COR-162) nests as an indented row
+  // right after its coordinator (`groupSessionsByCoordinator`) — mirroring
+  // web, which composes the same two groupings (activity day, then
+  // coordinator) in that order. A coordinator whose activity bucket differs
+  // from its child's (rare — spawning is normally near-simultaneous) leaves
+  // the child top-level in its own section instead of disappearing.
   const showHeaders = grouped.showHeaders;
   const renderSection = React.useCallback<ListRenderItem<SessionSection>>(
     ({ item: section }) => (
       <SettingsGroup title={showHeaders ? section.title : undefined}>
-        {section.data.map((session) => (
+        {/* `flatMap`, not a nested `React.Fragment` per group: `SettingsGroup`
+            wraps each TOP-LEVEL child in its own rounded tile
+            (`React.Children.toArray`, which flattens a plain array), so a
+            coordinator and its sub-agent children must each be a top-level
+            element here — a `Fragment` would fuse a whole group into one
+            shared tile instead of one tile per row. */}
+        {groupSessionsByCoordinator(section.data).flatMap((group) => [
           <SessionRow
-            key={session.session_id}
-            session={session}
+            key={group.session.session_id}
+            session={group.session}
             now={now}
+            needsYouCount={needsYou.get(group.session.session_id)?.count ?? 0}
             onOpen={openSession}
-            onActions={openActions}
-          />
-        ))}
+            onActions={openSessionActions}
+          />,
+          ...group.children.map((child) => (
+            <SessionRow
+              key={child.session_id}
+              session={child}
+              now={now}
+              nested
+              needsYouCount={needsYou.get(child.session_id)?.count ?? 0}
+              onOpen={openSession}
+              onActions={openSessionActions}
+            />
+          )),
+        ])}
       </SettingsGroup>
     ),
-    [showHeaders, now, openSession, openActions]
+    [showHeaders, now, needsYou, openSession, openSessionActions]
   );
 
   // ── New session: the project drawer's pinned button, at the bottom right ──
   const listBottomInset = usePinnedBarInset(NEW_SESSION_BUTTON_HEIGHT);
   const pageBackground = isDark ? THEME.dark.background : THEME.light.background;
+  const mutedColor = isDark ? THEME.dark.mutedForeground : THEME.light.mutedForeground;
   const handleNewSession = React.useCallback(() => {
     haptics.tap();
     newSession();
   }, [newSession]);
 
-  const loading = sessionsQuery.isLoading;
-  const loadFailed = sessionsQuery.isError && !hasSessions;
+  // loading / error / empty / rows — shared with the project drawer
+  // (lib/session/session-pages) so a failed fetch never reads as "No
+  // sessions yet" (COR-146). "No matching sessions" (a search/filter with no
+  // hits over rows that did load) is this page's own case, not part of the
+  // shared decision.
+  const rawListState = sessionListState({
+    isLoading: sessionsQuery.isLoading,
+    isError: sessionsQuery.isError,
+    hasSessions,
+  });
+  const loading = rawListState === 'loading';
+  const loadFailed = rawListState === 'error';
   const emptyMessage = loadFailed
     ? 'Unable to load sessions. Pull to refresh.'
     : !hasSessions
       ? 'No sessions yet'
       : 'No matching sessions';
 
-  const menuStatus = menuSession ? sessionDisplayStatus(menuSession) : null;
-  const canManageLifecycle = menuSession?.can_manage_lifecycle !== false;
-  const canManageSharing = menuSession?.can_manage_sharing !== false;
-
-  const filterActive = statusFilter.size > 0;
+  // A project with no sessions shows no search field or chip: leave no hidden
+  // filter behind. Only a loaded, empty list counts — never the first load.
+  const listEmpty = rawListState === 'empty';
+  React.useEffect(() => {
+    if (listEmpty && filterActive) useSessionFilterStore.getState().resetProject(projectId);
+  }, [listEmpty, filterActive, projectId]);
 
   return (
     <View className="flex-1 bg-background">
@@ -449,8 +452,8 @@ export function ProjectSessionsPage() {
             <Icon
               as={Funnel}
               size={20}
-              className={filterActive ? 'text-primary' : 'text-foreground'}
-              weight={filterActive ? 'fill' : undefined}
+              className={statusFilterActive ? 'text-primary' : 'text-foreground'}
+              weight={statusFilterActive ? 'fill' : undefined}
             />
           </Button>
         }
@@ -459,7 +462,7 @@ export function ProjectSessionsPage() {
       <PageContent>
         {loading ? (
           <View className="flex-1 items-center justify-center" style={{ paddingBottom: insets.bottom }}>
-            <KortixLoader />
+            {showLoaders ? <KortixLoader /> : null}
           </View>
         ) : (
           <>
@@ -468,8 +471,24 @@ export function ProjectSessionsPage() {
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search sessions"
-                inputProps={{ accessibilityLabel: 'Search sessions' }}
+                inputProps={{ accessibilityLabel: 'Search sessions', autoFocus: autoFocusSearch }}
               />
+            ) : null}
+            {hasSessions && statusFilterActive ? (
+              // The active status filter, visible without opening the sheet.
+              // Tap = Reset (search + statuses).
+              <View className="flex-row px-4 pb-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
+                  onPress={resetFilters}
+                  accessibilityLabel={`Filtered by ${sessionStatusFilterSummary(statusFilter)}. Reset`}
+                  accessibilityHint="Shows every session again">
+                  <Text>{sessionStatusFilterSummary(statusFilter)}</Text>
+                  <Icon as={XIcon} size={14} className="text-muted-foreground" />
+                </Button>
+              </View>
             ) : null}
             <FlatList
               data={sections}
@@ -482,7 +501,7 @@ export function ProjectSessionsPage() {
               onEndReached={onEndReached}
               onEndReachedThreshold={0.6}
               ListFooterComponent={
-                isFetchingNextPage ? (
+                isFetchingNextPage && sections.length > 0 && showLoaders ? (
                   <View className="items-center py-4">
                     <KortixLoader size="small" />
                   </View>
@@ -498,11 +517,36 @@ export function ProjectSessionsPage() {
                 paddingBottom: listBottomInset,
               }}
               ListEmptyComponent={
-                <View className="flex-1 items-center justify-center px-8">
-                  <Text variant="muted" className="text-center">
-                    {emptyMessage}
-                  </Text>
-                </View>
+                !loadFailed && !hasSessions ? (
+                  // The project has no sessions at all: the drawer's wilted
+                  // flower. Errors and empty filter results keep their text.
+                  <View
+                    className="flex-1 items-center justify-center px-8"
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={emptyMessage}>
+                    <PixelDeadFlower color={mutedColor} size={96} animate={isFocused} />
+                  </View>
+                ) : searchingOlder ? (
+                  // The filter is still loading older pages: no verdict yet.
+                  <View
+                    className="flex-1 items-center justify-center px-8"
+                    accessible
+                    accessibilityLabel="Searching older sessions">
+                    {showLoaders ? <KortixLoader size="small" /> : null}
+                  </View>
+                ) : (
+                  <View className="flex-1 items-center justify-center gap-3 px-8">
+                    <Text variant="muted" className="text-center">
+                      {emptyMessage}
+                    </Text>
+                    {!loadFailed && filterActive ? (
+                      <Button variant="secondary" size="sm" className="rounded-full" onPress={resetFilters}>
+                        <Text>Reset</Text>
+                      </Button>
+                    ) : null}
+                  </View>
+                )
               }
               refreshControl={
                 <RefreshControl
@@ -531,87 +575,6 @@ export function ProjectSessionsPage() {
         </PinnedBar>
       )}
 
-      {/* Session options: `KortixBottomSheetModal`, no close button. It opens at
-          its content height and drags up to full height (the `100%` stop).
-          Rename and Share push in place of the options (`sheet-push`). */}
-      <KortixBottomSheetModal
-        ref={actionSheetRef}
-        enableDynamicSizing
-        snapPoints={OPTIONS_SHEET_SNAP_POINTS}
-        topInset={insets.top}
-        enablePanDownToClose
-        onDismiss={handleSheetDismiss}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize">
-        {/* One scrollable child: dynamic sizing needs it, and Share's member list
-            can be taller than the screen. */}
-        <BottomSheetScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
-          {!menuSession ? null : sheetView === 'options' ? (
-            <Animated.View key="options" entering={returning ? POP_IN : undefined}>
-              <SheetTitleRow title={sessionDisplayTitle(menuSession)} hideClose />
-              {/* The actions sit on the 16pt project edge, the title row's inset. */}
-              <View className="px-4">
-                <SettingsGroup>
-                  <SettingsRow icon={Pencil} label="Rename" onPress={() => pushView('rename')} />
-                  {canManageSharing ? (
-                    <SettingsRow icon={Share} label="Share" onPress={() => pushView('share')} />
-                  ) : null}
-                  {canManageLifecycle ? (
-                    <SettingsRow
-                      icon={RotateCcw}
-                      label="Restart"
-                      right={null}
-                      onPress={handleRestart}
-                    />
-                  ) : null}
-                  {canManageLifecycle && menuStatus === 'running' ? (
-                    <SettingsRow icon={Square} label="Stop" right={null} onPress={handleStop} />
-                  ) : null}
-                  {canManageLifecycle ? (
-                    <SettingsRow
-                      icon={Trash2}
-                      label="Delete"
-                      destructive
-                      right={null}
-                      onPress={() => {
-                        haptics.warning();
-                        deleteAfterCloseRef.current = true;
-                        closeSheet();
-                      }}
-                    />
-                  ) : null}
-                </SettingsGroup>
-              </View>
-            </Animated.View>
-          ) : (
-            // Rename and Share push in place of the options; Back returns to them.
-            <Animated.View key={sheetView} entering={PUSH_IN}>
-              <SheetTitleRow
-                title={PUSHED_VIEW_TITLE[sheetView]}
-                leading={<SheetBackButton onPress={popView} />}
-              />
-              {sheetView === 'rename' ? (
-                <SessionRenameForm
-                  projectId={projectId}
-                  session={liveRow(menuSession)}
-                  onDone={closeSheet}
-                />
-              ) : (
-                <SessionShareForm
-                  projectId={projectId}
-                  session={liveRow(menuSession)}
-                  onDone={closeSheet}
-                />
-              )}
-            </Animated.View>
-          )}
-        </BottomSheetScrollView>
-      </KortixBottomSheetModal>
-
       {/* Filter: which statuses show in the timeline. Empty selection = every
           status. A basic, single group of toggleable rows — no date range or
           sort, unlike web's fuller filter panel. */}
@@ -631,50 +594,13 @@ export function ProjectSessionsPage() {
               />
             ))}
           </SettingsGroup>
-          {filterActive ? (
-            <Button
-              variant="secondary"
-              size="lg"
-              className="mt-4 rounded-full"
-              onPress={clearStatusFilter}>
-              <Text>Clear filters</Text>
+          {statusFilterActive ? (
+            <Button variant="secondary" size="lg" className="mt-4 rounded-full" onPress={resetFilters}>
+              <Text>Reset</Text>
             </Button>
           ) : null}
         </BottomSheetScrollView>
       </KortixBottomSheetModal>
-
-      <AlertDialog
-        open={!!confirmDelete}
-        onOpenChange={(open) => {
-          // Keep the dialog up until an in-flight delete settles.
-          if (!open && !deleteSession.isPending) setConfirmDelete(null);
-        }}>
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete session</AlertDialogTitle>
-            <AlertDialogDescription className={deleteFailed ? 'text-destructive' : undefined}>
-              {deleteFailed
-                ? 'Unable to delete. Check your connection and try again.'
-                : `Delete “${deleteTitle}”? Its sandbox is destroyed. This cannot be undone.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild disabled={deleteSession.isPending}>
-              <Button variant="secondary" size="lg" className="rounded-full">
-                <Text>Cancel</Text>
-              </Button>
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              size="lg"
-              className="rounded-full"
-              disabled={deleteSession.isPending}
-              onPress={confirmDeleteSession}>
-              <Text>{deleteSession.isPending ? 'Deleting…' : 'Delete session'}</Text>
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </View>
   );
 }

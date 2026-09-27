@@ -1,7 +1,7 @@
 /**
  * session-list — pure helpers for the project Sessions page: display title,
  * display status, last-activity resolution, relative-time formatting,
- * activity-bucket grouping, and title search. Ported from the web sidebar
+ * activity-bucket grouping, search, and status filtering. Ported from the web sidebar
  * (`apps/web/src/features/workspace/project-sidebar/project-session-list-helpers.ts`,
  * `session-grouping.ts`, and `apps/web/src/components/projects/session-label.ts`)
  * so the mobile Sessions page renders the same title/status/grouping logic.
@@ -10,6 +10,8 @@
  * icons, no zustand — this module is unit-tested under `bun test`, which
  * cannot load native modules.
  */
+
+import { sessionParentId } from '@kortix/sdk';
 
 import type { ProjectSession } from '@/lib/projects/projects-client';
 
@@ -21,7 +23,7 @@ export const UNTITLED_SESSION_LABEL = 'New session';
 /** The session's real name, or null while the server has not written one.
  *  Precedence: user rename (`custom_name`) → server name → legacy
  *  `metadata.session_name`. Mirrors `resolveSessionTitle` on web. */
-function resolveSessionTitle(session: ProjectSession): string | null {
+export function resolveSessionTitle(session: ProjectSession): string | null {
   const metadata = session.metadata as Record<string, unknown> | null | undefined;
   const legacyMetadataName = typeof metadata?.session_name === 'string' ? metadata.session_name : null;
   return session.custom_name?.trim() || session.name?.trim() || legacyMetadataName?.trim() || null;
@@ -285,24 +287,46 @@ export function groupSessionsByActivity(
 // ── Search ────────────────────────────────────────────────────────────────
 
 /**
- * Trimmed, case-insensitive substring match on `sessionDisplayTitle`. An
- * empty (or whitespace-only) query returns `sessions` unchanged.
+ * What a search matches (KRTX-250): the display title, the agent name, and
+ * the session id, lowercased. Web's haystack (`sessionSearchText`) adds owner,
+ * branch and source fields the mobile row never shows; a match on a field
+ * the user cannot see reads as a wrong result, so mobile keeps these three.
  */
-export function filterSessionsByTitle(
+export function sessionSearchText(session: ProjectSession): string {
+  return [sessionDisplayTitle(session), session.agent_name, session.session_id]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .join(' ')
+    .toLowerCase();
+}
+
+/**
+ * Trimmed, case-insensitive substring match on `sessionSearchText`. An empty
+ * (or whitespace-only) query returns `sessions` unchanged.
+ */
+export function filterSessionsBySearch(
   sessions: ProjectSession[],
   query: string,
 ): ProjectSession[] {
   const trimmed = query.trim();
   if (!trimmed) return sessions;
   const needle = trimmed.toLowerCase();
-  return sessions.filter((session) => sessionDisplayTitle(session).toLowerCase().includes(needle));
+  return sessions.filter((session) => sessionSearchText(session).includes(needle));
 }
 
-/** Every status the Sessions page's filter sheet offers, in display order. */
-export const SESSION_STATUS_FILTERS: SessionDisplayStatus[] = [
+// ── Status filter ─────────────────────────────────────────────────────────
+
+/** A status the filter sheet offers. `starting` is not one: Running covers it. */
+export type SessionStatusFilter = Exclude<SessionDisplayStatus, 'starting'>;
+
+/**
+ * Every status the Sessions page's filter sheet offers, in display order.
+ * No Starting option (KRTX-250, web parity): Running matches starting
+ * sessions too, so a session that is still booting never falls between two
+ * options.
+ */
+export const SESSION_STATUS_FILTERS: SessionStatusFilter[] = [
   'needs-you',
   'running',
-  'starting',
   'stopped',
   'failed',
 ];
@@ -310,13 +334,36 @@ export const SESSION_STATUS_FILTERS: SessionDisplayStatus[] = [
 /**
  * Keeps only sessions whose display status is in `statuses`. An empty set
  * means "no filter": every session passes, same as an untouched filter sheet.
+ * `running` also matches `starting` (web's `matchesStatusFilters`).
+ * `needsYou` (session id → pending inbox items, `needsYouBySession`) resolves
+ * the sessions that wait on the user to `needs-you`; such a session matches
+ * Needs you only, the same mark its row shows.
  */
 export function filterSessionsByStatus(
   sessions: ProjectSession[],
-  statuses: ReadonlySet<SessionDisplayStatus>,
+  statuses: ReadonlySet<SessionStatusFilter>,
+  needsYou?: ReadonlyMap<string, { count: number }>,
 ): ProjectSession[] {
   if (statuses.size === 0) return sessions;
-  return sessions.filter((session) => statuses.has(sessionDisplayStatus(session)));
+  return sessions.filter((session) => {
+    const display = sessionDisplayStatus(session, needsYou?.get(session.session_id)?.count ?? 0);
+    return display === 'starting' ? statuses.has('running') : statuses.has(display);
+  });
+}
+
+/** True when a search or a status filter hides some sessions. */
+export function isSessionFilterActive(
+  query: string,
+  statuses: ReadonlySet<SessionStatusFilter>,
+): boolean {
+  return query.trim().length > 0 || statuses.size > 0;
+}
+
+/** The picked statuses as the filter chip reads them, in sheet order: "Needs you, Failed". */
+export function sessionStatusFilterSummary(statuses: ReadonlySet<SessionStatusFilter>): string {
+  return SESSION_STATUS_FILTERS.filter((status) => statuses.has(status))
+    .map(sessionStatusLabel)
+    .join(', ');
 }
 
 // ── Recent sessions ───────────────────────────────────────────────────────
@@ -332,4 +379,179 @@ export function recentSessions(sessions: ProjectSession[], limit: number): Proje
     .sort((a, b) => b.at - a.at)
     .slice(0, limit)
     .map((entry) => entry.session);
+}
+
+// ── Sub-agent (coordinator) grouping ────────────────────────────────────────
+
+/** A coordinator (parent agent) session plus the sub-agent sessions it spawned. */
+export interface SessionGroup {
+  session: ProjectSession;
+  children: ProjectSession[];
+}
+
+/**
+ * Fold a flat, already-ordered session list into coordinator groups: a
+ * session spawned by another session in `sessions`
+ * (`metadata.spawned_by_session`, read through `sessionParentId` from
+ * `@kortix/sdk`) nests under it as a sub-agent session — the drawer and the
+ * Sessions page render the coordinator as a parent row and its children
+ * indented beneath it.
+ *
+ * Ported from web's `groupSessionsByCoordinator`
+ * (`apps/web/src/features/workspace/project-sidebar/project-session-list-helpers.ts`),
+ * with one deliberate improvement: web's version only nests ONE level —
+ * `groups` is built solely from top-level (parentless) sessions, so a
+ * grandchild (a session spawned by a session that is itself a child) has no
+ * entry to nest under and silently vanishes from the list. This port instead
+ * resolves every session to its topmost ancestor STILL PRESENT in `sessions`
+ * (`rootIdOf`, cycle-safe) and nests it there, so a deeper chain flattens
+ * under its real root instead of disappearing. Behaviour is identical to web
+ * for the common one-level case (a coordinator with direct children).
+ *
+ * A child whose coordinator is absent from `sessions` — deleted, a different
+ * project, or simply not loaded onto this page yet, since the Sessions page
+ * and the drawer both load sessions a page at a time and a parent can land on
+ * a LATER page than its child — stays top-level rather than disappearing.
+ * Membership is recomputed fresh from `sessions` on every call, so a session
+ * that was an orphan on one render re-nests automatically once its
+ * coordinator's page has loaded.
+ *
+ * Order is preserved: top-level groups appear in the order their session
+ * first appears in `sessions`; a group's children appear in that same overall
+ * order too. Never mutates `sessions`.
+ */
+export function groupSessionsByCoordinator(sessions: ProjectSession[]): SessionGroup[] {
+  const present = new Set(sessions.map((session) => session.session_id));
+  const parentBySessionId = new Map<string, string | null>();
+  for (const session of sessions) {
+    const parent = sessionParentId(session);
+    parentBySessionId.set(session.session_id, parent && present.has(parent) ? parent : null);
+  }
+
+  // Walk the parent chain to the topmost ancestor still present in
+  // `sessions`. `seen` stops a cycle (metadata pointing back into its own
+  // chain) at the first repeat instead of looping forever.
+  const rootIdOf = (sessionId: string): string => {
+    let current = sessionId;
+    const seen = new Set<string>([current]);
+    for (;;) {
+      const parent = parentBySessionId.get(current) ?? null;
+      if (!parent || seen.has(parent)) return current;
+      seen.add(parent);
+      current = parent;
+    }
+  };
+
+  const groups = new Map<string, SessionGroup>();
+  const order: SessionGroup[] = [];
+  for (const session of sessions) {
+    if (parentBySessionId.get(session.session_id)) continue;
+    const group: SessionGroup = { session, children: [] };
+    groups.set(session.session_id, group);
+    order.push(group);
+  }
+  for (const session of sessions) {
+    if (!parentBySessionId.get(session.session_id)) continue;
+    groups.get(rootIdOf(session.session_id))?.children.push(session);
+  }
+  return order;
+}
+
+/** One row of a flattened coordinator tree: a session plus whether it renders
+ *  indented under its coordinator, with the sub-agent mark. */
+export interface SessionListRow {
+  session: ProjectSession;
+  /** True for a sub-agent session rendered under its coordinator. */
+  nested: boolean;
+}
+
+/**
+ * Flattens `groupSessionsByCoordinator`'s tree into one linear list — a
+ * coordinator row immediately followed by its sub-agent sessions' rows — for
+ * a flat-list UI with no tree renderer (the project drawer's `FlatList`).
+ * Preserves `groupSessionsByCoordinator`'s order.
+ */
+export function flattenSessionGroups(sessions: ProjectSession[]): SessionListRow[] {
+  const rows: SessionListRow[] = [];
+  for (const group of groupSessionsByCoordinator(sessions)) {
+    rows.push({ session: group.session, nested: false });
+    for (const child of group.children) rows.push({ session: child, nested: true });
+  }
+  return rows;
+}
+
+// ── OpenCode sub-sessions ──────────────────────────────────────────────────
+
+/** One entry of a project session's OpenCode snapshot (`opencode_sessions[]`). */
+export type ProjectRuntimeSession = ProjectSession['opencode_sessions'][number];
+
+/** What a sub-session row shows when OpenCode has not titled it (web: 'Sub-session'). */
+export const SUB_SESSION_FALLBACK_TITLE = 'Sub-session';
+
+/**
+ * The root OpenCode session a project session is pinned to: the entry whose
+ * id is `opencode_session_id`, else (no pin yet) the first parentless entry.
+ * A pin that is not in the snapshot yields null. Port of web's
+ * `rootOpenCodeSession` (`apps/web/src/components/projects/session-label.ts`).
+ */
+export function rootOpenCodeSession(session: ProjectSession): ProjectRuntimeSession | null {
+  const openCodeSessions = session.opencode_sessions ?? [];
+  const rootId = session.opencode_session_id;
+  if (rootId) return openCodeSessions.find((item) => item.id === rootId) ?? null;
+  return openCodeSessions.find((item) => !item.parent_id) ?? null;
+}
+
+/**
+ * Direct, non-archived children of the root OpenCode session (the agent's
+ * sub-agents), newest `updated_at` first; a missing time counts as 0 and ties
+ * break on id, so the order never churns between refetches. A child of a
+ * child is not included. Port of web's `directSubsessions`. Never mutates
+ * `opencode_sessions`.
+ */
+export function directSubsessions(session: ProjectSession): ProjectRuntimeSession[] {
+  const root = rootOpenCodeSession(session);
+  if (!root) return [];
+  return (session.opencode_sessions ?? [])
+    .filter((item) => item.parent_id === root.id && !item.archived_at)
+    .sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0) || a.id.localeCompare(b.id));
+}
+
+/** A sub-session row's title: OpenCode's title, trimmed, else `SUB_SESSION_FALLBACK_TITLE`. */
+export function subsessionTitle(child: ProjectRuntimeSession): string {
+  return child.title?.trim() || SUB_SESSION_FALLBACK_TITLE;
+}
+
+/**
+ * The project session that owns an id the thread shows. The tab store's
+ * active id is an OpenCode id: the root (a thread opened from a list), or a
+ * sub-session (a drawer sub-session row, or a task tool's View). Match order:
+ * a project session id or root pin first, then any entry of a row's
+ * `opencode_sessions` snapshot — every sub-session runs in its parent's
+ * sandbox, so the parent row owns it. Null for null or an unknown id.
+ */
+export function projectSessionForOpenCodeId(
+  sessions: readonly ProjectSession[],
+  openCodeId: string | null,
+): ProjectSession | null {
+  if (!openCodeId) return null;
+  const direct = sessions.find(
+    (session) => session.opencode_session_id === openCodeId || session.session_id === openCodeId,
+  );
+  if (direct) return direct;
+  return (
+    sessions.find((session) => (session.opencode_sessions ?? []).some((item) => item.id === openCodeId)) ??
+    null
+  );
+}
+
+/**
+ * The count badge after a session title shows only above this many direct
+ * sub-sessions (owner, 2026-09-26): a short list under the row already reads
+ * its own length, a long one does not.
+ */
+export const SUBSESSION_COUNT_BADGE_THRESHOLD = 4;
+
+/** True when a row shows its sub-session count badge: more than `SUBSESSION_COUNT_BADGE_THRESHOLD`. */
+export function showSubsessionCountBadge(count: number): boolean {
+  return Number.isFinite(count) && count > SUBSESSION_COUNT_BADGE_THRESHOLD;
 }

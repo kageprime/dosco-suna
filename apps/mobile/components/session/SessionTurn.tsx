@@ -200,7 +200,12 @@ function SessionTurnImpl({
   const showInlineContent = !hasSteps && !!inlineItems;
 
   // ── Segments ──
-  const standaloneCallIds = useMemo(() => standaloneCallIdsFor(permissions, sessionId), [permissions, sessionId]);
+  // Pending permissions and connector calls that ask the user to connect or
+  // approve (COR-158) render as their own transcript rows, not in a burst.
+  const standaloneCallIds = useMemo(
+    () => standaloneCallIdsFor(permissions, sessionId, allParts),
+    [permissions, sessionId, allParts],
+  );
   const segments = useMemo(
     () => segmentTurn(segmentInputParts(allParts, answeredById, showInlineContent), { standaloneCallIds }),
     [allParts, answeredById, showInlineContent, standaloneCallIds],
@@ -243,7 +248,9 @@ function SessionTurnImpl({
       .join('\n\n');
   }, [inlineItems, response]);
 
-  const userMessage = (
+  // A long run whose prompt is not loaded has a stand-in prompt with no parts:
+  // render its replies without a prompt bubble.
+  const userMessage = turn.partial ? null : (
     <UserMessage
       turn={turn}
       isDark={isDark}

@@ -1,64 +1,62 @@
 /**
- * dock-menu — the project sheet's data.
+ * dock-menu — the project Settings page's ("page:settings", `SettingsNavPage`)
+ * "Customize" group: Schedules, Secrets, Members (in-app pages) and
+ * Connectors (a web hand-off, KRTX-249). Each `kind: 'item'` row opens its
+ * page as a sub-page of project Settings (`openSubPage`). The `kind:
+ * 'web-handoff'` row (Connectors) has no `pageId` — `SettingsNavPage` opens
+ * a `WebHandoffSheet` instead, whose Continue runs the connectors web flow.
+ * Nothing here opens a provider or models page: mobile has no models screen.
  *
- * The sheet opens from the `···` button at the right end of the header, on
- * project home and in a thread (`ProjectHeaderActions`), and from a tool
- * page's `PageHeader` "···" button (Jay, 2026-09-21).
- *
- * Group one is the project's core sections, untitled. Group two keeps every
- * other page. Connectors have no row: mobile leaves them to web. Changes has no
- * row and no other entry point: Review holds change requests, opens new ones
- * (`+`), and lists the branches (history button). Dev has no row: it is web's
- * "Develop on your own machine" guide, terminal commands for a laptop. Models opens the provider page until its own page exists.
+ * The project sheet (`CustomizeSheet`) that used to list every section is
+ * deleted (COR-123/COR-160 Task 3): Agents, Skills and Terminal have no
+ * mobile page any more; Members came back as an in-app page (Jay,
+ * 2026-09-24); Review is in the drawer; Files is the
+ * drawer's `files` route. Connectors moved here from the project drawer's
+ * `NavPill` (KRTX-249) — mobile still has no connector catalog, so it is
+ * still a web hand-off, just reached from Customize instead of the drawer.
+ * The per-page `···` menu (`PageContextMenuSheet`) is deleted with the
+ * Workspace and Files pages it served (COR-156).
+ * "More on kortix.com" is a web-handoff row `SettingsNavPage` adds itself directly (`lib/projects/web-project-links.ts`), not data here.
  *
  * Pure data only. No React, no icons, no zustand: this module is
  * unit-tested under `bun test`, which cannot load native modules. Icon keys
  * are resolved to components in `components/session/dock-icons.ts`.
  */
 
-export type DockIconKey =
-  // page context menu rows (PageContextMenuSheet)
-  | 'files' | 'settings' | 'rename' | 'delete'
-  // project sheet, core sections
-  | 'agents' | 'skills' | 'schedules' | 'review' | 'secrets'
-  // project sheet, more
-  | 'webhooks' | 'members' | 'terminal';
+import type { SubPageId } from './project-stack';
 
-export interface DockMenuItem {
+/** The Customize group's row icons. */
+export type DockIconKey = 'schedules' | 'secrets' | 'members' | 'connectors';
+
+/** A Customize row that pushes an in-app sub-page of project Settings. */
+export interface ProjectCustomizePushItem {
   kind: 'item';
   label: string;
   icon: DockIconKey;
-  /** A `tab-store` page id — pass to `navigateToPage`. */
-  pageId: string;
+  /** A `tab-store` page id that opens as a sub-page of project Settings. */
+  pageId: SubPageId;
 }
 
-export interface CustomizeSheetGroup {
-  /** Null: the group has no title (the core sections). */
-  title: string | null;
-  items: DockMenuItem[];
+/**
+ * A Customize row that opens a `WebHandoffSheet` instead of a sub-page —
+ * Connectors (KRTX-249): mobile has no connector catalog, so Continue opens
+ * the connectors web flow in an in-app auth session.
+ */
+export interface ProjectCustomizeHandoffItem {
+  kind: 'web-handoff';
+  label: string;
+  icon: DockIconKey;
 }
 
-/** The page the Review row opens. It carries the row's badge. */
-export const REVIEW_PAGE_ID = 'page:review';
-/** The page the Models row opens. The Secrets page links to it ("Manage providers"). */
-export const CUSTOMIZE_SHEET_GROUPS: CustomizeSheetGroup[] = [
-  {
-    title: null,
-    items: [
-      { kind: 'item', label: 'Agents', icon: 'agents', pageId: 'page:agents' },
-      { kind: 'item', label: 'Skills', icon: 'skills', pageId: 'page:skills' },
-      { kind: 'item', label: 'Schedules', icon: 'schedules', pageId: 'page:schedules' },
-      { kind: 'item', label: 'Review', icon: 'review', pageId: REVIEW_PAGE_ID },
-      { kind: 'item', label: 'Secrets', icon: 'secrets', pageId: 'page:secrets-nav' },
-    ],
-  },
-  {
-    title: 'More',
-    items: [
-      { kind: 'item', label: 'Files', icon: 'files', pageId: 'page:files-nav' },
-      { kind: 'item', label: 'Webhooks', icon: 'webhooks', pageId: 'page:webhooks' },
-      { kind: 'item', label: 'Members', icon: 'members', pageId: 'page:members' },
-      { kind: 'item', label: 'Terminal', icon: 'terminal', pageId: 'page:terminal' },
-    ],
-  },
+export type ProjectCustomizeItem = ProjectCustomizePushItem | ProjectCustomizeHandoffItem;
+
+/**
+ * The project Settings page's "Customize" group: Schedules, Secrets, Members,
+ * then Connectors — in that order, right above "More on kortix.com".
+ */
+export const PROJECT_CUSTOMIZE_ITEMS: ProjectCustomizeItem[] = [
+  { kind: 'item', label: 'Schedules', icon: 'schedules', pageId: 'page:schedules' },
+  { kind: 'item', label: 'Secrets', icon: 'secrets', pageId: 'page:secrets-nav' },
+  { kind: 'item', label: 'Members', icon: 'members', pageId: 'page:members' },
+  { kind: 'web-handoff', label: 'Connectors', icon: 'connectors' },
 ];

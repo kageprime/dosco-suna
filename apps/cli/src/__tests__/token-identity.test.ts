@@ -35,7 +35,7 @@ let saved: Record<string, string | undefined>;
 let dir: string;
 
 /** An `/accounts/me` body for a minted agent session token — the exact shape
- *  the API returns for the Essentia `osp-vision-route-agent` case. */
+ *  the API returns for the SampleCo `osp-vision-route-agent` case. */
 function agentMe(): MeResponse {
   return {
     user_id: 'user_123',
@@ -247,6 +247,14 @@ describe('permission-denial identity footer', () => {
   test('agent_human_only_action says a human must do it', async () => {
     const out = await footerFor({ code: 'agent_human_only_action', action: 'project.delete' });
     expect(out).toMatch(/a human must do this/i);
+    expect(out).not.toContain('kortix_permissions');
+  });
+
+  test('agent_session_forbidden (e.g. granting a secret) says a person must do it', async () => {
+    // No kortix_permissions entry unlocks these routes, so the manifest hint
+    // would send the agent to a fix that cannot work.
+    const out = await footerFor({ code: 'agent_session_forbidden' });
+    expect(out).toMatch(/a person with project access must do this/i);
     expect(out).not.toContain('kortix_permissions');
   });
 
