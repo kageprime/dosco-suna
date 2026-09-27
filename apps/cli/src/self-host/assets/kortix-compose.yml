@@ -143,6 +143,9 @@ services:
       # screenshots); a box with KORTIX_GATEWAY_MEMORY_LIMIT raised can raise
       # this too.
       GATEWAY_MAX_REQUEST_BYTES: ${KORTIX_GATEWAY_MAX_REQUEST_BYTES:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
     depends_on:
       kortix-api:
         condition: service_started
