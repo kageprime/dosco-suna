@@ -1519,6 +1519,7 @@ export async function forwardToSandbox(
             `[preview-redirect] ${sandboxId}:${port} ${method} ${remainingPath}${queryString} -> ${upstream.status} ${rawLocation ?? '(no location)'} | upstream=${targetUrl} xfp=${headers.get('x-forwarded-proto')}`,
           );
         }
+        const safeLocation = sanitizeRedirectLocation(
           previewUrl,
           rawLocation,
           redirectPrefix,
