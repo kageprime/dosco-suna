@@ -10,8 +10,6 @@ import {
   ProjectHome,
   type ProjectHomeSendOptions,
 } from '@/features/workspace/project-layout/project-home';
-import { ProjectHomeEasy } from '@/features/workspace/project-layout/home/project-home-easy';
-import { useIsEasy } from '@/hooks/use-is-easy';
 import { useAccountState } from '@/hooks/billing';
 import { useNewProjectSession } from '@/hooks/projects/use-new-project-session';
 import { useProjectCanRun } from '@/hooks/projects/use-project-can-run';
@@ -300,15 +298,5 @@ export default function ProjectIndexPage() {
     ],
   );
 
-  const isEasy = useIsEasy();
-  const handleSendSlim = useCallback(
-    (text: string, files: AttachedFile[] | undefined) => handleSend(text, files, {}, undefined),
-    [handleSend],
-  );
-
-  return isEasy ? (
-    <ProjectHomeEasy projectId={projectId} onSend={handleSendSlim} busy={sending} />
-  ) : (
-    <ProjectHome projectId={projectId} onSend={handleSend} busy={sending} />
-  );
+  return <ProjectHome projectId={projectId} onSend={handleSend} busy={sending} />;
 }

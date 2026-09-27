@@ -19182,12 +19182,7 @@
       "text5176d59f25fd": "Config-Release der Sitzung aufgelöst",
       "text273c48dbf3b9": "Gerät für Push-Benachrichtigungen registriert",
       "textbb666ddf7a57": "Gerät für Push-Benachrichtigungen entfernt",
-      "text397ab5aecbbf": "Berechtigungsanfrage für Sitzung weitergeleitet",
-      "modeSectionLabel": "Workspace mode",
-      "modeSimple": "Simple",
-      "modeAdvanced": "Advanced",
-      "modeSimpleHint": "Setup screens stay out of the way. Nothing is deleted.",
-      "modeAdvancedHint": "Every tab, setting, and tool, exactly as configured."
+      "text397ab5aecbbf": "Berechtigungsanfrage für Sitzung weitergeleitet"
     },
     "publicShareConfirm": {
       "title": "Öffentlichen Link erstellen?",

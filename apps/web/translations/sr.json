@@ -19182,12 +19182,7 @@
       "text5176d59f25fd": "Издање конфигурације сесије разрешено",
       "text273c48dbf3b9": "Регистрован уређај за пусх обавештења",
       "textbb666ddf7a57": "Уклоњен уређај за пусх обавештења",
-      "text397ab5aecbbf": "Захтев за дозволу сесије прослеђен",
-      "modeSectionLabel": "Workspace mode",
-      "modeSimple": "Simple",
-      "modeAdvanced": "Advanced",
-      "modeSimpleHint": "Setup screens stay out of the way. Nothing is deleted.",
-      "modeAdvancedHint": "Every tab, setting, and tool, exactly as configured."
+      "text397ab5aecbbf": "Захтев за дозволу сесије прослеђен"
     },
     "publicShareConfirm": {
       "title": "Направити јавни линк?",

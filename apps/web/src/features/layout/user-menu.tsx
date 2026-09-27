@@ -53,55 +53,6 @@ export interface UserMenuUser {
   planName?: string;
 }
 
-import { useUserPreferencesStore } from '@/stores/user-preferences-store';
-
-/**
- * Workspace mode switch (Simple / Advanced). Plain block, not a menu item,
- * so choosing a side does not dismiss the menu out from under the reader.
- * One control, both directions, readable from anywhere the menu opens.
- */
-function WorkspaceModeSwitch() {
-  const t = useTranslations('hardcodedUi.i18nComplete');
-  const mode = useUserPreferencesStore((s) => s.preferences.panelMode) ?? 'easy';
-  const setPanelMode = useUserPreferencesStore((s) => s.setPanelMode);
-  const simple = mode !== 'advanced';
-  const side = 'flex flex-1 items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-colors';
-  return (
-    <div className="px-2 py-1.5">
-      <div className="text-muted-foreground px-1 pb-1.5 text-xs font-medium">
-        {t.raw('modeSectionLabel')}
-      </div>
-      <div className="bg-foreground/5 flex rounded-lg p-0.5" role="group" aria-label={t.raw('modeSectionLabel')}>
-        <button
-          type="button"
-          aria-pressed={simple}
-          onClick={() => setPanelMode('easy')}
-          className={cn(
-            side,
-            simple ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {t.raw('modeSimple')}
-        </button>
-        <button
-          type="button"
-          aria-pressed={!simple}
-          onClick={() => setPanelMode('advanced')}
-          className={cn(
-            side,
-            !simple ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {t.raw('modeAdvanced')}
-        </button>
-      </div>
-      <div className="text-muted-foreground/70 px-1 pt-1.5 text-xs leading-snug">
-        {simple ? t.raw('modeSimpleHint') : t.raw('modeAdvancedHint')}
-      </div>
-    </div>
-  );
-}
-
 export function UserMenu({
   user,
   variant = 'sidebar',
@@ -307,9 +258,6 @@ export function UserMenu({
         <ThemeSubmenu />
 
         <HelpSubmenu onClose={() => setMenuOpen(false)} />
-
-        <DropdownMenuSeparator />
-        <WorkspaceModeSwitch />
 
         {/* Log out is the only row that ends something, so it gets its own
             group. Nothing sits below it — the last item in a menu is the one a
