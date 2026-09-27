@@ -1,3 +1,6 @@
+// Same-sandbox redirect folding lives next door (dependency-free, unit-tested).
+import { sanitizeRedirectLocation } from './sanitize-redirect';
+
 import { clientAbortTarget } from '../client-abort';
 import { markTurnStopRequested } from '../../projects/sandbox-turn-lifecycle';
 import { stripInlineAttachmentBytes } from '../inline-attachments';
@@ -416,35 +419,7 @@ export function longTurnTimeoutResponse(origin: string): Response {
   );
 }
 
-// Rewrite an upstream redirect Location so the user stays on the preview.
-// `redirectPrefix` is the URL prefix that maps to this sandbox port:
-//   - subdomain previews (p{port}-{sandbox}.host):  '' (root-relative)
-//   - path-based previews (/v1/p/{sandbox}/{port}):  '/v1/p/{sandbox}/{port}'
-// App self-redirects (relative, or absolute to the upstream's own origin) are
-// kept on the preview. Genuinely external redirects (OAuth, CDNs, …) pass
-// through unchanged so the browser can follow them — we never hard-block, since
-// blocking turned ordinary app redirects into 502s.
-function sanitizeRedirectLocation(
-  previewUrl: string,
-  location: string | null,
-  redirectPrefix: string,
-): string | null {
-  if (!location) return null;
-  if (location.startsWith('/') && !location.startsWith('//')) {
-    return `${redirectPrefix}${location}`;
-  }
-  try {
-    const target = new URL(location, previewUrl);
-    const preview = new URL(previewUrl);
-    const selfHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(target.hostname);
-    if (target.origin === preview.origin || selfHost) {
-      return `${redirectPrefix}${target.pathname}${target.search}${target.hash}`;
-    }
-    return location;
-  } catch {
-    return null;
-  }
-}
+
 
 // True only when a fetch failure PROVES nothing reached the box: the upstream
 // actively refused the connection (nothing was ever accepted). Any other thrown
@@ -1473,6 +1448,7 @@ export async function forwardToSandbox(
           previewUrl,
           upstream.headers.get('location'),
           redirectPrefix,
+          { sandboxId, currentPort: port },
         );
         if (safeLocation) respHeaders.set('Location', safeLocation);
         return new Response(null, {
