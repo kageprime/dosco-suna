@@ -37,7 +37,7 @@ import { getCreditAccount, updateCreditAccount } from '../repositories/credit-ac
 import { insertPurchase, updatePurchaseStatus } from '../repositories/transactions';
 import { upsertCustomer } from '../repositories/customers';
 import { applyStripeSync } from './account-write-owner';
-import { wallet } from './wallet';
+import { wallet } from '../wallet';
 import { resolvePlanRecord } from './plan-catalog';
 
 export function paystackEnabled(): boolean {
