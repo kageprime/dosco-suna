@@ -529,8 +529,8 @@ export const useKortixComputerStore = create<KortixComputerState>()(
           });
           return;
         }
-        // EVERY session change lands closed. Both surfaces, no exceptions, no
-        // per-session memory.
+        // EVERY session change lands with the detail side closed — no
+        // exceptions, no per-session memory.
         //
         // This used to restore each session's remembered panel state, which is
         // where the "new session opens on a loading panel" bug lived: panel
@@ -538,19 +538,30 @@ export const useKortixComputerStore = create<KortixComputerState>()(
         // session A's open detail panel and rendered it with nothing in it —
         // B's provider has no detail of its own to show. Restoring correctly
         // is not worth defending; a session you have just navigated to is a
-        // session you have not asked anything of yet, so the right side has
+        // session you have not asked anything of yet, so the detail side has
         // nothing to say and should not be on screen.
+        //
+        // The action-panel column is the deliberate exception: it is a
+        // mailbox, not a detail — empty is a valid state (no cards yet),
+        // never a broken one. It opens by default on large screens so the
+        // outputs/context/preview/plan surface is visible on arrival; below
+        // the lg breakpoint it stays shut (a side column is the whole screen
+        // on mobile — see the column's own render guard).
         //
         // The detail CONTENT map survives on purpose: a tab kept mounted in
         // the background still holds its detail, so returning to it and
         // pressing ⌘I brings that back rather than the empty card home.
+        const wideScreen =
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(min-width: 1024px)').matches;
         set({
           _activeSessionId: sessionId,
           _activeProjectSessionId: nextProjectSessionId,
           _activeIsTransient: nextIsTransient,
           _bootQuickView: null,
           isSidePanelOpen: false,
-          isActionPanelOpen: false,
+          isActionPanelOpen: wideScreen,
           isExpanded: false,
           panelSplit: null,
           panelAspect: null,
