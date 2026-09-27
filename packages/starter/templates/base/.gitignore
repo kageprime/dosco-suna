@@ -1,4 +1,4 @@
-# Local OpenCode / Kortix runtime state — never commit.
+# Local OpenCode / Dosco runtime state — never commit.
 .kortix/state/
 .kortix/opencode/sessions/
 .kortix/opencode/log/

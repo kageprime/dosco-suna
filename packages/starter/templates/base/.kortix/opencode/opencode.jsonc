@@ -4,7 +4,7 @@
   // The default agent is `kortix` — a generic general-knowledge worker.
   // Edit `.kortix/opencode/agents/kortix.md` (or add more agents in that folder).
   "default_agent": "kortix",
-  // Kortix sessions are already sandboxed (isolated VM, ephemeral branch),
+  // Dosco sessions are already sandboxed (isolated VM, ephemeral branch),
   // so the agent has full access by default. Tighten per-tool here if you
   // want a stricter policy. Docs: https://opencode.ai/docs/permissions/
   "permission": "allow",
@@ -16,5 +16,5 @@
   // if you actually need deeper nesting — each level multiplies token cost.
   "subagent_depth": 2
   // Local tools in `tools/` and plugins in `plugins/` are auto-discovered.
-  // Install optional tools/plugins through the Kortix marketplace.
+  // Install optional tools/plugins through the Dosco marketplace.
 }

@@ -4,7 +4,7 @@ This project runs OpenCode through its REST API.
 
 ## Authentication
 
-OpenCode can use Kortix-managed models or project provider credentials.
+OpenCode can use Dosco-managed models or project provider credentials.
 
 ## Verify the project
 
