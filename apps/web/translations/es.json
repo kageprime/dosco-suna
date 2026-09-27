@@ -19182,7 +19182,12 @@
       "text5176d59f25fd": "Versión de configuración de la sesión resuelta",
       "text273c48dbf3b9": "Dispositivo de notificaciones push registrado",
       "textbb666ddf7a57": "Dispositivo de notificaciones push eliminado",
-      "text397ab5aecbbf": "Solicitud de permiso de sesión retransmitida"
+      "text397ab5aecbbf": "Solicitud de permiso de sesión retransmitida",
+      "modeSectionLabel": "Workspace mode",
+      "modeSimple": "Simple",
+      "modeAdvanced": "Advanced",
+      "modeSimpleHint": "Setup screens stay out of the way. Nothing is deleted.",
+      "modeAdvancedHint": "Every tab, setting, and tool, exactly as configured."
     },
     "publicShareConfirm": {
       "title": "¿Crear un enlace público?",

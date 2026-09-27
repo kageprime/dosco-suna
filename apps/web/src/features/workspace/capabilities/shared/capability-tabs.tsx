@@ -1,6 +1,7 @@
 'use client';
 
 import { hubTarget } from '@/stores/account-panel-store';
+import { useIsEasy } from '@/hooks/use-is-easy';
 import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 import { useTranslations } from '@/i18n/use-translations';
 import { ArrowUpRightIcon } from '@phosphor-icons/react';
@@ -177,6 +178,13 @@ function GroupSeam() {
   return <span aria-hidden className="bg-border mx-1 h-4 w-px shrink-0 self-center" />;
 }
 
+/**
+ * Easy mode shows three tabs — the doing surfaces. Everything else stays
+ * reachable via palette/search/direct URL (nothing is deleted), and the
+ * account-menu switch restores the full bar.
+ */
+const EASY_TABS: readonly CapabilityTab['key'][] = ['agent', 'marketplace', 'review'];
+
 export function CapabilityTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
   const activeKey = activeCapabilityTab(pathname);
@@ -186,7 +194,9 @@ export function CapabilityTabs({ projectId }: { projectId: string }) {
   // Without the indent the first tab renders under the macOS traffic lights.
   const sidebar = useOptionalSidebar();
   const caps = useProjectCans(projectId, CAPABILITY_TAB_GATE_ACTIONS);
-  const tabs = useLocalizedUiCatalog(visibleCapabilityTabs(caps));
+  const isEasy = useIsEasy();
+  const visible = visibleCapabilityTabs(caps);
+  const tabs = useLocalizedUiCatalog(isEasy ? visible.filter((t) => EASY_TABS.includes(t.key)) : visible);
 
   const leading = tabs.filter((tab) => !TRAILING_TABS.includes(tab.key));
   const primary = leading.filter((tab) => PRIMARY_TABS.includes(tab.key));

@@ -19182,7 +19182,12 @@
       "text5176d59f25fd": "Version de configuration de la session résolue",
       "text273c48dbf3b9": "Appareil de notifications push enregistré",
       "textbb666ddf7a57": "Appareil de notifications push supprimé",
-      "text397ab5aecbbf": "Demande d’autorisation de session relayée"
+      "text397ab5aecbbf": "Demande d’autorisation de session relayée",
+      "modeSectionLabel": "Workspace mode",
+      "modeSimple": "Simple",
+      "modeAdvanced": "Advanced",
+      "modeSimpleHint": "Setup screens stay out of the way. Nothing is deleted.",
+      "modeAdvancedHint": "Every tab, setting, and tool, exactly as configured."
     },
     "publicShareConfirm": {
       "title": "Créer un lien public ?",
