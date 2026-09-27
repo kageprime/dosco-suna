@@ -37,7 +37,7 @@ import { getCreditAccount, updateCreditAccount } from '../repositories/credit-ac
 import { insertPurchase, updatePurchaseStatus } from '../repositories/transactions';
 import { upsertCustomer } from '../repositories/customers';
 import { applyStripeSync } from './account-write-owner';
-import { grantCredits } from './credits';
+import { wallet } from './wallet';
 import { resolvePlanRecord } from './plan-catalog';
 
 export function paystackEnabled(): boolean {
@@ -326,15 +326,14 @@ async function activatePaystackSubscription(
 ): Promise<void> {
   const plan = resolvePlanRecord(tierKey);
   if (plan.grant.includedCreditsUsd > 0) {
-    await grantCredits(
+    await wallet.grant({
       accountId,
-      plan.grant.includedCreditsUsd,
-      'purchase',
-      `${tierKey} plan credits (Paystack)`,
-      false,
-      undefined,
-      { idempotencyKey: `paystack:${reference}` },
-    );
+      amount: plan.grant.includedCreditsUsd,
+      kind: 'purchase',
+      description: `${tierKey} plan credits (Paystack)`,
+      expiring: false,
+      key: { event: `paystack:${reference}` },
+    });
   }
   await applyStripeSync(
     accountId,
@@ -387,15 +386,14 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
       );
       return;
     }
-    await grantCredits(
-      purchaseRow.accountId,
-      amountUsd,
-      'purchase',
-      `Credit purchase: $${amountUsd.toFixed(2)} (Paystack ₦${amountNgn})`,
-      false,
-      undefined,
-      { idempotencyKey: `paystack:${reference}` },
-    );
+    await wallet.grant({
+      accountId: purchaseRow.accountId,
+      amount: amountUsd,
+      kind: 'purchase',
+      description: `Credit purchase: $${amountUsd.toFixed(2)} (Paystack ₦${amountNgn})`,
+      expiring: false,
+      key: { event: `paystack:${reference}` },
+    });
     await updatePurchaseStatus(purchaseRow.id, 'completed', new Date().toISOString());
     console.log(`[Paystack] Credit purchase: $${amountUsd} (₦${amountNgn}) for ${purchaseRow.accountId}`);
     return;
