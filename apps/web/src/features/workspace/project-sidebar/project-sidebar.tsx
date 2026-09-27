@@ -21,6 +21,7 @@ import { ProjectChatGptConnectNavItem } from '@/features/workspace/project-sideb
 import { ProjectFilesNavItem } from '@/features/workspace/project-sidebar/footer/project-files-nav';
 import { ProjectManifestUpgradeAlert } from '@/features/workspace/project-sidebar/footer/project-manifest-upgrade-alert';
 import { ProjectSandboxAlert } from '@/features/workspace/project-sidebar/footer/project-sandbox-alert';
+import { ProjectSettingsNavItem } from '@/features/workspace/project-sidebar/footer/project-settings-nav-item';
 import { ProjectSessionList } from '@/features/workspace/project-sidebar/project-session-list';
 import { ProjectCustomizeNavItem } from '@/features/workspace/project-sidebar/project-settings-nav';
 import { useIsCreatingProjectSession } from '@/hooks/projects/new-session-guard';
@@ -230,6 +231,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               </SidebarMenuItem>
 
               <ProjectCustomizeNavItem />
+              <ProjectFilesNavItem />
               <ProjectAppsNavItem />
             </SidebarMenu>
           </SidebarGroup>
@@ -244,7 +246,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               <ProjectChangeRequestsNavItem projectId={projectId} />
               <ProjectManifestUpgradeAlert projectId={projectId} />
               <SidebarBalanceWarning accountId={accountId} />
-              <ProjectFilesNavItem />
+              <ProjectSettingsNavItem />
               <ProjectChatGptConnectNavItem projectId={projectId} />
               {/* Last (Jay, 2026-09-03). It is the only paid call to action in
                   this group, and above the nav rows it put a sell between the

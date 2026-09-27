@@ -29,10 +29,10 @@ function orderOf(component: string): number {
 }
 
 describe('project sidebar footer ordering', () => {
-  test('the balance alert renders above the permanent nav', () => {
-    // Unchanged rule, narrowed to the row it still covers: an alert about the
+  test('the balance alert renders above the footer nav', () => {
+    // Unchanged rule, narrowed to the rows it still covers: an alert about the
     // wallet is not something to scroll past the nav to find.
-    expect(orderOf('SidebarBalanceWarning')).toBeLessThan(orderOf('ProjectFilesNavItem'));
+    expect(orderOf('SidebarBalanceWarning')).toBeLessThan(orderOf('ProjectSettingsNavItem'));
   });
 
   test('the upgrade button is last in the group', () => {
@@ -45,15 +45,15 @@ describe('project sidebar footer ordering', () => {
     );
   });
 
-  test('the permanent nav keeps its own order', () => {
-    // Connectors/Skills/Commands/Customize collapsed into one Settings entry,
-    // which held the Customize row's old line — bottom of the footer group,
-    // below Files, above the ChatGPT connect entry. That Settings row is gone
-    // now too (Jay, 2026-08-17): it opened the same User Settings overlay a
-    // click on the workspace switcher already opens, one level up. Files
-    // sits directly above the ChatGPT connect entry with nothing between them.
-    expect(orderOf('ProjectFilesNavItem')).toBeLessThan(orderOf('ProjectChatGptConnectNavItem'));
-    expect(source).not.toContain('<ProjectSettingsNavItem');
+  test('the footer nav keeps its own order', () => {
+    // Files moved up top (below Customize); the Settings row lifted out of
+    // the workspace-switcher menu takes Files' old line — bottom of the
+    // footer group, below the balance alert, above the ChatGPT connect entry.
+    // Top group order (Customize, Files, Apps) is asserted by position, not
+    // duplicated here.
+    expect(orderOf('ProjectSettingsNavItem')).toBeLessThan(orderOf('ProjectChatGptConnectNavItem'));
+    expect(orderOf('SidebarBalanceWarning')).toBeLessThan(orderOf('ProjectSettingsNavItem'));
+    expect(orderOf('ProjectCustomizeNavItem')).toBeLessThan(orderOf('ProjectFilesNavItem'));
   });
 
   test('Customize sits up top; nothing stands in for the old Settings row', () => {

@@ -242,8 +242,9 @@ export function MarketplaceExplore({
   );
 
   const scopesNode = (
-    <Tabs value={source} onValueChange={(value) => selectSource(value)}>
-      <TabsList>
+    <div className="min-w-0 max-w-full overflow-x-auto">
+      <Tabs value={source} onValueChange={(value) => selectSource(value)}>
+        <TabsList className="w-max">
         <TabsTrigger value={ALL_SOURCES}>
           {tI18nComplete.raw('text08e774c5bacc')}
         </TabsTrigger>
@@ -257,6 +258,7 @@ export function MarketplaceExplore({
         ))}
       </TabsList>
     </Tabs>
+    </div>
   );
 
   // The page's one header action, carrying its label like the Connectors
