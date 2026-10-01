@@ -16,7 +16,7 @@
  *     (`enforceTokenProjectScope`'s rule)
  *   - Service-account tokens       (kortix_sa_…)  → the service-account id
  *   - OAuth access tokens (kortix_oat_…, `kortix` scope) → the granting user's id
- *   - Kortix API/sandbox tokens    (kortix_…)     → the owning account id
+ *   - Dosco API/sandbox tokens    (kortix_…)     → the owning account id
  *   - Supabase JWTs                               → the user's id
  * and enforces sandbox ownership via `canAccessPreviewSandbox`.
  *
@@ -53,7 +53,7 @@ export interface PreviewPrincipal {
   userId: string;
   /**
    * The session this credential is BOUND to, when it is a sandbox token. Null
-   * for a laptop CLI PAT, a service account, or a JWT. Kortix-as-a-Backend
+   * for a laptop CLI PAT, a service account, or a JWT. Dosco-as-a-Backend
    * shares one `created_by` across every end-user, so this is the only thing
    * that distinguishes one end-user's sandbox from another's.
    */
@@ -115,7 +115,7 @@ export async function authenticatePreviewPrincipalDetailed(
     }
 
     // OAuth access token (kortix_oat_…) — an App acting as its viewer, or a
-    // "Sign in with Kortix" client. Same rule as combinedAuth: only the
+    // "Sign in with Dosco" client. Same rule as combinedAuth: only the
     // `kortix` scope makes it a credential. Before this branch it fell into the
     // API-key lookup below and every WebSocket or preview-subdomain request
     // answered 401 while `/v1/p/...` over HTTP accepted the same token.
@@ -130,7 +130,7 @@ export async function authenticatePreviewPrincipalDetailed(
         : null;
     }
 
-    // Kortix API / sandbox token — ownership is checked against the account.
+    // Dosco API / sandbox token — ownership is checked against the account.
     if (isKortixToken(token)) {
       const r = await validateSecretKey(token);
       if (!r.isValid || !r.accountId) return null;

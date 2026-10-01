@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, mock, test } from 'bun:test';
 
 // On dev (2026-09-29) `/projects` and `/sessions` drew a broken image beside a
-// Kortix-hosted project, with its internal repo name `managed-kortix/<slug>-<id>`
+// Dosco-hosted project, with its internal repo name `managed-kortix/<slug>-<id>`
 // under it. A row now shows a preview only when it loads, and a hosted repo
 // by what it is.
 
@@ -20,7 +20,7 @@ const { projectRows } = await import('../channels/teams/project-rows');
 afterAll(() => mock.restore());
 
 describe('projectRows', () => {
-  test('a hosted repo reads "Hosted by Kortix" with no image; a public one keeps its name and preview; a private one has no image', async () => {
+  test('a hosted repo reads "Hosted by Dosco" with no image; a public one keeps its name and preview; a private one has no image', async () => {
     const rows = await projectRows([
       { projectId: 'p1', name: 'Hosted', repoUrl: 'https://github.com/managed-kortix/hosted-11111111-1111-4111-8111-111111111111' },
       { projectId: 'p2', name: 'Public', repoUrl: 'https://github.com/octocat/Hello-World' },
@@ -28,7 +28,7 @@ describe('projectRows', () => {
       { projectId: 'p4', name: 'No repo', repoUrl: null },
     ], 'p2');
     expect(rows.map((r) => [r.name, r.repo, r.imageUrl, r.current])).toEqual([
-      ['Hosted', 'Hosted by Kortix', null, false],
+      ['Hosted', 'Hosted by Dosco', null, false],
       ['Public', 'octocat/Hello-World', 'https://opengraph.githubassets.com/1/octocat/Hello-World', true],
       ['Private', 'acme/private-app', null, false],
       ['No repo', null, null, false],

@@ -458,7 +458,7 @@ export function isAnonymousAuthRefreshRace(input: {
   frames?: Array<{ function?: unknown; filename?: unknown }>;
 }): boolean {
   if (normalizeString(input.message) !== 'Auth session missing!' ||
-      input.requestUrl !== 'https://kortix.com/' ||
+      input.requestUrl !== 'https://dosco.live/' ||
       input.mechanism !== 'auto.browser.global_handlers.onunhandledrejection') return false;
   const frames = input.frames ?? [];
   return frames.some((frame) => normalizeString(frame.function).includes('refreshSession') &&

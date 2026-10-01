@@ -287,7 +287,7 @@ export function registerMemberRoutes(): void {
       return c.json(
         visibleRows
           // Hide phantom self-memberships: a row where user_id == account_id whose
-          // user_id has no auth user (no email). These are minted when a Kortix
+          // user_id has no auth user (no email). These are minted when a Dosco
           // token — which the auth middleware maps to userId == accountId — hits
           // resolveAccountId; they're the account added as a member of itself and
           // show as a bare UUID. A personal account's owner also has

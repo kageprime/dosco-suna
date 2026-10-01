@@ -112,7 +112,7 @@ beforeEach(() => {
   delete process.env.KORTIX_PLATINUM_CREATE_DEDUP;
 });
 
-describe('only Kortix wakes a session box', () => {
+describe('only Dosco wakes a session box', () => {
   test('a session box is created with auto_resume=false, so a stale edge request cannot wake it', async () => {
     const p = new PlatinumProvider();
     await p.create({ ...baseOpts, createAttempt: 1 });

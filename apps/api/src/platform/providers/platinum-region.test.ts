@@ -2,7 +2,7 @@
 //
 // Platinum serves every region behind the one PLATINUM_API_URL: a create that
 // names `region` is forwarded to that region's control plane and every later
-// call by id is routed there. These tests pin what Kortix sends and how it
+// call by id is routed there. These tests pin what Dosco sends and how it
 // reads the answer. The harness below is platinum-create-dedup.test.ts's.
 // ORIGINAL HARNESS HEADER (platinum-create-dedup.test.ts):
 // S1: idempotent Platinum sandbox creation via a deterministic Idempotency-Key

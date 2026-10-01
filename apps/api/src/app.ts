@@ -158,7 +158,7 @@ app.use('/v1/platform/boot-timeline', supabaseAuth);
 app.use('/v1/platform/runtime-projection', supabaseAuth);
 app.route('/v1/platform', platformApp); // /v1/platform, /v1/platform/sandbox/version
 registerSunaMigrationRoutes(projectsApp); // /v1/projects/suna-migration/* (OG Suna → opencode, user-triggered)
-app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Kortix projects
+app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Dosco projects
 // /v1/mcp — the hosted MCP server, bound to the caller's token like the CLI.
 // It answers its own 401 with an OAuth challenge, so no auth middleware here.
 // dispatchInProcess takes the assembled app as its second argument (it
@@ -167,7 +167,7 @@ app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Kortix pr
 app.route('/v1/mcp', createMcpApp((req) => dispatchInProcess(req, app)));
 app.route('/v1/marketplace', marketplaceApp); // /v1/marketplace — browse the registry catalog
 
-// /v1/skills — the kortix-managed system skills (how Kortix itself works), served
+// /v1/skills — the kortix-managed system skills (how Dosco itself works), served
 // straight out of @kortix/starter so the text always matches this deploy. This is
 // what lets an agent in ANY harness, holding only the `kortix` binary and a token,
 // read the platform's own instructions with no repo checkout and no sandbox.

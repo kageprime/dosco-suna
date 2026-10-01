@@ -14,7 +14,7 @@ const KORTIX_COOKIE_NAMES = new Set([
   '__preview_session',
 ]);
 
-/** The `Cookie` header without Kortix cookies; null when nothing is left. */
+/** The `Cookie` header without Dosco cookies; null when nothing is left. */
 function withoutKortixCookies(cookieHeader: string | null): string | null {
   if (!cookieHeader) return null;
   const kept = cookieHeader
@@ -46,7 +46,7 @@ export function appUpstreamHeaders(
     // The gate's own credential header: consumed here, never forwarded.
     APP_AUTHORIZATION_HEADER,
   ]) headers.delete(name);
-  // App code must never receive a Kortix credential. `Authorization` carries
+  // App code must never receive a Dosco credential. `Authorization` carries
   // one when a CLI, CI job, or agent calls a non-public App with a PAT,
   // session, or service-account token; that header is removed. Any other
   // `Authorization` value belongs to the App (its own API key) and passes.
@@ -54,7 +54,7 @@ export function appUpstreamHeaders(
   if (/^bearer\s/i.test(authorization) && isKortixToken(authorization.slice(7).trim())) {
     headers.delete('authorization');
   }
-  // Kortix cookies are the gate's, not the App's: the App access cookie and the
+  // Dosco cookies are the gate's, not the App's: the App access cookie and the
   // preview session cookie. Every other cookie is the App's own.
   const cookie = withoutKortixCookies(headers.get('cookie'));
   if (cookie === null) headers.delete('cookie');
@@ -81,7 +81,7 @@ function withoutFrameAncestors(value: string): string[] {
     .filter((directive) => directive && !/^frame-ancestors(?:\s|$)/i.test(directive));
 }
 
-/** Preserve App security policy while allowing the Kortix preview browser to frame it. */
+/** Preserve App security policy while allowing the Dosco preview browser to frame it. */
 export function appPublicResponseHeaders(upstreamHeaders: Headers): Headers {
   const headers = new Headers(upstreamHeaders);
   headers.delete('x-frame-options');

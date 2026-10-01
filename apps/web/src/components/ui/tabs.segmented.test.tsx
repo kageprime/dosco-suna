@@ -22,7 +22,7 @@ describe('segmented tabs', () => {
   test('TabsList variant="segmented" draws the recessed track', () => {
     const out = render(
       <TabsList variant="segmented">
-        <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+        <TabsTrigger value="managed">Dosco managed</TabsTrigger>
         <TabsTrigger value="github">GitHub</TabsTrigger>
       </TabsList>,
     );
@@ -32,7 +32,7 @@ describe('segmented tabs', () => {
   test('triggers fill the track with the concentric chip radius', () => {
     const out = render(
       <TabsList variant="segmented">
-        <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+        <TabsTrigger value="managed">Dosco managed</TabsTrigger>
         <TabsTrigger value="github">GitHub</TabsTrigger>
       </TabsList>,
     );
@@ -46,7 +46,7 @@ describe('segmented tabs', () => {
     const list = (props: { type?: 'segmented'; variant?: 'segmented' }) =>
       render(
         <TabsList {...props}>
-          <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+          <TabsTrigger value="managed">Dosco managed</TabsTrigger>
         </TabsList>,
       ).replace(/radix-[^"]*/g, '');
     expect(list({ type: 'segmented' })).toBe(list({ variant: 'segmented' }));
@@ -55,10 +55,10 @@ describe('segmented tabs', () => {
   test('with animate="none" the active trigger paints the chip itself', () => {
     const out = render(
       <TabsList variant="segmented" animate="none">
-        <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+        <TabsTrigger value="managed">Dosco managed</TabsTrigger>
       </TabsList>,
     );
-    const cls = triggerClasses(out, 'Kortix managed');
+    const cls = triggerClasses(out, 'Dosco managed');
     for (const chip of CHIP) expect(cls).toContain(chip);
     expect(cls).not.toContain('data-[state=active]:bg-input');
   });
@@ -68,7 +68,7 @@ describe('segmented tabs', () => {
       render(
         <TabsList>
           <TabsTrigger value="managed" variant={variant}>
-            Kortix managed
+            Dosco managed
           </TabsTrigger>
         </TabsList>,
       )
@@ -81,7 +81,7 @@ describe('segmented tabs', () => {
     const list = (props: { variant?: 'segmented' }) =>
       render(
         <TabsList {...props}>
-          <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+          <TabsTrigger value="managed">Dosco managed</TabsTrigger>
         </TabsList>,
       ).replace(/radix-[^"]*/g, '');
     expect(list({})).toBe(list({ variant: 'segmented' }));
@@ -91,28 +91,28 @@ describe('segmented tabs', () => {
   test('underline and vertical lists are not segmented', () => {
     const underline = render(
       <TabsList type="underline">
-        <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+        <TabsTrigger value="managed">Dosco managed</TabsTrigger>
       </TabsList>,
     );
     expect(underline).not.toContain('bg-muted');
     const vertical = render(
       <TabsList orientation="vertical">
-        <TabsTrigger value="managed">Kortix managed</TabsTrigger>
+        <TabsTrigger value="managed">Dosco managed</TabsTrigger>
       </TabsList>,
     );
     expect(vertical).not.toContain('bg-muted');
-    expect(triggerClasses(vertical, 'Kortix managed')).not.toContain('rounded-sm');
+    expect(triggerClasses(vertical, 'Dosco managed')).not.toContain('rounded-sm');
   });
 
   test('an explicit outline trigger keeps its bordered chip', () => {
     const out = render(
       <TabsList animate="none">
         <TabsTrigger value="managed" variant="outline">
-          Kortix managed
+          Dosco managed
         </TabsTrigger>
       </TabsList>,
     );
-    const cls = triggerClasses(out, 'Kortix managed');
+    const cls = triggerClasses(out, 'Dosco managed');
     expect(cls).toContain('data-[state=active]:border-border');
     expect(cls).not.toContain('data-[state=active]:bg-popover');
   });
@@ -120,11 +120,11 @@ describe('segmented tabs', () => {
   test('the compact list defaults to the segmented control too', () => {
     const out = render(
       <TabsListCompact animate="none">
-        <TabsTriggerCompact value="managed">Kortix managed</TabsTriggerCompact>
+        <TabsTriggerCompact value="managed">Dosco managed</TabsTriggerCompact>
       </TabsListCompact>,
     );
     for (const cls of TRACK) expect(out).toContain(cls);
-    const cls = triggerClasses(out, 'Kortix managed');
+    const cls = triggerClasses(out, 'Dosco managed');
     expect(cls).toContain('h-full');
     expect(cls).toContain('rounded-sm');
     for (const chip of CHIP) expect(cls).toContain(chip);

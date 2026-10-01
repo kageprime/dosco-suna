@@ -38,7 +38,7 @@ const LIST_COLUMNS = {
 };
 
 function serializeLogRow(r: Record<string, any>) {
-  // See shared/llm-spend.ts. `final_cost` alone answers "what did Kortix bill
+  // See shared/llm-spend.ts. `final_cost` alone answers "what did Dosco bill
   // you", which is 0 on every BYOK request — it is not what the call cost you.
   const spend = splitLlmSpend({
     billingMode: r.billingMode,
@@ -62,10 +62,10 @@ function serializeLogRow(r: Record<string, any>) {
     output_tokens: r.outputTokens,
     cached_tokens: r.cachedTokens,
     cache_write_tokens: r.cacheWriteTokens,
-    // What you paid your own provider, and what Kortix debited from your
-    // wallet. On a Kortix-managed (`credits`) row `provider_cost` is 0 on
-    // purpose: the upstream price there is Kortix's wholesale cost, not
-    // yours, and shipping it would publish the Kortix margin on every
+    // What you paid your own provider, and what Dosco debited from your
+    // wallet. On a Dosco-managed (`credits`) row `provider_cost` is 0 on
+    // purpose: the upstream price there is Dosco's wholesale cost, not
+    // yours, and shipping it would publish the Dosco margin on every
     // managed request.
     kortix_cost: spend.kortix_cost,
     provider_cost: spend.provider_cost,

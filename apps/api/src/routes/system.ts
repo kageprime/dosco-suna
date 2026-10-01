@@ -150,7 +150,7 @@ function hasInternalObservabilityAuth(c: any): boolean {
   return (!!bearer && safeEq(bearer, expected)) || (!!header && safeEq(header, expected));
 }
 
-// Sign in with Kortix — RFC 8414 discovery at the API root. The issuer is the
+// Sign in with Dosco — RFC 8414 discovery at the API root. The issuer is the
 // configured public API origin (KORTIX_URL); the request origin is only the
 // fallback for a bare local run. Mirrored under /v1/oauth/.well-known/… for
 // edges that route only /v1/*.

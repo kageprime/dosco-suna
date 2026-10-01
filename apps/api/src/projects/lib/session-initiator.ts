@@ -22,14 +22,14 @@ export function resolveRootSessionInitiator(input: {
   /** The create actor: the member, the service account, or a channel's owner stand-in. */
   userId: string | null;
   requestingPrincipalType: 'human' | 'service_account';
-  /** Slack/Teams only: the deployment requires a linked Kortix identity, so the
+  /** Slack/Teams only: the deployment requires a linked Dosco identity, so the
    *  actor IS the human who sent the message (see on-behalf-of.ts). */
   channelSenderIsLinked: boolean;
 }): SessionInitiator {
   const source = typeof input.source === 'string' ? input.source : '';
   if (source.startsWith('trigger:')) return { type: 'trigger', id: input.triggerSlug || null };
   if (source.startsWith('system:')) return { type: 'system', id: source };
-  // Email and Telegram senders are never Kortix identities: the actor is the
+  // Email and Telegram senders are never Dosco identities: the actor is the
   // account-owner stand-in, not the person who started the run.
   if (source === 'email' || source === 'telegram') return { type: 'channel', id: source };
   if ((source === 'slack' || source === 'teams') && !input.channelSenderIsLinked) {
@@ -62,6 +62,6 @@ export function sessionInitiatorLabel(initiator: SessionInitiator, identityName:
     case 'channel':
       return initiator.id ? (CHANNEL_LABELS[initiator.id] ?? initiator.id) : null;
     case 'system':
-      return 'Kortix';
+      return 'Dosco';
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Real HTTP + Postgres proof for computers as ACCOUNTS (Kortix Local Mode).
+ * Real HTTP + Postgres proof for computers as ACCOUNTS (Dosco Local Mode).
  *
  * A paired machine is one `connector_connections` row on the project's
  * `computer` connector, owned by the member who paired it (private) or by the

@@ -35,7 +35,7 @@ function setupErrorMessage(reason: string | null): string {
       return 'This instance has no GitHub App to install. A platform admin sets this up in the admin console.';
     case 'missing_installation_id':
     case 'owner_unresolved':
-      return 'GitHub did not return a usable installation. Install the Kortix App again and pick an account.';
+      return 'GitHub did not return a usable installation. Install the Dosco App again and pick an account.';
     default:
       return "GitHub did not finish connecting this account. Start again from this account's Git settings.";
   }
@@ -175,11 +175,11 @@ function GitHubSetup() {
           // when the instance actually has an App to install.
           const already =
             result.installations.length > 0
-              ? `Every installation available to ${result.github_login} is already linked to this Kortix account.`
-              : `No existing Kortix App installation is available to ${result.github_login}.`;
+              ? `Every installation available to ${result.github_login} is already linked to this Dosco account.`
+              : `No existing Dosco App installation is available to ${result.github_login}.`;
           setMessage(
             result.install_url
-              ? `${already} To connect another organization, install the Kortix App on it.`
+              ? `${already} To connect another organization, install the Dosco App on it.`
               : `${already} This instance has no GitHub App to install. A platform admin sets this up in the admin console.`,
           );
         } else {

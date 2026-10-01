@@ -194,7 +194,7 @@ describe('POST /create-repo — a selected-repositories installation', () => {
     expect(mockAddRepositoryToInstallation).not.toHaveBeenCalled();
   });
 
-  test('a refused grant names the step instead of handing back a project Kortix cannot write to', async () => {
+  test('a refused grant names the step instead of handing back a project Dosco cannot write to', async () => {
     currentOwner = { login: 'octo-person', type: 'User' };
     repositorySelection = 'selected';
     storedUserToken = { token: 'ghu_live', githubLogin: 'octo-person', expiresAt: null };

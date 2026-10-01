@@ -133,7 +133,7 @@ projectsApp.openapi(
           if (!res) throw new Error('Request failed');
           const latencyMs = Date.now() - start;
           const rawData = (await res.json().catch(() => null)) as any;
-          // A managed model reports Kortix, its own id, and a classified error.
+          // A managed model reports Dosco, its own id, and a classified error.
           const publicError =
             descriptor.publicProvider && !res.ok
               ? publicUpstreamError(res.status, JSON.stringify(rawData ?? {}), model)

@@ -127,7 +127,7 @@ function SlackThread({ f }: { f: number }) {
         <div>
           <p className="text-foreground text-sm font-medium">Ops lead</p>
           <p className="text-muted-foreground text-base">
-            <span className="text-foreground">@Kortix</span> find last week&apos;s failed payments and draft
+            <span className="text-foreground">@Dosco</span> find last week&apos;s failed payments and draft
             the customer emails
           </p>
         </div>
@@ -140,7 +140,7 @@ function SlackThread({ f }: { f: number }) {
         </span>
         <div className="space-y-1">
           <p className="text-foreground flex items-center gap-2 text-sm font-medium">
-            Kortix <Badge variant="muted" size="xs">app</Badge>
+            Dosco <Badge variant="muted" size="xs">app</Badge>
           </p>
           <p className="text-muted-foreground text-base">On it — started a session on its own computer.</p>
           <p className="text-muted-foreground text-base" style={rise(f, 196)}>
@@ -278,7 +278,7 @@ const TERMINAL: { at: number; cmd?: string; out?: string }[] = [
 ];
 
 const RUNS = [
-  { icon: CloudIcon, label: 'Kortix Cloud' },
+  { icon: CloudIcon, label: 'Dosco Cloud' },
   { icon: HardDrivesIcon, label: 'Your servers' },
   { icon: BuildingsIcon, label: 'On-prem' },
 ];

@@ -78,7 +78,7 @@ export async function enforceTokenProjectScope(
 
   // Daemon-only platform sinks (SESSION_BOUND_PLATFORM_SINKS). A session
   // sandbox holds exactly ONE credential — a project+SESSION-scoped PAT ("One
-  // sandbox, one session-scoped Kortix credential",
+  // sandbox, one session-scoped Dosco credential",
   // platform/services/session-sandbox.ts) — so without this branch the daemon's
   // push can never reach the sink on any environment. Allowed ONLY for a
   // session-BOUND token; an ordinary project PAT stays denied. Each handler
@@ -98,7 +98,7 @@ export async function enforceTokenProjectScope(
     (path === '/v1/usage/cost-summary' || path === '/v1/usage/cost-by-project')
   ) return;
 
-  // `/v1/skills` — the kortix-managed system skills (how Kortix itself works).
+  // `/v1/skills` — the kortix-managed system skills (how Dosco itself works).
   // This function is default-deny, and the in-sandbox `KORTIX_TOKEN` is
   // exactly a project+session-scoped PAT, so without this branch the ONE caller
   // these routes exist for gets a 403: every baked sandbox seeds a kortix-system

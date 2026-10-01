@@ -1189,7 +1189,7 @@ describe('create-repo starter scaffold contract', () => {
       owner: 'kortix-org',
       repo: 'company-os',
       branch: 'main',
-      message: 'chore: scaffold the Kortix starter',
+      message: 'chore: scaffold the Dosco starter',
       auth: { token: 'installation-token', source: 'app_installation' },
     });
     expect(fileShaCalls).toEqual([]);
@@ -1233,7 +1233,7 @@ describe('create-repo starter scaffold contract', () => {
         installationId: '42',
         // The repository lives in the ACCOUNT's GitHub, reached through the
         // account's own installation. `managed: true` means "lives in the
-        // Kortix managed-git backend": with it, the mirror cloned this repo
+        // Dosco managed-git backend": with it, the mirror cloned this repo
         // with the managed-org PAT, which cannot see it (503
         // git_mirror_unavailable on the first session).
         managed: false,

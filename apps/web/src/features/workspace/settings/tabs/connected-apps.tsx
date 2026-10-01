@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Connected apps: the apps this person approved with "Sign in with Kortix" —
+ * Connected apps: the apps this person approved with "Sign in with Dosco" —
  * MCP clients such as Claude Code or Cursor, and accounts' own OAuth apps.
  * Per person, across all accounts, so it sits in the personal Tokens tab next
  * to the keys it is the counterpart of. The consent screen promises it: "You

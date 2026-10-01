@@ -71,7 +71,7 @@ const slugMismatchLogged = new Set<string>();
 const permissionDriftLogged = new Set<string>();
 
 /**
- * Every permission a Kortix flow reads or writes through the App. The
+ * Every permission a Dosco flow reads or writes through the App. The
  * self-host manifest (platform/routes/github-app.ts) requests exactly this
  * set, and `resolveGitHubAppPermissions()` compares a hand-made App against it.
  *
@@ -79,7 +79,7 @@ const permissionDriftLogged = new Set<string>();
  * - `contents: write` — commits and pushes.
  *
  * `pull_requests` is NOT here: no API route calls a pulls endpoint and no GitHub
- * token reaches a sandbox (git goes through the Kortix git proxy). The manifest
+ * token reaches a sandbox (git goes through the Dosco git proxy). The manifest
  * still requests it (`GITHUB_APP_MANIFEST_PERMISSIONS`) so a future pulls flow
  * needs no re-consent, but its absence breaks nothing and must not alarm.
  * - `members: read` — the account-linking identity proof

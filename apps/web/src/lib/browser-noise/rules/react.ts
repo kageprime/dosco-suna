@@ -456,7 +456,7 @@ export function isExpectedNextRecoveryBailoutNoise(input: {
 // (`BAILOUT_TO_CLIENT_SIDE_RENDERING`) and the router digests, so this
 // digest-less #419 reaches the global `onerror` handler and Sentry.
 //
-// Better Stack patterns (Kortix Frontend prod, application_id 2346967) —
+// Better Stack patterns (Dosco Frontend prod, application_id 2346967) —
 // always the bare `Error` message `Minified React error #419; …`, mechanism
 // `auto.browser.global_handlers.onerror` (`handled:false` — UNCAUGHT, never
 // reached a React error boundary), NO `digest`, ONE minified React-chunk frame,

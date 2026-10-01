@@ -16,10 +16,10 @@ import { PROJECT_ACTIONS } from '../../iam/actions';
 import { lookupEmailsByUserIds } from '../../projects/lib/access';
 
 /**
- * The chat identity link: which Kortix user a person on a chat platform acts
+ * The chat identity link: which Dosco user a person on a chat platform acts
  * as, and whether that user may act in a project.
  *
- * A chat webhook carries no Kortix credential. It acts AS the Kortix user the
+ * A chat webhook carries no Dosco credential. It acts AS the Dosco user the
  * chat identity is linked to (`/login` in Slack or Teams writes the link), so
  * every inbound action is authorized here, through one resolver, whatever the
  * platform.
@@ -48,7 +48,7 @@ function linkRow(user: ChatUser) {
   );
 }
 
-/** The Kortix user behind a live link, or null. `mfaVerified`: the link was made after a second factor. */
+/** The Dosco user behind a live link, or null. `mfaVerified`: the link was made after a second factor. */
 export async function lookupChatIdentity(user: ChatUser): Promise<{ userId: string; mfaVerified: boolean } | null> {
   const [row] = await db
     .select({ userId: chatUserIdentities.userId, mfaVerifiedAt: chatUserIdentities.mfaVerifiedAt })
@@ -61,12 +61,12 @@ export async function lookupChatIdentity(user: ChatUser): Promise<{ userId: stri
 export type ChatLinkResult = { ok: true } | { ok: false; reason: 'linked_to_other' };
 
 /**
- * Link `user` to `userId`. Linking again as the same Kortix user refreshes the
+ * Link `user` to `userId`. Linking again as the same Dosco user refreshes the
  * link, and a revoked link can be taken by anyone who proves the chat identity.
- * A live link to ANOTHER Kortix user is never replaced: that person runs
+ * A live link to ANOTHER Dosco user is never replaced: that person runs
  * `/logout` in the chat first. A sign-in link links whoever opens it, so
  * replacing live links let anyone holding one take over a linked identity
- * (2026-09-29 permissions audit). `mfaVerified` records whether the Kortix
+ * (2026-09-29 permissions audit). `mfaVerified` records whether the Dosco
  * session making the link had passed a second factor.
  */
 export async function linkChatIdentity(
@@ -123,7 +123,7 @@ export type ChatLoginOutcome =
  * Complete a `/login` link for the signed-in `userId`. Both bind routes run
  * this after they verify the link and find the workspace's `accountIds`.
  *
- * 1. An account the person is a member of requires MFA, and this Kortix
+ * 1. An account the person is a member of requires MFA, and this Dosco
  *    session has not passed it: refuse BEFORE the link is spent, so the person
  *    verifies in the web app (the `account_mfa_required` step-up) and clicks
  *    again. A link made without MFA would not pass the account's gate in chat.
@@ -173,7 +173,7 @@ export async function revokeChatIdentity(user: ChatUser): Promise<boolean> {
   return rows.length > 0;
 }
 
-/** The chat user a Kortix user is linked as in a workspace (to DM them), or null. */
+/** The chat user a Dosco user is linked as in a workspace (to DM them), or null. */
 export async function lookupChatUserForKortixUser(
   platform: ChatPlatform,
   workspaceId: string,
@@ -204,12 +204,12 @@ export async function isAccountMember(userId: string, accountId: string): Promis
 }
 
 /**
- * The Kortix user `user` acts as in `project`, when the link is live, the
+ * The Dosco user `user` acts as in `project`, when the link is live, the
  * user is a member of the project's account, and IAM allows `action` on the
  * project. `action` defaults to running a session, `project.session.start`:
  * the bar the web holds starting a session and prompting one to, and one a
  * plain project `member` holds. Until 2026-09-29 it was `project.write`,
- * which only managers hold, so a member who used Kortix on the web got
+ * which only managers hold, so a member who used Dosco on the web got
  * "Request access" in Slack and Teams, and an approved request (which grants
  * `member`) did not change that. Channel settings ask for
  * `project.connector.write` (core/settings.ts); review decisions ask for
@@ -232,7 +232,7 @@ export async function resolveChatActor(
     { type: 'project', id: project.projectId },
   );
   // The account requires MFA and this link was made without it: linking
-  // again from a Kortix session that passed MFA fixes it, so ask for that,
+  // again from a Dosco session that passed MFA fixes it, so ask for that,
   // not for project access the person may already have.
   if (!verdict.allowed && verdict.reason === 'account_mfa_required') return { reason: 'unlinked' };
   if (!verdict.allowed) return { reason: 'not_member' };
@@ -259,8 +259,8 @@ export type ChatAccessRequestOutcome =
   | { status: 'no-identity' | 'no-project' };
 
 const ACCESS_REQUEST_MESSAGE: Record<ChatPlatform, string> = {
-  slack: 'Requested from Slack. Approve so they can run Kortix from Slack.',
-  teams: 'Requested from Microsoft Teams. Approve so they can run Kortix from Teams.',
+  slack: 'Requested from Slack. Approve so they can run Dosco from Slack.',
+  teams: 'Requested from Microsoft Teams. Approve so they can run Dosco from Teams.',
 };
 
 /**

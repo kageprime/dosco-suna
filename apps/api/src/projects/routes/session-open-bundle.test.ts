@@ -480,7 +480,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
             result_summary: null,
             at: '2026-09-27T10:00:00.000Z',
             resolved_at: null,
-            approval_url: 'https://dev.kortix.com/approve/x',
+            approval_url: 'https://dev.dosco.live/approve/x',
           },
         ],
       });
@@ -506,7 +506,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
             result_summary: null,
             at: '2026-09-27T10:00:00.000Z',
             resolved_at: null,
-            approval_url: 'https://dev.kortix.com/approve/x',
+            approval_url: 'https://dev.dosco.live/approve/x',
           },
         ],
       });

@@ -72,7 +72,7 @@ export interface UnattendedSessionInput {
  *    so the origin check alone misses it entirely — this was the majority
  *    (7 of 8) of the census's runtime_gone deaths.
  *
- * Deliberately excludes `backend` (Kortix-as-a-Backend): the end user is a
+ * Deliberately excludes `backend` (Dosco-as-a-Backend): the end user is a
  * REMOTE system's human, which this control plane cannot observe, so it keeps
  * today's held-for-a-human default rather than guess.
  */

@@ -104,7 +104,7 @@ export interface ResolvedEndpoint {
 }
 
 export interface SandboxIngressRequest {
-  /** Port named by the caller-facing Kortix proxy URL. */
+  /** Port named by the caller-facing Dosco proxy URL. */
   port: number;
   path?: string;
   transport?: 'http' | 'websocket';
@@ -155,7 +155,7 @@ export interface ProvisioningStatus {
 
 /**
  * Which dimensions of an App machine specification a provider can actually
- * enforce. Kortix bills an App from the specification it recorded, so a
+ * enforce. Dosco bills an App from the specification it recorded, so a
  * dimension the provider cannot honor must not reach the meter: E2B's
  * Template.build accepts cpuCount and memoryMB and has no disk parameter
  * (e2b 2.37.0), so an App on E2B was being charged for disk nobody allocated.
@@ -232,7 +232,7 @@ export interface SandboxProvider {
   readonly appMachineSupport?: AppMachineSupport;
   create(opts: CreateSandboxOpts): Promise<ProvisionResult>;
   /**
-   * Ensure the Kortix App supervisor is running after create or resume.
+   * Ensure the Dosco App supervisor is running after create or resume.
    * Providers that honor the image ENTRYPOINT implement this as a no-op.
    * Providers that replace ENTRYPOINT must start `/kortix/bin/kortix-appd`
    * through their native process API. The operation must be idempotent.
@@ -256,14 +256,14 @@ export interface SandboxProvider {
   ): Promise<ProvisionResult>;
   start(externalId: string, opts?: SandboxStartOptions): Promise<void>;
   /**
-   * Renew the provider-native lifecycle deadline for a sandbox that Kortix has
+   * Renew the provider-native lifecycle deadline for a sandbox that Dosco has
    * already confirmed is running and whose `session_sandboxes.deadline_at` is
    * still live.
    *
    * This operation is mandatory for every provider. It must be idempotent,
    * bounded, and must not wake a stopped sandbox. The provider implementation
    * owns its native mechanism: absolute timeout renewal, idle-timer activity,
-   * or an equivalent control-plane operation. Only the Kortix reaper calls it;
+   * or an equivalent control-plane operation. Only the Dosco reaper calls it;
    * an in-sandbox process cannot renew its own lifecycle.
    */
   renewLifecycle(externalId: string): Promise<void>;

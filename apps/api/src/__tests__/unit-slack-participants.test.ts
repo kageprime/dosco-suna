@@ -152,7 +152,7 @@ describe('Slack thread participants', () => {
 
     const result = await decide();
 
-    expect(result).toEqual({ ok: true, text: 'Approved requester-user@example.com for this Kortix session.' });
+    expect(result).toEqual({ ok: true, text: 'Approved requester-user@example.com for this Dosco session.' });
     expect(inserts[0]).toMatchObject({ sessionId: 'sess-1', principalType: 'member', principalId: 'requester-user' });
     expect(ephemerals[0]?.user).toBe('Urequester');
     expect(ephemerals[0]?.text).toContain('approved');
@@ -208,7 +208,7 @@ describe('Slack thread participants', () => {
     expect(ephemerals[0]).toMatchObject({
       channel: 'C1',
       user: 'Urequester',
-      text: 'This Kortix session is owner-only.',
+      text: 'This Dosco session is owner-only.',
       threadTs: '90.0',
     });
   });

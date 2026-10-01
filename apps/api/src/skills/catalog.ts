@@ -1,17 +1,17 @@
 /**
  * The kortix-managed system skills, as data.
  *
- * These are the `kortix-*` markdown skills that tell an agent how Kortix itself
+ * These are the `kortix-*` markdown skills that tell an agent how Dosco itself
  * works (sessions, sandboxes, the connector/approval loop, memory, channels, the
  * CLI). Until now they were only reachable two ways: scaffolded into a project's
  * git tree by `kortix init`, or baked into the sandbox image at
  * `/opt/kortix/managed-skills` and overlaid per session. Both require being
- * *inside* Kortix. An OpenCode agent holding only the `kortix` binary and a
+ * *inside* Dosco. An OpenCode agent holding only the `kortix` binary and a
  * token had no way to read them.
  *
  * SOURCE OF TRUTH: `@kortix/starter`. This module runs the exact same extraction
  * as `packages/starter/scripts/write-managed-skills.ts` (the script that bakes the
- * sandbox image) — same `getStarterFiles()` call, same `projectName: 'Kortix'`
+ * sandbox image) — same `getStarterFiles()` call, same `projectName: 'Dosco'`
  * interpolation, same `isKortixManagedSkillName()` filter — so what the API serves
  * is byte-identical to what a session gets overlaid. `@kortix/starter` is already
  * an apps/api dependency and its `templates/` tree is COPYed into the API image
@@ -34,7 +34,7 @@ import {
   isKortixManagedSkillName,
 } from '@kortix/starter';
 
-/** Where skills live inside the starter templates (and a root-layout Kortix project). */
+/** Where skills live inside the starter templates (and a root-layout Dosco project). */
 const SKILLS_PREFIX = `${SKILLS_DIR}/`;
 /** The skill body every skill has; everything else under the dir is a reference. */
 const SKILL_ENTRYPOINT = 'SKILL.md';
@@ -72,7 +72,7 @@ export interface ManagedSkillSummary {
 export function buildManagedSkills(): Map<string, ManagedSkill> {
   const files = [
     ...getManagedSkillFiles(),
-    ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),
+    ...getStarterFiles({ projectName: 'Dosco', template: 'general-knowledge-worker' }),
     ...getMarketplaceFiles(),
   ];
 

@@ -23,7 +23,7 @@ const PLATFORM = 'slack';
  *    every accepted joiner are recorded.
  *
  * Either one must also still be allowed to stop runs in the project: a linked
- * Kortix account with `project.session.stop`. Someone removed from the
+ * Dosco account with `project.session.stop`. Someone removed from the
  * project, or never linked, is refused. Anyone else is refused, and an
  * unresolvable lookup refuses too. Failing closed is the safe direction: the
  * worst case is a bystander waiting for a run to end, not a bystander ending

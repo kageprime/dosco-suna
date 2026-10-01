@@ -134,7 +134,7 @@ function providersOf(id: string, models: Record<string, FixtureModel>): Provider
     all: [
       {
         id,
-        name: id === 'kortix' ? 'Kortix' : 'Acme Corp',
+        name: id === 'kortix' ? 'Dosco' : 'Acme Corp',
         env: [],
         models: Object.fromEntries(
           Object.entries(models).map(([modelID, m]) => [
@@ -268,7 +268,7 @@ describe('getSessionContextMetrics', () => {
       providersOf('kortix', { 'claude-x': { name: 'Claude X' } }),
       freeLookup,
     );
-    expect(metrics.context?.providerLabel).toBe('Kortix');
+    expect(metrics.context?.providerLabel).toBe('Dosco');
   });
 
   test('known provider id maps through PROVIDER_LABELS without a providers list', () => {

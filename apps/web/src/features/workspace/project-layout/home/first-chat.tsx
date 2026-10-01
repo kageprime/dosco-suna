@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { firstNameOf } from './first-chat-name';
 
 /**
- * "Your first chat with Kortix": what project home shows a new person instead
+ * "Your first chat with Dosco": what project home shows a new person instead
  * of its usual greeting, until they send their first message.
  *
  * It is laid out as a chat, not as the home hero. The welcome sits where the
@@ -187,7 +187,7 @@ const SLACK_WAIT_MS = 5 * 60_000;
 const SLACK_POLL_MS = 2_500;
 
 /**
- * One click installs Kortix into Slack: the popup opens inside the click, and
+ * One click installs Dosco into Slack: the popup opens inside the click, and
  * the tile polls the installation until it lands, then shows a check. With no
  * managed Slack app on this deployment (`oauth_available` false) the tile is
  * hidden; the custom-app setup lives on the Channels page.

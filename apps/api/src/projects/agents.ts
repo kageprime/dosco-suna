@@ -10,7 +10,7 @@
  *
  *   1. `connectors` — which connectors (by `connectors[].slug`) the
  *      agent may call. Default: none.
- *   2. `kortix_permissions` — what the agent may do to Kortix itself
+ *   2. `kortix_permissions` — what the agent may do to Dosco itself
  *      (project-scoped iam actions: deploy, open CRs, triggers, …), through
  *      any surface — CLI, API, git. `kortix_cli` is the deprecated alias.
  *      Default: none. Account-scoped admin actions are NEVER grantable.
@@ -25,7 +25,7 @@
  *     kortix: {}                          # default GP agent — connectors/kortix_permissions = "all" (∩ user)
  *     release-bot:
  *       connectors: ["github"]            # which connectors
- *       kortix_permissions: ["project.trigger.create", "project.gitops.push"]   # Kortix permissions
+ *       kortix_permissions: ["project.trigger.create", "project.gitops.push"]   # Dosco permissions
  *
  * Parser mirrors `projects/connectors.ts`: never throws on a bad entry, collects
  * them in `errors` so the UI can render them next to the good ones.

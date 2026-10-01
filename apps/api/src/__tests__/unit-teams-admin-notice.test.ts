@@ -3,7 +3,7 @@ import { chatIdentityStub } from './helpers/chat-identity-stub';
 
 // Slack DMs every account admin who linked Slack when someone asks for project
 // access. Teams now does the same in each admin's 1:1 chat with the bot, on top
-// of the notice every manager gets in Kortix.
+// of the notice every manager gets in Dosco.
 
 mock.module('../config', () => ({ config: { FRONTEND_URL: 'https://app.example.test' } }));
 
@@ -66,7 +66,7 @@ describe('notifyAdminsOfTeamsAccessRequest', () => {
     expect(sent.map((s) => s.to)).toEqual(['dm:aad-admin']);
   });
 
-  test('an admin without a Teams link gets only the Kortix notice', async () => {
+  test('an admin without a Teams link gets only the Dosco notice', async () => {
     teamsLinks['admin-2'] = null;
     await notifyAdminsOfTeamsAccessRequest(request);
     expect(sent.map((s) => s.to)).toEqual(['dm:aad-owner']);

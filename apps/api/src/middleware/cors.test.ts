@@ -176,7 +176,7 @@ describe('createCorsMiddleware', () => {
     app.post('/v1/mcp', (context) => context.json({ ok: true }));
     const response = await app.request('/v1/mcp', {
       method: 'OPTIONS',
-      headers: { Origin: 'https://kortix.com', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,mcp-protocol-version,mcp-session-id' },
+      headers: { Origin: 'https://dosco.live', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,mcp-protocol-version,mcp-session-id' },
     });
     const allowed = response.headers.get('access-control-allow-headers')?.toLowerCase() ?? '';
     expect(allowed).toContain('mcp-protocol-version');

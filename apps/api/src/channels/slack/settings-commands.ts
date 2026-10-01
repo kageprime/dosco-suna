@@ -47,7 +47,7 @@ export function agentChangeText(
 
 type WorkspaceProject = { projectId: string; name: string; repoUrl: string };
 
-/** The repository line: a link people can open, or "Hosted by Kortix" for a private Kortix-hosted repo. */
+/** The repository line: a link people can open, or "Hosted by Dosco" for a private Dosco-hosted repo. */
 function repoLine(repoUrl: string): string {
   const label = escapeMrkdwn(repoDisplayLabel(repoUrl) ?? '');
   return isKortixHostedRepo(repoUrl) ? `_${label}_` : `_<${repoUrl}|${label}>_`;

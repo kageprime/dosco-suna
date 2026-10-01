@@ -5,7 +5,7 @@ import { resolveSecretWriteInput } from './secret-write-input';
 // connector read, with the managed app every customer shares. A project writer
 // could set it to another customer's tenant through this API (2026-09-29
 // permissions audit). The Teams connection owns every `MS_TEAMS_*` name.
-describe('resolveSecretWriteInput: names another part of Kortix owns', () => {
+describe('resolveSecretWriteInput: names another part of Dosco owns', () => {
   test.each(['MS_TEAMS_TENANT_ID', 'ms_teams_app_password', 'MS_TEAMS_SERVICE_URL'])('%s is refused', (name) => {
     const result = resolveSecretWriteInput({ name, value: 'x' }, false);
     expect(result).toMatchObject({ ok: false, status: 400 });

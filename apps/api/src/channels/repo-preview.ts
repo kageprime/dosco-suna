@@ -5,13 +5,13 @@ import { repoLabel, repoOgImage } from './slack/util';
 // project repository. It exists only for a PUBLIC repository. For a private or
 // missing one the image service answered `429` with a 42-byte HTML body, and
 // minutes later `200` with the same generic 1200x630 placeholder for both
-// (measured 2026-09-29). Teams drew a broken image beside every Kortix-hosted
+// (measured 2026-09-29). Teams drew a broken image beside every Dosco-hosted
 // project, whose repo is always private, with its internal name under it.
 //
 // The image response cannot tell a real preview from a placeholder, so the
 // repository page decides: `HEAD github.com/<owner>/<repo>` is 200 for a public
 // repository and 404 for a private or missing one. Checked once per
-// repository and cached. A Kortix-hosted repository is never checked.
+// repository and cached. A Dosco-hosted repository is never checked.
 
 /** A preview that loaded stays good for a day; a refusal is retried after an hour. */
 const IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -34,7 +34,7 @@ export function resetRepoPreviewCache(): void {
 }
 
 /**
- * A repository in the org Kortix hosts project repositories in
+ * A repository in the org Dosco hosts project repositories in
  * (`MANAGED_GIT_GITHUB_OWNER`). It is private, and its name is internal:
  * `<slug>-<project id>`.
  */
@@ -44,10 +44,10 @@ export function isKortixHostedRepo(repoUrl: string, owner = config.MANAGED_GIT_G
   return repoOwner.toLowerCase() === owner.toLowerCase();
 }
 
-/** The repository as a person reads it: `owner/repo`, or "Hosted by Kortix". */
+/** The repository as a person reads it: `owner/repo`, or "Hosted by Dosco". */
 export function repoDisplayLabel(repoUrl: string | null | undefined): string | null {
   if (!repoUrl) return null;
-  return isKortixHostedRepo(repoUrl) ? 'Hosted by Kortix' : repoLabel(repoUrl);
+  return isKortixHostedRepo(repoUrl) ? 'Hosted by Dosco' : repoLabel(repoUrl);
 }
 
 /** The preview when the repository is public, else null. */

@@ -2,7 +2,7 @@
  * Integration test (real local DB): bindSessionTurnIdentity — the session token
  * acts as the person who started the current turn.
  *
- * One sandbox holds one Kortix credential for its whole life. When a second
+ * One sandbox holds one Dosco credential for its whole life. When a second
  * member prompts a shared session, every call the agent makes in that turn
  * (authorization, LLM usage, git audit, personal resources) must act as that
  * member, not as whoever provisioned the sandbox.

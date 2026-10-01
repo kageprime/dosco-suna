@@ -34,7 +34,7 @@ export function registerMemberInviteRoute(): void {
                 email: z.string(),
                 role: z.string().optional(),
                 // Project access to grant alongside the invite — applied
-                // immediately if the invitee already has a Kortix account,
+                // immediately if the invitee already has a Dosco account,
                 // or staged on the pending invite (same bootstrap_grants
                 // column POST /projects/:id/access/invite already writes)
                 // and applied automatically when they accept.
@@ -117,7 +117,7 @@ export function registerMemberInviteRoute(): void {
       if (seatBlock) {
         return c.json(
           {
-            error: `Your trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Contact the Kortix team to extend the trial.`,
+            error: `Your trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Contact the Dosco team to extend the trial.`,
             code: 'trial_seat_limit_reached',
             limit: seatBlock.limit,
             members: seatBlock.members,

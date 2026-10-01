@@ -168,11 +168,11 @@ teamsIdentityApp.openapi(
         throw buildDenialError(PROJECT_ACTIONS.PROJECT_SESSION_START, 'account_mfa_required');
       }
       return outcome.reason === 'used'
-        ? c.json({ error: 'This link was already used. Send /login to the Kortix bot in Teams for a new one.' }, 410)
+        ? c.json({ error: 'This link was already used. Send /login to the Dosco bot in Teams for a new one.' }, 410)
         : c.json(
             {
               error:
-                'This Teams account is connected to a different Kortix account. Send /logout to the Kortix bot in Teams, then /login.',
+                'This Teams account is connected to a different Dosco account. Send /logout to the Dosco bot in Teams, then /login.',
             },
             409,
           );

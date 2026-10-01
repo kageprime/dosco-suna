@@ -879,7 +879,7 @@ export function CommandPalette() {
   // What the active session's runtime serves (E1): a pi session has no compact.
   const runtimeCapabilities = useRuntimeConnectionStore((s) => s.runtimeCapabilities);
 
-  // The project's own agents from the Kortix project config, filtered by the
+  // The project's own agents from the Dosco project config, filtered by the
   // SDK's one selectable-agent rule: the same list the composer offers. Never
   // the sandbox runtime's list, which adds its built-ins (`build`, `plan`, …).
   const agents = useVisibleAgents({ projectId });

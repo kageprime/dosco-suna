@@ -372,8 +372,8 @@ export async function commitFiles(opts: {
 }): Promise<void> {
   const base = `/repos/${encodeURIComponent(opts.owner)}/${encodeURIComponent(opts.repo)}`;
   const ident = {
-    name: opts.authorName || 'Kortix',
-    email: opts.authorEmail || 'noreply@kortix.ai',
+    name: opts.authorName || 'Dosco',
+    email: opts.authorEmail || 'noreply@dosco.live',
   };
 
   const ref = await ghFetch<{ object?: { sha?: string } }>(
@@ -437,11 +437,11 @@ export async function commitFile(opts: {
   // Pin the commit identity explicitly. Without an `author`/`committer` the
   // Contents API attributes the commit to whoever owns the token — which, on a
   // server-side PAT, surfaces a personal GitHub user (e.g. "markokraemer
-  // committed") instead of Kortix. Defaulting here mirrors the identity used by
+  // committed") instead of Dosco. Defaulting here mirrors the identity used by
   // every git-CLI commit path (branches.ts / merge.ts / seed.ts).
   const ident = {
-    name: opts.authorName || 'Kortix',
-    email: opts.authorEmail || 'noreply@kortix.ai',
+    name: opts.authorName || 'Dosco',
+    email: opts.authorEmail || 'noreply@dosco.live',
   };
   const body: Record<string, unknown> = {
     message: opts.message,

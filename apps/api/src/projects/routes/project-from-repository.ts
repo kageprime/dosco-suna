@@ -228,7 +228,7 @@ projectsApp.openapi(
 
 // POST /v1/projects/create-repo
 // Creates a new GitHub repository using the account's GitHub App installation,
-// then registers it as a Kortix project.
+// then registers it as a Dosco project.
 
 projectsApp.openapi(
   createRoute({
@@ -320,7 +320,7 @@ projectsApp.openapi(
   }
   if (!githubAuth.installation || !githubAuth.auth) {
     return c.json({
-      error: 'Install the Kortix GitHub App before creating GitHub-backed projects',
+      error: 'Install the Dosco GitHub App before creating GitHub-backed projects',
       install_url: await createGitHubInstallationInstallUrl(scope.accountId, scope.userId),
     }, 409);
   }
@@ -340,7 +340,7 @@ projectsApp.openapi(
     if (!userToken) {
       return c.json({
         error:
-          `Authorize Kortix on GitHub as ${ownerLogin} to create a repository in that personal account. ` +
+          `Authorize Dosco on GitHub as ${ownerLogin} to create a repository in that personal account. ` +
           'You can also create the repository on GitHub and import it.',
         code: 'github_user_authorization_required',
         owner_login: ownerLogin,
@@ -408,13 +408,13 @@ projectsApp.openapi(
         auth: createAuth,
       });
     } catch (error) {
-      // The repository exists but Kortix cannot write to it, so there is no
+      // The repository exists but Dosco cannot write to it, so there is no
       // usable project to hand back. Say which step failed.
       return c.json({
         error:
-          `Created ${repo.full_name}, but could not give Kortix access to it: ` +
+          `Created ${repo.full_name}, but could not give Dosco access to it: ` +
           `${(error as Error).message || 'GitHub refused the request'}. ` +
-          'Grant the Kortix app access to that repository on GitHub, then import it.',
+          'Grant the Dosco app access to that repository on GitHub, then import it.',
         code: 'github_installation_repository_grant_failed',
       }, 502);
     }
@@ -423,7 +423,7 @@ projectsApp.openapi(
   const projectName = normalizeString(body.project_name ?? body.projectName) ?? deriveProjectName(repo.full_name);
   const defaultBranch = repo.default_branch || 'main';
 
-  // Commit the Kortix starter into the fresh repo so users land with a
+  // Commit the Dosco starter into the fresh repo so users land with a
   // working project shape on first session boot. A partial starter is not a
   // usable project, so it lands as one commit or not at all.
   const [ownerLogin, repoSlug] = repo.full_name.split('/');
@@ -449,7 +449,7 @@ projectsApp.openapi(
       repo: repoSlug,
       branch: defaultBranch,
       files: starter.map((file) => ({ path: file.path, content: file.content })),
-      message: 'chore: scaffold the Kortix starter',
+      message: 'chore: scaffold the Dosco starter',
       auth: githubAuth.auth,
     });
   } catch (err) {
@@ -468,7 +468,7 @@ projectsApp.openapi(
     name: projectName,
     defaultBranch,
     // The repository is the account's, reached through the account's own
-    // installation — not the Kortix managed-git backend. `managed: true` made
+    // installation — not the Dosco managed-git backend. `managed: true` made
     // the mirror clone it with the managed-org PAT (503 git_mirror_unavailable)
     // and made project deletion delete the user's repository.
     managed: false,

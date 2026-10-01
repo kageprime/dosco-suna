@@ -45,7 +45,7 @@ mock.module('../shared/db', () => ({
     },
   },
 }));
-mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.kortix.com' } }));
+mock.module('../config', () => ({ SANDBOX_VERSION: 'test', config: { FRONTEND_URL: 'https://dev.dosco.live' } }));
 mock.module('../projects/lib/access', () => ({ lookupEmailsByUserIds: async () => new Map([['req-1', 'marko@example.com']]) }));
 mock.module('../channels/teams-api', () => ({
   sendCard: async (_ref: unknown, card: unknown) => {
@@ -174,7 +174,7 @@ describe('decideTeamsThreadJoin', () => {
   test('the owner approves: the request is approved, the account that asked is granted, and told to send again', async () => {
     selectQueue = [thread, pending, session];
     const r = await decideTeamsThreadJoin({ ...decision, decision: 'approved' });
-    expect(r).toEqual({ ok: true, text: 'Approved marko@example.com for this Kortix session.' });
+    expect(r).toEqual({ ok: true, text: 'Approved marko@example.com for this Dosco session.' });
     expect(ops.filter((o) => o === 'update')).toHaveLength(1);
     expect(ops.filter((o) => o === 'insert')).toHaveLength(1);
     expect(JSON.stringify(cards[0])).toContain('Send your message again');

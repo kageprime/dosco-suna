@@ -148,7 +148,7 @@ export async function startFreshTeamsConversation(input: {
 
 /**
  * Who may start a new session in a chat. The same bar as continuing one: a
- * linked Kortix account that may run sessions in the project, and under
+ * linked Dosco account that may run sessions in the project, and under
  * `owner_only` / `owner_approval` someone approved on this session.
  * Detaching an owner-only session and becoming the owner of the next is
  * otherwise a way around the policy, and under `project_open` anyone in the

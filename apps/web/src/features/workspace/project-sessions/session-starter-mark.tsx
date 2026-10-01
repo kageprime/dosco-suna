@@ -26,7 +26,7 @@ export function useSessionStarter(session: ProjectSession): SessionStarter {
 
 /**
  * One glyph per starter type: the member's avatar, the trigger's schedule or
- * webhook icon, the channel's own icon, a key for an API caller, the Kortix
+ * webhook icon, the channel's own icon, a key for an API caller, the Dosco
  * mark for the platform. Never an emoji.
  */
 export function SessionStarterMark({

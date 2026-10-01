@@ -24,7 +24,7 @@ export const DEFAULT_AGENT_SENTINEL = 'default';
  *   - Agent IS listed → its declared overlay (connectors + kortix_permissions).
  *   - Project adopted `[[agents]]` but the agent is NOT listed → default-DENY
  *     (the agent still runs its `.md` behavior, but with no connectors and no
- *     Kortix permissions).
+ *     Dosco permissions).
  *
  * The `∩ launching-user role` is NOT applied here — it's enforced for free at
  * the route layer (the account token resolves to the user, whose role is

@@ -68,7 +68,7 @@ describe('resolveChatActor', () => {
 
   // The web's bar for starting and prompting a session. `project.write` (the
   // old default) is manager-only, so plain members could not use chat at all.
-  test('linked member with the action → the Kortix userId; the default action is project.session.start', async () => {
+  test('linked member with the action → the Dosco userId; the default action is project.session.start', async () => {
     dbResults = [[{ userId: 'u1' }], [{ userId: 'u1' }]];
     expect(await resolveChatActor(chatUser('slack', 'T1', 'U1'), project)).toEqual({ userId: 'u1' });
     expect(authorizeCalls).toEqual([{ action: PROJECT_ACTIONS.PROJECT_SESSION_START, projectId: 'proj1' }]);

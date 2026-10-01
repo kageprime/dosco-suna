@@ -1410,7 +1410,7 @@ function ProjectSessionRow({
  * (it is the oldest conversation) and shown alone when there are no sessions. It opens project home,
  * where that chat lives.
  *
- * The same box as `ProjectSessionRow`, with the Kortix mark in the status slot
+ * The same box as `ProjectSessionRow`, with the Dosco mark in the status slot
  * and nothing after the title: no status, no hover card, no `⋯`. It is not a
  * session yet, so there is nothing to report and nothing to act on.
  */

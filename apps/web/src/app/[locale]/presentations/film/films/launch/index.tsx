@@ -77,9 +77,9 @@ const cues: Cue[] = [
 
 export const launchFilm: FilmDef = {
   slug: 'launch',
-  title: 'Kortix — launch film',
+  title: 'Dosco — launch film',
   description:
-    'Kortix, the open-source AI Management System, in 64 seconds: one repo, a computer per session, change requests you approve.',
+    'Dosco, the open-source AI Management System, in 64 seconds: one repo, a computer per session, change requests you approve.',
   frames: bars(32),
   Film: LaunchFilm,
   cues,
@@ -93,7 +93,7 @@ export const launchFilm: FilmDef = {
   audio: '/film/launch.m4a',
   chapters: [
     { frame: at('cold'), label: 'A toy or a cage' },
-    { frame: at('reveal'), label: 'Kortix' },
+    { frame: at('reveal'), label: 'Dosco' },
     { frame: at('repo'), label: 'A git repository' },
     { frame: at('session'), label: 'Its own computer' },
     { frame: at('workforce'), label: 'Thousands of sessions' },

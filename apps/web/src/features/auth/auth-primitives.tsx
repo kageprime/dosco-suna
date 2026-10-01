@@ -75,8 +75,8 @@ export function StepHeader({
   /** A string, or a string led by a status mark (a decided approval). */
   title: React.ReactNode;
   /**
-   * Replaces the Kortix mark above the title, for a screen about two parties
-   * (the Kortix ··· Slack handshake on a channel install). Desktop only, like
+   * Replaces the Dosco mark above the title, for a screen about two parties
+   * (the Dosco ··· Slack handshake on a channel install). Desktop only, like
    * the mark it replaces: below `md` the frame's own corner logo stands.
    */
   mark?: React.ReactNode;

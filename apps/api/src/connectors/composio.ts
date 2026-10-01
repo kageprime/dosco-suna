@@ -511,7 +511,7 @@ export async function composioCatalogPage(input: {
   const runtime = input.runtime ?? getComposioRuntime();
   // The hidden set is read from the REST catalogue snapshot. A caller that
   // injects a runtime without a REST client has no snapshot, so hides only the
-  // toolkits Kortix provides natively.
+  // toolkits Dosco provides natively.
   const hiddenToolkits =
     input.catalogClient || !input.runtime
       ? composioHiddenToolkits(input.catalogClient ?? composioRestClient())

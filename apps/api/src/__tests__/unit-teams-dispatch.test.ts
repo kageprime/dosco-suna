@@ -160,6 +160,6 @@ describe('the card an install posts', () => {
   test('a team install gets the channel intro', async () => {
     await handleTeamsActivity(install('channel', '19:team-general@thread.tacv2') as never);
     expect(cards).toHaveLength(1);
-    expect(cards[0]).toContain('Kortix is connected here');
+    expect(cards[0]).toContain('Dosco is connected here');
   });
 });

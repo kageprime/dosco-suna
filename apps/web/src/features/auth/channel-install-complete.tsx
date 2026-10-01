@@ -46,7 +46,7 @@ export function ChannelInstallComplete({
 }: {
   /** Display name used in the copy ("Slack", "Teams"). */
   service: string;
-  /** The service's mark, for the Kortix ··· service handshake above the title. */
+  /** The service's mark, for the Dosco ··· service handshake above the title. */
   icon: React.ComponentType<{ className?: string }>;
   /** This page's path, used as the sign-in return target. */
   path: string;

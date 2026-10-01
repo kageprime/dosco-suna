@@ -70,7 +70,7 @@ test('a project member runs sessions from chat, and only a manager may change th
   });
 });
 
-test('a live link never moves to another Kortix user; a revoked one can', async () => {
+test('a live link never moves to another Dosco user; a revoked one can', async () => {
   const person = chatUser('teams', TENANT, 'aad-takeover');
   expect(await linkChatIdentity(person, OWNER)).toEqual({ ok: true });
   expect(await linkChatIdentity(person, OUTSIDER)).toEqual({ ok: false, reason: 'linked_to_other' });

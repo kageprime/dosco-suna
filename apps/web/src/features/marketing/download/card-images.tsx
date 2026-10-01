@@ -7,7 +7,7 @@ const SLOT = 'aspect-[16/10] w-full overflow-hidden border-b bg-muted';
 
 /**
  * The desktop app's art: the same light-beam shader as the "Connect your
- * computer" modal, with the Kortix brandmark on it. Dark in both themes, so the
+ * computer" modal, with the Dosco brandmark on it. Dark in both themes, so the
  * slot resolves its tokens under `dark` and the mark renders white. It rounds
  * its own top corners: the card's `overflow-hidden` does not clip the shader's
  * WebGL canvas.

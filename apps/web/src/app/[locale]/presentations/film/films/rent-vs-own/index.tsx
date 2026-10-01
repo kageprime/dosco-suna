@@ -200,7 +200,7 @@ const score: FilmDef['score'] = {
 
 export const rentVsOwnFilm: FilmDef = {
   slug: 'rent-vs-own',
-  title: 'Kortix — rent vs own',
+  title: 'Dosco — rent vs own',
   description:
     'Thirty seconds: what you get when you rent an AI workforce, and what you get when you own it.',
   frames: bars(15),
@@ -214,7 +214,7 @@ export const rentVsOwnFilm: FilmDef = {
 export const rentVsOwnVerticalFilm: FilmDef = {
   ...rentVsOwnFilm,
   slug: 'rent-vs-own-vertical',
-  title: 'Kortix — rent vs own (9:16)',
+  title: 'Dosco — rent vs own (9:16)',
   size: { w: 720, h: 1280 },
   Film: film(true),
   audio: '/film/rent-vs-own-vertical.m4a',

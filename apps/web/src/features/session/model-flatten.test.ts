@@ -31,7 +31,7 @@ describe('flattenModels — gateway provider pass-through', () => {
     expect(flat.providerName).toBe('Dosco');
   });
 
-  test('names a BYOK model after its real provider (OpenCode Go, not "Kortix")', () => {
+  test('names a BYOK model after its real provider (OpenCode Go, not "Dosco")', () => {
     const [flat] = flattenModels(
       gatewayProviders({
         'opencode-go/glm-5.3': { name: 'GLM-5.3', provider: 'opencode-go', provider_name: 'OpenCode Go' },
@@ -117,7 +117,7 @@ describe('flattenModels — host drift vs @kortix/sdk (characterization)', () =>
     all: [
       {
         id: 'kortix',
-        name: 'Kortix',
+        name: 'Dosco',
         source: 'gateway',
         models: {
           // A catalog silent on modalities, in both wire shapes.
@@ -128,7 +128,7 @@ describe('flattenModels — host drift vs @kortix/sdk (characterization)', () =>
           'kortix/paid-tier': { name: 'Paid Tier', cost: { input: 1, output: 2 } },
           // Stale pre-removal entries a baked catalog can still carry.
           auto: { name: 'Auto' },
-          'kortix/auto': { name: 'Kortix Auto' },
+          'kortix/auto': { name: 'Dosco Auto' },
         },
       },
       {

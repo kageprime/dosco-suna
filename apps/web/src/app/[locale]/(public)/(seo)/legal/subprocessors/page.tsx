@@ -21,7 +21,7 @@ const LAST_UPDATED = 'September 29, 2026';
 
 export const metadata: Metadata = {
   title: 'Subprocessors',
-  description: 'The third parties that process customer personal data for Kortix.',
+  description: 'The third parties that process customer personal data for Dosco.',
   alternates: { canonical: '/legal/subprocessors' },
 };
 
@@ -65,17 +65,17 @@ const CORE: Row[] = [
   },
   {
     name: 'OpenRouter, Inc.',
-    purpose: 'Routing of requests to Kortix-managed AI models',
+    purpose: 'Routing of requests to Dosco-managed AI models',
     location: 'United States',
   },
   {
     name: 'CoreWeave, Inc.; Fireworks AI, Inc.; Decart',
-    purpose: 'Inference for Kortix-managed AI models, reached through OpenRouter',
+    purpose: 'Inference for Dosco-managed AI models, reached through OpenRouter',
     location: 'United States',
   },
   {
     name: 'GitHub, Inc.',
-    purpose: 'Hosting of Kortix-managed project repositories',
+    purpose: 'Hosting of Dosco-managed project repositories',
     location: 'United States',
   },
   {
@@ -179,7 +179,7 @@ export default function SubprocessorsPage() {
 
         <div className="mt-8 space-y-4">
           <p className={PROSE}>
-            Kortix AI Corp engages the third parties below to process customer personal data when we
+            Dosco AI Corp engages the third parties below to process customer personal data when we
             provide the managed cloud Services. Each is bound by written data protection terms no
             less protective than our Data Processing Addendum. We host the Services mainly in the
             United Kingdom and the European Union.
@@ -215,7 +215,7 @@ export default function SubprocessorsPage() {
         <p className={`${PROSE} mt-12`}>
           Services you choose to connect, models you reach with your own API keys or your own
           account (for example OpenAI, Anthropic, or Google), and apps an agent acts on at your
-          direction act on your behalf. They are not Kortix subprocessors; their own terms apply.
+          direction act on your behalf. They are not Dosco subprocessors; their own terms apply.
         </p>
       </div>
     </main>

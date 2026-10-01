@@ -497,7 +497,7 @@ export function emptyGitRemote(): ProjectGitRemote {
 
 
 /**
- * `managed` means the repository lives in the Kortix managed-git backend. A row
+ * `managed` means the repository lives in the Dosco managed-git backend. A row
  * that says so while it points at ANOTHER installation under ANOTHER owner is a
  * repository in the account's own GitHub: `POST /projects/create-repo` wrote
  * `managed: true` for those until 2026-09-28. Read as managed, the managed-org

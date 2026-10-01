@@ -23,7 +23,7 @@ export class GitHubPersonalAccountCreateUnsupportedError extends Error {
 
   constructor(readonly owner: string) {
     super(
-      `GitHub does not let the Kortix app create repositories in the personal account ${owner}. ` +
+      `GitHub does not let the Dosco app create repositories in the personal account ${owner}. ` +
         'Create the repository on GitHub, then import it.',
     );
     this.name = 'GitHubPersonalAccountCreateUnsupportedError';

@@ -312,7 +312,7 @@ describe('clientResponseHeaders', () => {
 
   test('forwarded app cookies keep their host-only scope; ours are dropped', () => {
     const upstream = new Headers();
-    upstream.append('set-cookie', 'app_sid=abc; Domain=kortix.com; Path=/');
+    upstream.append('set-cookie', 'app_sid=abc; Domain=dosco.live; Path=/');
     upstream.append('set-cookie', 'theme=dark');
     upstream.append('set-cookie', '__kortix_preview=tamper; Path=/');
     const headers = clientResponseHeaders(upstream, '');

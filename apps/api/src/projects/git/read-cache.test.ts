@@ -33,7 +33,7 @@ beforeEach(async () => {
   await git(['init', '-q', '--bare', bare]);
   await mkdir(work);
   await git(['init', '-q', '--initial-branch=main', work]);
-  await git(['config', 'user.name', 'Kortix Test'], work);
+  await git(['config', 'user.name', 'Dosco Test'], work);
   await git(['config', 'user.email', 'test@kortix.invalid'], work);
   await git(['remote', 'add', 'origin', bare], work);
   await git(['symbolic-ref', 'HEAD', 'refs/heads/main'], bare);

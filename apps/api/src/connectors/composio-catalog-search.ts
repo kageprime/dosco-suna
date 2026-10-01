@@ -207,8 +207,8 @@ async function cachedCustomAuthConfigIds(catalogClient: ComposioCatalogClient) {
 }
 
 /**
- * Toolkits Kortix provides natively, left out of every catalogue view.
- * Microsoft Teams is connected under Channels (the Kortix bot); the Composio
+ * Toolkits Dosco provides natively, left out of every catalogue view.
+ * Microsoft Teams is connected under Channels (the Dosco bot); the Composio
  * app listed beside it was a second, different "Microsoft Teams".
  */
 export const NATIVE_TOOLKITS: ReadonlySet<string> = new Set(['microsoft_teams']);

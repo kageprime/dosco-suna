@@ -81,7 +81,7 @@ test('sentry.client.config drops the old-WebKit lookbehind parse failure', async
 });
 
 test('sentry.client.config drops the Firefox cross-compartment onerror-chain failure', async () => {
-  // Better Stack pattern 0f9e1780… (Kortix Frontend prod, 2026-09-27): 107
+  // Better Stack pattern 0f9e1780… (Dosco Frontend prod, 2026-09-27): 107
   // events from one Firefox session in 4 minutes, call site
   // `GLOBAL_OBJ.onerror`. A Firefox extension set `window.onerror` before the
   // Sentry SDK loaded. The SDK's global handler chains to it with

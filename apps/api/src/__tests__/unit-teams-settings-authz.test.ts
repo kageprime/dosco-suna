@@ -251,7 +251,7 @@ describe('/status and /sessions', () => {
       ['Change model', 'models'],
       ['Change agent', 'agents'],
       ['Switch project', 'projects'],
-      ['Open in Kortix', null],
+      ['Open in Dosco', null],
     ]);
   });
 
@@ -265,7 +265,7 @@ describe('/status and /sessions', () => {
     expect(inserts).toEqual([]);
   });
 
-  test('/sessions lists the recent sessions this person may open, each linking to Kortix', async () => {
+  test('/sessions lists the recent sessions this person may open, each linking to Dosco', async () => {
     sessionQueries.length = 0;
     recentSessions = [
       { projectId: PROJECT, projectName: 'First', repoUrl: '', sessionId: 'sess-1', lastMessageAt: new Date(), title: 'Fix the flaky test', status: 'completed' },
@@ -276,7 +276,7 @@ describe('/status and /sessions', () => {
     expect(posted[0]).toContain('Fix the flaky test');
     expect(posted[0]).toContain('First · done');
     expect(posted[0]).toContain('Untitled session');
-    expect(posted[0]).toContain('https://dev.kortix.com/projects/proj-1/sessions/sess-1');
+    expect(posted[0]).toContain('https://dev.dosco.live/projects/proj-1/sessions/sess-1');
     expect(sessionQueries).toEqual([{ user: expect.objectContaining({ platform: 'teams', workspaceId: TENANT }), opts: { limit: 5, projectId: undefined } }]);
   });
 
@@ -330,7 +330,7 @@ describe('/unbind, /home and /projects', () => {
     expect(card).toContain('Connected projects');
     expect(card).toContain('"title":"✓ In use"');
     expect(card).toContain(`"projectId":"${OTHER}"`);
-    expect(card).toContain('https://dev.kortix.com/projects/proj-2');
+    expect(card).toContain('https://dev.dosco.live/projects/proj-2');
   });
 
   test('/home lists the organization\'s projects and what to try', async () => {

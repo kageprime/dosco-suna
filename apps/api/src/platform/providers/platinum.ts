@@ -12,7 +12,7 @@
  *     `x-pt-preview-token` header (see resolveIngress). The agent port is also
  *     gated by the KORTIX serviceKey bearer (added in resolveEndpoint). Other
  *     ports, such as the static-file listener, have no in-box authentication,
- *     so the edge token is their only gate outside the Kortix proxy.
+ *     so the edge token is their only gate outside the Dosco proxy.
  *
  * S1 (idempotent create): a retry after an AMBIGUOUS transport failure
  * (timeout / dropped response) on the create POST must never blindly
@@ -144,7 +144,7 @@ interface PlatinumSandboxPage {
 /**
  * A box created before `auto_resume: false` shipped (see create) still lets any
  * stray request wake it. The stop that parks it closes that, once, so no
- * backfill is needed: every box Kortix stops from now on is covered. Only when
+ * backfill is needed: every box Dosco stops from now on is covered. Only when
  * Platinum reports the field — an older build reads a PATCH naming no field it
  * knows as "clear the name". Best effort: the stop itself already succeeded.
  */
@@ -463,8 +463,8 @@ export class PlatinumProvider implements SandboxProvider {
       envVars,
       type: autoStop === 0 ? 'persistent' : 'ephemeral',
       auto_stop_minutes: autoStop,
-      // Only Kortix wakes a session box. Platinum's edge resumes a stopped VM on
-      // ANY inbound request, and Kortix keeps sending some after a stop (5-min
+      // Only Dosco wakes a session box. Platinum's edge resumes a stopped VM on
+      // ANY inbound request, and Dosco keeps sending some after a stop (5-min
       // cached edge URLs, an SSE reconnect, a retry). The VM then ran while our
       // row said `stopped`, its session credential refused: 68 prod boxes in
       // one day, one left serving nothing for 18 h (2026-09-28). Apps keep the
@@ -949,7 +949,7 @@ export class PlatinumProvider implements SandboxProvider {
   }
 
   async remove(externalId: string): Promise<void> {
-    // No credential replicas to erase first: Kortix stopped registering secrets
+    // No credential replicas to erase first: Dosco stopped registering secrets
     // at the Platinum edge when one mechanism took over every provider.
     // The value is
     // substituted server-side per request and never leaves the API.
@@ -1089,7 +1089,7 @@ export class PlatinumProvider implements SandboxProvider {
    * Convert every port an older build exposed PUBLICLY on this sandbox to a
    * private exposure. Runs once per sandbox per process, detached from the
    * request: a public exposure outlives the request that created it, so a port
-   * nobody opens again would otherwise stay reachable without Kortix
+   * nobody opens again would otherwise stay reachable without Dosco
    * authorization until the sandbox is deleted.
    */
   private hardenLegacyPublicExposures(externalId: string): void {

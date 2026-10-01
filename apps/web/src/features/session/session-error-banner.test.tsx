@@ -120,7 +120,7 @@ describe('TurnErrorDisplay — ChatGPT connection failures', () => {
 
 // Persisted on a local stack as OpenCode `UnknownError.data.message`:
 // `{"message":"The usage limit has been reached","code":429}`. That is a
-// PROVIDER plan cap, not a Kortix entitlement, so it must reach the generic
+// PROVIDER plan cap, not a Dosco entitlement, so it must reach the generic
 // checkpoint row — never the "Upgrade plan" upsell (KRTX-621).
 describe('TurnErrorDisplay routes a provider usage-limit sentence to the checkpoint', () => {
   test('"The usage limit has been reached" renders the row, not Upgrade plan', () => {
@@ -134,9 +134,9 @@ describe('TurnErrorDisplay routes a provider usage-limit sentence to the checkpo
   });
 });
 
-// The Kortix entitlement is a different class: its own server sentence still
+// The Dosco entitlement is a different class: its own server sentence still
 // reaches the actionable subscribe card.
-describe('TurnErrorDisplay routes a Kortix entitlement sentence to the upgrade card', () => {
+describe('TurnErrorDisplay routes a Dosco entitlement sentence to the upgrade card', () => {
   test('"Free usage exceeded, subscribe to Go" renders Upgrade plan', () => {
     const html = renderToStaticMarkup(
       <TurnErrorDisplay errorText="Free usage exceeded, subscribe to Go" />,
@@ -202,7 +202,7 @@ describe('TurnErrorDisplay checkpoint row', () => {
 });
 
 describe('describeTurnErrorRow', () => {
-  test('a Kortix entitlement sentence routes to the boxed card', () => {
+  test('a Dosco entitlement sentence routes to the boxed card', () => {
     expect(describeTurnErrorRow({ text: 'Free usage exceeded, subscribe to Go' })).toEqual({
       kind: 'billing-card',
       expandable: false,

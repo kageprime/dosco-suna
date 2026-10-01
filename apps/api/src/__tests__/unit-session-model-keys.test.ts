@@ -31,7 +31,7 @@ mock.module('../projects/lib/personal-resources', () => ({
 // private session. An API-key model never serves without a selection. Any
 // selection serves when it holds a key. A stored selection serves through a
 // key shared with the project in any session, through the owner's key only in
-// their private one. A Kortix model serves when `managedServable` says so.
+// their private one. A Dosco model serves when `managedServable` says so.
 const probes: Array<Record<string, unknown>> = [];
 let storedKeys: string[] | null = null;
 let managedServable = false;
@@ -305,7 +305,7 @@ describe('admitSessionSharingChange — a share never strands the session on a k
     expect(replaced).toEqual([]);
   });
 
-  test('a Kortix model runs in any session: unchanged', async () => {
+  test('a Dosco model runs in any session: unchanged', async () => {
     managedServable = true;
     expect(await share({ model: 'kortix/glm-5.3-flash' })).toEqual({ ok: true });
     expect(keyQueries).toHaveLength(0);

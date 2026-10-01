@@ -151,11 +151,11 @@ describeWithDb('App wake lifecycle races — real PostgreSQL', () => {
     const previousDomain = process.env.KORTIX_APPS_BASE_DOMAIN;
     process.env.KORTIX_APPS_ALLOW_DIRECT_EDGE = 'false';
     process.env.KORTIX_APPS_ALLOW_LOCAL_EDGE = 'false';
-    process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+    process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
     try {
       // A host `resolveAppHost` accepts: `<env>-<slug>-<route key>.<apps domain>`.
       const request = new Request('https://example.test/', {
-        headers: { 'x-kortix-app-host': `${config.INTERNAL_KORTIX_ENV}-wake-${ROUTE_KEY}.apps.kortix.com` },
+        headers: { 'x-kortix-app-host': `${config.INTERNAL_KORTIX_ENV}-wake-${ROUTE_KEY}.apps.dosco.live` },
       });
       const response = await handleAppPublicRequest(request);
       expect(response?.status).toBe(403);

@@ -213,7 +213,7 @@ async function commitGitCliRepoFile(
   }
 
   try {
-    const commit = { message, branch, authorName: 'Kortix', authorEmail: 'noreply@kortix.ai' };
+    const commit = { message, branch, authorName: 'Dosco', authorEmail: 'noreply@dosco.live' };
     if (extra) {
       // A manifest with `imports:` — every changed source file in ONE commit,
       // guarded by the root revision plus every imported file's revision.
@@ -247,7 +247,7 @@ async function commitGitCliRepoFile(
     }
     if (isRemotePushPolicyRejection(err)) {
       return {
-        error: 'The repository rejected the push because of branch protection or repository rules. Allow the Kortix GitHub App to push to the default branch, or connect a repository where it can, then try again.',
+        error: 'The repository rejected the push because of branch protection or repository rules. Allow the Dosco GitHub App to push to the default branch, or connect a repository where it can, then try again.',
         status: 409,
       };
     }

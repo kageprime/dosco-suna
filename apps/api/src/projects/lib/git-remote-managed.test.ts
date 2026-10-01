@@ -1,5 +1,5 @@
 /**
- * `managed` on a git connection means "this repository lives in the Kortix
+ * `managed` on a git connection means "this repository lives in the Dosco
  * managed-git backend". Auth, deletion, push credentials and collaborator
  * invites all branch on it through `getProjectGitRemote`.
  *

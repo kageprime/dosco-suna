@@ -52,7 +52,7 @@ mock.module('../lib/access', () => ({
 }));
 mock.module('../../setup-links/token', () => ({
   approvalPageUrl: (projectId: string, executionId: string, sessionId: string) =>
-    `https://dev.kortix.com/approve/${projectId}/${sessionId}/${executionId}`,
+    `https://dev.dosco.live/approve/${projectId}/${sessionId}/${executionId}`,
 }));
 
 const { readSessionAuditActions } = await import('./session-audit-read');
@@ -140,7 +140,7 @@ describe('readSessionAuditActions', () => {
     });
 
     expect(result.actions[0]?.approval_url).toBe(
-      `https://dev.kortix.com/approve/${PROJECT_ID}/${SESSION_ID}/exec-2`,
+      `https://dev.dosco.live/approve/${PROJECT_ID}/${SESSION_ID}/exec-2`,
     );
     expect(result.actions[0]?.connector).toBeNull();
   });

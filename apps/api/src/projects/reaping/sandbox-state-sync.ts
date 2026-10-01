@@ -342,7 +342,7 @@ export async function applyStoppedState(write: StoppedStateWrite): Promise<void>
     // whose provider box is already off (see settleOpenSandboxTurns).
     //
     // A named cause only for a provider-originated stop: `manual` and
-    // `deadline_expired` are Kortix's own choice and already read clearly from
+    // `deadline_expired` are Dosco's own choice and already read clearly from
     // `end_reason` alone. `settleOpenSandboxTurnsQuery`'s CASE only ever fills
     // an EMPTY `end_error` — a real one (a memory-guard cause, a sandbox error
     // frame that raced this settle) is never replaced.

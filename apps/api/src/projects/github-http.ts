@@ -47,7 +47,7 @@ export function githubRetryAfterSeconds(
 
 /**
  * The GitHub App (scope `app`) or one installation of it (scope
- * `installation`) lacks a permission a Kortix flow depends on. It is an
+ * `installation`) lacks a permission a Dosco flow depends on. It is an
  * operator or organization-owner fault, never the caller's: keep it apart from
  * "the caller is not an admin" so the UI does not blame the wrong party.
  */
@@ -72,7 +72,7 @@ export class GitHubAppPermissionError extends Error {
 export class GitHubIpAllowListError extends Error {
   constructor(readonly organization: string) {
     super(
-      `${organization} restricts GitHub access with an IP allow list, and it blocked Kortix. ` +
+      `${organization} restricts GitHub access with an IP allow list, and it blocked Dosco. ` +
         `An owner of ${organization} must enable "IP allow list configuration for installed GitHub Apps" ` +
         '(organization Settings → Authentication security), then verify again.',
     );
@@ -82,7 +82,7 @@ export class GitHubIpAllowListError extends Error {
 
 /**
  * The organization enforces SAML single sign-on and the caller authorized
- * Kortix without an active SSO session for it, so GitHub refuses the user
+ * Dosco without an active SSO session for it, so GitHub refuses the user
  * token for that organization. The caller resolves it: sign in to the
  * organization through its SSO in the same browser, then verify again.
  */
@@ -101,7 +101,7 @@ export function isGitHubIpAllowListRefusal(error: unknown): boolean {
   return error instanceof GitHubApiError && error.status === 403 && /IP allow list/i.test(error.message);
 }
 
-// 'managed' = a Kortix-managed git token minted server-side by the managed backend.
+// 'managed' = a Dosco-managed git token minted server-side by the managed backend.
 // 'project_credential' = provider-neutral git credential stored outside
 // user-readable runtime secrets.
 // Both ride this auth context because callers only consume `.token` for git

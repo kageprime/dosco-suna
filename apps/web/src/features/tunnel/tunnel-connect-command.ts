@@ -4,7 +4,7 @@ type BackendUrlArgs = {
 };
 
 /**
- * The absolute Kortix API root (`.../v1`). `BACKEND_URL` may be root-relative
+ * The absolute Dosco API root (`.../v1`). `BACKEND_URL` may be root-relative
  * (`/v1`) behind a same-origin proxy; the local agent runs outside the browser,
  * so it needs the origin spelled out.
  */

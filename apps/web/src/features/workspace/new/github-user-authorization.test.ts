@@ -17,7 +17,7 @@ const PAYLOAD = { account_id: 'acc-1', name: 'company' };
 const PROJECT = { project_id: 'proj-1' } as never;
 
 function authorizationRequired() {
-  return Object.assign(new Error('Authorize Kortix on GitHub as octo-person'), {
+  return Object.assign(new Error('Authorize Dosco on GitHub as octo-person'), {
     status: 409,
     code: 'github_user_authorization_required',
   });

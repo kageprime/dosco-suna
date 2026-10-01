@@ -5,7 +5,7 @@ import { useId, type ComponentPropsWithoutRef } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The Kortix symbol (`kortix-logo.tsx`, `variant="icon"`) sampled onto a
+ * The Dosco symbol (`kortix-logo.tsx`, `variant="icon"`) sampled onto a
  * 12 × 10 grid. `#` is a cell the symbol fully covers; `+` is a cell on a curve
  * that it only partly covers, drawn as a checker so the curves read as dither.
  */
@@ -37,7 +37,7 @@ const CELLS = PIXEL_KORTIX_ROWS.flatMap((row, y) =>
 );
 
 /**
- * Decorative pixel art of the Kortix symbol, for empty states. It paints in
+ * Decorative pixel art of the Dosco symbol, for empty states. It paints in
  * `currentColor`, so the caller sets the tone. It is always `aria-hidden`: the
  * text next to it carries the meaning.
  */

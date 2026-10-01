@@ -135,7 +135,7 @@ export function buildApprovalCardBlocks(card: ApprovalCardInput): unknown[] {
     buttons.push({
       type: 'button',
       action_id: approvalActionId('view', card.executionId),
-      text: { type: 'plain_text', text: 'Open in Kortix' },
+      text: { type: 'plain_text', text: 'Open in Dosco' },
       url: card.approvalUrl,
     });
   }
@@ -156,7 +156,7 @@ export function buildApprovalCardBlocks(card: ApprovalCardInput): unknown[] {
   return blocks;
 }
 
-/** What replaces the buttons once anyone decided — here, in Kortix, or on the link page. */
+/** What replaces the buttons once anyone decided — here, in Dosco, or on the link page. */
 export function buildApprovalOutcomeBlocks(outcome: {
   actionPath: string;
   decision: ApprovalDecision;
@@ -321,7 +321,7 @@ export async function handleApprovalCardAction(
   parsed: { verb: ApprovalCardVerb; executionId: string },
   inbound: SlackInbound,
 ): Promise<void> {
-  // The "Open in Kortix" link button still fires a block_action; nothing to apply.
+  // The "Open in Dosco" link button still fires a block_action; nothing to apply.
   if (parsed.verb === 'view') return;
   const teamId = payload.team?.id ?? '';
   const channelId = payload.channel?.id ?? '';
@@ -358,7 +358,7 @@ export async function handleApprovalCardAction(
             }),
           )
         : false;
-    if (!opened) await respond("Couldn't open the reply box. Use *Open in Kortix* to answer there.");
+    if (!opened) await respond("Couldn't open the reply box. Use *Open in Dosco* to answer there.");
     return;
   }
 

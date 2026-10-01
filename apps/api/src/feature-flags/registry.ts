@@ -147,7 +147,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'agentmail_email',
     name: 'AgentMail Email',
     description:
-      'Assign AgentMail inbox connections to the agent so inbound email threads can start and continue Kortix sessions. Native email channels are still experimental.',
+      'Assign AgentMail inbox connections to the agent so inbound email threads can start and continue Dosco sessions. Native email channels are still experimental.',
     stability: 'experimental',
     available: () => true,
     // Explicit opt-in: hidden unless a project enables it in Settings.
@@ -158,7 +158,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'teams',
     name: 'Microsoft Teams',
     description:
-      'Connect a Microsoft Teams bot so chats and channels can start and continue Kortix sessions. The install flow, org-catalog publishing, and bring-your-own-bot setup are still experimental.',
+      'Connect a Microsoft Teams bot so chats and channels can start and continue Dosco sessions. The install flow, org-catalog publishing, and bring-your-own-bot setup are still experimental.',
     stability: 'experimental',
     // Always listable. Server-side bot credentials (MICROSOFT_APP_ID /
     // MICROSOFT_APP_PASSWORD) only decide whether the MANAGED install path is
@@ -175,7 +175,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'llm_gateway',
     name: 'LLM Gateway',
     description:
-      'Route this project through the managed Kortix LLM gateway (managed models, metering, budgets). Off, the sandbox runs native OpenCode model management: your provider API keys are injected as ordinary env vars and models are native provider/model refs. Toggling refreshes active sandboxes either way.',
+      'Route this project through the managed Dosco LLM gateway (managed models, metering, budgets). Off, the sandbox runs native OpenCode model management: your provider API keys are injected as ordinary env vars and models are native provider/model refs. Toggling refreshes active sandboxes either way.',
     stability: 'experimental',
     // Master kill switch: when off, the feature disappears and every project
     // falls back to native OpenCode provider behavior.
@@ -273,7 +273,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'secrets_egress',
     name: 'Network-Enforced Secrets',
     description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
+      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Dosco substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
     stability: 'experimental',
     available: () => true,
     // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
@@ -329,7 +329,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'config_releases',
     name: 'Config Releases',
     description:
-      "Sessions run the base branch's current config. Kortix loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session, on OpenCode and on pi. Off ⇒ the session reads its config from its workspace checkout, as it did before config releases.",
+      "Sessions run the base branch's current config. Dosco loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session, on OpenCode and on pi. Off ⇒ the session reads its config from its workspace checkout, as it did before config releases.",
     stability: 'experimental',
     available: () => true,
     // OFF by default until this is proven on real projects (Marko, 2026-09-24:
@@ -365,7 +365,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // model as an escape hatch for one release; the switch is then deleted.
     platformDefault: () => true,
     // Not listed in Settings → Feature flags. An agent acting as itself is how
-    // Kortix works, not a choice we offer, so presenting a switch would invite
+    // Dosco works, not a choice we offer, so presenting a switch would invite
     // a project to turn the governance model off. Support can still put ONE
     // project back with `PATCH /projects/:id/features {agent_principal:false}`
     // while it migrates. Delete the flag — and this line — in the release after

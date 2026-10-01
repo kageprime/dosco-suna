@@ -14,7 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const film = findFilm((await params).film);
   return {
-    title: film ? `${film.title} · Kortix` : 'Kortix',
+    title: film ? `${film.title} · Dosco` : 'Dosco',
     description: film?.description,
     // Shared by link, never indexed — same rule as the decks.
     robots: { index: false, follow: false },

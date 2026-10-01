@@ -533,7 +533,7 @@ test('a failed auth config refresh keeps the last list and is retried by the nex
   }
 });
 
-// Microsoft Teams is a native Kortix channel (Channels → the Kortix bot). The
+// Microsoft Teams is a native Dosco channel (Channels → the Dosco bot). The
 // Composio app listed beside it in the connectors catalogue was a second,
 // different "Microsoft Teams".
 test('Microsoft Teams is never listed: not in sections, not in search, always hidden', async () => {

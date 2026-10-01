@@ -9,10 +9,10 @@ export type PlanAction = 'open' | 'addKey' | 'seePlans';
 export interface ModelAccess {
   /** A model from a provider key the project added is offered. */
   hasOwnKey: boolean;
-  /** A Kortix-managed model is offered. */
+  /** A Dosco-managed model is offered. */
   hasKortixModels: boolean;
   /**
-   * The account may run Kortix models now, from the billing state machine
+   * The account may run Dosco models now, from the billing state machine
    * (`billing-gate-state.ts`). `false` for a plan with an empty wallet, which
    * still lists the models. Absent means not known yet: never block on that.
    */

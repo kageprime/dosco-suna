@@ -410,7 +410,7 @@ interface SessionTurnProps {
   isFirstTurn: boolean;
   /**
    * The session's working state, resolved ONCE by the parent
-   * (`resolveLastTurnWorking`): the projection for a Kortix session, the raw
+   * (`resolveLastTurnWorking`): the projection for a Dosco session, the raw
    * SSE slot only for a child session that has no `/turn` row. Only the
    * WORKING turn renders it (`isWorkingTurn`).
    */
@@ -1375,7 +1375,7 @@ const segments = useMemo(() => {
 //
 // Structure:
 //   1. User message + actions
-//   2. Kortix logo
+//   2. Dosco logo
 //   3. Steps trigger (spinner/chevron + status + duration) — if working || hasSteps
 //   4. Collapsible steps (if expanded): all parts EXCEPT response part
 //   5. Answered question parts (if collapsed + has answered questions)

@@ -6,7 +6,7 @@ import { setSentryUser } from '../lib/sentry';
 import { setContextField } from '../lib/request-context';
 
 /**
- * Sign in with Kortix: resolve a `kortix_oat_` OAuth access token to the user
+ * Sign in with Dosco: resolve a `kortix_oat_` OAuth access token to the user
  * who granted it. Shared by supabaseAuth and combinedAuth so both middlewares
  * hand a route the same principal (see unit-oauth-access-token-auth.test.ts).
  * Throws on any failure; sets the context and returns on success.

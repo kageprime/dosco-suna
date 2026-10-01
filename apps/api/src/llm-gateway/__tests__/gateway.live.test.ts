@@ -24,7 +24,7 @@ function makeGateway() {
     billingMode: 'credits',
     markup: 1.2,
     resolvedModel: CHEAP_MODEL,
-    appName: 'Kortix-LiveTests',
+    appName: 'Dosco-LiveTests',
   };
   const hooks: GatewayHooks = {
     authenticate: async () => ({ userId: 'live-user', accountId: 'live-acct' }),
@@ -79,7 +79,7 @@ describeLive('llm-gateway unified pipeline — LIVE OpenRouter (RUN_LIVE_LLM_TES
 });
 
 // GLM uses the ZDR OpenRouter pool. Other models use Morph when selected.
-// The client sees only Kortix. Needs OPENROUTER_API_KEY and KORTIX_MANAGED_PROVIDER_ENABLED.
+// The client sees only Dosco. Needs OPENROUTER_API_KEY and KORTIX_MANAGED_PROVIDER_ENABLED.
 const RUN_MANAGED_LIVE = RUN_LIVE && !!process.env.OPENROUTER_API_KEY;
 const describeManagedLive = RUN_MANAGED_LIVE ? describe : describe.skip;
 // Imported only for a live run: the module validates API config at load.
@@ -98,7 +98,7 @@ async function glmFirstUpstream(): Promise<string> {
   return config.OPENCODE_ZEN_API_KEY && config.OPENCODE_ZEN_MANAGED_MODELS.includes('glm-5.3-flash') ? 'opencode' : 'openrouter';
 }
 
-describeManagedLive('Kortix-managed routing — LIVE Morph + OpenRouter + OpenCode Zen', () => {
+describeManagedLive('Dosco-managed routing — LIVE Morph + OpenRouter + OpenCode Zen', () => {
   async function managedGateway(mutate: (candidates: UpstreamDescriptor[]) => UpstreamDescriptor[] = (c) => c) {
     const { managedCandidates } = await import('../resolution/descriptors');
     const { getManagedModel } = await import('@kortix/llm-catalog');
@@ -107,7 +107,7 @@ describeManagedLive('Kortix-managed routing — LIVE Morph + OpenRouter + OpenCo
       authenticate: async () => ({ userId: 'live-user', accountId: 'live-acct' }),
       // resolve-candidates.ts adds these to an opencode.ai candidate in production.
       resolveUpstream: async (_principal, model) => mutate(managedCandidates(getManagedModel(model)!).map((c) =>
-        c.provider === 'opencode' ? { ...c, headers: { 'x-opencode-session': 'kortix-live-test', 'User-Agent': 'Kortix (https://kortix.com)' } } : c)),
+        c.provider === 'opencode' ? { ...c, headers: { 'x-opencode-session': 'kortix-live-test', 'User-Agent': 'Dosco (https://dosco.live)' } } : c)),
       assertBillingActive: async () => {},
       recordUsage: async (event) => { recorded.push(event); },
     };
@@ -121,7 +121,7 @@ describeManagedLive('Kortix-managed routing — LIVE Morph + OpenRouter + OpenCo
           { type: 'image_url', image_url: { url: `data:image/png;base64,${RED_PNG}` } },
         ]
       : 'Reply with the single word: red';
-    test(`${model.id}: configured upstream serves the turn; the client sees only Kortix`, async () => {
+    test(`${model.id}: configured upstream serves the turn; the client sees only Dosco`, async () => {
       const { config } = await import('../../config');
       const morphSelected = config.MORPH_MANAGED_MODELS.includes(model.id) && !!config.MORPH_API_KEY;
       const zenSelected = config.OPENCODE_ZEN_MANAGED_MODELS.includes(model.id) && !!config.OPENCODE_ZEN_API_KEY;
@@ -161,7 +161,7 @@ describeManagedLive('Kortix-managed routing — LIVE Morph + OpenRouter + OpenCo
     expect(recorded[0]).toMatchObject({ upstream: { provider: 'openrouter' } });
   }, 120_000);
 
-  test('glm-5.3-flash: a streamed turn carries only Kortix identity', async () => {
+  test('glm-5.3-flash: a streamed turn carries only Dosco identity', async () => {
     const { gateway, recorded } = await managedGateway();
     const res = await gateway.chatCompletions({
       authorization: 'Bearer live',
@@ -221,7 +221,7 @@ describeManagedLive('Kortix-managed routing — LIVE Morph + OpenRouter + OpenCo
     }
   }
 
-  test('glm-5.3-flash: when every provider rejects the key, the client gets a Kortix 503', async () => {
+  test('glm-5.3-flash: when every provider rejects the key, the client gets a Dosco 503', async () => {
     const { gateway } = await managedGateway((candidates) => candidates.map((c) => ({ ...c, apiKey: 'sk-invalid' })));
     const res = await gateway.chatCompletions({
       authorization: 'Bearer live',

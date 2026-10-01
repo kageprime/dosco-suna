@@ -357,7 +357,7 @@ const cues: Cue[] = [
 
 export const sovereignFilm: FilmDef = {
   slug: 'sovereign',
-  title: 'Kortix — own your AI workforce',
+  title: 'Dosco — own your AI workforce',
   description:
     'Sixty seconds on the real product: agents in a repo you own, each starting with no access and granted exactly what it needs.',
   frames: bars(30),

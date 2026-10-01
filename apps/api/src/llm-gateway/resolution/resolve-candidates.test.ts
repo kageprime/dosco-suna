@@ -343,7 +343,7 @@ describe('resolveCandidates — BYOK billing', () => {
     expect(catalogUpstreamCalls[0]).toEqual(['opencode-go', 'minimax-m3']);
     expect(candidate).toMatchObject({ kind: 'anthropic', resolvedModel: 'minimax-m3' });
     expect(candidate?.headers?.['x-opencode-session']).toBe('ses_1');
-    expect(candidate?.headers?.['User-Agent']).toMatch(/^Kortix/);
+    expect(candidate?.headers?.['User-Agent']).toMatch(/^Dosco/);
   });
 
   test('BYOK OpenCode without a session keys the session header to the API key', async () => {
@@ -641,7 +641,7 @@ describe('resolveCandidates — managed model tier gating', () => {
     await expect(resolveCandidates(principal(), 'grok-4.6')).rejects.toMatchObject({
       name: 'GatewayResolutionError',
       code: 'model_retired',
-      message: 'The "grok-4.6" model was retired from Kortix\'s managed lineup.',
+      message: 'The "grok-4.6" model was retired from Dosco\'s managed lineup.',
     });
   });
 

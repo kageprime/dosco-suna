@@ -2,7 +2,7 @@
  * Which Platinum region a project's sessions run in when its `us_region`
  * feature flag is on.
  *
- * Platinum serves every region behind the one API origin Kortix already uses
+ * Platinum serves every region behind the one API origin Dosco already uses
  * (`PLATINUM_API_URL`): a create that names `region` is forwarded to that
  * region's control plane, and every later call by sandbox id is routed there
  * too. So choosing a region needs no second URL, only this value, and it is

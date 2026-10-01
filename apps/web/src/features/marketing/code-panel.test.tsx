@@ -26,7 +26,7 @@ const YAML_LINES = [
 // The /self-hosted install snippet: two blank rows and repeated prompt rows.
 const SHELL_LINES = [
   '# install the CLI',
-  '$ curl -fsSL https://kortix.com/install | bash',
+  '$ curl -fsSL https://dosco.live/install | bash',
   '',
   '# create the config if it is missing, then start everything',
   '$ kortix self-host start',
@@ -94,7 +94,7 @@ describe('the marketing code panel rendering, pinned for all three pages', () =>
       expect(html).toContain(`<span class="${COMMENT}"># install the CLI</span>`);
       // The prompt is its own unselectable span; the command follows verbatim.
       expect(html).toContain(
-        `<span class="${PROMPT}">$</span><span class="text-foreground"> curl -fsSL https://kortix.com/install | bash</span>`,
+        `<span class="${PROMPT}">$</span><span class="text-foreground"> curl -fsSL https://dosco.live/install | bash</span>`,
       );
       // An output line carries the emerald token.
       expect(html).toContain(

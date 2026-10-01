@@ -24,7 +24,7 @@ const PLATFORM = 'teams';
  *    session of the chat (before `/new`) is not.
  *
  * Either one must also still be allowed to stop runs in the project: a linked
- * Kortix account with `project.session.stop`. Someone removed from the
+ * Dosco account with `project.session.stop`. Someone removed from the
  * project, or never linked, is refused. Anyone else is refused too. Failing
  * closed on a stop is the safe direction: the worst case is that a bystander
  * waits for the run to end, instead of a bystander ending someone else's work.

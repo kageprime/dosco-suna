@@ -498,7 +498,7 @@ export function capturedMessageIndex(
 //
 // A sub-agent runs in its OWN OpenCode session, and its row in the parent opens
 // that session's transcript. The mirror keeps those transcripts under the same
-// Kortix session (rows carry their own `opencode_session_id`), so the row opens
+// Dosco session (rows carry their own `opencode_session_id`), so the row opens
 // onto its steps while the computer is off too.
 
 /** Tools that dispatch a sub-agent: the SDK's `getChildSessionId` list. */

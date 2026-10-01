@@ -458,7 +458,7 @@ describe('join policy on a follow-up', () => {
     // A manager who is not a participant approved from the card: the
     // decision was authorized, so the owner-only policy must not strand the
     // agent waiting for it.
-    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
     await createOrJoinTeamsConversationSession({
       projectId: PROJECT_ID,
       tenantId: TENANT_ID,

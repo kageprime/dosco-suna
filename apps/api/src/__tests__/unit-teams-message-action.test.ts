@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 
-// "Open in Kortix" on a message's ⋯ menu: Slack's message shortcut. It answers
+// "Open in Dosco" on a message's ⋯ menu: Slack's message shortcut. It answers
 // which session a conversation (or a channel thread) belongs to, with a link.
 
 mock.module('../config', () => ({ config: { FRONTEND_URL: 'https://app.example.test' } }));
@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 afterAll(() => mock.restore());
 
-describe('Open in Kortix', () => {
+describe('Open in Dosco', () => {
   test('a message in a channel thread opens that thread\'s session, found by its root', async () => {
     const r = JSON.stringify(await handleOpenInKortixAction(invoke(CHANNEL, { commandId: 'openInKortix', messagePayload: { id: 'reply-9', replyToId: 'root-1' } }), MANAGED));
     expect(r).toContain('"type":"continue"');
@@ -47,7 +47,7 @@ describe('Open in Kortix', () => {
   test('no session yet, or another command, answers with a message and no link', async () => {
     const none = JSON.stringify(await handleOpenInKortixAction(invoke(CHANNEL, { commandId: 'openInKortix', messagePayload: { id: 'lonely' } }), MANAGED));
     expect(none).toContain('"type":"message"');
-    expect(none).toContain('No Kortix session');
+    expect(none).toContain('No Dosco session');
     const other = JSON.stringify(await handleOpenInKortixAction(invoke('a:personal', { commandId: 'somethingElse' }), MANAGED));
     expect(other).toContain("isn't available");
   });

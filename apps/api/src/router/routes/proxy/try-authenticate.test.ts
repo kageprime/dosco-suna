@@ -2,8 +2,8 @@ import { describe, expect, mock, test } from 'bun:test';
 import type { AuthResult } from './app';
 
 // Characterization test for `tryAuthenticate`: the ordered set of client shapes
-// the proxy accepts a Kortix credential in. It pins the 401 each shape returns for
-// an invalid Kortix-shaped token, and that a valid one resolves to its account.
+// the proxy accepts a Dosco credential in. It pins the 401 each shape returns for
+// an invalid Dosco-shaped token, and that a valid one resolves to its account.
 //
 // The two token tables the platform mints into — the same mocks as
 // credential-resolution.test.ts: a session PAT lives in `account_tokens`, an API
@@ -56,7 +56,7 @@ async function authError(init: CtxInit): Promise<{ status: number; message: stri
   throw new Error('expected tryAuthenticate to throw');
 }
 
-describe('tryAuthenticate accepts a valid Kortix token in every client shape', () => {
+describe('tryAuthenticate accepts a valid Dosco token in every client shape', () => {
   const valid: Array<[string, CtxInit, AuthResult]> = [
     [
       'Authorization: Bearer <session PAT>',
@@ -97,19 +97,19 @@ describe('tryAuthenticate accepts a valid Kortix token in every client shape', (
   }
 });
 
-describe('tryAuthenticate rejects an invalid Kortix-shaped token per shape', () => {
+describe('tryAuthenticate rejects an invalid Dosco-shaped token per shape', () => {
   const invalid: Array<[string, CtxInit, string]> = [
     [
       'Authorization: Bearer',
       { authorization: 'Bearer kortix_pat_revoked' },
-      'Invalid Kortix token',
+      'Invalid Dosco token',
     ],
-    ['Authorization: Token', { authorization: 'Token kortix_pat_revoked' }, 'Invalid Kortix token'],
-    ['x-api-key', { xApiKey: 'kortix_pat_revoked' }, 'Invalid Kortix token in x-api-key'],
+    ['Authorization: Token', { authorization: 'Token kortix_pat_revoked' }, 'Invalid Dosco token'],
+    ['x-api-key', { xApiKey: 'kortix_pat_revoked' }, 'Invalid Dosco token in x-api-key'],
     [
       'JSON body api_key',
       { body: '{"api_key":"kortix_pat_revoked"}' },
-      'Invalid Kortix token in request body',
+      'Invalid Dosco token in request body',
     ],
     [
       'X-Kortix-Token',
@@ -126,7 +126,7 @@ describe('tryAuthenticate rejects an invalid Kortix-shaped token per shape', () 
 });
 
 describe('tryAuthenticate mode precedence', () => {
-  test('a Kortix token in Authorization wins over X-Kortix-Token', async () => {
+  test('a Dosco token in Authorization wins over X-Kortix-Token', async () => {
     expect(
       await tryAuthenticate(
         makeContext({
@@ -137,13 +137,13 @@ describe('tryAuthenticate mode precedence', () => {
     ).toEqual({ isKortixUser: true, accountId: 'acct-pat' });
   });
 
-  test('an invalid Kortix token in Authorization hard-rejects before X-Kortix-Token', async () => {
+  test('an invalid Dosco token in Authorization hard-rejects before X-Kortix-Token', async () => {
     expect(
       await authError({
         authorization: 'Bearer kortix_pat_revoked',
         xKortixToken: 'kortix_pat_valid',
       }),
-    ).toEqual({ status: 401, message: 'Invalid Kortix token' });
+    ).toEqual({ status: 401, message: 'Invalid Dosco token' });
   });
 
   test('a provider key in Authorization with a valid X-Kortix-Token is passthrough', async () => {
@@ -157,13 +157,13 @@ describe('tryAuthenticate mode precedence', () => {
     ).toEqual({ isKortixUser: true, accountId: 'acct-pat', isPassthrough: true });
   });
 
-  test('no Kortix token anywhere is pure passthrough', async () => {
+  test('no Dosco token anywhere is pure passthrough', async () => {
     expect(await tryAuthenticate(makeContext({ authorization: 'Bearer provider-key' }))).toEqual({
       isKortixUser: false,
     });
   });
 
-  test('a non-Kortix body api_key is not a token and falls through', async () => {
+  test('a non-Dosco body api_key is not a token and falls through', async () => {
     expect(await tryAuthenticate(makeContext({ body: '{"api_key":"provider-key"}' }))).toEqual({
       isKortixUser: false,
     });

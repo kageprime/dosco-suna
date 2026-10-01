@@ -335,9 +335,9 @@ function isNextAssetSource(filename: unknown): boolean {
 // injected script's filename is the app origin with no route path. It is not a
 // `_next` bundle (excluded below) and carries no file extension, so it is an
 // inline-script source too. Better Stack patterns `3442ad7c…` and `b86f8fb0…`
-// (Kortix Frontend prod, application_id 2346967): the identical `Ok`/`Qk`
+// (Dosco Frontend prod, application_id 2346967): the identical `Ok`/`Qk`
 // mutual recursion at one line, every frame's filename exactly `app:///`, on
-// `https://kortix.com/` and `https://kortix.com/auth`.
+// `https://dosco.live/` and `https://dosco.live/auth`.
 const IOS_WEBVIEW_INLINE_SCRIPT_SOURCE_PATTERN = /^app:\/\/\//;
 
 // A loaded asset path ends with a file extension; a route/document path does

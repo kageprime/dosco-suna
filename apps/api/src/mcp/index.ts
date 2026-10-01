@@ -1,10 +1,10 @@
 /**
- * The hosted Kortix MCP server: `POST /v1/mcp`, MCP Streamable HTTP (JSON
+ * The hosted Dosco MCP server: `POST /v1/mcp`, MCP Streamable HTTP (JSON
  * responses, stateless). One server per person, like the `kortix` CLI: it is
  * bound to the caller's token, never to a project, and reaches every account,
  * project and session that token can.
  *
- * Any MCP client adds the URL and signs in with OAuth ("Sign in with Kortix",
+ * Any MCP client adds the URL and signs in with OAuth ("Sign in with Dosco",
  * ../oauth): a `401` carries `WWW-Authenticate: Bearer resource_metadata=…`,
  * the client reads the RFC 9728 document, registers itself (RFC 7591), runs
  * the PKCE code flow, and returns with a `kortix_oat_` token that acts as the
@@ -62,7 +62,7 @@ const text = (value: string, isError = false): ToolResult => ({
   ...(isError ? { isError: true } : {}),
 });
 
-// ─── The Kortix API, in-process, as the caller ──────────────────────────────
+// ─── The Dosco API, in-process, as the caller ──────────────────────────────
 
 export type ApiReply = {
   status: number;
@@ -420,7 +420,7 @@ const TOOLS = [
     name: 'start_session',
     title: 'Start a session',
     description:
-      'Start a Kortix session in a project with a first prompt. An agent runs it in its own cloud sandbox on its own git branch. Returns the session_id. Follow it with read_session and wait_seconds (the first turn needs ~10–60 s while the sandbox boots).',
+      'Start a Dosco session in a project with a first prompt. An agent runs it in its own cloud sandbox on its own git branch. Returns the session_id. Follow it with read_session and wait_seconds (the first turn needs ~10–60 s while the sandbox boots).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -565,9 +565,9 @@ const TOOLS = [
   },
   {
     name: 'read_skill',
-    title: 'Read Kortix guides',
+    title: 'Read Dosco guides',
     description:
-      "Read the Kortix platform guides (skills): how projects, sessions, agents, kortix.yaml, triggers, connectors, secrets, Apps, change requests and the CLI work. No name lists them; a name returns the guide and its reference file paths; file reads one reference. With project_id, the project's own skills come with them: no name lists both; a name returns that project skill's SKILL.md and its reference file paths (a project skill wins over a guide of the same name); file reads one of its references.",
+      "Read the Dosco platform guides (skills): how projects, sessions, agents, kortix.yaml, triggers, connectors, secrets, Apps, change requests and the CLI work. No name lists them; a name returns the guide and its reference file paths; file reads one reference. With project_id, the project's own skills come with them: no name lists both; a name returns that project skill's SKILL.md and its reference file paths (a project skill wins over a guide of the same name); file reads one of its references.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -581,9 +581,9 @@ const TOOLS = [
   },
   {
     name: 'search_api',
-    title: 'Search the Kortix API',
+    title: 'Search the Dosco API',
     description:
-      'Search the Kortix API — the routes the web app and the kortix CLI use: accounts, projects, sessions, files, secrets, connectors, triggers, agents, models, change requests, Apps, access, billing, audit. Returns METHOD /path — summary lines. Follow with describe_api, then call_api.',
+      'Search the Dosco API — the routes the web app and the kortix CLI use: accounts, projects, sessions, files, secrets, connectors, triggers, agents, models, change requests, Apps, access, billing, audit. Returns METHOD /path — summary lines. Follow with describe_api, then call_api.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -612,9 +612,9 @@ const TOOLS = [
   },
   {
     name: 'call_api',
-    title: 'Call the Kortix API',
+    title: 'Call the Dosco API',
     description:
-      'Call any Kortix API route as the signed-in user, with their permissions. {projectId} in the path is replaced with project_id; replace every other {placeholder} yourself, e.g. /v1/projects/{projectId}/secrets/MY_KEY. Returns `METHOD path → HTTP status` and the response body.',
+      'Call any Dosco API route as the signed-in user, with their permissions. {projectId} in the path is replaced with project_id; replace every other {placeholder} yourself, e.g. /v1/projects/{projectId}/secrets/MY_KEY. Returns `METHOD path → HTTP status` and the response body.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1081,14 +1081,14 @@ const connectorHost = (ctx: ToolContext): Host => ({
 
 function instructions(): string {
   return [
-    'Kortix MCP. You act as the signed-in user, with their permissions, across every account and project they can open — the same reach as the kortix CLI.',
+    'Dosco MCP. You act as the signed-in user, with their permissions, across every account and project they can open — the same reach as the kortix CLI.',
     'Start with list_projects. Tools take a project_id (start_session, list_sessions, repository reads) or a session_id (everything about one session).',
-    'Sessions: start_session delegates a task to a Kortix agent in its own cloud sandbox; read_session (with wait_seconds) follows it; send_message continues it; list_sessions finds existing ones.',
+    'Sessions: start_session delegates a task to a Dosco agent in its own cloud sandbox; read_session (with wait_seconds) follows it; send_message continues it; list_sessions finds existing ones.',
     "Sandboxes: run_command runs bash in a session's sandbox, and read_file / write_file / list_files reach its live /workspace. With a project_id instead of a session_id, read_file and list_files read the project's git repository.",
-    'Platform knowledge: read_skill lists the Kortix guides; read_skill name=kortix-system is the complete reference.',
+    'Platform knowledge: read_skill lists the Dosco guides; read_skill name=kortix-system is the complete reference.',
     'Connectors (Gmail, Slack, GitHub, MCP servers, APIs a project connected): list_connectors shows what is connected and its accounts → search_connector_actions finds an action by intent → describe_connector_action reads its arguments → call_connector runs it as you (pass `reason` for a write whose args are only ids; a `pending_approval` result carries a link the human opens, then call again). A connector that is not connected: connect_connector returns the url the human opens. upload_connector_attachment stages a file for a call; search_connector_apps and add_connector add one to the project.',
     'The kortix CLI itself: the `kortix` tool runs any CLI command as you, e.g. args ["secrets","ls","--json"] (discover with ["--help"] and ["<group>","--help"]; project_id and session_id set the context). Login, hosts, ship, tui and other machine-local commands are refused with the alternative. read_skill with project_id also lists the project\'s own skills.',
-    'Everything else the web app and the kortix CLI can do is the Kortix API: search_api finds a route, describe_api reads it, call_api runs it (project_id fills {projectId}).',
+    'Everything else the web app and the kortix CLI can do is the Dosco API: search_api finds a route, describe_api reads it, call_api runs it (project_id fills {projectId}).',
   ].join('\n');
 }
 
@@ -1100,7 +1100,7 @@ async function handleRpc(ctx: ToolContext, method: string, params: Record<string
       const requested = String(params.protocolVersion ?? '');
       return {
         protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : SUPPORTED_PROTOCOL_VERSIONS[0]!,
-        serverInfo: { name: 'kortix', title: 'Kortix', version: process.env.KORTIX_VERSION ?? 'dev' },
+        serverInfo: { name: 'kortix', title: 'Dosco', version: process.env.KORTIX_VERSION ?? 'dev' },
         capabilities: { tools: {} },
         instructions: instructions(),
       };
@@ -1133,7 +1133,7 @@ function challengeUnauthorized(c: Context, next: Next) {
   const sent = Boolean(c.req.header('Authorization')?.startsWith('Bearer '));
   // RFC 6750 3.1: a token that was sent and refused names `invalid_token`.
   const challenge = () =>
-    c.json({ error: 'unauthorized', error_description: 'Sign in with OAuth, or send a kortix_pat_ token, to use the Kortix MCP server.' }, 401, {
+    c.json({ error: 'unauthorized', error_description: 'Sign in with OAuth, or send a kortix_pat_ token, to use the Dosco MCP server.' }, 401, {
       'WWW-Authenticate': `Bearer ${sent ? 'error="invalid_token", ' : ''}${metadata}, scope="${OAUTH_SCOPE_KORTIX}"`,
     });
   if (!sent) return challenge();

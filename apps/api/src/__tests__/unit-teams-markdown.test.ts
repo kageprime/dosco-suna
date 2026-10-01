@@ -150,7 +150,7 @@ describe('markdownToCardElements — HTML entities', () => {
 // Gmail](…) using the existing connector" (dev, 2026-09-28). In a Teams card
 // that is a small underlined word in a sentence; the card system has a real
 // button for it (`Action.OpenUrl`). A link the user is meant to click becomes
-// one: a line that is only a link, or a Kortix connect link anywhere.
+// one: a line that is only a link, or a Dosco connect link anywhere.
 describe('markdownToCardElements — call-to-action links become buttons', () => {
   const CONNECT = 'https://app.example.test/connect/ksl_c3ludGhldGlj';
   const buttons = (el: El) => (el.actions as El[]).map((a) => [a.type, a.title, a.url]);

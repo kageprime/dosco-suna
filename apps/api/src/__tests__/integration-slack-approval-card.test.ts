@@ -302,7 +302,7 @@ test('a call with nothing to review cannot be approved from the card', async () 
   expect(ephemeral).toEqual(['This call recorded no parameters to review, so it can only be denied.']);
 });
 
-test('a decision made in Kortix replaces the card buttons in the thread too', async () => {
+test('a decision made in Dosco replaces the card buttons in the thread too', async () => {
   const executionId = await pending({
     args_preview: { draft_id: 'r-1' },
     args_preview_complete: true,

@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Step 3 — which models Kortix uses. The last step: its primary opens the
+ * Step 3 — which models Dosco uses. The last step: its primary opens the
  * project.
  *
  * Selecting a row only selects. Continue performs the choice, and its label
  * names what it will do:
- * - Kortix models that are ready, or an own key that is connected: open the project.
- * - Kortix models without access: see plans.
+ * - Dosco models that are ready, or an own key that is connected: open the project.
+ * - Dosco models without access: see plans.
  * - An own key with none connected: add a key. Once one is added the label
  *   becomes "Open workspace" (`planAction`).
  *
@@ -20,7 +20,7 @@ import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup } from '@/components/ui/radio-group';
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { useModelConnectionGate } from '@/features/session/use-model-connection-gate';
 import { useAccountState } from '@/hooks/billing';
 import { useTranslations } from '@/i18n/use-translations';
@@ -47,7 +47,7 @@ export function PlanStep({ projectId, onContinue }: { projectId: string; onConti
     { projectId },
   );
   const { data: accountState } = useAccountState();
-  // A plan with an empty wallet still lists Kortix models; the billing state
+  // A plan with an empty wallet still lists Dosco models; the billing state
   // machine, not the model list, says whether they run. Billing off (self-host)
   // has no wallet to check.
   const access = {
@@ -96,7 +96,7 @@ export function PlanStep({ projectId, onContinue }: { projectId: string; onConti
                 </Badge>
               }
               description={kortixReady ? t('useKortixDescription') : t('useKortixNeedsPlan')}
-              leading={<Kortix className="size-5 shrink-0" />}
+              leading={<Dosco className="size-5 shrink-0" />}
             />
           )}
           <SelectionRow

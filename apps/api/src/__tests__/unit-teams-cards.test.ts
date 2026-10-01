@@ -213,7 +213,7 @@ describe('Slack parity cards', () => {
     expect(actions(large)).toEqual([expect.objectContaining({ type: 'Action.Execute', verb: 'teams_set_agent' })]);
   });
 
-  test('the /status panel carries its change buttons before "Open in Kortix"', () => {
+  test('the /status panel carries its change buttons before "Open in Dosco"', () => {
     const c = buildPanelCard({
       title: 'This conversation',
       rows: [{ label: 'Model', value: 'default' }],
@@ -223,7 +223,7 @@ describe('Slack parity cards', () => {
     expect(actions(c).map((a) => [a.type, (a as { title?: string }).title, a.data?.panel])).toEqual([
       ['Action.Execute', 'Change model', 'models'],
       ['Action.Execute', 'Change agent', 'agents'],
-      ['Action.OpenUrl', 'Open in Kortix', undefined],
+      ['Action.OpenUrl', 'Open in Dosco', undefined],
     ]);
     expect(actions(c)[0]).toMatchObject({ verb: 'teams_open_panel' });
   });
@@ -312,16 +312,16 @@ describe('Slack parity cards, part 2', () => {
 
   test('models are grouped by how they are paid for, in Slack\'s order', () => {
     const models = [
-      { id: 'kortix/glm', label: 'GLM', via: 'kortix' as const, providerLabel: 'Kortix' },
+      { id: 'kortix/glm', label: 'GLM', via: 'kortix' as const, providerLabel: 'Dosco' },
       { id: 'anthropic/claude', label: 'Claude', via: 'key' as const, providerLabel: 'Anthropic' },
       { id: 'codex/gpt', label: 'GPT', via: 'chatgpt' as const, providerLabel: 'OpenAI' },
     ];
     const json = JSON.stringify(buildModelPickerCard({ models, current: null, currentLabel: null, defaultLabel: null, scopeNote: 'note' }));
-    const order = ['ChatGPT subscriptions', 'GPT', 'API keys', 'Claude', 'Kortix models', 'GLM'].map((t) => json.indexOf(`"text":"${t}"`));
+    const order = ['ChatGPT subscriptions', 'GPT', 'API keys', 'Claude', 'Dosco models', 'GLM'].map((t) => json.indexOf(`"text":"${t}"`));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-    const many = Array.from({ length: 9 }, (_, i) => ({ id: `kortix/m${i}`, label: `M${i}`, via: 'kortix' as const, providerLabel: 'Kortix' }));
+    const many = Array.from({ length: 9 }, (_, i) => ({ id: `kortix/m${i}`, label: `M${i}`, via: 'kortix' as const, providerLabel: 'Dosco' }));
     const dropdown = (buildModelPickerCard({ models: [...many, models[2]!], current: null, currentLabel: null, defaultLabel: null, scopeNote: 'n' }).body as Array<Record<string, unknown>>)
       .find((e) => e.type === 'Input.ChoiceSet')!;
     expect((dropdown.choices as Array<{ value: string }>).map((c) => c.value).slice(0, 2)).toEqual(['', 'codex/gpt']);
@@ -338,15 +338,15 @@ describe('Slack parity cards, part 2', () => {
   test('the admin notice links to Members, and the other 1:1 notices say where the link went', () => {
     const notice = buildAccessRequestNoticeCard({ requester: '**alex@example.test**', reviewUrl: 'https://app/projects/p1/customize/members' });
     expect(actions(notice)).toEqual([expect.objectContaining({ type: 'Action.OpenUrl', url: 'https://app/projects/p1/customize/members' })]);
-    expect(texts(buildConnectSentPrivatelyCard({ botName: 'Kortix', resumes: true })).join(' ')).toContain('private chat with Kortix');
+    expect(texts(buildConnectSentPrivatelyCard({ botName: 'Dosco', resumes: true })).join(' ')).toContain('private chat with Dosco');
     expect(actions(buildOpenSessionCard('https://app/s/1'))).toEqual([expect.objectContaining({ type: 'Action.OpenUrl', url: 'https://app/s/1' })]);
   });
 });
 
 // An agent can post any Adaptive Card (`teams send --card-file`, `teams post
-// --card-file`). A look-alike of Kortix's own Stop, Approve or join card would
-// post Kortix's verbs when a person clicks it. Agent cards keep links only.
-describe('agent-built cards cannot post back to Kortix', () => {
+// --card-file`). A look-alike of Dosco's own Stop, Approve or join card would
+// post Dosco's verbs when a person clicks it. Agent cards keep links only.
+describe('agent-built cards cannot post back to Dosco', () => {
   const forged = {
     type: 'AdaptiveCard',
     version: '1.5',

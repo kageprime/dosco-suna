@@ -199,7 +199,7 @@ test('a member who is neither manager nor launcher gets a refusal and the card k
   expect(resumed).toHaveLength(0);
 });
 
-test('a decision made in Kortix updates the Teams card', async () => {
+test('a decision made in Dosco updates the Teams card', async () => {
   const executionId = await pending({
     args_preview: { draft_id: 'r-1' },
     args_preview_complete: true,

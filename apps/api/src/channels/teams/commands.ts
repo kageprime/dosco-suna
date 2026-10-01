@@ -307,7 +307,7 @@ async function buildStatusCard(
       // that — so a run that had quietly stopped looked identical to one still
       // working.
       { label: 'Session', value: describeConversationSession(session) },
-      { label: 'You', value: identity ? `connected as ${email || 'your Kortix account'}` : 'not connected — run /login' },
+      { label: 'You', value: identity ? `connected as ${email || 'your Dosco account'}` : 'not connected — run /login' },
     ],
     // Slack's settings panel changes what it shows; this one only showed it.
     actions: [
@@ -346,10 +346,10 @@ export async function buildTeamsPanel(input: {
 const RECENT_SESSIONS = 5;
 
 async function buildRecentSessionsCard(actor: ChatUser, projectId?: string) {
-  // Only sessions the linked Kortix account may open, as on the web; a
+  // Only sessions the linked Dosco account may open, as on the web; a
   // per-project bot lists its own project's only.
   const rows = await listVisibleChatSessions(actor, { limit: RECENT_SESSIONS, projectId });
-  if (rows === null) return buildNoticeCard('Connect your Kortix account to see your recent sessions: run `/login`.', '🔑');
+  if (rows === null) return buildNoticeCard('Connect your Dosco account to see your recent sessions: run `/login`.', '🔑');
   if (rows.length === 0) return buildNoticeCard('No recent sessions from this Teams tenant yet. @-mention me with a task to start one.', '🗂️');
   const images = await repoPreviewImages(rows.map((r) => r.repoUrl), { waitMs: PREVIEW_WAIT_MS });
   return buildSessionsCard(rows.map((r) => ({

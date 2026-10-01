@@ -137,7 +137,7 @@ export interface GatewayDeps {
   loadConnectorBySlug(projectId: string, slug: string): Promise<GatewayConnector | null>;
   /**
    * Spec 2026-09-22 §2.5: the `X-Kortix-App-Authorization` value for a call
-   * whose base URL is a Kortix App of THIS deployment in the caller's OWN
+   * whose base URL is a Dosco App of THIS deployment in the caller's OWN
    * project — a ≤ 60 s signed assertion naming the calling session token.
    * Null for any other host. Optional: absent = never attach.
    */
@@ -356,7 +356,7 @@ export interface CallInput {
   sessionId?: string | null;
   /** The presented account token's id (`account_tokens.token_id`), when the
    *  caller authenticated with one. With `sessionId` it identifies an agent
-   *  session — the only caller that gets a Kortix App assertion. */
+   *  session — the only caller that gets a Dosco App assertion. */
   actingTokenId?: string | null;
   connectorSlug: string;
   /** Connector-relative action path (e.g. `charges.create`). */
@@ -406,7 +406,7 @@ export type CallResult =
 const MAX_APPROVAL_CONTEXT = 4_000;
 const CARD_POST_BUDGET_MS = 5_000;
 const CARD_POSTED_INSTRUCTIONS =
-  'An approval card with Approve / Deny / Reply buttons was posted in the chat thread; the human decides there. Do not repost approval_url. Stop this turn — Kortix resumes the session after approve or deny.';
+  'An approval card with Approve / Deny / Reply buttons was posted in the chat thread; the human decides there. Do not repost approval_url. Stop this turn — Dosco resumes the session after approve or deny.';
 
 /** A card that is slow or fails must never fail or stall the gated call. */
 async function postCardWithin(ms: number, post: () => Promise<{ posted: boolean }>): Promise<boolean> {
@@ -772,7 +772,7 @@ export async function handleCall(deps: GatewayDeps, input: CallInput): Promise<C
         ...(url
           ? {
               approvalInstructions: input.sessionId
-                ? `Share approval_url with a human, then stop this turn. Kortix resumes the session after approve or deny.${approvalContext ? '' : CONTEXT_HINT}`
+                ? `Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny.${approvalContext ? '' : CONTEXT_HINT}`
                 : `Share approval_url with a human. Retry this exact call once they approve it.${approvalContext ? '' : CONTEXT_HINT}`,
             }
           : {}),
@@ -933,7 +933,7 @@ export async function handleCall(deps: GatewayDeps, input: CallInput): Promise<C
       // These runners take provider-native file inputs. Forwarding the
       // reference would deliver the message without its file.
       throw new Error(
-        `connector_attachments_unsupported: ${connector.provider} connectors do not accept Kortix attachments`,
+        `connector_attachments_unsupported: ${connector.provider} connectors do not accept Dosco attachments`,
       );
     }
 
@@ -1130,7 +1130,7 @@ export async function handleCall(deps: GatewayDeps, input: CallInput): Promise<C
               .catch(() => false)
           : false;
         const { reason } = misfire.refusal;
-        const message = `${misfire.refusal.message} ${undone ? 'Kortix removed it.' : 'Kortix could not remove it: delete it in Slack.'}`;
+        const message = `${misfire.refusal.message} ${undone ? 'Dosco removed it.' : 'Dosco could not remove it: delete it in Slack.'}`;
         await audit(deps, input, connector, 'denied', action.risk, { reason, message, removed: undone });
         return { status: 'denied', reason, message };
       }

@@ -109,7 +109,7 @@ async function membersPermissionError(
         'the App has no "Members: read" organization permission',
     );
     return new GitHubAppPermissionError(
-      'This Kortix instance cannot verify GitHub organizations: its GitHub App is missing the ' +
+      'This Dosco instance cannot verify GitHub organizations: its GitHub App is missing the ' +
         '"Members: read" organization permission. Your GitHub role is not the cause. ' +
         'Contact the instance operator.',
       'app',
@@ -118,7 +118,7 @@ async function membersPermissionError(
   }
   const where = installation.html_url ? ` at ${installation.html_url}` : ' in its GitHub App settings';
   return new GitHubAppPermissionError(
-    `${owner} has not granted the Kortix GitHub App the "Members: read" permission. ` +
+    `${owner} has not granted the Dosco GitHub App the "Members: read" permission. ` +
       `An owner of ${owner} must accept the updated permissions${where}, then verify again.`,
     'installation',
     ['members'],

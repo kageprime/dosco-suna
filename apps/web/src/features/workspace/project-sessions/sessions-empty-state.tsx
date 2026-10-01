@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * What a project's session list shows before its first session: one line of
- * text over the pixel Kortix mark. The sidebar list and the sessions page both
+ * text over the pixel Dosco mark. The sidebar list and the sessions page both
  * render it, so the two empty lists always say the same thing.
  *
  * No button. The sidebar and the sessions toolbar each already have a "New

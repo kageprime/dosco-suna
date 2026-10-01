@@ -294,7 +294,7 @@ const CAPABILITIES: readonly { key: 'filesystem' | 'shell' | 'desktop'; icon: Ic
 ];
 
 /**
- * What Kortix can use on a computer. With `granted` (the capabilities approved
+ * What Dosco can use on a computer. With `granted` (the capabilities approved
  * at pairing) each row says Allowed / Not allowed; without it, it is a preview.
  */
 export function ComputerCapabilities({ granted }: { granted?: readonly string[] }) {

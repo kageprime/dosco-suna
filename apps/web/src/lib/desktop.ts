@@ -340,7 +340,7 @@ export interface DesktopComputerConnectResult {
 
 export interface DesktopComputerDisconnectResult {
   ok: boolean;
-  /** The machine removed itself from Kortix. False: the server still lists it. */
+  /** The machine removed itself from Dosco. False: the server still lists it. */
   serverUnpaired?: boolean;
   status: DesktopComputerStatus;
   error?: string;
@@ -416,8 +416,8 @@ export const desktopComputerConnect = (input: {
 export const desktopComputerPause = () => desktopServiceVerb('computer_pause');
 export const desktopComputerResume = () => desktopServiceVerb('computer_resume');
 /**
- * Removes this machine from Kortix with its own credential, then the local
- * credential and the service. `serverUnpaired: false` = Kortix was not
+ * Removes this machine from Dosco with its own credential, then the local
+ * credential and the service. `serverUnpaired: false` = Dosco was not
  * reachable; the machine record must be removed through the API.
  */
 export const desktopComputerDisconnect = () =>

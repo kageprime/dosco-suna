@@ -47,7 +47,7 @@ export function useSessionPanelView({
   // beside it correctly read idle — so `useDeliverableReadiness` never saw the
   // running→settled transition and the W1 "ready" chip never fired for that run.
   //
-  // A transient sub-session has no Kortix session row for `/turn` to answer
+  // A transient sub-session has no Dosco session row for `/turn` to answer
   // about, so it keeps the stream slot — repaired on every stream (re)connect
   // by the status-snapshot reconciler in `use-opencode-events`.
   const sessionStatus = useSessionStateStore((s) => s.sessionStatus[sessionId]);
@@ -117,9 +117,9 @@ export function useSessionPanelSessionSync({
   // and `setActiveSession` closes both surfaces, so a session you have just
   // arrived at never inherits the last one's right side.
   //
-  // `continuity` names the Kortix project session behind this layout id and
+  // `continuity` names the Dosco project session behind this layout id and
   // whether this mount is the transient boot shell. The store uses it for one
-  // thing: the boot→ready crossfade renames the layout from the Kortix session
+  // thing: the boot→ready crossfade renames the layout from the Dosco session
   // id (shell) to the OpenCode id (real chat) for the SAME session — that
   // handoff must carry an open panel across instead of slamming it shut.
   useEffect(() => {

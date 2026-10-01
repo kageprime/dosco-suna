@@ -417,7 +417,7 @@ describe('commitFiles', () => {
       repo: 'company',
       branch: 'main',
       files,
-      message: 'chore: scaffold the Kortix starter',
+      message: 'chore: scaffold the Dosco starter',
       auth: { token: 'ghs_x', source: 'app_installation' },
     });
 
@@ -436,7 +436,7 @@ describe('commitFiles', () => {
     const commit = calls[3]!.body;
     expect(commit.tree).toBe('n'.repeat(40));
     expect(commit.parents).toEqual(['a'.repeat(40)]);
-    expect(commit.author).toEqual({ name: 'Kortix', email: 'noreply@kortix.ai' });
+    expect(commit.author).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
     expect(calls[4]!.body).toEqual({ sha: 'c'.repeat(40), force: false });
   });
 

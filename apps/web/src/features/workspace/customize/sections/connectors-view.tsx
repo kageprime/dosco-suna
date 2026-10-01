@@ -574,7 +574,7 @@ export function ConnectionsList({
     onError: (e: Error) => errorToast(e.message || tI18nComplete.raw('texta2cf78785484')),
   });
   // Your own computer row follows you into every project, so its Disconnect
-  // removes the machine from Kortix (every project), not one account.
+  // removes the machine from Dosco (every project), not one account.
   const unpairComputer = useDeleteTunnelConnection();
   const disconnect = useMutation({
     mutationFn: (connectionId: string) => revokeConnection(projectId, connectionId),

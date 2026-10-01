@@ -346,7 +346,7 @@ function emailTurnInstructions(event: AgentMailMessageReceivedEvent): string {
   });
   return [
     'How to work:',
-    '- You are operating an AgentMail inbox assigned to this Kortix project.',
+    '- You are operating an AgentMail inbox assigned to this Dosco project.',
     '- Use the `kortix connectors` CLI in the shell. Connector actions are not direct tools.',
     `- Read the current thread: \`kortix connectors call email.get_thread '${readThreadArgs}'\`.`,
     `- Reply in the same conversation: \`kortix connectors call email.reply_message '${replyArgs}'\`. Use \`html\` instead of \`text\` only when needed.`,
@@ -377,7 +377,7 @@ function renderAgentPrompt(event: AgentMailMessageReceivedEvent, revived: boolea
     );
   }
   lines.push(
-    "You're answering an email thread as the Kortix agent.",
+    "You're answering an email thread as the Dosco agent.",
     '',
     `Inbox ID:   ${event.message.inbox_id}`,
     `Thread ID:  ${event.message.thread_id}`,

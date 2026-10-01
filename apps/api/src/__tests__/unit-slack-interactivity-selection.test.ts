@@ -328,7 +328,7 @@ describe('settings buttons need a linked project manager', () => {
 });
 
 // An agent can post any button through the bot, including a look-alike
-// "Connect" whose value names a URL of its choosing. Kortix used to present
+// "Connect" whose value names a URL of its choosing. Dosco used to present
 // that URL as its own sign-in page. The link is now built for the clicker.
 describe('the Connect button', () => {
   test('never presents a URL taken from the button value', async () => {

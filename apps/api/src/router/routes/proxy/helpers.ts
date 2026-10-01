@@ -15,7 +15,7 @@ import type { AuthResult, ToolCreditReservation } from './app';
 export { matchAllowedRoute };
 
 /**
- * Resolve ANY Kortix credential to the account it bills.
+ * Resolve ANY Dosco credential to the account it bills.
  *
  * The platform mints two shapes and they live in different tables:
  *   - `kortix_pat_…`  → `account_tokens`   (`validateAccountToken`)
@@ -25,7 +25,7 @@ export { matchAllowedRoute };
  * to this proxy — is the FIRST shape: a session-scoped PAT auto-minted at
  * session create (projects/routes/project-credentials.ts). This resolver only ever consulted
  * the second table, so every built-in tool call answered
- * `401 Invalid Kortix token in x-api-key` while the same token authenticated
+ * `401 Invalid Dosco token in x-api-key` while the same token authenticated
  * fine on every other route. Try the right validator for the prefix; never
  * widen what counts as valid (both validators still enforce active + not
  * expired + not revoked).
@@ -46,15 +46,15 @@ interface KortixTokenSource {
   passthrough?: boolean;
 }
 
-// The client shapes the proxy accepts a Kortix credential in, in precedence order.
-// The first shape that carries a Kortix-shaped token decides the outcome: a valid
+// The client shapes the proxy accepts a Dosco credential in, in precedence order.
+// The first shape that carries a Dosco-shaped token decides the outcome: a valid
 // token authenticates, an invalid one is a hard 401 — never a free passthrough.
 const KORTIX_TOKEN_SOURCES: KortixTokenSource[] = [
   {
-    // Mode 1: a Kortix token (kortix_/kortix_sb_) in Authorization — full
-    // Kortix-managed flow. Everyone else sends "Bearer ", the Replicate SDK
-    // "Token ". If it looks like a Kortix token but fails validation → hard reject.
-    invalid: 'Invalid Kortix token',
+    // Mode 1: a Dosco token (kortix_/kortix_sb_) in Authorization — full
+    // Dosco-managed flow. Everyone else sends "Bearer ", the Replicate SDK
+    // "Token ". If it looks like a Dosco token but fails validation → hard reject.
+    invalid: 'Invalid Dosco token',
     extract: (c) => {
       const authHeader = c.req.header('Authorization');
       if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
@@ -62,15 +62,15 @@ const KORTIX_TOKEN_SOURCES: KortixTokenSource[] = [
     },
   },
   {
-    // Mode 1b: the Anthropic SDK sends the key via x-api-key; a Kortix token there
-    // is Mode 1 (Kortix-managed).
-    invalid: 'Invalid Kortix token in x-api-key',
+    // Mode 1b: the Anthropic SDK sends the key via x-api-key; a Dosco token there
+    // is Mode 1 (Dosco-managed).
+    invalid: 'Invalid Dosco token in x-api-key',
     extract: (c) => c.req.header('x-api-key'),
   },
   {
     // Mode 1c: the Tavily SDK sends the key in the JSON body as "api_key". Check
-    // the body for a Kortix token so sandbox tools can auth through the proxy.
-    invalid: 'Invalid Kortix token in request body',
+    // the body for a Dosco token so sandbox tools can auth through the proxy.
+    invalid: 'Invalid Dosco token in request body',
     extract: async (c) => {
       if (c.req.method !== 'POST') return undefined;
       const bodyText = await c.req.raw.clone().text();
@@ -80,7 +80,7 @@ const KORTIX_TOKEN_SOURCES: KortixTokenSource[] = [
   },
   {
     // Mode 2: the user's own API key is in Authorization (Bearer) or a
-    // provider-specific header (e.g. Anthropic's x-api-key). The Kortix token
+    // provider-specific header (e.g. Anthropic's x-api-key). The Dosco token
     // rides in X-Kortix-Token so we can identify and authorize the account.
     invalid: 'Invalid X-Kortix-Token',
     passthrough: true,
@@ -103,8 +103,8 @@ export async function tryAuthenticate(c: any): Promise<AuthResult> {
     }
     if (!token) continue;
 
-    // A Kortix-shaped token resolves, or it hard-rejects below. Never allow an
-    // invalid Kortix token to fall through to free passthrough.
+    // A Dosco-shaped token resolves, or it hard-rejects below. Never allow an
+    // invalid Dosco token to fall through to free passthrough.
     const accountId = await resolveKortixAccount(token).catch(() => null);
     if (!accountId) throw new HTTPException(401, { message: source.invalid });
 
@@ -113,7 +113,7 @@ export async function tryAuthenticate(c: any): Promise<AuthResult> {
       : { isKortixUser: true, accountId };
   }
 
-  // Mode 3: no Kortix token anywhere — pure passthrough, no billing.
+  // Mode 3: no Dosco token anywhere — pure passthrough, no billing.
   return { isKortixUser: false };
 }
 

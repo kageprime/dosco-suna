@@ -64,7 +64,7 @@ export function activeGrant(access: Pick<ComputerAccess, 'mode' | 'grantedUntil'
 const clock = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /**
- * "Your computer" (desktop app only): this machine's pairing, when Kortix may
+ * "Your computer" (desktop app only): this machine's pairing, when Dosco may
  * use it (decided here, on the machine), what it may use, and its background
  * service. It follows its owner into every project; sharing it with a project
  * is the `computer` connector's Accounts tab, linked from the footer.

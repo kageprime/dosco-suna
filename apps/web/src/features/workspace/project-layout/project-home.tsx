@@ -46,7 +46,7 @@ export interface ProjectHomeSendOptions extends ComposerOptions {
  *
  * Until a new project's first message is sent, the column is the first chat
  * instead (`home/first-chat.tsx`, started by onboarding): the same composer,
- * docked at the bottom under a welcome from Kortix.
+ * docked at the bottom under a welcome from Dosco.
  *
  * This component owns the composer's WIRING — which sandbox, which agent, what
  * a send carries, what a prefill does. Everything it renders is a component of

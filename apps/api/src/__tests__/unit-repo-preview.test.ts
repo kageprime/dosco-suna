@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 // GitHub's social preview exists only for a public repository. For a private
 // or missing one the image service answered 429, then a generic placeholder
 // (measured 2026-09-29), and Teams drew a broken image beside every
-// Kortix-hosted project. The repository page decides: 200 public, 404 not.
+// Dosco-hosted project. The repository page decides: 200 public, 404 not.
 
 mock.module('../config', () => ({ config: { MANAGED_GIT_GITHUB_OWNER: 'managed-kortix' } }));
 const { isKortixHostedRepo, repoDisplayLabel, repoPreviewImages, resetRepoPreviewCache } = await import('../channels/repo-preview');
@@ -34,7 +34,7 @@ describe('repoPreviewImages', () => {
     expect(requests).toContainEqual({ url: 'https://github.com/octocat/Hello-World', method: 'HEAD' });
   });
 
-  test('a Kortix-hosted repository is never fetched', async () => {
+  test('a Dosco-hosted repository is never fetched', async () => {
     const images = await repoPreviewImages([HOSTED], { fetchImpl });
     expect(images.size).toBe(0);
     expect(requests).toEqual([]);
@@ -61,10 +61,10 @@ describe('repoPreviewImages', () => {
 });
 
 describe('repo labels', () => {
-  test('a Kortix-hosted repository reads "Hosted by Kortix", not its internal name', () => {
+  test('a Dosco-hosted repository reads "Hosted by Dosco", not its internal name', () => {
     expect(isKortixHostedRepo(HOSTED)).toBe(true);
     expect(isKortixHostedRepo(PUBLIC)).toBe(false);
-    expect(repoDisplayLabel(HOSTED)).toBe('Hosted by Kortix');
+    expect(repoDisplayLabel(HOSTED)).toBe('Hosted by Dosco');
     expect(repoDisplayLabel(PUBLIC)).toBe('octocat/Hello-World');
     expect(repoDisplayLabel(null)).toBeNull();
   });

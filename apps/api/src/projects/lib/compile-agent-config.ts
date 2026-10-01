@@ -533,7 +533,7 @@ export function agentConfigEtag(compiled: string | null | undefined): string | n
  * off). Everything else is OpenCode. `runtime: null` is "no readable v2
  * manifest", which counts as opencode.
  *
- * pi calls models only through the Kortix LLM gateway (kortixd
+ * pi calls models only through the Dosco LLM gateway (kortixd
  * `harness/pi/model.ts`). A project with the `llm_gateway` flag off gets no
  * gateway URL, so it always boots OpenCode, which calls providers directly.
  */

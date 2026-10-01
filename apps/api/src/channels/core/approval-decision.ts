@@ -44,7 +44,7 @@ export async function decideChatApproval(input: {
   if (!project) return { refusal: 'That approval is no longer available.' };
 
   // Read access, then the manager-or-launcher rule below: a read-and-run
-  // member who started the session decides here exactly as in Kortix.
+  // member who started the session decides here exactly as in Dosco.
   const actor = await resolveChatActor(
     input.user,
     { projectId: input.projectId, accountId: project.accountId },
@@ -54,7 +54,7 @@ export async function decideChatApproval(input: {
     return {
       refusal:
         actor.reason === 'unlinked'
-          ? 'Connect your Kortix account first (`/kortix login` in Slack, `/login` in Teams) to decide on approvals.'
+          ? 'Connect your Dosco account first (`/kortix login` in Slack, `/login` in Teams) to decide on approvals.'
           : "You don't have access to decide on this project's approvals.",
     };
   }

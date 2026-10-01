@@ -3,7 +3,7 @@
  *
  * GitHub answers `POST /app/installations/<id>/access_tokens` with `404` once
  * an installation is gone — an uninstall, a reinstall (which mints a NEW id for
- * the same owner), or an App identity change. Kortix keeps a row per
+ * the same owner), or an App identity change. Dosco keeps a row per
  * installation and nothing used to remove it: the App's manifest registers
  * webhooks as `active: false`, so an uninstall is never reported, and
  * `upsertAccountGitHubInstallation` conflicts on `(account_id,

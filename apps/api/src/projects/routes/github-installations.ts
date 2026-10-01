@@ -48,7 +48,7 @@ const getAccountInstallationsHandler = async (c: any) => {
   const installUrl = canManageGit
     ? await createGitHubInstallationInstallUrl(scope.accountId, scope.userId)
     : null;
-  // Account connections only. "Kortix managed" is the INSTANCE backend and
+  // Account connections only. "Dosco managed" is the INSTANCE backend and
   // has its own namespace (GET /v1/projects/git/backend[/repositories]); it
   // used to appear here as a synthetic installation, which made an
   // instance-global credential look like this account's own connection.
@@ -70,7 +70,7 @@ projectsApp.openapi(
 );
 
 // GET /v1/projects/github/installations?account_id=...
-// Vercel-style account Git connections surface. A Kortix account can connect
+// Vercel-style account Git connections surface. A Dosco account can connect
 // multiple GitHub users/orgs and pick the exact installation during import.
 
 projectsApp.openapi(
@@ -162,7 +162,7 @@ export async function upsertAccountGitHubInstallation(
 
 // POST /v1/projects/github/installations/linkable
 // The GitHub OAuth token cannot call GET /user/installations. GitHub restricts
-// that route to GitHub App user tokens. Kortix lists this App's installations
+// that route to GitHub App user tokens. Dosco lists this App's installations
 // with the App JWT, then filters them with the authorized user's identity and
 // active organization-admin memberships.
 

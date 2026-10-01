@@ -461,7 +461,7 @@ oauthApp.openapi(
     const resource = c.req.query('resource');
     const origin = new URL(c.req.url).origin;
     if (resource && !isMcpResource(resource, origin) && resource.replace(/\/+$/, '') !== oauthIssuer(origin)) {
-      return fail('invalid_target', 'resource must be the Kortix MCP URL or the API origin');
+      return fail('invalid_target', 'resource must be the Dosco MCP URL or the API origin');
     }
     // Unknown scopes (openid, offline_access, mcp:tools…) are ignored. None left
     // means the client's registered scopes: for an MCP client, `kortix`.
@@ -980,7 +980,7 @@ oauthApp.openapi(
 // ─── GET /grants, DELETE /grants/:clientId — the apps a person approved ─────
 //
 // "Connected apps": every client the caller approved (a consent row) or that
-// still holds a live token for them — MCP clients, "Sign in with Kortix" apps.
+// still holds a live token for them — MCP clients, "Sign in with Dosco" apps.
 // Revoking one deletes the consent, so the app must ask again, and revokes its
 // live access and refresh tokens, which stop working on their next request
 // (the verifier reads the token row every time). Only a browser session or an

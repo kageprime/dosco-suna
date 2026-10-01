@@ -7,14 +7,14 @@ import type { TeamsActivity } from './types';
 import { isPersonalChat } from './util';
 
 /**
- * The card that asks a Teams user to connect their Kortix account.
+ * The card that asks a Teams user to connect their Dosco account.
  *
  * The sign-in link links the Teams user it names to whoever opens it
  * (identity-routes.ts `/bind`), so it is shown only in a one-to-one chat with
  * the bot. In a channel or group chat everyone sees the card, so there it says
  * to open a private chat and send `/login`. Until 2026-09-28 the link was
  * posted in every conversation: anyone who saw it within its 10 minutes could
- * link that person's Teams identity to their own Kortix account, and that
+ * link that person's Teams identity to their own Dosco account, and that
  * person's messages would then run as them.
  *
  * Outside a 1:1 chat the bot first tries to send the link to the person's 1:1
@@ -44,7 +44,7 @@ export async function teamsLoginCard(input: {
     );
   };
   if (isPersonalChat(input.activity)) return connectCard();
-  const botName = input.activity.recipient?.name?.trim() || config.TEAMS_APP_NAME || 'Kortix';
+  const botName = input.activity.recipient?.name?.trim() || config.TEAMS_APP_NAME || 'Dosco';
   const direct = input.projectId && input.teamsUserId
     ? await openDirectConversation({ projectId: input.projectId, tenantId: input.tenantId, userId: input.teamsUserId })
     : null;

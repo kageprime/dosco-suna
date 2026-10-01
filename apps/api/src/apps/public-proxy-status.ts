@@ -3,9 +3,9 @@ import { escapeHtml } from '../shared/html';
 
 // The `frame-ancestors` directive for App responses. It decides which origins
 // may embed an App in an iframe — the dashboard's App preview does exactly this.
-// Managed cloud embeds from kortix.com; a SELF-HOST box embeds from the
-// operator's OWN frontend origin (e.g. https://sampleco.kortix.cloud), which is
-// NOT kortix.com, so the browser would block the preview. Build the allowlist
+// Managed cloud embeds from dosco.live; a SELF-HOST box embeds from the
+// operator's OWN frontend origin (e.g. https://sampleco.dosco.live), which is
+// NOT dosco.live, so the browser would block the preview. Build the allowlist
 // dynamically to ALWAYS include the configured frontend origin (config.FRONTEND_URL)
 // plus a wildcard for its domain, so the preview frames reliably on any
 // self-host domain. Falls back to the managed base list if FRONTEND_URL is
@@ -13,8 +13,8 @@ import { escapeHtml } from '../shared/html';
 export function appFrameAncestors(): string {
   const parts = new Set<string>([
     "'self'",
-    'https://kortix.com',
-    'https://*.kortix.com',
+    'https://dosco.live',
+    'https://*.dosco.live',
     'http://localhost:*',
     'http://127.0.0.1:*',
   ]);
@@ -27,7 +27,7 @@ export function appFrameAncestors(): string {
     if ((u.protocol === 'https:' || u.protocol === 'http:') && !isLocal) {
       parts.add(u.origin);
       // Also allow any sibling subdomain of the operator's registrable-ish
-      // domain (drop the leftmost label): sampleco.kortix.cloud -> *.kortix.cloud.
+      // domain (drop the leftmost label): sampleco.dosco.live -> *.dosco.live.
       const labels = host.split('.');
       if (labels.length >= 3 && !/^\d+$/.test(labels[labels.length - 1])) {
         parts.add(`${u.protocol}//*.${labels.slice(1).join('.')}`);
@@ -79,70 +79,70 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   queued: {
     title: 'Deployment queued',
-    message: 'Kortix will start this deployment shortly.',
+    message: 'Dosco will start this deployment shortly.',
     code: 'app_deployment_queued',
     progress: true,
   },
   validating: {
     title: 'Validating your App',
-    message: 'Kortix is checking the source and deployment configuration.',
+    message: 'Dosco is checking the source and deployment configuration.',
     code: 'app_deployment_validating',
     progress: true,
   },
   building: {
     title: 'Building your App',
-    message: 'Kortix is producing an immutable runtime image.',
+    message: 'Dosco is producing an immutable runtime image.',
     code: 'app_deployment_building',
     progress: true,
   },
   provisioning: {
     title: 'Provisioning your App',
-    message: 'Kortix is creating the serverless runtime.',
+    message: 'Dosco is creating the serverless runtime.',
     code: 'app_deployment_provisioning',
     progress: true,
   },
   checking: {
     title: 'Checking readiness',
-    message: 'Kortix is waiting for the App to accept traffic.',
+    message: 'Dosco is waiting for the App to accept traffic.',
     code: 'app_deployment_checking',
     progress: true,
   },
   ready: {
     title: 'Activating your App',
-    message: 'The deployment is ready. Kortix is assigning stable traffic.',
+    message: 'The deployment is ready. Dosco is assigning stable traffic.',
     code: 'app_deployment_activating',
     progress: true,
   },
   starting: {
     title: 'Starting your App',
-    message: 'Kortix is resuming the serverless runtime. This page will continue automatically.',
+    message: 'Dosco is resuming the serverless runtime. This page will continue automatically.',
     code: 'app_starting',
     progress: true,
   },
   budget: {
     title: 'App paused',
-    message: 'This App reached its monthly compute limit. The owner can increase the limit in Kortix Apps.',
+    message: 'This App reached its monthly compute limit. The owner can increase the limit in Dosco Apps.',
     code: 'app_budget_exceeded',
     progress: false,
     httpStatus: 402,
   },
   unfunded: {
     title: 'App paused',
-    message: 'This Kortix account cannot start compute right now. The owner can restore it in Billing.',
+    message: 'This Dosco account cannot start compute right now. The owner can restore it in Billing.',
     code: 'app_account_unfunded',
     progress: false,
     httpStatus: 402,
   },
   capacity: {
     title: 'App paused',
-    message: 'This account is already running its maximum number of Apps. The owner can stop one in Kortix Apps.',
+    message: 'This account is already running its maximum number of Apps. The owner can stop one in Dosco Apps.',
     code: 'app_concurrency_limit',
     progress: false,
     httpStatus: 429,
   },
   failed: {
     title: 'Deployment failed',
-    message: 'Open Kortix Apps or run kortix apps logs to inspect the deployment.',
+    message: 'Open Dosco Apps or run kortix apps logs to inspect the deployment.',
     code: 'app_deployment_failed',
     progress: false,
   },
@@ -220,14 +220,14 @@ export function appPublicStatusResponse(
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh}<title>${documentTitle}</title>
 <style>:root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:light-dark(#f6f6f3,#10100f);color:light-dark(#171716,#f4f4f1);font:14px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{width:min(100%,420px);padding:24px;border:1px solid light-dark(#deded9,#30302e);border-radius:12px;background:light-dark(#fff,#191918)}.mark{display:flex;align-items:center;gap:9px;margin-bottom:28px;font-weight:650}.glyph{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:currentColor}.glyph:after{content:"K";color:light-dark(#fff,#191918);font-size:12px}.state{display:flex;align-items:center;gap:9px;color:light-dark(#666662,#aaa9a3);font-size:12px}.dot{width:8px;height:8px;border-radius:999px;background:${copy.progress ? '#e6a522' : '#d74a4a'}${copy.progress ? ';animation:pulse 1.4s ease-in-out infinite' : ''}}h1{margin:12px 0 6px;font-size:20px;line-height:1.25;letter-spacing:-.02em}p{margin:0;color:light-dark(#666662,#aaa9a3)}code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}@keyframes pulse{50%{opacity:.35;transform:scale(.8)}}@media(prefers-reduced-motion:reduce){.dot{animation:none}}</style></head>
-<body><main class="card"><div class="mark"><span class="glyph"></span>Kortix Apps</div><div class="state"><span class="dot"></span>${escapeHtml(status)}</div><h1>${heading}</h1><p>${escapeHtml(copy.message)}</p></main></body></html>`, {
+<body><main class="card"><div class="mark"><span class="glyph"></span>Dosco Apps</div><div class="state"><span class="dot"></span>${escapeHtml(status)}</div><h1>${heading}</h1><p>${escapeHtml(copy.message)}</p></main></body></html>`, {
     status: httpStatus,
     headers,
   });
 }
 
 export function appPublicUnavailableResponse(
-  request = new Request('https://apps.kortix.com/'),
+  request = new Request('https://apps.dosco.live/'),
   app: { name: string } = { name: 'App' },
 ): Response {
   return appPublicStatusResponse(request, app, { status: 'starting' });

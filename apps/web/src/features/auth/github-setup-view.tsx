@@ -155,7 +155,7 @@ export function GitHubSetupView({
                         </>
                       ) : null}
                     </p>
-                    {/* One GitHub installation can back several Kortix
+                    {/* One GitHub installation can back several Dosco
                         accounts. Linking it again is legal, so this is a
                         warning on the row and not a disabled button. */}
                     {installation.linked_to_other_accounts > 0 ? (
@@ -240,7 +240,7 @@ function getHeading(
     case 'select':
       return 'Select a GitHub account';
     case 'empty':
-      return 'Install the Kortix App';
+      return 'Install the Dosco App';
     case 'saving':
       return 'Linking GitHub';
     case 'done':

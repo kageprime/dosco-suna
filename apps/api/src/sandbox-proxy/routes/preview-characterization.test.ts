@@ -630,7 +630,7 @@ describe('forwardToSandbox redirect rewriting and CORS', () => {
     expect(res.headers.get('location')).toBe('https://idp.example/oauth?client=1');
   });
 
-  test('the Kortix web app origin gets the credentialed CORS grant, a stranger gets nothing', async () => {
+  test('the Dosco web app origin gets the credentialed CORS grant, a stranger gets nothing', async () => {
     queueFetch(new Response('ok', { status: 200 }));
     const allowed = await forward({ port: 3000, path: '/', origin: 'http://localhost:3000' });
     expect(allowed.headers.get('access-control-allow-origin')).toBe('http://localhost:3000');

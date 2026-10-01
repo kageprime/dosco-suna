@@ -313,7 +313,7 @@ async function slashLinkBot(ctx: SlashCtx, arg: string): Promise<SlashResponse> 
     mfaVerified: me.mfaVerified,
   });
   if (!linked.ok) {
-    return { response_type: 'ephemeral', text: `<@${botUserId}> is already linked to a different Kortix account. Have them disconnect first.` };
+    return { response_type: 'ephemeral', text: `<@${botUserId}> is already linked to a different Dosco account. Have them disconnect first.` };
   }
   return {
     response_type: 'ephemeral',

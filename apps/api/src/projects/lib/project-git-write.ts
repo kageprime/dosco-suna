@@ -42,7 +42,7 @@ export function buildProjectGitConnectionValues(
     /** Credential row id for a project-credential connection; null otherwise. */
     credentialRef: string | null;
     now: Date;
-    /** True when Kortix provisioned the repository. */
+    /** True when Dosco provisioned the repository. */
     managed?: boolean;
     /** Real upstream host git URL, distinct from the client-facing repoUrl. */
     upstreamUrl?: string | null;
@@ -116,7 +116,7 @@ export function buildProjectGitMetadata(
   previous: Record<string, unknown> | null | undefined,
   opts: {
     defaultBranch: string;
-    /** True when Kortix provisioned the repository. */
+    /** True when Dosco provisioned the repository. */
     managed?: boolean;
     /**
      * The legacy `github` block echoes `installation_id` on the registration

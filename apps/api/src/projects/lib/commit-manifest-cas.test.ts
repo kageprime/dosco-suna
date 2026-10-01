@@ -132,7 +132,7 @@ describe('manifest compare-and-swap routing', () => {
     );
 
     expect(result).toEqual({
-      error: 'The repository rejected the push because of branch protection or repository rules. Allow the Kortix GitHub App to push to the default branch, or connect a repository where it can, then try again.',
+      error: 'The repository rejected the push because of branch protection or repository rules. Allow the Dosco GitHub App to push to the default branch, or connect a repository where it can, then try again.',
       status: 409,
     });
     expect(JSON.stringify(result)).not.toContain('github.com/example');

@@ -59,7 +59,7 @@ export function deadCredential401(message: string): HTTPException {
 
 /**
  * API key auth for search, LLM, and router routes.
- * Always validates Kortix tokens (kortix_, kortix_sb_) via validateSecretKey()
+ * Always validates Dosco tokens (kortix_, kortix_sb_) via validateSecretKey()
  * against the api_keys table.
  */
 export async function apiKeyAuth(c: Context, next: Next) {
@@ -274,7 +274,7 @@ async function resolveSandboxToken(c: Context, next: Next, token: string) {
   {
     const result = await validateSecretKey(token);
     if (!result.isValid) {
-      throw new HTTPException(401, { message: result.error || 'Invalid Kortix token' });
+      throw new HTTPException(401, { message: result.error || 'Invalid Dosco token' });
     }
     if (result.type !== 'sandbox' || !result.sandboxId) {
       throw new HTTPException(403, { message: 'This route requires a sandbox token' });

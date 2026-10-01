@@ -374,7 +374,7 @@ export async function buildSessionSandboxEnvVars(input: {
     KORTIX_PROJECT_SECRETS_REVISION: runtimeSecrets.revision,
     [SECRET_CAPABILITIES_ENV_NAME]: runtimeSecrets.capabilitiesJson,
     // No partial-clone filter. Blobless (`blob:none`) defers file blobs to
-    // on-demand fetches, which stall through the Kortix git proxy when its
+    // on-demand fetches, which stall through the Dosco git proxy when its
     // partial-clone capability isn't advertised consistently — the clone then
     // never finishes and the session never reaches runtimeReady. It is also
     // simply slower: measured on kortix-ai/company, blobless 6161ms vs a full
@@ -390,7 +390,7 @@ export async function buildSessionSandboxEnvVars(input: {
     ...buildSessionRuntimeEnv({
       projectId: input.projectId,
       sessionId: input.sessionId,
-      // Every sandbox clones through the Kortix Git proxy with KORTIX_TOKEN.
+      // Every sandbox clones through the Dosco Git proxy with KORTIX_TOKEN.
       // Direct upstream origins are never delivered to the guest because they
       // require exposing a provider credential to the sandbox.
       repoUrl: proxyGitUrl(input.projectId),

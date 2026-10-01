@@ -9,7 +9,7 @@ import { registerPersistedStore, resetPersistedStore } from '@/stores/persisted-
  *
  * Onboarding starts it, and it stays. `firstChatHref` opens the welcome chat
  * (`project-layout/home/first-chat.tsx`), and the sidebar keeps one "Your first
- * chat with Kortix" row at the bottom of the sessions. Each send from it starts a new
+ * chat with Dosco" row at the bottom of the sessions. Each send from it starts a new
  * session; the welcome chat is never replaced by one. `finish` remains for
  * sign-out cleanup and tests.
  *
@@ -62,7 +62,7 @@ export function useFirstChatPending(projectId: string): boolean {
 
 /**
  * The first chat opens only when asked for: the sidebar's "Your first chat
- * with Kortix" row, or the onboarding exit. Plain project home and "New
+ * with Dosco" row, or the onboarding exit. Plain project home and "New
  * session" show the normal home, so a new session never reopens the welcome.
  */
 const FIRST_CHAT_PARAM = 'chat';

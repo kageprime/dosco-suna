@@ -144,7 +144,7 @@ function Imprint() {
       <Section id="imprint-contact" title={t.raw('i18nComplete.text2b5c3d26721a')}>
         <P>
           {t.raw('i18nComplete.text969ccbd3cf63')}{' '}
-          <a href="mailto:info@kortix.com" className={LINK}>
+          <a href="mailto:support@dosco.live" className={LINK}>
             {t.raw('appLegalPage.line130JsxTextInfoKortixCom')}
           </a>
           .
@@ -186,8 +186,8 @@ function PrivacyPolicy() {
     <div className="space-y-10">
       <Section id="privacy" title="Who we are">
         <P>
-          Kortix AI Corp, a Delaware corporation at 701 Tillery Street Unit 12-2521, Austin, Texas
-          78702, United States (&quot;Kortix&quot;, &quot;we&quot;), is the controller of the
+          Dosco AI Corp, a Delaware corporation at 701 Tillery Street Unit 12-2521, Austin, Texas
+          78702, United States (&quot;Dosco&quot;, &quot;we&quot;), is the controller of the
           personal information described in this policy. It applies to our websites, apps, APIs, and
           the other services that link to it (the &quot;Services&quot;).
         </P>
@@ -197,7 +197,7 @@ function PrivacyPolicy() {
         <P>
           When a customer uses the Services to process personal information (for example, the files,
           prompts, and connected data in a customer workspace), the customer is the controller and
-          Kortix processes that information on the customer&apos;s behalf under our Data Processing
+          Dosco processes that information on the customer&apos;s behalf under our Data Processing
           Addendum. If your information is in a customer&apos;s workspace, send requests about it to
           that customer.
         </P>
@@ -297,7 +297,7 @@ function PrivacyPolicy() {
           <li>Our affiliates, which support and operate the Services.</li>
           <li>Authorities, when the law requires it or to protect people and the Services.</li>
           <li>
-            A buyer or successor, if Kortix is part of a merger, acquisition, or reorganization.
+            A buyer or successor, if Dosco is part of a merger, acquisition, or reorganization.
           </li>
         </Bullets>
         <P>We do not sell personal information.</P>
@@ -371,7 +371,7 @@ function PrivacyPolicy() {
       <Section id="privacy-contact" title="Contact">
         <P>
           Privacy questions and requests, including for our Data Protection Officer:{' '}
-          <MailLink address={PRIVACY_EMAIL} />. Post: Kortix AI Corp, Attn: Data Protection Officer,
+          <MailLink address={PRIVACY_EMAIL} />. Post: Dosco AI Corp, Attn: Data Protection Officer,
           701 Tillery Street Unit 12-2521, Austin, Texas 78702, United States.
         </P>
       </Section>

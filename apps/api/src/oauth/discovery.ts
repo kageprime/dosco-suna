@@ -35,7 +35,7 @@ export function oauthAuthorizationServerMetadata(fallbackOrigin?: string) {
     token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
     revocation_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
     code_challenge_methods_supported: ['S256'],
-    service_documentation: `${(config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '')}/docs/sdk/sign-in`,
+    service_documentation: `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/docs/sdk/sign-in`,
   } as const;
 }
 
@@ -51,7 +51,7 @@ export function mcpResourceMetadataUrl(fallbackOrigin?: string): string {
   return `${oauthIssuer(fallbackOrigin)}/.well-known/oauth-protected-resource/v1/mcp`;
 }
 
-/** True when `resource` names the Kortix MCP endpoint on this issuer. */
+/** True when `resource` names the Dosco MCP endpoint on this issuer. */
 export function isMcpResource(resource: string, fallbackOrigin?: string): boolean {
   try {
     return new URL(resource).href.replace(/\/+$/, '') === mcpResourceUrl(fallbackOrigin);
@@ -66,6 +66,6 @@ export function mcpProtectedResourceMetadata(fallbackOrigin?: string) {
     authorization_servers: [oauthIssuer(fallbackOrigin)],
     scopes_supported: [OAUTH_SCOPE_KORTIX],
     bearer_methods_supported: ['header'],
-    resource_name: 'Kortix',
+    resource_name: 'Dosco',
   } as const;
 }

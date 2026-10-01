@@ -16,7 +16,7 @@ export interface AgentSpec {
   connectors: GrantSet;
   /** Connectors that must resolve before the session starts. */
   connectorsRequired?: string[];
-  /** Kortix permissions (project-scoped iam actions). `[]` = none (default). */
+  /** Dosco permissions (project-scoped iam actions). `[]` = none (default). */
   permissions: GrantSet;
   /** Project-secret IDENTIFIERS (project_secrets.identifier, not raw env-var
    *  keys) this agent receives as sandbox env + may read via the secrets API.
@@ -24,7 +24,7 @@ export interface AgentSpec {
    *  omitted — a NEW dimension, so omitting it must not starve existing
    *  agents); an explicit list narrows it; `[]` = none. */
   env: GrantSet;
-  /** Kortix Apps (by App slug) this agent may open when the App is
+  /** Dosco Apps (by App slug) this agent may open when the App is
    *  `restricted`/`private` (spec 2026-09-22 §2.5). `[]` = none (default, both
    *  manifest versions). Optional so hand-built specs (tests, fixtures) need
    *  not set it; absent reads as none. */

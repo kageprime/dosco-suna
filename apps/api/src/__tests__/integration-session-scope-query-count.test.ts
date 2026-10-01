@@ -4,7 +4,7 @@
  * per-alias resolution once per granted connector — a binding query, the
  * `connectors` row, that connector's connections, the audience, and a
  * credential check — so the query count grew with the project's connector
- * count. Measured on prod (2026-09-27, a Kortix-owned project): `db n=55-64`,
+ * count. Measured on prod (2026-09-27, a Dosco-owned project): `db n=55-64`,
  * 329-5081 ms server time, on every session open.
  *
  * This file pins two things:

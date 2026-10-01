@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { PIXEL_KORTIX_ROWS } from './pixel-kortix-mark';
 
-describe('pixel Kortix mark', () => {
+describe('pixel Dosco mark', () => {
   test('every row has the same width and only known cells', () => {
     const width = PIXEL_KORTIX_ROWS[0].length;
     for (const row of PIXEL_KORTIX_ROWS) {
@@ -11,7 +11,7 @@ describe('pixel Kortix mark', () => {
     }
   });
 
-  // The Kortix symbol is symmetric on both axes. A typo in one cell breaks
+  // The Dosco symbol is symmetric on both axes. A typo in one cell breaks
   // that, and it is invisible in review because the rows are just strings.
   test('mirrors left to right', () => {
     for (const row of PIXEL_KORTIX_ROWS) {

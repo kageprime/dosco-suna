@@ -271,7 +271,7 @@ function computerAccessMessage(kind: ComputerAccessErrorKind, machine: string): 
     case 'computer_access_denied':
       return `The owner of ${machine} denied access. It stays denied for 10 minutes. Ask the user before retrying.`;
     case 'computer_access_off':
-      return `Access to ${machine} is turned off on that computer. Ask the user to allow access from the Kortix menu on that computer.`;
+      return `Access to ${machine} is turned off on that computer. Ask the user to allow access from the Dosco menu on that computer.`;
   }
 }
 
@@ -354,7 +354,7 @@ export async function executeComputerCall(input: {
     return {
       ok: false,
       kind: 'computer_offline',
-      message: `${machine.name} is offline. Start Kortix on that computer and retry.`,
+      message: `${machine.name} is offline. Start Dosco on that computer and retry.`,
     };
   }
 

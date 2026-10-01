@@ -31,7 +31,7 @@ async function remoteRepo() {
   const work = join(root, 'work');
   const remote = join(root, 'remote.git');
   await exec('git', ['init', work]);
-  await exec('git', ['-C', work, 'config', 'user.name', 'Kortix Test']);
+  await exec('git', ['-C', work, 'config', 'user.name', 'Dosco Test']);
   await exec('git', ['-C', work, 'config', 'user.email', 'test@kortix.invalid']);
   await Bun.write(join(work, 'README.md'), '# test\n');
   await exec('git', ['-C', work, 'add', 'README.md']);

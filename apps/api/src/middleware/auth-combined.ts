@@ -30,7 +30,7 @@ const PREVIEW_SESSION_COOKIE = '__preview_session';
 
 
 /**
- * Combined auth — accepts Kortix tokens OR Supabase JWTs.
+ * Combined auth — accepts Dosco tokens OR Supabase JWTs.
  *
  * Token resolution order:
  *   1. Authorization: Bearer <token> header
@@ -123,7 +123,7 @@ function extractToken(c: Context, previewSandboxId: string | null) {
 
 async function resolveServiceAccount(c: Context, next: Next, token: string, previewSandboxId: string | null, isPreviewRoute: boolean) {
   // 0. Service-account bearer (non-human IAM principal) — mirrors the
-  // supabaseAuth branch. MUST run before the generic Kortix-token branch:
+  // supabaseAuth branch. MUST run before the generic Dosco-token branch:
   // `kortix_sa_` also matches the `kortix_` prefix, so without this check the
   // token falls into validateSecretKey and every combinedAuth-mounted route
   // (preview proxy, cron, secrets, providers, SSE) rejects service accounts
@@ -184,7 +184,7 @@ async function resolvePat(c: Context, next: Next, token: string, isPreviewRoute:
 }
 
 async function resolveKortixToken(c: Context, next: Next, token: string, previewSandboxId: string | null, isPreviewRoute: boolean) {
-  // 2. Try Kortix token (kortix_ or kortix_sb_) — used by agents inside the sandbox
+  // 2. Try Dosco token (kortix_ or kortix_sb_) — used by agents inside the sandbox
   {
     const result = await validateSecretKey(token);
     if (!result.isValid) {
@@ -193,7 +193,7 @@ async function resolveKortixToken(c: Context, next: Next, token: string, preview
         reason: result.error ?? 'invalid_kortix_token',
         authType: 'apiKey',
       });
-      throw new HTTPException(401, { message: result.error || 'Invalid Kortix token' });
+      throw new HTTPException(401, { message: result.error || 'Invalid Dosco token' });
     }
     if (
       previewSandboxId &&

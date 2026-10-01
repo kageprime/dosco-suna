@@ -75,7 +75,7 @@ describe('sessionInitiatorLabel', () => {
     expect(sessionInitiatorLabel({ type: 'api', id: 'sa' }, 'ci-bot')).toBe('ci-bot');
     expect(sessionInitiatorLabel({ type: 'trigger', id: 'nightly' }, null)).toBe('nightly');
     expect(sessionInitiatorLabel({ type: 'channel', id: 'slack' }, null)).toBe('Slack');
-    expect(sessionInitiatorLabel({ type: 'system', id: 'system:x' }, null)).toBe('Kortix');
+    expect(sessionInitiatorLabel({ type: 'system', id: 'system:x' }, null)).toBe('Dosco');
   });
 });
 

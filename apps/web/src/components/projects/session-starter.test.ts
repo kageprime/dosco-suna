@@ -50,8 +50,8 @@ describe('sessionStarter', () => {
       sessionStarter({ ...base, initiator: { type: 'api', id: 'sa1', label: 'CI' } }, 'u1', labels),
     ).toMatchObject({ type: 'api', label: 'CI' });
     expect(
-      sessionStarter({ ...base, initiator: { type: 'system', id: 'system:x', label: 'Kortix' } }, 'u1', labels),
-    ).toMatchObject({ type: 'system', label: 'Kortix' });
+      sessionStarter({ ...base, initiator: { type: 'system', id: 'system:x', label: 'Dosco' } }, 'u1', labels),
+    ).toMatchObject({ type: 'system', label: 'Dosco' });
   });
 
   test('no initiator falls back to the creator via is_owner', () => {

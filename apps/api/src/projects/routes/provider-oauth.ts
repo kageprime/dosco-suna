@@ -58,7 +58,7 @@ import { readJsonObject } from '../../shared/http-body';
 // memory), so start and poll need not hit the same pod. The detached task
 // isn't tied to a client connection, so nothing the edge does can kill it.
 
-// Kortix provider id → how its device flow runs and where the login is saved.
+// Dosco provider id → how its device flow runs and where the login is saved.
 // `legacySecretNames` are older names for the same login. Nothing writes them
 // any more, but clients and the gateway still count them as connected, so a
 // disconnect must delete them too. `resourceProviderId` tags a named (pooled)

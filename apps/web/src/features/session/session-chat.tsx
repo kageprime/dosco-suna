@@ -309,7 +309,7 @@ const STOP_HOLD_DEADLINE_MS = 1500;
 
 interface SessionChatProps {
   sessionId: string;
-  /** Durable Kortix project session id used by project-session APIs. */
+  /** Durable Dosco project session id used by project-session APIs. */
   projectSessionId?: string;
   /** Complete SDK state for the root session. Omit for a read-only child session. */
   sessionState?: UseSessionResult;
@@ -332,7 +332,7 @@ interface SessionChatProps {
   /** Start scrolled to the top instead of the bottom (e.g. sub-session modal viewer) */
   initialScrollTop?: boolean;
   /**
-   * The Kortix session (`<projectId>/<sessionId>`) a read-only sub-agent
+   * The Dosco session (`<projectId>/<sessionId>`) a read-only sub-agent
    * session runs inside. With it, the sub-agent's saved transcript paints while
    * the computer is off; without it, only the running computer can answer.
    */
@@ -930,7 +930,7 @@ export function SessionChat({
    * own send receipt only until either of them answers.
    */
   // A child-session mount (`sub-session-modal.tsx` passes no project ids) has
-  // no Kortix session row for `/turn` to answer about, so the projection below
+  // no Dosco session row for `/turn` to answer about, so the projection below
   // is disabled and every working read falls back to the raw stream slot —
   // the same split `session-layout.tsx` makes for its busy indicator.
   const isChildSession = !projectId || !projectSessionId;
@@ -1988,7 +1988,7 @@ export function SessionChat({
    * with no turns at all shows.
    */
   // The one working answer the LAST turn card renders (its shimmer). Resolved
-  // here, once, so the card never reads the raw slot for a Kortix session —
+  // here, once, so the card never reads the raw slot for a Dosco session —
   // see `resolveLastTurnWorking` for the split and the defect it removes.
   const lastTurnWorking = resolveLastTurnWorking({
     isChildSession,
@@ -2779,7 +2779,7 @@ export function SessionChat({
         return messageID;
       };
       // Every POST of this session leaves in Send order, through the session's
-      // delivery chain, keyed by the Kortix session id like the boot shell and
+      // delivery chain, keyed by the Dosco session id like the boot shell and
       // project home. A send with uploads, or one behind an earlier send, returns
       // right after its paint, so the composer is free for the next Send. Any
       // other send awaits its POST, and a refusal returns the draft. The inline

@@ -730,8 +730,8 @@ export function deriveKortixApiRoot(kortixUrl: string): string {
 }
 
 /**
- * The Kortix git-proxy origin for a project — the UNIVERSAL client-facing git
- * URL. Clients clone/push this with a Kortix token; the API resolves the real
+ * The Dosco git-proxy origin for a project — the UNIVERSAL client-facing git
+ * URL. Clients clone/push this with a Dosco token; the API resolves the real
  * upstream + mints the host credential server-side.
  */
 export function proxyGitUrl(projectId: string): string {

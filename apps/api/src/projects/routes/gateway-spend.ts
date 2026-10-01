@@ -294,7 +294,7 @@ projectsApp.openapi(
         requests: sql<number>`count(*)::int`,
         // Budgets cap what a project SPENDS, so per-member spend here is the
         // same total-spend figure the budget gate enforces on — not the
-        // Kortix-billed slice, which is 0 on every BYOK request.
+        // Dosco-billed slice, which is 0 on every BYOK request.
         cost: totalSpendSql,
         tokens: sql<string>`coalesce(sum(${gatewayRequestLogs.inputTokens} + ${gatewayRequestLogs.outputTokens}), 0)`,
       })

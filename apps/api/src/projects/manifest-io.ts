@@ -50,7 +50,7 @@ export const MAX_SCHEMA_VERSION = 3;
 
 /**
  * Read + parse the project's manifest. Returns null if no manifest file is
- * present (so the caller can treat the repo as "not a Kortix project yet").
+ * present (so the caller can treat the repo as "not a Dosco project yet").
  * Throws on parse errors so the caller can surface them up — we don't
  * silently swallow a malformed manifest.
  *

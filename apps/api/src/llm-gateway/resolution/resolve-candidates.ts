@@ -239,7 +239,7 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
 /**
  * OpenCode (Zen and Go) refuses a request without `x-opencode-session`
  * (`MissingSessionID`) and routes and prompt-caches by it. It also asks clients
- * to name themselves in User-Agent (https://opencode.ai/docs/go). The Kortix
+ * to name themselves in User-Agent (https://opencode.ai/docs/go). The Dosco
  * session is the stable conversation id; a gateway API key call has none.
  */
 function opencodeHeaders(baseUrl: string, principal: AuthedPrincipal): Record<string, string> | undefined {
@@ -247,7 +247,7 @@ function opencodeHeaders(baseUrl: string, principal: AuthedPrincipal): Record<st
   // ponytail: an API-key caller shares one session id across its conversations;
   // forward the caller's own x-opencode-session if that ever costs cache hits.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
-  return { 'x-opencode-session': session, 'User-Agent': 'Kortix (https://kortix.com)' };
+  return { 'x-opencode-session': session, 'User-Agent': 'Dosco (https://dosco.live)' };
 }
 
 /**
@@ -336,13 +336,13 @@ async function resolveByokCandidates(context: Context, provider: string,
       `No usable ${provider} key is selected for this session.`,
     pool.coolingDown ? 'Retry after the provider cooldown, or select another granted key.' :
       'Select a granted key in session settings.', pool.retryAfterSeconds);
-  // Never append a Kortix-managed fallback to BYOK keys: a failed BYOK key must
-  // fail as BYOK, not silently become a Kortix credit charge.
+  // Never append a Dosco-managed fallback to BYOK keys: a failed BYOK key must
+  // fail as BYOK, not silently become a Dosco credit charge.
   return keys.length ? byokDescriptors(context, provider, byok, keys, !!pool?.configured) : [];
 }
 
 /**
- * The managed route on Kortix's own credentials. Cloud-only:
+ * The managed route on Dosco's own credentials. Cloud-only:
  * getRuntimeManagedModel() matches only when KORTIX_MANAGED_PROVIDER_ENABLED is
  * on, so a self-host falls through to "model not available on this deployment".
  * An empty result (no transport credential configured) falls through the same way.
@@ -352,8 +352,8 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
   const managed = getRuntimeManagedModel(effectiveModel);
   if (!managed || !config.LLM_GATEWAY_ENABLED || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
-    'Kortix Managed Models are disabled for this project.',
-    'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
+    'Dosco Managed Models are disabled for this project.',
+    'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
   if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
     `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
@@ -451,8 +451,8 @@ export async function resolveCandidates(
       throw new GatewayResolutionError(
         'model_retired',
         named
-          ? `The "${effectiveModel}" model was retired from Kortix's managed lineup. Use "${named}" instead.`
-          : `The "${effectiveModel}" model was retired from Kortix's managed lineup.`,
+          ? `The "${effectiveModel}" model was retired from Dosco's managed lineup. Use "${named}" instead.`
+          : `The "${effectiveModel}" model was retired from Dosco's managed lineup.`,
         named
           ? `Switch to "${named}", or choose another model from the current lineup.`
           : 'Choose another model from the current managed lineup.',
@@ -460,7 +460,7 @@ export async function resolveCandidates(
     }
     throw new GatewayResolutionError(
       'model_disabled_on_deployment',
-      `The "${effectiveModel}" model requires Kortix's managed provider, which is disabled on this deployment.`,
+      `The "${effectiveModel}" model requires Dosco's managed provider, which is disabled on this deployment.`,
       'Connect your own API key for a BYOK-compatible model, or ask your deployment operator to enable the managed provider.',
     );
   }

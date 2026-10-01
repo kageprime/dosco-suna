@@ -41,7 +41,7 @@ async function makeFixture(): Promise<{ root: string; remote: string; project: G
   const remote = join(root, 'remote.git');
 
   await git(['init', '--initial-branch=main', seed]);
-  await git(['-C', seed, 'config', 'user.name', 'Kortix Test']);
+  await git(['-C', seed, 'config', 'user.name', 'Dosco Test']);
   await git(['-C', seed, 'config', 'user.email', 'test@kortix.invalid']);
   await writeFile(join(seed, 'kortix.yaml'), 'kortix_version: 2\nconnectors: []\n');
   await git(['-C', seed, 'add', 'kortix.yaml']);

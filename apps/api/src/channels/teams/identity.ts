@@ -62,10 +62,10 @@ export async function postTeamsIdentityPrompt(input: {
 
 /**
  * Tell the account's admins that someone asked for access. The notice every
- * manager gets in Kortix goes first. Then each admin who linked Teams in this
+ * manager gets in Dosco goes first. Then each admin who linked Teams in this
  * tenant gets a card in their 1:1 chat with the bot, as Slack DMs its admins.
  * Best effort: Teams opens that chat only for an admin with the app installed
- * personally, and the Kortix notice already covers everyone else.
+ * personally, and the Dosco notice already covers everyone else.
  */
 export async function notifyAdminsOfTeamsAccessRequest(input: {
   tenantId: string;
@@ -87,7 +87,7 @@ export async function notifyAdminsOfTeamsAccessRequest(input: {
     const email = (await lookupEmailsByUserIds([input.requesterUserId]).catch(() => null))?.get(input.requesterUserId);
     const notice = buildAccessRequestNoticeCard({
       requester: email ? `**${email}**` : 'A teammate',
-      reviewUrl: `${(config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '')}/projects/${input.projectId}/customize/members`,
+      reviewUrl: `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/projects/${input.projectId}/customize/members`,
     });
     for (const admin of admins) {
       const teamsId = await lookupChatUserForKortixUser('teams', input.tenantId, admin);

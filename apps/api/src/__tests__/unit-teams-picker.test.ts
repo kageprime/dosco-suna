@@ -115,7 +115,7 @@ describe('ambiguous tenant → project picker', () => {
   });
 
   test('a mention in a channel gets the picker', async () => {
-    await handleTeamsActivity(activity('<at>Kortix</at> summarize the repo', 'mention') as never);
+    await handleTeamsActivity(activity('<at>Dosco</at> summarize the repo', 'mention') as never);
     expect(cards).toHaveLength(1);
     expect(JSON.stringify(cards[0])).toContain('pending-1');
   });

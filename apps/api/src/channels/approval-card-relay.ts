@@ -1,7 +1,7 @@
 /**
  * Approval cards in chat threads: post one when a connector call a chat
  * session made is held for approval, and replace its buttons with the outcome
- * once anyone decides (in the thread, in Kortix, or on the link page).
+ * once anyone decides (in the thread, in Dosco, or on the link page).
  *
  * The card's location is written onto the gated call itself
  * (`connector_calls.result_summary.chat_card`), so the decision path needs no
@@ -127,7 +127,7 @@ function cardRefOf(resultSummary: Record<string, unknown>): ChatApprovalCardRef 
   return null;
 }
 
-/** `<@U…>` when the Kortix user linked a Slack identity in that workspace. */
+/** `<@U…>` when the Dosco user linked a Slack identity in that workspace. */
 async function decidedByLabel(userId: string, teamId: string): Promise<string> {
   const [link] = await db
     .select({ platformUserId: chatUserIdentities.platformUserId })
@@ -141,7 +141,7 @@ async function decidedByLabel(userId: string, teamId: string): Promise<string> {
       ),
     )
     .limit(1);
-  return link ? `<@${link.platformUserId}>` : 'a teammate in Kortix';
+  return link ? `<@${link.platformUserId}>` : 'a teammate in Dosco';
 }
 
 /** Replace a posted card's buttons with the outcome. No card, no-op. */
@@ -161,7 +161,7 @@ export async function markApprovalCardDecided(input: {
       await updateCard(
         ref,
         card.activity_id,
-        buildTeamsApprovalOutcomeCard({ actionPath: input.actionPath, decision: input.decision, note: input.note, decidedBy: 'a teammate in Kortix' }),
+        buildTeamsApprovalOutcomeCard({ actionPath: input.actionPath, decision: input.decision, note: input.note, decidedBy: 'a teammate in Dosco' }),
       );
     }
     return;

@@ -92,7 +92,7 @@ describe('models step', () => {
   });
 
   // `/new` has no `[id]` route segment. `useRuntimeProviders` reads the project
-  // from the route, so there it saw 0 models: "Kortix models" never showed and
+  // from the route, so there it saw 0 models: "Dosco models" never showed and
   // "Add a key" stayed after a key was saved (reproduced on /new, 2026-09-28).
   test('reads models for the explicit project, not the route', () => {
     expect(plan).toContain('useProjectModels(projectId)');
@@ -110,7 +110,7 @@ describe('models step', () => {
     expect(plan).toContain('onSkip={onContinue}');
   });
 
-  test('hides the Kortix option when there is neither billing nor a managed model', () => {
+  test('hides the Dosco option when there is neither billing nor a managed model', () => {
     expect(plan).toContain('const offerKortix = showUpgradeOption || access.hasKortixModels');
     expect(plan).toContain('{offerKortix && (');
   });

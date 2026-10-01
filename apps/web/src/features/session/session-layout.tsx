@@ -195,7 +195,7 @@ function useSessionPanelSurfaces({
     />
   );
 
-  // While booting, the panel is JUST the dead-center "Kortix Computer is
+  // While booting, the panel is JUST the dead-center "Dosco Computer is
   // starting" loader — no header bar (the loader has its own heading, so a panel
   // title would be redundant), filling the whole card so it's perfectly
   // centered. The runtime-coupled views (Actions/Files/Terminal/Browser) need a

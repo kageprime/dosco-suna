@@ -1208,7 +1208,7 @@ describe('runProvisionAttempt', () => {
 describe('create-repo under a personal GitHub account', () => {
   const err = () =>
     new ApiError(
-      'GitHub does not let the Kortix app create repositories in the personal account octo-person. Create the repository on GitHub, then import it.',
+      'GitHub does not let the Dosco app create repositories in the personal account octo-person. Create the repository on GitHub, then import it.',
       { status: 409, code: 'github_personal_account_create_unsupported' },
     );
 

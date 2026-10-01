@@ -27,7 +27,7 @@ mock.module('../repositories/account-tokens', () => ({
 mock.module('../repositories/api-keys', () => ({
   validateSecretKey: async (token: string) => token === 'kortix_sb_valid'
     ? { isValid: true, type: 'sandbox', sandboxId: 'sandbox-1', accountId: 'account-1', keyId: 'key-1' }
-    : { isValid: false, error: 'Invalid Kortix token' },
+    : { isValid: false, error: 'Invalid Dosco token' },
 }));
 mock.module('../oauth/access-token', () => ({
   isOAuthAccessToken: (token: string) => token.startsWith('kortix_oat_'),

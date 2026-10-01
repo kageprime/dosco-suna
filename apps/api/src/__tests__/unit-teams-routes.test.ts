@@ -119,7 +119,7 @@ describe('POST /messages acks before the dispatch finishes', () => {
   });
 });
 
-describe('the "Open in Kortix" message action', () => {
+describe('the "Open in Dosco" message action', () => {
   test('its fetchTask invoke answers synchronously with the task the handler returns, in the endpoint\'s scope', async () => {
     const res = await teamsWebhookApp.request('/proj-1/messages', {
       method: 'POST',

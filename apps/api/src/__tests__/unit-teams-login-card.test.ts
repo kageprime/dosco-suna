@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 // (identity-routes.ts `/bind`). Until 2026-09-28 the card carrying it was
 // posted in every conversation, so in a channel or group chat anyone who saw
 // it within its 10 minutes could link that person's Teams identity to their own
-// Kortix account, and that person's messages would then run as them. The link
+// Dosco account, and that person's messages would then run as them. The link
 // is now shown only in a one-to-one chat with the bot.
 
 mock.module('../config', () => ({
@@ -12,8 +12,8 @@ mock.module('../config', () => ({
     MICROSOFT_APP_PASSWORD: 'teams-secret',
     API_KEY_SECRET: 'unit-test-api-key-secret',
     KORTIX_URL: '',
-    FRONTEND_URL: 'https://app.kortix.com',
-    TEAMS_APP_NAME: 'Kortix',
+    FRONTEND_URL: 'https://app.dosco.live',
+    TEAMS_APP_NAME: 'Dosco',
   },
 }));
 
@@ -47,7 +47,7 @@ const { verifyTeamsLoginState } = await import('../channels/teams/login');
 const activity = (conversationType?: string) => ({
   type: 'message',
   conversation: { id: 'conv-1', ...(conversationType ? { conversationType } : {}) },
-  recipient: { id: '28:bot-app-id', name: 'Kortix Dev' },
+  recipient: { id: '28:bot-app-id', name: 'Dosco Dev' },
   from: { id: '29:user', aadObjectId: 'aad-user' },
 });
 const json = (card: unknown) => JSON.stringify(card);
@@ -85,7 +85,7 @@ describe('teamsLoginCard', () => {
       expect(loginToken(card)).toBeNull();
       expect(text).not.toContain('/identity/login/');
       expect(text).toContain('send /login');
-      expect(text).toContain('Open chat with Kortix Dev');
+      expect(text).toContain('Open chat with Dosco Dev');
       expect(text).toContain('https://teams.microsoft.com/l/chat/0/0?users=28%3Abot-app-id');
       expect(text).toContain('within 10 minutes');
     }
@@ -107,7 +107,7 @@ describe('teamsLoginCard sends the link to the 1:1 chat when Teams allows it', (
     expect(directSent).toHaveLength(1);
     expect(verifyTeamsLoginState(loginToken(directSent[0])!)).toMatchObject({ tenantId: 't1', teamsUserId: 'aad-user', pendingId: 'p-1' });
     expect(loginToken(card)).toBeNull();
-    expect(json(card)).toContain('I sent you the sign-in link in your private chat with Kortix Dev');
+    expect(json(card)).toContain('I sent you the sign-in link in your private chat with Dosco Dev');
     expect(json(card)).toContain('within 10 minutes');
   });
 

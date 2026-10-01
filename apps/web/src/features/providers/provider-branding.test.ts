@@ -35,7 +35,7 @@ describe('providerIconSrc', () => {
   });
 
   // A catalog provider without a bundled asset (hpc-ai, and ~150 others)
-  // rendered initials built from the synthetic "Kortix" name: a "K" avatar.
+  // rendered initials built from the synthetic "Dosco" name: a "K" avatar.
   test('falls back to the models.dev logo for a catalog provider without a bundled asset', () => {
     expect(providerIconSrc('hpc-ai')).toBe('https://models.dev/logos/hpc-ai.svg');
   });

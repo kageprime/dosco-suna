@@ -86,7 +86,7 @@ export const CONNECTOR_TOOLS = [
     name: 'call_connector',
     title: 'Call a connector action',
     description:
-      'Run one connector action as the signed-in user. Kortix adds the credential server-side, applies the project\'s policies and records an audit entry. `args` must match describe_connector_action. Results: (1) success: `{ok:true, account, risk, data}`, where `account` is the connected account that ran it (say which one you used); (2) `pending_approval`: a policy holds the call for a human. Give the human `approval_url` (and `approval_summary`), wait for them to approve, then call again with the SAME tool, args and account within 15 minutes: the approved call then runs once. (3) `denied`: `reason` says why (`policy_block` = the project blocks this action, do not retry; `connector_not_connected` = call connect_connector; `account_required` = several accounts and no default, retry with `account` set to one of `available_accounts`). ALWAYS pass `reason` for a write whose args are only ids (send_draft, delete, update by id): say what it does, e.g. who a draft goes to and what it says. The approver sees it, labelled as your description, next to the real args. Data over ~40 000 characters comes back cut, marked `data_truncated`, with a preview: narrow the args (fields, filters, page size) and call again. To attach a file, stage it with upload_connector_attachment and put the returned ref in `args`; never paste base64 into `args`.',
+      'Run one connector action as the signed-in user. Dosco adds the credential server-side, applies the project\'s policies and records an audit entry. `args` must match describe_connector_action. Results: (1) success: `{ok:true, account, risk, data}`, where `account` is the connected account that ran it (say which one you used); (2) `pending_approval`: a policy holds the call for a human. Give the human `approval_url` (and `approval_summary`), wait for them to approve, then call again with the SAME tool, args and account within 15 minutes: the approved call then runs once. (3) `denied`: `reason` says why (`policy_block` = the project blocks this action, do not retry; `connector_not_connected` = call connect_connector; `account_required` = several accounts and no default, retry with `account` set to one of `available_accounts`). ALWAYS pass `reason` for a write whose args are only ids (send_draft, delete, update by id): say what it does, e.g. who a draft goes to and what it says. The approver sees it, labelled as your description, next to the real args. Data over ~40 000 characters comes back cut, marked `data_truncated`, with a preview: narrow the args (fields, filters, page size) and call again. To attach a file, stage it with upload_connector_attachment and put the returned ref in `args`; never paste base64 into `args`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -133,7 +133,7 @@ export const CONNECTOR_TOOLS = [
     name: 'connect_connector',
     title: 'Connect a connector',
     description:
-      'Start authorizing a connector and return the `url` the HUMAN must open (show it to them; you cannot complete it). In the browser they name the account, choose who can use it and sign in with the provider. Then call list_connectors: the connector shows `connected: true`. The connector must already be in the project (add_connector). `owner`: "me" (default: an account only that human can use) or "project" (shared with every member; needs the connection-manage permission, and ask the human first: everyone in the project can then act as that identity). A connector with an API key instead of an OAuth sign-in is not connected this way: the human sets its credential in Kortix.',
+      'Start authorizing a connector and return the `url` the HUMAN must open (show it to them; you cannot complete it). In the browser they name the account, choose who can use it and sign in with the provider. Then call list_connectors: the connector shows `connected: true`. The connector must already be in the project (add_connector). `owner`: "me" (default: an account only that human can use) or "project" (shared with every member; needs the connection-manage permission, and ask the human first: everyone in the project can then act as that identity). A connector with an API key instead of an OAuth sign-in is not connected this way: the human sets its credential in Dosco.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -169,7 +169,7 @@ export const CONNECTOR_TOOLS = [
     name: 'add_connector',
     title: 'Add a connector',
     description:
-      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". For a managed app (Gmail, Slack, GitHub, …) pass `app` = the slug from search_connector_apps; the provider is Composio and the slug defaults to the app. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Kortix. To remove a connector call remove_connector. Needs the connector-write permission.',
+      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". For a managed app (Gmail, Slack, GitHub, …) pass `app` = the slug from search_connector_apps; the provider is Composio and the slug defaults to the app. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Dosco. To remove a connector call remove_connector. Needs the connector-write permission.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -423,7 +423,7 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
               ...body,
               next: body.approval_url
                 ? 'Give the human approval_url (and approval_summary). When they approve, call call_connector again with the same tool, args and account within 15 minutes: the approved call runs once. If they deny, do not retry.'
-                : 'A human must approve this call in the Kortix web app (the project\'s approvals). Then call again with the same tool, args and account within 15 minutes.',
+                : 'A human must approve this call in the Dosco web app (the project\'s approvals). Then call again with the same tool, args and account within 15 minutes.',
             },
             null,
             2,
@@ -565,7 +565,7 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
             auth_detected: done.authDiscovery?.recommended?.type ?? null,
             next: oauth
               ? `Live on the project (committed to kortix.yaml on main). Call connect_connector for "${slug}" and give the human the url.`
-              : `Live on the project (committed to kortix.yaml on main). If it needs a credential, the human sets it in Kortix (project connector settings); then list_connectors shows connected: true.`,
+              : `Live on the project (committed to kortix.yaml on main). If it needs a credential, the human sets it in Dosco (project connector settings); then list_connectors shows connected: true.`,
           },
           null,
           2,

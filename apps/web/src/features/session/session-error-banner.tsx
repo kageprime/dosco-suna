@@ -141,9 +141,9 @@ function isInsufficientCreditsError(text: string): boolean {
 }
 
 // ============================================================================
-// Kortix-entitlement detection — free tier dry, inactive subscription, or
-// exhausted Kortix budget ("Free usage exceeded, subscribe to Go"). Its own
-// subscribe CTA, not a credit top-up. Kortix-owned phrases only: a provider's
+// Dosco-entitlement detection — free tier dry, inactive subscription, or
+// exhausted Dosco budget ("Free usage exceeded, subscribe to Go"). Its own
+// subscribe CTA, not a credit top-up. Dosco-owned phrases only: a provider's
 // own cap ("The usage limit has been reached", an upstream 429) is not an
 // entitlement and must not reach this card (KRTX-621).
 // ============================================================================

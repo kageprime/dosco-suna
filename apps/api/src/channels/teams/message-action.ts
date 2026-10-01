@@ -26,9 +26,9 @@ export function sessionConversationIds(conversationId: string, value: MessageAct
 }
 
 /**
- * "Open in Kortix" on any message: the session behind that conversation, as
+ * "Open in Dosco" on any message: the session behind that conversation, as
  * Slack's message shortcut answers. The answer is a small dialog with the link;
- * opening the session still needs access to it in Kortix.
+ * opening the session still needs access to it in Dosco.
  */
 export async function handleOpenInKortixAction(activity: TeamsActivity, inbound: TeamsInbound): Promise<unknown> {
   const value = (activity.value ?? {}) as MessageActionValue;
@@ -44,7 +44,7 @@ export async function handleOpenInKortixAction(activity: TeamsActivity, inbound:
     if (!session) continue;
     return taskCard(buildOpenSessionCard(sessionWebUrl(config.FRONTEND_URL, projectId, session.sessionId)));
   }
-  return taskMessage('No Kortix session is attached to this conversation yet. @-mention me to start one.');
+  return taskMessage('No Dosco session is attached to this conversation yet. @-mention me to start one.');
 }
 
 function taskMessage(text: string) {
@@ -56,7 +56,7 @@ function taskCard(card: Record<string, unknown>) {
     task: {
       type: 'continue',
       value: {
-        title: 'Kortix',
+        title: 'Dosco',
         height: 'small',
         width: 'small',
         card: { contentType: 'application/vnd.microsoft.card.adaptive', content: card },

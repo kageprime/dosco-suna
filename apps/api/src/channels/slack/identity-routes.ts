@@ -190,7 +190,7 @@ slackIdentityApp.openapi(
         : c.json(
             {
               error:
-                'This Slack account is connected to a different Kortix account. Run `/kortix logout` in Slack, then `/kortix login`.',
+                'This Slack account is connected to a different Dosco account. Run `/kortix logout` in Slack, then `/kortix login`.',
             },
             409,
           );

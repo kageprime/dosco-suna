@@ -297,7 +297,7 @@ function parseAgentEntryV2(name: string, block: unknown, filename: string, versi
   if (!normalizedRequired.ok) return err(name, `agents.${name}.${normalizedRequired.error}`);
   const normalizedRow = normalizedRequired.block;
 
-  // v2's `enabled` is a top-level Kortix-governance boolean (validated
+  // v2's `enabled` is a top-level Dosco-governance boolean (validated
   // upstream by manifest-schema); only a literal `false` disables. Behavior
   // (`model` and the rest) is NOT read from the manifest (2026-07-05
   // redirect, spec §2.2: "one home per concern") — it lives entirely in the

@@ -494,16 +494,16 @@ export const REAPER_TURN_CAUSES = {
   /** The daemon said no turn is running, yet OpenCode held the reply open. */
   huskFinalized: {
     name: 'TurnHuskFinalized',
-    message: 'The agent stopped responding in the middle of this turn, so Kortix closed it.',
+    message: 'The agent stopped responding in the middle of this turn, so Dosco closed it.',
   },
   /** The daemon said the turn failed; the frame that said why was lost. */
   runtimeFailed: {
     name: 'RuntimeTurnFailed',
-    message: 'The sandbox reported that this turn failed, but the error did not reach Kortix.',
+    message: 'The sandbox reported that this turn failed, but the error did not reach Dosco.',
   },
   /**
    * The provider reported the box `stopped` while a turn was open and nothing
-   * Kortix did asked for that (`sandbox-state-sync.ts` `providerOriginated`).
+   * Dosco did asked for that (`sandbox-state-sync.ts` `providerOriginated`).
    * The provider names no cause of its own (Platinum's own stop reason is not
    * yet readable by the control plane — see the memory-guard/runtime-gone-
    * recovery learning), so this is deliberately generic rather than false.
@@ -516,7 +516,7 @@ export const REAPER_TURN_CAUSES = {
    *  automatically — see `session-lifecycle/unattended-runtime-recovery.ts`. */
   boxStoppedMidTurnRecovering: {
     name: 'SandboxStoppedMidTurnRecovering',
-    message: 'The sandbox stopped unexpectedly. Kortix restarted it and resumed this turn.',
+    message: 'The sandbox stopped unexpectedly. Dosco restarted it and resumed this turn.',
   },
 } as const satisfies Record<string, SessionTurnEndErrorRecord>;
 

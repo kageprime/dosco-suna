@@ -192,7 +192,7 @@ describe('the log-row projection (characterization)', () => {
     const body = (await res.json()) as { logs: Array<Record<string, unknown>> };
     const row = body.logs[0]!;
     // On a managed (credits) row `provider_cost` is 0 on purpose — the
-    // upstream price is Kortix's wholesale cost, not the caller's.
+    // upstream price is Dosco's wholesale cost, not the caller's.
     expect(row.kortix_cost).toBe(5);
     expect(row.provider_cost).toBe(0);
     expect(row.total_cost).toBe(5);

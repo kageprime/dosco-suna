@@ -5,11 +5,11 @@ import { hasModelsFrom, planAction } from './plan-action';
 const ready = { hasOwnKey: false, hasKortixModels: true };
 
 describe('planAction', () => {
-  test('Kortix models open the project when they are ready', () => {
+  test('Dosco models open the project when they are ready', () => {
     expect(planAction('kortix', ready)).toBe('open');
   });
 
-  test('Kortix models without access lead to plans', () => {
+  test('Dosco models without access lead to plans', () => {
     expect(planAction('kortix', { hasOwnKey: false, hasKortixModels: false })).toBe('seePlans');
   });
 
@@ -31,7 +31,7 @@ describe('hasModelsFrom', () => {
     { providerID: 'openai' },
   ];
 
-  test('splits offered models into Kortix and own-key', () => {
+  test('splits offered models into Dosco and own-key', () => {
     expect(hasModelsFrom(models)).toEqual({ hasKortixModels: true, hasOwnKey: true });
   });
 
@@ -44,7 +44,7 @@ describe('hasModelsFrom', () => {
 
   // Gateway projects serve every model under ONE provider, `kortix`; the real
   // vendor is the model's own `provider`. Reading only `providerID` counted an
-  // own Anthropic key as Kortix models, so "Add a key" never went away.
+  // own Anthropic key as Dosco models, so "Add a key" never went away.
   test('reads the vendor from a gateway model, not the gateway provider id', () => {
     expect(
       hasModelsFrom([
@@ -60,15 +60,15 @@ describe('hasModelsFrom', () => {
 });
 
 describe('planAction with the account billing state', () => {
-  // A plan with a $0 wallet still lists Kortix models. The upgrade dialog, not
+  // A plan with a $0 wallet still lists Dosco models. The upgrade dialog, not
   // "Open workspace", is the next step for that account.
-  test('Kortix models on an account that cannot run lead to plans', () => {
+  test('Dosco models on an account that cannot run lead to plans', () => {
     expect(
       planAction('kortix', { hasOwnKey: false, hasKortixModels: true, kortixRunnable: false }),
     ).toBe('seePlans');
   });
 
-  test('Kortix models on a runnable account open the project', () => {
+  test('Dosco models on a runnable account open the project', () => {
     expect(
       planAction('kortix', { hasOwnKey: false, hasKortixModels: true, kortixRunnable: true }),
     ).toBe('open');

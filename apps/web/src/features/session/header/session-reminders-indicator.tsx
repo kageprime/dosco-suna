@@ -35,7 +35,7 @@ import { useEffect, useRef, useState } from 'react';
 export function SessionRemindersIndicator({ runtimeSessionId }: { runtimeSessionId: string }) {
   const t = useTranslations('reminders');
   const locale = useLocale();
-  // Route params: `id` = project, `sessionId` = the Kortix session reminders key on.
+  // Route params: `id` = project, `sessionId` = the Dosco session reminders key on.
   const { id: projectId, sessionId } = useParams<{ id: string; sessionId: string }>();
   const gate = useFeatureFlag(projectId, 'reminders');
   const reminders = useSessionReminders(gate.enabled ? projectId : null, sessionId);

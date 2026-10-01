@@ -9,7 +9,7 @@
  * #7957 converged (1) and (2). Measured on dev immediately afterwards: the row
  * read `deepseek-v4.1-flash` with `opencode_model_source: 'repointed'`, the box
  * carried the new env, and the very next turn still ran `grok-4.6` and still
- * died on "The grok-4.6 model was retired from Kortix's managed lineup".
+ * died on "The grok-4.6 model was retired from Dosco's managed lineup".
  * `KORTIX_OPENCODE_MODEL` only seeds the default for a NEW OpenCode session; an
  * existing one keeps the model it was created with, forever.
  *

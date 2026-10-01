@@ -40,7 +40,7 @@ export function stripFrameAncestors(csp: string): string | null {
 
 // Build the response headers we send back to the browser: clone the upstream
 // headers, neutralize framing restrictions, and apply CORS. Previews are
-// embedded in the Kortix session UI via an <iframe>, so any app that ships
+// embedded in the Dosco session UI via an <iframe>, so any app that ships
 // `X-Frame-Options` or a CSP `frame-ancestors` (Next.js, and most frameworks,
 // default to these) would otherwise refuse to load in the panel. Stripping them
 // at the proxy makes embedding work for ANY project without per-app config —
@@ -70,8 +70,8 @@ export function clientResponseHeaders(upstreamHeaders: Headers, origin: string):
 
   // The app inside the sandbox writes its own cookies, and they are forwarded —
   // that is what makes a cookie-session app work. What it may NOT do is widen
-  // their scope: `p.kortix.com` is not on the Public Suffix List, so a
-  // `Domain=kortix.com` cookie from a preview would be accepted for the web app
+  // their scope: `p.dosco.live` is not on the Public Suffix List, so a
+  // `Domain=dosco.live` cookie from a preview would be accepted for the web app
   // and the API too. Strip `Domain` (leaving a host-only cookie, which is what
   // the app actually needs) and drop any attempt to overwrite ours.
   const setCookies = headers.getSetCookie?.() ?? [];

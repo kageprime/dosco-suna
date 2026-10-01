@@ -139,14 +139,14 @@ function table(lines: string[]): CardElement {
 // "[Connect Gmail](…) using the existing connector" reached a Teams card as a
 // small underlined word in a sentence (dev, 2026-09-28). A link the user is
 // meant to click gets an `Action.OpenUrl` button instead: a line that is only
-// a link, or a Kortix connect link anywhere in prose. Everything else stays an
+// a link, or a Dosco connect link anywhere in prose. Everything else stays an
 // inline link, which Teams renders natively.
 
 /** Buttons one paragraph may carry. More links than this are a reference list, not a call to action. */
 const MAX_PARAGRAPH_BUTTONS = 3;
 /** A longer label is a sentence, not a button title. */
 const MAX_BUTTON_TITLE = 40;
-/** A Kortix connector connect link (`kortix connectors connect`) is always a call to action. */
+/** A Dosco connector connect link (`kortix connectors connect`) is always a call to action. */
 const CONNECT_URL = /^https:\/\/[^/\s]+\/connect\/ksl_/;
 
 type Link = { start: number; end: number; label: string; url: string };

@@ -161,7 +161,7 @@ export async function enforceConcurrentSessionCap(
     console.error('[projects] Failed to record session cap audit event:', error);
   });
 
-  const message = `You've reached your plan's concurrent-session limit (${limit}). Upgrade your plan for a higher limit, or contact the Kortix team to raise it for your account.`;
+  const message = `You've reached your plan's concurrent-session limit (${limit}). Upgrade your plan for a higher limit, or contact the Dosco team to raise it for your account.`;
   return {
     status: 429,
     headers: {
