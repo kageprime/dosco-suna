@@ -75,10 +75,12 @@ import {
   workspacePaletteValue,
 } from '@/features/workspace/workspace-palette';
 import { useAccountsList } from '@/hooks/account/use-accounts-list';
+import { useDebounce } from '@/hooks/use-debounced-value';
 import { useNewProjectSession } from '@/hooks/projects/use-new-project-session';
 import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 import { useTranslations } from '@/i18n/use-translations';
 import { copyToClipboard } from '@/lib/utils/clipboard';
+import { isDesktop } from '@/lib/desktop';
 import { performSignOut } from '@/lib/auth/perform-sign-out';
 import { isBillingEnabled } from '@/lib/config';
 import {
@@ -109,19 +111,21 @@ import {
   type KortixProject,
   type ProjectDetail,
   type ProjectSession,
-  featureFlags,
+  type ProjectSessionPage,
   getProject,
   getProjectDetail,
   listProjectSessions,
   PROJECT_SESSION_NAME_LOOKUP_LIMIT,
   listProjectsForAccount,
   normalizeAppPathname,
+  runtimeSupports,
   systemReload,
   updateFeatureFlag,
 } from '@kortix/sdk';
 import {
   agentScopedModelSelectionKey,
   contract,
+  flattenProjectSessionPages,
   invalidateProject,
   modelProviderMode,
   qk,
@@ -129,8 +133,10 @@ import {
   useCreatePty,
   useCreateRuntimeSession,
   useModelStore,
-  useRuntimeAgents,
+  useProjectSessions,
+  useRuntimeConnectionStore,
   useRuntimeProviders,
+  useVisibleAgents,
 } from '@kortix/sdk/react';
 import { capitalizeWords, chalkColors, formatRelativeTime } from '@kortix/shared';
 import {
@@ -155,7 +161,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy } from '@/features/icon/icons/copy';
 import {
   SidebarToggle as PanelLeftClose,
@@ -279,6 +285,37 @@ export const ROOT_SUGGESTION_LIMIT = 8;
 export const WORKSPACE_SWITCHER_ITEM_ID = 'nav-projects';
 
 /**
+ * Registry rows kept out of the no-query Suggestions. They stay in the
+ * registry and in search ("new session", "audit"); they only stop spending a
+ * suggestion slot. New session has its own button and shortcut, and the
+ * session audit is a deep link, not a first move.
+ */
+export const SEARCH_ONLY_ITEM_IDS: ReadonlySet<string> = new Set([
+  'new-session',
+  'open-session-audit',
+  // Home and the session list are one click away in the sidebar already.
+  'proj-home',
+  'proj-sessions',
+]);
+
+/**
+ * The no-query Suggestions order: the everyday moves first — where am I
+ * working, which session, then the session's own surfaces, then review — and
+ * the registry's order only after them. Registry order put "Compact Session"
+ * second and the session's Files/Browser last, behind rarer actions. An id
+ * missing from the palette (no session, a flag off) is skipped, not a hole.
+ */
+export const SUGGESTION_PRIORITY: readonly string[] = [
+  WORKSPACE_SWITCHER_ITEM_ID,
+  'open-session-files',
+  'open-session-browser',
+  'open-session-terminal',
+  'view-changes',
+  'review-changes',
+  'nav-accounts',
+];
+
+/**
  * How many rows of one page the palette warms (see the prefetch effects in
  * `CommandPalette`). The sessions page renders up to 50 rows; firing 50 RSC
  * requests because a project has 50 sessions costs more than the cold fetch it
@@ -289,8 +326,8 @@ const PALETTE_PREFETCH_LIMIT = 8;
 /**
  * The rows the palette offers before anything is typed.
  *
- * "Switch workspace" is PINNED to the front, then the registry's own order,
- * then the cap. Unpinned it sits at index 11 of the actions+navigation list
+ * `SUGGESTION_PRIORITY` first — "Switch workspace" leads it — then the
+ * registry's own order, then the cap. Unpinned it sits at index 11 of the actions+navigation list
  * and the cap is {@link ROOT_SUGGESTION_LIMIT} — so opening ⌘K and typing
  * nothing showed eight session and terminal actions and no way to change
  * workspace at all. Every other top-level move in this product has a control
@@ -310,11 +347,16 @@ export function buildRootSuggestions(
   limit: number = ROOT_SUGGESTION_LIMIT,
 ): MenuItemDef[] {
   const candidates = items.filter(
-    (item) => item.group === 'actions' || item.group === 'navigation',
+    (item) =>
+      (item.group === 'actions' || item.group === 'navigation') &&
+      !SEARCH_ONLY_ITEM_IDS.has(item.id),
   );
-  const switcher = candidates.find((item) => item.id === WORKSPACE_SWITCHER_ITEM_ID);
-  const rest = candidates.filter((item) => item.id !== WORKSPACE_SWITCHER_ITEM_ID);
-  return (switcher ? [switcher, ...rest] : rest).slice(0, limit);
+  const rank = (item: MenuItemDef) => {
+    const index = SUGGESTION_PRIORITY.indexOf(item.id);
+    return index === -1 ? SUGGESTION_PRIORITY.length : index;
+  };
+  // A stable sort: unranked rows keep the registry's relative order.
+  return [...candidates].sort((a, b) => rank(a) - rank(b)).slice(0, limit);
 }
 
 export const SUBMENU_PAGE_BY_ID: Record<string, PalettePage> = {
@@ -773,6 +815,19 @@ function FeatureFlagsPage({
   );
 }
 
+const sessionName = (s: ProjectSession) =>
+  s.name ||
+  (typeof s.metadata?.session_name === 'string' ? s.metadata.session_name : '') ||
+  s.branch_name ||
+  s.session_id.slice(0, 8);
+
+export function sessionMatchesPaletteQuery(session: ProjectSession, query: string): boolean {
+  return (
+    sessionName(session).toLowerCase().includes(query) ||
+    session.session_id.toLowerCase().startsWith(query)
+  );
+}
+
 export function CommandPalette() {
   const tHardcodedUi = useTranslations('hardcodedUi');
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -821,8 +876,13 @@ export function CommandPalette() {
     (s) => s.preferences.conversationDensity ?? 'normal',
   );
   const billingEnabled = isBillingEnabled();
+  // What the active session's runtime serves (E1): a pi session has no compact.
+  const runtimeCapabilities = useRuntimeConnectionStore((s) => s.runtimeCapabilities);
 
-  const { data: agents } = useRuntimeAgents();
+  // The project's own agents from the Kortix project config, filtered by the
+  // SDK's one selectable-agent rule: the same list the composer offers. Never
+  // the sandbox runtime's list, which adds its built-ins (`build`, `plan`, …).
+  const agents = useVisibleAgents({ projectId });
   const { data: providers } = useRuntimeProviders();
 
   const selectedAccountId = useCurrentAccountStore((s) => s.selectedAccountId);
@@ -866,11 +926,32 @@ export function CommandPalette() {
   const allWorkspaces = workspaceQueries.flatMap((q) => q.data ?? []);
   const workspacesLoading =
     workspaceQueries.length === 0 || workspaceQueries.some((q) => q.isLoading);
-  const { data: projectSessionsList } = useQuery({
+  const { data: paletteSessions, isPending: projectSessionsPending } = useQuery({
     queryKey: qk.project.sessions(projectId ?? ''),
     queryFn: () => listProjectSessions(projectId!, { limit: PROJECT_SESSION_NAME_LOOKUP_LIMIT }),
     enabled: open && !!projectId,
     ...contract('inventory'),
+  });
+  // The sidebar's pages are usually cached already. Their rows stand in until
+  // this lookup-sized list answers, and when it fails, so recent sessions show
+  // the moment the palette opens instead of "No sessions yet". Not
+  // `placeholderData`: TanStack drops a placeholder when the fetch errors.
+  const sidebarPages = queryClient.getQueryData<{
+    pages: ProjectSessionPage[];
+    pageParams: unknown[];
+  }>(qk.project.sessionsPaged(projectId ?? ''));
+  const sidebarSessions = useMemo(
+    () => (sidebarPages ? flattenProjectSessionPages(sidebarPages) : undefined),
+    [sidebarPages],
+  );
+  const projectSessionsList = paletteSessions ?? sidebarSessions;
+  // Search is the server's: `q` reaches every session the viewer may open, not
+  // only the newest `PROJECT_SESSION_NAME_LOOKUP_LIMIT` the lookup above holds.
+  const serverSessionQuery = useDebounce(query.trim(), 250);
+  const { sessions: serverSessionMatches } = useProjectSessions(projectId ?? '', {
+    q: serverSessionQuery,
+    limit: 20,
+    enabled: open && !!projectId && serverSessionQuery.length > 0,
   });
   // Same query key every other project surface fetches (page.tsx,
   // project-shell.tsx) — dedupes against that cache entry. Resolves the
@@ -911,9 +992,9 @@ export function CommandPalette() {
   // `llm_gateway` used to resolve to AVAILABILITY here while the Customize
   // panel rendered nothing unless it was ENABLED — a palette entry that opened
   // a blank pane. It now follows enablement like every other flag.
-  // `projectFlags`, not `featureFlags` — the module-scope `featureFlags` import
-  // above is the DEPLOYMENT flag set (`featureFlags` from `@kortix/sdk`, build-time
-  // capabilities like `enableProjects`), a different concept from the
+  // `projectFlags`, not `featureFlags` — the SDK's `featureFlags` is the
+  // DEPLOYMENT flag set (build-time capabilities like `enableProjects`), a
+  // different concept from the
   // per-project feature flags this gates on.
   const { flags: projectFlags } = useProjectFeatureFlags(open ? projectId : null);
 
@@ -929,7 +1010,7 @@ export function CommandPalette() {
   }, [currentSessionId, modelStore]);
 
   const currentAgent = useMemo(() => {
-    if (!currentAgentName || !agents) return agents?.[0];
+    if (!currentAgentName) return agents[0];
     return agents.find((a) => a.name === currentAgentName) ?? agents[0];
   }, [currentAgentName, agents]);
 
@@ -1062,6 +1143,7 @@ export function CommandPalette() {
       if (item.id === 'toggle-sidebar' && !sidebarCtx) continue;
       if (item.requiresBilling && !billingEnabled) continue;
       if (item.requiresSession && !currentSessionId) continue;
+      if (item.requiresRuntime && !runtimeSupports(runtimeCapabilities, item.requiresRuntime)) continue;
       if (item.requiresProject && !projectId) continue;
       if (item.requiresFlag && !projectFlags[item.requiresFlag]) continue;
       // Token substitution. An href that still holds an UNRESOLVED token after
@@ -1090,6 +1172,7 @@ export function CommandPalette() {
   }, [
     billingEnabled,
     currentSessionId,
+    runtimeCapabilities,
     projectId,
     selectedAccountId,
     sidebarCtx,
@@ -1143,31 +1226,13 @@ export function CommandPalette() {
     [filteredSettingsGroups],
   );
 
-  const visibleAgents = useMemo(() => {
-    if (!agents) return [];
-    const projectOnlyAgents = new Set(['project-manager']);
-    return agents.filter(
-      (a) => !a.hidden && (featureFlags.enableProjects || !projectOnlyAgents.has(a.name)),
-    );
-  }, [agents]);
-
   const filteredAgents = useMemo(() => {
-    if (!visibleAgents.length) return [];
     const q = query.trim().toLowerCase();
-    return visibleAgents.filter(
+    return agents.filter(
       (a) =>
         (a.name || '').toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q),
     );
-  }, [visibleAgents, query]);
-
-  const primaryAgents = useMemo(
-    () => filteredAgents.filter((a) => a.mode !== 'subagent'),
-    [filteredAgents],
-  );
-  const subAgents = useMemo(
-    () => filteredAgents.filter((a) => a.mode === 'subagent'),
-    [filteredAgents],
-  );
+  }, [agents, query]);
 
   const visibleModels = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1348,12 +1413,6 @@ export function CommandPalette() {
     [projectId, openProjectTab, router, close],
   );
 
-  const sessionName = (s: ProjectSession) =>
-    s.name ||
-    (typeof s.metadata?.session_name === 'string' ? s.metadata.session_name : '') ||
-    s.branch_name ||
-    s.session_id.slice(0, 8);
-
   /**
    * Every workspace the user can switch to, in the sidebar's order — active
    * account first, then alphabetical, most-recently-opened first inside each.
@@ -1420,11 +1479,13 @@ export function CommandPalette() {
   const filteredProjectSessionsList = useMemo(() => {
     const q = query.trim().toLowerCase();
     const sorted = sortSessionsByLastActivity(projectSessionsList ?? []);
-    return (q ? sorted.filter((s) => sessionName(s).toLowerCase().includes(q)) : sorted).slice(
-      0,
-      50,
-    );
-  }, [projectSessionsList, query]);
+    if (!q) return sorted.slice(0, 50);
+    // Instant local matches first, then the server's answer for the rest.
+    const local = sorted.filter((s) => sessionMatchesPaletteQuery(s, q));
+    const seen = new Set(local.map((s) => s.session_id));
+    const remote = serverSessionMatches.filter((s) => !seen.has(s.session_id));
+    return [...local, ...remote].slice(0, 50);
+  }, [projectSessionsList, query, serverSessionMatches]);
 
   const rootSessionResults = useMemo(() => {
     if (!hasQuery || !projectId) return [];
@@ -1577,9 +1638,40 @@ export function CommandPalette() {
         value: currentSessionId ? pathname : '',
         keywords: 'session link url share',
       },
+      {
+        id: 'session-title',
+        label: tPalette('copySessionTitle'),
+        value: currentSessionId ? (currentProjectSession?.name ?? '') : '',
+        keywords: 'session title name',
+      },
     ];
     return items.filter((item) => item.value);
-  }, [tPalette, user?.email, user?.id, activeAccountId, projectId, currentSessionId, pathname]);
+  }, [
+    tPalette,
+    user?.email,
+    user?.id,
+    activeAccountId,
+    projectId,
+    currentSessionId,
+    currentProjectSession?.name,
+    pathname,
+  ]);
+
+  /**
+   * "Copy session ID" in the no-query Suggestions, fourth row: it is what a
+   * user in a session reaches for most (support threads, CLI flags), so it
+   * should not need a search. Off a session there is none, and no row.
+   */
+  const suggestedSessionIdCopy = copyItems.find((item) => item.id === 'session-id') ?? null;
+  /**
+   * Desktop only, right under it: the Electron shell has no address bar, so
+   * there is no other way to take a session's link out of the app. The copy
+   * is `window.location.href` — the shell loads the real web origin, so the
+   * link opens in any browser. The web keeps its address bar and one row.
+   */
+  const suggestedSessionLinkCopy = isDesktop()
+    ? (copyItems.find((item) => item.id === 'session-link') ?? null)
+    : null;
 
   // Copy rows ride along with ordinary root search: "email" offers the email,
   // "project" offers the project id under the projects it finds, "session" the
@@ -1921,13 +2013,6 @@ export function CommandPalette() {
     });
   }, [close]);
 
-  const handleGenerateSSHKey = useCallback(() => {
-    close();
-    import('@/stores/ssh-dialog-store').then(({ useSSHDialogStore }) => {
-      useSSHDialogStore.getState().openSSHDialog();
-    });
-  }, [close]);
-
   // A rejected promise is not guaranteed to carry an Error, and a toast reading
   // "undefined" is worse than a generic one.
   const reloadErrorMessage = (err: unknown): string =>
@@ -1989,7 +2074,6 @@ export function CommandPalette() {
       logout: handleLogout,
       openPlan: handleOpenPlan,
       openProviderModal: handleOpenProviderModal,
-      generateSSHKey: handleGenerateSSHKey,
       restartConfig: handleRestartConfig,
       reconcileSession: handleReconcileSession,
     }),
@@ -2011,7 +2095,6 @@ export function CommandPalette() {
       handleLogout,
       handleOpenPlan,
       handleOpenProviderModal,
-      handleGenerateSSHKey,
       handleRestartConfig,
       handleReconcileSession,
     ],
@@ -2261,7 +2344,7 @@ export function CommandPalette() {
                   <>
                     <CommandGroup heading="Suggestions" forceMount>
                       <div className="space-y-0.5">
-                        {rootSuggestionItems.map((item) => {
+                        {rootSuggestionItems.map((item, index) => {
                           const Icon = item.icon;
                           const isToggleSidebar = item.id === 'toggle-sidebar';
                           const DisplayIcon = isToggleSidebar
@@ -2277,41 +2360,71 @@ export function CommandPalette() {
 
                           const submenuPage = SUBMENU_PAGE_BY_ID[item.id];
                           return (
-                            <CommandItem
-                              key={item.id}
-                              value={sanitizeCmdkValue(
-                                `suggestion ${buildPaletteSearchText(item)}`,
-                              )}
-                              onSelect={() =>
-                                submenuPage ? goToPage(submenuPage) : handleRegistryItem(item)
-                              }
-                              disabled={item.id === 'new-session' && isCreating}
-                            >
-                              {item.id === 'new-session' && isCreating ? (
-                                <Loading className="text-muted-foreground size-4 shrink-0" />
-                              ) : (
-                                <DisplayIcon className="size-4" />
-                              )}
-                              <span className="flex-1">{displayLabel}</span>
-                              {item.id === 'review-changes' && openChangeRequestCount > 0 && (
-                                <span className="text-muted-foreground/40 text-xs tabular-nums">
-                                  {openChangeRequestCount}
-                                </span>
-                              )}
-                              {submenuPage === 'density' && (
-                                <span className="text-muted-foreground/40 text-xs">
-                                  {
-                                    densityPageOptions.find(
-                                      (option) => option.id === conversationDensity,
-                                    )?.label
-                                  }
-                                </span>
-                              )}
-                              {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
-                              {submenuPage && (
-                                <ChevronRight className="text-muted-foreground/30 size-3" />
-                              )}
-                            </CommandItem>
+                            <Fragment key={item.id}>
+                              <CommandItem
+                                value={sanitizeCmdkValue(
+                                  `suggestion ${buildPaletteSearchText(item)}`,
+                                )}
+                                onSelect={() =>
+                                  submenuPage ? goToPage(submenuPage) : handleRegistryItem(item)
+                                }
+                                disabled={item.id === 'new-session' && isCreating}
+                              >
+                                {item.id === 'new-session' && isCreating ? (
+                                  <Loading className="text-muted-foreground size-4 shrink-0" />
+                                ) : (
+                                  <DisplayIcon className="size-4" />
+                                )}
+                                <span className="flex-1">{displayLabel}</span>
+                                {item.id === 'review-changes' && openChangeRequestCount > 0 && (
+                                  <span className="text-muted-foreground/40 text-xs tabular-nums">
+                                    {openChangeRequestCount}
+                                  </span>
+                                )}
+                                {submenuPage === 'density' && (
+                                  <span className="text-muted-foreground/40 text-xs">
+                                    {
+                                      densityPageOptions.find(
+                                        (option) => option.id === conversationDensity,
+                                      )?.label
+                                    }
+                                  </span>
+                                )}
+                                {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
+                                {submenuPage && (
+                                  <ChevronRight className="text-muted-foreground/30 size-3" />
+                                )}
+                              </CommandItem>
+                              {index === 2 && suggestedSessionIdCopy ? (
+                                <CommandItem
+                                  value={sanitizeCmdkValue(
+                                    `suggestion copy-session-id ${suggestedSessionIdCopy.keywords}`,
+                                  )}
+                                  onSelect={() => void handleCopyValue(suggestedSessionIdCopy)}
+                                >
+                                  <Copy className="size-4" />
+                                  <span className="flex-1">
+                                    {tPalette('copyAction', { label: suggestedSessionIdCopy.label })}
+                                  </span>
+                                  <span className="text-muted-foreground max-w-40 truncate font-mono text-xs">
+                                    {suggestedSessionIdCopy.value}
+                                  </span>
+                                </CommandItem>
+                              ) : null}
+                              {index === 2 && suggestedSessionLinkCopy ? (
+                                <CommandItem
+                                  value={sanitizeCmdkValue(
+                                    `suggestion copy-session-link ${suggestedSessionLinkCopy.keywords}`,
+                                  )}
+                                  onSelect={() => void handleCopyValue(suggestedSessionLinkCopy)}
+                                >
+                                  <Copy className="size-4" />
+                                  <span className="flex-1">
+                                    {tPalette('copyAction', { label: suggestedSessionLinkCopy.label })}
+                                  </span>
+                                </CommandItem>
+                              ) : null}
+                            </Fragment>
                           );
                         })}
                       </div>
@@ -2573,7 +2686,7 @@ export function CommandPalette() {
                           <CommandItem
                             key={session.session_id}
                             value={sanitizeCmdkValue(
-                              `session ${sessionName(session)} ${session.session_id}`,
+                              `session ${sessionName(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
                             )}
                             onSelect={() => handleSelectProjectSession(session)}
                           >
@@ -2695,9 +2808,9 @@ export function CommandPalette() {
 
             {page === 'agents' && (
               <>
-                {primaryAgents.length > 0 && (
+                {filteredAgents.length > 0 && (
                   <CommandGroup heading="Agents" forceMount>
-                    {primaryAgents.map((agent) => {
+                    {filteredAgents.map((agent) => {
                       const isActive = currentAgent?.name === agent.name;
                       const chalk = chalkColors(agent.name);
                       return (
@@ -2722,49 +2835,6 @@ export function CommandPalette() {
                             <span className="truncate text-sm font-medium">
                               {capitalizeWords(agent.name)}
                             </span>
-                            {agent.description && (
-                              <span className="text-muted-foreground/50 truncate text-xs">
-                                {agent.description}
-                              </span>
-                            )}
-                          </div>
-                          {isActive && <Check className="text-primary h-3.5 w-3.5 shrink-0" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                )}
-
-                {subAgents.length > 0 && (
-                  <CommandGroup heading="Sub-agents" forceMount>
-                    {subAgents.map((agent) => {
-                      const isActive = currentAgent?.name === agent.name;
-                      const isKortixAgent = agent.name.toLowerCase().includes('kortix');
-                      const chalk = chalkColors(agent.name);
-                      return (
-                        <CommandItem
-                          key={agent.name}
-                          value={sanitizeCmdkValue(
-                            `subagent ${agent.name} ${agent.description || ''}`,
-                          )}
-                          onSelect={() => handleSelectAgent(agent.name)}
-                        >
-                          <div
-                            className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border font-semibold"
-                            style={{
-                              backgroundColor: chalk.background,
-                              color: chalk.foreground,
-                              borderColor: chalk.border,
-                            }}
-                          >
-                            {isKortixAgent ? (
-                              <Bot className="size-5 shrink-0" />
-                            ) : (
-                              <span>{agent.name.charAt(0).toUpperCase()}</span>
-                            )}
-                          </div>
-                          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                            <span className="truncate text-sm">{capitalizeWords(agent.name)}</span>
                             {agent.description && (
                               <span className="text-muted-foreground/50 truncate text-xs">
                                 {agent.description}
@@ -2984,7 +3054,7 @@ export function CommandPalette() {
                     <CommandItem
                       key={session.session_id}
                       value={sanitizeCmdkValue(
-                        `session ${sessionName(session)} ${session.session_id}`,
+                        `session ${sessionName(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
                       )}
                       onSelect={() => handleSelectProjectSession(session)}
                     >
@@ -3000,6 +3070,12 @@ export function CommandPalette() {
                     </CommandItem>
                   ))}
                 </CommandGroup>
+              ) : projectSessionsPending ? (
+                // No list and no sidebar pages to stand in: loading, not
+                // "No sessions yet". Same frame as the workspaces page.
+                <div className="flex justify-center py-8">
+                  <Loading className="text-muted-foreground size-4" />
+                </div>
               ) : (
                 <PaletteEmpty>
                   {query

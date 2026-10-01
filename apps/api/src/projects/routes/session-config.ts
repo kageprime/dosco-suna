@@ -5,13 +5,13 @@
  */
 
 import { PROJECT_ACTIONS } from '../../iam';
+import { resolveSessionBinding } from './lib/route-bindings';
 import { auth, errors, json } from '../../openapi';
 import { createRoute, z } from '@hono/zod-openapi';
 import { and, or } from 'drizzle-orm';
 import { config } from '../../config';
-import { loadProjectForUser, loadVisibleSession, assertProjectCapability } from '../lib/access';
+import { loadVisibleSession, assertProjectCapability } from '../lib/access';
 import { AnyObject, projectsApp } from '../lib/app';
-import { isUuid } from '../../shared/validate';
 import { readJsonObject } from '../../shared/http-body';
 import { callerKortixSessionId } from '../lib/caller-session';
 import { assertAgentScope } from '../../iam/agent-scope';
@@ -31,6 +31,26 @@ import {
   reloadDetail,
   reloadSessionConfig,
 } from '../lib/session-reload';
+import { timeConfigStage } from '../lib/config-stage-timing';
+import { computeDesiredRuntime } from '../../runtime-convergence/desired';
+import { diffRuntime } from '../../runtime-convergence/diff';
+import { toRuntimeBlockWire, type RuntimeBlockWire } from '../../runtime-convergence/wire';
+import type { SandboxConfigState } from '../lib/session-reload';
+
+/**
+ * The `runtime` block (spec §3, the runtime-convergence contract (PR #7785)): desired vs
+ * actual for every Rule-1 component, independent of whether this project runs
+ * config releases at all — a project with the flag off still runs a daemon
+ * build, a CLI, a managed-skill overlay and a model catalog, and a box stuck on
+ * a stale one is exactly the failure this closes. `releaseId` is null when
+ * config releases are off for this project (the existing chokepoint above
+ * never builds one in that case) or when resolution failed; every OTHER
+ * component is still compared.
+ */
+async function runtimeBlockFor(releaseId: string | null, running: SandboxConfigState): Promise<RuntimeBlockWire> {
+  const desired = await computeDesiredRuntime({ releaseId });
+  return toRuntimeBlockWire(diffRuntime(desired, running.runtimeTruth));
+}
 projectsApp.openapi(
   createRoute({
     method: 'get',
@@ -44,10 +64,11 @@ projectsApp.openapi(
   async (c: any) => {
     const projectId = c.req.param('projectId');
     const sessionId = c.req.param('sessionId');
-    if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
-
-    const loaded = await loadProjectForUser(c, projectId, 'session');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
+    const binding = await timeConfigStage('project_access', () =>
+      resolveSessionBinding(c, projectId, sessionId, 'session'),
+    );
+    if (binding.kind === 'error') return binding.response as never;
+    const { loaded } = binding;
     // `loadProjectForUser(..., 'session')` is the coarse access level, not a
     // read grant. Without this an agent-scoped or read-restricted token could
     // read a session's commit sha and config hash — small, but it is session
@@ -59,7 +80,9 @@ projectsApp.openapi(
       projectId,
       PROJECT_ACTIONS.PROJECT_SESSION_READ,
     );
-    const visible = await loadVisibleSession(loaded, sessionId, callerKortixSessionId(c), callerKortixSessionId(c));
+    const visible = await timeConfigStage('session_access', () =>
+      loadVisibleSession(loaded, sessionId, callerKortixSessionId(c), callerKortixSessionId(c)),
+    );
     if (!visible) return c.json({ error: 'Not found' }, 404);
 
     const baseRef = visible.row.baseRef ?? loaded.row.defaultBranch;
@@ -70,22 +93,33 @@ projectsApp.openapi(
       manifestPath: loaded.row.manifestPath ?? 'kortix.yaml',
       gitAuthToken: null,
     };
-    // CHOKEPOINT — the `config_releases` flag for this read
-    // (docs/specs/config-releases.md, "Feature flag"). Off ⇒ no `release`
+    // CHOKEPOINT — the `config_releases` flag for this read. Off ⇒ no `release`
     // block, no desired release is built (so no archive is stored and no
     // ledger row is written), and `stale` is the pre-release etag compare
     // alone. The CLI formatter and the web header both render their
     // pre-release text when `release` is absent.
     const releasesEnabled = configReleasesEnabled(loaded.row.metadata);
     const [running, latest] = await Promise.all([
-      readSandboxConfigState({ sessionId }),
-      latestAgentConfigEtag({
+      timeConfigStage('sandbox_state', () => readSandboxConfigState({ sessionId })),
+      timeConfigStage('latest_etag', () => latestAgentConfigEtag({
         projectId,
         accountId: loaded.row.accountId,
         sessionId,
         baseRef,
-      }),
+      })),
     ]);
+    // The managed-model catalog's freshness, in the SAME place a config
+    // fallback is already visible — not gated on `releasesEnabled`, for the
+    // identical reason `runtime.pinned` is not: a box that could not confirm
+    // its managed lineup needs this fact regardless of which config path the
+    // project is on. `ids: null` means UNCONFIRMED (no live fetch has ever
+    // succeeded on this box — it is running the baked/bundled managed set),
+    // never "no managed models exist". See `managed-assets/manifest.ts`'s
+    // `runningAssetsVerdict` doc for why that box reads `behind`, not `current`.
+    const managedCatalog = {
+      ids: running.runtime?.running?.managed_model_ids ?? null,
+      fallback_reason: running.runtime?.running?.managed_catalog_fallback_reason ?? null,
+    };
 
     // ── A daemon with config releases (spec, "`GET /config`, extended") ──
     if (releasesEnabled && running.configReleases && running.release) {
@@ -100,13 +134,16 @@ projectsApp.openapi(
         sessionId,
         ownerUserId: visible.row.createdBy ?? null,
       };
-      const desired = await resolveDesiredRelease({
+      const desired = await timeConfigStage('desired_release', () => resolveDesiredRelease({
         project,
         baseRef,
         sessionAgent: visible.row.agentName ?? null,
         repositoryAccess: repositoryAccessFromSessionMetadata(visible.row.metadata),
         ownerMayUseAgent: (agent) => ownerMayUseAgent(repointSubject, agent),
-      }).catch(() => null);
+        // The etag compile above already fetched this mirror in THIS request;
+        // a second invalidate paid a second `git fetch` per read (KRTX-629).
+        refreshProjectMirror: false,
+      })).catch(() => null);
       const release = toSessionConfigRelease(
         running.release,
         desired ? desired.descriptor.release_id : undefined,
@@ -121,10 +158,13 @@ projectsApp.openapi(
         stale: isReleaseStale(release, desired !== null),
         sandbox_reachable: running.reachable,
         release,
+        managed_catalog: managedCatalog,
         // Surfaced so the web header and `kortix sessions reload --status` can
         // say why a session lost its agent, instead of showing a healthy box
         // that answers nothing.
         ...(desired?.descriptor.agent_repoint ? { agent_repoint: desired.descriptor.agent_repoint } : {}),
+        runtime: await timeConfigStage('runtime_block', () =>
+          runtimeBlockFor(desired?.descriptor.release_id ?? null, running)),
       });
     }
 
@@ -137,12 +177,12 @@ projectsApp.openapi(
     // so offering "update available" for them would promise a reload that
     // cannot deliver. `stale` is then exactly the pre-release expression.
     const filesStale = releasesEnabled && running.reachable
-      ? await isSessionConfigDirStale({
+      ? await timeConfigStage('config_dir', () => isSessionConfigDirStale({
           project,
           baseRef,
           configDirSha: running.configDirSha,
           commitSha: running.commitSha,
-        })
+        }))
       : null;
     return c.json({
       base_ref: baseRef,
@@ -154,6 +194,8 @@ projectsApp.openapi(
       // the truth is "did not ask".
       stale: combineConfigStaleness(isConfigStale(running.etag, latest), filesStale),
       sandbox_reachable: running.reachable,
+      runtime: await timeConfigStage('runtime_block', () => runtimeBlockFor(null, running)),
+      managed_catalog: managedCatalog,
     });
   },
 );
@@ -176,10 +218,9 @@ projectsApp.openapi(
   async (c: any) => {
     const projectId = c.req.param('projectId');
     const sessionId = c.req.param('sessionId');
-    if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
-
-    const loaded = await loadProjectForUser(c, projectId, 'session');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
+    const binding = await resolveSessionBinding(c, projectId, sessionId, 'session');
+    if (binding.kind === 'error') return binding.response as never;
+    const { loaded } = binding;
     await assertProjectCapability(
       c,
       loaded.userId,
@@ -262,10 +303,9 @@ projectsApp.openapi(
   async (c: any) => {
     const projectId = c.req.param('projectId');
     const sessionId = c.req.param('sessionId');
-    if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
-
-    const loaded = await loadProjectForUser(c, projectId, 'session');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
+    const binding = await resolveSessionBinding(c, projectId, sessionId, 'session');
+    if (binding.kind === 'error') return binding.response as never;
+    const { loaded } = binding;
     await assertProjectCapability(
       c,
       loaded.userId,

@@ -20,7 +20,7 @@
  */
 
 import type { Query, QueryClient } from '@tanstack/react-query';
-import type { ProjectSession } from '../core/rest/projects-client/sessions';
+import { sessionParentId, type ProjectSession } from '../core/rest/projects-client/sessions';
 import { qk } from './query-keys';
 
 /**
@@ -34,13 +34,40 @@ import { qk } from './query-keys';
  * still in memory threw on render and could not send (prod, 2026-09-22).
  *
  * Keys, relative to the prefix: `['list', scope]`, `['list-paged', scope]`,
- * and `[sessionId]`. Anything longer or different is not a session.
+ * `['list-paged', scope, filters]`, `['list-children', parentId, q]`, and
+ * `[sessionId]`. Anything longer or different is not a session.
  */
 function isSessionCacheKey(projectId: string, query: Query): boolean {
   const prefix = qk.project.sessionsScope(projectId);
   const rest = query.queryKey.slice(prefix.length);
-  if (rest.length === 2) return rest[0] === 'list' || rest[0] === 'list-paged';
+  if (rest[0] === 'list') return rest.length === 2;
+  if (rest[0] === 'list-paged') return rest.length === 2 || rest.length === 3;
+  if (rest[0] === 'list-children') return rest.length === 3;
   return rest.length === 1 && typeof rest[0] === 'string';
+}
+
+type ListFilters = { parent: string | null; startedBy: string | null; q: string | null };
+
+/**
+ * May a NEW session appear in this cached list? Unfiltered lists take every
+ * session. A searched list is never seeded (whether the row matches is the
+ * server's call). A root list takes top-level sessions whose starter matches;
+ * a children list takes only that parent's children. The viewer id is not known
+ * here, so "mine" is `is_owner !== false` on a member-started row.
+ */
+function sessionBelongsInList(projectId: string, query: Query, session: ProjectSession): boolean {
+  const rest = query.queryKey.slice(qk.project.sessionsScope(projectId).length);
+  const parentId = sessionParentId(session);
+  if (rest[0] === 'list-children') return !rest[2] && parentId === rest[1];
+  const filters = rest[0] === 'list-paged' ? (rest[2] as ListFilters | undefined) : undefined;
+  if (!filters) return true;
+  if (filters.q) return false;
+  if (filters.parent === 'root' && parentId !== null) return false;
+  if (filters.parent && filters.parent !== 'root') return parentId === filters.parent;
+  if (!filters.startedBy) return true;
+  const isMember = (session.initiator?.type ?? 'member') === 'member';
+  if (filters.startedBy === 'automated') return !isMember;
+  return isMember && (filters.startedBy === 'me') === (session.is_owner !== false);
 }
 
 export type ProjectSessionsUpdater = (sessions: ProjectSession[]) => ProjectSession[];
@@ -78,10 +105,17 @@ export function applyToCachedSessionShape(cached: unknown, update: ProjectSessio
   if (Array.isArray(cached)) return update(cached as ProjectSession[]);
 
   if (isPagedSessionCache(cached)) {
-    return {
-      ...cached,
-      pages: cached.pages.map((page) => ({ ...page, items: update(page.items) })),
-    };
+    // A page whose rows the updater returned unchanged keeps its identity, and
+    // so does the whole cache when no page changed: a title event reaches every
+    // cached list, and most of them do not hold that session.
+    let changed = false;
+    const pages = cached.pages.map((page) => {
+      const items = update(page.items);
+      if (items === page.items) return page;
+      changed = true;
+      return { ...page, items };
+    });
+    return changed ? { ...cached, pages } : cached;
   }
 
   if (isSessionRow(cached)) {
@@ -167,6 +201,33 @@ export function upsertIntoCachedSessionShape(cached: unknown, session: ProjectSe
 }
 
 /**
+ * Remove a session from every cached list for this project and forget its
+ * single-row entry. The optimistic counterpart of a delete.
+ *
+ * Returns a function that puts every entry back exactly as it was, for the
+ * delete that the server refuses.
+ */
+export function removeCachedProjectSession(
+  queryClient: QueryClient,
+  projectId: string,
+  sessionId: string,
+): () => void {
+  const filter = {
+    queryKey: qk.project.sessionsScope(projectId),
+    predicate: (query: Query) => isSessionCacheKey(projectId, query),
+  };
+  const previous = queryClient.getQueriesData(filter);
+  updateCachedProjectSessions(queryClient, projectId, (rows) => {
+    const kept = rows.filter((row) => row.session_id !== sessionId);
+    return kept.length === rows.length ? rows : kept;
+  });
+  queryClient.removeQueries({ queryKey: qk.project.session(projectId, sessionId), exact: true });
+  return () => {
+    for (const [queryKey, data] of previous) queryClient.setQueryData(queryKey, data);
+  };
+}
+
+/**
  * Insert a session into every cached list for this project, or replace it
  * wherever it is already cached. The optimistic counterpart of a create.
  */
@@ -178,7 +239,8 @@ export function upsertCachedProjectSession(
   queryClient.setQueriesData(
     {
       queryKey: qk.project.sessionsScope(projectId),
-      predicate: (query) => isSessionCacheKey(projectId, query),
+      predicate: (query) =>
+        isSessionCacheKey(projectId, query) && sessionBelongsInList(projectId, query, session),
     },
     (cached: unknown) => upsertIntoCachedSessionShape(cached, session),
   );

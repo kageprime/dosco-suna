@@ -1,4 +1,4 @@
-import { logger } from '../../logger'
+import { logger } from '@/lib/log/logger'
 import type { OpenCodeConfig as Config } from './config'
 import type { Opencode } from './lifecycle'
 
@@ -346,6 +346,12 @@ export function dispatch(
           }
         }
       | undefined
+    // OpenCode 1.18.23 publishes ContextOverflowError and then compacts the
+    // session and replays the prompt in the same turn (session/processor.ts
+    // `halt`). The turn's real outcome follows as `session.idle`, with the
+    // error on the last assistant message when compaction itself failed.
+    // Relaying this event would close a turn that is still running.
+    if (props?.error?.name === 'ContextOverflowError') return
     if (props?.sessionID) {
       const e = props.error
       handlers.onSessionError(props.sessionID, e ? flattenOpencodeError(e) : undefined)

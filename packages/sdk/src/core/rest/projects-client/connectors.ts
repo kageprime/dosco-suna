@@ -104,10 +104,33 @@ function connectorGatewayPath(projectId: string | undefined, suffix: string): st
     : `/connectors/${suffix}`;
 }
 
-export async function getConnectorCatalog(projectId?: string): Promise<ConnectorCatalogEntry[]> {
+export interface GetConnectorCatalogOptions {
+  /** Restrict the catalog to one connector by slug. */
+  slug?: string;
+  /**
+   * The full per-action JSON Schema. Omitted from the request by default, and
+   * the API then INCLUDES it: sandboxes run a baked CLI whose connector
+   * gateway reads schemas from this route, so the server default can never
+   * flip. Pass `false` from a surface that renders no schema (it is the bulk
+   * of the payload: 439 KB on prod); `describeConnectorTool` narrows with
+   * `slug` instead.
+   */
+  includeSchemas?: boolean;
+}
+
+export async function getConnectorCatalog(
+  projectId?: string,
+  options?: GetConnectorCatalogOptions,
+): Promise<ConnectorCatalogEntry[]> {
+  const params = new URLSearchParams();
+  if (options?.slug) params.set('slug', options.slug);
+  if (options?.includeSchemas !== undefined) {
+    params.set('include_schemas', String(options.includeSchemas));
+  }
+  const query = params.toString() ? `?${params.toString()}` : '';
   const result = unwrap(
     await backendApi.get<{ connectors?: ConnectorCatalogEntry[] }>(
-      connectorGatewayPath(projectId, 'catalog'),
+      `${connectorGatewayPath(projectId, 'catalog')}${query}`,
     ),
   );
   return result.connectors ?? [];
@@ -115,7 +138,12 @@ export async function getConnectorCatalog(projectId?: string): Promise<Connector
 
 export async function listConnectorTools(projectId?: string): Promise<ConnectorTool[]> {
   const tools: ConnectorTool[] = [];
-  for (const connector of await getConnectorCatalog(projectId)) {
+  // Neither this nor any caller of it (search, discover) reads `inputSchema` —
+  // only `describeConnectorTool` below does, and it fetches its own schema
+  // directly instead of going through this bulk listing. The API includes each
+  // action's JSON Schema by default (439KB on prod), so opt out or this summary
+  // pays the whole payload for nothing.
+  for (const connector of await getConnectorCatalog(projectId, { includeSchemas: false })) {
     for (const action of connector.actions) {
       tools.push({
         tool: `${connector.slug}.${action.path}`,
@@ -151,7 +179,33 @@ export async function describeConnectorTool(
   projectId: string | undefined,
   tool: string,
 ): Promise<ConnectorTool | null> {
-  return (await listConnectorTools(projectId)).find((candidate) => candidate.tool === tool) ?? null;
+  const separator = tool.indexOf('.');
+  if (separator < 0) return null;
+  const connectorSlug = tool.slice(0, separator).trim();
+  if (!connectorSlug) return null;
+  // Fetch ONE connector, with its schema, instead of the whole catalog —
+  // this used to call listConnectorTools (the full, unfiltered, schema-less
+  // catalog) just to pick out a single action.
+  // Match by slug, never take the first entry: an API that predates the
+  // `slug` filter answers the whole catalog, and the CLI ships separately.
+  const connector = (
+    await getConnectorCatalog(projectId, { slug: connectorSlug, includeSchemas: true })
+  ).find((entry) => entry.slug === connectorSlug);
+  if (!connector) return null;
+  for (const action of connector.actions) {
+    const candidateTool = `${connector.slug}.${action.path}`;
+    if (candidateTool === tool) {
+      return {
+        tool: candidateTool,
+        connector: connector.slug,
+        action: action.path,
+        risk: action.risk,
+        description: action.description || action.name,
+        inputSchema: action.inputSchema,
+      };
+    }
+  }
+  return null;
 }
 
 function parseConnectorTool(tool: string): { connector: string; action: string } {
@@ -190,6 +244,13 @@ export interface ConnectorCallOptions {
    * and the denial lists the names that were available.
    */
   account?: string | null;
+  /**
+   * What this call does, in the caller's words — shown to the human when a
+   * policy holds the call for approval. Use it when the arguments alone don't
+   * show the effect (`send_draft` takes only a draft id: say who it goes to and
+   * what it says). Displayed as unverified; never sent to the provider.
+   */
+  approvalContext?: string | null;
 }
 
 export async function callConnector<T = unknown>(
@@ -200,12 +261,19 @@ export async function callConnector<T = unknown>(
 ): Promise<ConnectorCallResult<T>> {
   const { connector, action } = parseConnectorTool(tool);
   const account = options.account?.trim();
+  const approvalContext = options.approvalContext?.trim();
   return unwrap(
     await backendApi.post<ConnectorCallResult<T>>(
       connectorGatewayPath(projectId, 'call'),
       // The key is omitted rather than sent as null: the gateway reads its
       // presence, and an explicit null would read as "an account was named".
-      { connector, action, args, ...(account ? { account } : {}) },
+      {
+        connector,
+        action,
+        args,
+        ...(account ? { account } : {}),
+        ...(approvalContext ? { approval_context: approvalContext } : {}),
+      },
     ),
   );
 }
@@ -321,8 +389,7 @@ export interface AdminConnector {
   iconUrl?: string | null;
   status: 'active' | 'disabled' | 'needs_auth' | 'error';
   /** Credential storage model. Always `shared` — `per_user` (each member's
-   *  own) was removed 2026-07-05 (docs/specs/2026-07-05-agent-first-config-
-   *  unification.md §2.5). A `shared` connector with no credential set
+   *  own) was removed 2026-07-05. A `shared` connector with no credential set
    *  (`secretSet: false`) needs reconnecting. */
   credentialMode: 'shared';
   /**
@@ -447,6 +514,34 @@ interface ConnectionFields {
    * a session. Absent on older servers, which means usable.
    */
   usable?: boolean;
+  /**
+   * The paired machine this account points at. Set only on accounts of a
+   * `computer` connector; `null` once the machine was unpaired (the account is
+   * then `revoked`). Absent on every other connector, and on older servers.
+   */
+  tunnel_id?: string | null;
+  /**
+   * Live status of the machine behind a `computer` account, for an online dot.
+   * `null` when the machine is gone. Absent on every other connector, and on
+   * older servers.
+   */
+  machine?: {
+    online: boolean;
+    last_heartbeat_at: string | null;
+    hostname?: string;
+    platform?: string;
+    /**
+     * Who may use the machine, decided by its owner on the machine itself:
+     * `ask` = the owner approves each new agent session on the computer
+     * (`granted_until` is the end of the current approval, `null` when none),
+     * `always` = no prompt, `off` = every call is refused. `null` (or
+     * absent) when the machine's agent never reported it, e.g. npm 0.1.x.
+     */
+    access?: {
+      mode: 'ask' | 'always' | 'off';
+      granted_until: string | null;
+    } | null;
+  } | null;
 }
 
 /** One grant naming who may use a shared account. Grant or revoke through
@@ -899,6 +994,27 @@ export async function renameConnection(projectId: string, connectionId: string, 
   );
 }
 
+/**
+ * Share a machine the caller paired with this project, as a shared account of
+ * the project's `computer` connector (`share: 'project'`, needs the
+ * connector-manage capability). The caller's own private account needs no
+ * call: it follows them into every project they belong to. `share: 'me'` (the
+ * server default) stays accepted. Idempotent: the same machine for the same
+ * owner returns the existing account. `409` when the machine cannot join this
+ * project's account.
+ */
+export async function addComputerToProject(
+  projectId: string,
+  input: { tunnelId: string; share?: ConnectorConnectOwner },
+) {
+  return unwrap(
+    await backendApi.post<Connection>(`/projects/${projectId}/computers`, {
+      tunnel_id: input.tunnelId,
+      ...(input.share ? { share: input.share } : {}),
+    }),
+  );
+}
+
 /** Who may use a shared account: a person, a group, or everyone in the project. */
 export interface ConnectionSharePrincipal {
   principal_type: 'user' | 'group' | 'project';
@@ -996,13 +1112,26 @@ export async function pipedreamFinalizeConnection(
   );
 }
 
-export async function listConnectors(projectId: string) {
+export interface ListConnectorsOptions {
+  /**
+   * The full per-action JSON Schema on every connector's actions. The API
+   * includes it unless this is `false` (older CLIs read it and cannot be
+   * updated in place). The dashboard passes `false`: the schemas were 1.6 MB
+   * of the prod response and no list renders them.
+   */
+  includeSchemas?: boolean;
+}
+
+export async function listConnectors(projectId: string, options?: ListConnectorsOptions) {
+  const query =
+    options?.includeSchemas === undefined ? '' : `?include_schemas=${options.includeSchemas}`;
   return unwrap(
     // Background read fired at workspace mount (project-home tiles, sidebar
     // setup checklist) — never global-toast; callers render their own state.
-    await backendApi.get<ConnectorsResponse>(`/connectors/projects/${projectId}/connectors`, {
-      showErrors: false,
-    }),
+    await backendApi.get<ConnectorsResponse>(
+      `/connectors/projects/${projectId}/connectors${query}`,
+      { showErrors: false },
+    ),
   );
 }
 
@@ -1145,7 +1274,11 @@ export interface ConnectorConfig {
   endpoint: string | null;
   baseUrl: string | null;
   spec: string | null;
-  /** Machine ids assigned to a Computers connector profile. */
+  /**
+   * @deprecated Computers are accounts of the `computer` connector now: read
+   * `Connection.tunnel_id` from `listConnections`. Servers no longer send it.
+   * Removed in the next major.
+   */
   tunnelIds?: string[];
   auth: {
     type: ConnectorRequestAuthType;
@@ -1259,7 +1392,11 @@ export interface ConnectorDraftInput {
   endpoint?: string;
   baseUrl?: string;
   spec?: string;
-  /** Account-owned machine ids assigned to a Computers connector profile. */
+  /**
+   * @deprecated Computers are accounts of the `computer` connector now: add one
+   * with `addComputerToProject`. The server ignores this field. Removed in the
+   * next major.
+   */
   tunnel_ids?: string[];
   /** Credential storage mode. `shared` is the only mode (`per_user` was
    *  removed 2026-07-05). */

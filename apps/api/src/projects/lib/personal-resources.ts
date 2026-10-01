@@ -1,6 +1,5 @@
 /**
- * Personal resources of an agent session — spec
- * docs/specs/2026-09-22-agents-as-principals.md §2.3.
+ * Personal resources of an agent session.
  *
  * A resource owned by one human (a member-owned connector connection, a
  * personal project-secret override, a personal provider key, that human's own
@@ -76,23 +75,6 @@ export function actorPersonalScope(
 }
 
 /**
- * The machine owners an Agent Computer Tunnel call may reach ("own
- * computer"). A connector profile stores the owner of every machine it lists:
- * the team account (shared) or one member's user id (that member's own
- * computer). Only an agent-principal caller is filtered: it keeps the team
- * account plus `personalOwner` (from `personalResourceOwner`). `null` owners
- * (a legacy aggregate row = every team machine) pass through.
- */
-export function filterPersonalTunnelOwners(input: {
-  accountId: string;
-  owners: string[] | null;
-  personalOwner: string | null;
-}): string[] | null {
-  if (input.owners === null) return null;
-  return input.owners.filter((owner) => owner === input.accountId || owner === input.personalOwner);
-}
-
-/**
  * Server-side resolution for one session: the user whose personal resources
  * the session may reach, or null.
  *
@@ -104,6 +86,9 @@ export function filterPersonalTunnelOwners(input: {
  *
  * Any read failure resolves to null under the flag: a missing value costs
  * personal resources only, never shared ones.
+ *
+ * `visibility` answers for a sharing change before it is stored: the same
+ * rule, with that visibility in place of the session's current one.
  */
 export async function resolveSessionPersonalOwner(input: {
   projectId: string;
@@ -111,15 +96,22 @@ export async function resolveSessionPersonalOwner(input: {
   /** What the pre-flag code used (the session creator, or the token user). */
   legacyUserId: string | null;
   accountId?: string | null;
+  /** A pending visibility to resolve against instead of the stored one. */
+  visibility?: PersonalSessionVisibility;
+  /** Apply the strict rule whatever the project flag and the agent grant say:
+   *  the on-behalf-of human of a PRIVATE session, else null. Secret audiences
+   *  (`secret-audience.ts`) use it — a narrowed value has no legacy answer. */
+  strict?: boolean;
 }): Promise<string | null> {
-  if (!input.sessionId) return input.legacyUserId;
+  const legacy = input.strict ? null : input.legacyUserId;
+  if (!input.sessionId) return legacy;
   let flag = false;
   try {
-    flag = await loadAgentPrincipalFlag(input.projectId);
+    flag = input.strict || (await loadAgentPrincipalFlag(input.projectId));
   } catch {
-    return input.legacyUserId;
+    return legacy;
   }
-  if (!flag) return input.legacyUserId;
+  if (!flag) return legacy;
   try {
     const [session] = await db
       .select({
@@ -131,6 +123,7 @@ export async function resolveSessionPersonalOwner(input: {
       .where(and(eq(projectSessions.sessionId, input.sessionId), eq(projectSessions.projectId, input.projectId)))
       .limit(1);
     if (!session) return null;
+    const visibility = input.visibility ?? session.visibility;
     const [token] = await db
       .select({
         agentGrant: accountTokens.agentGrant,
@@ -146,14 +139,18 @@ export async function resolveSessionPersonalOwner(input: {
         ),
       )
       .limit(1);
-    if (token) {
+    // Strict: a token with NO on_behalf_of either predates the column (minted
+    // before 2026-09-22, never re-minted) or was cleared by a foreign prompt.
+    // Every clear stamps ON_BEHALF_OF_CLEARED_KEY, which the mint rule below
+    // reads, so the mint rule answers both exactly as a re-mint would.
+    if (token && !(input.strict && !token.onBehalfOfUserId)) {
       const grant = readStoredAgentGrant(token.agentGrant);
-      if (!isGovernedAgentGrant(grant)) return input.legacyUserId;
+      if (!input.strict && !isGovernedAgentGrant(grant)) return input.legacyUserId;
       return personalResourceOwner({
         agentPrincipal: true,
         legacyUserId: input.legacyUserId,
         onBehalfOfUserId: token.onBehalfOfUserId ?? null,
-        visibility: session.visibility,
+        visibility,
       });
     }
     const minted = await resolveSessionOnBehalfOf({
@@ -165,7 +162,7 @@ export async function resolveSessionPersonalOwner(input: {
       agentPrincipal: true,
       legacyUserId: input.legacyUserId,
       onBehalfOfUserId: minted,
-      visibility: session.visibility,
+      visibility,
     });
   } catch (err) {
     console.warn('[personal-resources] session resolution failed; no personal resources', {

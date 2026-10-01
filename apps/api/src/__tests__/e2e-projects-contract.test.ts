@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { authUsersRows } from './helpers/auth-users-execute';
 import { mockIamAssignments, mockIamReadModels } from './helpers/iam-mocks';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -197,6 +198,9 @@ mock.module('../iam/authorize', () => {
     // memo for its candidate list, so a stub that omits it is a SyntaxError
     // in every other importer. Empty = this project scopes no agent.
     loadObjectGrants: Object.assign(async () => new Map(), { clear: () => {} }),
+    // The account MFA gate is a pure rule; chat identity linking reads it.
+    mfaGateBlocks: (rec: { accountMfaRequired: boolean }, tokenId: string | null | undefined, mfaAal: string | undefined) =>
+      rec.accountMfaRequired && !tokenId && mfaAal !== 'aal2',
     clearAuthorizeCaches: () => {},
     isImplicitManager: (key: string | null) => key === 'owner' || key === 'admin',
   };
@@ -400,6 +404,15 @@ mock.module('../billing/repositories/credit-accounts', () => ({
 }));
 
 const projectDbMock = createProjectsContractDbMock(dbState);
+
+// Member identities are read from auth.users (see helpers/auth-users-execute):
+// the same rule as the auth admin mock above — the shadow principal has no user.
+{
+  const baseExecute = projectDbMock.execute;
+  projectDbMock.execute = (async (query: Parameters<typeof baseExecute>[0]) =>
+    authUsersRows(query, (id) => (id === ACCOUNT_ID ? null : { email: 'project@example.test' })) ??
+    baseExecute(query)) as typeof baseExecute;
+}
 
 mock.module('../shared/db', () => ({
   hasDatabase: true,
@@ -648,6 +661,8 @@ describe('projects API contract', () => {
 
     const read = await app.request(`/v1/projects/${PROJECT_ID}`);
     expect(read.status).toBe(200);
+    // The best-effort timestamp write runs after the response is returned.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(dbState.projectRows.find((project) => project.projectId === PROJECT_ID)?.lastOpenedAt).toBeInstanceOf(Date);
   });
 

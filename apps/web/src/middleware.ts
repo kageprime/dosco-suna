@@ -66,6 +66,7 @@ const MARKETING_ROUTES = [
 // marketing site itself is deactivated.
 const SELF_HOST_MARKETING_ONLY = [
   '/about',
+  '/launch',
   '/agent-computer',
   '/agents-and-skills',
   '/automations',
@@ -119,6 +120,7 @@ const PUBLIC_ROUTES = [
   '/design-system', // Living design system / brand guidelines should be public
   '/presentation', // Legacy deck paths, now 307'd to /presentations (next.config.ts)
   '/presentations', // Deck index + every registered deck. Link-shared, noindex, no login
+  '/launch', // Launch page + marketing design reference. Link-shared, noindex until announced
 
   '/rauch', // Rauch-style particle rendering of the Dosco symbol — public, unauthenticated
   '/contact', // Request-a-demo / contact page should be public
@@ -410,7 +412,10 @@ export async function middleware(request: NextRequest) {
   // docs/external links in the user's real browser.
   if (request.headers.get('user-agent')?.includes('KortixDesktop')) {
     const isAuthPath = pathname === '/auth' || pathname.startsWith('/auth/');
+    // The site root passes: the identity-aware `/` redirects below send it into
+    // the remembered project, exactly as on web. The shell launches here.
     const isAllowed =
+      pathname === '/' ||
       isAuthPath ||
       DESKTOP_ALLOWED_ROUTES.some(
         (route) => pathname === route || pathname.startsWith(route + '/'),

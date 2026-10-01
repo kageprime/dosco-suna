@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import {
   projectSecrets,
   projectSessionSecretHandles,
+  roleAssignments,
   projectSessions,
   sessionSandboxes,
 } from '@kortix/db';
@@ -107,6 +108,8 @@ const databaseMock = {
         if (table === projectSessionSecretHandles) {
           return { orderBy: async () => handleRows };
         }
+        // Secret audiences (secret-audience.ts): this project narrows none.
+        if (table === roleAssignments) return Promise.resolve([]);
         throw new Error('unexpected table');
       },
     }),
@@ -437,8 +440,7 @@ describe('POST /v1/projects/:projectId/secrets/:identifier/broker', () => {
 
   describe('server-side substitution', () => {
     // The egress-enforced path: the guest holds handles, the relay swaps them
-    // for the real values. See
-    // docs/specs/2026-08-19-secrets-exposure-usage-model.md §5.
+    // for the real values.
     beforeEach(() => {
       agentGrant = {
         agent: 'default',

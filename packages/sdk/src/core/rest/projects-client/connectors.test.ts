@@ -2,6 +2,7 @@ import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
 import {
   activateConnection,
+  addComputerToProject,
   createConnector,
   deleteConnector,
   discoverConnectionOAuth2,
@@ -59,6 +60,9 @@ import {
   renameConnection,
   shareConnection,
   connectionSharedWithEveryone,
+  describeConnectorTool,
+  getConnectorCatalog,
+  listConnectorTools,
   type Connection,
   type ConnectionShare,
   type ConnectionSharePrincipal,
@@ -576,36 +580,6 @@ test('getConnectorConfig GETs the config, url-encoding a slug with special chara
   expect(result.slug).toBe('my app/v1');
 });
 
-test('computer connector config exposes its assigned machine ids', async () => {
-  const tunnelIds = [
-    '11111111-1111-4111-8111-111111111111',
-    '22222222-2222-4222-8222-222222222222',
-  ];
-  nextResponse = {
-    status: 200,
-    body: {
-      slug: 'studio-computers',
-      name: 'Studio computers',
-      provider: 'computer',
-      platform: null,
-      credentialMode: 'shared',
-      authorizationStrategy: 'project',
-      app: null,
-      account: null,
-      url: null,
-      transport: null,
-      endpoint: null,
-      baseUrl: null,
-      spec: null,
-      tunnelIds,
-      auth: { type: 'none', in: 'header', name: null, prefix: null },
-      headers: {},
-    },
-  };
-  const result = await getConnectorConfig('P1', 'studio-computers');
-  expect(result.tunnelIds).toEqual(tunnelIds);
-});
-
 test('setConnectorName PUTs { name }', async () => {
   nextResponse = { status: 200, body: { ok: true } };
   await setConnectorName('P1', 'slack', 'Team Slack');
@@ -641,18 +615,91 @@ test('createConnector POSTs the draft as the raw body', async () => {
   expect(last().body).toEqual(draft);
 });
 
-test('createConnector sends a Computers profile machine allowlist', async () => {
-  nextResponse = { status: 200, body: { ok: true } };
-  const draft: import('./connectors').ConnectorDraftInput = {
-    slug: 'studio-computers',
-    name: 'Studio computers',
-    provider: 'computer',
-    tunnel_ids: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'],
-    create_only: true,
+// A paired computer is an ACCOUNT of the project's `computer` connector. The
+// connection view carries the machine it points at and its live status.
+const computerConnection: Connection = {
+  connection_id: 'connection-computer',
+  connector_alias: 'computer',
+  owner_type: 'member',
+  owner_id: 'user-1',
+  label: 'Studio Mac',
+  status: 'active',
+  is_default: true,
+  metadata: {},
+  tunnel_id: '11111111-1111-4111-8111-111111111111',
+  machine: {
+    online: true,
+    last_heartbeat_at: '2026-09-28T10:00:00.000Z',
+    hostname: 'studio-mac',
+    platform: 'darwin',
+  },
+};
+
+test('listConnections passes a computer account through with its machine status', async () => {
+  nextResponse = { status: 200, body: { connections: [computerConnection] } };
+  const [row] = (await listConnections('P1')).connections;
+  expect(row?.tunnel_id).toBe('11111111-1111-4111-8111-111111111111');
+  expect(row?.machine).toEqual({
+    online: true,
+    last_heartbeat_at: '2026-09-28T10:00:00.000Z',
+    hostname: 'studio-mac',
+    platform: 'darwin',
+  });
+});
+
+// The owner decides on the machine who may use it (Ask each time / Always /
+// Off). The view reports that choice so a UI or an agent can say "waiting for
+// you to allow access".
+test('listConnections passes the machine access state through', async () => {
+  const asking: Connection = {
+    ...computerConnection,
+    machine: {
+      ...computerConnection.machine!,
+      access: { mode: 'ask', granted_until: '2026-09-28T12:00:00.000Z' },
+    },
   };
-  await createConnector('P1', draft);
+  const off: Connection = {
+    ...computerConnection,
+    connection_id: 'connection-off',
+    machine: { ...computerConnection.machine!, access: { mode: 'off', granted_until: null } },
+  };
+  nextResponse = { status: 200, body: { connections: [asking, off] } };
+  const [first, second] = (await listConnections('P1')).connections;
+  expect(first?.machine?.access).toEqual({ mode: 'ask', granted_until: '2026-09-28T12:00:00.000Z' });
+  expect(second?.machine?.access?.mode).toBe('off');
+  // An agent that never reported its access state (npm 0.1.x) reads as null.
+  const legacy: NonNullable<Connection['machine']>['access'] = null;
+  expect(legacy).toBeNull();
+});
+
+test('addComputerToProject POSTs { tunnel_id, share } and returns the connection view', async () => {
+  nextResponse = { status: 200, body: computerConnection };
+  const result = await addComputerToProject('P1', {
+    tunnelId: '11111111-1111-4111-8111-111111111111',
+    share: 'project',
+  });
   expect(last().method).toBe('POST');
-  expect(last().body).toEqual(draft);
+  expect(last().url).toBe('http://test.local/projects/P1/computers');
+  expect(last().body).toEqual({
+    tunnel_id: '11111111-1111-4111-8111-111111111111',
+    share: 'project',
+  });
+  expect(result.connection_id).toBe('connection-computer');
+  expect(result.machine?.online).toBe(true);
+});
+
+test('addComputerToProject omits share so the server applies its private default', async () => {
+  nextResponse = { status: 200, body: computerConnection };
+  await addComputerToProject('P1', { tunnelId: '11111111-1111-4111-8111-111111111111' });
+  expect(last().body).toEqual({ tunnel_id: '11111111-1111-4111-8111-111111111111' });
+});
+
+test('addComputerToProject surfaces a refusal as an ApiError with the status', async () => {
+  nextResponse = { status: 409, body: { error: 'computer belongs to another account' } };
+  const error = await addComputerToProject('P1', {
+    tunnelId: '11111111-1111-4111-8111-111111111111',
+  }).catch((e: unknown) => e);
+  expect((error as { status?: number }).status).toBe(409);
 });
 
 test('discoverConnectorAuth POSTs a draft to the auth-discovery endpoint', async () => {
@@ -1309,4 +1356,125 @@ test('connectionSharedWithEveryone: a private account is nobody else\'s', () => 
   expect(
     connectionSharedWithEveryone({ ...sharedAccount(undefined), owner_type: 'member', owner_id: 'u-1' }),
   ).toBe(false);
+});
+
+// ─── Payload-size fix: schemas are opt-in, not the default ─────────────────
+//
+// The full per-action JSON Schema was the dominant contributor to
+// GET /connectors/projects/:id/connectors (1.6MB body) and
+// GET /connectors/projects/:id/catalog (439KB body) on prod. The API includes
+// `inputSchema` unless a caller sends `include_schemas=false`; an explicit
+// `false` MUST reach the wire, or the opt-out does nothing.
+
+test('listConnectors sends no query by default, and forwards an explicit includeSchemas either way', async () => {
+  nextResponse = { status: 200, body: { connectors: [] } };
+  await listConnectors('P1');
+  expect(last()!.url).toBe('http://test.local/connectors/projects/P1/connectors');
+
+  await listConnectors('P1', { includeSchemas: false });
+  expect(last()!.url).toBe(
+    'http://test.local/connectors/projects/P1/connectors?include_schemas=false',
+  );
+
+  await listConnectors('P1', { includeSchemas: true });
+  expect(last()!.url).toBe(
+    'http://test.local/connectors/projects/P1/connectors?include_schemas=true',
+  );
+});
+
+test('getConnectorCatalog forwards an explicit includeSchemas: false', async () => {
+  nextResponse = { status: 200, body: { connectors: [] } };
+  await getConnectorCatalog('P1', { includeSchemas: false });
+  expect(new URL(last()!.url).searchParams.get('include_schemas')).toBe('false');
+});
+
+test('getConnectorCatalog forwards slug and includeSchemas as query params', async () => {
+  nextResponse = { status: 200, body: { connectors: [] } };
+  await getConnectorCatalog('P1');
+  expect(last()!.url).toBe('http://test.local/connectors/projects/P1/catalog');
+
+  await getConnectorCatalog('P1', { slug: 'gmail', includeSchemas: true });
+  const url = new URL(last()!.url);
+  expect(url.pathname).toBe('/connectors/projects/P1/catalog');
+  expect(url.searchParams.get('slug')).toBe('gmail');
+  expect(url.searchParams.get('include_schemas')).toBe('true');
+});
+
+test('listConnectorTools never asks for schemas — no caller of it reads inputSchema', async () => {
+  nextResponse = {
+    status: 200,
+    body: {
+      connectors: [
+        {
+          slug: 'gmail',
+          name: 'Gmail',
+          provider: 'composio',
+          status: 'active',
+          actions: [{ path: 'send', name: 'Send', description: '', risk: 'write', inputSchema: null }],
+        },
+      ],
+    },
+  };
+  await listConnectorTools('P1');
+  // The title is the contract: this helper must OPT OUT of the schemas, or the
+  // server's include-by-default sends them and the summary path pays 439KB it
+  // never reads. Asserting the bare URL only proved the bug.
+  expect(last()!.url).toBe(
+    'http://test.local/connectors/projects/P1/catalog?include_schemas=false',
+  );
+});
+
+test('describeConnectorTool fetches ONE connector, with its schema, instead of the whole catalog', async () => {
+  const schema = { type: 'object', properties: { to: { type: 'string' } } };
+  nextResponse = {
+    status: 200,
+    body: {
+      connectors: [
+        {
+          slug: 'gmail',
+          name: 'Gmail',
+          provider: 'composio',
+          status: 'active',
+          actions: [{ path: 'send', name: 'Send', description: 'Send mail', risk: 'write', inputSchema: schema }],
+        },
+      ],
+    },
+  };
+  const tool = await describeConnectorTool('P1', 'gmail.send');
+  const url = new URL(last()!.url);
+  expect(url.pathname).toBe('/connectors/projects/P1/catalog');
+  expect(url.searchParams.get('slug')).toBe('gmail');
+  expect(url.searchParams.get('include_schemas')).toBe('true');
+  expect(tool?.inputSchema).toEqual(schema);
+});
+
+test('describeConnectorTool picks the named connector when the server ignores slug', async () => {
+  // An older API (the CLI ships separately) answers the whole catalog; the
+  // requested connector is not guaranteed to be the first entry.
+  const schema = { type: 'object', properties: { message: { type: 'object' } } };
+  nextResponse = {
+    status: 200,
+    body: {
+      connectors: [
+        { slug: 'echo', name: 'Echo', provider: 'http', status: 'active', actions: [] },
+        {
+          slug: 'graph',
+          name: 'Graph',
+          provider: 'openapi',
+          status: 'active',
+          actions: [{ path: 'sendMail', name: 'Send mail', description: '', risk: 'write', inputSchema: schema }],
+        },
+      ],
+    },
+  };
+  const tool = await describeConnectorTool('P1', 'graph.sendMail');
+  expect(tool?.connector).toBe('graph');
+  expect(tool?.inputSchema).toEqual(schema);
+});
+
+test('describeConnectorTool: a malformed tool name (no dot) resolves to null without a request', async () => {
+  calls = [];
+  const tool = await describeConnectorTool('P1', 'not-a-tool-name');
+  expect(tool).toBeNull();
+  expect(calls).toHaveLength(0);
 });

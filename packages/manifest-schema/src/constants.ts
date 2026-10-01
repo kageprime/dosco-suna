@@ -95,7 +95,6 @@ export const TRIGGER_TYPES = ['cron', 'webhook', 'monitor'] as const;
  * A `type: monitor` trigger's shape. `poll` runs `run` every `interval` and
  * exits; `stream` runs it once and keeps it alive. Both emit events as stdout
  * lines — downstream (filter → prompt → session_mode) cannot tell them apart.
- * See docs/specs/2026-08-12-monitors.md §"The monitor contract (v1)".
  */
 export const MONITOR_MODES = ['poll', 'stream'] as const;
 
@@ -238,6 +237,7 @@ export const GRANTABLE_KORTIX_PERMISSIONS: readonly string[] = [
   'project.trigger.fire',
   'project.gateway.logs.read',
   'project.gateway.spend.read',
+  'project.usage.read',
   'project.gateway.budget.set',
   'project.gateway.keys.manage',
   // IAM v1 per-capability leaves.

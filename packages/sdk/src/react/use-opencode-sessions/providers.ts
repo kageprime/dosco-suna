@@ -6,7 +6,7 @@ import { getClient } from '../../core/runtime/client';
 import { useKortixRouteProjectId } from '../route-project';
 import { contract } from '../query-contracts';
 import { qk } from '../query-keys';
-import { opencodeKeys, useOpenCodeRuntimeReady } from './keys';
+import { runtimeKeys, useRuntimeReady } from './keys';
 import type { ProviderListResponse } from './keys';
 import { unwrap, getLSCache, setLSCache, LS_PROVIDERS, CACHE_SCOPE_GLOBAL } from './shared';
 import {
@@ -19,14 +19,13 @@ import {
   filterToGatewayProviders,
   filterToNativeProviders,
   GATEWAY_PROVIDER_IDS,
-  LLM_PROVIDER_CREDENTIALS,
   mergeNativeProviderLists,
-  mergeProjectSecretConnectedProviders,
   nativeProviderListFromCatalog,
+  nativeRuntimeProviderList,
   normalizeProviderList,
   projectLlmCatalogToProviderList,
   providerListHasModels,
-} from '../provider-selection';
+} from '../../core/models/provider-selection';
 import { shouldLoadProjectModelPicker } from './provider-load-plan';
 
 // ============================================================================
@@ -35,9 +34,9 @@ import { shouldLoadProjectModelPicker } from './provider-load-plan';
 
 export { GATEWAY_PROVIDER_IDS };
 
-export function useOpenCodeProviders() {
+export function useRuntimeProviders() {
   const queryClient = useQueryClient();
-  const runtimeReady = useOpenCodeRuntimeReady();
+  const runtimeReady = useRuntimeReady();
   const projectId = useKortixRouteProjectId();
   const projectDetailQuery = useQuery({
     // Same fetcher and same response shape every other `getProjectDetail`
@@ -93,22 +92,18 @@ export function useOpenCodeProviders() {
   // in one project must not leak into another or remain after removal.
   const nativeCacheScope = projectId ? `proj:${projectId}:native` : CACHE_SCOPE_GLOBAL;
   const nativeProvidersQuery = useQuery<ProviderListResponse>({
-    queryKey: projectId ? ['project-providers', projectId, 'native'] : opencodeKeys.providers(),
+    queryKey: projectId ? ['project-providers', projectId, 'native'] : runtimeKeys.providers(),
     queryFn: async () => {
       const client = getClient();
       const result = await client.provider.list();
-      let rawProviders = normalizeProviderList(unwrap(result));
+      let providers = normalizeProviderList(unwrap(result));
       if (projectId) {
         const secrets = await listProjectSecrets(projectId);
         const items = Array.isArray(secrets) ? secrets : (secrets.items ?? []);
         const secretNames = new Set(items.map((secret: { name: string }) => secret.name));
-        rawProviders = mergeProjectSecretConnectedProviders(
-          rawProviders,
-          secretNames,
-          LLM_PROVIDER_CREDENTIALS,
-        );
+        // The same transform `pickerProviderList` applies (framework-free core).
+        providers = nativeRuntimeProviderList(providers, secretNames);
       }
-      const providers = projectId ? filterToNativeProviders(rawProviders) : rawProviders;
 
       // During sandbox boot the OpenCode server frequently answers
       // /provider/list BEFORE its provider config is wired up, returning zero
@@ -202,3 +197,7 @@ export function useOpenCodeProviders() {
   }
   return nativeProvidersQuery;
 }
+
+// Pre-W4 names, kept until the next major. The runtime is OpenCode or pi.
+/** @deprecated Renamed to `useRuntimeProviders`. Removed in the next major. */
+export const useOpenCodeProviders = useRuntimeProviders;

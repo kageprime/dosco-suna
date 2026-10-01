@@ -1,5 +1,5 @@
 import { stripChatMentionMarkup } from '@/components/projects/session-label';
-import type { ChangeRequest, ProjectSession, ProjectSessionStatus } from '@kortix/sdk';
+import { type ChangeRequest, type ProjectSession, type ProjectSessionStatus } from '@kortix/sdk';
 
 /**
  * Pure helpers extracted from `project-session-list.tsx` so every decision the
@@ -13,7 +13,7 @@ import type { ChangeRequest, ProjectSession, ProjectSessionStatus } from '@korti
  * - what a row is titled, and how its timestamp is abbreviated
  *   (`getSessionDisplayTitle`, `shortRelative`);
  * - which of loading/error/empty/no-matches/content renders
- *   (`resolveSessionListViewState`).
+ *   (`resolveSessionListViewState`, also read by the Sessions page).
  *
  * Display status itself is NOT decided here — `sessionDisplayStatus` in
  * `components/projects/session-label` owns that mapping, and this file reads it.
@@ -328,56 +328,44 @@ export function shortRelative(input: string): string {
   return `${n}${suffix}`;
 }
 
-/** Which of the sidebar's mutually-exclusive render states applies. Mirrors
- *  the early-return ladder in `ProjectSessionList`: loading and error both
- *  win outright (independent of data), then "no sessions at all" wins over
+/** Which of a session list's mutually-exclusive render states applies (the
+ *  sidebar and the Sessions page).
+ *
+ *  Data wins. A failed refetch or "Load more" keeps the rows it had (TanStack
+ *  v5 keeps `data` and sets `status: 'error'`), so an error decides the view
+ *  only while there is nothing to show. Without data and without an error the
+ *  list is still loading: a first load that is paused offline, or not enabled
+ *  yet, is not "no sessions". With data, "no sessions at all" wins over
  *  "sessions exist but none match the active filter". */
 export type SessionListViewState = 'loading' | 'error' | 'empty' | 'no-matches' | 'content';
 
 export function resolveSessionListViewState(params: {
-  isLoading: boolean;
+  hasData: boolean;
   isError: boolean;
   totalCount: number;
   visibleCount: number;
+  /** The server already applied a filter (labels): zero rows is "no matches". */
+  serverFiltered?: boolean;
 }): SessionListViewState {
-  if (params.isLoading) return 'loading';
-  if (params.isError) return 'error';
-  if (params.totalCount === 0) return 'empty';
+  if (!params.hasData) return params.isError ? 'error' : 'loading';
+  if (params.totalCount === 0) return params.serverFiltered ? 'no-matches' : 'empty';
   if (params.visibleCount === 0) return 'no-matches';
   return 'content';
 }
 
-/** A coordinator (or standalone) session plus the sessions it spawned. */
-export interface SessionGroup {
-  session: ProjectSession;
-  children: ProjectSession[];
-}
+export type StarterSection = 'shared' | 'automated';
 
 /**
- * Fold a flat, already-sorted session list into coordinator groups: a session
- * spawned by another session in the list (metadata.spawned_by_session) nests
- * under it — the sidebar renders the coordinator as a folder and its children
- * as files. A child whose coordinator is absent (deleted, other project, or a
- * stale stamp) stays top-level rather than disappearing.
+ * Which sidebar section a session's RUN lives in, from its `initiator`: another
+ * member's run is Shared, an automated run (trigger, channel, API, platform) is
+ * Automated, and the viewer's own run (or an unclassified row) is neither.
  */
-export function groupSessionsByCoordinator(sessions: ProjectSession[]): SessionGroup[] {
-  const present = new Set(sessions.map((s) => s.session_id));
-  const parentOf = (session: ProjectSession): string | null => {
-    const meta = (session.metadata ?? {}) as Record<string, unknown>;
-    const parent = typeof meta.spawned_by_session === 'string' ? meta.spawned_by_session : null;
-    return parent && present.has(parent) && parent !== session.session_id ? parent : null;
-  };
-  const groups = new Map<string, SessionGroup>();
-  const order: SessionGroup[] = [];
-  for (const session of sessions) {
-    if (parentOf(session)) continue;
-    const group = { session, children: [] as ProjectSession[] };
-    groups.set(session.session_id, group);
-    order.push(group);
-  }
-  for (const session of sessions) {
-    const parent = parentOf(session);
-    if (parent) groups.get(parent)?.children.push(session);
-  }
-  return order;
+export function starterSectionOf(
+  session: Pick<ProjectSession, 'initiator' | 'is_owner'>,
+  viewerId: string | null,
+): StarterSection | null {
+  const initiator = session.initiator;
+  if (!initiator) return session.is_owner === false ? 'shared' : null;
+  if (initiator.type !== 'member') return 'automated';
+  return initiator.id && viewerId && initiator.id !== viewerId ? 'shared' : null;
 }

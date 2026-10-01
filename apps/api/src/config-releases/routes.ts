@@ -1,5 +1,5 @@
 /**
- * Config release routes (docs/specs/config-releases.md, "Routes").
+ * Config release routes.
  *
  * POST /v1/projects/:projectId/sessions/:sessionId/config-release
  *   The desired release descriptor for one session: always the base branch's
@@ -52,8 +52,7 @@ interface ProjectRow {
 }
 
 /**
- * CHOKEPOINT — the `config_releases` flag for both routes of this file
- * (docs/specs/config-releases.md, "Feature flag"). Off ⇒ `403`
+ * CHOKEPOINT — the `config_releases` flag for both routes of this file. Off ⇒ `403`
  * `feature_disabled`, so no release is built, no archive is stored, and no
  * `kortix.config_releases` row is written. Always AFTER authz, so a
  * non-member learns nothing from the answer. The daemon reads this exact
@@ -271,7 +270,12 @@ projectsApp.openapi(
     tags: ['sessions'],
     summary: 'Download a config archive',
     ...auth,
-    request: { params: z.object({ projectId: z.string(), configTreeId: z.string() }) },
+    request: {
+      params: z.object({ projectId: z.string(), configTreeId: z.string() }),
+      // Set on a composed release tree (config dir plus root skills): the
+      // commit it is rebuilt from when the store cannot serve it.
+      query: z.object({ commit: z.string().optional() }),
+    },
     responses: {
       200: { description: 'The config archive', content: { 'application/gzip': { schema: z.any() } } },
       302: { description: 'Redirect to a signed store URL' },
@@ -312,6 +316,14 @@ projectsApp.openapi(
     if (disabled) return disabled;
 
     const repo = gitProject(project);
-    return serveConfigArchive(repo, configTreeId, () => refreshMirror(repo), () => refreshMirror(repo, true));
+    return serveConfigArchive(
+      repo,
+      configTreeId,
+      () => refreshMirror(repo),
+      () => refreshMirror(repo, true),
+      {},
+      c.req.query('commit') ?? null,
+      c.req.query('agent') ?? null,
+    );
   },
 );

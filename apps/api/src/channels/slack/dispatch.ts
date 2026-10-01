@@ -62,10 +62,16 @@ export const pendingPickers = new Map<string, { envelope: SlackEnvelope; expiry:
 // Returns the resolved (already-stored or freshly-fetched) name, or null, so
 // a caller that needs it for immediate display (the settings-page GET) doesn't
 // have to re-query after this writes it.
+//
+// `preloadedToken`: a caller iterating MANY bindings for the same project
+// (the channels/bindings list GET) resolves the bot token once and passes it
+// here, instead of every binding re-decrypting the same project secret. Absent
+// (the single-event dispatch/interactivity callers), the token loads as before.
 export async function backfillChannelName(
   teamId: string,
   channelId: string,
   projectId: string,
+  preloadedToken?: string | null,
 ): Promise<string | null> {
   if (!teamId || !channelId || !projectId) return null;
   try {
@@ -82,7 +88,7 @@ export async function backfillChannelName(
       .limit(1);
     if (!row) return null;
     if (row.channelName) return row.channelName;
-    const token = await loadSlackTokenForProject(projectId);
+    const token = preloadedToken !== undefined ? preloadedToken : await loadSlackTokenForProject(projectId);
     if (!token) return null;
     // Returns null for DMs (no `name` field on the conversation) — fine, the
     // UI's `channelName ?? channelId` fallback already handles that case.
@@ -149,7 +155,15 @@ export async function ensureProjectChannelBinding(
 export async function resolveOauthProject(
   teamId: string,
   channelId: string | undefined,
+  threadTs?: string,
 ): Promise<ProjectResolution> {
+  // A reply in a thread bound to a session runs in that session's project,
+  // before the channel decides: a web session that DMs someone, or posts in a
+  // channel no project owns, must get the reply back, not a project picker.
+  if (threadTs) {
+    const thread = await findChatThread({ platform: 'slack', workspaceId: teamId, threadId: threadTs });
+    if (thread) return { kind: 'project', projectId: thread.projectId };
+  }
   if (channelId) {
     const [binding] = await db
       .select({ projectId: chatChannelBindings.projectId })
@@ -726,11 +740,16 @@ const FOREIGN_THREAD_NOTICE =
 // `ownThreadsOnly`: the per-project (BYO) webhook. Its requests may reach only
 // its own project, so a thread another project owns is refused, not joined.
 // `threadProjectResolved`: internal — set on the re-dispatch below.
+// `authorizedResume`: the decision this message reports (a review verdict, an
+// approval) was already authorized for this project. The join policy governs
+// who may TALK in a thread; it must not strand the agent after a manager who
+// is not a participant decided. The sender is still resolved as a linked
+// member below. Not carried into another project's thread on re-dispatch.
 export async function spawnAgentTurn(
   projectId: string,
   envelope: SlackEnvelope,
   event: SlackEvent,
-  opts: { ownThreadsOnly?: boolean; threadProjectResolved?: boolean } = {},
+  opts: { ownThreadsOnly?: boolean; threadProjectResolved?: boolean; authorizedResume?: boolean } = {},
 ): Promise<void> {
   const teamId = envelope.team_id ?? event.team ?? '';
   const threadId = event.thread_ts ?? event.ts ?? '';
@@ -804,7 +823,7 @@ export async function spawnAgentTurn(
       return;
     }
     if (existing) {
-      if (config.SLACK_REQUIRE_USER_IDENTITY) {
+      if (config.SLACK_REQUIRE_USER_IDENTITY && !opts.authorizedResume) {
         const selection = event.channel
           ? await currentChannelSelection({ teamId, channelId: event.channel })
           : null;

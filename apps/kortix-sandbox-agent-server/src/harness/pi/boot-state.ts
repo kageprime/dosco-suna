@@ -1,4 +1,4 @@
-import type { SandboxBootState } from '../../boot-state'
+import type { SandboxBootState } from '../contract/boot-state'
 
 /**
  * pi's boot state. The three session fields keep the OpenCode names on
@@ -12,4 +12,6 @@ export interface PiBootState extends SandboxBootState {
   initialOpenCodeSessionId?: string | null
   /** Boot-time session setup failure. */
   initialOpenCodeSessionError?: string | null
+  /** The audit relay could not start or persist; the runtime reports unhealthy. */
+  auditRelayError?: string | null
 }

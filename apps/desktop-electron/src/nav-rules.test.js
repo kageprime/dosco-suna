@@ -2,7 +2,7 @@ const { describe, expect, test } = require('bun:test');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
-const { APP_PATH_PREFIXES, backIndex, isAppPath, isPreviewHost } = require('./nav-rules');
+const { APP_PATH_PREFIXES, isAppPath, isApprovalDialogPath, isPreviewHost } = require('./nav-rules');
 
 /**
  * The web middleware's `DESKTOP_ALLOWED_ROUTES`, read from source. The shell
@@ -48,23 +48,28 @@ describe('desktop navigation gate', () => {
     expect(isAppPath('/accounts')).toBe(false);
   });
 
-  test('Back traverses to the previous entry only when it loads in the app', () => {
-    const inApp = (url) => url.startsWith('https://kortix.com/projects');
-    const urls = ['about:blank', 'https://github.com/apps/kortix', 'https://kortix.com/projects/p1', 'https://kortix.com/projects/p1/sessions/s1'];
-    expect(backIndex(urls, 3, inApp)).toBe(2);
-    // Electron's will-navigate gate does not run on history traversal, so
-    // Back onto github.com would load GitHub inside the app window.
-    expect(backIndex(urls, 2, inApp)).toBe(-1);
-    // The window's first entry has nothing behind it.
-    expect(backIndex(urls, 0, inApp)).toBe(-1);
-    expect(backIndex([], 0, inApp)).toBe(-1);
-  });
-
   test('treats sandbox previews and tunnels as in-app hosts', () => {
     expect(isPreviewHost('abc.kortix.cloud')).toBe(true);
     expect(isPreviewHost('kortix.cloud')).toBe(true);
     expect(isPreviewHost('p1.localhost')).toBe(true);
     expect(isPreviewHost('evilkortix.cloud')).toBe(false);
     expect(isPreviewHost('github.com')).toBe(false);
+  });
+});
+
+describe('isApprovalDialogPath', () => {
+  test('keeps the device approval and its sign-in inside the dialog', () => {
+    expect(isApprovalDialogPath('/tunnel/authorize/ABCD-1234')).toBe(true);
+    expect(isApprovalDialogPath('/auth')).toBe(true);
+    expect(isApprovalDialogPath('/auth/callback')).toBe(true);
+  });
+
+  test('treats every other app page as leaving the dialog', () => {
+    // Back replaces the page with the app home: that must close the dialog,
+    // not render the app inside it.
+    expect(isApprovalDialogPath('/projects/p1')).toBe(false);
+    expect(isApprovalDialogPath('/projects/start')).toBe(false);
+    expect(isApprovalDialogPath('/')).toBe(false);
+    expect(isApprovalDialogPath('/tunnelx')).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { PROJECT_ACTIONS } from '../../iam/actions';
 import { TURN_INSTRUCTIONS } from './session';
 import { and, eq } from 'drizzle-orm';
 import { chatChannelBindings, chatInstalls, projectSessions, projects } from '@kortix/db';
@@ -16,11 +17,17 @@ import {
   readReviewFeedback,
 } from './review-modal';
 import { applyVerdict, getReviewItemById } from '../../projects/review-items';
+import {
+  APPROVAL_REPLY_CALLBACK,
+  handleApprovalCardAction,
+  handleApprovalReplySubmission,
+  parseApprovalActionId,
+} from './approval-card';
 import { SLACK_STOP_ACTION, stopSlackTurn } from './stop';
 import { isAdaptedId } from '../../projects/review-adapters';
 import { decideSlackThreadJoin } from './participants';
 import { attachPendingSlackAuthResponseUrl } from './auth-resume';
-import { verifyLoginState } from './login';
+import { buildSlackLoginUrl, verifyLoginState } from './login';
 import { escapeMrkdwn, respondViaUrl, sessionWebUrl } from './util';
 import { handleSlashCommand } from './commands';
 import { agentChangeText, currentChannelProjectId } from './settings-commands';
@@ -38,7 +45,7 @@ import {
 } from './inbound';
 import type { SlackEnvelope, SlackEvent, SlackInteractionPayload } from './types';
 
-const OTHER_PROJECT_NOTICE = 'This Slack app is tied to a different Dosco project.';
+const OTHER_PROJECT_NOTICE = 'This Slack app is tied to a different Kortix project.';
 
 /** spawnAgentTurn options for a request from `inbound`. */
 function turnScope(inbound: SlackInbound): { ownThreadsOnly: boolean } {
@@ -82,7 +89,7 @@ async function handleAgentClick(
     });
     await respondViaUrl(payload.response_url, {
       response_type: 'ephemeral',
-      text: "This button isn't attached to a Dosco thread, so nothing can pick it up. Reply in the session's thread instead.",
+      text: "This button isn't attached to a Kortix thread, so nothing can pick it up. Reply in the session's thread instead.",
     });
     return;
   }
@@ -193,7 +200,7 @@ async function handleReviewAction(
   const threadTs = payload.message?.thread_ts ?? messageTs;
   if (!teamId || !channelId || !slackUserId || !threadTs) return;
 
-  // 'view' is a link button (opens Dosco) — Slack still fires its block_action,
+  // 'view' is a link button (opens Kortix) — Slack still fires its block_action,
   // but there's nothing to apply.
   const verdict = reviewVerbToVerdict(parsed.verb);
   if (!verdict) return;
@@ -203,7 +210,7 @@ async function handleReviewAction(
   if (isAdaptedId(parsed.id)) {
     await respondViaUrl(payload.response_url, {
       response_type: 'ephemeral',
-      text: 'Open this item in Dosco to act on it.',
+      text: 'Open this item in Kortix to act on it.',
     });
     return;
   }
@@ -256,16 +263,16 @@ async function handleReviewAction(
     return;
   }
 
-  // The actor must be a linked Dosco user with write access to this project.
+  // The actor must be a linked Kortix user with write access to this project.
   // Self-approve is allowed (launcher or any manager) — there's no separation-of-
   // duties gate. No live mapping → nudge to connect / request access.
-  const actor = await resolveChatActor(chatUser('slack', teamId, slackUserId), { projectId: thread.projectId, accountId: item.accountId });
+  const actor = await resolveChatActor(chatUser('slack', teamId, slackUserId), { projectId: thread.projectId, accountId: item.accountId }, PROJECT_ACTIONS.PROJECT_REVIEW_ACT);
   if ('reason' in actor) {
     await respondViaUrl(payload.response_url, {
       response_type: 'ephemeral',
       text:
         actor.reason === 'unlinked'
-          ? 'Connect your Dosco account first (`/kortix login`) to act on reviews.'
+          ? 'Connect your Kortix account first (`/kortix login`) to act on reviews.'
           : "You don't have access to act on this project's reviews.",
     });
     return;
@@ -310,7 +317,7 @@ async function handleReviewAction(
     team: teamId,
   };
   const envelope: SlackEnvelope = { type: 'event_callback', team_id: teamId, event };
-  await spawnAgentTurn(thread.projectId, envelope, event, turnScope(inbound));
+  await spawnAgentTurn(thread.projectId, envelope, event, { ...turnScope(inbound), authorizedResume: true });
 }
 
 async function handleSwitchProject(
@@ -427,8 +434,8 @@ async function handleConfigOpen(
   await respondViaUrl(payload.response_url, { ...resp, replace_original: true });
 }
 
-// Message shortcut ("Open in Dosco", callback_id `open_session`). Resolves the
-// thread the message lives in to its Dosco session and replies (ephemerally)
+// Message shortcut ("Open in Kortix", callback_id `open_session`). Resolves the
+// thread the message lives in to its Kortix session and replies (ephemerally)
 // with a link. Unlike a slash command, a message shortcut DOES carry the
 // message's thread_ts, so this can answer "which session is THIS thread".
 export async function handleMessageShortcut(
@@ -451,7 +458,7 @@ export async function handleMessageShortcut(
   if (!thread) {
     await respondViaUrl(payload.response_url, {
       response_type: 'ephemeral',
-      text: 'No Dosco session is attached to this thread yet. `@`-mention me to start one.',
+      text: 'No Kortix session is attached to this thread yet. `@`-mention me to start one.',
     });
     return;
   }
@@ -460,7 +467,7 @@ export async function handleMessageShortcut(
   await respondViaUrl(payload.response_url, {
     response_type: 'ephemeral',
     blocks: [
-      { type: 'section', text: { type: 'mrkdwn', text: '*This thread\'s Dosco session*' } },
+      { type: 'section', text: { type: 'mrkdwn', text: '*This thread\'s Kortix session*' } },
       {
         type: 'actions',
         elements: [
@@ -508,7 +515,9 @@ async function handleRequestAccess(
         ? "You've already requested access — it's pending an admin's review."
         : result.status === 'already-member'
           ? 'You already have access — send your message again and I’ll get on it.'
-          : 'I couldn’t request access — connect your Dosco account first, then try again.';
+          : result.status === 'no-project'
+            ? 'That project isn’t connected to this Slack workspace.'
+            : 'I couldn’t request access — connect your Kortix account first, then try again.';
   await respondViaUrl(payload.response_url, { replace_original: true, text: message });
 
   if (result.status === 'created') {
@@ -531,28 +540,16 @@ async function handleThreadJoinDecision(
   const teamId = payload.team?.id ?? '';
   const channelId = payload.channel?.id ?? '';
   const deciderSlackUserId = payload.user?.id ?? '';
-  let parsed: {
-    projectId?: string;
-    sessionId?: string;
-    threadId?: string;
-    requesterUserId?: string;
-    requesterSlackUserId?: string;
-  } = {};
+  // Only the thread and the requester's Slack id are read from the value; the
+  // session comes from the thread mapping and the requester's Kortix account
+  // from the pending request (decideSlackThreadJoin).
+  let parsed: { threadId?: string; requesterSlackUserId?: string } = {};
   try {
     parsed = JSON.parse(value || '{}') as typeof parsed;
   } catch {
     parsed = {};
   }
-  if (
-    !teamId ||
-    !channelId ||
-    !deciderSlackUserId ||
-    !parsed.projectId ||
-    !parsed.sessionId ||
-    !parsed.threadId ||
-    !parsed.requesterUserId ||
-    !parsed.requesterSlackUserId
-  ) {
+  if (!teamId || !channelId || !deciderSlackUserId || !parsed.threadId || !parsed.requesterSlackUserId) {
     await respondViaUrl(payload.response_url, {
       response_type: 'ephemeral',
       text: 'I could not read that approval request. Ask the person to request access again.',
@@ -560,22 +557,19 @@ async function handleThreadJoinDecision(
     return;
   }
 
-  if (!inboundAllowsProject(inbound, parsed.projectId)) {
-    await respondViaUrl(payload.response_url, { response_type: 'ephemeral', text: OTHER_PROJECT_NOTICE });
-    return;
-  }
-
-  const result = await decideSlackThreadJoin({
-    teamId,
-    channelId,
-    deciderSlackUserId,
-    projectId: parsed.projectId,
-    sessionId: parsed.sessionId,
-    threadId: parsed.threadId,
-    requesterUserId: parsed.requesterUserId,
-    requesterSlackUserId: parsed.requesterSlackUserId,
-    decision,
-  });
+  // A per-project app finds only its own project's threads.
+  const thread = await findSlackThread(inbound, teamId, parsed.threadId);
+  const result = thread
+    ? await decideSlackThreadJoin({
+        teamId,
+        channelId,
+        deciderSlackUserId,
+        sessionId: thread.sessionId,
+        threadId: parsed.threadId,
+        requesterSlackUserId: parsed.requesterSlackUserId,
+        decision,
+      })
+    : { ok: false as const, text: 'This request is no longer open.' };
   await respondViaUrl(payload.response_url, {
     response_type: 'ephemeral',
     replace_original: true,
@@ -609,9 +603,18 @@ async function handleSlackLoginConnect(
   payload: SlackInteractionPayload,
   action: NonNullable<SlackInteractionPayload['actions']>[number],
 ): Promise<void> {
-  const login = loginActionValue(action);
+  const parsed = loginActionValue(action);
   const teamId = payload.team?.id ?? '';
   const slackUserId = payload.user?.id ?? '';
+  // The link is built here, for the person who clicked. A button value is not
+  // proof: an agent can post a look-alike "Connect" button through the same
+  // bot, and Kortix would then present its URL as its own sign-in page.
+  const login = {
+    pendingId: parsed.pendingId,
+    url: teamId && slackUserId
+      ? buildSlackLoginUrl({ teamId, slackUserId, ...(parsed.pendingId ? { pendingId: parsed.pendingId } : {}) })
+      : undefined,
+  };
   await attachPendingSlackAuthResponseUrl({
     pendingId: login.pendingId,
     teamId,
@@ -621,15 +624,15 @@ async function handleSlackLoginConnect(
   await respondViaUrl(payload.response_url, {
     response_type: 'ephemeral',
     replace_original: true,
-    text: 'Opening Dosco to connect your account...',
+    text: 'Opening Kortix to connect your account...',
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
           text: login.url
-            ? `*Open Dosco to connect your account.*\n<${login.url}|Continue in Dosco>. This message will update when the connection is complete.`
-            : '*Open Dosco to connect your account.*\nRun `/kortix login` if this button expired.',
+            ? `*Open Kortix to connect your account.*\n<${login.url}|Continue in Kortix>. This message will update when the connection is complete.`
+            : '*Open Kortix to connect your account.*\nRun `/kortix login` if this button expired.',
         },
       },
       ...(login.url
@@ -637,7 +640,7 @@ async function handleSlackLoginConnect(
           type: 'actions',
           elements: [{
             type: 'button',
-            text: { type: 'plain_text', text: 'Open Dosco', emoji: true },
+            text: { type: 'plain_text', text: 'Open Kortix', emoji: true },
             style: 'primary',
             url: login.url,
             action_id: 'slack_login_open',
@@ -711,6 +714,10 @@ export async function handleViewSubmission(
   payload: SlackInteractionPayload,
   inbound: SlackInbound = CANONICAL_SLACK_INBOUND,
 ): Promise<void> {
+  if (payload.view?.callback_id === APPROVAL_REPLY_CALLBACK) {
+    await handleApprovalReplySubmission(payload, inbound);
+    return;
+  }
   if (payload.view?.callback_id !== REVIEW_FEEDBACK_CALLBACK) return;
   const meta = decodeReviewMetadata(payload.view?.private_metadata);
   const slackUserId = payload.user?.id ?? '';
@@ -729,11 +736,11 @@ export async function handleViewSubmission(
     return;
   }
 
-  const actor = await resolveChatActor(chatUser('slack', meta.teamId, slackUserId), { projectId: meta.projectId, accountId: item.accountId });
+  const actor = await resolveChatActor(chatUser('slack', meta.teamId, slackUserId), { projectId: meta.projectId, accountId: item.accountId }, PROJECT_ACTIONS.PROJECT_REVIEW_ACT);
   if ('reason' in actor) {
     await notify(
       actor.reason === 'unlinked'
-        ? 'Connect your Dosco account first (`/kortix login`) to act on reviews.'
+        ? 'Connect your Kortix account first (`/kortix login`) to act on reviews.'
         : "You don't have access to act on this project's reviews.",
     );
     return;
@@ -769,7 +776,7 @@ export async function handleViewSubmission(
     team: meta.teamId,
   };
   const envelope: SlackEnvelope = { type: 'event_callback', team_id: meta.teamId, event };
-  await spawnAgentTurn(meta.projectId, envelope, event, turnScope(inbound));
+  await spawnAgentTurn(meta.projectId, envelope, event, { ...turnScope(inbound), authorizedResume: true });
 }
 
 export async function handleBlockAction(
@@ -786,6 +793,13 @@ export async function handleBlockAction(
 
   if (action.action_id.startsWith('qa_')) {
     await handleQuestionAnswer(payload, action, inbound);
+    return;
+  }
+
+  // A gated connector call's card (`approval_<verb>_<executionId>`).
+  if (action.action_id.startsWith('approval_')) {
+    const parsed = parseApprovalActionId(action.action_id);
+    if (parsed) await handleApprovalCardAction(payload, parsed, inbound);
     return;
   }
 
@@ -830,7 +844,7 @@ export async function handleBlockAction(
   // A plain "Open session ↗" link button carries a `url` and needs no handling.
   if (action.action_id === 'session_open') return;
 
-  // Identity / access nudges. "Connect" and "Review in Dosco" are URL buttons —
+  // Identity / access nudges. "Connect" and "Review in Kortix" are URL buttons —
   // they open a link, so swallow their block_action so it doesn't fall through to
   // the agent-click catch-all below. "Request access" does real work.
   if (action.action_id === 'slack_login_connect') {

@@ -36,8 +36,7 @@ describe('secretExposure / secretExposureTarget', () => {
   });
 
   test('the picker writes exactly the three pairs the model names', () => {
-    // docs/specs/2026-08-19-secrets-exposure-usage-model.md §3. A fourth pair
-    // here would be a delivery mode the read side cannot name back.
+    // A fourth pair here would be a delivery mode the read side cannot name back.
     expect(secretExposureTarget('enforced')).toEqual({ strategy: 'egress', consumer: 'network' });
     expect(secretExposureTarget('environment')).toEqual({
       strategy: 'runtime',
@@ -553,6 +552,15 @@ describe('canSaveSecretDelivery', () => {
     nextConsumer: 'sandbox' as const,
     enforcedPolicyValid: false,
   };
+
+  test('an edit that changes only who can use it can be saved; an unchanged edit cannot', () => {
+    expect(canSaveSecretDelivery(base)).toBe(false);
+    expect(canSaveSecretDelivery({ ...base, audienceChanged: true })).toBe(true);
+    // The other guards still hold: a rotation-required value needs a new value.
+    expect(
+      canSaveSecretDelivery({ ...base, audienceChanged: true, requiresRotation: true }),
+    ).toBe(false);
+  });
 
   test('requires a replacement value before restoring environment exposure', () => {
     expect(

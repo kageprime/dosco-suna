@@ -15,7 +15,7 @@
  *                  sha, create|update|delete) and, when refused, the reason
  *                  per ref.
  *
- * Attribution follows spec docs/specs/2026-09-22-agents-as-principals.md §2:
+ * Attribution follows:
  * a session credential names the agent, the human it acts on behalf of, and
  * the initiator (shared/agent-audit-attribution.ts, resolved when the row is
  * written); a person names the user; a monitor box or an account API key is
@@ -126,6 +126,11 @@ export function bindGitProxyPrincipal(principal: GitPrincipal, project: ProjectR
     actorType: envelope.actorType,
     actorUserId: envelope.actorUserId,
     authoritativeSource: envelope.source,
+    ...(principal.kind === 'session'
+      ? { credentialKind: 'session_token' as const, credentialId: principal.sessionId }
+      : principal.kind === 'user' && tokenId
+        ? { credentialKind: 'personal_access_token' as const, credentialId: tokenId }
+        : {}),
     authMethod: {
       kind: 'git',
       principal: principal.kind,

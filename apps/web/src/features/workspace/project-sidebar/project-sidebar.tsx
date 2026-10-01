@@ -18,10 +18,12 @@ import { openCommandPalette } from '@/features/workspace/open-command-palette';
 import { ProjectAppsNavItem } from '@/features/workspace/project-sidebar/footer/project-apps-nav';
 import { ProjectChangeRequestsNavItem } from '@/features/workspace/project-sidebar/footer/project-change-requests-nav';
 import { ProjectChatGptConnectNavItem } from '@/features/workspace/project-sidebar/footer/project-chatgpt-connect-nav';
+import { ComputerConnectModal } from '@/features/tunnel/computer-connect';
+import { ProjectComputerNavItem } from '@/features/workspace/project-sidebar/footer/project-computer-nav';
 import { ProjectFilesNavItem } from '@/features/workspace/project-sidebar/footer/project-files-nav';
+import { ProjectRemindersNavItem } from './footer/project-reminders-nav';
 import { ProjectManifestUpgradeAlert } from '@/features/workspace/project-sidebar/footer/project-manifest-upgrade-alert';
 import { ProjectSandboxAlert } from '@/features/workspace/project-sidebar/footer/project-sandbox-alert';
-import { ProjectSettingsNavItem } from '@/features/workspace/project-sidebar/footer/project-settings-nav-item';
 import { ProjectSessionList } from '@/features/workspace/project-sidebar/project-session-list';
 import { ProjectCustomizeNavItem } from '@/features/workspace/project-sidebar/project-settings-nav';
 import { useIsCreatingProjectSession } from '@/hooks/projects/new-session-guard';
@@ -35,7 +37,7 @@ import {
   NavigationArrowIcon,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SidebarBalanceWarning } from './footer/project-balance-warning';
 import { SidebarUpgradeButton } from './footer/project-upgrade-button';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -51,6 +53,8 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
   const isExpanded = state === 'expanded';
   const isMobile = useIsMobile();
   const sessionsGroupRef = useRef<HTMLDivElement>(null);
+  // Mounted outside <Sidebar>: the mobile sheet unmounts its content on close.
+  const [computerConnectOpen, setComputerConnectOpen] = useState(false);
 
   const accountId = useBillingAccountId();
 
@@ -71,14 +75,14 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
   // real <button> so `disabled` still holds.
   const newSessionRowBody = (
     <>
-      <span className="shrink-0">
-        <NavigationArrowIcon className="rotate-90" />
-      </span>
-      <span>{t('newSession')}</span>
-      <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100">
-        <Kbd>{modSymbol}</Kbd>
-        <Kbd>J</Kbd>
-      </KbdGroup>
+        <span className="shrink-0">
+          <NavigationArrowIcon className="rotate-90" />
+        </span>
+        <span>{t('newSession')}</span>
+        <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100">
+          <Kbd>{modSymbol}</Kbd>
+          <Kbd>J</Kbd>
+        </KbdGroup>
     </>
   );
 
@@ -107,6 +111,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
   }, [handleNewSession]);
 
   return (
+    <>
     <Sidebar
       collapsible="offcanvas"
       variant="inset"
@@ -128,7 +133,7 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
             panel is docked open.
 
             ONE control answers "who am I / where am I / where can I go". It was
-            three: a `<Link>` carrying the Dosco mark fused to a separate
+            three: a `<Link>` carrying the Kortix mark fused to a separate
             dropdown trigger carrying the workspace name up here, plus the user
             menu as a third control down in the footer — two of the three being
             dropdowns. The link is gone, because a control that is half
@@ -231,7 +236,6 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               </SidebarMenuItem>
 
               <ProjectCustomizeNavItem />
-              <ProjectFilesNavItem />
               <ProjectAppsNavItem />
             </SidebarMenu>
           </SidebarGroup>
@@ -246,8 +250,13 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
               <ProjectChangeRequestsNavItem projectId={projectId} />
               <ProjectManifestUpgradeAlert projectId={projectId} />
               <SidebarBalanceWarning accountId={accountId} />
-              <ProjectSettingsNavItem />
+              <ProjectRemindersNavItem />
+              <ProjectFilesNavItem />
               <ProjectChatGptConnectNavItem projectId={projectId} />
+              <ProjectComputerNavItem
+                projectId={projectId}
+                onOpenConnect={() => setComputerConnectOpen(true)}
+              />
               {/* Last (Jay, 2026-09-03). It is the only paid call to action in
                   this group, and above the nav rows it put a sell between the
                   user and the links they actually use. */}
@@ -259,5 +268,11 @@ export function ProjectSidebar({ projectId }: { projectId: string }) {
 
       <SidebarRail aria-label={t('resize')} title={t('resizeHelp')} />
     </Sidebar>
+    <ComputerConnectModal
+      projectId={projectId}
+      open={computerConnectOpen}
+      onOpenChange={setComputerConnectOpen}
+    />
+    </>
   );
 }

@@ -1,18 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync } from 'node:fs'
-import {
-  chmod,
-  lstat,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  readlink,
-  rm,
-  stat,
-  symlink,
-} from 'node:fs/promises'
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, readlink, rm, stat, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -23,18 +12,26 @@ import {
   registerAgentSwapBlocker,
   requestAgentSwapIfIdle,
   resetAgentSwapBlockersForTests,
+  resetCliUpdateBlockedNoticeForTests,
   resetRuntimeConvergenceForTests,
   noteRuntimeConvergence,
   runtimeConvergenceReport,
   resetRuntimeConvergenceReportForTests,
   overlayHash,
   type RuntimeAssetsOptions,
-} from '../runtime-assets'
+  registerHarnessAssets,
+  resetHarnessAssetsForTests,
+} from '@/services/runtime-assets/runtime-assets'
 import {
   createOpenCodeAssetsService,
   type OpenCodeAssetsOptions,
   type OpenCodeAssetsRuntime,
-} from '../harness/open-code/assets'
+} from '@/harness/open-code/assets'
+import { resolveHarness } from '@/harness/harness'
+
+// Production registers this lookup in main.ts before anything runs.
+beforeAll(() => registerHarnessAssets((cfg) => resolveHarness(cfg).assets))
+afterAll(() => resetHarnessAssetsForTests())
 
 /**
  * Convergent runtime — the v2 half of `reconcileRuntimeAssets`.
@@ -91,6 +88,7 @@ afterEach(async () => {
   resetRuntimeConvergenceReportForTests()
   resetAgentSwapBlockersForTests()
   resetRuntimeConvergenceForTests()
+  resetCliUpdateBlockedNoticeForTests()
   while (dirs.length > 0) await rm(dirs.pop() as string, { recursive: true, force: true })
 })
 
@@ -130,7 +128,11 @@ function buildManifest(opts: ManifestOptions = {}): Record<string, unknown> {
         size: AGENT_BYTES.length,
         path: opts.agentPath ?? '/v1/runtime-assets/agent',
       },
-      cli: { version: '0.13.1-dev.abc1234', sha256: sha(CLI_BYTES), size: CLI_BYTES.length },
+      cli: {
+        version: '0.13.1-dev.abc1234',
+        sha256: sha(CLI_BYTES),
+        size: CLI_BYTES.length,
+      },
       opencode: { version: opts.opencodeVersion ?? '1.18.19', source: 'npm' },
       'managed-skills': { hash: SKILLS_HASH, count: SKILL_FILES.length },
     },
@@ -192,20 +194,22 @@ async function run(
     agentBakedPath: ws.agentBakedPath,
     fetchImpl: stub.impl,
     ...shared,
-    assets: shared.assets ?? createOpenCodeAssetsService(runtime, {
-      installOpencode,
-      readOpencodeVersion,
-      opencodeBinaryExists,
-      turnProbe,
-      opencodeDepsDir,
-      installPluginDeps,
-      // Never the real `/opt/kortix/*` paths: the rollback half reads and writes
-      // them, and a unit test must not depend on (or touch) a machine's own box
-      // layout.
-      opencodeCurrentLinkPath: opencodeCurrentLinkPath ?? ws.opencodeCurrent,
-      opencodePrevPath: opencodePrevPath ?? ws.opencodePrev,
-      opencodePinnedPath: opencodePinnedPath ?? ws.opencodePinned,
-    }),
+    assets:
+      shared.assets ??
+      createOpenCodeAssetsService(runtime, {
+        installOpencode,
+        readOpencodeVersion,
+        opencodeBinaryExists,
+        turnProbe,
+        opencodeDepsDir,
+        installPluginDeps,
+        // Never the real `/opt/kortix/*` paths: the rollback half reads and writes
+        // them, and a unit test must not depend on (or touch) a machine's own box
+        // layout.
+        opencodeCurrentLinkPath: opencodeCurrentLinkPath ?? ws.opencodeCurrent,
+        opencodePrevPath: opencodePrevPath ?? ws.opencodePrev,
+        opencodePinnedPath: opencodePinnedPath ?? ws.opencodePinned,
+      }),
   })
 }
 
@@ -261,7 +265,9 @@ describe('epoch guard', () => {
     const result = await run(ws, stubFetch({ build: 300 }))
 
     expect(result.build).toBe(300)
-    const state = JSON.parse(await readFile(ws.statePath, 'utf8')) as { build?: number }
+    const state = JSON.parse(await readFile(ws.statePath, 'utf8')) as {
+      build?: number
+    }
     expect(state.build).toBe(300)
   })
 })
@@ -476,7 +482,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('updated')
+    expect(result.harness?.opencode).toBe('updated')
     expect(installs).toEqual(['1.18.19'])
     // Same step, always: a binary and a plugin that disagree is the stall this
     // pairing exists to prevent.
@@ -506,11 +512,11 @@ describe('opencode convergence — idle only', () => {
         installs.push(v)
       },
       installPluginDeps: async () => {
-        throw new Error("a busy box must never install plugin deps")
+        throw new Error('a busy box must never install plugin deps')
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toBe('a turn is in flight')
     expect(installs).toEqual([])
     expect(restarts).toEqual([])
@@ -536,11 +542,11 @@ describe('opencode convergence — idle only', () => {
         installs.push(v)
       },
       installPluginDeps: async () => {
-        throw new Error("a busy box must never install plugin deps")
+        throw new Error('a busy box must never install plugin deps')
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toBe('turn state unreadable')
     expect(installs).toEqual([])
   })
@@ -564,7 +570,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('current')
+    expect(result.harness?.opencode).toBe('current')
     expect(installs).toEqual([])
   })
 
@@ -587,7 +593,7 @@ describe('opencode convergence — idle only', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('updated')
+    expect(result.harness?.opencode).toBe('updated')
     expect(installs).toEqual([])
     // The plugin is read when opencode boots, so the refreshed pin takes effect
     // on its own. Cutting a session short for it would buy nothing.
@@ -610,7 +616,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toBe('manifest opencode version is malformed')
     expect(installs).toEqual([])
   })
@@ -632,7 +638,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('updated')
+    expect(result.harness?.opencode).toBe('updated')
     expect(result.reasons?.opencode).toBeUndefined()
     expect(installs).toEqual(['1.18.19'])
   })
@@ -653,7 +659,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toBe('opencode did not report its version')
     expect(installs).toEqual([])
   })
@@ -675,7 +681,7 @@ describe('opencode convergence — idle only', () => {
       },
     })
 
-    expect(result.opencode).toBe('failed')
+    expect(result.harness?.opencode).toBe('failed')
     expect(restarts).toEqual([])
     const pkg = JSON.parse(await readFile(join(ws.depsDir, 'package.json'), 'utf8')) as {
       dependencies: Record<string, string>
@@ -693,7 +699,7 @@ describe('opencode convergence — idle only', () => {
 
     const result = await run(ws, stubFetch())
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toBe('no opencode runtime in this process')
   })
 })
@@ -713,7 +719,7 @@ describe('v1 compatibility', () => {
     // An API that has never heard of `components` says nothing about the agent
     // or opencode — which is different from saying "skip them".
     expect(result.agent).toBeUndefined()
-    expect(result.opencode).toBeUndefined()
+    expect(result.harness?.opencode).toBeUndefined()
     expect(result.build).toBeUndefined()
     // And nothing was staged from a manifest that never described an agent.
     expect(await stat(ws.agentNext).catch(() => null)).toBeNull()
@@ -791,7 +797,11 @@ describe('requestAgentSwapIfIdle', () => {
     const result = await requestAgentSwapIfIdle({
       agentStateDir: ws.stateDir,
       uptimeMs: input.uptimeMs ?? 10 * 60_000,
-      ...(input.configured === false ? {} : { turnInFlight: async () => ('turn' in input ? (input.turn as boolean | null) : false) }),
+      ...(input.configured === false
+        ? {}
+        : {
+            turnInFlight: async () => ('turn' in input ? (input.turn as boolean | null) : false),
+          }),
       exit: (code) => exits.push(code),
     })
 
@@ -828,7 +838,7 @@ describe('runtime convergence report', () => {
       cli: 'current',
       skills: 'current',
       agent: 'staged',
-      opencode: 'updated',
+      harness: { opencode: 'updated' },
       build: 1787241641,
       agentSwapPending: true,
     })
@@ -868,7 +878,8 @@ describe('runtime convergence report', () => {
         agent_sha256: 'c'.repeat(64),
         agent_path: '/opt/kortix/agent.current',
         staged_agent_sha256: 'd'.repeat(64),
-        opencode_version: '1.18.23',
+        harness: 'opencode',
+        harness_version: '1.18.23',
         build: 1787241641,
       }),
     )
@@ -881,8 +892,13 @@ describe('runtime convergence report', () => {
       agent_sha256: 'c'.repeat(64),
       agent_path: '/opt/kortix/agent.current',
       staged_agent_sha256: 'd'.repeat(64),
-      opencode_version: '1.18.23',
+      harness: 'opencode',
+      harness_version: '1.18.23',
       build: 1787241641,
+      // Never on disk — this call supplied no `catalogSnapshot`, so it reads
+      // as "unconfirmed", the same as an older daemon with no such concept.
+      managed_model_ids: null,
+      managed_catalog_fallback_reason: null,
     })
     // The pass-level fields stay honest about having no pass yet.
     expect(report.build).toBeNull()
@@ -898,8 +914,11 @@ describe('runtime convergence report', () => {
       agent_sha256: null,
       agent_path: null,
       staged_agent_sha256: null,
-      opencode_version: null,
+      harness: null,
+      harness_version: null,
       build: null,
+      managed_model_ids: null,
+      managed_catalog_fallback_reason: null,
     })
   })
 
@@ -922,7 +941,9 @@ describe('runtime convergence report', () => {
     const dir = reportDir()
     const latch = join(dir, 'opencode.pinned')
     configureRuntimeConvergence({
-      assets: createOpenCodeAssetsService(undefined, { opencodePinnedPath: latch }),
+      assets: createOpenCodeAssetsService(undefined, {
+        opencodePinnedPath: latch,
+      }),
       turnInFlight: async () => false,
     })
     noteRuntimeConvergence({ cli: 'current', skills: 'current', build: 7 })
@@ -1004,7 +1025,12 @@ describe('a candidate binary must run before it replaces a working one', () => {
     expect(result.reasons?.agent).toContain('did not run')
     expect(result.agentSwapPending).toBeUndefined()
     // Nothing for the supervisor to promote.
-    expect(await stat(ws.agentNext).then(() => true, () => false)).toBe(false)
+    expect(
+      await stat(ws.agentNext).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false)
   })
 
   test('an agent that runs is staged exactly as before', async () => {
@@ -1018,6 +1044,98 @@ describe('a candidate binary must run before it replaces a working one', () => {
     expect(result.agent).toBe('staged')
     expect(result.agentSwapPending).toBe(true)
     expect(await readFile(ws.agentNext, 'utf8')).toBe(AGENT_BYTES)
+  })
+})
+
+/**
+ * DEF-C 2026-09-26 — a box created before the image baked `/usr/local/bin`
+ * kortix-owned (SANDBOX_CLI_OWNERSHIP_COMMAND,
+ * packages/shared/src/sandbox/platform-binaries.ts) never gets that fix:
+ * Platinum suspends and resumes the SAME disk instead of rebooting from a new
+ * image, so the image build never re-runs there. Measured on a real box
+ * created 2026-08-25, repeating on every reconcile: `CLI replace failed
+ * {"err":"Error: EACCES: permission denied, open
+ * '/usr/local/bin/.kortix.download...'"}`, forever, even after the daemon's
+ * own `sudo -n chown` escalation.
+ *
+ * `$HOME/.local/bin` is already first on this box's PATH ahead of
+ * `/usr/local/bin` (apps/sandbox/entrypoint.sh `KORTIX_PATH`) and is the
+ * daemon's OWN home directory — writable by `kortix` with no escalation at
+ * all, on every image, old or new. `apps/cli`'s own self-update already
+ * relies on the same location for a non-sandbox install
+ * (apps/cli/src/commands/update.ts).
+ */
+describe('the CLI falls back to the PATH fallback when /usr/local/bin is not writable', () => {
+  test('a writable primary path never touches the fallback', async () => {
+    const ws = await workspace()
+    await Bun.write(ws.cliPath, 'OLD-CLI')
+    const fallback = join(ws.stateDir, 'local-bin', 'kortix')
+    const stub = stubFetch()
+
+    const result = await run(ws, stub, { cliFallbackPath: fallback })
+
+    expect(result.cli).toBe('updated')
+    expect(await readFile(ws.cliPath, 'utf8')).toBe(CLI_BYTES)
+    expect(
+      await stat(fallback).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false)
+  })
+
+  test('an unwritable primary directory installs to the PATH fallback instead', async () => {
+    const ws = await workspace()
+    const cliDir = join(ws.root, 'bin-locked')
+    const cliPath = join(cliDir, 'kortix')
+    await Bun.write(cliPath, 'OLD-CLI')
+    await chmod(cliDir, 0o555)
+    const fallback = join(ws.stateDir, 'local-bin', 'kortix')
+    const stub = stubFetch()
+
+    try {
+      const result = await run(ws, stub, {
+        cliPath,
+        cliFallbackPath: fallback,
+        // No escalation available on this box either — the real failure mode.
+        unlockCliDir: async () => false,
+      })
+
+      expect(result.cli).toBe('updated')
+      // The primary path is untouched: no escalation succeeded, so nothing
+      // there was ever writable.
+      expect(await readFile(cliPath, 'utf8')).toBe('OLD-CLI')
+      expect(await readFile(fallback, 'utf8')).toBe(CLI_BYTES)
+    } finally {
+      await chmod(cliDir, 0o755)
+    }
+  })
+
+  test('neither location writable: loud, not a silent forever-failed', async () => {
+    const ws = await workspace()
+    const cliDir = join(ws.root, 'bin-locked-2')
+    const cliPath = join(cliDir, 'kortix')
+    await Bun.write(cliPath, 'OLD-CLI')
+    await chmod(cliDir, 0o555)
+    const fallbackDir = join(ws.root, 'fallback-locked')
+    const fallback = join(fallbackDir, 'kortix')
+    await mkdir(fallbackDir, { recursive: true })
+    await chmod(fallbackDir, 0o555)
+    const stub = stubFetch()
+
+    try {
+      const result = await run(ws, stub, {
+        cliPath,
+        cliFallbackPath: fallback,
+        unlockCliDir: async () => false,
+      })
+
+      expect(result.cli).toBe('failed')
+      expect(result.reasons?.cli).toContain('cannot be updated')
+    } finally {
+      await chmod(cliDir, 0o755)
+      await chmod(fallbackDir, 0o755)
+    }
   })
 })
 
@@ -1158,6 +1276,72 @@ describe('opencode rollback', () => {
     }
   }
 
+  test('a throwing restart restores the predecessor and latches the update', async () => {
+    const ws = await workspace()
+    await Bun.write(ws.cliPath, CLI_BYTES)
+    await Bun.write(ws.agentBakedPath, AGENT_BYTES)
+    await bakeDeps(ws, '1.17.11')
+    const events: string[] = []
+    const result = await run(ws, stubFetch(), {
+      runtime: {
+        getInternalUrl: () => 'http://127.0.0.1:4096',
+        workspace: () => '/workspace',
+        restart: async () => {
+          events.push('restart')
+          if (events.length === 3) throw new Error('restart failed')
+        },
+      },
+      opencodeDepsDir: ws.depsDir,
+      readOpencodeVersion: async () => '1.17.11',
+      turnProbe: async () => false,
+      installOpencode: async () => {
+        events.push('install')
+      },
+      installPluginDeps: async () => {
+        events.push('deps')
+      },
+    })
+    expect(result.harness?.opencode).toBe('failed')
+    expect(result.reasons?.opencode).toContain('rolled back')
+    expect(events).toEqual(['install', 'deps', 'restart', 'restart'])
+    expect(await readlink(ws.opencodeCurrent)).toBe(ws.opencodePrev)
+    expect(
+      await stat(ws.opencodePinned).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true)
+  })
+
+  test('a failed first install on a missing binary does not change the pin or restart', async () => {
+    const ws = await workspace()
+    await Bun.write(ws.cliPath, CLI_BYTES)
+    await Bun.write(ws.agentBakedPath, AGENT_BYTES)
+    await bakeDeps(ws, '1.17.11')
+    const events: string[] = []
+    const result = await run(ws, stubFetch(), {
+      ...opencodeSeam(events),
+      opencodeDepsDir: ws.depsDir,
+      readOpencodeVersion: async () => null,
+      opencodeBinaryExists: async () => false,
+      turnProbe: async () => {
+        throw new Error('missing binary must not probe')
+      },
+      installOpencode: async () => {
+        throw new Error('install failed')
+      },
+      installPluginDeps: async () => {
+        events.push('deps')
+      },
+    })
+    expect(result.harness?.opencode).toBe('failed')
+    expect(result.reasons?.opencode).toContain('install failed')
+    expect(events).toEqual([])
+    expect(
+      JSON.parse(await readFile(join(ws.depsDir, 'package.json'), 'utf8')).dependencies['@opencode-ai/plugin'],
+    ).toBe('1.17.11')
+  })
+
   test('a restart that never reaches ok re-points current at prev and latches', async () => {
     const ws = await workspace()
     await Bun.write(ws.cliPath, CLI_BYTES)
@@ -1181,7 +1365,7 @@ describe('opencode rollback', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('failed')
+    expect(result.harness?.opencode).toBe('failed')
     expect(result.reasons?.opencode).toContain('rolled back')
     // Two restarts: the one that failed, and the one onto the previous version.
     expect(restarts).toEqual(['restart', 'restart'])
@@ -1190,7 +1374,12 @@ describe('opencode rollback', () => {
     expect(await readlink(oc.currentLink)).toBe(oc.prevPath)
     expect(await readFile(oc.currentLink, 'utf8')).toBe(await readFile(oc.installed, 'utf8'))
     // And it will not try again unaided.
-    expect(await stat(oc.pinnedPath).then(() => true, () => false)).toBe(true)
+    expect(
+      await stat(oc.pinnedPath).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true)
   })
 
   test('the latch stops the NEXT pass installing anything', async () => {
@@ -1215,7 +1404,7 @@ describe('opencode rollback', () => {
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toContain('pinned')
     expect(installed).toEqual([])
   })
@@ -1239,12 +1428,17 @@ describe('opencode rollback', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('updated')
+    expect(result.harness?.opencode).toBe('updated')
     // The predecessor is RETAINED on disk BEFORE the install — its own bytes,
     // not a link to a path pnpm is about to delete.
     expect(await readFile(oc.prevPath, 'utf8')).toBe(await readFile(oc.installed, 'utf8'))
     expect(await lstat(oc.prevPath).then((info) => info.isSymbolicLink())).toBe(false)
-    expect(await stat(oc.pinnedPath).then(() => true, () => false)).toBe(false)
+    expect(
+      await stat(oc.pinnedPath).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false)
   })
 
   // "If `opencode.prev` cannot be resolved, do not install — report the reason
@@ -1271,7 +1465,7 @@ describe('opencode rollback', () => {
       },
     })
 
-    expect(result.opencode).toBe('skipped')
+    expect(result.harness?.opencode).toBe('skipped')
     expect(result.reasons?.opencode).toContain('no rollback target')
     expect(installed).toEqual([])
   })
@@ -1301,9 +1495,14 @@ describe('opencode rollback', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('failed')
+    expect(result.harness?.opencode).toBe('failed')
     expect(result.reasons?.opencode).toContain('rollback could not be applied')
-    expect(await stat(oc.pinnedPath).then(() => true, () => false)).toBe(true)
+    expect(
+      await stat(oc.pinnedPath).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true)
   })
 
   // THE CASE EVERY TEST ABOVE IS BLIND TO.
@@ -1351,7 +1550,7 @@ describe('opencode rollback', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('failed')
+    expect(result.harness?.opencode).toBe('failed')
     expect(result.reasons?.opencode).toContain('rolled back')
     // The box is SERVING again. `readFile` follows the link and throws ENOENT on
     // a dangling one, so reading the bytes proves BOTH that the link resolves
@@ -1359,7 +1558,12 @@ describe('opencode rollback', () => {
     // check-then-use.
     expect(await readFile(oc.currentLink, 'utf8')).toBe('#!/bin/sh\nexit 0\n')
     // And the latch was written, so the next pass does not repeat the install.
-    expect(await stat(oc.pinnedPath).then(() => true, () => false)).toBe(true)
+    expect(
+      await stat(oc.pinnedPath).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true)
   })
 
   // An old snapshot with NO managed binary at all has nothing to roll back to
@@ -1383,7 +1587,7 @@ describe('opencode rollback', () => {
       installPluginDeps: async () => {},
     })
 
-    expect(result.opencode).toBe('updated')
+    expect(result.harness?.opencode).toBe('updated')
     expect(installed).toEqual(['1.18.19'])
   })
 })

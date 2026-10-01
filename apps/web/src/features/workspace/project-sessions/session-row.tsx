@@ -1,11 +1,15 @@
 'use client';
 
-import { sessionSource, type SessionSourceKind } from '@/components/projects/session-label';
+import {
+  SESSION_STATUS_TRANSLATION_KEY,
+  sessionDisplayStatus,
+  sessionSource,
+  type SessionDisplayStatus,
+} from '@/components/projects/session-label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Disclosure, DisclosureContent, DisclosureTrigger } from '@/components/ui/disclosure';
 import Hint from '@/components/ui/hint';
-import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +18,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Loading from '@/components/ui/loading';
 import { TypedTitle } from '@/components/ui/typed-title';
-import { Slack } from '@/features/icon/icons/slack';
-import { MicrosoftTeams } from '@/features/icon/icons/microsoft-teams';
-import { Telegram } from '@/features/icon/icons/telegram';
 import {
   getSessionDisplayTitle,
   shortRelative,
@@ -24,25 +25,32 @@ import {
 import type { UiTranslator } from '@/i18n/translator';
 import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
-import type { ProjectSession, ProjectSessionStatus } from '@kortix/sdk';
+import {
+  SESSION_LIST_STATUS,
+  type ProjectSession,
+  type StatusTone as SessionStatusTone,
+} from '@kortix/sdk';
 import {
   ArrowCounterClockwiseIcon,
-  CalendarDotsIcon,
+  CaretRightIcon,
   ChatTeardropTextIcon,
   DotsThreeIcon,
-  EnvelopeIcon,
   PencilSimpleIcon,
+  TagIcon,
   ShareNetworkIcon,
   SquareIcon,
   TrashIcon,
-  WebhooksLogoIcon,
 } from '@phosphor-icons/react';
-import { memo, useState, type ComponentType, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 
 import { SESSION_ACCESS_ICONS } from '@/features/workspace/project-sidebar/session-filter-menu';
 
+import { SOURCE_ICONS } from '@/features/workspace/project-sidebar/session-source-icons';
+
 import { sessionAccessMeta } from './project-sessions-helpers';
-import { sessionAccessKind, sessionOwnerKey, UNKNOWN_OWNER_KEY } from './session-owner-filters';
+import { SessionLabelBadges } from './session-label-badges';
+import { sessionAccessKind, sessionOwnerKey } from './session-owner-filters';
+import { SessionStarterMark, useSessionStarter } from './session-starter-mark';
 
 /**
  * Whose session this is, and who else can open it — on every row of the
@@ -55,18 +63,12 @@ import { sessionAccessKind, sessionOwnerKey, UNKNOWN_OWNER_KEY } from './session
  */
 function SessionOwnerChip({ session }: { session: ProjectSession }) {
   const t = useTranslations('sidebar.filter');
+  const starter = useSessionStarter(session);
   const isViewer = session.is_owner !== false;
-  const ownerLabel = isViewer
-    ? t('ownerValue.you')
-    : sessionOwnerKey(session) === UNKNOWN_OWNER_KEY &&
-        !session.owner_name &&
-        !session.owner_email
-      ? t('ownerValue.unknown')
-      : (session.owner_name ?? session.owner_email ?? t('ownerValue.unknown'));
   const access = sessionAccessKind(session);
   const AccessIcon = SESSION_ACCESS_ICONS[access];
   const accessLabel = t(`accessValue.${access}`);
-  const label = t('ownerAccess', { owner: ownerLabel, access: accessLabel });
+  const label = t('ownerAccess', { owner: starter.label, access: accessLabel });
 
   return (
     <Hint label={label} side="top" sideOffset={6}>
@@ -74,17 +76,46 @@ function SessionOwnerChip({ session }: { session: ProjectSession }) {
         className="text-muted-foreground flex max-w-48 shrink-0 items-center gap-1.5 text-xs"
         aria-label={label}
         data-session-owner={sessionOwnerKey(session)}
+        data-session-starter={starter.type}
         data-session-shared={isViewer ? undefined : 'true'}
       >
-        <UserAvatar
-          size="sm"
-          name={isViewer ? undefined : (session.owner_name ?? undefined)}
-          email={session.owner_email ?? ''}
-        />
-        <span className="hidden min-w-0 truncate sm:inline">{ownerLabel}</span>
+        <SessionStarterMark session={session} starter={starter} />
+        <span className="hidden min-w-0 truncate sm:inline">{starter.label}</span>
         <AccessIcon className="size-3.5 shrink-0" />
       </span>
     </Hint>
+  );
+}
+
+/** Chevron + count of the sessions this one spawned. Sits inside the row's own
+ *  toggle, so it stops the event before it opens the detail panel. */
+function SessionChildrenToggle({
+  count,
+  open,
+  onToggle,
+}: {
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const t = useTranslations('sidebar.sessionList');
+  const label = open ? t('collapseChildren') : t('expandChildren', { count });
+  return (
+    <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-expanded={open}
+        aria-label={label}
+        data-session-children-toggle="true"
+        className="text-muted-foreground gap-1 tabular-nums"
+        onClick={onToggle}
+      >
+        <CaretRightIcon aria-hidden className={cn('size-3 transition-transform', open && 'rotate-90')} />
+        {count}
+      </Button>
+    </span>
   );
 }
 
@@ -92,16 +123,6 @@ function SessionOwnerChip({ session }: { session: ProjectSession }) {
  *  the sidebar session list so the row never reflows on hover. */
 const SESSION_RELATIVE_TIME_CLASS =
   'text-muted-foreground block w-10 min-w-10 max-w-10 shrink-0 truncate text-right text-xs tabular-nums';
-
-const SOURCE_ICONS: Record<SessionSourceKind, ComponentType<{ className?: string }>> = {
-  chat: ChatTeardropTextIcon,
-  slack: Slack,
-  telegram: Telegram,
-  teams: MicrosoftTeams,
-  email: EnvelopeIcon,
-  schedule: CalendarDotsIcon,
-  webhook: WebhooksLogoIcon,
-};
 
 interface StatusTile {
   label: string;
@@ -115,14 +136,28 @@ const SECONDARY_TILE: Pick<StatusTile, 'tile' | 'icon'> = {
   icon: 'text-muted-foreground',
 };
 
+/** Tile colour per status tone: green only for live or actionable, never for finished. */
+const TONE_TILE: Record<SessionStatusTone, Pick<StatusTile, 'tile' | 'icon'>> = {
+  live: { tile: 'bg-kortix-green/15', icon: 'text-kortix-green' },
+  actionable: { tile: 'bg-kortix-green/15', icon: 'text-kortix-green' },
+  progress: { tile: 'bg-kortix-yellow/15', icon: 'text-kortix-yellow' },
+  danger: { tile: 'bg-kortix-red/15', icon: 'text-kortix-red' },
+  muted: SECONDARY_TILE,
+};
+
 /**
  * Status colour on the source-icon tile. Deleted wins over lifecycle status.
- * Palette follows kortix design-system status tokens.
+ *
+ * The lifecycle word is the one every list uses (`sessionDisplayStatus`): this
+ * page used to name the raw sandbox status ("Queued", "Branching",
+ * "Provisioning", "Completed") where the sidebar beside it said "Starting" and
+ * "Done" for the same session.
  */
 function sessionStatusTile(
-  status: ProjectSessionStatus,
+  session: ProjectSession,
   options: { deleted: boolean; metadataOnly: boolean },
   tI18nComplete: UiTranslator,
+  statusLabel: (status: SessionDisplayStatus) => string,
 ): StatusTile {
   if (options.deleted) {
     return {
@@ -134,51 +169,13 @@ function sessionStatusTile(
   if (options.metadataOnly) {
     return { label: tI18nComplete.raw('textdf0453d185c4'), ...SECONDARY_TILE };
   }
-
-  switch (status) {
-    case 'running':
-      return {
-        label: tI18nComplete.raw('textf4ccae29e1bb'),
-        tile: 'bg-kortix-green/15',
-        icon: 'text-kortix-green',
-      };
-    case 'queued':
-      return {
-        label: tI18nComplete.raw('text661ff40a07e0'),
-        tile: 'bg-kortix-yellow/15',
-        icon: 'text-kortix-yellow',
-      };
-    case 'branching':
-      return {
-        label: tI18nComplete.raw('text9aa73337127b'),
-        tile: 'bg-kortix-yellow/15',
-        icon: 'text-kortix-yellow',
-      };
-    case 'provisioning':
-      return {
-        label: tI18nComplete.raw('textc2b1b8e2e039'),
-        tile: 'bg-kortix-yellow/15',
-        icon: 'text-kortix-yellow',
-      };
-    case 'failed':
-      return {
-        label: tI18nComplete.raw('text031a8f0f659d'),
-        tile: 'bg-kortix-red/15',
-        icon: 'text-kortix-red',
-      };
-    case 'completed':
-      return { label: tI18nComplete.raw('text22a970d2e5b1'), ...SECONDARY_TILE };
-    case 'stopped':
-      return { label: tI18nComplete.raw('text1a4f630ac1b6'), ...SECONDARY_TILE };
-    default: {
-      const _exhaustive: never = status;
-      throw new Error(`Unhandled session status: ${String(_exhaustive)}`);
-    }
-  }
+  const status = sessionDisplayStatus(session);
+  return { label: statusLabel(status), ...TONE_TILE[SESSION_LIST_STATUS[status].tone] };
 }
 
 export interface SessionRowActions {
   onRename: (sessionId: string, currentName: string) => void;
+  onEditLabels: (session: ProjectSession) => void;
   onShare: (session: ProjectSession) => void;
   onDelete: (sessionId: string, label: string) => void;
   onRestart: (sessionId: string, label: string) => void;
@@ -201,6 +198,10 @@ export interface SessionRowProps {
   restarting: boolean;
   stopping: boolean;
   actions: SessionRowActions;
+  /** Spawned sessions under this one (`child_count`). 0 or absent: no toggle. */
+  childCount?: number;
+  childrenOpen?: boolean;
+  onToggleChildren?: (sessionId: string) => void;
   /** Detail panel — the container renders it only while expanded. */
   children: ReactNode;
 }
@@ -216,13 +217,18 @@ function SessionRowImpl({
   restarting,
   stopping,
   actions,
+  childCount = 0,
+  childrenOpen = false,
+  onToggleChildren,
   children,
 }: SessionRowProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tStatus = useTranslations('sidebar.sessionList.status');
+  const tLabels = useTranslations('sidebar.labels');
   const [menuOpen, setMenuOpen] = useState(false);
   const title = getSessionDisplayTitle(session);
   const source = sessionSource(session, tI18nComplete);
-  const SourceIcon = SOURCE_ICONS[source.kind];
+  const SourceIcon = source.kind === 'chat' ? ChatTeardropTextIcon : SOURCE_ICONS[source.kind];
   const access = sessionAccessMeta(session, tI18nComplete);
   const isDeleted = Boolean(session.deleted_at);
   // `can_manage_sharing` answers ONE question — may this viewer change who can
@@ -235,12 +241,13 @@ function SessionRowImpl({
   const hasActions = hasLifecycleActions;
   const relativeLabel = time.relative ? shortRelative(time.relative) : '';
   const statusTile = sessionStatusTile(
-    session.status,
+    session,
     {
       deleted: isDeleted,
       metadataOnly: session.can_access === false,
     },
     tI18nComplete,
+    (status) => tStatus(SESSION_STATUS_TRANSLATION_KEY[status]),
   );
 
   const deferAfterClose = (fn: () => void) => {
@@ -271,6 +278,14 @@ function SessionRowImpl({
             <span className="text-muted-foreground"> · {source.triggerSlug}</span>
           ) : null}
         </span>
+        {childCount > 0 && onToggleChildren ? (
+          <SessionChildrenToggle
+            count={childCount}
+            open={childrenOpen}
+            onToggle={() => onToggleChildren(session.session_id)}
+          />
+        ) : null}
+        <SessionLabelBadges session={session} className="max-sm:hidden" />
         <SessionOwnerChip session={session} />
       </span>
     </>
@@ -338,7 +353,7 @@ function SessionRowImpl({
               <time
                 className={cn(
                   SESSION_RELATIVE_TIME_CLASS,
-                  'pr-1.5 transition-opacity duration-150',
+                  'pr-1.5 transition-opacity duration-normal',
                   hasActions &&
                     cn(
                       'opacity-100 group-hover/row:opacity-0 group-has-data-[state=open]/row:opacity-0',
@@ -368,7 +383,7 @@ function SessionRowImpl({
                       size="icon-sm"
                       aria-label={tI18nComplete('text33da220b1a34', { value0: title })}
                       className={cn(
-                        'absolute top-1/2 right-0.5 -translate-y-1/2 transition-opacity duration-150',
+                        'absolute top-1/2 right-0.5 -translate-y-1/2 transition-opacity duration-normal',
                         'focus:ring-0 focus-visible:ring-0 active:scale-[0.96]',
                         relativeLabel
                           ? cn(
@@ -398,6 +413,15 @@ function SessionRowImpl({
                       >
                         <PencilSimpleIcon />
                         {tI18nComplete.raw('text3064d79a295c')}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {hasLifecycleActions ? (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={() => deferAfterClose(() => actions.onEditLabels(session))}
+                      >
+                        <TagIcon />
+                        {tLabels('menu')}
                       </DropdownMenuItem>
                     ) : null}
                     {showAccessEntry ? (

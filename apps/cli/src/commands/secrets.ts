@@ -15,6 +15,7 @@ import {
   takeFlagBool,
   takeFlagValue,
 } from '../command-helpers.ts';
+import { resolveUserId } from '../iam.ts';
 import { loadLocalManifest } from '../manifest.ts';
 import { C, help, pad, status, visibleWidth } from '../style.ts';
 
@@ -59,14 +60,20 @@ Subcommands:
                                     declared key outside the grant shows
                                     \`not granted\`, not \`missing\`.
   set KEY=VALUE [KEY=VALUE …]       Upsert one or more secrets. Identifier
-                                    defaults to KEY.
+                                    defaults to KEY. Use this whenever you
+                                    HAVE the value — an agent included, when
+                                    the human gave it in chat. Needs the
+                                    project's secret-write permission.
                                     Use \`KEY=-\` to read VALUE from stdin.
     --identifier <id>               Store under an explicit identifier (a second
     --id <id>                       value under the same KEY). One KEY=VALUE only.
+    --scope runtime|connector       runtime (default): loaded into the sandbox
+                                    env. connector: server-side only, spent
+                                    by the connector gateway.
   request NAME [NAME …]             Mint a link (valid 7 days) for a human to
-                                    ENTER the value(s) — never pasted into
-                                    chat. Surface the URL (web: fill-in
-                                    modal, Slack: tappable link). Reuse a live
+                                    ENTER value(s) you do NOT have. Surface
+                                    the URL (web: fill-in modal, Slack:
+                                    tappable link). Reuse a live
                                     link across runs — do not re-mint/re-post
                                     while one is unexpired. Warns when this
                                     session's agent will not receive a name.
@@ -113,6 +120,18 @@ Subcommands:
     --header <name:value>            Request header. Repeat as needed.
     --data <value>                   Inline request body.
     --data-file <path>               Read the request body from a file.
+    --only-me                       Only you can use the new value: directly,
+                                    or in your own private sessions. See share.
+  share IDENTIFIER                  Set WHO CAN USE the value (replaces it).
+    --user <email|id|me>            A person. Repeat for more.
+    --group <id>                    A group. Repeat for more.
+    --everyone                      Everyone in the project (the default).
+                                    Shared with specific people, the value
+                                    reaches only them — directly, or in their
+                                    own private sessions. Never a shared
+                                    session, a trigger, or another member's
+                                    session. A person sets this; an agent
+                                    session cannot.
   unset IDENTIFIER [IDENTIFIER …]   Remove one or more secrets (by identifier).
   grant IDENTIFIER --agent <name>   Let one agent receive this secret: merge
                                     the identifier into that agent's \`secrets\`
@@ -186,6 +205,8 @@ export async function runSecrets(argv: string[]): Promise<number> {
       return secretsUnset(rest, ctxOpts);
     case 'grant':
       return secretsGrant(rest, ctxOpts, json);
+    case 'share':
+      return secretsShare(rest, ctxOpts, json);
     default:
       process.stderr.write(`${status.err(`unknown subcommand "${sub}"`)}\n\n${HELP}`);
       return 2;
@@ -214,13 +235,26 @@ type SecretRow = {
   /** False for a declared key the calling agent's grant excludes: a value may
    *  be set, but this session never receives it and the API does not list it. */
   granted: boolean;
+  /** Audience labels; empty = everyone in the project. */
+  sharedWith: string[];
+  /** False when the value is shared with specific people and not the caller. */
+  usable: boolean;
 };
+
+/**
+ * The WHO CAN USE cell: `everyone` for a value with no audience grant (or a
+ * grant to the project), else the audience labels. `(not you)` marks a value
+ * the caller lists only because they manage the project's secrets.
+ */
+export function secretAudienceLabel(row: { sharedWith: string[]; usable: boolean }): string {
+  const audience = row.sharedWith.length === 0 ? 'everyone' : row.sharedWith.join(', ');
+  return row.usable ? audience : `${audience} (not you)`;
+}
 
 /**
  * The DELIVERY cell: the secret's exposure, or the service that spends it.
  *
- * The words are the model's own (docs/specs/
- * 2026-08-19-secrets-exposure-usage-model.md §3): `runtime` reads as
+ * The words are the model's own: `runtime` reads as
  * "environment" because that is the exposure a reader has to weigh, and
  * `egress` reads as its host list because the hosts ARE the policy. A
  * `broker` row has no sandbox presence at all, so it names its spender.
@@ -299,7 +333,11 @@ async function secretsLs(opts: CtxOpts, json = false): Promise<number> {
       deliveryStatus:
         secret.delivery_status ?? (secret.strategy === 'denied' ? 'disabled' : 'available'),
       requiresRotation: secret.requires_rotation ?? false,
-    } as const;
+      sharedWith: (secret.shared_with ?? []).some((share) => share.principal_type === 'project')
+        ? []
+        : (secret.shared_with ?? []).map((share) => share.label),
+      usable: secret.usable ?? true,
+    };
   };
   // Inside an agent session the API lists only the identifiers that agent is
   // granted. A declared key it omits is then NOT known to be missing — it may be
@@ -342,6 +380,8 @@ async function secretsLs(opts: CtxOpts, json = false): Promise<number> {
         deliveryStatus: 'available',
         requiresRotation: false,
         granted: isGranted(key),
+        sharedWith: [],
+        usable: true,
       });
     } else {
       for (const s of backing) {
@@ -376,6 +416,8 @@ async function secretsLs(opts: CtxOpts, json = false): Promise<number> {
         delivery_status: r.deliveryStatus,
         requires_rotation: r.requiresRotation,
         granted: r.granted,
+        shared_with: r.sharedWith,
+        usable: r.usable,
         // Backward-compatible aliases for older CLI JSON consumers.
         key: r.key,
         has_value: r.available,
@@ -420,8 +462,9 @@ async function secretsLs(opts: CtxOpts, json = false): Promise<number> {
   const statusOf = (r: SecretRow) =>
     !r.granted ? 'not granted' : r.available ? (r.effectiveSource === 'mine' ? 'personal' : 'set') : 'missing';
   const statusW = Math.max(...allRows.map((r) => statusOf(r).length), 'STATUS'.length, 'personal'.length);
+  const accessW = Math.max(...allRows.map((r) => secretAudienceLabel(r).length), 'WHO CAN USE'.length);
   process.stdout.write(
-    `  ${C.dim}${pad('IDENTIFIER', nameW)}   ${pad('STATUS', statusW)}  ${pad('DELIVERY', deliveryW)}  SPEC${C.reset}\n`,
+    `  ${C.dim}${pad('IDENTIFIER', nameW)}   ${pad('STATUS', statusW)}  ${pad('DELIVERY', deliveryW)}  ${pad('WHO CAN USE', accessW)}  SPEC${C.reset}\n`,
   );
   for (const { row: r, delivery } of rendered) {
     // A stored value is not a delivered one. Green-for-configured alone let a
@@ -439,7 +482,7 @@ async function secretsLs(opts: CtxOpts, json = false): Promise<number> {
     // the second-value-under-same-key case (mirrors the web's "→ key").
     const keyHint = r.key !== r.identifier ? ` ${C.dim}→ ${r.key}${C.reset}` : '';
     process.stdout.write(
-      `${marker}${pad(r.identifier, nameW)}   ${statusTxt}  ${pad(delivery, deliveryW)}  ${specColor}${r.spec}${C.reset}${keyHint}\n`,
+      `${marker}${pad(r.identifier, nameW)}   ${statusTxt}  ${pad(delivery, deliveryW)}  ${pad(secretAudienceLabel(r), accessW)}  ${specColor}${r.spec}${C.reset}${keyHint}\n`,
     );
   }
 
@@ -494,8 +537,7 @@ type SecretStrategy = (typeof SECRET_STRATEGIES)[number];
 /**
  * What a user types → what the API stores.
  *
- * The exposure words are the model's (docs/specs/
- * 2026-08-19-secrets-exposure-usage-model.md §3); the stored `strategy` column
+ * The exposure words are the model's; the stored `strategy` column
  * is unchanged, so both spellings resolve to the same four values and no
  * existing script or agent transcript breaks. `broker` has no exposure word of
  * its own: which exposure it means depends on its consumer, so it stays
@@ -708,8 +750,7 @@ async function secretsDelivery(args: string[], opts: CtxOpts, json = false): Pro
     const exactHost =
       /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
     const normalizedHosts = allowedHosts.map((host) => host.trim().toLowerCase());
-    // The whole policy of an enforced secret is its host list (docs/specs/
-    // 2026-08-19-secrets-exposure-usage-model.md §6): the value is substituted
+    // The whole policy of an enforced secret is its host list: the value is substituted
     // for the handle wherever the agent's own client put it, so there is no
     // slot for the CLI to name and no method or path for it to promise.
     const legacyOnly = [
@@ -941,10 +982,17 @@ async function secretsSet(args: string[], opts: CtxOpts): Promise<number> {
   // KEY=VALUE; omit it and the identifier defaults to the KEY (the common case,
   // where any number of pairs is fine).
   let identifier: string | undefined;
+  let scope: string | undefined;
+  const onlyMe = takeFlagBool(args, ['--only-me']);
   try {
     identifier = takeFlagValue(args, ['--identifier', '--id']);
+    scope = takeFlagValue(args, ['--scope']);
   } catch (err) {
     process.stderr.write(`${status.err((err as Error).message)}\n`);
+    return 2;
+  }
+  if (scope !== undefined && scope !== 'runtime' && scope !== 'connector') {
+    process.stderr.write(`${status.err('--scope must be runtime or connector')}\n`);
     return 2;
   }
   if (identifier !== undefined) {
@@ -996,6 +1044,16 @@ async function secretsSet(args: string[], opts: CtxOpts): Promise<number> {
     return 2;
   }
 
+  let sharedWith: Array<{ principal_type: 'user'; principal_id: string }> | undefined;
+  if (onlyMe) {
+    try {
+      const me = await ctx.client.get<{ user_id: string }>('/accounts/me');
+      sharedWith = [{ principal_type: 'user', principal_id: me.user_id }];
+    } catch (err) {
+      return surfaceApiError(err);
+    }
+  }
+
   let okCount = 0;
   for (const p of pairs) {
     const shownId = identifier ?? p.key;
@@ -1007,7 +1065,11 @@ async function secretsSet(args: string[], opts: CtxOpts): Promise<number> {
       await ctx.client.post<ProjectSecret>(`/projects/${ctx.projectId}/secrets`, {
         name: p.key,
         ...(identifier !== undefined ? { identifier } : {}),
+        // Same two scopes as `secrets request`: connector keeps the value
+        // server-side for the connector gateway; runtime is the API default.
+        ...(scope === 'connector' ? { strategy: 'broker', consumer: 'connector' } : {}),
         value: p.value,
+        ...(sharedWith ? { shared_with: sharedWith } : {}),
       });
       okCount += 1;
       process.stdout.write(`${status.ok(label)}\n`);
@@ -1018,6 +1080,81 @@ async function secretsSet(args: string[], opts: CtxOpts): Promise<number> {
   }
   process.stdout.write(`\n  ${C.dim}${okCount}/${pairs.length} set${C.reset}\n\n`);
   return okCount === pairs.length ? 0 : 1;
+}
+
+/** `share IDENTIFIER --user … --group … | --everyone`: set the value's audience exactly. */
+async function secretsShare(args: string[], opts: CtxOpts, json = false): Promise<number> {
+  const everyone = takeFlagBool(args, ['--everyone']);
+  let users: string[];
+  let groups: string[];
+  try {
+    users = takeFlagValues(args, ['--user']);
+    groups = takeFlagValues(args, ['--group']);
+  } catch (err) {
+    process.stderr.write(`${status.err((err as Error).message)}\n`);
+    return 2;
+  }
+  const identifier = args[0]?.trim();
+  if (!identifier) {
+    process.stderr.write(`${status.err('Usage: kortix secrets share IDENTIFIER --user <email|id|me> | --group <id> | --everyone')}\n`);
+    return 2;
+  }
+  if (everyone && users.length + groups.length > 0) {
+    process.stderr.write(`${status.err('--everyone shares it with the whole project; drop --user and --group.')}\n`);
+    return 2;
+  }
+  if (!everyone && users.length + groups.length === 0) {
+    process.stderr.write(`${status.err('Say who can use it: --user <email|id|me>, --group <id>, or --everyone.')}\n`);
+    return 2;
+  }
+
+  const ctx = await resolveProjectContext(opts);
+  if (!ctx) return 1;
+  try {
+    const list = await ctx.client.get<ProjectSecretsResponse>(`/projects/${ctx.projectId}/secrets`);
+    const target = list.items.find((item) => item.identifier.toUpperCase() === identifier.toUpperCase());
+    if (!target) {
+      process.stderr.write(`${status.err(`No secret with identifier "${identifier}". See: kortix secrets ls`)}\n`);
+      return 1;
+    }
+    const principals: Array<{ principal_type: 'user' | 'group'; principal_id: string }> = groups.map((id) => ({
+      principal_type: 'group',
+      principal_id: id,
+    }));
+    let accountId: string | null = null;
+    for (const who of users) {
+      if (who === 'me') {
+        const me = await ctx.client.get<{ user_id: string }>('/accounts/me');
+        principals.push({ principal_type: 'user', principal_id: me.user_id });
+        continue;
+      }
+      accountId ??= (await ctx.client.get<{ account_id: string }>(`/projects/${ctx.projectId}`)).account_id;
+      const userId = await resolveUserId(ctx.client, accountId, who);
+      if (!userId) return 1;
+      principals.push({ principal_type: 'user', principal_id: userId });
+    }
+    const response = await ctx.client.post<ProjectSecret>(`/projects/${ctx.projectId}/secrets`, {
+      name: target.name,
+      identifier: target.identifier,
+      shared_with: everyone ? [] : principals,
+    });
+    if (json) {
+      emitJson(response);
+      return 0;
+    }
+    const audience = everyone
+      ? 'everyone in the project'
+      : `${principals.length} ${principals.length === 1 ? 'person or group' : 'people and groups'}`;
+    process.stdout.write(`${status.ok(`${target.identifier}: ${audience}`)}\n`);
+    if (!everyone) {
+      process.stdout.write(
+        `  ${C.dim}It reaches them directly or in their own private sessions — never a shared session or a trigger.${C.reset}\n`,
+      );
+    }
+    return 0;
+  } catch (err) {
+    return surfaceApiError(err);
+  }
 }
 
 async function secretsRequest(rest: string[], opts: CtxOpts, json = false): Promise<number> {
@@ -1066,7 +1203,7 @@ async function secretsRequest(rest: string[], opts: CtxOpts, json = false): Prom
   process.stdout.write(
     `\n  ${C.bold}Hand this link to whoever has the value${C.reset} ${C.faded}(${resp.names.join(', ')})${C.reset}\n` +
       `  ${C.cyan}${resp.url}${C.reset}\n\n` +
-      `  ${C.dim}Web: opens a fill-in modal. Slack: a tappable link. The value is never pasted into chat.${C.reset}\n` +
+      `  ${C.dim}Web: opens a fill-in modal. Slack: a tappable link.${C.reset}\n` +
       `  ${C.dim}Valid for ${describeLinkValidity(resp.expires_at, Date.now())} (until ${resp.expires_at}).${C.reset}\n` +
       `  ${C.dim}Reuse this link until it expires — do not mint a new one while this one is live.${C.reset}\n\n`,
   );

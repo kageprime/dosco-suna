@@ -29,6 +29,7 @@ import {
   useSessionAudit,
   useSessionAuditTimeline,
 } from '@/features/session/session-audit-shared';
+import { credentialVia } from '@/components/iam/audit-credential-label';
 import { useTranslations } from '@/i18n/use-translations';
 import type { AuditEvent, SessionAuditAction } from '@kortix/sdk';
 import { CaretRightIcon, ShieldCheckIcon } from '@phosphor-icons/react';
@@ -62,10 +63,10 @@ export function SessionAuditPanel({
   const history = events.length > 0 ? [] : actions.filter((action) => !isPendingAction(action));
   const historyGated = data?.audit_access === false;
 
-  const decide = (executionId: string, decision: ApprovalDecisionValue) => {
+  const decide = (executionId: string, decision: ApprovalDecisionValue, note?: string) => {
     setBusy((current) => ({ ...current, [executionId]: decision }));
     resolve.mutate(
-      { executionId, decision },
+      { executionId, decision, note },
       {
         onSuccess: () => {
           setOutcomes((current) => ({ ...current, [executionId]: decision }));
@@ -157,7 +158,7 @@ export function SessionAuditPanel({
                       <ApprovalRequest
                         key={action.execution_id}
                         request={approvalRequestFromAction(action, outcome === null)}
-                        onDecision={(decision) => decide(action.execution_id, decision)}
+                        onDecision={(decision, note) => decide(action.execution_id, decision, note)}
                         busyDecision={busy[action.execution_id] ?? null}
                         outcome={outcome}
                       />
@@ -215,7 +216,11 @@ export function SessionAuditPanel({
                             </Badge>
                           </div>
                           <p className="text-muted-foreground mt-0.5 truncate text-xs">
-                            {event.authoritative_source ?? event.source ?? 'system'} ·{' '}
+                            {credentialVia(event, (key) => tI18nComplete.raw(key) as string) ??
+                              event.authoritative_source ??
+                              event.source ??
+                              'system'}{' '}
+                            ·{' '}
                             {relativeTime(event.occurred_at)}
                           </p>
                         </div>
@@ -337,9 +342,14 @@ export function SessionAuditPanel({
                   {[
                     ['Action', selectedEvent.action],
                     ['Phase', selectedEvent.phase],
-                    ['Source', selectedEvent.authoritative_source ?? selectedEvent.source],
+                    [
+                      tI18nComplete.raw('text2ed8b8066255'),
+                      credentialVia(selectedEvent, (key) => tI18nComplete.raw(key) as string) ??
+                        selectedEvent.authoritative_source ??
+                        selectedEvent.source,
+                    ],
                     [tI18nComplete.raw('text3045abafb173'), selectedEvent.event_id],
-                    [tI18nComplete.raw('text5a26f4425c82'), selectedEvent.opencode_session_id],
+                    [tI18nComplete.raw('text92fbc8484002'), selectedEvent.runtime_session_id ?? selectedEvent.opencode_session_id],
                     [tI18nComplete.raw('text11d5959da5d3'), selectedEvent.message_id],
                     [tI18nComplete.raw('textfce8323af972'), selectedEvent.tool_call_id],
                     [tI18nComplete.raw('texte8c80b20c2f7'), selectedEvent.execution_id],

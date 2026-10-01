@@ -13,6 +13,7 @@
 // counter threaded in via opts.createAttempt (see restorePlatinumCreateAttempt
 // in session-sandbox.ts for the persistence/restore side of that counter).
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+mock.module('../sandbox-ownership', () => ({ sandboxOwnershipMarker: async () => 'v2-owner-a' }));
 
 function setTestEnv(name: string, value: string): void {
   if (!process.env[name] || process.env[name]?.startsWith('encrypted:')) {
@@ -109,6 +110,15 @@ beforeEach(() => {
   nextSecretId = 1;
   createSequence = [{ result: { id: 'sbx_new', state: 'running' } }];
   delete process.env.KORTIX_PLATINUM_CREATE_DEDUP;
+});
+
+describe('only Kortix wakes a session box', () => {
+  test('a session box is created with auto_resume=false, so a stale edge request cannot wake it', async () => {
+    const p = new PlatinumProvider();
+    await p.create({ ...baseOpts, createAttempt: 1 });
+
+    expect(createCalls()[0].body?.auto_resume).toBe(false);
+  });
 });
 
 describe('S1 deterministic name + Idempotency-Key derivation', () => {
@@ -259,7 +269,7 @@ describe('S1 kill switch', () => {
     expect(create.headers['Idempotency-Key']).toBeUndefined();
     // The ownership markers the orphan-box reaper filters on are NOT part of
     // S1 and must survive the kill-switch; only `kortix.sandbox_id` is S1's.
-    expect((create.body?.metadata as Record<string, unknown>)['kortix.managed']).toBe('true');
+    expect((create.body?.metadata as Record<string, unknown>)['kortix.managed']).toBe('v2-owner-a');
   });
 
   test('omitting sandboxId also falls back to the legacy body (no crash, no dedup)', async () => {

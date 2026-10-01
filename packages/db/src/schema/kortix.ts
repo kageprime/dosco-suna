@@ -153,7 +153,9 @@ export const apiKeyTypeEnum = kortixSchema.enum('api_key_type', ['user', 'sandbo
 
 export const accountRoleEnum = kortixSchema.enum('account_role', ['owner', 'admin', 'member']);
 
-export const accounts = kortixSchema.table('accounts', {
+export const accounts = kortixSchema.table(
+  'accounts',
+  {
   accountId: uuid('account_id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   setupCompleteAt: timestamp('setup_complete_at', { withTimezone: true }),
@@ -196,7 +198,31 @@ export const accounts = kortixSchema.table('accounts', {
   branding: jsonb('branding').default({}).notNull().$type<AccountBrandingRecord>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+  },
+  (table) => [
+    // Serves GET /v1/admin/api/accounts (the admin console's default,
+    // unfiltered accounts list): `ORDER BY created_at DESC LIMIT $page_size`.
+    // Without this index `accounts` had only its primary key, so Postgres
+    // could not drive the sort from an index — it Hash-Joined a full
+    // Seq Scan of `accounts` (45.5k rows) against a full Seq Scan of
+    // `credit_accounts` (234.5k rows, most of them orphaned — no FK ties
+    // `credit_accounts.account_id` back to `accounts`) and sorted the whole
+    // ~44k-row result BEFORE applying LIMIT. On prod that query hit the 25s
+    // request-path statement_timeout (57014): API logs show
+    // `GET /v1/admin/api/accounts` at 25013/25019/25056 ms
+    // (2026-09-27T01:21-01:22Z), and the unguarded catch echoed the raw
+    // `Failed query: select … "kortix"."credit_accounts"."balance_precise" …`
+    // text to the browser. This index lets the planner drive the sort with
+    // an Index Scan Backward + LIMIT, then do one Nested Loop lookup per row
+    // into `credit_accounts` via its existing primary key — verified by
+    // `EXPLAIN` against prod (read-only): the Hash Right Join + top-level
+    // Sort disappear once this index exists in a same-shape local
+    // reproduction. See the accompanying `.concurrent.ts` migration for the
+    // CONCURRENTLY build; the release pre-builds this index out of band on
+    // the ~45.5k-row prod table before the migration runs.
+    index('idx_accounts_created_at').on(table.createdAt),
+  ],
+);
 
 /** Shape of `accounts.branding`. Every key optional; absent == default Kortix. */
 export interface AccountBrandingRecord {
@@ -373,7 +399,49 @@ export const accountGithubInstallations = kortixSchema.table(
       table.accountId,
       table.installationId,
     ),
+    // One connection per (account, owner). A reconnect mints a NEW installation
+    // id for the same owner, so the index above admits the retired row too —
+    // both render as `github.com/<owner>` and a create could pick the dead one
+    // (prod, 2026-09-25). Built by
+    // 20260925164209388_github_installations_one_per_owner_index.concurrent.ts.
+    uniqueIndex('uniq_account_github_installations_owner').on(
+      table.accountId,
+      table.ownerLogin,
+    ),
     index('idx_account_github_installations_owner').on(table.ownerLogin),
+  ],
+);
+
+/**
+ * One GitHub App USER access token per (account, user).
+ *
+ * GitHub refuses `POST /user/repos` from an App installation token, so a
+ * personal account can only get a new repository through a user access token
+ * (it is on GitHub's "endpoints available for user access tokens" list). The
+ * token is the user's own credential: encrypted at rest with the account-salted
+ * envelope, never returned to a browser, and deleted with the connection.
+ *
+ * `expires_at` and `refresh_value_enc` are null unless the App is configured to
+ * expire user tokens.
+ */
+export const accountGithubUserTokens = kortixSchema.table(
+  'account_github_user_tokens',
+  {
+    tokenRowId: uuid('token_row_id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    githubLogin: varchar('github_login', { length: 255 }).notNull(),
+    valueEnc: text('value_enc').notNull(),
+    refreshValueEnc: text('refresh_value_enc'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('uniq_account_github_user_tokens_account_user').on(table.accountId, table.userId),
+    index('idx_account_github_user_tokens_account').on(table.accountId),
   ],
 );
 
@@ -565,8 +633,7 @@ export const projectSnapshotArchives = kortixSchema.table(
 
 /**
  * Config releases the API assigned to a session, and whether any session
- * proved one (docs/specs/config-releases.md, "Quarantine across the
- * project"). One row per `(project, release, variant)`. Written when the
+ * proved one. One row per `(project, release, variant)`. Written when the
  * descriptor route assigns a release; `proven_at` is set once, when a daemon
  * first reports that release as proven. The project fallback for a
  * quarantined release is the newest proven row of the same variant.
@@ -751,8 +818,7 @@ export interface SecretEgressPolicy {
   /**
    * LEGACY. Where the credential is attached when a rule does not override it.
    *
-   * Optional since the exposure/usage model (docs/specs/
-   * 2026-08-19-secrets-exposure-usage-model.md §6). An egress-enforced secret
+   * Optional since the exposure/usage model. An egress-enforced secret
    * is delivered as a HANDLE in the sandbox env and the relay substitutes the
    * real value for that handle, so the policy is a HOST LIST and there is no
    * slot to name. "First match wins, no match denies" still decides WHETHER the
@@ -823,7 +889,7 @@ export const projectSecrets = kortixSchema.table(
     // per-identifier override (used ONLY by the CODEX_AUTH_JSON per-user
     // provider login today — the general "only me" override was retired, see
     // migration 20260702120000000_unify_secret_access_share_model.sql). Mirrors
-    // connection_credentials.userId. See docs/specs/connector.md / iam.md.
+    // connection_credentials.userId.
     ownerUserId: uuid('owner_user_id'),
     // On a personal override row: whether the member currently uses their own
     // value (true) or has flipped back to the shared one while keeping theirs
@@ -871,6 +937,10 @@ export const accountSecretResources = kortixSchema.table('account_secret_resourc
   strategy: projectSecretStrategyEnum('strategy').notNull(),
   active: boolean('active').default(true).notNull(),
   cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+  /** First permanent failure of the stored login (a refresh the provider
+   *  rejected, or a login that cannot be read). The account stays usable and
+   *  in its pools; a successful refresh or a reconnect clears it. */
+  needsReauthAt: timestamp('needs_reauth_at', { withTimezone: true }),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -910,7 +980,7 @@ export const sessionProviderSecretPools = kortixSchema.table('session_provider_s
  * Who can see/open a session within the org. `private` (default) = only the
  * creator; `project` = every project member (team-wide); `restricted` = the
  * creator + the members/groups in `project_session_grants`. Mirrors the secret
- * sharing model but defaults to private. See docs/specs/iam.md.
+ * sharing model but defaults to private.
  */
 export const projectSessionVisibilityEnum = kortixSchema.enum('project_session_visibility', [
   'private',
@@ -930,6 +1000,19 @@ export const projectSessionOriginEnum = kortixSchema.enum('project_session_origi
   'system',
 ]);
 
+// Who started a session's RUN (the whole spawn tree), for attribution and the
+// session list's "mine / shared / automated" split. Server-derived at create and
+// copied from the parent for a spawned session — see session-initiator.ts.
+// Distinct from `origin` (the security policy class) and `metadata.source` (the
+// surface the create came through).
+export const projectSessionInitiatorEnum = kortixSchema.enum('project_session_initiator', [
+  'member',
+  'trigger',
+  'channel',
+  'api',
+  'system',
+]);
+
 export const projectSessions = kortixSchema.table(
   'project_sessions',
   {
@@ -945,10 +1028,11 @@ export const projectSessions = kortixSchema.table(
     sandboxProvider: sandboxProviderEnum('sandbox_provider').default('daytona').notNull(),
     sandboxId: text('sandbox_id'),
     sandboxUrl: text('sandbox_url'),
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     agentName: text('agent_name').default('default').notNull(),
     status: projectSessionStatusEnum('status').default('queued').notNull(),
     error: text('error'),
+    labels: jsonb('labels').$type<string[]>().default([]).notNull(),
     // Session ownership + org-visibility (default private to the creator).
     createdBy: uuid('created_by'),
     visibility: projectSessionVisibilityEnum('visibility').default('private').notNull(),
@@ -958,6 +1042,13 @@ export const projectSessions = kortixSchema.table(
     // everything else.
     origin: projectSessionOriginEnum('origin').default('user').notNull(),
     originRef: text('origin_ref'),
+    // The session whose credential created this one (a coordinator's worker).
+    // Also still written as `metadata.spawned_by_session` for older replicas.
+    parentSessionId: text('parent_session_id'),
+    // Who started the run: member user id, trigger slug, channel name, service
+    // account id, or system source. null only on rows no backfill classified.
+    initiatorType: projectSessionInitiatorEnum('initiator_type'),
+    initiatorId: text('initiator_id'),
     // Backend-only per-session secrets allowlist (KaaB): a list of project-secret
     // IDENTIFIERS this session may receive. Set ONLY by a backend-origin caller
     // at create; immutable afterward. Semantics are pure NARROWING — the injected
@@ -1005,6 +1096,10 @@ export const projectSessions = kortixSchema.table(
     index('idx_project_sessions_project').on(table.projectId),
     index('idx_project_sessions_status').on(table.status),
     index('idx_project_sessions_created_by').on(table.createdBy),
+    // Children of one coordinator, for the session list's expand (parent=<id>).
+    index('idx_project_sessions_parent')
+      .on(table.parentSessionId, table.updatedAt.desc(), table.sessionId.desc())
+      .where(sql`${table.parentSessionId} is not null`),
     // Per-END-USER concurrency cap for Kortix-as-a-Backend: COUNT of a single
     // origin_ref's live sessions, checked on every backend session create.
     // Partial on the ACTIVE statuses (mirroring ACTIVE_SESSION_STATUSES in
@@ -1449,8 +1544,7 @@ export const projectTriggerSessionAccessGrants = kortixSchema.table(
 );
 
 /**
- * Append-only monitor event log — the contract AND the fire queue
- * (docs/specs/2026-08-12-monitors.md D2).
+ * Append-only monitor event log — the contract AND the fire queue.
  *
  * The monitor runner in the project's monitor box POSTs stdout lines here
  * through the sandbox-token-only ingest route; the leader-elected observer
@@ -1659,6 +1753,7 @@ export const sessionLifecycleCommands = kortixSchema.table(
     index('idx_session_lifecycle_commands_project').on(table.projectId),
     index('idx_session_lifecycle_commands_session').on(table.sessionId),
     index('idx_session_lifecycle_commands_locked').on(table.lockedUntil),
+    index('idx_session_lifecycle_commands_account').on(table.accountId),
   ],
 );
 
@@ -1707,7 +1802,7 @@ export const chatChannelBindings = kortixSchema.table(
     // default. Sessions started from this channel inherit these so different
     // channels bound to the same project can run different agents/models.
     agentName: varchar('agent_name', { length: 128 }),
-    opencodeModel: varchar('opencode_model', { length: 128 }),
+    model: varchar('opencode_model', { length: 128 }),
     // How Slack users may participate in sessions started from this channel.
     // Default is project-wide sharing: linked project members can join the
     // Slack thread. Teams can opt into owner approval or owner-only.
@@ -1830,6 +1925,12 @@ export const chatUserIdentities = kortixSchema.table(
     userId: uuid('user_id').notNull(),
     linkedAt: timestamp('linked_at', { withTimezone: true }).defaultNow().notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    // When the Kortix session that made this link had passed a second factor
+    // (Supabase `aal2`). An account that requires MFA accepts chat actions
+    // only through a link made that way: a chat message carries no factor of
+    // its own. Null for a link made without one, and for links older than
+    // this column.
+    mfaVerifiedAt: timestamp('mfa_verified_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('idx_chat_user_identities_platform_user').on(
@@ -2083,7 +2184,7 @@ export const sessionTurns = kortixSchema.table(
     projectId: uuid('project_id').notNull(),
     accountId: uuid('account_id').notNull(),
     // OpenCode root this turn runs in. Null until the daemon reports it.
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     // Client-minted OpenCode user message id. Null for command turns.
     messageId: text('message_id'),
     state: varchar('state', { length: 16 }).default('delivering').notNull(),
@@ -2158,7 +2259,7 @@ export const sessionTranscriptMirrors = kortixSchema.table(
     // The OpenCode root the captured messages belong to. A re-pin (a restarted
     // box adopting a different root) makes the previous rows unreachable, so
     // the writer clears them when this changes.
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     // TRUE only when a capture proved it had seen the session's FIRST message
     // (the box returned fewer messages than the capture window). This is the
     // single bit `complete` is derived from; it is never assumed. Retention
@@ -2213,7 +2314,7 @@ export const sessionTranscriptMessages = kortixSchema.table(
     // `info.parentID` — the turn linkage OpenCode itself records (which user
     // message a step was parented on). Null on messages that carry none.
     parentMessageId: text('parent_message_id'),
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     role: text('role').notNull(),
     // Denormalized out of `info` so ordering and retention are index reads.
     // Order is (message_created_at, message_id) — the order OpenCode's own
@@ -2279,8 +2380,8 @@ export const sessionRuntimeProjections = kortixSchema.table(
     /** The sandbox that produced it. Names the winner when a warm fork adopts. */
     externalId: text('external_id').notNull(),
     // ── identity (the freshness check reads these, never the jsonb) ──────────
-    opencodeSessionId: text('opencode_session_id'),
-    opencodeVersion: text('opencode_version'),
+    runtimeSessionId: text('opencode_session_id'),
+    harnessVersion: text('opencode_version'),
     agentConfigEtag: text('agent_config_etag'),
     daemonBuild: bigint('daemon_build', { mode: 'number' }),
     /** Daemon boot id. `seq` is meaningless outside it. */
@@ -2349,6 +2450,8 @@ export const providerEvents = kortixSchema.table(
     index('idx_provider_events_kind').on(table.kind),
     index('idx_provider_events_outcome').on(table.outcome),
     index('idx_provider_events_created').on(table.createdAt),
+    // `reconcileAuditEvents` filters by `account_id` alone (see the test).
+    index('idx_provider_events_account').on(table.accountId),
   ],
 );
 
@@ -2403,6 +2506,11 @@ export const sandboxTemplates = kortixSchema.table(
     cpu: integer('cpu'),
     memoryGb: integer('memory_gb'),
     diskGb: integer('disk_gb'),
+    /**
+     * kortix.yaml `container_runtime: true`: the image carries the guest
+     * kernel's full module tree and starts dockerd at boot.
+     */
+    containerRuntime: boolean('container_runtime').default(false).notNull(),
 
     // ─── Live state (cached; provider is source of truth) ──────────────────
     /** Content hash of the template inputs — the snapshot identity. */
@@ -2632,9 +2740,6 @@ export const legacySandboxMigrations = kortixSchema.table(
     mode: varchar('mode', { length: 32 }).default('dry_run').notNull(),
     plan: jsonb('plan').default({}).$type<Record<string, unknown>>().notNull(),
     rollback: jsonb('rollback').default({}).$type<Record<string, unknown>>().notNull(),
-    // base64 tar.gz of the legacy OpenCode store; source for on-open chat
-    // rehydrate (see migration 00000000000097). Large — select explicitly.
-    opencodeArchive: text('opencode_archive'),
     error: text('error'),
     // Durable runner state (see migration 00000000000096). `phase` is the current
     // step the resume worker continues from; `progress` accumulates per-step
@@ -2854,8 +2959,7 @@ export const accountTokens = kortixSchema.table(
         onDelete: 'cascade',
       },
     ),
-    /** The human this agent-session token acts ON BEHALF OF (spec
-     *  docs/specs/2026-09-22-agents-as-principals.md §2.3). Set at mint to the
+    /** The human this agent-session token acts ON BEHALF OF. Set at mint to the
      *  launching human for a human-initiated session; NULL for an unattended
      *  run (trigger, cron, webhook, channel without a linked user, owner
      *  fallback). It decides ONLY that human's personal resources, never the
@@ -3153,7 +3257,7 @@ export const auditEvents = kortixSchema.table(
     accountId: uuid('account_id'),
     projectId: uuid('project_id'),
     sessionId: text('session_id'),
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     turnId: text('turn_id'),
     messageId: text('message_id'),
     toolCallId: text('tool_call_id'),
@@ -3165,8 +3269,7 @@ export const auditEvents = kortixSchema.table(
     agentName: text('agent_name'),
     initiatorActorType: text('initiator_actor_type'),
     initiatorActorId: text('initiator_actor_id'),
-    /** The human an agent session acted on behalf of (spec
-     *  docs/specs/2026-09-22-agents-as-principals.md §2). NULL for a human
+    /** The human an agent session acted on behalf of. NULL for a human
      *  actor, an unattended run (trigger, channel, system), or a session whose
      *  on_behalf_of another human's prompt cleared. No FK: forensic history. */
     onBehalfOfUserId: uuid('on_behalf_of_user_id'),
@@ -3174,7 +3277,13 @@ export const auditEvents = kortixSchema.table(
     delegationDepth: integer('delegation_depth').default(0).notNull(),
     source: text('source'),
     authoritativeSource: text('authoritative_source'),
+    /** Deprecated: never written since the credential-source audit. Phase 2 drops it. */
     clientReportedSource: text('client_reported_source'),
+    /** What the API authenticated: browser_session | personal_access_token | oauth_app |
+     *  session_token | api_key | service_account | scim_token. NULL = not known. */
+    credentialKind: text('credential_kind'),
+    /** Identifier of that credential (token id, OAuth client id, session id, key id). Never a secret. */
+    credentialId: text('credential_id'),
     outcome: text('outcome'),
     action: text('action').notNull(),
     phase: text('phase').default('completed').notNull(),
@@ -3247,9 +3356,19 @@ export const auditEvents = kortixSchema.table(
     // (migration 20260909083000000): 8.6 GB, zero scans in 2.5 months, one
     // index write on every audit row. A filter on (authoritative_source, phase)
     // uses `idx_audit_events_account_time` for the account+time prefix.
-    index('idx_audit_events_account_client_source_time')
-      .on(table.accountId, table.clientReportedSource, table.occurredAt)
-      .where(sql`${table.clientReportedSource} is not null`),
+    //
+    // `idx_audit_events_account_client_source_time` (account_id,
+    // client_reported_source, occurred_at WHERE client_reported_source IS NOT
+    // NULL) was dropped 2026-09-29 (migration
+    // 20260929004450093_drop_audit_events_account_client_source_time_index):
+    // 0 scans since the last stats reset, 1.3 GB, one index write on every
+    // audit row. The only query shaped to use it (`source` filter in
+    // apps/api/src/accounts/audit-filters.ts) is an OR across
+    // authoritative_source and client_reported_source, which Postgres cannot
+    // push through a single composite index on one of those two columns --
+    // EXPLAIN on prod confirmed the planner already used
+    // `idx_audit_events_account_time` + a Filter for that OR, identically
+    // with and without this index reachable.
     uniqueIndex('idx_audit_events_source_phase')
       .on(
         table.sourceLedger,
@@ -3391,6 +3510,16 @@ export const gatewayRequestLogs = kortixSchema.table(
     index('idx_gateway_logs_project_time').on(table.projectId, table.createdAt),
     index('idx_gateway_logs_model').on(table.provider, table.resolvedModel),
     index('idx_gateway_logs_account_ok').on(table.accountId, table.ok),
+    // Partial index for GET /:projectId/gateway/errors (only-failed-rows
+    // lookup by project+time window). Built CONCURRENTLY in
+    // 20260926234956893_gateway_logs_project_ok_time.concurrent.ts, which also
+    // adds `INCLUDE (error_code)` — drizzle-orm 0.45's index builder cannot
+    // express INCLUDE, and the schema contract only checks relation +
+    // uniqueness, so the declaration here (without INCLUDE) is enough to keep
+    // it in sync; see that migration for the real built definition.
+    index('idx_gateway_logs_project_failed_time')
+      .on(table.projectId, table.createdAt)
+      .where(sql`not ${table.ok}`),
     index('idx_gateway_logs_session').on(table.projectId, table.sessionId),
   ],
 );
@@ -3722,7 +3851,7 @@ export const sessionPendingQuestions = kortixSchema.table(
     /** opencode's `question.asked` request id — the dedupe key with sessionId. */
     requestId: text('request_id').notNull(),
     /** The opencode session that asked; survives an opencode restart changing it. */
-    opencodeSessionId: text('opencode_session_id'),
+    runtimeSessionId: text('opencode_session_id'),
     /** The raw QuestionInfo[] as opencode reported it. */
     questions: jsonb().notNull(),
     askedAt: timestamp('asked_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -4244,6 +4373,8 @@ export interface TunnelMachineInfo {
   osVersion?: string;
   nodeVersion?: string;
   agentVersion?: string;
+  /** sha256 of the hardware id (IOPlatformUUID, /etc/machine-id, MachineGuid). */
+  machineId?: string;
   [key: string]: unknown;
 }
 
@@ -4281,6 +4412,9 @@ export const tunnelConnections = kortixSchema.table(
   {
     tunnelId: uuid('tunnel_id').defaultRandom().primaryKey(),
     accountId: uuid('account_id').notNull(),
+    /** The human who paired this machine. NULL only on machines paired before
+     *  2026-09-28 under a team account; those are managed by account managers. */
+    ownerUserId: uuid('owner_user_id'),
     sandboxId: uuid('sandbox_id').references(() => sandboxes.sandboxId, { onDelete: 'set null' }),
     name: varchar('name', { length: 255 }).notNull(),
     status: tunnelStatusEnum('status').default('offline').notNull(),
@@ -4297,6 +4431,7 @@ export const tunnelConnections = kortixSchema.table(
   },
   (table) => [
     index('idx_tunnel_connections_account').on(table.accountId),
+    index('idx_tunnel_connections_owner_user').on(table.ownerUserId),
     index('idx_tunnel_connections_sandbox').on(table.sandboxId),
     index('idx_tunnel_connections_status').on(table.status),
     index('idx_tunnel_connections_relay_owner').on(table.relayOwnerId),
@@ -4424,7 +4559,14 @@ export const tunnelDeviceAuthRequests = kortixSchema.table(
     deviceSecretHash: varchar('device_secret_hash', { length: 128 }).notNull(),
     status: tunnelDeviceAuthStatusEnum('status').default('pending').notNull(),
     machineHostname: varchar('machine_hostname', { length: 255 }),
+    /** sha256 of the machine's hardware id, sent by the agent. Approval reuses
+     *  the approver's existing registration of the same machine
+     *  (`tunnel_connections.machine_info.machineId`) instead of pairing a new one. */
+    machineId: varchar('machine_id', { length: 64 }),
     accountId: uuid('account_id'),
+    /** Project the machine asked to join (`connect --project-id`). Untrusted
+     *  until a human approves; the approver's project access is checked then. */
+    projectId: uuid('project_id'),
     tunnelId: uuid('tunnel_id').references(() => tunnelConnections.tunnelId, {
       onDelete: 'set null',
     }),
@@ -4656,7 +4798,7 @@ export const changeRequestsRelations = relations(changeRequests, ({ one }) => ({
 // output/decision/batch submitted for review, presented in a friendly inbox.
 // The polymorphic `detail` jsonb carries the kind-specific payload. (Change
 // requests and connector/tunnel approvals are folded in by adapters in a later
-// pass — they keep their own source-of-truth tables.) See docs/REVIEW_CENTER_DESIGN.md.
+// pass — they keep their own source-of-truth tables.)
 
 export const reviewItemKindEnum = kortixSchema.enum('review_item_kind', [
   'change',
@@ -5436,7 +5578,7 @@ export const accountSsoGroupMappings = kortixSchema.table(
  * Connectors are DEFINED in kortix.yaml (`connectors`) and materialized here
  * on push (manifest = config source of truth, like triggers). Credentials are
  * project_secrets (scope handled by sharing above); the Pipedream connection
- * binding is also a project secret. See docs/specs/connector.md.
+ * binding is also a project secret.
  */
 export const connectorProviderEnum = kortixSchema.enum('connector_provider', [
   'pipedream',
@@ -5454,7 +5596,7 @@ export const connectorProviderEnum = kortixSchema.enum('connector_provider', [
   // one auto-materialized connector bound to its tunnel id. Its catalog is the
   // tunnel RPC method set, and it has no credential — the live WS relay IS the
   // credential, with per-machine auth/scope enforced by the tunnel permission
-  // layer. See docs/specs/computer-connector.md.
+  // layer.
   'computer',
 ]);
 
@@ -5488,8 +5630,7 @@ export const connectorCallStatusEnum = kortixSchema.enum('connector_call_status'
  * How a connector's credential is stored/used. `shared` (one project-level
  * credential everyone with access uses) is the ONLY writable value.
  *
- * `per_user` (each member connects their own) was REMOVED 2026-07-05
- * (docs/specs/2026-07-05-agent-first-config-unification.md §2.5): it conflated
+ * `per_user` (each member connects their own) was REMOVED 2026-07-05: it conflated
  * delegated-identity ("act as whichever human launched this session") with
  * connector credential storage, and had no coherent answer for triggers/
  * channels (no launching human). Migration
@@ -5533,13 +5674,13 @@ export const connectors = kortixSchema.table(
     config: jsonb('config').default({}).$type<Record<string, unknown>>().notNull(),
     /** Legacy reference to a project_secrets row (kept; credentials now in connection_credentials). */
     authSecret: varchar('auth_secret', { length: 64 }),
-    /** ORPHANED 2026-07-06 (docs/specs/2026-07-05-agent-first-config-unification.md):
+    /** ORPHANED 2026-07-06:
      *  connectors are unconditionally project-wide now — authorization lives
      *  solely on the agent's `connectors` grant. `project` is the only value a
      *  DB CHECK constraint (added by the retirement migration) still accepts;
      *  nothing in the app reads or writes this column anymore. */
     shareScope: secretShareScopeEnum('share_scope').default('project').notNull(),
-    /** ORPHANED 2026-07-06 (docs/specs/2026-07-05-agent-first-config-unification.md):
+    /** ORPHANED 2026-07-06:
      *  the connector-side agent gate was retired — the agent-side `connectors`
      *  grant (`[[agents]].connectors`, iam/agent-scope.ts) is now the ONLY gate
      *  on which agents may call a connector. Values were nulled by the
@@ -5606,6 +5747,11 @@ export const connectorConnections = kortixSchema.table(
     status: connectorConnectionStatusEnum('status').default('active').notNull(),
     isDefault: boolean('is_default').default(false).notNull(),
     metadata: jsonb('metadata').default({}).$type<Record<string, unknown>>().notNull(),
+    /** The paired machine this account reaches. Set only on connections of a
+     *  `computer` connector; unpairing the machine sets it NULL. */
+    tunnelId: uuid('tunnel_id').references(() => tunnelConnections.tunnelId, {
+      onDelete: 'set null',
+    }),
     createdBy: uuid('created_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -5653,6 +5799,12 @@ export const connectorConnections = kortixSchema.table(
       .where(sql`${table.ownerId} is null`),
     index('idx_connector_connections_project').on(table.projectId),
     index('idx_connector_connections_connector').on(table.connectorId),
+    index('idx_connector_connections_tunnel').on(table.tunnelId),
+    // One computer account per (connector, owner, machine). The lazy
+    // per-project ensure upserts on it (connectors/sync.ts ensureProjectComputer).
+    uniqueIndex('idx_connector_connections_owner_tunnel')
+      .on(table.connectorId, table.ownerType, table.ownerId, table.tunnelId)
+      .where(sql`${table.tunnelId} is not null`),
     check(
       'connector_connections_owner_check',
       sql`(${table.ownerType} = 'project' AND ${table.ownerId} IS NULL) OR (${table.ownerType} <> 'project' AND ${table.ownerId} IS NOT NULL AND btrim(${table.ownerId}) <> '')`,
@@ -5952,7 +6104,7 @@ export const connectionPolicies = kortixSchema.table(
  * Project-scoped tool-call policies — materialized from top-level [[policies]]
  * in kortix.yaml. Patterns are fully-qualified (`<slug>.<path>` globs) and apply
  * across ALL connectors in the project; evaluated BEFORE any connector-scoped
- * rule. See docs/specs/connector.md §8.
+ * rule.
  */
 export const connectorProjectPolicies = kortixSchema.table(
   'connector_project_policies',
@@ -6055,6 +6207,7 @@ export const connectorCalls = kortixSchema.table(
     index('idx_connector_calls_connector').on(table.connectorId),
     index('idx_connector_calls_connection').on(table.connectionId),
     index('idx_connector_calls_status').on(table.status),
+    index('idx_connector_calls_account').on(table.accountId),
   ],
 );
 
@@ -6277,6 +6430,31 @@ export const sessionUserProviderConnections = kortixSchema.table('session_user_p
   }).onDelete('cascade'),
   index('session_user_provider_connections_connection').on(table.connectionId),
 ]);
+
+/** One lease per signed-in user's visible browser tab and session. */
+export const sessionPresenceLeases = kortixSchema.table('session_presence_leases', {
+  userId: uuid('user_id').notNull(),
+  sessionId: text('session_id').notNull(),
+  tabId: uuid('tab_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.sessionId, table.tabId] }),
+  // Named: drizzle's default is 65 chars, past Postgres's 63-char limit.
+  foreignKey({ columns: [table.sessionId], foreignColumns: [projectSessions.sessionId], name: 'session_presence_session_fk' }).onDelete('cascade'),
+]);
+
+/**
+ * Audit reconciliation high-water mark, one row per account. `checked_at` is
+ * the start of the account's last COMPLETE pass: the next pass scans only
+ * source rows newer than it (minus a lookback). `full_scan_at` is the start of
+ * the last pass over the whole history, which re-verifies old rows weekly.
+ * Written only when a pass completes, so a crash resumes from the old mark.
+ */
+export const auditReconciliationState = kortixSchema.table('audit_reconciliation_state', {
+  accountId: uuid('account_id').primaryKey(),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull(),
+  fullScanAt: timestamp('full_scan_at', { withTimezone: true }).notNull(),
+});
 
 /**
  * A user's Expo push device token plus that device's per-event notification

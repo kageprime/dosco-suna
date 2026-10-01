@@ -49,11 +49,11 @@ describe('kortix manifest — schema versioning', () => {
     expect(parsed.schemaVersion).toBe(2);
   });
 
-  // V2 is the current ceiling. Any later schema version must stay rejected.
+  // V3 is the current ceiling. Any later schema version must stay rejected.
   test('the current ceiling parses and anything above it is still rejected', () => {
-    expect(parseManifestString(`kortix_version = 2\n${MIN_PROJECT}`).schemaVersion).toBe(2);
-    expect(() => parseManifestString(`kortix_version = 3\n${MIN_PROJECT}`)).toThrow(
-      /schema version 3/,
+    expect(parseManifestString(`kortix_version = 3\n${MIN_PROJECT}`).schemaVersion).toBe(3);
+    expect(() => parseManifestString(`kortix_version = 4\n${MIN_PROJECT}`)).toThrow(
+      /schema version 4/,
     );
   });
 
@@ -873,8 +873,7 @@ describe("[[triggers]] — spec/error `path` derives from the manifest's own fil
 });
 
 /**
- * `type: monitor` — the third trigger type
- * (docs/specs/2026-08-12-monitors.md). A monitor names a repo command the
+ * `type: monitor` — the third trigger type. A monitor names a repo command the
  * platform supervises 24/7; its stdout lines are the events. It carries none
  * of the cron/webhook wiring, and it defaults to `session_mode: reuse`
  * because it fires repeatedly by design.

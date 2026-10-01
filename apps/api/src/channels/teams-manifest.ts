@@ -23,6 +23,17 @@ export interface TeamsManifest {
       commands: Array<{ title: string; description: string }>;
     }>;
   }>;
+  composeExtensions?: Array<{
+    botId: string;
+    commands: Array<{
+      id: string;
+      type: 'action';
+      title: string;
+      description: string;
+      context: Array<'message' | 'compose' | 'commandBox'>;
+      fetchTask: boolean;
+    }>;
+  }>;
   permissions: string[];
   validDomains: string[];
   webApplicationInfo: { id: string; resource: string };
@@ -36,7 +47,7 @@ export interface TeamsManifest {
  * existing app only when this differs from what the catalog holds, and a Teams
  * admin has to re-consent to new resource-specific permissions on the team.
  */
-export const TEAMS_MANIFEST_VERSION = '1.4.0';
+export const TEAMS_MANIFEST_VERSION = '1.6.0';
 
 /**
  * Resource-specific consent (RSC). These let the bot receive every message in
@@ -59,9 +70,10 @@ export const TEAMS_RSC_PERMISSIONS = [
 ];
 
 const BOT_COMMANDS = [
-  { title: '/help', description: 'Show what Dosco can do' },
-  { title: '/status', description: 'Show the effective project, agent and model' },
-  { title: '/login', description: 'Connect your Dosco account' },
+  { title: '/help', description: 'Show what Kortix can do' },
+  { title: '/status', description: 'Show and change the project, agent and model' },
+  { title: '/sessions', description: 'Your recent sessions started from Teams' },
+  { title: '/login', description: 'Connect your Kortix account' },
   { title: '/models', description: 'Pick the model for this conversation' },
   { title: '/agents', description: 'Pick the agent for this conversation' },
   { title: '/projects', description: 'List connected projects' },
@@ -83,7 +95,7 @@ const SHORT_DESCRIPTION =
   'Your AI workforce, in Teams — @-mention an agent and it does the real work.';
 
 const LONG_DESCRIPTION =
-  'Dosco brings a workforce of AI agents into Microsoft Teams. Add the bot to a chat or channel, @-mention it with a task, and an agent gets on it — working across your connected tools and replying right here as it goes, with live progress. Follow-ups stay in the same conversation. Managed by Dosco · https://dosco.live';
+  'Kortix brings a workforce of AI agents into Microsoft Teams. Add the bot to a chat or channel, @-mention it with a task, and an agent gets on it — working across your connected tools and replying right here as it goes, with live progress. Follow-ups stay in the same conversation. Managed by Kortix · https://kortix.com';
 
 function hostOf(baseUrl: string): string {
   try {
@@ -94,7 +106,7 @@ function hostOf(baseUrl: string): string {
 }
 
 export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest {
-  const appName = cfg.appName ?? 'Dosco';
+  const appName = cfg.appName ?? 'Kortix';
   return {
     $schema:
       'https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json',
@@ -102,10 +114,10 @@ export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest
     version: TEAMS_MANIFEST_VERSION,
     id: cfg.appId,
     developer: {
-      name: 'Dosco',
-      websiteUrl: 'https://dosco.live',
-      privacyUrl: 'https://dosco.live/privacy',
-      termsOfUseUrl: 'https://dosco.live/terms',
+      name: 'Kortix',
+      websiteUrl: 'https://kortix.com',
+      privacyUrl: 'https://kortix.com/privacy',
+      termsOfUseUrl: 'https://kortix.com/terms',
     },
     name: { short: appName, full: appName },
     description: {
@@ -121,6 +133,23 @@ export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest
         supportsFiles: true,
         isNotificationOnly: false,
         commandLists: [{ scopes: ['personal', 'team', 'groupchat'], commands: BOT_COMMANDS }],
+      },
+    ],
+    // "Open in Kortix" on a message's ⋯ menu, as Slack's message shortcut
+    // (teams/message-action.ts).
+    composeExtensions: [
+      {
+        botId: cfg.appId,
+        commands: [
+          {
+            id: 'openInKortix',
+            type: 'action',
+            title: 'Open in Kortix',
+            description: "Open this conversation's Kortix session",
+            context: ['message'],
+            fetchTask: true,
+          },
+        ],
       },
     ],
     permissions: ['identity', 'messageTeamMembers'],

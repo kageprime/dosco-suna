@@ -48,14 +48,12 @@ const SCIM_INGRESS_PATH = /^\/scim\/v2\/accounts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-
 // transient for retrying clients; 503 rather than 502 because Cloudflare
 // rewrites a 502/504 body into its HTML error page and this JSON must reach
 // the client. There is deliberately no x-request-id: no origin request ran.
-function originUnreachableResponse(active, isGateway, request, reason) {
+function originUnreachableResponse(isGateway, request, reason) {
   const origin = request.headers.get('Origin');
   const headers = new Headers({
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store',
     'Retry-After': '30',
-    'X-Backend': active,
-    'X-Backend-Service': isGateway ? 'gateway' : 'api',
     'X-Origin-Status': 'fetch-error',
   });
   if (origin) {
@@ -101,6 +99,59 @@ function isWebhookIngressRequest(request, url) {
   );
 }
 
+// CORS preflights answered at the edge. A browser caches a preflight per URL,
+// so every new project, session or query string paid a full origin round trip
+// (0.24–1.0 s measured 2026-09-27) before the real request could start. The
+// API's CORS policy is one middleware on every route (apps/api/src/middleware/
+// cors.ts), so its answer depends only on the host, the Origin and the
+// requested method + headers. The first preflight per key still goes to the
+// API, which stays the only source of the policy; its answer is kept here for
+// the same 10 minutes the API grants browsers. A refusal is never kept.
+const PREFLIGHT_EDGE_TTL_SECONDS = 600;
+
+function edgeCache() {
+  return typeof caches !== 'undefined' && caches?.default ? caches.default : null;
+}
+
+function preflightCacheKey(request, url) {
+  const origin = request.headers.get('Origin');
+  const method = request.headers.get('Access-Control-Request-Method');
+  if (request.method !== 'OPTIONS' || !origin || !method) return null;
+  const headers = (request.headers.get('Access-Control-Request-Headers') || '')
+    .split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const key = new URL(`https://${url.hostname}/__kortix_preflight__`);
+  key.searchParams.set('origin', origin);
+  key.searchParams.set('method', method.toUpperCase());
+  key.searchParams.set('headers', headers);
+  return new Request(key.toString(), { method: 'GET' });
+}
+
+async function cachedPreflight(key) {
+  const cache = edgeCache();
+  if (!cache || !key) return null;
+  const hit = await cache.match(key).catch(() => undefined);
+  if (!hit) return null;
+  const response = new Response(null, { status: hit.status, headers: hit.headers });
+  response.headers.delete('Cache-Control');
+  response.headers.set('X-Kortix-Preflight', 'edge');
+  return addSecurityHeaders(response);
+}
+
+async function keepPreflight(key, request, response) {
+  const cache = edgeCache();
+  if (!cache || !key) return;
+  const origin = request.headers.get('Origin');
+  if (response.status !== 204 && response.status !== 200) return;
+  if (response.headers.get('Access-Control-Allow-Origin') !== origin) return;
+  const stored = new Response(null, { status: response.status, headers: response.headers });
+  stored.headers.set('Cache-Control', `public, max-age=${PREFLIGHT_EDGE_TTL_SECONDS}`);
+  await cache.put(key, stored).catch(() => {});
+}
+
 async function readMaintenanceConfig(env) {
   if (env.MAINTENANCE_LEVEL_OVERRIDE === 'blocking') {
     return {
@@ -142,14 +193,12 @@ async function readMaintenanceConfig(env) {
   }
 }
 
-function maintenanceResponse(config, active, isGateway, request) {
+function maintenanceResponse(config, isGateway, request) {
   const origin = request.headers.get('Origin');
   const headers = new Headers({
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json',
     'Retry-After': '30',
-    'X-Backend': active,
-    'X-Backend-Service': isGateway ? 'gateway' : 'api',
     'X-Maintenance-Mode': 'blocking',
   });
   if (origin) {
@@ -187,15 +236,13 @@ function maintenanceResponse(config, active, isGateway, request) {
   );
 }
 
-function maintenanceConfigResponse(config, active, source) {
+function maintenanceConfigResponse(config, source) {
   return addSecurityHeaders(
     new Response(JSON.stringify(config), {
       status: 200,
       headers: {
         'Cache-Control': 'public, max-age=2, must-revalidate',
         'Content-Type': 'application/json',
-        'X-Backend': active,
-        'X-Backend-Service': 'router',
         'X-Maintenance-Source': source,
       },
     }),
@@ -260,7 +307,6 @@ export default {
           if (primaryConfig && MAINTENANCE_LEVELS.has(primaryConfig.level)) {
             return maintenanceConfigResponse(
               { ...DEFAULT_MAINTENANCE, ...primaryConfig },
-              active,
               'database',
             );
           }
@@ -271,7 +317,7 @@ export default {
 
       const fallback = await readMaintenanceConfig(env);
       if (fallback) {
-        return maintenanceConfigResponse(fallback, active, 'edge-config');
+        return maintenanceConfigResponse(fallback, 'edge-config');
       }
       // Both API and Edge Config are unreachable — return a safe default.
       // Prefer none to blocking so a transient API blip (deploy, GC pause)
@@ -280,12 +326,17 @@ export default {
       // path won't be reached.
       return maintenanceConfigResponse(
         { ...DEFAULT_MAINTENANCE, updatedAt: new Date().toISOString() },
-        active,
         'automatic',
       );
     }
 
-    const maintenance = await readMaintenanceConfig(env);
+    const preflightKey = isGateway ? null : preflightCacheKey(request, url);
+    const edgePreflight = await cachedPreflight(preflightKey);
+    if (edgePreflight) return edgePreflight;
+
+    // Blocking maintenance refuses writes only, so a read never waits on the
+    // maintenance state (a Vercel round trip on every edge-cache miss).
+    const maintenance = isReadOnlyRequest(request) ? null : await readMaintenanceConfig(env);
     const isMaintenanceConfigWrite =
       !isGateway &&
       request.method === 'PUT' &&
@@ -296,7 +347,7 @@ export default {
       !isReadOnlyRequest(request) &&
       !isMaintenanceConfigWrite
     ) {
-      return maintenanceResponse(maintenance, active, isGateway, request);
+      return maintenanceResponse(maintenance, isGateway, request);
     }
 
     // `manual` so backend 3xx responses are passed straight through to the
@@ -339,7 +390,6 @@ export default {
       response = await fetch(modifiedRequest);
     } catch (error) {
       return originUnreachableResponse(
-        active,
         isGateway,
         request,
         error instanceof Error && error.message ? error.message : 'fetch failed',
@@ -350,9 +400,10 @@ export default {
     if (response.status === 101 || response.webSocket) {
       return response;
     }
+    if (preflightKey) await keepPreflight(preflightKey, request, response);
     const newResponse = new Response(response.body, response);
-    newResponse.headers.set('X-Backend', active);
-    newResponse.headers.set('X-Backend-Service', isGateway ? 'gateway' : 'api');
+    newResponse.headers.delete('X-Backend');
+    newResponse.headers.delete('X-Backend-Service');
     return addSecurityHeaders(newResponse);
   },
 };

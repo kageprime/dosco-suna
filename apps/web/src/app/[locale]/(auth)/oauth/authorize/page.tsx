@@ -1,12 +1,13 @@
 'use client';
 
 import type { UiTranslator } from '@/i18n/translator';
-import { CheckIcon as Check } from '@phosphor-icons/react';
+import { CheckIcon as Check, ShieldWarningIcon } from '@phosphor-icons/react';
 import { useTranslations } from '@/i18n/use-translations';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { InfoBanner } from '@/components/ui/info-banner';
 import Loading from '@/components/ui/loading';
 import { AuthFrame } from '@/features/auth/auth-card-shell';
 import {
@@ -37,7 +38,14 @@ export default function OAuthConsentPage() {
   );
 }
 
-type ConsentRequestView = { clientName: string; scopes: string[]; remembered: boolean };
+type ConsentRequestView = {
+  clientName: string;
+  scopes: string[];
+  remembered: boolean;
+  /** The client registered itself (an MCP client): no account vouches for its name. */
+  selfRegistered: boolean;
+  redirectTo: string;
+};
 type ConsentLoadResult =
   | { kind: 'consent'; request: ConsentRequestView }
   | { kind: 'redirecting' }
@@ -61,8 +69,12 @@ async function loadAndMaybeApprove(
       backendUrl,
       accessToken: session.access_token,
     });
-  } catch {
-    return { kind: 'error', message: tI18nComplete.raw('text9ff8cfaf7d94') };
+  } catch (err) {
+    // The API names why ("expired or already used"); a network failure has no message.
+    return {
+      kind: 'error',
+      message: err instanceof Error && err.message ? err.message : tI18nComplete.raw('text9ff8cfaf7d94'),
+    };
   }
   const request: ConsentRequestView = {
     clientName: data.client_name || 'Unknown App',
@@ -72,6 +84,8 @@ async function loadAndMaybeApprove(
           .split(' ')
           .filter(Boolean),
     remembered: data.remembered === true,
+    selfRegistered: data.self_registered === true,
+    redirectTo: typeof data.redirect_to === 'string' ? data.redirect_to : '',
   };
   if (!request.remembered) return { kind: 'consent', request };
 
@@ -108,16 +122,11 @@ function OAuthConsent() {
   const { user, isLoading } = useAuth();
   const [decision, setDecision] = useState<'allow' | 'deny' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [consentRequest, setConsentRequest] = useState<{
-    clientName: string;
-    scopes: string[];
-    /**
-     * The user already granted this client these scopes (`oauth_consents`).
-     * The Allow screen is skipped: the load effect approves and redirects on
-     * its own, and this page shows the pending screen meanwhile.
-     */
-    remembered: boolean;
-  } | null>(null);
+  // `remembered`: the user already granted this client these scopes
+  // (`oauth_consents`). The Allow screen is skipped: the load effect approves
+  // and redirects on its own, and this page shows the pending screen meanwhile.
+  const [consentRequest, setConsentRequest] = useState<ConsentRequestView | null>(null);
+  const t = useTranslations('oauthConsent');
 
   const requestId = searchParams.get('request_id') || '';
   const clientName = consentRequest?.clientName || 'Unknown App';
@@ -202,7 +211,8 @@ function OAuthConsent() {
         window.location.href = data.redirect_uri;
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      // The API says why (expired or already used request): show it.
+      setError(err instanceof Error && err.message ? err.message : 'Network error. Please try again.');
       setDecision(null);
     }
   };
@@ -253,6 +263,11 @@ function OAuthConsent() {
         {error ? <ErrorStrip message={error} /> : null}
 
         <div className="space-y-5">
+          {consentRequest.selfRegistered ? (
+            <InfoBanner tone="warning" icon={ShieldWarningIcon} title={t('unverifiedTitle')}>
+              {t('unverifiedBody', { client: clientName })}
+            </InfoBanner>
+          ) : null}
           {scopes.length > 0 ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-sm font-medium">
@@ -262,7 +277,7 @@ function OAuthConsent() {
                 {scopes.map((s) => (
                   <li key={s} className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm">
                     <Check className="text-muted-foreground size-4 shrink-0" />
-                    <span className="min-w-0 truncate">{SCOPE_DESCRIPTIONS[s] || s}</span>
+                    <span className="min-w-0">{SCOPE_DESCRIPTIONS[s] || s}</span>
                   </li>
                 ))}
               </ul>
@@ -271,6 +286,9 @@ function OAuthConsent() {
 
           <DetailPanel>
             <DetailRow label={tI18nComplete.raw('textabc50e334be4')} value={user.email ?? 'You'} />
+            {consentRequest.redirectTo ? (
+              <DetailRow label={t('redirectsTo')} value={consentRequest.redirectTo} mono />
+            ) : null}
           </DetailPanel>
 
           <div className="space-y-3">

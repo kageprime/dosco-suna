@@ -15,7 +15,7 @@ import {
 } from '../legacy-migration-rehydrate';
 import { withProjectGitAuth } from '../lib/git';
 import { scheduleSessionConfigConvergence } from '../lib/session-config-convergence';
-import { scheduleSandboxRuntimeRefresh } from '../lib/sandbox-runtime-refresh';
+import { refreshSandboxRuntimeAssets } from '../lib/sandbox-runtime-refresh';
 import { allocateSessionRuntime } from '../lib/session-runtime-allocator';
 import {
   projectImageAllowedForSession,
@@ -41,7 +41,7 @@ import {
   RUNTIME_IDENTITY_UNAVAILABLE,
 } from '../runtime-identity';
 import { inspectSandboxRuntime } from '../runtime-inspection';
-import { prepareInitialSandboxTurn } from '../sandbox-turn-lifecycle';
+import { prepareInitialSandboxTurn } from '../session-turn-ledger';
 import { claimInPlaceRestart } from './runtime-restart-claim';
 import { transitionSandbox, transitionSession } from './status-transitions';
 import {
@@ -211,7 +211,7 @@ export async function restartSession(input: {
     sandboxProvider: string;
     baseRef: string | null;
     agentName: string | null;
-    opencodeSessionId: string | null;
+    runtimeSessionId: string | null;
     metadata?: Record<string, unknown> | null;
   };
   projectId: string;
@@ -247,7 +247,7 @@ export async function restartSession(input: {
     .limit(1);
 
   const provisionReplacementRuntime = async () => {
-    const initialPrompt = session.opencodeSessionId
+    const initialPrompt = session.runtimeSessionId
       ? null
       : typeof session.metadata?.initial_prompt === 'string'
         ? (session.metadata.initial_prompt as string)
@@ -600,7 +600,20 @@ export async function restartSession(input: {
         // predated the routes it calls. Poke the daemon to re-converge. Detached
         // and after the session is already marked running: this must not extend
         // the restart the user is waiting on.
-        scheduleSandboxRuntimeRefresh(sessionId, 'restart');
+        //
+        // AWAITED here, not fire-and-forget (`scheduleSandboxRuntimeRefresh`'s
+        // usual form) — still inside this already-detached block, so the 202
+        // sent long ago is unaffected. `POST /kortix/refresh?restart=0` is what
+        // now also fetches the live managed-model lineup and rewrites the
+        // overlay file (see `convergeManagedModelCatalog`, `allowRestart:
+        // false`), and config convergence right below is what actually
+        // RESPAWNS opencode. Racing the two left a real dev box restarting
+        // straight back onto its stale managed lineup 2026-09-26: the config
+        // convergence's respawn read whatever catalog file was on disk at THAT
+        // instant, and the runtime-asset refresh's write had not landed yet.
+        // Awaiting closes that race — the file is current before anything
+        // that reads it from disk gets a chance to spawn.
+        await refreshSandboxRuntimeAssets(sessionId).catch(() => 'unreachable' as const);
         scheduleSessionConfigConvergence(sessionId, 'restart');
       } catch (err) {
         // Detached from the request (the 202 already went out) — a structured

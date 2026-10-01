@@ -1,7 +1,11 @@
 'use client';
 
 import { HoverPrefetchLink } from '@/components/common/hover-prefetch-link';
-import type { SessionDisplayStatus, SessionSource } from '@/components/projects/session-label';
+import {
+  SESSION_STATUS_TRANSLATION_KEY,
+  type SessionDisplayStatus,
+  type SessionSource,
+} from '@/components/projects/session-label';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { LocalTime } from '@/components/ui/local-time';
 import { menuRow } from '@/components/ui/menu-recipe';
@@ -14,6 +18,7 @@ import { GitDiffIcon } from '@phosphor-icons/react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useEffect, type ReactElement } from 'react';
 import { shortRelative } from './project-session-list-helpers';
+import { SessionLabelBadges } from '@/features/workspace/project-sessions/session-label-badges';
 import { SOURCE_ICONS } from './session-source-icons';
 import { SessionStatusMark } from './session-status-mark';
 
@@ -53,6 +58,8 @@ interface SessionBrief {
   createdAt: string;
   source: SessionSource;
   changeRequests: readonly ChangeRequest[];
+  /** The session's free-form labels; the sidebar row has no room for them. */
+  labels?: readonly string[];
 }
 
 interface SessionBriefInteractionProps {
@@ -61,16 +68,7 @@ interface SessionBriefInteractionProps {
 
 function useStatusLabel(status: SessionDisplayStatus): string {
   const t = useTranslations('sidebar.sessionList.status');
-  const keys: Record<SessionDisplayStatus, Parameters<typeof t>[0]> = {
-    'needs-you': 'needsYou',
-    starting: 'starting',
-    running: 'running',
-    done: 'done',
-    stopped: 'stopped',
-    failed: 'failed',
-    legacy: 'legacy',
-  };
-  return t(keys[status]);
+  return t(SESSION_STATUS_TRANSLATION_KEY[status]);
 }
 
 function SessionCreatedTime({ createdAt, className }: { createdAt: string; className?: string }) {
@@ -152,6 +150,7 @@ function SessionBriefContent({
   createdAt,
   source,
   changeRequests,
+  labels,
   projectId,
   onDismiss,
 }: SessionBrief & SessionBriefInteractionProps & { onDismiss: () => void }) {
@@ -181,6 +180,8 @@ function SessionBriefContent({
             </span>
           </div>
         ) : null}
+
+        {labels?.length ? <SessionLabelBadges session={{ labels: [...labels] }} max={6} className="flex-wrap" /> : null}
       </div>
 
       {changeRequests.length > 0 ? (

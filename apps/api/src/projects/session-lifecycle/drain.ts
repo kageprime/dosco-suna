@@ -172,7 +172,31 @@ async function drainSessionLifecycleQueueTick(
       out.failed += 1;
       return;
     }
-    const result = await executeQueuedCreate(row);
+    let result: Awaited<ReturnType<typeof executeQueuedCreate>>;
+    try {
+      result = await executeQueuedCreate(row);
+    } catch (err) {
+      // Same containment as `continue_session` above, and for the same
+      // reason: `executeQueuedCreate` can THROW instead of returning
+      // `{ status: 'failed' }` — most notably a `GitOperationError` when the
+      // project's bare mirror needs a cold `git clone --bare`
+      // (`loadProjectAgents({ rethrowReadErrors: true })` -> `refreshMirror`,
+      // `git/mirror.ts`) and that clone times out. Left uncaught, the throw
+      // skipped `markCommandFailed` entirely: the row stayed `running` under
+      // its lease forever, so the 5-attempt dead-letter budget and backoff
+      // (both live inside `markCommandFailed`) never applied, and the
+      // abandoned-claim reclaim in `claimDueLifecycleCommands` retried the
+      // same doomed clone on every lock expiry — unbounded. Verified in prod
+      // as `create_session` rows `status='running'` with `attempts` up to
+      // 256 (Better Stack: "git clone timed out after 90000ms").
+      await markCommandFailed(
+        row,
+        `drain failed: ${err instanceof Error ? err.message : String(err)}`,
+        { retryable: true, attempts: row.attempts },
+      );
+      out.failed += 1;
+      return;
+    }
     if (result.status === 'created' && result.sessionId) {
       const payload = row.payload as unknown as QueuedCreateSessionPayload;
       const postCreate = await applyPostCreateActions({
@@ -221,6 +245,8 @@ async function drainSessionLifecycleQueueTick(
       // both rows reported delivered while the first answer rendered under
       // the second prompt. Remaining claimed siblings are returned to the
       // queue. Accepted delivery makes the next one due immediately.
+      // A released Stop batch still goes one POST at a time through this
+      // lane; `executeQueuedContinue` decides which of its rows go `noReply`.
       let i = 0;
       while (i < lane.length) {
         const row = lane[i];

@@ -45,6 +45,21 @@ export interface ProjectSessionMetadata {
   [key: string]: unknown;
 }
 
+export type ProjectSessionInitiatorType = 'member' | 'trigger' | 'channel' | 'api' | 'system';
+
+/**
+ * Who started the RUN (the whole session tree). Server-derived at create and
+ * immutable; a child copies its parent's. `null` on the row means the backfill
+ * could not classify it — treat that as a `member` of `created_by`.
+ */
+export interface ProjectSessionInitiator {
+  type: ProjectSessionInitiatorType;
+  /** member: user id · trigger: slug · channel: 'slack'|'teams'|'email'|'telegram' · api: service account id · system: source. */
+  id: string | null;
+  /** Display label: member name, trigger slug, channel name, service account name, or 'Kortix'. */
+  label: string | null;
+}
+
 export interface ProjectSession {
   session_id: string;
   account_id: string;
@@ -54,10 +69,13 @@ export interface ProjectSession {
   sandbox_provider: 'daytona' | 'platinum' | 'e2b' | null;
   sandbox_id: string;
   sandbox_url: string | null;
+  /** The session's root conversation in its runtime. Served by APIs since W4. */
+  runtime_session_id?: string | null;
+  /** @deprecated The pre-W4 name of `runtime_session_id`. Same value. */
   opencode_session_id: string | null;
   /**
    * Resolved display name. Precedence: the user-set `custom_name`, then the
-   * runtime's own root-conversation title (the `opencode_sessions` snapshot —
+   * runtime's own root-conversation title (the `runtime_sessions` snapshot —
    * the same string the session header shows), then the Kortix-generated
    * first-prompt title (`metadata.name`).
    */
@@ -68,13 +86,29 @@ export interface ProjectSession {
    * override (display falls back to the auto title / branch).
    */
   custom_name: string | null;
+  /**
+   * Free-form labels for classifying and filtering the session. Set at create
+   * or with `updateProjectSession`. Absent on a server older than labels.
+   */
+  labels?: string[];
   agent_name: string | null;
   status: ProjectSessionStatus;
   error: string | null;
   metadata: ProjectSessionMetadata;
-  opencode_sessions: ProjectOpenCodeSession[];
+  /** The runtime's conversation tree. Served by APIs since W4. */
+  runtime_sessions?: ProjectRuntimeSession[];
+  /** @deprecated The pre-W4 name of `runtime_sessions`. Same value. */
+  opencode_sessions: ProjectRuntimeSession[];
   // Ownership + org-visibility (Phase 2 session sharing).
   created_by?: string | null;
+  /** The session that spawned this one, or null for a top-level session. */
+  parent_session_id?: string | null;
+  /** Who started the run this session belongs to. */
+  initiator?: ProjectSessionInitiator | null;
+  /** Visible children. Present only on a `parent: 'root'` list. */
+  child_count?: number;
+  /** Why a root matched `q`. Present only on a `parent: 'root'` list with `q`. */
+  search_match?: 'self' | 'child';
   owner_email?: string | null;
   owner_name?: string | null;
   owner_type?: 'user' | 'service_account' | 'unknown' | null;
@@ -126,9 +160,17 @@ export interface ProjectSession {
  * parent makes any tree walk loop forever.
  */
 export function sessionParentId(
-  session: Pick<ProjectSession, 'session_id'> & { metadata?: ProjectSessionMetadata },
+  session: Pick<ProjectSession, 'session_id'> & {
+    parent_session_id?: string | null;
+    metadata?: ProjectSessionMetadata;
+  },
 ): string | null {
-  const parent = session.metadata?.spawned_by_session;
+  // `parent_session_id` is the server column; the metadata key is the legacy
+  // copy that is still written for one release.
+  const parent =
+    typeof session.parent_session_id === 'string'
+      ? session.parent_session_id
+      : session.metadata?.spawned_by_session;
   if (typeof parent !== 'string') return null;
   const trimmed = parent.trim();
   if (!trimmed || trimmed === session.session_id) return null;
@@ -179,8 +221,13 @@ export interface CreateProjectSessionInput {
   initial_prompt?: string;
   /** Durable recovery copy. The server never delivers this field automatically. */
   pending_prompt?: PendingSessionPrompt;
+  /** The session's `provider/model` pin. Accepted by APIs since W4; wins over `opencode_model`. */
+  model?: string;
+  /** @deprecated The pre-W4 name of `model`. Every API version accepts it. */
   opencode_model?: string;
   name?: string;
+  /** Free-form labels: each trimmed, 1..64 characters; at most 20. */
+  labels?: string[];
   /** Client-generated RFC 4122 v4 UUID for optimistic navigation. */
   session_id?: string;
   provider?: 'daytona' | 'platinum' | 'e2b';
@@ -241,7 +288,8 @@ export interface ClaimWarmProjectSessionInput {
   pending_prompt?: PendingSessionPrompt;
 }
 
-export interface ProjectOpenCodeSession {
+/** One conversation in the session runtime's tree (the root and its subagent children). */
+export interface ProjectRuntimeSession {
   id: string;
   title: string | null;
   parent_id: string | null;
@@ -250,6 +298,9 @@ export interface ProjectOpenCodeSession {
   updated_at: number | null;
   archived_at: number | null;
 }
+
+/** @deprecated Renamed to `ProjectRuntimeSession`. Removed in the next major. */
+export type ProjectOpenCodeSession = ProjectRuntimeSession;
 
 /** Default page size the API applies when `limit` is omitted. Mirrors
  *  `SESSION_PAGE_DEFAULT_LIMIT` in `apps/api/src/projects/lib/session-inventory.ts`. */
@@ -280,6 +331,15 @@ export interface ListProjectSessionsOptions {
   limit?: number;
   /** A previous page's `next_cursor`. Opaque — pass it back unmodified. */
   cursor?: string | null;
+  /** `'root'` = top-level sessions only (each row carries `child_count`); a
+   *  session id = that session's children. Omit for the legacy flat list. */
+  parent?: 'root' | string;
+  /** Filter by who started the run, relative to the viewer. */
+  startedBy?: 'me' | 'others' | 'automated';
+  /** Server-side search over every session the viewer may see (1..200 chars). */
+  q?: string;
+  /** Only sessions that carry EVERY one of these labels (exact match). */
+  labels?: string[];
 }
 
 /** One keyset page of a project's sessions. */
@@ -294,6 +354,11 @@ function projectSessionListQuery(options?: ListProjectSessionsOptions): string {
   if (options?.scope && options.scope !== 'visible') params.set('scope', options.scope);
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.cursor) params.set('cursor', options.cursor);
+  if (options?.parent) params.set('parent', options.parent);
+  if (options?.startedBy) params.set('started_by', options.startedBy);
+  const q = options?.q?.trim();
+  if (q) params.set('q', q);
+  for (const label of options?.labels ?? []) params.append('label', label);
   return params.size > 0 ? `?${params}` : '';
 }
 
@@ -697,6 +762,9 @@ export interface SessionTranscript {
   complete: boolean;
   /** When the mirror was last written; null for a live read. */
   captured_at: string | null;
+  /** The runtime session this belongs to. Served by APIs since W4. */
+  runtime_session_id?: string | null;
+  /** @deprecated The pre-W4 name of `runtime_session_id`. Same value. */
   opencode_session_id: string | null;
   message_count: number;
   messages: SessionTranscriptMessage[];
@@ -723,6 +791,9 @@ export interface SessionTranscriptSyncEnvelope {
   source: SessionTranscriptSource;
   complete: boolean;
   captured_at: string | null;
+  /** The runtime session this belongs to. Served by APIs since W4. */
+  runtime_session_id?: string | null;
+  /** @deprecated The pre-W4 name of `runtime_session_id`. Same value. */
   opencode_session_id: string | null;
   /** How many messages are in THIS window of the transcript. */
   message_count: number;
@@ -782,12 +853,19 @@ export async function getSessionTranscriptSync(
      * rather than silently returning the newest window again.
      */
     before?: string | null;
+    /**
+     * A sub-agent's OpenCode session inside this session (`ses_…`, the id a
+     * sub-agent row opens). Returns that sub-agent's own saved transcript
+     * instead of the conversation; `available: false` when nothing was saved.
+     */
+    child?: string | null;
   },
 ) {
   const search = new URLSearchParams({ shape: 'sync' });
   if (options?.limit != null) search.set('limit', String(options.limit));
   if (options?.history) search.set('history', 'true');
   if (options?.before) search.set('before', options.before);
+  if (options?.child) search.set('child', options.child);
   return unwrap(
     await backendApi.get<SessionTranscriptSyncEnvelope>(
       `/projects/${projectId}/sessions/${sessionId}/transcript?${search.toString()}`,
@@ -805,6 +883,9 @@ export interface SessionTurn {
   turn_token: string;
   state: SessionTurnState;
   message_id: string | null;
+  /** The runtime session this belongs to. Served by APIs since W4. */
+  runtime_session_id?: string | null;
+  /** @deprecated The pre-W4 name of `runtime_session_id`. Same value. */
   opencode_session_id: string | null;
   /** Null only for a legacy authority record written before the control plane
    *  recorded a start instant. The turn is running either way — a missing
@@ -831,9 +912,7 @@ export interface SessionTurnFailure {
   error: SessionTurnEndError | null;
 }
 
-/** How the most recent turn ended. Present only when no turn is running —
- *  it is what separates "this session has never run a turn" from "the last
- *  one just finished". */
+/** How the most recent turn ended, even when another turn remains active. */
 export interface SessionTurnEnded {
   turn_token: string;
   /** The user message the turn answered. Absent for a turn nobody named. */
@@ -850,9 +929,9 @@ export interface SessionTurnStatus {
    *  prompt, say), so this is a list and never a single turn. */
   turns: SessionTurn[];
   last_ended?: SessionTurnEnded;
-  /** Recent turns that failed, newest first, with the cause when one was named. Reported whether
-   *  or not a turn is running — `last_ended` is one row and vanishes when the
-   *  next turn starts. Absent when there are none. */
+  /** Recent turns that failed, newest first, with the cause when one was named.
+   *  Reported whether or not a turn is running; `last_ended` is only one row.
+   *  Absent when there are none. */
   recent_failures?: SessionTurnFailure[];
 }
 
@@ -878,8 +957,9 @@ export async function getSessionTurn(
 //
 // ONE round trip for everything a session view needs to PAINT and ARM: the
 // session row, the running turns, the prompt queue, the durable transcript
-// mirror, the composer's control-plane essentials, and the model defaults.
-// It replaces 6 serial reads on the open path and introduces NO new truth —
+// mirror, the composer's control-plane essentials, the model defaults, and
+// the pending-approvals audit projection. It replaces 7 serial reads (6 plus
+// `/audit`) on the open path and introduces NO new truth —
 // every leg is byte-identical to the endpoint that already served it, so a
 // consumer can hand a leg straight to the code that reads that endpoint.
 //
@@ -937,6 +1017,21 @@ export type SessionOpenBundleModels =
     }
   | SessionOpenBundleUnknown;
 
+/** = `GET .../audit?include_events=false` — the pending-approvals projection
+ *  only, never the historical `events` timeline (that half needs its own
+ *  audit-queue flush and answers "show me history", not "what's blocking this
+ *  run"). Byte-identical to `SessionAudit` minus `events`/`next_cursor`. */
+export type SessionOpenBundleAudit =
+  | ({
+      known: true;
+      session_id: string;
+      agent: string | null;
+      audit_access: boolean;
+      count: number;
+      actions: SessionAuditAction[];
+    })
+  | SessionOpenBundleUnknown;
+
 export interface SessionOpenBundle {
   /** ONE clock for the whole envelope. Every leg is a snapshot at this instant,
    *  and every projection that ranks a server observation against local
@@ -948,6 +1043,7 @@ export interface SessionOpenBundle {
   transcript: SessionOpenBundleTranscript;
   config: SessionOpenBundleConfig;
   models: SessionOpenBundleModels;
+  audit: SessionOpenBundleAudit;
 }
 
 /**
@@ -1249,13 +1345,26 @@ export async function holdSessionPrompts(
   );
 }
 
+/** Body of `updateProjectSession`. Every field is optional; send only what changes. */
+export interface UpdateProjectSessionInput {
+  /** New display name. `""` or `null` clears it and reverts to the auto title. */
+  name?: string | null;
+  /**
+   * Replaces the session's labels. Each is trimmed, 1..64 characters; at most
+   * 20; duplicates drop. `[]` clears them.
+   */
+  labels?: string[];
+  /**
+   * Keys merged into the session's metadata. A `null` value removes that key.
+   * Server-managed keys are refused (400). At most 16,384 characters of JSON.
+   */
+  metadata?: Record<string, unknown>;
+}
+
 export async function updateProjectSession(
   projectId: string,
   sessionId: string,
-  input: {
-    name?: string;
-    metadata?: Record<string, unknown>;
-  },
+  input: UpdateProjectSessionInput,
 ) {
   return unwrap(
     await backendApi.patch<ProjectSession>(`/projects/${projectId}/sessions/${sessionId}`, input),
@@ -1324,6 +1433,26 @@ export interface SessionConfigRelease {
 }
 
 /**
+ * The managed-model catalog's freshness for one session's box — the third
+ * convergeable asset alongside binaries and the skill overlay. Reported in the
+ * SAME place a config fallback is (`SessionConfigState`), not a log line: a
+ * box can look perfectly healthy (current binaries, a proven config release)
+ * and still be serving a managed lineup the control plane retired weeks ago,
+ * because OpenCode learns its provider map once, at process start.
+ */
+export interface SessionManagedCatalogState {
+  /**
+   * Managed model ids this box currently believes are servable, or `null` when
+   * UNCONFIRMED — no live fetch has ever succeeded on this box, so it is
+   * running the baked/bundled managed set with no proof it matches the
+   * platform's current lineup. Never read `null` as "no managed models exist".
+   */
+  ids: string[] | null;
+  /** Why the last live fetch did not confirm this box, or `null` when it did. */
+  fallback_reason: string | null;
+}
+
+/**
  * Whether a session is running the agent config the manifest compiles to now.
  *
  * A session's agent behaviour is compiled from git ONCE, at provision, and
@@ -1355,6 +1484,12 @@ export interface SessionConfigState {
    * config releases; a host then renders from `stale` alone.
    */
   release?: SessionConfigRelease;
+  /**
+   * Absent on a response from an API that predates it. Present regardless of
+   * whether config releases are enabled for this project — see the field's
+   * own doc for why.
+   */
+  managed_catalog?: SessionManagedCatalogState;
 }
 
 /**
@@ -1698,6 +1833,9 @@ export async function setProjectSessionScope(
 }
 
 export interface SessionModelChangeResult {
+  /** The stored model. Served by APIs since W4. */
+  model?: string;
+  /** @deprecated The pre-W4 name of `model`. Same value. */
   opencode_model: string;
   /** True only when a LIVE sandbox took the new model. */
   applied_live: boolean;

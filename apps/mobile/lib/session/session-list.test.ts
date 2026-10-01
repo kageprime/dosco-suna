@@ -3,13 +3,9 @@ import { describe, expect, test } from 'bun:test';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 import {
   SESSION_STATUS_FILTERS,
-  filterSessionsBySearch,
   filterSessionsByStatus,
-  isSessionFilterActive,
   sessionStatusFilterSummary,
-  flattenSessionGroups,
   groupSessionsByActivity,
-  groupSessionsByCoordinator,
   recentSessions,
   sessionDisplayStatus,
   sessionDisplayTitle,
@@ -106,9 +102,10 @@ describe('sessionDisplayStatus', () => {
     expect(sessionDisplayStatus(makeSession({ status: 'running' }))).toBe('running');
   });
 
-  test('stopped and completed both collapse to stopped', () => {
+  // One vocabulary with web: a finished session is Done, not Stopped.
+  test('stopped reads stopped; completed reads done', () => {
     expect(sessionDisplayStatus(makeSession({ status: 'stopped' }))).toBe('stopped');
-    expect(sessionDisplayStatus(makeSession({ status: 'completed' }))).toBe('stopped');
+    expect(sessionDisplayStatus(makeSession({ status: 'completed' }))).toBe('done');
   });
 
   test('failed stays failed', () => {
@@ -130,7 +127,13 @@ describe('sessionDisplayStatus', () => {
   });
 
   test('review count defaults to zero when omitted', () => {
-    expect(sessionDisplayStatus(makeSession({ status: 'completed' }))).toBe('stopped');
+    expect(sessionDisplayStatus(makeSession({ status: 'completed' }))).toBe('done');
+  });
+
+  test('a migrated session that has not run reads legacy', () => {
+    expect(
+      sessionDisplayStatus(makeSession({ status: 'stopped', metadata: { legacy_migration: true } } as never)),
+    ).toBe('legacy');
   });
 });
 
@@ -408,59 +411,6 @@ describe('groupSessionsByActivity', () => {
   });
 });
 
-describe('filterSessionsBySearch', () => {
-  test('an empty query returns the input unchanged', () => {
-    const sessions = [makeSession({ session_id: 'a', name: 'Fix login' })];
-    expect(filterSessionsBySearch(sessions, '')).toBe(sessions);
-  });
-
-  test('a whitespace-only query returns the input unchanged', () => {
-    const sessions = [makeSession({ session_id: 'a', name: 'Fix login' })];
-    expect(filterSessionsBySearch(sessions, '   ')).toBe(sessions);
-  });
-
-  test('matches case-insensitively on a trimmed substring', () => {
-    const sessions = [
-      makeSession({ session_id: 'a', name: 'Fix login bug' }),
-      makeSession({ session_id: 'b', name: 'Add billing page' }),
-    ];
-    expect(filterSessionsBySearch(sessions, '  LOGIN  ').map((s) => s.session_id)).toEqual(['a']);
-  });
-
-  test('matches against the resolved display title, including the untitled fallback', () => {
-    const sessions = [
-      makeSession({ session_id: 'a' }),
-      makeSession({ session_id: 'b', name: 'Named session' }),
-    ];
-    expect(filterSessionsBySearch(sessions, 'new session').map((s) => s.session_id)).toEqual(['a']);
-  });
-
-  test('no match returns an empty array', () => {
-    const sessions = [makeSession({ session_id: 'a', name: 'Fix login' })];
-    expect(filterSessionsBySearch(sessions, 'nonexistent')).toEqual([]);
-  });
-
-  test('matches the agent name (KRTX-250)', () => {
-    const sessions = [
-      makeSession({ session_id: 'a', name: 'Fix login', agent_name: 'reviewer' }),
-      makeSession({ session_id: 'b', name: 'Add billing', agent_name: 'builder' }),
-      makeSession({ session_id: 'c', name: 'No agent', agent_name: null }),
-    ];
-    expect(filterSessionsBySearch(sessions, 'REVIEW').map((s) => s.session_id)).toEqual(['a']);
-  });
-
-  test('matches the session id, whole or partial (KRTX-250)', () => {
-    const sessions = [
-      makeSession({ session_id: 'ses_7f3a9c', name: 'Fix login' }),
-      makeSession({ session_id: 'ses_1b2d4e', name: 'Add billing' }),
-    ];
-    expect(filterSessionsBySearch(sessions, '7f3a').map((s) => s.session_id)).toEqual(['ses_7f3a9c']);
-    expect(filterSessionsBySearch(sessions, 'ses_1b2d4e').map((s) => s.session_id)).toEqual([
-      'ses_1b2d4e',
-    ]);
-  });
-});
-
 describe('filterSessionsByStatus', () => {
   test('an empty set returns the input unchanged', () => {
     const sessions = [makeSession({ session_id: 'a', status: 'running' })];
@@ -478,7 +428,8 @@ describe('filterSessionsByStatus', () => {
     ).toEqual(['a', 'b']);
   });
 
-  test('completed and stopped both resolve to the stopped filter', () => {
+  // One vocabulary with web: Done and Stopped are two filters, as they are two words.
+  test('completed matches Done and stopped matches Stopped', () => {
     const sessions = [
       makeSession({ session_id: 'a', status: 'completed' }),
       makeSession({ session_id: 'b', status: 'stopped' }),
@@ -486,7 +437,8 @@ describe('filterSessionsByStatus', () => {
     ];
     expect(
       filterSessionsByStatus(sessions, new Set(['stopped'])).map((s) => s.session_id),
-    ).toEqual(['a', 'b']);
+    ).toEqual(['b']);
+    expect(filterSessionsByStatus(sessions, new Set(['done'])).map((s) => s.session_id)).toEqual(['a']);
   });
 
   test('a set matching nothing returns an empty array', () => {
@@ -508,7 +460,7 @@ describe('filterSessionsByStatus', () => {
   });
 
   test('the filter sheet offers no separate Starting option', () => {
-    expect(SESSION_STATUS_FILTERS).toEqual(['needs-you', 'running', 'stopped', 'failed']);
+    expect(SESSION_STATUS_FILTERS).toEqual(['needs-you', 'running', 'done', 'stopped', 'failed', 'legacy']);
   });
 
   test('needs-you matches the sessions with a pending inbox item', () => {
@@ -525,18 +477,6 @@ describe('filterSessionsByStatus', () => {
     expect(
       filterSessionsByStatus(sessions, new Set(['running']), needsYou).map((s) => s.session_id),
     ).toEqual(['a']);
-  });
-});
-
-describe('isSessionFilterActive', () => {
-  test('no query and no status is inactive; whitespace does not count', () => {
-    expect(isSessionFilterActive('', new Set())).toBe(false);
-    expect(isSessionFilterActive('   ', new Set())).toBe(false);
-  });
-
-  test('a query or a status makes the filter active', () => {
-    expect(isSessionFilterActive('login', new Set())).toBe(true);
-    expect(isSessionFilterActive('', new Set(['failed']))).toBe(true);
   });
 });
 
@@ -619,107 +559,6 @@ describe('recentSessions', () => {
   test('returns every session when there are fewer than `limit`', () => {
     expect(recentSessions([makeSession()], 20)).toHaveLength(1);
     expect(recentSessions([], 20)).toEqual([]);
-  });
-});
-
-describe('groupSessionsByCoordinator', () => {
-  const coordinator = makeSession({ session_id: 'coord-1' });
-  const childA = makeSession({
-    session_id: 'child-a',
-    metadata: { spawned_by_session: 'coord-1' },
-  });
-  const childB = makeSession({
-    session_id: 'child-b',
-    metadata: { spawned_by_session: 'coord-1' },
-  });
-  const solo = makeSession({ session_id: 'solo-1' });
-  const orphan = makeSession({
-    session_id: 'orphan-1',
-    metadata: { spawned_by_session: 'gone-1' },
-  });
-
-  test('nests children under their coordinator, in list order', () => {
-    const groups = groupSessionsByCoordinator([coordinator, childA, solo, childB]);
-    expect(groups.map((g) => g.session.session_id)).toEqual(['coord-1', 'solo-1']);
-    expect(groups[0]?.children.map((c) => c.session_id)).toEqual(['child-a', 'child-b']);
-    expect(groups[1]?.children).toEqual([]);
-  });
-
-  test('a child whose coordinator is not loaded yet renders top-level', () => {
-    const groups = groupSessionsByCoordinator([orphan, solo]);
-    expect(groups.map((g) => g.session.session_id)).toEqual(['orphan-1', 'solo-1']);
-  });
-
-  test('an orphan re-nests once its coordinator loads onto a later page', () => {
-    // Simulates the drawer/Sessions page loading pages one at a time: a
-    // child session can arrive before its coordinator. Membership is
-    // recomputed fresh from `sessions` on every call, so simply calling
-    // again with the coordinator now present re-nests it — no separate
-    // "reconcile" step is needed.
-    const firstPage = groupSessionsByCoordinator([childA]);
-    expect(firstPage.map((g) => g.session.session_id)).toEqual(['child-a']);
-
-    const bothPagesLoaded = groupSessionsByCoordinator([childA, coordinator]);
-    expect(bothPagesLoaded.map((g) => g.session.session_id)).toEqual(['coord-1']);
-    expect(bothPagesLoaded[0]?.children.map((c) => c.session_id)).toEqual(['child-a']);
-  });
-
-  test('a self-referential parent link renders top-level, not as its own child', () => {
-    const selfSpawned = makeSession({
-      session_id: 'self-1',
-      metadata: { spawned_by_session: 'self-1' },
-    });
-    const groups = groupSessionsByCoordinator([selfSpawned]);
-    expect(groups.map((g) => g.session.session_id)).toEqual(['self-1']);
-    expect(groups[0]?.children).toEqual([]);
-  });
-
-  test('a grandchild flattens under its topmost coordinator (web drops it instead)', () => {
-    const grandchild = makeSession({
-      session_id: 'grandchild-1',
-      metadata: { spawned_by_session: 'child-a' },
-    });
-    const groups = groupSessionsByCoordinator([coordinator, childA, grandchild]);
-    expect(groups.map((g) => g.session.session_id)).toEqual(['coord-1']);
-    expect(groups[0]?.children.map((c) => c.session_id)).toEqual(['child-a', 'grandchild-1']);
-  });
-
-  test('a parent cycle terminates instead of looping forever', () => {
-    const a = makeSession({ session_id: 'a', metadata: { spawned_by_session: 'b' } });
-    const b = makeSession({ session_id: 'b', metadata: { spawned_by_session: 'a' } });
-    const groups = groupSessionsByCoordinator([a, b]);
-    // Both point at each other, so neither has a parentless entry to become
-    // a `groups` root; the cycle resolves to no group at all rather than an
-    // infinite loop or a crash.
-    expect(groups).toEqual([]);
-  });
-
-  test('never mutates the input array', () => {
-    const input = [coordinator, childA];
-    groupSessionsByCoordinator(input);
-    expect(input.map((s) => s.session_id)).toEqual(['coord-1', 'child-a']);
-  });
-});
-
-describe('flattenSessionGroups', () => {
-  test('a coordinator row is immediately followed by its children, nested', () => {
-    const coordinator = makeSession({ session_id: 'coord-1' });
-    const childA = makeSession({
-      session_id: 'child-a',
-      metadata: { spawned_by_session: 'coord-1' },
-    });
-    const solo = makeSession({ session_id: 'solo-1' });
-
-    const rows = flattenSessionGroups([coordinator, childA, solo]);
-    expect(rows.map((r) => [r.session.session_id, r.nested])).toEqual([
-      ['coord-1', false],
-      ['child-a', true],
-      ['solo-1', false],
-    ]);
-  });
-
-  test('empty input yields an empty list', () => {
-    expect(flattenSessionGroups([])).toEqual([]);
   });
 });
 
@@ -932,3 +771,4 @@ describe('showSubsessionCountBadge', () => {
     expect(showSubsessionCountBadge(Number.NaN)).toBe(false);
   });
 });
+

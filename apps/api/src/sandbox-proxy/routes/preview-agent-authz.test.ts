@@ -90,6 +90,9 @@ mock.module('../../projects/lib/turn-start-convergence', () => ({
   // The runtime-asset lane beside the config gate. Void, never awaited — a
   // stub is enough here, and its absence is a module LINK error, not a skip.
   scheduleAssetConvergence: () => {},
+  // The model-catalog lane. AWAITED by the route — a stub that resolves
+  // immediately keeps every case in this file off the network.
+  convergeModelCatalogForTurnStart: async () => ({ decision: 'skipped' }),
 }));
 mock.module('../../projects/opencode-session-snapshot', () => ({
   scheduleOpencodeSnapshotSync: () => {},
@@ -261,12 +264,13 @@ test('a prompt naming an agent the project does not declare is delivered as the 
   ]);
 });
 
-test('a declared agent switch is untouched by the guard', async () => {
+test('a running session refuses an agent switch before grant remint or forwarding', async () => {
   undeclaredAgents.add('foreign-agent');
 
   const response = await prompt('nda-turnaround');
 
-  expect(response.status).toBe(200);
-  expect(remintCalls).toEqual([{ requestedAgent: 'nda-turnaround' }]);
-  expect(upstreamBodies.at(-1)).toMatchObject({ agent: 'nda-turnaround' });
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({ code: 'AGENT_SWITCH_NOT_ALLOWED' });
+  expect(remintCalls).toEqual([]);
+  expect(upstreamCalls).toBe(0);
 });

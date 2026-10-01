@@ -16,14 +16,14 @@ import { isPlatformAdmin } from './platform-roles';
 import { resolveAccountId } from './resolve-account';
 import {
   isProjectSessionVisibleTo,
-  isTriggerCreatedSessionMetadata,
+  isTriggerRunSession,
   loadSessionGrants,
   resolveShareSubject,
 } from '../connectors/share';
 import { authorize } from '../iam';
 import { actorForUser } from '../iam/actor';
 import { hasAccountSessionOversight } from '../iam/session-oversight';
-import { accountMembers, projectSessions, sessionSandboxes } from '@kortix/db';
+import { accountMembers, projectSessions, serviceAccounts, sessionSandboxes } from '@kortix/db';
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { KortixUserContext } from './kortix-user-context';
 import { isUuid } from './validate';
@@ -87,6 +87,7 @@ export async function canAccessSandboxSession(input: {
       createdBy: projectSessions.createdBy,
       origin: projectSessions.origin,
       metadata: projectSessions.metadata,
+      initiatorType: projectSessions.initiatorType,
     })
     .from(projectSessions)
     .where(
@@ -103,7 +104,7 @@ export async function canAccessSandboxSession(input: {
     const [subject, grantsBySession, managerVerdict] = await Promise.all([
       subjectRead,
       grantsRead,
-      isTriggerCreatedSessionMetadata(row.metadata)
+      isTriggerRunSession(row)
         ? authorize(
             actorForUser(input.userId, input.accountId),
             'project.members.manage',
@@ -118,7 +119,7 @@ export async function canAccessSandboxSession(input: {
       visibility: row.visibility,
       origin: row.origin ?? null,
       sessionOwnedByCaller: row.createdBy === subject.userId,
-      isTriggerSession: isTriggerCreatedSessionMetadata(row.metadata),
+      isTriggerSession: isTriggerRunSession(row),
       canManageProject: managerVerdict.allowed,
       managerReason: 'reason' in managerVerdict ? String(managerVerdict.reason) : null,
       sessionGrants: grants.length,
@@ -134,6 +135,7 @@ export async function canAccessSandboxSession(input: {
     const visibility = row.visibility as 'private' | 'project' | 'restricted';
     allowed = isProjectSessionVisibleTo(visibility, row.createdBy, grants, subject, ownership, {
       metadata: row.metadata,
+      initiatorType: row.initiatorType,
       canManageProject: managerVerdict.allowed,
     });
     // Account session oversight — the same rule `loadVisibleSession` applies,
@@ -146,6 +148,7 @@ export async function canAccessSandboxSession(input: {
     ) {
       allowed = isProjectSessionVisibleTo(visibility, row.createdBy, grants, subject, ownership, {
         metadata: row.metadata,
+        initiatorType: row.initiatorType,
         canManageProject: managerVerdict.allowed,
         accountSessionOversight: true,
       });
@@ -320,6 +323,38 @@ async function isAccountMember(userId: string, accountId: string): Promise<boole
   return !!row;
 }
 
+/**
+ * Is `userId` actually an agent service account belonging to this account?
+ *
+ * `project_sessions.created_by` is not always a human. A trigger/automation
+ * run attributes its session to the agent's standing-identity service account
+ * (`resolveAgentRunAttribution` -> `ensureAgentServiceAccount`,
+ * session-lifecycle/actor.ts) — a first-class non-human IAM principal that
+ * lives in `service_accounts`, never in `account_members`. Before this check
+ * existed, `isAccountMember` answered false for every one of those ids
+ * unconditionally, so `resolvePreviewUserContext` returned null, the signed
+ * `X-Kortix-User-Context` header was never attached, and the daemon's
+ * transcript-mirror capture (and every other signed OpenCode proxy call
+ * attributed to that session) 401'd on EVERY turn, forever — PROD 76h window:
+ * 23,380 capture failures across 37 projects, 72% of sessions with no saved
+ * transcript. A disabled SA is refused: a revoked/deleted agent identity must
+ * not keep reading a session's transcript.
+ */
+async function isAccountServiceAccount(userId: string, accountId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ serviceAccountId: serviceAccounts.serviceAccountId })
+    .from(serviceAccounts)
+    .where(
+      and(
+        eq(serviceAccounts.serviceAccountId, userId),
+        eq(serviceAccounts.accountId, accountId),
+        eq(serviceAccounts.status, 'active'),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 async function computeEntry(
   previewSandboxId: string,
   userId: string,
@@ -347,7 +382,10 @@ async function computeEntry(
     };
   }
 
-  const member = platformAdmin || (await isAccountMember(userId, ref.accountId));
+  const member =
+    platformAdmin ||
+    (await isAccountMember(userId, ref.accountId)) ||
+    (await isAccountServiceAccount(userId, ref.accountId));
   if (!member) {
     return { allowed: false, payload: null, expiresAt };
   }

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  statusesToHydrate,
+  unlistedWorkingSessions,
+  transcriptEndsFinished,
   HEARTBEAT_TIMEOUT_MS,
   HOLLOW_STREAM_END_MS,
   MAX_HARD_FAILURES,
@@ -222,5 +225,119 @@ describe('questionsToHydrate', () => {
       () => true,
     );
     expect(added.map((entry) => entry.id)).toEqual(['q1']);
+  });
+});
+
+// KRTX-606: a thread opened (or a stream reopened) mid-turn read "not
+// running" — busy/idle came only from live frames, and nothing re-read it.
+describe('statusesToHydrate', () => {
+  type Status = { type: 'busy' | 'idle' };
+  const busy: Status = { type: 'busy' };
+  const all = () => true;
+
+  test('a busy session the store has no status for reads busy', () => {
+    expect(statusesToHydrate({ s1: busy }, {}, {}, all)).toEqual([['s1', busy]]);
+  });
+
+  // A first prompt is seeded busy before a freshly booted box has put the turn
+  // on the wire, and that box answers "not busy". Writing idle from absence
+  // would erase the seed: the exact "not running while running" of KRTX-606.
+  test('absence from the list never writes idle over a busy slot', () => {
+    expect(statusesToHydrate({}, { s1: busy }, { s1: busy }, all)).toEqual([]);
+  });
+
+  test('a listed busy session overwrites an idle slot', () => {
+    const slot: Status = { type: 'idle' };
+    expect(statusesToHydrate({ s1: busy }, { s1: slot }, { s1: slot }, all)).toEqual([['s1', busy]]);
+  });
+
+  test('a frame that landed while the read was in flight wins', () => {
+    const before: Record<string, Status> = { s1: { type: 'idle' } };
+    const current: Record<string, Status> = { s1: { type: 'idle' } };
+    expect(statusesToHydrate({ s1: busy }, before, current, all)).toEqual([]);
+  });
+
+  test('a session on another computer is left alone', () => {
+    expect(statusesToHydrate({}, { s2: busy }, { s2: busy }, (id) => id !== 's2')).toEqual([]);
+  });
+
+  test('an unchanged status is not rewritten', () => {
+    const slot: Status = { type: 'busy' };
+    expect(statusesToHydrate({ s1: busy }, { s1: slot }, { s1: slot }, all)).toEqual([]);
+  });
+
+  test('a malformed body writes nothing', () => {
+    expect(statusesToHydrate(null, {}, {}, all)).toEqual([]);
+    expect(statusesToHydrate([busy], {}, {}, all)).toEqual([]);
+  });
+});
+
+// A turn that ended while the stream was down: the idle frame is lost and
+// `statusesToHydrate` never writes idle from absence. These two name the
+// evidence that may.
+describe('unlistedWorkingSessions', () => {
+  type Status = { type: 'busy' | 'retry' | 'idle' };
+  const busy: Status = { type: 'busy' };
+  const all = () => true;
+
+  test('a working slot the runtime does not list is a candidate', () => {
+    expect(unlistedWorkingSessions({}, { s1: busy }, { s1: busy }, all)).toEqual(['s1']);
+  });
+
+  test('a retry slot counts as working', () => {
+    const retry: Status = { type: 'retry' };
+    expect(unlistedWorkingSessions({}, { s1: retry }, { s1: retry }, all)).toEqual(['s1']);
+  });
+
+  test('a listed session is not a candidate', () => {
+    expect(unlistedWorkingSessions({ s1: busy }, { s1: busy }, { s1: busy }, all)).toEqual([]);
+  });
+
+  test('an idle slot is not a candidate', () => {
+    const idle: Status = { type: 'idle' };
+    expect(unlistedWorkingSessions({}, { s1: idle }, { s1: idle }, all)).toEqual([]);
+  });
+
+  test('a slot that changed while the read was in flight is left alone', () => {
+    expect(unlistedWorkingSessions({}, { s1: { type: 'busy' } }, { s1: { type: 'busy' } }, all)).toEqual([]);
+  });
+
+  test('a session on another computer is left alone', () => {
+    expect(unlistedWorkingSessions({}, { s1: busy }, { s1: busy }, () => false)).toEqual([]);
+  });
+
+  test('a malformed body names nothing', () => {
+    expect(unlistedWorkingSessions(null, { s1: busy }, { s1: busy }, all)).toEqual([]);
+    expect(unlistedWorkingSessions([busy], { s1: busy }, { s1: busy }, all)).toEqual([]);
+  });
+});
+
+describe('transcriptEndsFinished', () => {
+  const user = { info: { role: 'user' } };
+  const open = { info: { role: 'assistant', time: { created: 1 } } };
+  const completed = { info: { role: 'assistant', time: { created: 1, completed: 2 } } };
+  const errored = { info: { role: 'assistant', time: { created: 1 }, error: { name: 'MessageAbortedError' } } };
+
+  test('a completed reply ends the transcript', () => {
+    expect(transcriptEndsFinished([user, completed])).toBe(true);
+  });
+
+  test('an errored reply ends the transcript', () => {
+    expect(transcriptEndsFinished([user, errored])).toBe(true);
+  });
+
+  test('an open reply does not', () => {
+    expect(transcriptEndsFinished([user, open])).toBe(false);
+  });
+
+  // A prompt whose user message is the newest in the store. A send in flight
+  // is excluded separately, in `hydrateLiveStatuses`.
+  test('a trailing user message does not', () => {
+    expect(transcriptEndsFinished([user, completed, user])).toBe(false);
+  });
+
+  test('an empty or missing transcript does not', () => {
+    expect(transcriptEndsFinished([])).toBe(false);
+    expect(transcriptEndsFinished(undefined)).toBe(false);
   });
 });

@@ -224,7 +224,14 @@ mock.module("../snapshots/builder", () => ({
   DEFAULT_SANDBOX_SLUG: "default",
 }));
 
+// Spread the real module: `mock.module` replaces it WHOLESALE, so a factory
+// that only lists the exports it overrides deletes every other one — and the
+// next export added to `projects/github.ts` becomes
+// `SyntaxError: Export named 'X' not found` in this file, which that change
+// never touched (.claude/skills/learnings/SKILL.md).
+const actualGithub = await import('../projects/github');
 mock.module('../projects/github', () => ({
+  ...actualGithub,
   parseGitHubRepoUrl: (repoUrl: string) => ({
     owner: 'kortix-org',
     repo: repoUrl.split('/').pop()?.replace(/\.git$/, '') ?? 'trigger-project',
@@ -468,7 +475,7 @@ const triggerDbMock: any = {
               sandboxProvider: values.sandboxProvider,
               sandboxId: values.sandboxId ?? null,
               sandboxUrl: null,
-              opencodeSessionId: null,
+              runtimeSessionId: null,
               agentName: values.agentName ?? 'default',
               status: values.status ?? 'provisioning',
               error: null,
@@ -476,10 +483,14 @@ const triggerDbMock: any = {
               visibility: values.visibility ?? 'private',
               origin: values.origin ?? 'user',
               originRef: values.originRef ?? null,
+              parentSessionId: values.parentSessionId ?? null,
+              initiatorType: values.initiatorType ?? null,
+              initiatorId: values.initiatorId ?? null,
               secretsAllowlist: values.secretsAllowlist ?? null,
               requiredConnectors: null,
               connectorBindingsInheritUnbound: values.connectorBindingsInheritUnbound ?? false,
               connectorBindingsConfigured: values.connectorBindingsConfigured ?? false,
+              labels: values.labels ?? [],
               metadata: values.metadata ?? {},
               createdAt: values.createdAt ?? now,
               updatedAt: values.updatedAt ?? now,
@@ -627,7 +638,12 @@ mock.module('../shared/db', () => ({
   db: triggerDbMock,
 }));
 
+// Spread the real module: a wholesale stub drops every export another importer
+// in the graph needs (#7936 added importers), and bun reports it as an
+// unhandled `Export named ... not found` between tests.
+const realTriggerExecutionStore = await import('../projects/trigger-execution-store');
 mock.module('../projects/trigger-execution-store', () => ({
+  ...realTriggerExecutionStore,
   claimDueScheduleSlots: async ({ now, limit }: { now: Date; limit: number }) => {
     const due = runtimeRows
       .filter(
@@ -1505,6 +1521,7 @@ describe('git-backed triggers — runtime fire paths', () => {
     // Pre-seed a reusable session so the fire path finds it and enqueues (rather
     // than creating a fresh session, which would return `fired`).
     sessionRows.push({
+      labels: [],
       sessionId: 'sess-reuse',
       accountId: ACCOUNT_ID,
       projectId: PROJECT_ID,
@@ -1513,7 +1530,7 @@ describe('git-backed triggers — runtime fire paths', () => {
       sandboxProvider: 'daytona',
       sandboxId: null,
       sandboxUrl: null,
-      opencodeSessionId: null,
+      runtimeSessionId: null,
       agentName: 'default',
       status: 'stopped',
       error: null,
@@ -1521,6 +1538,9 @@ describe('git-backed triggers — runtime fire paths', () => {
       visibility: 'private',
       origin: 'system',
       originRef: null,
+      parentSessionId: null,
+      initiatorType: null,
+      initiatorId: null,
       secretsAllowlist: null,
       requiredConnectors: null,
       connectorBindingsInheritUnbound: false,

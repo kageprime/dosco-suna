@@ -78,6 +78,8 @@ describe('secrets-registry pure helpers', () => {
     expect(servicesForKeys(['KORTIX_APP_REPLICAS_OVERRIDE'])).toEqual(
       ['frontend', 'kortix-api', 'kortix-updater', 'llm-gateway'],
     );
+    // Read by the web auth page AND the API's /v1/auth/client-config.
+    expect(servicesForKeys(['KORTIX_PUBLIC_AUTH_METHODS'])).toEqual(['frontend', 'kortix-api']);
     expect(servicesForKeys([])).toEqual([]);
   });
 

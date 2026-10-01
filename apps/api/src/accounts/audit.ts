@@ -18,7 +18,12 @@ import { ACCOUNT_ACTIONS, assertAuthorized } from '../iam';
 import { actorOf } from '../iam/actor';
 import { assertAllowedSourceAddress } from '../marketplace/catalog';
 import { ErrorSchema, auth, errors, json, makeOpenApiApp } from '../openapi';
-import { flushAuditEvents, recordAuditEvent } from '../shared/audit';
+import {
+  AUDIT_READ_FLUSH_BARRIER_MS,
+  flushAuditEvents,
+  recordAuditEvent,
+} from '../shared/audit';
+import { auditCredentialNames } from '../shared/audit-credential-names';
 import { requestClientIp } from '../shared/client-ip';
 import {
   deliverTestEvent,
@@ -96,7 +101,8 @@ export { buildFilters, type AuditFilterInput } from './audit-filters';
 //   ?actor_type=agent       — human, agent, service_account, system, or anonymous
 //   ?project_id=<uuid>      — one project
 //   ?session_id=<id>        — one session
-//   ?source=cli             — one client or execution source
+//   ?source=api_key         — one trusted execution source (authoritative_source)
+//   ?credential_kind=oauth_app — one credential class the API authenticated
 //   ?outcome=failure        — success, failure, denied, or pending
 //   ?request_id=<id>        — one API request
 //   ?correlation_id=<id>    — one cross-system operation
@@ -123,6 +129,7 @@ auditRouter.openapi(
         project_id: z.string().uuid().optional(),
         session_id: z.string().optional(),
         source: z.string().optional(),
+        credential_kind: z.string().optional(),
         phase: z.string().optional(),
         outcome: z.enum(['success', 'failure', 'denied', 'pending']).optional(),
         request_id: z.string().optional(),
@@ -152,6 +159,7 @@ auditRouter.openapi(
     const projectId = c.req.query('project_id')?.trim() || null;
     const sessionId = c.req.query('session_id')?.trim() || null;
     const source = c.req.query('source')?.trim() || null;
+    const credentialKind = c.req.query('credential_kind')?.trim() || null;
     const phase = c.req.query('phase')?.trim() || null;
     const outcome = c.req.query('outcome')?.trim() || null;
     const requestId = c.req.query('request_id')?.trim() || null;
@@ -171,9 +179,11 @@ auditRouter.openapi(
       return c.json({ error: (error as Error).message }, 400);
     }
 
-    // Flush the snapshot emitted before this read. Traffic that arrives after
-    // this barrier stays asynchronous and cannot delay the request indefinitely.
-    await flushAuditEvents();
+    // Flush the snapshot emitted before this read — read-your-writes — but
+    // never past the barrier bound: the audit queue's per-session serialize
+    // waits without a timeout, and under a write convoy that barrier was the
+    // 25s deadline 503s on this route (prod, 2026-09-28, KRTX-631).
+    await flushAuditEvents({ waitMs: AUDIT_READ_FLUSH_BARRIER_MS });
 
     const conditions = buildFilters(accountId, {
       actor,
@@ -181,6 +191,7 @@ auditRouter.openapi(
       projectId,
       sessionId,
       source,
+      credentialKind,
       phase,
       outcome,
       requestId,
@@ -209,9 +220,10 @@ auditRouter.openapi(
     const page = hasMore ? rows.slice(0, limit) : rows;
     const last = page[page.length - 1];
     const nextCursor = hasMore && last ? `${last.occurredAt.toISOString()}|${last.eventId}` : null;
+    const names = await auditCredentialNames(page);
 
     return c.json({
-      events: page.map(serializeAuditEvent),
+      events: page.map((row) => serializeAuditEvent(row, names)),
       next_cursor: nextCursor,
     });
   },
@@ -259,6 +271,8 @@ const CSV_HEADERS = [
   'source',
   'authoritative_source',
   'client_reported_source',
+  'credential_kind',
+  'credential_id',
   'outcome',
   'action',
   'phase',
@@ -305,6 +319,7 @@ auditRouter.openapi(
         project_id: z.string().uuid().optional(),
         session_id: z.string().optional(),
         source: z.string().optional(),
+        credential_kind: z.string().optional(),
         phase: z.string().optional(),
         outcome: z.enum(['success', 'failure', 'denied', 'pending']).optional(),
         request_id: z.string().optional(),
@@ -345,6 +360,7 @@ auditRouter.openapi(
     const projectId = c.req.query('project_id')?.trim() || null;
     const sessionId = c.req.query('session_id')?.trim() || null;
     const source = c.req.query('source')?.trim() || null;
+    const credentialKind = c.req.query('credential_kind')?.trim() || null;
     const phase = c.req.query('phase')?.trim() || null;
     const outcome = c.req.query('outcome')?.trim() || null;
     const requestId = c.req.query('request_id')?.trim() || null;
@@ -364,7 +380,7 @@ auditRouter.openapi(
       return c.json({ error: (error as Error).message }, 400);
     }
 
-    await flushAuditEvents();
+    await flushAuditEvents({ waitMs: AUDIT_READ_FLUSH_BARRIER_MS });
 
     const conditions = buildFilters(accountId, {
       actor,
@@ -372,6 +388,7 @@ auditRouter.openapi(
       projectId,
       sessionId,
       source,
+      credentialKind,
       phase,
       outcome,
       requestId,
@@ -465,7 +482,7 @@ auditRouter.openapi(
     } catch (error) {
       return c.json({ error: (error as Error).message }, 400);
     }
-    await flushAuditEvents();
+    await flushAuditEvents({ waitMs: AUDIT_READ_FLUSH_BARRIER_MS });
     const result = await reconcileAuditEvents(accountId, limit);
     await recordAuditEvent({
       accountId,
@@ -732,7 +749,7 @@ auditRouter.openapi(
     } catch (error) {
       return c.json({ error: (error as Error).message }, 400);
     }
-    await flushAuditEvents();
+    await flushAuditEvents({ waitMs: AUDIT_READ_FLUSH_BARRIER_MS });
     const [hook] = await db
       .select({ webhookId: auditWebhooks.webhookId })
       .from(auditWebhooks)

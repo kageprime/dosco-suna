@@ -5,7 +5,7 @@
 
 /**
  * Silence the sandbox daemon allows before it writes a `kortix.keepalive`
- * frame. Duplicated from `apps/kortix-sandbox-agent-server/src/sse-keepalive.ts`
+ * frame. Duplicated from `apps/kortix-sandbox-agent-server/src/routes/proxy/sse-keepalive.ts`
  * (`SSE_KEEPALIVE_INTERVAL_MS`); the app cannot import daemon code. The daemon
  * checks on the same interval, so a healthy quiet stream is silent for up to
  * twice this value.
@@ -212,4 +212,77 @@ export function questionsToHydrate<Q extends QuestionLike>(
     added.push(entry as Q);
   }
   return added;
+}
+
+interface StatusLike {
+  type: string;
+}
+
+/**
+ * Status writes from one `GET /session/status` read, which lists every session
+ * the runtime is working on. A session opened, or a stream reopened, mid-turn
+ * otherwise reads idle until the next status frame.
+ *
+ * It only ever FILLS a working status. Absence is not evidence of idle: a
+ * first prompt is seeded busy before a freshly booted box has put the turn on
+ * the wire, and that box does not list it yet. The session's own `session.idle`
+ * frame ends a turn.
+ *
+ * `before` is the store's status map when the read was issued, `current` when
+ * it answered. A slot that changed in between holds a live frame newer than
+ * this read, and is left alone. `include` limits writes to sessions on the
+ * computer that answered.
+ */
+export function statusesToHydrate<S extends StatusLike>(
+  fetched: unknown,
+  before: Readonly<Record<string, S | undefined>>,
+  current: Readonly<Record<string, S | undefined>>,
+  include: (sessionId: string) => boolean,
+): [string, S][] {
+  if (!fetched || typeof fetched !== 'object' || Array.isArray(fetched)) return [];
+  const listed = fetched as Record<string, S>;
+  const writes: [string, S][] = [];
+  for (const sessionId of Object.keys(listed)) {
+    if (!include(sessionId) || current[sessionId] !== before[sessionId]) continue;
+    const next = listed[sessionId];
+    if (next && typeof next.type === 'string' && current[sessionId]?.type !== next.type) {
+      writes.push([sessionId, next]);
+    }
+  }
+  return writes;
+}
+
+/**
+ * Live sessions the store reads working that one `GET /session/status` read no
+ * longer lists. Absence alone is not evidence of idle (see
+ * `statusesToHydrate`), so these are only candidates: the caller re-reads each
+ * transcript and asks `transcriptEndsFinished`.
+ */
+export function unlistedWorkingSessions<S extends StatusLike>(
+  fetched: unknown,
+  before: Readonly<Record<string, S | undefined>>,
+  current: Readonly<Record<string, S | undefined>>,
+  include: (sessionId: string) => boolean,
+): string[] {
+  if (!fetched || typeof fetched !== 'object' || Array.isArray(fetched)) return [];
+  const listed = fetched as Record<string, S>;
+  return Object.keys(current).filter((sessionId) => {
+    const type = current[sessionId]?.type;
+    return (
+      (type === 'busy' || type === 'retry') &&
+      current[sessionId] === before[sessionId] &&
+      !(sessionId in listed) &&
+      include(sessionId)
+    );
+  });
+}
+
+/** The newest message is an assistant reply that completed or failed. */
+export function transcriptEndsFinished(
+  messages:
+    | readonly { info: { role: string; time?: { completed?: number }; error?: unknown } }[]
+    | undefined,
+): boolean {
+  const info = messages?.[messages.length - 1]?.info;
+  return info?.role === 'assistant' && (!!info.time?.completed || !!info.error);
 }

@@ -24,6 +24,7 @@ import { useSelectedProjectStore } from '@/stores/selected-project-store';
 import { useTabScreenshotStore } from '@/stores/tab-screenshot-store';
 import { useComposerDraftStore } from '@/stores/composer-draft-store';
 import { useSessionFilterStore } from '@/stores/session-filter-store';
+import { useSessionTreeStore } from '@/stores/session-tree-store';
 
 let useTracking: any = null;
 try {
@@ -42,6 +43,8 @@ import type {
 } from '@/lib/utils/auth-types';
 import type { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { log, setLoggerUserId } from '@/lib/logger';
+import { queryCachePersistence } from '@/lib/query/query-cache';
+import { releaseSavedCopies } from '@/lib/session/saved-copy-registry';
 import { warmSessionPool } from '@/lib/session/warm-session-pool';
 
 /**
@@ -61,6 +64,7 @@ function resetUserStores() {
   useComposerDraftStore.getState().reset();
   // A session search is the user's text too.
   useSessionFilterStore.getState().reset();
+  useSessionTreeStore.getState().reset();
   // Also deletes the screenshot files.
   useTabScreenshotStore.getState().clear();
   // A warm session belongs to the signed-in user.
@@ -519,8 +523,10 @@ export function useAuth() {
    * - Android Google: Linking.openURL (external browser) + deep link callback
    * - Android Other: Linking.openURL (external browser) + deep link callback
    * - Apple: Native Apple Authentication on iOS
+   * - 'sso': enterprise SSO for `ssoDomain` (the web auth page's
+   *   signInWithSSO), then the same browser + callback path as Google
    */
-  const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
+  const signInWithOAuth = useCallback(async (provider: OAuthProvider | 'sso', ssoDomain?: string) => {
     try {
       log.log('🎯 OAuth sign in attempt:', provider);
       setError(null);
@@ -589,14 +595,21 @@ export function useAuth() {
 
       log.log('📊 Redirect URL:', redirectTo, 'Platform:', Platform.OS);
 
-      // Get OAuth URL from Supabase
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
+      // Get OAuth URL from Supabase. GoTrue answers 404 for a domain with no
+      // SSO provider; that error surfaces like any other.
+      const { data, error: oauthError } =
+        provider === 'sso'
+          ? await supabase.auth.signInWithSSO({
+              domain: ssoDomain ?? '',
+              options: { redirectTo, skipBrowserRedirect: true },
+            })
+          : await supabase.auth.signInWithOAuth({
+              provider,
+              options: {
+                redirectTo,
+                skipBrowserRedirect: true,
+              },
+            });
 
       if (oauthError) {
         log.error('❌ OAuth error:', oauthError.message);
@@ -1045,6 +1058,10 @@ export function useAuth() {
       setIsSigningOut(true);
       // The SIGNED_OUT this causes is expected: no "session ended" dialog.
       sessionExpiry.disarm();
+      // Stop the persisted query cache and forget this user's copy first: the
+      // query client clear below would otherwise schedule one more write.
+      await queryCachePersistence.release();
+      await releaseSavedCopies();
 
       if (shouldUseRevenueCat()) {
         try {
@@ -1096,6 +1113,12 @@ export function useAuth() {
     }
   }, [queryClient, isSigningOut]);
 
+  /** Enterprise SSO for the email's domain (self-hosted instances; see app/auth/email.tsx). */
+  const signInWithSSO = useCallback(
+    (email: string) => signInWithOAuth('sso', email.trim().toLowerCase().split('@')[1] ?? ''),
+    [signInWithOAuth]
+  );
+
   const clearOauthRejection = useCallback(() => setOauthRejection(null), []);
 
   // Stable identity: AuthProvider passes this object as the context value, and
@@ -1110,6 +1133,7 @@ export function useAuth() {
       signIn,
       signUp,
       signInWithOAuth,
+      signInWithSSO,
       signInWithMagicLink,
       resetPassword,
       updatePassword,
@@ -1124,6 +1148,7 @@ export function useAuth() {
       signIn,
       signUp,
       signInWithOAuth,
+      signInWithSSO,
       signInWithMagicLink,
       resetPassword,
       updatePassword,

@@ -78,7 +78,8 @@ import { resolveSessionNetworkBoundary } from '../../projects/lib/network-secret
 import {
   type PreparedInitialSandboxTurn,
   initialSandboxTurnMetadata,
-} from '../../projects/sandbox-turn-lifecycle';
+} from '../../projects/session-turn-ledger';
+import { resolveSessionSandboxRegion } from './sandbox-region';
 
 /**
  * Bound for the pre-active hook. Generous, because the hook is a data restore and
@@ -380,7 +381,10 @@ export async function provisionSessionSandbox(opts: {
    */
   beforeActive?: (externalId: string) => Promise<void>;
 }): Promise<ProvisionSessionSandboxResult> {
-  const { sandboxId, accountId, projectId, userId, serverType, location } = opts;
+  const { sandboxId, accountId, projectId, userId, serverType } = opts;
+  // An explicit caller location wins; otherwise the project's `us_region`
+  // flag decides (sandbox-region.ts). Only Platinum reads it.
+  const location = opts.location ?? resolveSessionSandboxRegion(opts.projectMetadata);
   const providerWasExplicitlySelected = opts.providerLocked ?? opts.provider !== undefined;
   // Resolution order:
   //   1. Explicit per-request `opts.provider` (set by callers that need a
@@ -642,8 +646,7 @@ export async function provisionSessionSandbox(opts: {
       // throws on a policy no session could serve, which is what turns a broken
       // secret config into `invalid-secret-boundary-policy` instead of a
       // generic provider fault. There is nothing to register with a provider —
-      // one mechanism serves daytona, e2b and platinum alike (docs/specs/
-      // 2026-08-19-secrets-exposure-usage-model.md §4): the guest gets a HANDLE
+      // one mechanism serves daytona, e2b and platinum alike: the guest gets a HANDLE
       // and the broker route substitutes the real value server-side.
       await resolveSessionNetworkBoundary(projectId, sandbox.sandboxId);
 
@@ -700,8 +703,7 @@ export async function provisionSessionSandbox(opts: {
         ? (o: CreateSandboxOpts) => provider.createFromExternalId!(bootDecision.bootByTemplateId!, o)
         : undefined;
       // No provider edge is armed at create: one mechanism serves daytona, e2b
-      // and platinum alike (docs/specs/2026-08-19-secrets-exposure-usage-model.md
-      // §4). The guest holds a handle; the broker route substitutes server-side.
+      // and platinum alike. The guest holds a handle; the broker route substitutes server-side.
       let result: ProvisionResult;
       let attempts: number;
       // P1.8 (harness/worker split): a pi worker boot tries the parked pool

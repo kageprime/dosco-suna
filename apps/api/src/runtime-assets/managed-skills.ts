@@ -24,14 +24,15 @@
  */
 
 import { createHash } from 'node:crypto';
+import { SKILLS_DIR } from '@kortix/manifest-schema';
 import {
   getManagedSkillFiles,
   getStarterFiles,
   isKortixManagedSkillName,
 } from '@kortix/starter';
 
-/** Where skills live inside a Dosco project (and inside the starter templates). */
-const SKILLS_PREFIX = '.kortix/opencode/skills/';
+/** Where skills live inside the starter templates (and a root-layout Kortix project). */
+const SKILLS_PREFIX = `${SKILLS_DIR}/`;
 
 export interface ManagedSkillOverlayFile {
   /** Path relative to the overlay root, e.g. `kortix-system/SKILL.md`. */
@@ -46,7 +47,7 @@ export interface ManagedSkillOverlayFile {
 export function managedSkillOverlayFiles(): ManagedSkillOverlayFile[] {
   const files = [
     ...getManagedSkillFiles(),
-    ...getStarterFiles({ projectName: 'Dosco', template: 'general-knowledge-worker' }),
+    ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),
   ];
   const byPath = new Map<string, string>();
   for (const file of files) {

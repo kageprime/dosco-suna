@@ -29,9 +29,8 @@ import type { UiTranslator } from '@/i18n/translator';
  *  1. "Never visible to the model" (the /enterprise secrets bullet) is FALSE
  *     for project secrets. A granted runtime secret is a real environment value
  *     inside the session, readable by any command the agent runs — that is how
- *     a tool uses it. See docs/ENV_SECRET_EXPOSURE_BASELINE.md, which states it
- *     plainly. What IS true, and is all this page claims: connector credentials
- *     are resolved server-side and never enter the machine, Dosco's own
+ *     a tool uses it. What IS true, and is all this page claims: connector credentials
+ *     are resolved server-side and never enter the machine, Kortix's own
  *     upstream keys never enter it either, and a session only receives the
  *     secrets both the person's role and the agent's declared grant allow.
  *  2. "Each session runs in its own VM" / blanket "microVM" is NOT true of the
@@ -57,7 +56,7 @@ import type { UiTranslator } from '@/i18n/translator';
 export const hero = {
   eyebrow: 'Security',
   title: 'Built to survive a security review.',
-  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Dosco they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
+  sub: 'An agent that can install anything, call anything and write anywhere is only safe if the walls are real. In Kortix they sit below the agent, in the platform, where a prompt cannot talk its way past them.',
   ctaPrimary: 'Talk to us',
   ctaPrimaryHref: '/contact',
   ctaSecondary: 'Read the docs',
@@ -96,7 +95,7 @@ export const isolation = {
     items: [
       'Another session — same project, same team, or another customer',
       'Connector credentials, which are resolved server-side',
-      'Dosco’s own upstream provider keys, which no sandbox may hold',
+      'Kortix’s own upstream provider keys, which no sandbox may hold',
       'Write access to main; a session can only propose',
     ],
   },
@@ -109,7 +108,7 @@ export const isolation = {
     {
       id: 'microvm',
       k: 'microVM where you ask for it',
-      v: 'On Dosco’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.',
+      v: 'On Kortix’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.',
     },
     {
       id: 'branch',
@@ -133,7 +132,7 @@ export const isolation = {
    (buildSessionSandboxEnvVars builds the sandbox env from project secrets, never
    from the API's own env) with apps/api/src/projects/lib/sandbox-env-names.ts
    (the names a sandbox never receives) and
-   apps/kortix-sandbox-agent-server/src/agent-env-file.ts (tmpfs, 0600,
+   apps/kortix-sandbox-agent-server/src/harness/shared/agent-env-file.ts (tmpfs, 0600,
    shredded on shutdown).
 
    DO NOT reintroduce "the model never sees it" for project secrets. It is
@@ -181,7 +180,7 @@ export const credentials = {
     {
       id: 'connectors',
       k: 'Connector credentials never enter the machine',
-      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Dosco token and calls through it. The same rule covers Dosco’s own provider keys, which no sandbox is allowed to hold.',
+      v: '3,000+ apps in a click, plus MCP, OpenAPI, GraphQL and raw HTTP. The third-party credential is held and resolved server-side; the machine holds one scoped Kortix token and calls through it. The same rule covers Kortix’s own provider keys, which no sandbox is allowed to hold.',
     },
     {
       id: 'honest',
@@ -200,7 +199,7 @@ export const credentials = {
 export const identity = {
   eyebrow: 'Identity & permissions',
   title: 'An agent is a principal, not a loophole.',
-  sub: 'Most AI tools give the agent whatever the person who started it can reach. Dosco does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
+  sub: 'Most AI tools give the agent whatever the person who started it can reach. Kortix does not. An agent identity carries its own policies, evaluated on their own, so it cannot inherit its way up to something you never granted it.',
   /** The permission matrix, drawn from the shipped resource types + presets. */
   matrix: {
     caption: 'Permissions attach to a principal, for an action, on a resource type.',
@@ -386,7 +385,7 @@ export const posture = {
   deployments: [
     {
       id: 'cloud',
-      k: 'Dosco Cloud',
+      k: 'Kortix Cloud',
       v: 'The managed service. We run the control plane and the compute; you run the company.',
     },
     {
@@ -413,10 +412,10 @@ export const posture = {
 } as const;
 
 /* ── disclosure ────────────────────────────────────────────────────────────
-   Grounded in docs/SECURITY.md. The mailbox is ALREADY published publicly on
+   The mailbox is ALREADY published publicly on
    /support (support/page.tsx), so naming it here adds no new exposure, and the
-   three timelines below are that document's policy quoted exactly.
-   ⚠️ BEFORE THIS PAGE GOES LIVE: docs/SECURITY.md marks security@kortix.com as
+   three timelines below are the security disclosure policy, quoted exactly.
+   ⚠️ BEFORE THIS PAGE GOES LIVE: security@kortix.com is
    a PLACEHOLDER that "must be created and monitored before this policy is
    published externally". Confirm the mailbox is real and watched, or cut the
    SLA rows — publishing a 3-day acknowledgement against an unread inbox is
@@ -425,7 +424,7 @@ export const disclosure = {
   eyebrow: 'Responsible disclosure',
   title: 'Found something? Tell us privately.',
   sub: 'Please do not open a public issue for a vulnerability. Mail the security contact with the affected version or commit, the reproduction, and the impact.',
-  email: 'security@dosco.live',
+  email: 'security@kortix.com',
   slas: [
     { k: 'Acknowledgement', v: 'Within 3 business days' },
     { k: 'Triage & severity', v: 'Within 5 business days' },

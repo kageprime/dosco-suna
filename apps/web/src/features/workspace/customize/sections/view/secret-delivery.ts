@@ -29,8 +29,7 @@ export type ConnectorBindingOption = {
  *
  * The page used to ask a different question: pick one of five DELIVERY
  * mechanisms (Sandbox / Network boundary / HTTPS broker / LLM gateway /
- * Connector). That list folded two independent axes into one control
- * (docs/specs/2026-08-19-secrets-exposure-usage-model.md §2): WHO spends the
+ * Connector). That list folded two independent axes into one control: WHO spends the
  * value, and WHETHER the sandbox can read it. `ANTHROPIC_API_KEY` is spent by
  * the LLM gateway AND legitimately by agent code, so no single item on that
  * list described it.
@@ -1020,6 +1019,8 @@ export function canSaveSecretDelivery(input: {
   nextConsumer: SecretConsumer | null;
   enforcedPolicyValid: boolean;
   selectedConnectorCount?: number;
+  /** Who can use the value changed — saving that alone is a real edit. */
+  audienceChanged?: boolean;
 }): boolean {
   const hasValue = Boolean(input.value.trim());
   if (!input.isEdit && !input.key.trim()) return false;
@@ -1042,5 +1043,10 @@ export function canSaveSecretDelivery(input: {
     return false;
   }
   if (input.nextStrategy === 'broker') return true;
-  return !input.isEdit || hasValue || input.nextStrategy !== input.currentStrategy;
+  return (
+    !input.isEdit ||
+    hasValue ||
+    input.nextStrategy !== input.currentStrategy ||
+    input.audienceChanged === true
+  );
 }

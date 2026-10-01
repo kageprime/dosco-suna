@@ -2,7 +2,7 @@ import type { Database } from '@kortix/db';
 import { config } from '../config';
 import { DEFAULT_AUDIT_POOL_MAX } from './database-capacity';
 import { db } from './db';
-import { errorSqlstate } from './error-cause';
+import { errorSqlstate, isAuditContentionError } from './error-cause';
 
 /**
  * The dedicated audit-write pool.
@@ -27,16 +27,6 @@ import { errorSqlstate } from './error-cause';
  * and the queue behind it drains 4x faster. statement_timeout still covers the
  * non-lock case.
  *
- * TIMEOUT MECHANISM (pooler incident, 2026-09-18): the 10s/2.5s caps used to
- * ride as connection startup parameters. Supavisor transaction mode rejects
- * those (08P01), so they now inherit the role-level `statement_timeout`
- * (25s, see createDb in @kortix/db) on every backend, pooled or direct. The
- * audit convoy still drains via 57014 contention handling — at the 25s budget
- * instead of 10s — and 55P03 lock diagnostics go dormant without a
- * lock_timeout. The constants below document the detector's assumptions and
- * stay asserted by audit-db.test.ts; re-tighten them only with a
- * pooler-compatible mechanism (role GUCs are role-wide, not per-pool).
- *
  * Use ONLY for the audit event queue flush, OpenCode audit ingestion, and
  * gateway_request_logs writes (whose trigger fans out an audit row). Never route
  * auth/app/billing queries here.
@@ -49,11 +39,14 @@ function intFromEnv(name: string, fallback: number): number {
 }
 
 const AUDIT_POOL_MAX = intFromEnv('DB_AUDIT_POOL_MAX', DEFAULT_AUDIT_POOL_MAX);
-// Documented intent for the contention detector (see above); enforcement is
-// the role-level statement_timeout, NOT startup params (Supavisor rejects
-// those — 08P01). Kept exported: audit-db.test.ts asserts the relationship.
 export const AUDIT_STATEMENT_TIMEOUT_MS_DEFAULT = 10_000;
+/** The resolved audit-pool statement timeout (env `DB_AUDIT_STATEMENT_TIMEOUT_MS`). */
+export const AUDIT_STATEMENT_TIMEOUT_MS = intFromEnv(
+  'DB_AUDIT_STATEMENT_TIMEOUT_MS',
+  AUDIT_STATEMENT_TIMEOUT_MS_DEFAULT,
+);
 export const AUDIT_LOCK_TIMEOUT_MS_DEFAULT = 2_500;
+const AUDIT_LOCK_TIMEOUT_MS = intFromEnv('DB_AUDIT_LOCK_TIMEOUT_MS', AUDIT_LOCK_TIMEOUT_MS_DEFAULT);
 
 let dedicatedPool: Database | null = null;
 function dedicated(): Database {
@@ -63,10 +56,12 @@ function dedicated(): Database {
     // tests that mock '@kortix/db' without createDb would SyntaxError on a
     // load-time value import. Resolving it here keeps them untouched.
     const { createDb } = require('@kortix/db') as typeof import('@kortix/db');
-    // No per-pool GUCs here: Supavisor transaction mode rejects connection
-    // startup parameters, so timeouts come from the role-level default.
     dedicatedPool = createDb(config.DATABASE_URL, {
       max: AUDIT_POOL_MAX,
+      connection: {
+        statement_timeout: AUDIT_STATEMENT_TIMEOUT_MS,
+        lock_timeout: AUDIT_LOCK_TIMEOUT_MS,
+      },
     });
   }
   return dedicatedPool;
@@ -90,66 +85,12 @@ export function auditDb(): Database {
 }
 
 /**
- * PostgreSQL SQLSTATEs that mean "another writer holds what this one needs",
- * not "this write is wrong".
- *
- * `audit_prepare_event` serializes every row of a session behind one
- * `audit_session_sequences` row lock held to COMMIT, so a burst on one session
- * turns into a lock queue. On the audit pool that queue surfaces as 57014
- * (statement_timeout, the SampleCo signature: 445 x 500 in 3h, each at ~10s)
- * or — since `lock_timeout` was added — 55P03 at ~2.5s. Callers must report
- * these as retryable backpressure, never as a 500: a 500 makes the sandbox
- * relay retry a batch that has already been rejected, which feeds the convoy
- * that caused it.
+ * The contention classifier now lives in `error-cause.ts` (dependency-free),
+ * re-exported here for existing callers: `audit-queue.ts`'s flush path must
+ * stay database-free the same way `errorSqlstate` does, and this module
+ * imports `./db`, which it cannot.
  */
-const AUDIT_CONTENTION_SQLSTATES = new Set([
-  '57014', // query_canceled — statement_timeout fired while queued on a lock
-  '55P03', // lock_not_available — lock_timeout fired
-  '40001', // serialization_failure
-  '40P01', // deadlock_detected
-  // ── The database went away, which is also not "this write is wrong". ──
-  //
-  // A restart, failover or connection recycle is the single largest source of
-  // audit write failures in production: `PostgresError: the database system is
-  // shutting down`, 21,102 exceptions across 244 users since 2026-07-04, of
-  // which 19,193 landed on ONE day (2026-08-14) and 142 in a 90-second window
-  // on 2026-09-09. Each one threw, answered 500, and dropped the batch — and a
-  // 500 is precisely what makes the sandbox relay re-send a batch on its flat
-  // retry, which is how the convoy re-forms after every restart.
-  //
-  // Retrying is the correct client behaviour for all of these: the batch is
-  // still in the relay's spool and the database is coming back. Answering 503
-  // with `Retry-After` says exactly that. Only errors that describe the DATA
-  // (a constraint, a bad value, a type) stay 500 — those must keep paging,
-  // because retrying them can never work.
-  '57P01', // admin_shutdown — "terminating connection due to administrator command"
-  '57P02', // crash_shutdown
-  '57P03', // cannot_connect_now — "the database system is shutting down/starting up"
-  '08000', // connection_exception
-  '08003', // connection_does_not_exist
-  '08006', // connection_failure — includes CONNECTION_CLOSED / ECONNREFUSED
-  '53300', // too_many_connections
-]);
-
-/**
- * Connection-class failures do not always carry a SQLSTATE.
- *
- * `postgres.js` raises `CONNECTION_CLOSED` / `CONNECTION_ENDED` and Node raises
- * `ECONNREFUSED` / `ECONNRESET` as `code` values that are not SQLSTATEs at all,
- * and prod carries all of them (`connect ECONNREFUSED 3.11.30.79:5432`, `write
- * CONNECTION_CLOSED db.…supabase.co:5432`). They mean the same thing as 08006
- * and must be retryable for the same reason.
- */
-const AUDIT_TRANSIENT_DRIVER_CODES = new Set([
-  'CONNECTION_CLOSED',
-  'CONNECTION_ENDED',
-  'CONNECTION_DESTROYED',
-  'CONNECTION_CONNECT_TIMEOUT',
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'EPIPE',
-  'ETIMEDOUT',
-]);
+export { isAuditContentionError };
 
 /**
  * The SQLSTATE behind a Drizzle write failure, or null.
@@ -160,23 +101,11 @@ const AUDIT_TRANSIENT_DRIVER_CODES = new Set([
  * be triaged: a unique violation, a statement timeout, a dead connection and a
  * NUL byte in jsonb all look identical. Mirrors `isAuditContentionError`'s walk
  * so the two always agree about which error they are describing.
- */
-/**
+ *
  * Kept as the audit-facing name; the walk itself lives in `error-cause` so the
  * database-free `audit-queue` can use the same rule without importing this
  * module (it pulls in `./db`, and the queue's tests depend on not doing that).
  */
 export function auditErrorSqlstate(error: unknown): string | null {
   return errorSqlstate(error);
-}
-
-export function isAuditContentionError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const code = (error as { code?: unknown }).code;
-  if (typeof code === 'string') {
-    if (AUDIT_CONTENTION_SQLSTATES.has(code)) return true;
-    if (AUDIT_TRANSIENT_DRIVER_CODES.has(code)) return true;
-  }
-  const cause = (error as { cause?: unknown }).cause;
-  return cause != null && cause !== error ? isAuditContentionError(cause) : false;
 }

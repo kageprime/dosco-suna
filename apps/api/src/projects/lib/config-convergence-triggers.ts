@@ -1,6 +1,5 @@
 /**
- * Convergence triggers (docs/specs/config-releases.md, "Convergence
- * triggers"): a base branch moved by an API write, and a push to the base
+ * Convergence triggers: a base branch moved by an API write, and a push to the base
  * branch through the git proxy. Each one only schedules
  * `convergeSessionConfig`; neither ends or delays a turn.
  *
@@ -248,4 +247,10 @@ export function pushedBaseCandidates(updates: ReadonlyArray<{ ref: string; newSh
 /** A push through the git proxy succeeded. Never throws, never waits. */
 export function notifyPushedRefs(projectId: string, updates: ReadonlyArray<{ ref: string; newSha: string }>): void {
   for (const branch of pushedBaseCandidates(updates)) notifyBaseBranchMoved(projectId, branch, 'git-push');
+  // A pushed session branch is not a base move, but a read at that branch must
+  // see it now, not after the 60 s mirror interval. Drop the local marker only:
+  // no broadcast (hot path: every agent push), other replicas use the read fallback.
+  if (updates.some((u) => u.ref.startsWith('refs/heads/') && isUuid(u.ref.slice('refs/heads/'.length)))) {
+    invalidateProjectMirror(projectId);
+  }
 }

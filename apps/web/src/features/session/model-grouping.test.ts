@@ -3,21 +3,21 @@ import { describe, expect, test } from 'bun:test';
 import { buildPickerSections, isPickerGroupOpen, modelItemValue, pickerGroupId, pickerGroupLabel, splitModelLabel } from './model-grouping';
 import type { FlatModel } from './session-chat-input';
 
-// Regression coverage for the "every provider shows as Dosco" picker bug.
+// Regression coverage for the "every provider shows as Kortix" picker bug.
 //
 // Root cause: the gateway exposes its ENTIRE catalog under one synthetic
 // `kortix` opencode provider. `pickerGroupId` always correctly split the
 // grouping KEY out of the wire model id, but the group's DISPLAY LABEL was
 // built from `model.providerName` — which is opencode's raw provider name,
-// ALWAYS "Dosco" for every model, since there is only one registered
+// ALWAYS "Kortix" for every model, since there is only one registered
 // provider. So the icon rendered under the right provider but every group's
-// text label still read "Dosco". The fix is two-fold: prefer the explicit
+// text label still read "Kortix". The fix is two-fold: prefer the explicit
 // `provider` field the gateway now serves (never string-split when it's
 // present) for the grouping key, AND resolve the display label from
 // PROVIDER_LABELS keyed by that REAL id — never from the raw providerName.
 function model(partial: Partial<FlatModel> & Pick<FlatModel, 'providerID' | 'modelID'>): FlatModel {
   return {
-    providerName: 'Dosco',
+    providerName: 'Kortix',
     modelName: partial.modelID,
     ...partial,
   };
@@ -69,16 +69,21 @@ describe('pickerGroupId', () => {
 });
 
 describe('pickerGroupLabel — THE actual display-name bug fix', () => {
-  test('labels an Anthropic BYOK group "Anthropic", never the raw (always-"Dosco") providerName', () => {
+  test('labels an OpenCode Go gateway model with its connected provider, not Kortix or Zen', () => {
+    const m = model({ providerID: 'kortix', modelID: 'opencode-go/glm-4.7', provider: 'opencode-go' });
+    expect(pickerGroupId(m)).toBe('opencode-go');
+    expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('OpenCode Go');
+  });
+  test('labels an Anthropic BYOK group "Anthropic", never the raw (always-"Kortix") providerName', () => {
     const m = model({
       providerID: 'kortix',
       modelID: 'anthropic/claude-opus-4-8',
       provider: 'anthropic',
-      providerName: 'Dosco', // what opencode's raw provider object always reports
+      providerName: 'Kortix', // what opencode's raw provider object always reports
     });
     const groupID = pickerGroupId(m);
     expect(pickerGroupLabel(groupID, m)).toBe('Anthropic');
-    expect(pickerGroupLabel(groupID, m)).not.toBe('Dosco');
+    expect(pickerGroupLabel(groupID, m)).not.toBe('Kortix');
   });
 
   test('labels an OpenAI BYOK group "OpenAI"', () => {
@@ -86,20 +91,20 @@ describe('pickerGroupLabel — THE actual display-name bug fix', () => {
     expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('OpenAI');
   });
 
-  test('labels the managed group "Dosco" (correctly, since it really is Dosco)', () => {
+  test('labels the managed group "Kortix" (correctly, since it really is Kortix)', () => {
     const m = model({ providerID: 'kortix', modelID: 'claude-opus-4.8' });
-    expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('Dosco');
+    expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('Kortix');
   });
 
   test('falls back to the raw providerName for a truly unrecognized provider id', () => {
     const m = model({
       providerID: 'kortix',
       modelID: 'some-new-provider/some-model',
-      providerName: 'Dosco',
+      providerName: 'Kortix',
     });
     // No PROVIDER_LABELS entry for "some-new-provider" -> falls back to
     // model.providerName rather than showing an ugly raw id.
-    expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('Dosco');
+    expect(pickerGroupLabel(pickerGroupId(m), m)).toBe('Kortix');
   });
 });
 
@@ -107,8 +112,8 @@ describe('pickerGroupLabel — THE actual display-name bug fix', () => {
 // and Bedrock wire ids are DOT-namespaced (`us.anthropic.claude-opus-4-8`),
 // so there is no "/" to split on — the explicit `provider` field is the ONLY
 // way to group them. PROVIDER_LABELS was missing the `amazon-bedrock` key, so
-// the label lookup fell through to `providerName` ("Dosco") and the whole
-// BYOK Bedrock group rendered as "Dosco" while showing the Bedrock icon.
+// the label lookup fell through to `providerName` ("Kortix") and the whole
+// BYOK Bedrock group rendered as "Kortix" while showing the Bedrock icon.
 describe('BYOK Bedrock grouping (dot-namespaced ids)', () => {
   const bedrockModelIDs = [
     'us.anthropic.claude-opus-4-8',
@@ -137,7 +142,7 @@ describe('BYOK Bedrock grouping (dot-namespaced ids)', () => {
 
   test('WITHOUT the explicit provider field a dot-namespaced id degrades to kortix', () => {
     // Documents exactly why `provider` must survive the wire: there is no "/"
-    // to recover the real provider from, so the label would read "Dosco".
+    // to recover the real provider from, so the label would read "Kortix".
     const m = model({ providerID: 'kortix', modelID: 'us.anthropic.claude-opus-4-8' });
     expect(pickerGroupId(m)).toBe('kortix');
   });

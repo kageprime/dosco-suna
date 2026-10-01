@@ -13,6 +13,7 @@ import { testRender } from '@opentui/react/test-utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 
+import type { ResolvedHost } from '../../auth/hosts.ts';
 import {
   COMPOSER_CHROME_ROWS,
   OVERLAY_RESERVE_ROWS,
@@ -27,6 +28,15 @@ import {
   transcriptRows,
 } from './session-view.tsx';
 import { fakeSession, message, textPart } from './transcript/test-session.ts';
+
+const HOST: ResolvedHost = {
+  name: 'local',
+  backendUrl: 'http://localhost:17408/v1',
+  token: 'test-token',
+  accountId: 'acc-1',
+  userEmail: 'dev@kortix.test',
+  source: 'config',
+};
 
 describe('row budget', () => {
   test('a one-line composer reserves its chrome plus one row', () => {
@@ -82,6 +92,8 @@ describe('phaseGlyph and focusHints', () => {
   });
 });
 
+const PI_CAPABILITIES = ['file.import', 'session.subagents'];
+
 async function mount(focus: SessionFocus | null, overrides: Record<string, unknown> = {}) {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const session = fakeSession({
@@ -96,12 +108,15 @@ async function mount(focus: SessionFocus | null, overrides: Record<string, unkno
     ...overrides,
   });
   const useSessionImpl = mock(() => session);
+  const readHealth = mock(async () => ({ health: { capabilities: PI_CAPABILITIES } }));
+  const onCapabilities = mock((_capabilities: readonly string[] | null) => {});
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0 } },
   });
   const setup = await testRender(
     <QueryClientProvider client={queryClient}>
       <SessionView
+        host={HOST}
         projectId="p1"
         sessionId="s1"
         title="Casual greeting"
@@ -115,6 +130,8 @@ async function mount(focus: SessionFocus | null, overrides: Record<string, unkno
         onCommand={() => {}}
         onToast={() => {}}
         useSessionImpl={useSessionImpl as never}
+        readHealth={readHealth as never}
+        onCapabilities={onCapabilities}
       />
     </QueryClientProvider>,
     { width: 120, height: 25 },
@@ -127,7 +144,7 @@ async function mount(focus: SessionFocus | null, overrides: Record<string, unkno
     await new Promise((resolve) => setTimeout(resolve, 600));
   });
   await setup.flush();
-  return { ...setup, useSessionImpl };
+  return { ...setup, useSessionImpl, readHealth, onCapabilities };
 }
 
 describe('SessionView', () => {
@@ -138,6 +155,20 @@ describe('SessionView', () => {
     const calls = useSessionImpl.mock.calls as unknown as [string, string][];
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.every((call) => call[0] === 'p1' && call[1] === 's1')).toBe(true);
+    renderer.destroy();
+  });
+
+  test('reads the runtime capabilities once it is up and hoists them', async () => {
+    const { readHealth, onCapabilities, renderer } = await mount('composer');
+    expect(readHealth.mock.calls as unknown[]).toEqual([['p1', 's1']]);
+    expect(onCapabilities.mock.calls.at(-1)).toEqual([PI_CAPABILITIES]);
+    renderer.destroy();
+  });
+
+  test('a runtime that is not up yet is not asked for its capabilities', async () => {
+    const { readHealth, onCapabilities, renderer } = await mount('composer', { switched: false });
+    expect(readHealth).not.toHaveBeenCalled();
+    expect(onCapabilities.mock.calls.at(-1)).toEqual([null]);
     renderer.destroy();
   });
 

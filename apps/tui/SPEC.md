@@ -17,7 +17,7 @@ Status: **experimental**. Not in the release CLI bundle. Run from the repo.
    with raw `fetch`, never imports `@opencode-ai/sdk`, never hand-rolls
    transport. Missing capability → add it to the SDK (load the `sdk` skill:
    TDD, three synchronized edits per new export, no version bump).
-2. One client per host: `createKortix({ backendUrl, getToken, clientSource: 'tui' })`
+2. One client per host: `createKortix({ backendUrl, getToken })`
    created once at boot. Auth is `getToken` only.
 3. A whole session is one hook: `useSession(projectId, sessionId)` from
    `@kortix/sdk/react`. No separate `/start` driver, no separate SSE provider,
@@ -65,6 +65,8 @@ new entry here, decided deliberately:
 | `src/web-url.ts` | `webDashboardUrl` — the billing/settings link the TUI prints instead of running checkout | `features/account/account-screen.tsx` |
 | `src/attach-opencode.ts` | `attachOpenCodeSession`, `AttachOpenCodeError` — SPEC §5.11's seam | `features/attach` |
 | `src/api/auth.ts` | `Auth`, the type that seam takes | `features/attach` |
+| `src/port-forward.ts` | `startPortForward`, `PortForwardError`, `PortForwardDeps` — the same engine `kortix sessions forward` runs | `features/ports` |
+| `src/session-runtime.ts` | `SessionRuntimeError` — to detect a stopped session and print the `sessions restart` remedy | `features/ports` |
 
 pnpm note: `minimumReleaseAge` is 72 h; `@opentui/*` 0.5.11 was published
 2026-09-07 and resolves. Add nothing to `onlyBuiltDependencies` unless install
@@ -366,8 +368,9 @@ never patch around it in the TUI.
 
 ## 9. Delivery
 
-- Branch `tui`, worktree `../suna-tui`. Draft PR against `main` with the
-  `preview` label on the first commit. Merge only on explicit approval.
+- Branch `tui`, worktree `../suna-tui`. PR against `main` once verified in
+  the local box. Self-merge when verified (AGENTS.md "Default delivery",
+  rule 5).
 - Docs: `apps/tui/README.md` and a docs page under
   `apps/web/content/docs/` (follow the timestamp-manifest rule from memory
   `new-docs-page-needs-timestamp-manifest`).

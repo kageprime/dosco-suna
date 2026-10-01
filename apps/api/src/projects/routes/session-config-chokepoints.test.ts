@@ -25,7 +25,7 @@ const RELOAD = handlerSource('post', '/{projectId}/sessions/{sessionId}/reload')
 
 describe('GET /config authorizes before it reads session state', () => {
   test('it asserts the session-read leaf, not only the coarse access level', () => {
-    const load = CONFIG.indexOf("loadProjectForUser(c, projectId, 'session')");
+    const load = CONFIG.indexOf("resolveSessionBinding(c, projectId, sessionId, 'session')");
     const leaf = CONFIG.indexOf('PROJECT_ACTIONS.PROJECT_SESSION_READ');
     const read = CONFIG.indexOf('readSandboxConfigState(');
     expect(load).toBeGreaterThan(-1);
@@ -37,6 +37,13 @@ describe('GET /config authorizes before it reads session state', () => {
     expect(CONFIG).toContain('const releasesEnabled = configReleasesEnabled(loaded.row.metadata)');
     expect(CONFIG.indexOf('const releasesEnabled')).toBeLessThan(CONFIG.indexOf('resolveDesiredRelease('));
     expect(CONFIG).toContain('if (releasesEnabled && running.configReleases && running.release)');
+  });
+
+  test('the release resolve never refreshes the mirror a second time (KRTX-629)', () => {
+    // The etag compile above it already invalidated + fetched the mirror in
+    // THIS request. `resolveDesiredRelease` must not drop the stamp again:
+    // that made every read of this polled route pay a second `git fetch`.
+    expect(CONFIG).toContain('refreshProjectMirror: false');
   });
 });
 
@@ -78,6 +85,28 @@ describe('the read decides the agent re-point exactly as the assignment does', (
   });
 });
 
+describe('the managed-model catalog is visible on GET /config regardless of releases', () => {
+  // 2026-09-26: a stale box's catalog was invisible everywhere except a daemon
+  // log line. `managed_catalog` closes that — computed ONCE, spread into BOTH
+  // branches, so a project with config releases off still sees it.
+  test('computed once, before the releases-flag branch, from the same read', () => {
+    const computed = CONFIG.indexOf('const managedCatalog = {');
+    const read = CONFIG.indexOf('readSandboxConfigState(');
+    const releasesBranch = CONFIG.indexOf(
+      'if (releasesEnabled && running.configReleases && running.release)',
+    );
+    expect(computed).toBeGreaterThan(read);
+    expect(computed).toBeLessThan(releasesBranch);
+    expect(CONFIG).toContain('running.runtime?.running?.managed_model_ids');
+    expect(CONFIG).toContain('running.runtime?.running?.managed_catalog_fallback_reason');
+  });
+
+  test('both response branches carry it — the release path and the pre-release path', () => {
+    const occurrences = CONFIG.split('managed_catalog: managedCatalog').length - 1;
+    expect(occurrences).toBe(2);
+  });
+});
+
 describe('the reload route still protects a running turn', () => {
   test('a mid-turn reload is refused 409 SESSION_BUSY unless forced', () => {
     expect(RELOAD).toContain("result.reason === 'session is mid-turn'");
@@ -93,5 +122,13 @@ describe('the reload route still protects a running turn', () => {
     const reload = RELOAD.indexOf('reloadSessionConfig({');
     expect(gate).toBeGreaterThan(-1);
     expect(gate).toBeLessThan(reload);
+  });
+});
+
+describe('GET /config deadline attribution', () => {
+  test('records pending stages without identity', () => {
+    for (const stage of ['project_access', 'session_access', 'sandbox_state', 'latest_etag', 'desired_release', 'runtime_block']) {
+      expect(CONFIG).toContain(`timeConfigStage('${stage}'`);
+    }
   });
 });

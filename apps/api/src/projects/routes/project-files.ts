@@ -15,10 +15,14 @@ import {
   readRepoFile,
   searchRepoFileNames,
 } from '../git';
+// From the leaf, not the barrel: suites that stub '../git' by listing its
+// exports would otherwise lose these names and fail at import.
+import { BRANCH_LIST_MAX_LIMIT, filterBranchesForResponse } from '../git/branches';
 import { createRoute, z } from '@hono/zod-openapi';
 import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { resourceDenierForRequest } from '../lib/project-resources';
 import { CommitSchema, projectsApp } from '../lib/app';
+import { isGitRefNotFoundError } from '../git/mirror';
 import { withProjectGitAuth } from '../lib/git';
 import { normalizeString } from '../lib/serializers';
 
@@ -34,7 +38,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/files',
     tags: ['files'],
-    summary: 'GET /:projectId/files',
+    summary: 'List files in the project repository',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -54,7 +58,7 @@ projectsApp.openapi(
   const gitProject = await withProjectGitAuth(loaded.row);
   let files: Awaited<ReturnType<typeof listRepoFiles>> = [];
   try {
-    files = await listRepoFiles(gitProject, c.req.query('ref') || loaded.row.defaultBranch, c.req.query('path'));
+    files = await listRepoFiles(gitProject, c.req.query('ref') || loaded.row.defaultBranch, c.req.query('path'), { freshOnMiss: true });
   } catch (error) {
     console.warn('[projects] repo file listing unavailable', {
       projectId,
@@ -84,7 +88,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/files/archive',
     tags: ['files'],
-    summary: 'GET /:projectId/files/archive',
+    summary: 'Download the project repository as an archive',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -147,7 +151,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/files/search',
     tags: ['files'],
-    summary: 'GET /:projectId/files/search',
+    summary: 'Search files in the project repository',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -211,7 +215,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/files/content',
     tags: ['files'],
-    summary: 'GET /:projectId/files/content',
+    summary: 'Read a file from the project repository',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -250,9 +254,10 @@ projectsApp.openapi(
 
   const ref = c.req.query('ref') || loaded.row.defaultBranch;
   try {
-    const content = await readRepoFile(await withProjectGitAuth(loaded.row), path, ref);
+    const content = await readRepoFile(await withProjectGitAuth(loaded.row), path, ref, { freshOnMiss: true });
     return c.json({ path, ref, content });
   } catch (error) {
+    if (isGitRefNotFoundError(error)) return c.json({ error: 'ref not found' }, 404);
     // `readRepoFile` converts a `git show` "path does not exist" failure into a
     // typed `RepoFileNotFoundError` (message: `file not found in repository at
     // '<ref>:<path>'`), which the `isMissingGitPathError` regex below does NOT
@@ -275,7 +280,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/files/history',
     tags: ['files'],
-    summary: 'GET /:projectId/files/history',
+    summary: 'List the commit history of a file',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -326,17 +331,30 @@ projectsApp.openapi(
 },
 );
 
-// GET /v1/projects/:projectId/branches
+// GET /v1/projects/:projectId/branches?q=...&limit=...&include_session_branches=...
+//
+// A project's remote can carry thousands of auto-created session branches —
+// createRemoteSessionBranch names each one after the session's own UUID (see
+// ../git/branches.ts). The response is capped (default 500, the default
+// branch always kept). Session branches stay in by default — the Files
+// version selector and the change-request head picker list them on purpose —
+// and `include_session_branches=false` drops them for a default-branch picker.
 
 projectsApp.openapi(
   createRoute({
     method: 'get',
     path: '/{projectId}/branches',
     tags: ['files'],
-    summary: 'GET /:projectId/branches',
+    summary: 'List repository branches',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
+        query: z.object({
+          q: z.string().optional(),
+          limit: z.coerce.number().int().min(1).max(BRANCH_LIST_MAX_LIMIT).optional(),
+          // Not z.coerce.boolean(): Boolean('false') is true.
+          include_session_branches: z.enum(['true', 'false']).optional(),
+        }),
       },
     responses: {
         200: json(z.any(), 'OK'),
@@ -349,8 +367,21 @@ projectsApp.openapi(
   if (!loaded) return c.json({ error: 'Not found' }, 404);
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_GITOPS_READ);
 
+  const query = c.req.valid('query');
   try {
-    const branches = await listBranches(await withProjectGitAuth(loaded.row));
+    const includeSessionBranches = query.include_session_branches !== 'false';
+    // Only the web's Files and Git views send `include_session_branches=false`;
+    // they may show a listing up to 5 min old (`branch-list-cache.ts`). Every
+    // caller that omits it (CLIs, sandboxes, the change-request picker) keeps
+    // reading the upstream live.
+    const allBranches = await listBranches(await withProjectGitAuth(loaded.row), {
+      allowRecent: !includeSessionBranches,
+    });
+    const branches = filterBranchesForResponse(allBranches, {
+      q: query.q,
+      limit: query.limit,
+      includeSessionBranches,
+    });
     return c.json({
       default_branch: loaded.row.defaultBranch,
       branches,
@@ -373,7 +404,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/commits',
     tags: ['files'],
-    summary: 'GET /:projectId/commits',
+    summary: 'List repository commits',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -411,7 +442,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/commits/{sha}',
     tags: ['files'],
-    summary: 'GET /:projectId/commits/:sha',
+    summary: 'Get a repository commit',
     ...auth,
       request: {
         params: z.object({ projectId: z.string(), sha: z.string() }),
@@ -446,7 +477,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/commits/{sha}/diff',
     tags: ['files'],
-    summary: 'GET /:projectId/commits/:sha/diff',
+    summary: 'Get the diff of a commit',
     ...auth,
       request: {
         params: z.object({ projectId: z.string(), sha: z.string() }),
@@ -486,7 +517,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/version-diff',
     tags: ['files'],
-    summary: 'GET /:projectId/version-diff',
+    summary: 'Compare two repository versions',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),

@@ -100,7 +100,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/sandboxes',
     tags: ['sandboxes'],
-    summary: 'GET /:projectId/sandboxes',
+    summary: 'List project sandboxes',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -143,7 +143,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/snapshots',
     tags: ['sandboxes'],
-    summary: 'GET /:projectId/snapshots',
+    summary: 'List project sandbox snapshots',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -251,18 +251,24 @@ async function buildSandboxHealth(
   loaded: NonNullable<Awaited<ReturnType<typeof loadProjectForUser>>>,
   projectId: string,
 ): Promise<SandboxHealthPayload> {
-  const project = await loadGitProject(loaded);
   const observation = templateProviderObservation(loaded.row.metadata);
+  // The build-log DB read needs only `projectId` — it has no dependency on
+  // git-auth resolution or the provider template lookup, so start it
+  // concurrently with them instead of after (measured prod: db 387ms/14,
+  // git 742ms/15, http 180ms/1 — all previously serial). Each leg keeps its
+  // own catch so one degrading independently never blocks the other.
+  const buildsPromise = listSnapshotBuilds(projectId, { limit: 10 }).catch(() => []);
   let templates: Awaited<ReturnType<typeof listSandboxTemplates>> = [];
   try {
     // Repo unreachable / manifest broken / provider slow — render as "no
     // templates" rather than failing the whole poll. Each adapter owns its
     // provider-call timeout.
+    const project = await loadGitProject(loaded);
     templates = await listSandboxTemplates(project, observation.listOptions);
   } catch {
     /* no templates */
   }
-  const builds = await listSnapshotBuilds(projectId, { limit: 10 }).catch(() => []);
+  const builds = await buildsPromise;
   const resolved = projectSandboxStatus({
     templates,
     builds,
@@ -305,11 +311,23 @@ async function buildSandboxHealth(
  *
  * Keyed by project because the template set, its content hash and the provider
  * pin are all per-project.
+ *
+ * Stale-while-revalidate (2026-09-28): the client re-polls this at 120 s when
+ * idle (8 s while a build is active), so a 10 s TTL expires long before the
+ * next poll and the live provider probe ran on nearly every request. Prod
+ * ClickHouse showed the cost: in the hour of KRTX-620 this route's p95 was
+ * 8 616 ms over 114 requests while every other GET route's p95 was 1 025 ms.
+ * The route now serves the last resolved answer at once and refreshes behind
+ * the response (`staleWhileRevalidate`) — the provider's tail never lands on
+ * the request path after the first poll per project. Freshness is unchanged:
+ * the alert reads a value at most one refresh cycle old, exactly what the TTL
+ * contract above promises.
  */
 const SANDBOX_HEALTH_TTL_MS = 10_000;
 
 const sandboxHealthMemo = ttlMemo({
   ttlMs: SANDBOX_HEALTH_TTL_MS,
+  staleWhileRevalidate: true,
   keyFn: (_loaded: NonNullable<Awaited<ReturnType<typeof loadProjectForUser>>>, projectId: string) =>
     projectId,
   loader: (loaded, projectId) => buildSandboxHealth(loaded, projectId),
@@ -332,7 +350,7 @@ projectsApp.openapi(
     method: 'get',
     path: '/{projectId}/sandbox-health',
     tags: ['sandboxes'],
-    summary: 'GET /:projectId/sandbox-health',
+    summary: 'Get project sandbox health',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -374,7 +392,7 @@ projectsApp.openapi(
     method: 'post',
     path: '/{projectId}/snapshots/rebuild',
     tags: ['sandboxes'],
-    summary: 'POST /:projectId/snapshots/rebuild',
+    summary: 'Rebuild the project sandbox snapshot',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
@@ -474,7 +492,7 @@ projectsApp.openapi(
     method: 'post',
     path: '/{projectId}/snapshots/fix-with-agent',
     tags: ['sandboxes'],
-    summary: 'POST /:projectId/snapshots/fix-with-agent',
+    summary: 'Ask an agent to fix a failing snapshot build',
     ...auth,
       request: {
         params: z.object({ projectId: z.string() }),

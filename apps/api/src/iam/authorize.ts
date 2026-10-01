@@ -209,7 +209,6 @@ async function authorizeDecision(actor: Actor, action: string, obj: Obj): Promis
   // session IS the agent: grant ∩ ceiling − HUMAN_ONLY. The launcher's role and
   // super-admin bit never reach this point — the principal is the agent's
   // service account (actingPrincipal), so step 5 above cannot fire for it.
-  // Spec docs/specs/2026-09-22-agents-as-principals.md §2.1.
   if (actor.credential.kind === 'agent_session' && actor.credential.agentPrincipal && binding?.agentGrant) {
     const grant = binding.agentGrant;
     const target = obj.type === 'project' ? obj.id : null;
@@ -832,13 +831,15 @@ export function customRoleAllows(
  * FIRST grant flips that — an empty map read afterwards on a replica that has
  * not seen the write means "still open to everyone", which is a stale
  * over-grant for anyone the new grant was meant to exclude, not a harmless
- * stale negative. `skill`/`secret`/`app`/`trigger` are OPEN by unscoped
- * default and have no per-object grant writer today, so their empty map can
- * never go stale and stays cache-eligible. Kept as a constant here because the
+ * stale negative. `secret` is the same case: a value's audience (keyed by
+ * `secret_id`, `projects/lib/secret-audience.ts`) is open until its first
+ * grant. `skill`/`app`/`trigger` are OPEN by unscoped default and have no
+ * per-object grant writer today, so their empty map can never go stale and
+ * stays cache-eligible. Kept as a constant here because the
  * memo's caching rule must not itself depend on a DB read;
  * `unscopedDefaultFor` stays the source of truth for the VERDICT.
  */
-const NEVER_CACHE_EMPTY_OBJECT_TYPES: ReadonlySet<string> = new Set(['agent', 'connection']);
+const NEVER_CACHE_EMPTY_OBJECT_TYPES: ReadonlySet<string> = new Set(['agent', 'connection', 'secret']);
 
 interface ObjectGrantPrincipal {
   principalType: string;

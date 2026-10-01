@@ -68,6 +68,7 @@
  * entry names the release and the spec section that ends it.
  */
 import { config } from '../config';
+import { platinumUsRegion } from '../shared/platinum-region';
 import type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
 
 export type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
@@ -115,24 +116,10 @@ export interface FeatureFlagDef {
 /**
  * The registry. Order here is the order shown in Settings → Feature flags.
  *
- * agent_tunnel → connector: paired machines are selectable accounts inside a
- * regular `computer` connector profile. A profile can contain one or more
- * machines and uses the normal connector grant, policy, call, and audit paths.
- * Pairing does not auto-create project access. This flag gates the dedicated
- * fleet surface (Customize → Computers, device auth, and tunnel permissions).
- * Connector profiles remain API-managed because tunnel ids do not belong in
- * repository configuration. See docs/specs/computer-connector.md.
+ * Computers need no flag: a paired machine is an account on the project's
+ * `computer` connector. The platform-wide `TUNNEL_ENABLED` env is the only gate.
  */
 const FLAGS: readonly FeatureFlagDef[] = [
-  {
-    key: 'session_transcript_history',
-    name: 'Session Transcript History',
-    description: 'Save chat history after each turn and show it from the database while the session computer starts.',
-    stability: 'experimental',
-    available: () => true,
-    platformDefault: () => false,
-    enforcement: 'behavioral',
-  },
   {
     key: 'marketplace',
     name: 'Marketplace',
@@ -145,37 +132,22 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcement: 'routes',
   },
   {
-    key: 'agent_tunnel',
-    name: 'Agent Computer Tunnel',
-    description:
-      'Let agents securely reach a local machine — files, shell, and desktop control — over a permissioned reverse tunnel. Connect a computer, then grant access per capability.',
-    stability: 'experimental',
-    // The backend service must be running platform-wide for the surface to work.
-    available: () => config.TUNNEL_ENABLED,
-    // Explicit opt-in: off by default even where the service is available.
-    platformDefault: () => false,
-    enforcement: 'ui-only',
-    enforcementNote:
-      'Tunnel state is account-scoped (device auth, machines) and the computer ' +
-      'connector deliberately materializes independent of this flag — see the ' +
-      'registry header. The platform-wide TUNNEL_ENABLED env is the hard gate.',
-  },
-  {
     key: 'connectors_api_discover',
     name: 'Connectors API Discover',
     description:
-      'Browse direct API, MCP, GraphQL, CLI, and Postman surfaces alongside optional Pipedream OAuth apps. The catalog and setup experience are still experimental.',
-    stability: 'experimental',
+      'Browse direct API, MCP, GraphQL, CLI, and Postman surfaces without requiring a managed provider.',
+    stability: 'beta',
     available: () => true,
-    // Explicit opt-in: Easy Connect remains the default connector marketplace.
-    platformDefault: () => false,
+    // The direct catalogue is available even when no managed provider is configured.
+    // Explicit project overrides still provide a rollback path.
+    platformDefault: () => true,
     enforcement: 'routes',
   },
   {
     key: 'agentmail_email',
     name: 'AgentMail Email',
     description:
-      'Assign AgentMail inbox connections to the agent so inbound email threads can start and continue Dosco sessions. Native email channels are still experimental.',
+      'Assign AgentMail inbox connections to the agent so inbound email threads can start and continue Kortix sessions. Native email channels are still experimental.',
     stability: 'experimental',
     available: () => true,
     // Explicit opt-in: hidden unless a project enables it in Settings.
@@ -186,7 +158,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'teams',
     name: 'Microsoft Teams',
     description:
-      'Connect a Microsoft Teams bot so chats and channels can start and continue Dosco sessions. The install flow, org-catalog publishing, and bring-your-own-bot setup are still experimental.',
+      'Connect a Microsoft Teams bot so chats and channels can start and continue Kortix sessions. The install flow, org-catalog publishing, and bring-your-own-bot setup are still experimental.',
     stability: 'experimental',
     // Always listable. Server-side bot credentials (MICROSOFT_APP_ID /
     // MICROSOFT_APP_PASSWORD) only decide whether the MANAGED install path is
@@ -203,7 +175,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'llm_gateway',
     name: 'LLM Gateway',
     description:
-      'Route this project through the managed Dosco LLM gateway (managed models, metering, budgets). Off, the sandbox runs native OpenCode model management: your provider API keys are injected as ordinary env vars and models are native provider/model refs. Toggling refreshes active sandboxes either way.',
+      'Route this project through the managed Kortix LLM gateway (managed models, metering, budgets). Off, the sandbox runs native OpenCode model management: your provider API keys are injected as ordinary env vars and models are native provider/model refs. Toggling refreshes active sandboxes either way.',
     stability: 'experimental',
     // Master kill switch: when off, the feature disappears and every project
     // falls back to native OpenCode provider behavior.
@@ -251,7 +223,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'monitors',
     name: 'Monitors',
     description:
-      'Run 24/7 watchers from your repo that observe anything — logs, feeds, APIs — and fire trigger events into agent sessions. Runs on a persistent per-project monitor box. The contract is still experimental; see docs/specs/2026-08-12-monitors.md.',
+      'Run 24/7 watchers from your repo that observe anything — logs, feeds, APIs — and fire trigger events into agent sessions. Runs on a persistent per-project monitor box. The contract is still experimental.',
     stability: 'experimental',
     // Monitors need a provider that can run a persistent (never auto-stopped)
     // box. Only Platinum supports autoStop=0 — Daytona clamps auto-stop to
@@ -260,6 +232,19 @@ const FLAGS: readonly FeatureFlagDef[] = [
     available: () => Boolean(config.PLATINUM_API_KEY),
     // Explicit opt-in: off by default even where Platinum is available.
     platformDefault: () => false,
+    enforcement: 'routes',
+  },
+  {
+    key: 'reminders',
+    name: 'Reminders',
+    description:
+      'Let agents and people schedule check-ins on a session — "in 24 hours, check whether the vendor replied", once or on repeat. Each fire re-prompts that session. Adds the Reminders page, the session reminder chip, and `kortix remind` in the CLI.',
+    stability: 'beta',
+    available: () => true,
+    // Per-project opt-in while the surface settles.
+    platformDefault: () => false,
+    // Routes 403 `feature_disabled`; the scheduler also skips reminder rows of
+    // a project with the flag off (trigger-execution-store claimDueScheduleSlots).
     enforcement: 'routes',
   },
   {
@@ -288,7 +273,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'secrets_egress',
     name: 'Network-Enforced Secrets',
     description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Dosco substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
+      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
     stability: 'experimental',
     available: () => true,
     // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
@@ -331,7 +316,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'pi_harness',
     name: 'Pi Harness (in-sandbox)',
     description:
-      'Run sessions on the pi agent harness inside the ordinary session sandbox instead of OpenCode (KORTIX_HARNESS=pi in kortixd). Same repo layout, same agents and skills, same wire to the UI; pi starts in-process in ~100 ms after the checkout. On ⇒ every new or restarted session of this project boots pi. Off ⇒ the manifest decides: `runtime: pi` still boots pi, anything else boots OpenCode. Distinct from `pi_worker`, which is the split worker/environment topology.',
+      'Run sessions on the pi agent harness inside the ordinary session sandbox instead of OpenCode (KORTIX_HARNESS=pi in kortixd). Same repo layout, same agents and skills, same wire to the UI; pi starts in-process in ~100 ms after the checkout. On ⇒ every new or restarted session of this project boots pi. Off ⇒ the manifest decides: `runtime: pi` still boots pi, anything else boots OpenCode. pi calls models only through the LLM gateway: with `llm_gateway` off, sessions boot OpenCode. Distinct from `pi_worker`, which is the split worker/environment topology.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
@@ -344,11 +329,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'config_releases',
     name: 'Config Releases',
     description:
-      "Sessions run the base branch's current config. Dosco loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session. Off ⇒ OpenCode reads the session's workspace config dir, as it did before config releases.",
+      "Sessions run the base branch's current config. Kortix loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session, on OpenCode and on pi. Off ⇒ the session reads its config from its workspace checkout, as it did before config releases.",
     stability: 'experimental',
-    // Operator kill switch (config.ts CONFIG_RELEASES_ENABLED). Off ⇒ the
-    // Settings row disappears and the surface is dark for every project.
-    available: () => config.CONFIG_RELEASES_ENABLED,
+    available: () => true,
     // OFF by default until this is proven on real projects (Marko, 2026-09-24:
     // "its off for now, as its untested"). The behaviour it gates is the
     // intended one; the default is a rollout decision, not a design opinion.
@@ -365,7 +348,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'reloadSessionConfig takes the pre-release legacy path (session-reload.ts), ' +
       'and GET /config omits the `release` block (routes/session-config.ts). Off ⇒ ' +
       'no release is built, no archive is stored, and no kortix.config_releases ' +
-      'row is written. See docs/specs/config-releases.md → "Feature flag".',
+      'row is written.',
   },
   {
     key: 'agent_principal',
@@ -379,11 +362,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // different power per person, let an owner-launched agent ignore its own
     // grant entirely (super-admin short-circuit), and ran every unattended
     // trigger as the account owner. Switching a project OFF restores that old
-    // model as an escape hatch for one release; the switch is then deleted
-    // (spec docs/specs/2026-09-22-agents-as-principals.md §5).
+    // model as an escape hatch for one release; the switch is then deleted.
     platformDefault: () => true,
     // Not listed in Settings → Feature flags. An agent acting as itself is how
-    // Dosco works, not a choice we offer, so presenting a switch would invite
+    // Kortix works, not a choice we offer, so presenting a switch would invite
     // a project to turn the governance model off. Support can still put ONE
     // project back with `PATCH /projects/:id/features {agent_principal:false}`
     // while it migrates. Delete the flag — and this line — in the release after
@@ -395,6 +377,22 @@ const FLAGS: readonly FeatureFlagDef[] = [
       '(iam/agent-principal.ts agentPrincipalModeFor → iam/actor.ts actingPrincipal, ' +
       'iam/authorize.ts), the manual trigger fire and child-session run gates, and ' +
       'the change-request merge governance guard.',
+  },
+  {
+    key: 'us_region',
+    name: 'US Region',
+    description:
+      "Run this project's new sessions in Platinum's US East region instead of EU West. A running session keeps its region until it restarts. The first session after a new sandbox image waits while the image is copied to the region.",
+    stability: 'experimental',
+    // Two operator gates: Platinum must be the configured provider, and the
+    // environment must name the region (KORTIX_PLATINUM_US_REGION), which is
+    // also what says the Platinum org holds a grant for it. Unset ⇒ hidden.
+    available: () => Boolean(config.PLATINUM_API_KEY) && platinumUsRegion() !== null,
+    platformDefault: () => false,
+    // Read at provisioning (platform/services/session-sandbox.ts
+    // resolveSessionSandboxRegion) and sent as `region` on the Platinum
+    // create. Off ⇒ no region is sent and Platinum places in its home region.
+    enforcement: 'behavioral',
   },
 ];
 

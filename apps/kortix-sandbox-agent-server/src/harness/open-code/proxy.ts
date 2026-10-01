@@ -1,12 +1,12 @@
 import { requireOpenCodeConfig } from './config'
-import type { HarnessProxyService } from '../proxy'
+import type { HarnessProxyService } from '../contract/proxy'
 import { bootPhaseLabel } from './boot-phase'
-import { runtimeAssetsActivity } from '../../runtime-assets'
-import { logger } from '../../logger'
-import { isRepoMaterialized } from '../../git'
+import { runtimeAssetsActivity } from '@/services/runtime-assets/runtime-assets'
+import { logger } from '@/lib/log/logger'
+import { isRepoMaterialized } from '@/lib/git/git'
 import type { Opencode } from './lifecycle'
 import type { OpenCodeBootState } from './boot-state'
-import { stripInlineAttachmentBytes } from '../../inline-attachments'
+import { stripInlineAttachmentBytes } from '../shared/inline-attachments'
 import {
   abortTargetOf,
   loopStartTargetOf,
@@ -128,10 +128,10 @@ export function createOpenCodeProxyService(
         return notReady(
           {
             error: 'sandbox runtime not ready',
-            reason: 'initial_opencode_session_failed',
+            reason: 'initial_runtime_session_failed',
             message: bootState.initialOpenCodeSessionError,
           },
-          'initial_opencode_session_failed',
+          'initial_session_failed',
         )
       }
 
@@ -139,9 +139,9 @@ export function createOpenCodeProxyService(
         return notReady(
           {
             error: 'sandbox runtime not ready',
-            reason: 'initial_opencode_session_pending',
+            reason: 'initial_runtime_session_pending',
           },
-          'initial_opencode_session_pending',
+          'initial_session_pending',
         )
       }
 

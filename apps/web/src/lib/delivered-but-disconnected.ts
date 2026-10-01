@@ -6,7 +6,7 @@
  * while opencode is still working perfectly well:
  *
  *   - the sandbox daemon answers `502 {"error":"upstream unreachable"}` once its
- *     header wait elapses (`kortix-sandbox-agent-server/src/proxy.ts`)
+ *     header wait elapses (`kortix-sandbox-agent-server/src/app/server.ts`)
  *   - apps/api answers `504 LONG_TURN_PROXY_TIMEOUT`, or `502 sandbox upstream
  *     unreachable` on an ambiguous failure it explicitly believes was accepted
  *     (`promptDeliveryMaybeAccepted`, `sandbox-proxy/routes/preview.ts`)
@@ -60,6 +60,8 @@ const DELIVERED_BUT_DISCONNECTED = [
 const REFUSED_BEFORE_DELIVERY = [
   'opencode not ready',
   'sandbox runtime not ready',
+  'initial_runtime_session',
+  // A daemon built before W4 names the same refusal this way.
   'initial_opencode_session',
   'econnrefused',
   'connection refused',

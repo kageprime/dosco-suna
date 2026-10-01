@@ -33,11 +33,11 @@
  * `open-bundle` already carries the same discipline
  * (`session-open-bundle.ts:32-35`).
  */
-import { logger } from '../../logger'
+import { logger } from '@/lib/log/logger'
 import type { OpenCodeConfig as Config } from './config'
 import type { Opencode } from './lifecycle'
 import { OpencodeDb, isSupportedOpencodeVersion } from './opencode-db'
-import { kortixEventBus } from '../../kortix-event-bus'
+import { kortixEventBus } from '@/services/event-bus/kortix-event-bus'
 import {
   type AgentProjection,
   type CommandProjection,
@@ -77,6 +77,10 @@ export interface RuntimeStateDoc {
   built_at: string
   identity: {
     /** The OpenCode conversation this box is pinned to. */
+    runtime_session_id: string | null
+    /** The OpenCode release serving it. */
+    harness_version: string | null
+    /** Pre-W3 names of the two fields above, for an API that predates them. */
     opencode_session_id: string | null
     opencode_version: string | null
     /** Manifest epoch of the daemon binary, from the convergence report. */
@@ -367,6 +371,8 @@ export class RuntimeStateStore {
       seq: kortixEventBus().headSeq,
       built_at: new Date(this.now()).toISOString(),
       identity: {
+        runtime_session_id: this.deps.pinnedSessionId(),
+        harness_version: version,
         opencode_session_id: this.deps.pinnedSessionId(),
         opencode_version: version,
         daemon_build:

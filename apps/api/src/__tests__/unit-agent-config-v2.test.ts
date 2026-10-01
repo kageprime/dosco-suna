@@ -1,7 +1,6 @@
 /**
  * Unit tests for the v2 agent-block GOVERNANCE read/write lib (the "agent
- * builder" backend's kortix.yaml half — spec docs/specs/2026-07-05-agent-
- * first-config-unification.md §2.2, redirected 2026-07-05: "one home per
+ * builder" backend's kortix.yaml half — redirected 2026-07-05: "one home per
  * concern"). Pure functions — no DB, no git — so they exercise the exact
  * read/mutate/validate contract the GET/PUT routes depend on:
  *   - readAgentBlockV2: v2 block round-trips verbatim; v1 → null block +
@@ -174,10 +173,9 @@ describe('applyAgentBlockV2', () => {
   });
 
   test('rejects a behavioral field on the block — it belongs in the .md frontmatter now', () => {
-    const applied = applyAgentBlockV2(v2Manifest(), 'support', {
-      // @ts-expect-error — `mode` is no longer part of AgentBlockV2 (governance-only)
-      mode: 'primary',
-    });
+    // `mode` is a behavioral field: the block must refuse it at runtime even
+    // when a caller's type allows it, so pass it through an untyped object.
+    const applied = applyAgentBlockV2(v2Manifest(), 'support', { mode: 'primary' } as never);
     expect(applied.ok).toBe(false);
     if (applied.ok) return;
     expect(applied.error).toContain('.md');

@@ -7,31 +7,40 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Disclosure, DisclosureContent, DisclosureTrigger } from '@/components/ui/disclosure';
 import { FadedScrollArea } from '@/components/ui/faded-scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsListCompact, TabsTriggerCompact } from '@/components/ui/tabs';
 import { errorToast, successToast, warningToast } from '@/components/ui/toast';
 import { EmptyState } from '@/features/layout/section/empty-state';
 import { ErrorState } from '@/features/layout/section/error-state';
 import { useReviewSessionSummary } from '@/features/review-center/hooks/use-review-session-summary';
 import { SidebarToggle } from '@/features/workspace/project-layout/sidebar-toggle';
 import { RenameSessionModal } from '@/features/workspace/project-sidebar/modal/rename-session-modal';
+import { SessionLabelsModal } from '@/features/workspace/project-sidebar/modal/session-labels-modal';
 import { SessionDeleteModal } from '@/features/workspace/project-sidebar/modal/session-delete-modal';
 import { ShareSessionModal } from '@/features/workspace/project-sidebar/modal/share-session-modal';
 import {
   projectSessionsRefetchInterval,
+  resolveSessionListViewState,
   sessionLastActivityAt,
 } from '@/features/workspace/project-sidebar/project-session-list-helpers';
 import {
   groupSessions,
   type SessionSection,
 } from '@/features/workspace/project-sidebar/session-grouping';
+import { useDebounce } from '@/hooks/use-debounced-value';
 import { useIsCreatingProjectSession } from '@/hooks/projects/new-session-guard';
 import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
+import {
+  selectExpandedIds,
+  useSessionExpandedStore,
+} from '@/stores/session-expanded-store';
 import {
   selectCollapsedSections,
   selectGroupMode,
   selectHiddenSections,
   selectOrderMode,
   selectSourceFilters,
+  selectLabelFilters,
   selectAccessFilters,
   selectOwnerFilters,
   selectStatusFilters,
@@ -43,15 +52,18 @@ import {
   stopProjectSession,
   type ProjectSession,
 } from '@kortix/sdk';
-import { qk, useProjectSessions } from '@kortix/sdk/react';
-import { CaretRightIcon, ChatIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
+import {
+  qk,
+  removeCachedProjectSession,
+  useProjectSessions,
+  useSessionChildren,
+} from '@kortix/sdk/react';
+import { CaretRightIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import Link from 'next/link';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import {
-  buildSessionSearchIndex,
   filterProjectSessions,
   mapWithConcurrency,
   pruneSelection,
@@ -61,6 +73,7 @@ import {
 } from './project-sessions-helpers';
 import { SessionDetail } from './session-detail';
 import { SessionRow, type SessionRowActions } from './session-row';
+import { SessionsEmptyState } from './sessions-empty-state';
 import { SessionsSelectionBar } from './sessions-selection-bar';
 import { SessionsToolbar } from './sessions-toolbar';
 
@@ -76,14 +89,18 @@ import { SessionsToolbar } from './sessions-toolbar';
  */
 const SURFACE = 'page' as const;
 
+/** Milliseconds between the last keystroke and the server search. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+/** Rows per "Show more" click under an expanded parent. */
+const CHILDREN_PAGE_SIZE = 20;
+
+type StartedByFilter = 'all' | 'me' | 'others' | 'automated';
+const STARTED_BY_FILTERS: readonly StartedByFilter[] = ['all', 'me', 'others', 'automated'];
+
 /** Concurrent DELETEs during a bulk removal. There is no bulk endpoint, so a
  *  27-session batch would otherwise open 27 sockets at once. */
 const DELETE_CONCURRENCY = 4;
-
-/** Shared fallback so a row with no formatted stamp still gets a stable prop
- *  identity — an inline `{ relative: '', exact: '' }` is a new object per
- *  render and would defeat SessionRow's memo. */
-const NO_TIMESTAMP = { relative: '', exact: '' } as const;
 
 function formatTimestamp(value: string): { relative: string; exact: string } {
   try {
@@ -170,7 +187,7 @@ function SessionsSection({
           </span>
           <CaretRightIcon
             aria-hidden
-            className="size-3 shrink-0 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover/section-header:opacity-100 group-data-[state=open]/section:rotate-90"
+            className="size-3 shrink-0 opacity-0 transition-[opacity,transform] duration-normal ease-out group-hover/section-header:opacity-100 group-data-[state=open]/section:rotate-90"
           />
         </div>
       </DisclosureTrigger>
@@ -179,11 +196,72 @@ function SessionsSection({
   );
 }
 
+/**
+ * The sessions one parent spawned, loaded when the parent opens, 20 at a time.
+ * `q` narrows them to the matching children when the parent matched only
+ * through them.
+ */
+function SessionChildrenRows({
+  projectId,
+  parentId,
+  q,
+  renderRow,
+}: {
+  projectId: string;
+  parentId: string;
+  q?: string;
+  renderRow: (session: ProjectSession) => ReactNode;
+}) {
+  const tSidebar = useTranslations('sidebar');
+  const children = useSessionChildren(projectId, parentId, { limit: CHILDREN_PAGE_SIZE, q });
+  if (children.isError && children.sessions.length === 0) {
+    return (
+      <div className="text-destructive/80 px-3 py-1 text-xs">{tSidebar('sessionList.loadError')}</div>
+    );
+  }
+  if (children.data === undefined) {
+    return <Skeleton className="ml-6 h-9 py-0" aria-hidden />;
+  }
+  return (
+    <div className="border-border ml-3 space-y-2 border-l-2 pl-3" data-session-children={parentId}>
+      {children.sessions.map((child) => renderRow(child))}
+      {children.hasNextPage && (
+        <Button
+          variant="ghost"
+          size="xs"
+          className="text-muted-foreground"
+          disabled={children.isFetchingNextPage}
+          onClick={() => children.fetchNextPage()}
+        >
+          {children.isFetchingNextPage
+            ? tSidebar('loadingMore')
+            : children.isFetchNextPageError
+              ? tSidebar('retry')
+              : tSidebar('sessionList.showMore')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function ProjectSessionsView({ projectId }: { projectId: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tSidebar = useTranslations('sidebar');
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [startedBy, setStartedBy] = useState<StartedByFilter>('all');
+  // Search is the server's: `q` reaches every session the viewer may open, not
+  // only the pages already loaded. Debounced so a keystroke is not a request.
+  const searchQuery = useDebounce(search.trim(), SEARCH_DEBOUNCE_MS);
+  const searching = searchQuery.length > 0;
+  // A root that matched only through a child opens by default while searching;
+  // the ids here are the ones the viewer closed again, for THIS query.
+  const [closedInSearch, setClosedInSearch] = useState<{ q: string; ids: string[] }>({
+    q: '',
+    ids: [],
+  });
+  const expandedParents = useSessionExpandedStore(selectExpandedIds(projectId));
+  const toggleExpandedParent = useSessionExpandedStore((state) => state.toggleExpanded);
   const [searchOpen, setSearchOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -191,6 +269,9 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [sessionToRename, setSessionToRename] = useState<{ id: string; name: string } | null>(null);
   const [sessionToShare, setSessionToShare] = useState<ProjectSession | null>(null);
+  const [sessionToLabel, setSessionToLabel] = useState<ProjectSession | null>(null);
+  // Server-side facet, like search: a label match on an unloaded page still lists.
+  const labelFilters = useSessionFilterStore(selectLabelFilters(projectId, SURFACE));
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; label: string } | null>(
     null,
   );
@@ -212,6 +293,11 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
     // the key (see qk.project.sessionsPaged' doc comment). Sharing the
     // default-scope key here is the exact bug this file existed to fix.
     scope: manage.allowed ? 'project' : 'visible',
+    // Top-level sessions only; spawned sessions load under their parent.
+    parent: 'root',
+    startedBy: startedBy === 'all' ? undefined : startedBy,
+    q: searchQuery || undefined,
+    labels: labelFilters.length > 0 ? labelFilters : undefined,
     // The shared policy, not a local copy of the provisioning rule. This view
     // stopped polling the moment every session settled, so a title written
     // seconds later (server-side, with no event — see `sessionTitleHasLanded`)
@@ -238,19 +324,6 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
 
   const sessions = sessionsQuery.sessions;
 
-  // Typing stays on the fast path: the input updates from `search` every
-  // keystroke, while the list below re-filters from the deferred copy. On a
-  // large inventory React can drop an intermediate filter pass entirely rather
-  // than run one per character.
-  const deferredSearch = useDeferredValue(search);
-
-  // Built once per session list, not once per keystroke — see
-  // `buildSessionSearchIndex`.
-  const searchIndex = useMemo(
-    () => buildSessionSearchIndex(sessions, tI18nComplete),
-    [sessions, tI18nComplete],
-  );
-
   // Grouping, ordering, the two multi-select facets, hidden and collapsed
   // sections all come from the SAME per-project store the sidebar writes, via
   // the SAME `SessionFilterMenu`. Choose "Group by status" in either surface and
@@ -273,25 +346,11 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
 
   const visibleSessions = useMemo(
     () =>
-      filterProjectSessions(
-        sessions,
-        statusFilters,
-        sourceFilters,
-        deferredSearch,
-        tI18nComplete,
-        searchIndex,
-        { owners: ownerFilters, access: accessFilters },
-      ),
-    [
-      sessions,
-      statusFilters,
-      sourceFilters,
-      ownerFilters,
-      accessFilters,
-      deferredSearch,
-      tI18nComplete,
-      searchIndex,
-    ],
+      filterProjectSessions(sessions, statusFilters, sourceFilters, tI18nComplete, {
+        owners: ownerFilters,
+        access: accessFilters,
+      }),
+    [sessions, statusFilters, sourceFilters, ownerFilters, accessFilters, tI18nComplete],
   );
 
   const grouped = useMemo(
@@ -337,6 +396,18 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
     () => visibleSessions.filter(sessionIsDeletable),
     [visibleSessions],
   );
+
+  // The sidebar's rule: rows win over a failed refetch, and a first load that
+  // has not run yet (waiting on the manager probe, or paused offline) is
+  // loading, never "No sessions yet". No-matches is decided below from
+  // `grouped`, which also sees hidden sections.
+  const listState = resolveSessionListViewState({
+    hasData: sessionsQuery.data !== undefined,
+    isError: sessionsQuery.isError,
+    totalCount: sessions.length,
+    visibleCount: visibleSessions.length,
+    serverFiltered: labelFilters.length > 0,
+  });
 
   // Selection must never outlive its own visibility: narrowing the filter after
   // selecting would otherwise leave "N selected" counting off-screen rows, and
@@ -422,7 +493,24 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
       );
       return summarizeBulkDelete(results, tI18nComplete);
     },
-    onSuccess: (summary) => {
+    // Every selected row leaves the lists before the first DELETE is sent.
+    // Only the FIRST removal's restore is kept: it returns the lists to their
+    // state before the batch, and each later one would miss the rows the
+    // earlier removals had already taken out.
+    onMutate: (sessionIds) => {
+      const [restore] = sessionIds.map((sessionId) =>
+        removeCachedProjectSession(queryClient, projectId, sessionId),
+      );
+      return restore;
+    },
+    onSuccess: (summary, _sessionIds, restore) => {
+      // The rows the server kept come back; the deleted ones stay gone.
+      if (summary.failed.length > 0) {
+        restore?.();
+        for (const sessionId of summary.succeeded) {
+          removeCachedProjectSession(queryClient, projectId, sessionId);
+        }
+      }
       // Partial failure is a real outcome, not an error. Reporting "Deleted 7"
       // while two rows survive is worse than reporting nothing.
       if (summary.failed.length === 0) successToast(summary.message);
@@ -433,7 +521,8 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
       exitSelectMode();
       invalidateSessions();
     },
-    onError: (error) => {
+    onError: (error, _sessionIds, restore) => {
+      restore?.();
       errorToast(error instanceof Error ? error.message : tI18nComplete.raw('text928228f0f221'));
       setBulkConfirmOpen(false);
     },
@@ -449,6 +538,7 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
   const rowActions: SessionRowActions = useMemo(
     () => ({
       onRename: (id, name) => setSessionToRename({ id, name }),
+      onEditLabels: setSessionToLabel,
       onShare: setSessionToShare,
       onDelete: (id, label) => setSessionToDelete({ id, label }),
       onRestart: (sessionId, label) => restart({ sessionId, label }),
@@ -467,10 +557,90 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
 
   const allSelected =
     selectableSessions.length > 0 && visibleSelection.size === selectableSessions.length;
+  // The batch in flight, not the live selection: its rows leave the list, and
+  // with them the selection, the moment the delete starts.
+  const selectedCount = bulkDeleteMutation.isPending
+    ? bulkDeleteMutation.variables.length
+    : visibleSelection.size;
+
+  const isParentOpen = (session: ProjectSession) => {
+    if (searching && session.search_match === 'child') {
+      return !(closedInSearch.q === searchQuery && closedInSearch.ids.includes(session.session_id));
+    }
+    return expandedParents.includes(session.session_id);
+  };
+  const handleToggleChildren = (session: ProjectSession) => {
+    if (searching && session.search_match === 'child') {
+      const ids =
+        closedInSearch.q === searchQuery ? closedInSearch.ids : ([] as string[]);
+      setClosedInSearch({
+        q: searchQuery,
+        ids: ids.includes(session.session_id)
+          ? ids.filter((id) => id !== session.session_id)
+          : [...ids, session.session_id],
+      });
+      return;
+    }
+    toggleExpandedParent(projectId, session.session_id);
+  };
+
+  /** One session row. Top-level rows carry the spawned-sessions toggle and the
+   *  rows beneath it; a spawned row is a plain row (no orphan, no nesting). */
+  const renderRow = (session: ProjectSession, topLevel = false): ReactNode => {
+    const time = timestamps.get(session.session_id) ?? formatTimestamp(sessionLastActivityAt(session));
+    const isOpen = expanded === session.session_id;
+    const childCount = topLevel ? (session.child_count ?? 0) : 0;
+    const childrenOpen = childCount > 0 && isParentOpen(session);
+    return (
+      <div key={session.session_id} className="space-y-2">
+        <SessionRow
+          session={session}
+          time={time}
+          open={isOpen}
+          onToggleOpen={handleToggleOpen}
+          selectMode={selectMode}
+          selected={visibleSelection.has(session.session_id)}
+          onToggleSelect={handleToggleSelect}
+          restarting={
+            restartMutation.isPending && restartMutation.variables?.sessionId === session.session_id
+          }
+          stopping={
+            stopMutation.isPending && stopMutation.variables?.sessionId === session.session_id
+          }
+          actions={rowActions}
+          childCount={childCount}
+          childrenOpen={childrenOpen}
+          onToggleChildren={() => handleToggleChildren(session)}
+        >
+          {/* Mounted only while expanded — 27 collapsed detail grids
+              would otherwise all format timestamps on every render. */}
+          {isOpen ? (
+            <SessionDetail
+              projectId={projectId}
+              session={session}
+              formatted={{
+                created: formatTimestamp(session.created_at).exact,
+                updated: time.exact,
+                deleted: session.deleted_at ? formatTimestamp(session.deleted_at).exact : null,
+              }}
+            />
+          ) : null}
+        </SessionRow>
+        {childrenOpen ? (
+          <SessionChildrenRows
+            projectId={projectId}
+            parentId={session.session_id}
+            q={searching && session.search_match === 'child' ? searchQuery : undefined}
+            renderRow={(child) => renderRow(child)}
+          />
+        ) : null}
+      </div>
+    );
+  };
 
   const header = selectMode ? (
     <SessionsSelectionBar
-      selectedCount={visibleSelection.size}
+      selectedCount={selectedCount}
       selectableCount={selectableSessions.length}
       allSelected={allSelected}
       onSelectAll={() =>
@@ -518,9 +688,22 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
         </header>
 
         <div className={cn('mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-4 pb-4')}>
-          {sessionsQuery.isLoading ? (
+          <Tabs
+            value={startedBy}
+            onValueChange={(value) => setStartedBy(value as StartedByFilter)}
+            className="shrink-0"
+          >
+            <TabsListCompact aria-label={tSidebar('startedBy.label')}>
+              {STARTED_BY_FILTERS.map((value) => (
+                <TabsTriggerCompact key={value} value={value}>
+                  {tSidebar(`startedBy.${value}`)}
+                </TabsTriggerCompact>
+              ))}
+            </TabsListCompact>
+          </Tabs>
+          {listState === 'loading' ? (
             <SessionListSkeleton />
-          ) : sessionsQuery.isError ? (
+          ) : listState === 'error' ? (
             <ErrorState
               size="sm"
               title={tI18nComplete.raw('textb6d85433a7ee')}
@@ -533,32 +716,9 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
                 </Button>
               }
             />
-          ) : sessions.length === 0 ? (
-            <EmptyState
-              size="sm"
-              icon={ChatIcon}
-              title={tI18nComplete.raw('textf502267deff4')}
-              description={tI18nComplete.raw('text93e404732659')}
-              action={
-                // The composer route is known at render time, so this is an
-                // anchor whose payload Next already holds — the first control a
-                // brand-new project offers must not run a cold RSC fetch.
-                creatingSession ? (
-                  <Button variant="outline" size="sm" className="gap-1.5" disabled aria-busy>
-                    <PlusIcon className="size-3.5 shrink-0" />
-                    {tI18nComplete.raw('textcffdba22adf2')}
-                  </Button>
-                ) : (
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
-                    <Link href={`/projects/${projectId}`} prefetch>
-                      <PlusIcon className="size-3.5 shrink-0" />
-                      {tI18nComplete.raw('textcffdba22adf2')}
-                    </Link>
-                  </Button>
-                )
-              }
-            />
-          ) : grouped.sections.length === 0 ? (
+          ) : listState === 'empty' && !searching && startedBy === 'all' ? (
+            <SessionsEmptyState className="flex-1 pb-24" />
+          ) : grouped.sections.length === 0 || listState === 'empty' ? (
             // Covers BOTH "the filters/search match nothing" and "every section
             // was hidden via the menu's Show list" — `visibleSessions.length`
             // alone cannot see the second, and the list would otherwise render
@@ -579,6 +739,7 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
                   onClick={() => {
                     resetFilters(projectId, SURFACE);
                     setSearch('');
+                    setStartedBy('all');
                   }}
                 >
                   {tI18nComplete.raw('text7179ea0035fc')}
@@ -607,47 +768,7 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
                         open={!collapsedSectionSet.has(section.id)}
                         onOpenChange={() => toggleSectionCollapsed(projectId, section.id, SURFACE)}
                       >
-                        {section.sessions.map((session) => {
-                          const time = timestamps.get(session.session_id) ?? NO_TIMESTAMP;
-                          const isOpen = expanded === session.session_id;
-                          return (
-                            <SessionRow
-                              key={session.session_id}
-                              session={session}
-                              time={time}
-                              open={isOpen}
-                              onToggleOpen={handleToggleOpen}
-                              selectMode={selectMode}
-                              selected={visibleSelection.has(session.session_id)}
-                              onToggleSelect={handleToggleSelect}
-                              restarting={
-                                restartMutation.isPending &&
-                                restartMutation.variables?.sessionId === session.session_id
-                              }
-                              stopping={
-                                stopMutation.isPending &&
-                                stopMutation.variables?.sessionId === session.session_id
-                              }
-                              actions={rowActions}
-                            >
-                              {/* Mounted only while expanded — 27 collapsed detail grids
-                              would otherwise all format timestamps on every render. */}
-                              {isOpen ? (
-                                <SessionDetail
-                                  projectId={projectId}
-                                  session={session}
-                                  formatted={{
-                                    created: formatTimestamp(session.created_at).exact,
-                                    updated: time.exact,
-                                    deleted: session.deleted_at
-                                      ? formatTimestamp(session.deleted_at).exact
-                                      : null,
-                                  }}
-                                />
-                              ) : null}
-                            </SessionRow>
-                          );
-                        })}
+                        {section.sessions.map((session) => renderRow(session, true))}
                       </SessionsSection>
                     ))}
                     {sessionsQuery.hasNextPage && (
@@ -658,9 +779,12 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
                           disabled={sessionsQuery.isFetchingNextPage}
                           onClick={() => sessionsQuery.fetchNextPage()}
                         >
+                          {/* A failed page keeps the rows above it; the button is the retry. */}
                           {sessionsQuery.isFetchingNextPage
                             ? tSidebar('loadingMore')
-                            : tSidebar('loadMoreSessions')}
+                            : sessionsQuery.isFetchNextPageError
+                              ? tSidebar('retry')
+                              : tSidebar('loadMoreSessions')}
                         </Button>
                       </div>
                     )}
@@ -676,11 +800,11 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
         open={bulkConfirmOpen}
         onOpenChange={(open) => !bulkDeleteMutation.isPending && setBulkConfirmOpen(open)}
         title={tI18nComplete('text7ed6733a3900', {
-          value0: visibleSelection.size,
-          value1: visibleSelection.size === 1 ? 'session' : 'sessions',
+          value0: selectedCount,
+          value1: selectedCount === 1 ? 'session' : 'sessions',
         })}
         description={tI18nComplete.raw('textac371f652a2d')}
-        confirmLabel={`Delete ${visibleSelection.size}`}
+        confirmLabel={`Delete ${selectedCount}`}
         confirmVariant="destructive"
         isPending={bulkDeleteMutation.isPending}
         onConfirm={() => bulkDeleteMutation.mutate([...visibleSelection])}
@@ -692,6 +816,12 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
         open={!!sessionToShare}
         onOpenChange={(open) => !open && setSessionToShare(null)}
         onSaved={invalidateSessions}
+      />
+      <SessionLabelsModal
+        projectId={projectId}
+        session={sessionToLabel}
+        open={!!sessionToLabel}
+        onOpenChange={(open) => !open && setSessionToLabel(null)}
       />
       <RenameSessionModal
         projectId={projectId}

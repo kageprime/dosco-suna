@@ -20,6 +20,7 @@ import * as F from '../files/client';
 import { createPromptAttachmentController } from '../attachments/prompt-attachments';
 import { getClient, getClientForUrl } from '../runtime/client';
 import { ApiError } from '../http/api/errors';
+import { backendApi } from '../http/api-client';
 import { type KortixPlatformConfig, configureKortix, platformConfig } from '../http/config';
 import * as P from '../rest/projects-client';
 import * as A from '../rest/platform-client/auth';
@@ -39,7 +40,7 @@ import { getSandboxUrlForExternalId } from '../session/server-store/url-helpers'
 import {
   openEventStream,
   type EventStreamHandle,
-  type OpenCodeEvent,
+  type RuntimeEvent,
 } from '../stream/event-stream';
 
 /** A model the agent can run, as the opencode runtime identifies it. */
@@ -243,6 +244,11 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
       create: P.createAccountToken,
       revoke: P.revokeAccountToken,
     },
+    /** Connected apps — the OAuth / MCP clients this person approved, across all accounts. */
+    connectedApps: {
+      list: P.listOAuthGrants,
+      revoke: P.revokeOAuthGrant,
+    },
     /** Enterprise audit log — events + CSV/JSONL export + SIEM webhooks. */
     audit: {
       log: P.listAccountAudit,
@@ -420,6 +426,9 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
     linkInstallation: P.linkGitHubInstallation,
     saveInstallation: P.saveGitHubInstallation,
     deleteInstallation: P.deleteGitHubInstallation,
+    /** Store this user's GitHub authorization — needed to create a repository
+     *  in a personal GitHub account. */
+    storeUserToken: P.storeGitHubUserToken,
   };
 
   /**
@@ -466,7 +475,8 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
   function connectorDataPlane(projectId?: string) {
     return {
       /** Callable catalog for this project or token scope. */
-      catalog: () => P.getConnectorCatalog(projectId),
+      catalog: (options?: Parameters<typeof P.getConnectorCatalog>[1]) =>
+        P.getConnectorCatalog(projectId, options),
       /** Flattened `<connector>.<action>` tool list. */
       tools: () => P.listConnectorTools(projectId),
       /** Search callable tools by id and description. */
@@ -507,6 +517,9 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
         P.renameConnection(projectId, ...a),
       share: (...a: DropFirst<Parameters<typeof P.shareConnection>>) =>
         P.shareConnection(projectId, ...a),
+      /** Add a machine the caller paired to this project as a `computer` account. */
+      addComputer: (...a: DropFirst<Parameters<typeof P.addComputerToProject>>) =>
+        P.addComputerToProject(projectId, ...a),
       pipedreamConnect: (...a: DropFirst<Parameters<typeof P.pipedreamConnectConnection>>) =>
         P.pipedreamConnectConnection(projectId, ...a),
       pipedreamFinalize: (...a: DropFirst<Parameters<typeof P.pipedreamFinalizeConnection>>) =>
@@ -609,7 +622,9 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
         removePersonal: (name: string) => P.deletePersonalProjectSecret(projectId, name),
         setGitCredential: (input: Parameters<typeof P.upsertProjectGitCredential>[1]) =>
           P.upsertProjectGitCredential(projectId, input),
-        /** Device-code OAuth flow to connect a subscription-backed provider (e.g. ChatGPT). */
+        /** The provider logins saved on this project (ChatGPT, OpenCode Zen, OpenCode Go). */
+        listProviderOAuth: () => P.listProjectProviderOAuth(projectId),
+        /** Device-code OAuth flow to connect a subscription-backed provider (e.g. ChatGPT, opencode-go). */
         startProviderOAuth: (...a: DropFirst<Parameters<typeof P.startProjectProviderOAuth>>) =>
           P.startProjectProviderOAuth(projectId, ...a),
         pollProviderOAuth: (...a: DropFirst<Parameters<typeof P.pollProjectProviderOAuth>>) =>
@@ -714,6 +729,10 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
           P.setProjectPolicies(projectId, ...a),
       },
 
+      /** Reminders on every session the caller can open — see `listProjectReminders`. */
+      reminders: {
+        list: () => P.listProjectReminders(projectId),
+      },
       triggers: {
         list: () => P.listProjectTriggers(projectId),
         create: (...a: DropFirst<Parameters<typeof P.createProjectTrigger>>) =>
@@ -1069,11 +1088,12 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
             Math.min(30_000, remainingMs()),
           );
         }
+        const runtimeSessionId = started?.runtime_session_id ?? started?.opencode_session_id;
         if (
           !started ||
           started.stage !== 'ready' ||
           !started.sandbox ||
-          !started.opencode_session_id
+          !runtimeSessionId
         ) {
           throw new ApiError(runtimeNotReadyMessage(started), {
             code: 'RUNTIME_UNAVAILABLE',
@@ -1094,7 +1114,8 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
         // handle's own operations never read it back, only `_ready` below.
         setCurrentRuntime(runtimeUrl, externalId);
         return {
-          opencodeSessionId: started.opencode_session_id,
+          runtimeSessionId,
+          opencodeSessionId: runtimeSessionId,
           runtimeUrl,
           sandboxId: externalId,
         };
@@ -1131,6 +1152,8 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
     return {
       // ── lifecycle (Kortix REST) ──────────────────────────────────────────
       get: (opts?: { showErrors?: boolean }) => P.getProjectSession(projectId, sessionId, opts),
+      presence: (input: { tab_id: string; active: boolean }) =>
+        backendApi.put<{ ok: boolean }>(`/projects/${projectId}/sessions/${sessionId}/presence`, input, { showErrors: false }),
       /** Unified finalized LLM and compute cost for this session. */
       cost: () => P.getSessionCostRecord(sessionId, { projectId }),
       update: (input: Parameters<typeof P.updateProjectSession>[2]) =>
@@ -1183,6 +1206,15 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
           P.createSessionPublicShare(projectId, sessionId, ...a),
         revoke: (...a: DropFirst2<Parameters<typeof P.revokeSessionPublicShare>>) =>
           P.revokeSessionPublicShare(projectId, sessionId, ...a),
+      },
+      /** Scheduled prompts into this session — see `CreateSessionReminderInput`. */
+      reminders: {
+        list: () => P.listSessionReminders(projectId, sessionId),
+        create: (input: Parameters<typeof P.createSessionReminder>[2]) =>
+          P.createSessionReminder(projectId, sessionId, input),
+        update: (reminderId: string, input: Parameters<typeof P.updateSessionReminder>[3]) =>
+          P.updateSessionReminder(projectId, sessionId, reminderId, input),
+        remove: (reminderId: string) => P.deleteSessionReminder(projectId, sessionId, reminderId),
       },
       /** Per-session audit trail of connector-gated agent actions. */
       audit: (limit?: number, options?: Parameters<typeof P.getSessionAudit>[3]) =>
@@ -1250,6 +1282,15 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
       /** Rewrite a localhost URL the agent printed into a reachable proxy URL. */
       proxyUrl: (url?: string) =>
         proxyLocalhostUrl(url, resolvePreviewOptsForSandbox(requireReady('proxyUrl').sandboxId)),
+      /**
+       * The AUTHENTICATED backend proxy URL for a given sandbox port of THIS
+       * session's runtime: `${backendUrl}/p/{externalId}/{port}` — no browser
+       * preview-origin rewriting. This is the URL a local port-forward proxy
+       * dials with the caller's own bearer token (see `getSandboxUrlForExternalId`).
+       * Use `previewUrl()`/`proxyUrl()` instead for a browser tab.
+       */
+      sandboxPortUrl: (port: number) =>
+        getSandboxUrlForExternalId(requireReady('sandboxPortUrl').sandboxId, port),
 
       // ── agent actions (opinionated wrappers over the runtime) ────────────
       // These do the right thing end-to-end for scripts/non-React hosts: ensure
@@ -1297,14 +1338,14 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
        * choices for this message only.
        */
       send: async (text: string, opts?: { model?: SessionModel; agent?: string }) => {
-        const { opencodeSessionId, runtimeUrl } = await ensureReady();
+        const { runtimeSessionId, runtimeUrl } = await ensureReady();
         const selectedModel = opts?.model ?? _model;
         const selectedAgent = opts?.agent ?? _agent;
         const persisted = selectedModel && selectedAgent ? {} : await persistedPromptDefaults();
         const model = selectedModel ?? persisted.model;
         const agent = selectedAgent ?? persisted.agent;
         return getClientForUrl(runtimeUrl).session.prompt({
-          sessionID: opencodeSessionId,
+          sessionID: runtimeSessionId,
           parts: [{ type: 'text', text }],
           ...(model ? { model } : {}),
           ...(agent ? { agent } : {}),
@@ -1312,9 +1353,9 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
       },
       /** Abort the agent's current run in this session. */
       abort: async () => {
-        const { opencodeSessionId, runtimeUrl } = await ensureReady();
+        const { runtimeSessionId, runtimeUrl } = await ensureReady();
         return getClientForUrl(runtimeUrl).session.abort({
-          sessionID: opencodeSessionId,
+          sessionID: runtimeSessionId,
         });
       },
       /**
@@ -1322,17 +1363,17 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
        * OpenCode session. The next prompt commits the new path.
        */
       rewind: async (messageId: string) => {
-        const { opencodeSessionId, runtimeUrl } = await ensureReady();
+        const { runtimeSessionId, runtimeUrl } = await ensureReady();
         return getClientForUrl(runtimeUrl).session.revert({
-          sessionID: opencodeSessionId,
+          sessionID: runtimeSessionId,
           messageID: messageId,
         });
       },
       /** Restore the path removed by `rewind()` before another prompt commits it. */
       restoreRewind: async () => {
-        const { opencodeSessionId, runtimeUrl } = await ensureReady();
+        const { runtimeSessionId, runtimeUrl } = await ensureReady();
         return getClientForUrl(runtimeUrl).session.unrevert({
-          sessionID: opencodeSessionId,
+          sessionID: runtimeSessionId,
         });
       },
       /**
@@ -1340,7 +1381,7 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
        * updates, session status, permissions/questions, lsp diagnostics, …).
        * A thin facade over the framework-free `openEventStream` primitive
        * (`@kortix/sdk`'s `openEventStream`, also used verbatim by
-       * `@kortix/sdk/react`'s `useOpenCodeEventStream`): resolves THIS
+       * `@kortix/sdk/react`'s `useRuntimeEventStream`): resolves THIS
        * handle's own runtime first (`ensureReady()`), then connects a client
        * bound to that runtime URL — never the module-global "active" one, so
        * two session handles on two different sandboxes never cross wires.
@@ -1355,7 +1396,7 @@ export function createKortix(config: KortixPlatformConfig, opts?: { global?: boo
        *   handle.close();
        */
       stream: async (opts: {
-        onEvent: (event: OpenCodeEvent) => void;
+        onEvent: (event: RuntimeEvent) => void;
         onGapRehydrate?: (gapMs: number) => void;
         signal?: AbortSignal;
       }): Promise<EventStreamHandle> => {

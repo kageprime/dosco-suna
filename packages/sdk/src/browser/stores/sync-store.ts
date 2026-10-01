@@ -2,7 +2,7 @@
 
 import type {
 	Message,
-	Event as OpenCodeEvent,
+	Event as RuntimeEvent,
 	Part,
 	ReasoningPart,
 	SessionStatus,
@@ -20,6 +20,7 @@ import { isRetryableTurnError } from "../../core/turns/open-turn";
 import { ascendingId } from "./sync-store/ascending-id";
 import { Binary } from "./sync-store/binary";
 import { DELTA_EVENT_TAIL_LIMIT } from "./sync-store/delta-event-window";
+import { reconcileHydratedParts } from "./sync-store/reconcile-parts";
 import { writeStreamCache } from "./sync-store/stream-cache";
 import type {
 	FileDiff,
@@ -111,6 +112,34 @@ function isTextLikePart(part: Part): part is TextLikePart {
  */
 const ACTIVITY_STAMP_RESOLUTION_MS = 1_000;
 
+/**
+ * Is this frame the runtime still PRODUCING output, or the record of output
+ * that has finished? Only the first is activity.
+ *
+ * `projectWorking` lets `sessionActivityAt` outrank a wire idle frame it
+ * postdates, and the runtime keeps writing closing frames after that frame:
+ * the user message's `summary` update (1–16ms later, every turn), and on Stop
+ * the aborted tool part and the assistant message's `completed` + `error`
+ * stamp (0–41ms later) — measured on the local stack, 2026-09-30. Stamping
+ * them put the busy row and Stop back on a finished turn for up to
+ * `STREAM_OBSERVATION_MAX_MS`, whenever the 1s quantizer let one through.
+ * `hydrate` applies the same rule to a pulled transcript (`tailOpen`).
+ */
+function isOpenMessage(info: Message | undefined): boolean {
+	if (info?.role !== "assistant") return false;
+	const { time, error } = info as { time?: { completed?: number }; error?: unknown };
+	return !time?.completed && !error;
+}
+
+function isOpenPart(part: Part): boolean {
+	if (part.type === "step-finish" || part.type === "patch") return false;
+	if (part.type === "tool") {
+		const status = (part as { state?: { status?: string } }).state?.status;
+		return status !== "completed" && status !== "error";
+	}
+	return !(part as { time?: { end?: number } }).time?.end;
+}
+
 /** The index of `id` in `list`, or `-1`. Binary first, linear on a miss. */
 function indexOfId<T>(list: readonly T[], id: string, idOf: (item: T) => string): number {
 	const result = Binary.search(list as T[], id, idOf);
@@ -194,7 +223,8 @@ interface SyncState {
 	/**
 	 * When the RUNTIME'S OWN OUTPUT last reached this tab, per session.
 	 *
-	 * Not a status, not a poll — the instant a streamed part or message landed.
+	 * Not a status, not a poll — the instant an OPEN streamed part or message
+	 * landed (output still being produced; see `isOpenMessage`).
 	 * `projectWorking` reads it as the one input that is not an observer of the
 	 * runtime but the runtime itself (see `WorkingActivityInput`): a composer
 	 * showing its send arrow over a transcript that is visibly streaming is what
@@ -238,7 +268,7 @@ interface SyncState {
 	sessionRevertNeedsTailReconcile: Record<string, boolean>;
 
 	// ---- Actions ----
-	applyEvent: (event: OpenCodeEvent) => void;
+	applyEvent: (event: RuntimeEvent) => void;
 	upsertMessage: (sessionID: string, message: Message) => void;
 	removeMessage: (sessionID: string, messageID: string) => void;
 	/**
@@ -482,7 +512,7 @@ interface SyncState {
 	 * the arrays it read.
 	 *
 	 * Every consumer selects through here — `useSessionSync` and
-	 * `useOpenCodeMessages` alike. It has to be one shared memo rather than one
+	 * `useRuntimeMessages` alike. It has to be one shared memo rather than one
 	 * per hook: `getMessages` rebuilds via `.map()` on every call, so a raw
 	 * selector returns a new array each time, fails `useSyncExternalStore`'s
 	 * `Object.is` check and re-renders forever. The memo previously existed
@@ -567,6 +597,20 @@ const cancelledMessageIds = new Map<string, Set<string>>();
 // never existed there (an optimistic stub mirrored to disk before its echo)
 // and must not outlive the first authoritative read.
 const cacheSourcedIds = new Map<string, Set<string>>();
+
+/**
+ * Does this session hold messages, every one of them painted from a saved copy
+ * and none yet confirmed by a runtime read or a live event? Only then may a
+ * newer saved copy paint over it: once the runtime or the stream has spoken,
+ * a snapshot is older than what the store holds.
+ */
+export function hasOnlyCacheSourcedMessages(sessionID: string): boolean {
+	const messages = useSyncStore.getState().messages[sessionID];
+	if (!messages || messages.length === 0) return false;
+	const cached = cacheSourcedIds.get(sessionID);
+	if (!cached) return false;
+	return messages.every((message) => cached.has(message.id));
+}
 
 function recordOptimisticEcho(sessionID: string, optimisticID: string, echoID: string): void {
 	if (optimisticID === echoID) return;
@@ -759,9 +803,8 @@ const deltaActiveParts = new Map<string, Set<string>>();
 // function's behavior before this change — rather than risk a content-based
 // false positive (see the module comment above for why content isn't used).
 //
-// Cleared per-session on `session.idle`/`session.error` (a new turn's deltas
-// use brand-new part ids anyway, so nothing realistic is lost) and released
-// wholesale by `forgetSessionIds`/`reset()`, matching `deltaActiveParts`.
+// Kept across `session.idle` to reject a reconnect's replay of final deltas.
+// New turns use new part ids. Released by `forgetSessionIds`/`reset()`.
 const deltaEventTails = new Map<string, Map<string, Set<string>>>();
 
 /** Session-scoped tracking for `session.error`'s stub assistant message (see
@@ -1088,7 +1131,7 @@ function dropSessionData(state: SyncData, sessionIDs: readonly string[]): SyncDa
  * that every retain in a commit lands first would buy nothing, because the
  * ordering it would buy is already guaranteed. The case that motivates
  * deferral is a parent's spawn-tool preview of a child session, and the
- * preview's `useOpenCodeMessages(childId)` is always a React DESCENDANT of the
+ * preview's `useRuntimeMessages(childId)` is always a React DESCENDANT of the
  * component that retains the parent (`SessionLayout` → the transcript → the
  * tool part). React runs passive effects bottom-up, so in any commit that
  * mounts both, the child's retain lands before the parent's — and therefore
@@ -1109,7 +1152,7 @@ function dropSessionData(state: SyncData, sessionIDs: readonly string[]): SyncDa
  * A preview showing a transcript has no repaint path of its own, so closing
  * the rest needs the reference declared before the data is read — either the
  * host retaining child ids when it parses the parent's transcript, or
- * `useOpenCodeMessages` reading the disk cache the way `useSessionSync` does.
+ * `useRuntimeMessages` reading the disk cache the way `useSessionSync` does.
  * The second needs the child's `kortixSessionScope` plumbed through from the
  * host: entries written for an opened session are keyed
  * `…:kortix-session:<scope>`, so a scopeless read looks up a different key and
@@ -2191,90 +2234,12 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				newParts[echoId] = bridge;
 				trackId(bridgedPartIds, sessionID, echoId);
 			}
-			for (const m of msgs) {
-				if (!m?.info?.id) continue;
-				const mid = m.info.id;
-				if (isOptimistic(sessionID, mid)) continue; // Don't touch optimistic parts
-
-				// Parts, not messages: this sort is untouched by the message-order
-				// work and keeps its own byte-order comparison.
-				const inParts = m.parts
-					.filter((p) => !!p?.id)
-					.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-				// If this message still carries bridged optimistic parts, a hydrate
-				// snapshot with real parts should replace them immediately. Otherwise
-				// reconcile-by-extras can keep both copies and duplicate user text.
-				if (hasTrackedId(bridgedPartIds, sessionID, mid) && inParts.length > 0) {
-					untrackId(bridgedPartIds, sessionID, mid);
-					newParts[mid] = inParts;
-					continue;
-				}
-				const exParts = newParts[mid];
-				if (!exParts || exParts.length === 0) {
-					newParts[mid] = inParts;
-					continue;
-				}
-				// Reconcile by key: incoming parts are generally authoritative,
-				// but for text/reasoning parts during active streaming, SSE-accumulated
-				// parts may have MORE content than the server snapshot (the
-				// server may return empty/stale text for in-progress parts).
-				// In that case, prefer the existing (SSE) version.
-				const exById = new Map(exParts.map((p) => [p.id, p]));
-				const inIds = new Set(inParts.map((p) => p.id));
-				const extras = exParts.filter((p) => !inIds.has(p.id));
-				const reconciled = inParts.map((inP) => {
-					const exP = exById.get(inP.id);
-					if (!exP) return inP;
-					// For text/reasoning parts: prefer whichever has more text content.
-					// This prevents hydrate from clobbering SSE-streamed content
-					// with an empty/stale server snapshot during active streaming.
-					if (
-						isTextLikePart(inP) &&
-						isTextLikePart(exP) &&
-						exP.text.length > inP.text.length
-					) {
-						return exP;
-					}
-					return inP;
-				});
-				// T16 — dedupe extras by content identity. An "extra" is an
-				// existing part whose id the incoming snapshot no longer has — the
-				// server may simply not have persisted it yet (kept, as before), OR
-				// the server RE-ISSUED the same content under a NEW part id (a real
-				// defect: the old SSE-accumulated twin stayed in `exParts` forever,
-				// duplicating the text inside this one message). Distinguish the two
-				// conservatively: drop an extra only when it is text-like AND its own
-				// accumulated text is a PREFIX of (or equal to) some incoming
-				// text-like part of the SAME type — i.e. the incoming copy confidently
-				// re-issues it, not merely resembles it. Non-text-like extras (tool,
-				// permission, file, step, …) are never dropped by content — they carry
-				// distinct identity per id and a coincidental text match doesn't apply
-				// to them at all.
-				//
-				// F1 review finding: an extra still tracked in `deltaActiveParts` (this
-				// session is actively applying deltas to it right now) is EXEMPT from
-				// this filter regardless of what it prefixes. The heuristic above
-				// assumes a text-prefix match means the server re-issued the SAME
-				// content under a new id and the extra is an abandoned twin — but a
-				// live streaming target is never abandoned, and dropping it here also
-				// permanently blocks its later deltas (their event ids would already
-				// be recorded as applied — see `applyPartDelta`'s not-found path).
-				const survivingExtras = extras.filter((extra) => {
-					if (hasTrackedId(deltaActiveParts, sessionID, extra.id)) return true;
-					if (!isTextLikePart(extra) || extra.text.length === 0) return true;
-					return !inParts.some(
-						(inP) =>
-							inP.type === extra.type &&
-							isTextLikePart(inP) &&
-							inP.text.startsWith(extra.text),
-					);
-				});
-				for (const ep of survivingExtras) {
-					const r = Binary.search(reconciled, ep.id, (p) => p.id);
-					if (!r.found) reconciled.splice(r.index, 0, ep);
-				}
-				newParts[mid] = reconciled;
-			}
+			reconcileHydratedParts(msgs, newParts, {
+				isOptimistic: (id) => isOptimistic(sessionID, id),
+				isBridged: (id) => hasTrackedId(bridgedPartIds, sessionID, id),
+				clearBridge: (id) => untrackId(bridgedPartIds, sessionID, id),
+				isDeltaActive: (id) => hasTrackedId(deltaActiveParts, sessionID, id),
+			});
 			return {
 				messages: { ...s.messages, [sessionID]: merged },
 				parts: newParts,
@@ -2346,7 +2311,7 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 					const info = (event.properties as { info?: { sessionID?: string } })?.info;
 					const sid =
 						info?.sessionID ?? (event.properties as { sessionID?: string })?.sessionID;
-					if (sid) get().noteSessionActivity(sid);
+					if (sid && isOpenMessage(info as Message | undefined)) get().noteSessionActivity(sid);
 				}
 				const info = (event.properties as { info: Message }).info;
 				if (!info?.sessionID) return;
@@ -2546,12 +2511,13 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 					}
 				}
 
-				// The runtime just produced output. This is the evidence
+				// The runtime just produced OPEN output. This is the evidence
 				// `projectWorking` trusts above every observer — see
-				// `sessionActivityAt`. Stamp AFTER the message-id fallback: some
-				// producers omit sessionID from the part while still updating a
-				// known message, and that visible output is runtime activity too.
-				if (resolvedSessionID) get().noteSessionActivity(resolvedSessionID);
+				// `sessionActivityAt`. A closing part is not activity (`isOpenPart`).
+				// Stamp AFTER the message-id fallback: some producers omit
+				// sessionID from the part while still updating a known message,
+				// and that visible output is runtime activity too.
+				if (resolvedSessionID && isOpenPart(part)) get().noteSessionActivity(resolvedSessionID);
 
 				const existingMsgs = resolvedSessionID
 					? get().messages[resolvedSessionID]
@@ -2716,10 +2682,8 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 			// accepted normally. Never the whole map: another session may
 			// still be streaming (see comment above deltaActiveParts).
 			if (sessionID) deltaActiveParts.delete(sessionID);
-			// Same reasoning for the delta event-id tails (T14): a new
-			// turn's deltas use brand-new part ids anyway, so nothing realistic
-			// is lost by dropping this session's tracking here.
-			if (sessionID) deltaEventTails.delete(sessionID);
+			// Keep the bounded event-id tail after completion: reconnects can
+			// replay the final delta after idle. New turns use new part ids.
 			return;
 		}
 		case "session.error": {

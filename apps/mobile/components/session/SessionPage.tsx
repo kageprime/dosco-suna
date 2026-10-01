@@ -50,9 +50,10 @@ import { ProjectHeaderActions } from '@/components/session/ProjectHeaderActions'
 import { SessionThreadTitle } from '@/components/session/SessionThreadTitle';
 import { SubAgentHeaderChip } from '@/components/session/SubAgentHeaderChip';
 import { SubAgentListSheet } from '@/components/session/SubAgentListSheet';
-import { useProjectModelCatalog } from '@/lib/projects/hooks';
-import { catalogPickerModels, offeredSessionModels, type PickerCatalogModel, type PickerModel } from '@/lib/session/model-picker';
+import { useComposerModels, useProjectDetail } from '@/lib/projects/hooks';
+import { latestAssistantAgent, threadAgents } from '@/lib/session/composer-config';
 import { isModelUnavailable } from '@/lib/session/composer-model';
+import { offeredModelCount } from '@/lib/session/model-picker';
 import type { SubAgentRelation } from '@/lib/session/sub-agents';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 import { haptics } from '@/lib/haptics';
@@ -64,7 +65,16 @@ import { MOTION, THEME, withAlpha } from '@/lib/utils/theme';
 
 import { clearOptimistic, useSyncStore } from '@/lib/opencode/sync-store';
 import { reconcileLiveSession, useSessionSync } from '@/lib/opencode/session-sync';
-import { compactionTurnInfo, createSessionPrompt, groupMessagesIntoTurns, resolveWorkingTurn } from '@kortix/sdk';
+import {
+  compactionTurnInfo,
+  createSessionPrompt,
+  deleteSessionPrompt,
+  groupMessagesIntoTurns,
+  listSessionPrompts,
+  retrySessionPrompt,
+  type SessionPrompt,
+  resolveWorkingTurn,
+} from '@kortix/sdk';
 import * as Crypto from 'expo-crypto';
 import { promptParts } from '@/lib/session/prompt-parts';
 import type { Turn, QuestionRequest, MessageWithParts, PermissionRequest } from '@/lib/opencode/types';
@@ -110,6 +120,7 @@ import {
   type TurnBodyTurn,
 } from '@/lib/session/turn-body';
 import { revertSession } from '@/lib/opencode/session-rewind';
+import { FeatureNotSupportedError, featureNotSupportedError, useRuntimeSupports } from '@/lib/opencode/runtime-capabilities';
 import { useToast } from '@/components/kortix/toast-provider';
 import {
   hasRunningQuestionTool as findRunningQuestionTool,
@@ -123,19 +134,12 @@ import { useTabStore } from '@/stores/tab-store';
 import { useMessageQueueStore } from '@/stores/message-queue-store';
 import { queueHeaderLabel } from '@/lib/session/queue-undo';
 import { useSessionPromptRequestStore } from '@/stores/session-prompt-request-store';
-import type { QueuedMessage } from '@/stores/message-queue-store';
 import { useCompactionStore } from '@/stores/compaction-store';
 import { useSandboxContext } from '@/contexts/SandboxContext';
 import {
-  useOpenCodeAgents,
-  useOpenCodeProviders,
   useOpenCodeConfig,
   useOpenCodeCommands,
-  flattenModels,
-  filterToLatestModels,
-  type Agent,
   type Command,
-  type FlatModel,
 } from '@/lib/opencode/hooks/use-opencode-data';
 import { useResolvedConfig } from '@/lib/opencode/hooks/use-local-config';
 import { getAuthToken } from '@/api/config';
@@ -158,12 +162,11 @@ import { CompactionMarker } from './turn/compaction-divider';
 import { QuestionPrompt } from './QuestionPrompt';
 import { PermissionPromptCard } from './PermissionPromptCard';
 import { useSessions } from '@/lib/platform/hooks';
-import { FileViewer } from '@/components/files/FileViewer';
 import { MarkdownActionsProvider } from '@/components/markdown/inline-code';
-import { ToolFilePreviewHost } from '@/components/session/tool/shared/navigation';
+import { ToolFilePreviewHost, useToolFilePreviewStore } from '@/components/session/tool/shared/navigation';
+import { SandboxPreviewSheet } from '@/components/session/SandboxPreviewSheet';
 import { ActivitySheetHost } from '@/components/session/turn/activity-sheet';
 import type { PermissionReply } from '@/components/session/tool/tool-part-renderer';
-import type { SandboxFile } from '@/api/types';
 import type { Session } from '@/lib/platform/types';
 import { ProjectHero } from '@/components/session/ProjectHero';
 
@@ -203,6 +206,8 @@ interface SessionPageProps {
   onOpenProjectSession?: (session: ProjectSession) => void;
   /** The model sheet's Agent tab `+`: starts a new session that creates an agent. */
   onCreateAgent?: () => void;
+  /** The agent the project session was created with (`agent_name`): the composer's agent until a pick. */
+  boundAgentName?: string | null;
   /** True when the left drawer is currently open — swaps the menu icon for an X */
   isDrawerOpen?: boolean;
   /** True when the right drawer is currently open — swaps the grid icon for an X */
@@ -219,10 +224,7 @@ const EMPTY_QUESTIONS = frozenEmpty<QuestionRequest>();
 const EMPTY_PERMISSIONS = frozenEmpty<PermissionRequest>();
 const EMPTY_TURNS = frozenEmpty<Turn>();
 const EMPTY_SESSIONS = frozenEmpty<Session>();
-const EMPTY_AGENTS = frozenEmpty<Agent>();
 const EMPTY_COMMANDS = frozenEmpty<Command>();
-const EMPTY_MODELS = frozenEmpty<FlatModel>();
-const EMPTY_DEFAULTS = Object.freeze({}) as Record<string, string>;
 const EMPTY_IDS = frozenEmpty<string>();
 const EMPTY_PROJECT_SESSIONS = frozenEmpty<ProjectSession>();
 
@@ -250,18 +252,7 @@ function readSavedScrollOffset(sessionId: string): number {
   return typeof saved?.scrollOffset === 'number' ? saved.scrollOffset : 0;
 }
 
-/** A catalog model the sandbox has not listed (yet), as the composer's `FlatModel`. */
-function flatModelFromCatalog(model: PickerModel, entry: PickerCatalogModel): FlatModel {
-  return {
-    ...model,
-    reasoning: entry.reasoning ?? false,
-    contextWindow: entry.limit?.context,
-    family: entry.family,
-    releaseDate: entry.release_date,
-  };
-}
-
-function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpenDrawer, onOpenRightDrawer, onRenamePress, sessionTitle, subAgentRelation: subAgentRelationValue, subAgents, onOpenProjectSession, onCreateAgent, isDrawerOpen, isRightDrawerOpen }: SessionPageProps) {
+function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpenDrawer, onOpenRightDrawer, onRenamePress, sessionTitle, subAgentRelation: subAgentRelationValue, subAgents, onOpenProjectSession, onCreateAgent, boundAgentName, isDrawerOpen, isRightDrawerOpen }: SessionPageProps) {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -472,29 +463,76 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   }, [sandboxUrl, sessionId]);
 
   // ── Message Queue ──────────────────────────────────────────────────────
-  const queueHydrated = useMessageQueueStore((s) => s.hydrated);
-  const allQueuedMessages = useMessageQueueStore((s) => s.messages);
-  const queuedMessages = useMemo(
-    () => allQueuedMessages.filter((m) => m.sessionId === sessionId),
-    [allQueuedMessages, sessionId],
-  );
-  const queueEnqueue = useMessageQueueStore((s) => s.enqueue);
-  const queueRemove = useMessageQueueStore((s) => s.remove);
-
-  // Hydrate queue store from AsyncStorage once
-  useEffect(() => {
-    if (!queueHydrated) {
-      useMessageQueueStore.getState().hydrate();
+  const [queuedMessages, setQueuedMessages] = useState<SessionPrompt[]>([]);
+  const refreshQueue = useCallback(async () => {
+    if (!projectId || !projectSessionId) { setQueuedMessages([]); return; }
+    try {
+      const { prompts } = await listSessionPrompts(projectId, projectSessionId);
+      setQueuedMessages(prompts);
+    } catch (error) {
+      log.error('[SessionPage] Could not read prompt inbox:', error);
     }
-  }, [queueHydrated]);
+  }, [projectId, projectSessionId]);
 
-  // Enqueue handler — called by SessionChatInput when agent is busy
-  const handleEnqueue = useCallback(
-    (text: string) => {
-      queueEnqueue(sessionId, text);
-    },
-    [sessionId, queueEnqueue],
-  );
+  // Move pre-upgrade local rows into the durable inbox before removing them.
+  useEffect(() => {
+    if (!projectId || !projectSessionId) return;
+    let cancelled = false;
+    void (async () => {
+      await useMessageQueueStore.getState().hydrate();
+      for (const row of useMessageQueueStore.getState().getSessionMessages(sessionId)) {
+        if (cancelled) break;
+        try {
+          const result = await createSessionPrompt(projectId, projectSessionId, {
+            clientMessageId: row.id, messageId: mintWireMessageId({ nowMs: row.timestamp, knownMessageIds: [] }),
+            parts: [{ type: 'text', text: row.text }], placement: 'composer',
+            clientSentAtMs: row.timestamp, remintOnDelivery: true,
+          });
+          if (result.state === 'failed') break;
+          useMessageQueueStore.getState().remove(row.id);
+          void refreshQueue();
+        } catch { break; } // Keep this and later rows for the next attempt, in order.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId, projectSessionId, sessionId, refreshQueue]);
+
+  useEffect(() => {
+    void refreshQueue();
+    if (!projectId || !projectSessionId) return;
+    const timer = setInterval(() => void refreshQueue(), 3000);
+    return () => clearInterval(timer);
+  }, [projectId, projectSessionId, refreshQueue]);
+
+  const handleEnqueue = useCallback(async (text: string, options: PromptOptions, mentions?: TrackedMention[]) => {
+    if (!projectId || !projectSessionId) {
+      toast.error('No project session to queue a prompt');
+      throw new Error('No project session to queue a prompt');
+    }
+    const nowMs = Date.now();
+    const clientMessageId = Crypto.randomUUID();
+    const messageId = mintWireMessageId({
+      nowMs,
+      knownMessageIds: (useSyncStore.getState().messages[sessionId] ?? EMPTY_MESSAGES).map((m) => m.info.id),
+    });
+    const sessionMentions = mentions?.filter((m) => m.kind === 'session' && m.value);
+    const finalText = sessionMentions?.length
+      ? `${text}\n\n${buildSessionRefsBlock(sessionMentions.map((m) => ({ id: m.value ?? '', title: m.label })))}`
+      : text;
+    try {
+      const result = await createSessionPrompt(projectId, projectSessionId, {
+        clientMessageId, messageId, parts: [{ type: 'text', text: finalText }],
+        placement: 'composer', clientSentAtMs: nowMs,
+        overrides: { agent: options.agent ?? null, model: options.model ?? null, variant: options.variant ?? null },
+      });
+      if (result.state === 'failed') throw new Error('Prompt delivery was refused');
+      void refreshQueue();
+    } catch (error) {
+      log.error('[SessionPage] Could not queue prompt:', error);
+      toast.error('Could not queue the message. Try again.');
+      throw error;
+    }
+  }, [projectId, projectSessionId, sessionId, refreshQueue, toast]);
 
   // Queue expanded/collapsed state
   const [queueExpanded, setQueueExpanded] = useState(false);
@@ -517,16 +555,8 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     }
   }, [hasQuestion]);
 
-  // ── Queue Draining ─────────────────────────────────────────────────────
-  // Automatically send the next queued message when the agent becomes idle.
-  // Mirrors the frontend's drainNextWhenSettled pattern.
-
-  const drainScheduledRef = useRef(false);
-  // Set by a user send; the next new turn scrolls into view animated. Turns
-  // that appear from hydration jump without an animation.
+  // The server inbox owns admission and drain, including after an app restart.
   const userSentRef = useRef(false);
-  const queueInFlightRef = useRef<{ queueId: string; sentAt: number } | null>(null);
-
 
   // ── Send / Stop handlers (defined early so queue drain logic can reference them) ──
 
@@ -737,119 +767,48 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     }
   }, [sandboxUrl, sessionId, toast]);
 
-  // ── Queue drain logic ───────────────────────────────────────────────────
+  const handleQueueSendNow = useCallback(async (promptId: string) => {
+    if (!projectId || !projectSessionId) return;
+    try {
+      await retrySessionPrompt(projectId, projectSessionId, promptId);
+      await refreshQueue();
+    } catch (error) {
+      log.error('[SessionPage] Could not prioritize prompt:', error);
+      toast.error('Could not send this message now. Try again.');
+    }
+  }, [projectId, projectSessionId, refreshQueue, toast]);
 
-  const drainNextWhenSettled = useCallback(() => {
-    if (drainScheduledRef.current) return;
-    if (queueInFlightRef.current) return;
-    if (isBusy) return;
-    if (hasQuestion) return;
-
-    const sessionQueue = useMessageQueueStore
-      .getState()
-      .messages.filter((m) => m.sessionId === sessionId);
-    if (sessionQueue.length === 0) return;
-
-    drainScheduledRef.current = true;
-    setTimeout(() => {
-      drainScheduledRef.current = false;
-
-      // Re-check guards after delay
-      const status = useSyncStore.getState().sessionStatus[sessionId];
-      const stillBusy = status?.type === 'busy' || status?.type === 'retry';
-      const stillHasQuestion = (useSyncStore.getState().questions[sessionId] ?? []).length > 0;
-      if (stillBusy || stillHasQuestion || queueInFlightRef.current) return;
-
-      const next = useMessageQueueStore.getState().dequeue(sessionId);
-      if (next) {
-        queueInFlightRef.current = { queueId: next.id, sentAt: Date.now() };
-        // Send with default options (agent/model/variant come from resolved config)
-        handleSend(next.text, {}).catch(() => {
-          queueInFlightRef.current = null;
-        });
-      }
-    }, 500);
-  }, [isBusy, hasQuestion, sessionId, handleSend]);
-
-  // Release in-flight lock when agent finishes and drain next
-  useEffect(() => {
-    const inFlight = queueInFlightRef.current;
-    if (!inFlight) return;
-    if (isBusy || hasQuestion) return;
-
-    // Agent finished — release lock and drain next
-    queueInFlightRef.current = null;
-    setTimeout(() => drainNextWhenSettled(), 100);
-  }, [safeMessages, isBusy, hasQuestion, drainNextWhenSettled]);
-
-  // Fallback drain: triggers when isBusy changes to false and queue has items
-  useEffect(() => {
-    if (isBusy || drainScheduledRef.current) return;
-    const sessionQueue = useMessageQueueStore
-      .getState()
-      .messages.filter((m) => m.sessionId === sessionId);
-    if (sessionQueue.length === 0) return;
-    drainNextWhenSettled();
-  }, [isBusy, queuedMessages.length, sessionId, drainNextWhenSettled]);
-
-  // "Send now" — abort current processing and immediately send a queued message
-  const handleQueueSendNow = useCallback(
-    (messageId: string) => {
-      const msg = useMessageQueueStore
-        .getState()
-        .messages.find((m) => m.id === messageId);
-      if (!msg) return;
-      queueInFlightRef.current = null;
-      queueRemove(messageId);
-      // Send now interrupts: say so, so the stopped reply is not a surprise.
-      if (isBusy) toast.info('Stopped the current reply to send this now');
-      handleStop();
-      setTimeout(() => {
-        handleSend(msg.text, {});
-      }, 200);
-    },
-    [queueRemove, handleStop, handleSend, isBusy, toast],
+  // Agent/model/variant config — web's inputs, `@kortix/sdk`'s rules.
+  // Agents: the project's own, from the Kortix project config (`threadAgents`,
+  // the SDK's `selectableProjectAgents`, #8007) — never the sandbox's `/agent`
+  // list, which adds the runtime's built-ins. Ready before the sandbox is.
+  const projectDetailQuery = useProjectDetail(projectId ?? null);
+  const projectConfig = projectDetailQuery.data?.config;
+  const rawAgents = useMemo(
+    () => (projectConfig ? threadAgents(projectConfig) : undefined),
+    [projectConfig],
   );
-
-  // Agent/model/variant config
-  const agentsQuery = useOpenCodeAgents(sandboxUrl);
-  const agents = agentsQuery.data ?? EMPTY_AGENTS;
-  // No list yet (sandbox still starting, or its first fetch in flight).
-  const agentsLoading = !agentsQuery.data;
-  // Models are derived here from the providers query (the same query
-  // useOpenCodeModels reads) so the arrays keep their identity between
-  // renders and the memoized composer can skip stream renders.
-  const { data: providers } = useOpenCodeProviders(sandboxUrl);
-  const sandboxModels = useMemo(() => (providers ? flattenModels(providers) : EMPTY_MODELS), [providers]);
-  // The models this thread can run on: web's rule (`lib/session/model-picker.ts`).
-  // A gateway project lists its `/model-picker` catalog — the list project home
-  // and web show; any other project lists its sandbox's own providers.
-  const { catalog: modelCatalog, isLoading: catalogLoading, refetch: refetchModelCatalog } =
-    useProjectModelCatalog(projectId ?? null);
-  const allModels = useMemo(
-    () => offeredSessionModels(sandboxModels, modelCatalog, flatModelFromCatalog),
-    [sandboxModels, modelCatalog],
-  );
-  // The catalog is already curated by the server. A native provider list is
-  // not: it keeps the newest model per family.
-  const visibleModels = useMemo(
-    () => (modelCatalog ? allModels : filterToLatestModels(allModels)),
-    [modelCatalog, allModels],
-  );
-  const modelsLoading = catalogLoading || (!modelCatalog && !providers);
-  // A gateway project whose catalog offers no model: Send opens the connect
-  // sheet instead of posting (KRTX-251). No catalog (gateway off) never blocks.
+  // No roster yet (the project config or the sandbox still loading).
+  const agentsLoading = !rawAgents;
+  // Web defaults the picker to the agent of the latest assistant turn.
+  const latestAgent = useMemo(() => latestAssistantAgent(messages ?? EMPTY_MESSAGES), [messages]);
+  // Models: the project's list (`useComposerModels`), the same one project home
+  // and web show; the sandbox's `/provider` joins it off-gateway.
+  const {
+    gatewayEnabled,
+    providers,
+    models,
+    modelDefaults,
+    isLoading: modelsLoading,
+    refetchModelCount,
+  } = useComposerModels(projectId ?? null, sandboxUrl);
+  // A gateway project that offers no model: Send opens the connect sheet
+  // instead of posting (KRTX-251). Gateway off never blocks.
   const modelUnavailable = isModelUnavailable({
-    hasCatalog: modelCatalog !== undefined,
-    loading: catalogLoading,
-    modelCount: visibleModels.length,
+    hasCatalog: gatewayEnabled,
+    loading: modelsLoading,
+    modelCount: offeredModelCount(models),
   });
-  // `ConnectProviderSheet` refetches once the in-app browser closes, to toast
-  // "Provider connected" only once the catalog actually turns up a model.
-  const refetchModelCount = useCallback(async () => {
-    const result = await refetchModelCatalog();
-    return catalogPickerModels(result.data?.models).length;
-  }, [refetchModelCatalog]);
   const connectSheetRef = useRef<SheetRef>(null);
   const handleConnectModel = useCallback(() => {
     if (projectId) connectSheetRef.current?.open();
@@ -868,12 +827,23 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     () => ({ projectId: projectId ?? null, requestConnect: requestConnectorConnect }),
     [projectId, requestConnectorConnect],
   );
-  const defaults = providers?.default ?? EMPTY_DEFAULTS;
   const { data: config } = useOpenCodeConfig(sandboxUrl);
-  const { data: commands = EMPTY_COMMANDS } = useOpenCodeCommands(sandboxUrl);
+  // A runtime without slash commands (pi) gets no list: no "/" or "#"
+  // suggestions and no AutoContinue, so nothing dispatches to /command (E1).
+  const canRunCommands = useRuntimeSupports(sandboxUrl, 'session.commands');
+  const canRewind = useRuntimeSupports(sandboxUrl, 'session.rewind');
+  const { data: commands = EMPTY_COMMANDS } = useOpenCodeCommands(canRunCommands ? sandboxUrl : undefined);
 
-  // Resolution uses ALL models (fallback chain); selector shows only visible
-  const resolved = useResolvedConfig(agents, allModels, config, defaults);
+  const resolved = useResolvedConfig({
+    agents: rawAgents,
+    boundAgent: boundAgentName,
+    latestAgent,
+    defaultAgent: projectConfig?.open_code_default_agent,
+    models,
+    providers,
+    modelDefaults,
+    configModel: config?.model,
+  });
 
   // useResolvedConfig returns new arrays, objects, and setters on every
   // render. Stabilize what the composer receives: arrays by content, setters
@@ -899,7 +869,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     const request = store.take(sessionId) ?? (projectSessionId ? store.take(projectSessionId) : null);
     if (!request) return;
     if (isBusy || hasQuestion) {
-      queueEnqueue(sessionId, request.text);
+      void handleEnqueue(request.text, {}).catch(() => {});
       return;
     }
     const { agent, modelKey, variant } = resolvedRef.current;
@@ -908,7 +878,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
     if (modelKey) options.model = modelKey;
     if (variant) options.variant = variant;
     void handleSend(request.text, options);
-  }, [promptRequest, sessionId, projectSessionId, isBusy, hasQuestion, queueEnqueue, handleSend]);
+  }, [promptRequest, sessionId, projectSessionId, isBusy, hasQuestion, handleEnqueue, handleSend]);
   const resolvedAgents = useShallowStableArray(resolved.agents);
   const resolvedVariants = useShallowStableArray(resolved.variants);
   const resolvedModel = resolved.model;
@@ -923,8 +893,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   );
   const handleAgentChange = useCallback((name: string) => resolvedRef.current.setAgent(name), []);
   const handleModelChange = useCallback(
-    (providerID: string, modelID: string) =>
-      resolvedRef.current.setModel(providerID, modelID, { explicit: true }),
+    (providerID: string, modelID: string) => resolvedRef.current.setModel(providerID, modelID),
     [],
   );
   const handleVariantSet = useCallback((v: string | null) => resolvedRef.current.setVariant(v), []);
@@ -933,22 +902,17 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   }, []);
 
   // Agent names for mention highlighting in user bubbles
-  const agentNames = useMemo(() => agents.map((a) => a.name), [agents]);
+  const agentNames = useMemo(() => resolvedAgents.map((a) => a.name), [resolvedAgents]);
 
   // Mention click handlers
   const handleSessionMention = useCallback((mentionedSessionId: string) => {
     useTabStore.getState().navigateToSession(mentionedSessionId);
   }, []);
 
-  // File mention viewer
-  const [mentionFileViewerVisible, setMentionFileViewerVisible] = useState(false);
-  const [mentionViewerFile, setMentionViewerFile] = useState<SandboxFile | null>(null);
-
+  // A file mention or attachment tile opens the transcript's file preview
+  // (`ToolFilePreviewHost`, the Recent files sheet), like a tool row's file.
   const handleFileMention = useCallback((path: string) => {
-    const name = path.split('/').pop() || path;
-    const fullPath = path.startsWith('/') ? path : `/workspace/${path}`;
-    setMentionViewerFile({ name, path: fullPath, type: 'file' });
-    setMentionFileViewerVisible(true);
+    useToolFilePreviewStore.getState().openPreview(path);
   }, []);
 
   // ── Edit a sent message ────────────────────────────────────────────────
@@ -980,7 +944,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       } catch (err: any) {
         // The editor stays open with the draft, so Send can be tried again.
         log.error('[SessionPage] Rewind failed:', err?.message || err);
-        toast.error("Couldn't edit the message. Try again.");
+        toast.error(err instanceof FeatureNotSupportedError ? err.message : "Couldn't edit the message. Try again.");
         editPendingRef.current = false;
         setEditPending(false);
         return;
@@ -1021,7 +985,8 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   // User messages a Stop stranded before a step ran under them (web: `interruptedTurnIds`).
   const interruptedIds = useMemo(() => interruptedTurnIds(turns, isBusy), [turns, isBusy]);
   // Web refuses a rewind while the runtime is busy or prompts are still queued.
-  const rewindDisabled = isBusy || queuedMessages.length > 0 || editPending || !sandboxUrl;
+  // A runtime without rewind (pi) never offers Edit.
+  const rewindDisabled = !canRewind || isBusy || queuedMessages.length > 0 || editPending || !sandboxUrl;
   const showFreshHero = isFreshSession && !hasQuestion && queuedMessages.length === 0 && !isBusy;
   const heroOpacity = useRef(new Animated.Value(showFreshHero ? 1 : 0)).current;
 
@@ -1692,13 +1657,15 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
           const errorText = await res.text().catch(() => '');
           log.error('[SessionPage] Command failed:', res.status, errorText);
           useSyncStore.getState().setStatus(sessionId, { type: 'idle' });
+          const unsupported = featureNotSupportedError(res.status, errorText);
+          if (unsupported) toast.error(unsupported.message);
         }
       } catch (err: any) {
         log.error('[SessionPage] Command error:', err?.message || err);
         useSyncStore.getState().setStatus(sessionId, { type: 'idle' });
       }
     },
-    [sandboxUrl, sessionId, stickToEnd],
+    [sandboxUrl, sessionId, stickToEnd, toast],
   );
 
   // Only the working turn (web `resolveWorkingTurn`) receives status and busy;
@@ -1761,27 +1728,29 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   const keyExtractor = useCallback((item: Turn) => item.userMessage.info.id, []);
 
   const handleToggleQueue = useCallback(() => setQueueExpanded((v) => !v), []);
-  // Remove acts at once; the toast's Undo puts the message back.
-  const offerQueueUndo = useCallback(
-    (message: string, snapshot: QueuedMessage[], removedIds: string[]) => {
-      if (removedIds.length === 0) return;
-      toast.info(message, {
+  const handleRemoveQueued = useCallback(async (promptId: string) => {
+    if (!projectId || !projectSessionId) return;
+    try {
+      const removed = await deleteSessionPrompt(projectId, projectSessionId, promptId);
+      await refreshQueue();
+      toast.info('Removed from queue', {
         action: {
           label: 'Undo',
-          onPress: () => useMessageQueueStore.getState().restore(snapshot, removedIds),
+          onPress: () => void createSessionPrompt(projectId, projectSessionId, {
+            clientMessageId: removed.client_message_id,
+            messageId: removed.message_id,
+            parts: removed.parts,
+            ...(removed.placement ? { placement: removed.placement } : {}),
+            ...(removed.overrides ? { overrides: removed.overrides } : {}),
+            remintOnDelivery: true,
+          }).then(refreshQueue).catch(() => toast.error('Could not restore message. Try again.')),
         },
       });
-    },
-    [toast],
-  );
-  const handleRemoveQueued = useCallback(
-    (messageId: string) => {
-      const snapshot = useMessageQueueStore.getState().messages;
-      queueRemove(messageId);
-      offerQueueUndo('Removed from queue', snapshot, [messageId]);
-    },
-    [queueRemove, offerQueueUndo],
-  );
+    } catch (error) {
+      log.error('[SessionPage] Could not remove prompt:', error);
+      toast.error('Could not remove message. Try again.');
+    }
+  }, [projectId, projectSessionId, refreshQueue, toast]);
   // The oldest pending permission, pinned above the composer (COR-137 Task 7)
   // — above the queue panel in the same top slot, so it is never missed
   // off-screen while a tool call waits on it.
@@ -2062,7 +2031,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
             onAgentChange={handleAgentChange}
             onCreateAgent={onCreateAgent}
             model={resolvedModel}
-            models={visibleModels}
+            models={models}
             modelsLoading={modelsLoading}
             agentsLoading={agentsLoading}
             modelUnavailable={modelUnavailable}
@@ -2093,20 +2062,12 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
 
       <ConnectorAuthSheet ref={connectorAuthSheetRef} request={connectorHandoffRequest} />
 
-      {/* File mention viewer */}
-      <FileViewer
-        visible={mentionFileViewerVisible}
-        onClose={() => {
-          setMentionFileViewerVisible(false);
-          setMentionViewerFile(null);
-        }}
-        file={mentionViewerFile}
-        sandboxId=""
-        sandboxUrl={sandboxUrl}
-      />
-
-      {/* File taps inside tool rows (ToolNavigation.openFile) */}
+      {/* File taps: tool rows (ToolNavigation.openFile), attachment tiles, file mentions */}
       <ToolFilePreviewHost />
+
+      {/* Show/preview taps (ToolNavigation.openPreview): in-session over the
+          thread, so a one-tap close returns to the same position (KRTX-602). */}
+      <SandboxPreviewSheet />
 
       {/* The activity summary rows' sheet (ActivityBurst) */}
       {/* Given the connector hand-off so a Connect inside it dismisses the
@@ -2236,7 +2197,7 @@ function QueuePanel({
   onSendNow,
   isDark,
 }: {
-  messages: QueuedMessage[];
+  messages: SessionPrompt[];
   expanded: boolean;
   /** The agent is working: Send now stops the current reply first. */
   busy: boolean;
@@ -2289,7 +2250,7 @@ function QueuePanel({
           <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled>
             {messages.map((qm) => (
               <View
-                key={qm.id}
+                key={qm.prompt_id}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -2308,7 +2269,7 @@ function QueuePanel({
                   variant="secondary"
                   size="sm"
                   className="rounded-full"
-                  onPress={() => onSendNow(qm.id)}
+                  onPress={() => onSendNow(qm.prompt_id)}
                   accessibilityLabel="Send now"
                   accessibilityHint={busy ? 'Stops the current reply and sends this message' : undefined}
                 >
@@ -2319,7 +2280,7 @@ function QueuePanel({
                   variant="ghost"
                   size="icon"
                   className="rounded-full"
-                  onPress={() => onRemove(qm.id)}
+                  onPress={() => onRemove(qm.prompt_id)}
                   accessibilityLabel="Remove from queue"
                 >
                   <XIcon size={16} color={mutedText} />

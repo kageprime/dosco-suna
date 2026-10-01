@@ -51,6 +51,19 @@ Stop and resume keep the sandbox's identity and filesystem. Delete destroys
 the sandbox. Git is the only durable record: work the agent commits and
 pushes survives; everything else does not.
 
+## Labels
+
+A label classifies a session: `bug`, `customer: eu`, `worker`. Open a session's
+`⋯` menu and choose **Edit labels**. The **Labels** filter in the session list
+shows only sessions that carry every label you pick. Labels are free-form, 1–64
+characters, at most 20 per session.
+
+Agents and scripts set labels too: `kortix sessions new --label worker`,
+`kortix sessions update --label needs-review` (inside a session, without an id,
+it labels that session), or `labels` in the API and SDK. A session also carries
+a free-form `metadata` object for your own keys — see
+[SDK sessions](/docs/sdk/sessions#labels-and-metadata).
+
 ## Runtime
 
 Every session uses OpenCode REST. Kortix stores the selected OpenCode agent and
@@ -68,6 +81,13 @@ access** and picks one of 3 options.
 | Whole project | Every member of the project. |
 
 Everyone with access reads the conversation and continues it.
+
+**A shared session runs on shared keys.** Once shared, a session uses only
+provider keys shared with the whole project, never one person's own keys or
+ChatGPT connection. If its model ran on your own keys, sharing switches it to
+the project's keys for that provider. If the project shares no key that runs
+the model, sharing is refused and the session stays private. See
+[Provider keys and member access](/docs/project/models#provider-keys-and-member-access).
 
 **Only the owner changes this.** A project manager who did not create the
 session can open it once it is shared with them, and can stop, restart, or

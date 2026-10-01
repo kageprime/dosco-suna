@@ -133,6 +133,16 @@ test('session(projectId, sessionId) binds both ids', async () => {
   expect(last().url).toContain('/projects/PID123/sessions/SID456/previews');
 });
 
+test('session presence writes a tab-scoped lease through the authenticated backend', async () => {
+  const tabId = '00000000-0000-4000-8000-000000000001';
+  await kortix.session('PID123', 'SID456').presence({ tab_id: tabId, active: true });
+  expect(last()).toMatchObject({
+    url: 'http://test.local/projects/PID123/sessions/SID456/presence',
+    method: 'PUT',
+    body: { tab_id: tabId, active: true },
+  });
+});
+
 test('session(projectId, sessionId).cost binds project scope without starting the runtime', async () => {
   await kortix.session('PID123', 'SID456').cost();
 
@@ -448,7 +458,11 @@ test('project(id).access.resourceGrants covers list/create/remove', async () => 
   expect(last().method).toBe('DELETE');
 });
 
-test('project(id).secrets covers provider OAuth start, poll, and removal', async () => {
+test('project(id).secrets covers provider OAuth list, start, poll, and removal', async () => {
+  await kortix.project('PID123').secrets.listProviderOAuth();
+  expect(last().url.endsWith('/projects/PID123/oauth')).toBe(true);
+  expect(last().method).toBe('GET');
+
   await kortix.project('PID123').secrets.startProviderOAuth('chatgpt');
   expect(last().url).toContain('/projects/PID123/oauth/chatgpt/start');
   expect(last().method).toBe('POST');
@@ -533,6 +547,11 @@ test('project(id).connectors exposes the connection lifecycle', async () => {
   expect(last().url).toContain('/projects/PID123/connections/connection-1/label');
   expect(last().method).toBe('PUT');
   expect(last().body).toEqual({ label: 'Support inbox' });
+
+  await kortix.project('PID123').connectors.connections.addComputer({ tunnelId: 'tunnel-1', share: 'me' });
+  expect(last().url).toContain('/projects/PID123/computers');
+  expect(last().method).toBe('POST');
+  expect(last().body).toEqual({ tunnel_id: 'tunnel-1', share: 'me' });
 });
 
 test('kortix.connectStatus hits the top-level connect-status endpoint (not project-scoped)', async () => {
@@ -861,6 +880,24 @@ function mockTwoSessionSandboxes() {
   }) as unknown as typeof fetch;
 }
 
+test('ensureReady names the runtime session from runtime_session_id first', async () => {
+  globalThis.fetch = mock(async (input: unknown) => {
+    const url = requestUrl(input);
+    if (url.includes('/sessions/SESS-NEUTRAL/start')) {
+      return jsonResponse({
+        ...sessionStartPayload('sb-neutral', ''),
+        runtime_session_id: 'rs-neutral',
+        opencode_session_id: null,
+      });
+    }
+    return jsonResponse({ ok: true });
+  }) as unknown as typeof fetch;
+  const k = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
+  const ready = await k.session('PROJ', 'SESS-NEUTRAL').ensureReady();
+  expect(ready.runtimeSessionId).toBe('rs-neutral');
+  expect(ready.opencodeSessionId).toBe('rs-neutral');
+});
+
 test('two session handles resolve independent sandboxes: A.send never crosses to B (or back)', async () => {
   globalThis.fetch = mockTwoSessionSandboxes();
   const k = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
@@ -1141,6 +1178,33 @@ test('previewUrl()/proxyUrl()/runtime throw SessionNotReadyError before ensureRe
   expect(() => s.previewUrl(3000)).toThrow(SessionNotReadyError);
   expect(() => s.proxyUrl('http://localhost:3000')).toThrow(SessionNotReadyError);
   expect(() => s.runtime).toThrow(SessionNotReadyError);
+});
+
+// sandboxPortUrl() is the AUTHENTICATED backend proxy for an arbitrary sandbox
+// port — `${backendUrl}/p/{externalId}/{port}` — with no browser preview-origin
+// rewriting. It is what a local port-forward proxy (CLI `sessions forward`, the
+// TUI Ports panel) dials with the caller's own bearer token, as opposed to
+// previewUrl()/proxyUrl() which target a browser tab and may rewrite onto a
+// per-preview origin.
+test("sandboxPortUrl uses the handle's own sandbox id, not whichever session resolved last", async () => {
+  globalThis.fetch = mockTwoSessionSandboxes();
+  const k = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
+
+  const a = k.session('PROJ', 'SESS-A');
+  const b = k.session('PROJ', 'SESS-B');
+
+  await a.ensureReady();
+  await b.ensureReady();
+
+  expect(a.sandboxPortUrl(3000)).toBe('http://test.local/p/sb-A/3000');
+  expect(b.sandboxPortUrl(5173)).toBe('http://test.local/p/sb-B/5173');
+});
+
+test('sandboxPortUrl() throws SessionNotReadyError before ensureReady()', () => {
+  const k = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
+  const s = k.session('PROJ', 'SESS-NEW');
+
+  expect(() => s.sandboxPortUrl(3000)).toThrow(SessionNotReadyError);
 });
 
 // health() is a liveness POLL, not an action gated on the runtime being up —
@@ -1459,6 +1523,7 @@ test('ensureReady() polls through provisioning/starting until the runtime report
   const k = createKortix({ backendUrl: 'http://test.local', getToken: async () => 'tok' });
   const ready = await k.session('PROJ', 'SESS-POLL').ensureReady({ readyTimeoutMs: 10_000 });
   expect(ready.opencodeSessionId).toBe('ocs-poll');
+  expect(ready.runtimeSessionId).toBe('ocs-poll');
   expect(ready.sandboxId).toBe('sb-poll');
   expect(polls).toBeGreaterThanOrEqual(3);
 });

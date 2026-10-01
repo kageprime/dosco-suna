@@ -21,7 +21,7 @@ import {
   clearOptimistic,
   markBridgedParts,
 } from './sync-store';
-import { isLiveSession, reconcileLiveSession, reconcileLiveSessions } from './session-sync';
+import { hydrateLiveStatuses, isLiveSession, reconcileLiveSession, reconcileLiveSessions } from './session-sync';
 import { createEventBatcher, type StreamEvent } from './event-batcher';
 import { createCueTracker, cueForEvent, type EventCue } from './event-cues';
 import { haptics } from '@/lib/haptics';
@@ -450,6 +450,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * - after an interrupted connection reopens past the gap threshold, or after a
  *   recycle, the live sessions re-read one tail page each and `/question` is
  *   read once;
+ * - every open reads `/session/status` once and settles a working session the
+ *   runtime no longer lists;
  * - past `STREAM_RECYCLE_BYTES` the connection is recycled, because the XHR
  *   transport keeps the whole body in memory;
  * - backoff has jitter; after `MAX_HARD_FAILURES` consecutive failures the
@@ -703,6 +705,7 @@ export function useOpenCodeEventStream(sandboxUrl: string | undefined) {
         lastReceivedAt = openedAt;
         health.dispatch({ type: 'open', at: openedAt });
         armHeartbeat(HEARTBEAT_TIMEOUT_MS);
+        void hydrateLiveStatuses(sandboxUrl, () => disposed || es !== source);
         stableTimer = setTimeout(() => {
           stableTimer = null;
           if (!disposed && es === source) markStable();

@@ -11,7 +11,7 @@
  *
  * This band is the first thing a person reads on a brand-new project. It is not
  * a feature list — it is the answer to "what is this FOR", and every row is a
- * claim about what Dosco is.
+ * claim about what Kortix is.
  *
  * An earlier version of this file failed that test. It was written under the
  * rule "every prompt must map to a skill in the `general-knowledge-worker`
@@ -21,16 +21,16 @@
  * powerful tool?" A prompt has to name a REASON, not a capability.
  *
  * Worse, that rule excluded the things that make this an AI Management System
- * rather than a chat box. The most valuable prompts here operate on Dosco's
+ * rather than a chat box. The most valuable prompts here operate on Kortix's
  * OWN primitives — they are the first group below, and they are first on
  * purpose:
  *
- *   - **agents** live in `.kortix/opencode/agents/<name>.md` with a governance
- *     entry in `kortix.yaml`;
- *   - **skills** live in `.kortix/opencode/skills/` and are served live by
+ *   - **agents** live in `agents/<name>.md` with a governance entry in
+ *     `kortix.yaml`;
+ *   - **skills** live in `skills/` and are served live by
  *     `kortix skills get`;
  *   - **triggers** are cron and signed-webhook entries in `kortix.yaml`;
- *   - **memory** is `.kortix/memory/`;
+ *   - **memory** is `memory/`;
  *   - work lands through a **change request**, never a direct merge.
  *
  * None of that is aspirational. The shipped `base` template already carries a
@@ -190,14 +190,14 @@ const GUESS =
  * pool made that worse, not better, which is exactly when a uniform pick stops
  * being the right tool.
  *
- * Everything here operates on a Dosco primitive that exists in the shipped
- * `base` template: agents in `.kortix/opencode/agents/`, skills in
- * `.kortix/opencode/skills/`, cron and webhook triggers in `kortix.yaml`,
- * memory in `.kortix/memory/`, and work landing through `kortix cr`.
+ * Everything here operates on a Kortix primitive that exists in the shipped
+ * `base` template: agents in `agents/`, skills in `skills/`, cron and webhook
+ * triggers in `kortix.yaml`, memory in `memory/`, and work landing through
+ * `kortix cr`.
  */
 export const WORKFORCE_STARTER_PROMPTS: StarterPrompt[] = [
   // ── Build the workforce ───────────────────────────────────────────────
-  // Dosco's own primitives: agents, skills, triggers, connectors, memory,
+  // Kortix's own primitives: agents, skills, triggers, connectors, memory,
   // change requests. These are the rows that say what this product IS, so they
   // lead the file.
   {
@@ -205,7 +205,7 @@ export const WORKFORCE_STARTER_PROMPTS: StarterPrompt[] = [
     icon: RobotIcon,
     label: 'Create an agent',
     prompt:
-      'Create a specialist agent for a job my company does often. Write its prompt into `.kortix/opencode/agents/`, give it only the grants it actually needs in `kortix.yaml`, and open a change request so I can read it before it goes live. Pick the job that would save me the most time and tell me why you picked it.',
+      'Create a specialist agent for a job my company does often. Write its prompt into `agents/`, give it only the grants it actually needs in `kortix.yaml`, and open a change request so I can read it before it goes live. Pick the job that would save me the most time and tell me why you picked it.',
   },
   {
     id: 'agent-team',
@@ -219,7 +219,7 @@ export const WORKFORCE_STARTER_PROMPTS: StarterPrompt[] = [
     icon: SparkleIcon,
     label: 'Write a skill',
     prompt:
-      'Turn something my company does the same way every time into a skill under `.kortix/opencode/skills/`, so every future session already knows how. Pick the highest-value one, write it properly with the steps and the gotchas, and open a change request.',
+      'Turn something my company does the same way every time into a skill under `skills/`, so every future session already knows how. Pick the highest-value one, write it properly with the steps and the gotchas, and open a change request.',
   },
   {
     id: 'skill-from-runbook',
@@ -636,7 +636,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
 
   // ── Research on the live web ─────────────────────────────────────────
   // The `agent-browser` skill plus the `web_search` / `scrape_webpage` tools in
-  // `.kortix/opencode/tools/`.
+  // `harnesses/opencode/tools/`.
   {
     id: 'competitor-teardown',
     icon: MagnifyingGlassIcon,
@@ -888,7 +888,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
   },
   // ── Engineering, on the repo this session cloned ─────────────────────
   // The biggest gap in the first pass, and the least defensible one:
-  // developers are Dosco's primary audience (comms skill, §9) and the sandbox
+  // developers are Kortix's primary audience (comms skill, §9) and the sandbox
   // is a real Linux machine with the repo already checked out. Every row here
   // is work the agent does in `/workspace`, landing through a change request.
   {
@@ -1438,7 +1438,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
 
   // ── My own week ──────────────────────────────────────────────────────
   // Personal rather than company-wide. Short, high-frequency, and the reason
-  // someone opens Dosco on a Monday morning rather than on a launch day.
+  // someone opens Kortix on a Monday morning rather than on a launch day.
   {
     id: 'plan-week',
     icon: CalendarIcon,
