@@ -145,11 +145,11 @@ describe('offered tabs survive the panel filter', () => {
     }
   });
 
-  test('with NO project, every live tab is offered except the project-scoped four', () => {
+  test('with NO project, every live tab is offered except the project-scoped five', () => {
     const offered: string[] = tabsFor({ hasProject: false });
     expect([...offered].sort()).toEqual(
       [...SETTINGS_TABS].filter(
-        (t) => !['workspace', 'sandbox', 'feature-flags', 'upgrades'].includes(t),
+        (t) => !['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(t),
       ).sort(),
     );
     for (const tab of offered) expect(ACCOUNT_SCOPED_SETTINGS_TABS).toContain(tab);
@@ -412,12 +412,11 @@ describe('the registry no longer carries palette settings destinations', () => {
     }
   });
 
-  test('Marketplace is a registry row again, pointing at its sidebar entry', () => {
-    // `proj-marketplace` was in the gone-list while Marketplace had no
-    // surface of its own. It is back because Marketplace left the capability
-    // tab bar for a top-level sidebar entry at the same URL — same
-    // arrangement as `proj-triggers`.
-    const href = '/projects/{projectId}/customize/marketplace';
+  test('Marketplace registry row points at its top-level URL (out of Customize)', () => {
+    // `proj-marketplace` stays a row, but Marketplace left the capability
+    // tab bar for its own top-level route — same arrangement as the retired
+    // `/channels` route.
+    const href = '/projects/{projectId}/marketplace';
     const item = paletteItems.find((entry) => entry.id === 'proj-marketplace');
     expect(item?.href).toBe(href);
     expect(item?.kind).toBe('navigate');

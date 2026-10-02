@@ -32,7 +32,7 @@ import { hubTarget, openAccountPanel } from '@/stores/account-panel-store';
 import type { SettingsNav } from '@/features/workspace/shared/settings-nav-context';
 import { useSettingsPanelStore, type MembersTab } from '@/stores/settings-panel-store';
 
-import { capabilityTabHref, channelsHref, type CapabilityTab } from './capability-tab-routes';
+import { capabilityTabHref, channelsHref, marketplaceHref, type CapabilityTab } from './capability-tab-routes';
 
 /**
  * Legacy nav ids for the surfaces that are top-level Customize tabs. A pane
@@ -40,13 +40,16 @@ import { capabilityTabHref, channelsHref, type CapabilityTab } from './capabilit
  * `navigate('review')` or `navigate('members')` (the overlay's old
  * vocabulary) needs to leave the page it is on, not open the overlay.
  */
-export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 'members' | null {
+export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 'members' | 'marketplace' | null {
   if (tab.startsWith('llm-')) return 'models';
   // Channels is no longer a tab of its own — it is a scope of Connectors. The
   // PAGE is the target; `projectCapabilityNavHref` adds the scope.
   if (tab === 'channels') return 'connectors';
   if (tab === 'secrets') return 'secrets';
-  // Marketplace is a tab again (sidebar entry removed) — same vocabulary.
+  // Marketplace is NOT a tab — it lives at its own top-level URL (see
+  // `marketplaceHref`). Still named here so a pane calling
+  // `navigate('marketplace')` lands on the surface, and `projectCapabilityNavHref`
+  // routes it there instead of through `capabilityTabHref`.
   if (tab === 'marketplace') return 'marketplace';
   // Review — its own tab since 2026-09-02, when the config page it was a
   // section of was retired.
@@ -71,13 +74,15 @@ export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 
 export function projectCapabilityNavHref(
   projectId: string,
   tab: string,
-  target: CapabilityTab['key'] | 'members',
+  target: CapabilityTab['key'] | 'members' | 'marketplace',
 ): string {
   if (tab === 'channels') return channelsHref(projectId);
   // `'members'` is not a real `CapabilityTab['key']` — `capabilityTabHref`
   // would reject it at the type level. The redirect page at that path is
   // still the right destination.
   if (target === 'members') return `/projects/${projectId}/members`;
+  // Same shape: Marketplace left the tab set for its own top-level URL.
+  if (target === 'marketplace') return marketplaceHref(projectId);
   return capabilityTabHref(projectId, target);
 }
 

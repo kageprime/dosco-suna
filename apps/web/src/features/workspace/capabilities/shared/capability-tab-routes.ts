@@ -35,7 +35,6 @@ export interface CapabilityTab {
     | 'agent'
     | 'connectors'
     | 'skills'
-    | 'marketplace'
     | 'triggers'
     | 'models'
     | 'secrets'
@@ -50,8 +49,9 @@ export interface CapabilityTab {
  * `project-sidebar/project-settings-nav.tsx` mirrors it and is asserted
  * against it, so reordering here moves the landing tab too.
  *
- * Marketplace is a tab like the rest: its `/customize/marketplace` URL is
- * built and matched here alongside the bar's tabs.
+ * Marketplace is NOT a tab: it lives at its own top-level
+ * `/projects/<id>/marketplace` URL (`marketplaceHref` below). The old
+ * `/customize/marketplace` URL redirects there, so bookmarks keep working.
  *
  * ## Agents lead, everything else is their library
  *
@@ -84,7 +84,6 @@ export interface CapabilityTab {
 export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'agent', label: 'Agents' },
   { key: 'skills', label: 'Skills' },
-  { key: 'marketplace', label: 'Marketplace' },
   { key: 'connectors', label: 'Connectors' },
   { key: 'triggers', label: 'Triggers' },
   { key: 'review', label: 'Review' },
@@ -114,7 +113,6 @@ export const CAPABILITY_SEGMENT: Record<CapabilityTab['key'], string> = {
   agent: 'agents',
   skills: 'skills',
   connectors: 'connectors',
-  marketplace: 'marketplace',
   triggers: 'triggers',
   review: 'review',
   models: 'models',
@@ -130,6 +128,16 @@ export function customizeHref(projectId: string): string {
 
 export function capabilityTabHref(projectId: string, key: CapabilityTab['key']): string {
   return `${customizeHref(projectId)}/${CAPABILITY_SEGMENT[key]}`;
+}
+
+/**
+ * Where Marketplace lives: a top-level project route, not a Customize tab.
+ * `/projects/<id>/customize/marketplace` still resolves — it redirects here —
+ * so every bookmark taken while it WAS a tab keeps working. Same arrangement
+ * as the retired `/channels` route.
+ */
+export function marketplaceHref(projectId: string): string {
+  return `/projects/${projectId}/marketplace`;
 }
 
 /**
@@ -180,9 +188,9 @@ export function activeCapabilityTab(pathname: string): CapabilityTab['key'] | nu
   if (segments[0] !== 'projects' || segments[2] !== 'customize') return null;
   if (segments.length === 5 && segments[3] === CAPABILITY_SEGMENT.agent) return 'agent';
   if (segments.length !== 4) return null;
-  // Matched against the segment map, not the tab bar: Marketplace left the
-  // bar for its own sidebar entry but keeps its URL, and its row still needs
-  // to light. Same shape check otherwise.
+  // Matched against the segment map, not the tab bar. Marketplace has no
+  // entry there any more (top-level URL, not a tab), so neither its retired
+  // Customize URL nor its top-level URL lights anything here.
   const hit = (Object.keys(CAPABILITY_SEGMENT) as CapabilityTab['key'][]).find(
     (key) => CAPABILITY_SEGMENT[key] === segments[3],
   );

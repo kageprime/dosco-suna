@@ -49,6 +49,7 @@ describe('railGroups', () => {
       'workspace',
       'sandbox',
       'feature-flags',
+      'git',
       'upgrades',
       'profile',
       'security',

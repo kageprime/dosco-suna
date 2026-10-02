@@ -5,9 +5,9 @@ import { useParams } from 'next/navigation';
 import { MarketplaceView } from '@/features/marketplace/marketplace-view';
 
 /**
- * /projects/[id]/marketplace — Marketplace at its own top-level URL, out of
- * the Customize section. Same in-project `MarketplaceView` the Customize tab
- * used to mount; `/customize/marketplace` redirects here.
+ * /projects/[id]/marketplace (locale tree — the middleware rewrites
+ * unprefixed app URLs here). Same surface as the non-locale route:
+ * Marketplace at its own top-level URL, out of the Customize section.
  */
 export default function ProjectMarketplacePage() {
   const { id: projectId } = useParams<{ id: string }>();

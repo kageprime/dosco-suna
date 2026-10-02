@@ -1,21 +1,24 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useParams } from 'next/navigation';
-
-import { MarketplaceView } from '@/features/marketplace/marketplace-view';
+import { marketplaceHref } from '@/features/workspace/capabilities/shared/capability-tab-routes';
 
 /**
- * /projects/[id]/customize/marketplace — the Marketplace capability surface.
- * Same in-project `MarketplaceView` as the top-level
- * `/projects/[id]/marketplace` route, mounted at the URL the capability bar
- * builds (`capabilityTabHref(projectId, 'marketplace')`).
+ * `/projects/[id]/customize/marketplace` — kept only to forward.
+ *
+ * Marketplace left Customize for its own top-level route
+ * (`/projects/[id]/marketplace`). This route exists so that every bookmark
+ * and link taken while it lived under Customize still lands on the surface
+ * it named. Same arrangement as the retired `/channels` route.
+ *
+ * A server redirect: the target needs no per-project data first, and doing
+ * it on the server means the browser never paints the `(capabilities)` shell
+ * twice.
  */
-export default function ProjectCustomizeMarketplacePage() {
-  const { id: projectId } = useParams<{ id: string }>();
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <MarketplaceView projectId={projectId} />
-    </div>
-  );
+export default async function RetiredCustomizeMarketplaceRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  redirect(marketplaceHref(id));
 }

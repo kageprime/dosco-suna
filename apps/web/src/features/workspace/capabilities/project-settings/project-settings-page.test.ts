@@ -219,7 +219,7 @@ describe('buildProjectSettingsNav', () => {
   test("navigate() to a capability tab routes to the tab's URL", () => {
     const { nav, pushed } = navFor('sandbox');
     nav.navigate('marketplace');
-    expect(pushed).toEqual(['/projects/p1/customize/marketplace']);
+    expect(pushed).toEqual(['/projects/p1/marketplace']);
     expect(useSettingsPanelStore.getState().open).toBe(false);
   });
 

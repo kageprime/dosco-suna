@@ -52,6 +52,7 @@ import { AppearanceTab } from './tabs/appearance-tab';
 import { ConnectedAccountsTab } from './tabs/connected-tab';
 import { CreditsTab } from './tabs/credits-tab';
 import { ExperimentalTab } from './tabs/experimental-tab';
+import { GitView } from '@/features/workspace/customize/sections/view/git-view';
 import { GeneralTab } from './tabs/general-tab';
 import { PlanTab } from './tabs/plan-tab';
 import { PreferencesTab } from './tabs/preferences-tab';
@@ -118,6 +119,7 @@ export const ACCOUNT_SCOPED_SETTINGS_TABS: readonly SettingsTab[] = [
 const PROJECT_GATED_TABS: Partial<Record<SettingsTab, CustomizeSection>> = {
   sandbox: 'sandbox',
   'feature-flags': 'feature-flags',
+  git: 'git',
   upgrades: 'upgrade',
 };
 
@@ -202,6 +204,7 @@ export function buildSettingsPanelSettingsNav(state: {
  */
 export function SettingsPanelBody({ projectId }: { projectId?: string }) {
   const tSettingsRail = useI18nTranslations('settings.rail');
+  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const tOrganizations = useI18nTranslations('settings.profile.organizations');
   const open = useSettingsPanelStore((s) => s.open);
   const tab = useSettingsPanelStore((s) => s.tab);
@@ -709,6 +712,21 @@ function SettingsTabPane({
   }
   if (item.tab === 'feature-flags' && projectId) {
     return <ExperimentalTab projectId={projectId} />;
+  }
+  // Same Git repo section the Customize bar's Settings tab renders — one
+  // component, two doors. Wrapped identically (narrow column + header) so
+  // the pane reads the same wherever it is opened from.
+  if (item.tab === 'git' && projectId) {
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-8">
+        <SettingsSectionHeader
+          title={tI18nComplete.raw('text95ddc9c4dfd3')}
+          description={tI18nComplete.raw('texte0d7209f4c07')}
+          className="pb-1"
+        />
+        <GitView projectId={projectId} />
+      </div>
+    );
   }
   if (item.tab === 'upgrades' && projectId) {
     return <UpgradesView projectId={projectId} />;

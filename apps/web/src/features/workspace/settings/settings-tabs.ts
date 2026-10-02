@@ -31,6 +31,7 @@ import { accountPanelUrl, hubTarget } from '@/stores/account-panel-store';
 import {
   capabilityTabHref,
   channelsHref,
+  marketplaceHref,
 } from '@/features/workspace/capabilities/shared/capability-tab-routes';
 
 export type SettingsTab =
@@ -108,6 +109,11 @@ export type SettingsTab =
   // the config page, while `/settings/sandbox` opens this overlay.
   | 'sandbox'
   | 'feature-flags'
+  // Git repo rejoined the overlay on 2026-10-02: the repository connection
+  // was the one config-page section with no overlay row (feature flags had
+  // one, git did not). Mounts the same `GitView` the Settings tab's Git repo
+  // section renders — one component, two doors.
+  | 'git'
   // Upgrades MOVED here outright on 2026-09-02 (Jay: "move this upgrade
   // section over the settings panel") — it is no longer a section of
   // `/projects/<id>/config`. `UpgradesView` has one mount now, this one.
@@ -148,6 +154,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   'workspace',
   'sandbox',
   'feature-flags',
+  'git',
   'upgrades',
   // So does the account surface: wallet, subscription and connected apps
   // render their panes here under the Account group. The account page keeps
@@ -235,9 +242,9 @@ const GRADUATED: Record<string, (projectId: string) => string> = {
   'llm-budgets': (p) => capabilityTabHref(p, 'models'),
   'llm-keys': (p) => capabilityTabHref(p, 'models'),
   'llm-api': (p) => capabilityTabHref(p, 'models'),
-  // Marketplace is a Customize tab at its own `/customize/marketplace` URL
-  // — a stale bookmark lands straight on it.
-  marketplace: (p) => capabilityTabHref(p, 'marketplace'),
+  // Marketplace left Customize for its own top-level URL — a stale
+  // bookmark lands straight on it.
+  marketplace: (p) => marketplaceHref(p),
 };
 
 /**

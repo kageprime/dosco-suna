@@ -24,7 +24,7 @@ describe('SETTINGS_TABS', () => {
     // person-scoped, not account configuration, so they came back from
     // `/accounts/[id]` while the service-account half stayed there.
     //
-    // Project configuration (workspace, sandbox, feature-flags, upgrades)
+    // Project configuration (workspace, sandbox, feature-flags, git, upgrades)
     // and the account surface (connected, credits, plan) are live tabs again:
     // one overlay, three scopes, grouped so ownership stays explicit.
     // Its position is last on purpose — the rail orders
@@ -39,6 +39,7 @@ describe('SETTINGS_TABS', () => {
       'workspace',
       'sandbox',
       'feature-flags',
+      'git',
       'upgrades',
       'connected',
       'credits',
@@ -154,10 +155,15 @@ describe('legacySectionRedirect', () => {
       expect(legacySectionRedirect('p1', id)).toBe('/projects/p1/customize/settings');
       expect(resolveOverlayTab(id)).toBeNull();
     }
-    for (const id of ['git', 'repositories']) {
-      expect(legacySectionRedirect('p1', id)).toBe('/projects/p1/customize/settings?section=git');
-      expect(resolveOverlayTab(id)).toBeNull();
-    }
+    // `git` is a live overlay tab again (Git repo row rejoined the rail):
+    // legacy bookmarks still resolve through GRADUATED first (unchanged),
+    // while the overlay id opens `/settings/git` directly.
+    expect(legacySectionRedirect('p1', 'git')).toBe('/projects/p1/customize/settings?section=git');
+    expect(resolveOverlayTab('git')).toBe('git');
+    expect(legacySectionRedirect('p1', 'repositories')).toBe(
+      '/projects/p1/customize/settings?section=git',
+    );
+    expect(resolveOverlayTab('repositories')).toBeNull();
   });
 
   test('upgrades is a live overlay tab, and the old singular spelling still folds into it', () => {
@@ -245,8 +251,8 @@ describe('legacySectionRedirect', () => {
     }
   });
 
-  test('marketplace redirects to its sidebar entry — same URL it always had', () => {
-    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/customize/marketplace');
+  test('marketplace redirects to its top-level route — out of the Customize section', () => {
+    expect(legacySectionRedirect('p1', 'marketplace')).toBe('/projects/p1/marketplace');
   });
 
   test('graduated capability pages still leave the overlay', () => {

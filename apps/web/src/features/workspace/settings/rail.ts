@@ -5,6 +5,7 @@ import {
   ShippingContainerIcon as Container,
   CreditCardIcon as CreditCard,
   FlaskIcon as Flask,
+  GitBranchIcon as GitBranch,
   KeyIcon as Key,
   LinkIcon as Link,
   PaletteIcon as Palette,
@@ -77,6 +78,12 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         label: 'Feature flags',
         description: 'Features you can switch on before they are generally available.',
         icon: Flask,
+      },
+      {
+        tab: 'git',
+        label: 'Git repo',
+        description: 'The repository this workspace runs from, and who can reach it.',
+        icon: GitBranch,
       },
       {
         tab: 'upgrades',

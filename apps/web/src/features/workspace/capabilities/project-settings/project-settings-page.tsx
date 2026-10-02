@@ -18,6 +18,7 @@ import { useReviewSessionSummary } from '@/features/review-center/hooks/use-revi
 import {
   capabilityTabHref,
   channelsHref,
+  marketplaceHref,
   type CapabilityTab,
 } from '@/features/workspace/capabilities/shared/capability-tab-routes';
 import { detectManifestVersion } from '@/features/workspace/customize/migrate-to-v2/manifest-version';
@@ -409,13 +410,15 @@ export function projectSettingsNavTarget(tab: string): ProjectSettingsSectionKey
  * (the overlay's old vocabulary) needs to leave this page entirely, not push a
  * `?section=` this page no longer recognizes.
  */
-export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 'members' | null {
+export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 'members' | 'marketplace' | null {
   if (tab.startsWith('llm-')) return 'models';
   // Channels is no longer a tab of its own — it is a scope of Connectors. The
   // PAGE is the target; `projectCapabilityNavHref` adds the scope.
   if (tab === 'channels') return 'connectors';
   if (tab === 'secrets') return 'secrets';
-  // Marketplace is a tab again (sidebar entry removed) — same vocabulary.
+  // Marketplace is NOT a tab — it lives at its own top-level URL (see
+  // `marketplaceHref`). Still named here so a pane calling
+  // `navigate('marketplace')` lands on the surface.
   if (tab === 'marketplace') return 'marketplace';
   // `'members'` — not a `CapabilityTab['key']` any more: Members graduated a
   // THIRD time, off the project entirely, onto the account hub's Access tab.
@@ -441,13 +444,15 @@ export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 
 export function projectCapabilityNavHref(
   projectId: string,
   tab: string,
-  target: CapabilityTab['key'] | 'members',
+  target: CapabilityTab['key'] | 'members' | 'marketplace',
 ): string {
   if (tab === 'channels') return channelsHref(projectId);
   // `'members'` is not a real `CapabilityTab['key']` — `capabilityTabHref`
   // would reject it at the type level. The literal route it used to build is
   // still the right destination: the redirect page at that path.
   if (target === 'members') return `/projects/${projectId}/members`;
+  // Same shape: Marketplace left the tab set for its own top-level URL.
+  if (target === 'marketplace') return marketplaceHref(projectId);
   return capabilityTabHref(projectId, target);
 }
 
