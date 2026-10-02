@@ -204,7 +204,6 @@ export function buildSettingsPanelSettingsNav(state: {
  */
 export function SettingsPanelBody({ projectId }: { projectId?: string }) {
   const tSettingsRail = useI18nTranslations('settings.rail');
-  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const tOrganizations = useI18nTranslations('settings.profile.organizations');
   const open = useSettingsPanelStore((s) => s.open);
   const tab = useSettingsPanelStore((s) => s.tab);
@@ -685,6 +684,7 @@ function SettingsTabPane({
   projectId: string | undefined;
   accountId: string | undefined;
 }) {
+  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   if (!active) return null;
 
   // Workspace name and icon have one implementation and one set of mutations,

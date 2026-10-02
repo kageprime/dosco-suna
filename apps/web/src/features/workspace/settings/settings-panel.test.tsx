@@ -525,20 +525,20 @@ describe('isSettingsTabAllowed — project scope (JAY-547)', () => {
   test('with no project, every personal and account tab is allowed — project tabs are not', () => {
     const allowed = SETTINGS_TABS.filter((tab) => isSettingsTabAllowed(tab, paramsFor()));
     expect([...allowed].sort()).toEqual(
-      SETTINGS_TABS.filter((t) => !['workspace', 'sandbox', 'feature-flags', 'upgrades'].includes(t)).sort(),
+      SETTINGS_TABS.filter((t) => !['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(t)).sort(),
     );
     for (const tab of SETTINGS_TABS) {
-      if (!['workspace', 'sandbox', 'feature-flags', 'upgrades'].includes(tab))
+      if (!['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(tab))
         expect(ACCOUNT_SCOPED_SETTINGS_TABS).toContain(tab);
     }
   });
 
-  // The four project-scoped tabs, and the gate is what hides them — and
+  // The five project-scoped tabs, and the gate is what hides them — and
   // with them the whole Project rail group — on `/settings` and under
   // `/accounts/**`, where there is no project to name. Asserted as an exact
-  // list so a fifth project-scoped tab cannot be added without a decision.
+  // list so a sixth project-scoped tab cannot be added without a decision.
   test('live project tabs gate on a project; the rest never did', () => {
-    const projectScoped = ['workspace', 'sandbox', 'feature-flags', 'upgrades'];
+    const projectScoped = ['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'];
     for (const tab of projectScoped as const) {
       expect(isSettingsTabAllowed(tab, paramsFor())).toBe(false);
     }
