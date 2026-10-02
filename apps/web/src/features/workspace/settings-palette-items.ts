@@ -148,6 +148,7 @@ const TAB_KEYWORDS: Record<SettingsTab, string> = {
     'sandbox templates template snapshot snapshots builds recipe container machine runtime image',
   'feature-flags':
     'feature flags flag experimental beta preview labs toggles switches early access',
+  git: 'git repo repository github clone branch remote push pull remote origin',
   upgrades: 'upgrades upgrade migrate migration manifest runner kortix yaml version bump',
   // Every other bag is gone with the tab it named. Thirteen project-
   // configuration tabs (General, Members, Secrets, Channels, Repositories,
