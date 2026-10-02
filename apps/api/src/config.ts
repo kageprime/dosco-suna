@@ -138,7 +138,8 @@ export function parseMorphManagedModels(value: string): string[] {
   return value.split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-const envSchema = z.object({
+/** Exported for the config-completeness regression test (unit-config-object.test.ts). */
+export const envSchema = z.object({
   // ── Core (required) ──────────────────────────────────────────────────────
   PORT: optInt(8008),
 
@@ -485,18 +486,16 @@ const envSchema = z.object({
   // when off.
   KORTIX_MANAGED_PROVIDER_ENABLED: optBoolUnset,
   // Fleet default for projects with no explicit per-project override. Defaults
-  // ON: wherever the gateway is available (master switch above), the managed
-  // gateway is the default routing mechanism and every project inherits it
-  // unless it explicitly opts out. Turning the per-project flag OFF is a
-  // fully supported first-class path (native OpenCode provider management:
-  // provider keys injected into the sandbox env, native `provider/model`
-  // refs, no gateway URL in the box) — the deliberate lever for deployments
-  // like SampleCo that want their own keys end to end. The master switch
-  // still wins — LLM_GATEWAY_ENABLED=false forces native OpenCode for
+  // OFF: projects route natively (own keys, native `provider/model` refs, no
+  // gateway URL in the box) unless explicitly opted in to the managed
+  // gateway. Turning the per-project flag ON is a fully supported first-class
+  // path wherever the gateway is available (master switch above) — the
+  // deliberate lever for deployments that want managed routing. The master
+  // switch still wins — LLM_GATEWAY_ENABLED=false forces native OpenCode for
   // everyone regardless of this value — and an operator can set
-  // LLM_GATEWAY_DEFAULT_ENABLED=false to opt a whole environment back to
-  // native-by-default.
-  LLM_GATEWAY_DEFAULT_ENABLED: optBoolTrue,
+  // LLM_GATEWAY_DEFAULT_ENABLED=true to opt a whole environment back to
+  // gateway-by-default.
+  LLM_GATEWAY_DEFAULT_ENABLED: optBoolFalse,
   // Empty = the in-API gateway at `${KORTIX_URL}/v1/llm`. Set to a standalone
   // gateway's public base (…/v1/llm) to route every sandbox model call there.
   LLM_GATEWAY_BASE_URL: optStr,
@@ -1379,6 +1378,13 @@ export const config = {
   STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET,
 
+  // ─── Paystack (Billing, Nigerian market) ──────────────────────────────────
+  PAYSTACK_API_URL: env.PAYSTACK_API_URL,
+  PAYSTACK_PUBLIC_KEY: env.PAYSTACK_PUBLIC_KEY,
+  PAYSTACK_SECRET_KEY: env.PAYSTACK_SECRET_KEY,
+  PAYSTACK_WEBHOOK_SECRET: env.PAYSTACK_WEBHOOK_SECRET,
+  PAYSTACK_USD_NGN_RATE: env.PAYSTACK_USD_NGN_RATE,
+
   // ─── RevenueCat (Billing) ─────────────────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: env.REVENUECAT_WEBHOOK_SECRET,
 
@@ -1431,6 +1437,7 @@ export const config = {
   E2B_API_KEY: env.E2B_API_KEY,
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
+  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,
