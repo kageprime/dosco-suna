@@ -6,24 +6,22 @@ import {
   agentHref,
   capabilityTabHref,
   channelsHref,
-  marketplaceHref,
+  reviewHref,
 } from './capability-tab-routes';
 
 describe('CAPABILITY_TABS', () => {
-  test('lists agent, skills, connectors, triggers, review, models, secrets, config in that order', () => {
+  test('lists agent, skills, connectors, triggers, models, secrets, config in that order', () => {
     // Agents lead the bar (Marko, 2026-09-01): an agent is the one object a
     // person is granted access to, so it is the object Customize is built
     // around. Skills — the other thing you BUILD — follows; the rest is what
-    // agents draw on. Marketplace left the bar for its own top-level URL.
-    // Review joined the row on 2026-09-02, when the trailing
-    // Settings tab (`config`) was retired. Models led before all of that
-    // (Jay, 2026-08-17).
+    // agents draw on. Review sat on the row from 2026-09-02 until 2026-10-02,
+    // when it became a project page of its own (`reviewHref`). Models led
+    // before all of that (Jay, 2026-08-17).
     expect(CAPABILITY_TABS.map((t) => t.key)).toEqual([
       'agent',
       'skills',
       'connectors',
       'triggers',
-      'review',
       'models',
       'secrets',
       'config',
@@ -79,9 +77,15 @@ describe('capabilityTabHref', () => {
     expect(capabilityTabHref('p1', 'skills')).toBe('/projects/p1/customize/skills');
     expect(capabilityTabHref('p1', 'agent')).toBe('/projects/p1/customize/agents');
     expect(capabilityTabHref('p1', 'triggers')).toBe('/projects/p1/customize/triggers');
-    expect(capabilityTabHref('p1', 'review')).toBe('/projects/p1/customize/review');
-    // Marketplace left the bar for its own top-level URL — it no longer
-    // resolves through here at all (see `marketplaceHref` below).
+  });
+});
+
+describe('reviewHref', () => {
+  test('Review is a project page of its own, outside Customize', () => {
+    expect(reviewHref('p1')).toBe('/projects/p1/review');
+    expect(CAPABILITY_TABS.map((t) => t.key)).not.toContain('review');
+    // The old tab address no longer lights a tab: it only redirects.
+    expect(activeCapabilityTab('/projects/p1/customize/review')).toBeNull();
   });
 });
 
@@ -106,15 +110,6 @@ describe('activeCapabilityTab', () => {
     expect(activeCapabilityTab('/projects/p1/customize/connectors')).toBe('connectors');
     expect(activeCapabilityTab('/projects/p1/customize/skills')).toBe('skills');
     expect(activeCapabilityTab('/projects/p1/customize/triggers')).toBe('triggers');
-    expect(activeCapabilityTab('/projects/p1/customize/review')).toBe('review');
-    // Marketplace is not a tab: neither its retired Customize URL nor its
-    // top-level URL lights anything on the bar.
-    expect(activeCapabilityTab('/projects/p1/customize/marketplace')).toBeNull();
-    expect(activeCapabilityTab('/projects/p1/marketplace')).toBeNull();
-  });
-
-  test('marketplaceHref builds the top-level marketplace URL', () => {
-    expect(marketplaceHref('p1')).toBe('/projects/p1/marketplace');
   });
   test('ignores a trailing slash', () => {
     expect(activeCapabilityTab('/projects/p1/customize/skills/')).toBe('skills');

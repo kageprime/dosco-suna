@@ -24,11 +24,12 @@ import {
  * every consumer's bundle. {@link FEATURE_FLAG_KEYS} is the runtime witness of
  * the same list, so other packages can assert the two have not drifted.
  *
- * `review_center`, `agent_tunnel` and `session_transcript_history` are
- * deprecated. `agent_tunnel` graduated like `review_center` below: a paired
- * computer is a connector account and needs no flag. So did
+ * `review_center`, `agent_tunnel`, `session_transcript_history` and `teams`
+ * are deprecated. `agent_tunnel` graduated like `review_center` below: a
+ * paired computer is a connector account and needs no flag. So did
  * `session_transcript_history`: every session saves its transcript and shows
- * it while its computer is off.
+ * it while its computer is off. And `teams`: every project can connect
+ * Microsoft Teams.
  *
  * `review_center` is deprecated. Review Center graduated out of the flag
  * system: it is on for every project, and the API no longer lists, resolves,
@@ -43,6 +44,7 @@ export type FeatureFlagKey =
   | 'marketplace'
   | 'connectors_api_discover'
   | 'agentmail_email'
+  /** @deprecated Graduated — every project can connect Microsoft Teams. Removed in the next major. */
   | 'teams'
   | 'llm_gateway'
   /** @deprecated Graduated — Review Center is on for every project. Removed in the next major. */
@@ -59,8 +61,22 @@ export type FeatureFlagKey =
   | 'pooled_provider_secrets'
   | 'pi_harness'
   | 'config_releases'
+  /** @deprecated Graduated — every governed agent authorizes as itself; there is no switch. Removed in the next major. */
   | 'agent_principal'
-  | 'us_region';
+  | 'us_region'
+  /** @deprecated Withdrawn — agents messaging people left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
+  | 'human_messaging';
+
+/** The deprecated keys of {@link FeatureFlagKey}: the API never sends them. */
+type GraduatedFeatureFlagKey =
+  | 'agent_tunnel'
+  | 'teams'
+  | 'review_center'
+  | 'session_transcript_history'
+  | 'agent_principal'
+  | 'human_messaging';
+/** The keys `KortixProject.experimental` carries on every response. */
+type ServedFeatureFlagKey = Exclude<FeatureFlagKey, GraduatedFeatureFlagKey>;
 
 /**
  * Every {@link FeatureFlagKey} the API serves, at runtime. Kept in the same
@@ -71,7 +87,6 @@ export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'marketplace',
   'connectors_api_discover',
   'agentmail_email',
-  'teams',
   'llm_gateway',
   'meta_agent',
   'apps',
@@ -83,7 +98,6 @@ export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'pooled_provider_secrets',
   'pi_harness',
   'config_releases',
-  'agent_principal',
   'us_region',
 ] as const;
 
@@ -126,6 +140,9 @@ export interface KortixProject {
   account_id: string;
   name: string;
   repo_url: string;
+  /** The git origin a client clones and pushes: the Kortix git proxy when it
+   *  is enabled, else `repo_url`. Absent from APIs older than this field. */
+  git_origin_url?: string;
   default_branch: string;
   manifest_path: string;
   status: 'active' | 'archived';
@@ -137,14 +154,16 @@ export interface KortixProject {
   effective_project_role?: ProjectRole | null;
   /** Effective on/off for each feature flag for THIS project. The field name is
    *  a stable wire detail — the system is called "Feature flags". Deprecated
-   *  graduated keys (`review_center`, `agent_tunnel`) are absent from the wire. */
-  experimental?: Record<FeatureFlagKey, boolean>;
+   *  graduated keys (`review_center`, `agent_tunnel`, …) are absent from the
+   *  wire, so they are optional here. */
+  experimental?: Record<ServedFeatureFlagKey, boolean> &
+    Partial<Record<GraduatedFeatureFlagKey, boolean>>;
   /** Full feature-flag catalog (drives Customize → Feature flags).
    *  Self-describing so the UI never hard-codes the list. */
   experimental_features?: FeatureFlagView[];
-  /** Effective per-project warm sandbox pool config (Customize → Sandbox). */
+  /** @deprecated The API no longer sends it. Removed in the next major. */
   warm_pool?: { enabled: boolean; size: number };
-  /** Whether the warm pool feature is enabled platform-wide (gates the UI). */
+  /** @deprecated The API no longer sends it. Removed in the next major. */
   warm_pool_available?: boolean;
   /** Per-project sandbox-provider pin (Customize → Settings). null = follow the
    *  platform default/distribution. */
@@ -160,6 +179,8 @@ export interface KortixProject {
    *  Stored in `metadata.icon_glyph`; surfaced top-level so callers do not read
    *  raw metadata. Server-validated against a fixed catalogue, or null. */
   icon_glyph?: ProjectGlyph | null;
+  /** The project's page in the web app. Absent from APIs older than this field. */
+  dashboard_url?: string;
 }
 
 export interface ProjectConfigSummary {
@@ -182,6 +203,11 @@ export interface ProjectConfigSummary {
     model?: string | null;
     source?: 'opencode' | 'kortix.toml';
     enabled?: boolean;
+    /** True for a platform-owned agent (SUNA — the coordinator) that the API
+     *  injects, not one declared in `kortix.yaml`. Its configuration is fixed:
+     *  hosts render it read-only and never open the agent editor for it.
+     *  Absent/false = an ordinary editable project agent. */
+    platform?: boolean;
     /** Agent-specific sandbox template. null or absent inherits the project default. */
     sandbox?: string | null;
     /** Per-agent governance from `kortix.yaml` `agents:` (read-only mirror).

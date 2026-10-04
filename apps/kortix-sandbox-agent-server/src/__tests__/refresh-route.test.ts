@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 
 import type { OpenCodeConfig as Config } from '@/harness/open-code/config'
 import type { Opencode, VerifiedReloadResult } from '@/harness/open-code/lifecycle'
@@ -28,7 +28,7 @@ import {
   testOpenCodeConfig,
 } from './helpers/open-code-harness'
 import { resolveHarness } from '@/harness/harness'
-import { registerHarnessAssets, resetHarnessAssetsForTests } from '@/services/runtime-assets/runtime-assets'
+import { __resetReconcileCooldownForTests, registerHarnessAssets, resetHarnessAssetsForTests } from '@/services/runtime-assets/runtime-assets'
 import { restoreTestConfigRoot, serveTestConfigDir } from './helpers/boot-link'
 
 // Production registers this lookup in main.ts before anything runs.
@@ -121,6 +121,15 @@ function app(cfg: Partial<Config>, lifecycle: FakeLifecycle = fakeOpencode()) {
   return buildOpenCodeTestApp(testOpenCodeConfig(cfg), lifecycle.opencode, Date.now())
 }
 
+/** An empty, repo-less project target. `/workspace` (the fixture default) is a
+ *  real git checkout on a Kortix sandbox, where the "no repo here" 409 the
+ *  auth tests assert would instead run the repo work. */
+function emptyTarget(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'kortix-refresh-empty-'))
+  roots.push(dir)
+  return dir
+}
+
 const SERVICE = { Authorization: `Bearer ${TEST_SANDBOX_TOKEN}`, [KORTIX_SERVICE_CALL_HEADER]: '1' }
 const USER = () => ({
   [KORTIX_USER_CONTEXT_HEADER]: signTestUserContext(
@@ -157,9 +166,23 @@ describe('auth', () => {
     expect(res.status).toBe(401)
   })
 
+  it('refreshes a materialized repo whose config names no repoUrl', async () => {
+    // The credential boundary refuses a CONFIGURED non-proxy origin; a repo
+    // with no repoUrl in env must not 500 on that refusal — the checkout's
+    // own file origin answers. Red-witnesses resolveCloneCredential: before
+    // the unset-repoUrl early return, this route answered 500.
+    const { worktree } = clonedRepo()
+    const res = await app({ projectTarget: worktree }).request('/kortix/refresh', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_SANDBOX_TOKEN}` },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+  })
+
   it('lets a direct API call with both proofs reach the repo work for base=1', async () => {
     // No repo here, so the repo work answers 409; the gate did not refuse it.
-    const res = await app({}).request('/kortix/refresh?base=1&restart=0', { method: 'POST', headers: SERVICE })
+    const res = await app({ projectTarget: emptyTarget() }).request('/kortix/refresh?base=1&restart=0', { method: 'POST', headers: SERVICE })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { error: string; message: string }
     expect(body.error).toBe('refresh failed')
@@ -170,7 +193,7 @@ describe('auth', () => {
     // Only the destructive flag needs the direct call: a user pulling their own
     // workspace keeps working without it. No repo here, so the repo work
     // answers 409; the gate did not refuse it.
-    const res = await app({}).request('/kortix/refresh', {
+    const res = await app({ projectTarget: emptyTarget() }).request('/kortix/refresh', {
       method: 'POST',
       headers: { Authorization: `Bearer ${TEST_SANDBOX_TOKEN}` },
     })
@@ -446,6 +469,10 @@ describe('runtime-assets convergence after a refresh', () => {
   // underneath a resume that was still booting (the API's start budget then
   // expired). A refresh converges only a runtime that is already serving.
   const saved = { url: process.env.KORTIX_API_URL, token: process.env.KORTIX_TOKEN }
+
+  // The cooldown is module state: a pass another test file converged in the last
+  // 60 s makes the refresh skip its own pass, so the `ok` row read nothing.
+  beforeEach(() => __resetReconcileCooldownForTests())
 
   afterEach(() => {
     if (saved.url === undefined) delete process.env.KORTIX_API_URL

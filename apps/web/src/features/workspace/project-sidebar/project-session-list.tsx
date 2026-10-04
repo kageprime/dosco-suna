@@ -4,10 +4,10 @@ import { useTranslations } from '@/i18n/use-translations';
 
 import { HoverPrefetchLink } from '@/components/common/hover-prefetch-link';
 import {
-  directSubsessions,
   isMetaCoordinatorSession,
   matchesSourceFilters,
   matchesStatusFilters,
+  sessionCanBeStopped,
   sessionDisplayStatus,
   sessionIsShared,
   sessionSource,
@@ -82,6 +82,7 @@ import {
 } from '@/stores/session-filter-store';
 import { shouldBeginSessionSwitch, useSessionSwitchStore } from '@/stores/session-switch-store';
 import {
+  directSubsessions,
   listChangeRequests,
   restartProjectSession,
   sessionParentId,
@@ -89,11 +90,13 @@ import {
   type ChangeRequest,
   type ProjectSession,
 } from '@kortix/sdk';
-import { qk, useProjectSession, useProjectSessions, useSessionChildren } from '@kortix/sdk/react';
+import { qk, useForkSession, useProjectSession, useProjectSessions, useRuntimeSupports, useSessionChildren } from '@kortix/sdk/react';
 import {
   CaretRightIcon,
   DotsThreeIcon,
   FolderSimpleIcon as MetaFolder,
+  GitForkIcon,
+  SparkleIcon,
   PencilSimpleIcon,
   TagIcon,
   ArrowCounterClockwiseIcon as RotateCcw,
@@ -358,6 +361,15 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
     },
   });
 
+  // Fork the open session's conversation from its row: the runtime's own
+  // `session.fork`, same as the session header's item. Only the row of the
+  // session you are viewing gets it — the runtime client is bound to that
+  // session's box, so a fork fired from any other row would hit the wrong
+  // sandbox and fail (or worse, fork another box's conversation). The fork
+  // opens on the same row's route.
+  const runtimeForks = useRuntimeSupports('session.fork');
+  const forkSession = useForkSession();
+
   // Unsorted on purpose: nothing here reads the order. The two consumers are
   // `.length` and `.filter()`, and `groupSessions` sorts each section itself —
   // sorting twice per render bought nothing.
@@ -389,7 +401,7 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
   // sessions it spawned, loaded when the row opens. `nested` marks a spawned
   // row: the connector already carries the link, and it has no children of its
   // own to show.
-  const renderSessionNode = (session: ProjectSession, nested: boolean) => {
+  const renderSessionNode = (session: ProjectSession, nested: boolean, inSharedGroup = false) => {
     const href = `/projects/${session.project_id}/sessions/${session.session_id}`;
     const isActive = pathname?.includes(`/sessions/${session.session_id}`);
     const isSwitchTarget = switchingToSessionId === session.session_id;
@@ -415,6 +427,7 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
             }
           }}
           displayTitle={getSessionDisplayTitle(session)}
+          inSharedGroup={inSharedGroup}
           childCount={children.length}
           spawnedCount={spawnedCount}
           spawnedOpen={spawnedOpen}
@@ -433,6 +446,27 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
           onStop={(id, label) => stopMutation.mutate({ sessionId: id, label })}
           isStopping={
             stopMutation.isPending && stopMutation.variables?.sessionId === session.session_id
+          }
+          canFork={
+            runtimeForks &&
+            session.session_id === activeSessionId &&
+            !!(session.runtime_session_id ?? session.opencode_session_id)
+          }
+          isForking={
+            forkSession.isPending &&
+            forkSession.variables?.sessionId ===
+            (session.runtime_session_id ?? session.opencode_session_id)
+          }
+          onFork={(runtimeSessionId, href) =>
+            forkSession.mutate(
+              { sessionId: runtimeSessionId },
+              {
+                onSuccess: (fork) => router.push(childSessionHref(href, fork.id)),
+                onError: (err) => {
+                  errorToast(err instanceof Error ? err.message : tI18nComplete.raw('text32ad3abe4479'));
+                },
+              },
+            )
           }
         />
         {children.length > 0 && isActive && (
@@ -596,7 +630,7 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
           sessions={visibleShared}
           open={expandedIdSet.has('section:shared')}
           onToggle={() => toggleExpanded(projectId, 'section:shared')}
-          renderNode={(session) => renderSessionNode(session, false)}
+          renderNode={(session) => renderSessionNode(session, false, true)}
         />
         <StarterSection
           title={t('startedBy.automated')}
@@ -1076,6 +1110,13 @@ interface ProjectSessionRowProps {
   isRestarting: boolean;
   onStop: (sessionId: string, label: string) => void;
   isStopping: boolean;
+  /** Fork this row's conversation — offered only on the row of the session
+   *  you are viewing, whose box is the runtime the client is bound to. */
+  canFork?: boolean;
+  isForking?: boolean;
+  /** Fork a conversation — the first argument is the RUNTIME conversation id
+   *  (`session.runtime_session_id`), not the project-session id. */
+  onFork: (runtimeSessionId: string, href: string) => void;
   childCount?: number;
   /** Sessions this one spawned (`child_count`), and whether they are shown. */
   spawnedCount?: number;
@@ -1085,6 +1126,8 @@ interface ProjectSessionRowProps {
   reviewCount?: number;
   changeRequests: readonly ChangeRequest[];
   canShowHoverCard: boolean;
+  /** The row sits under the Shared group header, which already says it: no share icon. */
+  inSharedGroup?: boolean;
 }
 
 function ProjectSessionRow({
@@ -1102,6 +1145,9 @@ function ProjectSessionRow({
   isRestarting,
   onStop,
   isStopping,
+  canFork = false,
+  isForking = false,
+  onFork,
   childCount = 0,
   spawnedCount = 0,
   spawnedOpen = false,
@@ -1109,6 +1155,7 @@ function ProjectSessionRow({
   reviewCount = 0,
   changeRequests,
   canShowHoverCard,
+  inSharedGroup = false,
 }: ProjectSessionRowProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('sidebar');
@@ -1125,6 +1172,10 @@ function ProjectSessionRow({
 
   const source = sessionSource(session, tI18nComplete);
   const isMeta = isMetaCoordinatorSession(session);
+  // The conversation the runtime can fork: the pinned root conversation id,
+  // not the project-session id — `POST /session/{id}/fork` addresses the
+  // runtime's own id space (`ses_…`). canFork already guarantees one.
+  const runtimeRootId = session.runtime_session_id ?? session.opencode_session_id;
   // The starter of the RUN, from the server's `initiator`. The viewer's own
   // runs show no mark: it is everyone else's and the automations' that need one.
   const starter = useSessionStarter(session);
@@ -1134,7 +1185,8 @@ function ProjectSessionRow({
   // render at all when it is empty (an empty flex item still draws the row's
   // `gap-2`, so a plain chat session paid 8px of title width for nothing), and
   // the hover shift below only makes sense when there is something to shift.
-  const hasIndicators = showStarter || sessionIsShared(session);
+  const showSharedIcon = !inSharedGroup && sessionIsShared(session);
+  const hasIndicators = showStarter || showSharedIcon;
   // `reviewCount` is not optional here, whatever the signature's default says.
   // Omitting it does not mean "unknown", it asserts "nothing is waiting", which
   // is how the row's dot and this row's own hover card came to disagree: the dot
@@ -1161,7 +1213,7 @@ function ProjectSessionRow({
       {isMeta && (
         <Hint side="top" label={t('metaCoordinator')}>
           <span className="text-muted-foreground/80 flex size-4 shrink-0 items-center justify-center">
-            <MetaFolder className="size-3.5" weight="fill" />
+            <SparkleIcon className="size-3.5" weight="fill" />
           </span>
         </Hint>
       )}
@@ -1249,7 +1301,7 @@ function ProjectSessionRow({
               </Hint>
             </span>
           )}
-          <SessionSharedIcon session={session} />
+          {!inSharedGroup && <SessionSharedIcon session={session} />}
         </div>
       )}
     </HoverPrefetchLink>
@@ -1381,7 +1433,7 @@ function ProjectSessionRow({
             </DropdownMenuItem>
             {/* Lifecycle, not sharing: a project manager keeps Stop on a
                 session they did not create. */}
-            {session.status === 'running' && session.can_manage_lifecycle !== false && (
+            {sessionCanBeStopped(session) && session.can_manage_lifecycle !== false && (
               <DropdownMenuItem
                 className="cursor-pointer"
                 disabled={isStopping}
@@ -1389,6 +1441,16 @@ function ProjectSessionRow({
               >
                 {isStopping ? <Loading className="size-4 shrink-0" /> : <Square />}
                 {tI18nComplete.raw('textcae7d57bc067')}
+              </DropdownMenuItem>
+            )}
+            {canFork && runtimeRootId && (
+              <DropdownMenuItem
+                className="cursor-pointer"
+                disabled={isForking}
+                onSelect={() => deferAfterClose(() => onFork(runtimeRootId, href))}
+              >
+                {isForking ? <Loading className="size-4 shrink-0" /> : <GitForkIcon />}
+                {tI18nComplete.raw('text0e5f7f6732e0')}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem

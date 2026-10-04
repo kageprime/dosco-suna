@@ -7,6 +7,7 @@ import type {
   RemovedSessionPrompt,
   SessionConfigRelease,
   SessionManagedCatalogState,
+  SessionParticipants,
   SessionPrompt,
   SessionPublicShare,
   SessionReloadResult,
@@ -14,39 +15,45 @@ import type {
   SessionTurnStatus,
 } from './sessions';
 import {
+  type UpdateProjectSessionInput,
+  claimWarmProjectSession,
   createProjectSession,
-  sessionParentId,
   createSessionPrompt,
   createSessionPublicShare,
-  findActiveTranscriptShare,
-  claimWarmProjectSession,
   deleteProjectSession,
   deleteSessionPrompt,
+  editSessionPrompt,
   ensureWarmProjectSession,
+  findActiveTranscriptShare,
   getProjectSession,
   getProjectSessionConfigState,
   getProjectSessionScope,
   getSessionAudit,
-  getSessionPreviewCandidates,
+  getSessionMessageAuthors,
   getSessionOpenBundle,
+  getSessionParticipants,
+  getSessionPreviewCandidates,
   getSessionTranscript,
   getSessionTranscriptSync,
   getSessionTurn,
+  holdSessionPrompts,
   listProjectSessions,
   listProjectSessionsPage,
   listSessionPrompts,
   listSessionPublicShares,
   reloadProjectSessionConfig,
   reloadProjectSessionConfigStream,
+  resolvePublicShareUrl,
   restartProjectSession,
-  holdSessionPrompts,
   retrySessionPrompt,
   revokeSessionPublicShare,
+  sessionModelPin,
+  sessionParentId,
+  setProjectSessionModel,
   setProjectSessionScope,
   setProjectSessionSharing,
   stopProjectSession,
   updateProjectSession,
-  type UpdateProjectSessionInput,
 } from './sessions';
 
 let calls: { url: string; method: string; body: unknown }[] = [];
@@ -173,12 +180,63 @@ test('listProjectSessions throws when the response is unsuccessful', async () =>
   await expect(listProjectSessions('P1')).rejects.toBeTruthy();
 });
 
+test('setProjectSessionModel PUTs the pin as `model`, with the pre-W4 key for an older API', async () => {
+  nextResponse = {
+    status: 200,
+    body: { model: 'kortix/glm', opencode_model: 'kortix/glm', applied_live: true },
+  };
+  const result = await setProjectSessionModel('P1', 'S 1', 'kortix/glm');
+  expect(last().url).toContain('/projects/P1/sessions/S%201/model');
+  expect(last().method).toBe('PUT');
+  expect(last().body).toEqual({ model: 'kortix/glm', opencode_model: 'kortix/glm' });
+  expect(result.model).toBe('kortix/glm');
+});
+
+test('sessionModelPin reads the stored model pin, trimmed, or null', () => {
+  expect(sessionModelPin({ metadata: { opencode_model: ' kortix/glm ' } })).toBe('kortix/glm');
+  expect(sessionModelPin({ metadata: { opencode_model: '  ' } })).toBeNull();
+  expect(sessionModelPin({ metadata: { opencode_model: 7 } })).toBeNull();
+  expect(sessionModelPin({ metadata: null })).toBeNull();
+  expect(sessionModelPin({})).toBeNull();
+});
+
 test('setProjectSessionSharing PUTs the sharing intent', async () => {
   nextResponse = { status: 200, body: { session_id: 'S1' } };
   await setProjectSessionSharing('P1', 'S1', { mode: 'project' });
   expect(last().url).toContain('/projects/P1/sessions/S1/sharing');
   expect(last().method).toBe('PUT');
   expect(last().body).toEqual({ mode: 'project' });
+});
+
+const OWNER = {
+  user_id: 'U1',
+  name: 'Owner',
+  email: 'owner@example.test',
+  avatar_url: null,
+  is_viewer: true,
+};
+const MEMBER = {
+  user_id: 'U2',
+  name: null,
+  email: 'member@example.test',
+  avatar_url: null,
+  is_viewer: false,
+};
+const PARTICIPANTS: SessionParticipants = {
+  participants: [OWNER, MEMBER],
+  total: 2,
+  multi_user: true,
+};
+
+test('getSessionParticipants hits GET /participants without raising an error toast', async () => {
+  nextResponse = { status: 200, body: PARTICIPANTS };
+  const result = await getSessionParticipants('P1', 'S1');
+  expect(last().url).toContain('/projects/P1/sessions/S1/participants');
+  expect(last().method).toBe('GET');
+  expect(result).toEqual(PARTICIPANTS);
+  // A missing label is the fallback; a toast here is noise on every session open.
+  nextResponse = { status: 500, body: { error: 'boom' } };
+  await expect(getSessionParticipants('P1', 'S1')).rejects.toBeTruthy();
 });
 
 test('getSessionPreviewCandidates hits the previews endpoint', async () => {
@@ -239,9 +297,21 @@ test('findActiveTranscriptShare returns the newest live transcript share', () =>
   const shares = [
     share({ share_id: 'preview', resource_type: 'preview', port: 3000 }),
     share({ share_id: 'old', created_at: '2026-09-01T00:00:00.000Z' }),
-    share({ share_id: 'new', created_at: '2026-09-20T00:00:00.000Z', expires_at: '2026-10-01T00:00:00.000Z' }),
-    share({ share_id: 'revoked', created_at: '2026-09-25T00:00:00.000Z', revoked_at: '2026-09-25T01:00:00.000Z' }),
-    share({ share_id: 'expired', created_at: '2026-09-24T00:00:00.000Z', expires_at: '2026-09-25T00:00:00.000Z' }),
+    share({
+      share_id: 'new',
+      created_at: '2026-09-20T00:00:00.000Z',
+      expires_at: '2026-10-01T00:00:00.000Z',
+    }),
+    share({
+      share_id: 'revoked',
+      created_at: '2026-09-25T00:00:00.000Z',
+      revoked_at: '2026-09-25T01:00:00.000Z',
+    }),
+    share({
+      share_id: 'expired',
+      created_at: '2026-09-24T00:00:00.000Z',
+      expires_at: '2026-09-25T00:00:00.000Z',
+    }),
   ];
   expect(findActiveTranscriptShare(shares, now)?.share_id).toBe('new');
 });
@@ -550,7 +620,16 @@ test('getSessionTranscriptSync pages older windows with the previous window curs
 test("getSessionTranscriptSync reads a sub-agent's own window with `child`", async () => {
   nextResponse = {
     status: 200,
-    body: { available: false, reason: null, source: 'none', complete: false, captured_at: null, opencode_session_id: 'ses_sub', message_count: 0, messages: [] },
+    body: {
+      available: false,
+      reason: null,
+      source: 'none',
+      complete: false,
+      captured_at: null,
+      opencode_session_id: 'ses_sub',
+      message_count: 0,
+      messages: [],
+    },
   };
   await getSessionTranscriptSync('P1', 'S1', { limit: 40, child: 'ses_sub' });
   expect(last().url).toContain('child=ses_sub');
@@ -561,7 +640,16 @@ test("getSessionTranscriptSync reads a sub-agent's own window with `child`", asy
 test('getSessionTranscriptSync omits the cursor on a first window', async () => {
   nextResponse = {
     status: 200,
-    body: { available: false, reason: null, source: 'none', complete: false, captured_at: null, opencode_session_id: null, message_count: 0, messages: [] },
+    body: {
+      available: false,
+      reason: null,
+      source: 'none',
+      complete: false,
+      captured_at: null,
+      opencode_session_id: null,
+      message_count: 0,
+      messages: [],
+    },
   };
   await getSessionTranscriptSync('P1', 'S1', { limit: 40 });
   expect(last().url).not.toContain('before=');
@@ -668,7 +756,10 @@ test('updateProjectSession PATCHes the name/metadata input', async () => {
 
 test('updateProjectSession PATCHes labels and a null metadata value (removes the key)', async () => {
   nextResponse = { status: 200, body: { session_id: 'S1', labels: ['bug'] } };
-  const input: UpdateProjectSessionInput = { labels: ['bug'], metadata: { ticket: 'T-1', stale: null } };
+  const input: UpdateProjectSessionInput = {
+    labels: ['bug'],
+    metadata: { ticket: 'T-1', stale: null },
+  };
   await updateProjectSession('P1', 'S1', input);
   expect(last().method).toBe('PATCH');
   expect(last().body).toEqual({ labels: ['bug'], metadata: { ticket: 'T-1', stale: null } });
@@ -834,7 +925,8 @@ test('reloadProjectSessionConfig carries the release block of the converged box'
     running_release_id: null,
     desired_release_id: 'd'.repeat(64),
     proven: true,
-    fallback_reason: 'the base branch config did not start, and no proven release exists on this box',
+    fallback_reason:
+      'the base branch config did not start, and no proven release exists on this box',
     failed_release_id: 'd'.repeat(64),
   };
   nextResponse = {
@@ -884,7 +976,8 @@ test('a release always follows the base branch, and never serves from /workspace
   // `workspace` is gone from `source` for the same reason: under config
   // releases the chain is release → last proven release → image default.
   const modeFollowsBaseOnly: Exact<SessionConfigRelease['mode'], 'follow-base'> = true;
-  const sourceHasNoWorkspace: Exact<SessionConfigRelease['source'], 'release' | 'image-default'> = true;
+  const sourceHasNoWorkspace: Exact<SessionConfigRelease['source'], 'release' | 'image-default'> =
+    true;
   expect(modeFollowsBaseOnly).toBe(true);
   expect(sourceHasNoWorkspace).toBe(true);
 });
@@ -1353,6 +1446,31 @@ test('retrySessionPrompt POSTs .../retry and returns the requeued row', async ()
   expect(result.state).toBe('queued');
 });
 
+test('editSessionPrompt PATCHes the row text in place and returns the row', async () => {
+  nextResponse = {
+    status: 200,
+    body: {
+      prompt_id: 'cmd-1',
+      client_message_id: 'q_1',
+      message_id: 'msg_a',
+      state: 'queued',
+      reason: null,
+      text: 'say hello',
+      attempts: 0,
+      last_error: null,
+      created_at: '2026-08-18T00:00:00.000Z',
+      available_at: '2026-08-18T00:00:00.000Z',
+    },
+  };
+  const result = await editSessionPrompt('P1', 'S1', 'cmd-1', 'say hello');
+  expect(last().url).toBe('http://test.local/projects/P1/sessions/S1/prompts/cmd-1');
+  expect(last().method).toBe('PATCH');
+  // Text only: the row keeps its files, its place and its wire id.
+  expect(last().body).toEqual({ text: 'say hello' });
+  expect(result.text).toBe('say hello');
+  expect(result.message_id).toBe('msg_a');
+});
+
 test('holdSessionPrompts POSTs .../prompts/hold with the flag and returns the queue', async () => {
   // Stop has to reach the QUEUE, and the queue is on the server now: pausing a
   // browser-local drain leaves the admission gate free to deliver the very
@@ -1436,7 +1554,6 @@ test('getSessionOpenBundle throws when the response is unsuccessful', async () =
   nextResponse = { status: 500, body: { message: 'boom' } };
   await expect(getSessionOpenBundle('P1', 'S1')).rejects.toBeTruthy();
 });
-
 
 // ── sessionParentId ────────────────────────────────────────────────────────
 //
@@ -1522,13 +1639,73 @@ test('listProjectSessionsPage repeats label once per label, free-form text intac
 });
 
 test('sessionParentId prefers parent_session_id over metadata.spawned_by_session', () => {
-  const row = { session_id: 'c', parent_session_id: 'p-new', metadata: { spawned_by_session: 'p-old' } };
+  const row = {
+    session_id: 'c',
+    parent_session_id: 'p-new',
+    metadata: { spawned_by_session: 'p-old' },
+  };
   expect(sessionParentId(row as unknown as ProjectSession)).toBe('p-new');
 });
 
 test('sessionParentId falls back to metadata when parent_session_id is null or self', () => {
-  const nullRow = { session_id: 'c', parent_session_id: null, metadata: { spawned_by_session: 'p-old' } };
+  const nullRow = {
+    session_id: 'c',
+    parent_session_id: null,
+    metadata: { spawned_by_session: 'p-old' },
+  };
   expect(sessionParentId(nullRow as unknown as ProjectSession)).toBe('p-old');
   const selfRow = { session_id: 'c', parent_session_id: 'c', metadata: {} };
   expect(sessionParentId(selfRow as unknown as ProjectSession)).toBeNull();
+});
+
+test('getSessionMessageAuthors reads members and sessions keyed by message id', async () => {
+  const body = {
+    authors: {
+      msg_a: { kind: 'member', user_id: 'U1', name: 'Avery', email: 'avery@example.com' },
+      msg_b: { kind: 'session', session_id: 'S0', name: 'Deploy pipeline' },
+    },
+    initial_author: null,
+  };
+  nextResponse = { status: 200, body };
+  expect(await getSessionMessageAuthors('P1', 'S1')).toEqual(body as never);
+  expect(new URL(last().url).pathname).toBe('/projects/P1/sessions/S1/message-authors');
+});
+
+// ── resolvePublicShareUrl ────────────────────────────────────────────────────
+
+test('resolvePublicShareUrl prefers the share absolute public_url', () => {
+  expect(
+    resolvePublicShareUrl(
+      share({
+        public_url: 'https://preview.example/p/abc/',
+        public_path: '/p/abc',
+        proxy_path: '/v1/p/abc',
+      }),
+      'https://api.example.com',
+    ),
+  ).toBe('https://preview.example/p/abc/');
+});
+
+test('resolvePublicShareUrl resolves a relative path against the given origin', () => {
+  expect(resolvePublicShareUrl(share({ public_path: '/p/abc' }), 'https://api.example.com')).toBe(
+    'https://api.example.com/p/abc',
+  );
+  expect(resolvePublicShareUrl(share({ proxy_path: '/v1/p/abc' }), 'https://api.example.com')).toBe(
+    'https://api.example.com/v1/p/abc',
+  );
+});
+
+test('resolvePublicShareUrl returns the raw path when no origin is given', () => {
+  // A host with no window (Node, RN) passes no origin and renders the path.
+  expect(resolvePublicShareUrl(share({ public_path: '/p/abc' }))).toBe('/p/abc');
+});
+
+test('resolvePublicShareUrl is empty when the share carries no address at all', () => {
+  expect(resolvePublicShareUrl(share({}), 'https://api.example.com')).toBe('');
+});
+
+test('resolvePublicShareUrl falls back to public_token last', () => {
+  expect(resolvePublicShareUrl(share({ public_token: 'tok_123' }), 'https://api.example.com')).toBe(
+    'https://api.example.com/tok_123',
+  );
 });

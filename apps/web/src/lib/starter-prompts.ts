@@ -52,10 +52,6 @@
  *
  * Labels are verb-first and sentence case, capped at 32 characters so the row
  * never truncates — `starter-prompts.test.ts` enforces both the cap and rule 2.
- *
- * Worth knowing: the onboarding wizard does NOT read this list. It carries its
- * own `STARTER_PROMPTS` in `components/projects/onboarding/onboarding-profile.ts`,
- * keyed by use case. Same name, different module, no relationship.
  */
 
 import {
@@ -103,6 +99,7 @@ import {
   GraduationCapIcon,
   HandshakeIcon,
   HighlighterIcon,
+  type Icon,
   IdentificationCardIcon,
   KanbanIcon,
   LifebuoyIcon,
@@ -146,7 +143,6 @@ import {
   WalletIcon,
   WarningIcon,
   WrenchIcon,
-  type Icon,
 } from '@phosphor-icons/react';
 
 export interface StarterPrompt {
@@ -888,7 +884,7 @@ export const GENERAL_STARTER_PROMPTS: StarterPrompt[] = [
   },
   // ── Engineering, on the repo this session cloned ─────────────────────
   // The biggest gap in the first pass, and the least defensible one:
-  // developers are Dosco's primary audience (comms skill, §9) and the sandbox
+  // developers are Dosco's primary audience (kortix-brand `positioning.md`, section 5) and the sandbox
   // is a real Linux machine with the repo already checked out. Every row here
   // is work the agent does in `/workspace`, landing through a change request.
   {

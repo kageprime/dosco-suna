@@ -1,7 +1,7 @@
 {
   "name": "Dosco Agent Network",
   "short_name": "Dosco",
-  "description": "Dosco is the agentic OS for your company \u2014 one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
+  "description": "Open-source AI Management System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
@@ -10,15 +10,27 @@
   "icons": [
     {
       "src": "/favicon.svg",
-      "sizes": "270x270",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "270x270",
-      "type": "image/svg+xml",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": [

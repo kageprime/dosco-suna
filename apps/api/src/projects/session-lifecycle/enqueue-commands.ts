@@ -15,7 +15,6 @@ function createSessionCommandPayload(command: CreateSessionCommand): QueuedCreat
     extraEnvVars: command.extraEnvVars,
     visibility: command.visibility,
     mayManageSystemConnections: command.mayManageSystemConnections,
-    enforceAccountCap: command.enforceAccountCap,
     postCreate: command.postCreate,
     authType: command.authType,
     apiKeyType: command.apiKeyType,
@@ -59,6 +58,8 @@ export interface EnqueueContinueSessionCommandInput {
   /** `actorUserId` is the person who sent this prompt — see
    *  `QueuedContinueSessionPayload.bindTurnIdentity`. */
   bindTurnIdentity?: boolean;
+  authorSessionId?: string | null;
+  noReply?: boolean;
 }
 
 /** Build one durable callback row. Exported for transaction-bound outbox writes. */
@@ -79,6 +80,8 @@ export function buildContinueSessionCommandValues(input: EnqueueContinueSessionC
     ...(input.placement ? { placement: input.placement } : {}),
     ...(input.overrides ? { overrides: input.overrides } : {}),
     ...(input.bindTurnIdentity ? { bindTurnIdentity: true } : {}),
+    ...(input.authorSessionId ? { authorSessionId: input.authorSessionId } : {}),
+    ...(input.noReply ? { noReply: true } : {}),
   };
   return {
     commandType: 'continue_session',
@@ -297,7 +300,7 @@ export function resultFromExistingCommand(row: SessionLifecycleCommandRow): Sess
   const reason = typeof result.reason === 'string' ? result.reason : undefined;
   const error =
     typeof row.lastError === 'string'
-      ? { status: 500, body: { error: row.lastError } }
+      ? { status: 500 as const, body: { error: row.lastError } }
       : undefined;
 
   if (row.status === 'succeeded') {

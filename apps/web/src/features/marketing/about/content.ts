@@ -4,7 +4,7 @@
  * Plain English lives here, not in `apps/web/translations/*.json`, so the copy
  * can iterate before paying the 8-locale parity gate (`pnpm i18n:translations`).
  *
- * Voice rules: the `comms` skill. Long form: `MANIFESTO.md`.
+ * Voice rules: the `kortix-brand` skill. Long form: `MANIFESTO.md`.
  *
  * ACCURACY GATE for this page specifically:
  *  - This is a vision page, so forward-looking language is wanted. It must
@@ -34,15 +34,15 @@
  */
 
 export const hero = {
-  eyebrow: 'About 火 Dosco Network',
-  title: 'Dosco delivers deliverables — not just chat.',
-  lead: 'Dosco is a flexible AI agent that becomes any role — UI engineer, logo designer, accountant, PR — at 100% capacity. Hand it a sprint and it drops in and executes. The perfect coworker.',
-  ctaPrimary: 'Talk to us',
-  ctaPrimaryHref: '/contact',
-  ctaSecondary: 'Request a demo',
-  ctaSecondaryHref: '/contact',
-  imageAlt: '火 Dosco Network team (illustration)',
-  starsCaption: 'the 火 Dosco Network',
+  eyebrow: 'About Dosco',
+  title: 'We are building the open-source AI Management System.',
+  lead: 'Every company should own all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration.',
+  ctaPrimary: 'We are hiring',
+  ctaPrimaryHref: '/careers',
+  ctaSecondary: 'Read the code',
+  ctaSecondaryHref: '?',
+  imageAlt: 'The Dosco team',
+  starsCaption: 'stars on kortix-ai/suna',
 } as const;
 
 /** The three claims the page rests on. One headline, one paragraph, no more. */

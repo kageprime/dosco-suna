@@ -7,7 +7,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { PROJECT_ACTIONS } from '../../iam';
-import { agentMayUseEnv, getAgentGrant, isProjectSessionPrincipal } from '../../iam/agent-scope';
+import { agentMayUseEnv, getAgentGrant, isBorrowedSessionPrincipal, isProjectSessionPrincipal } from '../../iam/agent-scope';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import {
   SecretConsumerSchema,
@@ -57,11 +57,11 @@ import {
 } from '../lib/secret-writes';
 import { resolveSecretWriteInput } from '../lib/secret-write-input';
 import { callerKortixSessionId } from '../lib/caller-session';
-import { loadSecretAudience } from '../lib/connection-audience';
 import { loadConnectionSharing } from '../lib/connection-sharing';
 import {
   clearSecretAudience,
-  secretAudiencePerson,
+  loadSecretReach,
+  secretAudienceSubject,
   setSecretAudience,
   type SecretAudiencePrincipal,
 } from '../lib/secret-audience';
@@ -75,7 +75,8 @@ import './secret-personal';
 import './secret-sync';
 
 const SecretSharePrincipalSchema = z.object({
-  principal_type: z.enum(['user', 'group']),
+  /** `agent`: the id is the agent's service account (`/iam/agent-identities`). */
+  principal_type: z.enum(['user', 'group', 'agent']),
   principal_id: z.string().uuid(),
 });
 
@@ -88,7 +89,8 @@ function parseSecretSharedWith(
   if (!parsed.success) {
     return {
       ok: false,
-      error: 'shared_with must be a list of at most 50 { principal_type: "user" | "group", principal_id: <uuid> }',
+      error:
+        'shared_with must be a list of at most 50 { principal_type: "user" | "group" | "agent", principal_id: <uuid> }',
     };
   }
   const unique = new Map(parsed.data.map((p) => [`${p.principal_type}:${p.principal_id}`, p]));
@@ -208,7 +210,8 @@ projectsApp.openapi(
     .filter((item) => !item.system)
     .filter((item) => agentMayUseEnv(agentGrant, item.identifier));
 
-  // Audience of each shared value, for the person this read acts for. A value
+  // Audience of each shared value, for the person and agent this read acts
+  // for. A value
   // narrowed away from the caller stays listed for someone who manages shared
   // secrets from outside a session (so they can widen it again), marked
   // `usable: false`; a session never sees it — it could not use it anyway.
@@ -220,14 +223,12 @@ projectsApp.openapi(
       projectName: loaded.row.name,
       objectType: 'secret',
     }),
-    secretAudiencePerson({
+    secretAudienceSubject({
       projectId,
       accountId: loaded.row.accountId,
       sessionId: callerSessionId,
       actorUserId: loaded.userId,
-    }).then((personId) =>
-      loadSecretAudience({ projectId, accountId: loaded.row.accountId, userId: personId }),
-    ),
+    }).then((subject) => loadSecretReach({ projectId, accountId: loaded.row.accountId, subject })),
   ]);
   const items = viewItems
     .map((item) => ({
@@ -301,7 +302,7 @@ projectsApp.openapi(
                 handle_prefix: z.string().optional().openapi({ description: 'For consumer http_broker only.' }),
                 shared_with: z.array(SecretSharePrincipalSchema).max(50).optional().openapi({
                   description:
-                    'Who can use this value: people and groups. [] = everyone in the project. Omit to keep it unchanged. A person sets it; an agent session gets 403.',
+                    'Who can use this value: people, groups, and agents (their service-account id). [] = everyone in the project. Omit to keep it unchanged. A person sets it; an agent session gets 403.',
                 }),
               }),
             },
@@ -320,13 +321,13 @@ projectsApp.openapi(
   if (!loaded) return c.json({ error: 'Not found' }, 404);
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SECRET_WRITE);
 
-  const resolved = resolveSecretWriteInput(body, isProjectSessionPrincipal(c));
+  const resolved = resolveSecretWriteInput(body, isBorrowedSessionPrincipal(c));
   if (!resolved.ok) return c.json(resolved.body, resolved.status);
   const { name, identifier, value, explicitStrategy, explicitConsumer, explicitPolicy, explicitHandlePrefix } =
     resolved.input;
   const sharedWith = parseSecretSharedWith(body.shared_with);
   if (!sharedWith.ok) return c.json({ error: sharedWith.error }, 400);
-  if (sharedWith.value && isProjectSessionPrincipal(c)) {
+  if (sharedWith.value && isBorrowedSessionPrincipal(c)) {
     return c.json(
       { error: 'An agent cannot change who can use a secret. A person changes it in Customize → Secrets.' },
       403,
@@ -600,7 +601,7 @@ projectsApp.openapi(
     // POST guards: an agent session cannot touch the delivery control, only a
     // plain runtime secret. Otherwise an agent could delete a tightly-scoped
     // egress row and re-create it (defeated separately by the POST guard).
-    if (isProjectSessionPrincipal(c) && existing.strategy && existing.strategy !== 'runtime') {
+    if (isBorrowedSessionPrincipal(c) && existing.strategy && existing.strategy !== 'runtime') {
       return c.json({ error: 'Agent sessions cannot change secret delivery policy' }, 403);
     }
     const connectors = await connectorSecretBindings(projectId, identifier);

@@ -413,7 +413,7 @@ export async function runSessions(argv: string[]): Promise<number> {
     case 'restart':
       return sessionsRestart(rest[0], ctxOpts);
     case 'reload':
-      return sessionsReload(rest[0], rest.slice(1), ctxOpts);
+      return sessionsReload(rest[0], rest.slice(1), ctxOpts, json);
     case 'rename':
       return sessionsRename(rest[0], rest[1], ctxOpts);
     case 'rm':
@@ -611,7 +611,8 @@ async function sessionsNew(
   // non-binding 'default' sentinel when none is configured. See
   // apps/api/src/projects/lib/sessions.ts createProjectSession.
   if (agent) body.agent_name = agent;
-  if (overrides.model) body.opencode_model = overrides.model;
+  // `model` since W4; `opencode_model` is the same pin for an older self-hosted API.
+  if (overrides.model) body.model = body.opencode_model = overrides.model;
   if (overrides.secrets !== undefined) body.secrets = overrides.secrets;
   if (overrides.connectors !== undefined) body.connector_bindings = overrides.connectors;
   if (overrides.runtimeContext) body.runtime_context = overrides.runtimeContext;
@@ -1045,12 +1046,12 @@ async function sessionsReload(
   sessionId: string | undefined,
   args: string[],
   opts: CtxOpts,
+  json: boolean,
 ): Promise<number> {
   if (!sessionId) {
     process.stderr.write(`${status.err('Pass a session id.')}\n`);
     return 2;
   }
-  const json = args.includes('--json');
   const statusOnly = args.includes('--status');
   const force = args.includes('--force');
   const assumeYes = args.includes('--yes') || args.includes('-y');

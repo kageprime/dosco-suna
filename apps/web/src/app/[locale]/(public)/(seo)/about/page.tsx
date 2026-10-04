@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from '@/i18n/get-translations';
 
 const DESCRIPTION =
-  'Dosco Network is where work gets done. A flexible AI agent becomes any role — UI engineer, logo designer, accountant, PR — at 100% capacity, dropping into your sprint to deliver actual work.';
+  'Dosco is building the open-source AI Management System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('hardcodedUi.i18nComplete');
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords:
-      'Dosco, about Dosco, open AGI platform, open source AI management system, autonomous companies, AI agents, self-hosted agent platform',
+      'Dosco, about Dosco, open-source AI Management System, AI management system, AI agents, self-hosted AI agents',
     openGraph: {
       title: socialTitle,
       description,

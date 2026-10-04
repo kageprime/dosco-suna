@@ -24,11 +24,12 @@
 // hint instead of ever calling PUT here). GET still works on a v1 project — it
 // reports schemaVersion:1 + a null block so the UI can branch.
 //
-// Manager-gated on project.customize.write (same leaf the model/scope editors
+// Manager-gated on project.agent.write (same leaf the scope editor
 // and every other customize mutation use), threaded through
 // assertProjectCapability so the agent-grant fold fires.
 
 import { createRoute, z } from '@hono/zod-openapi';
+import { ignoredAgentSettings } from '@kortix/api-contract/runtime-relay';
 import { projects } from '@kortix/db';
 import {
   type AgentBlockV2,
@@ -37,11 +38,14 @@ import {
   validateAgentMdFrontmatter,
 } from '@kortix/manifest-schema';
 import { eq } from 'drizzle-orm';
+import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { PROJECT_ACTIONS } from '../../iam/actions';
+import { projectLlmGatewayEnabled } from '../../llm-gateway/enablement';
 import { auth, errors, json } from '../../openapi';
 import { db } from '../../shared/db';
 import { resolveTemplateBySlug } from '../../snapshots/templates';
-import { extractAgents } from '../agents';
+import { extractAgents, grantsByAgent } from '../agents';
+import { assertNoGrantEscalation } from '../../iam/agent-grant-ceiling';
 import { GitFileRevisionConflictError, commitMultipleFilesToBranch } from '../git/branches';
 import { isRemotePushPolicyRejection } from '../git/mirror';
 import {
@@ -62,6 +66,8 @@ import {
   KNOWN_BEHAVIOR_KEYS,
   OpencodeAgentConfigSchema,
   readAgentMarkdownFile,
+  manifestRuntime,
+  selectSessionHarness,
 } from '../lib/compile-agent-config';
 import { withProjectGitAuth } from '../lib/git';
 import { metadataMerge } from '../lib/metadata-merge';
@@ -250,12 +256,22 @@ projectsApp.openapi(
       block = { ...(read.block ?? {}), behavior, opencode: behavior };
     }
 
+    // The harness a new session of this project runs, and the agent settings
+    // it ignores, so the editor marks them instead of letting them look applied.
+    const harness = selectSessionHarness({
+      piHarnessFlag: resolveFeatureFlag(loaded.row.metadata, 'pi_harness'),
+      runtime: manifestRuntime(manifest.raw),
+      llmGateway: projectLlmGatewayEnabled(loaded.row.metadata),
+    });
+
     return c.json({
       agent: agentName,
       schema_version: read.schemaVersion,
       editable: read.schemaVersion === 2,
       default_agent: read.defaultAgent,
       block,
+      harness,
+      ignored_settings: ignoredAgentSettings(harness),
     });
   },
 );
@@ -293,7 +309,7 @@ projectsApp.openapi(
       loaded.userId,
       loaded.row.accountId,
       projectId,
-      PROJECT_ACTIONS.PROJECT_CUSTOMIZE_WRITE,
+      PROJECT_ACTIONS.PROJECT_AGENT_WRITE,
     );
 
     const parsed = DefaultAgentBodySchema.safeParse(await c.req.json().catch(() => null));
@@ -397,7 +413,7 @@ projectsApp.openapi(
       loaded.userId,
       loaded.row.accountId,
       projectId,
-      PROJECT_ACTIONS.PROJECT_CUSTOMIZE_WRITE,
+      PROJECT_ACTIONS.PROJECT_AGENT_WRITE,
     );
 
     const parsed = AgentBlockSchema.safeParse(await c.req.json().catch(() => null));
@@ -504,6 +520,8 @@ projectsApp.openapi(
     if (parseProblem) {
       return c.json({ error: parseProblem.error, code: 'invalid_config' }, 400);
     }
+    // An agent grants only what it holds (iam/agent-grant-ceiling.ts).
+    await assertNoGrantEscalation(c, projectId, grantsByAgent(extractAgents(manifest)), grantsByAgent(parsedCheck));
 
     // Validate the behavior half (if the request touches it at all) BEFORE
     // committing anything — a bad frontmatter shape must never land a

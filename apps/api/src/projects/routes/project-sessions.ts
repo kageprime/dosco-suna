@@ -33,8 +33,9 @@ import { isUuid } from '../../shared/validate';
 import { readJsonObject } from '../../shared/http-body';
 import { projectSessionMetadataMerge } from '../lib/session-metadata-merge';
 import { resolveAndAuthorizeAgent } from '../lib/agent-access';
-import { sendSessionCreateError } from '../lib/sessions';
+import { SESSION_CREATE_ERROR_STATUSES, sendSessionCreateError } from '../lib/sessions';
 import { sessionHasPersonalConnectorBinding } from '../lib/session-connector-bindings';
+import { sessionPersonOnlyPlaintextSecrets } from '../lib/secret-audience';
 import { createSession, deleteSession } from '../session-lifecycle';
 import { validateProviderSecretPool } from './provider-secret-pools';
 import { requireFeatureFlag } from '../../feature-flags/gate';
@@ -79,10 +80,10 @@ projectsApp.openapi(
     responses: {
         201: json(SessionSchema, 'The created session'),
         202: json(SessionCreateAcceptedSchema, 'Create accepted; poll the session'),
-        ...errors(400, 403, 404, 409),
+        ...errors(...SESSION_CREATE_ERROR_STATUSES),
     },
   }),
-  async (c: any) => {
+  async (c) => {
   const projectId = c.req.param('projectId');
   const body = await readJsonObject(c);
   const serverManagedMetadataKey = serverManagedSessionMetadataKey(body.metadata);
@@ -190,9 +191,6 @@ projectsApp.openapi(
     mayManageSystemConnections,
   });
   if (result.error) return sendSessionCreateError(c, result.error);
-  for (const [key, value] of Object.entries(result.headers ?? {})) {
-    c.header(key, value);
-  }
   if (!result.row) {
     return c.json(
       {
@@ -216,7 +214,7 @@ projectsApp.openapi(
 // 400s for the three structured create fields. Schema validation runs before
 // the handler, so without this hook zod failures collapse into the generic
 // defaultHook envelope and the documented codes never reach HTTP callers.
-(result: any, c: any) => {
+(result, c) => {
   if (result.success) return;
   const codes: Record<string, string> = {
     runtime_context: 'INVALID_SESSION_RUNTIME_CONTEXT',
@@ -275,7 +273,7 @@ projectsApp.openapi(
         ...errors(400, 403, 404),
     },
   }),
-  async (c: any) => {
+  async (c) => {
   const projectId = c.req.param('projectId');
   const query = c.req.valid('query');
   const scope = (query.scope ?? 'visible') as ProjectSessionListScope;
@@ -327,6 +325,7 @@ projectsApp.openapi(
       ownerIsMachine: !row.createdBy || owner?.type === 'service_account',
       ownerEmail: owner?.email ?? null,
       ownerName: owner?.name ?? null,
+      ownerAvatarUrl: owner?.avatarUrl ?? null,
       ownerType: owner?.type ?? (row.createdBy ? 'unknown' : null),
       canAccess: item.canAccess,
       runtimeStatus: item.runtimeStatus,
@@ -415,6 +414,7 @@ projectsApp.openapi(
     ownerIsMachine: visible.ownerIsMachine,
     ownerEmail: owner?.email ?? null,
     ownerName: owner?.name ?? null,
+    ownerAvatarUrl: owner?.avatarUrl ?? null,
     ownerType: owner?.type ?? (visible.row.createdBy ? 'unknown' : null),
   }));
 },
@@ -430,7 +430,7 @@ projectsApp.openapi(
       request: {
         params: z.object({ projectId: z.string(), sessionId: z.string() }),
         body: { content: { 'application/json': { schema: lenientBody({
-            mode: z.enum(['project,private,members']).openapi({ description: 'project: everyone in the project. private: owner only. members: the listed members and groups.' }),
+            mode: z.enum(['project', 'private', 'members']).openapi({ description: 'project: everyone in the project. private: owner only. members: the listed members and groups.' }),
             ownerId: z.string().optional().openapi({ description: 'For mode private: the owner user id. Defaults to the caller.' }),
             memberIds: z.array(z.string()).optional().openapi({ description: 'For mode members: user ids.' }),
             groupIds: z.array(z.string()).optional().openapi({ description: 'For mode members: group ids.' }),
@@ -441,7 +441,7 @@ projectsApp.openapi(
         ...errors(400, 403, 404, 409),
     },
   }),
-  async (c: any) => {
+  async (c) => {
   const projectId = c.req.param('projectId');
   const sessionId = c.req.param('sessionId');
   if (!isUuid(sessionId)) return c.json({ error: 'Invalid session id' }, 400);
@@ -493,6 +493,27 @@ projectsApp.openapi(
       },
       409,
     );
+  }
+
+  // A value shared only with this session's person sits in the sandbox as
+  // plaintext; sharing the session would hand it to every new viewer, and an
+  // env var cannot be taken back out of a running box (secret-audience.ts).
+  if (intent.mode !== 'private') {
+    const held = await sessionPersonOnlyPlaintextSecrets({
+      accountId: loaded.row.accountId,
+      projectId,
+      sessionId,
+    });
+    if (held.length > 0) {
+      return c.json(
+        {
+          error: `This session holds ${held.join(', ')}, shared only with you. Sharing it would let others read ${held.length === 1 ? 'it' : 'them'}. Start a new session to share, or share ${held.length === 1 ? 'that secret' : 'those secrets'} with everyone first.`,
+          code: 'PERSONAL_SECRET_REQUIRES_PRIVATE_SESSION',
+          secrets: held,
+        },
+        409,
+      );
+    }
   }
 
   // Sharing takes the owner's personal keys away from the session (spec

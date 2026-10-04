@@ -34,6 +34,8 @@ import { sandboxFrontendBaseUrl } from '../../platform/sandbox-frontend-url';
 import { selectProvider } from '../../platform/services/provider-balancer';
 import { ProvisionTimeline } from '../../platform/services/provision-timeline';
 import { provisionSessionSandbox } from '../../platform/services/session-sandbox';
+import { resolveSessionSandboxRegion } from '../../platform/services/sandbox-region';
+import { WARM_SESSION_LOCATION_KEY, WARM_SESSION_METADATA_KEY } from './warm-sessions';
 
 
 import { db } from '../../shared/db';
@@ -97,18 +99,31 @@ import {
   resolveProjectSnapshotPinForSession,
 } from '../../git-proxy/project-snapshot';
 
-import { checkConcurrentSessionCap } from './session-caps';
 import { buildSessionSandboxEnvVars, deriveKortixApiBase, proxyGitUrl } from './session-sandbox-env-build';
 import { sandboxCallbackUnreachableReason, sandboxCallbackDeadTunnelReason } from './session-callback-probe';
+/** Every status a failed create answers with. Routes that create a session
+ *  declare these, so the published spec lists them. */
+export const SESSION_CREATE_ERROR_STATUSES = [400, 402, 403, 404, 409, 429, 500, 503] as const;
+export type SessionCreateErrorStatus = (typeof SESSION_CREATE_ERROR_STATUSES)[number];
+
+/** A status from an HTTPException thrown inside the create, narrowed to the
+ *  declared set. Nothing in the insert throws one outside it today; an
+ *  undeclared 4xx would answer 400 rather than a status the spec omits. */
+function sessionCreateErrorStatus(status: number): SessionCreateErrorStatus {
+  return (SESSION_CREATE_ERROR_STATUSES as readonly number[]).includes(status)
+    ? (status as SessionCreateErrorStatus)
+    : 400;
+}
+
 export type SessionCreateError = {
-  status: number;
+  status: SessionCreateErrorStatus;
   body: Record<string, unknown>;
   headers?: Record<string, string>;
 };
 
 export function sendSessionCreateError(c: Context, error: SessionCreateError) {
   for (const [key, value] of Object.entries(error.headers ?? {})) c.header(key, value);
-  return c.json(error.body, error.status as any);
+  return c.json(error.body, error.status);
 }
 
 /** The fields postgres.js attaches to a `Failed query:` error (pg error codes). */
@@ -231,13 +246,6 @@ export async function createProjectSession(input: {
   userId: string;
   requestingPrincipalType: 'human' | 'service_account';
   body: Record<string, unknown>;
-  enforceAccountCap?: boolean;
-  /**
-   * Concurrent-session slots this create must LEAVE FREE. Defaults to 0 — an
-   * ordinary create may take the last slot. Speculative creation passes 1; see
-   * `enforceConcurrentSessionCap`.
-   */
-  reserveConcurrentSlots?: number;
   metadata?: Record<string, unknown>;
   extraEnvVars?: Record<string, string>;
   request?: RequestAuditContext;
@@ -270,7 +278,6 @@ export async function createProjectSession(input: {
 }): Promise<{
   row?: ProjectSessionRow;
   error?: SessionCreateError;
-  headers?: Record<string, string>;
   pendingPromptIdempotencyKey?: string | null;
 }> {
   const { project, userId, body } = input;
@@ -370,7 +377,10 @@ export async function createProjectSession(input: {
   if (secretsAllowlist && secretsAllowlist.length > 0) {
     // The creator's own audience: a value shared only with them is a valid
     // allowlist entry. Delivery re-applies the session's audience at boot.
-    const resolvedProjectSecrets = await listResolvedProjectSecrets(projectId, userId, userId);
+    const resolvedProjectSecrets = await listResolvedProjectSecrets(projectId, userId, {
+      personId: userId,
+      agentId: null,
+    });
     // Every allowlisted identifier must name an existing runtime secret in the
     // project (KORTIX_*/connector rows are already excluded by the resolver), so
     // a typo fails fast at create rather than silently injecting nothing.
@@ -406,7 +416,9 @@ export async function createProjectSession(input: {
 
   const baseRef = normalizeString(body.base_ref ?? body.baseRef) ?? project.defaultBranch;
   const loadedAgents = await loadProjectAgents(project, {
-    forceRefresh: true,
+    // The same freshness the per-prompt grant read asks for (`MirrorRefresh`):
+    // no `ls-remote` when the branch tip was proven inside the interval.
+    forceRefresh: 'tip-proof',
     rethrowReadErrors: true,
   });
   // The literal "default" is a non-binding legacy sentinel. It must not block
@@ -831,29 +843,7 @@ export async function createProjectSession(input: {
     }
   }
 
-  let responseHeaders: Record<string, string> | undefined;
-
-  // The concurrency cap and the billing gate are independent read-only checks
-  // (`checkBillingAdmission` debits nothing; see its note on the hold leak) —
-  // run them concurrently so a warmed create pays a single DB round-trip instead
-  // of two serial ones. Error precedence is preserved exactly: the cap (429) is
-  // still evaluated/returned before billing (402).
-  const [capResult, billingCheck] = await Promise.all([
-    input.enforceAccountCap !== false
-      ? checkConcurrentSessionCap(
-          accountId,
-          userId,
-          input.request,
-          input.reserveConcurrentSlots ?? 0,
-          projectId,
-        )
-      : Promise.resolve(null),
-    checkBillingAdmission(accountId),
-  ]);
-  if (capResult) {
-    responseHeaders = capResult.headers;
-    if (capResult.error) return { error: capResult.error };
-  }
+  const billingCheck = await checkBillingAdmission(accountId);
   if (!billingCheck.ok) {
     return {
       error: {
@@ -905,6 +895,7 @@ export async function createProjectSession(input: {
         accountId,
         sessionId,
         actorUserId: userId,
+        authorSessionId: input.callerSessionId ?? null,
       })
     : null;
   if (pendingPromptConversion?.error) {
@@ -989,6 +980,10 @@ export async function createProjectSession(input: {
     ...(opencodeModel ? { opencode_model: opencodeModel } : {}),
     ...(opencodeModelSource ? { opencode_model_source: opencodeModelSource } : {}),
     ...(input.metadata ?? {}),
+    // Server-owned creation intent, never caller metadata or actual placement.
+    ...((input.metadata?.[WARM_SESSION_METADATA_KEY] ?? requestMetadata[WARM_SESSION_METADATA_KEY]) === true
+      ? { [WARM_SESSION_LOCATION_KEY]: resolveSessionSandboxRegion(project.metadata) ?? 'home' }
+      : {}),
     // Persist the coordinator→worker link. The sidebar badges child sessions
     // with it, and the turn-end deadline shortener stops child sandboxes on a
     // tight grace so finished workers don't idle at full compute.
@@ -1021,7 +1016,9 @@ export async function createProjectSession(input: {
     // Session, context and connection bindings are one transaction. Nothing is
     // visible and provisioning never starts when any child insert fails.
     if (error instanceof HTTPException && error.status < 500) {
-      return { error: { status: error.status, body: await error.getResponse().json() } };
+      return {
+        error: { status: sessionCreateErrorStatus(error.status), body: await error.getResponse().json() },
+      };
     }
     // Never return `(error as Error).message`: postgres.js embeds the whole
     // statement and its parameters in it (see `resolveSessionInsertFailure`).
@@ -1395,7 +1392,21 @@ export async function createProjectSession(input: {
         }).catch(() => {});
       });
 
-      const extraEnvVars = mergeSessionSandboxEnv(await envPromise, input.extraEnvVars);
+      // Not awaited here: provisioning reads it only when it builds the provider
+      // input, so the env build overlaps the image check and the token mint.
+      const extraEnvVars = envPromise.then((env) => {
+        const merged = mergeSessionSandboxEnv(env, input.extraEnvVars);
+        return piWorkerBoot && piWorkerSha
+          ? {
+              ...merged,
+              // The worker's entrypoint composes the artifact URL from these
+              // plus KORTIX_API_URL/KORTIX_PROJECT_ID/KORTIX_TOKEN it
+              // already receives.
+              KORTIX_PI_RUNTIME_REF: (baseRef ?? '').trim() || project.defaultBranch,
+              KORTIX_PI_RUNTIME_SHA: piWorkerSha,
+            }
+          : merged;
+      });
 
       const provisionPromise = provisionSessionSandbox({
         sandboxId: sessionId,
@@ -1418,17 +1429,7 @@ export async function createProjectSession(input: {
           ...(input.metadata ?? {}),
         },
         initialTurn,
-        extraEnvVars:
-          piWorkerBoot && piWorkerSha
-            ? {
-                ...extraEnvVars,
-                // The worker's entrypoint composes the artifact URL from these
-                // plus KORTIX_API_URL/KORTIX_PROJECT_ID/KORTIX_TOKEN it
-                // already receives.
-                KORTIX_PI_RUNTIME_REF: (baseRef ?? '').trim() || project.defaultBranch,
-                KORTIX_PI_RUNTIME_SHA: piWorkerSha,
-              }
-            : extraEnvVars,
+        extraEnvVars,
         projectMetadata: project.metadata,
         gitProject: {
           projectId,
@@ -1473,7 +1474,6 @@ export async function createProjectSession(input: {
 
   return {
     row: sessionRow,
-    headers: responseHeaders,
     pendingPromptIdempotencyKey:
       pendingPromptConversion?.rowValues?.idempotencyKey ?? null,
   };

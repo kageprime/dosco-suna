@@ -32,6 +32,7 @@ import {
   capabilityTabHref,
   channelsHref,
   marketplaceHref,
+  reviewHref,
 } from '@/features/workspace/capabilities/shared/capability-tab-routes';
 
 export type SettingsTab =
@@ -216,7 +217,7 @@ const GRADUATED: Record<string, (projectId: string) => string> = {
   experimental: (p) => `${capabilityTabHref(p, 'config')}?section=feature-flags`,
   // `upgrade`, singular, is the old Customize id for the Upgrades pane.
   upgrade: (p) => `${capabilityTabHref(p, 'config')}?section=upgrades`,
-  review: (p) => capabilityTabHref(p, 'review'),
+  review: reviewHref,
   // Secrets, Channels, and Models graduated a SECOND time — off the Settings
   // sub-nav entirely and onto their own top-level Customize tab. `models` and
   // every `llm-*` sub-section (the old Models pane's own sub-tabs) all land
@@ -401,7 +402,7 @@ export function legacySectionRedirect(
     // project-specific destination, so this stays a narrow special case rather
     // than a second parameter every entry pays for.
     return accountPanelUrl(
-      `/projects/${projectId}`,
+      projectId ? `/projects/${projectId}` : '/projects',
       hubTarget(accountId, {
         tab: ACCOUNT_GRADUATED[rawSection],
         project: rawSection === 'members' ? projectId : undefined,

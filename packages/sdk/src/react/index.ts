@@ -2,6 +2,16 @@
 
 export * from './use-prompt-attachments';
 
+// The connector setup-link flow: one phase machine, one link-info cache. The
+// host injects the popup opener and browser storage (see ConnectorSetupOptions).
+export {
+  useConnectorSetup,
+  useConnectorLinkInfo,
+  type ConnectorSetupOptions,
+  type ConnectorSetupPhase,
+  type ConnectorPopupOpener,
+} from './connector-setup';
+
 // The one call a host makes on every identity change (sign-out, a different
 // user signing in) to drop the SDK's per-user in-memory session state.
 export { resetIdentityState } from './reset-identity-state';
@@ -45,6 +55,7 @@ export {
 export {
   openEventStream,
   type EventStreamClient,
+  type EventStreamConnectionState,
   type EventStreamHandle,
   type EventStreamTimers,
   type OpenCodeEvent,
@@ -123,6 +134,7 @@ export { useProjectSecrets, projectSecretsKey } from './use-project-secrets';
 export { useAccountSecretResources, useSessionProviderSecretPools } from './use-provider-secrets';
 export { useProjectTriggers, projectTriggersKey } from './use-project-triggers';
 export { useProjectReminders, useSessionReminders } from './use-reminders';
+export { useSessionMessageAuthors } from './use-session-message-authors';
 export { useChangeRequests, changeRequestsKey } from './use-change-requests';
 export { useGatewayRoutingPolicy, gatewayRoutingPolicyKey } from './use-gateway-routing-policy';
 export {
@@ -184,7 +196,9 @@ export { fileContentKeys, binaryBlobKeys, fileListKeys, gitStatusKeys } from './
 export * from './query-contracts';
 export * from './use-project-name';
 export * from './use-project-session';
+export * from './use-session-participants';
 export * from './use-project-sessions';
+export * from './use-sessions-needing-input';
 export * from './session-cache-write';
 export * from './invalidate-project';
 export * from './use-feature-flag';
@@ -211,3 +225,30 @@ export {
 } from './use-kortix-app-viewer';
 
 export { useModelAccess } from './use-model-access';
+
+// The sandbox-image load state: the SDK owns the raw-file URL, the HEAD probe,
+// the auth headers, the size gate, the probe cache and the one fresh-token
+// retry; the host binds the sandbox origin and the native image events.
+// The size-gate helpers stay module-local: no host consumes them (the tests
+// import the module directly), so the public surface carries only the hook
+// and the formatter the hosts render sizes with.
+export { formatMegabytes, useSandboxImage } from './use-sandbox-image';
+
+export {
+  GATEWAY_LOGS_PAGE_SIZE,
+  useGatewayOverview,
+  useGatewaySeries,
+  useGatewayBreakdown,
+  useGatewaySessions,
+  useGatewayErrors,
+  useGatewayLogs,
+  useGatewayLog,
+  useGatewayBudgets,
+  useSetGatewayBudget,
+  useDeleteGatewayBudget,
+  useGatewayKeys,
+  useCreateGatewayKey,
+  useRevokeGatewayKey,
+} from './use-project-gateway';
+
+export * from './use-admin-providers';

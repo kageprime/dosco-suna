@@ -6,6 +6,8 @@
  * bodies are moved verbatim, so the traffic contract — statuses, response
  * fields, and side-effect order — is unchanged.
  */
+import type { TurnStreamRelayBody } from '@kortix/api-contract/runtime-relay';
+import { isTurnErrorCode } from '@kortix/api-contract/transcript';
 import { projectSessions } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
 import { type TeamsFormSpec, buildFormCard } from '../../channels/teams/cards';
@@ -17,6 +19,7 @@ import {
 import { notifySessionEvent, turnEndPushType } from '../../notifications/session-push';
 import { db } from '../../shared/db';
 import { captureSessionTranscriptMirror } from '../lib/session-transcript-capture';
+import { recordTriggerRunEnd } from '../lib/trigger-run-outcome';
 import { childIdleGraceMs } from '../sandbox-deadline';
 import {
   abandonSandboxTurn,
@@ -34,29 +37,7 @@ import {
 } from '../session-turn-ledger';
 
 /** The relay request body, shape only — the route parses JSON into this. */
-export type TurnStreamBody = {
-  session_id?: string;
-  kind?: string;
-  text?: string;
-  detail?: string;
-  output?: string;
-  sources?: Array<{ url?: string; text?: string }>;
-  blocks?: unknown[];
-  card?: Record<string, unknown>;
-  form?: Record<string, unknown>;
-  status?: string;
-  /** The runtime session (`normalizeRuntimeRelayBody` maps the pre-W3 `opencode_session_id`). */
-  runtime_session_id?: string;
-  turn_message_id?: string;
-  turn_token?: string;
-  // Turn-end error detail (opencode AssistantMessage.error / session.error),
-  // so Slack can render "out of credits" / rate-limit / the real error.
-  error_name?: string;
-  error_message?: string;
-  error_status?: number;
-  error_retryable?: boolean;
-  error_provider?: string;
-};
+export type TurnStreamBody = Partial<TurnStreamRelayBody>;
 
 /** The only surface these handlers use from the Hono context. */
 export interface RelayResponder {
@@ -223,6 +204,7 @@ async function settleTurnLedger(sessionId: string, body: TurnStreamBody, childSe
           statusCode: typeof body.error_status === 'number' ? body.error_status : undefined,
           isRetryable: typeof body.error_retryable === 'boolean' ? body.error_retryable : undefined,
           providerID: typeof body.error_provider === 'string' ? body.error_provider : undefined,
+          code: isTurnErrorCode(body.error_code) ? body.error_code : undefined,
         }
       : undefined;
   // SANDBOX-REPORTED turn end. `shortenSandboxDeadline` is LEAST-only, so
@@ -392,6 +374,25 @@ async function publishTurnEnd(
     void notifySessionEvent({ type: pushType, sessionId, projectId }).catch((err) =>
       console.warn('[push] turn-end notification failed', err instanceof Error ? err.message : err),
     );
+  }
+  // A trigger session's creator is the agent's service account, so the push
+  // above reaches nobody. Record the run on its trigger and tell the owner.
+  try {
+    await recordTriggerRunEnd({
+      projectId,
+      accountId: turnStreamSession.accountId,
+      sessionId,
+      metadata: turnStreamMetadata,
+      status,
+      error: errorInfo,
+      outcome: turnCompletion.outcome,
+      childSession,
+    });
+  } catch (err) {
+    console.warn('[turn-stream] trigger run outcome not recorded', {
+      sessionId,
+      err: err instanceof Error ? err.message : String(err),
+    });
   }
   // Second-chance auto-title: create-time generation is a single in-memory
   // best-effort call, and a session whose only prompt was baked in-guest

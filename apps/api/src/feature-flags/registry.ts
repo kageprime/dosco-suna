@@ -138,9 +138,8 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Browse direct API, MCP, GraphQL, CLI, and Postman surfaces without requiring a managed provider.',
     stability: 'beta',
     available: () => true,
-    // The direct catalogue is available even when no managed provider is configured.
-    // Explicit project overrides still provide a rollback path.
-    platformDefault: () => true,
+    // Direct discovery is an explicit opt-in, not the reliable managed default.
+    platformDefault: () => false,
     enforcement: 'routes',
   },
   {
@@ -151,23 +150,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
     stability: 'experimental',
     available: () => true,
     // Explicit opt-in: hidden unless a project enables it in Settings.
-    platformDefault: () => false,
-    enforcement: 'routes',
-  },
-  {
-    key: 'teams',
-    name: 'Microsoft Teams',
-    description:
-      'Connect a Microsoft Teams bot so chats and channels can start and continue Dosco sessions. The install flow, org-catalog publishing, and bring-your-own-bot setup are still experimental.',
-    stability: 'experimental',
-    // Always listable. Server-side bot credentials (MICROSOFT_APP_ID /
-    // MICROSOFT_APP_PASSWORD) only decide whether the MANAGED install path is
-    // offered — `teamsMode().available` reports that separately, and a project
-    // can always bring its own bot app. Gating availability on the credentials
-    // would hide the bring-your-own flow on exactly the deployments that need
-    // it (self-host).
-    available: () => true,
-    // Explicit opt-in: a project turns Teams on in Settings.
     platformDefault: () => false,
     enforcement: 'routes',
   },
@@ -251,7 +233,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'warm_sessions',
     name: 'Warm Sessions',
     description:
-      'Keep one sandbox booted and waiting while you have a project open, so a new session starts instantly instead of waiting for a cold boot. A warm sandbox is billed compute even when idle, and it uses one of your concurrent-session slots until you use it or it expires. Turn this off to trade instant starts for lower cost.',
+      'Keep one sandbox booted and waiting while you have a project open, so a new session starts instantly instead of waiting for a cold boot. A warm sandbox is billed compute even when idle, until you use it or it expires. Turn this off to trade instant starts for lower cost.',
     // The surface is small and server-owned, but the cost tradeoff is real and
     // the presence model is new. `beta` says "we intend this on for everyone,
     // and we expect to tune the grant".
@@ -351,38 +333,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'row is written.',
   },
   {
-    key: 'agent_principal',
-    name: 'Agents as Principals',
-    description:
-      'A governed agent session acts as the agent itself, not as the person who started it. Its authority is its kortix_permissions list, capped by the IAM role bound to the agent and never including member management, project deletion, or credential issue. Running an agent, firing its trigger, or starting it from another agent requires permission to run that agent.',
-    stability: 'experimental',
-    available: () => true,
-    // Default ON. An agent's authority is a property of the AGENT, not of
-    // whoever pressed start: the launcher-∩-grant model gave the same agent
-    // different power per person, let an owner-launched agent ignore its own
-    // grant entirely (super-admin short-circuit), and ran every unattended
-    // trigger as the account owner. Switching a project OFF restores that old
-    // model as an escape hatch for one release; the switch is then deleted.
-    platformDefault: () => true,
-    // Not listed in Settings → Feature flags. An agent acting as itself is how
-    // Dosco works, not a choice we offer, so presenting a switch would invite
-    // a project to turn the governance model off. Support can still put ONE
-    // project back with `PATCH /projects/:id/features {agent_principal:false}`
-    // while it migrates. Delete the flag — and this line — in the release after
-    // the one that shipped the default (spec §5).
-    catalogHidden: true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'Read by the authorization engine for every agent-session credential ' +
-      '(iam/agent-principal.ts agentPrincipalModeFor → iam/actor.ts actingPrincipal, ' +
-      'iam/authorize.ts), the manual trigger fire and child-session run gates, and ' +
-      'the change-request merge governance guard.',
-  },
-  {
     key: 'us_region',
     name: 'US Region',
     description:
-      "Run this project's new sessions in Platinum's US East region instead of EU West. A running session keeps its region until it restarts. The first session after a new sandbox image waits while the image is copied to the region.",
+      "Place this project's newly provisioned Platinum sandboxes in the configured US region instead of the provider's home region. Existing sandboxes keep their region, including on restart. This changes compute placement, not API, database, or archive residency. The first session after a new sandbox image may wait while the image is copied to the region.",
     stability: 'experimental',
     // Two operator gates: Platinum must be the configured provider, and the
     // environment must name the region (KORTIX_PLATINUM_US_REGION), which is

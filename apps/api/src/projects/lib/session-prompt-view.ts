@@ -10,6 +10,7 @@
  * Pure. No database, no auth: the caller owns both.
  */
 
+import type { SessionPrompt } from '@kortix/api-contract';
 import { sessionLifecycleCommands } from '@kortix/db';
 import { DELIVERY_FAILURE_COPY } from '../session-lifecycle/types';
 import { PROMPT_TEXT_PREVIEW_CHARS } from '../session-lifecycle/prompt-parts';
@@ -104,7 +105,7 @@ function promptAttachments(payload: Record<string, unknown>): Array<{
   return attachments;
 }
 
-export function serializePrompt(row: PromptRow) {
+export function serializePrompt(row: PromptRow): SessionPrompt {
   const payload = (row.payload ?? {}) as Record<string, unknown>;
   const result = (row.result ?? {}) as Record<string, unknown>;
   const { state, reason } = promptState(row);
@@ -147,6 +148,9 @@ export function serializePrompt(row: PromptRow) {
     /** Names + types of this prompt's files, so a reloaded tab can still draw
      *  their tiles while the send is in flight. Never the bytes. */
     attachments: promptAttachments(payload),
+    /** Posted without a turn (the first message of a conversation with people):
+     *  no agent will answer it, so a host shows no "thinking" for it. */
+    no_reply: payload.noReply === true,
     created_at: row.createdAt.toISOString(),
     available_at: row.availableAt.toISOString(),
   };

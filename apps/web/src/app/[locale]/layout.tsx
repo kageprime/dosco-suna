@@ -22,6 +22,7 @@ import { runtimeConfigIsBakedAtBuild } from '@/lib/runtime-config-mode';
 import { safeJsonForHtml } from '@/lib/security/safe-json';
 import { siteMetadata } from '@/lib/site-metadata';
 import { cn } from '@/lib/utils';
+import { featureFlags } from '@kortix/sdk';
 import type { Metadata, Viewport } from 'next';
 import { getTranslations } from '@/i18n/get-translations';
 import { normalizeLocale } from '@/i18n/locale';
@@ -43,8 +44,6 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
 };
 
@@ -91,21 +90,29 @@ const ROOT_METADATA: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@dosco',
-    site: '@dosco',
+    creator: '@kortix',
+    site: '@kortix',
     images: ['/banner.png'],
   },
   icons: {
     icon: [
-      { url: '/favicon.svg', sizes: '270x270' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
       {
-        url: '/favicon.svg',
-        sizes: '270x270',
+        url: '/icon-light-32.png',
+        sizes: '32x32',
+        type: 'image/png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32.png',
+        sizes: '32x32',
+        type: 'image/png',
         media: '(prefers-color-scheme: dark)',
       },
     ],
-    shortcut: '/favicon.svg',
-    apple: [{ url: '/favicon.svg', sizes: '270x270' }],
+    shortcut: '/favicon.ico',
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   manifest: '/manifest.json',
   // No root canonical: Next.js inherits `alternates` into every page that does
@@ -232,8 +239,13 @@ export default async function RootLayout({
           }}
         />
 
-        {/* No smart app banner: Dosco ships no native app, and the old slot
-            advertised a third-party app-store listing. */}
+        {/* iOS Smart App Banner - shows native install banner in Safari */}
+        {!featureFlags.disableMobileAdvertising ? (
+          <meta
+            name="apple-itunes-app"
+            content={"app-id=6754448524, app-argument=kortix://"}
+          />
+        ) : null}
 
         <script
           type="application/ld+json"
@@ -244,8 +256,8 @@ export default async function RootLayout({
               name: siteMetadata.name,
               alternateName: [
                 'Dosco',
-                'Dosco AI',
-                'Dosco – The Agentic OS for Your Company',
+                "Dosco AI",
+                "Dosco – The open-source AI Management System",
               ],
               url: siteMetadata.url,
               logo: `${siteMetadata.url}/favicon.svg`,

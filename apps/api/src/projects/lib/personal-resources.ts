@@ -26,7 +26,7 @@ import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { accountTokens, projectSessions, readStoredAgentGrant } from '@kortix/db';
 import type { AgentGrant } from '@kortix/db';
 import { loadTokenBinding, type Actor } from '../../iam/actor';
-import { agentPrincipalModeFor, isGovernedAgentGrant, loadAgentPrincipalFlag } from '../../iam/agent-principal';
+import { agentPrincipalModeFor, isGovernedAgentGrant } from '../../iam/agent-principal';
 import { db } from '../../shared/db';
 import type { ConnectionAgentPrincipalReach } from './connection-access';
 import type { Context } from 'hono';
@@ -58,9 +58,8 @@ export function personalResourceOwner(input: {
  *
  * `agentPrincipal` = the credential is an agent session under the
  * agent-principal model (flag ON, governed grant). `onBehalfOfUserId` prefers
- * the fresh per-request value from the auth middleware (`fresh`), because the
- * actor's copy rides a 15 s token-binding memo and a clear must take effect on
- * the next request.
+ * the per-request value from the auth middleware (`fresh`); the actor's copy is
+ * the same read when the request seeded it, and null for an out-of-band actor.
  */
 export function actorPersonalScope(
   actor: Actor | null | undefined,
@@ -105,40 +104,36 @@ export async function resolveSessionPersonalOwner(input: {
 }): Promise<string | null> {
   const legacy = input.strict ? null : input.legacyUserId;
   if (!input.sessionId) return legacy;
-  let flag = false;
   try {
-    flag = input.strict || (await loadAgentPrincipalFlag(input.projectId));
-  } catch {
-    return legacy;
-  }
-  if (!flag) return legacy;
-  try {
-    const [session] = await db
-      .select({
-        accountId: projectSessions.accountId,
-        visibility: projectSessions.visibility,
-        createdBy: projectSessions.createdBy,
-      })
-      .from(projectSessions)
-      .where(and(eq(projectSessions.sessionId, input.sessionId), eq(projectSessions.projectId, input.projectId)))
-      .limit(1);
+    // Both reads take the session id alone: they go out together.
+    const [[session], [token]] = await Promise.all([
+      db
+        .select({
+          accountId: projectSessions.accountId,
+          visibility: projectSessions.visibility,
+          createdBy: projectSessions.createdBy,
+        })
+        .from(projectSessions)
+        .where(and(eq(projectSessions.sessionId, input.sessionId), eq(projectSessions.projectId, input.projectId)))
+        .limit(1),
+      db
+        .select({
+          agentGrant: accountTokens.agentGrant,
+          onBehalfOfUserId: accountTokens.onBehalfOfUserId,
+        })
+        .from(accountTokens)
+        .where(
+          and(
+            eq(accountTokens.sessionId, input.sessionId),
+            eq(accountTokens.status, 'active'),
+            isNull(accountTokens.revokedAt),
+            isNotNull(accountTokens.serviceAccountId),
+          ),
+        )
+        .limit(1),
+    ]);
     if (!session) return null;
     const visibility = input.visibility ?? session.visibility;
-    const [token] = await db
-      .select({
-        agentGrant: accountTokens.agentGrant,
-        onBehalfOfUserId: accountTokens.onBehalfOfUserId,
-      })
-      .from(accountTokens)
-      .where(
-        and(
-          eq(accountTokens.sessionId, input.sessionId),
-          eq(accountTokens.status, 'active'),
-          isNull(accountTokens.revokedAt),
-          isNotNull(accountTokens.serviceAccountId),
-        ),
-      )
-      .limit(1);
     // Strict: a token with NO on_behalf_of either predates the column (minted
     // before 2026-09-22, never re-minted) or was cleared by a foreign prompt.
     // Every clear stamps ON_BEHALF_OF_CLEARED_KEY, which the mint rule below
@@ -187,16 +182,18 @@ export async function tokenAgentPrincipalScope(input: {
   tokenId: string | null | undefined;
   agentGrant: AgentGrant | null | undefined;
   onBehalfOfUserId: string | null | undefined;
-}): Promise<{ onBehalfOfUserId: string | null } | null> {
+}): Promise<{ onBehalfOfUserId: string | null; agentId: string | null } | null> {
   if (!input.tokenId || !input.projectId) return null;
+  let agentId: string;
   try {
     const binding = await loadTokenBinding(input.tokenId);
     if (!binding?.serviceAccountId) return null;
     if (!(await agentPrincipalModeFor(input.projectId, input.agentGrant ?? binding.agentGrant))) return null;
+    agentId = binding.serviceAccountId;
   } catch {
     return null;
   }
-  return { onBehalfOfUserId: input.onBehalfOfUserId ?? null };
+  return { onBehalfOfUserId: input.onBehalfOfUserId ?? null, agentId };
 }
 
 /**
@@ -216,13 +213,16 @@ export async function requestAgentPrincipalReach(
   const sessionId =
     (credential?.kind === 'agent_session' ? credential.sessionId : null) ??
     ((c.get('sessionId') as string | undefined) ?? null);
-  if (!scope.onBehalfOfUserId || !sessionId) return { onBehalfOfUserId: null, visibility: null };
+  // The agent's own service account: a shared account whose audience names it
+  // is reachable in every session of that agent (connection-access.ts).
+  const agentId = credential?.kind === 'agent_session' ? credential.serviceAccountId : null;
+  if (!scope.onBehalfOfUserId || !sessionId) return { onBehalfOfUserId: null, visibility: null, agentId };
   const [session] = await db
     .select({ visibility: projectSessions.visibility })
     .from(projectSessions)
     .where(eq(projectSessions.sessionId, sessionId))
     .limit(1);
-  return { onBehalfOfUserId: scope.onBehalfOfUserId, visibility: session?.visibility ?? null };
+  return { onBehalfOfUserId: scope.onBehalfOfUserId, visibility: session?.visibility ?? null, agentId };
 }
 
 /**

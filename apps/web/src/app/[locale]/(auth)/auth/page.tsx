@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Unified auth — ONE flow for login and registration (email → code or
+ * Unified auth — ONE flow for login and registration (email → link or
  * password). There is no sign-in/sign-up toggle: the visitor types an email,
  * Continue resolves whether that address already has an account, and the
  * password step renders in the mode the flow already knows — "Welcome back"
@@ -15,26 +15,33 @@
  * hardcoded surface.
  */
 
+import { useTranslations } from '@/i18n/use-translations';
 import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from '@phosphor-icons/react';
 import { m, useReducedMotion } from 'motion/react';
-import { useTranslations } from '@/i18n/use-translations';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { EmailLinkStep } from './email-link-step';
 
+import { ProjectPendingScreen } from '@/components/projects/project-pending-screen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProjectPendingScreen } from '@/components/projects/project-pending-screen';
 import Loading from '@/components/ui/loading';
 import { errorToast } from '@/components/ui/toast';
-import { AuthBrowserNoiseGuard } from '@/features/auth/auth-browser-noise-guard';
-import { AuthBrandPanel } from '@/features/auth/auth-brand-panel';
+import { InfoBanner } from '@/components/ui/info-banner';
 import { AuthFrame } from '@/features/auth/auth-card-shell';
-import { CodeInput, FieldLabel, InfoStrip, StepHeader } from '@/features/auth/auth-primitives';
+import { FieldLabel, InfoStrip, StepHeader } from '@/features/auth/auth-primitives';
 import { useAuth } from '@/features/providers/auth-provider';
 import { invalidateTokenCache, setBootstrapAuthToken } from '@/lib/auth-token';
 import { buildMobileSessionHandoffUrl } from '@/lib/auth/mobile-handoff';
+import {
+  armPkceResumeGuard,
+  consumePkceResumeGuard,
+  seedPkceVerifierForResume,
+  stashBrowserPkceVerifier,
+} from '@/lib/auth/pkce-resume';
 import { sanitizeAuthReturnUrl } from '@/lib/auth/return-url';
+import { takeSignOutNotice } from '@/lib/auth/sign-out-notice';
 import { isSessionExpired } from '@/lib/auth/session-expiry';
 import {
   type CredentialsMode,
@@ -50,17 +57,11 @@ import {
   createClient as createBrowserSupabaseClient,
   fetchSamlEnabled,
 } from '@/lib/supabase/client';
-import {
-  resolveAuthMode,
-  sendEmailCode,
-  signInWithPassword,
-  signUpWithPassword,
-  verifyOtp,
-} from './actions';
+import { resolveAuthMode, sendEmailCode, signInWithPassword, signUpWithPassword } from './actions';
 
 const GoogleSignIn = lazy(() => import('@/features/auth/google-signin'));
 
-type Step = 'entry' | 'sso' | 'credentials' | 'code';
+type Step = 'entry' | 'sso' | 'credentials' | 'link';
 
 const RESEND_COOLDOWN_SECONDS = 30;
 const EASE = [0.23, 1, 0.32, 1] as const;
@@ -140,19 +141,13 @@ function AuthCardForm({
   // Which button kicked off the in-flight request — every action button
   // disables while anything is pending, but only the clicked one spins.
   const [pendingAction, setPendingAction] = useState<
-    'continue' | 'code' | 'resend' | 'password' | 'sso' | null
+    'continue' | 'link' | 'resend' | 'password' | 'sso' | null
   >(null);
   const pending = pendingAction !== null;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  // After a magic-link email is sent, the same email also carries a 6-digit
-  // code. We keep the sent-to address around so the user can paste the code
-  // directly (links sometimes break across mail clients / new tabs).
   const [sentEmail, setSentEmail] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [verifying, setVerifying] = useState(false);
   const [resendIn, setResendIn] = useState(0);
-  const lastTriedCode = useRef('');
   const emailRef = useRef<HTMLInputElement>(null);
 
   // Gentle two-part entrance per step: header first, body 60ms behind.
@@ -163,7 +158,7 @@ function AuthCardForm({
   });
 
   useEffect(() => {
-    if (step !== 'code' || resendIn <= 0) return;
+    if (step !== 'link' || resendIn <= 0) return;
     const t = setTimeout(() => setResendIn((prev) => prev - 1), 1000);
     return () => clearTimeout(t);
   }, [step, resendIn]);
@@ -197,9 +192,8 @@ function AuthCardForm({
     setInfo(null);
   };
 
-  // Errors surface as a toast plus a shake on the offending field — no inline
-  // block. `errorMessage` sticks around only to drive aria-invalid; clearing
-  // it before each attempt lets the shake replay on repeat failures.
+  // Keep sign-in failures visible after the toast expires. Clearing the
+  // message before each attempt lets the field shake replay.
   const failWith = (msg: string) => {
     setErrorMessage(msg);
     errorToast(msg);
@@ -208,7 +202,6 @@ function AuthCardForm({
   const goToEntry = () => {
     clearNotices();
     setSentEmail(null);
-    setCode('');
     setSsoUrl(null);
     setSsoFallbackMode('unknown');
     setStep('entry');
@@ -270,7 +263,7 @@ function AuthCardForm({
     return formData;
   };
 
-  const sendMagic = async (to?: string, source: 'continue' | 'code' | 'resend' = 'code') => {
+  const sendMagic = async (to?: string, source: 'continue' | 'link' | 'resend' = 'link') => {
     const target = (to ?? email).trim();
     if (!target) return;
     clearNotices();
@@ -279,17 +272,21 @@ function AuthCardForm({
     try {
       const formData = buildBaseFormData(target);
       // One flow: continuing IS the agreement (the legal footer says so), and
-      // the code path signs in existing accounts and registers new ones alike.
+      // the email link signs in existing accounts and registers new ones alike.
       formData.set('acceptedTerms', 'true');
 
       const result = await sendEmailCode(null, formData);
 
       if (result && (result as any).success) {
         setSentEmail((result as any).email || target);
-        setCode('');
-        lastTriedCode.current = '';
         setResendIn(RESEND_COOLDOWN_SECONDS);
-        setStep('code');
+        setStep('link');
+        // Snapshot the PKCE verifier the server action just handed this browser
+        // as a cookie. If the cookie does not survive the mailbox detour, the
+        // callback bounces the code back here and the resume effect completes
+        // the exchange from this snapshot instead of leaving the visitor on a
+        // false "expired" screen.
+        stashBrowserPkceVerifier();
       } else if (result && 'message' in result) {
         failWith((result as any).message as string);
       }
@@ -335,7 +332,7 @@ function AuthCardForm({
         // The domain is bound to a SAML provider. Ask the flow how strict
         // the org is: enforced SSO redirects straight to the IdP (no
         // password door), everything else lands on an interstitial that
-        // defaults to SSO but keeps the password/code escapes visible —
+        // defaults to SSO but keeps the password/email escapes visible —
         // a pre-SSO password account must never dead-end here.
         const { mode: resolved } = await resolveAuthMode(address);
         if (resolved === 'sso') {
@@ -410,11 +407,29 @@ function AuthCardForm({
         // Work domain with no SAML provider → fall through to magic/password.
       }
 
-      // Magic link is the default path: Continue emails a code and lands the
-      // user on the code step (the code signs in existing accounts and
-      // registers new ones — no mode needed). Password-only deployments go
-      // through the existence check instead, so the password step opens
-      // already knowing whether this is a sign-in or a registration.
+      // Magic link is the default path: Continue emails a link and lands the
+      // user on the link step (the link signs in existing accounts and
+      // registers new ones — no mode needed). One exception: an EXISTING
+      // account opens the password form directly — the link stays one
+      // explicit choice away ("Email me a link instead") and no auth email is
+      // sent until the customer asks for it. (Whether the account's password
+      // is one the visitor still knows is not observable server-side — GoTrue
+      // stores a random hash for passwordless users too — so the existence
+      // check is the signal we act on, and the password screen itself carries
+      // both escape hatches: "Forgot your password?" and the link.) New
+      // accounts and a degraded existence check keep the magic-link default
+      // (the link action re-checks closed/SSO server-side). Password-only
+      // deployments go through the existence check below, so the password
+      // step opens already knowing whether this is a sign-in or a
+      // registration.
+      if (magicLinkEnabled && passwordEnabled) {
+        const { mode: resolved } = await resolveAuthMode(trimmed);
+        if (resolved === 'signin') {
+          setCredMode('signin');
+          setStep('credentials');
+          return;
+        }
+      }
       if (magicLinkEnabled) {
         await sendMagic(trimmed, 'continue');
         return;
@@ -437,7 +452,7 @@ function AuthCardForm({
     }
   };
 
-  // Escape hatch off the code step for people who'd rather type a password.
+  // Escape hatch off the link step for people who'd rather type a password.
   // The address can live in either field depending on how the step was reached,
   // and the credentials step renders it read-only from `email` — so settle on
   // one before switching, and bounce focus back if we somehow have neither.
@@ -462,7 +477,6 @@ function AuthCardForm({
         return;
       }
       setCredMode(resolved);
-      setCode('');
       setStep('credentials');
     } finally {
       setPendingAction(null);
@@ -542,40 +556,6 @@ function AuthCardForm({
     }
   };
 
-  const verifyCode = async () => {
-    if (!sentEmail || code.length !== 6) return;
-    setErrorMessage(null);
-    setVerifying(true);
-
-    const formData = buildBaseFormData(sentEmail);
-    formData.set('token', code);
-
-    try {
-      const result = await verifyOtp(null, formData);
-
-      if (result && (!('success' in result) || !(result as any).success)) {
-        failWith(((result as any).message as string) || t('errors.invalidCode'));
-        return;
-      }
-
-      await establishSessionAndRedirect(result);
-    } catch (err: any) {
-      if (err?.digest?.startsWith('NEXT_REDIRECT')) return;
-      failWith(err?.message || t('errors.unexpected'));
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  // Auto-verify the moment the sixth digit lands — no extra button press.
-  useEffect(() => {
-    if (step === 'code' && code.length === 6 && !verifying && lastTriedCode.current !== code) {
-      lastTriedCode.current = code;
-      void verifyCode();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, step, verifying]);
-
   const handleResend = async () => {
     if (!sentEmail || pending || resendIn > 0) return;
     await sendMagic(sentEmail, 'resend');
@@ -639,18 +619,18 @@ function AuthCardForm({
                 </button>
               )}
               {passwordEnabled && magicLinkEnabled && (
-                <span aria-hidden className="text-muted-foreground/40 select-none">
+                <span aria-hidden className="text-muted-foreground select-none">
                   ·
                 </span>
               )}
               {magicLinkEnabled && (
                 <button
                   type="button"
-                  onClick={() => sendMagic(email, 'code')}
+                  onClick={() => sendMagic(email, 'link')}
                   disabled={pending}
                   className="hover:text-foreground -my-2 py-2 underline-offset-4 transition-colors hover:underline disabled:opacity-50"
                 >
-                  {pendingAction === 'code' ? t('sending') : t('emailCodeInstead')}
+                  {pendingAction === 'link' ? t('sending') : t('emailLinkInstead')}
                 </button>
               )}
             </p>
@@ -669,96 +649,23 @@ function AuthCardForm({
     );
   }
 
-  /* ── Code step ── */
-  if (step === 'code') {
+  if (step === 'link') {
     return (
-      <>
-        <m.div {...rise(0)}>
-          <StepHeader
-            title={t('code.title')}
-            description={t.rich('code.description', {
-              email: sentEmail ?? '',
-              address: (chunks) => (
-                <span className="text-foreground font-medium wrap-break-word">{chunks}</span>
-              ),
-            })}
-          />
-        </m.div>
-
-        <m.div {...rise(0.06)}>
-          {info && <InfoStrip message={info} />}
-
-          <CodeInput
-            value={code}
-            onChange={(next) => {
-              if (errorMessage) setErrorMessage(null);
-              setCode(next);
-            }}
-            disabled={verifying}
-            invalid={!!errorMessage}
-          />
-
-          <div className="text-muted-foreground mt-6 space-y-2 text-sm">
-            {verifying ? (
-              <div className="flex items-center gap-2">
-                <Loading className="text-muted-foreground size-4 shrink-0" />
-                <span>{t('code.verifying')}</span>
-              </div>
-            ) : (
-              <>
-                <p>
-                  {t('code.notReceived')}{' '}
-                  {resendIn > 0 ? (
-                    <span className="tabular-nums">
-                      {t('code.resendIn', { seconds: resendIn })}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      disabled={pending}
-                      className="text-foreground underline-offset-4 hover:underline disabled:opacity-50"
-                    >
-                      {pendingAction === 'resend' ? t('sending') : t('code.resend')}
-                    </button>
-                  )}
-                </p>
-                {/* The two ways off this step, side by side — same weight, same
-                    dialect as the resend line above. `-my-2 py-2` grows the hit
-                    area to ~40px without opening a gap between the rows. */}
-                <p className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={goToEntry}
-                    className="hover:text-foreground -my-2 py-2 underline-offset-4 transition-colors hover:underline"
-                  >
-                    {t('useDifferentEmail')}
-                  </button>
-                  {passwordEnabled && (
-                    <>
-                      <span aria-hidden className="text-muted-foreground/40 select-none">
-                        ·
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void goToPassword()}
-                        disabled={pending}
-                        className="hover:text-foreground -my-2 py-2 underline-offset-4 transition-colors hover:underline disabled:opacity-50"
-                      >
-                        {pendingAction === 'password' ? t('oneMoment') : t('usePasswordInstead')}
-                      </button>
-                    </>
-                  )}
-                </p>
-              </>
-            )}
-          </div>
-        </m.div>
-      </>
+      <EmailLinkStep
+        sentEmail={sentEmail}
+        info={info}
+        resendIn={resendIn}
+        pending={pending}
+        pendingAction={pendingAction}
+        passwordEnabled={passwordEnabled}
+        onResend={handleResend}
+        onChangeEmail={goToEntry}
+        onPassword={() => void goToPassword()}
+      />
     );
   }
 
-  /* ── Credentials step (password, with email-code alternative) ── */
+  /* ── Credentials step (password, with email-link alternative) ── */
   if (step === 'credentials') {
     const copy = credentialsCopy(credMode, tI18nComplete);
     const credentialKey =
@@ -839,10 +746,10 @@ function AuthCardForm({
               onClick={() => sendMagic()}
               disabled={pending}
             >
-              {pendingAction === 'code' ? (
+              {pendingAction === 'link' ? (
                 <Loading className="text-foreground! size-4 shrink-0" />
               ) : null}
-              {t('emailCodeInstead')}
+              {t('emailLinkInstead')}
             </Button>
           )}
         </m.div>
@@ -859,6 +766,7 @@ function AuthCardForm({
 
       <m.div {...rise(0.06)}>
         {info && <InfoStrip message={info} />}
+        {errorMessage && <InfoBanner tone="destructive">{errorMessage}</InfoBanner>}
 
         {googleEnabled && (
           <div className="mb-8">
@@ -900,7 +808,7 @@ function AuthCardForm({
 
         {/* Explicit SSO entry — the discoverable counterpart of the silent
             home-realm discovery Continue already performs. Same dialect as the
-            code-step footer links; only rendered when this deployment has SAML
+            link-step footer links; only rendered when this deployment has SAML
             enabled, so self-hosted installs without SSO never show a dead door. */}
         {samlEnabled && (
           <p className="text-muted-foreground mt-4 text-sm">
@@ -938,6 +846,7 @@ const STALE_SESSION_FALLBACK_MS = 2500;
 
 function AuthContent() {
   const t = useTranslations('auth.unified');
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { supabase, user, session, isLoading } = useAuth();
@@ -947,6 +856,41 @@ function AuthContent() {
   const mobileCallbackState =
     searchParams.get('mobile_callback') === '1' ? searchParams.get('state') : null;
   const hasStartedMobileHandoff = useRef(false);
+  const hasResumedPkceCode = useRef(false);
+
+  // A bounced-back PKCE code: the server-side exchange in /auth/callback failed
+  // because this browser's verifier cookie did not survive the mailbox detour,
+  // and the code is still fresh and unconsumed. Re-seed the verifier this tab
+  // snapshotted when the send ran and re-enter the callback, whose normal
+  // exchange and success path (return-URL demotion, terms stamp, billing-aware
+  // landing) then run unchanged. One shot: a re-seeded exchange that still
+  // bounces goes to the resend screen, never a loop. The params are stripped
+  // first so a refresh cannot re-arm a spent resume.
+  const pkceResumeCode = searchParams.get('pkce_code');
+  useEffect(() => {
+    if (!pkceResumeCode || hasResumedPkceCode.current || isLoading) return;
+    hasResumedPkceCode.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('pkce_code');
+    window.history.replaceState(null, '', url.toString());
+    const resendUrl = new URL('/auth', window.location.origin);
+    resendUrl.searchParams.set('expired', 'true');
+    if (returnUrl) resendUrl.searchParams.set('returnUrl', returnUrl);
+    if (consumePkceResumeGuard(pkceResumeCode) || !seedPkceVerifierForResume()) {
+      // The re-seeded exchange already bounced once, or this tab holds no
+      // snapshot (the link was opened elsewhere) and no cookie. The exchange
+      // cannot complete here either way — the resend screen is the honest
+      // landing, with the return URL preserved for the next attempt.
+      window.location.assign(resendUrl.toString());
+      return;
+    }
+    armPkceResumeGuard(pkceResumeCode);
+    const target = new URL('/auth/callback', window.location.origin);
+    target.searchParams.set('code', pkceResumeCode);
+    if (returnUrl) target.searchParams.set('returnUrl', returnUrl);
+    window.location.assign(target.toString());
+  }, [pkceResumeCode, isLoading, returnUrl]);
+
 
   // `useAuth()`'s `user` can be stale: it's seeded from whatever session the
   // client already had cached, and only gets corrected once something
@@ -961,6 +905,17 @@ function AuthContent() {
 
   const [forceForm, setForceForm] = useState(false);
   const trustedUser = !!user && !sessionExpired && !forceForm;
+
+  // A failed sign-out says so, ONCE, on the document it lands on. The
+  // sign-out ends on a document load to `/auth`, so `runSignOut` cannot raise
+  // a toast in the document it is leaving — it stashes the notice instead
+  // (`sign-out-notice.ts`), and this effect reads and clears it. Read-and-
+  // clear keeps every later `/auth` visit in the same tab silent.
+  useEffect(() => {
+    if (takeSignOutNotice()) {
+      errorToast(tI18nComplete.raw('text6c4af31cd4ab'));
+    }
+  }, [tI18nComplete]);
 
   // A web session may already exist when the mobile user returns to this page.
   // Preserve the native handoff instead of routing that browser session to the
@@ -1052,7 +1007,7 @@ function AuthContent() {
   // A stale/invalidated session (sessionExpired, or forceForm from the
   // safety-net timeout) also lands here — never a dead shell.
   return (
-    <AuthFrame footerVariant="continue" aside={<AuthBrandPanel />}>
+    <AuthFrame footerVariant="continue">
       <AuthCardForm returnUrl={returnUrl} mobileCallbackState={mobileCallbackState} />
     </AuthFrame>
   );

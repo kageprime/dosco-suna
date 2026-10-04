@@ -17,11 +17,13 @@ let projectRows: Array<Record<string, unknown>> = [];
 let connectorRows: Array<Record<string, unknown>> = [];
 let connectionRows: Array<Record<string, unknown>> = [];
 mock.module('../shared/db', () => ({
+  withDbTransaction: async <T>(action: () => Promise<T>) => action(),
   db: {
     select: () => ({
       from: (table: unknown) => ({
         where: () => ({
-          limit: async () =>
+          limit: () => {
+            const rows =
             table === projectSessions
               ? sessionRows
               : table === projects
@@ -30,7 +32,9 @@ mock.module('../shared/db', () => ({
                   ? connectorRows
                   : table === connectorConnections
                     ? connectionRows
-                    : [],
+                    : [];
+            return Object.assign(Promise.resolve(rows), { for: async () => rows });
+          },
         }),
       }),
     }),
@@ -41,7 +45,6 @@ mock.module('../shared/rate-limit', () => ({
   TokenBucketRateLimiter: class {},
   enforceRateLimit: async () => null,
   createProjectSecretWriteRateLimitMiddleware: () => async (_c: any, next: any) => next(),
-  consumeProjectSessionCreateBudget: () => ({ allowed: true, limit: 100, remaining: 99, resetMs: 1000 }),
 }));
 
 const propagated: string[] = [];
@@ -185,7 +188,7 @@ beforeEach(() => {
   reachLookups.length = 0;
   reach = null;
   sessionRows = [];
-  projectRows = [{ name: 'Dosco Company' }];
+  projectRows = [{ name: 'Dosco Company', status: 'active' }];
   connectorRows = [
     { connectorId: CONNECTOR_ID, providerType: 'pipedream', authorizationStrategy: 'project' },
   ];
@@ -202,6 +205,15 @@ afterEach(() => {
 });
 
 describe('GET /secret/:token', () => {
+  for (const status of ['archived', 'missing']) {
+    test(`${status} project makes the destination unavailable`, async () => {
+      projectRows = status === 'missing' ? [] : [{ name: 'Deleted project', status }];
+      const res = await setupLinksPublicApp.request(`/secret/${mintToken()}`);
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'This link is unavailable' });
+    });
+  }
+
   test('a live token returns the requested fields and expiry', async () => {
     const res = await setupLinksPublicApp.request(`/secret/${mintToken()}`);
     expect(res.status).toBe(200);
@@ -353,6 +365,18 @@ describe('POST /secret/:token', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ values }),
+    });
+  }
+
+  for (const status of ['archived', 'missing']) {
+    test(`${status} project rejects submission without side effects`, async () => {
+      projectRows = status === 'missing' ? [] : [{ name: 'Deleted project', status }];
+      const res = await submit(mintToken());
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'This link is unavailable' });
+      expect(writes).toHaveLength(0);
+      expect(propagated).toHaveLength(0);
+      expect(enqueued).toHaveLength(0);
     });
   }
 

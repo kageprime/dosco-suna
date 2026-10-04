@@ -250,7 +250,6 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
     >
       <AppProviders
         showSidebar
-        showRightSidebar={false}
         showGlobalUserSettingsModal={false}
         defaultSidebarOpen={resolvedSidebarOpen}
         sidebarContent={<ProjectSidebar projectId={projectId} />}

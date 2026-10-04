@@ -10,14 +10,15 @@ import {
   CommandPopover,
   CommandPopoverContent,
   CommandPopoverTrigger,
+  CommandSeparator,
 } from '@/components/ui/command';
 import Hint from '@/components/ui/hint';
+import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
 import type { Agent } from '@kortix/sdk/react';
-import { capitalizeWords, isMetaAgentName } from '@kortix/shared';
+import { isMetaAgentName } from '@kortix/shared';
 import { displayAgentName } from '@/features/workspace/capabilities/agents/agent-display-name';
-import { CaretDownIcon, CheckIcon, FolderSimpleIcon as MetaFolder } from '@phosphor-icons/react';
-import { useTranslations } from '@/i18n/use-translations';
+import { CaretDownIcon, CheckIcon, SparkleIcon } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { composerSelectableAgents } from './composer-agent-access';
 
@@ -133,11 +134,17 @@ export function AgentSelector({
         // pointing at neither.
         className={cn('items-start gap-2 py-2', isSelected && 'bg-primary/[0.06]')}
         onSelect={() => {
-          if (disabled) return;
           onSelect(agent.name);
           setOpen(false);
         }}
       >
+        {meta && (
+          // Meta is the platform agent that runs the others, so its row leads
+          // with its own mark instead of reading as one more peer in the list.
+          <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-md">
+            <SparkleIcon weight="fill" className="text-foreground size-4" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="text-foreground truncate text-sm font-medium">
@@ -199,8 +206,30 @@ export function AgentSelector({
     );
   }
 
+  /**
+   * An inert picker: this host offered the roster but the control is read-only
+   * (a settings form the caller cannot write). The trigger stays — the agent
+   * that would run must remain visible — but it stops pretending to be
+   * interactive: no caret (the one cue that read as "opens a menu"), the muted
+   * text every inert control on this rail wears, and the disabled attribute.
+   */
+  if (disabled) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled
+        className="text-muted-foreground rounded-lg"
+      >
+        {metaSelected && <SparkleIcon className="size-3.5 shrink-0" weight="fill" />}
+        <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
+      </Button>
+    );
+  }
+
   return (
-    <CommandPopover open={open} onOpenChange={(next) => setOpen(disabled ? false : next)}>
+    <CommandPopover open={open} onOpenChange={setOpen}>
       <CommandPopoverTrigger>
         <Button
           type="button"
@@ -209,7 +238,7 @@ export function AgentSelector({
           aria-label={t('selectAgent')}
           className="text-foreground/70 rounded-lg"
         >
-          {metaSelected && <MetaFolder className="size-3.5 shrink-0" weight="fill" />}
+          {metaSelected && <SparkleIcon className="size-3.5 shrink-0" weight="fill" />}
           <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
           <CaretDownIcon
             className={cn(
@@ -274,6 +303,9 @@ export function AgentSelector({
           {filteredPrimary.length > 0 && (
             <CommandGroup forceMount>
               {filteredMeta.map((agent) => renderAgentItem(agent, true))}
+              {filteredMeta.length > 0 && filteredProject.length > 0 && (
+                <CommandSeparator className="my-1" />
+              )}
               {filteredProject.map((agent) => renderAgentItem(agent, false))}
             </CommandGroup>
           )}
