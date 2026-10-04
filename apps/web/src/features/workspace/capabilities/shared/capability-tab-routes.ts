@@ -123,7 +123,6 @@ export function capabilityTabHref(projectId: string, key: CapabilityTab['key']):
 }
 
 /**
-/**
  * Where Marketplace lives: a top-level project route, not a Customize tab.
  * `/projects/<id>/customize/marketplace` still resolves — it redirects here —
  * so every bookmark taken while it WAS a tab keeps working. Same arrangement
@@ -138,7 +137,6 @@ export function marketplaceHref(projectId: string): string {
  */
 export function reviewHref(projectId: string): string {
   return `/projects/${projectId}/review`;
-}
 }
 
 /**
