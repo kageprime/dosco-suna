@@ -101,6 +101,7 @@ import {
 } from '@kortix/sdk';
 import { contract, qk, useFeatureFlag, useProjectAccountId } from '@kortix/sdk/react';
 import { capitalizeWords } from '@kortix/shared';
+import { displayAgentName } from './agent-display-name';
 import {
   BookOpenTextIcon,
   CaretRightIcon,
@@ -475,7 +476,7 @@ function AgentActions({
     mutationFn: () => updateProjectDefaultAgent(projectId, agent.name),
     onSuccess: async (result) => {
       successToast(
-        tI18nComplete('text0bb557895b32', { value0: capitalizeWords(result.default_agent) }),
+        tI18nComplete('text0bb557895b32', { value0: displayAgentName(result.default_agent) }),
       );
       await queryClient.invalidateQueries({ queryKey: qk.project.detail(projectId) });
     },
@@ -629,7 +630,7 @@ function AgentHeader({
           </Link>
           <CaretRightIcon aria-hidden className="text-muted-foreground/50 size-3.5 shrink-0" />
           <h1 className="text-foreground truncate text-sm font-semibold">
-            {capitalizeWords(agent.name)}
+            {displayAgentName(agent.name)}
           </h1>
           <AgentChips agent={agent} config={config} size="xs" />
         </nav>
