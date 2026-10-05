@@ -100,7 +100,7 @@ import {
   updateProjectDefaultAgent,
 } from '@kortix/sdk';
 import { contract, qk, useFeatureFlag, useProjectAccountId } from '@kortix/sdk/react';
-import { capitalizeWords, isMetaAgentName, META_AGENT_DISPLAY_NAME } from '@kortix/shared';
+import { displayAgentName } from './agent-display-name';
 import {
   BookOpenTextIcon,
   CaretRightIcon,
@@ -479,7 +479,7 @@ function AgentActions({
     mutationFn: () => updateProjectDefaultAgent(projectId, agent.name),
     onSuccess: async (result) => {
       successToast(
-        tI18nComplete('text0bb557895b32', { value0: capitalizeWords(result.default_agent) }),
+        tI18nComplete('text0bb557895b32', { value0: displayAgentName(result.default_agent) }),
       );
       await queryClient.invalidateQueries({ queryKey: qk.project.detail(projectId) });
     },
@@ -548,7 +548,7 @@ function AgentActions({
         open={confirmEditSource}
         onOpenChange={setConfirmEditSource}
         title={tI18nComplete.raw('text24ba36a8ec86')}
-        description={tI18nComplete('text13324ae62b23', { value0: agent.name })}
+        description={tI18nComplete('text13324ae62b23', { value0: displayAgentName(agent.name) })}
         confirmLabel={tI18nComplete.raw('text0bce1a892dec')}
         cancelLabel={tI18nComplete.raw('text19766ed6ccb2')}
         onConfirm={() => {
@@ -633,7 +633,7 @@ function AgentHeader({
           </Link>
           <CaretRightIcon aria-hidden className="text-muted-foreground/50 size-3.5 shrink-0" />
           <h1 className="text-foreground truncate text-sm font-semibold">
-            {isMetaAgentName(agent.name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(agent.name)}
+            {displayAgentName(agent.name)}
           </h1>
           <AgentChips agent={agent} config={config} size="xs" />
         </nav>
@@ -703,7 +703,7 @@ function EditableAgentPage({
     try {
       const response = await update.mutateAsync(editor.draft);
       editor.commit(response.block ?? editor.draft);
-      successToast(tI18nComplete('text6b0bbffdbd6e', { value0: capitalizeWords(agent.name) }));
+      successToast(tI18nComplete('text6b0bbffdbd6e', { value0: displayAgentName(agent.name) }));
     } catch (e) {
       errorToast((e as Error)?.message ?? tI18nComplete.raw('text166442c65e8e'));
     }
@@ -774,7 +774,7 @@ function EditableAgentPage({
             open={confirmDiscard}
             onOpenChange={setConfirmDiscard}
             title={tI18nComplete.raw('text3b13192b9d88')}
-            description={tI18nComplete('text8a36cce34f68', { value0: capitalizeWords(agent.name) })}
+            description={tI18nComplete('text8a36cce34f68', { value0: displayAgentName(agent.name) })}
             confirmLabel={tI18nComplete.raw('texteb1a70e39274')}
             cancelLabel={tI18nComplete.raw('texte76fd2add010')}
             confirmVariant="destructive"
@@ -793,7 +793,7 @@ function EditableAgentPage({
               if (!open) leaveGuard.stay();
             }}
             title={tI18nComplete.raw('text2190d03af90a')}
-            description={tI18nComplete('textbbc5a3f2ca48', { value0: capitalizeWords(agent.name) })}
+            description={tI18nComplete('textbbc5a3f2ca48', { value0: displayAgentName(agent.name) })}
             confirmLabel={tI18nComplete.raw('textfc6e4a408d56')}
             cancelLabel={tI18nComplete.raw('texte76fd2add010')}
             confirmVariant="destructive"
