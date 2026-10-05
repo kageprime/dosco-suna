@@ -9,11 +9,18 @@ import { describe, expect, test } from 'bun:test';
  * rendered agent name on this page goes through displayAgentName.
  */
 const page = readFileSync(join(__dirname, 'agent-page.tsx'), 'utf8');
+const listPage = readFileSync(join(__dirname, 'agents-page.tsx'), 'utf8');
 
 describe('agent-page display mapping', () => {
   test('renders agent names via displayAgentName, never raw capitalizeWords', () => {
     expect(page).toContain('displayAgentName(agent.name)');
     expect(page).not.toMatch(/capitalizeWords\(agent\.name\)/);
     expect(page).not.toMatch(/capitalizeWords\(result\.default_agent\)/);
+  });
+
+  test('agents list page maps titles through displayAgentName too', () => {
+    expect(listPage).toContain('displayAgentName(agent.name)');
+    expect(listPage).not.toMatch(/capitalizeWords\(agent\.name\)/);
+    expect(listPage).not.toMatch(/capitalizeWords\(result\.default_agent\)/);
   });
 });

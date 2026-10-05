@@ -40,7 +40,7 @@ import {
   updateProjectDefaultAgent,
 } from '@kortix/sdk';
 import { contract, qk, useProjectAccountId } from '@kortix/sdk/react';
-import { capitalizeWords, isMetaAgentName, META_AGENT_DISPLAY_NAME } from '@kortix/shared';
+import { displayAgentName } from './agent-display-name';
 import {
   CaretRightIcon,
   MagnifyingGlassIcon,
@@ -252,7 +252,7 @@ export function AgentsPage({ projectId }: { projectId: string }) {
             key={agent.path}
             href={agentHref(projectId, agent.name)}
             onIntent={() => prefetchAgentConfig(queryClient, projectId, agent.name)}
-            title={isMetaAgentName(agent.name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(agent.name)}
+            title={displayAgentName(agent.name)}
             description={agent.description}
             badges={<AgentCardBadges agent={agent} isDefault={defaultAgent === agent.name} />}
             meta={
@@ -382,7 +382,7 @@ function DefaultAgentSelector({
     mutationFn: (agentName: string) => updateProjectDefaultAgent(projectId, agentName),
     onSuccess: async (result) => {
       successToast(
-        tI18nComplete('text0bb557895b32', { value0: capitalizeWords(result.default_agent) }),
+        tI18nComplete('text0bb557895b32', { value0: displayAgentName(result.default_agent) }),
       );
       // One invalidation, not two: the project CONFIG is a `select` projection
       // over this same `qk.project.detail(id)` entry (`useProjectConfig`), not
@@ -416,7 +416,7 @@ function DefaultAgentSelector({
         <SelectContent align="end">
           {availableAgents.map((agent) => (
             <SelectItem key={agent.name} value={agent.name}>
-              {isMetaAgentName(agent.name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(agent.name)}
+              {displayAgentName(agent.name)}
             </SelectItem>
           ))}
         </SelectContent>
