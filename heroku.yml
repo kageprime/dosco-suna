@@ -1,0 +1,7 @@
+build:
+  docker:
+    web: apps/api/Dockerfile
+  config:
+    SERVICE: apps/api
+run:
+  web: bun run src/index.ts
