@@ -79,7 +79,7 @@
  *
  * The same state also serves INTERNAL-ONLY surfaces (`session_log`,
  * `session_log_restore`): not offered in Settings, enabled per project by a
- * Kortix operator on request. Their 403 says "contact Kortix" instead of
+ * Dosco operator on request. Their 403 says "contact Dosco" instead of
  * naming a toggle the caller cannot see (gate.ts).
  */
 import { config } from '../config';
@@ -312,11 +312,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'genui',
     name: 'Generative UI',
     description:
-<<<<<<< HEAD
-      "Sessions run the base branch's current config. Dosco loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session, on OpenCode and on pi. Off ⇒ the session reads its config from its workspace checkout, as it did before config releases.",
-=======
-      'The agent may answer with cards, comparisons, charts, maps, and tabs instead of long text. On ⇒ every new session of this project (and any session rebuilt from scratch) lists the kortix-genui system skill, which teaches the agent the Kortix generative UI catalog when an answer needs it (KORTIX_GENUI=1 in kortixd). Off ⇒ the agent writes markdown only; blocks already in a transcript still render.',
->>>>>>> upstream-dev
+      'The agent may answer with cards, comparisons, charts, maps, and tabs instead of long text. On ⇒ every new session of this project (and any session rebuilt from scratch) lists the kortix-genui system skill, which teaches the agent the Dosco generative UI catalog when an answer needs it (KORTIX_GENUI=1 in kortixd). Off ⇒ the agent writes markdown only; blocks already in a transcript still render.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
@@ -421,12 +417,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'session_log',
     name: 'Session log v2',
     description:
-      'Read a session through the v2 session log instead of the v1 transcript. Off by default and not offered in Settings: Kortix enables it per project. Prod rollout: internal projects first, then 10% of projects, then every project. It becomes the default in the release that ships v2 to everyone and is deleted in the next release.',
+      'Read a session through the v2 session log instead of the v1 transcript. Off by default and not offered in Settings: Dosco enables it per project. Prod rollout: internal projects first, then 10% of projects, then every project. It becomes the default in the release that ships v2 to everyone and is deleted in the next release.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
     // Internal-only (2026-10-11): not offered in Settings.
-    // A Kortix operator enables it per project.
+    // A Dosco operator enables it per project.
     catalogHidden: true,
     enforcement: 'behavioral',
     enforcementNote:
@@ -440,12 +436,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'session_log_restore',
     name: 'Session log restore',
     description:
-      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: Kortix enables it per project, or for a whole deployment (on by default on dev).',
+      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: Dosco enables it per project, or for a whole deployment (on by default on dev).',
     stability: 'experimental',
     available: () => true,
     // Off unless the deployment sets SESSION_LOG_RESTORE_DEFAULT_ENABLED (dev does, 2026-10-15).
     platformDefault: () => config.SESSION_LOG_RESTORE_DEFAULT_ENABLED,
-    // Internal-only (2026-10-13): not a Settings toggle. A Kortix operator sets it per project
+    // Internal-only (2026-10-13): not a Settings toggle. A Dosco operator sets it per project
     // (PUT /v1/admin/api/projects/:id/features). While on, Settings lists it read-only.
     catalogHidden: true,
     enforcement: 'behavioral',
@@ -462,7 +458,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'connectors_v2',
     name: 'Connectors v2',
     description:
-      'Connectors on Kortix: the MCP app catalog in Customize → Connectors (vendor MCP servers, signed in with OAuth that Kortix runs), app events that Kortix checks on those apps (with App event triggers on), and Telegram as a channel connector. New connector accounts are no longer created for the whole project by default.',
+      'Connectors on Dosco: the MCP app catalog in Customize → Connectors (vendor MCP servers, signed in with OAuth that Dosco runs), app events that Dosco checks on those apps (with App event triggers on), and Telegram as a channel connector. New connector accounts are no longer created for the whole project by default.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
@@ -472,7 +468,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
       '(projects/routes/channel-telegram.ts). BEHAVIORAL: the Telegram webhook keeps its legacy ' +
       'one-session-per-message path when off (channels/telegram-webhook.ts); the kortix_telegram ' +
       'connector is materialized only while on (connectors/channel-materialize.ts); sync seeds no ' +
-      'empty project-owned account while on (connectors/sync.ts). Discover serves the Kortix MCP ' +
+      'empty project-owned account while on (connectors/sync.ts). Discover serves the Dosco MCP ' +
       'catalog while on (connectors/routes/catalogues.ts). The `mcp` app-event source exists only ' +
       'while on (projects/trigger-events/registry.ts); turning it off moves those triggers to error ' +
       'and drops their poll streams (feature-flags/toggle-effects.ts).',

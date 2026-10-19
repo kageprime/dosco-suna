@@ -16,7 +16,7 @@ export {
 } from './tier-facts';
 
 /**
- * The platform fee on Kortix-managed model usage, as a percent of the
+ * The platform fee on Dosco-managed model usage, as a percent of the
  * provider's base price. Customers see base prices; the fee is stated once.
  * 5.5% matches what the upstream router charges on credit purchases, so
  * managed models run at break-even until routes move to direct providers.
@@ -103,117 +103,6 @@ export function topUpBonusUsd(amountUsd: number): number {
 }
 
 export const MAX_PROJECTS_PER_ACCOUNT = 200;
-<<<<<<< HEAD
-export const MAX_CONCURRENT_SANDBOXES_PER_SEAT = 3;
-export const MAX_SEATS_PER_ACCOUNT = 100;
-
-export type BillingModel = 'legacy' | 'per_seat' | 'credit';
-
-/** Default auto-topup for a per-seat account given its current seat count. */
-export function defaultAutoTopupForSeats(seatCount: number): { threshold: number; amount: number } {
-  const seats = Math.max(1, seatCount);
-  return {
-    threshold: AUTO_TOPUP_DEFAULT_THRESHOLD_PER_SEAT * seats,
-    amount: AUTO_TOPUP_DEFAULT_AMOUNT_PER_SEAT * seats,
-  };
-}
-
-/**
- * Monthly wallet grant for N seats. INCLUDED_CREDITS_PER_SEAT_USD ($25) per
- * seat, fungible across compute and LLM usage — NOT the full $40 seat price
- * (the other $15 is platform margin). Per-category transparency comes from the
- * credit_ledger (compute_debit / llm_debit), not from a wallet partition.
- */
-export function grantForSeats(seatCount: number): number {
-  return INCLUDED_CREDITS_PER_SEAT_USD * Math.max(1, seatCount);
-}
-
-/**
- * Included-usage share of every subscription dollar: $25 of each $40 seat.
- * The one ratio the whole renewal-grant rule reduces to — see
- * `resolveRenewalGrant`.
- */
-export const INCLUDED_CREDITS_RATIO = INCLUDED_CREDITS_PER_SEAT_USD / PER_SEAT_PRICE_USD;
-
-/**
- * THE renewal-grant rule: what a paid subscription-cycle invoice puts in the
- * wallet. One resolver, resolved from the SUBSCRIPTION that was billed, in
- * precedence order:
- *
- *   1. Per-seat: seats × $25 — the seat count is the contract. (For the
- *      standard $40 seat price this equals amount × INCLUDED_CREDITS_RATIO
- *      exactly; the seat count stays authoritative for discounted invoices.)
- *   2. A tier with a configured monthly grant (v3 credit plans, free): that
- *      grant, unchanged.
- *   3. Everything else that PAID — the legacy zoo (machine subscriptions,
- *      legacy `pro`, retired tier_* keys with no grant): the money that
- *      actually moved × INCLUDED_CREDITS_RATIO. Before this rule those
- *      renewals granted 0: a $40/mo "Dosco Agent" customer paid every
- *      month, sat at a $0 wallet, and could not run anything. There is no
- *      per-key mapping table to maintain — the paid invoice IS the mapping.
- *
- * Pure — testable without Stripe or a DB.
- */
-export function resolveRenewalGrant(args: {
-  tierName: string;
-  billingModel: string | null | undefined;
-  seatCount: number | null | undefined;
-  /** invoice.amount_paid, in USD (Stripe reports cents — divide by 100). */
-  amountPaidUsd: number;
-}): { credits: number; description: string } {
-  if (args.tierName === 'per_seat' || isPerSeatAccount(args.billingModel)) {
-    const seats = Math.max(1, args.seatCount ?? 1);
-    const credits = grantForSeats(seats);
-    return {
-      credits,
-      description: `Monthly renewal: ${credits} credits (${seats} ${seats === 1 ? 'seat' : 'seats'})`,
-    };
-  }
-  const configured = getMonthlyCredits(args.tierName);
-  if (configured > 0) {
-    return { credits: configured, description: `Monthly renewal: ${configured} credits` };
-  }
-  const credits = Math.round(Math.max(0, args.amountPaidUsd) * INCLUDED_CREDITS_RATIO * 100) / 100;
-  return {
-    credits,
-    description: `Monthly renewal: ${credits} credits (legacy subscription, $${args.amountPaidUsd} paid)`,
-  };
-}
-
-// ─── Compute instance definitions ───────────────────────────────────────────
-// Single source of truth for the machine tiers we sell.
-
-interface ComputeTier {
-  label: string;
-  cores: number;
-  memoryGb: number;
-  diskGb: number;
-  priceUsd: number;
-}
-
-export const COMPUTE_TIERS: Record<string, ComputeTier> = {
-  pro: { label: 'Pro', cores: 8, memoryGb: 16, diskGb: 320, priceUsd: 40 },
-  power: { label: 'Power', cores: 12, memoryGb: 24, diskGb: 480, priceUsd: 60 },
-  ultra: { label: 'Ultra', cores: 16, memoryGb: 32, diskGb: 640, priceUsd: 80 },
-};
-
-/** Return the display price in USD cents for a server type, or null if unknown. */
-export function getComputeDisplayPriceCents(serverType: string): number | null {
-  const tier = COMPUTE_TIERS[serverType];
-  return tier ? tier.priceUsd * 100 : null;
-}
-
-/**
- * Human-readable line for Stripe checkout / invoice descriptions.
- * Example: "Dosco Agent · Pro — 8 vCPU, 16 GB RAM, 320 GB SSD"
- */
-export function getComputeDescription(serverType: string): string {
-  const t = COMPUTE_TIERS[serverType];
-  if (!t) return 'Dosco Agent';
-  return `Dosco Agent · ${t.label} — ${t.cores} vCPU, ${t.memoryGb} GB RAM, ${t.diskGb} GB SSD`;
-}
-=======
->>>>>>> upstream-dev
 
 // ─── Tiers ──────────────────────────────────────────────────────────────────
 
@@ -263,121 +152,11 @@ const TIERS: Record<string, TierConfig> = {
     entitlements: SELF_SERVE,
   },
 
-<<<<<<< HEAD
-  pro: {
-    name: 'pro',
-    displayName: 'Pro',
-    monthlyPrice: 20,
-    yearlyPrice: 0, // No yearly billing
-    monthlyCredits: 0, // No monthly credits — $5 one-time per machine only
-    canPurchaseCredits: true,
-    models: ['all'],
-    dailyCreditConfig: null,
-    hidden: false,
-    appLimit: 200,
-    entitlements: SELF_SERVE,
-  },
-
-  // Billing v2 — per-member seat plan. $25 × seat_count / month.
-  // The TIERS entry models a single seat; multi-seat math is in
-  // grantForSeats() and applied at subscription create + renew.
-  //
-  // GRANDFATHERED (billing v3). Existing per-seat customers keep this tier
-  // exactly as it is — same price, same $25/seat grant, same 200 Apps,
-  // and `models: ['all']` so their managed-model access is NOT withdrawn under
-  // them. It is `hidden` only so the self-serve grid stops offering it to new
-  // customers; every existing subscription resolves it unchanged.
-  per_seat: {
-    name: 'per_seat',
-    displayName: 'Team (legacy seats)',
-    monthlyPrice: PER_SEAT_PRICE_USD,
-    yearlyPrice: 0,
-    monthlyCredits: INCLUDED_CREDITS_PER_SEAT_USD,
-    canPurchaseCredits: true,
-    models: ['all'],
-    dailyCreditConfig: null,
-    hidden: true,
-    appLimit: 200,
-    entitlements: SELF_SERVE,
-  },
-
-  // ── Billing v3 — flat credit plans ───────────────────────────────────────
-  // The plan carries the credit pool and the concurrency limit; headcount does
-  // not enter the price. Seats priced humans, but the cost driver is agents,
-  // and agents run unattended — a team of two could run fifty of them, and a
-  // Dosco-as-a-Backend customer serves end users who are not seats at all.
-  //
-  // `models: []` — NO included managed LLM. `tierGrantsAllModels` is false, so
-  // the wallet funds sandbox compute only, exactly as the free tier already
-  // works. BYOK, OpenCode and ChatGPT-subscription paths are untouched; a
-  // managed key is billed against the wallet only for tiers that grant models.
-  // This takes Dosco out of a short position on model prices: an upstream
-  // increase can no longer eat a fixed plan's margin.
-  //
-  // Price : credits holds at 1.6 : 1, which is ~48% gross margin when a plan
-  // burns its whole pool (COGS = pool ÷ KORTIX_MARKUP). Keep that ratio if you
-  // add a tier — it is the number that makes the ladder coherent.
-  starter: {
-    name: 'starter',
-    displayName: 'Starter',
-    monthlyPrice: 40,
-    yearlyPrice: 0,
-    monthlyCredits: 25,
-    canPurchaseCredits: true,
-    models: [],
-    dailyCreditConfig: null,
-    hidden: false,
-    appLimit: 3,
-    entitlements: SELF_SERVE,
-  },
-
-  team: {
-    name: 'team',
-    displayName: 'Team',
-    monthlyPrice: 200,
-    yearlyPrice: 0,
-    monthlyCredits: 125,
-    canPurchaseCredits: true,
-    models: [],
-    dailyCreditConfig: null,
-    hidden: false,
-    appLimit: 10,
-    entitlements: SELF_SERVE,
-  },
-
-  scale: {
-    name: 'scale',
-    displayName: 'Scale',
-    monthlyPrice: 800,
-    yearlyPrice: 0,
-    monthlyCredits: 500,
-    canPurchaseCredits: true,
-    models: [],
-    dailyCreditConfig: null,
-    hidden: false,
-    appLimit: 30,
-    entitlements: SELF_SERVE,
-  },
-
-  // ── Enterprise (sales-assigned, not self-serve) ──────────────────────────
-  // Custom / contact-sales. Not purchasable through normal checkout — an
-  // operator sets credit_accounts.tier='enterprise' as part of the deal, and
-  // credits are granted out-of-band per the contract. This is the ONLY tier
-  // that unlocks the enterprise identity surfaces (SSO + SCIM). Hidden from the
-  // self-serve pricing grid (the public page renders a static "Contact sales"
-  // card); high session limit for big teams.
-  enterprise: {
-    name: 'enterprise',
-    displayName: 'Enterprise',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-=======
   // The highest App limit any legacy paid plan had, so nobody loses Apps when
   // their plan key folds into this one.
   credits: {
     name: 'credits',
     displayName: 'Credits',
->>>>>>> upstream-dev
     monthlyCredits: 0,
     canPurchaseCredits: true,
     models: ['all'],
@@ -403,57 +182,16 @@ const TIERS: Record<string, TierConfig> = {
 interface StripePriceConfig {
   /** The $0 subscription every free account holds. */
   free: string;
-  /** "Kortix credits": $0.01 per unit per month, quantity = credits. */
+  /** "Dosco credits": $0.01 per unit per month, quantity = credits. */
   credits: string;
   /** One-time top-up packages, by whole-dollar amount. */
   topUps: Record<number, string>;
 }
 
 const STRIPE_PRICES_PROD: StripePriceConfig = {
-<<<<<<< HEAD
-  subscriptions: {
-    free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
-    pro: { monthly: 'price_1RILb4G6l1KZGqIrhomjgDnO' }, // TODO: create prod Pro price and replace
-    per_seat: { monthly: 'price_1TdyruG6l1KZGqIrMzPVmQSO' }, // live "Dosco seat" $40/mo
-    // Legacy price → tier mappings (for webhook resolution of existing subs)
-    tier_2_20: {
-      monthly: 'price_1RILb4G6l1KZGqIrhomjgDnO',
-      yearly: 'price_1ReHB5G6l1KZGqIrD70I1xqM',
-      yearlyCommitment: 'price_1RqtqiG6l1KZGqIrhjVPtE1s',
-    },
-    tier_6_50: {
-      monthly: 'price_1RILb4G6l1KZGqIr5q0sybWn',
-      yearly: 'price_1ReHAsG6l1KZGqIrlAog487C',
-      yearlyCommitment: 'price_1Rqtr8G6l1KZGqIrQ0ql0qHi',
-    },
-    tier_12_100: {
-      monthly: 'price_1RILb4G6l1KZGqIr5Y20ZLHm',
-      yearly: 'price_1ReHAWG6l1KZGqIrBHer2PQc',
-    },
-    tier_25_200: {
-      monthly: 'price_1RILb4G6l1KZGqIrGAD8rNjb',
-      yearly: 'price_1ReH9uG6l1KZGqIrsvMLHViC',
-      yearlyCommitment: 'price_1RqtrUG6l1KZGqIrEb8hLsk3',
-    },
-    tier_50_400: {
-      monthly: 'price_1RILb4G6l1KZGqIruNBUMTF1',
-      yearly: 'price_1ReH9fG6l1KZGqIrsPtu5KIA',
-    },
-    tier_125_800: {
-      monthly: 'price_1RILb3G6l1KZGqIrbJA766tN',
-      yearly: 'price_1ReH9GG6l1KZGqIrfgqaJyat',
-    },
-    tier_200_1000: {
-      monthly: 'price_1RILb3G6l1KZGqIrmauYPOiN',
-      yearly: 'price_1ReH8qG6l1KZGqIrK1akY90q',
-    },
-  },
-  credits: {
-=======
   free: 'price_1RIGvuG6l1KZGqIrw14abxeL',
-  credits: 'price_1UQEUsG6l1KZGqIrSUPCdtIO', // live "Kortix credits", $0.01/credit/month
+  credits: 'price_1UQEUsG6l1KZGqIrSUPCdtIO', // live "Dosco credits", $0.01/credit/month
   topUps: {
->>>>>>> upstream-dev
     10: 'price_1RxmQUG6l1KZGqIru453O1zW',
     25: 'price_1RxmQlG6l1KZGqIr3hS5WtGg',
     50: 'price_1RxmQvG6l1KZGqIrLbMZ3D6r',
@@ -463,29 +201,12 @@ const STRIPE_PRICES_PROD: StripePriceConfig = {
   },
 };
 
-<<<<<<< HEAD
-// Staging shares the MAIN Dosco Stripe account TEST mode (acct_1R5BVvG6l1KZGqIr)
-// — the same test sandbox as STRIPE_PRICES_DEV, which is the account staging's
-// deployed STRIPE_SECRET_KEY (sk_test_…) actually points at. The subscription
-// price + product ids therefore mirror the dev test catalog. The older
-// …G6CaZppiKc ids lived in a different account and 404 ("No such price") under
-// the staging key, which broke Pro/per-seat checkout creation. The credit ids
-// below are main-account test ids and already resolve.
-const STRIPE_PRICES_STAGING: StripePriceConfig = {
-  subscriptions: {
-    free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
-    pro: { monthly: 'price_1TeyA7G6l1KZGqIr7ZhEpoVm' },
-    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Dosco seat" $40/mo
-  },
-  credits: {
-=======
-// Staging and dev share the main Kortix Stripe account's TEST mode
+// Staging and dev share the main Dosco Stripe account's TEST mode
 // (acct_1R5BVvG6l1KZGqIr); both deployed keys are the same sk_test_ key.
 const STRIPE_PRICES_STAGING: StripePriceConfig = {
   free: 'price_1RIGvuG6l1KZGqIrw14abxeL',
   credits: 'price_1UQERpG6l1KZGqIrIH1EuX7p',
   topUps: {
->>>>>>> upstream-dev
     10: 'price_1RxXOvG6l1KZGqIrMqsiYQvk',
     25: 'price_1RxXPNG6l1KZGqIrQprPgDme',
     50: 'price_1RxmNhG6l1KZGqIrTq2zPtgi',
@@ -495,27 +216,10 @@ const STRIPE_PRICES_STAGING: StripePriceConfig = {
   },
 };
 
-<<<<<<< HEAD
-// Local-dev Stripe TEST-mode sandbox. Every id here lives in the test mode of
-// the main Dosco Stripe account (acct_1R5BVvG6l1KZGqIr) — the account your
-// local `STRIPE_SECRET_KEY` (sk_test_…) points at. The prod/staging configs
-// above are LIVE-mode ids in other accounts and 404 with a test key ("No such
-// price"), which is why local per-seat checkout was failing. Created via the
-// Stripe API; regenerate with apps/api/scripts/ or the Stripe dashboard (test
-// mode) if the sandbox account is ever reset.
-const STRIPE_PRICES_DEV: StripePriceConfig = {
-  subscriptions: {
-    free: { monthly: 'price_1RIGvuG6l1KZGqIrw14abxeL' },
-    pro: { monthly: 'price_1TeyA7G6l1KZGqIr7ZhEpoVm' },
-    per_seat: { monthly: 'price_1TeyA7G6l1KZGqIrTb2DKGS0' }, // test "Dosco seat" $40/mo
-  },
-  credits: {
-=======
 const STRIPE_PRICES_DEV: StripePriceConfig = {
   free: 'price_1RIGvuG6l1KZGqIrw14abxeL',
   credits: 'price_1UQERpG6l1KZGqIrIH1EuX7p',
   topUps: {
->>>>>>> upstream-dev
     10: 'price_1TeyA8G6l1KZGqIrWYDbPN0O',
     25: 'price_1TeyA9G6l1KZGqIrbdZNyyDn',
     50: 'price_1TeyA9G6l1KZGqIrNbj3otrU',
@@ -592,7 +296,7 @@ export function resolveFreePriceId(): string {
   return getStripePrices().free;
 }
 
-/** The "Kortix credits" price for this environment. */
+/** The "Dosco credits" price for this environment. */
 export function resolveCreditsPriceId(): string {
   return getStripePrices().credits;
 }
@@ -656,7 +360,7 @@ export function planForSubscription(subscription: {
  * Σ items: monthly credits per unit × quantity. Discounts do not reduce it —
  * the allowance is what the plan lists, as the seat rule always was.
  *
- *   - "Kortix credits": $0.01 × quantity.
+ *   - "Dosco credits": $0.01 × quantity.
  *   - A legacy price: its row in LEGACY_PRICE_MONTHLY_USD.
  *   - Any other price (a legacy machine subscription): its list price per month.
  *
@@ -753,22 +457,6 @@ export function tierGrantsAllModels(tierName: string): boolean {
   return getTier(tierName).models.includes('all');
 }
 
-<<<<<<< HEAD
-/**
- * Whether a resolved billing tier is blocked from Dosco-managed models.
- *
- * The environment argument remains for source compatibility. It has no effect.
- * `free`, `none`, and unknown tiers are blocked in every environment.
- */
-export function accountIsFreeTierForModels(
-  tierName: string,
-  _env: string = config.INTERNAL_KORTIX_ENV,
-): boolean {
-  return !tierGrantsAllModels(tierName);
-}
-
-=======
->>>>>>> upstream-dev
 /** Full entitlement set for a tier (enterprise feature gates). */
 export function getTierEntitlements(tierName: string): TierEntitlements {
   return getTier(tierName).entitlements;

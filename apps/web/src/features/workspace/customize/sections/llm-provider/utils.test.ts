@@ -344,7 +344,7 @@ describe('buildKortixManagedProvider — the connected claim follows the served 
   // account's plan actually lets it serve.
   const snapshot = (modelIds: string[]) => ({
     connected: ['kortix'],
-    all: [{ id: 'kortix', name: 'Kortix', models: Object.fromEntries(modelIds.map((id) => [id, {}])) }],
+    all: [{ id: 'kortix', name: 'Dosco', models: Object.fromEntries(modelIds.map((id) => [id, {}])) }],
   });
   // A slice of MANAGED_MODEL_ID_SET — the ids the curated managed table knows.
   const managedIds = new Set(['claude-sonnet-4-5', 'glm-5']);
@@ -378,7 +378,7 @@ describe('buildKortixManagedProvider — the connected claim follows the served 
 });
 
 describe('managedProviderHint — the managed row\u2019s note follows the served catalog', () => {
-  const copy = { managedDescription: 'Managed models billed with Kortix credits. No API key needed.', managedUpgradeHint: 'Upgrade to use Kortix\u2019s managed models, or connect your own provider.' };
+  const copy = { managedDescription: 'Managed models billed with Dosco credits. No API key needed.', managedUpgradeHint: 'Upgrade to use Dosco\u2019s managed models, or connect your own provider.' };
 
   test('with served managed models the note explains billing', () => {
     expect(managedProviderHint([{}], copy)).toBe(copy.managedDescription);

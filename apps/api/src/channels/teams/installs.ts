@@ -65,7 +65,7 @@ export interface TeamsInstallSummary {
   latestAppVersion: string;
   /**
    * A one-click install whose catalog serves an older app, or one published
-   * before Kortix recorded the version. Publishing again sends the latest.
+   * before Dosco recorded the version. Publishing again sends the latest.
    */
   appUpdateAvailable: boolean;
   installedAt: string;
@@ -185,7 +185,7 @@ export async function loadTeamsInstall(projectId: string): Promise<TeamsInstallS
   const publishState = parsePublishState(secrets[MS_TEAMS_PUBLISH_STATE]);
   const appVersion = secrets[MS_TEAMS_APP_VERSION] || null;
   // In the org catalog and settled. A null state is an install published
-  // before Kortix recorded it; publishing, review and failed say what to do.
+  // before Dosco recorded it; publishing, review and failed say what to do.
   const catalogSettled = orgInstalled && !byo && (publishState === null || publishState === 'published');
   return {
     tenantId,
@@ -205,7 +205,7 @@ export async function loadTeamsInstall(projectId: string): Promise<TeamsInstallS
   };
 }
 
-/** Null is older: the install was published before Kortix recorded the version. */
+/** Null is older: the install was published before Dosco recorded the version. */
 function isOlderAppVersion(version: string | null): boolean {
   return version === null || version.localeCompare(TEAMS_MANIFEST_VERSION, 'en', { numeric: true }) < 0;
 }

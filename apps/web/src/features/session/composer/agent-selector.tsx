@@ -16,8 +16,7 @@ import Hint from '@/components/ui/hint';
 import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
 import type { Agent } from '@kortix/sdk/react';
-import { isMetaAgentName } from '@kortix/shared';
-import { displayAgentName } from '@/features/workspace/capabilities/agents/agent-display-name';
+import { capitalizeWords, isMetaAgentName, META_AGENT_DISPLAY_NAME } from '@kortix/shared';
 import { CaretDownIcon, CheckIcon, SparkleIcon } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { composerSelectableAgents } from './composer-agent-access';
@@ -116,14 +115,8 @@ export function AgentSelector({
   // happens to be first in someone else's list. The `primaryAgents[0]`
   // fallback stays only for a truly unresolved selection (no name at all),
   // matching the resolver's own first-accessible pre-selection.
-<<<<<<< HEAD
-  const currentAgent = primaryAgents.find((a) => a.name === selectedAgent);
-  const displayedName = currentAgent?.name ?? selectedAgent ?? primaryAgents[0]?.name;
-  const displayName = displayedName ? displayAgentName(displayedName) : 'Agent';
-=======
   const displayedName = resolveDisplayedAgentName(primaryAgents, selectedAgent);
   const displayName = agentDisplayLabel(agents, selectedAgent);
->>>>>>> upstream-dev
   const metaSelected = isMetaAgentName(displayedName);
 
   /**
@@ -169,7 +162,7 @@ export function AgentSelector({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="text-foreground truncate text-sm font-medium">
-              {displayAgentName(agent.name)}
+              {isMetaAgentName(agent.name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(agent.name)}
             </span>
             {meta && (
               <Badge variant="outline" size="xs" className="shrink-0 font-normal">

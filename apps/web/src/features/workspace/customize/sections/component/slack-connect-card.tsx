@@ -5,36 +5,13 @@ import { useTranslations } from '@/i18n/use-translations';
  * The Slack connect hero — what `channels-view.tsx` shows when Slack is not
  * connected yet, in place of a table row whose every cell was empty.
  *
-<<<<<<< HEAD
- * **The problem it solves.** The old view never told you what connecting
- * bought you. "Invite the bot to any channel and @mention it" rendered inside
- * an `InfoBanner` that only mounted once `install` was truthy — i.e. the
- * explanation arrived strictly after you had already committed. A first-time
- * admin was asked to authorise an OAuth app on the strength of the word
- * "Install" in a table cell.
- *
- * So the payoff moves in front of the decision: the `Slack × Dosco` cover
- * (`slack-connect-cover.tsx`, which delegates to the blog's own `BlogCover`),
- * three lines in plain language about what happens once it is on, and exactly
- * one primary button.
- *
- * **Two paths, one shape.** The managed Dosco Slack app (server has
- * `SLACK_CLIENT_ID`/`SECRET`/`SIGNING_SECRET`, surfaced as
- * `mode.oauth_available`) is a single click. Self-hosted installs without
- * those env vars have to create their own app. That used to be an
- * `EmptyState` — the component for "there is nothing here" — which framed a
- * fully supported path as a dead end. It now gets this same hero with the
- * wizard behind the primary button, so the self-hosted route reads as a
- * deliberate choice rather than a missing feature.
-=======
  * The old view never told you what connecting bought you: the explanation
  * arrived only after you had installed. So the payoff moves in front of the
  * decision: `ChannelConnectHero` with a mock of a Slack channel where a
  * teammate @mentions the agent and it answers.
->>>>>>> upstream-dev
  */
 
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { Slack } from '@/features/icon/icons/slack';
 import { ChannelConnectHero } from '@/features/workspace/customize/sections/component/channel-connect-hero';
 import { SlackByoWizard } from '@/features/workspace/customize/sections/component/slack-byo-wizard';
@@ -141,11 +118,11 @@ function SlackChannelMock() {
           </div>
           <div className="flex gap-2.5">
             <span className="bg-background flex size-9 shrink-0 items-center justify-center rounded-lg border">
-              <Kortix className="size-4" />
+              <Dosco className="size-4" />
             </span>
             <div className="min-w-0 text-sm">
               <p className="flex items-baseline gap-2">
-                <span className="text-foreground font-semibold">Kortix</span>
+                <span className="text-foreground font-semibold">Dosco</span>
                 <span className="bg-muted text-muted-foreground rounded-xs px-1 text-xs font-semibold">
                   APP
                 </span>

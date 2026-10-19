@@ -78,7 +78,7 @@ const errorText = (error: unknown, fallback: string) =>
 
 /**
  * "Roll out to computers" (`capture.manage`): the enrollment tokens IT installs
- * Kortix Capture with, and a form for a new one. A new token is shown once,
+ * Dosco Capture with, and a form for a new one. A new token is shown once,
  * with the silent install command.
  */
 export function RolloutModal({
@@ -660,7 +660,7 @@ function ApproveModal({
 }
 
 /**
- * Link a device to a Kortix user, or unlink it (`capture.manage`). What it
+ * Link a device to a Dosco user, or unlink it (`capture.manage`). What it
  * recorded linked to no one moves to the person; what it recorded for an
  * earlier person stays theirs.
  */

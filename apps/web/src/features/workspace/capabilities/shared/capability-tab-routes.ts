@@ -51,10 +51,6 @@ export interface CapabilityTab {
  * `project-sidebar/project-settings-nav.tsx` mirrors it and is asserted
  * against it, so reordering here moves the landing tab too.
  *
- * Marketplace is NOT a tab: it lives at its own top-level
- * `/projects/<id>/marketplace` URL (`marketplaceHref` below). The old
- * `/customize/marketplace` URL redirects there, so bookmarks keep working.
- *
  * ## Agents lead, everything else is their library
  *
  * Customize is agent-centric (Marko, 2026-09-01). An agent is the only
@@ -146,22 +142,8 @@ export function capabilityTabHref(projectId: string, key: CapabilityTab['key']):
 }
 
 /**
-<<<<<<< HEAD
- * Where Marketplace lives: a top-level project route, not a Customize tab.
- * `/projects/<id>/customize/marketplace` still resolves — it redirects here —
- * so every bookmark taken while it WAS a tab keeps working. Same arrangement
- * as the retired `/channels` route.
- */
-export function marketplaceHref(projectId: string): string {
-  return `/projects/${projectId}/marketplace`;
-}
-/**
- * The Review Center: a project page of its own, outside Customize and its tab
- * bar. `/projects/<id>/customize/review` redirects here.
-=======
  * The Review Center: the Customize Review tab. `/projects/<id>/review`, its
  * address from 2026-10-02 to 2026-10-17, redirects here.
->>>>>>> upstream-dev
  */
 export function reviewHref(projectId: string): string {
   return capabilityTabHref(projectId, 'review');
@@ -232,11 +214,6 @@ export function activeCapabilityTab(pathname: string): CapabilityTab['key'] | nu
     return 'connectors';
   }
   if (segments.length !== 4) return null;
-  // Matched against the segment map, not the tab bar. Marketplace has no
-  // entry there any more (top-level URL, not a tab), so neither its retired
-  // Customize URL nor its top-level URL lights anything here.
-  const hit = (Object.keys(CAPABILITY_SEGMENT) as CapabilityTab['key'][]).find(
-    (key) => CAPABILITY_SEGMENT[key] === segments[3],
-  );
-  return hit ?? null;
+  const hit = CAPABILITY_TABS.find((t) => CAPABILITY_SEGMENT[t.key] === segments[3]);
+  return hit ? hit.key : null;
 }

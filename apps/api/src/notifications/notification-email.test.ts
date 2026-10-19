@@ -80,7 +80,7 @@ describe('notification emails follow the transactional email rules', () => {
 describe('the digest', () => {
   test('lists the items given and counts the rest', () => {
     const email = renderNotificationDigestEmail({ items: Array.from({ length: 10 }, (_, i) => item(i)), more: 5 });
-    expect(email.subject).toBe('Review 15 unread notifications in Kortix');
+    expect(email.subject).toBe('Review 15 unread notifications in Dosco');
     for (let i = 0; i < 10; i += 1) {
       expect(email.text).toContain(`Question waiting: Session ${i}\nWhich region, ${i}?\n${absoluteAppUrl(item(i).url)}`);
     }
@@ -90,7 +90,7 @@ describe('the digest', () => {
 
   test('one item: singular copy and no "more" line', () => {
     const email = renderNotificationDigestEmail({ items: [item(1)], more: 0 });
-    expect(email.subject).toBe('Review 1 unread notification in Kortix');
+    expect(email.subject).toBe('Review 1 unread notification in Dosco');
     expect(email.text).toContain('This notification was unread for 15 minutes or more.');
     expect(email.text).not.toContain('And ');
     expect(email.html).not.toContain('And 0 more');

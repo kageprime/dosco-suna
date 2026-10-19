@@ -300,13 +300,13 @@ describe('Slack reads decided on the answer', () => {
     );
     expect(
       await answerRefusal(await gate(threaded, 'slack', 'file_info', { file: 'F0FILE' }), file({ C0OTHER: [{ ts: '200.2' }] })),
-    ).toContain('belongs to another Kortix project');
+    ).toContain('belongs to another Dosco project');
     expect(
       await answerRefusal(
         await gate(threaded, 'slack', 'file_info', { file: 'F0FILE' }),
         file({ C0UNBOUND: [{ ts: '300.4', thread_ts: '300.3' }] }),
       ),
-    ).toContain('connected to more than one Kortix project');
+    ).toContain('connected to more than one Dosco project');
   });
 
   test('search_messages runs only while this project is alone in the workspace', async () => {

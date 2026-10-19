@@ -384,7 +384,7 @@ interface SessionProvisionContext {
   resolveImage: (gitProject: GitBackedProject, targetProvider: string) => Promise<EnsureSandboxImageResult>;
   /** The template slug this session boots. */
   slug: string;
-  // Kortix Drive: a project with drives boots its sessions on Platinum only,
+  // Dosco Drive: a project with drives boots its sessions on Platinum only,
   // and never without their drives (see drives/service.ts sessionVolumeMounts).
   drivesRequirePlatinum: boolean;
   // Drive sync (operator switch): a session off Platinum gets its drives
@@ -779,7 +779,7 @@ async function prepareAttemptVolumes(ctx: SessionProvisionContext, state: Sessio
   const { accountId, projectId, userId } = opts;
   const { providerName } = state;
   // Drive sync: on any other provider the session's drives are copied
-  // into the box and kept in sync by its daemon over the Kortix API, so
+  // into the box and kept in sync by its daemon over the Dosco API, so
   // the session still boots with every drive it is entitled to.
   // A failover onto Platinum mounts natively: the sync switch must not follow it.
   if (providerCreateInput.envVars?.KORTIX_DRIVE_SYNC) {

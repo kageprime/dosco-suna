@@ -1,5 +1,5 @@
 /**
- * The reader side of the Kortix Capture format against the engine's own
+ * The reader side of the Dosco Capture format against the engine's own
  * contract: the JSON Schemas (apps/capture/schemas) and the fixture bucket
  * (apps/capture/fixtures/capture-format-v2).
  */
@@ -43,7 +43,7 @@ const DEVICE = '33333333-3333-4333-8333-333333333333';
 const PREFIX = accountPrefix(ACCOUNT);
 
 describe('the vendored fixture bucket', () => {
-  test('every fixture object matches its schema (the contract Kortix reads)', () => {
+  test('every fixture object matches its schema (the contract Dosco reads)', () => {
     conforms('manifest-chunk', json('1790845200000-1.manifest.json'));
     conforms('manifest-actions', json('1790845201000-x1.manifest.json'));
     conforms('manifest-audio', json('1790845205000-a1.manifest.json'));
@@ -113,11 +113,11 @@ describe('the vendored fixture bucket', () => {
 });
 
 describe('keys and index', () => {
-  test('a Kortix key orgs/<account>/<device>/… splits into account, device and the rest; no project in the layout', () => {
+  test('a Dosco key orgs/<account>/<device>/… splits into account, device and the rest; no project in the layout', () => {
     expect(PREFIX).toBe(`orgs/${ACCOUNT}`);
     expect(parseCaptureKey(`${PREFIX}/${DEVICE}/2026/10/03/1-7.manifest.json`)).toEqual({ accountId: ACCOUNT, deviceId: DEVICE, rest: '2026/10/03/1-7.manifest.json' });
     expect(parseCaptureKey(`${PREFIX}/policy.json`)).toBeNull();
-    // The retired project layout is not a Kortix key.
+    // The retired project layout is not a Dosco key.
     expect(parseCaptureKey(`${PREFIX}/projects/22222222-2222-4222-8222-222222222222/${DEVICE}/a.manifest.json`)).toBeNull();
     expect(parseCaptureKey(`fixture-prefix/${FIXTURE_DEVICE}/x.manifest.json`)).toBeNull();
   });
@@ -152,7 +152,7 @@ describe('keys and index', () => {
 });
 
 describe('policy and status', () => {
-  test('the policy.json Kortix writes matches the policy schema, default and full', () => {
+  test('the policy.json Dosco writes matches the policy schema, default and full', () => {
     conforms('policy', JSON.parse(policyDocument(DEFAULT_POLICY, 42)));
     const full = PolicySchema.parse({
       layers: { screen: true, actions: false, audio: true },

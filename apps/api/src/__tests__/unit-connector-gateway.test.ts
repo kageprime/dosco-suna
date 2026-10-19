@@ -791,7 +791,7 @@ describe('handleCall — channel misfire undo', () => {
       ]);
       if (res.status !== 'denied') throw new Error(`expected denied, got ${res.status}`);
       expect(res.message).toBe(
-        'That conversation is not part of this project. Kortix could not remove it: delete it in Slack.',
+        'That conversation is not part of this project. Dosco could not remove it: delete it in Slack.',
       );
       expect(records.at(-1)).toMatchObject({ status: 'denied', resultSummary: { removed: false } });
       // The undo POST ran under an abort signal bound to the call deadline.
@@ -810,7 +810,7 @@ describe('handleCall — channel misfire undo', () => {
     });
     const res = await handleCall(deps, slackInput);
     if (res.status !== 'denied') throw new Error(`expected denied, got ${res.status}`);
-    expect(res.message).toBe('That conversation is not part of this project. Kortix removed it.');
+    expect(res.message).toBe('That conversation is not part of this project. Dosco removed it.');
     expect(records.at(-1)).toMatchObject({ status: 'denied', resultSummary: { removed: true } });
     expect(fetchCalls).toHaveLength(2);
     expect(fetchCalls[1]!.url).toBe('https://slack.com/api/chat.delete');

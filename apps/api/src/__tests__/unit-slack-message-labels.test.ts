@@ -82,21 +82,13 @@ afterAll(() => {
 
 describe('slackMessageLabels', () => {
   test('names the channel, the sender, and each person mentioned, keeping their ids', async () => {
-<<<<<<< HEAD
-    expect(await slackMessageLabels({ projectId: 'p1', teamId: 'T0TEST', event: event() })).toEqual({
-      channel: '#general',
-      user: 'Sam Rivera',
-      text: '<@U0BOT|Dosco> check the release',
-    });
-=======
     expect(await slackMessageLabels({ projectId: 'p1', teamId: 'T0TEST', event: event() })).toEqual(
       {
         channel: '#general',
         user: 'Sam Rivera',
-        text: '<@U0BOT|Kortix> check the release',
+        text: '<@U0BOT|Dosco> check the release',
       },
     );
->>>>>>> upstream-dev
   });
 
   test('a private channel is still #name; a DM and a group DM say what they are', async () => {

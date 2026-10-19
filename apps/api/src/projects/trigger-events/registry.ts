@@ -20,7 +20,7 @@ export function setEventSourceForTest(id: string, provider: EventSourceProvider 
 }
 
 /**
- * A project can use this source. Kortix's own `mcp` source ships behind
+ * A project can use this source. Dosco's own `mcp` source ships behind
  * `connectors_v2`: a project without it sees exactly the sources and texts it
  * saw before. `projectMetadata` undefined: no project in view (every source).
  */

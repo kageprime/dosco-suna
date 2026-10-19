@@ -79,7 +79,6 @@ export function AuthFrame({
   children,
   footerVariant = 'default',
   backHref,
-  aside,
 }: {
   children: React.ReactNode;
   /**
@@ -93,36 +92,15 @@ export function AuthFrame({
    * Back returns to the previous in-app page, else the app home.
    */
   backHref?: string;
-  /**
-   * Brand panel rendered beside the form on wide screens (hidden below lg).
-   * Only the main `/auth` page passes one — sub-flows keep the single column.
-   */
-  aside?: React.ReactNode;
 }) {
   useDesktopBackTarget(backHref);
-  if (!aside) {
-    return (
-      <div className="bg-background relative flex min-h-svh flex-col">
-        <AuthMobileLogo />
-        <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-          <div className="w-full max-w-[380px]">{children}</div>
-        </main>
-        {footerVariant === 'none' ? null : <AuthLegalFooter variant={footerVariant} />}
-      </div>
-    );
-  }
   return (
-    <div className="bg-background relative flex min-h-svh">
+    <div className="bg-background relative flex min-h-svh flex-col">
       <AuthMobileLogo />
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-          <div className="w-full max-w-[380px]">{children}</div>
-        </div>
-        {footerVariant === 'none' ? null : <AuthLegalFooter variant={footerVariant} />}
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
+        <div className="w-full max-w-[380px]">{children}</div>
       </main>
-      <aside className="relative hidden w-1/2 shrink-0 overflow-hidden lg:block" aria-label="About Dosco">
-        {aside}
-      </aside>
+      {footerVariant === 'none' ? null : <AuthLegalFooter variant={footerVariant} />}
     </div>
   );
 }

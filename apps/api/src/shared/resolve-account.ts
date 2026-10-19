@@ -58,26 +58,9 @@ async function syncLegacySubscription(accountId: string): Promise<void> {
  * id and the `account_id` the request named (query or body), if any. The HTTP
  * reader is `resolveScopedAccountId` in `middleware/resolve-account.ts`.
  *
-<<<<<<< HEAD
- * Multi-account users (one user, multiple Dosco accounts) need every billing
- * route to be account-scoped — otherwise mutating "Subscribe" or "Manage
- * billing" or even reading "account-state" silently target the user's FIRST
- * membership, which makes /accounts/<other>?tab=billing nonsensical.
- *
- * Resolution order:
- *   1. `?account_id=` (query) or `body.account_id` if provided → verify the
- *      caller is a member of that account, then return it. 403 on miss.
- *   2. Fall back to `resolveAccountId(userId)` — the user's primary
- *      membership. Preserves legacy behaviour for surfaces that haven't
- *      been migrated to send `account_id` yet.
- *
- * Pass `source: 'body'` for POST/PUT/PATCH/DELETE routes (we read the JSON
- * body once and look for `account_id`). Pass `source: 'query'` for GETs.
-=======
  *   1. A named account → verify the caller is a member of it, then return it.
  *      403 on miss.
  *   2. Otherwise `resolveAccountId(userId)` — the user's primary membership.
->>>>>>> upstream-dev
  */
 export async function scopedAccountIdFor(
   userId: string,

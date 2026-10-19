@@ -60,7 +60,7 @@ export const RETIRED_ROUTES: ReadonlyArray<readonly [method: string, path: strin
   // OpenRouter-parity generation lookup and the no-op prewarm.
   ['GET', '/v1/generation'],
   ['POST', '/v1/prewarm'],
-  // Suna → Kortix migration. Its only client was deleted on 2026-07-19.
+  // Suna → Dosco migration. Its only client was deleted on 2026-07-19.
   ['GET', '/v1/projects/suna-migration/eligibility'],
   ['GET', '/v1/projects/suna-migration/status'],
   ['POST', '/v1/projects/suna-migration/start'],
@@ -68,7 +68,7 @@ export const RETIRED_ROUTES: ReadonlyArray<readonly [method: string, path: strin
 
 function gone(c: Context) {
   return c.json(
-    { error: 'This endpoint was removed from the Kortix API.', code: ENDPOINT_RETIRED_CODE },
+    { error: 'This endpoint was removed from the Dosco API.', code: ENDPOINT_RETIRED_CODE },
     410,
   );
 }

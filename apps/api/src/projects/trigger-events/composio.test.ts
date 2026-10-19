@@ -196,7 +196,7 @@ describe('receive: parsing', () => {
     const e = await run(v3('composio.connected_account.expired'));
     expect(e.notices).toMatchObject([{ kind: 'connection_expired', connectionExternalId: 'ca_1' }]);
   });
-  test('an activated account names its Kortix connection, wherever the payload puts the user id', async () => {
+  test('an activated account names its Dosco connection, wherever the payload puts the user id', async () => {
     const inData = await run(v3('composio.connected_account.activated', { metadata: {}, data: { id: 'ca_x', user_id: `kortix-connection:${CONNECTION}` } }));
     expect(inData.notices).toEqual([{ kind: 'connection_activated', connectionId: CONNECTION }]);
     const inMeta = await run(v3('composio.connected_account.activated', { metadata: { user_id: `kortix-connection:${CONNECTION}` }, data: {} }));

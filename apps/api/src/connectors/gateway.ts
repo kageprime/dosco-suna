@@ -352,7 +352,7 @@ export type ComputerCallOutcome =
        *  `computer_offline` | `computer_capability_not_approved`,
        *  an access refusal on the machine (`computer_access_pending` |
        *  `computer_access_denied` | `computer_access_off`),
-       *  `computer_desktop_permission_missing` (macOS has not given Kortix
+       *  `computer_desktop_permission_missing` (macOS has not given Dosco
        *  Accessibility or Screen Recording), or `error` for a
        *  failure on the machine or in the relay. */
       kind:
@@ -843,53 +843,11 @@ export async function handleCall(deps: GatewayDeps, input: CallInput): Promise<C
 
   // Layered enforcement: project → connection → risk default.
   if (deps.enforcePolicies !== false) {
-<<<<<<< HEAD
-    const [connectorPolicies, projectPolicies, defaultMode] = await Promise.all([
-      deps.loadPolicies(connector.connectorId),
-      deps.loadProjectPolicies?.(input.projectId) ?? Promise.resolve([] as Policy[]),
-      deps.loadDefaultMode?.(input.projectId) ?? Promise.resolve('allow_all' as DefaultMode),
-    ]);
-    // Built once per gated call: the redacted preview goes in the audit row and
-    // the one-liner rides alongside the link, so an out-of-band relay ("approve
-    // this: <url>") is still specific about what is being approved.
-    const argsPreviewDetails = buildArgsPreviewDetails(executionArgs);
-    const argsPreview = argsPreviewDetails.preview;
-    const approvalContext =
-      input.approvalContext?.trim().slice(0, MAX_APPROVAL_CONTEXT) || null;
-    // Keys are OMITTED when empty rather than set to null: the pending_approval
-    // result is a wire shape other code compares against, and a key that carries
-    // no information shouldn't change it.
-    const approvalExtras = (executionId: string | null | undefined) => {
-      const url =
-        executionId && deps.mintApprovalLink
-          ? deps.mintApprovalLink({
-              projectId: input.projectId,
-              executionId,
-              sessionId: input.sessionId ?? null,
-            })
-          : null;
-      const summary = summarizeArgsPreview(argsPreview);
-      return {
-        ...(url ? { approvalUrl: url } : {}),
-        ...(summary ? { approvalSummary: summary } : {}),
-        ...(url
-          ? {
-              approvalInstructions: input.sessionId
-                ? `Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny.${approvalContext ? '' : CONTEXT_HINT}`
-                : `Share approval_url with a human. Retry this exact call once they approve it.${approvalContext ? '' : CONTEXT_HINT}`,
-            }
-          : {}),
-      };
-    };
-
-    const decision = resolveEffectiveAction({
-=======
     const gated = await enforceCallPolicies(
       deps,
       input,
       connector,
       action,
->>>>>>> upstream-dev
       fullPath,
       executionArgs,
       requestDigest,
@@ -980,7 +938,7 @@ async function enforceCallPolicies(
       ...(url
         ? {
             approvalInstructions: input.sessionId
-              ? `Share approval_url with a human, then stop this turn. Kortix resumes the session after approve or deny.${approvalContext ? '' : CONTEXT_HINT}`
+              ? `Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny.${approvalContext ? '' : CONTEXT_HINT}`
               : `Share approval_url with a human. Retry this exact call once they approve it.${approvalContext ? '' : CONTEXT_HINT}`,
           }
         : {}),

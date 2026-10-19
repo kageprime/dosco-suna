@@ -1,5 +1,5 @@
 /**
- * Fleet health of Kortix Capture devices: one pure classifier over a device's
+ * Fleet health of Dosco Capture devices: one pure classifier over a device's
  * last `status.json`. The devices endpoint (reads.ts) and the alert worker
  * (health-alerts.ts) call it, so the page and the alert never disagree.
  *

@@ -369,13 +369,8 @@ describe('Apps public edge', () => {
     expect(resolveAppHost('aaaaaaaaaaaaaaaa.apps.localhost')).toEqual({
       routeKey: 'aaaaaaaaaaaaaaaa', local: true, service: 'http',
     });
-<<<<<<< HEAD
     expect(resolveAppHost('dev-hello-world-aaaaaaaaaaaaaaaa.apps.dosco.live')).toEqual({
-      routeKey: 'aaaaaaaaaaaaaaaa', local: false,
-=======
-    expect(resolveAppHost('dev-hello-world-aaaaaaaaaaaaaaaa.apps.kortix.com')).toEqual({
       routeKey: 'aaaaaaaaaaaaaaaa', local: false, service: 'http',
->>>>>>> upstream-dev
     });
     expect(resolveAppHost('prod-hello-aaaaaaaaaaaaaaaa.apps.dosco.live')).toBeNull();
     expect(resolveAppHost('anything.example.com')).toBeNull();
@@ -431,7 +426,7 @@ describe('Apps public edge', () => {
   test('an unsigned claim of a local App host is not an App request', () => {
     // Pentest H-3: the local carve-out skips the edge signature, so a claimed
     // `*.apps.localhost` sent to the public API routed into App dispatch unsigned.
-    const request = new Request('https://api.kortix.com/', {
+    const request = new Request('https://api.dosco.live/', {
       headers: { 'x-kortix-app-host': 'aaaaaaaaaaaaaaaa.apps.localhost' },
     });
     expect(resolveAppRequest(request, new URL(request.url))).toBeNull();
@@ -442,7 +437,7 @@ describe('Apps public edge', () => {
     const previousLocal = process.env.KORTIX_APPS_LOCAL;
     try {
       delete process.env.KORTIX_APPS_LOCAL;
-      (config as { KORTIX_URL: string }).KORTIX_URL = 'https://api.kortix.com';
+      (config as { KORTIX_URL: string }).KORTIX_URL = 'https://api.dosco.live';
       const request = new Request('http://aaaaaaaaaaaaaaaa.apps.localhost/');
       expect(verifyAppEdgeRequest(request, new URL(request.url), true)).toBe(false);
     } finally {
@@ -477,35 +472,6 @@ describe('Apps public edge', () => {
     });
   });
 
-<<<<<<< HEAD
-  test('renders a stable budget state without exposing account billing details', async () => {
-    const browser = appPublicBudgetResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
-        headers: { accept: 'text/html' },
-      }),
-      { name: 'Storefront' },
-    );
-    expect(browser.status).toBe(402);
-    expect(browser.headers.get('retry-after')).toBeNull();
-    const html = await browser.text();
-    expect(html).toContain('App paused');
-    expect(html).toContain('monthly compute limit');
-    expect(html).not.toContain('http-equiv="refresh"');
-
-    const machine = appPublicBudgetResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/'),
-      { name: 'Storefront' },
-    );
-    expect(machine.status).toBe(402);
-    expect(await machine.json()).toEqual({
-      error: 'App compute budget reached',
-      code: 'app_budget_exceeded',
-      status: 'budget',
-    });
-  });
-
-=======
->>>>>>> upstream-dev
   test('renders an auto-refreshing boot page instead of unavailable JSON for browser requests', async () => {
     const response = appPublicUnavailableResponse(
       new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
@@ -583,7 +549,7 @@ describe('Apps public edge', () => {
     }));
 
     expect(result.get('content-security-policy')).toBe(
-      "img-src 'self'; frame-ancestors 'self' https://kortix.com https://*.kortix.com http://localhost:* http://127.0.0.1:*",
+      "img-src 'self'; frame-ancestors 'self' https://dosco.live https://*.dosco.live http://localhost:* http://127.0.0.1:*",
     );
   });
 
@@ -654,7 +620,7 @@ describe('Apps public edge', () => {
   test('describes a sleeping App as a machine that wakes, never as serverless', async () => {
     for (const status of ['provisioning', 'starting'] as const) {
       const html = await appPublicStatusResponse(
-        new Request('https://x.apps.kortix.com/', { headers: { accept: 'text/html' } }),
+        new Request('https://x.apps.dosco.live/', { headers: { accept: 'text/html' } }),
         { name: 'Storefront' },
         { status },
       ).text();

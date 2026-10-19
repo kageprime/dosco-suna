@@ -89,139 +89,6 @@ function pickOnboardingProfile(input: unknown): Record<string, string> | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'patch',
-    path: '/{projectId}/onboarding',
-    tags: ['projects'],
-    summary: 'Update project onboarding state',
-    ...auth,
-      request: {
-        params: z.object({ projectId: z.string() }),
-        body: { content: { 'application/json': { schema: lenientBody({
-            completed: z.boolean().optional().openapi({ description: 'true marks onboarding complete; false clears it.' }),
-            profile: z.record(z.string(), z.any()).optional().openapi({ description: 'Onboarding answers to merge.' }),
-          }) } } },
-      },
-    responses: {
-        200: json(z.any(), 'OK'),
-        ...errors(404),
-    },
-  }),
-  async (c: any) => {
-  const projectId = c.req.param('projectId');
-  const body = await readJsonObject(c);
-  const loaded = await loadProjectForUser(c, projectId, 'write');
-  if (!loaded) return c.json({ error: 'Not found' }, 404);
-
-  // Two independent writes share this route. `completed` is a TOP-LEVEL
-  // lifecycle flag; `profile` is a NESTED object written answer-by-answer as
-  // the user moves through the onboarding wizard. A request carries one or the
-  // other, never both.
-  const profile = pickOnboardingProfile(body.profile);
-
-  let metadataExpr;
-  if (profile) {
-    // Nested → metadataMergeSubtree, which re-reads `metadata->'onboarding'`
-    // inside the statement. A top-level `||` of the whole sub-object would let
-    // two concurrent writers into DIFFERENT sub-keys lose each other's update
-    // one level down.
-    metadataExpr = metadataMergeSubtree('onboarding', profile);
-  } else if ('completed' in body) {
-    // FIX-J: SQL-side atomic merge of ONLY `onboarding_completed_at` (set /
-    // delete) so this write can't revert a routing pin written concurrently.
-    metadataExpr =
-      body.completed === true
-        ? metadataMerge({ onboarding_completed_at: new Date().toISOString() })
-        : metadataMerge({}, ['onboarding_completed_at']);
-  } else {
-    // Nothing survived the allowlist and no completion flag was sent. Return
-    // the project unchanged rather than issue a no-op UPDATE that would still
-    // bump `updated_at` and reorder project lists for no reason.
-    return c.json(
-      serializeProject(loaded.row, {
-        projectRole: loaded.projectRole,
-        effectiveRole: loaded.effectiveRole,
-      }),
-    );
-  }
-
-  const [row] = await db
-    .update(projects)
-    .set({ metadata: metadataExpr, updatedAt: new Date() })
-    .where(eq(projects.projectId, projectId))
-    .returning();
-
-  if (!row || row.status === 'archived') return c.json({ error: 'Not found' }, 404);
-  return c.json(serializeProject(row, {
-    projectRole: loaded.projectRole,
-    effectiveRole: loaded.effectiveRole,
-  }));
-},
-);
-
-// DELETE /v1/projects/:projectId
-
-projectsApp.openapi(
-  createRoute({
-    method: 'delete',
-    path: '/{projectId}',
-    tags: ['projects'],
-    summary: 'Delete a project',
-    ...auth,
-      request: {
-        params: z.object({ projectId: z.string() }),
-        query: z.object({ purge: z.enum(['true', 'false']).optional() }),
-      },
-    responses: {
-        200: json(z.any(), 'OK'),
-        ...errors(404, 502),
-    },
-  }),
-  async (c: any) => {
-  const projectId = c.req.param('projectId');
-  const loaded = await loadProjectForUser(c, projectId, 'manage');
-  if (!loaded) return c.json({ error: 'Not found' }, 404);
-  // Deletion is admin-only. The floor `member` role explicitly excludes
-  // project.delete; loadProjectForUser('manage') would otherwise let
-  // members through via project.write.
-  await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_DELETE);
-
-  // Release prompt attachments first. After the irreversible purge below, a
-  // failed release would leave an active project without its repository; after
-  // the archive, the project answers 404, so a release could never be retried.
-  const { releasePromptAttachmentsForProject } = await import('../prompt-attachments');
-  await releasePromptAttachmentsForProject(projectId);
-
-  // Archiving is recoverable by default. Only an explicit purge permanently
-  // deletes a Dosco-managed upstream; user-connected/BYO repositories are
-  // always left untouched. Delete before hiding the project so provider
-  // failures remain visible and retryable.
-  const purge = c.req.query('purge') === 'true';
-  let repoDeleted = false;
-  if (purge) {
-    try {
-      repoDeleted = await deleteManagedProjectRepo(loaded.row);
-    } catch (error) {
-      console.error(`[projects] failed to delete managed repo for ${projectId}:`, error);
-      return c.json({ error: 'Failed to delete managed project repository' }, 502);
-    }
-  }
-
-  const [row] = await db
-    .update(projects)
-    .set({ status: 'archived', updatedAt: new Date() })
-    .where(eq(projects.projectId, projectId))
-    .returning();
-
-  if (!row) return c.json({ error: 'Not found' }, 404);
-  return c.json({ ok: true, archived: true, repo_deleted: repoDeleted });
-},
-);
-
-=======
->>>>>>> upstream-dev
 // PATCH /:projectId/features (canonical) and /:projectId/experimental
 // (compat alias — published SDKs call it) — set or clear a per-project
 // feature-flag override. Auth-first (matches the other project routes), then
@@ -262,7 +129,7 @@ const patchFeatureFlagHandler = async (c: any) => {
   // (update, then 404 on archived) committed the metadata mutation anyway.
   if (loaded.row.status === 'archived') return c.json({ error: 'Not found' }, 404);
   // An internal-only flag (`session_log`, `session_log_restore`) changes what
-  // the platform records, so Kortix decides it: only a platform operator
+  // the platform records, so Dosco decides it: only a platform operator
   // writes it, never a project admin and never an agent session. An operator
   // acting in a customer project through impersonation passes (`userId`
   // stays the operator's).
@@ -271,7 +138,7 @@ const patchFeatureFlagHandler = async (c: any) => {
     if (!operator) {
       return c.json(
         {
-          error: `${featureFlagDef(feature)?.name ?? feature} is managed by Kortix. Contact Kortix to change it.`,
+          error: `${featureFlagDef(feature)?.name ?? feature} is managed by Dosco. Contact Dosco to change it.`,
           code: FEATURE_OPERATOR_ONLY_CODE,
           feature,
         },
@@ -387,7 +254,7 @@ export function registerProjectSettingsRoutes(): void {
     const { releasePromptAttachmentsForProject } = await import('../prompt-attachments');
     await releasePromptAttachmentsForProject(projectId);
 
-    // Deleting the project deletes the Kortix-managed upstream with it; the
+    // Deleting the project deletes the Dosco-managed upstream with it; the
     // helper no-ops for user-connected/BYO repositories and never touches
     // them. Delete before hiding the project so provider failures remain
     // visible and retryable.

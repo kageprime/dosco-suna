@@ -150,13 +150,13 @@
   "secrets": {
     "undecryptable": {
       "badge": "Undecryptable",
-      "hint": "Kortix cannot decrypt the stored value. The encryption key changed, or the value is damaged. Anyone who manages this project can enter it again.",
+      "hint": "Dosco cannot decrypt the stored value. The encryption key changed, or the value is damaged. Anyone who manages this project can enter it again.",
       "reenter": "Re-enter value",
-      "dialog": "Kortix cannot decrypt the stored value. Enter it again to save.",
-      "keyHint": "Kortix cannot decrypt this API key. The server's encryption key changed, or the stored key is damaged. Kortix does not use it until its owner or an account admin enters it again.",
-      "loginHint": "Kortix cannot decrypt this login. The server's encryption key changed, or the stored login is damaged. Kortix does not use it until its owner reconnects it.",
+      "dialog": "Dosco cannot decrypt the stored value. Enter it again to save.",
+      "keyHint": "Dosco cannot decrypt this API key. The server's encryption key changed, or the stored key is damaged. Dosco does not use it until its owner or an account admin enters it again.",
+      "loginHint": "Dosco cannot decrypt this login. The server's encryption key changed, or the stored login is damaged. Dosco does not use it until its owner reconnects it.",
       "reenterKey": "Re-enter key",
-      "mineHint": "Kortix cannot decrypt your own value of this secret. Your sessions read it in place of the shared value, so they fail until you delete it.",
+      "mineHint": "Dosco cannot decrypt your own value of this secret. Your sessions read it in place of the shared value, so they fail until you delete it.",
       "deleteMine": "Delete my value",
       "mineDeleted": "Value deleted",
       "mineDeleteError": "Could not delete your value. Try again."
@@ -396,11 +396,11 @@
         },
         "mcp": {
           "label": "MCP",
-          "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
+          "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
         },
         "computer": {
           "label": "Computer",
-          "description": "Let Kortix agents work with the files, terminal, and applications on your computer."
+          "description": "Let Dosco agents work with the files, terminal, and applications on your computer."
         }
       }
     },
@@ -515,12 +515,8 @@
     },
     "appearance": {
       "theme": "Theme",
-<<<<<<< HEAD
       "themeDescription": "Choose how Dosco looks on this device.",
-=======
-      "themeDescription": "Choose how Kortix looks on this device.",
       "moreThemes": "More themes…",
->>>>>>> upstream-dev
       "conversationDensity": "Conversation density",
       "conversationDensityDescription": "How much detail the agent shows in the conversation while it works.",
       "richAnswers": "Rich answers",
@@ -534,7 +530,7 @@
         "dark": "Dark",
         "pureDark": "Pure dark",
         "system": "System",
-        "kortix": "Kortix",
+        "kortix": "Dosco",
         "lightThemes": "Light themes",
         "darkThemes": "Dark themes",
         "search": "Search themes…",
@@ -637,9 +633,9 @@
       },
       "testNotificationTitle": "Test Notification",
       "testNotificationBody": "Notifications are working correctly!",
-      "enableDescriptionPush": "Shows notifications in this browser, also with every Kortix tab closed.",
+      "enableDescriptionPush": "Shows notifications in this browser, also with every Dosco tab closed.",
       "enableDescriptionDesktop": "Shows notifications from the desktop app while its window is open.",
-      "enableDescriptionBrowser": "Shows notifications in this browser while a Kortix tab is open.",
+      "enableDescriptionBrowser": "Shows notifications in this browser while a Dosco tab is open.",
       "notificationTypesDescription": "These choices apply on every phone and in every browser. A phone also has its own switch for Turn finished, Turn failed, Question, and Permission request. It gets these only while both are on. The bell lists every notification of a project with Notification Center on.",
       "push": "Push",
       "email": "Email",
@@ -723,7 +719,7 @@
         "sessions": "Every session in this project, with its files, history, and outputs",
         "automation": "All scheduled runs and triggers — they stop firing straight away",
         "integrations": "Every connected integration, secret, and API key scoped to this project",
-        "managedRepo": "The Kortix-managed git repository for this project, with every commit in it",
+        "managedRepo": "The Dosco-managed git repository for this project, with every commit in it",
         "access": "Access for everyone on the team — nobody can reach this project again"
       },
       "reassurance": "Git repositories you connected yourself are not deleted. Any code already pushed to them stays where it is.",
@@ -1048,19 +1044,9 @@
           "name": "Pi Harness (in-sandbox)",
           "description": "Run sessions on the pi harness inside the session sandbox instead of OpenCode. Off, `runtime: pi` in the manifest still selects pi."
         },
-<<<<<<< HEAD
-        "config_releases": {
-          "name": "Config Releases",
-          "description": "Run sessions on the base branch's current agent config, served read-only, so a merged agent, skill, or tool reaches every running session. Off, a session reads its own workspace config folder."
-        },
-        "mcp": {
-          "name": "MCP server",
-          "description": "Connect Claude, ChatGPT, Cursor, Codex or any MCP client to this project over OAuth. The client signs in as you and calls Dosco with your permissions. Find the URL under Connect MCP in the workspace menu."
-=======
         "genui": {
           "name": "Generative UI",
           "description": "The agent may answer with cards, comparisons, charts, maps, and tabs instead of long text."
->>>>>>> upstream-dev
         },
         "reminders": {
           "name": "Reminders",
@@ -1088,15 +1074,15 @@
         },
         "session_log": {
           "name": "Session log v2",
-          "description": "Reads a session through the v2 session log instead of the v1 transcript. Kortix enables it per project."
+          "description": "Reads a session through the v2 session log instead of the v1 transcript. Dosco enables it per project."
         },
         "session_log_restore": {
           "name": "Session log restore",
-          "description": "Rebuilds a session from its saved session log when its computer lost the conversation. Kortix enables it per project."
+          "description": "Rebuilds a session from its saved session log when its computer lost the conversation. Dosco enables it per project."
         },
         "connectors_v2": {
           "name": "Connectors v2",
-          "description": "The MCP app catalog in Customize → Connectors, with sign-in that Kortix runs. With App event triggers on, Kortix checks these apps for new emails, files and items and starts an agent. Also adds Telegram as a channel. New connector accounts are no longer shared with the whole project by default."
+          "description": "The MCP app catalog in Customize → Connectors, with sign-in that Dosco runs. With App event triggers on, Dosco checks these apps for new emails, files and items and starts an agent. Also adds Telegram as a channel. New connector accounts are no longer shared with the whole project by default."
         }
       }
     },
@@ -1417,10 +1403,10 @@
     },
     "mcp": {
       "serverTitle": "Server",
-      "serverDescription": "One URL for every project you can open. Your client signs in with Kortix the first time it connects.",
+      "serverDescription": "One URL for every project you can open. Your client signs in with Dosco the first time it connects.",
       "urlLabel": "Server URL",
       "clientsTitle": "Clients",
-      "clientsDescription": "Add Kortix to the client you use."
+      "clientsDescription": "Add Dosco to the client you use."
     },
     "computer": {
       "oneClickDescription": "The desktop app connects this computer in one click.",
@@ -2012,7 +1998,7 @@
       "fullTextRetry": "Try again"
     },
     "turn": {
-      "autoRetried": "Kortix automatically retried the model {count, plural, one {once} other {# times}} before this failure."
+      "autoRetried": "Dosco automatically retried the model {count, plural, one {once} other {# times}} before this failure."
     }
   },
   "agents": {
@@ -2201,12 +2187,6 @@
         "paused": "Paused"
       },
       "loadFailed": "Failed to load subscription data",
-<<<<<<< HEAD
-      "teamTitle": "Dosco Team",
-      "teamDescription": "Subscribe to put every teammate on one shared plan.",
-      "subscribe": "Subscribe to Team",
-=======
->>>>>>> upstream-dev
       "manageBilling": "Manage billing",
       "outOfCredits": "You ran out of credits",
       "buyCreditsHint": "Buy credits below or turn on auto top-up so it never happens again.",
@@ -2234,16 +2214,13 @@
       "amountGroup": "Top-up amount",
       "customAmount": "Custom amount in dollars",
       "custom": "Custom",
-<<<<<<< HEAD
-      "payWithPaystack": "Pay with Paystack",
-      "payWithStripe": "Pay with Stripe",
-      "paymentMethod": "Payment method"
-=======
       "creditHintBonus": "{credits} credits + {bonus} bonus · added as soon as you pay.",
       "autoTopupOff": "Auto top-up: off",
       "autoTopupOn": "Auto top-up: adds {amount} when the balance drops below {threshold} credits",
-      "ledgerBonus": "Top-up bonus"
->>>>>>> upstream-dev
+      "ledgerBonus": "Top-up bonus",
+      "payWithPaystack": "Pay with Paystack",
+      "payWithStripe": "Pay with Stripe",
+      "paymentMethod": "Payment method"
     },
     "autoTopup": {
       "bufferError": "Enter {minimum} or more: a top-up must add at least {buffer} credits more than the threshold.",
@@ -2262,7 +2239,7 @@
       "save": "Save",
       "paymentNeeded": "Add a payment method for auto top-up to run.",
       "turnedOffAfterFailure": "Auto top-up turned off on {date}: the last charge failed ({reason}). Update the payment method, then turn auto top-up back on.",
-      "lastChargeFailed": "The last auto top-up charge failed on {date} ({reason}). Kortix tries again; after 3 failed charges in a row, auto top-up turns off.",
+      "lastChargeFailed": "The last auto top-up charge failed on {date} ({reason}). Dosco tries again; after 3 failed charges in a row, auto top-up turns off.",
       "bonusHint": "Each top-up adds {credits} credits + {bonus} bonus.",
       "bonusFrom": "Top-ups of {min} or more add bonus credits."
     },
@@ -2533,11 +2510,11 @@
       "faq": {
         "free": {
           "question": "What does Free include?",
-          "answer": "Free includes 500 credits each month, managed models and every feature, for 1 project. Credits pay for the agent computer and for Kortix models. Bring your own API key or connect your ChatGPT subscription for any other model."
+          "answer": "Free includes 500 credits each month, managed models and every feature, for 1 project. Credits pay for the agent computer and for Dosco models. Bring your own API key or connect your ChatGPT subscription for any other model."
         },
         "credit": {
           "question": "What does a credit buy?",
-          "answer": "1 credit is $0.01. Credits pay for the agent computer, billed per second per resource: {vcpuRate} per vCPU-hour, {memoryRate} per GB of RAM per hour, {diskRate} per GB of storage per month. The default {spec} machine uses about {creditsPerHour} credits an hour, so 1 credit is about {minutes} minutes. A stopped computer costs nothing. Credits also pay for Kortix models, at the provider's base price plus a {fee}% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5% of the provider's price is paid from credits. A ChatGPT subscription uses no credits."
+          "answer": "1 credit is $0.01. Credits pay for the agent computer, billed per second per resource: {vcpuRate} per vCPU-hour, {memoryRate} per GB of RAM per hour, {diskRate} per GB of storage per month. The default {spec} machine uses about {creditsPerHour} credits an hour, so 1 credit is about {minutes} minutes. A stopped computer costs nothing. Credits also pay for Dosco models, at the provider's base price plus a {fee}% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5% of the provider's price is paid from credits. A ChatGPT subscription uses no credits."
         },
         "amounts": {
           "question": "How much do I pay each month?",
@@ -2553,7 +2530,7 @@
         },
         "models": {
           "question": "Do models use credits?",
-          "answer": "Kortix models do, and your own API keys past $1,000 of model usage a month. Kortix models cost the provider's base price plus a {fee}% platform fee, paid from credits, and the app shows the base prices. With your own API key, model usage goes to your provider: the first $1,000 a month is free, then 5% of the provider's price is paid from credits. A connected ChatGPT subscription uses no credits."
+          "answer": "Dosco models do, and your own API keys past $1,000 of model usage a month. Dosco models cost the provider's base price plus a {fee}% platform fee, paid from credits, and the app shows the base prices. With your own API key, model usage goes to your provider: the first $1,000 a month is free, then 5% of the provider's price is paid from credits. A connected ChatGPT subscription uses no credits."
         },
         "topup": {
           "question": "Can I add credits mid-month?",
@@ -2620,7 +2597,7 @@
         "keys": {
           "tag": "Free to $1,000/mo",
           "title": "Your own API keys",
-          "body": "Add a key from Anthropic, OpenAI or any other provider. Model usage goes straight to your provider. The first $1,000 a month is free, then Kortix adds 5%, paid from credits."
+          "body": "Add a key from Anthropic, OpenAI or any other provider. Model usage goes straight to your provider. The first $1,000 a month is free, then Dosco adds 5%, paid from credits."
         },
         "chatgpt": {
           "tag": "No credits",
@@ -2629,7 +2606,7 @@
         },
         "kortix": {
           "tag": "Paid from credits",
-          "title": "Kortix models",
+          "title": "Dosco models",
           "body": "No key to manage. Each call costs the provider's base price plus a {fee}% platform fee, paid from credits. The app shows base prices."
         },
         "summary": "With your own keys, credits pay for the agent computer and 5% of model usage past $1,000 a month."
@@ -2639,7 +2616,7 @@
       "talkToSales": "Talk to sales",
       "offerTitle": "Enterprise offer",
       "offerAccept": "Accept and pay",
-      "offerInvoiced": "This offer is invoiced: your Kortix contact sends the invoice.",
+      "offerInvoiced": "This offer is invoiced: your Dosco contact sends the invoice.",
       "offerFailed": "Could not open the checkout",
       "graceTitle": "Enterprise access ended",
       "graceBodyContract": "The Enterprise contract has ended. SSO and SCIM stay on until {date}, so nobody is locked out. Talk to sales to renew.",
@@ -2760,13 +2737,8 @@
       "sending": "Sending..."
     },
     "unified": {
-<<<<<<< HEAD
       "welcome": "Welcome to Dosco",
-      "tagline": "The Dosco Agent Terminal",
-=======
-      "welcome": "Welcome to Kortix",
-      "tagline": "The open-source AI Operating System",
->>>>>>> upstream-dev
+      "tagline": "The AI Operating System",
       "email": "Email",
       "emailPlaceholder": "Your email address",
       "password": "Password",
@@ -3067,8 +3039,8 @@
       "shared": "Someone shares a session with you.",
       "automation_failed": "A trigger or a reminder starts failing.",
       "automation_recovered": "A failing trigger or reminder works again.",
-      "capture_device_down": "A Kortix Capture computer is not recording. Sent to people who manage Capture.",
-      "capture_device_recovered": "A Kortix Capture computer that stopped records again."
+      "capture_device_down": "A Dosco Capture computer is not recording. Sent to people who manage Capture.",
+      "capture_device_recovered": "A Dosco Capture computer that stopped records again."
     },
     "bell": {
       "label": "Notifications",
@@ -3078,8 +3050,8 @@
       "loadError": "Could not load notifications",
       "retry": "Try again",
       "unread": "Unread",
-      "promptPush": "Get notified when Kortix is closed",
-      "promptBackground": "Get notified when Kortix is in the background",
+      "promptPush": "Get notified when Dosco is closed",
+      "promptBackground": "Get notified when Dosco is in the background",
       "turnOn": "Turn on",
       "dismiss": "Dismiss"
     },
@@ -3474,11 +3446,7 @@
       "contactGeneral": "General",
       "contactSecurity": "Security",
       "faqWhatCreditsQuestion": "What are credits, and what do they cost?",
-<<<<<<< HEAD
-      "faqWhatCreditsAnswerBefore": "Credits are Dosco's unit of platform usage, and model calls are the main driver. Dosco adds 20% on model cost, 50% on most tool calls, and charges a flat 10% platform fee instead if you bring your own API key. The full rate card, the two kinds of credit, and how to make a balance last are in",
-=======
-      "faqWhatCreditsAnswerBefore": "Credits pay for the agent computer and for Kortix models. 1 credit is $0.01, and the default agent computer uses about 11 credits an hour. Kortix models cost the provider's base price plus a 5.5% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5%. A ChatGPT subscription uses no credits. Plans, top-ups and how to make a balance last are in",
->>>>>>> upstream-dev
+      "faqWhatCreditsAnswerBefore": "Credits pay for the agent computer and for Dosco models. 1 credit is $0.01, and the default agent computer uses about 11 credits an hour. Dosco models cost the provider's base price plus a 5.5% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5%. A ChatGPT subscription uses no credits. Plans, top-ups and how to make a balance last are in",
       "faqWhatCreditsLink": "Credits & usage",
       "faqWhatCreditsAnswerAfter": "."
     }
@@ -3528,7 +3496,7 @@
       "line19JsxTextTCareWhatYouCallItWeCare": "t care what you call it. We care that you",
       "line19JsxTextVeBuiltSomethingRealFeltEveryEdgeOf": "ve built something real, felt every edge of it, and couldn",
       "line19JsxTextTStopUntilItWasRight": "t stop until it was right.",
-      "line24JsxTextAnExtremelySmallTightKnitTeamBuildingThe": "An extremely small, tight-knit team building the open-source AI Operating System. Everyone here shares the same trait — the innate drive to take chaos and turn it into systems that run themselves.",
+      "line24JsxTextAnExtremelySmallTightKnitTeamBuildingThe": "An extremely small, tight-knit team building the AI Operating System. Everyone here shares the same trait — the innate drive to take chaos and turn it into systems that run themselves.",
       "line46JsxTextOpenPosition": "Open Position",
       "line53JsxTextYouAreWhatYouAreYouDriveWhat": "You are what you are. You drive what you must. Independent, founder-type person who falls under the above definition or not.",
       "line55JsxTextSanFranciscoOrAnywhereButWe": "San Francisco — or anywhere, but we",
@@ -4189,15 +4157,9 @@
       "line337JsxTextGetStarted": "Get started",
       "line338JsxTextTalkToSales": "Request demo",
       "line339JsxTextSeePricing": "See pricing",
-<<<<<<< HEAD
       "line342JsxTextOpenSourceSSORBACOnPremNoLock": "SSO, RBAC & on-prem · Any model, your keys · No lock-in",
-      "heroEyebrow": "The Dosco Agent Terminal",
-      "heroCommandCenter": "The AI command center for a workforce of agents.",
-=======
-      "line342JsxTextOpenSourceSSORBACOnPremNoLock": "Open source · SSO, RBAC & on-prem · Any model, your keys · No lock-in",
-      "heroEyebrow": "The open-source AI Operating System",
+      "heroEyebrow": "The AI Operating System",
       "heroCommandCenter": "The AI Operating System for a workforce of agents.",
->>>>>>> upstream-dev
       "heroAiWorkforce": "Your whole company. One repo you own.",
       "heroDescription": "Every agent, skill, connector, and memory is a file — 3,000+ tools connected, one versioned source of truth, scoped so each person and agent has exactly the right access. The agents work on real cloud computers and land what they produce through a change request you approve.",
       "heroTrustStrip": "Any model, your keys · VPC or on-prem",
@@ -4578,10 +4540,6 @@
     },
     "appHomePricingPage": {
       "line107JsxTextStartFreeScaleWhenYouAposReReady": "Start free. Scale when you're ready.",
-<<<<<<< HEAD
-      "line108JsxTextSelfHostTheWholePlatformForFreeMove": "Run the whole platform on your infrastructure. Move to managed cloud per seat, and to enterprise when you need on-prem and advanced controls.",
-=======
->>>>>>> upstream-dev
       "line118JsxTextMostPopular": "Most popular",
       "line145JsxTextComparePlans": "Compare plans",
       "line153JsxTextOpenSource": "No lock-in",
@@ -5092,21 +5050,12 @@
       "line206JsxTextKortixInitCompanyOs": "kortix init company-os",
       "line282JsxTextIntroducingCompanyOs": "Introducing | Company OS",
       "line288JsxTextRunYourCompanyOnAgentsYouOwn": "Run your company on agents you own",
-<<<<<<< HEAD
-      "line291JsxTextKortixTurnsOneRepoIntoAnAiCommand": "Dosco turns one repo into an AI command center: agents, triggers, tools, memory, projects, approvals, and deliverables in one workspace.",
+      "line291JsxTextKortixTurnsOneRepoIntoAnAiCommand": "Dosco turns one repo into an AI Operating System: agents, triggers, tools, memory, projects, approvals, and deliverables in one workspace.",
       "line298JsxTextGetStarted": "Get Started",
       "line303JsxTextRequestDemo": "Request demo",
       "line374JsxAttrLabelBuiltFor": "Built for",
       "line397JsxTextKortixIsTheOperatingFrameworkForAutonomousCompany": "Dosco is the operating framework for autonomous company work: declare the workspace, run sessions in isolated environments, and keep the important changes reviewable.",
-      "line495JsxTextKortixIsTheAiCommandCenterForYour": "Dosco is the AI command center for your company.",
-=======
-      "line291JsxTextKortixTurnsOneRepoIntoAnAiCommand": "Kortix turns one repo into an AI Operating System: agents, triggers, tools, memory, projects, approvals, and deliverables in one workspace.",
-      "line298JsxTextGetStarted": "Get Started",
-      "line303JsxTextRequestDemo": "Request demo",
-      "line374JsxAttrLabelBuiltFor": "Built for",
-      "line397JsxTextKortixIsTheOperatingFrameworkForAutonomousCompany": "Kortix is the operating framework for autonomous company work: declare the workspace, run sessions in isolated environments, and keep the important changes reviewable.",
-      "line495JsxTextKortixIsTheAiCommandCenterForYour": "Kortix is the AI Operating System for your company.",
->>>>>>> upstream-dev
+      "line495JsxTextKortixIsTheAiCommandCenterForYour": "Dosco is the AI Operating System for your company.",
       "line497JsxTextItTurnsAProjectRepoIntoALiving": "It turns a project repo into a living company workspace where agents plan, operate across tools, produce finished deliverables, and leave a reviewable trail behind."
     },
     "appInvitesInviteidPage": {
@@ -5142,23 +5091,13 @@
       "signOutAndContinue": "Sign out and continue"
     },
     "appLayout": {
-<<<<<<< HEAD
-      "line196JsxTextKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Command Center for Your Company",
-      "line197JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI command center for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
-      "line198JsxAttrContentKortixAutonomousCompanyOperatingSystemAiAgentsSelf": "Dosco, agentic OS, AI agents, AI workforce, AI platform, private AI agents, AI automation, agent orchestration, AI-native company, build AI agents, connect 3000 tools, AI operations",
-      "line199JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Command Center for Your Company",
-      "line200JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI command center for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
-      "line206JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Command Center for Your Company",
-      "line207JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI command center for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
-=======
-      "line196JsxTextKortixTheAutonomousCompanyOperatingSystem": "Kortix – The open-source AI Operating System",
-      "line197JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Kortix is the open-source AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
-      "line198JsxAttrContentKortixAutonomousCompanyOperatingSystemAiAgentsSelf": "Kortix, AI Operating System, AI OS, AI agents, AI workforce, open source AI platform, self-hosted AI agents, AI automation, agent orchestration, AI-native company, build AI agents, connect 3000 tools, AI operations",
-      "line199JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Kortix – The open-source AI Operating System",
-      "line200JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Kortix is the open-source AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
-      "line206JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Kortix – The open-source AI Operating System",
-      "line207JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Kortix is the open-source AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
->>>>>>> upstream-dev
+      "line196JsxTextKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Operating System",
+      "line197JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
+      "line198JsxAttrContentKortixAutonomousCompanyOperatingSystemAiAgentsSelf": "Dosco, AI Operating System, AI OS, AI agents, AI workforce, AI platform, AI agents, AI automation, agent orchestration, AI-native company, build AI agents, connect 3000 tools, AI operations",
+      "line199JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Operating System",
+      "line200JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
+      "line206JsxAttrContentKortixTheAutonomousCompanyOperatingSystem": "Dosco – The AI Operating System",
+      "line207JsxAttrContentACloudComputerWhereAiAgentsRunYour": "Dosco is the AI Operating System for your company — one place to build, run, and govern AI agents that connect 3,000+ tools and deliver real work, not just chat.",
       "line209JsxAttrContentKortix": "@kortix",
       "line214JsxAttrContentAppId6754448524AppArgumentKortix": "app-id=6754448524, app-argument=kortix://"
     },
@@ -8882,13 +8821,8 @@
     "autoAppAppConnectorsPageJsxTextGoToProjectsfb39e5ad": "Go to projects",
     "autoAppAppMarketplacePageJsxTextBrowseSkillsAcrossEvery14a9148d": "Browse skills across every source — one click adds them to a project's repo, live in its next session.",
     "autoAppAppProjectsIdSessionsSessionIdPageJsxAttrTitlebf9bba8c": "Subscribe to start sessions",
-<<<<<<< HEAD
-    "autoAppAppProjectsIdSessionsSessionIdPageJsxAttrMessage93bc2779": "Your team isn't on a plan yet. Subscribe to Dosco Team to run sessions, with LLM compute and AI Computers for every teammate.",
-    "autoAppAppProjectsIdSessionsSessionIdPageJsxTextSubscribe40f5b8e1": "Subscribe to Team plan",
-=======
     "autoAppAppProjectsIdSessionsSessionIdPageJsxAttrMessage93bc2779": "Your account has no plan yet. Pick a monthly amount of credits to run sessions. Every member shares one pool.",
     "autoAppAppProjectsIdSessionsSessionIdPageJsxTextSubscribe40f5b8e1": "Choose a plan",
->>>>>>> upstream-dev
     "autoAppAppProjectsPageJsxTextAllAccounts7f58297f": "All accounts",
     "autoAppAppProjectsPageJsxAttrTitleNoProjectsYet85527dd3": "No projects yet",
     "autoAppAppProjectsPageJsxAttrDescriptionAProjectIsa4dc84d2": "A project is a dedicated space for one company, product, or idea.",
@@ -9015,13 +8949,6 @@
     "autoAppPublicMarketingDevelopersPageJsxTextAndDeployThef0bc5670": ", and deploy the agent you already use.",
     "autoAppPublicMarketingDevelopersPageJsxTextStarOnGitHub32a38178": "Star",
     "autoAppPublicMarketingEnterprisePageJsxTextDeployInternalAgentse5230bd9": "Deploy internal agents",
-<<<<<<< HEAD
-    "autoAppPublicMarketingPricingPageJsxTextSimplePerSeat194cf521": "Simple per-seat pricing. Pay for what you use.",
-    "autoAppPublicMarketingPricingPageJsxTextEverySeatGets58d131e8": "Every seat includes the full platform and monthly credits for Agent Computer runtime. Bring your own API key or connect ChatGPT for model access. Managed models remain available and use credits based on token usage.",
-    "autoAppPublicMarketingPricingPageJsxTextCreditsPowerEverything0f094b3e": "Pay for the computer. Bring your own model.",
-    "autoAppPublicMarketingPricingPageJsxTextOneSimpleBalancef877f3a6": "Dosco credits are primarily for Agent Computer runtime. Use your own API key or ChatGPT subscription to keep model billing with your provider. Optional managed models use Team credits based on token usage.",
-=======
->>>>>>> upstream-dev
     "autoAppPublicMarketingPricingPageJsxTextPricingQuestionsa7129c6e": "Pricing questions",
     "autoAppPublicMarketingPricingPageJsxTextStartBuilding8d5b4add": "Get started",
     "autoAppPublicMarketingPricingPageJsxTextGetYourTeam34f94a76": "Get your team started",
@@ -9039,10 +8966,6 @@
     "autoAppPublicConnectTokenPageJsxTextConnectAnApp4c6083f8": "Connect an app",
     "autoAppPublicConnectTokenPageJsxTextYourKortixAgent6efa22e3": "Your Dosco agent wants to connect this app on your behalf. Authorize it in one click — no keys are pasted into chat or stored in the repo.",
     "autoAppPublicSecretIntakeTokenPageJsxTextAddA71a8394a": "Add a project secret",
-<<<<<<< HEAD
-    "autoAppPublicSecretIntakeTokenPageJsxTextYourKortix7bc8f4ee": "Your Dosco agent needs this to continue. Enter the value below — it’s encrypted and the agent never sees it.",
-=======
->>>>>>> upstream-dev
     "autoAppPublicShareShareIdErrorJsxAttrDescriptionWeCouldn67117bd7": "We couldn't load this shared page. Try again, or reload if it keeps happening.",
     "autoAppPublicShareSessionTokenPageJsxTextShareLink6d642641": "Share link unavailable",
     "autoAppPublicShareSessionTokenPageJsxTextPublicSharedbc2d952": "Public share",
@@ -9119,15 +9042,9 @@
     "autoAppPresentationSlidesEngJsxAttrLabelGitHubStars281bbe4f": "GitHub stars",
     "autoAppPresentationSlidesEngJsxAttrLabelRaisedUS2fe5bf64": "Raised · US",
     "autoAppPresentationSlidesEngJsxAttrLabelViaGitHubFund874e057f": "via GitHub Fund",
-<<<<<<< HEAD
     "autoAppPresentationSlidesEngJsxTextSoWhatIsKortixf6e68e29": "So what is Dosco today?",
-    "autoAppPresentationSlidesEngJsxTextTheAICommandCenteraa567525": "The AI command center for your company.",
-    "autoAppPresentationSlidesEngJsxTextACommandCenterFor5691f67e": "A command center for the company: you connect the tools, you invite the team members, and the AI agents work on your internal data.",
-=======
-    "autoAppPresentationSlidesEngJsxTextSoWhatIsKortixf6e68e29": "So what is Kortix today?",
     "autoAppPresentationSlidesEngJsxTextTheAICommandCenteraa567525": "The AI Operating System for your company.",
     "autoAppPresentationSlidesEngJsxTextACommandCenterFor5691f67e": "An operating system for the company: you connect the tools, you invite the team members, and the AI agents work on your internal data.",
->>>>>>> upstream-dev
     "autoAppPresentationSlidesEngJsxAttrTitlePlatformInterfaceOverview68617c3b": "Platform interface overview.",
     "autoAppPresentationSlidesEngJsxAttrEyebrowTheModele0cce1a2": "The model",
     "autoAppPresentationSlidesEngJsxAttrTitleASharedMachinef4a64064": "A shared machine, where the company's knowledge accumulates over time.",
@@ -9174,15 +9091,9 @@
     "autoAppPresentationSlidesEngJsxTextTextMeAt7199731f": "Text me at",
     "autoAppPresentationSlidesEngJsxTextDomKortixAi2c244da6": "dom@kortix.ai",
     "autoAppPresentationSlidesEngJsxTextOrOnLinkedIn13b1c035": "— or on LinkedIn.",
-<<<<<<< HEAD
     "autoAppPresentationSlidesPlatformJsxTextCurlFsSLHttpsKortix8ac787c7": "curl -fsSL https://dosco.live/install | bash",
-    "autoAppPresentationSlidesPlatformJsxTextAutonomousCompanyOperatingSystem23597d7f": "AI Management System",
-    "autoAppPresentationSlidesPlatformJsxTextTheAICommandCentera4b5f603": "The AI command center",
-=======
-    "autoAppPresentationSlidesPlatformJsxTextCurlFsSLHttpsKortix8ac787c7": "curl -fsSL https://kortix.com/install | bash",
     "autoAppPresentationSlidesPlatformJsxTextAutonomousCompanyOperatingSystem23597d7f": "AI Operating System",
     "autoAppPresentationSlidesPlatformJsxTextTheAICommandCentera4b5f603": "The AI Operating System",
->>>>>>> upstream-dev
     "autoAppPresentationSlidesPlatformJsxTextForYourCompany6715feb7": "for your company",
     "autoAppPresentationSlidesPlatformJsxTextOneRepoOneConfig711a8921": "One repo. One config. A workforce of AI agents that does the real work — and everything is code you own.",
     "autoAppPresentationSlidesPlatformJsxTextStartBuildinge2f47368": "Start building",
@@ -9207,13 +9118,8 @@
     "autoAppPresentationSlidesPlatformJsxAttrTitleKortixIsThedce2722e": "Dosco is the third option",
     "autoAppPresentationSlidesPlatformJsxAttrBodyAToyOr30c5182d": "A toy or a cage is the actual choice on the table today — and it’s a stupid one. Dosco is what you build when you refuse both.",
     "autoAppPresentationSlidesPlatformJsxTextMostAIToolsGivede7eebf9": "Most AI tools give you a chat box.",
-<<<<<<< HEAD
     "autoAppPresentationSlidesPlatformJsxTextKortixGivesYouA2de643b9": "Dosco gives you a",
-    "autoAppPresentationSlidesPlatformJsxTextCommandCenterf5978255": "command center.",
-=======
-    "autoAppPresentationSlidesPlatformJsxTextKortixGivesYouA2de643b9": "Kortix gives you a",
     "autoAppPresentationSlidesPlatformJsxTextCommandCenterf5978255": "whole AI operating system.",
->>>>>>> upstream-dev
     "autoAppPresentationSlidesPlatformJsxTextOnePlaceWhereYour1521a0b5": "One place where your agents, skills, connectors, automations, and memory all live — and a workforce that produces real output: decks, repo",
     "autoAppPresentationSlidesPlatformJsxTextOpenCodeNativeb4d960fb": "Open & code-native",
     "autoAppPresentationSlidesPlatformJsxTextYourWholeCompanyAs85afa322": "Your whole company, as code.",
@@ -9311,17 +9217,10 @@
     "autoAppPresentationSlidesPlatformJsxAttrTitleOnePlatformFour98163905": "One platform, four ways in.",
     "autoAppPresentationSlidesPlatformJsxAttrEyebrowHowThisBecomesd07e3c68": "How this becomes a business",
     "autoAppPresentationSlidesPlatformJsxAttrTitleThePlatformIsfa2254a2": "The platform is the proof of the platform.",
-<<<<<<< HEAD
     "autoAppPresentationSlidesPlatformJsxAttrLeadWeBuildOur3a652ae7": "We build our own companies on Dosco and let people watch: agents reviewing PRs, a preview per change, a Slack message turning into a shippe",
     "autoAppPresentationSlidesPlatformJsxAttrTitleOpenSourced5df9dc2": "No lock-in",
     "autoAppPresentationSlidesPlatformJsxAttrBodySelfHostableUnderneathb975d6f7": "Private underneath.",
-    "autoAppPresentationSlidesPlatformJsxAttrBodySeatsCompute61f703c9": "Seats + compute.",
-=======
-    "autoAppPresentationSlidesPlatformJsxAttrLeadWeBuildOur3a652ae7": "We build our own companies on Kortix and let people watch: agents reviewing PRs, a preview per change, a Slack message turning into a shippe",
-    "autoAppPresentationSlidesPlatformJsxAttrTitleOpenSourced5df9dc2": "Open source",
-    "autoAppPresentationSlidesPlatformJsxAttrBodySelfHostableUnderneathb975d6f7": "Self-hostable underneath.",
     "autoAppPresentationSlidesPlatformJsxAttrBodySeatsCompute61f703c9": "Credits for compute and models.",
->>>>>>> upstream-dev
     "autoAppPresentationSlidesPlatformJsxAttrBodyRunItAnywhere9c8c4cd2": "Run it anywhere they must.",
     "autoAppPresentationSlidesPlatformJsxAttrBodyAgentsSkillsWholedd8eefbc": "Agents, skills, whole projects.",
     "autoAppPresentationSlidesPlatformJsxAttrBodyTheComputeFloora3af4e83": "The compute floor: CPU & GPU microVMs.",
@@ -9702,13 +9601,8 @@
     "autoComponentsProjectsLegacyMachineCardJsxTextCanTMigratec1b5bcd9": "Can't migrate",
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxAttrAriaLabelWelcome436613af": "Welcome from Marko",
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextHeyIMe9d73cdb": "Hey, I'm Marko",
-<<<<<<< HEAD
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextFounderCEOKortix4be58c34": "Founder & CEO, Dosco",
-    "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextWantAHandf0a0c56c": "Want a hand setting up your company's AI command center?",
-=======
-    "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextFounderCEOKortix4be58c34": "Founder & CEO, Kortix",
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextWantAHandf0a0c56c": "Want a hand setting up your company's AI Operating System?",
->>>>>>> upstream-dev
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxTextBookADemo7f3fc2d5": "Book a demo",
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxAttrTitleBookA33a960c8": "Book a call with Marko",
     "autoComponentsProjectsPersonalOnboardingWelcomeJsxAttrDescriptionACouple5d67eddc": "A couple of quick details so Marko can tailor the call.",
@@ -9815,13 +9709,7 @@
     "autoFeaturesAccountsSettingsAppearanceTabJsxAttrAriaLabelLightf3e8a707": "Light theme",
     "autoFeaturesAccountsSettingsAppearanceTabJsxAttrAriaLabelDark294ccd51": "Dark theme",
     "autoFeaturesAccountsSettingsAppearanceTabJsxAttrAriaLabelSystem89196afd": "System theme",
-<<<<<<< HEAD
-    "autoFeaturesAccountsSettingsBillingTabJsxTextKortixTeam698bb03b": "Dosco Team",
     "autoFeaturesAccountsSettingsBillingTabJsxTextSubscribeToPut67032571": "Subscribe to put your whole team on Dosco — LLM compute and AI Computers, one wallet.",
-    "autoFeaturesAccountsSettingsBillingTabJsxTextSubscribeToTeam6a396f73": "Subscribe to Team plan",
-=======
-    "autoFeaturesAccountsSettingsBillingTabJsxTextSubscribeToPut67032571": "Subscribe to put your whole team on Kortix — LLM compute and AI Computers, one wallet.",
->>>>>>> upstream-dev
     "autoFeaturesAccountsSettingsBillingTabJsxAttrTitleYouRanefc3b00e": "You ran out of credits",
     "autoFeaturesAccountsSettingsBillingTabJsxTextAutoTopUp9c42761a": "Auto top-up",
     "autoFeaturesAccountsSettingsBillingTabJsxTextNeverRunOut4fdb8c3d": "Never run out again",
@@ -9840,22 +9728,9 @@
     "autoFeaturesBillingSeatManagementCardJsxTextModba31324": "· /mo",
     "autoFeaturesBillingSeatManagementCardJsxTextThisPeriode510d764": "This period",
     "autoFeaturesBillingSeatManagementCardJsxTextTotalSpendThis908ba767": "Total spend this period",
-<<<<<<< HEAD
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextSubscribeToKortix28a9093d": "Subscribe to Dosco Team",
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextPerSeatPera29a6c6d": "per seat per month. LLM compute and AI Computers for every teammate.",
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextKortixTeame5d39916": "Dosco Team",
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextPerSeatc1480f59": "per seat",
-=======
->>>>>>> upstream-dev
     "autoFeaturesBillingTeamPlanCheckoutJsxTextBilledMonthlybdd7a0cd": "billed monthly",
     "autoFeaturesBillingTeamPlanCheckoutJsxTextStartingCheckout282edf7f": "Starting checkout…",
     "autoFeaturesBillingTeamPlanCheckoutJsxTextAutoProratedCancelfa091962": "Auto-prorated · cancel anytime · billed monthly",
-<<<<<<< HEAD
-    "autoFeaturesBillingTeamPlanCheckoutJsxAttrLabelOnlyAccountbf72d3e0": "Only account owners can subscribe. Your seat activates automatically once they do.",
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextAskAnAccount6f6b506d": "Ask an account owner for a seat",
-    "autoFeaturesBillingTeamPlanCheckoutJsxTextOnlyAccountOwnerse7f0d952": "Only account owners can manage billing. Once an owner subscribes to Dosco Team, your seat is activated automatically.",
-=======
->>>>>>> upstream-dev
     "autoFeaturesCoWorkerProjectHeaderProjectTopBarJsxAttr9a2fb75f": "Toggle sidebar",
     "autoFeaturesCoWorkerProjectLayoutProjectHomeJsxTextSomething18ab9904": "something real to work on.",
     "autoFeaturesCoWorkerProjectLayoutProjectHomeJsxAttrPlaceholder115e6c2d": "Describe a task to start a session…",
@@ -10235,13 +10110,8 @@
       "text04a356d4f19f": "Get a computer",
       "text04b204d5535c": "Recognized: {value0} key",
       "text04b8dcba096f": "Nebula",
-<<<<<<< HEAD
       "text04d35c3117b5": "Apps that sign users in with Dosco. Pair the client id and secret with",
-      "text04dba7c76354": "No conditions yet — every request starts a run.",
-=======
-      "text04d35c3117b5": "Apps that sign users in with Kortix. Pair the client id and secret with",
       "text04dba7c76354": "No conditions yet — every delivery starts a run.",
->>>>>>> upstream-dev
       "text04dfac3671b4": "Disconnected",
       "text04e2a9728af7": "Projects",
       "text04e379c6932b": "## Steps",
@@ -10285,11 +10155,7 @@
       "text0606f7bed0bb": "Greenhouse and other applicant systems",
       "text0615570f9ea1": "Claude",
       "text061ea77f739e": "Failed to export CSV",
-<<<<<<< HEAD
-      "text06272d336a8c": "Dosco is the Dosco Agent Terminal — , any model. Start one project free.",
-=======
-      "text06272d336a8c": "Kortix is the open-source AI Operating System — self-hostable, any model. Start one project free.",
->>>>>>> upstream-dev
+      "text06272d336a8c": "Dosco is the AI Operating System — , any model. Start one project free.",
       "text062aba2180ea": "Merging is a separate power",
       "text062b7c4143e2": "Its own branch, cut per session",
       "text062bccfdad1c": "No sandboxes match this search",
@@ -10509,11 +10375,7 @@
       "text0cbeb39b2ff0": "PDF Document",
       "text0cc5a54b089c": "Watch a session live, diff every change to an agent or a skill, and land work through a change request.",
       "text0cc7557652be": "access.",
-<<<<<<< HEAD
-      "text0cc8e13decfa": "The Dosco command center",
-=======
-      "text0cc8e13decfa": "The Kortix AI OS",
->>>>>>> upstream-dev
+      "text0cc8e13decfa": "The Dosco AI OS",
       "text0cd1e319b6e2": "A trigger names an agent, and inherits exactly that agent’s grants — the connectors, secrets and skills its block in kortix.yaml lists, and nothing else. An agent with no grants gets no access.",
       "text0ce6beab574f": "Customize is deliberately read-only. Pressing “Create new” or “Edit” opens a session that edits the files on a branch and opens a change request you review and merge. There is no button that silently changes how an agent behaves tomorrow.",
       "text0ced428dea65": "Bring your own keys — Anthropic, OpenAI, or local models — or run on Dosco compute.",
@@ -10865,13 +10727,9 @@
       "text178880c99bfa": "One-shot database migration on every roll",
       "text1797cd1f264b": "Your ChatGPT subscription",
       "text17c982d8eb68": "Trigger settings",
-<<<<<<< HEAD
-      "text17ca81a2d026": "A sandbox is a real Linux machine the model can run anything on. So we do not put your credentials in it. The sandbox carries exactly one Dosco token, scoped to the project, and every outbound call is assembled on our side of the wall.",
-=======
       "text0b6258b50010": "Pause all",
       "text43e673c5503d": "Resume all",
-      "text17ca81a2d026": "A sandbox is a real Linux machine the model can run anything on. So we do not put your credentials in it. The sandbox carries exactly one Kortix token, scoped to the project, and every outbound call is assembled on our side of the wall.",
->>>>>>> upstream-dev
+      "text17ca81a2d026": "A sandbox is a real Linux machine the model can run anything on. So we do not put your credentials in it. The sandbox carries exactly one Dosco token, scoped to the project, and every outbound call is assembled on our side of the wall.",
       "text17ccfa5b681e": "Maintenance",
       "text17ce60292e3f": "more in this session",
       "text17cf41bd6a6f": "Busy right now — it will retry",
@@ -10887,11 +10745,7 @@
       "text1801bed8cea5": "Copy failed - select and copy manually",
       "text18038f7fc7e0": "The grant is removed automatically at this time.",
       "text1803aa5595d8": "Loading your projects…",
-<<<<<<< HEAD
-      "text1806843c0554": "The Dosco Agent Terminal",
-=======
-      "text1806843c0554": "The open-source AI Operating System",
->>>>>>> upstream-dev
+      "text1806843c0554": "The AI Operating System",
       "text18093cad2644": "Modal",
       "text180bbb19a1b2": "The runbook that lives in one person’s head",
       "text1814e0a6cb50": "See available models",
@@ -10905,12 +10759,7 @@
       "text1862f81ed9d6": "An agent needs your approval",
       "text18658a31c8cc": "Failed to load {value0}s",
       "text1867a2ddd453": "Single sign-on → SAML Certificates",
-<<<<<<< HEAD
       "text1867c0243aad": "Connect {value0} to Dosco",
-      "text186c10caa2d2": "Manage members, groups, roles and tokens.",
-=======
-      "text1867c0243aad": "Connect {value0} to Kortix",
->>>>>>> upstream-dev
       "text186c238a4d46": "Redacted output summary",
       "text1877b4713d40": "Profile attribute statements filled with email, firstName, and lastName",
       "text187897ce0afc": "more",
@@ -10928,13 +10777,8 @@
       "text18d39efa2461": "{pattern} — action",
       "text18d67c992b71": "Display Name",
       "text18d7a47acb40": "Case studies and use cases are on the way. Check back soon.",
-<<<<<<< HEAD
       "text18d93a94d067": "Back in Dosco, watch the live status below while you push or wait for the sync — no need to tab back and forth to check.",
-      "text18f31a325716": "About Dosco – The Dosco Agent Terminal",
-=======
-      "text18d93a94d067": "Back in Kortix, watch the live status below while you push or wait for the sync — no need to tab back and forth to check.",
-      "text18f31a325716": "About Kortix – The open-source AI Operating System",
->>>>>>> upstream-dev
+      "text18f31a325716": "About Dosco – The AI Operating System",
       "text18fb4a5618b9": "The same parameter view used for live approvals.",
       "text18fdd549b2ed": "New",
       "text1903bc11a8e9": "Must match the token's resource owner exactly.",
@@ -11021,12 +10865,7 @@
       "text1b7b2078f271": "The reply lands in the thread as one message that fills in, not a wall of updates. The agent finalises that message rather than posting a second one underneath it.",
       "text1b7bdab96532": "Which agent handles each run.",
       "text1b84926d58a9": "No script for this slide.",
-<<<<<<< HEAD
-      "text1b85843d53b1": "members member workspace access collaborators people teammates roster who can see permissions grant share seats",
       "text1b8f0674b970": "The sandbox carries one project-scoped Dosco token and no third-party keys. Your applicant-system credential is decrypted server-side and attached to the outbound request, then thrown away.",
-=======
-      "text1b8f0674b970": "The sandbox carries one project-scoped Kortix token and no third-party keys. Your applicant-system credential is decrypted server-side and attached to the outbound request, then thrown away.",
->>>>>>> upstream-dev
       "text1ba70b3e6cfc": "The model",
       "text1bb320d9db5d": "Use custom AgentMail key",
       "text1bb8a6b21d3c": "while running. Optional managed model usage is token-based and draws from the same pool.",
@@ -11087,13 +10926,8 @@
       "text1d5b40338c62": "Leave account",
       "text1d6d3a460fb1": "DOCX document",
       "text1d72184afeaf": "Go from asking questions to running the work.",
-<<<<<<< HEAD
-      "text1d7a4d1f09bb": "We are building the Dosco Agent Terminal. Every company should own all of it.",
+      "text1d7a4d1f09bb": "We are building the AI Operating System. Every company should own all of it.",
       "text1d7bec01eefe": "So the harness is never the thing you are locked into",
-=======
-      "text1d7a4d1f09bb": "We are building the open-source AI Operating System. Every company should own all of it.",
-      "text1d7bec01eefe": "Open source, so the harness is never the thing you are locked into",
->>>>>>> upstream-dev
       "text1d826553e961": "Review changes proposed by your agents",
       "text1d8297cfb60c": "Agentic harness",
       "text1d8b64ea50d6": "The model is never shown a credential, and the ledger stores a hash of the inputs rather than the inputs themselves.",
@@ -11148,12 +10982,7 @@
       "text1f00d975e483": "+111,800",
       "text1f05c7f5b64d": "Allow everything",
       "text1f0a5246c481": "No model configured",
-<<<<<<< HEAD
       "text1f1146934bab": "Install the CLI and drive Dosco from your shell.",
-      "text1f1196332022": "Credit grant ($)",
-=======
-      "text1f1146934bab": "Install the CLI and drive Kortix from your shell.",
->>>>>>> upstream-dev
       "text1f1228d5e972": "Slack manifest copied",
       "text1f23d8400f20": "A filter is a dotted path matched against the same payload the prompt sees. It exists to break loops: a source that reports both sides of a conversation would otherwise fire the agent on its own reply.",
       "text1f2550ed44dc": "Which agent, model, and join policy each connected channel uses. A channel with no override follows the project default.",
@@ -11432,10 +11261,6 @@
       "text2730183d6b77": "Organizations",
       "text2732406e3be5": "No matching sessions",
       "text27342581678a": "How each provider performs — provisioning latency, success rate, and where the time goes.",
-<<<<<<< HEAD
-      "text27343e44b3f1": "Dosco fee",
-=======
->>>>>>> upstream-dev
       "text2743ed9c1ab8": "over limit",
       "text2749b54ef956": "Try another search or clear the current filter.",
       "text274a70ce834d": "change needs",
@@ -11600,11 +11425,7 @@
       "text2be1f843485e": "{value0} {value1} will be locked out until they enrol MFA:",
       "text2bf4ee86ea70": "Test single sign-on",
       "text2bf623481fd8": "Set the default you want",
-<<<<<<< HEAD
-      "text2bf70270bfde": "AI Management System: your agents, skills, memory, and connectors in one repo you own. Any model. or cloud.",
-=======
-      "text2bf70270bfde": "Open-source AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
->>>>>>> upstream-dev
+      "text2bf70270bfde": "AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. or cloud.",
       "text2bfc3471571e": "Approvals",
       "text2c014f8f8986": "Cursor",
       "text2c063e7ab5f6": "The recipe for the machine a session runs on, and the record of every time Dosco prepared one.",
@@ -11742,11 +11563,7 @@
       "text2fea30b8d515": "Agents act through a single scoped Dosco token",
       "text2fec4da809fd": "agents/invoice-clerk.md",
       "text2ff3e0bff1fd": "Azure AD tenant ID",
-<<<<<<< HEAD
-      "text2ff50f0be011": "What Dosco actually is: the Dosco Agent Terminal, layer by layer",
-=======
-      "text2ff50f0be011": "What Kortix actually is: the open-source AI Operating System, layer by layer",
->>>>>>> upstream-dev
+      "text2ff50f0be011": "What Dosco actually is: the AI Operating System, layer by layer",
       "text30015841ce75": "Read OAuth server metadata",
       "text30094e0bec00": "Do",
       "text3015112f4f45": "A kit any interviewer can run.",
@@ -11941,11 +11758,7 @@
       "text365642325b8f": "Connect SAML SSO first so provisioned users can sign in.",
       "text3658d6e18a94": "separated splits the block into individually-shaped tiles with a gap. Each tile carries its own frame and clip instead of leaning on a shared one.",
       "text365987d015f7": "Next action",
-<<<<<<< HEAD
-      "text3661bf7ae497": "Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco command center.",
-=======
-      "text3661bf7ae497": "Field notes on building, running, and governing AI agents that do real work — from the team building the Kortix AI Operating System.",
->>>>>>> upstream-dev
+      "text3661bf7ae497": "Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco AI Operating System.",
       "text366487a11e4c": "Live sessions",
       "text3664895579f0": "Export",
       "text3668377bfd48": "Bare mark, no tile, object-contain.",
@@ -12402,12 +12215,7 @@
       "text42d0d7ff0656": "Agent loop",
       "text42d8a7ea9caf": "exempt",
       "text42e45c4f8d15": "Failed to update webhook",
-<<<<<<< HEAD
-      "text42ef2c24bd7a": "Team seats",
       "text42f3ceed281b": "OpenClaw and Hermes are brilliant personal agents — and we genuinely recommend them for individuals. But a personal \"Jarvis\" and a governed company platform are different things. Here is exactly where the line is.",
-=======
-      "text42f3ceed281b": "OpenClaw and Hermes are brilliant open-source personal agents — and we genuinely recommend them for individuals. But a personal \"Jarvis\" and a governed company platform are different things. Here is exactly where the line is.",
->>>>>>> upstream-dev
       "text42fbdd7efa9b": "1px solid rgba(255,80,80,0.4)",
       "text42fcd9dda5f6": "Could not remove that prompt",
       "text42ff58671f28": "Reads it before writing",
@@ -12454,11 +12262,7 @@
       "text443590eec311": "Non-devs publish skills as markdown; Dosco handles the branch, the change request, and the merge behind the scenes. Versioned, reviewable, auditable.",
       "text44368adad746": "Postgres",
       "text4441b4b45947": "Token not found",
-<<<<<<< HEAD
-      "text445cf0a2abfa": "Dosco is building the Dosco Agent Terminal. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.",
-=======
-      "text445cf0a2abfa": "Kortix is building the open-source AI Operating System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.",
->>>>>>> upstream-dev
+      "text445cf0a2abfa": "Dosco is building the AI Operating System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.",
       "text445d14bb67ec": "Entra ID → Enterprise applications",
       "text445d576b5175": "Every agent prompt, every skill, every remembered fact and every grant is text in one repo. No console to click through, no export to request.",
       "text445d71b74731": "It matches the ledger against the statement, groups what did not match by likely cause, and leaves the genuinely ambiguous ones flagged rather than force-matched. The unmatched list is the deliverable; a clean run that hid three problems is not.",
@@ -12521,12 +12325,7 @@
       "text45faa0a369e4": "No model lock-in",
       "text46066a3c43cc": "Runs without asking",
       "text4606994a6bbe": "Work reaches main only through a change request a person reviews and approves. The machine can propose. A human decides.",
-<<<<<<< HEAD
-      "text460806f58b7b": "Its assignments, saved connections, and tool rules are deleted too.",
       "text460a8b327e17": "Dosco terms of service and privacy policy.",
-=======
-      "text460a8b327e17": "Kortix terms of service and privacy policy.",
->>>>>>> upstream-dev
       "text460b3a7da007": "Chat",
       "text460ca92c825a": "Loading repositories…",
       "text4610c1dbee14": "Reached as a connector you define: an OpenAPI or Postman description, a GraphQL endpoint, a raw HTTP base URL, or a remote MCP server. Dosco reads the source, works out the authentication, and turns each operation into a tool with its own Allow, Ask or Block.",
@@ -13100,10 +12899,6 @@
       "text55a733d57ce1": "Open PDF actions",
       "text55a834c80aa9": "Owner only",
       "text55afa51cc456": "Accruals, prepayments, deferred revenue, fixed asset roll-forwards. Mechanical, rule-driven, and re-derived from source every period instead of a workbook that has been copied forward since 2023.",
-<<<<<<< HEAD
-      "text55c84320074b": "Search Dosco public documentation and product content.",
-=======
->>>>>>> upstream-dev
       "text55e970c35216": "Get device code",
       "text55fa9981994c": "Showing the",
       "text56000ae371ac": ". Apps are private by default.",
@@ -13244,12 +13039,7 @@
       "text59f65a8a6575": "Open in Google Slides",
       "text59f765f38854": "What it wants",
       "text5a052671ec75": "Unique identifier field for users",
-<<<<<<< HEAD
-      "text5a0b692095be": "Simple per-seat pricing. Free includes 200 credits each month for sandbox compute; upgrade when you want the latest AI models and 2,500 pooled credits per seat.",
       "text5a0cac0326d5": "Download Dosco",
-=======
-      "text5a0cac0326d5": "Download Kortix",
->>>>>>> upstream-dev
       "text5a219a418ec7": "This entry couldn't be read from the archive.",
       "text5a23444828db": "Manage",
       "text92fbc8484002": "Runtime session",
@@ -13418,12 +13208,7 @@
       "text5f303c017ed7": "A laptop, a VPS, or your own VPC — the exact same stack as Dosco cloud.",
       "text5f31515299e5": "Principals",
       "text5f3719d952f7": "219,400",
-<<<<<<< HEAD
-      "text5f448b8c41a4": "e.g. 50",
       "text5f513e5b2937": "Dosco Use Cases",
-=======
-      "text5f513e5b2937": "Kortix Use Cases",
->>>>>>> upstream-dev
       "text5f61b63c2c4a": "Channel bindings",
       "text5f69c8b42ef2": "Large language models",
       "text5f6dc605ac36": "Some entries could not be read",
@@ -13921,12 +13706,7 @@
       "text6d8788a320dc": "Override for one command instead of switching: pass --host .",
       "text6d97796afbde": "northwind — main",
       "text6d9a6f97a5fd": "Succeeded",
-<<<<<<< HEAD
       "text6da390b94eb6": "Check \"Use this for Recipient URL and Destination URL\". Set \"Name ID format\" to EmailAddress and \"Application username\" to Email — Dosco matches accounts by email.",
-      "text6db974c8b732": "{value0} behaves as {value1} for {value2} days.",
-=======
-      "text6da390b94eb6": "Check \"Use this for Recipient URL and Destination URL\". Set \"Name ID format\" to EmailAddress and \"Application username\" to Email — Kortix matches accounts by email.",
->>>>>>> upstream-dev
       "text6dc4500d8999": "The mainstream helpdesk products are in the Easy connect catalogue behind their own OAuth screens. Read the queue, draft the reply, and update the ticket where you have allowed it to.",
       "text6dcee355767d": "ACS (Consumer) URL Validator",
       "text6dd06b2529d4": "Create a custom role",
@@ -14006,10 +13786,6 @@
       "text7033ce3d1e7a": "Email connection",
       "text7039b3d4be40": "Viewed session turn state",
       "text703a3d810fc0": "Migrate the blog to MDX",
-<<<<<<< HEAD
-      "text703f49b261e2": "Dosco path from a search result.",
-=======
->>>>>>> upstream-dev
       "text7040ecc689ea": "This preview can’t run commands from the browser.",
       "text704aed35a6fe": "Secret copied",
       "text704e738861ba": "Remove project",
@@ -14050,12 +13826,7 @@
       "text712dc14ed8bb": "Build the content baseline, and the system that keeps producing it.",
       "text713166971d73": "Command",
       "text7140f4f19dec": "Verification",
-<<<<<<< HEAD
       "text7144535c8be1": "Dosco dashboard",
-      "text7147a36979c2": "Note (why, who asked, deal context)",
-=======
-      "text7144535c8be1": "Kortix dashboard",
->>>>>>> upstream-dev
       "text7149fd6e7d6a": "# from here it is just a repo",
       "text714db3dbb0b7": "Top-p",
       "text714de9c47e62": "An agent rewriting its own instructions arrives the same way a database migration does: a branch, a commit, a diff, a reviewer. The company has one review process, not two.",
@@ -14229,11 +14000,7 @@
       "text75df4f0c9e91": "3,000+ connectors, 60+ skills, and agents pre-built for your industry.",
       "text75ea39919673": "Overlaps with recent homepage edits — resolve before shipping",
       "text75f33cdfc8e5": "Incomplete",
-<<<<<<< HEAD
-      "text75f8cf60c514": "Dosco – the Dosco Agent Terminal.",
-=======
-      "text75f8cf60c514": "Kortix – the open-source AI Operating System.",
->>>>>>> upstream-dev
+      "text75f8cf60c514": "Dosco – the AI Operating System.",
       "text76020fe09cc6": "Any runtime",
       "text762303303083": "Verified a sign-in code",
       "text762abdafcd6c": "Custom roles and per-resource permissions.",
@@ -14522,12 +14289,7 @@
       "text7e9fee157731": "Any provider. Your keys. Your bill.",
       "text7ea05ee375a0": "No saved prompt is available.",
       "text7ea27c63aff1": "Manage billing",
-<<<<<<< HEAD
       "text7ea4733fb624": "Available on Enterprise, and on a private instance with an Enterprise licence. The built-in roles above are free on every plan.",
-      "text7ead9bf84af8": "Migrate to v2",
-=======
-      "text7ea4733fb624": "Available on Enterprise, and on a self-hosted instance with an Enterprise licence. The built-in roles above are free on every plan.",
->>>>>>> upstream-dev
       "text7ebef26162b5": "| * s_9a04",
       "text7ec0261b8e8a": "Upgrade",
       "text7eca5e05f915": "Downloaded {value0}",
@@ -14568,12 +14330,7 @@
       "text7fa5deaf333c": "# Prospecting",
       "text7fa8aef486d8": "How teams put a workforce of AI agents to work — the loops they engineer, the deliverables they ship, and the reviewed changes that make the company better every day.",
       "text7fadfca18f08": "Copy model id",
-<<<<<<< HEAD
       "text7fc00a40fb11": "Dosco vs Poetic: both turn workflows into code — the difference is who owns the code",
-      "text7fcc18556e6e": "Who runs it",
-=======
-      "text7fc00a40fb11": "Kortix vs Poetic: both turn workflows into code — the difference is who owns the code",
->>>>>>> upstream-dev
       "text7fda2b723187": "Initech Retail",
       "text7fdf5bcb19a8": "Provisioning Status",
       "text7fe5af1c4cdd": "__git-history-query__",
@@ -15833,12 +15590,7 @@
       "texta48c89f63885": "Restrict who can start email sessions",
       "texta4a83d949891": "Failed to compact session",
       "texta4b4b51ec474": "translate(-50%, -100%)",
-<<<<<<< HEAD
       "texta4b6a3d9d629": "kortix init makes any directory a Dosco. kortix ship brings it live. From then on it is one repo you own — versioned, diffable, and improving itself one reviewed change at a time.",
-      "texta4c128e48978": "The host is reachable, but the core workspace runtime is failing requests. Restart the runtime or workload to recover services.",
-=======
-      "texta4b6a3d9d629": "kortix init makes any directory a Kortix. kortix ship brings it live. From then on it is one repo you own — versioned, diffable, and improving itself one reviewed change at a time.",
->>>>>>> upstream-dev
       "texta4c297b580ad": "- Chase overdue, escalate past 30 days",
       "texta4c7fa51a957": "No branches found",
       "texta4c9215859a8": "Removed project member",
@@ -16588,12 +16340,8 @@
       "textb9819d569c9a": "Provision a few sandboxes and their timing + outcome will show up here.",
       "textb99e1742613b": "- slug: morning-brief",
       "textb99fa6c06150": "Preview unavailable",
-<<<<<<< HEAD
-      "textb9acc1017895": "Create a Dosco group for every group your IdP sends — no per-group mapping.",
-=======
       "showPreviewUnavailableHint": "The app did not answer. Start it in your session, then refresh.",
-      "textb9acc1017895": "Create a Kortix group for every group your IdP sends — no per-group mapping.",
->>>>>>> upstream-dev
+      "textb9acc1017895": "Create a Dosco group for every group your IdP sends — no per-group mapping.",
       "textb9ad2f00fba7": "changes need",
       "textb9addc023078": "support@dosco.live",
       "textb9b2cc46e71e": "Per-resource permissions for every person and agent",
@@ -17061,11 +16809,7 @@
       "textc6a5e338a7cc": "Managed cloud, your private VPC, or your own on-prem network.",
       "textc6b12eb62d1c": "Agent config update available",
       "textc6bd146b2125": "customize configure setup capabilities overview hub",
-<<<<<<< HEAD
-      "textc6bfaece0982": "We are building the Dosco Agent Terminal.",
-=======
-      "textc6bfaece0982": "We are building the open-source AI Operating System.",
->>>>>>> upstream-dev
+      "textc6bfaece0982": "We are building the AI Operating System.",
       "textc6c23265e620": "Failed to add collaborator",
       "textc6c90c48b495": "Upgrade to download your {value0} and more",
       "textc6cfe6e4f129": "Black",
@@ -17203,10 +16947,6 @@
       "textca9c05caf0c3": "Agent status",
       "textca9c32c53e90": "Signing out",
       "textcaa6c42f2b7c": "$ kortix channels disconnect",
-<<<<<<< HEAD
-      "textcaace11153c1": "Read a Dosco public page as Markdown.",
-=======
->>>>>>> upstream-dev
       "textcab94aba84f9": "Typography",
       "textcac616ab8697": "Your own roles and fine-grained policy bindings beyond the presets.",
       "textcac716114be6": "Sent audit webhook test",
@@ -17332,11 +17072,7 @@
       "textce18e358bf01": "Try a different term.",
       "textce1e609b7bf5": "Sandbox ports only",
       "textce281df2e934": "Dimmed, inert, and out of the tab order.",
-<<<<<<< HEAD
-      "textce34af36d804": "Dosco – The Dosco Agent Terminal",
-=======
-      "textce34af36d804": "Kortix – The open-source AI Operating System",
->>>>>>> upstream-dev
+      "textce34af36d804": "Dosco – The AI Operating System",
       "textce3a4968d879": "Export it or stream it",
       "textce3b4016393e": "Installing runtime",
       "textce3e84298c57": "Reproduce it, patch it, open the change request",
@@ -17853,17 +17589,9 @@
       "textdbba817f12f2": "7 deals advanced, 2 slipped.",
       "textdbbfc6cf8952": "Browser or native app. No secret — PKCE only.",
       "textdbc539f3b073": ". You do not have permission to change it — ask a project manager.",
-<<<<<<< HEAD
-      "textdbc55cb506f2": "Your team isn’t on a plan yet. Subscribe to Dosco Team to run sessions, with LLM compute and AI Computers for every teammate.",
       "textdbcd5e7bb7a0": "Light",
       "textdbd9b1773511": "Skills and memory accumulate with every run",
       "textdbe0414753c1": "Please wait a moment before trying again.",
-      "textdbe08e62ef56": "Your team is on Dosco Team. Compute and LLM credits are ready.",
-=======
-      "textdbcd5e7bb7a0": "Light",
-      "textdbd9b1773511": "Skills and memory accumulate with every run",
-      "textdbe0414753c1": "Please wait a moment before trying again.",
->>>>>>> upstream-dev
       "textdbe46defeac2": "warns only",
       "textdbef6cc84fef": "kortix self-host start",
       "textdbf362d4f210": "Copy link",
@@ -18235,11 +17963,7 @@
       "texte5ee1e7e84aa": "Session expired",
       "texte5fb560ba65a": "On the SSO tab, copy the \"Issuer URL\" (it is a live, hosted metadata endpoint) and paste it below — keep the \"Dynamic configuration\" option selected. Prefer this over pasting XML: the hosted URL auto-refreshes if OneLogin rotates the signing certificate.",
       "texte5fd643538b9": "Account · Audit log",
-<<<<<<< HEAD
-      "texte60053964d37": "Dosco is the AI operating system where your company's knowledge compounds. Connect your tools, deploy an agent, and start accumulating your own token capital. Free to start, with no lock-in.",
-=======
-      "texte60053964d37": "Kortix is the open-source AI Operating System where your company's knowledge compounds. Connect your tools, deploy an agent, and start accumulating your own token capital. Free to start, free to self-host.",
->>>>>>> upstream-dev
+      "texte60053964d37": "Dosco is the AI Operating System where your company's knowledge compounds. Connect your tools, deploy an agent, and start accumulating your own token capital. Free to start, free to .",
       "texte600bb5b5953": "Repository and organisation membership is access too, and it is the access that most often outlives the reason for it. It reads the org state and reports what does not match your documented roles.",
       "texte61180e0dd8a": "Link expired",
       "texte6158ee80566": "claim) to specific IAM groups.",
@@ -18450,11 +18174,7 @@
       "textebab65dedf4d": "Your access request has been submitted. We'll be in touch!",
       "textebaf8698b938": "- Open one thread, post every update there",
       "textebafb00209f1": "Assign to Groups",
-<<<<<<< HEAD
-      "textebb63fcaf908": "Introducing Dosco: the Dosco Agent Terminal",
-=======
-      "textebb63fcaf908": "Introducing Kortix: the open-source AI Operating System",
->>>>>>> upstream-dev
+      "textebb63fcaf908": "Introducing Dosco: the AI Operating System",
       "textebc05a2f34f6": "    - slug: python",
       "textebeaf332d3c9": "−83,800",
       "textebfeebd13e38": "SaaS app → Configuration",
@@ -18481,13 +18201,8 @@
       "textec963ffc911b": "Checking…",
       "textec9ace8d8ff6": "Dosco will create and manage the AgentMail inbox for this connection.",
       "textec9f8a9109ec": "Allow for session",
-<<<<<<< HEAD
       "texteca0eeacbef7": "In the \"Settings\" JSON object below the callback field, set TWO things: (1) \"audience\" = Dosco’s Entity ID, and (2) force the NameID to the user’s email — it defaults to the opaque Auth0 user_id (auth0|…), which Dosco can’t correlate. Add: \"audience\": \"…/saml/metadata\", \"nameIdentifierFormat\": \"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\", \"nameIdentifierProbes\": [\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\"]. Then scroll down and click \"Enable\".",
-      "texteca47e3afa10": "Encrypted credentials this project keeps out of its repository. Access decides whether agent code can read each value — Environment variable is the only exposure that sets the real value as an environment variable in the sandbox; every other one keeps it outside.",
-=======
-      "texteca0eeacbef7": "In the \"Settings\" JSON object below the callback field, set TWO things: (1) \"audience\" = Kortix’s Entity ID, and (2) force the NameID to the user’s email — it defaults to the opaque Auth0 user_id (auth0|…), which Kortix can’t correlate. Add: \"audience\": \"…/saml/metadata\", \"nameIdentifierFormat\": \"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\", \"nameIdentifierProbes\": [\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\"]. Then scroll down and click \"Enable\".",
       "texteca47e3afa10": "Encrypted credentials kept out of your repository.",
->>>>>>> upstream-dev
       "textecaddb9a540f": "A research agent that briefs your team.",
       "textecb89227d17e": "This project starts every session with this model — pick a different default before turning it off.",
       "textecbc89cd37a0": "Started",
@@ -18688,12 +18403,7 @@
       "textf26d53b6b546": "body.data.direction",
       "textf27a58a42762": "Couldn't load file",
       "textf27bcbb5e1e2": "Dismissible",
-<<<<<<< HEAD
       "textf27c4fdb823a": "Cloudflare Access passes email by default. Add the other attributes Dosco reads — id, firstName, lastName — as \"SAML attribute statements\": each is a Name plus the upstream IdP claim it maps to (a dropdown of your login method’s claims).",
-      "textf27e24caeef3": "Downloaded compiled session runtime",
-=======
-      "textf27c4fdb823a": "Cloudflare Access passes email by default. Add the other attributes Kortix reads — id, firstName, lastName — as \"SAML attribute statements\": each is a Name plus the upstream IdP claim it maps to (a dropdown of your login method’s claims).",
->>>>>>> upstream-dev
       "textf29674479db4": "Connecting to OpenAI…",
       "textf297f631ba78": "It assembles what every interviewer wrote, arranged against the scorecard rather than by who typed most, and highlights where two interviewers disagreed. Surfacing disagreement is the point. Resolving it is the panel’s job.",
       "textf29ad8b8092c": "The attribute name (groups) must match Dosco’s group claim, which is prefilled at the connect step. Cloudflare passes through whatever group NAMES the upstream IdP sends.",
@@ -19021,12 +18731,7 @@
       "textfc379aff8002": "Completing sign-in…",
       "textfc3fdecbf78c": "The one live channel. Ask a question about the close in a thread and the thread is the session; the workbook comes back into it as a file.",
       "textfc41cd883d26": "Updated connector secret binding",
-<<<<<<< HEAD
-      "textfc4e84255a41": "Timing",
       "textfc4ff3e38b06": "JumpCloud only sends groups the application is BOUND to (User Groups tab). Bind each group you plan to map in Dosco; the name must match the connect-step claim.",
-=======
-      "textfc4ff3e38b06": "JumpCloud only sends groups the application is BOUND to (User Groups tab). Bind each group you plan to map in Kortix; the name must match the connect-step claim.",
->>>>>>> upstream-dev
       "textfc56800b00af": "It could not start",
       "textfc5fe4b93461": "kortix init · kortix ship · one repo · any model",
       "textfc62a0071f66": "Conditions saved",
@@ -19192,10 +18897,6 @@
       "text151863950f0e": "Can I use the models I already pay for?",
       "text055026a9c10e": "Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.",
       "texte8dc9deba44c": "What does it cost?",
-<<<<<<< HEAD
-      "text8eb8b8551cec": "Free is $0 — one project and 200 credits a month of sandbox compute, with your own key for any premium model. Team is $40 per seat per month and pools 2,500 credits a seat. the software costs nothing; you pay your own model bill and your own compute bill instead.",
-=======
->>>>>>> upstream-dev
       "text7ee5a6d5e8ad": "Why we are building it",
       "text625b22ba31d0": "Read the source",
       "textf16b8eb8dbdc": "who does the work",
@@ -19296,7 +18997,7 @@
       "textd3d6fcf27034": "# launch",
       "textc6c8dad55129": "Maya",
       "text9a059d44c8e5": "10:42 AM",
-      "text9bfa706b0569": "@Kortix",
+      "text9bfa706b0569": "@Dosco",
       "texta4b2d28ad49b": "Launch",
       "text2c2e44899866": "Posts",
       "text92dca4f34a6f": "10:43 AM",
@@ -19691,13 +19392,7 @@
       "textb0f59e5a2722": "Started model provider OAuth login",
       "text0dd455816ef6": "Started sandbox snapshot rebuild",
       "text40cef5fd1dbd": "Started sandbox template build",
-<<<<<<< HEAD
-      "text09917783e494": "Started session environment",
       "text18065b39fc81": "Stopped Dosco App",
-      "textb88830cc18af": "Stopped session environment",
-=======
-      "text18065b39fc81": "Stopped Kortix App",
->>>>>>> upstream-dev
       "text464b0b69fd48": "Streamed computer tunnel events",
       "text970caaaceccc": "Streamed request via secret relay",
       "text64a93d38e11a": "Streamed secret relay response",
@@ -19935,27 +19630,15 @@
       "textf164e4b031dc": "Updated session presence",
       "text9e6a0b0a06c2": "Viewed session message authors",
       "textea2f51bfe21c": "Viewed session participants",
-<<<<<<< HEAD
-      "text5f58426c214e": "We are building the Dosco Agent Terminal. Every company should own all of it.",
+      "text5f58426c214e": "We are building the AI Operating System. Every company should own all of it.",
       "textf729ef1ea584": "License and seat reconciliation",
       "text7912f8e97c06": "A cron trigger opens the quarterly access review and the monthly license reconciliation. Triggers name the agent they run as, so the unattended session has exactly the reach the attended one has — no more.",
-      "textbc0deb1bab41": "Dosco is the Dosco Agent Terminal — , any model. Start one project free.",
-      "text0c5b38410c06": "Introducing Dosco: the Dosco Agent Terminal",
+      "textbc0deb1bab41": "Dosco is the AI Operating System — , any model. Start one project free.",
+      "text0c5b38410c06": "Introducing Dosco: the AI Operating System",
       "textf216fe1b31a2": "Start with one department, connect the tools it already uses, and turn the workflow into a git-backed project the client can own.",
-      "textdcb3e70ce4dc": "Dosco – the Dosco Agent Terminal.",
-      "text1345783053b5": "Dosco vs Claude Cowork: a desktop assistant, or an AI Management System for the company?",
+      "textdcb3e70ce4dc": "Dosco – the AI Operating System.",
+      "text1345783053b5": "Dosco vs Claude Cowork: a desktop assistant, or an AI Operating System for the company?",
       "textd90da51ca5c2": "Claude Cowork runs Anthropic models only, in Anthropic's cloud or your Bedrock, Google Cloud, or Microsoft Foundry account, with no . Here is where a company outgrows it.",
-=======
-      "text5f58426c214e": "We are building the open-source AI Operating System. Every company should own all of it.",
-      "textf729ef1ea584": "License and seat reconciliation",
-      "text7912f8e97c06": "A cron trigger opens the quarterly access review and the monthly license reconciliation. Triggers name the agent they run as, so the unattended session has exactly the reach the attended one has — no more.",
-      "textbc0deb1bab41": "Kortix is the open-source AI Operating System — self-hostable, any model. Start one project free.",
-      "text0c5b38410c06": "Introducing Kortix: the open-source AI Operating System",
-      "textf216fe1b31a2": "Start with one department, connect the tools it already uses, and turn the workflow into a git-backed project the client can own.",
-      "textdcb3e70ce4dc": "Kortix – the open-source AI Operating System.",
-      "text1345783053b5": "Kortix vs Claude Cowork: a desktop assistant, or an AI Operating System for the company?",
-      "textd90da51ca5c2": "Claude Cowork runs Anthropic models only, in Anthropic's cloud or your Bedrock, Google Cloud, or Microsoft Foundry account, with no self-host. Here is where a company outgrows it.",
->>>>>>> upstream-dev
       "text0216eab899cb": "Consultancies need one repo for their clients’ agents",
       "text3059f4c530b3": "Why consultancies need one git repo for their clients’ agents, memory, connectors, policy, and auditable work.",
       "textad70f35eaccc": "Our mission: take a company from human to AGI, and let it keep every byte of itself on the way there.",
@@ -20104,7 +19787,7 @@
       "textab8ee7418b44": "Company as Code: your company in one git repo",
       "text08c07aa26d80": "Connectors: 3,000+ apps for AI agents",
       "textb5ddb92c2667": "AI agent security: isolation, permissions, audit",
-      "text111f5fe94248": "Self-hosted AI agents on your infrastructure",
+      "text111f5fe94248": "AI agents on your infrastructure",
       "text3ed734962d72": "AI agents for every team",
       "text1f66405c0804": "AI agents for engineering teams",
       "text68f3fc697c04": "AI agents for product teams",
@@ -20165,7 +19848,7 @@
       "text4c012b6f97ca": "Connect {app}",
       "text84e071180ac2": "Edit settings",
       "text5441e7146193": "App event",
-      "text1c41abcc2fff": "Contact Kortix to enable it.",
+      "text1c41abcc2fff": "Contact Dosco to enable it.",
       "textce0eabb01151": "{value0} vCPU · {value1} GB · {value2} GB",
       "text9a2de8b2728e": "Snapshot taken",
       "textdf80631943fa": "No snapshots yet. The first daily snapshot is taken within a day.",
@@ -20183,7 +19866,7 @@
       "text0ac04e12ff20": "Ran a command in an App machine",
       "text853696d5a64d": "Runs 24/7. Never stopped for being idle.",
       "textde3486cdebb5": "Set project feature flag as admin",
-      "text402c230e740b": "Or get it in code with a Kortix API key",
+      "text402c230e740b": "Or get it in code with a Dosco API key",
       "text8034c809dd46": "Verify the same token on your own server",
       "text7aaebc8b5794": "{value0} of {value1} snapshots",
       "text6d82b9d57b0c": "Your server's environment (public values, not secrets)",
@@ -20272,23 +19955,23 @@
       "textefeac437f989": "Connect an account",
       "textdbdf27e5db8d": "Setting up",
       "text52f2077702ec": "App event triggers are off",
-      "text9021d75ab530": "Listed Kortix App snapshots",
-      "textaa690dbd1c27": "Took Kortix App snapshot",
-      "text4c29824a44da": "Deleted Kortix App snapshot",
-      "textabcda68bd3b0": "Restored Kortix App snapshot",
-      "textd1c0fc325eee": "Read Kortix App admin credentials",
-      "textdb26d819a2c8": "Rotated Kortix App admin credentials",
-      "textc0fb28560783": "Minted Kortix App sign-in token",
-      "textfb80f12c4607": "Read Kortix App process log",
-      "text5b5b9df9db78": "Opened Kortix App dashboard",
-      "text1ff1fdcf5ef0": "Kortix App reached a budget share",
-      "texte63482b0a7dc": "Called Kortix App API",
-      "textc31eedf7fa7d": "Opened Kortix App API WebSocket",
-      "textd5f5bd67e572": "Browser code of another Kortix App. That App's origin hands the viewer's sign-in token to this App, and this App reads the member.",
+      "text9021d75ab530": "Listed Dosco App snapshots",
+      "textaa690dbd1c27": "Took Dosco App snapshot",
+      "text4c29824a44da": "Deleted Dosco App snapshot",
+      "textabcda68bd3b0": "Restored Dosco App snapshot",
+      "textd1c0fc325eee": "Read Dosco App admin credentials",
+      "textdb26d819a2c8": "Rotated Dosco App admin credentials",
+      "textc0fb28560783": "Minted Dosco App sign-in token",
+      "textfb80f12c4607": "Read Dosco App process log",
+      "text5b5b9df9db78": "Opened Dosco App dashboard",
+      "text1ff1fdcf5ef0": "Dosco App reached a budget share",
+      "texte63482b0a7dc": "Called Dosco App API",
+      "textc31eedf7fa7d": "Opened Dosco App API WebSocket",
+      "textd5f5bd67e572": "Browser code of another Dosco App. That App's origin hands the viewer's sign-in token to this App, and this App reads the member.",
       "text9e6151acb057": "Uses",
       "text681bf81aba87": "Used by",
       "textfa81dc800785": "Link it: an App reaches and gets sign-in tokens only for the Apps it uses",
-      "text6851f4ca258c": "Bind it on the App's own origin and send the viewer's Kortix sign-in token",
+      "text6851f4ca258c": "Bind it on the App's own origin and send the viewer's Dosco sign-in token",
       "textbcfb13cc6799": "Get a 15-minute sign-in token naming you",
       "textf445afc1e6ed": "A file or folder named “{value0}” is already here",
       "text729fe0e7b138": "Drives",
@@ -20335,20 +20018,20 @@
       "textdad6d4c4e992": "Require a signed-in member in every request this App serves",
       "text959f67f7ce9c": "Call the App over HTTP with the token",
       "text022ba4cb6981": "Scripts, services and your own servers. Send a member token as a bearer to the App's HTTP API.",
-      "text73de4f815f7c": "Listed Kortix App machines",
-      "text224945942c48": "Started Kortix App machine",
-      "texta51b1814a4e6": "Stopped Kortix App machine",
-      "textb393443b6937": "Restarted Kortix App machine",
-      "textf0b961e5fc2b": "Destroyed Kortix App machine",
-      "textb3dd1bd89a30": "Scaled Kortix App",
-      "textcece78b79c0e": "Listed Kortix App volumes",
-      "textab217edc5012": "Created Kortix App volume",
-      "textd42cf198f12a": "Extended Kortix App volume",
-      "text396f05ee430d": "Destroyed Kortix App volume",
-      "text8e3e32695e1f": "Listed Kortix App volume snapshots",
-      "textb8390ff12da4": "Took Kortix App volume snapshot",
-      "text540e6c49c66d": "Restored Kortix App volume",
-      "text1940157bf9a8": "Forked Kortix App volume",
+      "text73de4f815f7c": "Listed Dosco App machines",
+      "text224945942c48": "Started Dosco App machine",
+      "texta51b1814a4e6": "Stopped Dosco App machine",
+      "textb393443b6937": "Restarted Dosco App machine",
+      "textf0b961e5fc2b": "Destroyed Dosco App machine",
+      "textb3dd1bd89a30": "Scaled Dosco App",
+      "textcece78b79c0e": "Listed Dosco App volumes",
+      "textab217edc5012": "Created Dosco App volume",
+      "textd42cf198f12a": "Extended Dosco App volume",
+      "text396f05ee430d": "Destroyed Dosco App volume",
+      "text8e3e32695e1f": "Listed Dosco App volume snapshots",
+      "textb8390ff12da4": "Took Dosco App volume snapshot",
+      "text540e6c49c66d": "Restored Dosco App volume",
+      "text1940157bf9a8": "Forked Dosco App volume",
       "text20ddf75b6570": "No machines yet. A server release starts one.",
       "text8265774743cb": "One machine fewer",
       "text191338ba2258": "One machine more",
@@ -20368,7 +20051,7 @@
       "text146aaf3c71fa": "Keeps SSO, SCIM, RBAC, and audit entitled for a signed Enterprise account that is also billed through a paid plan, so the Stripe reconciliation cannot strip them.",
       "text517105fd13ce": "Credits fund sandbox compute — even a BYOK trial needs wallet balance to run sessions. The free welcome grant is $2.",
       "text2f1d17f50af8": "Enterprise unlocks SAML SSO, SCIM directory sync, RBAC and audit access for this account. The billed plan is unchanged.",
-      "text12836c0e435d": "Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.",
+      "text12836c0e435d": "Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. the software costs nothing; you pay your own model bill and your own compute bill instead.",
       "text5dffd4db88c5": "Your plan, credits, and billing for this account.",
       "text49fd64c206dd": "Your plan is active. Credits are ready.",
       "textad828837ddd8": "members member workspace access collaborators people teammates roster who can see permissions grant share",
@@ -20410,7 +20093,7 @@
       "textd2bea71d87f9": "Denied a computer from enrolling",
       "text282851365ab1": "Linked a capture device to a person",
       "text53e7a07c14d4": "Viewed an unlinked capture device",
-      "texta67e3dc962e8": "Kortix Capture",
+      "texta67e3dc962e8": "Dosco Capture",
       "textf12162aa6ac0": "capture recording screen devices install enrollment",
       "text7193a9579bbc": "Button Group",
       "text0abba441f16e": "Horizontal",
@@ -20470,13 +20153,13 @@
       "text89faa819e995": "What it never gets is the reach of whoever created it. There is no inheritance edge here to walk up.",
       "text6a51a65a11f4": "Starting a session cuts a branch and boots one machine for it. The database will not let a second session have that machine.",
       "catalogExcludedNoActions": "{count, plural, one {1 app matches but publishes no actions an agent can call.} other {{count} apps match but publish no actions an agent can call.}}",
-      "text08cadd4156a5": "A sandbox is a real Linux machine the model can run anything on. So the only credential in it is one Kortix token, scoped to the project.",
+      "text08cadd4156a5": "A sandbox is a real Linux machine the model can run anything on. So the only credential in it is one Dosco token, scoped to the project.",
       "textc7d878b8738e": "Account actions land in the same place — membership, roles, policies, tokens, groups.",
       "text5b70d52b009e": "The third-party API sees an ordinary authenticated request. The answer goes back to the agent. The credential stays behind.",
       "text7a570559b1e0": "A person acts through the roles they were granted, evaluated against the resource they are reaching for.",
       "text8f0f0d2cd359": "Nothing merges itself: work reaches main through a change request a person approves, unless an admin granted the merge capability.",
       "text10fd874b68da": "write",
-      "textafeac15c27a6": "Kortix checks that this agent may use this connector, applies the policy, and decrypts the credential on its own side of the wall.",
+      "textafeac15c27a6": "Dosco checks that this agent may use this connector, applies the policy, and decrypts the credential on its own side of the wall.",
       "text6fb8ad227c23": "Recording is never the thing you pay for. Every plan writes this. The plan decides who may read, export, or stream it.",
       "textdb3871e22b38": "A second session gets its own branch and its own machine. Nothing crosses between them — same project, same team, or another customer.",
       "textc8fc6bf296fa": "ran",
@@ -20515,7 +20198,7 @@
       "text42144adfea3c": "Balance (credits)",
       "text607d4d4de45d": "Total (credits)",
       "text72c79681cd1e": "Balance ≤ {value0} credits",
-      "text88548ef048ed": "Kortix fee (credits)",
+      "text88548ef048ed": "Dosco fee (credits)",
       "text8c9a5ac212c7": "Balance ≥ {value0} credits",
       "textb8fd28863a22": "Amount in credits (e.g. 2500)",
       "textc6813a9e41ac": "In credits: {value0} LLM · {value1} compute · {value2} other.",
@@ -20524,9 +20207,9 @@
       "texte7a241debad5": "URL",
       "text3dd46a7b552c": "Add app",
       "text68cf13547e38": "Add an App by URL",
-      "text46bc646c9bfe": "Show a site hosted anywhere in this project. Kortix opens it in place, beside the Apps it runs.",
+      "text46bc646c9bfe": "Show a site hosted anywhere in this project. Dosco opens it in place, beside the Apps it runs.",
       "text08e6480e9b78": "{value0} added",
-      "text6241684827b2": "This site does not allow Kortix to show it here.",
+      "text6241684827b2": "This site does not allow Dosco to show it here.",
       "textdae75dce541f": "Pauses every schedule and webhook in this project.",
       "textced57bebd466": "Turns this project’s schedules and webhooks back on.",
       "agentsListSubagentsTitle": "Subagents",
@@ -20536,7 +20219,7 @@
       "servedModelTurnRowRepeated": "{requested} failed ({reason}) on {count, number} requests — switched to {served}.",
       "text51e6bc656528": "Chat with your agent from a Telegram bot.",
       "text00c7991f0490": "Connect Telegram",
-      "texta832efd235a7": "Create a bot with @BotFather in Telegram, then paste its token here. Kortix registers the webhook and keeps the token on the server.",
+      "texta832efd235a7": "Create a bot with @BotFather in Telegram, then paste its token here. Dosco registers the webhook and keeps the token on the server.",
       "text2c3059c25723": "Allowed users",
       "text71552d197b53": "Allowed Telegram user ids",
       "text1f7a451d4722": "Numeric ids, separated by commas. Only these people can talk to the bot; anyone else gets a reply that shows their id.",
@@ -20545,21 +20228,21 @@
       "textdfea5351a743": "Telegram disconnected",
       "text2f95b1c9ee2b": "Allowed users saved",
       "textc711077aba84": "White-label",
-      "textd8e2b67ec496": "Build your own AI product on Kortix.",
-      "text03d3a96b6cf0": "Fork Kortix, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.",
+      "textd8e2b67ec496": "Build your own AI product on Dosco.",
+      "text03d3a96b6cf0": "Fork Dosco, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.",
       "text1b84235a2025": "Sign the agreement",
       "text9c870aa6e5e9": "How it works",
       "text81ce7be09e9d": "What you can build",
       "text2e0d589bc9e9": "One horizontal platform. Your vertical product on top.",
-      "textb475d38fb868": "Kortix gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.",
+      "textb475d38fb868": "Dosco gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.",
       "text31122808c69c": "Vertical AI",
       "text7d97271d4818": "An AI product for one industry, such as legal, finance or operations, with its own agents, skills and front end.",
       "textc8b8185d2a46": "A wrapper",
-      "textb1629a8ab76f": "Kortix underneath, your interface and your plans on top. Your customers see one product: yours.",
+      "textb1629a8ab76f": "Dosco underneath, your interface and your plans on top. Your customers see one product: yours.",
       "text0aac08509e10": "Your own AI cloud",
       "textfcbf10d768da": "A managed agent cloud under your own name, sold to your own customers on your own contracts.",
       "textadcf942fec5d": "Agents in your SaaS",
-      "text2e7b471a2fbf": "Agents inside the product you already sell, with a front end built on the Kortix SDK.",
+      "text2e7b471a2fbf": "Agents inside the product you already sell, with a front end built on the Dosco SDK.",
       "textb7f4549782cb": "Agencies and consultancies",
       "textc94580aeea9a": "One branded platform you ship to every client, instead of rebuilding the same AI plumbing per client.",
       "text05b1604e2f98": "Regional providers",
@@ -20569,30 +20252,30 @@
       "text0cc627256465": "The deal",
       "text26878b22f02b": "Everything is yours to change. The compute is ours.",
       "text98bf8b3add9b": "One requirement, stated in full. Nothing else in the agreement restricts what you build.",
-      "text8bbbac648ee6": "Your name, logo, domain and colors in place of Kortix.",
+      "text8bbbac648ee6": "Your name, logo, domain and colors in place of Dosco.",
       "text33fc8b9e7f3c": "Your structure: change the source, the navigation, the features and the defaults.",
-      "text6cd480833e4b": "The right to offer Kortix to your customers as a hosted service under your brand.",
-      "textca045660b259": "The whole product, open source: read it, fork it, audit it.",
+      "text6cd480833e4b": "The right to offer Dosco to your customers as a hosted service under your brand.",
+      "textca045660b259": "The whole product, : read it, fork it, audit it.",
       "text87d30f096dd2": "What you commit to",
       "text627ed481fbae": "Every sandbox your product starts runs on Platinum.dev, from the day you sign.",
-      "text7a6b878dd5f1": "Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Kortix uses them. You get 90 days to move.",
-      "textb1a7b0d78bd8": "You keep the copyright and license notices in the source. Your customers never need to see Kortix.",
+      "text7a6b878dd5f1": "Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Dosco uses them. You get 90 days to move.",
+      "textb1a7b0d78bd8": "You keep the copyright and license notices in the source. Your customers never need to see Dosco.",
       "textc897764874f9": "The one thing you need from us is compute.",
-      "text07c5fdb5b6da": "Platinum.dev is the compute floor under Kortix. As long as your product runs on it, build any wrapper or cloud business you want.",
+      "text07c5fdb5b6da": "Platinum.dev is the compute floor under Dosco. As long as your product runs on it, build any wrapper or cloud business you want.",
       "texteaf736a322fd": "Each Platinum.dev sandbox is a hardware-isolated microVM. Every session your product starts gets its own.",
       "textc24e12a407bb": "Every new service",
-      "textaa51b8a57281": "Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Kortix uses them.",
+      "textaa51b8a57281": "Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.",
       "text2a64b1f9ed34": "Competitive rates",
-      "text2d530fb254cc": "Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Kortix matches it or releases you for that service.",
+      "text2d530fb254cc": "Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Dosco matches it or releases you for that service.",
       "text44e2b28a8efa": "One supplier",
       "text8fa936af714e": "You pay Platinum.dev for the compute you use, through your own Platinum.dev account. You run no sandbox fleet of your own.",
       "text790824fde0d6": "Sign, connect, rebrand.",
       "text0d68dc7a9ba1": "Three steps, and no call with us unless you want custom terms.",
       "texte810aac576c8": "Sign the agreement online",
-      "text115bdf31a28d": "It takes about two minutes. It is in force when you sign, and Kortix does not countersign. The signed copy arrives by email.",
+      "text115bdf31a28d": "It takes about two minutes. It is in force when you sign, and Dosco does not countersign. The signed copy arrives by email.",
       "text90b061967dcb": "Get Platinum.dev access",
       "text0d9fbe256201": "Create an API key in the Platinum.dev dashboard. Access is by request today: email marko@kortix.ai from the address you signed with.",
-      "text7c12a9200d91": "Point your Kortix at Platinum.dev and rebrand",
+      "text7c12a9200d91": "Point your Dosco at Platinum.dev and rebrand",
       "textefbebbd5bf86": "Set three values in your API environment, on any infrastructure. Then change the code, or upload your name and logo in Branding settings.",
       "textd6881978cf17": "API environment",
       "textf01f31b2f2aa": "The agreement",
@@ -20600,8 +20283,8 @@
       "texta7c470c3529d": "Anyone can sign the default online. A custom agreement that both sides sign controls over it.",
       "textfb5760f93135": "The license is free. You pay Platinum.dev only for the compute you use.",
       "texta8e9bf810c3f": "The default runs until either side ends it. You may leave at any time.",
-      "textc06bb7d99b34": "If Kortix ends it",
-      "textbb34416ac186": "Kortix may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the open-source terms apply as they do to everyone.",
+      "textc06bb7d99b34": "If Dosco ends it",
+      "textbb34416ac186": "Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the terms apply as they do to everyone.",
       "textf4967f9f60fc": "Custom agreements",
       "text2a4e4f838b60": "A fixed term, committed volumes, dedicated capacity or other terms. Email marko@kortix.ai.",
       "text750572bf5eb7": "Read the full agreement",
@@ -20611,7 +20294,7 @@
       "text41b257b886b2": "Read the agreement",
       "text08f3c151d323": "Ask for custom terms",
       "texta0990a4a86dc": "White-label: your AI product on Platinum.dev compute",
-      "text6189ab6313de": "Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
+      "text6189ab6313de": "Fork Dosco, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
       "text7971dd752669": "Reminders"
     },
     "publicShareConfirm": {
@@ -20771,8 +20454,8 @@
     "add": "Add custom provider",
     "group": "Custom · {count}",
     "emptyTitle": "No custom providers yet",
-    "emptyBody": "Point this project at a self-hosted or unlisted OpenAI-compatible endpoint.",
-    "formIntro": "Any OpenAI-compatible endpoint: self-hosted, on-prem, or not in the catalogue.",
+    "emptyBody": "Point this project at a or unlisted OpenAI-compatible endpoint.",
+    "formIntro": "Any OpenAI-compatible endpoint: , on-prem, or not in the catalogue.",
     "livePreview": "Live preview",
     "endpoint": "Endpoint",
     "declaredIn": "Declared in",
@@ -20807,7 +20490,7 @@
     "whatUnlocks": "What this unlocks",
     "viewAllModels": "View all {count} models",
     "removeKey": "Remove key",
-    "storedEncrypted": "Stored encrypted. Kortix never shows it again.",
+    "storedEncrypted": "Stored encrypted. Dosco never shows it again.",
     "readOnly": "Ask an owner of this project to add a key.",
     "chooseHow": "Choose how to connect",
     "fewerSteps": "Fewer steps",
@@ -20876,7 +20559,7 @@
     "price": "{input} / {output} per 1M",
     "hiddenLine": "Not in the model picker · direct requests still work",
     "blockedLine": "Requests to this model are blocked",
-    "platformFee": "Kortix models: provider price + {fee}% platform fee"
+    "platformFee": "Dosco models: provider price + {fee}% platform fee"
   },
   "gatewayCosts": {
     "mostSpend": "Most spend",
@@ -20939,16 +20622,10 @@
     "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
     "credentialsHint": "Disable inference without removing credentials.",
     "providerError": "Could not update provider access.",
-<<<<<<< HEAD
     "managedTitle": "Dosco Managed Models",
-    "managedDescription": "Managed models billed with Dosco credits. No API key needed.",
-    "pricingEstimate": "Estimated customer price. The serving route determines the charge.",
-=======
-    "managedTitle": "Kortix Managed Models",
     "managedDescription": "Provider base price plus a {fee}% platform fee, paid from credits. No API key needed.",
-    "managedUpgradeHint": "Upgrade to use Kortix's managed models, or connect your own provider.",
+    "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
     "pricingEstimate": "Provider base price, before the platform fee. The serving route determines the charge.",
->>>>>>> upstream-dev
     "pricingRoute": "{route}: {input} input / {cacheRead} cached / {output} output per 1M tokens",
     "pricingPreferred": "Preferred",
     "textImage": "Text + image",
@@ -21151,7 +20828,7 @@
     "addMcpMenu": "MCP server",
     "addMcpMenuHint": "Paste a server URL and sign in",
     "addMcpTitle": "Add an MCP server",
-    "addMcpDescription": "Paste the server's URL and choose who can use it. Kortix signs you in and loads its tools.",
+    "addMcpDescription": "Paste the server's URL and choose who can use it. Dosco signs you in and loads its tools.",
     "addMcpUrlLabel": "Server URL",
     "addMcpUrlHint": "The server's remote endpoint, starting with https://",
     "addMcpUrlNamed": "Adds the connector {name}.",
@@ -21173,7 +20850,7 @@
     "statusPending": "Pending",
     "managedSurfaceLabel": "{name} app",
     "noticeSignInTitle": "Sign in to {name}",
-    "noticeSignInBody": "Kortix added {name}. Finish signing in so agents can use its tools.",
+    "noticeSignInBody": "Dosco added {name}. Finish signing in so agents can use its tools.",
     "noticeSignInAction": "Sign in",
     "connectAccount": "Connect",
     "notSignedIn": "Not signed in",
@@ -21185,7 +20862,7 @@
     "backToConnectors": "Back to connectors",
     "installed": "{name} is installed",
     "yourConnectors": "Your connectors",
-    "installedSyncFailed": "{name} is installed. Kortix could not load its tools: {error}",
+    "installedSyncFailed": "{name} is installed. Dosco could not load its tools: {error}",
     "newSession": "New session",
     "sections": "{name} sections",
     "noticeNoAccountTitle": "{name} has no account",
@@ -21193,7 +20870,7 @@
     "noticeCredentialTitle": "{name} needs a credential",
     "noticeCredentialBody": "An account exists, but it has no saved credential. Agents cannot use {name} until you set one.",
     "noticeReconnectBody": "No account is authorized. Reconnect one on the Accounts tab.",
-    "noticeErrorTitle": "Kortix could not load {name}",
+    "noticeErrorTitle": "Dosco could not load {name}",
     "noticeErrorBody": "The last attempt to read its tools failed. Check the credential and the connection settings, then try again.",
     "nameLabel": "Name",
     "toolsEmptyBody": "{name} has not reported any tools. They appear here after it connects.",
@@ -21212,7 +20889,7 @@
     "accountInfoDefault": "Default · used when a session picks none",
     "accountInfoDocs": "Read the docs",
     "signInLabel": "Sign-in",
-    "signInManagedHelp": "{provider} holds the login. Kortix never sees a password or key.",
+    "signInManagedHelp": "{provider} holds the login. Dosco never sees a password or key.",
     "runsOverDirectHelp": "Agents call {name} directly over this protocol.",
     "overview": "Overview",
     "infoRunsThrough": "Provider",
@@ -21227,31 +20904,18 @@
     "providerInfoLogin": "Login",
     "providerInfoActions": "Actions",
     "providerInfoSecrets": "Your key",
-    "providerInfoLoginManaged": "Kortix stores the sign-in through {provider} and keeps it fresh.",
-    "providerInfoLoginDirect": "You sign in to the app; Kortix stores the key or token.",
+    "providerInfoLoginManaged": "Dosco stores the sign-in through {provider} and keeps it fresh.",
+    "providerInfoLoginDirect": "You sign in to the app; Dosco stores the key or token.",
     "providerInfoActionsApp": "{name} runs every action an agent asks for.",
     "providerInfoSecretsManaged": "Agents never see a password, token or key.",
-    "providerInfoSecretsDirect": "Kortix adds the key to each call. Agents never see it.",
+    "providerInfoSecretsDirect": "Dosco adds the key to each call. Agents never see it.",
     "providerInfoLabel": "Who manages this connection",
     "addMcpAppTitle": "Connect {name}",
-    "addMcpAppDescription": "Kortix connects to {name}'s own MCP server. Choose who can use it, then sign in to {name}."
+    "addMcpAppDescription": "Dosco connects to {name}'s own MCP server. Choose who can use it, then sign in to {name}."
   },
   "connectMcp": {
-<<<<<<< HEAD
     "title": "Connect Dosco over MCP",
-    "description": "Add this URL to Claude, ChatGPT, Cursor, Codex or any MCP client. The client asks you to sign in to Dosco the first time. Nothing to install.",
-    "urlLabel": "MCP URL",
-    "addToClient": "Add it to your client",
-    "other": "Other",
-    "claudeSteps": "In Claude (web or desktop), open Settings → Connectors → Add custom connector, paste the URL, and sign in.",
-    "claudeCodeHint": "Then run /mcp in Claude Code and sign in.",
-    "otherHint": "ChatGPT (developer mode), VS Code, Windsurf and other clients: add a remote MCP server with the URL above, or this JSON.",
-    "addToCursor": "Add to Cursor",
-    "signInOnFirstUse": "Cursor asks you to sign in to Dosco on first use.",
-=======
-    "title": "Connect Kortix over MCP",
-    "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
->>>>>>> upstream-dev
+    "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
     "docs": "Docs",
     "done": "Done",
     "copy": "Copy",
@@ -21432,8 +21096,8 @@
       },
       "requestHint": "Allow it in the prompt on this computer, or deny it here.",
       "deny": "Deny",
-      "offlineHint": "This computer is offline. Change access on it: the Kortix menu bar, or npx @kortix/agent-tunnel access.",
-      "updateHint": "Update Kortix on this computer to change access from here.",
+      "offlineHint": "This computer is offline. Change access on it: the Dosco menu bar, or npx @kortix/agent-tunnel access.",
+      "updateHint": "Update Dosco on this computer to change access from here.",
       "confirmOnComputer": "Confirm in the prompt on this computer…"
     },
     "unpairDescription": "Removes this computer from Dosco and from every project. It stops connecting until you connect it again.",
@@ -21505,7 +21169,7 @@
     "more": "{count} more can open this session"
   },
   "demoBooking": {
-    "meetingTitle": "Kortix demo",
+    "meetingTitle": "Dosco demo",
     "stepDetails": "Your details",
     "stepTime": "Pick a time",
     "formTitle": "Before we pick a time",
@@ -21763,9 +21427,9 @@
     "convertFailed": "Could not prepare the transcript. Try again."
   },
   "mobileAppPromo": {
-    "pill": "Kortix mobile",
+    "pill": "Dosco mobile",
     "badge": "New",
-    "title": "Kortix, now on your phone",
+    "title": "Dosco, now on your phone",
     "description": "Your projects, sessions and agents, wherever you are. Start the work at your desk and keep it moving from anywhere.",
     "feature": {
       "sessions": "Pick up where you left off",
@@ -21780,28 +21444,28 @@
   },
   "capture": {
     "authorize": {
-      "title": "Approve the Kortix Capture sign-in",
+      "title": "Approve the Dosco Capture sign-in",
       "description": "Check that the code matches the app, then pick an account.",
       "approvingAs": "Signing in as {email}",
       "notice": "Owners and admins can see what it records. Every view is logged.",
       "ownCodeOnly": "Only approve a code shown on your own computer.",
       "approve": "Approve sign-in",
       "deny": "Deny",
-      "approvedTitle": "Kortix Capture is signed in",
+      "approvedTitle": "Dosco Capture is signed in",
       "approvedDescription": "The app now records into {account}. You can close this tab.",
       "deniedTitle": "Sign-in denied",
       "deniedDescription": "The app is not signed in. You can close this tab.",
       "expiredTitle": "This code expired",
-      "expiredDescription": "Start the sign-in again in the Kortix Capture app.",
+      "expiredDescription": "Start the sign-in again in the Dosco Capture app.",
       "invalidTitle": "Code not found",
       "invalidDescription": "The code may be wrong or used already. Check the code in the app and try again.",
-      "enterCodeTitle": "Enter the code from Kortix Capture",
+      "enterCodeTitle": "Enter the code from Dosco Capture",
       "enterCodeDescription": "The app shows an eight-character code.",
       "codeLabel": "Code",
       "continue": "Continue",
       "codePlaceholder": "ABCD-1234",
       "accountLabel": "Account",
-      "noAccounts": "None of your accounts has Kortix Capture on. An owner or admin can turn it on.",
+      "noAccounts": "None of your accounts has Dosco Capture on. An owner or admin can turn it on.",
       "approvedDescriptionNoAccount": "The app is signed in. You can close this tab."
     },
     "duration": {
@@ -21886,7 +21550,7 @@
       "frame": {
         "label": "Screen recording of {app}",
         "none": "No recording at this moment.",
-        "encrypted": "The device encrypted this recording. Kortix cannot show it.",
+        "encrypted": "The device encrypted this recording. Dosco cannot show it.",
         "failed": "This recording cannot be played in this browser."
       },
       "jump": {
@@ -21939,7 +21603,7 @@
       "empty": {
         "allTitle": "No computer records into {name} yet",
         "mineTitle": "You record no computers yet",
-        "body": "Install Kortix Capture on a computer and sign in with Kortix, or roll it out to many computers with an enrollment token."
+        "body": "Install Dosco Capture on a computer and sign in with Dosco, or roll it out to many computers with an enrollment token."
       },
       "listLabel": "Device list",
       "noMatch": "No device has this status.",
@@ -21960,13 +21624,13 @@
       "frames": "Every {seconds, number} s · {resolution}",
       "never": "Never",
       "pausedUntil": "until {time}",
-      "apiLink": "Kortix Capture API",
+      "apiLink": "Dosco Capture API",
       "rollout": "Company install",
       "managedBadge": "IT rollout",
       "link": "Link to a person…",
       "relink": "Change linked person…",
       "unlinked": "Linked to no one",
-      "getCapture": "Get Kortix Capture",
+      "getCapture": "Get Dosco Capture",
       "download": {
         "windows": "Windows",
         "macos": "macOS",
@@ -21996,7 +21660,7 @@
     },
     "settings": {
       "title": "Organization settings",
-      "description": "{name}: what computers record and how long Kortix keeps it.",
+      "description": "{name}: what computers record and how long Dosco keeps it.",
       "layersTitle": "What is recorded",
       "layer": {
         "screen": "Screen",
@@ -22019,7 +21683,7 @@
           "banking": "Banking and finance",
           "bankingHint": "Bank and finance apps and about 950 bank and fintech websites."
         },
-        "orgIntro": "Every computer in {org} skips these before it records, so they are never saved or uploaded. People can add their own in Kortix Capture; they cannot remove these.",
+        "orgIntro": "Every computer in {org} skips these before it records, so they are never saved or uploaded. People can add their own in Dosco Capture; they cannot remove these.",
         "kindLabel": "Apps or websites",
         "apps": "Apps",
         "websites": "Websites",
@@ -22042,8 +21706,8 @@
         "showList": "Show list",
         "hideList": "Hide list"
       },
-      "remoteDays": "In Kortix",
-      "remoteDaysHint": "How long Kortix keeps recordings. 0 keeps them without a limit.",
+      "remoteDays": "In Dosco",
+      "remoteDaysHint": "How long Dosco keeps recordings. 0 keeps them without a limit.",
       "noticeTitle": "Notice",
       "noticePlaceholder": "Recording is on for this organization.",
       "noticeHint": "Optional. Each person sees it once, and again when it changes.",
@@ -22076,7 +21740,7 @@
       "computerDecides": "Each computer decides",
       "included": {
         "title": "Apps and websites",
-        "hint": "Choose what every computer in {org} records. Anything skipped is blacked out and never saved or uploaded. People can add their own in Kortix Capture; they cannot remove these or turn off Record only.",
+        "hint": "Choose what every computer in {org} records. Anything skipped is blacked out and never saved or uploaded. People can add their own in Dosco Capture; they cannot remove these or turn off Record only.",
         "switch": "Record only included apps and websites",
         "switchHint": "Off: everything except Never record is recorded.",
         "kindLabel": "Apps or websites",
@@ -22104,10 +21768,10 @@
       }
     },
     "area": {
-      "wordmark": "Kortix Capture",
-      "backToKortix": "Back to Kortix",
-      "kortix": "Kortix",
-      "breadcrumb": "Kortix and Kortix Capture",
+      "wordmark": "Dosco Capture",
+      "backToKortix": "Back to Dosco",
+      "kortix": "Dosco",
+      "breadcrumb": "Dosco and Dosco Capture",
       "signedInAs": "Signed in as {email}",
       "switchOrg": "Switch organization",
       "organizations": "Organizations",
@@ -22117,32 +21781,32 @@
         "timeline": "Timeline"
       },
       "off": {
-        "title": "Kortix Capture is off for {name}",
-        "bodyAdmin": "Turn it on to record the computers of this organization. Then install Kortix Capture on each computer, or roll it out to many at once.",
+        "title": "Dosco Capture is off for {name}",
+        "bodyAdmin": "Turn it on to record the computers of this organization. Then install Dosco Capture on each computer, or roll it out to many at once.",
         "bodyMember": "Ask an owner or admin of this organization to turn it on.",
-        "turnOn": "Turn on Kortix Capture",
-        "failed": "Could not turn on Kortix Capture"
+        "turnOn": "Turn on Dosco Capture",
+        "failed": "Could not turn on Dosco Capture"
       },
-      "loadFailed": "Could not open Kortix Capture.",
+      "loadFailed": "Could not open Dosco Capture.",
       "tryAgain": "Try again"
     },
     "account": {
-      "title": "Kortix Capture",
-      "label": "Kortix Capture is on",
+      "title": "Dosco Capture",
+      "label": "Dosco Capture is on",
       "description": "Computers record into this organization. Each person sees their own recordings; owners and admins see everyone's.",
-      "descriptionReadOnly": "An owner or admin of this organization turns Kortix Capture on or off.",
-      "failed": "Could not change Kortix Capture."
+      "descriptionReadOnly": "An owner or admin of this organization turns Dosco Capture on or off.",
+      "failed": "Could not change Dosco Capture."
     },
     "api": {
-      "title": "Kortix Capture API",
+      "title": "Dosco Capture API",
       "description": "Pull your Capture data into scripts, agents or anything else over HTTPS. The API returns what you can see here.",
       "baseUrl": "Base URL",
       "auth": "Authentication",
-      "authBody": "Send a Kortix API key as a bearer token. A key acts as you.",
+      "authBody": "Send a Dosco API key as a bearer token. A key acts as you.",
       "createKey": "Create an API key",
       "endpoints": "Data endpoints",
       "endpoint": {
-        "account": "Kortix Capture for this organization: on or off, and what you may see and change",
+        "account": "Dosco Capture for this organization: on or off, and what you may see and change",
         "search": "Search screen text, actions and transcripts",
         "timeline": "What a device recorded: app runs, frames, actions, transcript lines",
         "frames": "One frame with its on-screen text; a signed video URL",
@@ -22157,7 +21821,7 @@
     },
     "rollout": {
       "title": "Install on company computers",
-      "description": "IT installs Kortix Capture with an enrollment token. Each computer records on its own; nobody signs in.",
+      "description": "IT installs Dosco Capture with an enrollment token. Each computer records on its own; nobody signs in.",
       "tokensTitle": "Your enrollment tokens",
       "tokensEmpty": "No enrollment token yet.",
       "guide": "IT setup guide",
@@ -22181,7 +21845,7 @@
       "create": "Create token",
       "createFailed": "Could not create the token",
       "createdTitle": "{name}: copy the token now",
-      "createdBody": "Kortix shows this token once. Anyone who has it can enroll computers into this organization until you revoke it.",
+      "createdBody": "Dosco shows this token once. Anyone who has it can enroll computers into this organization until you revoke it.",
       "installTitle": "Install on each computer",
       "installBody": {
         "windows": "Run as administrator, or deploy with Intune or Group Policy. The computer starts recording at the next sign-in.",

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * A Kortix App inside the session browser (KRTX-2441): which project App a URL
+ * A Dosco App inside the session browser (KRTX-2441): which project App a URL
  * belongs to, the signed-in frame URL for it, and its name for the chrome.
  *
  * A raw App link in chat carries no access token, so an `access: members` App

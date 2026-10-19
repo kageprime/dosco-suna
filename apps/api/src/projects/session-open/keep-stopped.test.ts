@@ -10,7 +10,7 @@ describe('keepStoppedRefusesWake — a keep-alive poll never undoes a deliberate
     }
   });
 
-  test('a keep-alive poll leaves every stop Kortix or the user chose stopped', () => {
+  test('a keep-alive poll leaves every stop Dosco or the user chose stopped', () => {
     for (const r of ['manual', 'deadline_expired', 'run_cap', 'idle_grace', 'boot_floor_expired', 'wedged_backlog_remediation']) {
       expect(keepStoppedRefusesWake(true, row(r))).toBe(true);
     }

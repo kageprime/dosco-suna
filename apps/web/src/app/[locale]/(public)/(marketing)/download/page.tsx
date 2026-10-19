@@ -1,11 +1,6 @@
 import { AppleMark, LinuxMark, PlayStoreMark, WindowsMark } from '@/components/brand/brand-logos';
 import { DesktopCardImage, MobileCardImage } from '@/features/marketing/download/card-images';
-<<<<<<< HEAD:apps/web/src/app/[locale]/(public)/download/page.tsx
-import { DownloadCloseButton } from '@/features/marketing/download/close-button';
-import { DESKTOP_STATUS, localizedDownloadContent } from '@/features/marketing/download/content';
-=======
 import { localizedDownloadContent } from '@/features/marketing/download/content';
->>>>>>> upstream-dev:apps/web/src/app/[locale]/(public)/(marketing)/download/page.tsx
 import type { DesktopOs, MobileOs, Platform } from '@/features/marketing/download/detect-os';
 import {
   DESKTOP_ORDER,
@@ -16,6 +11,11 @@ import {
 } from '@/features/marketing/download/detect-os';
 import type { CardRow } from '@/features/marketing/download/platform-card';
 import { PlatformCard } from '@/features/marketing/download/platform-card';
+import {
+  formatSize,
+  getLatestRelease,
+  pickDesktopAsset,
+} from '@/features/marketing/download/releases';
 import { TerminalBlock } from '@/features/marketing/download/terminal-block';
 import { localizedMarketingMetadata } from '@/lib/seo/metadata';
 import type { Metadata } from 'next';
@@ -41,9 +41,10 @@ export default async function DownloadPage({
 }: {
   searchParams: Promise<{ platform?: string }>;
 }) {
-  const [headerList, params, tI18nComplete] = await Promise.all([
+  const [headerList, params, release, tI18nComplete] = await Promise.all([
     headers(),
     searchParams,
+    getLatestRelease(),
     getTranslations('hardcodedUi.i18nComplete'),
   ]);
   const {
@@ -57,15 +58,6 @@ export default async function DownloadPage({
   const detected: Platform =
     normalizePlatform(params.platform) ?? detectPlatform(headerList.get('user-agent'));
 
-<<<<<<< HEAD:apps/web/src/app/[locale]/(public)/download/page.tsx
-  const desktopRows: CardRow[] = orderedDesktop(detected).map((os) => ({
-    id: os,
-    label: DESKTOP_ROWS[os].label,
-    meta: DESKTOP_ROWS[os].hint,
-    status: DESKTOP_STATUS,
-    Mark: DESKTOP_MARKS[os],
-  }));
-=======
   const desktopRows: CardRow[] = DESKTOP_ORDER.map((os) => {
     const size = release ? formatSize(pickDesktopAsset(release.assets, os)?.size ?? 0) : '';
     return {
@@ -78,7 +70,6 @@ export default async function DownloadPage({
       Mark: DESKTOP_MARKS[os],
     };
   });
->>>>>>> upstream-dev:apps/web/src/app/[locale]/(public)/(marketing)/download/page.tsx
 
   const mobileRows: CardRow[] = MOBILE_ORDER.map((os) => ({
     id: os,

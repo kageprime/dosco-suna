@@ -26,7 +26,7 @@ describe('auth corner brand', () => {
   test('is a named home link, not a bare glyph', () => {
     const html = renderToStaticMarkup(React.createElement(AuthMobileLogo));
     expect(html).toContain('href="/"');
-    expect(html).toContain('aria-label="Kortix home"');
+    expect(html).toContain('aria-label="Dosco home"');
     expect(html).toContain('hit-area-3');
   });
 });

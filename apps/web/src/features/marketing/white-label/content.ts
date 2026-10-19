@@ -19,9 +19,9 @@ import { WHITE_LABEL_TRANSLATION_KEYS } from '@/i18n/white-label-translation-key
  *
  *  1. The license is free. Its one requirement is Platinum.dev as exclusive
  *     compute for every service Platinum.dev offers: sandboxes today; volumes,
- *     runners, AI compute and inference once offered and used by Kortix, with
+ *     runners, AI compute and inference once offered and used by Dosco, with
  *     90 days to move (agreement §3).
- *  2. Kortix may end the default agreement at any time with notice. The
+ *  2. Dosco may end the default agreement at any time with notice. The
  *     partner then has up to 90 days to move existing customers (§11).
  *  3. Rates: a commitment to competitive rates, with match-or-release (§4).
  *     NOT "the most affordable" and NOT "cheaper than nearly everyone": no row
@@ -33,7 +33,7 @@ import { WHITE_LABEL_TRANSLATION_KEYS } from '@/i18n/white-label-translation-key
  */
 
 export const SIGN_URL = 'https://app.documenso.com/d/gaAaA6NPc_E9c6C-sl9YB';
-export const AGREEMENT_URL = 'https://github.com/kortix-ai/suna/blob/dev/WHITE-LABEL-LICENSE.md';
+export const AGREEMENT_URL = '?/blob/dev/WHITE-LABEL-LICENSE.md';
 export const CUSTOM_TERMS_URL = 'mailto:marko@kortix.ai';
 
 /** The real config a licensed partner sets: agreement, "After you sign", step 2. */
@@ -46,8 +46,8 @@ export const ENV_LINES = [
 
 export const hero = {
   eyebrow: 'White-label',
-  title: 'Build your own AI product on Kortix.',
-  sub: 'Fork Kortix, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.',
+  title: 'Build your own AI product on Dosco.',
+  sub: 'Fork Dosco, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.',
   ctaPrimary: 'Sign the agreement',
   ctaPrimaryHref: SIGN_URL,
   ctaSecondary: 'How it works',
@@ -58,7 +58,7 @@ export const hero = {
 export const scenarios = {
   eyebrow: 'What you can build',
   title: 'One horizontal platform. Your vertical product on top.',
-  sub: 'Kortix gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.',
+  sub: 'Dosco gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.',
   rows: [
     {
       id: 'vertical',
@@ -68,7 +68,7 @@ export const scenarios = {
     {
       id: 'wrapper',
       k: 'A wrapper',
-      v: 'Kortix underneath, your interface and your plans on top. Your customers see one product: yours.',
+      v: 'Dosco underneath, your interface and your plans on top. Your customers see one product: yours.',
     },
     {
       id: 'cloud',
@@ -78,7 +78,7 @@ export const scenarios = {
     {
       id: 'embedded',
       k: 'Agents in your SaaS',
-      v: 'Agents inside the product you already sell, with a front end built on the Kortix SDK.',
+      v: 'Agents inside the product you already sell, with a front end built on the Dosco SDK.',
     },
     {
       id: 'agency',
@@ -105,9 +105,9 @@ export const deal = {
   get: {
     title: 'What you get',
     items: [
-      'Your name, logo, domain and colors in place of Kortix.',
+      'Your name, logo, domain and colors in place of Dosco.',
       'Your structure: change the source, the navigation, the features and the defaults.',
-      'The right to offer Kortix to your customers as a hosted service under your brand.',
+      'The right to offer Dosco to your customers as a hosted service under your brand.',
       'The whole product, open source: read it, fork it, audit it.',
     ],
   },
@@ -115,8 +115,8 @@ export const deal = {
     title: 'What you commit to',
     items: [
       'Every sandbox your product starts runs on Platinum.dev, from the day you sign.',
-      'Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Kortix uses them. You get 90 days to move.',
-      'You keep the copyright and license notices in the source. Your customers never need to see Kortix.',
+      'Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Dosco uses them. You get 90 days to move.',
+      'You keep the copyright and license notices in the source. Your customers never need to see Dosco.',
     ],
   },
 } as const;
@@ -124,7 +124,7 @@ export const deal = {
 export const platinum = {
   eyebrow: 'Platinum.dev',
   title: 'The one thing you need from us is compute.',
-  sub: 'Platinum.dev is the compute floor under Kortix. As long as your product runs on it, build any wrapper or cloud business you want.',
+  sub: 'Platinum.dev is the compute floor under Dosco. As long as your product runs on it, build any wrapper or cloud business you want.',
   rows: [
     {
       id: 'sandboxes',
@@ -134,12 +134,12 @@ export const platinum = {
     {
       id: 'services',
       k: 'Every new service',
-      v: 'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Kortix uses them.',
+      v: 'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.',
     },
     {
       id: 'rates',
       k: 'Competitive rates',
-      v: 'Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Kortix matches it or releases you for that service.',
+      v: 'Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Dosco matches it or releases you for that service.',
     },
     {
       id: 'billing',
@@ -157,7 +157,7 @@ export const steps = {
     {
       n: '01',
       k: 'Sign the agreement online',
-      v: 'It takes about two minutes. It is in force when you sign, and Kortix does not countersign. The signed copy arrives by email.',
+      v: 'It takes about two minutes. It is in force when you sign, and Dosco does not countersign. The signed copy arrives by email.',
     },
     {
       n: '02',
@@ -166,7 +166,7 @@ export const steps = {
     },
     {
       n: '03',
-      k: 'Point your Kortix at Platinum.dev and rebrand',
+      k: 'Point your Dosco at Platinum.dev and rebrand',
       v: 'Set three values in your API environment, on any infrastructure. Then change the code, or upload your name and logo in Branding settings.',
     },
   ],
@@ -190,8 +190,8 @@ export const terms = {
     },
     {
       id: 'ending',
-      k: 'If Kortix ends it',
-      v: 'Kortix may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the open-source terms apply as they do to everyone.',
+      k: 'If Dosco ends it',
+      v: 'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the open-source terms apply as they do to everyone.',
     },
     {
       id: 'custom',

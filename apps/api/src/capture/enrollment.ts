@@ -2,10 +2,10 @@
  * IT rollout: enrollment tokens and the computers that present them. The data
  * side of enrollment-routes.ts.
  *
- * IT installs Kortix Capture with one enrollment token. At each Windows
+ * IT installs Dosco Capture with one enrollment token. At each Windows
  * sign-in the machine service calls `POST /v1/capture/device/enroll` with the
  * token, the machine key and the Windows person (UPN, else the login name).
- * Device-first: Kortix mints a device token for every valid token. The device
+ * Device-first: Dosco mints a device token for every valid token. The device
  * is linked to the member whose trusted email the Windows person has, else to
  * the member an admin linked this person to before, else to no one until an
  * admin links it. Only a token that requires approval, or a device an admin

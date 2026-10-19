@@ -121,7 +121,7 @@ export const DEFAULT_APPEARANCE_TAB_COPY: AppearanceTabCopy = {
     pureDark: 'Pure dark',
   },
   themeGroups: {
-    kortix: 'Kortix',
+    kortix: 'Dosco',
     lightThemes: 'Light themes',
     darkThemes: 'Dark themes',
   },
@@ -247,7 +247,7 @@ export interface AppearanceTabViewProps {
 const optionFor = (value: InterfaceThemeId) =>
   INTERFACE_THEME_OPTIONS.find((option) => option.value === value) ?? INTERFACE_THEME_OPTIONS[0];
 
-/** A row's display name: the translated catalog entry for a Kortix row, the
+/** A row's display name: the translated catalog entry for a Dosco row, the
  *  terminal theme's own proper noun (verbatim, never translated) otherwise. */
 const nameFor = (option: InterfaceThemeOption, copy: AppearanceTabCopy): string =>
   option.kind === 'labelled' ? copy.themes[option.labelKey] : option.name;

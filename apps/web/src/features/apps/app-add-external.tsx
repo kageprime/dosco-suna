@@ -17,7 +17,7 @@ export function slugFromName(name: string): string {
 
 /**
  * Add an App hosted elsewhere by its URL: the grid lists it and the detail
- * frames it, so a third-party tool sits in Kortix beside the Apps it runs.
+ * frames it, so a third-party tool sits in Dosco beside the Apps it runs.
  */
 export function AddExternalAppDialog({
   projectId,

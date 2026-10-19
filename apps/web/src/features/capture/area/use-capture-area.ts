@@ -9,9 +9,9 @@ import { useAuth } from '@/features/providers/auth-provider';
 import { useAccountsList } from '@/hooks/account/use-accounts-list';
 
 /**
- * Kortix Capture lives at `/capture/[accountId]`: the Kortix account is its
+ * Dosco Capture lives at `/capture/[accountId]`: the Dosco account is its
  * tenant (no project). Every page of the area reads the account's Capture
- * workspace once, here: on or off, and what Kortix IAM lets the viewer do. The
+ * workspace once, here: on or off, and what Dosco IAM lets the viewer do. The
  * API enforces the same rules (`apps/api/src/capture/account-routes.ts`):
  *
  * - every member: their own devices and timeline;
@@ -35,7 +35,7 @@ export function useCaptureArea(accountId: string) {
 }
 
 /** The pages of the area, in the header's order. */
-// `settings` (the organization's Kortix Capture settings) shows only to people with capture.manage.
+// `settings` (the organization's Dosco Capture settings) shows only to people with capture.manage.
 export const CAPTURE_SECTIONS = ['devices', 'settings'] as const;
 export type CaptureSection = (typeof CAPTURE_SECTIONS)[number];
 

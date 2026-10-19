@@ -44,7 +44,6 @@ import { ComputerTab } from './tabs/computer-tab';
 import { ConnectedAccountsTab } from './tabs/connected-tab';
 import { CreditsTab } from './tabs/credits-tab';
 import { ExperimentalTab } from './tabs/experimental-tab';
-import { GitView } from '@/features/workspace/customize/sections/view/git-view';
 import { GeneralTab } from './tabs/general-tab';
 import { McpTab } from './tabs/mcp-tab';
 import { PlanTab } from './tabs/plan-tab';
@@ -89,24 +88,6 @@ export const ACCOUNT_SCOPED_SETTINGS_TABS: readonly SettingsTab[] = [
   // there is no project to name.
 ];
 
-<<<<<<< HEAD
-/**
- * The three Workspace rows that gate on an IAM read leaf, keyed to the
- * `CustomizeSection` the retired config page gated the same pane on — the
- * section keys outlived that page and live in `lib/project-actions.ts`.
- * `workspace` (General) is not here: every
- * member may see the workspace's name and icon, and `GeneralTab` gates its own
- * controls on write.
- */
-const PROJECT_GATED_TABS: Partial<Record<SettingsTab, CustomizeSection>> = {
-  sandbox: 'sandbox',
-  'feature-flags': 'feature-flags',
-  git: 'git',
-  upgrades: 'upgrade',
-};
-
-=======
->>>>>>> upstream-dev
 export interface SettingsTabAllowedParams {
   hasProject: boolean;
 }
@@ -503,7 +484,6 @@ function SettingsTabPane({
   projectId: string | undefined;
   accountId: string | undefined;
 }) {
-  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   if (!active) return null;
 
   // Workspace name and icon have one implementation and one set of mutations,
@@ -515,70 +495,6 @@ function SettingsTabPane({
   // rail whenever there is no project, so this branch is unreachable without
   // one. It is here so the pane degrades to its own label rather than
   // rendering `GeneralTab` with an empty id if that gate is ever loosened.
-<<<<<<< HEAD
-  if (item.tab === 'workspace' && projectId) {
-    return <GeneralTab projectId={projectId} />;
-  }
-  // The two other Workspace rows: mounted exactly as
-  // `project-settings-page.tsx` mounts them — `sandbox` is BOTH components,
-  // stacked, because a snapshot is the build history of a sandbox template.
-  if (item.tab === 'sandbox' && projectId) {
-    return (
-      <div className="space-y-8">
-        <SandboxTab projectId={projectId} />
-        <SnapshotsTab projectId={projectId} />
-      </div>
-    );
-  }
-  if (item.tab === 'feature-flags' && projectId) {
-    return <ExperimentalTab projectId={projectId} />;
-  }
-  // Same Git repo section the Customize bar's Settings tab renders — one
-  // component, two doors. Wrapped identically (narrow column + header) so
-  // the pane reads the same wherever it is opened from.
-  if (item.tab === 'git' && projectId) {
-    return (
-      <div className="mx-auto w-full max-w-2xl space-y-8">
-        <SettingsSectionHeader
-          title={tI18nComplete.raw('text95ddc9c4dfd3')}
-          description={tI18nComplete.raw('texte0d7209f4c07')}
-          className="pb-1"
-        />
-        <GitView projectId={projectId} />
-      </div>
-    );
-  }
-  if (item.tab === 'upgrades' && projectId) {
-    return <UpgradesView projectId={projectId} />;
-  }
-  if (item.tab === 'profile') {
-    return <ProfileTab />;
-  }
-  if (item.tab === 'security') {
-    return <SecurityTab />;
-  }
-  if (item.tab === 'appearance') {
-    return <AppearanceTab />;
-  }
-  if (item.tab === 'sessions') {
-    return <SessionsTab />;
-  }
-  if (item.tab === 'preferences') {
-    return <PreferencesTab />;
-  }
-  if (item.tab === 'connected') {
-    return <ConnectedAccountsTab accountId={accountId} />;
-  }
-  if (item.tab === 'tokens') {
-    return <TokensTab accountId={accountId} />;
-  }
-  if (item.tab === 'credits') {
-    return <CreditsTab accountId={accountId} />;
-  }
-  if (item.tab === 'plan') {
-    return <PlanTab accountId={accountId} />;
-  }
-=======
   const panes: Partial<Record<SettingsTab, () => React.ReactNode>> = {
     workspace: () => (projectId ? <GeneralTab projectId={projectId} /> : null),
     sandbox: () =>
@@ -609,7 +525,6 @@ function SettingsTabPane({
       projectId)
   )
     return pane();
->>>>>>> upstream-dev
 
   // Unreachable while every `SettingsTab` member has a branch above, and kept
   // for the next one: a tab added to the union with no branch renders its own

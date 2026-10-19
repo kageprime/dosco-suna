@@ -46,7 +46,7 @@ export interface FolderGrant {
   level: FolderLevel;
   principalType: FolderPrincipalType;
   principalId: string;
-  /** `system` grants are the ones Kortix made (a person's own folder, the Company default). */
+  /** `system` grants are the ones Dosco made (a person's own folder, the Company default). */
   source?: string;
 }
 

@@ -422,7 +422,7 @@ describe('catalogHidden', () => {
 });
 
 describe('featureDisabledBody', () => {
-  test('carries the machine-readable code and the flag key; points at Settings, or at Kortix for a hidden flag', () => {
+  test('carries the machine-readable code and the flag key; points at Settings, or at Dosco for a hidden flag', () => {
     for (const key of FEATURE_FLAG_KEYS) {
       const body = featureDisabledBody(key);
       expect(body.code).toBe(FEATURE_DISABLED_CODE);
@@ -432,7 +432,7 @@ describe('featureDisabledBody', () => {
       // A flag derived from Volumes points at the Volumes toggle, and a hidden
       // flag has no toggle in Settings to point at. No message names an organization.
       const derived = REGISTERED_FEATURE_FLAGS.find((f) => f.key === key)?.derivedFrom;
-      expect(body.error).toContain(derived ? 'Turn on Volumes' : HIDDEN_KEYS.includes(key) ? 'Contact Kortix' : 'Settings');
+      expect(body.error).toContain(derived ? 'Turn on Volumes' : HIDDEN_KEYS.includes(key) ? 'Contact Dosco' : 'Settings');
       expect(body.error).not.toContain('organization');
     }
   });

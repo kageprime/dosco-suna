@@ -2,7 +2,7 @@
  * Composio (hosted connectors provider) transient-failure classification at
  * the GLOBAL HTTP error handler.
  *
- * Regression for Better Stack pattern `0386d70c…` (Kortix API prod,
+ * Regression for Better Stack pattern `0386d70c…` (Dosco API prod,
  * application 2346961, 2026-10-15): `InternalServerError: 500 {"error":
  * {"message":"Failed to fetch API key information from DB","code":809,…}}`
  * thrown by `@composio/client`'s `makeRequest` on
@@ -13,7 +13,7 @@
  *
  * A transient Composio API failure (their own 5xx, or a dropped connection /
  * client timeout) is EXPECTED and retryable — the provider is momentarily
- * unavailable, not a Kortix code bug. This test proves the global
+ * unavailable, not a Dosco code bug. This test proves the global
  * classification downgrades it to a retryable 503 + Retry-After WITHOUT
  * paging Sentry, mirroring the Platinum / git-mirror / Daytona / request-
  * deadline patterns. See shared/composio-transient.ts + http-errors.ts.

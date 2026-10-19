@@ -266,9 +266,9 @@ export function createConnectionsRouter() {
       method: 'post',
       path: '/{tunnelId}/access',
       tags: ['tunnel'],
-      summary: 'Change when Kortix may use a paired machine',
+      summary: 'Change when Dosco may use a paired machine',
       description:
-        'Relays the owner\'s change to the machine, which applies it. A narrowing (Ask each time, Off, revoke, deny, keep awake) applies at once. A widening (Always, a longer grant) waits up to 20 s for the owner to confirm in the Kortix app on that machine, and fails with `computer_access_unconfirmed` otherwise. User credentials only.',
+        'Relays the owner\'s change to the machine, which applies it. A narrowing (Ask each time, Off, revoke, deny, keep awake) applies at once. A widening (Always, a longer grant) waits up to 20 s for the owner to confirm in the Dosco app on that machine, and fails with `computer_access_unconfirmed` otherwise. User credentials only.',
       security: [{ bearerAuth: [] }],
       request: {
         params: z.object({ tunnelId: z.string() }),

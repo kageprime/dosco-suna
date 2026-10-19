@@ -56,10 +56,10 @@ export function splitUrlForDisplay(
 /**
  * Normalize an address-bar draft into the internal localhost URL it names.
  *
- * This bar controls the sandbox's local PORTS and Kortix Apps only — not
+ * This bar controls the sandbox's local PORTS and Dosco Apps only — not
  * arbitrary external sites — so we accept a bare port, `:port`,
  * `localhost:port`, `127.0.0.1:port`, or a full localhost URL (each optionally
- * followed by a path), and a Kortix App URL with or without its scheme.
+ * followed by a path), and a Dosco App URL with or without its scheme.
  * Anything else (e.g. `google.com`) is rejected inline rather than attempting
  * to browse it.
  *
@@ -124,7 +124,7 @@ export function SandboxAddressBar({
   onReload: () => void;
   /** Back to the browser's landing (the project's Apps and recents). */
   onHome: () => void;
-  /** Called with the internal `http://localhost:<port><path>` URL or a Kortix
+  /** Called with the internal `http://localhost:<port><path>` URL or a Dosco
    *  App URL, after the draft parses as one, or names a `suggestions` entry. */
   onNavigate: (internalUrl: string) => void;
   /** Named destinations the bar completes (the project's Apps). Typing a

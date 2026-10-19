@@ -1,6 +1,6 @@
 /**
  * Regression for Better Stack pattern `6bc03d7d…` (frontend app 2346967,
- * `ApiError: Internal server error`) driven by the Kortix API pattern
+ * `ApiError: Internal server error`) driven by the Dosco API pattern
  * `POST /v1/projects/:id/apps/:appId/stop -> 500 [Error] Sandbox state change
  * in progress (provider status: running)`.
  *

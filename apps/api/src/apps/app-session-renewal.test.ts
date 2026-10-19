@@ -3,7 +3,7 @@ import { appAccessCookieName, appAccessSecret, createAppAccessToken, verifyAppAc
 import { renewedAppAccessCookie } from './public-proxy-access';
 
 const app = { appId: '00000000-0000-4000-a000-0000000000a1', accessRevision: 3 };
-const url = new URL('https://dev-crm-0123456789abcdef.apps.kortix.com/_kortix/token');
+const url = new URL('https://dev-crm-0123456789abcdef.apps.dosco.live/_kortix/token');
 const now = new Date('2026-10-10T12:00:00Z');
 const hours = (h: number) => new Date(now.getTime() + h * 3600_000);
 const request = (cookie: string) =>

@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
  * agent and it answers. The mock is the pitch, so the copy column stays short.
  * Below `md` the mock hides and the copy column takes the whole card.
  *
- * Two install paths, one shape. With the managed Kortix app (`oneClickUrl`)
+ * Two install paths, one shape. With the managed Dosco app (`oneClickUrl`)
  * the primary button installs it and the bring-your-own wizard is a quiet
  * link under it. Without it, the wizard is the primary button, so the
  * self-hosted route reads as a deliberate choice, not a missing feature.

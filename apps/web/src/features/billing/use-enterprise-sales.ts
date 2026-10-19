@@ -4,7 +4,7 @@
  * The two in-app Enterprise actions, with their toasts
  * (.agents/skills/billing/references/plans-and-access.md, "Enterprise"):
  *
- * - `useTalkToSales`: one click emails Kortix sales the account, the user and
+ * - `useTalkToSales`: one click emails Dosco sales the account, the user and
  *   its Enterprise state. No form: a signed-in user already told us who they are.
  * - `useEnterpriseDemo`: an owner or admin turns the Enterprise demo on or off.
  */

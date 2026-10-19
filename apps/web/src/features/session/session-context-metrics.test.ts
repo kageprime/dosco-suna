@@ -197,19 +197,9 @@ describe('getSessionContextMetrics', () => {
   });
 
   test('gateway model without a provider field keeps the synthetic kortix label', () => {
-<<<<<<< HEAD
-    const msg = assistant({ providerID: 'kortix', tokens: positiveTokens() });
-    const metrics = getSessionContextMetrics(
-      [row(msg)],
-      providersOf('kortix', { 'claude-x': { name: 'Claude X' } }),
-      freeLookup,
-    );
-    expect(metrics.context?.providerLabel).toBe('Dosco');
-=======
     const msg = assistant({ model: kortix, usage: positiveTokens() });
     const metrics = getSessionContextMetrics(thread([msg]), providersOf('kortix', { 'claude-x': { name: 'Claude X' } }), freeLookup);
-    expect(metrics.context?.providerLabel).toBe('Kortix');
->>>>>>> upstream-dev
+    expect(metrics.context?.providerLabel).toBe('Dosco');
   });
 
   test('known provider id maps through PROVIDER_LABELS without a providers list', () => {

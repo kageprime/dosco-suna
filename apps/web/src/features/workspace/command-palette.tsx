@@ -156,7 +156,6 @@ import {
   useVisibleAgents,
 } from '@kortix/sdk/react';
 import { capitalizeWords, chalkColors, formatRelativeTime } from '@kortix/shared';
-import { displayAgentName } from '@/features/workspace/capabilities/agents/agent-display-name';
 import {
   ArrowDownIcon as ArrowDown,
   ArrowUpIcon as ArrowUp,
@@ -2950,7 +2949,7 @@ export function CommandPalette() {
                           </div>
                           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                             <span className="truncate text-sm font-medium">
-                              {displayAgentName(agent.name)}
+                              {capitalizeWords(agent.name)}
                             </span>
                             {agent.description && (
                               <span className="text-muted-foreground/50 truncate text-xs">

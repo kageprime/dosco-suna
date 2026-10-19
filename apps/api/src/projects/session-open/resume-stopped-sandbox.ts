@@ -388,7 +388,7 @@ export async function resumeStoppedSandboxByExternalId(externalId: string): Prom
 
 /**
  * Stop reasons a keep-alive poll must never undo: the user pressed Stop, or
- * Kortix's own idle policy parked the box. Only a provider-originated park
+ * Dosco's own idle policy parked the box. Only a provider-originated park
  * (and a row with no reason) is worth waking from a poll.
  */
 const DELIBERATE_STOP_REASONS: ReadonlySet<string> = new Set([

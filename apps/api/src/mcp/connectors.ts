@@ -169,11 +169,7 @@ export const CONNECTOR_TOOLS = [
     name: 'add_connector',
     title: 'Add a connector',
     description:
-<<<<<<< HEAD
-      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". For a managed app (Gmail, Slack, GitHub, …) pass `app` = the slug from search_connector_apps; the provider is Composio and the slug defaults to the app. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Dosco. To remove a connector call remove_connector. Needs the connector-write permission.',
-=======
-      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". For an app (Gmail, Slack, GitHub, …) pass `app` = the slug from search_connector_apps; the provider is the app\'s MCP server on a project with Connectors v2, else Composio, and the slug defaults to the app. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Kortix. To remove a connector call remove_connector. Needs the connector-write permission.',
->>>>>>> upstream-dev
+      'Add (or update) a connector on the project now: it is committed to kortix.yaml on main and synced, like the dashboard\'s "Add app". For an app (Gmail, Slack, GitHub, …) pass `app` = the slug from search_connector_apps; the provider is the app\'s MCP server on a project with Connectors v2, else Composio, and the slug defaults to the app. For your own server pass `provider` and `slug` with `url` (mcp, plus `transport` http|sse), `endpoint` (graphql), `spec` (openapi, postman) or `base_url` (http). The result says what is next: call connect_connector for an OAuth app; an API-key connector needs its credential set by the human in Dosco. To remove a connector call remove_connector. Needs the connector-write permission.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -307,7 +303,7 @@ const parse = (body: string): any => {
 /** Standard base64 the API accepts; lenient decoders would write junk bytes. */
 const validBase64 = (s: string) => /^[A-Za-z0-9+/=\s]*$/.test(s) && s.replace(/[=\s]/g, '').length % 4 !== 1;
 
-/** `connectors_v2`: apps come from Kortix's own MCP catalogue (Discover), not Composio. */
+/** `connectors_v2`: apps come from Dosco's own MCP catalogue (Discover), not Composio. */
 async function mcpAppsCatalogue(h: Host, pid: string): Promise<boolean> {
   const r = await h.call('GET', `/v1/projects/${pid}`);
   return r.status < 400 && parse(r.body)?.project?.experimental?.connectors_v2 === true;
@@ -581,7 +577,7 @@ export async function runConnectorTool(name: string, input: Record<string, unkno
     }
     case 'add_connector': {
       const app = h.optionalArg(input, 'app');
-      // Connectors v2: an app is its vendor's MCP server, from Kortix's catalogue.
+      // Connectors v2: an app is its vendor's MCP server, from Dosco's catalogue.
       const mcpApp = app && !h.optionalArg(input, 'provider') && (await mcpAppsCatalogue(h, pid)) ? await findMcpApp(h, base, app) : null;
       if (app && mcpApp === undefined) throw h.input(`"${app}" is not in the app catalogue: search_connector_apps lists the apps`);
       const provider = mcpApp ? 'mcp' : (h.optionalArg(input, 'provider') ?? (app ? 'composio' : undefined));

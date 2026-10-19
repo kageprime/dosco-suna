@@ -3,8 +3,8 @@ import type { SessionModelUsage } from '@kortix/sdk';
 import { modelNameOfWire, servedModelNotice, sessionBilledCost, turnServedModel, turnServedModelResolver } from './served-model';
 
 const models = [
-  { providerID: 'kortix', providerName: 'Kortix', modelID: 'codex/gpt-6.1-sol', modelName: 'GPT-6.1 Sol (ChatGPT)' },
-  { providerID: 'kortix', providerName: 'Kortix', modelID: 'glm-5.3-flash', modelName: 'GLM 5.3 Flash' },
+  { providerID: 'kortix', providerName: 'Dosco', modelID: 'codex/gpt-6.1-sol', modelName: 'GPT-6.1 Sol (ChatGPT)' },
+  { providerID: 'kortix', providerName: 'Dosco', modelID: 'glm-5.3-flash', modelName: 'GLM 5.3 Flash' },
   { providerID: 'anthropic', providerName: 'Anthropic', modelID: 'claude-sonnet-5-5', modelName: 'Claude Sonnet 5.5' },
 ];
 const fallback: SessionModelUsage = {
@@ -36,7 +36,7 @@ describe('modelNameOfWire', () => {
 
 describe('servedModelNotice', () => {
   // Incident 2026-10-02: the composer named the selected ChatGPT model while a
-  // Kortix model answered every request of the session. The notice now feeds
+  // Dosco model answered every request of the session. The notice now feeds
   // the session modal; the composer strip is gone (KRTX-2685).
   test('a fallback answer is named', () => {
     expect(servedModelNotice(fallback, models)).toEqual({
@@ -128,7 +128,7 @@ describe('turnServedModelResolver', () => {
 });
 
 describe('sessionBilledCost', () => {
-  test('a session with a fallback turn reports what Kortix billed, not the estimate for the selected model', () => {
+  test('a session with a fallback turn reports what Dosco billed, not the estimate for the selected model', () => {
     expect(sessionBilledCost(fallback)).toBe(0.875);
   });
 

@@ -91,11 +91,11 @@ export function describeEventTitle(
 
 /**
  * Display names of the event source adapters: the one place a source id becomes a name.
- * `mcp` is Kortix checking the connected MCP server itself, so it names no adapter.
+ * `mcp` is Dosco checking the connected MCP server itself, so it names no adapter.
  */
 const EVENT_SOURCE_NAMES: Record<string, string | null> = { composio: 'Composio', mcp: null };
 
-/** `composio` -> `Composio`; null when the event names no source, or Kortix runs it itself. */
+/** `composio` -> `Composio`; null when the event names no source, or Dosco runs it itself. */
 export function eventSourceName(event: {
   source?: string | null;
   provider?: string | null;
@@ -499,7 +499,7 @@ export interface EventAppTarget {
   connector: string | null;
   /** The API's slug for a new connector (never reserved or taken); the local guess is a fallback. */
   newConnectorSlug?: string;
-  /** Event source adapter id. `mcp` installs and signs in over Kortix's MCP path, never Composio. */
+  /** Event source adapter id. `mcp` installs and signs in over Dosco's MCP path, never Composio. */
   source?: string;
   /** Source `mcp`: the catalogue MCP server to install. Null for a project MCP server, which has its connector. */
   mcpUrl?: string | null;

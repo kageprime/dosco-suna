@@ -97,7 +97,7 @@ export function appStatus(
   app: App,
   tI18nComplete: UiTranslator,
 ): { deployed: boolean; live: boolean; label: string; dot: string } {
-  // Hosted elsewhere: Kortix does not know whether it is up, so it claims nothing.
+  // Hosted elsewhere: Dosco does not know whether it is up, so it claims nothing.
   if (app.external_url) {
     return { deployed: true, live: false, label: tI18nComplete.raw('text68c114ea9c8c'), dot: 'bg-muted-foreground/50' };
   }

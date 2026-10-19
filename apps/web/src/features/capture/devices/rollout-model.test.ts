@@ -41,7 +41,7 @@ describe('IT rollout model', () => {
   test('macOS and Linux write a root-only config.json with the URL and the token, then install the package', () => {
     const mac = installCommand('macos', 'https://api.kortix.com', 'kortix_enr_x');
     expect(mac).toContain('{"url":"https://api.kortix.com","enrollment_token":"kortix_enr_x"}');
-    expect(mac).toContain('sudo chmod 600 "/Library/Application Support/Kortix/Capture/config.json"');
+    expect(mac).toContain('sudo chmod 600 "/Library/Application Support/Dosco/Capture/config.json"');
     expect(mac.split('\n').at(-1)).toBe('sudo installer -pkg KortixCapture-universal.pkg -target /');
     const linux = installCommand('linux', 'https://api.kortix.com', 'kortix_enr_x');
     expect(linux).toContain('sudo tee /etc/kortix/capture.json');

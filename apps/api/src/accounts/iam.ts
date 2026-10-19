@@ -28,21 +28,6 @@
 // OpenAPIHono dispatches in registration order, and that order is part of the
 // contract.
 
-<<<<<<< HEAD
-import './iam/groups'; // groups, group members, group→project grants
-import './iam/members'; // super-admin, member groups / project-access / effective(+batch)
-import './iam/resource-grants'; // account-wide resource-grants rollup (agent/skill grants across every project)
-import './iam/mfa'; // account-wide MFA enforcement
-import './iam/scim-tokens'; // SCIM provisioning tokens
-import './iam/sso'; // SAML SSO provider + group mappings
-import './iam/enterprise-demo'; // self-serve enterprise-preview toggle
-import './iam/policies'; // session policy, active sessions / revoke, PAT policy
-import './iam/service-accounts'; // service accounts (non-human IAM principals)
-import './iam/oauth-clients'; // Sign in with Dosco: OAuth client registry
-import './iam/session-oversight'; // owner/admin access to every session (owner-only toggle)
-import './iam/custom-roles'; // IAM v1: custom roles + action sets + principal→role policies
-import './iam/assignments'; // canonical: role_assignments CRUD + the permission catalog
-=======
 import { iamRouter } from './iam/app';
 import { registerIamGroupsRoutes } from './iam/groups'; // groups, group members, group→project grants
 import { registerIamMembersRoutes } from './iam/members'; // super-admin, member groups / project-access / effective(+batch)
@@ -52,12 +37,11 @@ import { registerIamScimTokensRoutes } from './iam/scim-tokens'; // SCIM provisi
 import { registerIamSsoRoutes } from './iam/sso'; // SAML SSO provider + group mappings
 import { registerIamPoliciesRoutes } from './iam/policies'; // session policy, active sessions / revoke, PAT policy
 import { registerIamServiceAccountsRoutes } from './iam/service-accounts'; // service accounts (non-human IAM principals)
-import { registerIamOauthClientsRoutes } from './iam/oauth-clients'; // Sign in with Kortix: OAuth client registry
+import { registerIamOauthClientsRoutes } from './iam/oauth-clients'; // Sign in with Dosco: OAuth client registry
 import { registerIamSessionOversightRoutes } from './iam/session-oversight'; // owner/admin access to every session (owner-only toggle)
 import { registerIamCustomRolesRoutes } from './iam/custom-roles'; // IAM v1: custom roles + action sets + principal→role policies
 import { registerIamAssignmentsRoutes } from './iam/assignments'; // canonical: role_assignments CRUD + the permission catalog
 import { registerIamEnterpriseDemoRoutes } from './iam/enterprise-demo'; // self-serve Enterprise demo (owners and admins)
->>>>>>> upstream-dev
 
 /**
  * Registers every IAM route on `iamRouter`. accounts/index.ts calls it once,

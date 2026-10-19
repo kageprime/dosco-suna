@@ -63,45 +63,8 @@ export function registerChannelEmailRoutes(): void {
         ...install,
         connection_id: await loadEmailInstallConnectionId(projectId, install.inboxId),
       });
-<<<<<<< HEAD
-      if (!loadedAgents.specs.some((agent) => agent.enabled && agent.name === agentName)) {
-        return c.json(
-          {
-            error: `Agent "${agentName}" is not declared or is disabled`,
-            code: 'invalid_agent',
-          },
-          400,
-        );
-      }
-    }
-    const displayName = (
-      body.display_name ??
-      body.displayName ??
-      loaded.row.name ??
-      'Dosco Agent'
-    ).trim();
-    const username = normalizeAgentMailUsername(body.username ?? loaded.row.name);
-    const existingInboxId =
-      typeof (body.inbox_id ?? body.inboxId) === 'string'
-        ? (body.inbox_id ?? body.inboxId)!.trim()
-        : '';
-    const existingEmail = typeof body.email === 'string' ? body.email.trim() : '';
-    if ((existingInboxId && !existingEmail) || (!existingInboxId && existingEmail)) {
-      return c.json({ error: 'Existing AgentMail inbox requires both inbox_id and email' }, 400);
-    }
-    const domain =
-      typeof body.domain === 'string' && body.domain.trim() ? body.domain.trim() : undefined;
-    let senderPolicy: AgentMailSenderPolicy;
-    try {
-      senderPolicy = parseSenderPolicyBody(body.sender_policy);
-    } catch (err) {
-      return c.json({ error: (err as Error).message }, 400);
-    }
-    const clientIds = agentMailProvisioningClientIds(projectId, connectorSlug);
-=======
     },
   );
->>>>>>> upstream-dev
 
   projectsApp.openapi(
     createRoute({
@@ -216,7 +179,7 @@ export function registerChannelEmailRoutes(): void {
         body.display_name ??
         body.displayName ??
         loaded.row.name ??
-        'Kortix Agent'
+        'Dosco Agent'
       ).trim();
       const username = normalizeAgentMailUsername(body.username ?? loaded.row.name);
       const existingInboxId =

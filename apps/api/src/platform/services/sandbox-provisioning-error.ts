@@ -100,7 +100,7 @@ const INVALID_SECRET_BOUNDARY_POLICY_PATTERN =
 export function classifySandboxProvisioningFailure(error: unknown): SandboxProvisioningFailure {
   const rawMessage = error instanceof Error ? error.message : String(error);
 
-  // Kortix Drive: the session's drives did not mount, so it did not start.
+  // Dosco Drive: the session's drives did not mount, so it did not start.
   // The message already says which drives and why (drives/service.ts).
   if (rawMessage.startsWith('[drives] ')) {
     return {

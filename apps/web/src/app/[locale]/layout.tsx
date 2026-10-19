@@ -162,15 +162,15 @@ const SITE_JSON_LD = {
       '@type': 'Organization',
       '@id': `${siteMetadata.url}/#organization`,
       name: siteMetadata.name,
-      alternateName: ['Kortix AI', 'Kortix Suna', 'Suna'],
+      alternateName: ['Dosco AI', 'Dosco Suna', 'Suna'],
       url: siteMetadata.url,
       logo: `${siteMetadata.url}/icon-512.png`,
       description: siteMetadata.description,
       foundingDate: '2024',
       sameAs: [
-        'https://github.com/kortix-ai/suna',
-        'https://x.com/kortix',
-        'https://linkedin.com/company/kortix',
+        '?',
+        '?',
+        '?',
       ],
       contactPoint: { '@type': 'ContactPoint', contactType: 'Customer Support', url: `${siteMetadata.url}/support` },
     },
@@ -178,7 +178,7 @@ const SITE_JSON_LD = {
       '@type': 'SoftwareApplication',
       '@id': `${siteMetadata.url}/#software`,
       name: siteMetadata.name,
-      alternateName: ['Kortix AI Operating System', 'Kortix AI OS', 'Suna'],
+      alternateName: ['Dosco AI Operating System', 'Dosco AI OS', 'Suna'],
       url: siteMetadata.url,
       applicationCategory: 'BusinessApplication',
       applicationSubCategory: 'AI Operating System',
@@ -196,7 +196,7 @@ const SITE_JSON_LD = {
         'Per-resource permissions for people and agents. Roles, groups, and an audit trail.',
         'SAML 2.0 single sign-on and SCIM 2.0.',
         'Slack and Microsoft Teams.',
-        'Run it on Kortix Cloud, in your VPC, or on your own on-prem network.',
+        'Run it on Dosco Cloud, in your VPC, or on your own on-prem network.',
       ],
       offers: PRICING_PLANS.filter((plan) => plan.price.startsWith('$')).map((plan) => ({
         '@type': 'Offer',
@@ -209,8 +209,8 @@ const SITE_JSON_LD = {
     {
       '@type': 'SoftwareSourceCode',
       '@id': `${siteMetadata.url}/#source`,
-      name: 'Kortix',
-      codeRepository: 'https://github.com/kortix-ai/suna',
+      name: 'Dosco',
+      codeRepository: '?',
       programmingLanguage: 'TypeScript',
       isPartOf: { '@id': `${siteMetadata.url}/#software` },
     },
@@ -325,56 +325,7 @@ export default async function RootLayout({
 
         <script
           type="application/ld+json"
-<<<<<<< HEAD
-          dangerouslySetInnerHTML={{
-            __html: safeJsonForHtml({
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: siteMetadata.name,
-              alternateName: [
-                'Dosco',
-                "Dosco AI",
-                "Dosco – The open-source AI Management System",
-              ],
-              url: siteMetadata.url,
-              logo: `${siteMetadata.url}/favicon.svg`,
-              description: siteMetadata.description,
-              foundingDate: '2024',
-              sameAs: [
-                '?',
-                '?',
-                '?',
-              ],
-              contactPoint: {
-                '@type': 'ContactPoint',
-                contactType: "Customer Support",
-                url: siteMetadata.url,
-              },
-            }),
-          }}
-        />
-
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: safeJsonForHtml({
-              '@context': 'https://schema.org',
-              '@type': 'SoftwareApplication',
-              name: siteMetadata.title,
-              alternateName: [siteMetadata.name, 'Dosco'],
-              applicationCategory: 'BusinessApplication',
-              operatingSystem: "Web, macOS, Windows, Linux",
-              description: siteMetadata.description,
-              offers: {
-                '@type': 'Offer',
-                price: '0',
-                priceCurrency: 'USD',
-              },
-            }),
-          }}
-=======
           dangerouslySetInnerHTML={{ __html: safeJsonForHtml(SITE_JSON_LD) }}
->>>>>>> upstream-dev
         />
 
       </head>

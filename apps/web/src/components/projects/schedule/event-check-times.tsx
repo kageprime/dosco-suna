@@ -16,7 +16,7 @@ export function relativeMinutes(iso: string, locale: string, now: number = Date.
 }
 
 /**
- * When Kortix last checked the app and checks it next, for a trigger it
+ * When Dosco last checked the app and checks it next, for a trigger it
  * checks itself (source `mcp`). Nothing for any other trigger.
  */
 export function EventCheckTimes({ trigger, now }: { trigger: ProjectTrigger; now?: number }) {

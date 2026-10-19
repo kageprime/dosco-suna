@@ -139,7 +139,7 @@ describe('marketplace catalog', () => {
     // Support types / internal-only names never surface, by name or by browse.
     expect(await findCatalogEntryByName('pty')).toBeNull();
     expect(await findCatalogEntryByName('kortix-simple-memory')).toBeNull();
-    // The Kortix tools are hosted by the runtime on every harness: no starter file, no catalog item.
+    // The Dosco tools are hosted by the runtime on every harness: no starter file, no catalog item.
     expect(await findCatalogEntryByName('web_search')).toBeNull();
     expect(await findCatalogEntryByName('scrape_webpage')).toBeNull();
     expect(await findCatalogEntryByName('image_search')).toBeNull();

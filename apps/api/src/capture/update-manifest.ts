@@ -1,5 +1,5 @@
 /**
- * The newest published Kortix Capture version, read from the release's
+ * The newest published Dosco Capture version, read from the release's
  * `capture-update.json` (.agents/skills/kortix-capture/references/release-runbook.md).
  * Fleet health flags a computer older than it. An unreachable or malformed
  * manifest answers the last known version, else null: no computer is then

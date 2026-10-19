@@ -48,10 +48,6 @@ export interface KeyboardShortcutPreferences {
 
 export interface UserPreferences {
   keyboard: KeyboardShortcutPreferences;
-<<<<<<< HEAD
-  /** Selected Dosco theme ID (e.g. 'default', 'ember', 'aurora') */
-  themeId: string;
-=======
   /**
    * The palette used in light mode and in dark mode — defaults 'pure-light'
    * and 'pure-dark'. The mode itself (light / dark / system) stays in
@@ -61,7 +57,6 @@ export interface UserPreferences {
    */
   lightTheme: LightThemeId;
   darkTheme: DarkThemeId;
->>>>>>> upstream-dev
   /** Selected desktop wallpaper ID */
   wallpaperId: string;
   /** Session action panel mode — defaults to 'easy' for all users */
@@ -103,16 +98,11 @@ interface UserPreferencesState {
   /** Update keyboard shortcut preferences (partial merge) */
   setKeyboardPreferences: (prefs: Partial<KeyboardShortcutPreferences>) => void;
 
-<<<<<<< HEAD
-  /** Set the active Dosco theme by ID */
-  setThemeId: (themeId: string) => void;
-=======
   /** Set the palette used in light mode */
   setLightTheme: (theme: LightThemeId) => void;
 
   /** Set the palette used in dark mode */
   setDarkTheme: (theme: DarkThemeId) => void;
->>>>>>> upstream-dev
 
   /** Set the active desktop wallpaper by ID */
   setWallpaperId: (wallpaperId: string) => void;

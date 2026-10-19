@@ -31,21 +31,6 @@ import { dollarsToCredits } from '@kortix/shared';
 
 export type { AccountState };
 
-<<<<<<< HEAD
-export interface CreateCheckoutSessionRequest {
-  tier_key: string;
-  success_url: string;
-  cancel_url: string;
-  commitment_type?: string;
-  locale?: string;
-  server_type?: string;
-  location?: string;
-  /** 'paystack' routes to a Paystack checkout. Defaults to paystack. */
-  provider?: 'stripe' | 'paystack';
-}
-
-=======
->>>>>>> upstream-dev
 export interface CreatePortalSessionRequest {
   return_url: string;
 }
@@ -225,141 +210,9 @@ export function useAccountState(options?: UseAccountStateOptions) {
 // MUTATION HOOKS - All invalidate account state after success
 // =============================================================================
 
-<<<<<<< HEAD
-export function useCreateCheckoutSession() {
-  const queryClient = useQueryClient();
-  const accountId = useBillingAccountId();
-
-  return useMutation({
-    mutationFn: (request: CreateCheckoutSessionRequest) =>
-      createCheckoutSession({
-        accountId,
-        tierKey: request.tier_key,
-        successUrl: request.success_url,
-        cancelUrl: request.cancel_url,
-        commitmentType: request.commitment_type,
-        locale: request.locale,
-        serverType: request.server_type,
-        location: request.location,
-        provider: request.provider,
-      }),
-    onSuccess: (data) => {
-      // Invalidate and refetch on upgrade/update - checkout redirects user anyway
-      if (data.status === 'upgraded' || data.status === 'updated') {
-        invalidateAccountState(queryClient, true, true, accountId); // Force refetch with skipCache after checkout
-      }
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      }
-    },
-  });
-}
-
-// Billing v2 — start the per-seat subscription flow. If a card is on file,
-// the API creates the subscription directly and returns { status: 'subscription_created' };
-// otherwise it returns { status: 'checkout_created', checkout_url } and we redirect.
-export function useCreatePerSeatCheckout() {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const queryClient = useQueryClient();
-  const accountId = useBillingAccountId();
-
-  return useMutation({
-    mutationFn: (args: {
-      success_url: string;
-      cancel_url: string;
-      locale?: string;
-      provider?: 'stripe' | 'paystack';
-    }) =>
-      createPerSeatCheckout({
-        accountId,
-        successUrl: args.success_url,
-        cancelUrl: args.cancel_url,
-        locale: args.locale,
-        provider: args.provider,
-      }),
-    onSuccess: async (data) => {
-      if (data.status === 'subscription_created') {
-        // Direct sub creation (Stripe found a saved payment method on the customer
-        // and skipped Checkout). Without explicit feedback the dialog appears to
-        // hang — the request settles but nothing visibly changes. Close the
-        // dialog, toast, and refresh account state so the new tier + wallet
-        // grant land in the UI.
-        const { useUpgradeDialogStore } = await import('@/stores/upgrade-dialog-store');
-        useUpgradeDialogStore.getState().closeUpgradeDialog();
-        await invalidateAccountState(queryClient, true, true, accountId);
-        successToast(tI18nComplete.raw('textd83849820d67'), {
-          description: tI18nComplete('text8559d8fd97d1', {
-            count: data.seat_count,
-            credit: SEAT_GRANT_USD * data.seat_count,
-          }),
-        });
-        return;
-      }
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-        return;
-      }
-      // Shouldn't happen — API always returns one of the two shapes. Fail loud
-      // instead of silently leaving the dialog spinning.
-      errorToast(tI18nComplete.raw('text415dcc179975'), {
-        description: tI18nComplete.raw('text2a45a1c6797d'),
-      });
-    },
-    onError: (err: any) => {
-      errorToast(tI18nComplete.raw('textaf6d91f7d902'), {
-        description: err?.message || tI18nComplete.raw('textee34153806cb'),
-      });
-    },
-  });
-}
-
-// Billing v2 — legacy → per-seat voluntary claim. Runs the migration synchronously
-// (the lazy sign-in path can silently skip/fail, leaving legacy users stuck with
-// no way to switch), then refreshes account state so the new plan + wallet credit
-// show immediately.
-export function useClaimPerSeat() {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const queryClient = useQueryClient();
-  const accountId = useBillingAccountId();
-  return useMutation({
-    mutationFn: () => claimPerSeatBilling(accountId),
-    onSuccess: async (data) => {
-      await invalidateAccountState(queryClient, true, true, accountId);
-      if (data.status === 'migrated') {
-        const parts: string[] = [];
-        if (data.first_seat_covered_usd > 0)
-          parts.push(`$${data.first_seat_covered_usd.toFixed(2)} covered your first seat`);
-        if (data.credited_usd > 0)
-          parts.push(`$${data.credited_usd.toFixed(2)} added as non-expiring credit`);
-        successToast(tI18nComplete.raw('texte0478c3e271b'), {
-          description: parts.join(' · ') || undefined,
-        });
-      } else if (data.status === 'skipped:already_per_seat' || data.status === 'skipped:no_subs') {
-        // no_subs flips the flag with no Stripe work — they're now on per-seat.
-        successToast(tI18nComplete.raw('texte0478c3e271b'));
-      } else if (data.status === 'skipped:yearly_commitment') {
-        infoToast(tI18nComplete.raw('text214466a0fee4'), {
-          description: data.reason || tI18nComplete.raw('text37abd3a24009'),
-        });
-      } else {
-        // skipped:no_legacy_machine — nothing to move off of.
-        infoToast(tI18nComplete.raw('textecdf558f080d'), {
-          description: tI18nComplete.raw('textbf5d8eb5292b'),
-        });
-      }
-    },
-    onError: (err: any) => {
-      errorToast(tI18nComplete.raw('text465814995485'), {
-        description: err?.message || tI18nComplete.raw('textee34153806cb'),
-      });
-    },
-  });
-}
-=======
 // A paid plan is chosen and changed through `useChangeCreditPlan`
 // (`features/billing/use-change-credit-plan.ts`), which wraps the SDK's
 // `useSetBillingPlan`. There is no seat checkout and no claim flow.
->>>>>>> upstream-dev
 
 export function useCreatePortalSession() {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');

@@ -69,29 +69,13 @@ function inputError(c: any, err: unknown) {
   throw err;
 }
 
-<<<<<<< HEAD
-iamRouter.openapi(
-  createRoute({
-    method: 'get',
-    path: '/{accountId}/iam/oauth-clients',
-    tags: ['iam'],
-    summary: 'List OAuth clients (Sign in with Dosco apps)',
-    ...auth,
-    request: { params: AccountIdParam },
-    responses: {
-      200: json(
-        z.object({ oauth_clients: z.array(OAuthClientSchema), scopes_supported: z.array(z.string()) }),
-        'OAuth clients registered by this account',
-      ),
-      ...errors(401, 403),
-=======
 export function registerIamOauthClientsRoutes(): void {
   iamRouter.openapi(
     createRoute({
       method: 'get',
       path: '/{accountId}/iam/oauth-clients',
       tags: ['iam'],
-      summary: 'List OAuth clients (Sign in with Kortix apps)',
+      summary: 'List OAuth clients (Sign in with Dosco apps)',
       ...auth,
       request: { params: AccountIdParam },
       responses: {
@@ -107,7 +91,6 @@ export function registerIamOauthClientsRoutes(): void {
       await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.TOKEN_CREATE);
       const rows = await listOAuthClients(accountId);
       return c.json({ oauth_clients: rows.map((r) => serialize(r)), scopes_supported: [...OAUTH_SCOPES] });
->>>>>>> upstream-dev
     },
   );
 

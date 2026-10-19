@@ -25,7 +25,7 @@ const PARKED_SANDBOX_STATUSES = ['stopped', 'archived'] as const;
  * The account's data outside our database that the row delete cannot reach
  * (KRTX-1734). A parked box keeps its disk at the provider (the reclaim pass
  * takes only running boxes), a project's session files stay in object storage,
- * and its Kortix-managed repo stays on the git host. Once the rows that name
+ * and its Dosco-managed repo stays on the git host. Once the rows that name
  * them are gone nothing can find them again, so this runs while the rows exist
  * and throws on any failure: the request stays retryable instead of completed.
  * A repo the user connected is never touched (`deleteManagedProjectRepo`).

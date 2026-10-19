@@ -122,7 +122,7 @@ const MOD_KEY = () =>
  * A device's timeline (`/capture/[accountId]/devices/[deviceId]`): the frame
  * at the playhead, the controls, the track (apps, actions, audio)
  * under a fixed playhead, and what happens at the playhead on the right. The
- * track's interaction is a port of the Kortix Capture engine's local window:
+ * track's interaction is a port of the Dosco Capture engine's local window:
  * drag with inertia, wheel, click a moment, Cmd/Ctrl+Left/Right between runs.
  */
 export function DeviceTimelineView({

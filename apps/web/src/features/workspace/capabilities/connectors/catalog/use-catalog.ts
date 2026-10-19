@@ -180,7 +180,7 @@ export function catalogSectionsQuery(
     queryKey: ['catalog-sections', projectId, catalogue] as const,
     queryFn: async (): Promise<BrowseSectionsPage> => {
       const limits = { perCategory: SECTION_CARD_COUNT, maxCategories: SECTION_COUNT };
-      // `kortix` is the same Discover route: the API serves Kortix's own MCP
+      // `kortix` is the same Discover route: the API serves Dosco's own MCP
       // apps to a `connectors_v2` project (apps/api/src/connectors/mcp-apps.ts).
       if (catalogue === 'discover' || catalogue === 'kortix') {
         return sectionsPageFromDiscover(await listDiscoverSections(projectId, limits));
@@ -262,7 +262,7 @@ export function useCatalog(
     enabled: boolean;
     /** The API/MCP catalogue is on for this project (`connectors_api_discover`). */
     discoverEnabled: boolean;
-    /** `connectors_v2`: the catalogue is Kortix's own MCP apps, served on the
+    /** `connectors_v2`: the catalogue is Dosco's own MCP apps, served on the
      *  Discover routes. No Composio or Pipedream request is sent. */
     mcpApps?: boolean;
     /** Show the native Computer card: this deployment can connect computers. */

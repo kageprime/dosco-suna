@@ -1,5 +1,5 @@
 /**
- * Which model answered a session's requests, and what Kortix billed for them.
+ * Which model answered a session's requests, and what Dosco billed for them.
  * The runtime transcript does not know: a harness records the model it asked
  * for, and prices a turn from that. When the gateway answers from a fallback
  * model, only its request ledger (`gateway_request_logs`) holds the model that
@@ -30,7 +30,7 @@ export interface TurnModelUsage {
   fallback_from: string | null;
   /** Successful fallback requests in chronological order. No raw provider errors. */
   fallbacks?: { requested_model: string; served_model: string; error_code: string }[];
-  /** What Kortix debited for this turn's model calls, in USD. */
+  /** What Dosco debited for this turn's model calls, in USD. */
   billed_cost: number;
 }
 
@@ -46,7 +46,7 @@ const logs = gatewayRequestLogs;
 
 // A trace records both ids since the gateway started writing them. An older
 // row is read from its own columns: `resolved_model` is a route id only on a
-// Kortix-served row (on an own key or ChatGPT plan it is the upstream's id),
+// Dosco-served row (on an own key or ChatGPT plan it is the upstream's id),
 // and a fallback always left a failed attempt behind.
 const servedModelSql = sql<string>`coalesce(
   ${logs.metadata}->>'servedModel',
@@ -177,7 +177,7 @@ export async function sessionModelUsage(session: {
 
 /**
  * A project's model spend in the last `days`, grouped by the model that
- * answered. Grouped by the requested model, a fallback's Kortix charges read as
+ * answered. Grouped by the requested model, a fallback's Dosco charges read as
  * spend on the ChatGPT plan or own key that did not answer.
  */
 export async function projectSpendByModel(projectId: string, days: number) {

@@ -24,7 +24,7 @@ const parts = (token: string) => {
 };
 
 describe('one project issuer, the App as audience', () => {
-  test('a token verifies against the JWKS in the env Kortix writes; iss is the project, aud the App', () => {
+  test('a token verifies against the JWKS in the env Dosco writes; iss is the project, aud the App', () => {
     const signer = generateSigner();
     const env = authEnv(ISSUER, APP, signer);
     const { token, expiresAt } = signToken(signer, target(), { userId: 'user-1', email: 'a@example.test' }, 1_000);
@@ -98,7 +98,7 @@ describe('the token carries the whole member, and the SDK reads it', () => {
     expect(openIdConfiguration(ISSUER).claims_supported).toContain('via_app_id');
   });
 
-  test('verifyKortixToken accepts it with exactly the env Kortix writes', async () => {
+  test('verifyKortixToken accepts it with exactly the env Dosco writes', async () => {
     const signer = generateSigner();
     const env = authEnv(ISSUER, APP, signer);
     const { token } = signToken(signer, target(), subject);

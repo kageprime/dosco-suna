@@ -12,7 +12,7 @@ import { CaptureSettingsPane } from './settings-view';
 
 /**
  * /capture/[accountId]/settings: everything an organization decides about
- * Kortix Capture, in one place inside the Capture area (`capture.manage`).
+ * Dosco Capture, in one place inside the Capture area (`capture.manage`).
  * The switch that turns Capture on or off for the organization, then the
  * policy every computer follows. The account settings carry nothing of Capture.
  */

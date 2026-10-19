@@ -3,12 +3,12 @@ import type { Metadata } from 'next';
 import { CaptureAreaShell } from '@/features/capture/area/capture-area-shell';
 
 export const metadata: Metadata = {
-  title: { absolute: 'Kortix Capture', template: '%s · Kortix Capture' },
+  title: { absolute: 'Dosco Capture', template: '%s · Dosco Capture' },
   robots: { index: false, follow: false },
 };
 
 /**
- * /capture/[accountId] — Kortix Capture for one organization (Kortix account):
+ * /capture/[accountId] — Dosco Capture for one organization (Dosco account):
  * Devices, a device's timeline, This computer and Organization settings.
  * Its own top bar; no project sidebar.
  */

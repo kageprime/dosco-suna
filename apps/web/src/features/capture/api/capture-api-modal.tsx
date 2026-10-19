@@ -34,8 +34,8 @@ const ENDPOINTS = [
 ] as const;
 
 /**
- * "Kortix Capture API": Capture's data over its own REST API, for scripts,
- * agents or anything else. Base URL, a Kortix API key, the data endpoints, one
+ * "Dosco Capture API": Capture's data over its own REST API, for scripts,
+ * agents or anything else. Base URL, a Dosco API key, the data endpoints, one
  * example, and who sees what. Opened from Devices.
  */
 export function CaptureApiModal({

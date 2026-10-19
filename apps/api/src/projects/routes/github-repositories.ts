@@ -32,22 +32,13 @@ const RepositoryBranchesResponseSchema = z.object({
   })),
 }).openapi('RepositoryBranchesResponse');
 
-<<<<<<< HEAD
-// GET /v1/projects/github/repositories?account_id=...
-//
-// Repositories an ACCOUNT connection can see. The instance backend ("Dosco
-// managed") is a different concept and lives under its own namespace,
-// GET /v1/projects/git/backend/repositories — it never appears here, because
-// on cloud its owner holds every customer's project repository.
-=======
 export function registerGithubRepositoriesRoutes(): void {
   // GET /v1/projects/github/repositories?account_id=...
   //
-  // Repositories an ACCOUNT connection can see. The instance backend ("Kortix
+  // Repositories an ACCOUNT connection can see. The instance backend ("Dosco
   // managed") is a different concept and lives under its own namespace,
   // GET /v1/projects/git/backend/repositories — it never appears here, because
   // on cloud its owner holds every customer's project repository.
->>>>>>> upstream-dev
 
   projectsApp.openapi(
     createRoute({
@@ -77,43 +68,6 @@ export function registerGithubRepositoriesRoutes(): void {
         ? Math.min(100, Math.max(1, requestedLimit))
         : 100;
 
-<<<<<<< HEAD
-    // A read-only browse: with no id it shows the oldest connection's repos.
-    // The write paths (create-repo, link-repository) use
-    // `requireAccountGitHubInstallation` instead and refuse to guess.
-    const installation = await getAccountGitHubInstallation(scope.accountId, installationId);
-    if (!installation) {
-      return c.json({
-        error: installationId
-          ? 'Selected GitHub installation is not connected to this account'
-          : 'Install the Dosco GitHub App before importing repositories',
-        install_url: await createGitHubInstallationInstallUrl(scope.accountId, scope.userId),
-      }, 409);
-    }
-
-    try {
-      const repos = await listInstallationRepositories(installation.installationId, {
-        owner: installation.ownerLogin,
-        ownerType: installation.ownerType === 'User' ? 'User' : 'Organization',
-        search,
-        limit,
-      });
-      return c.json({
-        account_id: scope.accountId,
-        installation_id: installation.installationId,
-        owner_login: installation.ownerLogin,
-        repositories: repos.map(serializeGitHubRepo),
-      });
-    } catch (error) {
-      if (isGitHubInstallationUnreachable(error)) {
-        return c.json(
-          githubInstallationUnreachableBody(
-            installation.installationId,
-            await createGitHubInstallationInstallUrl(scope.accountId, scope.userId),
-          ),
-          409,
-        );
-=======
       // A read-only browse: with no id it shows the oldest connection's repos.
       // The write paths (create-repo, link-repository) use
       // `requireAccountGitHubInstallation` instead and refuse to guess.
@@ -122,10 +76,9 @@ export function registerGithubRepositoriesRoutes(): void {
         return c.json({
           error: installationId
             ? 'Selected GitHub installation is not connected to this account'
-            : 'Install the Kortix GitHub App before importing repositories',
+            : 'Install the Dosco GitHub App before importing repositories',
           install_url: await createGitHubInstallationInstallUrl(scope.accountId, scope.userId),
         }, 409);
->>>>>>> upstream-dev
       }
 
       try {

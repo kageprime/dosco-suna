@@ -3,7 +3,7 @@ import { relativeMinutes } from './event-check-times';
 
 const NOW = Date.parse('2026-10-19T04:00:00Z');
 
-describe('relativeMinutes: when a Kortix check ran or runs', () => {
+describe('relativeMinutes: when a Dosco check ran or runs', () => {
   test('past and future minutes, hours and days in the viewer locale; seconds read as now', () => {
     expect(relativeMinutes('2026-10-19T03:58:00Z', 'en', NOW)).toBe('2 min. ago');
     expect(relativeMinutes('2026-10-19T04:03:00Z', 'en', NOW)).toBe('in 3 min.');

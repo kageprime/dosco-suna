@@ -4,7 +4,7 @@ import { describe, expect, test } from 'bun:test';
 
 /**
  * The bulk-theirs of the 4th upstream sync reverted agent-page.tsx's
- * displayAgentName call sites to raw capitalizeWords (rendering "Kortix")
+ * displayAgentName call sites to raw capitalizeWords (rendering "Dosco")
  * with no test to stop it. Pin the mapping at the source level: every
  * rendered agent name on this page goes through displayAgentName.
  */

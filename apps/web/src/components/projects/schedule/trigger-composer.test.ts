@@ -93,26 +93,26 @@ describe('trigger composer: the summary sentence', () => {
   });
 
   test('a one-off schedule names the time instead of the cadence', () => {
-    const text = summarize(draftOf({ runAt: '2030-01-02T09:30:00.000Z' }), null, 'Kortix', t);
+    const text = summarize(draftOf({ runAt: '2030-01-02T09:30:00.000Z' }), null, 'Dosco', t);
     expect(text.startsWith('Once on ')).toBe(true);
-    expect(text.endsWith(', Kortix runs your instruction.')).toBe(true);
+    expect(text.endsWith(', Dosco runs your instruction.')).toBe(true);
   });
 
   test('an app event names the event and the app', () => {
     const draft = draftOf({ kind: 'event', appSlug: 'github', eventType: pullRequestCreated });
-    expect(summarize(draft, githubApp, 'Kortix', t)).toBe(
-      'When “Pull request created” happens in GitHub, Kortix runs your instruction.',
+    expect(summarize(draft, githubApp, 'Dosco', t)).toBe(
+      'When “Pull request created” happens in GitHub, Dosco runs your instruction.',
     );
   });
 
   test('an app event with no event yet says what a trigger is', () => {
     const draft = draftOf({ kind: 'event', appSlug: 'github' });
-    expect(summarize(draft, githubApp, 'Kortix', t)).toBe('Choose how this trigger starts.');
+    expect(summarize(draft, githubApp, 'Dosco', t)).toBe('Choose how this trigger starts.');
   });
 
   test('a webhook says who starts it', () => {
-    expect(summarize(draftOf({ kind: 'webhook' }), null, 'Kortix', t)).toBe(
-      'When your app calls the webhook, Kortix runs your instruction.',
+    expect(summarize(draftOf({ kind: 'webhook' }), null, 'Dosco', t)).toBe(
+      'When your app calls the webhook, Dosco runs your instruction.',
     );
   });
 });

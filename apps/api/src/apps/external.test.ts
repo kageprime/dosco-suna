@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 
 import { allowsFraming } from './external';
 
-const web = 'https://www.kortix.com';
+const web = 'https://dosco.live';
 const framed = (headers: Record<string, string>) => allowsFraming(new Headers(headers), web);
 
 test('no framing headers: frameable', () => {
@@ -19,10 +19,10 @@ test('CSP frame-ancestors decides and overrides X-Frame-Options', () => {
   expect(framed({ 'content-security-policy': "default-src 'self'; frame-ancestors 'self'" })).toBe(false);
   expect(framed({ 'content-security-policy': 'frame-ancestors *', 'x-frame-options': 'DENY' })).toBe(true);
   expect(framed({ 'content-security-policy': 'frame-ancestors https:' })).toBe(true);
-  expect(framed({ 'content-security-policy': "frame-ancestors 'self' https://*.kortix.com" })).toBe(true);
-  expect(framed({ 'content-security-policy': 'frame-ancestors https://www.kortix.com' })).toBe(true);
+  expect(framed({ 'content-security-policy': "frame-ancestors 'self' https://*.dosco.live" })).toBe(true);
+  expect(framed({ 'content-security-policy': 'frame-ancestors https://dosco.live' })).toBe(true);
   expect(framed({ 'content-security-policy': 'frame-ancestors https://example.com' })).toBe(false);
-  expect(framed({ 'content-security-policy': 'frame-ancestors http://www.kortix.com' })).toBe(false);
+  expect(framed({ 'content-security-policy': 'frame-ancestors http://dosco.live' })).toBe(false);
 });
 
 test('every CSP policy must allow it', () => {

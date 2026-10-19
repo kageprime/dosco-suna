@@ -50,7 +50,7 @@ export async function emailBillingManagers(
   ]);
   const recipients = [...new Set([...emails.values()].filter((email): email is string => !!email))];
   if (recipients.length === 0) return 0;
-  const message = compose(account?.name?.trim() || 'your Kortix account');
+  const message = compose(account?.name?.trim() || 'your Dosco account');
   await Promise.all(recipients.map((to) => send({ ...message, to: [to] })));
   return recipients.length;
 }

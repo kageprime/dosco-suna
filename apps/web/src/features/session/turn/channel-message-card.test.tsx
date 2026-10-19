@@ -26,11 +26,11 @@ const chips = (html: string) => [...html.matchAll(/aria-label="user mention: ([^
 // A Slack message drew `@KortixDev` as plain text; the composer draws the same
 // mention as a chip. Typing it in Slack and typing it here now look the same.
 describe('a Slack channel message', () => {
-  test('draws @KortixDev and @Kortix as mention chips', () => {
+  test('draws @KortixDev and @Dosco as mention chips', () => {
     const html = renderToStaticMarkup(
-      <ChannelMessage info={slack('<@U0DEVBOT|KortixDev> check what <@U0BOT|Kortix> said')} />,
+      <ChannelMessage info={slack('<@U0DEVBOT|KortixDev> check what <@U0BOT|Dosco> said')} />,
     );
-    expect(chips(html)).toEqual(['KortixDev', 'Kortix']);
+    expect(chips(html)).toEqual(['KortixDev', 'Dosco']);
     expect(html).toContain('Sam Rivera');
     expect(html).toContain('check what');
   });

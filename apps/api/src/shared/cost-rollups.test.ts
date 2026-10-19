@@ -782,30 +782,6 @@ describe('getCostSummary', () => {
     expect(summary.models).toEqual([
       { provider: '', model: 'glm-5.3-flash', cost: 0, request_count: 1 },
     ]);
-<<<<<<< HEAD
-    expect(record?.calls.find((call) => call.method === 'groupBy')?.args).toEqual([
-      gatewayRequestLogs.provider,
-      gatewayRequestLogs.resolvedModel,
-    ]);
-    expect(record?.calls.find((call) => call.method === 'limit')?.args).toEqual([10]);
-  });
-
-  test('the model breakdown breaks a spend tie deterministically by provider then model', async () => {
-    await getCostSummary({ accountId, window });
-
-    // A tie on the 10th row is ordinary at LIMIT 10, not an edge case: cost
-    // ordering alone leaves it to whatever order Postgres happens to scan
-    // rows in, which can flip between refreshes.
-    const [spend, provider, model] = renderOrderBy(modelsRecord());
-    // Account Billing orders by the amount Dosco charged. Provider-side BYOK
-    // spend remains an observability metric and is excluded here.
-    expect(spend).toContain('final_cost_precise');
-    expect(spend).not.toContain('upstream_cost_precise');
-    expect(spend?.endsWith(' desc')).toBe(true);
-    expect(provider).toBe('"kortix"."gateway_request_logs"."provider" desc');
-    expect(model).toBe('"kortix"."gateway_request_logs"."resolved_model" desc');
-=======
->>>>>>> upstream-dev
   });
 
   test('the prior window is the equal-length window immediately before the current one', async () => {

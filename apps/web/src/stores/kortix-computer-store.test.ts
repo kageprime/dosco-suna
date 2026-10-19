@@ -1011,7 +1011,7 @@ describe('the side panel memory (session-panel-memory-store.ts) is cleared only 
     expect(remembered()).toEqual({ kind: 'view', view: 'terminal' });
   });
 
-  test("the memory is the Kortix session's when the layout names one", () => {
+  test("the memory is the Dosco session's when the layout names one", () => {
     useSessionPanelMemoryStore.setState({ bySession: { p1: { kind: 'view', view: 'terminal' } } });
     const s = useKortixComputerStore.getState();
     s.setActiveSession('ses_chat', { projectSessionId: 'p1', transient: false });

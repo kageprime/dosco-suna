@@ -715,7 +715,7 @@ describe('sandboxRecents (AppPreview landing "Recents")', () => {
     ]);
   });
 
-  test('keeps Kortix App recents: the address bar opens those too', () => {
+  test('keeps Dosco App recents: the address bar opens those too', () => {
     const recents = [
       { url: 'https://dev-crm-0123456789abcdef.apps.kortix.com/deals', visitedAt: 1 },
       { url: 'https://example.com', visitedAt: 2 },

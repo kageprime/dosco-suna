@@ -138,7 +138,6 @@ function ShellBreadcrumb() {
 export function AccountSettingsShell({ children }: { children: ReactNode }) {
   // Controlled, so the provider does not persist this shell's open state into
   // the `sidebar_state` cookie the project sidebar reads on its next load.
-  // Expanded by default: the section nav is the point of this page.
   const [open, setOpen] = useState(true);
   return (
     <SidebarProvider

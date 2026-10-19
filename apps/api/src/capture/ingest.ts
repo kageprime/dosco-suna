@@ -3,7 +3,7 @@
  * the timeline tables. Both readers (SQS events, index polling) only enqueue
  * `capture.ingest` jobs keyed by the manifest key; the job runs this.
  *
- *   1. the key must be a Kortix key of a known device in an account with Capture on
+ *   1. the key must be a Dosco key of a known device in an account with Capture on
  *   2. read the manifest; reject a newer schema or another device's manifest
  *   3. read every object it lists; its size and SHA-256 must match (else retry)
  *   4. parse frames / actions / transcript lines, skipping layers the policy turned off
@@ -72,7 +72,7 @@ async function insertBatched<T>(rows: T[], insert: (batch: T[]) => Promise<unkno
 
 export async function ingestManifest(key: string): Promise<IngestOutcome> {
   const parsed = parseCaptureKey(key);
-  if (!parsed || !key.endsWith('.manifest.json')) return { status: 'ignored', reason: 'not a Kortix capture manifest key' };
+  if (!parsed || !key.endsWith('.manifest.json')) return { status: 'ignored', reason: 'not a Dosco capture manifest key' };
   const [device] = await db
     .select()
     .from(captureDevices)
@@ -99,7 +99,7 @@ export async function ingestManifest(key: string): Promise<IngestOutcome> {
   try {
     raw = JSON.parse(manifestText);
   } catch {
-    return { status: 'ignored', reason: 'manifest is not JSON (encrypted manifests are not readable by Kortix)' };
+    return { status: 'ignored', reason: 'manifest is not JSON (encrypted manifests are not readable by Dosco)' };
   }
   const checked = checkManifest(raw, device.deviceId);
   if (!checked.ok) return { status: 'ignored', reason: checked.reason };

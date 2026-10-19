@@ -125,7 +125,7 @@ export function registerConnectorAdminRoutes(app: OpenAPIHono, deps: ConnectorRo
       responses: {
         200: json(
           z.object({ requires_sign_in: z.boolean(), one_click: z.boolean() }),
-          'Whether the server needs a sign-in, and whether Kortix can run it in one click',
+          'Whether the server needs a sign-in, and whether Dosco can run it in one click',
         ),
         ...errors(400, 403),
       },

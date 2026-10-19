@@ -16,7 +16,7 @@ import { db as defaultDb } from '../shared/db';
 export type FeedbackRow = typeof feedback.$inferSelect;
 
 /** Who filed it. The web app files as `web`; every CLI caller is `cli`, or
- *  `agent` when the call runs inside a Kortix session sandbox. */
+ *  `agent` when the call runs inside a Dosco session sandbox. */
 export const FEEDBACK_SOURCES = ['cli', 'agent', 'web'] as const;
 export const FEEDBACK_KINDS = ['bug', 'idea', 'friction'] as const;
 

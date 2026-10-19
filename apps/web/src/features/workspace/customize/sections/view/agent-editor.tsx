@@ -313,14 +313,8 @@ export type AgentConfigSectionGroup = (typeof AGENT_CONFIG_SECTION_GROUPS)[numbe
  * UX/UI for each"). Runtime is what a session runs on: model, tools,
  * workspace.
  *
-<<<<<<< HEAD
- * `apps` is listed here unconditionally — this module is pure data — and the
- * PAGE drops it when the project's `apps` feature flag is off, so a project
- * without Dosco Apps never sees a grant page for them.
-=======
  * `apps` is listed here unconditionally: Apps is generally available, so every
  * project gets the grant page.
->>>>>>> upstream-dev
  */
 export const AGENT_CONFIG_SECTIONS = [
   { key: 'overview', label: 'Overview', group: 'General' },
@@ -334,12 +328,8 @@ export const AGENT_CONFIG_SECTIONS = [
   { key: 'connectors', label: 'Connectors', group: 'Access' },
   { key: 'secrets', label: 'Secrets', group: 'Access' },
   { key: 'apps', label: 'Apps', group: 'Access' },
-<<<<<<< HEAD
-  { key: 'actions', label: 'Dosco permissions', group: 'Access' },
-=======
   { key: 'drives', label: 'Drives', group: 'Access' },
-  { key: 'actions', label: 'Kortix permissions', group: 'Access' },
->>>>>>> upstream-dev
+  { key: 'actions', label: 'Dosco permissions', group: 'Access' },
   { key: 'model', label: 'Model', group: 'Runtime' },
   { key: 'tools', label: 'Tools', group: 'Runtime' },
   { key: 'workspace', label: 'Workspace', group: 'Runtime' },
@@ -461,15 +451,10 @@ export function AgentConfigSections({
   /** Which Dosco Apps the agent may open. Page-owned only: the picker needs
    *  the project's App list, which no checklist fallback has. */
   apps?: React.ReactNode;
-<<<<<<< HEAD
-  /** What the agent can do once its Dosco permissions meet its IAM ceiling —
-   *  a page-owned card under the Dosco permissions checklist. */
-=======
   /** Which shared drives the agent mounts. Page-owned, and only with Volumes on. */
   drives?: React.ReactNode;
-  /** What the agent can do once its Kortix permissions meet its IAM ceiling —
-   *  a page-owned card under the Kortix permissions checklist. */
->>>>>>> upstream-dev
+  /** What the agent can do once its Dosco permissions meet its IAM ceiling —
+   *  a page-owned card under the Dosco permissions checklist. */
   authority?: React.ReactNode;
 }) {
   const { draft, oc, set, setOc } = editor;

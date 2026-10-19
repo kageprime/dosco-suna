@@ -106,7 +106,7 @@ export function sessionTurnMetaRows(
 
   // `cost` is the transcript's estimate, priced at the model the turn asked
   // for. When a fallback model answered, that price is for a model that did
-  // not run, so the row shows what Kortix billed instead.
+  // not run, so the row shows what Dosco billed instead.
   const shownCost = served?.fallbackFrom ? served.billedCost : (cost?.cost ?? 0);
   // A zero renders as "0" — a real-looking number for a turn that spent
   // nothing — so the row is gated on the raw value, not the string. Spend

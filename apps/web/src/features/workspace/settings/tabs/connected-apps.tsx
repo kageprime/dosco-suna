@@ -33,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 const CONNECTED_APPS_KEY = ['oauth-grants'];
 
 /** A third-party logo tile: white in both themes, black mark, no border
- *  (the same rule as the Kortix logo tile). */
+ *  (the same rule as the Dosco logo tile). */
 const OPENAI_TILE = 'bg-white text-black';
 
 /** ChatGPT signs in through OpenAI: match on the app name or a redirect host. */

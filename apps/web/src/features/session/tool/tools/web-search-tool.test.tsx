@@ -76,17 +76,10 @@ describe('WebSearchTool', () => {
   test('two sources on the same domain render as two flat rows, never a "N results" domain group', () => {
     const html = render(
       <WebSearchTool
-<<<<<<< HEAD
-        part={completedSearchPart([
+        call={toolCallBlock(completedSearchPart([
           { title: 'Dosco SDK repo', url: '?/sdk' },
           { title: 'Suna repo', url: '?' },
-        ])}
-=======
-        call={toolCallBlock(completedSearchPart([
-          { title: 'Kortix SDK repo', url: 'https://github.com/kortix-ai/sdk' },
-          { title: 'Suna repo', url: 'https://github.com/kortix-ai/suna' },
         ]))}
->>>>>>> upstream-dev
         defaultOpen
       />,
     );

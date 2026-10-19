@@ -190,28 +190,6 @@ export function registerGatewaySpendRoutes(): void {
         PROJECT_ACTIONS.PROJECT_GATEWAY_SPEND_READ,
       );
 
-<<<<<<< HEAD
-    const memberRows = await db
-      .select({
-        userId: gatewayRequestLogs.actorUserId,
-        requests: sql<number>`count(*)::int`,
-        // Budgets cap what a project SPENDS, so per-member spend here is the
-        // same total-spend figure the budget gate enforces on — not the
-        // Dosco-billed slice, which is 0 on every BYOK request.
-        cost: totalSpendSql,
-        tokens: sql<string>`coalesce(sum(${gatewayRequestLogs.inputTokens} + ${gatewayRequestLogs.outputTokens}), 0)`,
-      })
-      .from(gatewayRequestLogs)
-      .where(
-        and(
-          eq(gatewayRequestLogs.projectId, projectId),
-          sql`${gatewayRequestLogs.actorUserId} is not null`,
-          sql`${gatewayRequestLogs.createdAt} >= date_trunc('month', now())`,
-        ),
-      )
-      .groupBy(gatewayRequestLogs.actorUserId)
-      .orderBy(desc(totalSpendSql));
-=======
       const days = Math.min(Math.max(Number(c.req.query('days')) || 30, 1), 365);
       const view = await projectReadView(c, loaded);
       return c.json(
@@ -224,7 +202,6 @@ export function registerGatewaySpendRoutes(): void {
       );
     },
   );
->>>>>>> upstream-dev
 
   projectsApp.openapi(
     createRoute({
@@ -335,7 +312,7 @@ export function registerGatewaySpendRoutes(): void {
           requests: sql<number>`count(*)::int`,
           // Budgets cap what a project SPENDS, so per-member spend here is the
           // same total-spend figure the budget gate enforces on — not the
-          // Kortix-billed slice, which is 0 on every BYOK request.
+          // Dosco-billed slice, which is 0 on every BYOK request.
           cost: totalSpendSql,
           tokens: sql<string>`coalesce(sum(${gatewayRequestLogs.inputTokens} + ${gatewayRequestLogs.outputTokens}), 0)`,
         })

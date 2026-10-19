@@ -28,7 +28,7 @@ export default function CaptureAuthorizePage() {
 }
 
 /**
- * The person half of the Kortix Capture device sign-in (RFC 8628). The desktop
+ * The person half of the Dosco Capture device sign-in (RFC 8628). The desktop
  * app shows a code and opens `/capture/authorize?user_code=…`; the signed-in
  * member checks the code and picks one of their accounts with Capture on
  * (Capture's tenant). The device then records into that account as this member.

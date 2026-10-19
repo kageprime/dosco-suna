@@ -5,32 +5,11 @@ import { claimFinalize, deleteTurn, finalizeTurn, loadTurn } from './turn';
 import type { TeamsLiveTurn } from './types';
 
 /**
-<<<<<<< HEAD
- * Who may press Stop on a live turn.
- *
- * An Adaptive Card is posted to the conversation, so the button is visible to
- * everyone in it — the check has to happen when it is pressed, not when it is
- * drawn. Two people may stop a run:
- *
- *  - whoever sent the message this turn is answering (`originatingActivity`),
- *    which is the only correct answer under `project_open`, where the session
- *    owner and the person actually waiting are routinely different people;
- *  - anyone approved on this session, which is how the session owner and
- *    every accepted joiner are recorded. A person approved on an earlier
- *    session of the chat (before `/new`) is not.
- *
- * Either one must also still be allowed to stop runs in the project: a linked
- * Dosco account with `project.session.stop`. Someone removed from the
- * project, or never linked, is refused. Anyone else is refused too. Failing
- * closed on a stop is the safe direction: the worst case is that a bystander
- * waits for the run to end, instead of a bystander ending someone else's work.
-=======
  * Who may press Stop on a live turn: the sender of the message it answers,
  * the session owner, a project manager, or the linked user who prompted the
  * running turn from another surface (`chatTurnStopVerdict`). An approved
  * participant who is none of these is refused, under `project_open` and
  * `owner_approval` alike. A lookup that fails refuses too.
->>>>>>> upstream-dev
  */
 async function mayStopTeamsTurn(handle: TeamsLiveTurn, teamsUserId: string): Promise<ChatTurnStopVerdict> {
   // Callers pass `teamsUserId(activity)`: the AAD object id when Teams sends

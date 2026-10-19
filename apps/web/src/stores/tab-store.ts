@@ -233,7 +233,7 @@ export const useTabStore = create<TabState>()(
 );
 
 /**
- * The tabs as persisted: a preview tab's `url` / `originalUrl` lose a Kortix
+ * The tabs as persisted: a preview tab's `url` / `originalUrl` lose a Dosco
  * App's one-shot `__kortix_access` token (a credential). Memory keeps it; the
  * frame re-mints one on reload anyway.
  */

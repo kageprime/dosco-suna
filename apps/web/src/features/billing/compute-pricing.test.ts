@@ -77,7 +77,7 @@ describe('what credits buy', () => {
     expect(agentHoursForCredits(2_130)).toBe(190);
   });
 
-  test('the platform fee on Kortix models is 5.5%', () => {
+  test('the platform fee on Dosco models is 5.5%', () => {
     expect(PLATFORM_FEE_PERCENT).toBe(5.5);
   });
 });

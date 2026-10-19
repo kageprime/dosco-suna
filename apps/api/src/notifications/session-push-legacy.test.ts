@@ -121,7 +121,7 @@ describe('content (Spec §4)', () => {
       [row('t')],
     );
     expect(m).toMatchObject({
-      body: 'Kortix has a question: Which branch should I deploy?',
+      body: 'Dosco has a question: Which branch should I deploy?',
       sound: 'kortix_attention.wav',
       channelId: 'session-attention',
     });
@@ -131,31 +131,31 @@ describe('content (Spec §4)', () => {
   test('a question with no text', () => {
     for (const question of [undefined, '', '   ']) {
       const [m] = legacySessionPushMessages({ type: 'question', sessionId: SESSION, projectId: PROJECT, question }, 'T', [row('t')]);
-      expect(m!.body).toBe('Kortix has a question.');
+      expect(m!.body).toBe('Dosco has a question.');
     }
   });
 
   test('permission', () => {
     const [m] = legacySessionPushMessages({ type: 'permission', sessionId: SESSION, projectId: PROJECT }, 'T', [row('t')]);
     expect(m).toMatchObject({
-      body: 'Kortix needs your approval to continue.',
+      body: 'Dosco needs your approval to continue.',
       sound: 'kortix_attention.wav',
       channelId: 'session-attention',
     });
     expect(m!.data).toEqual({ type: 'permission', projectId: PROJECT, sessionId: SESSION });
   });
 
-  test('title falls back to "Kortix" when the session has no title', () => {
+  test('title falls back to "Dosco" when the session has no title', () => {
     for (const title of [null, '', '   ']) {
       const [m] = legacySessionPushMessages({ type: 'completion', sessionId: SESSION, projectId: PROJECT }, title, [row('t')]);
-      expect(m!.title).toBe('Kortix');
+      expect(m!.title).toBe('Dosco');
     }
   });
 
   test('the question text is cut to 140 characters', () => {
     const body = (question: string) =>
       legacySessionPushMessages({ type: 'question', sessionId: SESSION, projectId: PROJECT, question }, 'T', [row('t')])[0]!
-        .body.replace('Kortix has a question: ', '');
+        .body.replace('Dosco has a question: ', '');
     const cut = body('x'.repeat(300));
     expect([...cut]).toHaveLength(140);
     expect(cut.endsWith('…')).toBe(true);
@@ -229,7 +229,7 @@ describe('createLegacySessionNotifier', () => {
     });
     expect(outcome.reason).toBe('sent');
     expect(h.listed).toEqual(['user-a']);
-    expect(h.sent[0]![0]!.body).toBe('Kortix has a question: Which region?');
+    expect(h.sent[0]![0]!.body).toBe('Dosco has a question: Which region?');
   });
 
   // KRTX-1722: removal stopped the sign-in, and the removed member's phone

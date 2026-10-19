@@ -375,8 +375,8 @@ export async function appViewerContextHeader(
 }
 
 /**
- * Who is calling a `/_kortix/*` endpoint: the browser's Kortix cookie, or a
- * server-side Kortix credential that passes the App's access policy. An agent
+ * Who is calling a `/_kortix/*` endpoint: the browser's Dosco cookie, or a
+ * server-side Dosco credential that passes the App's access policy. An agent
  * session is admitted as the AGENT (`agentViewer`). A 401 Response when nobody.
  */
 async function resolveEndpointViewer(
@@ -430,7 +430,7 @@ export function appNotLinkedResponse(name: string): Response {
 }
 
 /**
- * `GET /_kortix/token?audience=<slug|id>` — a Kortix sign-in token naming this
+ * `GET /_kortix/token?audience=<slug|id>` — a Dosco sign-in token naming this
  * viewer, from the project issuer, for `audience`: this App itself (the
  * default) or an App it uses (`app_links`). Any other audience answers 403
  * `app_not_linked`: code in an App gets no token for an App it has nothing to

@@ -331,16 +331,9 @@ function PlanBadge({
 /**
  * What Stripe ACTUALLY charges, next to the plan badge.
  *
-<<<<<<< HEAD
- * The badge describes the STORED tier: a grandfathered `pro` row renders
- * "Team · $20/mo · grandfathered" even when the live subscription is a $40/mo
- * "Dosco Computer" machine sub. An operator reading only the badge mis-priced
- * the customer. Renders nothing while loading, and nothing when the account has
-=======
  * The badge describes the plan the account resolves to. Stripe is the record of
  * what is actually charged, so an operator reads this line before quoting a
  * price. Renders nothing while loading, and nothing when the account has
->>>>>>> upstream-dev
  * no subscription on file — the badge alone is correct in that case.
  */
 function LiveSubscriptionLine({ accountId }: { accountId: string }) {

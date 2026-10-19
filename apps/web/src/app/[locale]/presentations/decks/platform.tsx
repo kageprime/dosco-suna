@@ -626,11 +626,7 @@ export function useSlides(): SlideDef[] {
       ),
     },
 
-<<<<<<< HEAD
-    /* 9 — AGENTIC OS OVERVIEW ────────────────────────────────────────────── */
-=======
     /* 9 — AI OS OVERVIEW ──────────────────────────────────────────────── */
->>>>>>> upstream-dev
     {
       id: 'command-center',
       label: tI18nHardcoded.raw('i18nComplete.text2522f9d16f3b'),

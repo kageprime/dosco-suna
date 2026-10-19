@@ -63,7 +63,6 @@ import {
   MagnifyingGlassIcon as Search,
   ShieldCheckIcon as ShieldCheck,
   SlidersHorizontalIcon as SlidersHorizontal,
-  StorefrontIcon as Storefront,
   TerminalIcon as Terminal,
   TextAlignLeftIcon as TextAlignLeft,
   TrayIcon as Tray,
@@ -640,17 +639,6 @@ export const menuRegistry: MenuItemDef[] = [
     keywords: 'connectors connections pipedream mcp openapi postman collections connector',
   },
   {
-    id: 'proj-marketplace',
-    label: 'Marketplace',
-    icon: Storefront,
-    group: 'navigation',
-    showIn: ['commandPalette'],
-    kind: 'navigate',
-    href: '/projects/{projectId}/marketplace',
-    requiresProject: true,
-    keywords: 'marketplace browse install vendors registries catalog community',
-  },
-  {
     id: 'proj-channels',
     label: 'Channels',
     icon: ChatCircle,
@@ -880,9 +868,9 @@ export const menuRegistry: MenuItemDef[] = [
     href: '/scheduled-tasks',
   },
   {
-    // Kortix Capture is its own area: devices, install and its organization settings live under /capture.
+    // Dosco Capture is its own area: devices, install and its organization settings live under /capture.
     id: 'capture',
-    label: 'Kortix Capture',
+    label: 'Dosco Capture',
     icon: MonitorIcon,
     group: 'navigation',
     showIn: ['commandPalette'],

@@ -347,15 +347,10 @@ function refreshedCatalogs(): {
 
 // `projectId` gates BYOK/codex visibility (anonymous callers see managed only).
 // `freeManagedOnly` (a free-tier account with internal billing on) hides every
-<<<<<<< HEAD
-// managed Dosco model. A free user's own connected provider keys still work,
-// but there is no unreliable platform-managed free default.
-=======
-// managed Kortix model EXCEPT the platform default — the one managed model every
+// managed Dosco model EXCEPT the platform default — the one managed model every
 // tier may use, which /model-defaults already advertises as free-tier eligible
 // (KRTX-1067). Hiding it left a fresh free account with no model to pick and no
 // way to send. A free user's own connected provider keys still work.
->>>>>>> upstream-dev
 export function gatewayModelCatalog(
   projectId: string | undefined,
   opts?: { freeManagedOnly?: boolean },

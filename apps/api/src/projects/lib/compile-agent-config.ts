@@ -285,7 +285,7 @@ export function compileAgentConfig(
  * `validateManifest` reports the rest. A harness tool's name never compiles:
  * two tools with one name break the model request. `kortix_tools`: the names
  * listed as `kortix:<name>`, only when the manifest has a `tools` key (even
- * an empty one); without it the daemon loads every Kortix tool.
+ * an empty one); without it the daemon loads every Dosco tool.
  */
 function compileTools(tools: unknown): Pick<CompiledAgents, 'project_tools' | 'kortix_tools'> {
   const map = tools && typeof tools === 'object' && !Array.isArray(tools) ? (tools as Record<string, unknown>) : {};
@@ -341,21 +341,11 @@ export function compileSelectedAgentConfig(
 }
 
 /**
-<<<<<<< HEAD
- * Compile one agent: parse its `.md` (if supplied), copy every recognized
- * behavioral frontmatter field through unchanged, then overlay Dosco
- * governance — `enabled: false` forces `disable: true` (the one field where
- * governance always wins over whatever the `.md` itself says; there is no
- * other precedence to document since behavior lives ONLY in the `.md`), and
- * `skills` folds onto `permission.skill`. Pure governance fields (connectors/
- * secrets/kortix_permissions/repository_access) are never copied: no runtime representation.
-=======
  * Compile one v2 agent: parse its `.md` (if supplied), copy every recognized
- * behavioral frontmatter field through unchanged, then overlay Kortix
+ * behavioral frontmatter field through unchanged, then overlay Dosco
  * governance — `enabled: false` forces `disable: true`, and `skills` folds
  * onto `permission.skill`. Pure governance fields (connectors/secrets/
  * kortix_permissions/workspace) have no runtime representation and are never copied.
->>>>>>> upstream-dev
  */
 function compileAgentBlock(
   name: string,

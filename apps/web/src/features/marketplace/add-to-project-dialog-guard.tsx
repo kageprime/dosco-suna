@@ -74,7 +74,7 @@ export function useDialogCrashGuard({
  * crash: a ref latches it so a re-render (or dev StrictMode's double effect)
  * while the fallback is up can never re-run it. The thrown error is logged
  * either way: the original dogfood report of this crash carried only
- * "[Kortix Home Error] DOMException" and no stack, which is what made the
+ * "[Dosco Home Error] DOMException" and no stack, which is what made the
  * diagnosis guesswork.
  */
 export function DialogCrashRecovery({

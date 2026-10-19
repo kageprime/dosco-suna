@@ -58,24 +58,6 @@ import {
  * the label on a 20px left edge while every other line started at 8px, and the
  * trigger row below already states the severity in the same tone.
  */
-<<<<<<< HEAD
-const CATEGORY_TEXT: Record<'critical' | 'warning', string> = {
-  critical: 'text-destructive',
-  warning: 'text-kortix-orange',
-};
-
-const CATEGORY_CAUSE: Record<string, string> = {
-  quota: 'This project has no room for another sandbox image. Removing an old one frees space.',
-  dockerfile: 'A step in the project’s Dockerfile did not finish.',
-  git: 'The build could not read the project’s repository. Its access may have expired.',
-  tunnel: 'The sandbox could not reach Dosco while it was being built.',
-  provider: 'The sandbox provider refused the build. This is usually temporary.',
-  timeout: 'The build ran past its time limit and was stopped.',
-  runtime: 'The build finished, but without the agent it needs to run.',
-  unknown: 'The build stopped before it finished.',
-};
-=======
->>>>>>> upstream-dev
 
 /** Fallback for a category the server knows and this build does not. */
 

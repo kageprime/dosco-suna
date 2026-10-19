@@ -458,7 +458,7 @@ describe('asks (question / permission)', () => {
     const rows = await rowsFor(sessionId);
     expect(rows.map((row) => row.userId).sort()).toEqual(sorted([A, B]));
     expect(rows[0]).toMatchObject({ kind: 'question', body: 'Which region?' });
-    expect(sent.expo.map((m) => m.body)).toEqual(['Kortix has a question: Which region?', 'Kortix has a question: Which region?']);
+    expect(sent.expo.map((m) => m.body)).toEqual(['Dosco has a question: Which region?', 'Dosco has a question: Which region?']);
   });
 
   test('a muted creator gets no question; the prompter still does', async () => {
@@ -614,7 +614,7 @@ describe('a project with the notification_center flag off', () => {
     const sessionId = await seedSession({ in: legacy });
     const asked = await legacyAsk(sessionId, 'que_off');
     expect(asked).toMatchObject({ outcome: { sent: 1, reason: 'sent' }, resolved: 0 });
-    expect(sent.expo.map((m) => [m.to, m.body])).toEqual([[token(A), 'Kortix has a question: Which region?']]);
+    expect(sent.expo.map((m) => [m.to, m.body])).toEqual([[token(A), 'Dosco has a question: Which region?']]);
 
     // A trigger session's creator is the agent's service account: nobody is pushed.
     const metadata = { trigger_kind: 'git', trigger_slug: 'nightly-off', source: 'trigger:cron' };
@@ -646,7 +646,7 @@ describe('a project with the notification_center flag off', () => {
     for (let i = 0; i < 50 && sent.expo.length < 1; i++) await Bun.sleep(20);
     await Bun.sleep(50);
 
-    expect(sent.expo.map((m) => [m.to, m.body])).toEqual([[token(A), 'Kortix needs your approval to continue.']]);
+    expect(sent.expo.map((m) => [m.to, m.body])).toEqual([[token(A), 'Dosco needs your approval to continue.']]);
     expect(resolved).toBe(0);
     expect(await rowsFor(sessionId)).toEqual([]);
   });

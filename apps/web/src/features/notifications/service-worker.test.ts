@@ -200,7 +200,7 @@ describe('sw.js push', () => {
 
   test('an unreadable message still shows a notification, with no tag and no renotify', async () => {
     await push(new SyntaxError('not json'));
-    expect(shown[0].title).toBe('Kortix');
+    expect(shown[0].title).toBe('Dosco');
     expect(shown[0].options).toMatchObject({ body: '', tag: undefined, renotify: false, data: { url: `${ORIGIN}/` } });
   });
 

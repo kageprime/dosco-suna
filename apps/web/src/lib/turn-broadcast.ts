@@ -8,7 +8,7 @@
  * session) has no way to hear that a turn finished, so the completion toast,
  * sound and favicon badge never reached the customer watching from another
  * tab. The tab that owns the stream publishes the completion here; every other
- * Kortix tab receives it and runs the same notification path.
+ * Dosco tab receives it and runs the same notification path.
  *
  * BroadcastChannel delivers only to OTHER contexts in the same origin, so the
  * publishing tab never receives its own event — exactly the "other tabs" scope

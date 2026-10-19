@@ -104,14 +104,14 @@ export async function handleTelegramEvent(
 
   if (!senderId || !install.allowedUserIds.includes(senderId)) {
     await reply(
-      `This bot belongs to a Kortix project, and your Telegram account is not allowed to use it yet. ` +
+      `This bot belongs to a Dosco project, and your Telegram account is not allowed to use it yet. ` +
         `Ask a project admin to allow your Telegram user id ${senderId || '(unknown)'} under Channels → Telegram.`,
     );
     return;
   }
   const thread: ChatThreadKey = { platform: 'telegram', workspaceId: install.botId, threadId: telegramThreadId(message) };
   if (/^\/start(@\w+)?\b/.test(text)) {
-    await reply('Connected to Kortix. Send a message to start working with the agent. /new starts a new conversation.');
+    await reply('Connected to Dosco. Send a message to start working with the agent. /new starts a new conversation.');
     return;
   }
   if (/^\/new(@\w+)?\b/.test(text)) {
@@ -148,7 +148,7 @@ export async function handleTelegramEvent(
       // The first message's session is still starting. Retry with backoff; on
       // the last attempt say so, so the message is never dropped in silence.
       if (!run.finalAttempt) throw new Error('telegram thread create in flight');
-      await reply('Kortix is still starting a session for this chat. Send your message again in a minute.');
+      await reply('Dosco is still starting a session for this chat. Send your message again in a minute.');
       return;
     }
     await lifecycle.deliverThroughQueue({
@@ -192,7 +192,7 @@ export async function handleTelegramEvent(
   // drain binds the thread and delivers the prompt when the session starts.
   // The claim stays, so a second message in this chat waits for that thread.
   if (result.requeued) {
-    await reply('Kortix is still starting a session for this chat. The agent replies here when it is ready.');
+    await reply('Dosco is still starting a session for this chat. The agent replies here when it is ready.');
     return;
   }
   // Any other failure is final for this message: say why, and free the chat

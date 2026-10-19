@@ -56,7 +56,7 @@ export const ACCOUNT_ACTIONS = {
   // doesn't exist yet to scope to).
   PROJECT_CREATE: 'project.create',
 
-  // Kortix Capture. Every member records and reads their own capture; these
+  // Dosco Capture. Every member records and reads their own capture; these
   // reach other people's. Owner and admin hold both by default.
   CAPTURE_READ_ALL: 'capture.read_all',
   CAPTURE_MANAGE: 'capture.manage',
@@ -140,16 +140,7 @@ export const PROJECT_ACTIONS = {
   PROJECT_CONNECTOR_CONNECTIONS_MANAGE: 'project.connector.connections.manage',
   PROJECT_CONNECTOR_WRITE: 'project.connector.write',
 
-<<<<<<< HEAD
-  // Dosco Apps. Apps used to borrow project.customize.write / project.gitops
-  // .read, so a custom role could not grant or revoke Apps on its own. These
-  // are the real leaves. `read` = list and inspect the Apps the caller may see.
-  // `write` = create, rename, resize, delete, and set the access policy.
-  // `deploy` = ship a version, roll back, start, or stop — the action that
-  // changes what the public hostname serves, so it stays separable from write
-  // exactly as project.gitops.merge is separable from project.gitops.push.
-=======
-  // Kortix Apps, every kind. Apps used to borrow project.customize.write /
+  // Dosco Apps, every kind. Apps used to borrow project.customize.write /
   // project.gitops.read, so a custom role could not grant or revoke Apps on its
   // own. These are the real leaves. `read` = list and inspect the Apps the
   // caller may see, connect, mint a member token. `write` = create, rename,
@@ -160,7 +151,6 @@ export const PROJECT_ACTIONS = {
   // from write exactly as project.gitops.merge is separable from
   // project.gitops.push. `admin` = the App-administration leaf; no route
   // requires it today.
->>>>>>> upstream-dev
   PROJECT_APP_READ: 'project.app.read',
   PROJECT_APP_WRITE: 'project.app.write',
   PROJECT_APP_DEPLOY: 'project.app.deploy',

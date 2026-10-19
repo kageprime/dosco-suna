@@ -111,24 +111,7 @@ const readinessHandler = (c: any) => {
 app.get('/health/ready', readinessHandler);
 app.get('/v1/health/ready', readinessHandler);
 
-<<<<<<< HEAD
-function hasInternalObservabilityAuth(c: any): boolean {
-  const authHeader = c.req.header('Authorization');
-  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  const header = c.req.header('X-Kortix-Internal-Key') ?? '';
-  const expected = config.INTERNAL_SERVICE_KEY;
-  const safeEq = (a: string, b: string) => {
-    const aa = Buffer.from(a);
-    const bb = Buffer.from(b);
-    return aa.length === bb.length && timingSafeEqual(aa, bb);
-  };
-  return (!!bearer && safeEq(bearer, expected)) || (!!header && safeEq(header, expected));
-}
-
 // Sign in with Dosco — RFC 8414 discovery at the API root. The issuer is the
-=======
-// Sign in with Kortix — RFC 8414 discovery at the API root. The issuer is the
->>>>>>> upstream-dev
 // configured public API origin (KORTIX_URL); the request origin is only the
 // fallback for a bare local run. Mirrored under /v1/oauth/.well-known/… for
 // edges that route only /v1/*.

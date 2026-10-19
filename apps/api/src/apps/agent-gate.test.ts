@@ -164,10 +164,7 @@ describe('header carriage', () => {
     expect(appUpstreamHeaders(basic, {}, host).get('authorization')).toBe('Basic abc');
   });
 
-<<<<<<< HEAD
-  test('upstream never receives Dosco cookies; the App keeps its own cookies', () => {
-=======
-  test('upstream never receives X-Kortix-Token or a Kortix key in X-Api-Key; the App keeps its own key', () => {
+  test('upstream never receives X-Kortix-Token or a Dosco key in X-Api-Key; the App keeps its own key', () => {
     const request = new Request(`https://${host}/`, {
       headers: { 'x-kortix-token': 'kortix_pat_abc', 'x-api-key': 'kortix_sa_abc' },
     });
@@ -178,8 +175,7 @@ describe('header carriage', () => {
     expect(appUpstreamHeaders(own, {}, host).get('x-api-key')).toBe('app-own-key');
   });
 
-  test('upstream never receives Kortix cookies; the App keeps its own cookies', () => {
->>>>>>> upstream-dev
+  test('upstream never receives Dosco cookies; the App keeps its own cookies', () => {
     const request = new Request(`https://${host}/`, {
       headers: {
         cookie: '__Host-kortix_app_access=signed; app_session=keep; kortix_app_access=signed; __preview_session=jwt',

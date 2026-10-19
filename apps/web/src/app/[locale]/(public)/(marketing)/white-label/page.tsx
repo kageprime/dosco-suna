@@ -32,7 +32,7 @@ function Bullets({ title, items }: { title: string; items: readonly string[] }):
 }
 
 /**
- * `/white-label` — build your own product on Kortix, on Platinum.dev compute.
+ * `/white-label` — build your own product on Dosco, on Platinum.dev compute.
  *
  * Copy lives in `features/marketing/white-label/content.ts`, and that file's
  * header lists what the page may and may not claim. The binding text is

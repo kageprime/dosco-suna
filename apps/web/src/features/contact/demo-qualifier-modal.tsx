@@ -84,7 +84,7 @@ const notch = (y: '0' | '100%') =>
 const TICKET_TOP = { mask: notch('100%') };
 const TICKET_BOTTOM = { mask: notch('0') };
 
-// The Kortix logo tile is light in both themes.
+// The Dosco logo tile is light in both themes.
 const LOGO_TILE = 'bg-white text-black';
 
 export interface DemoQualifierModalProps {

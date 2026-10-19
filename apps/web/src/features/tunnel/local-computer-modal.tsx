@@ -504,8 +504,8 @@ function ComputerSetup({ machine }: { machine: TunnelConnection | undefined }) {
 }
 
 /**
- * The access the machine enforces, as its agent reports it to Kortix, and the
- * one writer: Kortix relays the change and the machine applies it. A wider
+ * The access the machine enforces, as its agent reports it to Dosco, and the
+ * one writer: Dosco relays the change and the machine applies it. A wider
  * access waits for the owner to confirm in the prompt on the machine.
  */
 function useComputerAccess(machine: TunnelConnection | undefined, readAt: number) {

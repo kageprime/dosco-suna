@@ -5,7 +5,7 @@ import { pushTypeOf, type NotificationKindName } from '@kortix/shared/notificati
 import type { PushDeviceTokenRow } from './device-tokens';
 import type { ExpoPushMessage } from './expo-push';
 
-export const DEFAULT_PUSH_TITLE = 'Kortix';
+export const DEFAULT_PUSH_TITLE = 'Dosco';
 
 export interface NotificationPushPayload {
   notificationId: string;
@@ -28,18 +28,18 @@ export interface NotificationPushContent {
 const FIXED_BODIES: Partial<Record<NotificationKindName, string>> = {
   turn_done: 'Session complete. Tap to see the result.',
   turn_error: 'The session stopped with an error.',
-  permission: 'Kortix needs your approval to continue.',
+  permission: 'Dosco needs your approval to continue.',
 };
 
 /** The push body for a kind; `detail` is the inbox row body (question text, error, share line). */
 export function pushBodyFor(kind: NotificationKindName, detail: string): string {
   const fixed = FIXED_BODIES[kind];
   if (fixed) return fixed;
-  if (kind === 'question') return detail ? `Kortix has a question: ${detail}` : 'Kortix has a question.';
+  if (kind === 'question') return detail ? `Dosco has a question: ${detail}` : 'Dosco has a question.';
   if (kind === 'automation_failed') return detail ? `Failing: ${detail}` : 'This automation is failing.';
   if (kind === 'automation_recovered') return 'This automation works again.';
-  if (kind === 'capture_device_down' || kind === 'capture_device_recovered') return detail || 'Open Kortix Capture to see it.';
-  return detail || 'Open Kortix to see it.';
+  if (kind === 'capture_device_down' || kind === 'capture_device_recovered') return detail || 'Open Dosco Capture to see it.';
+  return detail || 'Open Dosco to see it.';
 }
 
 /**

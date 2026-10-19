@@ -40,19 +40,6 @@ import { formatUsdAsCredits } from '@kortix/shared';
 import { ArrowRightIcon as ArrowRight, UserPlusIcon as UserPlus } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-<<<<<<< HEAD
-
-/** Whole-naira figure for pre-redirect display ("≈ ₦60,000 charged"). */
-function formatNgn(amountNgn: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amountNgn);
-}
-=======
->>>>>>> upstream-dev
 
 export interface UpgradePlansModalProps {
   open: boolean;
@@ -100,18 +87,9 @@ export function UpgradePlansModal({
   accountLoading,
 }: UpgradePlansModalProps) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
-<<<<<<< HEAD
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const createPerSeat = useCreatePerSeatCheckout();
-  const openDemo = useRequestDemo();
-  const billingReturnUrl = useBillingReturnUrl();
-  // Paystack is the de facto default payment provider; Stripe stays selectable.
-  const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
-=======
   const t = useTranslations('billing.credits.modal');
   const plans = useUpgradePlans();
   const sales = useTalkToSales(useBillingAccountId());
->>>>>>> upstream-dev
 
   // Which view? Resolved from the ONE billing-state resolver. The caller's
   // `billingState` (from the 402 or the gate that opened this) wins because
@@ -139,102 +117,11 @@ export function UpgradePlansModal({
     );
   }
 
-<<<<<<< HEAD
-  const pricePerSeat = accountState?.seats?.price_per_seat_usd ?? 40;
-  const seatCount = Math.max(1, accountState?.member_count ?? accountState?.seats?.count ?? 1);
-  const monthlyTotal = pricePerSeat * seatCount;
-  // FX rate for the pre-redirect NGN figure; null = unconfigured = no figure.
-  const fxRate = accountState?.billing_fx?.usd_ngn_rate ?? null;
-  const hasSeatMath = seatCount > 1;
-  const canManageBilling = accountState?.can_manage_billing !== false;
-
-  const handleSubscribe = () => {
-    createPerSeat.mutate({
-      success_url: billingReturnUrl('team_signup'),
-      cancel_url: window.location.href,
-      provider,
-    });
-  };
-
-  // Keyed by MARKETING plan id (display-only — see pricing-plans.ts). The
-  // account's real plan is `isPerSeat` / `resolvedPlan(accountState)`, never
-  // one of these ids.
-  const planActions: Record<UpgradeModalPlanId, React.ReactNode> = {
-    free: (
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => onOpenChange(false)}
-      >
-        {tI18nHardcoded.raw('i18nComplete.text73a7da68c3bf')}
-      </Button>
-    ),
-    team_seat: canManageBilling ? (
-      <div className="space-y-2">
-        {hasSeatMath && (
-          <p className="text-muted-foreground text-center text-xs tabular-nums">
-            {seatCount} {seatCount === 1 ? 'seat' : 'seats'} × ${pricePerSeat} = ${monthlyTotal}
-            {tI18nHardcoded.raw('i18nComplete.textdcc954337afd')}
-          </p>
-        )}
-        <Button
-          type="button"
-          variant="default"
-          className="group w-full"
-          disabled={createPerSeat.isPending}
-          onClick={handleSubscribe}
-        >
-          {createPerSeat.isPending ? (
-            <>
-              <Loading />
-              {tI18nHardcoded.raw(
-                'autoFeaturesBillingTeamPlanCheckoutJsxTextStartingCheckout282edf7f',
-              )}
-            </>
-          ) : (
-            <>
-              {hasSeatMath
-                ? tI18nComplete('text1614f84867d4', { value0: monthlyTotal })
-                : tI18nComplete('text289aec13d5aa', { value0: pricePerSeat })}
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-            </>
-          )}
-        </Button>
-        <p className="text-muted-foreground text-center text-xs">
-          {tI18nHardcoded.raw(
-            'autoFeaturesBillingTeamPlanCheckoutJsxTextAutoProratedCancelfa091962',
-          )}
-        </p>
-        {/* The buyer is charged the NGN equivalent on Paystack — show it
-            before they click. */}
-        {provider === 'paystack' && fxRate ? (
-          <p className="text-muted-foreground text-center text-xs tabular-nums">
-            ≈ {formatNgn(Math.round(monthlyTotal * fxRate))} charged via Paystack
-          </p>
-        ) : null}
-      </div>
-    ) : (
-      <Button type="button" variant="outline" className="w-full" disabled>
-        {tI18nHardcoded.raw('i18nComplete.text160ecadfebc2')}
-      </Button>
-    ),
-  };
-
-  // Badge the plan the account is ACTUALLY on, computed from account state —
-  // never hardcoded to Free (that mislabels every paying account as Free, the
-  // core bug here). The top-up view already handles per-seat/subscribed
-  // accounts, so this plans view is only reached for free/no-plan accounts.
-  const planBadges: Partial<Record<UpgradeModalPlanId, string>> = isPerSeat
-    ? { team_seat: 'Current plan' }
-    : { free: 'Current plan' };
-=======
   // `false` until the account state loads (KRTX-1720): Subscribe stays
   // disabled for that window, and the "owner required" button and the "ask an
   // owner" note wait for the answer.
   const mayManageBilling = canManageBilling(accountState);
   const ownerRequired = !!accountState && !mayManageBilling;
->>>>>>> upstream-dev
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -245,32 +132,6 @@ export function UpgradePlansModal({
         </ModalHeader>
 
         <ModalBody className="space-y-4 px-6 pb-6">
-          {/* Paystack first: it is the default provider. Stripe stays
-              available for deployments with Stripe keys configured. */}
-          <div
-            role="radiogroup"
-            aria-label="Payment method"
-            className="bg-muted/60 flex w-fit items-center gap-0.5 rounded-md border p-0.5"
-          >
-            {(['paystack', 'stripe'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={provider === option}
-                onClick={() => setProvider(option)}
-                disabled={createPerSeat.isPending}
-                className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium',
-                  provider === option
-                    ? 'bg-background text-foreground shadow-2xs'
-                    : 'text-muted-foreground',
-                )}
-              >
-                {option === 'stripe' ? 'Card (Stripe)' : 'Paystack'}
-              </button>
-            ))}
-          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {plans.map((plan) => (
               <UpgradePlanCard
@@ -435,30 +296,12 @@ function CreditTopUpModal({
   const tBanner = useTranslations('hardcodedUi.componentsSessionSessionErrorBanner');
   const t = useTranslations('billing.credits.modal');
   const createPortal = useCreatePortalSession();
-<<<<<<< HEAD
-  // Copy is DERIVED, never written here. The title used to be hardcoded
-  // `'Out of credits'` with a single `payment_failed` branch, so this modal
-  // announced an emergency to every account that opened it — including one
-  // topping up voluntarily with a healthy balance — and promised "your Team
-  // plan and seats are unaffected" to accounts that have no seats.
-  const copy = billingModalCopy(
-    billingState ?? null,
-    {
-      isPerSeat: accountState?.billing_model === 'per_seat',
-    },
-    tI18nComplete,
-  );
-  // The Stripe customer portal does not exist for Paystack-billed accounts
-  // (the portal route 400s for them) — hide its CTA instead of erroring.
-  const isPaystackBilled = accountState?.subscription?.provider === 'paystack';
-=======
   // Out-of-credits copy is DERIVED from the billing state, never written here:
   // a hardcoded "Out of credits" title once announced an emergency to every
   // account that opened this modal.
   const copy = leadWithTopUp
     ? billingModalCopy(billingState ?? null, tI18nComplete)
     : { title: t('planTitle'), description: t('planDescription') };
->>>>>>> upstream-dev
 
   const topup = (
     <TopupControls
@@ -517,21 +360,19 @@ function CreditTopUpModal({
           )}
         </ModalBody>
 
-        {isPaystackBilled ? null : (
-          <ModalFooter className="pt-4 pb-5 sm:justify-start">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground gap-1.5"
-              disabled={createPortal.isPending}
-              onClick={() => createPortal.mutate({ return_url: window.location.href })}
-            >
-              {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
-              {tI18nComplete.raw('text7ea27c63aff1')}
-            </Button>
-          </ModalFooter>
-        )}
+        <ModalFooter className="pt-4 pb-5 sm:justify-start">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground gap-1.5"
+            disabled={createPortal.isPending}
+            onClick={() => createPortal.mutate({ return_url: window.location.href })}
+          >
+            {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
+            {tI18nComplete.raw('text7ea27c63aff1')}
+          </Button>
+        </ModalFooter>
       </ModalContent>
     </Modal>
   );

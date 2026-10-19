@@ -39,7 +39,7 @@ const reconcileProjectChannels: ToggleEffect = async ({ projectId }) => {
  */
 const TOGGLE_EFFECTS: Partial<Record<FeatureFlagKey, ToggleEffect>> = {
   agentmail_email: reconcileProjectChannels,
-  // Also the Kortix event source: off, its triggers report the legacy "no app-event source" text and
+  // Also the Dosco event source: off, its triggers report the legacy "no app-event source" text and
   // their poll streams are dropped; on, they subscribe without a re-save.
   connectors_v2: async (ctx) => {
     await reconcileProjectChannels(ctx);

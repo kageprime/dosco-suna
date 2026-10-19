@@ -1,5 +1,5 @@
 /**
- * Kortix Capture background work.
+ * Dosco Capture background work.
  *
  * Every replica: the `capture.ingest` job handler runs in the shared job
  * worker (shared/job-queue.ts).

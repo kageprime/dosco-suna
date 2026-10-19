@@ -73,7 +73,7 @@ export async function loadTriggersForResponse(
   );
   const eventsOff = eventTriggersOffForProject(project.metadata);
   const connectedAsBySlug = await loadConnectedAs([...subscriptionBySlug.values()]);
-  // Kortix-polled triggers (source `mcp`) say when their app was checked and is checked next.
+  // Dosco-polled triggers (source `mcp`) say when their app was checked and is checked next.
   // The poller skips every stream of a paused project, or one without either flag: no next check then.
   const checksRun = !eventsOff && !triggersPausedForProject(project.metadata) && eventSourceAvailable(MCP_SOURCE_ID, project.metadata);
   const schedules = await streamSchedules(
@@ -167,7 +167,7 @@ async function loadEventConnectorInfo(
 }
 
 /**
- * When a Kortix-polled trigger's app was last checked, and is checked next.
+ * When a Dosco-polled trigger's app was last checked, and is checked next.
  * The next check is null whenever the poller skips the stream (paused, a flag
  * off) or the trigger is not subscribed.
  */

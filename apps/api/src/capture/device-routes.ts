@@ -2,7 +2,7 @@
  * Capture device sign-in (RFC 8628 device authorization grant) and the
  * credential endpoint, mounted at `/v1/capture`.
  *
- * Device (public, no Kortix session):
+ * Device (public, no Dosco session):
  *   POST /device/authorize   → device_code, user_code, verification_uri(_complete), interval, expires_in
  *   POST /device/token       → RFC 8628 errors until approved, then {device_token, prefix, device_id}
  *   POST /credentials        (Bearer device token) → scoped S3 credentials, see credentials.ts

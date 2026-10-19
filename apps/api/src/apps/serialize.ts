@@ -2,7 +2,7 @@
  * An App as JSON. Every response carries `capabilities` (the only thing
  * clients branch on), its `services`, `machines`, `volumes`, `labels`, `scale`
  * and active release `config`, `uses` / `used_by` (App links, by slug) and `auth` (the
- * issuer, audience and key set URL that verify the App's Kortix sign-in tokens).
+ * issuer, audience and key set URL that verify the App's Dosco sign-in tokens).
  */
 import { z } from '@hono/zod-openapi';
 import { appDeployments, appRuntimes, appVolumes, apps } from '@kortix/db';
@@ -105,9 +105,9 @@ function serializeApp(
     ),
     slug: row.slug,
     name: row.name,
-    /** The external site for an external App, else the App's Kortix host. */
+    /** The external site for an external App, else the App's Dosco host. */
     url: row.externalUrl ?? appPublicUrl(row),
-    /** Set: the App is hosted elsewhere at this https URL; Kortix lists and frames it, and never deploys it. */
+    /** Set: the App is hosted elsewhere at this https URL; Dosco lists and frames it, and never deploys it. */
     external_url: row.externalUrl,
     access_mode: row.accessMode as AppAccessMode,
     access_revision: row.accessRevision,
@@ -120,13 +120,13 @@ function serializeApp(
     idle_timeout_seconds: row.idleTimeoutSeconds,
     /** False for a static App: it runs no machine, so there is nothing to keep on. */
     always_on: hostingType === 'static' ? false : row.alwaysOn,
-    /** Verifies the Kortix sign-in tokens minted for this App (`aud` = app_id). */
+    /** Verifies the Dosco sign-in tokens minted for this App (`aud` = app_id). */
     auth: { issuer, audience: row.appId, jwks_uri: `${issuer}/jwks.json` },
     uses: links.uses,
     used_by: links.usedBy,
     /** Free-form labels (e.g. `backend`); they group and filter, nothing more. */
     labels: row.labels,
-    /** Where Kortix shows the App: `{ listed?, preview?: live | none, parent? }`. Presentation only. */
+    /** Where Dosco shows the App: `{ listed?, preview?: live | none, parent? }`. Presentation only. */
     display: row.display as AppDisplay,
     /** Machines per process group; a group not listed runs one. */
     scale: row.scale as Record<string, number>,

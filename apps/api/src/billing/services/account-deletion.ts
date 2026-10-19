@@ -139,7 +139,7 @@ export async function cancelAccountDeletion(accountId: string) {
  * run it, in this order, so neither can leave a login or data behind:
  *
  *   1. `performDeletion`: sandboxes, the stores outside the database (`deleteAccountExternalStores`:
- *      parked boxes, session files, Kortix-managed repos), Stripe cancel,
+ *      parked boxes, session files, Dosco-managed repos), Stripe cancel,
  *      wallet forfeit.
  *   2. `deleteAccountData`: the account's rows. Data goes before the auth
  *      identity: a failure here must not sign a user out of an account whose

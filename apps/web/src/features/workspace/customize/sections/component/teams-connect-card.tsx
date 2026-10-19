@@ -11,7 +11,7 @@ import { useTranslations } from '@/i18n/use-translations';
  * the one-click org-consent URL; the bring-your-own path is `TeamsByoWizard`.
  */
 
-import { Kortix } from '@/features/icon/icons/kortix';
+import { Dosco } from '@/features/icon/icons/kortix';
 import { MicrosoftTeams } from '@/features/icon/icons/microsoft-teams';
 import { ChannelConnectHero } from '@/features/workspace/customize/sections/component/channel-connect-hero';
 import { TeamsByoWizard } from '@/features/workspace/customize/sections/component/teams-byo-wizard';
@@ -122,7 +122,7 @@ function TeamsChannelMock() {
                 </p>
                 <p className="text-foreground">
                   <span className="font-semibold text-(--teams-brand)">
-                    Kortix
+                    Dosco
                   </span>{' '}
                   {tI18nComplete.raw('text5df6373cf99f')}
                 </p>
@@ -130,11 +130,11 @@ function TeamsChannelMock() {
             </div>
             <div className="bg-muted/30 flex gap-2.5 border-t py-2.5 ps-6 pe-3">
               <span className="bg-background flex size-6 shrink-0 items-center justify-center rounded-full border">
-                <Kortix className="size-3" />
+                <Dosco className="size-3" />
               </span>
               <div className="min-w-0 text-sm">
                 <p className="flex items-baseline gap-2">
-                  <span className="text-foreground font-semibold">Kortix</span>
+                  <span className="text-foreground font-semibold">Dosco</span>
                   <span className="text-muted-foreground text-xs tabular-nums">{tI18nComplete.raw('text92dca4f34a6f')}</span>
                 </p>
                 <p className="text-foreground text-pretty">

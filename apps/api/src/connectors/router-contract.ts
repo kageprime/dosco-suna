@@ -20,7 +20,7 @@ export interface ConnectorPrincipal {
   projectId: string;
   sessionId: string | null;
   /** The presented account token's id, when the caller used one. With
-   *  `sessionId`, identifies the agent session a Kortix App assertion names. */
+   *  `sessionId`, identifies the agent session a Dosco App assertion names. */
   tokenId?: string | null;
   /** The acting identity resolved to its group memberships. */
   subject: { userId: string; groupIds: string[] };
@@ -474,7 +474,7 @@ export interface ConnectorRouterDeps extends ConnectorRouterAuth {
     categories: Array<{ key: string; label: string; count: number }>;
     indexReady: boolean;
   }>;
-  /** Browse the Discover catalogue: integrations.sh, or Kortix's own MCP apps
+  /** Browse the Discover catalogue: integrations.sh, or Dosco's own MCP apps
    *  (`connectors_v2`). */
   listDiscoverConnectors?(input: {
     catalogue?: DiscoverCatalogue;

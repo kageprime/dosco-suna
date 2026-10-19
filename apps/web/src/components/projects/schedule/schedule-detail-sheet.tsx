@@ -113,67 +113,7 @@ const lastRunFormatter = new Intl.DateTimeFormat(undefined, {
   second: 'numeric',
 });
 
-<<<<<<< HEAD
-/**
- * The one trigger-update lifecycle the editable panels share: post the
- * payload, toast the success line, then invalidate through `onMutated`; on
- * failure toast the fallback without invalidating. Each panel keeps its own
- * payload builder and success copy. `afterSave` runs between the toast and
- * the invalidation — the timing editor closes its editing state there, so a
- * failed save leaves the editor open. The header's enable/disable toggle
- * stays a separate mutation: it maps the `enabled` argument to its own copy
- * instead of a fixed one.
- */
-function useTriggerUpdate<TInput = void>(
-  projectId: string,
-  trigger: ProjectTrigger,
-  onMutated: () => void,
-  update: {
-    success: string;
-    errorFallback: string;
-    payload: (input: TInput) => UpdateProjectTriggerInput;
-    afterSave?: () => void;
-  },
-) {
-  return useMutation({
-    mutationFn: (input: TInput) =>
-      updateProjectTrigger(projectId, trigger.slug, update.payload(input)),
-    onSuccess: () => {
-      successToast(update.success);
-      update.afterSave?.();
-      onMutated();
-    },
-    onError: (e: Error) => errorToast(e.message || update.errorFallback),
-  });
-}
-
-/** A copy-pasteable request for whoever is wiring the other end up. */
-function buildSampleRequest(url: string): string {
-  return [
-    `curl -X POST ${url} \\`,
-    `  -H "Content-Type: application/json" \\`,
-    `  -H "X-Dosco-Signature: sha256=$(echo -n '$BODY' | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')" \\`,
-    `  -d '$BODY'`,
-    ``,
-    `# $BODY   is the JSON you want to send, e.g. {"event":"deploy.succeeded"}`,
-    `# $SECRET is the signing key you saved for this webhook`,
-  ].join('\n');
-}
-
-export function ScheduleDetailSheet({
-  projectId,
-  trigger,
-  canWrite,
-  open,
-  onOpenChange,
-  onRun,
-  running,
-  onDelete,
-  onMutated,
-}: {
-=======
 export interface ScheduleDetailSheetProps {
->>>>>>> upstream-dev
   projectId: string;
   trigger: ProjectTrigger | null;
   controls: TriggerControls;

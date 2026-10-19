@@ -1080,13 +1080,8 @@ async function buildExternalCatalog(): Promise<Catalog> {
     : (CACHE.partial ??= { items: [], byId: new Map() });
   // Resolve sources concurrently with isolation — one slow/huge/dead source
   // neither blocks the others nor sinks the catalog; each folds in the instant
-<<<<<<< HEAD
   // it arrives so the list streams Dosco-first, then source-by-source.
-  await forEachWithConcurrency(
-=======
-  // it arrives so the list streams Kortix-first, then source-by-source.
   await mapWithConcurrency(
->>>>>>> upstream-dev
     refs,
     MARKETPLACE_EXTERNAL_BUILD_CONCURRENCY,
     async ({ ref, sourceId }, i) => {

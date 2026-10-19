@@ -237,9 +237,6 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
     });
   });
 
-<<<<<<< HEAD
-  test('Dosco App cookies stop working after account access is revoked', async () => {
-=======
   test('an admins service lets an App admin in and refuses a member who passes the App policy', async () => {
     const app = await seedApp();
     await testDb().update(apps).set({ accessMode: 'public' }).where(eq(apps.appId, APP_ID));
@@ -254,7 +251,7 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
         revision: app.accessRevision,
         expiresAt: new Date(Date.now() + 60_000),
       });
-      return new Request('https://dev-access-test-bbbbbbbbbbbbbbbb--dash.apps.kortix.com/', {
+      return new Request('https://dev-access-test-bbbbbbbbbbbbbbbb--dash.apps.dosco.live/', {
         headers: { cookie: `__Host-kortix_app_access=${token}` },
       });
     };
@@ -265,12 +262,11 @@ describeWithDb('App access persistence — real PostgreSQL', () => {
     const refused = await authorizeServiceRequest(member, new URL(member.url), publicApp, 'admins');
     expect(refused?.status).toBe(403);
     expect(((await refused?.json()) as { code: string }).code).toBe('app_service_admins_only');
-    const anonymous = new Request('https://dev-access-test-bbbbbbbbbbbbbbbb--dash.apps.kortix.com/');
+    const anonymous = new Request('https://dev-access-test-bbbbbbbbbbbbbbbb--dash.apps.dosco.live/');
     expect((await authorizeServiceRequest(anonymous, new URL(anonymous.url), publicApp, 'admins'))?.status).toBe(403);
   });
 
-  test('Kortix App cookies stop working after account access is revoked', async () => {
->>>>>>> upstream-dev
+  test('Dosco App cookies stop working after account access is revoked', async () => {
     const app = await seedApp();
     await insertIntoView(testDb(), accountMembers, {
       accountId: ACCOUNT_ID,

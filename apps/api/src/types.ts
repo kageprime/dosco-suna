@@ -232,7 +232,7 @@ export interface AccountStateResponse {
     monthly_usd: number | null;
     status: string;
     billing_period: 'monthly' | 'yearly' | 'yearly_commitment' | null;
-    provider: 'stripe' | 'paystack' | 'revenuecat' | 'local';
+    provider: 'stripe' | 'revenuecat' | 'local';
     subscription_id: string | null;
     current_period_end: number | null;
     cancel_at_period_end: boolean;
@@ -259,22 +259,8 @@ export interface AccountStateResponse {
    *  forces every enterprise entitlement on platform-wide. The frontend then
    *  hides every Enterprise upsell. */
   enterprise_license_available: boolean;
-<<<<<<< HEAD
-  /** Paystack billing currency + USD→NGN rate for pre-redirect display
-   *  ("≈ ₦X charged"). `usd_ngn_rate` null = rate unconfigured (Paystack
-   *  checkout paths fail with a clear 400; nothing charges). */
-  billing_fx: { currency: string; usd_ngn_rate: number | null };
-  /** True when an operator has flagged this account as a contracted cloud
-   *  Enterprise customer via `credit_accounts.enterprise_entitled`. The
-   *  account then resolves all enterprise entitlements (SSO/SCIM/RBAC/audit)
-   *  regardless of its billing tier, so a deal that is BOTH Enterprise
-   *  (entitlements) AND per-seat (billing) can hold both at once. Surfaced
-   *  for the admin console and for the frontend to hide the self-serve demo
-   *  toggle (a real Enterprise contract supersedes the demo). */
-=======
   /** @deprecated Read `plan.family === 'enterprise'`. True on the Enterprise
    *  plan (a contract or an Enterprise trial). */
->>>>>>> upstream-dev
   enterprise_entitled: boolean;
   /** The active trial: a dated grant of a plan. Null when there is none. */
   /** @deprecated Trials are removed: always null. */

@@ -44,7 +44,7 @@ describe('Discover catalogue routes', () => {
     expect(seen).toEqual([{ catalogue: 'integrations', q: 'pay', category: 'finance', cursor: '48', limit: 24 }]);
   });
 
-  test('a Connectors v2 project browses Kortix\'s own MCP apps; with neither flag the routes are gated', async () => {
+  test('a Connectors v2 project browses Dosco\'s own MCP apps; with neither flag the routes are gated', async () => {
     const seen: unknown[] = [];
     let flags = new Set(['connectors_v2']);
     const app = createConnectorRouter(

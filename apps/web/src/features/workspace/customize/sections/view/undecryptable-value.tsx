@@ -8,7 +8,7 @@ import Hint from '@/components/ui/hint';
 import { useTranslations } from '@/i18n/use-translations';
 
 /**
- * A stored value Kortix can no longer decrypt (`status: 'undecryptable'`,
+ * A stored value Dosco can no longer decrypt (`status: 'undecryptable'`,
  * KRTX-1719): the encryption key changed, or the row is damaged. It reads as
  * broken, never as set. `hint` says who fixes it (the project-secret hint when
  * omitted). `onAction` is the fix, labelled `actionLabel` ("Re-enter value"

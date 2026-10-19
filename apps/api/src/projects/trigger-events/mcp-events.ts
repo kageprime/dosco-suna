@@ -1,5 +1,5 @@
 /**
- * Kortix app events (source `mcp`): what each event type asks a read-only MCP
+ * Dosco app events (source `mcp`): what each event type asks a read-only MCP
  * tool, and how the answer becomes items. Pure: no DB, no network.
  *
  * Curated types are built on Google tools whose input and output schemas were
@@ -16,7 +16,7 @@ export const GENERIC_PREFIX = 'new_item.';
 const INTERVAL_PROPERTY = {
   type: 'integer',
   title: 'Check every (minutes)',
-  description: 'How often Kortix checks the app. A new item fires within this many minutes.',
+  description: 'How often Dosco checks the app. A new item fires within this many minutes.',
   enum: [...INTERVAL_MINUTES],
   default: DEFAULT_INTERVAL_MINUTES,
 };
@@ -294,7 +294,7 @@ const calendarEventCreated: EventDefinition = {
       lookahead_days: {
         type: 'integer',
         title: 'Look ahead (days)',
-        description: 'Kortix sees events that start within this many days from now.',
+        description: 'Dosco sees events that start within this many days from now.',
         enum: LOOKAHEAD_DAYS,
         default: 30,
       },
@@ -530,7 +530,7 @@ export function genericEventFor(action: ToolAction, app: string): EventDefinitio
   return {
     type: `${GENERIC_PREFIX}${action.path}`,
     name: `New item from ${action.name}`,
-    description: `${summary}Kortix runs ${action.name} on every check and fires once for each item it has not returned before.`,
+    description: `${summary}Dosco runs ${action.name} on every check and fires once for each item it has not returned before.`,
     app,
     delivery: 'poll',
     tool: action.path,
@@ -551,7 +551,7 @@ export function genericEventFor(action: ToolAction, app: string): EventDefinitio
 
 /** Items older than this never fire: after an outage, a re-prime or a seen-set eviction. */
 export const MAX_EVENT_AGE_MS = DAY_MS;
-/** A vendor time this far ahead of the Kortix clock is a forged or wrong time. */
+/** A vendor time this far ahead of the Dosco clock is a forged or wrong time. */
 export const MAX_FUTURE_SKEW_MS = 10 * 60_000;
 export const MAX_FIRES_PER_CHECK = 20;
 export const MAX_FIRES_PER_HOUR = 60;

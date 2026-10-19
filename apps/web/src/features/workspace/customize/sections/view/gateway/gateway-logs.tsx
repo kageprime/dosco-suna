@@ -392,27 +392,9 @@ const LogRow = forwardRef<
       </span>
       <span className={cn(LANE.cost, 'tabular-nums', empty ? 'text-muted-foreground' : 'text-foreground')}>
         {/* What the request cost YOU — the full caller-facing total, not just
-            the Kortix-billed slice (`kortix_cost`, 0 on a plain BYOK call). */}
+            the Dosco-billed slice (`kortix_cost`, 0 on a plain BYOK call). */}
         {empty ? '—' : formatUsdAsCredits(row.total_cost, { locale })}
       </span>
-<<<<<<< HEAD
-      <span className="text-muted-foreground hidden text-right text-xs whitespace-nowrap tabular-nums md:block">
-        {(row.input_tokens + row.output_tokens).toLocaleString()}
-      </span>
-      <span className="text-foreground text-right text-xs whitespace-nowrap tabular-nums">
-        {/* What the request cost YOU — the full caller-facing total, not
-            just the Dosco-billed slice (`kortix_cost`, 0 on a plain BYOK
-            call with no platform fee). */}
-        ${row.total_cost.toFixed(4)}
-      </span>
-      <ChevronRight
-        className={cn(
-          'text-muted-foreground/40 duration-normal size-4 transition-transform',
-          focused ? 'text-muted-foreground translate-x-0.5' : 'group-hover:translate-x-0.5',
-        )}
-      />
-=======
->>>>>>> upstream-dev
     </button>
   );
 });
@@ -629,7 +611,7 @@ function GatewayLogDetail({
             )}
 
             {/* Money cells show only what the CALLER paid. A BYOK request that
-                also carries a Kortix platform fee is the only case with two
+                also carries a Dosco platform fee is the only case with two
                 payees, and only that case gets the fourth cell. */}
             <div className="ring-border divide-border flex divide-x rounded-md ring-1">
               <StatCell label={tI18nComplete.raw('texte0e7d293043c')} value={fmtLatency(data.latency_ms)} />
@@ -762,128 +744,7 @@ export function LogBucketCard({ bucket }: { bucket: LogBucketStats }) {
           ) : null}
         </>
       ) : (
-<<<<<<< HEAD
-        <div className="animate-in fade-in-0 flex w-full flex-col gap-4 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-foreground truncate text-base font-semibold">
-                {logTitle(data)}
-              </div>
-              <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-xs">
-                {data.request_id}
-                <CopyButton text={data.request_id} className="size-5" />
-              </div>
-            </div>
-            <StatusBadge ok={data.ok} status={data.status} />
-          </div>
-
-          {/* Money tiles show only what the CALLER paid. On a Dosco-managed
-              (`credits`) request the upstream price is Dosco's wholesale cost,
-              not the caller's — the API never sends it, so there is no
-              "provider cost" tile to render for one. A BYOK request that also
-              carries a Dosco platform fee is the only case with two payees,
-              and only that case gets the fourth tile. */}
-          <div
-            className={cn(
-              'grid grid-cols-2 gap-2',
-              data.kortix_cost > 0 && data.provider_cost > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3',
-            )}
-          >
-            <StatTile
-              label={tI18nComplete.raw('texte0e7d293043c')}
-              value={`${data.latency_ms}ms`}
-            />
-            <StatTile
-              label={tI18nComplete.raw('texta039dfb9628b')}
-              value={(data.input_tokens + data.output_tokens).toLocaleString()}
-            />
-            <StatTile
-              label={tI18nComplete.raw('text204a5eb2cd28')}
-              value={`$${data.total_cost.toFixed(4)}`}
-            />
-            {data.kortix_cost > 0 && data.provider_cost > 0 && (
-              <StatTile
-                label={tI18nComplete.raw('text27343e44b3f1')}
-                value={`$${data.kortix_cost.toFixed(4)}`}
-              />
-            )}
-          </div>
-
-          <div className="bg-popover rounded-md border px-4 py-1">
-            {/* An em dash beats an empty cell — the field exists, the value does
-                not, and the reader should be able to tell those apart. */}
-            <DetailField
-              label={tI18nComplete.raw('textb36591f91a8c')}
-              value={<span className="font-mono text-xs">{data.requested_model || '—'}</span>}
-            />
-            <DetailField
-              label={tI18nComplete.raw('textac811767e2f7')}
-              value={<span className="font-mono text-xs">{data.resolved_model || '—'}</span>}
-            />
-            <DetailField
-              label={tI18nComplete.raw('text472590ae974d')}
-              value={data.provider || '—'}
-            />
-            <DetailField
-              label={tI18nComplete.raw('text49f19beeecf4')}
-              value={fmtTime(data.created_at)}
-            />
-            <DetailField
-              label={tI18nComplete.raw('texta039dfb9628b')}
-              value={`${data.input_tokens.toLocaleString()} in · ${data.output_tokens.toLocaleString()} out`}
-            />
-            {(data.cached_tokens > 0 || data.cache_write_tokens > 0) && (
-              <DetailField
-                label={tI18nComplete.raw('texta76ce82a9749')}
-                value={`${data.cached_tokens.toLocaleString()} read · ${data.cache_write_tokens.toLocaleString()} write`}
-              />
-            )}
-            <DetailField
-              label={tI18nComplete.raw('texta951c5945635')}
-              value={data.streaming ? 'yes' : 'no'}
-            />
-            {/* Was "Billing mode: none", which reads as "this call was free"
-                and is the reason a $0.00 next to a real provider charge looked
-                like a bug rather than a BYOK route. Name the payee instead. */}
-            <DetailField
-              label={tI18nComplete.raw('text88b1dfafbd5f')}
-              value={billedByLabel(data.billing_mode, data.provider)}
-            />
-            {data.attempts > 1 && (
-              <DetailField label={tI18nComplete.raw('text06e70139fcf5')} value={data.attempts} />
-            )}
-            {/* Fetched by the route since day one and never rendered — it is the
-                only place the fallback chain that actually ran is visible. */}
-            {data.candidates_tried.length > 0 && (
-              <DetailField
-                label={tI18nComplete.raw('text8281b9f426fd')}
-                value={
-                  <span className="font-mono text-xs">{data.candidates_tried.join(' → ')}</span>
-                }
-              />
-            )}
-          </div>
-
-          {data.error_message && (
-            <div className="border-kortix-red/25 bg-popover rounded-md border p-4">
-              <div className="text-muted-foreground mb-1 text-xs font-medium">
-                {data.error_code ?? 'Error'}
-              </div>
-              <div className="text-foreground text-sm wrap-break-word whitespace-pre-wrap">
-                {data.error_message}
-              </div>
-            </div>
-          )}
-
-          <PayloadBlock title={tI18nComplete.raw('text59f03d642b41')} value={data.request} />
-          <PayloadBlock title={tI18nComplete.raw('text9061383b8e22')} value={data.response} />
-          {Object.keys(data.metadata).length > 0 && (
-            <PayloadBlock title={tI18nComplete.raw('text9eddf573cb50')} value={data.metadata} />
-          )}
-        </div>
-=======
         <p className="text-muted-foreground text-xs">{t('noRequests')}</p>
->>>>>>> upstream-dev
       )}
     </div>
   );

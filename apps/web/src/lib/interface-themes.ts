@@ -38,7 +38,7 @@ export interface TerminalTheme {
 }
 export const TERMINAL_THEMES: readonly TerminalTheme[] = terminalThemes as TerminalTheme[];
 
-/** The Kortix-designed palettes, listed before the terminal themes. */
+/** The Dosco-designed palettes, listed before the terminal themes. */
 export const KORTIX_LIGHT_THEME_IDS = ['light', 'pure-light'] as const;
 export const KORTIX_DARK_THEME_IDS = ['dark', 'pure-dark'] as const;
 
@@ -146,7 +146,7 @@ export const USER_PREFERENCES_STORAGE_KEY = 'kortix-user-preferences';
  * person everywhere.
  *
  * The decision is made from the URL at the root, never by a component inside
- * the route: `(app)` renders its auth / MFA gate (the Kortix mark) before any
+ * the route: `(app)` renders its auth / MFA gate (the Dosco mark) before any
  * route layout mounts, and that first paint must already be themed.
  * Public URLs carry no locale prefix; the optional one is accepted anyway.
  */

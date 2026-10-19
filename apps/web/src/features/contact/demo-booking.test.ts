@@ -40,8 +40,8 @@ describe('subscribeBookingSuccess', () => {
     const { cal, fire } = fakeCal();
     let got: unknown = null;
     subscribeBookingSuccess(cal, (b) => (got = b));
-    fire({ uid: 'b1', title: 'Kortix demo', startTime: 'a', endTime: 'b' });
-    expect(got).toEqual({ uid: 'b1', title: 'Kortix demo', startTime: 'a', endTime: 'b' });
+    fire({ uid: 'b1', title: 'Dosco demo', startTime: 'a', endTime: 'b' });
+    expect(got).toEqual({ uid: 'b1', title: 'Dosco demo', startTime: 'a', endTime: 'b' });
   });
 });
 

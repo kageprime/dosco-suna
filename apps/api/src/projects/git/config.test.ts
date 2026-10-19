@@ -308,7 +308,7 @@ description: "Runs deploys: say \\"go\\""
 });
 
 describe('loadProjectConfig on kortix_version 3', () => {
-  test('agents come from the YAML blocks, skills from the registry plus the Kortix skills, commands from the registry', async () => {
+  test('agents come from the YAML blocks, skills from the registry plus the Dosco skills, commands from the registry', async () => {
     await push(
       {
         'kortix.yaml': `kortix_version: 3

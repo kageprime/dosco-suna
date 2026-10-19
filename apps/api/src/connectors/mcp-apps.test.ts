@@ -16,7 +16,7 @@ import { discoverProtectedResourceOAuth2, mcpSignInCheck } from './oauth2-resour
 const ICONS = join(import.meta.dir, '../../../web/public/connector-icons');
 const GOOGLE = new Map([['google', { client_id: 'kortix-google', client_secret: 'kortix-google-secret' }]]);
 
-describe('the Kortix MCP app catalogue', () => {
+describe('the Dosco MCP app catalogue', () => {
   test('every app has a unique slug and domain, an https endpoint, and an icon file exactly when it claims one', () => {
     expect(new Set(MCP_APPS.map((app) => app.slug)).size).toBe(MCP_APPS.length);
     expect(new Set(MCP_APPS.map((app) => app.domain)).size).toBe(MCP_APPS.length);
@@ -33,7 +33,7 @@ describe('the Kortix MCP app catalogue', () => {
     expect(readdirSync(ICONS).filter((file) => !listed.has(file))).toEqual([]);
   });
 
-  test('an app on a Kortix client is listed only when that client is configured', () => {
+  test('an app on a Dosco client is listed only when that client is configured', () => {
     const none = availableMcpApps(new Map()).map((app) => app.slug);
     expect(none).toContain('linear');
     expect(none).not.toContain('gmail');
@@ -55,7 +55,7 @@ describe('the Kortix MCP app catalogue', () => {
     expect(mcpAppForUrl('http://mcp.linear.app/mcp')).toBeNull();
   });
 
-  test("Kortix's client is used only for a catalogue URL, with the catalogue's endpoints", () => {
+  test("Dosco's client is used only for a catalogue URL, with the catalogue's endpoints", () => {
     const application = kortixClientApplication('https://gmailmcp.googleapis.com/mcp/v1', GOOGLE);
     expect(application).toMatchObject({
       client_id: 'kortix-google',
@@ -83,7 +83,7 @@ describe('the Kortix MCP app catalogue', () => {
   });
 });
 
-describe('sign-in for an app on a Kortix client', () => {
+describe('sign-in for an app on a Dosco client', () => {
   test('discovery comes from the catalogue, without probing the server, and is one click', async () => {
     const previous = config.KORTIX_OAUTH_CLIENTS;
     (config as { KORTIX_OAUTH_CLIENTS: string }).KORTIX_OAUTH_CLIENTS = JSON.stringify({ google: { client_id: 'kortix-google', client_secret: 's' } });

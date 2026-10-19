@@ -14,7 +14,7 @@ describe('webhookDeliveryKey', () => {
     }
   });
 
-  test('the Kortix header wins over a sender header', () => {
+  test('the Dosco header wins over a sender header', () => {
     const key = webhookDeliveryKey({
       ...base,
       header: headers({ 'x-github-delivery': 'gh-1', 'x-kortix-delivery-id': 'k-1' }),

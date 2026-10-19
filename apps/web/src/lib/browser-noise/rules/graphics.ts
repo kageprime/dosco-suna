@@ -547,12 +547,12 @@ export function isCanvasImageDataOOMNoise(input: {
 //
 // Better Stack pattern
 // 1c3e5d8c40c89ea1c21fc33d524f8043e5a0d21a1ea001539cd1441f1ea37179
-// (Kortix Frontend prod, application_id 2346967): `TypeError`, message
+// (Dosco Frontend prod, application_id 2346967): `TypeError`, message
 // `Illegal invocation`, 2 occurrences / 0 identified users, first 2026-10-15
 // 19:17:00 UTC, release `ed03160b76fccf04fb68bce4083737939faed829`, call site
 // `WebGL2RenderingContext.spoof [as getParameter]` at `<anonymous>` (line 97),
 // frames `40hy2smvy-pfn.js` (`?` async executor line 10, `bB.init` line 183,
-// `new bb` line 183), request URL `https://kortix.com/` (marketing homepage),
+// `new bb` line 183), request URL `https://dosco.live/` (marketing homepage),
 // browser Chrome 146 on Windows 10, mechanism
 // `auto.browser.global_handlers.onunhandledrejection` (UNCAUGHT,
 // `handled:false`). Reproduced locally (KRTX-2465): the same spoof wrapper in

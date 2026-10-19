@@ -373,17 +373,8 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
   const managed = getRuntimeManagedModel(effectiveModel);
   if (!managed || !config.LLM_GATEWAY_ENABLED || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
-<<<<<<< HEAD
     'Dosco Managed Models are disabled for this project.',
     'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
-  if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
-    `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
-  if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
-    const tier = await getCachedAccountTier(principal.accountId);
-    throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
-=======
-    'Kortix Managed Models are disabled for this project.',
-    'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
   // The platform default is the ONE managed model every tier may use — a fresh
   // free account's only working model (KRTX-1067). The rest of the lineup
   // keeps its plan gates.
@@ -395,7 +386,6 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
       const tier = await getCachedAccountTier(principal.accountId);
       throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
     }
->>>>>>> upstream-dev
   }
   return managedCandidates(managed).map((candidate) => {
     const headers = opencodeHeaders(candidate.baseUrl, principal);

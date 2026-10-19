@@ -5,11 +5,7 @@ export const sales: RoleContent = {
   slug: 'sales',
   name: 'Sales',
   navDescription: 'Research, drafts and CRM hygiene, held for your approval',
-<<<<<<< HEAD
-  seoTitle: 'Dosco for sales teams',
-=======
   seoTitle: 'AI agents for sales teams',
->>>>>>> upstream-dev
   seoDescription:
     'Hand a sales agent the research, the pre-call brief, the CRM write-back and the follow-up draft. Nothing sends until you approve it, and every action it took is written down.',
 

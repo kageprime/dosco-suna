@@ -112,21 +112,10 @@ export function MetricTab({
 }: {
   label: string;
   value: string;
-<<<<<<< HEAD
-  // ReactNode, not string: the spend card's sub-line carries a two-part
-  // Dosco / provider breakdown with its own dot markers.
-  sub?: ReactNode;
-  icon: LucideIcon;
-  accent: string;
-  spark?: Record<string, unknown>[];
-  sparkKey?: string;
-  index?: number;
-=======
   /** A unit word after the value, smaller and muted: `1,842 credits`. */
   unit?: string;
   selected: boolean;
   onSelect: () => void;
->>>>>>> upstream-dev
 }) {
   return (
     <button

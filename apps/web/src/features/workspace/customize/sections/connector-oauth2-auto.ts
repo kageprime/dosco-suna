@@ -16,12 +16,12 @@ export type AutoConnectPlan =
   | { kind: 'unknown' }
   /** The server answered without credentials — it needs no OAuth connection. */
   | { kind: 'no_authorization' }
-  /** Everything is discoverable: register dynamically (or take Kortix's own
+  /** Everything is discoverable: register dynamically (or take Dosco's own
    *  client, `kortix_client`), then authorize. */
   | {
       kind: 'register';
       label: string;
-      /** Absent when Kortix signs in with its own OAuth client. */
+      /** Absent when Dosco signs in with its own OAuth client. */
       registrationEndpoint?: string;
       scopes: string[];
     }
@@ -73,7 +73,7 @@ export function buildClientRegistrationInput(
   }
   const metadata = discovery.metadata ?? {};
   return {
-    // Without it the API signs in with Kortix's own client for this server.
+    // Without it the API signs in with Dosco's own client for this server.
     ...(discovery.registration_endpoint
       ? { registration_endpoint: discovery.registration_endpoint }
       : {}),

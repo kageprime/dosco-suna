@@ -91,7 +91,7 @@ export function pathOutput(path: string): OutputItem {
 /**
  * The recents `AppPreview`'s no-app landing can actually navigate to. The
  * shared recents store also holds external browsing history (BrowserPanel's
- * web mode), but the in-panel browser opens sandbox ports and Kortix Apps
+ * web mode), but the in-panel browser opens sandbox ports and Dosco Apps
  * only — offering a github.com row it would refuse to open is a dead
  * affordance. Pure for the
  * same testability reason as the rest of this file.

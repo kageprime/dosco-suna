@@ -7,7 +7,7 @@
 
 import { logger } from '../../lib/logger';
 import type Stripe from 'stripe';
-import { getStripe, stripeConfigured } from '../../shared/stripe';
+import { getStripe } from '../../shared/stripe';
 import { config } from '../../config';
 import { getCreditAccount, updateCreditAccount } from '../repositories/credit-accounts';
 import { claimAutoTopupCharge, disableAutoTopupIfEnabled } from '../repositories/auto-topup-claim';
@@ -77,12 +77,6 @@ export function validateAutoTopupConfig(cfg: AutoTopupConfig): string | null {
 export async function configureAutoTopup(accountId: string, cfg: AutoTopupConfig) {
   const account = await getCreditAccount(accountId);
   if (!account) throw new BillingError('Account not found');
-
-  // Off-session charges run on Stripe saved methods. Paystack renewals are
-  // collected by Paystack itself, so there is nothing to configure here.
-  if (cfg.enabled && (account.provider ?? 'stripe') !== 'stripe') {
-    throw new BillingError('Auto-topup is only available for Stripe-billed accounts');
-  }
 
   // Resolved plan, not the stored `credit_accounts.tier`. The row is already in
   // hand, so this costs no extra read. An account on an active trial of a paid
@@ -201,11 +195,6 @@ async function tryAutoTopup(accountId: string): Promise<void> {
   const account = await getCreditAccount(accountId);
   if (!account) return;
   if (!account.autoTopupEnabled) return;
-
-  // No Stripe to charge (unconfigured deployment) or nothing Stripe-side to
-  // charge (Paystack-billed account) — skip silently instead of throwing
-  // inside a fire-and-forget trigger.
-  if (!stripeConfigured() || (account.provider ?? 'stripe') !== 'stripe') return;
 
   // Same resolved-plan gate as configureAutoTopup, off the row already fetched.
   const { plan } = await resolveAccountBilling(accountId, { row: account });
@@ -473,13 +462,6 @@ async function getUsableAutoTopupPaymentMethodId(accountId: string): Promise<str
 async function getAutoTopupPaymentStatus(accountId: string): Promise<PaymentMethodResolution> {
   const customer = await getCustomerByAccountId(accountId);
   if (!customer) {
-    return resolveUsablePaymentMethod({});
-  }
-
-  // No Stripe API to ask, or a non-Stripe (e.g. Paystack) customer row that
-  // Stripe would reject — report "no method" instead of throwing, so the
-  // setup-status route stays a 200 with has_payment_method=false.
-  if (!stripeConfigured() || (customer.provider ?? 'stripe') !== 'stripe') {
     return resolveUsablePaymentMethod({});
   }
 

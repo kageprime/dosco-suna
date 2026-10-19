@@ -293,17 +293,6 @@ export default function PublicSessionSharePage() {
                 </Button>
               </Hint>
             )}
-<<<<<<< HEAD
-            {/* One CTA in both auth states. A signed-out visitor still wants
-                "Open in Dosco"; sign-in is a step on the way there, not a
-                different destination. */}
-            <Button size="sm" asChild>
-              <Link href={hasAuth ? sessionHref : authHref} prefetch>
-                {tI18nHardcoded.raw('autoAppPublicShareSessionTokenPageJsxTextOpenIn2fdbf464')}
-              </Link>
-            </Button>
-=======
->>>>>>> upstream-dev
             {/* Full screen exists for an iframe that needs the whole viewport.
                 A transcript is a scrolling page; the header costs it nothing.
                 An offline share has nothing to fill the screen with. */}
@@ -334,7 +323,7 @@ export default function PublicSessionSharePage() {
               </Button>
             )}
             {/* One CTA in both auth states. A signed-out visitor still wants
-                "Open in Kortix"; sign-in is a step on the way there, not a
+                "Open in Dosco"; sign-in is a step on the way there, not a
                 different destination. Offline and signed out, the pane's
                 Sign in is the only way on, so the bar shows no second copy. */}
             {offline && !hasAuth ? null : (

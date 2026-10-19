@@ -804,7 +804,7 @@ export function SessionPanelProvider({
 
   // The panel comes back with the session: what it showed is remembered while
   // it is open, and reopened on the way back while the session still runs.
-  // Keyed by the Kortix session, so the boot shell and the chat share it. See
+  // Keyed by the Dosco session, so the boot shell and the chat share it. See
   // `session-panel-memory-store.ts`.
   const memoryKey = projectSessionId ?? sessionId;
   // The visible, non-transient panel: the same session the header's own Terminal

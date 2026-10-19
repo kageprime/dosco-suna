@@ -76,11 +76,11 @@ export async function deleteSlackInstall(projectId: string): Promise<void> {
     .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.projectId, projectId)));
 }
 
-// Universal Kortix Slack App install. Records this project's membership of the
+// Universal Dosco Slack App install. Records this project's membership of the
 // workspace, then fans the bot token + workspace metadata out to every project
 // on the workspace — Slack issues one token per (app, workspace) and a re-auth
 // rotates it, so all sharing projects must be kept current. The signing secret
-// is the master Kortix one and stays server-side; it is never persisted here.
+// is the master Dosco one and stays server-side; it is never persisted here.
 export async function saveSlackOauthInstall(
   input: SlackOauthInstallInput,
 ): Promise<SlackInstallSummary> {

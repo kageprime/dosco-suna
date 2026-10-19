@@ -31,98 +31,6 @@ import {
   summarizeDeliverySync,
 } from '../lib/secret-writes';
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'put',
-    path: '/{projectId}/secrets/{identifier}/strategy',
-    tags: ['secrets'],
-    summary: 'Set how a secret is delivered to sandboxes',
-    ...auth,
-    request: {
-      params: z.object({ projectId: z.string(), identifier: z.string() }),
-      body: { content: { 'application/json': { schema: UpdateSecretStrategyInputSchema } } },
-    },
-    responses: {
-      200: json(SecretWriteResultSchema, 'Updated secret delivery strategy'),
-      ...errors(400, 403, 404, 409),
-    },
-  }),
-  async (c: any) => {
-    const projectId = c.req.param('projectId');
-    const identifier = c.req.param('identifier')?.trim();
-    const parsed = UpdateSecretStrategyInputSchema.safeParse(await readJsonObject(c));
-    if (!identifier || !isValidIdentifier(identifier)) {
-      return c.json({ error: 'Invalid secret identifier' }, 400);
-    }
-    if (!parsed.success) {
-      return c.json({ error: 'strategy must be runtime, egress, broker, or denied' }, 400);
-    }
-
-    const loaded = await loadProjectForUser(c, projectId, 'manage');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
-    await assertProjectCapability(
-      c,
-      loaded.userId,
-      loaded.row.accountId,
-      projectId,
-      PROJECT_ACTIONS.PROJECT_SECRET_WRITE,
-    );
-    if (isBorrowedSessionPrincipal(c)) {
-      return c.json({ error: 'Agent sessions cannot change secret delivery policy' }, 403);
-    }
-    if (isSystemProjectSecretName(identifier)) {
-      return c.json({ error: `${identifier} is managed by Dosco` }, 403);
-    }
-    let nextPolicy = null;
-    const policyBackend = parsed.data.egress_policy?.backend;
-    const inferredConsumer =
-      parsed.data.strategy === 'runtime'
-        ? 'sandbox'
-        : parsed.data.strategy === 'denied'
-          ? null
-          : parsed.data.strategy === 'egress'
-            ? 'network'
-            : policyBackend === 'kortix_fetch'
-              ? 'http_broker'
-              : policyBackend === 'llm_gateway' || policyBackend === 'git_proxy'
-                ? policyBackend
-                : 'http_broker';
-    const nextConsumer =
-      parsed.data.consumer === undefined
-        ? inferredConsumer
-        : parsed.data.consumer;
-
-    if (parsed.data.strategy === 'runtime' && nextConsumer !== 'sandbox') {
-      return c.json({ error: 'runtime delivery requires the sandbox consumer' }, 400);
-    }
-    if (parsed.data.strategy === 'denied' && nextConsumer !== null) {
-      return c.json({ error: 'denied delivery cannot have a consumer' }, 400);
-    }
-    if (parsed.data.strategy === 'egress' && nextConsumer !== 'network') {
-      return c.json({ error: 'egress delivery requires the network consumer' }, 400);
-    }
-    if (
-      parsed.data.strategy === 'broker' &&
-      !['llm_gateway', 'git_proxy', 'http_broker', 'connector'].includes(
-        String(nextConsumer),
-      )
-    ) {
-      return c.json({ error: 'broker delivery requires a server consumer' }, 400);
-    }
-
-    const requiresNetworkPolicy =
-      parsed.data.strategy === 'egress' || nextConsumer === 'http_broker';
-    if (requiresNetworkPolicy) {
-      if (!parsed.data.egress_policy) {
-        return c.json(
-          {
-            error: `${parsed.data.strategy} delivery requires an outbound policy`,
-            code: 'secret_delivery_policy_required',
-          },
-          400,
-        );
-=======
 export function registerSecretDeliveryRoutes(): void {
   projectsApp.openapi(
     createRoute({
@@ -146,7 +54,6 @@ export function registerSecretDeliveryRoutes(): void {
       const parsed = UpdateSecretStrategyInputSchema.safeParse(await readJsonObject(c));
       if (!identifier || !isValidIdentifier(identifier)) {
         return c.json({ error: 'Invalid secret identifier' }, 400);
->>>>>>> upstream-dev
       }
       if (!parsed.success) {
         return c.json({ error: 'strategy must be runtime, egress, broker, or denied' }, 400);
@@ -165,7 +72,7 @@ export function registerSecretDeliveryRoutes(): void {
         return c.json({ error: 'Agent sessions cannot change secret delivery policy' }, 403);
       }
       if (isSystemProjectSecretName(identifier)) {
-        return c.json({ error: `${identifier} is managed by Kortix` }, 403);
+        return c.json({ error: `${identifier} is managed by Dosco` }, 403);
       }
       let nextPolicy = null;
       const policyBackend = parsed.data.egress_policy?.backend;

@@ -25,14 +25,14 @@ const email = (id: string, role: string) => `subproc-${role}-${id.slice(0, 8)}@e
 
 const ROWS: Subprocessor[] = [
   { name: 'Established Hosting, Inc.', purpose: 'Hosting', location: 'United Kingdom' },
-  { name: 'Example Inference, Inc.', purpose: 'Inference for Kortix-managed AI models', location: 'United States', addedOn: '2026-10-18' },
+  { name: 'Example Inference, Inc.', purpose: 'Inference for Dosco-managed AI models', location: 'United States', addedOn: '2026-10-18' },
 ];
 
 let paid: SeededProject;
 let free: SeededProject;
 let sent: EmailMessage[] = [];
-const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Kortix compliance]'));
-const privacyReports = () => sent.filter((m) => m.subject.startsWith('[Kortix compliance]'));
+const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Dosco compliance]'));
+const privacyReports = () => sent.filter((m) => m.subject.startsWith('[Dosco compliance]'));
 const savedEnv = config.INTERNAL_KORTIX_ENV;
 
 beforeAll(async () => {
@@ -91,10 +91,10 @@ describe('the subprocessor notice sweep', () => {
     const to = customerEmails().flatMap((message) => message.to).sort();
     expect(to).toEqual([email(ADMIN, 'admin'), email(OWNER, 'owner')].sort());
     const [message] = customerEmails();
-    expect(message!.subject).toBe('Kortix subprocessor update, effective November 24, 2026');
+    expect(message!.subject).toBe('Dosco subprocessor update, effective November 24, 2026');
     expect(message!.category).toBe('legal-subprocessor-notice');
-    expect(message!.replyTo).toBe('privacy@kortix.com');
-    expect(message!.text).toContain('Example Inference, Inc.: Inference for Kortix-managed AI models (United States)');
+    expect(message!.replyTo).toBe('privacy@dosco.live');
+    expect(message!.text).toContain('Example Inference, Inc.: Inference for Dosco-managed AI models (United States)');
     expect(message!.text).toContain('/legal/subprocessors');
     expect(message!.text).not.toContain('Established Hosting');
 
@@ -111,8 +111,8 @@ describe('the subprocessor notice sweep', () => {
     expect(freeAudits).toEqual([]);
 
     const [report] = privacyReports();
-    expect(report!.to).toEqual(['privacy@kortix.com']);
-    expect(report!.subject).toBe('[Kortix compliance] Subprocessor notice sent to 1 accounts');
+    expect(report!.to).toEqual(['privacy@dosco.live']);
+    expect(report!.subject).toBe('[Dosco compliance] Subprocessor notice sent to 1 accounts');
     expect(report!.text).toContain('takes effect November 24, 2026, 34 days from now');
 
     sent = [];
@@ -125,7 +125,7 @@ describe('the subprocessor notice sweep', () => {
     const rows: Subprocessor[] = [{ ...ROWS[1]!, addedOn: '2026-10-01' }];
     await runSubprocessorNoticeSweep(new Date('2026-10-20T09:00:00Z'), rows);
     const [report] = privacyReports();
-    expect(report!.subject).toBe('[Kortix compliance] Subprocessor notice gave only 17 days');
+    expect(report!.subject).toBe('[Dosco compliance] Subprocessor notice gave only 17 days');
     expect(report!.text).toContain('Send no customer data to these subprocessors until 30 days from now');
   });
 

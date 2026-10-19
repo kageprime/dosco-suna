@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { APP_EDGE_HEADERS, edgeSignature, verifyEdgeSignedRequest } from './edge-signature';
 
-const HOST = 'dev-app-aaaaaaaaaaaaaaaa.apps.kortix.com';
+const HOST = 'dev-app-aaaaaaaaaaaaaaaa.apps.dosco.live';
 const signed = (secret: string) => {
   const ts = String(Date.now());
-  const request = new Request('https://dev-api.kortix.com/x?y=1', {
+  const request = new Request('https://dev-api.dosco.live/x?y=1', {
     headers: { 'x-kortix-app-host': HOST, 'x-kortix-app-timestamp': ts, 'x-kortix-app-signature': edgeSignature(ts, HOST, 'GET', '/x?y=1', secret) },
   });
   return [request, new URL(request.url)] as const;

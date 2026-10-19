@@ -37,7 +37,7 @@ export function FeatureGateScreen({
   featureName: string;
   /** One sentence: what turning it on would give this project. */
   description: string;
-  /** The flag is not offered in Settings (`catalogHidden`): no button, ask Kortix instead. */
+  /** The flag is not offered in Settings (`catalogHidden`): no button, ask Dosco instead. */
   internalOnly?: boolean;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');

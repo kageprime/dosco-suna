@@ -98,10 +98,10 @@ export async function listConfigFiles(
 }
 
 const ARCHIVE_IDENTITY = {
-  GIT_AUTHOR_NAME: 'Kortix config release',
+  GIT_AUTHOR_NAME: 'Dosco config release',
   GIT_AUTHOR_EMAIL: 'config-release@kortix.invalid',
   GIT_AUTHOR_DATE: '@0 +0000',
-  GIT_COMMITTER_NAME: 'Kortix config release',
+  GIT_COMMITTER_NAME: 'Dosco config release',
   GIT_COMMITTER_EMAIL: 'config-release@kortix.invalid',
   GIT_COMMITTER_DATE: '@0 +0000',
 };

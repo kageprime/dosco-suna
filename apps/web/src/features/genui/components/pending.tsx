@@ -31,7 +31,7 @@ const RESERVED: Record<string, string> = {
   PieChart: CHART_FIGURE_HEIGHT,
 };
 
-/** A node the model has not finished. Heavy nodes hold their space with the one Kortix spinner; text nodes wait invisibly. */
+/** A node the model has not finished. Heavy nodes hold their space with the one Dosco spinner; text nodes wait invisibly. */
 export function GenuiPending(node: GenuiNode): ReactNode {
   if (node.type === 'Map') {
     // With the map switched off it is a list of places, text that grows like prose: nothing to reserve.

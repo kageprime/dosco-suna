@@ -1,5 +1,5 @@
 /**
- * A Kortix App link clicked in a session opens in that session's browser panel,
+ * A Dosco App link clicked in a session opens in that session's browser panel,
  * beside the chat, instead of a new browser tab (KRTX-2441). Off a session page
  * the link keeps its native new-tab behavior.
  *
@@ -64,7 +64,7 @@ function click(href: string): MouseEvent {
   return event as unknown as MouseEvent;
 }
 
-describe('LocalhostLinkInterceptor — Kortix App links', () => {
+describe('LocalhostLinkInterceptor — Dosco App links', () => {
   test('on a session page, an App link opens in the session browser on its own origin', () => {
     useSessionBrowserStore.getState().setActiveSessionId(PANEL_SESSION);
 

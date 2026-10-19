@@ -1,7 +1,7 @@
 /**
  * Integration test (real local DB): account erasure empties the stores outside
  * the database before the rows that name them go (KRTX-1734): the parked
- * provider boxes, each project's session files and each Kortix-managed repo.
+ * provider boxes, each project's session files and each Dosco-managed repo.
  * A failure in any of them leaves the account in place, so the run retries.
  *
  * Real: every row, the FK cascade and the deletion routine. Fakes: the provider

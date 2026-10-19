@@ -137,7 +137,7 @@ export function useInstall(
             return;
           }
           const mcpUrl = variant.kind === 'mcp' ? variant.template.url : undefined;
-          // A Kortix catalogue app (connectors_v2) is its vendor's MCP server:
+          // A Dosco catalogue app (connectors_v2) is its vendor's MCP server:
           // a one-click sign-in opens the one-step MCP dialog, a public server
           // installs with no account to add, anything else installs as before.
           if (entry.connector.feeds.includes('kortix') && mcpUrl && onMcpServer) {

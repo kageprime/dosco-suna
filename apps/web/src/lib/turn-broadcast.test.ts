@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 /**
  * The cross-tab bridge for finished turns (KRTX-1795). The session page's
  * live stream is the only thing that hears a turn finish, so it publishes
- * here and every other Kortix tab runs its notification path on receipt.
+ * here and every other Dosco tab runs its notification path on receipt.
  * bun test has no BroadcastChannel — a fake hub delivers postMessage to every
  * OTHER live instance, matching the real cross-context semantics.
  */

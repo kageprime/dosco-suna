@@ -14,7 +14,7 @@ export function parseDomains(text: string): string[] {
   ];
 }
 
-/** The Kortix URL a computer enrolls with: the API origin without `/v1` (the engine adds it). */
+/** The Dosco URL a computer enrolls with: the API origin without `/v1` (the engine adds it). */
 export function enrollmentUrl(backendUrl: string | undefined): string {
   return (backendUrl || 'https://api.kortix.com/v1').replace(/\/+$/, '').replace(/\/v1$/, '');
 }
@@ -34,7 +34,7 @@ const configJson = (url: string, token: string) => JSON.stringify({ url, enrollm
 export function installCommand(os: RolloutOs, url: string, token: string): string {
   if (os === 'windows') return msiCommand(url, token);
   if (os === 'macos') {
-    const dir = '/Library/Application Support/Kortix/Capture';
+    const dir = '/Library/Application Support/Dosco/Capture';
     return [
       `sudo mkdir -p "${dir}"`,
       `echo '${configJson(url, token)}' | sudo tee "${dir}/config.json" >/dev/null`,

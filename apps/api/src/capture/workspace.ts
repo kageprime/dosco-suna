@@ -1,9 +1,9 @@
 /**
- * The Capture tenant: one workspace per Kortix account. Capture has no project
+ * The Capture tenant: one workspace per Dosco account. Capture has no project
  * in its model. A workspace row carries the account-level switch (`enabled`)
  * and the policy.
  *
- * Access is Kortix IAM, not a Capture table. Every account member records and
+ * Access is Dosco IAM, not a Capture table. Every account member records and
  * reads their own capture. Two account leaves reach other people:
  * `capture.read_all` (every member's devices and timeline, each read audited)
  * and `capture.manage` (the switch, the policy, revoking any device). Owner

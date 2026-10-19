@@ -485,24 +485,7 @@ export async function classifyEvent(
   return 'ignore';
 }
 
-<<<<<<< HEAD
-// A thread is owned only by the project recorded on its `chat_threads` row.
-//
-// PROD 2026-09-22. `chat_threads` is keyed workspace-wide, and every Dosco app
-// in a workspace receives every `message.channels` event. Unscoped, this made a
-// plain reply in a `Dosco Company` thread a follow-up for
-// `kortix-incident-reporter` too. Incident reporter won the exactly-once claim,
-// posted an "Open session" card linking its own project to Dosco Company's
-// session, and Dosco Company's own delivery lost the claim and went silent.
-// Same two-app workspace as the 2026-08-20 and 2026-08-28 incidents above.
-async function threadIsOwned(teamId: string, threadTs: string, projectId?: string): Promise<boolean> {
-  return !!(await findChatThread({ platform: 'slack', workspaceId: teamId, threadId: threadTs }, projectId));
-}
-
 const CHANNEL_INTRO_FALLBACK = "Dosco is now connected to this channel. Mention @Dosco with a task to get started.";
-=======
-const CHANNEL_INTRO_FALLBACK = "Kortix is now connected to this channel. Mention @Kortix with a task to get started.";
->>>>>>> upstream-dev
 
 async function postChannelIntro(projectId: string, channelId: string): Promise<void> {
   const token = await loadSlackTokenForProject(projectId);
@@ -525,11 +508,7 @@ async function postChannelIntro(projectId: string, channelId: string): Promise<v
       text: {
         type: 'mrkdwn',
         text: [
-<<<<<<< HEAD
-          '`@`-mention Dosco with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Follow-ups stay in the same conversation, with full context.',
-=======
-          '`@`-mention Kortix with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Tag Kortix again in the thread to follow up — it reads the thread first.',
->>>>>>> upstream-dev
+          '`@`-mention Dosco with a task and an agent gets on it — working across your connected tools and replying right here in the thread. Tag Dosco again in the thread to follow up — it reads the thread first.',
           projectLine,
           'Agent, model, and session policy settings are shared by this Slack channel.',
           '',

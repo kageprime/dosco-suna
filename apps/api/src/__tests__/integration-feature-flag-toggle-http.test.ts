@@ -226,7 +226,7 @@ describe('operator-only flags', () => {
       const body = await res.json();
       expect(body.code).toBe('feature_operator_only');
       expect(body.feature).toBe('session_log');
-      expect(body.error).toContain('Contact Kortix');
+      expect(body.error).toContain('Contact Dosco');
     }
     expect(await storedOverrides(PROJECT)).toBeUndefined();
   });

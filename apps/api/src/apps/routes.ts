@@ -94,7 +94,7 @@ const UsesSchema = z
   .array(z.string().regex(APP_SLUG, 'an App slug: lowercase letters, numbers and single hyphens'))
   .max(20)
   .transform((slugs) => [...new Set(slugs)]);
-/** Where Kortix shows the App (`AppDisplay`). Replaced whole; `{}` restores the defaults. */
+/** Where Dosco shows the App (`AppDisplay`). Replaced whole; `{}` restores the defaults. */
 const DisplaySchema = z.object({
   listed: z.boolean().optional(),
   preview: z.enum(['live', 'none']).optional(),
@@ -111,7 +111,7 @@ function framingWarnings(url: string, frameable: boolean): Array<{ code: string;
   if (frameable) return [];
   return [{
     code: 'app_external_not_frameable',
-    message: `${new URL(url).host} does not allow other sites to frame it. Kortix opens it in a new tab.`,
+    message: `${new URL(url).host} does not allow other sites to frame it. Dosco opens it in a new tab.`,
   }];
 }
 
@@ -275,40 +275,6 @@ async function resolveLinksOrRefuse(
   }
 }
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'post', path: '/{projectId}/apps/{appId}/access-session', tags: ['apps'], summary: 'Create an App browser access session', ...auth,
-    request: { params: z.object({ projectId: z.string().uuid(), appId: z.string().uuid() }) },
-    responses: { 200: json(z.object({ url: z.string().url(), expires_at: z.string() }), 'App access session'), ...errors(403, 404) },
-  }),
-  async (c: any) => {
-    const { projectId, appId } = c.req.param();
-    const loaded = await authorizedProject(c, projectId);
-    if (loaded instanceof Response) return loaded;
-    const row = await visibleApp(projectId, appId, loaded.userId);
-    if (!row) return c.json({ error: 'Not found' }, 404);
-    if (row.accessMode !== 'public' && row.accessMode !== 'password' && !(await appAccessibleToUser(row, loaded.userId))) {
-      return c.json({ error: 'App access denied' }, 403);
-    }
-    // A PASSWORD App gets the bare URL: the door is the password prompt, and a
-    // Dosco session cannot stand in for knowing the secret.
-    if (row.accessMode === 'password') {
-      return c.json({ url: appPublicUrl(row), expires_at: new Date(Date.now() + 5 * 60_000).toISOString() });
-    }
-    // A PUBLIC App gets a real session URL, the same as a gated one.
-    //
-    // It used to get the bare URL, which meant a public App could never
-    // recognise anyone: no access link, so no identity cookie, so no viewer
-    // header — `public` silently also meant `anonymous`. Opening it from Dosco
-    // now carries who you are, while the bare URL underneath stays shareable
-    // with someone who has no Dosco account at all. The gate does not GATE a
-    // public App either way; this only decides whether it can greet you.
-    const session = appAccessSessionUrl(appPublicUrl(row), row, loaded.userId);
-    return c.json({ url: session.url, expires_at: session.expiresAt.toISOString() });
-  },
-);
-=======
 /** Sets the Apps a just-created App uses; the 400 to answer when a slug names no App the caller can see. */
 async function linkOrRefuse(c: Context<AppEnv>, app: typeof apps.$inferSelect, uses: string[], userId: string): Promise<Response | null> {
   const found = await resolveLinksOrRefuse(c, app, uses, userId);
@@ -316,7 +282,6 @@ async function linkOrRefuse(c: Context<AppEnv>, app: typeof apps.$inferSelect, u
   await db.transaction((tx) => writeAppLinks(tx, app.appId, found));
   return null;
 }
->>>>>>> upstream-dev
 
 export function registerAppsRoutes(): void {
   registerAppCapabilityRoutes();
@@ -475,12 +440,12 @@ export function registerAppsRoutes(): void {
       if (row.accessMode !== 'public' && row.accessMode !== 'password' && !(await appAccessibleToUser(row, loaded.userId))) {
         return c.json({ error: 'App access denied' }, 403);
       }
-      // Hosted elsewhere: its own site signs people in. Kortix only decides who sees it.
+      // Hosted elsewhere: its own site signs people in. Dosco only decides who sees it.
       if (row.externalUrl) {
         return c.json({ url: row.externalUrl, expires_at: new Date(Date.now() + 24 * 3_600_000).toISOString() });
       }
       // A PASSWORD App gets the bare URL: the door is the password prompt, and a
-      // Kortix session cannot stand in for knowing the secret.
+      // Dosco session cannot stand in for knowing the secret.
       if (row.accessMode === 'password') {
         return c.json({ url: appPublicUrl(row), expires_at: new Date(Date.now() + 5 * 60_000).toISOString() });
       }
@@ -488,9 +453,9 @@ export function registerAppsRoutes(): void {
       //
       // It used to get the bare URL, which meant a public App could never
       // recognise anyone: no access link, so no identity cookie, so no viewer
-      // header — `public` silently also meant `anonymous`. Opening it from Kortix
+      // header — `public` silently also meant `anonymous`. Opening it from Dosco
       // now carries who you are, while the bare URL underneath stays shareable
-      // with someone who has no Kortix account at all. The gate does not GATE a
+      // with someone who has no Dosco account at all. The gate does not GATE a
       // public App either way; this only decides whether it can greet you.
       const session = appAccessSessionUrl(appPublicUrl(row), row, loaded.userId);
       return c.json({ url: session.url, expires_at: session.expiresAt.toISOString() });
@@ -501,9 +466,9 @@ export function registerAppsRoutes(): void {
     createRoute({
       method: 'post', path: '/{projectId}/apps', tags: ['apps'], summary: 'Create an App', ...auth,
       description: 'Account credits pay for App compute: there is no per-App budget. `external_url` (https) creates an ' +
-        'external App: Kortix lists and frames that site and never deploys it. It runs no compute and does not count ' +
+        'external App: Dosco lists and frames that site and never deploys it. It runs no compute and does not count ' +
         'toward the App limit. A site that refuses framing (X-Frame-Options, CSP frame-ancestors) gets ' +
-        '`capabilities: []` and a warning: Kortix opens it in a new tab.',
+        '`capabilities: []` and a warning: Dosco opens it in a new tab.',
       request: {
         params: z.object({ projectId: z.string().uuid() }),
         body: { content: { 'application/json': { schema: z.object({
@@ -658,7 +623,7 @@ export function registerAppsRoutes(): void {
     createRoute({
       method: 'patch', path: '/{projectId}/apps/{appId}', tags: ['apps'], summary: 'Update an App', ...auth,
       description:
-        '`external_url` moves an external App to another https URL (409 for an App Kortix runs). `display` replaces where Kortix shows the App (`listed`, `preview`: live | none, `parent`: the App whose detail shows it as a tab); presentation only. `uses` replaces the Apps (by slug) this App uses; each must be a live App of the project the caller can see (400 `app_not_found` otherwise, the same for a missing App and a hidden one). A refused PATCH changes nothing. ',
+        '`external_url` moves an external App to another https URL (409 for an App Dosco runs). `display` replaces where Dosco shows the App (`listed`, `preview`: live | none, `parent`: the App whose detail shows it as a tab); presentation only. `uses` replaces the Apps (by slug) this App uses; each must be a live App of the project the caller can see (400 `app_not_found` otherwise, the same for a missing App and a hidden one). A refused PATCH changes nothing. ',
       request: {
         params: z.object({ projectId: z.string().uuid(), appId: z.string().uuid() }),
         body: { content: { 'application/json': { schema: z.object({
@@ -734,7 +699,7 @@ export function registerAppsRoutes(): void {
       method: 'delete', path: '/{projectId}/apps/{appId}', tags: ['apps'], summary: 'Delete an App', ...auth,
       description:
         'The App stops serving at once; its machines and images go. An App with volumes needs `project.app.admin`: ' +
-        'each volume keeps a final snapshot for 7 days, then Kortix purges it.',
+        'each volume keeps a final snapshot for 7 days, then Dosco purges it.',
       request: {
         params: z.object({ projectId: z.string().uuid(), appId: z.string().uuid() }),
       },

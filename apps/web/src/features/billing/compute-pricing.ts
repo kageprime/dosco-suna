@@ -111,7 +111,7 @@ export const DEFAULT_COMPUTE_SPEC = `${DEFAULT_COMPUTE_RESOURCES.vcpu} vCPU / ${
 export const MINUTES_PER_CREDIT = Math.round(60 / DEFAULT_COMPUTE_CREDITS_PER_HOUR);
 
 /**
- * Kortix's platform fee on Kortix-model usage, in percent of the provider's
+ * Dosco's platform fee on Dosco-model usage, in percent of the provider's
  * base price. Mirrors `platformFeePercent` from `GET /v1/projects/{id}/models`;
  * the app reads the served value, this constant is for pages with no API call.
  */

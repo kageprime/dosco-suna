@@ -140,7 +140,7 @@ describe('Web Push delivery', () => {
     const service = pushService((url) => (url === gone.endpoint ? 410 : 201));
     const content = {
       title: 'S',
-      body: 'Kortix has a question: Which region?',
+      body: 'Dosco has a question: Which region?',
       payload: {
         notificationId: crypto.randomUUID(), kind: 'question' as const, type: 'question',
         projectId: project.project_id, sessionId, triggerSlug: null, url: '/projects',

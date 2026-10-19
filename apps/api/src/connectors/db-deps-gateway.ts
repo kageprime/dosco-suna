@@ -230,7 +230,7 @@ function toGatewayConnector(
 export function makeDbGatewayDeps(principal: ConnectorPrincipal): GatewayDeps {
   return {
     attachmentStore: connectorAttachmentStore,
-    // Spec 2026-09-22 §2.5: an agent session calling a same-project Kortix App.
+    // Spec 2026-09-22 §2.5: an agent session calling a same-project Dosco App.
     appAuthorizationFor: (input) => appAuthorizationForConnectorCall(input),
     loadConnectorBySlug: async (projectId, slug) => {
       if (canonicalConnectorAlias(slug) === COMPUTER_SLUG) {

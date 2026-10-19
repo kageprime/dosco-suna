@@ -29,18 +29,12 @@ const GATEWAY_INFERENCE_TAG = 'gateway-inference';
 
 const AUTH_DESCRIPTION =
   'Bearer token: a project gateway key (`kortix_gw_…`, created via ' +
-<<<<<<< HEAD
   'POST /v1/projects/{projectId}/gateway/keys) or a Dosco account token ' +
-  '(PAT `kortix_pat_…`, API key, or sandbox key). Unlike most of the API, the ' +
-  'raw Supabase user JWT is NOT accepted here — mint a gateway key or PAT first.';
-=======
-  'POST /v1/projects/{projectId}/gateway/keys) or a Kortix account token ' +
   '(PAT `kortix_pat_…`, API key, or sandbox key). Inference requires a project ' +
   'context: a project-scoped or session token is admitted, while a bare ' +
   'account-wide PAT is refused with 403 project_required. Unlike most of the ' +
   'API, the raw Supabase user JWT is NOT accepted here — mint a gateway key or ' +
   'PAT first.';
->>>>>>> upstream-dev
 
 const ChatMessageSchema = z
   .object({

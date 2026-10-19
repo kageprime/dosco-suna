@@ -212,7 +212,7 @@ export interface SecretRow {
   sharedWith: ConnectionShare[];
   /** False when it is shared with specific people and the viewer is not one of them. */
   usable: boolean;
-  /** Kortix can no longer decrypt the shared value (`status: 'undecryptable'`). */
+  /** Dosco can no longer decrypt the shared value (`status: 'undecryptable'`). */
   undecryptable: boolean;
   /** The viewer's own active override, which their sessions read, cannot be
    *  decrypted (`mine.status: 'undecryptable'`). */
@@ -1091,7 +1091,7 @@ function SecretDialog({
     setAudience(audienceDraftFrom(row?.sharedWith ?? [], viewerId));
   };
 
-  // A value Kortix cannot decrypt is lost: saving without a new one would keep it broken.
+  // A value Dosco cannot decrypt is lost: saving without a new one would keep it broken.
   const requiresValue = !row?.configured || Boolean(row?.undecryptable);
   const enforcedPolicy = buildEnforcedPolicy({
     hosts,

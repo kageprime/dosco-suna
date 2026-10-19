@@ -1,8 +1,8 @@
 /**
- * Integration test (real local PostgreSQL): Kortix Capture ingestion, forget
+ * Integration test (real local PostgreSQL): Dosco Capture ingestion, forget
  * and retention. The object store is an in-memory map behind the capture store
  * module, holding the app's fixture bucket
- * (apps/capture/fixtures/capture-format-v2) re-rooted under a Kortix prefix by
+ * (apps/capture/fixtures/capture-format-v2) re-rooted under a Dosco prefix by
  * the same fixture the CAP flows upload (tests/src/fixtures/capture.ts).
  */
 import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test';

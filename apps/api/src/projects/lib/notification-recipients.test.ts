@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { classifySession } from './notification-recipients';
 
 describe('classifySession', () => {
-  test('a session a person runs from Kortix is attended', () => {
+  test('a session a person runs from Dosco is attended', () => {
     expect(classifySession({ source: 'ui' }, 'user')).toEqual({
       originClass: 'attended',
       isChild: false,

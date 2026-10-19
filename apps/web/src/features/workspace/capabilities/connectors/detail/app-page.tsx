@@ -80,7 +80,7 @@ interface ResolvedApp {
   /** The install target of each surface, recommended first. `kind` is the
    *  badge beside the name; a managed surface has none. */
   surfaces: Array<{ key: string; label: string; kind: string | null; target: InstallTarget }>;
-  /** Surfaces Kortix cannot install, with where to read about them. */
+  /** Surfaces Dosco cannot install, with where to read about them. */
   references: Array<{ key: string; label: string; kind: string; href: string | null }>;
 }
 
@@ -242,7 +242,7 @@ export function AppPage({ projectId, appSegment }: { projectId: string; appSegme
     value: ReactNode;
   }> = [];
   // The Provider cell follows the primary way to connect: the app itself for
-  // its API/MCP server, Kortix for a managed-only app.
+  // its API/MCP server, Dosco for a managed-only app.
   const managedOnly = managed && !detail;
   const managedBy = managedOnly ? connectorRunsOver(provider) : null;
   if (primary)

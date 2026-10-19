@@ -323,7 +323,7 @@ function SessionContextModalBody({
         <div className="flex flex-wrap items-start gap-x-12 gap-y-4">
           {/* The transcript names the model each turn asked for and prices it
               at that model. When a fallback model answered, the gateway's
-              record names the model that ran and what Kortix billed. */}
+              record names the model that ran and what Dosco billed. */}
           <OverviewStat
             label={t.raw('statModel')}
             value={servedModel?.served ?? ctx?.modelLabel ?? '—'}
@@ -475,7 +475,7 @@ interface SessionContextModalProps {
   allSessions?: Session[];
   /** The model that answered the newest request, when a fallback model did. */
   servedModel?: ServedModelNotice | null;
-  /** What Kortix billed the session, when a fallback model answered a turn. */
+  /** What Dosco billed the session, when a fallback model answered a turn. */
   billedCost?: number | null;
 }
 

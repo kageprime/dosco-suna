@@ -178,16 +178,10 @@ withDb('gateway usage settlement is idempotent per request', () => {
     });
   });
 
-<<<<<<< HEAD
-  // The provider bills the customer's own key; Dosco never charges it, even
-  // for an event that carries a cost.
-  test('a BYOK settlement writes its usage row and moves no money', async () => {
-=======
   // The provider bills the customer's own key. Under the monthly allowance
-  // (billing/services/byok-fee.ts) Kortix charges nothing, even for an event
+  // (billing/services/byok-fee.ts) Dosco charges nothing, even for an event
   // that carries a cost.
   test('a BYOK settlement under the allowance writes its usage row and moves no money', async () => {
->>>>>>> upstream-dev
     const id = requestId('byok');
     await recordGatewayUsage(event(id, { billingMode: 'none' }));
 

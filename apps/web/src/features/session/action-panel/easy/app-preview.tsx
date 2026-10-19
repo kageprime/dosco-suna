@@ -131,7 +131,7 @@ export function AppPreview({
   // A project App frames signed in, on its own origin (`useAppInBrowser`).
   const { app, apps, src: previewUrl } = useAppInBrowser(projectId, authenticatedUrl);
   const hasPreview = !!previewUrl;
-  // A Kortix App is named by its App, not by its route-key host.
+  // A Dosco App is named by its App, not by its route-key host.
   const title = app?.name ?? name;
   const suggestions = useMemo(() => apps.map((row) => ({ label: row.name, url: row.url })), [apps]);
   const appCopy = useMemo(

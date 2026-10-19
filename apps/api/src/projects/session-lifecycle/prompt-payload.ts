@@ -65,7 +65,7 @@ export interface PromptPartWire {
    * Harness-authored context, not the customer's words (KRTX-2597): the
    * transcript renders a synthetic text part as a notice, never as a user
    * bubble, and the SDK's turn model reads a prompt made only of these as an
-   * internal continuation turn. Only Kortix's own continuation paths set it
+   * internal continuation turn. Only Dosco's own continuation paths set it
    * (`interruptedTurnContinuationParts`, the agent-server's auto-resume).
    */
   synthetic?: boolean;

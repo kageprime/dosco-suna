@@ -6,17 +6,17 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useTranslations } from '@/i18n/use-translations';
 
-/** The Provider value: Kortix for a managed app, else the app itself. */
+/** The Provider value: Dosco for a managed app, else the app itself. */
 export function providerName(appName: string, managedBy: string | null): string {
-  return managedBy ? 'Kortix' : appName;
+  return managedBy ? 'Dosco' : appName;
 }
 
 /**
  * The info button on the Provider label that explains who manages what.
  *
- * Managed (Composio, Pipedream): Kortix holds the login through the provider,
+ * Managed (Composio, Pipedream): Dosco holds the login through the provider,
  * and the app runs the actions. Direct (MCP, OpenAPI, …): agents call the app
- * itself, and Kortix attaches the stored credential to each call.
+ * itself, and Dosco attaches the stored credential to each call.
  */
 export function ProviderInfo({
   appName,

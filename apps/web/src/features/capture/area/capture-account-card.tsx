@@ -10,7 +10,7 @@ import { errorToast } from '@/components/ui/toast';
 import { useTranslations } from '@/i18n/use-translations';
 
 /**
- * The switch that turns Kortix Capture on or off for the organization
+ * The switch that turns Dosco Capture on or off for the organization
  * (`capture.manage`), at the top of the Capture area's Settings. Off, the whole
  * area shows the off state and computers stop recording into the organization.
  */

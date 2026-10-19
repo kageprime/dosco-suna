@@ -1,4 +1,4 @@
-// KRTX-1719: a stored value Kortix can no longer decrypt (the encryption key
+// KRTX-1719: a stored value Dosco can no longer decrypt (the encryption key
 // changed, or the row is damaged) used to read "Set" in the secrets list, and
 // a session start failed with no name. The row now shows an "Undecryptable"
 // badge, and for someone who manages the project a "Re-enter value" button
@@ -95,7 +95,7 @@ describe("the viewer's own broken override (KRTX-1719)", () => {
     status,
   });
 
-  test('a row marks an active override Kortix cannot decrypt apart from the shared value', () => {
+  test('a row marks an active override Dosco cannot decrypt apart from the shared value', () => {
     const [row] = buildRows([item({ active: true, status: 'undecryptable' }, 'ok')]);
     expect(row).toMatchObject({ undecryptable: false, mineUndecryptable: true });
   });

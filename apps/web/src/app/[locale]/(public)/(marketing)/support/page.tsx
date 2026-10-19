@@ -29,7 +29,7 @@ import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 const SUPPORT_EMAIL = 'support@dosco.live';
 const SECURITY_EMAIL = 'security@dosco.live';
 const DISCORD_URL = 'https://discord.com/invite/RvFhXUdZ9H';
-const STATUS_URL = 'https://status.dosco.live';
+const STATUS_URL = '?';
 
 /**
  * One FAQ row, keeping the Accordion chrome from the marketing `FaqSection`:

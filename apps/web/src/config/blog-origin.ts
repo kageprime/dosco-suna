@@ -6,7 +6,7 @@
  * advertises the route on all of them. An explicit empty value keeps /blog
  * unserved.
  */
-export const DEFAULT_BLOG_ORIGIN = 'https://kortix.com';
+export const DEFAULT_BLOG_ORIGIN = 'https://dosco.live';
 
 export function resolveBlogOrigin(origin: string | undefined): string | undefined {
   if (origin === undefined) return DEFAULT_BLOG_ORIGIN;

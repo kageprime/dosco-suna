@@ -7,7 +7,7 @@ export const DISCOVERY_CACHE_CONTROL = 'public, max-age=3600, s-maxage=3600';
 /** Must match SUPPORTED_PROTOCOL_VERSIONS in apps/api/src/mcp/index.ts. */
 export const MCP_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'] as const;
 export const MCP_SERVER_VERSION = '1.0.0';
-/** The one Kortix MCP server: the API's hosted endpoint (apps/api/src/mcp). */
+/** The one Dosco MCP server: the API's hosted endpoint (apps/api/src/mcp). */
 export const KORTIX_MCP_URL = `${KORTIX_API_ORIGIN}/mcp`;
 
 export const API_CATALOG = {
@@ -129,11 +129,7 @@ Dosco does not accept anonymous agent registration, ID-JAG assertions, or automa
 
 export const KORTIX_PUBLIC_CONTENT_SKILL = `---
 name: kortix-public-content
-<<<<<<< HEAD
-description: Discover and read Dosco public documentation through standards-based HTTP and MCP endpoints.
-=======
-description: Discover and read Kortix public documentation through standards-based HTTP endpoints, and find the Kortix MCP server.
->>>>>>> upstream-dev
+description: Discover and read Dosco public documentation through standards-based HTTP endpoints, and find the Dosco MCP server.
 ---
 
 # Dosco Public Content
@@ -153,7 +149,7 @@ The response uses \`Content-Type: text/markdown; charset=utf-8\`.
 
 ## Use MCP
 
-The Kortix MCP server is ${KORTIX_MCP_URL} (Streamable HTTP).
+The Dosco MCP server is ${KORTIX_MCP_URL} (Streamable HTTP).
 It acts as a signed-in person: sign in with OAuth, or send a personal access token.
 Setup for each client: ${KORTIX_WEB_ORIGIN}/docs/connect/mcp.
 
@@ -202,13 +198,8 @@ export const MCP_SERVER_CARD = {
   $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
   name: 'com.kortix/kortix',
   version: MCP_SERVER_VERSION,
-<<<<<<< HEAD
-  title: 'Dosco Public Content',
-  description: 'Search and read Dosco public documentation and API metadata.',
-=======
-  title: 'Kortix',
-  description: 'Run Kortix as yourself: projects, sessions, sandbox files, connectors, and the full kortix CLI.',
->>>>>>> upstream-dev
+  title: 'Dosco',
+  description: 'Run Dosco as yourself: projects, sessions, sandbox files, connectors, and the full kortix CLI.',
   websiteUrl: KORTIX_WEB_ORIGIN,
   repository: {
     url: '?',

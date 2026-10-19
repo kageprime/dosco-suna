@@ -76,7 +76,7 @@ async function settleFailure(stream: PollStream, outcome: Exclude<Outcome, { kin
   const intervalMs = stream.intervalSeconds * 1000;
   const transient = outcome.kind === 'transient';
   const message = transient && failures >= FAILURES_BEFORE_ROW_ERROR
-    ? `The last ${failures} checks of ${label} failed: ${outcome.message} Kortix keeps checking, at most 1 hour apart.`
+    ? `The last ${failures} checks of ${label} failed: ${outcome.message} Dosco keeps checking, at most 1 hour apart.`
     : outcome.message;
   const nextPollAt = new Date(now + (transient ? backoffMs(intervalMs, failures, outcome.retryAfterSeconds) : PARK_RETRY_MS));
   const settled = await settleStream(stream, {
@@ -190,7 +190,7 @@ async function load(stream: PollStream, now: number): Promise<Loaded | null> {
   const label = appLabel(app);
   const { def, tools } = await definitionFor(stream.eventType, connector.connectorId, app);
   if (tools.length === 0) {
-    await settleFailure(stream, { kind: 'transient', message: `Kortix has not read the tools of ${label} yet.` }, label, now);
+    await settleFailure(stream, { kind: 'transient', message: `Dosco has not read the tools of ${label} yet.` }, label, now);
     return null;
   }
   if (!def) {
@@ -204,7 +204,7 @@ async function load(stream: PollStream, now: number): Promise<Loaded | null> {
   }
   const owner = await resolveProjectAutomationActor(stream.accountId);
   if (!owner) {
-    await settleFailure(stream, { kind: 'fatal', message: `This account has no owner for Kortix to check ${label} as.` }, label, now);
+    await settleFailure(stream, { kind: 'fatal', message: `This account has no owner for Dosco to check ${label} as.` }, label, now);
     return null;
   }
   const shortest = Math.min(...specs.map((s) => intervalSeconds(s.event!.config ?? {})));

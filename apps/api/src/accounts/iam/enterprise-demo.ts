@@ -2,7 +2,7 @@
 // features (.agents/skills/billing/references/plans-and-access.md, "Enterprise").
 //
 // An owner or admin (`billing.write`) turns it on or off; turning it on emails
-// Kortix sales. A platform admin may switch it for any account. The account is
+// Dosco sales. A platform admin may switch it for any account. The account is
 // marked "Demo" wherever Enterprise shows; a license contract (Licensed) is the
 // paid state. Demo keeps the plan's limits and the BYOK fee.
 

@@ -1167,7 +1167,7 @@ export function SessionChat({
     isBusyRef.current = effectiveBusy;
   }, [effectiveBusy]);
 
-  // Which model answered each turn, and what Kortix billed for it, from the
+  // Which model answered each turn, and what Dosco billed for it, from the
   // gateway's request record. The transcript and the model selector name the
   // model a turn ASKED for; a fallback chain decides what answers. A request's
   // row is written as the request ends: read again on each new assistant
@@ -1808,7 +1808,7 @@ export function SessionChat({
   // per turn for the React key (see the `TurnViewport` key below).
   const optimisticOriginOf = useSessionStateStore((state) => state.optimisticOriginOf);
   // The one working answer the LAST turn card renders (its shimmer). Resolved
-  // here, once, so the card never reads the raw slot for a Kortix session —
+  // here, once, so the card never reads the raw slot for a Dosco session —
   // see `resolveLastTurnWorking` for the split and the defect it removes.
   const lastTurnWorking = resolveLastTurnWorking({
     isChildSession,
@@ -2173,20 +2173,6 @@ export function SessionChat({
    * same wording every other surface uses, and it is already what a session
    * with no turns at all shows.
    */
-<<<<<<< HEAD
-  // The one working answer the LAST turn card renders (its shimmer). Resolved
-  // here, once, so the card never reads the raw slot for a Dosco session —
-  // see `resolveLastTurnWorking` for the split and the defect it removes.
-  const lastTurnWorking = resolveLastTurnWorking({
-    isChildSession,
-    // The delay-hidden projection, so the card and the composer settle on the
-    // same frame instead of the card flickering 300ms earlier. It is the SAME
-    // value the composer's Stop reads: while Stop shows, a Thinking row shows.
-    projectionBusy: isBusy,
-    rawSlotBusy: getWorkingState(sessionStatus, true),
-  });
-=======
->>>>>>> upstream-dev
   const workingTurnHasError = useMemo(() => {
     const wt = turns.find((t) => t.id === workingTurn.workingTurnId);
     return !!wt && !!resolveTurnError(wt);

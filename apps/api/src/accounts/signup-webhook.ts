@@ -1,6 +1,6 @@
 // Signup → one signed `account.signup` event to SIGNUP_WEBHOOK_URL.
 //
-// The receiver is a Kortix project webhook trigger (the sales factory), which
+// The receiver is a Dosco project webhook trigger (the sales factory), which
 // verifies `X-Kortix-Signature` and dedupes on `X-Kortix-Delivery-Id`. Inert
 // until SIGNUP_WEBHOOK_URL and SIGNUP_WEBHOOK_SECRET are both set.
 //

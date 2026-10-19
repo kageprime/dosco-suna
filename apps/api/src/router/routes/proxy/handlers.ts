@@ -20,19 +20,11 @@ import { capFirecrawlCrawlLimit } from './crawl-limit';
 //
 // Three authentication/billing modes:
 //
-<<<<<<< HEAD
 // 1. Dosco token (kortix_/kortix_sb_ in our DB) in Authorization header
-//    → Inject Dosco's API key, forward, bill at KORTIX_MARKUP (1.2×).
+//    → Inject Dosco's API key, forward, bill the route's tool price.
 //
 // 2. User's own API key in Authorization + Dosco token in X-Kortix-Token header
-//    → Passthrough (no key injection), with no Dosco LLM charge.
-=======
-// 1. Kortix token (kortix_/kortix_sb_ in our DB) in Authorization header
-//    → Inject Kortix's API key, forward, bill the route's tool price.
-//
-// 2. User's own API key in Authorization + Kortix token in X-Kortix-Token header
 //    → Passthrough (no key injection), billed the tool price.
->>>>>>> upstream-dev
 //
 // 3. User's own API key, no Dosco token anywhere
 //    → Pure passthrough. No billing, no gating (self-hosted / non-Dosco user).
@@ -83,17 +75,10 @@ export async function handleProxy(c: any, service: ProxyServiceConfig, prefix: s
   const auth = await tryAuthenticate(c);
 
   if (auth.isKortixUser && auth.accountId && !auth.isPassthrough) {
-<<<<<<< HEAD
-    // Mode 1: Dosco-owned key — inject our key, bill at 1.2×
-    return handleKortixProxy(c, service, subPath, queryString, method, auth.accountId);
-  } else if (auth.isPassthrough && auth.accountId) {
-    // Mode 2: User's own key — passthrough with no Dosco LLM charge.
-=======
-    // Mode 1: Kortix-owned key — inject our key, bill the tool price
+    // Mode 1: Dosco-owned key — inject our key, bill the tool price
     return handleKortixProxy(c, service, subPath, queryString, method, auth.accountId);
   } else if (auth.isPassthrough && auth.accountId) {
     // Mode 2: User's own key — passthrough, billed the tool price.
->>>>>>> upstream-dev
     return handleKortixPassthrough(c, service, subPath, queryString, method, auth.accountId);
   } else {
     // Mode 3: No Dosco token — pure passthrough, no billing.
@@ -108,9 +93,6 @@ export async function handleProxy(c: any, service: ProxyServiceConfig, prefix: s
   }
 }
 
-<<<<<<< HEAD
-// === Dosco User: match allowed route, inject our key, bill with route-specific pricing ===
-=======
 /**
  * One upstream dispatch for all three auth modes (the fetch block used to be
  * duplicated three times, KRTX-2073). Forward the upstream response verbatim
@@ -202,8 +184,7 @@ async function forwardUpstream(
   });
 }
 
-// === Kortix User: match allowed route, inject our key, bill with route-specific pricing ===
->>>>>>> upstream-dev
+// === Dosco User: match allowed route, inject our key, bill with route-specific pricing ===
 
 async function handleKortixProxy(
   c: any,
@@ -229,13 +210,7 @@ async function handleKortixProxy(
 
   const actor = resolveActorFromRequest(c, { logPrefix: '[PROXY]' });
 
-<<<<<<< HEAD
-  // Use alternate target/key injection for Dosco-managed if configured (e.g. OpenRouter)
-  const baseUrl = service.kortixTargetBaseUrl || service.targetBaseUrl;
-  const targetUrl = `${baseUrl}${subPath}${queryString}`;
-=======
   const targetUrl = `${service.targetBaseUrl}${subPath}${queryString}`;
->>>>>>> upstream-dev
   const headers = buildForwardHeaders(c);
   // Strip Dosco-specific and auth headers — upstream gets injected key only
   headers.delete('x-kortix-token');
@@ -261,136 +236,7 @@ async function handleKortixProxy(
   return forwardUpstream(service, method, subPath, targetUrl, headers, body, toolReservation);
 }
 
-<<<<<<< HEAD
-// === Dosco-managed LLM Billing ===
-//
-// Handles both response formats based on upstream:
-// - OpenAI-compatible: usage.prompt_tokens / completion_tokens
-// - Anthropic-native: usage.input_tokens / output_tokens
-
-async function billLlmKortixProxy(
-  upstream: Response,
-  service: ProxyServiceConfig,
-  subPath: string,
-  accountId: string,
-  actor: ActorContext | null,
-  reservation: LlmCreditReservation | null,
-) {
-  const contentType = upstream.headers.get('Content-Type') || '';
-  const isStreaming = contentType.includes('text/event-stream');
-
-  if (isStreaming) {
-    const upstreamBody = upstream.body;
-    if (!upstreamBody) {
-      await refundLlmReservation(
-        reservation,
-        `LLM reservation refund after missing stream body: ${service.name}`,
-      );
-      return new Response(null, { status: 502 });
-    }
-
-    const [clientStream, billingStream] = upstreamBody.tee();
-
-    // Fire-and-forget: extract usage from billing stream
-    settleStreamUsage({
-      stream: billingStream,
-      provider: usageProvider(service),
-      accountId,
-      actor,
-      reservation,
-      pricingProvider: pricingProvider(service, true),
-      route: usageRoute(service, subPath),
-      logPrefix: 'LLM kortix stream billing',
-      noUsageWarning: `[PROXY] LLM kortix stream (${service.name}): no usage data — billing skipped`,
-      noUsageRefund: `LLM reservation refund after missing stream usage: ${service.name}`,
-      zeroTokensWarning: `[PROXY] LLM kortix stream (${service.name}): zero tokens — billing skipped`,
-      zeroTokensRefund: `LLM reservation refund after zero stream usage: ${service.name}`,
-      errorRefund: `LLM reservation refund after stream usage error: ${service.name}`,
-      scanErrorLog: '[PROXY] Error extracting usage from kortix proxy stream:',
-      refundFailedLog: '[PROXY] LLM reservation refund failed:',
-      successLog: (modelId, usage, cost) =>
-        `[PROXY] LLM kortix stream ${modelId}: ${usage.promptTokens}/${usage.completionTokens} tokens, cost=$${cost.toFixed(6)} (${KORTIX_MARKUP}x)`,
-    });
-
-    return new Response(clientStream, {
-      status: upstream.status,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  }
-
-  // Non-streaming: read response, extract usage, bill, return
-  let responseBody: any;
-  try {
-    responseBody = await upstream.json();
-  } catch {
-    await refundLlmReservation(
-      reservation,
-      `LLM reservation refund after invalid JSON response: ${service.name}`,
-    );
-    throw new HTTPException(502, {
-      message: `${service.name} returned an invalid JSON response`,
-    });
-  }
-  const provider = usageProvider(service);
-  const usage = extractUsage(responseBody, provider);
-  let modelId = responseBody?.model || 'unknown';
-
-  if (usage && (usage.promptTokens > 0 || usage.completionTokens > 0)) {
-    const modelConfig =
-      reservation?.modelConfig ??
-      requireModelPricing(modelId, pricingProvider(service, true));
-    const cost = calculateCost(
-      modelConfig,
-      usage.promptTokens,
-      usage.completionTokens,
-      usage.cachedTokens,
-      usage.cacheWriteTokens,
-      KORTIX_MARKUP,
-      usage.upstreamCost,
-    );
-
-    await settleLlmReservation({
-      accountId,
-      modelId,
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      actualCost: cost,
-      reservation,
-      actor,
-      logPrefix: 'LLM kortix billing',
-      provider: pricingProvider(service, true),
-      route: usageRoute(service, subPath),
-      cachedTokens: usage.cachedTokens,
-      cacheWriteTokens: usage.cacheWriteTokens,
-      upstreamCost: usage.upstreamCost,
-      upstreamStatus: upstream.status,
-    });
-
-    console.log(
-      `[PROXY] LLM kortix ${modelId}: ${usage.promptTokens}/${usage.completionTokens} tokens, cost=$${cost.toFixed(6)} (${KORTIX_MARKUP}x)`,
-    );
-  } else {
-    console.warn(`[PROXY] LLM kortix ${service.name}: no usage data in response — billing skipped`);
-    await refundLlmReservation(
-      reservation,
-      `LLM reservation refund after missing usage: ${service.name}`,
-    ).catch((err) => console.error('[PROXY] LLM reservation refund failed:', err));
-  }
-
-  return new Response(JSON.stringify(responseBody), {
-    status: upstream.status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-// === Dosco user with own key: passthrough with no Dosco LLM charge ===
-=======
-// === Kortix user with own key: passthrough, billed the tool price ===
->>>>>>> upstream-dev
+// === Dosco user with own key: passthrough, billed the tool price ===
 
 async function handleKortixPassthrough(
   c: any,
@@ -415,32 +261,7 @@ async function handleKortixPassthrough(
 
   console.log(`[PROXY] ${service.name} (passthrough:${accountId}) ${method} ${subPath} → ${targetUrl}`);
 
-<<<<<<< HEAD
-  if (isLlm) {
-    // BYOK provider usage belongs to the provider account. Do not create a
-    // Dosco reservation, debit, or refund for either success or failure.
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: upstream.headers,
-    });
-  }
-
-  if (!upstream.ok) {
-    refundToolReservation(
-      toolReservation,
-      `Tool reservation refund after upstream error: ${service.name}`,
-    ).catch((err) => console.error('[PROXY] Tool reservation refund failed:', err));
-  }
-
-  return new Response(upstream.body, {
-    status: upstream.status,
-    statusText: upstream.statusText,
-    headers: upstream.headers,
-  });
-=======
   return forwardUpstream(service, method, subPath, targetUrl, headers, body, toolReservation);
->>>>>>> upstream-dev
 }
 
 // === Not Dosco user: pure passthrough ===

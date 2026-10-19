@@ -6,7 +6,7 @@
  * dropped it as `already_answered`: the interrupted assistant reply is
  * parented on the prompt, and "answered" ignored whether it ever completed.
  * The member had to type "go on"; an unattended worker never resumed while
- * the ledger said "Kortix restarted it and resumed this turn".
+ * the ledger said "Dosco restarted it and resumed this turn".
  *
  * Real: the stop writer (`applyStoppedState`), the requeue, the inbox hold and
  * release, the claim, admission, the remint, the forward, the ledger read and
@@ -315,7 +315,7 @@ describe('the drain continues a turn the runtime loss cut short', () => {
 
   test('a manual session stop leaves its prompt held, and a later release does not continue it', async () => {
     const prompt = wire(9 * 60_000);
-    // A delivering turn: the only kind a stop Kortix or a person chose gives back.
+    // A delivering turn: the only kind a stop Dosco or a person chose gives back.
     await seedSession({ origin: 'user', messageId: prompt, turnState: 'delivering' });
     const commandId = await forwardedPrompt(prompt);
     await applyStoppedState({
@@ -411,7 +411,7 @@ describe('the drain continues a turn the runtime loss cut short', () => {
     expect(posts).toHaveLength(1);
     expect(await turnEndError()).toEqual({
       name: 'RuntimeRestartedMidTurnRecovering',
-      message: 'The runtime restarted during this turn. Kortix resumed it.',
+      message: 'The runtime restarted during this turn. Dosco resumed it.',
     });
   });
 

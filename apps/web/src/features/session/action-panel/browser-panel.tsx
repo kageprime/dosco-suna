@@ -265,7 +265,7 @@ export function BrowserPanel({ tabId, projectId, projectSessionId }: PreviewTabC
       setHistoryIndex(newIndex);
       const url = history[newIndex];
 
-      // A Kortix App stays on its own origin, so its history entry is the
+      // A Dosco App stays on its own origin, so its history entry is the
       // target itself; a web-proxy entry wraps the target.
       if (isKortixAppUrl(url) || isWebProxyUrl(url)) {
         const targetUrl = isKortixAppUrl(url) ? url : parseWebProxyUrl(url);

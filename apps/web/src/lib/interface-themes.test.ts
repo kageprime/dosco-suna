@@ -90,7 +90,7 @@ describe('interface theme model', () => {
     expect(INTERFACE_THEME_IDS).toHaveLength(1 + 2 + 2 + TERMINAL_TOTAL);
   });
 
-  test('the Kortix ids come first, in order, on each side', () => {
+  test('the Dosco ids come first, in order, on each side', () => {
     expect(LIGHT_THEME_IDS.slice(0, 2)).toEqual([...KORTIX_LIGHT_THEME_IDS]);
     expect(DARK_THEME_IDS.slice(0, 2)).toEqual([...KORTIX_DARK_THEME_IDS]);
     expect(INTERFACE_THEME_IDS[0]).toBe('system');
@@ -202,7 +202,7 @@ const blob = (preferences: Record<string, unknown>) =>
   JSON.stringify({ state: { preferences }, version: 0 });
 
 describe('INTERFACE_THEME_INIT_SCRIPT', () => {
-  test('applies the persisted Kortix palettes before first paint', () => {
+  test('applies the persisted Dosco palettes before first paint', () => {
     expect(runInitScript(blob({ lightTheme: 'light', darkTheme: 'dark' }))).toEqual({
       'data-light-theme': 'light',
       'data-dark-theme': 'dark',

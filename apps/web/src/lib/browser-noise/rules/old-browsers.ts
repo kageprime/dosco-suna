@@ -402,7 +402,7 @@ function isIosWebViewInlineScriptSource(filename: unknown): boolean {
  * app's injected script keeps the URL of the document the tab first loaded.
  *
  * Better Stack fingerprints of the 2026-10-14 burst this widened anchor closes
- * (KRTX-2292; Kortix Frontend prod, application_id 2346967): the same `Hk`/`Jk`
+ * (KRTX-2292; Dosco Frontend prod, application_id 2346967): the same `Hk`/`Jk`
  * mutual recursion at document line 228 (`Hk` call site col 63 ↔ `Jk` col 409,
  * with call-site variants at cols 25/383/363) captured 14 ways — 167
  * occurrences in one 36-minute burst (02:48–03:24 UTC) on release
@@ -598,7 +598,7 @@ export function isUndefinedVariableThirdPartyNoise(input: {
 //
 // Better Stack pattern
 // f438068312448537d5218c8aefb06499627d8b2ac520367b017e7bace3f5fe56
-// (Kortix Frontend prod, application_id 2346967, KRTX-2393): `TypeError`,
+// (Dosco Frontend prod, application_id 2346967, KRTX-2393): `TypeError`,
 // 39 occurrences / 0 identified users, ALL on 2026-10-14 17:05:37–17:05:39
 // UTC in ONE session (Firefox 140.0, Linux x86_64, release `1ecba158…`,
 // turbopack), on `/projects/<project_id>/customize/connectors/<app>/<connec
@@ -651,7 +651,7 @@ const FIREFOX_DEAD_OBJECT_NOISE_PATTERN = /^can['’]t access dead object$/i;
 // (`chrome-extension://`, `moz-extension://`, …). A frame like that means
 // the throw is ATTRIBUTABLE — first-party bundle code or a third-party /
 // extension script that shipped a real stack — so the negative guard keeps
-// the event reporting. The page DOCUMENT (`https://kortix.com/projects/…`,
+// the event reporting. The page DOCUMENT (`https://dosco.live/projects/…`,
 // `app:///projects/…`) carries no file extension and is NOT a script frame:
 // it is Firefox's fallback source for a throw whose stack is uncapturable,
 // and it is exactly the shape this rule drops.

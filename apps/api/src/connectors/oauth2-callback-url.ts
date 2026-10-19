@@ -47,7 +47,7 @@ export function nativeOAuth2CallbackResponse(result: {
 }): { status: 200 | 400; body: string } | { status: 302; location: string } {
   if (!result.redirectUri) {
     if (result.ok) {
-      return { status: 200, body: 'Connected. You can close this tab and return to Kortix.' };
+      return { status: 200, body: 'Connected. You can close this tab and return to Dosco.' };
     }
     const code = result.errorCode ?? 'authorization_failed';
     const hint = CALLBACK_ERROR_HINTS[code];

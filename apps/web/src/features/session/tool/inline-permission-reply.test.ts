@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { replyToInlinePermission } from './inline-permission-reply';
 
-// Better Stack (Kortix Frontend prod), 2026-10-12: `Error: Permission request
+// Better Stack (Dosco Frontend prod), 2026-10-12: `Error: Permission request
 // not found: per_<id>` as an UNHANDLED rejection from the inline permission card
 // in the transcript. The card dropped the reply promise, so a runtime refusal
 // (request already answered or expired) escaped, and the card stayed disabled.

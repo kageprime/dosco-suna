@@ -91,47 +91,6 @@ const MSG = {
   category: 'unit-test',
 };
 
-<<<<<<< HEAD
-describe('configuredEmailProviders', () => {
-  test('empty when no provider credentials are set', () => {
-    expect(configuredEmailProviders()).toEqual([]);
-    expect(isEmailConfigured()).toBe(false);
-  });
-
-  test('respects EMAIL_PROVIDER_ORDER and filters unconfigured providers', () => {
-    mockConfig.MAILTRAP_API_TOKEN = 'mt-token';
-    mockConfig.RESEND_API_KEY = 're_test';
-    mockConfig.EMAIL_PROVIDER_ORDER = 'mailtrap,resend,ses';
-    expect(configuredEmailProviders()).toEqual(['mailtrap', 'resend']);
-  });
-
-  test('recognizes the ECS task-role credential endpoint as SES configuration', () => {
-    process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = '/v2/credentials/test';
-    expect(configuredEmailProviders()).toEqual(['ses']);
-  });
-
-  test('mailpit leg stores the complete transactional message for local flows', async () => {
-    mockConfig.MAILPIT_API_URL = 'http://127.0.0.1:54324';
-    mockConfig.EMAIL_PROVIDER_ORDER = 'mailpit';
-    const result = await sendEmail(MSG);
-    expect(result).toEqual({ ok: true, provider: 'mailpit', status: 200 });
-    expect(calls[0].url).toBe('http://127.0.0.1:54324/api/v1/send');
-    const payload = JSON.parse(String(calls[0].init.body));
-    expect(payload).toEqual({
-      From: { Email: 'noreply@example.test', Name: 'Dosco Test' },
-      To: [{ Email: 'user@dosco.live' }],
-      Subject: 'Test',
-      HTML: '<p>hello</p>',
-      // Empty: this caller passes no `text`. Dosco templates all supply one
-      // (see template.ts renderText); nothing is derived from the HTML.
-      Text: '',
-      Tags: ['unit-test'],
-    });
-  });
-});
-
-=======
->>>>>>> upstream-dev
 describe('sendEmail', () => {
   test('skips with email_not_configured when no provider is set', async () => {
     const result = await sendEmail(MSG);

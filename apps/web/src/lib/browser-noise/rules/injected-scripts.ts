@@ -231,8 +231,8 @@ export function isRedefineInjectedWalletNoise(input: {
  * An injected wallet shim (Brave's wallet on iOS) assigns to a provider
  * property before `window.ethereum` exists: `undefined is not an object
  * (evaluating 'window.ethereum.selectedAddress = undefined')`. Better Stack,
- * Kortix Frontend prod, 2026-10-14: one frame, `global code`, at the page
- * document URL. Kortix code never touches `window.ethereum`. A frame in our
+ * Dosco Frontend prod, 2026-10-14: one frame, `global code`, at the page
+ * document URL. Dosco code never touches `window.ethereum`. A frame in our
  * bundles or resolved first-party source keeps reporting.
  */
 const UNDEFINED_WALLET_PROVIDER_WRITE_MESSAGE =

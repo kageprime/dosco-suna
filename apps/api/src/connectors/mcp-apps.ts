@@ -1,23 +1,23 @@
 /**
- * The Kortix MCP app catalogue (`connectors_v2`).
+ * The Dosco MCP app catalogue (`connectors_v2`).
  *
- * Every app here is a remote MCP server that its vendor runs. Kortix connects
+ * Every app here is a remote MCP server that its vendor runs. Dosco connects
  * to it directly, as an `mcp` connector: no Composio, no Pipedream. Sign-in is
  * one of two kinds:
  *
- *   dcr            The vendor's authorization server registers Kortix on the
+ *   dcr            The vendor's authorization server registers Dosco on the
  *                  fly (RFC 7591). Nothing to configure.
- *   kortix_client  The server has no dynamic registration. Kortix signs in with
+ *   kortix_client  The server has no dynamic registration. Dosco signs in with
  *                  its own OAuth client, configured once per deployment in
  *                  `KORTIX_OAUTH_CLIENTS`. The app is listed only when that
  *                  client is configured.
  *   none           A public server: no sign-in.
  *
- * This list is the trust anchor for `kortix_client`. Kortix's client, and the
+ * This list is the trust anchor for `kortix_client`. Dosco's client, and the
  * endpoints it is sent to, are used only for a connector whose URL is exactly
  * an entry's `url`, and only with the endpoints written here. A server that
  * merely names Google as its authorization server never gets a token issued
- * through Kortix's Google client.
+ * through Dosco's Google client.
  *
  * Endpoints and sign-in kinds were verified with a live probe on 2026-10-18
  * (unauthenticated `initialize` → 401 + RFC 9728/8414 metadata). Icons are
@@ -173,14 +173,14 @@ export function kortixOAuthClients(raw: string = config.KORTIX_OAUTH_CLIENTS ?? 
         }
       }
     } catch {
-      logger.warn('[mcp-apps] KORTIX_OAUTH_CLIENTS is not valid JSON; no Kortix OAuth client is configured');
+      logger.warn('[mcp-apps] KORTIX_OAUTH_CLIENTS is not valid JSON; no Dosco OAuth client is configured');
     }
   }
   parsedClients = { raw, clients };
   return clients;
 }
 
-/** An app is usable when it needs no client of Kortix's, or that client is configured. */
+/** An app is usable when it needs no client of Dosco's, or that client is configured. */
 export function mcpAppAvailable(app: McpApp, clients = kortixOAuthClients()): boolean {
   return app.auth.kind !== 'kortix_client' || clients.has(app.auth.client);
 }
@@ -208,8 +208,8 @@ export function mcpAppForUrl(url: string): McpApp | null {
 }
 
 /**
- * The OAuth application Kortix signs in with for the MCP server at `url`:
- * Kortix's own client, with the catalogue's endpoints and scopes. `null` when
+ * The OAuth application Dosco signs in with for the MCP server at `url`:
+ * Dosco's own client, with the catalogue's endpoints and scopes. `null` when
  * `url` is not a `kortix_client` app or its client is not configured.
  */
 export function kortixClientApplication(
@@ -278,7 +278,7 @@ export function mcpAppSurface(app: McpApp): ConnectorSurfaceVariant {
   };
 }
 
-/** The Discover catalogue a `connectors_v2` project browses: Kortix's own list. */
+/** The Discover catalogue a `connectors_v2` project browses: Dosco's own list. */
 export const kortixMcpCatalog = createConnectorCatalog({
   source: {
     items: () => availableMcpApps().map(mcpAppCatalogItem),

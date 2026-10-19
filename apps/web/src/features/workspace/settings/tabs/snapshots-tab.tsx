@@ -1,81 +1,7 @@
 'use client';
 
-<<<<<<< HEAD
-/**
- * The Snapshots tab — what Dosco prepared for this project, and when.
- *
- * **The problem this layout solves.** The pane used to open on a bare "Build
- * log" of `kortix-tpl-…` strings, provider names and raw stderr. Nothing on
- * screen said what a snapshot was or whether the project was currently fine —
- * so a reader who is not a platform engineer had no way in. Every fact below is
- * still here; the difference is that the plain-language answer is on the
- * surface and the jargon is one click down.
- *
- * The shape, top to bottom:
- *
- *  1. **The heading answers "what is this page".** The description lives in
- *     `rail.ts` beside the label (see `type.ts`), as does `docsHref` — which is
- *     why the Docs button in the heading is not built here.
- *  2. **One status surface, always.** `SandboxStatusBanner` when a failure
- *     still bites (`blocked` / `degraded`), `EnvironmentSummary` otherwise.
- *     A healthy project used to get nothing at all, so "is my project OK?"
- *     could only be answered by reading a log. `unknown` state and an absent
- *     `status` still render nothing — the API could not observe the providers,
- *     and inventing an answer is worse than none (see `SandboxRuntimeState`).
- *  3. **Every build row is a disclosure**, not only failed ones. Collapsed: the
- *     template name, a status badge, and one plain sentence saying what the row
- *     means. Expanded: the facts — trigger, start, duration, provider, image id
- *     (copyable), and for a failure the category, what it means in plain words,
- *     and the raw log.
- *  4. **"How this works"** — three questions that the pane provoked and never
- *     answered, including the one that matters most: a red row is not
- *     automatically a live outage.
- *
- * **Why the row body is `BuildDetails`, exported.** `DisclosureContent`
- * unmounts its children while closed (`disclosure.tsx` — `AnimatePresence`
- * with `{open && …}`), so a collapsed `BuildRow` renders none of them. A test
- * asserting "the provider is never named on Automatic" against a collapsed row
- * therefore passes no matter what the body does — it is structurally unable to
- * fail. `BuildDetails` is a separate exported component so that contract has
- * something real to assert against.
- *
- * **`describeBuildOutcome` is pure and exported** for the same reason
- * `resolveDisclosureToggle` is: it is the whole vocabulary decision — which
- * words a row uses for its state — and it should be testable without a DOM.
- *
- * **What the stale-failure badges became.** `superseded` / `resolved` /
- * `retrying` were `Badge`s whose meaning sat behind a `Hint`, i.e. a jargon
- * word with its explanation hidden on hover. They are now the row's summary
- * sentence ("Didn't finish, but a newer setup replaced it"). The tile logic is
- * unchanged and still load-bearing: a failure that no longer blocks anything
- * does not get a red tile, which is how an 11-day-old error once passed for a
- * live outage.
- *
- * **Provenance.** Split from `sandbox-view.tsx` per JAY-508; the template list,
- * create, edit and delete live in `sandbox-tab.tsx`. `snapshots` stays
- * deliberately absent from `ACCOUNT_SCOPED_SETTINGS_TABS` in
- * `settings-panel.tsx` — this tab is project-scoped only, same as `sandbox`,
- * and takes no `ACCOUNT_TAB_PERMISSION` entry.
- *
- * **Gate.** `canManage` probes `project.sandbox.write` — the leaf the rebuild
- * route asserts, and the same leaf `sandbox-tab.tsx` gates template CRUD on. It
- * gates only the status banner's Rebuild button; "Fix with agent" gates
- * separately on `status.fix_with_agent_available`, unchanged.
- *
- * **`listProjectSnapshots` — shared endpoint, split rendering.** Both tabs call
- * the identical `useQuery({ queryKey: qk.project.snapshots(projectId) })`
- * against one backend endpoint; this tab reads only the builds/status-shaped
- * fields, and its `refetchInterval` polls only while a BUILD is `building`.
- *
- * `SnapshotsTabView` is the pure, props-only half — no slots are needed, since
- * every component below takes plain props. `SnapshotsTab` is the container:
- * every hook only runs once this tab is mounted, which `SettingsTabPane` in
- * `settings-panel.tsx` guarantees.
- */
-=======
 import { LONG_AGO, relativeTime } from '@/lib/relative-time';
 import { FactCell } from './fact-cell';
->>>>>>> upstream-dev
 
 import type { ComponentType } from 'react';
 
@@ -142,58 +68,6 @@ const XCircleFilled = ({ className }: { className?: string }) => (
   <XCircleSolid className={className} weight="fill" />
 );
 
-<<<<<<< HEAD
-export const CATEGORY_LABEL: Record<SnapshotErrorCategory, string> = {
-  quota: 'Snapshot quota reached',
-  dockerfile: 'Dockerfile build failed',
-  layer: 'Dosco runtime layer failed',
-  git: 'Repository access failed',
-  tunnel: 'Sandbox callback unreachable',
-  provider: 'Sandbox provider error',
-  timeout: 'Build timed out',
-  runtime: 'Runtime artifact missing',
-  unknown: 'Build failed',
-};
-
-/**
- * What the category means, and what to do about it — one sentence each, no
- * jargon, addressed to whoever is reading the pane rather than to the engineer
- * who wrote the category.
- *
- * `CATEGORY_LABEL` alone names the failure without explaining it: "Dosco
- * runtime layer failed" tells a reader nothing they can act on. Every place
- * that shows a category now shows this line under it.
- */
-export const CATEGORY_HELP: Record<SnapshotErrorCategory, string> = {
-  quota:
-    'This workspace has stored as many prepared machines as its plan allows. Delete a sandbox template you no longer use, or raise the limit, then build again.',
-  dockerfile:
-    'A command in this project’s Dockerfile returned an error. The log below ends on the command that failed.',
-  layer:
-    'The image built, but Dosco could not install its own tools on top of it. This is usually temporary — try building again.',
-  git: 'Dosco could not read this project’s repository. Check that the repository connection is still authorised, then build again.',
-  tunnel:
-    'The new machine could not call back to Dosco while it was being set up. This is usually temporary — try building again.',
-  provider:
-    'The company that runs the machine returned an error. Nothing is wrong with your project — try building again.',
-  timeout:
-    'Preparing the machine took longer than the time limit allows. Move slow steps out of the Dockerfile, or try again when the provider is less busy.',
-  runtime:
-    'The machine was prepared, but a file Dosco needs at start-up was missing from it. Build again; if it repeats, the template’s base image is the place to look.',
-  unknown: 'The build stopped on an error Dosco could not classify. The full log is below.',
-};
-
-export const BUILD_SOURCE_LABEL: Record<NonNullable<ProjectSnapshotBuild['source']>, string> = {
-  'session-start': 'Session start',
-  'project-create': 'Project created',
-  'cr-merge': 'Code review merge',
-  manual: 'Manual rebuild',
-  background: 'Background sync',
-  startup: 'Startup',
-};
-
-=======
->>>>>>> upstream-dev
 const BUILD_STATUS_TILE: Record<
   ProjectSnapshotStatus,
   {
@@ -438,7 +312,7 @@ export function BuildRow({
         transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       >
         <DisclosureTrigger>
-          <div className="focus-visible:ring-dosco-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors outline-none focus-visible:ring-[0.6px]">
+          <div className="focus-visible:ring-kortix-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors outline-none focus-visible:ring-[0.6px]">
             <span
               className={cn(
                 'flex size-9 shrink-0 items-center justify-center rounded-sm',
@@ -561,11 +435,6 @@ const ENVIRONMENT_SUMMARY: Partial<
   // same outlined treatment a stale build row gets rather than borrowing a
   // status colour it has not earned.
   not_built: {
-<<<<<<< HEAD
-    title: 'Nothing prepared yet',
-    body: 'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.',
-=======
->>>>>>> upstream-dev
     tileBg: 'border-border border',
     iconColor: 'text-muted-foreground',
     Icon: StackIcon,
@@ -701,92 +570,8 @@ function SandboxStatusBanner({
  * a returning reader wants the log, and a first-time reader has the heading's
  * one-liner and the status panel before they get here.
  */
-<<<<<<< HEAD
-const HOW_IT_WORKS: readonly { question: string; answer: string }[] = [
-  {
-    question: 'What is a snapshot?',
-    answer:
-      'A snapshot is a machine that has already been set up: this project’s repository, its dependencies, and the Dosco tools, all installed ahead of time. Starting a session copies that prepared machine instead of installing everything from scratch, which is why a session is ready in seconds rather than minutes.',
-  },
-  {
-    question: 'Why do new rows keep appearing?',
-    answer:
-      'Dosco prepares a new machine whenever the recipe changes — a new sandbox template, an edited Dockerfile, or a merged change — and each attempt gets its own row. Older rows are kept as a record. They are history, not a list of things to deal with.',
-  },
-  {
-    question: 'One of them failed. Is that a problem?',
-    answer:
-      'Usually not. A failed attempt only matters while no working machine is left, and when that happens a banner appears at the top of this page with a Rebuild button. A failed row with no banner above it has already been replaced by one that worked.',
-  },
-];
-
-export const DEFAULT_SNAPSHOTS_COPY: SnapshotsCopy = {
-  locale: 'en',
-  categoryLabels: CATEGORY_LABEL,
-  categoryHelp: CATEGORY_HELP,
-  sourceLabels: BUILD_SOURCE_LABEL,
-  statusLabels: { ready: 'ready', building: 'building', failed: 'failed' },
-  stale: STALE_FAILURE_SUMMARY,
-  outcomes: {
-    ready: 'Ready for new sessions',
-    building: 'Being prepared now',
-    blocked: 'New sessions can’t start on this',
-    failed: 'Didn’t finish',
-  },
-  facts: {
-    triggeredBy: 'Triggered by',
-    started: 'Started',
-    took: 'Took',
-    stillRunning: 'Still running',
-    runsOn: 'Runs on',
-    imageId: 'Image ID',
-    unknown: 'Unknown',
-  },
-  duration: {
-    underMinute: 'under 1m',
-    minutes: (count) => `${count}m`,
-    hours: (count) => `${count}h`,
-  },
-  environment: {
-    ready: {
-      title: 'This project’s environment is ready',
-      body: 'New sessions start on the prepared machine right away. There is nothing to do on this page.',
-    },
-    building: {
-      title: 'Preparing this project’s environment',
-      body: 'A new machine is being prepared. Sessions started now wait for it to finish — they don’t fail.',
-    },
-    not_built: {
-      title: 'Nothing prepared yet',
-      body: 'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.',
-    },
-  },
-  banner: {
-    blockedTitle: 'Sessions can’t start',
-    degradedTitle: 'Some sessions won’t start',
-    blockedBody:
-      'The machine this project boots from failed to build, and no working copy is available. Every new session retries it and hits the same error.',
-    degradedBody: (ready, failed) =>
-      `The machine is ready on ${ready} but failing on ${failed}. Sessions routed there won’t start.`,
-  },
-  actions: { fix: 'Fix with agent', rebuild: 'Rebuild' },
-  faq: { title: 'How this works', items: HOW_IT_WORKS },
-  view: {
-    loadFailed: 'Failed to load sandbox snapshots:',
-    retry: 'Retry',
-    logTitle: 'Build log',
-    logDescription:
-      'One row for every time Dosco prepared a machine for this project. Open a row for the details.',
-    empty:
-      'No builds recorded yet. The platform default builds once globally; custom templates build on first use.',
-  },
-};
-
-function HowItWorks({ copy = DEFAULT_SNAPSHOTS_COPY }: { copy?: SnapshotsCopy }) {
-=======
 
 function HowItWorks({ copy }: { copy: SnapshotMessages }) {
->>>>>>> upstream-dev
   return (
     <section className="space-y-4">
       <SettingsSubsectionHeader title={copy.faq.title} />
@@ -799,7 +584,7 @@ function HowItWorks({ copy }: { copy: SnapshotMessages }) {
               transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
             >
               <DisclosureTrigger>
-                <div className="focus-visible:ring-dosco-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors outline-none focus-visible:ring-[0.6px]">
+                <div className="focus-visible:ring-kortix-base hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors outline-none focus-visible:ring-[0.6px]">
                   <span className="text-foreground min-w-0 flex-1 text-sm font-medium text-pretty">
                     {question}
                   </span>

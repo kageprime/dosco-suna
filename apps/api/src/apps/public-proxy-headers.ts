@@ -39,7 +39,7 @@ export function appUpstreamHeaders(
   for (const name of [
     'host', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
     'te', 'trailer', 'transfer-encoding', 'upgrade',
-    // A Kortix credential header, never the App's own.
+    // A Dosco credential header, never the App's own.
     'x-kortix-token',
     EDGE_HOST_HEADER, EDGE_TIMESTAMP_HEADER, EDGE_SIGNATURE_HEADER,
     // Deleted unconditionally, THEN set from what the gate resolved: a client
@@ -57,12 +57,8 @@ export function appUpstreamHeaders(
   if (/^bearer\s/i.test(authorization) && isKortixToken(authorization.slice(7).trim())) {
     headers.delete('authorization');
   }
-<<<<<<< HEAD
-  // Dosco cookies are the gate's, not the App's: the App access cookie and the
-=======
   if (isKortixToken((headers.get('x-api-key') ?? '').trim())) headers.delete('x-api-key');
-  // Kortix cookies are the gate's, not the App's: the App access cookie and the
->>>>>>> upstream-dev
+  // Dosco cookies are the gate's, not the App's: the App access cookie and the
   // preview session cookie. Every other cookie is the App's own.
   const cookie = withoutKortixCookies(headers.get('cookie'));
   if (cookie === null) headers.delete('cookie');

@@ -262,9 +262,6 @@ describe('a lost runtime is reported once', () => {
   });
 });
 
-<<<<<<< HEAD
-describe('a Dosco-initiated removal is not a lost runtime', () => {
-=======
 // 2026-10-16: an open page on a lost session logged `runtime.lost` (and filed a
 // Sentry event) on every /start. /start reaches the preserve through a
 // recovery claim, which overwrites `runtimeIdentityState` with
@@ -294,8 +291,7 @@ describe('a lost runtime re-preserved after a recovery claim', () => {
   });
 });
 
-describe('a Kortix-initiated removal is not a lost runtime', () => {
->>>>>>> upstream-dev
+describe('a Dosco-initiated removal is not a lost runtime', () => {
   const removal = (extra: Record<string, unknown>) =>
     preserveEstablishedRuntime({ ...ROW, ...extra }, 'provider_webhook_removed', 'provider_removed');
 

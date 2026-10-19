@@ -678,7 +678,7 @@ export function sessionDisplayName(sessionTitle: string | undefined, sessionId: 
  *
  * `notifyTaskComplete` is the entry for the live session-event stream, which
  * only session pages mount, so it also publishes the completion to every other
- * Kortix tab (project page, dashboard, a different session) through the
+ * Dosco tab (project page, dashboard, a different session) through the
  * cross-tab bridge — they run this same path on receipt. The publishing tab
  * never receives its own broadcast, so nothing doubles locally.
  */

@@ -134,7 +134,7 @@ function initialsFor(providerID: string, name?: string) {
 const LOGO_TILE_LIGHT = 'border-border rounded-md border bg-white';
 const LOGO_TILE_LIGHT_TEXT = 'text-black';
 
-/** The Kortix mark has no built-in padding, so it gets its own size per tile
+/** The Dosco mark has no built-in padding, so it gets its own size per tile
  *  to match the other logos' optical size (roughly half the tile). */
 const KORTIX_MARK_SIZE = {
   xs: 'size-3.5',
@@ -205,14 +205,9 @@ export function ProviderLogo({
           unoptimized={src.startsWith('https:')}
           onError={() => setFailedSrc(src)}
           className={cn(
-<<<<<<< HEAD
-            'object-contain dark:invert',
-            // The Dosco mark is drawn edge-to-edge with no built-in padding,
-=======
             'object-contain',
             !light && 'dark:invert',
-            // The Kortix mark is drawn edge-to-edge with no built-in padding,
->>>>>>> upstream-dev
+            // The Dosco mark is drawn edge-to-edge with no built-in padding,
             // so inside a tile it needs its own inset to match the other
             // logos' optical size. At `xs` there is no tile to inset from.
             src === '/kortix-symbol.svg' && KORTIX_MARK_SIZE[size],

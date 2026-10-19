@@ -4,7 +4,7 @@
  * `provider-connect.tsx` — the provider LIST of the Models page's Providers
  * tab and of the quick provider dialog (`llm-provider-modal.tsx`).
  *
- * A search field and two groups: **In use** (Kortix's included models and every
+ * A search field and two groups: **In use** (Dosco's included models and every
  * provider with a stored credential) and **Available** (the rest of the
  * catalogue, a page at a time). A row is a button: it opens that provider in
  * the host's `SplitSheet`, where the key, the sign-in and the models live
@@ -14,50 +14,8 @@
  * inputs on the screen to connect one provider, and a save nobody could see.
  * The sheet has an explicit Save and room for the two-way OpenAI choice.
  *
-<<<<<<< HEAD
- *   1. *The row teleported.* Saving a key moved that provider out of the grid
- *      into a "Connected" block ABOVE it, growing a section that was not there
- *      a second earlier. Order is now fixed; a saved row gains a check and
- *      stays put.
- *   2. *The same provider appeared twice* — once as a connected summary with a
- *      "Replace key" button, once as an empty field. Now one row, and typing
- *      in it IS replacing.
- *   3. *"Show 181 more providers" was a wall,* not an invitation.
- *
- * The first cut of (3) deleted the disclosure AND the providers behind it:
- * with no search text the list was the three first-class ids plus whatever
- * already had a key, so 185 providers only existed for someone who typed a
- * name they already knew. That reads as "Dosco supports three providers".
- * The whole catalog is in the list now (`orderProviderRows`), first-class ids
- * first, everything else in catalog order — the search field narrows a list
- * that is already all there instead of being the only door to it.
- *
- * **The list pages; the search does not.** Rendering all 184 rows on arrival
- * traded the wall for a different one, so `PROVIDER_PAGE_SIZE` rows render and
- * `Load more` adds a page at a time. That is a floor on what is shown, never a
- * ceiling on what is reachable: a query renders every match in the catalogue
- * regardless of the window, and a provider with a stored key is always inside
- * it. See `PROVIDER_PAGE_SIZE` and `lastConnectedIndex`.
- *
- * Custom providers moved out entirely, to their own tab
- * (`custom-provider-panel.tsx`) — a job almost nobody does should not be the
- * last thing on the screen everybody uses.
- *
- * **Anthropic's subscription half has no control — deliberate, disclosed.**
- * `PROVIDER_NOTES.anthropic` reads "Claude Pro/Max subscription or your own API
- * key", but there is no Anthropic OAuth anywhere in this repo: the only live
- * provider OAuth is `startProjectProviderOAuth(projectId, 'openai', ...)`
- * (`chatgpt-subscription-connect.tsx:58`). The note renders verbatim because
- * JAY-510 requires it; the missing flow is a product gap, not something this
- * file may invent. OpenAI's subscription half IS real and mounts as
- * `subscriptionSlots.openai`.
- *
- * **Layers.** `ProviderConnectView` is pure (props only, no hooks) so it renders
- * under `renderToStaticMarkup` with no `QueryClientProvider` — the repo's only
-=======
  * **Layers.** `ProviderConnectView` is pure (props only) so it renders under
  * `renderToStaticMarkup` with no `QueryClientProvider` — the repo's only
->>>>>>> upstream-dev
  * render-assertion idiom. `ProviderConnect` is the container and owns every
  * hook.
  */
@@ -101,16 +59,8 @@ import { useQuery } from '@tanstack/react-query';
 
 /**
  * The three providers JAY-510 makes first-class: "Anthropic (Claude), OpenAI
-<<<<<<< HEAD
- * (ChatGPT), Google Gemini". They lead the BYOK rows after Dosco, not the only rows —
- * every other provider follows them in catalog order. Deliberately NOT
- * `POPULAR_PROVIDER_IDS` (`provider-branding.tsx:10-17`), which is a
- * different, six-member list that also carries `github-copilot`, `openrouter`
- * and `vercel`; those three sit in the tail, in catalog order.
-=======
- * (ChatGPT), Google Gemini". They lead the Available group after Kortix; every
+ * (ChatGPT), Google Gemini". They lead the Available group after Dosco; every
  * other provider follows in catalogue order.
->>>>>>> upstream-dev
  */
 export const FIRST_CLASS_PROVIDER_IDS = ['anthropic', 'openai', 'google'] as const;
 
@@ -243,7 +193,7 @@ export function useProviderMeta() {
 }
 
 export interface ProviderConnectViewProps {
-  /** Kortix and every provider with a credential. Never paged. */
+  /** Dosco and every provider with a credential. Never paged. */
   inUse: ProviderListRow[];
   /** Everything else, already windowed by the host. */
   available: ProviderListRow[];
@@ -404,29 +354,16 @@ export function ProviderConnectView({
 // ─── Container ───────────────────────────────────────────────────────────────
 
 /**
- * Kortix's managed provider, built from the served model-picker catalogue —
+ * Dosco's managed provider, built from the served model-picker catalogue —
  * the same truth the model picker renders. Zero models (a free plan with no
  * servable platform default) switches the hint to the upgrade story so both
  * surfaces tell one story (KRTX-1482).
  */
 export function useManagedProvider(projectId: string | null): LlmProviderEntry {
   const tAccess = useTranslations('modelAccess');
-<<<<<<< HEAD
-  const pickerCatalog = useProjectModelPickerCatalog(enabled ? projectId : null);
-  const managedProvider = useMemo<LlmProviderEntry>(() => ({
-    id: 'kortix',
-    label: 'Dosco',
-    envVars: [],
-    authRequirement: { methods: [] },
-    helpUrl: null,
-    apiHost: null,
-    hint: tAccess('managedDescription'),
-    models: Object.entries(pickerCatalog?.models ?? {})
-=======
   const pickerCatalog = useProjectModelPickerCatalog(projectId);
   return useMemo<LlmProviderEntry>(() => {
     const managedModels = Object.entries(pickerCatalog?.models ?? {})
->>>>>>> upstream-dev
       .filter(([id]) => !id.includes('/'))
       .map(([id, model]) => ({
         id,
@@ -440,7 +377,7 @@ export function useManagedProvider(projectId: string | null): LlmProviderEntry {
       }));
     return {
       id: 'kortix',
-      label: 'Kortix',
+      label: 'Dosco',
       envVars: [],
       authRequirement: { methods: [] },
       helpUrl: null,

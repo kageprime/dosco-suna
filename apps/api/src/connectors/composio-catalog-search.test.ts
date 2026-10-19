@@ -556,7 +556,7 @@ test('Microsoft Teams is never listed: not in sections, not in search, always hi
   expect(await composioHiddenToolkits(broken)).toEqual(new Set(['microsoft_teams', 'slack']));
 });
 
-// Slack is a native Kortix channel the same way (Channels → Add to Slack). Its
+// Slack is a native Dosco channel the same way (Channels → Add to Slack). Its
 // Composio toolkit offered beside the channel install read as Slack being
 // "double added as a connector VIA Composio" (KRTX-2353) — and the pipedream
 // catalogue already drops its Slack apps, so this was the gap left.

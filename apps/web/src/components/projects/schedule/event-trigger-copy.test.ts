@@ -365,7 +365,7 @@ describe('describeEventSource', () => {
     expect(eventSourceName(eventOf({ source: 'composio' }))).toBe('Composio');
     expect(eventSourceName(eventOf({}))).toBeNull();
   });
-  test('names no adapter for mcp: Kortix checks the MCP server itself', () => {
+  test('names no adapter for mcp: Dosco checks the MCP server itself', () => {
     expect(describeEventSource(eventOf({ source: 'mcp', provider: 'mcp' }), testUiTranslator, githubIndex)).toBe('GitHub');
     expect(describeEventSource(eventOf({ provider: 'mcp' }), testUiTranslator, githubIndex)).toBe('GitHub');
     expect(eventSourceName({ source: 'mcp' })).toBeNull();

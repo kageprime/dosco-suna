@@ -1,25 +1,13 @@
 import { cors } from 'hono/cors';
 
 const CLOUD_ORIGINS = [
-<<<<<<< HEAD
   'https://dosco.live',
   'https://dosco.live',
   'https://dev.dosco.live',
-  'https://new-dev.dosco.live',
-  'https://dev-new.dosco.live',
   'https://staging.dosco.live',
   'https://dosco.live',
   'https://www.dosco.live',
   'https://new.dosco.live',
-=======
-  'https://www.kortix.com',
-  'https://kortix.com',
-  'https://dev.kortix.com',
-  'https://staging.kortix.com',
-  'https://kortix.cloud',
-  'https://www.kortix.cloud',
-  'https://new.kortix.com',
->>>>>>> upstream-dev
 ];
 
 const LOCAL_ORIGINS = [

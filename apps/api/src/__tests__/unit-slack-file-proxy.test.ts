@@ -15,7 +15,7 @@ const { downloadSlackFile } = await import('../channels/slack/file-proxy');
 const { MAX_DOWNLOAD_BYTES } = await import('../channels/core/download');
 
 // `slack download` reached any file the workspace's bot token could read: one
-// Slack workspace shared by several Kortix projects let one project's agent
+// Slack workspace shared by several Dosco projects let one project's agent
 // download a file posted in another project's channel. The proxy now confines
 // a download like a `file_info` read: the file must be shared in a
 // conversation this project may read.
@@ -90,7 +90,7 @@ describe('downloadSlackFile confinement', () => {
     expect(r).toEqual({
       ok: false,
       status: 403,
-      error: 'Slack file F0SYNTH01 belongs to another Kortix project. This project\'s Slack connector reads only its own conversations.',
+      error: 'Slack file F0SYNTH01 belongs to another Dosco project. This project\'s Slack connector reads only its own conversations.',
     });
     expect(fetches).toEqual(['https://slack.com/api/files.info']);
   });

@@ -1776,7 +1776,7 @@ function parseDateValue(value: string): Date | undefined {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
-/** The expiry field: the Kortix `Calendar` in a popover, not the browser's
+/** The expiry field: the Dosco `Calendar` in a popover, not the browser's
  *  native date input. Empty reads "Never"; past days can't be picked. */
 function ExpiryPicker({
   id,

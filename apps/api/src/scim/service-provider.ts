@@ -7,45 +7,6 @@ import { errors, json } from '../openapi';
 import { ScimResource, listResponse, scimRouter } from './app';
 import { ENTERPRISE_USER_SCHEMA } from './user-profile';
 
-<<<<<<< HEAD
-// ─── Discovery ────────────────────────────────────────────────────────────
-
-scimRouter.openapi(
-  createRoute({
-    method: 'get',
-    path: '/accounts/{accountId}/ServiceProviderConfig',
-    tags: ['scim'],
-    summary: 'SCIM ServiceProviderConfig (capabilities discovery)',
-    request: { params: z.object({ accountId: z.string() }) },
-    responses: {
-      200: json(ScimResource, 'ServiceProviderConfig'),
-      ...errors(401, 403),
-    },
-  }),
-  async (c: any) => {
-  return c.json({
-    schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
-    documentationUri: 'https://dosco.live/docs/scim',
-    patch: { supported: true },
-    bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
-    filter: { supported: true, maxResults: 200 },
-    changePassword: { supported: false },
-    sort: { supported: false },
-    etag: { supported: false },
-    authenticationSchemes: [
-      {
-        type: 'oauthbearertoken',
-        name: 'OAuth Bearer Token',
-        description: 'Per-account SCIM token configured in Account Settings.',
-      },
-    ],
-    meta: { resourceType: 'ServiceProviderConfig' },
-  });
-  },
-);
-
-=======
->>>>>>> upstream-dev
 // ─── ResourceTypes + Schemas ────────────────────────────────────────────────
 // Azure AD (and other strict SCIM clients) probe /ResourceTypes and /Schemas
 // during connector setup to discover the User/Group endpoints and their
@@ -189,7 +150,7 @@ export function registerScimServiceProviderRoutes(): void {
     async (c: any) => {
     return c.json({
       schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
-      documentationUri: 'https://docs.kortix.com/scim',
+      documentationUri: 'https://dosco.live/docs/scim',
       patch: { supported: true },
       bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
       filter: { supported: true, maxResults: 200 },

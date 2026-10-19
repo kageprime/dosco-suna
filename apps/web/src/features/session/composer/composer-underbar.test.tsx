@@ -166,7 +166,7 @@ describe('ComposerUnderbar — the agent picker is unconditional', () => {
   test('renders with a populated roster', () => {
     const html = render({ agents: [{ name: 'kortix', mode: 'primary' } as unknown as Agent] });
     expect(agentTrigger(html)).toBeDefined();
-    expect(html).toContain('Xera');
+    expect(html).toContain('Dosco');
   });
 
   test('renders with an empty roster too', () => {
@@ -266,7 +266,7 @@ describe('ComposerUnderbar — the session picker stays switchable', () => {
     const inner = buttonMarkup(render({ agents: KORTIX }), 'Select agent');
     expect(inner).toContain('<svg');
     expect(inner).not.toMatch(/\sdisabled=""/);
-    expect(inner).toContain('Xera');
+    expect(inner).toContain('Dosco');
   });
 
   test('no locked-session tooltip exists anywhere in the row', () => {

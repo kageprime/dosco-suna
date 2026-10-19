@@ -44,9 +44,9 @@ export function MessageAuthorLabel({ author }: { author: SessionMessageAuthor })
 }
 
 /**
- * A prompt another Kortix session sent (`kortix sessions new`, a coordinator,
+ * A prompt another Dosco session sent (`kortix sessions new`, a coordinator,
  * a spawned child): the same source pill a Slack or Teams message gets —
- * Kortix mark · Kortix · sending agent — not a separate icon-and-text line.
+ * Dosco mark · Dosco · sending agent — not a separate icon-and-text line.
  * The hover card links the sending session and shows its `session_id`; a
  * click on the id copies it.
  */
@@ -57,14 +57,14 @@ function SessionAuthorLabel({ author }: { author: Extract<SessionMessageAuthor, 
   return (
     <SourcePill
       mark={<KortixLogo variant="icon" size={12} className="shrink-0" />}
-      source="Kortix"
+      source="Dosco"
       sender={author.agent || sessionName}
       // A `ses_…` id is ~30 mono characters: the default card truncates it.
       cardClassName={author.session_id ? 'w-96' : undefined}
       card={
         <SourceCard
           mark={<KortixLogo variant="icon" size={14} className="shrink-0" />}
-          title="Kortix"
+          title="Dosco"
           rows={[
             {
               label: tI18nComplete('text6959b4159575'),

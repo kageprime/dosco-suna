@@ -312,7 +312,7 @@ export function ConnectorsPage({ projectId }: { projectId: string }) {
   // `qk.project.detail(projectId)` entry `projectQuery` above holds, so this is
   // the same fetch and the same fail-closed semantics — `projectQuery` stays
   // only to surface a load FAILURE and drive Retry (see `isError`/`retry`).
-  // `connectors_v2`: the catalogue is Kortix's own MCP apps, on the Discover routes.
+  // `connectors_v2`: the catalogue is Dosco's own MCP apps, on the Discover routes.
   const mcpApps = useFeatureFlag(projectId, 'connectors_v2').enabled;
   const discoverEnabled =
     useFeatureFlag(projectId, 'connectors_api_discover').enabled || mcpApps;

@@ -6,7 +6,7 @@ import { topUpBonusUsd } from './tiers';
 
 // A refund or a lost dispute takes the credit back that the payment bought.
 // Without it, a customer buys a pack, spends it, and then refunds the charge or
-// files a chargeback: Kortix pays the upstream bill and loses the payment.
+// files a chargeback: Dosco pays the upstream bill and loses the payment.
 //
 // Only payments that bought credit map to a wallet amount: a Checkout credit
 // pack (mode=payment, metadata.type=credit_purchase) and an auto-topup
@@ -110,7 +110,7 @@ export async function handleDisputeCreated(dispute: Stripe.Dispute): Promise<voi
   );
 }
 
-/** `charge.dispute.closed`: give the credit back when Kortix won the dispute. */
+/** `charge.dispute.closed`: give the credit back when Dosco won the dispute. */
 export async function handleDisputeClosed(dispute: Stripe.Dispute): Promise<void> {
   if (dispute.status !== 'won') return;
   const credit = await resolvePaidCredit(paymentIntentId(dispute.payment_intent));

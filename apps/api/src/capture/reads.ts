@@ -1,5 +1,5 @@
 /**
- * Kortix Capture timeline reads and writes behind account-routes.ts: devices,
+ * Dosco Capture timeline reads and writes behind account-routes.ts: devices,
  * the timeline, items, search, media. Every query is bound to (account, who):
  * a person, or one device that is linked to no person yet (an IT rollout
  * records a computer before anyone links it). The route decides who may ask.

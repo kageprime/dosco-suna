@@ -4,7 +4,7 @@ import { scopedAccountIdFor } from '../shared/resolve-account';
 /**
  * Resolve the account a billing request should target.
  *
- * Multi-account users (one user, multiple Kortix accounts) need every billing
+ * Multi-account users (one user, multiple Dosco accounts) need every billing
  * route to be account-scoped — otherwise mutating "Subscribe" or "Manage
  * billing" or even reading "account-state" silently target the user's FIRST
  * membership, which makes /accounts/<other>?tab=billing nonsensical.

@@ -1,5 +1,5 @@
 /**
- * Tell Kortix sales about an account that wants Enterprise
+ * Tell Dosco sales about an account that wants Enterprise
  * (.agents/skills/billing/references/plans-and-access.md, "Enterprise").
  *
  * Two moments send it: an owner or admin turns the Enterprise demo on, and a
@@ -52,7 +52,7 @@ export async function notifySales(input: {
   try {
     await sendAlertEmail({
       to,
-      subject: `[Kortix sales] ${title}`,
+      subject: `[Dosco sales] ${title}`,
       category: `enterprise-${input.signal}`,
       html: renderEmail({
         kicker: 'Sales',

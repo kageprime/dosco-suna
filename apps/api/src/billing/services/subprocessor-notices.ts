@@ -10,7 +10,7 @@
  * emails nobody.
  *
  * Evidence: each notified account gets a `legal.subprocessor_notice.sent`
- * audit event (it shows in that account's audit log), and privacy@kortix.com
+ * audit event (it shows in that account's audit log), and privacy@dosco.live
  * gets a summary of every sweep that sent, flagged when it gave fewer than 30
  * days.
  */
@@ -33,7 +33,7 @@ import { escapeHtml } from '../../shared/html';
 import { claimOnce } from './access-notices';
 import { emailBillingManagers, sendAlertEmail } from './owner-alerts';
 
-const PRIVACY_EMAIL = 'privacy@kortix.com';
+const PRIVACY_EMAIL = 'privacy@dosco.live';
 
 export type SubprocessorNotice = { addedOn: string; effectiveDate: string; rows: Subprocessor[] };
 
@@ -51,14 +51,14 @@ export function openSubprocessorNotices(rows: readonly Subprocessor[], today: st
 }
 
 function compose(notice: SubprocessorNotice, accountName: string) {
-  const url = `${(config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '')}/legal/subprocessors`;
+  const url = `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/legal/subprocessors`;
   const effective = formatSubprocessorDate(notice.effectiveDate);
-  const title = 'New Kortix subprocessors';
-  const intro = `Kortix will add the subprocessors below on ${effective}. Until then they process no customer personal data. You receive this notice as an owner or admin of ${accountName}, as our Data Processing Addendum (section 7.3) requires.`;
+  const title = 'New Dosco subprocessors';
+  const intro = `Dosco will add the subprocessors below on ${effective}. Until then they process no customer personal data. You receive this notice as an owner or admin of ${accountName}, as our Data Processing Addendum (section 7.3) requires.`;
   const outro = `To object, reply to this email or write to ${PRIVACY_EMAIL} before ${effective}.`;
   const items = notice.rows.map((row) => `${row.name}: ${row.purpose} (${row.location})`);
   return {
-    subject: `Kortix subprocessor update, effective ${effective}`,
+    subject: `Dosco subprocessor update, effective ${effective}`,
     category: 'legal-subprocessor-notice',
     replyTo: PRIVACY_EMAIL,
     html: renderEmail({
@@ -132,7 +132,7 @@ async function reportToPrivacy(notice: SubprocessorNotice, accounts: number, now
   logger.info('[subprocessor-notices] notices sent', { addedOn: notice.addedOn, accounts, days });
   await sendAlertEmail({
     to: [PRIVACY_EMAIL],
-    subject: `[Kortix compliance] ${title}`,
+    subject: `[Dosco compliance] ${title}`,
     category: 'legal-subprocessor-notice-report',
     html: renderEmail({
       kicker: 'Compliance',

@@ -1,5 +1,5 @@
 /**
- * `/_kortix/api/v1/*` forwards an App's browser call to the Kortix API as its
+ * `/_kortix/api/v1/*` forwards an App's browser call to the Dosco API as its
  * viewer. The real cookie, HMAC check and header handling run; only the token
  * mint (it needs a database) is stubbed, and `forward` records what the API
  * would receive.
@@ -9,11 +9,11 @@ import * as realViewer from './viewer';
 import * as realAccess from './access';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 
 const APP_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '33333333-3333-4333-8333-333333333333';
-const HOST = 'dev-dashboards-abc.apps.kortix.com';
+const HOST = 'dev-dashboards-abc.apps.dosco.live';
 
 let minted: Array<{ appId: string; userId: string }> = [];
 mock.module('./viewer', () => ({

@@ -5,7 +5,6 @@ import {
   ShippingContainerIcon as Container,
   CreditCardIcon as CreditCard,
   FlaskIcon as Flask,
-  GitBranchIcon as GitBranch,
   KeyIcon as Key,
   LaptopIcon as Laptop,
   LinkIcon as Link,
@@ -43,60 +42,13 @@ export function isRailItemActive(item: RailItem, tab: SettingsTab): boolean {
 
 const STATIC_GROUPS: readonly RailGroupDefinition[] = [
   /**
-   * One overlay, three scopes. Project configuration also lives on the
-   * Customize bar's Settings tab, and account configuration on the account
-   * page — this rail lists all three scopes together so settings has one
-   * door, with the group label making ownership explicit (that grouping
-   * answers the 2026-09-03 objection to mixing org wallet rows into
-   * personal settings). Panes and gates already scope correctly:
-   * project rows need a project (`isSettingsTabAllowed`), account rows
-   * resolve their own account, and every pane renders with or without one.
+   * No Workspace group. Project configuration — General, Sandbox templates,
+   * Feature flags, Upgrades — is the Customize bar's Settings tab
+   * (`/projects/<id>/config`, `capability-tab-routes.ts`), where the rest of
+   * the project is configured. It sat here between 2026-09-02 and
+   * 2026-09-03; Marko: the overlay is for the PERSON, so it holds only what
+   * is theirs — their profile and their account.
    */
-  {
-    messageKey: 'workspace',
-    // "Project", not "Workspace" (matches the i18n catalog): the group names
-    // the scope the same way "Personal" and "Account" do.
-    label: 'Project',
-    items: [
-      {
-        tab: 'workspace',
-        label: 'General',
-        description: 'Name and icon for this workspace.',
-        icon: SquaresFour,
-      },
-      {
-        tab: 'sandbox',
-        label: 'Sandbox templates',
-        // Sandbox templates AND Snapshots — a snapshot is the build history of
-        // a sandbox template, not a separate concept, so one row shows the
-        // template's recipe and the record of each time Dosco built a
-        // machine from it.
-        description:
-          'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
-        docsHref: '/docs/work/runtime',
-        icon: Container,
-      },
-      {
-        tab: 'feature-flags',
-        label: 'Feature flags',
-        description: 'Features you can switch on before they are generally available.',
-        icon: Flask,
-      },
-      {
-        tab: 'git',
-        label: 'Git repo',
-        description: 'The repository this workspace runs from, and who can reach it.',
-        icon: GitBranch,
-      },
-      {
-        tab: 'upgrades',
-        label: 'Upgrades',
-        description:
-          'Changes an agent makes to this workspace. Every run opens a change request for you to review — nothing merges on its own.',
-        icon: ArrowUpCircle,
-      },
-    ],
-  },
   {
     messageKey: 'personal',
     // "Personal", not "You" (Jay, 2026-09-02): the group names the scope the
@@ -157,35 +109,6 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
       },
     ],
   },
-<<<<<<< HEAD
-  // One Account group: Credits and Plan describe the ORGANISATION's wallet
-  // and subscription, shown here under an explicit Account label so nobody
-  // reads them as personal — with Connected accounts alongside, the same rows
-  // the account page's Git tab manages.
-  {
-    messageKey: 'account',
-    label: 'Account',
-    items: [
-      {
-        tab: 'connected',
-        label: 'Connected accounts',
-        icon: Link,
-      },
-      {
-        tab: 'credits',
-        label: 'Credits',
-        description: 'What this account has left to spend, and what it spent this period.',
-        icon: Coins,
-      },
-      {
-        tab: 'plan',
-        label: 'Plan',
-        description: 'Your subscription, team seats, and billing for this account.',
-        icon: CreditCard,
-      },
-    ],
-  },
-=======
   /**
    * The connect pages (KRTX-1997): MCP, and your own computer. Drawn at the
    * foot of the rail as one joined block — the same two rows the project
@@ -203,7 +126,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         tab: 'mcp',
         label: 'MCP',
         description:
-          'Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
+          'Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
         docsHref: '/docs/connect/mcp',
         icon: Mcp,
       },
@@ -219,7 +142,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // stated in `translations/en.json` under `settings.rail.items.` — the
         // palette serves the catalog, these tests search the literal, and the
         // two copies must move together.
-        description: 'Let Kortix agents work with the files, terminal, and applications on your computer.',
+        description: 'Let Dosco agents work with the files, terminal, and applications on your computer.',
         icon: Laptop,
       },
     ],
@@ -229,18 +152,16 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
   // lives on the account page, `/accounts/[id]`. Grouping them under a
   // person's own settings claimed they were theirs. `/settings/credits` and
   // `/settings/plan` redirect there through `ACCOUNT_GRADUATED`.
->>>>>>> upstream-dev
 ];
 
 /**
- * Rows that are no longer in the rail but whose PANES still render somewhere.
- * Empty since the rail went three-scope (Project, Personal, Account): every
- * item lives in `STATIC_GROUPS` now. Kept as an export so `railItemForTab`'s
- * fallback — and the tests pinning it — keep their shape.
+ * Rows that are no longer in the rail but whose PANES still render somewhere
+ * — the four project sections on the Customize bar's Settings tab
+ * (`capabilities/project-settings/`), and the two account panes an old deep
+ * link can still open. `railItemForTab` resolves these too, so each pane
+ * keeps the heading and description it always had; only the rail stopped
+ * listing them.
  */
-<<<<<<< HEAD
-export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [];
-=======
 export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
   {
     tab: 'workspace',
@@ -253,10 +174,10 @@ export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
     label: 'Sandbox templates',
     // Sandbox templates AND Snapshots — a snapshot is the build history of
     // a sandbox template, not a separate concept, so one row shows the
-    // template's recipe and the record of each time Kortix built a
+    // template's recipe and the record of each time Dosco built a
     // machine from it.
     description:
-      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+      'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
     docsHref: '/docs/work/runtime',
     icon: Container,
   },
@@ -295,7 +216,6 @@ export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
     icon: CreditCard,
   },
 ];
->>>>>>> upstream-dev
 
 /**
  * The rail. One group — `Personal` — and no flag-gated rows. Project

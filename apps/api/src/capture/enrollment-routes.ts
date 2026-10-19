@@ -1,5 +1,5 @@
 /**
- * Kortix Capture IT rollout routes. The data side is enrollment.ts.
+ * Dosco Capture IT rollout routes. The data side is enrollment.ts.
  *
  * Device (public, the enrollment token in the body), on `/v1/capture`:
  *   POST /device/enroll   → 200 enrolled (device token; `member` null while linked to no one) · 202 pending · 401/403 refused
@@ -147,7 +147,7 @@ export function registerDeviceEnrollRoute(app: OpenAPIHono<AppEnv>) {
         deviceToken: bearerToken(c.req.header('Authorization'))?.trim() || null,
       });
       if ('accountId' in outcome) {
-        // The token is the caller: an IdP-less machine has no Kortix user until it is matched.
+        // The token is the caller: an IdP-less machine has no Dosco user until it is matched.
         bindAuditPrincipal({
           accountId: outcome.accountId,
           actorUserId: null,

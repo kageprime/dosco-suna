@@ -1,7 +1,7 @@
 // Access on a paired computer, as the machine reports it and as its owner
-// changes it through Kortix. The machine decides: its agent applies a
+// changes it through Dosco. The machine decides: its agent applies a
 // narrowing at once and asks the owner on the computer before it widens
-// access (contract v2 §A). Kortix stores only the agent's signed report, at
+// access (contract v2 §A). Dosco stores only the agent's signed report, at
 // `machine_info.access`.
 
 import { TunnelErrorCode, TunnelRelayError } from 'agent-tunnel';
@@ -147,7 +147,7 @@ export async function changeComputerAccess(
       ok: false,
       status: 409,
       kind: 'computer_offline',
-      message: `${name} is offline. Change access on the computer itself: the Kortix menu bar, or ${npxAccess}.`,
+      message: `${name} is offline. Change access on the computer itself: the Dosco menu bar, or ${npxAccess}.`,
     };
   }
   if (computerAccessView(row.machineInfo)?.controllable !== true) {
@@ -155,7 +155,7 @@ export async function changeComputerAccess(
       ok: false,
       status: 409,
       kind: 'agent_update_required',
-      message: `Update Kortix on ${name} to change its access from here, or run ${npxAccess} on it.`,
+      message: `Update Dosco on ${name} to change its access from here, or run ${npxAccess} on it.`,
     };
   }
 

@@ -503,7 +503,7 @@ describe('top-reaching standalone surfaces clear native macOS controls', () => {
 /**
  * One panel, one opener — and now one COMPONENT.
  *
- * The project sidebar is `collapsible="push"`, so six views grew their own
+ * The project sidebar is `collapsible="offcanvas"`, so six views grew their own
  * "bring it back" control. `sidebar-opener.ts` unified the visibility rule; the
  * control itself stayed copy-pasted, drifted (four wrapped it in `Hint`, two did
  * not), and left every headerless surface — the session boot loader, the

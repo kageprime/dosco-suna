@@ -10,7 +10,7 @@ import { safeEgressFetch } from '../shared/ssrf-guard';
 
 export const WEB_PUSH_TTL_SECONDS = 3600;
 export const WEB_PUSH_TIMEOUT_MS = 10_000;
-export const VAPID_SUBJECT = 'mailto:support@kortix.com';
+export const VAPID_SUBJECT = 'mailto:support@dosco.live';
 const VAPID_TOKEN_TTL_SECONDS = 12 * 3600;
 const RECORD_SIZE = 4096;
 // One record: header (86) + plaintext + delimiter (1) + tag (16) <= 4096.

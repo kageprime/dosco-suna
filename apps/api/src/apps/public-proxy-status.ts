@@ -109,11 +109,7 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   provisioning: {
     title: 'Provisioning your App',
-<<<<<<< HEAD
-    message: 'Dosco is creating the serverless runtime.',
-=======
-    message: 'Kortix is creating the machine for this App.',
->>>>>>> upstream-dev
+    message: 'Dosco is creating the machine for this App.',
     code: 'app_deployment_provisioning',
     progress: true,
   },
@@ -131,24 +127,10 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   starting: {
     title: 'Starting your App',
-<<<<<<< HEAD
-    message: 'Dosco is resuming the serverless runtime. This page will continue automatically.',
-    code: 'app_starting',
-    progress: true,
-  },
-  budget: {
-    title: 'App paused',
-    message: 'This App reached its monthly compute limit. The owner can increase the limit in Dosco Apps.',
-    code: 'app_budget_exceeded',
-    progress: false,
-    httpStatus: 402,
-  },
-=======
     message: 'The machine was asleep and wakes on the first visit. This page continues on its own.',
     code: 'app_starting',
     progress: true,
   },
->>>>>>> upstream-dev
   unfunded: {
     title: 'App paused',
     message: 'This Dosco account cannot start compute right now. The owner can restore it in Billing.',

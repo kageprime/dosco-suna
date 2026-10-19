@@ -38,90 +38,6 @@ export function registerGitBackendRoutes(): void {
   // every managed project's `repo_url` already carries. The credential and the
   // installation id never leave the server.
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'get',
-    path: '/git/backend',
-    tags: ['github'],
-    summary: 'Read the instance git backend',
-    ...auth,
-    responses: {
-      200: json(GitBackendSchema, 'The instance git backend'),
-      ...errors(401),
-    },
-  }),
-  async (c: any) => {
-    const backend = resolveGitBackend();
-    return c.json({
-      configured: Boolean(backend),
-      kind: backend?.kind ?? null,
-      owner: backend?.owner ?? null,
-    });
-  },
-);
-
-// GET /v1/projects/git/backend/repositories?search=&limit=
-//
-// `isSelfHostOperator`, NOT `isPlatformAdmin`. This lists the WHOLE backend
-// owner, which on cloud is `managed-kortix` — every customer's project repo.
-// Dosco staff are platform admins too, so gating on that role once put every
-// customer's private repository in the import picker (reported 2026-08-29).
-
-projectsApp.openapi(
-  createRoute({
-    method: 'get',
-    path: '/git/backend/repositories',
-    tags: ['github'],
-    summary: 'List repositories under the instance git backend owner',
-    ...auth,
-    request: {
-      query: z.object({
-        search: z.string().optional(),
-        limit: z.string().optional(),
-      }),
-    },
-    responses: {
-      200: json(z.any(), 'Repositories under the instance backend owner'),
-      ...errors(401, 403, 409, 502),
-    },
-  }),
-  async (c: any) => {
-    const userId = c.get('userId') as string;
-    if (!(await isSelfHostOperator(userId))) {
-      return c.json(
-        { error: 'The instance git backend is only browsable by a self-host operator' },
-        403,
-      );
-    }
-
-    const backend = resolveGitBackend();
-    if (!backend) {
-      return c.json({ error: 'This server has no instance git backend configured' }, 409);
-    }
-
-    const rawSearch = c.req.query('search');
-    const search =
-      typeof rawSearch === 'string' && rawSearch.trim() ? rawSearch.trim().slice(0, 120) : undefined;
-    const requestedLimit = Number.parseInt(c.req.query('limit') ?? '', 10);
-    const limit = Number.isFinite(requestedLimit)
-      ? Math.min(100, Math.max(1, requestedLimit))
-      : 100;
-
-    try {
-      // One resolved backend, one credential — the token and the owner always
-      // come from the same source.
-      const token =
-        backend.kind === 'pat'
-          ? backend.token
-          : (await createInstallationToken(backend.installationId)).token;
-      const repos = await listOwnerRepositories({
-        owner: backend.owner,
-        ownerType: backend.kind === 'app' ? (backend.ownerType ?? undefined) : undefined,
-        auth: { token },
-        search,
-        limit,
-=======
   projectsApp.openapi(
     createRoute({
       method: 'get',
@@ -142,7 +58,6 @@ projectsApp.openapi(
         kind: backend?.kind ?? null,
         owner: backend?.owner ?? null,
         operator: await isSelfHostOperator(userId),
->>>>>>> upstream-dev
       });
     },
   );
@@ -151,7 +66,7 @@ projectsApp.openapi(
   //
   // `isSelfHostOperator`, NOT `isPlatformAdmin`. This lists the WHOLE backend
   // owner, which on cloud is `managed-kortix` — every customer's project repo.
-  // Kortix staff are platform admins too, so gating on that role once put every
+  // Dosco staff are platform admins too, so gating on that role once put every
   // customer's private repository in the import picker (reported 2026-08-29).
 
   projectsApp.openapi(

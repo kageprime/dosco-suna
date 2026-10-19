@@ -61,9 +61,9 @@ registerTopUpRequestRoutes();
 // Organization branding (Enterprise): /:accountId/branding + /assets/:kind.
 registerBrandingRoutes();
 registerSecretResourceRoutes();
-// Kortix Capture, account-scoped (the account is Capture's tenant).
+// Dosco Capture, account-scoped (the account is Capture's tenant).
 registerCaptureRoutes();
-// Kortix Capture IT rollout: enrollment tokens and the computers waiting on them.
+// Dosco Capture IT rollout: enrollment tokens and the computers waiting on them.
 registerCaptureEnrollmentRoutes();
 
 export { accountsRouter };

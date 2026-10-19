@@ -1,5 +1,5 @@
 /**
- * Kortix-polled app events (source `mcp`) on real PostgreSQL: reconcile →
+ * Dosco-polled app events (source `mcp`) on real PostgreSQL: reconcile →
  * poll stream → a check through the real connector gateway against a
  * loopback MCP server → a delivery job → the trigger fires (fireGitTrigger
  * is the one fake). Covers the first check, dedup, the tool gate, transient

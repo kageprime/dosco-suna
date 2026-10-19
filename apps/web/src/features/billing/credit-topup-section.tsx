@@ -11,7 +11,6 @@ import { topUpBonusCredits } from '@/features/billing/compute-pricing';
 import { spring } from '@/lib/springs';
 import { cn } from '@/lib/utils';
 import { useBillingAccountId } from '@/stores/billing-account-context';
-import { useAccountState } from '@/hooks/billing/use-account-state';
 import { purchaseCredits } from '@kortix/sdk';
 import { dollarsToCredits, formatCredits } from '@kortix/shared';
 import { m } from 'motion/react';
@@ -69,16 +68,12 @@ export function describeTopup(
   amount: number | null,
   isPurchasing = false,
   copy: TopupCopy = DEFAULT_TOPUP_COPY,
-  /** Pre-computed "≈ ₦X charged" label for Paystack. Appended to the hint
-   *  only when an amount is actually buyable — never beside a validation
-   *  message or the idle line. */
-  paystackNgnLabel: string | null = null,
 ): { canBuy: boolean; hint: string; actionLabel: string } {
   const tooLow = amount !== null && amount < CUSTOM_MIN_USD;
   const tooHigh = amount !== null && amount > CUSTOM_MAX_USD;
   const canBuy = amount !== null && !tooLow && !tooHigh && !isPurchasing;
 
-  const baseHint = tooLow
+  const hint = tooLow
     ? copy.minimum(formatWholeUsd(CUSTOM_MIN_USD, copy.locale))
     : tooHigh
       ? copy.contactSales(formatWholeUsd(CUSTOM_MAX_USD, copy.locale))
@@ -98,9 +93,6 @@ export function describeTopup(
     : canBuy && amount !== null
       ? copy.addAmount(formatWholeUsd(Math.round(amount), copy.locale))
       : copy.addCredits;
-
-  const hint =
-    paystackNgnLabel !== null && canBuy ? `${baseHint} · ${paystackNgnLabel}` : baseHint;
 
   return { canBuy, hint, actionLabel };
 }
@@ -139,16 +131,6 @@ function formatWholeUsd(amount: number, locale: string): string {
   }).format(amount);
 }
 
-/** Whole-naira figure for pre-redirect display ("≈ ₦37,500 charged"). */
-function formatNgn(amountNgn: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amountNgn);
-}
-
 interface CreditTopupSectionProps {
   /** Where Stripe returns on success. Defaults to /dashboard?credit_purchase=success. */
   successUrl?: string;
@@ -162,11 +144,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
   const locale = useLocale();
   const billingAccountId = useBillingAccountId();
   const billingReturnUrl = useBillingReturnUrl();
-  // FX rate for the pre-redirect NGN figure. Shares the cached account-state
-  // query (no extra fetch in practice); null = rate unconfigured = no figure,
-  // and checkout itself then fails with a clear error.
-  const { data: fxAccountState } = useAccountState();
-  const fxRate = fxAccountState?.billing_fx?.usd_ngn_rate ?? null;
   // The sliding indicator is a shared layout animation. Two of these can be
   // mounted at once (the Billing tab behind the out-of-credits modal), and a
   // duplicate `layoutId` would make one instance's indicator fly across the
@@ -177,8 +154,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
   const [isCustom, setIsCustom] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  // Paystack is the de facto default payment provider; Stripe stays selectable.
-  const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
 
   // The dollar amount that would actually be charged. Custom wins when the
   // custom cell is active; otherwise the selected preset.
@@ -190,28 +165,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
     return selectedPrice;
   }, [isCustom, customValue, selectedPrice]);
 
-<<<<<<< HEAD
-  const { canBuy, hint, actionLabel } = describeTopup(
-    amount,
-    isPurchasing,
-    {
-      minimum: (value) => t('minimum', { amount: value }),
-      contactSales: (value) => t('contactSales', { amount: value }),
-      creditHint: (credits) => t('creditHint', { credits }),
-      noExpiry: t('noExpiry'),
-      processing: t('processing'),
-      addAmount: (value) => t('addAmount', { amount: value }),
-      addCredits: t('addCredits'),
-      locale,
-    },
-    // The buyer is charged the NGN equivalent on Paystack — show it before
-    // they click, but only for a buyable amount (describeTopup ignores the
-    // label otherwise).
-    provider === 'paystack' && fxRate && amount !== null
-      ? `≈ ${formatNgn(Math.round(Math.round(amount) * fxRate))} charged`
-      : null,
-  );
-=======
   const { canBuy, hint, actionLabel } = describeTopup(amount, isPurchasing, {
     minimum: (value) => t('minimum', { amount: value }),
     contactSales: (value) => t('contactSales', { amount: value }),
@@ -223,7 +176,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
     addCredits: t('addCredits'),
     locale,
   });
->>>>>>> upstream-dev
 
   const select = (price: number) => {
     setSelectedPrice(price);
@@ -243,7 +195,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
         amount: Math.round(amount),
         successUrl: successUrl ?? billingReturnUrl('credit_purchase'),
         cancelUrl: cancelUrl ?? window.location.href,
-        provider,
       });
       if (response.checkout_url) {
         window.location.href = response.checkout_url;
@@ -262,41 +213,6 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
 
   return (
     <div className={cn('space-y-2.5', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          role="radiogroup"
-          aria-label={t('paymentMethod')}
-          className="bg-muted/60 flex items-center gap-0.5 rounded-md border p-0.5"
-        >
-          {/* Paystack first: it is the default provider. */}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={provider === 'paystack'}
-            onClick={() => setProvider('paystack')}
-            disabled={isPurchasing}
-            className={cn(
-              'rounded-sm px-2.5 py-1 text-xs font-medium',
-              provider === 'paystack' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground',
-            )}
-          >
-            {t('payWithPaystack')}
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={provider === 'stripe'}
-            onClick={() => setProvider('stripe')}
-            disabled={isPurchasing}
-            className={cn(
-              'rounded-sm px-2.5 py-1 text-xs font-medium',
-              provider === 'stripe' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground',
-            )}
-          >
-            {t('payWithStripe')}
-          </button>
-        </div>
-      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           role="radiogroup"
@@ -407,7 +323,7 @@ function AmountCell({
       className={cn(
         'relative h-7 cursor-pointer rounded-sm px-2.5 text-xs font-medium tabular-nums',
         'duration-normal transition-[color,transform] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none',
-        'focus-visible:ring-dosco-base focus-visible:ring-[0.6px] focus-visible:outline-none',
+        'focus-visible:ring-kortix-base focus-visible:ring-[0.6px] focus-visible:outline-none',
         selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >

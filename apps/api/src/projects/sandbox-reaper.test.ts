@@ -1094,7 +1094,7 @@ describe('reapAndReconcileSandboxes — the one rule: deadline_at <= now', () =>
       expect(shortenedDeadlines).toEqual([{ sessionId: 'sess-1', graceMs: 30 * MIN }]);
       expect(clearedTurnCalls).toEqual([]);
       expect(r.stopped).toBe(0);
-      // The provider's own timer still follows the Kortix deadline, which has not passed.
+      // The provider's own timer still follows the Dosco deadline, which has not passed.
       expect(timeoutRenewals).toEqual([{ provider: 'daytona', externalId: 'ext-1' }]);
     });
 

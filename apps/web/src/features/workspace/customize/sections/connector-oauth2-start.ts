@@ -8,7 +8,7 @@ import {
 import { autoConnectPlan, buildClientRegistrationInput } from './connector-oauth2-auto';
 
 /**
- * One-click OAuth: register Kortix as a client of the server's authorization
+ * One-click OAuth: register Dosco as a client of the server's authorization
  * server, then start Authorization Code + PKCE. Returns the provider URL to
  * send the browser to. The provider sends the user back to `returnUrl`.
  */

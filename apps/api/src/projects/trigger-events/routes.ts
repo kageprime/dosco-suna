@@ -39,7 +39,7 @@ export function registerEventIngressRoutes(): void {
     },
   }), async (c) => {
     const provider = eventSourceFor(c.req.param('provider'));
-    // Kortix checks `mcp` apps itself: nothing is ever pushed to it, so it is no ingress at all.
+    // Dosco checks `mcp` apps itself: nothing is ever pushed to it, so it is no ingress at all.
     if (!provider || provider.id === MCP_SOURCE_ID) return c.json({ error: 'Unknown event provider' }, 404);
     if (!provider.ingressConfigured()) return c.json({ error: 'event_ingress_not_configured' }, 503);
 

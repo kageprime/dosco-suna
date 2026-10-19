@@ -109,26 +109,6 @@ export function registerMemberInviteRoute(): void {
         }
       }
 
-<<<<<<< HEAD
-      // Trial seat gate — covers both branches below (direct add + invite).
-      const { trialSeatLimitBlocksNewMember } = await import(
-        '../../billing/services/seat-management'
-      );
-      const seatBlock = await trialSeatLimitBlocksNewMember(accountId);
-      if (seatBlock) {
-        return c.json(
-          {
-            error: `Your trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Contact the Dosco team to extend the trial.`,
-            code: 'trial_seat_limit_reached',
-            limit: seatBlock.limit,
-            members: seatBlock.members,
-          },
-          403,
-        );
-      }
-
-=======
->>>>>>> upstream-dev
       // Need account name for the invite email
       const [accountRow] = await db
         .select({ name: accounts.name })

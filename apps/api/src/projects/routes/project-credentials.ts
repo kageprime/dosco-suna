@@ -172,11 +172,6 @@ export function registerProjectCredentialsRoutes(): void {
   },
   );
 
-<<<<<<< HEAD
-  if (await hasServerManagedGitAuth(loaded.row)) {
-    return c.json({ error: 'Git auth is already managed by Dosco for this project' }, 409);
-  }
-=======
   projectsApp.openapi(
     createRoute({
       method: 'delete',
@@ -209,7 +204,6 @@ export function registerProjectCredentialsRoutes(): void {
     return c.json({ ok: true });
   },
   );
->>>>>>> upstream-dev
 
   // PUT /v1/projects/:projectId/git-credential
   // Stores provider-neutral BYO git credentials as platform credentials, not as
@@ -247,7 +241,7 @@ export function registerProjectCredentialsRoutes(): void {
     await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
 
     if (await hasServerManagedGitAuth(loaded.row)) {
-      return c.json({ error: 'Git auth is already managed by Kortix for this project' }, 409);
+      return c.json({ error: 'Git auth is already managed by Dosco for this project' }, 409);
     }
 
     const token =

@@ -94,7 +94,7 @@ describe('parseAddressInput — the sandbox-port address grammar', () => {
     expect(parseAddressInput('3000/docs')).toBe('http://localhost:3000/docs');
   });
 
-  test('a Kortix App URL is kept, and gets its scheme when typed bare', () => {
+  test('a Dosco App URL is kept, and gets its scheme when typed bare', () => {
     expect(parseAddressInput('https://dev-crm-0123456789abcdef.apps.kortix.com/deals')).toBe(
       'https://dev-crm-0123456789abcdef.apps.kortix.com/deals',
     );

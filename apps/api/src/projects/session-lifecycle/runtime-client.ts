@@ -563,7 +563,7 @@ export class PromptNeverLandedError extends Error {
 /**
  * Thrown out of a `steer` POST that no running turn took. `turn_ended`: the
  * daemon answered `409 no_active_turn` (it stored nothing). `unsupported`: the
- * daemon cannot steer (`501`, or no Kortix turn routes). The caller sends the
+ * daemon cannot steer (`501`, or no Dosco turn routes). The caller sends the
  * row as a Queue List prompt. Not a failed attempt.
  */
 export class SteerNotTaken extends Error {
@@ -682,7 +682,7 @@ export async function postPrompt(
     /** The target's sandbox row, when the delivery already read it. */
     sandboxRecord?: SandboxRecord;
     /** Hand the message to the RUNNING turn (`POST .../steer`) instead of
-     *  starting one. Kortix route only; throws {@link SteerNotTaken}. */
+     *  starting one. Dosco route only; throws {@link SteerNotTaken}. */
     steer?: boolean;
   },
 ): Promise<'accepted' | 'deduplicated' | 'failed' | 'unreachable'> {

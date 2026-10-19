@@ -877,7 +877,7 @@ describe('v2: access mode on the machine', () => {
   });
 });
 
-describe('the owner changes access through Kortix (POST /tunnel/connections/:id/access)', () => {
+describe('the owner changes access through Dosco (POST /tunnel/connections/:id/access)', () => {
   const NOW_ACCESS = { mode: 'ask', grantedUntil: null, deniedUntil: null, keepAwake: false, keepAwakeSupported: true, pendingRequest: null };
   let laptop = '';
   const originals = {

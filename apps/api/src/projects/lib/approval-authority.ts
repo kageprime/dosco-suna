@@ -23,10 +23,6 @@ import type { Credential } from '../../iam/actor';
  * point of a human-in-the-loop gate, so it is refused outright rather than
  * narrowed to "its own session".
  *
-<<<<<<< HEAD
- * Only a Supabase-authenticated Dosco user can resolve an approval. PATs,
- * API keys, service accounts, and session credentials are automated principals.
-=======
  * A human is a Supabase session — or the person's OWN CLI Personal Access
  * Token (`callerCredentialKind: 'pat'`). That token row carries a real user,
  * binds to no session and stands behind no service account: the same person
@@ -36,7 +32,6 @@ import type { Credential } from '../../iam/actor';
  * service-account bearers, sandbox API keys and OAuth clients — every
  * credential that is not one person's own identity. A PAT whose token row
  * names a service account classifies as `agent_session` and is refused here.
->>>>>>> upstream-dev
  */
 export type ApprovalRefusal =
   | 'non_human_caller'

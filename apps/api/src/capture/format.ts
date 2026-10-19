@@ -1,11 +1,11 @@
 /**
- * The reader side of the Kortix Capture format, schema 2 (the desktop app's
+ * The reader side of the Dosco Capture format, schema 2 (the desktop app's
  * only contract: .agents/skills/kortix-capture/references/capture-format.md).
  * Pure functions: key layout, manifest / policy / status shapes, and the
  * line parsers for frames, actions and audio transcripts. The JSON Schemas
  * and the fixture bucket of the contract live with the app, in apps/capture/schemas
- * and apps/capture/fixtures/capture-format-v2. Kortix reads schema 2 only
- * (every Kortix prefix is written by a schema-2 engine); unknown fields are
+ * and apps/capture/fixtures/capture-format-v2. Dosco reads schema 2 only
+ * (every Dosco prefix is written by a schema-2 engine); unknown fields are
  * ignored.
  */
 import { z } from 'zod';
@@ -24,12 +24,12 @@ import { isUuid } from '../shared/validate';
 
 export const CAPTURE_SCHEMA = 2;
 
-/** Kortix's prefix for one account (the Capture tenant). The device writes under `<prefix>/<device_id>/`. */
+/** Dosco's prefix for one account (the Capture tenant). The device writes under `<prefix>/<device_id>/`. */
 export function accountPrefix(accountId: string): string {
   return `orgs/${accountId}`;
 }
 
-/** Split an object key of the Kortix layout, `orgs/<account_id>/<device_id>/…`. Null for any other key. */
+/** Split an object key of the Dosco layout, `orgs/<account_id>/<device_id>/…`. Null for any other key. */
 export function parseCaptureKey(key: string): { accountId: string; deviceId: string; rest: string } | null {
   const [orgs, accountId, deviceId, ...rest] = key.split('/');
   if (orgs !== 'orgs' || rest.length === 0 || !rest.every(Boolean)) return null;
@@ -137,7 +137,7 @@ export function isEncrypted(manifest: Manifest): boolean {
  * Fold one `index/<day>.jsonl` body (capture-format.md "Index lines"): the
  * latest `put` of a base is live until a `delete` of it. `live` holds the
  * manifests of complete items; `deleted` holds the manifests of items the
- * person forgot or the device's retention removed, which Kortix retracts.
+ * person forgot or the device's retention removed, which Dosco retracts.
  */
 export function foldIndex(prefix: string, deviceId: string, body: string): { live: string[]; deleted: string[] } {
   const state = new Map<string, 'live' | 'incomplete' | 'deleted'>();
@@ -352,7 +352,7 @@ export const PolicySchema = z.object({
     })
     .default({ paused: false, paused_until_ms: null }),
   notice: z.string().max(2000).default(''),
-  // Experimental surfaces. `privacy_controls` shows the exclusions and masking in Kortix and in
+  // Experimental surfaces. `privacy_controls` shows the exclusions and masking in Dosco and in
   // the app; hiding them never changes what applies.
   experimental: z.object({ privacy_controls: z.boolean().default(false) }).default({}),
 });
@@ -383,7 +383,7 @@ export function liveState(status: Record<string, unknown> | null | undefined, no
   return str(status?.recording) ?? 'unknown';
 }
 
-/** The descriptive fields Kortix keeps from `device.json` (or a sign-in request). */
+/** The descriptive fields Dosco keeps from `device.json` (or a sign-in request). */
 export function deviceFields(raw: Record<string, unknown>): {
   name: string | null;
   os: string | null;

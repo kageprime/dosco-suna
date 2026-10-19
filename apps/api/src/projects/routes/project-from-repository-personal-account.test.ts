@@ -302,7 +302,7 @@ describe('POST /create-repo — the starter commit and the registration', () => 
       owner: 'acme',
       repo: 'company',
       branch: 'main',
-      message: 'chore: scaffold the Kortix starter',
+      message: 'chore: scaffold the Dosco starter',
       auth: { source: 'app_installation' },
     });
     const paths = commit.files.map((file) => file.path);

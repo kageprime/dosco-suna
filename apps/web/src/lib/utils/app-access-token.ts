@@ -1,5 +1,5 @@
 /**
- * A Kortix App's one-shot access token rides the URL as `?__kortix_access=`.
+ * A Dosco App's one-shot access token rides the URL as `?__kortix_access=`.
  * It is a credential (5 min, redeemed for a host-only cookie), so no persisted
  * store may keep it: the tab store, browser recents. The session browser mints
  * a fresh one whenever it frames an App (`useAppInBrowser`).

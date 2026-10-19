@@ -229,7 +229,7 @@ describe('discoverProtectedResourceOAuth2 — MCP authorization discovery chain'
   });
 });
 
-describe('mcpSignInCheck: can Kortix sign in to an MCP server in one click', () => {
+describe('mcpSignInCheck: can Dosco sign in to an MCP server in one click', () => {
   const base = { resource_url: 'https://mcp.example.test/mcp', scopes: [], warnings: [] };
   const metadata = {
     authorization_url: 'https://mcp.example.test/authorize',

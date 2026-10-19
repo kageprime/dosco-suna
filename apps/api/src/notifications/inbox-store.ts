@@ -53,7 +53,7 @@ export function createInboxStore(database: Database = defaultDb): InboxStore {
           sessionId: row.sessionId ?? null,
           triggerSlug: row.triggerSlug ?? null,
           kind: row.kind,
-          title: clip(row.title, INBOX_TITLE_MAX_CHARS) || 'Kortix',
+          title: clip(row.title, INBOX_TITLE_MAX_CHARS) || 'Dosco',
           body: clip(row.body ?? '', INBOX_BODY_MAX_CHARS),
           actorUserId: row.actorUserId ?? null,
           dedupeKey: row.dedupeKey ?? null,

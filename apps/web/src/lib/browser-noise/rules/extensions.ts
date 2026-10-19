@@ -43,7 +43,7 @@ const INJECTED_APP_SOURCE_PATTERNS = [
   // allowlists `cdn-cookieyes.com`). Errors thrown inside these files are the
   // third-party SDK's own bugs — e.g. Better Stack pattern
   // `2e256e5f05cfde3531e693c0f2b9d3449cf95d468eb845b73f2b5add250f5865`
-  // (KRTX-2739, Kortix Frontend prod, application_id 2346967): 1 occurrence,
+  // (KRTX-2739, Dosco Frontend prod, application_id 2346967): 1 occurrence,
   // 0 identified users, 2026-10-18 01:52:32 UTC. After the visitor clicked
   // CookieYes' own "Accept All" button (`button.cky-btn.cky-btn-accept`),
   // banner.js's revisit-consent focus-retry loop — CookieYes' minified fn
@@ -679,8 +679,8 @@ export function isCaptchaInterceptorNoise(input: {
  * (the wording of the wallet RPC error library). The rejected value is a plain
  * object with no `stack`, so Sentry reports a frameless synthetic
  * "Object captured as promise rejection with keys: code, message" and the
- * extension-stack anchor above cannot see it. Better Stack, Kortix Frontend
- * prod, release dad30b6188, route `/` (2 events). Kortix rejects with Error
+ * extension-stack anchor above cannot see it. Better Stack, Dosco Frontend
+ * prod, release dad30b6188, route `/` (2 events). Dosco rejects with Error
  * instances only. Anchored on the exact two-key object; a bundle or
  * first-party frame keeps reporting.
  */
@@ -713,10 +713,10 @@ function isWalletInternalRpcRejectionNoise(input: {
 // extension-stack anchor cannot see it (there is no serialized `stack`).
 // Better Stack pattern
 // `59d4a56669e7b9026bb46b8a4df4448db65e277319b88ae8746ec721afa885da`
-// (Kortix Frontend prod, application_id 2346967, release a41f91833475):
+// (Dosco Frontend prod, application_id 2346967, release a41f91833475):
 // `UnhandledRejection`, synthetic, 0 stack frames, 0 identified users,
 // occurrences 2026-08-24 06:54 UTC (`/auth`) and 2026-10-11 22:36/22:48 UTC
-// (`/`). Kortix rejects with Error instances only, and no first-party code
+// (`/`). Dosco rejects with Error instances only, and no first-party code
 // produces a 4900 provider-disconnected outcome (the wording is the
 // EIP-1193 provider's own). Anchored on the exact two-key object with the
 // same negative guard as `isWalletInternalRpcRejectionNoise` — a bundle or

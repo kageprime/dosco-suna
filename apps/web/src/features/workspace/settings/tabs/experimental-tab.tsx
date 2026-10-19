@@ -94,7 +94,7 @@ import { SettingsTabHeader } from '../settings-tab-header';
  */
 export interface ExperimentalCopy {
   overridden: string;
-  /** Origin line of an `operator_only` flag: only Kortix changes it. */
+  /** Origin line of an `operator_only` flag: only Dosco changes it. */
   managedByKortix: string;
   defaultOn: string;
   defaultOff: string;
@@ -109,7 +109,7 @@ export interface ExperimentalCopy {
 
 export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
   overridden: 'Overridden for this project',
-  managedByKortix: 'Managed by Kortix',
+  managedByKortix: 'Managed by Dosco',
   defaultOn: 'Default on',
   defaultOff: 'Default off',
   search: 'Search features',
@@ -123,7 +123,7 @@ export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
 
 function originLabel(feature: FeatureFlagView, copy: ExperimentalCopy): string {
   // An internal-only flag (`apps`) is listed only while on, and
-  // `PATCH /features` refuses it to anyone but a Kortix operator.
+  // `PATCH /features` refuses it to anyone but a Dosco operator.
   if (feature.operator_only) return copy.managedByKortix;
   if (feature.overridden) return copy.overridden;
   return feature.enabled ? copy.defaultOn : copy.defaultOff;

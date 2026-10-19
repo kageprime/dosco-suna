@@ -52,7 +52,7 @@ import { deviceStatus, type DeviceStatusKey } from './device-status';
 import { DeviceActionsMenu, HealthNote, StatusLabel } from './device-status-ui';
 import { RolloutModal, WaitingComputers } from './rollout';
 
-/** Kortix Capture's installers, one per OS (/download/capture/<os> → the newest vX.Y.Z Release). */
+/** Dosco Capture's installers, one per OS (/download/capture/<os> → the newest vX.Y.Z Release). */
 const CAPTURE_DOWNLOADS = [
   { os: 'windows', file: '.msi' },
   { os: 'macos', file: '.pkg' },
@@ -119,7 +119,7 @@ export function DevicesView({ accountId }: { accountId: string }) {
               {t('rollout')}
             </Button>
           ) : null}
-          {/* Kortix Capture is its own app: a person installs it and signs in, or IT rolls it out. */}
+          {/* Dosco Capture is its own app: a person installs it and signs in, or IT rolls it out. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="gap-1.5">

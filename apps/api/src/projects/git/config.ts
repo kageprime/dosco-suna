@@ -531,7 +531,7 @@ export async function loadProjectConfig(
 /**
  * The v3 listing. kortix.yaml is the only source: agents are its blocks
  * (`path` is the `prompt_file`, else the block), skills are the `skills`
- * registry plus the Kortix skills, commands are the `commands` registry. A
+ * registry plus the Dosco skills, commands are the `commands` registry. A
  * folder or file the manifest does not register is never listed.
  */
 async function loadProjectConfigV3(

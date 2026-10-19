@@ -94,27 +94,10 @@ export function registerApprovalsRoutes(): void {
         .orderBy(desc(connectorCalls.createdAt))
         .limit(limit.value);
 
-<<<<<<< HEAD
-    // Count per (Dosco) session id.
-    const approvalsByKortix: Record<string, number> = {};
-    for (const r of pendingRows) {
-      const sid = r.sessionId ? String(r.sessionId) : null;
-      if (sid) approvalsByKortix[sid] = (approvalsByKortix[sid] ?? 0) + 1;
-    }
-    const questionsByKortix: Record<string, number> = {};
-    for (const r of questionRows) {
-      questionsByKortix[r.sessionId] = (questionsByKortix[r.sessionId] ?? 0) + 1;
-    }
-    const kortixIds = [
-      ...new Set([...Object.keys(approvalsByKortix), ...Object.keys(questionsByKortix)]),
-    ];
-    if (kortixIds.length === 0) return c.json({ total: 0, sessions: {} });
-=======
       const userIds = [...new Set(rows.map((r) => r.actingUserId).filter((v): v is string => !!v))];
       const emailByUser = userIds.length
         ? await lookupEmailsByUserIds(userIds)
         : new Map<string, string>();
->>>>>>> upstream-dev
 
       return c.json({
         count: rows.length,
@@ -202,7 +185,7 @@ export function registerApprovalsRoutes(): void {
           ),
         );
 
-      // Count per (Kortix) session id.
+      // Count per (Dosco) session id.
       const approvalsByKortix: Record<string, number> = {};
       for (const r of pendingRows) {
         const sid = r.sessionId ? String(r.sessionId) : null;
@@ -335,16 +318,12 @@ export function registerApprovalsRoutes(): void {
         return c.json(
           verdict.reason === 'session_bound_caller'
             ? {
-<<<<<<< HEAD
-                error: 'Sign in with a Dosco account to resolve this approval',
-=======
                 error: 'An agent cannot resolve its own approval — a human must approve or deny this',
->>>>>>> upstream-dev
                 code: 'APPROVAL_REQUIRES_HUMAN',
               }
             : verdict.reason === 'non_human_caller'
               ? {
-                  error: 'Sign in with a Kortix account to resolve this approval',
+                  error: 'Sign in with a Dosco account to resolve this approval',
                   code: 'APPROVAL_REQUIRES_HUMAN',
                 }
               : { error: 'Only a project manager or the session launcher can resolve this' },

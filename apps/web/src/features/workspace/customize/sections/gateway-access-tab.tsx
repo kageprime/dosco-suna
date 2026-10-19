@@ -9,16 +9,7 @@
  * plus how to use it. `LLM_TABS` in `gateway-view.tsx` holds the order; both
  * legacy deep-link ids (`llm-keys`, `llm-api`) resolve here.
  *
-<<<<<<< HEAD
- *  - `providers` — "API keys": paste YOUR provider key (Anthropic, OpenAI, …)
- *    so this project can call that provider. **Inbound.**
- *  - `keys` — "API keys": create a `kortix_gw_…` key so something OUTSIDE
- *    Dosco can call this project's gateway. **Outbound.**
- *  - `api` — "API": how to make that outbound call, with the key from the tab
- *    four places to its left.
-=======
  * ## Layout (Paper GW09, after Vercel's getting-started card)
->>>>>>> upstream-dev
  *
  *  1. A hero card: what the gateway is for, Create key and Read the docs on
  *     the left; one highlighted request (curl / Python / Anthropic SDK) on the

@@ -27,7 +27,7 @@ export function registerAppCapabilityRoutes(): void {
       method: 'post', path: '/{projectId}/apps/{appId}/token', tags: ['apps'], summary: 'Mint a sign-in token for an App', ...auth,
       description:
         `Capability \`member_tokens\`. A ${TOKEN_TTL_SECONDS / 60}-minute ES256 JWT from the project issuer ` +
-        '(`iss` = `<API origin>/v1/projects/{projectId}`, `aud` = the App id) naming the caller (`sub` = Kortix user id, ' +
+        '(`iss` = `<API origin>/v1/projects/{projectId}`, `aud` = the App id) naming the caller (`sub` = Dosco user id, ' +
         '`email`, `role`, `groups`). The App verifies it with its `auth` values. An agent session gets a token naming ' +
         'its agent (`sub` = service account id, `kind: "agent"`, no role, no groups), never the human who launched it.',
       request: { params: AppParams },

@@ -87,23 +87,14 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'contact',
-<<<<<<< HEAD
-    title: 'Contact Dosco',
-    description: 'Request a tailored Dosco walkthrough for cloud, VPC, or on-prem deployment.',
-=======
     title: 'Contact sales and book a demo',
-    description: 'Request a tailored Kortix walkthrough for cloud, VPC, or on-prem deployment.',
->>>>>>> upstream-dev
+    description: 'Request a tailored Dosco walkthrough for cloud, VPC, or on-prem deployment.',
     htmlPath: '/contact',
   },
   {
     kind: 'marketing',
     slug: 'about',
-<<<<<<< HEAD
-    title: 'About Dosco',
-=======
     title: 'About',
->>>>>>> upstream-dev
     description:
       'Our mission: take a company from human to AGI, and let it keep every byte of itself on the way there.',
     htmlPath: '/about',
@@ -112,23 +103,14 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'legal',
-<<<<<<< HEAD
-    title: 'Dosco legal',
-    description: 'Dosco terms of service and privacy policy.',
-=======
     title: 'Legal',
-    description: 'Kortix terms of service and privacy policy.',
->>>>>>> upstream-dev
+    description: 'Dosco terms of service and privacy policy.',
     htmlPath: '/legal',
   },
   {
     kind: 'marketing',
     slug: 'marketplace',
-<<<<<<< HEAD
-    title: 'Dosco Marketplace',
-=======
     title: 'Marketplace: agents, skills and project templates',
->>>>>>> upstream-dev
     description:
       'Browse skills, agents, and commands from every source. Add them to a Dosco project in one click.',
     htmlPath: '/marketplace',
@@ -136,36 +118,24 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'developers',
-<<<<<<< HEAD
-    title: 'Dosco for developers',
-=======
     title: 'Developers: CLI, SDK and API for AI agents',
->>>>>>> upstream-dev
     description:
       'Build with Dosco from the terminal: drive projects, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.',
     htmlPath: '/developers',
     markdownPath: '/markdown/developers.md',
   },
-<<<<<<< HEAD
-
-  {
-    kind: 'marketing',
-    slug: 'changelog',
-    title: 'Dosco Changelog',
-=======
   {
     kind: 'marketing',
     slug: 'careers',
     title: 'Careers',
     description:
-      'Open positions at Kortix — Marketing / Content, Sales, FDE / Services, Product / Eng, Product / R&D. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.',
+      'Open positions at Dosco — Marketing / Content, Sales, FDE / Services, Product / Eng, Product / R&D. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.',
     htmlPath: '/careers',
   },
   {
     kind: 'marketing',
     slug: 'changelog',
     title: 'Changelog',
->>>>>>> upstream-dev
     description:
       'Every Dosco release, straight from the source. New features, fixes, and improvements — versioned and dated.',
     htmlPath: '/changelog',
@@ -173,11 +143,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'use-cases',
-<<<<<<< HEAD
-    title: 'Dosco Use Cases',
-=======
     title: 'Use cases: AI agents doing real company work',
->>>>>>> upstream-dev
     description:
       'How teams put a workforce of AI agents to work — the loops they engineer, the deliverables they ship, and the reviewed changes that make the company better every day.',
     htmlPath: '/use-cases',
@@ -185,23 +151,14 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'download',
-<<<<<<< HEAD
-    title: 'Download Dosco',
-    description: 'Get Dosco for macOS, Windows, Linux, iOS, and Android.',
-=======
     title: 'Download the desktop app and CLI',
-    description: 'Get Kortix for macOS, Windows, Linux, iOS, and Android.',
->>>>>>> upstream-dev
+    description: 'Get Dosco for macOS, Windows, Linux, iOS, and Android.',
     htmlPath: '/download',
   },
   {
     kind: 'marketing',
     slug: 'enterprise',
-<<<<<<< HEAD
-    title: 'Dosco Enterprise',
-=======
     title: 'Enterprise AI agents: SSO, SCIM, audit, your VPC',
->>>>>>> upstream-dev
     description: PRICING_PLANS.find((plan) => plan.id === 'enterprise')?.note,
     htmlPath: '/enterprise',
     markdownPath: '/markdown/enterprise.md',
@@ -209,11 +166,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'pricing',
-<<<<<<< HEAD
-    title: 'Dosco pricing',
-=======
     title: 'Pricing',
->>>>>>> upstream-dev
     description: 'Current plans and included features.',
     htmlPath: '/pricing',
     markdownPath: '/markdown/pricing.md',
@@ -221,11 +174,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'support',
-<<<<<<< HEAD
-    title: 'Dosco support',
-=======
     title: 'Support',
->>>>>>> upstream-dev
     description:
       'Reach Dosco support by email or Discord, read the answers to the questions people ask most, and find the account deletion steps.',
     htmlPath: '/support',
@@ -239,11 +188,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'agent-computer',
-<<<<<<< HEAD
-    title: 'Dosco Agent Computer',
-=======
     title: 'Agent Computer: a cloud computer per session',
->>>>>>> upstream-dev
     description:
       'Every Dosco session gets its own computer: an isolated Linux machine that clones your repo, cuts a branch named after the session, and runs OpenCode. Work lands through a change request a person approves.',
     htmlPath: '/agent-computer',
@@ -252,11 +197,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'agents-and-skills',
-<<<<<<< HEAD
-    title: 'Dosco Agents & Skills',
-=======
     title: 'AI agents and skills as files in git',
->>>>>>> upstream-dev
     description:
       'A Dosco agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.',
     htmlPath: '/agents-and-skills',
@@ -265,11 +206,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'automations',
-<<<<<<< HEAD
-    title: 'Dosco Automations',
-=======
     title: 'AI agent automations on cron and webhooks',
->>>>>>> upstream-dev
     description:
       'Cron schedules and signed webhooks start Dosco sessions with nobody present. Each trigger names the agent it runs as, carries a prompt template, and lands its work through a change request a person approves.',
     htmlPath: '/automations',
@@ -278,11 +215,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'channels',
-<<<<<<< HEAD
-    title: 'Dosco Channels',
-=======
     title: 'AI agents in Slack and Microsoft Teams',
->>>>>>> upstream-dev
     description:
       'Connect Slack or Microsoft Teams to a Dosco project and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.',
     htmlPath: '/channels',
@@ -300,11 +233,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'connectors',
-<<<<<<< HEAD
-    title: 'Dosco connectors',
-=======
     title: 'Connectors: 3,000+ apps for AI agents',
->>>>>>> upstream-dev
     description:
       'Connect 3,000+ apps, MCP servers, OpenAPI, GraphQL and raw HTTP once for the whole company. Agents reach them through one scoped token — credentials stay server-side, every action is allowed, gated, or blocked, and every call is logged.',
     htmlPath: '/connectors',
@@ -318,11 +247,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     // inside the session, readable by any command the agent runs,
     // and the default sandbox provider
     // is not a microVM. The narrower claims below are the true ones.
-<<<<<<< HEAD
-    title: 'Dosco Security',
-=======
     title: 'AI agent security: isolation, permissions, audit',
->>>>>>> upstream-dev
     description:
       'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.',
     htmlPath: '/security',
@@ -331,11 +256,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'self-hosted',
-<<<<<<< HEAD
-    title: 'Self-host Dosco',
-=======
     title: 'Self-hosted AI agents on your infrastructure',
->>>>>>> upstream-dev
     description:
       'Run the same Dosco on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use selfhost.',
     htmlPath: '/self-hosted',
@@ -346,7 +267,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'white-label',
     title: 'White-label: your AI product on Platinum.dev compute',
     description:
-      'Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.',
+      'Fork Dosco, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.',
     htmlPath: '/white-label',
     markdownPath: '/markdown/white-label.md',
   },
@@ -360,11 +281,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'solutions',
-<<<<<<< HEAD
-    title: 'Dosco Solutions by role',
-=======
     title: 'AI agents for every team',
->>>>>>> upstream-dev
     description:
       'One platform, eight teams with completely different work. What sales, marketing, product, engineering, finance, people, IT and data science can each hand off — and what comes back.',
     htmlPath: '/solutions',

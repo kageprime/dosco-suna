@@ -129,10 +129,10 @@ describe('ExperimentalTabView', () => {
     expect(out).toMatch(/role="switch"[^>]*disabled/);
   });
 
-  test('an operator_only flag shows "Managed by Kortix" and a disabled, checked switch even for a manager', () => {
+  test('an operator_only flag shows "Managed by Dosco" and a disabled, checked switch even for a manager', () => {
     const managed: FeatureFlagView = { ...experimentalFeature, key: 'session_log', name: 'Session log', enabled: true, overridden: true, operator_only: true };
     const out = renderToStaticMarkup(<ExperimentalTabView features={[managed]} canManage />);
-    expect(out).toContain('Managed by Kortix');
+    expect(out).toContain('Managed by Dosco');
     expect(out).not.toContain('Overridden for this project');
     expect(out).toMatch(/role="switch"[^>]*aria-checked="true"[^>]*disabled|role="switch"[^>]*disabled[^>]*aria-checked="true"/);
     // An ordinary flag beside it stays writable.

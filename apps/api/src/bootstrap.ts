@@ -166,9 +166,9 @@ async function startReplicaServices() {
   // trip DiskPressure evictions. Runs on all replicas (not leader-gated).
   startTmpReaper();
   startSessionLifecycleWorker();
-  // The durable job queue (Kortix Capture ingest): every replica runs jobs.
+  // The durable job queue (Dosco Capture ingest): every replica runs jobs.
   startJobWorker();
-  // Kortix-polled app events: every replica checks due streams.
+  // Dosco-polled app events: every replica checks due streams.
   startTriggerEventPollWorker();
   // Keep the shared Teams bot token warm so the first message after a deploy
   // does not wait on login.microsoftonline.com before its live card is posted.
@@ -234,7 +234,7 @@ async function startSingletonWorkers() {
   // Prebuilt project snapshot archives (S3 config provider). Idle unless
   // KORTIX_PROJECT_SNAPSHOT_S3_BUCKET is set; see git-proxy/project-snapshot.ts.
   startProjectSnapshotWorker();
-  // Kortix Capture: index polling, maintenance, and the SQS events reader when configured.
+  // Dosco Capture: index polling, maintenance, and the SQS events reader when configured.
   startCaptureWorkers();
   // Fleet health: tells the people with capture.manage when a computer stops recording, and when it records again.
   startCaptureHealthWorker();
@@ -248,7 +248,7 @@ async function startSingletonWorkers() {
   const { startOAuthSweeper, stopOAuthSweeper } = await import('./workers/oauth-sweep-worker');
   startOAuthSweeper();
   lazyStops.push(stopOAuthSweeper);
-  // Kortix Drive: conflict-copy scanner + the volume deletion queue.
+  // Dosco Drive: conflict-copy scanner + the volume deletion queue.
   const { startDriveWorkers, stopDriveWorkers } = await import('./workers/drive-worker');
   startDriveWorkers();
   lazyStops.push(stopDriveWorkers);

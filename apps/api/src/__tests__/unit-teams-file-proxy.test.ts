@@ -651,7 +651,7 @@ describe('download proxy — Graph paths and attachment hosts', () => {
 
 
 // The Graph token is minted for the tenant, and one tenant can be connected to
-// several Kortix projects. A hosted-content URL names its conversation, so the
+// several Dosco projects. A hosted-content URL names its conversation, so the
 // download is confined like a read of that conversation.
 describe('download proxy — confined to this project\'s conversations', () => {
   const CHANNEL = '19:chan@thread.tacv2';
@@ -667,7 +667,7 @@ describe('download proxy — confined to this project\'s conversations', () => {
       ownedBy({ threads: { [`${CHANNEL};messageid=171`]: 'proj-2' } }, true),
     );
     expect(r).toMatchObject({ ok: false, status: 403 });
-    if (!r.ok) expect(r.error).toContain('belongs to another Kortix project');
+    if (!r.ok) expect(r.error).toContain('belongs to another Dosco project');
     expect(fetchCalls).toHaveLength(0);
   });
 

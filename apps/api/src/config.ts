@@ -124,8 +124,7 @@ export function parseMorphManagedModels(value: string): string[] {
   return value.split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-/** Exported for the config-completeness regression test (unit-config-object.test.ts). */
-export const envSchema = z.object({
+const envSchema = z.object({
   // ── Core (required) ──────────────────────────────────────────────────────
   PORT: optInt(8008),
 
@@ -214,7 +213,7 @@ export const envSchema = z.object({
   // KORTIX_URL fatal-required, mounts the proxy-auth gate, hides /v1/setup.
   // Set to true on managed/cloud deployments; leave false for self-host + dev.
   KORTIX_BILLING_INTERNAL_ENABLED: optBoolFalse,
-  // Kortix Apps: a `static` App is served by the API from content-addressed
+  // Dosco Apps: a `static` App is served by the API from content-addressed
   // storage, with no runtime. `false` builds it into a sandbox, as before.
   KORTIX_APPS_STATIC_HOSTING: optBoolTrue,
   // Ready deployments an App keeps besides its active one (rollback targets).
@@ -466,7 +465,7 @@ export const envSchema = z.object({
   // ── Channels — Telegram Bot API (connectors_v2). Overridable for tests. ──
   TELEGRAM_API_URL: optUrl('https://api.telegram.org'),
 
-  // ── MCP apps (connectors_v2) — Kortix-owned OAuth clients ───────────────
+  // ── MCP apps (connectors_v2) — Dosco-owned OAuth clients ───────────────
   // JSON: {"google":{"client_id":"…","client_secret":"…"},"github":{…}}. One
   // client per vendor whose MCP server has no dynamic client registration
   // (connectors/mcp-apps.ts). An app whose client is absent is not listed.
@@ -524,16 +523,18 @@ export const envSchema = z.object({
   // when off.
   KORTIX_MANAGED_PROVIDER_ENABLED: optBoolUnset,
   // Fleet default for projects with no explicit per-project override. Defaults
-  // OFF: projects route natively (own keys, native `provider/model` refs, no
-  // gateway URL in the box) unless explicitly opted in to the managed
-  // gateway. Turning the per-project flag ON is a fully supported first-class
-  // path wherever the gateway is available (master switch above) — the
-  // deliberate lever for deployments that want managed routing. The master
-  // switch still wins — LLM_GATEWAY_ENABLED=false forces native OpenCode for
+  // ON: wherever the gateway is available (master switch above), the managed
+  // gateway is the default routing mechanism and every project inherits it
+  // unless it explicitly opts out. Turning the per-project flag OFF is a
+  // fully supported first-class path (native OpenCode provider management:
+  // provider keys injected into the sandbox env, native `provider/model`
+  // refs, no gateway URL in the box) — the deliberate lever for deployments
+  // like SampleCo that want their own keys end to end. The master switch
+  // still wins — LLM_GATEWAY_ENABLED=false forces native OpenCode for
   // everyone regardless of this value — and an operator can set
-  // LLM_GATEWAY_DEFAULT_ENABLED=true to opt a whole environment back to
-  // gateway-by-default.
-  LLM_GATEWAY_DEFAULT_ENABLED: optBoolFalse,
+  // LLM_GATEWAY_DEFAULT_ENABLED=false to opt a whole environment back to
+  // native-by-default.
+  LLM_GATEWAY_DEFAULT_ENABLED: optBoolTrue,
   // Empty = the in-API gateway at `${KORTIX_URL}/v1/llm`. Set to a standalone
   // gateway's public base (…/v1/llm) to route every sandbox model call there.
   LLM_GATEWAY_BASE_URL: optStr,
@@ -551,13 +552,6 @@ export const envSchema = z.object({
   // Runtime source for provider/model metadata. The API keeps the last known
   // snapshot if this source is temporarily unavailable.
   LLM_GATEWAY_CATALOG_URL: optUrl('https://models.dev/api.json'),
-<<<<<<< HEAD
-  // BYOK resilience: when a user's own provider key hits a rate-limit / quota /
-  // billing error (429/402/403), fall over to THIS managed model (billed as
-  // Dosco credits) so the turn survives instead of erroring. Empty disables.
-  LLM_GATEWAY_BYOK_FALLBACK_MODEL: optStrDefault('deepseek-v4.1-flash'),
-=======
->>>>>>> upstream-dev
   // Dev: reverse-proxy /v1/llm-gateway/* to a standalone gateway on this port,
   // so sandboxes reach it through the API's own tunnel (no separate tunnel).
   LLM_GATEWAY_PROXY_PORT: optInt(0),
@@ -570,16 +564,6 @@ export const envSchema = z.object({
   // ── Billing — Stripe (optional, only for cloud billing) ──────────────────
   STRIPE_SECRET_KEY: optStr,
   STRIPE_WEBHOOK_SECRET: optStr,
-  // ── Billing — Paystack (optional, Nigerian-market billing) ───────────────
-  // Charges bill in NGN: PAYSTACK_USD_NGN_RATE is the naira per 1 USD used to
-  // convert USD-denominated prices. 0/unset means "no rate" — checkout paths
-  // fail with a clear 400 rather than charging a wrong amount. Never a boot
-  // error on its own; the billing gate below only needs one provider ready.
-  PAYSTACK_API_URL: optUrl('https://api.paystack.co'),
-  PAYSTACK_PUBLIC_KEY: optStr,
-  PAYSTACK_SECRET_KEY: optStr,
-  PAYSTACK_WEBHOOK_SECRET: optStr,
-  PAYSTACK_USD_NGN_RATE: optNum(0),
 
   // ── Billing — RevenueCat (optional) ──────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: optStr,
@@ -704,8 +688,8 @@ export const envSchema = z.object({
   // route streams the bytes when that host is loopback or private.
   KORTIX_CONFIG_ARCHIVE_PUBLIC_URL: optUrl(''),
 
-  // ── Kortix Capture (optional) ───────────────────────────────────────────
-  // Devices write the Kortix Capture format to this bucket under
+  // ── Dosco Capture (optional) ───────────────────────────────────────────
+  // Devices write the Dosco Capture format to this bucket under
   // `orgs/<account_id>/<device_id>/`. The API reads it
   // (ingestion), writes `policy.json`, and signs short-lived media URLs.
   //   dev/staging/prod: the Terraform bucket, credentials from the ECS task role.
@@ -769,13 +753,8 @@ export const envSchema = z.object({
   // E2B_TEMPLATE is an optional ready fallback template. Project-specific
   // templates built by the shared snapshot system take precedence.
   E2B_API_KEY: optStr,
-  E2B_DOMAIN: optStrDefault('e2b.app'),
+  E2B_DOMAIN: optStrDefault('e2b.dev'),
   E2B_TEMPLATE: optStr,
-  // Per-webhook signature secret chosen at E2B webhook registration
-  // (`POST api.e2b.app/events/webhooks`, field `signatureSecret`). Optional —
-  // same backstop story as Daytona's/Platinum's: unset means 503 here and the
-  // reaper sweep alone keeps billing correct.
-  E2B_WEBHOOK_SECRET: optStr,
 
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // Public API base URL, without a route suffix. Auto-derived from PORT in local mode.
@@ -880,7 +859,7 @@ export const envSchema = z.object({
   KORTIX_TRIGGER_MAX_PROVISIONING_SESSIONS_PER_PROJECT: optInt(3),
   KORTIX_TRIGGER_SCHEDULER_ENABLED: optBoolTrue,
   KORTIX_TRIGGER_SCHEDULER_INTERVAL_MS: optInt(1_000),
-  // Kill switch of Kortix-polled app events (source `mcp`). Off: no check runs; streams and
+  // Kill switch of Dosco-polled app events (source `mcp`). Off: no check runs; streams and
   // triggers stay, and checks resume when it is on again.
   KORTIX_EVENT_POLLS_ENABLED: optBoolTrue,
 
@@ -946,29 +925,17 @@ export const envSchema = z.object({
   // Supabase Mailpit. Deployed environments leave it unset.
   MAILPIT_API_URL: optStr,
   MAILTRAP_API_TOKEN: optStr,
-<<<<<<< HEAD
   MAILTRAP_FROM_EMAIL: optStrDefault('noreply@dosco.live'),
   MAILTRAP_FROM_NAME: optStrDefault('Dosco'),
-  // Where public demo-request / "book a demo" lead notifications are sent.
-  // Comma-separated list; every address gets every submission.
-  DEMO_LEAD_NOTIFY_EMAIL: optStrDefault('marko@dosco.live,hey@dosco.live'),
-  // Sender for those notifications. dosco.live (not the global MAILTRAP_FROM_
-  // EMAIL on dosco.live) so the send is DKIM-aligned with the dosco.live
-  // recipient inboxes — the dosco.live sender was landing in spam.
-  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@dosco.live'),
-=======
-  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@kortix.com'),
-  MAILTRAP_FROM_NAME: optStrDefault('Kortix'),
-  // Where Kortix sales hears about leads: "book a demo", "Talk to sales", the
+  // Where Dosco sales hears about leads: "book a demo", "Talk to sales", the
   // Enterprise demo turned on, billing ops copies. Comma-separated list; every
   // address gets every email. Unset → the sales inboxes on prod only: dev,
   // staging, local and self-host test accounts must never email sales.
   DEMO_LEAD_NOTIFY_EMAIL: z.string().optional(),
-  // Sender for those notifications. kortix.ai (not the global MAILTRAP_FROM_
-  // EMAIL on kortix.com) so the send is DKIM-aligned with the kortix.ai
-  // recipient inboxes — the kortix.com sender was landing in spam.
-  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@kortix.ai'),
->>>>>>> upstream-dev
+  // Sender for those notifications. dosco.live (not the global MAILTRAP_FROM_
+  // EMAIL on dosco.live) so the send is DKIM-aligned with the dosco.live
+  // recipient inboxes — the dosco.live sender was landing in spam.
+  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@dosco.live'),
 
   // ── Mailtrap contact sync (signup → automation lists) ─────────────────────
   // The email automations themselves live in Mailtrap's Automations UI; the
@@ -1112,44 +1079,23 @@ function validateEnv(): z.infer<typeof envSchema> {
     });
   }
 
-  // ── Conditional: Billing enabled → need at least one payment provider ──
-  // Stripe and Paystack are alternatives. Every checkout route takes
-  // `provider: 'stripe' | 'paystack'`, and each provider's paths degrade to a
-  // clear 400 when its own keys are unset — so billing boots when EITHER side
-  // is complete, and a Paystack-only deployment never dies on Stripe keys.
+  // ── Conditional: Billing enabled → need Stripe keys ────────────────────
   const billingWillBeEnabled =
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === 'true' ||
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === true;
   if (billingWillBeEnabled) {
-    const stripeReady = Boolean(raw.STRIPE_SECRET_KEY && raw.STRIPE_WEBHOOK_SECRET);
-    const paystackReady = Boolean(raw.PAYSTACK_SECRET_KEY);
-    if (!stripeReady && !paystackReady) {
+    if (!raw.STRIPE_SECRET_KEY)
       issues.push({
         var: 'STRIPE_SECRET_KEY',
-        message:
-          'Billing is enabled but no payment provider is configured — set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, or PAYSTACK_SECRET_KEY',
+        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
         level: 'error',
       });
-    } else {
-      if (!raw.STRIPE_SECRET_KEY)
-        issues.push({
-          var: 'STRIPE_SECRET_KEY',
-          message: 'Not set — Stripe checkout/portal/sync paths return 400; Paystack paths are unaffected',
-          level: 'warn',
-        });
-      if (!raw.STRIPE_WEBHOOK_SECRET)
-        issues.push({
-          var: 'STRIPE_WEBHOOK_SECRET',
-          message: 'Not set — Stripe webhooks are rejected; Paystack webhooks are unaffected',
-          level: 'warn',
-        });
-      if (!raw.PAYSTACK_SECRET_KEY)
-        issues.push({
-          var: 'PAYSTACK_SECRET_KEY',
-          message: 'Not set — Paystack checkout/webhook paths return 400; Stripe paths are unaffected',
-          level: 'warn',
-        });
-    }
+    if (!raw.STRIPE_WEBHOOK_SECRET)
+      issues.push({
+        var: 'STRIPE_WEBHOOK_SECRET',
+        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
+        level: 'error',
+      });
   }
 
   // ── Config archives → the ONE object store ──────────────────────────────
@@ -1481,13 +1427,6 @@ export const config = {
   STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET,
 
-  // ─── Paystack (Billing, Nigerian market) ──────────────────────────────────
-  PAYSTACK_API_URL: env.PAYSTACK_API_URL,
-  PAYSTACK_PUBLIC_KEY: env.PAYSTACK_PUBLIC_KEY,
-  PAYSTACK_SECRET_KEY: env.PAYSTACK_SECRET_KEY,
-  PAYSTACK_WEBHOOK_SECRET: env.PAYSTACK_WEBHOOK_SECRET,
-  PAYSTACK_USD_NGN_RATE: env.PAYSTACK_USD_NGN_RATE,
-
   // ─── RevenueCat (Billing) ─────────────────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: env.REVENUECAT_WEBHOOK_SECRET,
 
@@ -1560,7 +1499,6 @@ export const config = {
   E2B_API_KEY: env.E2B_API_KEY,
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
-  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,
@@ -1677,7 +1615,7 @@ export const config = {
   MAILTRAP_FROM_EMAIL: env.MAILTRAP_FROM_EMAIL,
   MAILTRAP_FROM_NAME: env.MAILTRAP_FROM_NAME,
   DEMO_LEAD_NOTIFY_EMAIL:
-    env.DEMO_LEAD_NOTIFY_EMAIL ?? (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@kortix.ai,hey@kortix.ai' : ''),
+    env.DEMO_LEAD_NOTIFY_EMAIL ?? (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@dosco.live,hey@dosco.live' : ''),
   DEMO_LEAD_FROM_EMAIL: env.DEMO_LEAD_FROM_EMAIL,
 
   // ─── Mailtrap contact sync (signup → automation lists) ────────────────────
@@ -1725,17 +1663,6 @@ export const config = {
   },
 };
 
-<<<<<<< HEAD
-// ─── Billing Markup Constants ────────────────────────────────────────────────
-//
-// Dosco-managed inference uses 1.2x provider cost (20% markup).
-// BYOK inference always has a zero Dosco charge.
-
-/** Markup when Dosco provides the API key. */
-export const KORTIX_MARKUP = 1.2;
-
-=======
->>>>>>> upstream-dev
 // ─── Tool Pricing (Router) ──────────────────────────────────────────────────
 
 interface ToolPricing {

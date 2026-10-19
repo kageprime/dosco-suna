@@ -8,7 +8,7 @@ import { type ChatUser, resolveProjectChatActor } from './identity';
 export const CHAT_TURN_STOP_REFUSED =
   'Only the person who started this run, the session owner or a project manager can stop it.';
 
-/** `userId`: the presser's linked Kortix user, for the stop's attribution; null when unlinked. */
+/** `userId`: the presser's linked Dosco user, for the stop's attribution; null when unlinked. */
 export type ChatTurnStopVerdict = { allowed: true; userId: string | null } | { allowed: false };
 
 /**
@@ -20,8 +20,8 @@ export type ChatTurnStopVerdict = { allowed: true; userId: string | null } | { a
  *
  *  1. the sender of the message the turn is answering (`sentIt`): the turn's
  *     prompter in chat identity;
- *  2. a linked Kortix user who owns the session or manages the project;
- *  3. a linked Kortix user who prompted the running turn from another surface,
+ *  2. a linked Dosco user who owns the session or manages the project;
+ *  3. a linked Dosco user who prompted the running turn from another surface,
  *     such as the web, into a channel-bound session.
  *
  * Each one also needs `project.session.stop` on the project through a live

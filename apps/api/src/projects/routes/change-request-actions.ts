@@ -197,23 +197,12 @@ export function registerChangeRequestActionsRoutes(): void {
         }
       }
 
-<<<<<<< HEAD
-    let result: Awaited<ReturnType<typeof mergeBranches>>;
-    try {
-      result = await mergeBranches(projectForGit, cr.baseRef, cr.headRef, {
-        message: customMessage ?? `Merge CR #${cr.number}: ${cr.title}`,
-        authorName: 'Dosco',
-        authorEmail: 'noreply@dosco.live',
-      });
-    } catch (error) {
-      if (error instanceof MergeConflictError) {
-=======
       let result: Awaited<ReturnType<typeof mergeBranches>>;
       try {
         result = await mergeBranches(projectForGit, cr.baseRef, cr.headRef, {
           message: customMessage ?? `Merge CR #${cr.number}: ${cr.title}`,
-          authorName: 'Kortix',
-          authorEmail: 'noreply@kortix.ai',
+          authorName: 'Dosco',
+          authorEmail: 'noreply@dosco.live',
         });
       } catch (error) {
         if (error instanceof MergeConflictError) {
@@ -226,7 +215,6 @@ export function registerChangeRequestActionsRoutes(): void {
             409,
           );
         }
->>>>>>> upstream-dev
         return c.json(
           {
             error: error instanceof Error ? error.message : 'Merge failed',

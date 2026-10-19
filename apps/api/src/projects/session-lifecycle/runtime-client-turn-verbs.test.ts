@@ -45,14 +45,10 @@ let capabilities: string[] = [];
 const fetched: string[] = [];
 let pages: Record<string, unknown> = {};
 let healthReads = 0;
-<<<<<<< HEAD
-/** A daemon rolled back in place: its catch-all answers a Dosco route it no longer has. */
-=======
 /** Direct steer POSTs: the box answers what `steerAnswer` returns. */
 const steered: Array<{ headers: Record<string, string>; body: unknown }> = [];
 let steerAnswer: () => Response = () => Response.json({ message_id: 'msg_s', steered: true }, { status: 202 });
-/** A daemon rolled back in place: its catch-all answers a Kortix route it no longer has. */
->>>>>>> upstream-dev
+/** A daemon rolled back in place: its catch-all answers a Dosco route it no longer has. */
 const routeMissing = () => Response.json({ error: 'not found' }, { status: 404 });
 /** A Dosco verb that exists and answers 404 for the resource. */
 const resourceMissing = () =>
@@ -181,9 +177,6 @@ describe('session runtime reads', () => {
   });
 });
 
-<<<<<<< HEAD
-describe('a daemon that stops serving the Dosco routes (an in-place rollback)', () => {
-=======
 describe('retractRuntimeMessage (R7.1)', () => {
   const retractPath = '/kortix/runtime/messages/ses_1/msg_a/retract';
 
@@ -248,8 +241,7 @@ describe('updateLegacyRuntimePart (R7.3)', () => {
   });
 });
 
-describe('a daemon that stops serving the Kortix routes (an in-place rollback)', () => {
->>>>>>> upstream-dev
+describe('a daemon that stops serving the Dosco routes (an in-place rollback)', () => {
   test('a prompt the daemon has no route for is delivered once over prompt_async, under the legacy route\'s key', async () => {
     capabilities = ['runtime.turns.v1'];
     forwardAnswers['/kortix/runtime/sessions/ses_1/prompt'] = routeMissing;
@@ -326,7 +318,7 @@ describe('postPrompt steer (R10)', () => {
     expect(healthReads).toBe(2);
   });
 
-  test('a daemon without the Kortix turn routes cannot steer: nothing is posted', async () => {
+  test('a daemon without the Dosco turn routes cannot steer: nothing is posted', async () => {
     expect(await notTaken()).toBe('unsupported');
     expect(steered).toHaveLength(0);
     capabilities = ['runtime.turns.v1'];

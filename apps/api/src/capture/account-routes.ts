@@ -1,9 +1,9 @@
 /**
- * Kortix Capture, account-scoped: `/v1/accounts/:accountId/capture/*`. The
- * Kortix account (organization) is Capture's tenant; there is no project in
+ * Dosco Capture, account-scoped: `/v1/accounts/:accountId/capture/*`. The
+ * Dosco account (organization) is Capture's tenant; there is no project in
  * Capture's model.
  *
- * Access is Kortix IAM. Every account member reads their own devices and
+ * Access is Dosco IAM. Every account member reads their own devices and
  * timeline. `capture.read_all` reads every member's (a read of another member
  * writes `capture.member_view`, an account-wide read `capture.account_view`);
  * `capture.manage` writes the switch and the policy and revokes any device.

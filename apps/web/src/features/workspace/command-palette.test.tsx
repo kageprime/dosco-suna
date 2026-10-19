@@ -143,20 +143,10 @@ describe('offered tabs survive the panel filter', () => {
     }
   });
 
-<<<<<<< HEAD
-  test('with NO project, every live tab is offered except the project-scoped five', () => {
-    const offered: string[] = tabsFor({ hasProject: false });
-    expect([...offered].sort()).toEqual(
-      [...SETTINGS_TABS].filter(
-        (t) => !['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(t),
-      ).sort(),
-    );
-=======
   test('with NO project, every live tab but Computer is offered — all of them are personal', () => {
     const offered = tabsFor({ hasProject: false });
     // Computer pairs a machine from a project, so it needs one open.
     expect([...offered].sort()).toEqual(SETTINGS_TABS.filter((tab) => tab !== 'computer').sort());
->>>>>>> upstream-dev
     for (const tab of offered) expect(ACCOUNT_SCOPED_SETTINGS_TABS).toContain(tab);
     // The project configuration tabs specifically — these were the ones the
     // old `Customize · X` entries offered from `/accounts/**`. They are not
@@ -405,6 +395,7 @@ describe('the registry no longer carries palette settings destinations', () => {
     for (const id of [
       'proj-git',
       'proj-sandbox',
+      'proj-marketplace',
       'proj-llm',
       'proj-review',
       'proj-voice',
@@ -415,18 +406,6 @@ describe('the registry no longer carries palette settings destinations', () => {
     ]) {
       expect(paletteItems.find((item) => item.id === id)).toBeUndefined();
     }
-  });
-
-  test('Marketplace registry row points at its top-level URL (out of Customize)', () => {
-    // `proj-marketplace` stays a row, but Marketplace left the capability
-    // tab bar for its own top-level route — same arrangement as the retired
-    // `/channels` route.
-    const href = '/projects/{projectId}/marketplace';
-    const item = paletteItems.find((entry) => entry.id === 'proj-marketplace');
-    expect(item?.href).toBe(href);
-    expect(item?.kind).toBe('navigate');
-    expect(item?.requiresProject).toBe(true);
-    expect(resolveSettingsOverlayHref(href).opensOverlay).toBe(false);
   });
 
   test('Triggers is a registry row, pointing at its own page', () => {

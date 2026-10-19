@@ -1,5 +1,5 @@
 /**
- * Kortix Capture's leader-only loops (capture/workers.ts holds the ticks):
+ * Dosco Capture's leader-only loops (capture/workers.ts holds the ticks):
  *   capture-index-reader   every KORTIX_CAPTURE_INDEX_POLL_SECONDS: each active device's index and status
  *   capture-maintenance    every 5 min: partitions, retention, prune grants and jobs
  *   capture-store-bucket   only with KORTIX_CAPTURE_S3_CREATE_BUCKET: creates the bucket of the bundled store

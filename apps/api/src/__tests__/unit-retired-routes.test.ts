@@ -44,7 +44,7 @@ describe('retired routes', () => {
     });
     expect(res.status).toBe(410);
     expect(await res.json()).toEqual({
-      error: 'This endpoint was removed from the Kortix API.',
+      error: 'This endpoint was removed from the Dosco API.',
       code: ENDPOINT_RETIRED_CODE,
     });
   });

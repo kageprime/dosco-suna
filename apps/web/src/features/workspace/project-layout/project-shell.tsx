@@ -81,10 +81,7 @@ function readSidebarOpenCookie(): boolean | undefined {
 }
 
 export function ProjectShell({ projectId, initialSidebarOpen, children }: ProjectShellProps) {
-  // Open by default. A stored `sidebar_state` pin is still honored (click
-  // pins the panel docked or collapsed), but first paint with no cookie shows
-  // the full panel; the top-left toggle or the collapse control hides it.
-  const resolvedSidebarOpen = initialSidebarOpen ?? readSidebarOpenCookie() ?? true;
+  const resolvedSidebarOpen = initialSidebarOpen ?? readSidebarOpenCookie();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, bootstrapError } = useAuth();
@@ -311,12 +308,11 @@ const ProjectSheelLayout = ({ children }: { children: React.ReactNode }) => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const { state, isMobile, toggleSidebar, peek, peekEnter, peekLeave } = useSidebar();
   const isExpanded = !isMobile && state === 'expanded';
-  // The sidebar hides fully when collapsed (push-collapsed parks the panel
-  // off-screen, no icon rail), so a hidden sidebar means no seam border and
-  // no way back from the panel itself. On the desktop shell the reopen
-  // control lives HERE, in the OS title-bar band; on the web each view draws
-  // its own. Shared gate so the two can never both render — see
-  // sidebar-opener.ts.
+  // The sidebar hides fully when collapsed (offcanvas everywhere, no icon
+  // rail), so a hidden sidebar means no seam border and no way back from the
+  // panel itself. On the desktop shell the reopen control lives HERE, in the
+  // OS title-bar band; on the web each view draws its own. Shared gate so the
+  // two can never both render — see sidebar-opener.ts.
   const desktopShell = useDesktopShell();
   return (
     <div

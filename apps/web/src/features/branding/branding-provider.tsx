@@ -134,13 +134,8 @@ const originals = new WeakMap<HTMLLinkElement, { href: string; media: string | n
  * trade-off (host-based tenancy would be the way to remove it).
  *
  * Title: Next writes `<title>` on every navigation from the route's metadata:
-<<<<<<< HEAD
- * the site default (`Dosco – The AI Command Center for Your Company`) on
+ * the site default (`Dosco – The open-source AI Operating System`) on
  * routes with no title of their own, `<page> | Dosco` elsewhere. A
-=======
- * the site default (`Kortix – The open-source AI Operating System`) on
- * routes with no title of their own, `<page> | Kortix` elsewhere. A
->>>>>>> upstream-dev
  * `MutationObserver` on `<head>` rewrites whatever Next just wrote, so the
  * swap survives navigation without touching every page's metadata: the site
  * default collapses to the org name alone (its tagline is Dosco's, not

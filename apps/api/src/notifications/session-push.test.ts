@@ -74,50 +74,11 @@ describe('turnEndPushType — only a turn this call closed notifies', () => {
 describe('sessionEventAudience — who is told (design §3.1)', () => {
   const sorted = (ids: string[]) => [...ids].sort();
 
-<<<<<<< HEAD
-  test('error', () => {
-    const [m] = buildSessionPushMessages({ type: 'error', sessionId: SESSION, projectId: PROJECT }, 'T', [row('t')]);
-    expect(m).toMatchObject({
-      body: 'The session stopped with an error.',
-      sound: 'kortix_error.wav',
-      channelId: 'session-error',
-      data: { type: 'error', projectId: PROJECT, sessionId: SESSION },
-    });
-  });
-
-  test('question', () => {
-    const [m] = buildSessionPushMessages(
-      { type: 'question', sessionId: SESSION, projectId: PROJECT, question: 'Which branch should I deploy?' },
-      'T',
-      [row('t')],
-    );
-    expect(m).toMatchObject({
-      body: 'Dosco has a question: Which branch should I deploy?',
-      sound: 'kortix_attention.wav',
-      channelId: 'session-attention',
-    });
-  });
-
-  test('permission', () => {
-    const [m] = buildSessionPushMessages({ type: 'permission', sessionId: SESSION, projectId: PROJECT }, 'T', [row('t')]);
-    expect(m).toMatchObject({
-      body: 'Dosco needs your approval to continue.',
-      sound: 'kortix_attention.wav',
-      channelId: 'session-attention',
-    });
-  });
-
-  test('title falls back to "Dosco" when the session has no title', () => {
-    for (const title of [null, '', '   ']) {
-      const [m] = buildSessionPushMessages({ type: 'completion', sessionId: SESSION, projectId: PROJECT }, title, [row('t')]);
-      expect(m!.title).toBe('Dosco');
-=======
   test('attended turn end: the prompter and every watcher, with push', () => {
     for (const type of ['completion', 'error'] as const) {
       const out = sessionEventAudience(event({ type }), watchers([CREATOR, WATCHER]));
       expect(sorted(out.recipients)).toEqual(sorted([PROMPTER, CREATOR, WATCHER]));
       expect(out.pushAllowed).toBe(true);
->>>>>>> upstream-dev
     }
   });
 
@@ -281,14 +242,6 @@ describe('createSessionNotifier', () => {
     ]);
   });
 
-<<<<<<< HEAD
-  test('recipients replace the creator: each present one is skipped', async () => {
-    const h = harness({ isPresent: async (user) => user === 'user-present' });
-    const outcome = await h.notify({ type: 'question', sessionId: SESSION, projectId: PROJECT, question: 'Which region?', recipients: ['user-a', 'user-present'] });
-    expect(outcome.reason).toBe('sent');
-    expect(h.listed).toEqual(['user-a']);
-    expect(h.sent[0]![0]!.body).toBe('Dosco has a question: Which region?');
-=======
   test('the custom name wins over the generated title; no title stays empty', async () => {
     const named = harness({ session: sessionRow({ metadata: { name: 'Generated', custom_name: 'Mine' } }) });
     await named.notify(event());
@@ -296,7 +249,6 @@ describe('createSessionNotifier', () => {
     const untitled = harness({ session: sessionRow({ metadata: {} }) });
     await untitled.notify(event());
     expect(untitled.delivered[0]!.title).toBe('');
->>>>>>> upstream-dev
   });
 
   test('an error carries its message; a turn end with no message id has no dedupe key', async () => {
@@ -461,14 +413,14 @@ describe('notifySessionEvent with the notification_center flag off', () => {
       legacyDeps: question.deps,
     });
     expect(question.sent.map((m) => [m.body, m.data])).toEqual([
-      ['Kortix has a question: Which region?', { type: 'question', projectId: PROJECT, sessionId: SESSION }],
+      ['Dosco has a question: Which region?', { type: 'question', projectId: PROJECT, sessionId: SESSION }],
     ]);
     const permission = legacy();
     await notifySessionEvent(event({ type: 'permission', requestId: 'per_1' }), {
       notificationCenter: false,
       legacyDeps: permission.deps,
     });
-    expect(permission.sent.map((m) => m.body)).toEqual(['Kortix needs your approval to continue.']);
+    expect(permission.sent.map((m) => m.body)).toEqual(['Dosco needs your approval to continue.']);
   });
 
   test('any live tab of the creator holds the push back, alerting or not', async () => {
@@ -508,9 +460,9 @@ describe('Expo copy of the session kinds (Spec §4)', () => {
     const cases = [
       ['turn_done', '', 'Session complete. Tap to see the result.', 'kortix_complete.wav', 'session-complete', 'completion'],
       ['turn_error', 'boom', 'The session stopped with an error.', 'kortix_error.wav', 'session-error', 'error'],
-      ['question', 'Which branch should I deploy?', 'Kortix has a question: Which branch should I deploy?', 'kortix_attention.wav', 'session-attention', 'question'],
-      ['question', '', 'Kortix has a question.', 'kortix_attention.wav', 'session-attention', 'question'],
-      ['permission', '', 'Kortix needs your approval to continue.', 'kortix_attention.wav', 'session-attention', 'permission'],
+      ['question', 'Which branch should I deploy?', 'Dosco has a question: Which branch should I deploy?', 'kortix_attention.wav', 'session-attention', 'question'],
+      ['question', '', 'Dosco has a question.', 'kortix_attention.wav', 'session-attention', 'question'],
+      ['permission', '', 'Dosco needs your approval to continue.', 'kortix_attention.wav', 'session-attention', 'permission'],
     ] as const;
     for (const [kind, detail, body, sound, channelId, type] of cases) {
       const [message] = buildExpoMessages(content(kind, detail), [device('t')]);
@@ -543,10 +495,10 @@ describe('Expo copy of the session kinds (Spec §4)', () => {
     expect(tokensFor('permission')).toEqual(['all-on', 'no-completion', 'no-error', 'no-question']);
   });
 
-  test('title falls back to "Kortix" when the session has no title', () => {
+  test('title falls back to "Dosco" when the session has no title', () => {
     for (const title of ['', '   ']) {
       const pushed = buildPushContent({ notificationId: 'n1', kind: 'turn_done', title, body: '', projectId: PROJECT, sessionId: SESSION, triggerSlug: null });
-      expect(pushed.title).toBe('Kortix');
+      expect(pushed.title).toBe('Dosco');
     }
   });
 });

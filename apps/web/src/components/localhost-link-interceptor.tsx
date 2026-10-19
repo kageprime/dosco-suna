@@ -3,7 +3,7 @@
 /**
  * Global catch-all that intercepts clicks on any <a> whose href points to
  * `localhost:PORT` (or 127.0.0.1:PORT), an already-proxied preview URL, or a
- * Kortix App host.
+ * Dosco App host.
  *
  * Routing:
  *
@@ -118,7 +118,7 @@ export function LocalhostLinkInterceptor() {
         } catch {}
       };
 
-      // ── Case 0: a Kortix App (`*.apps.kortix.com`, `*.apps.localhost`) ──
+      // ── Case 0: a Dosco App (`*.apps.kortix.com`, `*.apps.localhost`) ──
       // On a session page the App opens in the session's browser, beside the
       // chat, on its own origin (no proxy). Off a session page there is no
       // panel to host it, so the anchor keeps its native new-tab behavior.

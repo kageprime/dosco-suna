@@ -57,7 +57,7 @@ export interface TurnServedModel {
   fallbackFrom: string | null;
   /** One switch per failed request, independent of the turn's aggregate model counts. */
   fallbacks?: { requested: string; served: string; reason: string }[];
-  /** What Kortix billed for the turn's model calls, in USD. */
+  /** What Dosco billed for the turn's model calls, in USD. */
   billedCost: number;
 }
 
@@ -101,7 +101,7 @@ export function turnServedModelResolver(models: readonly NamedModel[] | undefine
 }
 
 /**
- * What Kortix billed the session, when any of its requests was rerouted to a
+ * What Dosco billed the session, when any of its requests was rerouted to a
  * fallback model. The transcript's own estimate prices every turn at the model
  * that was asked for, so it is wrong for exactly these sessions. Null keeps
  * the estimate.

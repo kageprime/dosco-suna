@@ -5,11 +5,7 @@ import { languageAlternates, localePath, metaDescription, requestLocale } from '
 import { getTranslations } from '@/i18n/get-translations';
 
 const DESCRIPTION =
-<<<<<<< HEAD
-  'Dosco is building the open-source AI Management System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.';
-=======
-  'Kortix is building the open-source AI Operating System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.';
->>>>>>> upstream-dev
+  'Dosco is building the open-source AI Operating System. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('hardcodedUi.i18nComplete');
@@ -20,11 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords:
-<<<<<<< HEAD
-      'Dosco, about Dosco, open-source AI Management System, AI management system, AI agents, self-hosted AI agents',
-=======
-      'Kortix, about Kortix, open-source AI Operating System, AI Operating System, AI agents, self-hosted AI agents',
->>>>>>> upstream-dev
+      'Dosco, about Dosco, open-source AI Operating System, AI Operating System, AI agents, self-hosted AI agents',
     openGraph: {
       title: socialTitle,
       description,

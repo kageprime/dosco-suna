@@ -297,12 +297,12 @@ export async function registerConnectionOAuth2Client(
 ): Promise<OAuth2ApplicationInput> {
   const { registration } = input;
   if (!registration.registration_endpoint) {
-    // No dynamic registration: only a catalogue app signs in, with Kortix's own
+    // No dynamic registration: only a catalogue app signs in, with Dosco's own
     // client and the catalogue's endpoints. Nothing from the request is used.
     const application = await kortixClientApplicationForConnector(input.identity.connectorId);
     if (!application) {
       throw new Error(
-        'This authorization server does not support dynamic client registration (RFC 7591), and Kortix has no OAuth client for this server',
+        'This authorization server does not support dynamic client registration (RFC 7591), and Dosco has no OAuth client for this server',
       );
     }
     await saveOAuth2Application(input.identity, application, input.createdBy);

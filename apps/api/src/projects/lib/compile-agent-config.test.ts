@@ -1017,7 +1017,7 @@ describe('project tools', () => {
   const v2 = (tools?: unknown) => ({ kortix_version: 2, default_agent: 'worker', agents: { worker: {} }, ...(tools === undefined ? {} : { tools }) });
   const v3 = (tools?: unknown) => ({ kortix_version: 3, default_agent: 'worker', agents: { worker: { prompt: 'Work.' } }, ...(tools === undefined ? {} : { tools }) });
 
-  test('without a tools key, kortix_tools is absent: the daemon loads every Kortix tool', () => {
+  test('without a tools key, kortix_tools is absent: the daemon loads every Dosco tool', () => {
     for (const manifest of [v2(), v3()]) {
       expect(compileAgentConfig(manifest)).not.toHaveProperty('kortix_tools');
       expect(compileSelectedAgentConfig(manifest, 'worker')).not.toHaveProperty('kortix_tools');

@@ -7,7 +7,7 @@
  *
  * What the sheet shows depends on how the provider connects:
  *
- *  - **Kortix** — included with the plan. No key; the models it serves.
+ *  - **Dosco** — included with the plan. No key; the models it serves.
  *  - **An API-key provider** — the saved key with Replace, or the key form
  *    with an explicit Save. One field per env var, in one bordered box when a
  *    provider needs several (Bedrock's id / secret / region).

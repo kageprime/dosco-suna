@@ -73,72 +73,29 @@ describe('agent discovery documents', () => {
     );
   });
 
-  test('every MCP discovery document names the one Kortix MCP server: the API', async () => {
+  test('every MCP discovery document names the one Dosco MCP server: the API', async () => {
     const card = (await getMcpCard().json()) as any;
     expect(card.serverInfo.name).toBe('kortix');
     expect(card.transport).toEqual({
       type: 'streamable-http',
-<<<<<<< HEAD
-      endpoint: 'https://dosco.live/mcp',
-=======
       endpoint: 'https://api.kortix.com/v1/mcp',
->>>>>>> upstream-dev
     });
     expect(card.endpoint).toBe('https://api.kortix.com/v1/mcp');
 
-<<<<<<< HEAD
-  test('serves MCP initialize, list, and call responses', () => {
-    const initialize = handlePublicContentMcp({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {},
-    }) as any;
-    expect(initialize.result.serverInfo.name).toBe('kortix-public-content');
-    expect(initialize.result.capabilities.tools.listChanged).toBe(false);
-
-    const list = handlePublicContentMcp({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/list',
-      params: {},
-    }) as any;
-    expect(list.result.tools.map((tool: any) => tool.name)).toEqual([
-      'list_public_content',
-      'get_public_markdown',
-    ]);
-
-    const call = handlePublicContentMcp({
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'get_public_markdown', arguments: { path: '/' } },
-    }) as any;
-    expect(call.result.isError).not.toBe(true);
-    expect(call.result.content[0].text).toContain('# Dosco');
-  });
-
-  test('registers two read-only WebMCP tools with abort-controlled lifetimes', async () => {
-    const registered: Array<{ tool: any; options: { signal?: AbortSignal } | undefined }> = [];
-    const modelContext = {
-      registerTool: async (tool: any, options?: { signal?: AbortSignal }) => {
-        registered.push({ tool, options });
-=======
     const serverCard = (await getMcpServerCard().json()) as any;
     expect(serverCard.remotes).toEqual([
       {
         type: 'streamable-http',
         url: 'https://api.kortix.com/v1/mcp',
         supportedProtocolVersions: ['2025-11-25', '2025-06-18', '2025-03-26'],
->>>>>>> upstream-dev
       },
     ]);
 
     const catalog = (await getAiCatalog().json()) as any;
-    expect(catalog.entries.map((entry: any) => entry.url)).toEqual(['https://kortix.com/mcp/server-card']);
+    expect(catalog.entries.map((entry: any) => entry.url)).toEqual(['https://dosco.live/mcp/server-card']);
     const skill = await getAgentSkill().text();
     expect(skill).toContain('https://api.kortix.com/v1/mcp');
-    expect(skill).not.toContain('https://kortix.com/mcp ');
+    expect(skill).not.toContain('https://dosco.live/mcp ');
   });
 
   test('negotiates the homepage to a Markdown route before auth middleware', async () => {
@@ -170,14 +127,9 @@ describe('agent discovery documents', () => {
   });
 
   test('declares content signals and agent discovery routes in robots.txt', () => {
-<<<<<<< HEAD
     const robots = renderRobotsTxt('dosco.live');
-    expect(robots).toContain('Content-Signal: ai-train=no, search=yes, ai-input=yes');
-=======
-    const robots = renderRobotsTxt('kortix.com');
-    // ai-train=yes: models learn what Kortix is from its own pages, not only from third parties.
+    // ai-train=yes: models learn what Dosco is from its own pages, not only from third parties.
     expect(robots).toContain('Content-Signal: ai-train=yes, search=yes, ai-input=yes');
->>>>>>> upstream-dev
     expect(robots).toContain('Allow: /.well-known/');
     expect(robots).toContain('Allow: /auth.md');
     expect(robots).toContain('Allow: /mcp');

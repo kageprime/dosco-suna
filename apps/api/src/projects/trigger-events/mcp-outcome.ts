@@ -41,7 +41,7 @@ export function classifyCall(result: CallResult, label: string, slug: string, to
         return { kind: 'fatal', message: `Connector "${slug}" is missing or turned off.` };
       }
       if (result.reason === 'action_not_found') {
-        return { kind: 'fatal', message: `${label} does not offer the read-only tool ${tool}. Reconnect ${label} so Kortix reads its tools again.` };
+        return { kind: 'fatal', message: `${label} does not offer the read-only tool ${tool}. Reconnect ${label} so Dosco reads its tools again.` };
       }
       if (result.reason === 'policy_block') {
         return { kind: 'fatal', message: `A connector policy blocks ${slug}.${tool}, so this trigger cannot check ${label}. Allow the tool, or remove the trigger.` };

@@ -524,7 +524,7 @@ export const REAPER_TURN_CAUSES = {
    *  the runtime. The settle names no cause for a restart. */
   runtimeRestartedMidTurnRecovering: {
     name: 'RuntimeRestartedMidTurnRecovering',
-    message: 'The runtime restarted during this turn. Kortix resumed it.',
+    message: 'The runtime restarted during this turn. Dosco resumed it.',
   },
   /** The turn waited on a person past `turnWaitingMaxMs`; the reaper ended it. */
   awaitingInput: {
@@ -575,7 +575,7 @@ export async function readNewestPromptTurn(
 
 /**
  * The continuation of a turn a runtime loss cut short reached the runtime:
- * the turn now says Kortix resumed it. Only over the provider stop's generic
+ * the turn now says Dosco resumed it. Only over the provider stop's generic
  * cause, or over no cause (a runtime restart, which says so); a named cause
  * stays.
  */

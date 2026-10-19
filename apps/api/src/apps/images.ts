@@ -48,7 +48,7 @@
  * that both used the image earlier never wait on each other.
  *
  * Known limit: a reused image is not probed at the provider first. An image
- * deleted outside Kortix fails the runtime create; delete the deployments that
+ * deleted outside Dosco fails the runtime create; delete the deployments that
  * use it and deploy again.
  */
 import { createHash } from 'node:crypto';

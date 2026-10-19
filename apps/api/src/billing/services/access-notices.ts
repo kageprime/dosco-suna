@@ -6,7 +6,7 @@
  *   license  30, 7 and 1 days before a term that does not renew, and when it ends
  *
  * Each notice goes to the account's billing managers (owners and admins) and to
- * Kortix sales (`DEMO_LEAD_NOTIFY_EMAIL`), once: a claim row in
+ * Dosco sales (`DEMO_LEAD_NOTIFY_EMAIL`), once: a claim row in
  * `chat_event_dedup` makes it once-only across replicas and sweeps.
  */
 import { logger } from '../../lib/logger';
@@ -66,13 +66,13 @@ async function send(accountId: string, category: string, notice: (accountName: s
       text: renderText({ title: n.title, paragraphs: n.paragraphs, cta: { url, label: n.cta } }),
     };
   });
-  // Kortix sales hears about every one, so an expiring contract customer gets a call, not just an email.
+  // Dosco sales hears about every one, so an expiring contract customer gets a call, not just an email.
   const ops = (config.DEMO_LEAD_NOTIFY_EMAIL || '').split(',').map((e) => e.trim()).filter(Boolean);
   if (ops.length > 0) {
     const n = notice(accountLabel);
     await sendAlertEmail({
       to: ops,
-      subject: `[Kortix billing] ${n.subject}`,
+      subject: `[Dosco billing] ${n.subject}`,
       category: `${category}-ops`,
       html: renderEmail({
         kicker: 'Billing ops',

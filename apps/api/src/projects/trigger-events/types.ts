@@ -37,7 +37,7 @@ export interface EventDelivery {
 export type ProviderNotice =
   | { kind: 'subscription_disabled'; externalId: string; reason: string }
   | { kind: 'connection_expired'; connectionExternalId: string; reason: string }
-  /** A person finished connecting an account: `connectionId` is the Kortix connection it belongs to. */
+  /** A person finished connecting an account: `connectionId` is the Dosco connection it belongs to. */
   | { kind: 'connection_activated'; connectionId: string };
 
 export interface EventApp {

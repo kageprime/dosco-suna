@@ -323,7 +323,7 @@ function clearSessionChip(
 }
 
 /** The person closed the active session's panel: forget it (`session-panel-memory-store.ts`).
- *  Keyed like the provider keys it: the Kortix session, else the layout id. */
+ *  Keyed like the provider keys it: the Dosco session, else the layout id. */
 function forgetActivePanel(
   state: Pick<KortixComputerState, '_activeProjectSessionId' | '_activeSessionId'>,
 ) {

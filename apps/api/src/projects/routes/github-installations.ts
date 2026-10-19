@@ -55,41 +55,6 @@ const getAccountInstallationsHandler = async (c: any) => {
   return c.json(serializeGitHubInstallations(rows, scope.accountId, installUrl));
 };
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'get',
-    path: '/github/installation',
-    tags: ['github'],
-    summary: 'Get the GitHub App installation of the account',
-    ...auth,
-    responses: {
-        200: json(z.any(), 'OK'),
-    },
-  }),
-  getAccountInstallationsHandler,
-);
-
-// GET /v1/projects/github/installations?account_id=...
-// Vercel-style account Git connections surface. A Dosco account can connect
-// multiple GitHub users/orgs and pick the exact installation during import.
-
-projectsApp.openapi(
-  createRoute({
-    method: 'get',
-    path: '/github/installations',
-    tags: ['github'],
-    summary: 'List GitHub App installations',
-    ...auth,
-    responses: {
-        200: json(z.any(), 'OK'),
-    },
-  }),
-  getAccountInstallationsHandler,
-);
-
-=======
->>>>>>> upstream-dev
 /**
  * One row per `(account_id, owner_login)`.
  *
@@ -163,13 +128,6 @@ export async function upsertAccountGitHubInstallation(
   return row;
 }
 
-<<<<<<< HEAD
-// POST /v1/projects/github/installations/linkable
-// The GitHub OAuth token cannot call GET /user/installations. GitHub restricts
-// that route to GitHub App user tokens. Dosco lists this App's installations
-// with the App JWT, then filters them with the authorized user's identity and
-// active organization-admin memberships.
-=======
 export function registerGithubInstallationsRoutes(): void {
   projectsApp.openapi(
     createRoute({
@@ -184,10 +142,9 @@ export function registerGithubInstallationsRoutes(): void {
     }),
     getAccountInstallationsHandler,
   );
->>>>>>> upstream-dev
 
   // GET /v1/projects/github/installations?account_id=...
-  // Vercel-style account Git connections surface. A Kortix account can connect
+  // Vercel-style account Git connections surface. A Dosco account can connect
   // multiple GitHub users/orgs and pick the exact installation during import.
 
   projectsApp.openapi(
@@ -206,7 +163,7 @@ export function registerGithubInstallationsRoutes(): void {
 
   // POST /v1/projects/github/installations/linkable
   // The GitHub OAuth token cannot call GET /user/installations. GitHub restricts
-  // that route to GitHub App user tokens. Kortix lists this App's installations
+  // that route to GitHub App user tokens. Dosco lists this App's installations
   // with the App JWT, then filters them with the authorized user's identity and
   // active organization-admin memberships.
 

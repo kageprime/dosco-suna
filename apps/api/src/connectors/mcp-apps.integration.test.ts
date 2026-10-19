@@ -1,7 +1,7 @@
 /**
- * Real-Postgres contract for signing in to a catalogue app with Kortix's own
+ * Real-Postgres contract for signing in to a catalogue app with Dosco's own
  * OAuth client (connectors/mcp-apps.ts): registering without a
- * `registration_endpoint` saves Kortix's client with the catalogue's endpoints
+ * `registration_endpoint` saves Dosco's client with the catalogue's endpoints
  * and ignores any endpoint in the request, the authorization URL goes to the
  * vendor with that client, and a URL outside the catalogue gets no client.
  */
@@ -50,7 +50,7 @@ afterAll(async () => {
   await db.delete(accounts).where(eq(accounts.accountId, ACCOUNT));
 });
 
-test('registering a catalogue app without dynamic registration saves Kortix’s client and the catalogue’s endpoints', async () => {
+test('registering a catalogue app without dynamic registration saves Dosco’s client and the catalogue’s endpoints', async () => {
   const gmail = await connection('gmail', 'https://gmailmcp.googleapis.com/mcp/v1');
   await registerConnectionOAuth2Client({
     identity: gmail,
@@ -81,7 +81,7 @@ test('registering a catalogue app without dynamic registration saves Kortix’s 
   expect(started.authorizationUrl).not.toContain('kortix-google-secret');
 });
 
-test('a server outside the catalogue gets no Kortix client, even when it names Google as its authorization server', async () => {
+test('a server outside the catalogue gets no Dosco client, even when it names Google as its authorization server', async () => {
   const evil = await connection('lookalike', 'https://mcp.evil.example/mcp');
   await expect(
     registerConnectionOAuth2Client({
@@ -90,6 +90,6 @@ test('a server outside the catalogue gets no Kortix client, even when it names G
       callbackUrl: CALLBACK,
       createdBy: USER,
     }),
-  ).rejects.toThrow('Kortix has no OAuth client for this server');
+  ).rejects.toThrow('Dosco has no OAuth client for this server');
   expect(await loadOAuth2Application(evil.connectionId)).toBeNull();
 });

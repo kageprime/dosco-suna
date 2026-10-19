@@ -96,8 +96,8 @@ describe('NotificationPanel', () => {
 
   test('the footer offers to turn browser notifications on, and can be dismissed', () => {
     expect(render()).not.toContain('Turn on');
-    const out = render({ prompt: 'Get notified when Kortix is closed' });
-    expect(out).toContain('Get notified when Kortix is closed');
+    const out = render({ prompt: 'Get notified when Dosco is closed' });
+    expect(out).toContain('Get notified when Dosco is closed');
     expect(out).toContain('>Turn on<');
     expect(out).toContain('aria-label="Dismiss"');
   });

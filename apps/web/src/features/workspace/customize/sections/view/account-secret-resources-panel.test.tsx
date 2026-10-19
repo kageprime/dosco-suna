@@ -1,5 +1,5 @@
 /**
- * KRTX-1719: an account key or ChatGPT login Kortix can no longer decrypt
+ * KRTX-1719: an account key or ChatGPT login Dosco can no longer decrypt
  * (`status: 'undecryptable'`) is skipped by the gateway without a word. The
  * provider panel used to list it as a healthy row. It now shows the
  * Undecryptable badge, and the remedy to whoever may apply it: Re-enter key
@@ -133,7 +133,7 @@ const settle = (ms = 0) => act(() => new Promise<void>((resolve) => setTimeout(r
 const listItems = () => [...document.querySelectorAll('li')];
 const buttonsIn = (element: Element) => [...element.querySelectorAll('button')].map((b) => b.textContent?.trim() ?? '');
 
-describe('an account key Kortix cannot decrypt', () => {
+describe('an account key Dosco cannot decrypt', () => {
   test('shows the badge and Re-enter key; a decryptable key shows neither', () => {
     rows = [
       { secret_id: 'lost', label: 'Primary', status: 'undecryptable' },
@@ -178,7 +178,7 @@ describe('an account key Kortix cannot decrypt', () => {
   });
 });
 
-describe('a ChatGPT login Kortix cannot decrypt', () => {
+describe('a ChatGPT login Dosco cannot decrypt', () => {
   test('its owner sees the badge and Reconnect, and no Re-enter key', () => {
     rows = [{ secret_id: 'login', label: 'My ChatGPT', status: 'undecryptable' }];
     mount(true, true);

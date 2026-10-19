@@ -194,7 +194,7 @@ export function createInternalGatewayRoutes() {
   app.post('/billing', async (c) => {
     const { accountId } = await c.req.json();
     try {
-      // The pod calls this only for a Kortix-billed request it already
+      // The pod calls this only for a Dosco-billed request it already
       // resolved (`simple-handler.ts` gates admitCharge on billingMode), so
       // the wallet floor applies to every account here — the platform default
       // included (KRTX-1067).

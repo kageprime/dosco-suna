@@ -76,7 +76,7 @@ export function composioErrorMessage(error: unknown): string {
 
 const KORTIX_CONNECTION = /^kortix-connection:([0-9a-f-]{36})$/;
 
-/** The Kortix connection id inside any string value of a payload, or null. */
+/** The Dosco connection id inside any string value of a payload, or null. */
 export function kortixConnectionIn(value: unknown): string | null {
   if (typeof value === 'string') return KORTIX_CONNECTION.exec(value)?.[1] ?? null;
   if (value && typeof value === 'object') {

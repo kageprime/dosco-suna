@@ -15,7 +15,7 @@
  * request in the interval reads the stored tip; the builder and the manifest
  * read fetch that commit only on a process whose mirror lacks it.
  *
- * A move Kortix makes or proxies (`notifyBaseBranchMoved`) expires the
+ * A move Dosco makes or proxies (`notifyBaseBranchMoved`) expires the
  * project's rows, so the next request asks again. A push made directly on the
  * upstream is seen within one interval.
  */

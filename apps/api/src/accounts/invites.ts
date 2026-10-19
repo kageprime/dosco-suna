@@ -485,29 +485,10 @@ accountInvitesRouter.openapi(
   }
 
   const existingMembership = await getMembership(userId, invite.accountId);
-<<<<<<< HEAD
-  if (!existingMembership) {
-    const { trialSeatLimitBlocksNewMember } = await import(
-      '../billing/services/seat-management'
-    );
-    const seatBlock = await trialSeatLimitBlocksNewMember(invite.accountId);
-    if (seatBlock) {
-      return c.json(
-        {
-          error: `This team's trial includes ${seatBlock.limit} ${seatBlock.limit === 1 ? 'seat' : 'seats'} and all are in use. Ask the owner to contact the Dosco team.`,
-          code: 'trial_seat_limit_reached',
-          limit: seatBlock.limit,
-          members: seatBlock.members,
-        },
-        403,
-      );
-    }
-=======
   // An accepted invite only heals grants for a CURRENT member. After removal or
   // leave it must not re-create the membership: the owner sends a new invite.
   if (alreadyAccepted && !existingMembership) {
     return c.json({ error: 'This invite was already used. Ask the owner to send a new one.' }, 410);
->>>>>>> upstream-dev
   }
   // `onConflictDoNothing` on the (user, account) primary key keeps the identity
   // insert idempotent on re-entry. Members are unlimited and free: there is no

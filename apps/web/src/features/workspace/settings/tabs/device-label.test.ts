@@ -24,8 +24,8 @@ describe('describeUserAgent', () => {
       { browser: 'Chrome', os: 'Android', mobile: true, brand: 'chrome' },
     ],
     [
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Kortix/1.4.0 Chrome/140.0.0.0 Electron/38.0.0 Safari/537.36',
-      { browser: 'Kortix desktop', os: 'macOS', mobile: false, brand: null },
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Dosco/1.4.0 Chrome/140.0.0.0 Electron/38.0.0 Safari/537.36',
+      { browser: 'Dosco desktop', os: 'macOS', mobile: false, brand: null },
     ],
     ['Bun/1.3.14', { browser: 'Bun', os: null, mobile: false, brand: 'bun' }],
     ['', { browser: null, os: null, mobile: false, brand: null }],

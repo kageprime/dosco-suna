@@ -1,7 +1,7 @@
 // Drive sync: the drives of a session that does not run on Platinum. A
 // Platinum volume mounts only into a Platinum sandbox, so on any other
 // provider the box's daemon copies each drive into the same path under
-// /drives and keeps it in sync through the Kortix API (routes in
+// /drives and keeps it in sync through the Dosco API (routes in
 // projects/routes/session-drive-sync.ts). The box never holds a storage
 // credential: every file call is authorized against the drives the session
 // was given, as recorded on its sandbox row.

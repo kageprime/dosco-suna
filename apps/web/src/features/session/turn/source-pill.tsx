@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 /**
  * Where a prompt came from, drawn above its bubble: mark · source · sender.
  * One pill for every non-typed origin — a Slack / Teams / Telegram message
- * (`ChannelMessage`) and a prompt another Kortix session sent
+ * (`ChannelMessage`) and a prompt another Dosco session sent
  * (`MessageAuthorLabel`), a reminder fire and a trigger fire — so they never
  * drift apart. Hovering or focusing it opens `card` with the origin's detail;
  * `cardClassName` widens the card when a row holds a long value.

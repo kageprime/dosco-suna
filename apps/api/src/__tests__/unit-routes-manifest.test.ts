@@ -28,9 +28,9 @@ test('the committed route manifest equals the live route table', () => {
       // suite strips every ambient KORTIX_* var, so without this placeholder
       // the generator exits 1 before it ever reads a route table. It is
       // validation-only and does not change the dumped route table.
-      KORTIX_URL: 'https://placeholder.kortix.com',
+      KORTIX_URL: 'https://placeholder.dosco.live',
       LLM_GATEWAY_ENABLED: 'true',
-      FRONTEND_URL: 'https://placeholder.kortix.com',
+      FRONTEND_URL: 'https://placeholder.dosco.live',
       KORTIX_CONFIG_ARCHIVE_S3_ENDPOINT: 'https://placeholder.storage.example',
     },
   });

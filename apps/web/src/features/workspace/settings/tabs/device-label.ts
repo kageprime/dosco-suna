@@ -21,7 +21,7 @@ const BRAND_OF: Record<string, DeviceBrand> = {
 };
 
 const BROWSERS: [RegExp, string][] = [
-  [/Electron\//, 'Kortix desktop'],
+  [/Electron\//, 'Dosco desktop'],
   [/Edg(A|iOS)?\//, 'Edge'],
   [/OPR\//, 'Opera'],
   [/(Firefox|FxiOS)\//, 'Firefox'],

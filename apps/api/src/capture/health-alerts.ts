@@ -1,5 +1,5 @@
 /**
- * Fleet health alerts. When a Kortix Capture computer is not recording for
+ * Fleet health alerts. When a Dosco Capture computer is not recording for
  * `KORTIX_CAPTURE_ALERT_AFTER_MINUTES` of awake time (health.ts), the people
  * with `capture.manage` in its account get one inbox row (plus the push and
  * email their preferences allow), and one more when it records again.

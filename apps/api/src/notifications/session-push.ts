@@ -30,7 +30,7 @@ import { sessionWatchersOf, type SessionWatchers } from './watchers';
 export type SessionPushEventType = 'completion' | 'error' | 'question' | 'permission';
 
 /**
- * - `attended`: a person runs it from Kortix (web, mobile, CLI, SDK).
+ * - `attended`: a person runs it from Dosco (web, mobile, CLI, SDK).
  * - `channel`: Slack, Teams, email or Telegram; the thread is the conversation.
  * - `unattended`: a trigger or schedule runs it.
  */
@@ -62,38 +62,9 @@ export interface SessionPushEvent {
   recipients?: readonly string[];
 }
 
-<<<<<<< HEAD
-export interface SessionPushTarget {
-  createdBy: string | null;
-  title: string | null;
-}
-
-export interface SessionPushDeps {
-  enabled: boolean;
-  loadSession(sessionId: string, projectId: string): Promise<SessionPushTarget | null>;
-  isPresent?(userId: string, sessionId: string): Promise<boolean>;
-  store: Pick<PushDeviceTokenStore, 'listByUser' | 'deleteTokens'>;
-  send(messages: ExpoPushMessage[], store: Pick<PushDeviceTokenStore, 'deleteTokens'>): Promise<ExpoPushResult>;
-  /** Receives failure warnings. Defaults to `console`. */
-  logger?: Pick<Console, 'warn'>;
-}
-
-export type SessionPushOutcome =
-  | { sent: 0; reason: 'disabled' | 'no_session' | 'no_recipient' | 'no_devices' | 'present' | 'failed' }
-  | { sent: number; reason: 'sent'; result: ExpoPushResult };
-
-export const DEFAULT_PUSH_TITLE = 'Dosco';
-export const QUESTION_TEXT_MAX_CHARS = 140;
-
-const BODIES: Record<Exclude<SessionPushEventType, 'question'>, string> = {
-  completion: 'Session complete. Tap to see the result.',
-  permission: 'Dosco needs your approval to continue.',
-  error: 'The session stopped with an error.',
-=======
 export type SessionPushOutcome = {
   reason: 'no_session' | 'no_recipient' | 'no_access' | 'failed' | 'delivered';
   recipients: string[];
->>>>>>> upstream-dev
 };
 
 /** Who the event is for beyond the session itself (projects/lib/notification-recipients.ts). */
@@ -119,56 +90,6 @@ const KIND: Record<SessionPushEventType, NotificationKindName> = {
   question: 'question',
   permission: 'permission',
 };
-<<<<<<< HEAD
-const SILENT_CHANNEL_ID = 'session-silent';
-
-const PREFERENCE: Record<SessionPushEventType, keyof PushDeviceTokenRow> = {
-  completion: 'onCompletion',
-  error: 'onError',
-  question: 'onQuestion',
-  permission: 'onPermission',
-};
-
-/** Collapse whitespace and cut to `QUESTION_TEXT_MAX_CHARS` characters. */
-export function truncateQuestion(text: string): string {
-  const flat = text.replace(/\s+/g, ' ').trim();
-  const chars = [...flat];
-  if (chars.length <= QUESTION_TEXT_MAX_CHARS) return flat;
-  return `${chars.slice(0, QUESTION_TEXT_MAX_CHARS - 1).join('').trimEnd()}…`;
-}
-
-export function pushBody(type: SessionPushEventType, question?: string): string {
-  if (type === 'question') {
-    const text = question ? truncateQuestion(question) : '';
-    return text ? `Dosco has a question: ${text}` : 'Dosco has a question.';
-  }
-  return BODIES[type];
-}
-
-/** Rows whose stored preferences allow `type`. */
-export function devicesForEvent(rows: readonly PushDeviceTokenRow[], type: SessionPushEventType) {
-  return rows.filter((row) => row.provider === 'expo' && row.enabled && row[PREFERENCE[type]] === true);
-}
-
-export function buildSessionPushMessages(
-  event: SessionPushEvent,
-  title: string | null,
-  rows: readonly PushDeviceTokenRow[],
-): ExpoPushMessage[] {
-  const heading = title?.trim() || DEFAULT_PUSH_TITLE;
-  const body = pushBody(event.type, event.question);
-  const data = { type: event.type, projectId: event.projectId, sessionId: event.sessionId };
-  return devicesForEvent(rows, event.type).map((row) => ({
-    to: row.token,
-    title: heading,
-    body,
-    data,
-    ...(row.playSound ? SOUNDS[event.type] : { sound: null, channelId: SILENT_CHANNEL_ID }),
-    priority: 'high',
-  }));
-}
-=======
->>>>>>> upstream-dev
 
 /**
  * Which push a sandbox turn end earns. Only an end that closed a turn in this

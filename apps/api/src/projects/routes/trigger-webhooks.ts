@@ -227,7 +227,7 @@ export function registerTriggerWebhooksRoutes(): void {
       const error = result.error ?? 'Failed to fire trigger';
       // Recorded like a failed cron fire, so the trigger says it failed (KRTX-1743).
       await markGitTriggerAttemptFailed(project.projectId, spec.slug, new Date(), error).catch(() => {});
-      // Kortix cannot know whether the sender retries on our 500, so the first
+      // Dosco cannot know whether the sender retries on our 500, so the first
       // failure of a streak alerts the watchers (KRTX-1742). A create that went
       // back to the queue alerts from the drain only if it dead-letters.
       if (!result.requeued) {

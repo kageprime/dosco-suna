@@ -950,7 +950,7 @@ export interface GatewaySourceSpendRow {
   sessions: number;
   requests: number;
   errors: number;
-  /** Total LLM spend in USD: what Kortix debited plus what an own key paid. */
+  /** Total LLM spend in USD: what Dosco debited plus what an own key paid. */
   cost: number;
   kortix_cost: number;
   input_tokens: number;

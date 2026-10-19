@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 /** Rows one page of a search shows. Load more reads the next page. */
 export const AUDIT_SESSION_SEARCH_LIMIT = 20;
 
-/** A Kortix session id (`randomUUID()`): only such text is offered as a pasted id. */
+/** A Dosco session id (`randomUUID()`): only such text is offered as a pasted id. */
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

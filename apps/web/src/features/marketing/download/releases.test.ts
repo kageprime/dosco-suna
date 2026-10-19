@@ -77,7 +77,7 @@ describe('formatSize', () => {
 });
 
 describe('getLatestCaptureRelease', () => {
-  const asset = (name: string) => ({ name, browser_download_url: `https://github.com/kortix-ai/suna/releases/download/x/${name}`, size: 2_097_152 });
+  const asset = (name: string) => ({ name, browser_download_url: `?/releases/download/x/${name}`, size: 2_097_152 });
   const withReleases = async (releases: unknown[], run: () => Promise<void>) => {
     const real = globalThis.fetch;
     const urls: string[] = [];
@@ -96,7 +96,7 @@ describe('getLatestCaptureRelease', () => {
   test('the newest published vX.Y.Z release that carries Capture installers, never a draft, a prerelease or a dev tag', async () => {
     const urls = await withReleases(
       [
-        { tag_name: 'v0.14.1', draft: false, assets: [asset('Kortix-Setup-0.14.1.exe')] },
+        { tag_name: 'v0.14.1', draft: false, assets: [asset('Dosco-Setup-0.14.1.exe')] },
         { tag_name: 'v0.14.0-dev.3', draft: false, prerelease: true, assets: [asset('KortixCapture-x64.msi')] },
         { tag_name: 'capture-dev-latest', draft: false, prerelease: true, assets: [asset('KortixCapture-x64.msi')] },
         { tag_name: 'v0.14.0', draft: true, assets: [asset('KortixCapture-x64.msi')] },
@@ -113,7 +113,7 @@ describe('getLatestCaptureRelease', () => {
   });
 
   test('none published, or GitHub failing: null, so the caller degrades', async () => {
-    await withReleases([{ tag_name: 'v0.14.0', draft: false, assets: [asset('Kortix-Setup-0.14.0.exe')] }], async () => {
+    await withReleases([{ tag_name: 'v0.14.0', draft: false, assets: [asset('Dosco-Setup-0.14.0.exe')] }], async () => {
       expect(await getLatestCaptureRelease()).toBeNull();
     });
     await withReleases({ message: 'API rate limit exceeded' } as never, async () => {

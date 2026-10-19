@@ -47,7 +47,7 @@ import {
 } from './use-capture-area';
 
 /**
- * The frame of Kortix Capture: its own top bar (wordmark, Devices, the
+ * The frame of Dosco Capture: its own top bar (wordmark, Devices, the
  * organization switcher, Settings), no project sidebar. Gated on the account's Capture workspace: a non-member
  * gets the 404 the API gives; Capture switched off shows how to switch it on.
  */
@@ -88,7 +88,7 @@ export function CaptureAreaShell({
   }
 
   return (
-    // `data-kx-titlebar-owner`: the top bar is the way back to Kortix, so the
+    // `data-kx-titlebar-owner`: the top bar is the way back to Dosco, so the
     // desktop window's own Back steps aside and the bar clears the traffic lights.
     <div className="bg-background flex min-h-svh flex-col" data-kx-titlebar-owner="">
       <CaptureTopBar accountId={accountId} />
@@ -197,7 +197,7 @@ function CaptureTopBar({ accountId }: { accountId: string }) {
 
 /**
  * Who you are, and the way to everything outside Capture: this organization's
- * settings, your own settings (the accounts list), theme and log out. Kortix
+ * settings, your own settings (the accounts list), theme and log out. Dosco
  * Capture's own settings are the Settings tab.
  */
 function ProfileMenu({ accountId }: { accountId: string }) {
@@ -254,7 +254,7 @@ function ProfileMenu({ accountId }: { accountId: string }) {
   );
 }
 
-/** The organization (Kortix account) the area shows; switching keeps the section. */
+/** The organization (Dosco account) the area shows; switching keeps the section. */
 function AccountSwitcher({ accountId }: { accountId: string }) {
   const t = useTranslations('capture.area');
   const area = useCaptureArea(accountId);

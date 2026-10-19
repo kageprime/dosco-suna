@@ -90,81 +90,6 @@ export function registerGatewayPlaygroundRoutes(): void {
         return c.json({ error: err.message, code: 'budget_exceeded' }, 402);
       }
 
-<<<<<<< HEAD
-    const results = await Promise.all(
-      models.map(async (model) => {
-        const requestId = crypto.randomUUID();
-        // Same capability clamp the persisted routing-policy write path
-        // uses — a playground run must never send a param the resolved
-        // model can't honor either. Applied on top of the 512-token
-        // default so an explicit override can raise (or lower) it.
-        const clamped = clampGenerationConfig(
-          rawGenerationConfig[model] as GenerationConfig | undefined,
-          catalogModelForWireModel(model),
-        );
-        const request: Record<string, unknown> = {
-          model,
-          messages: [
-            ...(system ? [{ role: 'system', content: system }] : []),
-            { role: 'user', content: prompt },
-          ],
-          stream: false,
-          max_tokens: clamped.maxOutputTokens ?? 512,
-          ...(clamped.temperature !== undefined ? { temperature: clamped.temperature } : {}),
-          ...(clamped.topP !== undefined ? { top_p: clamped.topP } : {}),
-          ...(clamped.reasoningEffort !== undefined
-            ? { reasoning_effort: clamped.reasoningEffort }
-            : {}),
-        };
-        try {
-          const candidates = await resolveCandidates(principal, model);
-          if (candidates.length === 0) {
-            return { model, ok: false, error: 'No upstream configured for this model' };
-          }
-          // Same failover as a real turn: a managed model tries each
-          // `failover` candidate in order until one answers 2xx.
-          let descriptor = candidates[0]!;
-          const start = Date.now();
-          let res = await callUpstream(request, descriptor).catch(() => null);
-          const tried = [shownProvider(descriptor)];
-          for (const next of descriptor.failover ? candidates.slice(1).filter((c) => c.failover) : []) {
-            if (res?.ok) break;
-            await res?.body?.cancel().catch(() => undefined);
-            descriptor = next;
-            tried.push(shownProvider(next));
-            res = await callUpstream(request, next).catch(() => null);
-          }
-          if (!res) throw new Error('Request failed');
-          const latencyMs = Date.now() - start;
-          const rawData = (await res.json().catch(() => null)) as any;
-          // A managed model reports Dosco, its own id, and a classified error.
-          const publicError =
-            descriptor.publicProvider && !res.ok
-              ? publicUpstreamError(res.status, JSON.stringify(rawData ?? {}), model)
-              : null;
-          const data =
-            descriptor.publicProvider && rawData && typeof rawData === 'object'
-              ? (publicPayload(rawData, model) as any)
-              : rawData;
-          const usage = data?.usage ?? {};
-          const promptTokens = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0) || 0;
-          const completionTokens = Number(usage.completion_tokens ?? usage.output_tokens ?? 0) || 0;
-          const cachedTokens =
-            Number(usage.cached_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? 0) || 0;
-          const cacheWriteTokens =
-            Number(
-              usage.cache_write_tokens ?? usage.prompt_tokens_details?.cache_write_tokens ?? 0,
-            ) || 0;
-          const resolvedModel = descriptor.publicProvider
-            ? shownModel(descriptor, model)
-            : String(data?.model ?? descriptor.resolvedModel ?? model);
-          const { upstreamCost, finalCost } = calculateCost(
-            descriptor.resolvedModel ?? model,
-            { promptTokens, completionTokens, cachedTokens, cacheWriteTokens },
-            descriptor.billingMode === 'none' ? 0 : descriptor.markup,
-            typeof usage.cost === 'number' ? usage.cost : undefined,
-            descriptor.pricing,
-=======
       const results = await Promise.all(
         models.map(async (model) => {
           const requestId = crypto.randomUUID();
@@ -175,7 +100,6 @@ export function registerGatewayPlaygroundRoutes(): void {
           const clamped = clampGenerationConfig(
             rawGenerationConfig[model] as GenerationConfig | undefined,
             catalogModelForWireModel(model),
->>>>>>> upstream-dev
           );
           const request: Record<string, unknown> = {
             model,
@@ -212,7 +136,7 @@ export function registerGatewayPlaygroundRoutes(): void {
             if (!res) throw new Error('Request failed');
             const latencyMs = Date.now() - start;
             const rawData = (await res.json().catch(() => null)) as any;
-            // A managed model reports Kortix, its own id, and a classified error.
+            // A managed model reports Dosco, its own id, and a classified error.
             const publicError =
               descriptor.publicProvider && !res.ok
                 ? publicUpstreamError(res.status, JSON.stringify(rawData ?? {}), model)

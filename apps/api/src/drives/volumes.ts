@@ -49,7 +49,7 @@ async function call(path: string, init: RequestInit = {}): Promise<Response> {
       throw new DriveStorageError(404, code === 'volume_not_found' ? 'Drive not found' : 'File or folder not found', code);
     case 403:
       if (code === 'quota_exceeded') {
-        throw new DriveStorageError(409, 'This workspace has reached its drive storage limit. Delete a drive you no longer need, or ask Kortix for more.', code);
+        throw new DriveStorageError(409, 'This workspace has reached its drive storage limit. Delete a drive you no longer need, or ask Dosco for more.', code);
       }
       logger.warn(`[drives] ${init.method ?? 'GET'} ${path} -> 403 ${text.slice(0, 300)}`);
       throw new DriveStorageError(503, 'Drive storage is unavailable, try again shortly', code);

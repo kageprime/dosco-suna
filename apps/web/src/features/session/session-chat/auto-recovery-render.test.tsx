@@ -126,7 +126,7 @@ describe('an automatic provider-error recovery chain renders as one story (KRTX-
     const html = renderRow(turn);
     expect(html).toContain('Model host exploded');
     expect(html).toContain('data-auto-retry-note');
-    expect(html).toContain('Kortix automatically retried the model once before this failure.');
+    expect(html).toContain('Dosco automatically retried the model once before this failure.');
   });
 
   test('a chain that recovered ends on the reply: no error row anywhere', () => {

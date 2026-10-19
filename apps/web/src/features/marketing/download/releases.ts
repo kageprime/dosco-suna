@@ -15,7 +15,7 @@
 
 import type { DesktopOs } from './detect-os';
 
-const REPO = 'kageprime/dosco-suna';
+const REPO = 'kortix-ai/suna';
 const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 /** Where every download falls back to when the API is unreachable. */
@@ -50,7 +50,7 @@ export function pickDesktopAsset(assets: ReleaseAsset[], os: DesktopOs): Release
 }
 
 /**
- * Kortix Capture ships in the same vX.Y.Z Release as Kortix (deploy-prod's
+ * Dosco Capture ships in the same vX.Y.Z Release as Dosco (deploy-prod's
  * attach-capture job): `KortixCapture-x64.msi`, `KortixCapture-universal.pkg`,
  * `kortix-capture_amd64.deb`, each also under a versioned name.
  */
@@ -113,7 +113,7 @@ const RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=30`
 const CAPTURE_DEV_API = `https://api.github.com/repos/${REPO}/releases/tags/capture-dev-latest`;
 
 /**
- * The dev channel's Kortix Capture build (the `capture-dev-latest` prerelease that
+ * The dev channel's Dosco Capture build (the `capture-dev-latest` prerelease that
  * capture.yml publishes from dev): what dev.kortix.com serves, since its installers sync to
  * dev-api. Null on any failure, like getLatestCaptureRelease.
  */
@@ -138,7 +138,7 @@ export async function getCaptureDevRelease(): Promise<Release | null> {
 }
 
 /**
- * The newest published vX.Y.Z Release that carries Kortix Capture installers.
+ * The newest published vX.Y.Z Release that carries Dosco Capture installers.
  * attach-capture runs after the Release exists and is best-effort, so the newest
  * Release can lack them for a while (or for good): this skips it rather than
  * sending the visitor to the docs. Prereleases (capture-dev-latest) and drafts

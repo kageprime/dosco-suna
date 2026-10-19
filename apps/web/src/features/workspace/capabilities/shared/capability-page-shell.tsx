@@ -1,11 +1,7 @@
 'use client';
 
-<<<<<<< HEAD
-import type { ReactNode, RefObject } from 'react';
-=======
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
->>>>>>> upstream-dev
 
 import { CapabilityScrollRootProvider, useCapabilityScrollRootRef } from './capability-scroll-root';
 
@@ -32,13 +28,6 @@ interface CapabilityPageShellProps {
    */
   stacked?: boolean;
   children: ReactNode;
-  /** External scroll element (the marketplace passes its own so the
-   *  virtualized grids observe it). Defaults to an internal ref. */
-  scrollRef?: RefObject<HTMLDivElement | null>;
-  /** Compact chrome for embedded-style pages (in-project marketplace):
-   *  tighter top padding so content starts near the panel top instead of
-   *  below a full marketing header. Sibling tabs keep the roomy default. */
-  compact?: boolean;
 }
 
 /**
@@ -67,23 +56,9 @@ export function CapabilityPageShell({
   wide = false,
   stacked = false,
   children,
-  scrollRef,
-  compact = false,
 }: CapabilityPageShellProps) {
-  const internalRef = useCapabilityScrollRootRef();
-  const resolvedRef = scrollRef ?? internalRef;
+  const scrollRef = useCapabilityScrollRootRef();
   return (
-<<<<<<< HEAD
-    <div ref={resolvedRef} className="min-h-0 flex-1 overflow-y-auto">
-      <div
-        className={
-          compact
-            ? 'mx-auto w-full max-w-5xl space-y-4 px-4 pt-6 pb-16'
-            : 'mx-auto w-full max-w-5xl space-y-5 px-4 py-10 pb-20 lg:py-14'
-        }
-      >
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-=======
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
       <div
         className={
@@ -98,7 +73,6 @@ export function CapabilityPageShell({
             !stacked && 'sm:flex-row sm:items-start sm:justify-between',
           )}
         >
->>>>>>> upstream-dev
           {/* `sm:max-w-md` fixes where the description wraps. Without it the
               text column took whatever the right-hand group left, and that
               group fills in after data and permissions resolve — so the
@@ -129,7 +103,7 @@ export function CapabilityPageShell({
         {filters ? (
           <div className="flex flex-wrap items-center justify-between gap-2">{filters}</div>
         ) : null}
-        <CapabilityScrollRootProvider scrollRef={resolvedRef}>
+        <CapabilityScrollRootProvider scrollRef={scrollRef}>
           {children}
         </CapabilityScrollRootProvider>
       </div>

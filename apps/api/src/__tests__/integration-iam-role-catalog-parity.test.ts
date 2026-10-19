@@ -101,7 +101,7 @@ describe.if(hasDatabase)('canonical RBAC seed == the code it replaces', () => {
     // sandbox.write, model.read, model.write); the two retired customize rows
     // left with the contract migration 20261017134834494. Then
     // `project.app.admin` (20261009115640000, which also removed the two
-    // `project.backend.*` leaves #9264 had added). Then Kortix Capture's
+    // `project.backend.*` leaves #9264 had added). Then Dosco Capture's
     // `capture.read_all` and `capture.manage` (20261015003000001).
     expect(seeded).toHaveLength(80);
     expect(seeded.filter((a) => a.startsWith('project.customize.'))).toEqual([]);
@@ -136,7 +136,7 @@ describe.if(hasDatabase)('canonical RBAC seed == the code it replaces', () => {
     const owner = await systemRoleActions('owner', 'account');
     const admin = await systemRoleActions('admin', 'account');
     const member = await systemRoleActions('member', 'account');
-    // +2 owner and admin: Kortix Capture's capture.read_all and capture.manage (20261015003000001).
+    // +2 owner and admin: Dosco Capture's capture.read_all and capture.manage (20261015003000001).
     // +1 admin: billing.write (20261015003246450).
     expect([owner.length, admin.length, member.length]).toEqual([31, 29, 5]);
     // A plain member does not read the whole directory (20261013172952181):

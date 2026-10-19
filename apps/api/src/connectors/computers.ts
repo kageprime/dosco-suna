@@ -421,7 +421,7 @@ export async function attachComputerConnection(
  * (shared with a project at pairing) or in the owner's personal account
  * (attached to a team project as their private account). Both match, because
  * the match is on the machine's owner, not on where the machine lives.
- * Accounts in other Kortix accounts the person still belongs to stay active.
+ * Accounts in other Dosco accounts the person still belongs to stay active.
  *
  * Like unpairing, the default pin goes too, so no resolver picks an account
  * that reaches nothing. `metadata.revokedReason` records why. Returns the

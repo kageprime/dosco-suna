@@ -155,7 +155,7 @@ async function contractProductId(kind: 'license' | 'credits'): Promise<string> {
     found.data[0]?.id ??
     (
       await stripe.products.create({
-        name: kind === 'license' ? 'Kortix Enterprise license' : 'Kortix Enterprise credits',
+        name: kind === 'license' ? 'Dosco Enterprise license' : 'Dosco Enterprise credits',
         metadata: { kortix_product: tag },
       })
     ).id;

@@ -209,19 +209,13 @@ async function cachedCustomAuthConfigIds(catalogClient: ComposioCatalogClient) {
 }
 
 /**
-<<<<<<< HEAD
  * Toolkits Dosco provides natively, left out of every catalogue view.
  * Microsoft Teams is connected under Channels (the Dosco bot); the Composio
- * app listed beside it was a second, different "Microsoft Teams".
-=======
- * Toolkits Kortix provides natively, left out of every catalogue view.
- * Microsoft Teams is connected under Channels (the Kortix bot); the Composio
  * app listed beside it was a second, different "Microsoft Teams". Slack is
  * the same story: its Composio toolkit listed beside the Slack channel
  * install read as Slack being "double added" (KRTX-2353) — and the pipedream
  * catalogue already drops its Slack apps (`NATIVE_APP_SLUGS` in
  * pipedream-catalog.ts), so the Composio path was the one gap left.
->>>>>>> upstream-dev
  */
 export const NATIVE_TOOLKITS: ReadonlySet<string> = new Set(['microsoft_teams', 'slack']);
 

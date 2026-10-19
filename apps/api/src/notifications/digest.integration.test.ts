@@ -155,7 +155,7 @@ describe('the email digest', () => {
     const [message] = sent;
     expect(message!.to).toEqual([email]);
     expect(message!.category).toBe(DIGEST_EMAIL_CATEGORY);
-    expect(message!.subject).toBe('Review 12 unread notifications in Kortix');
+    expect(message!.subject).toBe('Review 12 unread notifications in Dosco');
     for (let i = 0; i < 10; i += 1) expect(message!.text).toContain(`Row ${i}\n`);
     expect(message!.text).not.toContain('Row 10');
     expect(message!.text).not.toContain('Row 11');
@@ -182,7 +182,7 @@ describe('the email digest', () => {
 
     await db.update(notifications).set({ emailedAt: sql`now() - interval '61 minutes'` }).where(eq(notifications.notificationId, earlier));
     expect(await runNotificationDigestTick(everyRowVisible)).toMatchObject({ users: 1, sent: 1, claimed: 1 });
-    expect(sent.map((m) => m.subject)).toEqual(['Review 1 unread notification in Kortix']);
+    expect(sent.map((m) => m.subject)).toEqual(['Review 1 unread notification in Dosco']);
   });
 
   test('a question already answered is dropped but stamped; an open one is listed', async () => {

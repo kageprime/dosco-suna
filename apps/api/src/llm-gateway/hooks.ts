@@ -286,12 +286,8 @@ export async function authorizeRequest(
 }
 
 /**
-<<<<<<< HEAD
- * Apply the LLM wallet gate only to accounts that can spend wallet credits on
- * Dosco-managed models. Free-tier wallets fund sandbox compute only.
-=======
  * Apply the LLM wallet gate to every request that can spend wallet credits on
- * Kortix-managed models.
+ * Dosco-managed models.
  *
  * An account without the managed-models entitlement (BYOK-only, whether by
  * tier, trial, or operator override) settles its own keys and ChatGPT
@@ -299,11 +295,10 @@ export async function authorizeRequest(
  * legacy non-deferred auth call (no model resolved yet) skips it. The one
  * exception is the platform default: the ONE managed model every tier may use
  * (KRTX-1067), which settles as credits. The deferred gateway path calls this
- * only for a Kortix-billed request it already resolved (`creditsRequest`), so
+ * only for a Dosco-billed request it already resolved (`creditsRequest`), so
  * the floor applies there for every account — without it a drained free
  * wallet ran platform-default turns with no admission hold and the settle
  * (which never enforces a floor) drove the balance negative.
->>>>>>> upstream-dev
  */
 export async function assertLlmBillingActive(
   accountId: string,
@@ -401,7 +396,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   const pureHoldRefund = isPureHoldRefund(event);
   // A pure hold refund observed nothing — no upstream call happened.
   if (!pureHoldRefund) extendDeadlineForLlmActivity(event.sessionId);
-  // On a customer's own key the only Kortix charge is the BYOK fee.
+  // On a customer's own key the only Dosco charge is the BYOK fee.
   const byokFee = pureHoldRefund ? 0 : await byokFeeFor(event);
 
   const usageEventId = pureHoldRefund

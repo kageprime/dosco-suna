@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
  * The session notification cards drawn on the toast surface: a failed turn
  * ("Session error", the error sentence, Open) and the stack several finished turns
  * collapse into. A single finished turn uses the plain `ToastCard` with an
- * entity row. Board: Paper, Kortix file, the toasts page,
+ * entity row. Board: Paper, Dosco file, the toasts page,
  * artboard 02.
  */
 

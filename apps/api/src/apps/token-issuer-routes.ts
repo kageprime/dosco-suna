@@ -1,5 +1,5 @@
 /**
- * Public discovery for a project's Kortix sign-in tokens (./tokens.ts):
+ * Public discovery for a project's Dosco sign-in tokens (./tokens.ts):
  *
  *   GET /v1/projects/:projectId/.well-known/openid-configuration
  *   GET /v1/projects/:projectId/jwks.json
@@ -28,7 +28,7 @@ tokenIssuerApp.openapi(
     method: 'get', path: '/{projectId}/.well-known/openid-configuration', tags: ['apps'],
     summary: "A project's token issuer metadata",
     description:
-      "OpenID Provider metadata for the issuer of a project's Kortix sign-in tokens: `issuer` and `jwks_uri`. " +
+      "OpenID Provider metadata for the issuer of a project's Dosco sign-in tokens: `issuer` and `jwks_uri`. " +
       'Public. For verifiers only: there is no authorization endpoint.',
     request: { params: Params },
     responses: {
@@ -59,7 +59,7 @@ tokenIssuerApp.openapi(
     method: 'get', path: '/{projectId}/jwks.json', tags: ['apps'],
     summary: "A project's token key set",
     description:
-      "The public ES256 key that signs a project's Kortix sign-in tokens, as a JSON Web Key Set. Public. " +
+      "The public ES256 key that signs a project's Dosco sign-in tokens, as a JSON Web Key Set. Public. " +
       'Empty until the project mints its first token.',
     request: { params: Params },
     responses: {

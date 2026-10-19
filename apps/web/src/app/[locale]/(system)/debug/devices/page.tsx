@@ -43,7 +43,7 @@ const UA = {
   safariIpad:
     'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/604.1',
   desktopApp:
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Kortix/1.4.0 Chrome/140.0.0.0 Electron/38.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Dosco/1.4.0 Chrome/140.0.0.0 Electron/38.0.0 Safari/537.36',
   chromebook:
     'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
   linuxOther: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Konqueror/5',
@@ -152,7 +152,7 @@ const SCENARIOS: { title: string; note: string; view: ReactNode }[] = [
           THIS_BROWSER,
           {
             id: 'd-long',
-            label: 'Kortix desktop on a very long operating system name that keeps going',
+            label: 'Dosco desktop on a very long operating system name that keeps going',
             detail: 'Last active Oct 5, 2026, 9:12 PM',
             ip: '2001:db8:85a3:0000:0000:8a2e:0370:7334',
           },

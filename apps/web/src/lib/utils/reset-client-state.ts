@@ -53,16 +53,9 @@ import { clearSessionIDBCache } from '@kortix/sdk/internal/idb-sync-cache'; // e
  * sign out AND the app could park on its loading frame at sign-in, with no
  * error shown either way. The bound stays: nothing else bounds IndexedDB.
  *
-<<<<<<< HEAD
- * Outrunning step 5 is safe because it purges INERT data: nothing in Dosco
- * reads those entries any more (see that module's own header), and they are
- * keyed `user:<id>` via `buildSessionCacheKey`, so the next account cannot read
- * them even if the purge never lands. Everything that would actually leak
-=======
  * Outrunning step 5 is safe because every saved copy names its user, and the
  * saved-copy store refuses a copy written for another user, so the next
  * account cannot read them even if the purge never lands. Everything that would actually leak
->>>>>>> upstream-dev
  * across identities is already gone by then.
  *
  * Does NOT clear `kortix_last_project`. That cookie is owner-bound

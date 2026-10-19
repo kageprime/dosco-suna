@@ -260,9 +260,9 @@ describe('RepoFileNotFoundError', () => {
 const execFileAsyncBytes = promisify(execFile);
 const BYTES_ENV = {
   ...process.env,
-  GIT_AUTHOR_NAME: 'Kortix',
+  GIT_AUTHOR_NAME: 'Dosco',
   GIT_AUTHOR_EMAIL: 'noreply@kortix.invalid',
-  GIT_COMMITTER_NAME: 'Kortix',
+  GIT_COMMITTER_NAME: 'Dosco',
   GIT_COMMITTER_EMAIL: 'noreply@kortix.invalid',
 };
 

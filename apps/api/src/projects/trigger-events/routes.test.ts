@@ -50,7 +50,7 @@ describe('POST /v1/webhooks/events/:provider', () => {
     setEventSourceForTest('composio', fake);
   });
 
-  test('404 for an unknown provider, and for mcp: Kortix checks those apps, nothing pushes to it', async () => {
+  test('404 for an unknown provider, and for mcp: Dosco checks those apps, nothing pushes to it', async () => {
     expect((await post('nope')).status).toBe(404);
     expect((await post('mcp')).status).toBe(404);
   });

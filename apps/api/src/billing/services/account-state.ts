@@ -1,10 +1,5 @@
 import { AUTO_TOPUP_DEFAULT_AMOUNT, AUTO_TOPUP_DEFAULT_THRESHOLD } from '@kortix/shared';
 import { config } from '../../config';
-<<<<<<< HEAD
-import { db } from '../../shared/db';
-import { PAYSTACK_CHARGE_CURRENCY } from '../../shared/paystack';
-=======
->>>>>>> upstream-dev
 import { isPlatformAdmin } from '../../shared/platform-roles';
 import { isoValue } from '../../shared/cost-values';
 import type {
@@ -36,39 +31,6 @@ import { currentPeriodStart, getUsageBreakdownThisPeriod } from './usage-breakdo
 
 type CreditAccountRow = Awaited<ReturnType<typeof getCreditAccount>>;
 
-<<<<<<< HEAD
-type InstanceSummary = AccountStateResponse['instances'][number] & {
-  stripe_subscription_id: string | null;
-  cancel_at_period_end: boolean;
-  cancel_at: string | null;
-};
-
-function metadataString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-/** Configured USD→NGN rate for Paystack display, or null when unset. */
-function paystackUsdNgnRateOrNull(): number | null {
-  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
-  return Number.isFinite(rate) && rate > 0 ? rate : null;
-}
-
-async function countActiveSessions(accountId: string): Promise<number> {
-  const [row] = await db
-    .select({ activeCount: sql<number>`count(*)::int` })
-    .from(projectSessions)
-    .where(
-      and(
-        eq(projectSessions.accountId, accountId),
-        inArray(projectSessions.status, [...ACTIVE_SESSION_STATUSES]),
-      ),
-    )
-    .limit(1);
-  return Number(row?.activeCount ?? 0);
-}
-
-=======
->>>>>>> upstream-dev
 export async function buildMinimalAccountState(accountId: string): Promise<AccountStateResponse> {
   // Single source of truth for the credit_accounts row for this request.
   // getCreditSummary / getAccountEntitlements / getAutoTopupSettings used to
@@ -209,21 +171,6 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
       entitlements,
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
-<<<<<<< HEAD
-    // Paystack pre-redirect display ("≈ ₦X charged"). Null rate = rate
-    // unconfigured; the UI hides the figure and checkout fails clearly.
-    billing_fx: {
-      currency: PAYSTACK_CHARGE_CURRENCY,
-      usd_ngn_rate: paystackUsdNgnRateOrNull(),
-    },
-    // Surface the per-account contracted-Enterprise flag so the admin console
-    // and the frontend can distinguish a real Enterprise contract (entitlements
-    // sourced from `enterprise_entitled`, independent of billing tier) from a
-    // self-serve demo or a self-host license. When true, the frontend hides
-    // the self-serve "Enterprise features — Demo" toggle (a real contract
-    // supersedes the demo) and the admin console shows the contract state.
-    enterprise_entitled: !!sub?.enterpriseEntitled,
-=======
     enterprise_entitled: resolved.enterprise !== 'off',
     // Trials are removed (plans-and-access.md): always null, kept for the wire shape.
     trial: null,
@@ -231,7 +178,6 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
     contract: contractOf(contract),
     enterprise_offer: offerOf(offer),
     grace: graceOf(resolved, lastEnded),
->>>>>>> upstream-dev
     models: [],
     auto_topup: autoTopup,
     usage_this_period: usageThisPeriod,
@@ -338,10 +284,6 @@ export function buildLocalAccountState(): AccountStateResponse {
       entitlements: getTierEntitlements('free'),
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
-    billing_fx: {
-      currency: PAYSTACK_CHARGE_CURRENCY,
-      usd_ngn_rate: paystackUsdNgnRateOrNull(),
-    },
     // No-DB local mode has no credit_accounts row, so the contracted-Enterprise
     // flag is false by construction (fail-closed).
     enterprise_entitled: false,

@@ -46,12 +46,7 @@ import { localizedAppCopy, appCan, appCommand, appHost, appStatus, appTabLabel, 
 /**
  * The App, full screen, with its controls above it.
  *
-<<<<<<< HEAD
  * Opening an App used to mean a new browser tab, which left Dosco behind and
- * lost every control the moment you arrived. The App now runs in place and the
- * actions that used to crowd the card sit in one bar over the top of it.
-=======
- * Opening an App used to mean a new browser tab, which left Kortix behind and
  * lost every control the moment you arrived. The App now runs in place under
  * a minimal bar: Refresh, Open, Settings, Close. Everything else sits in the
  * settings modal.
@@ -59,7 +54,6 @@ import { localizedAppCopy, appCan, appCommand, appHost, appStatus, appTabLabel, 
  * The body and the capability rows of the settings follow `app.capabilities`:
  * `preview` frames the App itself, and Connect shows for the Apps that offer
  * `member_tokens`.
->>>>>>> upstream-dev
  */
 export function AppDetailModal({
   projectId,
@@ -454,7 +448,7 @@ export function AppDetailModal({
                   </Button>
                 </SettingsRow>
               ) : null}
-              {/* An external App has no versions: Kortix never deploys it. */}
+              {/* An external App has no versions: Dosco never deploys it. */}
               {app.external_url || !canDeploy ? null : (
                 <SettingsRow label={tI18nComplete.raw('text401dc1a55cb9')}>
                   <Button

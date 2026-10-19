@@ -50,7 +50,7 @@ export async function listAppEventTypes(
   if (!eventSourceAvailable(provider.id, metadata)) return { kind: 'unavailable' };
   let items: EventTypeInfo[];
   if (provider.id === MCP_SOURCE_ID) {
-    // Kortix's own types are static code: nothing to cache, and no cache entry per probed app name.
+    // Dosco's own types are static code: nothing to cache, and no cache entry per probed app name.
     items = await provider.listEventTypes(app);
   } else {
     const key = `${provider.id}:${app}`;
@@ -208,7 +208,7 @@ export async function listEventApps(projectId: string, accountId: string): Promi
     .from(connectors)
     .where(eq(connectors.projectId, projectId));
   const metadata = await projectMetadataOf(projectId);
-  // connectors_v2 installs apps from the Kortix MCP catalog: a Composio app stays listed only where the project has one.
+  // connectors_v2 installs apps from the Dosco MCP catalog: a Composio app stays listed only where the project has one.
   const catalogOnly = resolveFeatureFlag(metadata, 'connectors_v2');
   const out: EventAppEntry[] = [];
   for (const provider of allEventSources(metadata)) {

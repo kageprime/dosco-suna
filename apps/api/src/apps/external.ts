@@ -1,10 +1,10 @@
 /**
- * External Apps: an App hosted elsewhere that Kortix lists and frames by URL
- * (`apps.external_url`). Kortix never deploys, wakes or bills it.
+ * External Apps: an App hosted elsewhere that Dosco lists and frames by URL
+ * (`apps.external_url`). Dosco never deploys, wakes or bills it.
  */
 import { safeEgressFetch } from '../shared/ssrf-guard';
 
-/** `source` (a CSP host source such as `https://*.kortix.com`) matches `origin`. */
+/** `source` (a CSP host source such as `https://*.dosco.live`) matches `origin`. */
 function sourceMatches(source: string, origin: URL): boolean {
   const match = /^(?:(https?):\/\/)?(\*\.)?([^/:]+)(?::(\d+|\*))?/.exec(source);
   if (!match) return false;

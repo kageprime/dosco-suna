@@ -57,7 +57,7 @@ export function isKortixInitiatedRemoval(row: Pick<RuntimeIdentityRow, 'status' 
 }
 
 /**
- * Stamp the intent BEFORE Kortix asks the provider to remove the box. The
+ * Stamp the intent BEFORE Dosco asks the provider to remove the box. The
  * provider's `removed` webhook can land within seconds of the remove call and
  * must not read as a lost runtime. Keyed by sandbox id — a metadata merge, so
  * a concurrent park write loses nothing. Every caller that removes a box

@@ -29,8 +29,8 @@ let sent: EmailMessage[] = [];
 // The sales copy goes to DEMO_LEAD_NOTIFY_EMAIL, which is empty outside prod.
 const savedOpsEmail = config.DEMO_LEAD_NOTIFY_EMAIL;
 
-const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Kortix billing]'));
-const opsEmails = () => sent.filter((m) => m.subject.startsWith('[Kortix billing]'));
+const customerEmails = () => sent.filter((m) => !m.subject.startsWith('[Dosco billing]'));
+const opsEmails = () => sent.filter((m) => m.subject.startsWith('[Dosco billing]'));
 
 beforeAll(async () => {
   config.DEMO_LEAD_NOTIFY_EMAIL = 'sales@example.test';
@@ -73,7 +73,7 @@ afterAll(async () => {
 });
 
 describe('the access sweep', () => {
-  test('a license 5 days from a non-renewing end warns the owner and the admin (not the member), and Kortix sales', async () => {
+  test('a license 5 days from a non-renewing end warns the owner and the admin (not the member), and Dosco sales', async () => {
     await createContract({ accountId: ending.account_id, licenseUsd: 25000, collection: 'manual', termMonths: 12 });
     await db
       .update(enterpriseContracts)

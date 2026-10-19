@@ -1,10 +1,10 @@
 /**
  * Integration test (real local DB): sessionModelUsage — which model answered a
- * session's requests, and what Kortix billed for them, read from the gateway's
+ * session's requests, and what Dosco billed for them, read from the gateway's
  * request ledger and attributed to turns.
  *
  * Incident 2026-10-02: a project's chain answered every request of a session
- * from a Kortix model while the session screen named the selected ChatGPT
+ * from a Dosco model while the session screen named the selected ChatGPT
  * model and priced each turn at $0.
  *
  * Every row is synthetic.
@@ -184,14 +184,14 @@ describe('sessionModelUsage', () => {
   test('a request logged before the serving model was recorded is read from its own columns', async () => {
     await session('legacy');
     await turn('legacy', 'msg_legacy_1', 0, 30);
-    // A Kortix model answered a request for another model after a failed attempt: a fallback.
+    // A Dosco model answered a request for another model after a failed attempt: a fallback.
     await request({
       session: 'legacy', at: 10, requested: 'codex/gpt-6.1-sol', resolved: 'glm-5.3-flash', provider: 'kortix', cost: 0.5,
       metadata: { attemptFailures: [{ attempt: 1, provider: 'openai-codex', routeModel: 'codex/gpt-6.1-sol', status: 429 }] },
     });
     // An own-key answer keeps the id the client asked for; the upstream id is not a route id.
     await request({ session: 'legacy', at: 12, requested: 'openai/gpt-5.4', resolved: 'gpt-5.4', provider: 'openai' });
-    // `auto` resolved to a Kortix model with no failed attempt: not a fallback.
+    // `auto` resolved to a Dosco model with no failed attempt: not a fallback.
     await request({ session: 'legacy', at: 14, requested: 'auto', resolved: 'deepseek-v4.1-flash', provider: 'kortix', cost: 0.25 });
 
     const usage = await usageOf('legacy');

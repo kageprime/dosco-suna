@@ -96,8 +96,8 @@ describe('waitForActive — PHASE 2 poll error classification', () => {
 });
 
 // The shape of a real failure (a prod project, 2026-10-05): a project Dockerfile's
-// global ENV leaked into the appended Kortix layer, whose `uv python install`
-// then died at STEP 15/49. Platinum stored all of this in build_logs; Kortix
+// global ENV leaked into the appended Dosco layer, whose `uv python install`
+// then died at STEP 15/49. Platinum stored all of this in build_logs; Dosco
 // used to surface only "Platinum template … build failed".
 const REAL_FAILURE_LOGS = [
   'STEP 15/49: RUN case "$(uname -m)" in x86_64) uv_arch=x86_64 ;; esac && uv python install --default 3.12.13',

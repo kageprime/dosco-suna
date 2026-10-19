@@ -375,15 +375,6 @@ export function parseHandle(value: string, rootSecret: string): HandleParse {
   return { ok: true, lookupId, prefix: value.slice(0, marker) };
 }
 
-<<<<<<< HEAD
-/** Cheap pre-filter: does this look like a Dosco handle at all? Used to decide
- *  whether a value is worth parsing, never as an authorization check. */
-export function looksLikeHandle(value: string): boolean {
-  return value.includes(HANDLE_MARKER);
-}
-
-=======
->>>>>>> upstream-dev
 /**
  * The marker plus a body of exactly the right width, and NOT one character
  * more: the trailing lookahead is what stops a longer base32 run from being

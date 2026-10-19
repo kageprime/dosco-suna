@@ -35,7 +35,7 @@ export function resolveTokenBoundSessionId(
 }
 
 /**
- * Only project-scoped tokens carry a Kortix project session identity.
+ * Only project-scoped tokens carry a Dosco project session identity.
  * Supabase JWTs also set `sessionId`, but that value identifies the Supabase
  * authentication session. It must not enter connection resolution.
  */

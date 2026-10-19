@@ -113,7 +113,7 @@ export function useWorkspaceMenuModel(
     selectedAccountId,
   });
 
-  // Kortix Capture is an account feature: the menu links to it once the
+  // Dosco Capture is an account feature: the menu links to it once the
   // account has it on.
   const captureOn = useCaptureWorkspace(switcherAccountId ?? null).data?.enabled ?? false;
 

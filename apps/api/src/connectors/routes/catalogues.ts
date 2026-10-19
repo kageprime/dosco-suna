@@ -138,7 +138,7 @@ export function registerDiscoverDetailRoutes(app: OpenAPIHono, deps: ConnectorRo
 }
 
 /**
- * Which catalogue Discover serves: Kortix's own MCP apps for a `connectors_v2`
+ * Which catalogue Discover serves: Dosco's own MCP apps for a `connectors_v2`
  * project (`connectors/mcp-apps.ts`), integrations.sh behind
  * `connectors_api_discover`, else none.
  */

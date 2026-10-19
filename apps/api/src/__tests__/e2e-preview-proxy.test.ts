@@ -701,7 +701,7 @@ describe('Preview proxy: websocket upgrade (path form)', () => {
 
   // R7.5: pi reports `opencode_port: null`. The 4096 fallback dialed a port
   // where nothing listens and the terminal died with close code 4502.
-  test('an opencode PTY on a pi box is refused with 409 naming the Kortix PTY, after one health read', async () => {
+  test('an opencode PTY on a pi box is refused with 409 naming the Dosco PTY, after one health read', async () => {
     mockFetchResponses = [{ status: 200, body: '{"harness":{"id":"pi","details":{"model":"kortix/x"}},"opencode_port":null}' }];
     const res = await preparePreviewWsUpgrade(upgradeUrl('ws-pi-box', 4096, '/pty/pty_1/connect'));
     expect(res).toMatchObject({ ok: false, status: 409 });

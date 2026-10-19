@@ -60,7 +60,7 @@ describe('workspaceFileLinkPath — document-relative resolution', () => {
   test('empty and anchor hrefs stay null', () => {
     expect(workspaceFileLinkPath('', DIR)).toBeNull();
     expect(workspaceFileLinkPath('#section', DIR)).toBeNull();
-    expect(workspaceFileLinkPath('https://kortix.com', DIR)).toBeNull();
+    expect(workspaceFileLinkPath('https://dosco.live', DIR)).toBeNull();
   });
 });
 

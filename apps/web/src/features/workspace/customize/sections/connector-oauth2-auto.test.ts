@@ -105,7 +105,7 @@ describe('buildClientRegistrationInput', () => {
   });
 });
 
-describe('a catalogue app on a Kortix OAuth client (kortix_client)', () => {
+describe('a catalogue app on a Dosco OAuth client (kortix_client)', () => {
   const GMAIL: OAuth2ResourceDiscovery = {
     resource_url: 'https://gmailmcp.googleapis.com/mcp/v1',
     requires_authorization: true,

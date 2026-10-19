@@ -251,7 +251,7 @@ describe('a claimed local preview host', () => {
     const [req, url] = request(
       '/learn?token=good',
       { headers: { 'x-kortix-preview-host': 'p8081-sbx-known.localhost' } },
-      'dev-api.kortix.com',
+      'dev-api.dosco.live',
     );
     expect(await handlePreviewOriginRequest(req, url)).toBeNull();
     expect(labelLookups).toEqual([]);

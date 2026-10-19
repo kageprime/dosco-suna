@@ -361,10 +361,10 @@ async function dropProvisionalRows(tx: Tx, sessionId: string, puts: readonly Ses
 }
 
 /**
- * A pi dump written before P2.5 has no Kortix ids: pi exports its replies as `pi:<entry id>`
+ * A pi dump written before P2.5 has no Dosco ids: pi exports its replies as `pi:<entry id>`
  * (`harness/pi/session-log.ts` in kortixd). Its capture rows carry the v1 ids, so they would
  * stay next to the native ones. A journal reply with a `pi:` id tombstones every live capture
- * row of its thread at seq `-rev`. A P2.5+ dump gives every reply a Kortix id; only its
+ * row of its thread at seq `-rev`. A P2.5+ dump gives every reply a Dosco id; only its
  * system and custom messages have `pi:` ids, so they do not count. Generation 0 only: a
  * restored store (P6.2) holds this log and writes `pi:` replies of its own (a layout compaction).
  */

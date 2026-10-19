@@ -412,7 +412,7 @@ export const desktopComputerGrants = () => desktopCommand<DesktopComputerGrants>
  * time. `restartAgent`: the agent reports a grant missing that macOS shows
  * as given to the app, so its process predates the grant; restart it.
  * Access (Ask, Always, Off, keep awake) is not here: the web app changes it
- * through Kortix (`useSetComputerAccess`), which the machine applies.
+ * through Dosco (`useSetComputerAccess`), which the machine applies.
  */
 export const desktopComputerRequestGrants = (input: { restartAgent?: boolean } = {}) =>
   desktopAction<DesktopComputerGrants>('computer_grants_request', input);

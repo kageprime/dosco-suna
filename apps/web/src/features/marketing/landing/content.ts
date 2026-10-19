@@ -14,13 +14,8 @@ import type { UiTranslator } from '@/i18n/translator';
  */
 
 /**
-<<<<<<< HEAD
  * Hero variants. The product pitch — what Dosco IS — not a use-case pitch.
- * Anchored on the product tagline: "Dosco Agent Terminal".
-=======
- * Hero variants. The product pitch — what Kortix IS — not a use-case pitch.
  * Anchored on the README's opening: "The open-source AI Operating System".
->>>>>>> upstream-dev
  *
  * Append `?hero=1` (or 2, 3, 4) to the URL to preview an alternative; the
  * selector is dev-only and renders nothing in production.

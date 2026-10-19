@@ -24,11 +24,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'text3efe2d7294ba',
   'Every Dosco session gets its own computer: an isolated Linux machine that clones your repo, cuts a branch named after the session, and runs OpenCode. Work lands through a change request a person approves.':
     'textb57f2c70525f',
-<<<<<<< HEAD
-  'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco command center.':
-=======
-  'Field notes on building, running, and governing AI agents that do real work — from the team building the Kortix AI Operating System.':
->>>>>>> upstream-dev
+  'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco AI Operating System.':
     'text3661bf7ae497',
   'Get Dosco for macOS, Windows, Linux, iOS, and Android.': 'textd587acccbf63',
   'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.':
@@ -99,6 +95,6 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   "AI agents for marketing teams": 'textaaab3a59b808',
   "AI agents for finance teams": 'text8f480bae8d16',
   'White-label: your AI product on Platinum.dev compute': 'texta0990a4a86dc',
-  'Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.':
+  'Fork Dosco, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.':
     'text6189ab6313de',
 };

@@ -65,12 +65,12 @@ export { currentInstanceId } from './instance-scope';
 
 // What account erasure deletes outside the database (consumed by
 // ../billing/services/account-deletion): each project's session files and its
-// Kortix-managed repo.
+// Dosco-managed repo.
 export { sessionAttachmentStore } from './lib/session-attachments';
 export { deleteManagedProjectRepo } from './lib/project-deletion';
 export { isAlreadyNotRunning } from './reaping/policy';
 
-// The stamp the removal gate reads: mark a teardown as Kortix-initiated BEFORE
+// The stamp the removal gate reads: mark a teardown as Dosco-initiated BEFORE
 // the provider call so its `removed` webhook cannot read as a lost runtime
 // (consumed by ../billing/services account deletion).
 export { markKortixRemovalIntent } from './runtime-identity';
@@ -95,7 +95,7 @@ export const reconcileEventSubscriptionsFromCatalog: typeof import('./trigger-ev
   async (...args) => (await eventSubscriptions()).reconcileEventSubscriptionsFromCatalog(...args);
 export const releaseProjectEventSubscriptions: typeof import('./trigger-events/subscriptions').releaseProjectEventSubscriptions =
   async (...args) => (await eventSubscriptions()).releaseProjectEventSubscriptions(...args);
-// Kortix-polled app events (consumed by workers/trigger-event-poll-worker.ts). Loading the
+// Dosco-polled app events (consumed by workers/trigger-event-poll-worker.ts). Loading the
 // module registers the delivery queue's job handler. Lazy for the same cycle as above.
 export const runDueEventPolls = async (onSlotFree?: () => void): Promise<number> =>
   (await import('./trigger-events/mcp-poll')).runDueEventPolls(onSlotFree);

@@ -12,7 +12,7 @@ export function composioConnectionMetadata(input: {
   authRequestId?: string;
   connectedAccountId?: string;
   isNoAuth: boolean;
-  /** Kortix session whose agent asked for this connector. Deliberately NOT
+  /** Dosco session whose agent asked for this connector. Deliberately NOT
    *  `session_id` — that key is Composio's Tool Router session (`trs_…`). */
   requestingSessionId?: string | null;
   /** The previous metadata. Its row-level keys (`rowMetadata`) are kept. */
@@ -35,7 +35,7 @@ export function composioConnectionMetadata(input: {
 }
 
 /**
- * The Kortix session whose agent asked for this connector, as stored on the
+ * The Dosco session whose agent asked for this connector, as stored on the
  * connection row. Provider-neutral on purpose: Composio writes it inside
  * `composioConnectionMetadata`, Pipedream through `mergeRequestingSession`,
  * and finalize reads both through this one accessor.

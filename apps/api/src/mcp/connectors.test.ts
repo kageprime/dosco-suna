@@ -120,7 +120,7 @@ describe('apps on a Connectors v2 project', () => {
     } as unknown as Host;
   }
 
-  test('search_connector_apps lists MCP apps from Kortix’s catalogue, not Composio', async () => {
+  test('search_connector_apps lists MCP apps from Dosco’s catalogue, not Composio', async () => {
     const calls: Array<{ method: string; path: string }> = [];
     const result = (await runConnectorTool('search_connector_apps', { project_id: 'proj-1', query: 'linear' }, v2Host(calls))) as { content: Array<{ text: string }> };
     expect(JSON.parse(result.content[0]!.text).apps).toEqual([

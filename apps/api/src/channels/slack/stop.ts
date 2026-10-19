@@ -6,31 +6,11 @@ import type { LiveTurn } from './types';
 export { SLACK_STOP_ACTION } from './stop-action';
 
 /**
-<<<<<<< HEAD
- * Who may press Stop on a live turn.
- *
- * The button sits on a message the whole thread can see, so the check happens
- * on the press, not when it is drawn. Two people may stop a run:
- *
- *  - whoever sent the message this turn is answering, which is the only
- *    correct answer in an open thread where the session owner and the person
- *    actually waiting are routinely different people;
- *  - anyone approved on this thread's session, which is how the owner and
- *    every accepted joiner are recorded.
- *
- * Either one must also still be allowed to stop runs in the project: a linked
- * Dosco account with `project.session.stop`. Someone removed from the
- * project, or never linked, is refused. Anyone else is refused, and an
- * unresolvable lookup refuses too. Failing closed is the safe direction: the
- * worst case is a bystander waiting for a run to end, not a bystander ending
- * someone else's work.
-=======
  * Who may press Stop on a live turn: the sender of the message it answers,
  * the session owner, a project manager, or the linked user who prompted the
  * running turn from another surface (`chatTurnStopVerdict`). An approved
  * thread participant who is none of these is refused. A lookup that fails
  * refuses too.
->>>>>>> upstream-dev
  */
 async function mayStopSlackTurn(handle: LiveTurn, slackUserId: string): Promise<ChatTurnStopVerdict> {
   try {

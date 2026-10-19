@@ -687,13 +687,13 @@ describe('UnifiedMarkdown — a link to a workspace file', () => {
       withIntl(
         <UnifiedMarkdown
           trust="agent"
-          content="[home](/projects/p1) and [site](https://kortix.com/a.pdf)"
+          content="[home](/projects/p1) and [site](https://dosco.live/a.pdf)"
         />,
       ),
     );
 
     expect(html).toContain('href="/projects/p1"');
-    expect(html).toContain('href="https://kortix.com/a.pdf"');
+    expect(html).toContain('href="https://dosco.live/a.pdf"');
     expect(html).not.toContain('<button');
   });
 
@@ -799,12 +799,12 @@ describe("UnifiedMarkdown — a markdown document's file links", () => {
           trust="agent"
           variant="document"
           documentPath="/workspace/memory/MEMORY.md"
-          content="[site](https://kortix.com)"
+          content="[site](https://dosco.live)"
         />,
       ),
     );
 
-    expect(html).toContain('href="https://kortix.com/"');
+    expect(html).toContain('href="https://dosco.live/"');
     expect(html).not.toContain('<button');
   });
 });

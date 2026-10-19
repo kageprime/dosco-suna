@@ -239,7 +239,7 @@ export async function applyNotices(provider: string, notices: readonly ProviderN
 }
 
 /**
- * A person finished connecting an account outside any open Kortix page (a CLI or
+ * A person finished connecting an account outside any open Dosco page (a CLI or
  * agent link): finalize it the way the connect route does, then let the project's
  * event triggers pick the account up. Unknown connections (another environment
  * sharing the provider project) are ignored. Never throws.

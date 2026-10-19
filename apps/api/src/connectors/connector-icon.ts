@@ -16,7 +16,7 @@
  *                                  does not list, and Install names the
  *                                  connector after the app.
  *
- *   mcp on a Kortix catalogue app → its icon, served by the web app
+ *   mcp on a Dosco catalogue app → its icon, served by the web app
  *                                  (`connectors/mcp-apps.ts`). No lookup.
  *
  * A connector the catalogue cannot place gets no icon. The host is never sent

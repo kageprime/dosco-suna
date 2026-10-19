@@ -16,7 +16,7 @@
  *     failure or the client's own timeout.
  *
  * Such a failure is EXPECTED — the provider is momentarily unavailable, not a
- * Kortix code bug — and every call site that hits Composio (toolkits
+ * Dosco code bug — and every call site that hits Composio (toolkits
  * catalogue, connect flows, tool execution, sync) must NOT page Sentry for
  * it. `app.onError` calls `isComposioTransientProviderError` and downgrades
  * the failure to a retryable 503 + `Retry-After` WITHOUT paging Sentry,

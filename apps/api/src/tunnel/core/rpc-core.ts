@@ -287,11 +287,7 @@ function computerAccessMessage(kind: ComputerAccessErrorKind, machine: string): 
     case 'computer_access_denied':
       return `The owner of ${machine} denied access. It stays denied for 10 minutes. Ask the user before retrying.`;
     case 'computer_access_off':
-<<<<<<< HEAD
-      return `Access to ${machine} is turned off on that computer. Ask the user to allow access from the Dosco menu on that computer.`;
-=======
-      return `Access to ${machine} is turned off on that computer. Ask the user to change Access in Your computer in Kortix, from the Kortix menu bar, or with \`npx @kortix/agent-tunnel@latest access ask\` on that computer.`;
->>>>>>> upstream-dev
+      return `Access to ${machine} is turned off on that computer. Ask the user to change Access in Your computer in Dosco, from the Dosco menu bar, or with \`npx @kortix/agent-tunnel@latest access ask\` on that computer.`;
   }
 }
 
@@ -410,7 +406,7 @@ export async function executeComputerCall(input: {
     return {
       ok: false,
       kind: 'computer_desktop_permission_missing',
-      message: `${detail} Ask the user to open the Kortix app on ${machine.name} and choose Your computer → Allow all. If they just allowed it, retry once in 30 seconds: Kortix restarts its connection to apply it.`,
+      message: `${detail} Ask the user to open the Dosco app on ${machine.name} and choose Your computer → Allow all. If they just allowed it, retry once in 30 seconds: Dosco restarts its connection to apply it.`,
     };
   }
   const access = outcome.kind === 'error' ? computerAccessErrorKind(outcome.code, outcome.message) : null;

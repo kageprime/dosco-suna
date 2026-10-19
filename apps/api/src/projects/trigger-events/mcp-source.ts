@@ -1,5 +1,5 @@
 /**
- * The `mcp` event source: Kortix checks the connected account's MCP server on
+ * The `mcp` event source: Dosco checks the connected account's MCP server on
  * its own infra (mcp-poll.ts) and feeds the same pipeline as a webhook source.
  * `subscribe` only writes the poll stream: it runs inside the reconciler's
  * project lock, so it makes no vendor call. The first check reports problems
@@ -109,7 +109,7 @@ export async function definitionFor(type: string, connectorId: string, app: stri
 /** The tool problem that stops a definition from running unattended, or null. */
 export function toolProblem(def: EventDefinition, tools: readonly ToolAction[], label: string): string | null {
   const tool = tools.find((t) => t.path === def.tool);
-  if (!tool) return `${label} does not offer the tool ${def.tool}. Reconnect ${label} so Kortix reads its tools again.`;
+  if (!tool) return `${label} does not offer the tool ${def.tool}. Reconnect ${label} so Dosco reads its tools again.`;
   if (tool.risk !== 'read') {
     return `${def.tool} can change data in ${label}, so a trigger cannot run it unattended. Pick an event whose tool only reads.`;
   }
@@ -200,7 +200,7 @@ export const mcpEventSource: EventSourceProvider = {
     // Settings the vendor would reject (a malformed folder id) fail here, not on every check.
     def.request(settings, { now: Date.now(), floor: Date.now() });
     if (!(await resolveProjectAutomationActor(row.accountId))) {
-      throw new Error(`This account has no owner for Kortix to check ${label} as.`);
+      throw new Error(`This account has no owner for Dosco to check ${label} as.`);
     }
     const externalId = streamIdFor(connection.connectionId, type, settings);
     const existing = await getStream(externalId);

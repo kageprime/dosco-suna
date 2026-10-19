@@ -111,9 +111,6 @@ export async function runtimeServesTurnVerbs(
   return (await runtimeCapabilities(externalId, endpoint, now))?.includes(RUNTIME_TURNS_CAPABILITY) ?? false;
 }
 
-<<<<<<< HEAD
-/** The header kortixd sets on every answer of a Dosco turn verb (`routes/kortix/runtime.ts`). */
-=======
 /**
  * Does this sandbox's daemon serve the retract verb (`runtime.retract.v1`)?
  * A failed read answers false, and the caller uses the delete spelling.
@@ -126,8 +123,7 @@ export async function runtimeServesRetract(
   return (await runtimeCapabilities(externalId, endpoint, now))?.includes(RUNTIME_RETRACT_CAPABILITY) ?? false;
 }
 
-/** The header kortixd sets on every answer of a Kortix turn verb (`routes/kortix/runtime.ts`). */
->>>>>>> upstream-dev
+/** The header kortixd sets on every answer of a Dosco turn verb (`routes/kortix/runtime.ts`). */
 export const TURN_VERB_HEADER = 'x-kortix-turn-verb';
 
 /**

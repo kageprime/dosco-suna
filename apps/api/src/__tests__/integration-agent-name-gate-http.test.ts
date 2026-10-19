@@ -35,7 +35,7 @@ const { insertIntoView } = await import('./helpers/compat-views');
 const { createLocalGitUpstream } = await import('./helpers/local-git-upstream');
 import type { LocalGitUpstream } from './helpers/local-git-upstream';
 
-const V2_MANIFEST = `# yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
+const V2_MANIFEST = `# yaml-language-server: $schema=https://dosco.live/schema/kortix.v2.schema.json
 kortix_version: 2
 default_agent: kortix
 project:

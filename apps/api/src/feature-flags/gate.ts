@@ -33,7 +33,7 @@ export function featureDisabledBody(key: FeatureFlagKey): {
     error: def?.derivedFrom
       ? `${def.name} is not enabled for this project. Turn on Volumes in Settings → Feature flags.`
       : def?.catalogHidden
-      ? `${def.name} is not enabled for this project. Contact Kortix to enable it.`
+      ? `${def.name} is not enabled for this project. Contact Dosco to enable it.`
       : `${def?.name ?? key} is not enabled for this project. Enable it in Settings → Feature flags.`,
     code: FEATURE_DISABLED_CODE,
     feature: key,

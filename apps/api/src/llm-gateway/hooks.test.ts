@@ -303,11 +303,11 @@ describe('assertLlmBillingActive — the wallet floor follows the credits reques
 
   // KRTX-1067: the platform default is the ONE managed model an
   // entitlement-less account can run, and it settles as credits — so the
-  // deferred gateway path (which calls this only for a Kortix-billed request
+  // deferred gateway path (which calls this only for a Dosco-billed request
   // it already resolved) must take the admission hold for it too. Without
   // this, a drained free wallet runs platform-default turns with no floor and
   // the settle drives the balance negative.
-  test('a Kortix-billed request takes the hold for an entitlement-less account', async () => {
+  test('a Dosco-billed request takes the hold for an entitlement-less account', async () => {
     accountTier = 'none';
 
     await assertLlmBillingActive('acct-1', { creditsRequest: true });
@@ -315,7 +315,7 @@ describe('assertLlmBillingActive — the wallet floor follows the credits reques
     expect(billingCalls).toBe(1);
   });
 
-  test('a Kortix-billed request still gates when the account is entitled', async () => {
+  test('a Dosco-billed request still gates when the account is entitled', async () => {
     await assertLlmBillingActive('acct-1', { creditsRequest: true });
 
     expect(billingCalls).toBe(1);

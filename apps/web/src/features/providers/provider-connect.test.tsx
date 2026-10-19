@@ -23,7 +23,7 @@ function row(overrides: Partial<ProviderListRow> & { id: string }): ProviderList
   return { label: overrides.id, method: 'key', modelCount: 0, status: 'none', ...overrides };
 }
 
-const KORTIX = row({ id: 'kortix', label: 'Kortix', method: 'included', status: 'included', modelCount: 42 });
+const KORTIX = row({ id: 'kortix', label: 'Dosco', method: 'included', status: 'included', modelCount: 42 });
 const ANTHROPIC = row({ id: 'anthropic', label: 'Anthropic', status: 'connected', modelCount: 14 });
 const GOOGLE = row({ id: 'google', label: 'Google Gemini', modelCount: 18 });
 
@@ -56,7 +56,7 @@ describe('ProviderConnectView — two groups, rows open the sheet', () => {
     expect(out).not.toContain('type="password"');
   });
 
-  test('a solid green check on the logo for Kortix and a stored key, none otherwise', () => {
+  test('a solid green check on the logo for Dosco and a stored key, none otherwise', () => {
     const out = render();
     expect(out).toContain('aria-label="Included"');
     expect(out).toContain('aria-label="Connected"');

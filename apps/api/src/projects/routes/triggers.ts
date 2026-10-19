@@ -156,145 +156,6 @@ export function registerTriggersRoutes(): void {
   // (last_fired_at). The repo is the source of truth — POST/PATCH/DELETE
   // below commit/update/delete the underlying file.
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'get',
-    path: '/{projectId}/triggers',
-    tags: ['triggers'],
-    summary: 'List project triggers',
-    ...auth,
-    request: {
-      params: z.object({ projectId: z.string() }),
-    },
-    responses: {
-      200: json(TriggerListSchema, 'Triggers, the pause switch and manifest parse errors'),
-      ...errors(404),
-    },
-  }),
-  async (c) => {
-    const projectId = c.req.param('projectId');
-    const loaded = await loadProjectForUser(c, projectId, 'read');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
-    // Leaf-gate the read (a custom role can omit project.trigger.read) — and, via
-    // the central agent-grant fold, an agent token must hold it in its Dosco permissions.
-    await assertProjectCapability(
-      c,
-      loaded.userId,
-      loaded.row.accountId,
-      projectId,
-      PROJECT_ACTIONS.PROJECT_TRIGGER_READ,
-    );
-
-    return c.json(await loadTriggersForResponse(projectId, loaded.row));
-  },
-);
-
-projectsApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/{projectId}/triggers',
-    tags: ['triggers'],
-    summary: 'Create a project trigger (cron, webhook or event)',
-    description:
-      'Create a trigger. It is committed to kortix.yaml. Send name, type and prompt_template, plus cron, secret_env or run by type.',
-    ...auth,
-    request: {
-      params: z.object({ projectId: z.string() }),
-      body: { content: { 'application/json': { schema: lenientBody({
-          name: z.string().openapi({ description: 'Trigger name. The slug derives from it.' }),
-          type: z.enum(['cron', 'webhook', 'monitor']).openapi({ description: 'cron runs on a schedule, webhook runs on an HTTP call, monitor supervises a command.' }),
-          prompt_template: z.string().openapi({ description: 'Prompt the agent receives on each fire. Webhook payload templates like {{ body.x }} are allowed.' }),
-          slug: z.string().optional().openapi({ description: 'Explicit slug (a-z, 0-9, _, -). Defaults to a slug of name.' }),
-          agent: z.string().optional().openapi({ description: 'Agent to run. Default "default".' }),
-          model: z.string().optional().openapi({ description: 'Model as provider/model. Empty uses the default model.' }),
-          enabled: z.boolean().optional().openapi({ description: 'Default true.' }),
-          cron: z.string().optional().openapi({ description: 'Cron expression. Required for a cron trigger unless run_at is set.' }),
-          run_at: z.string().optional().openapi({ description: 'ISO-8601 instant for a one-off cron trigger.' }),
-          timezone: z.string().optional().openapi({ description: 'IANA timezone for cron. Default UTC.' }),
-          secret_env: z.string().optional().openapi({ description: 'Project secret holding the webhook signing secret. Required for a webhook trigger.' }),
-          run: z.string().optional().openapi({ description: 'Repo-relative command a monitor supervises. Required for a monitor.' }),
-          mode: z.enum(['poll', 'stream']).optional().openapi({ description: 'Monitor mode. Required for a monitor.' }),
-          interval: z.string().optional().openapi({ description: 'Poll period such as 5m. Monitors with mode poll only.' }),
-          expect_event_within: z.string().optional().openapi({ description: 'Silence watchdog such as 1h. Monitors only.' }),
-          session_mode: z.enum(['fresh', 'reuse', 'pinned', 'keyed']).optional().openapi({ description: 'Whether each fire starts a new session, reuses one, pins one, or keys by session_key.' }),
-          session_id: z.string().optional().openapi({ description: 'Session to pin when session_mode is pinned.' }),
-          session_key: z.string().optional().openapi({ description: 'Template deriving one session per key when session_mode is keyed.' }),
-          filter: z.record(z.string(), z.any()).optional().openapi({ description: 'Payload path to expected value; a delivery fires only if all match.' }),
-          session_access: z.object({ mode: z.enum(['private', 'members', 'project']), memberIds: z.array(z.string()).optional(), groupIds: z.array(z.string()).optional() }).optional().optional().openapi({ description: 'Who can see the sessions this trigger creates. Default private.' }),
-        }) } } },
-    },
-    responses: {
-      201: json(TriggerListSchema, 'Every trigger after the create'),
-      ...errors(400, 404, 409, 502),
-    },
-  }),
-  async (c) => {
-    const projectId = c.req.param('projectId');
-    const body = await readJsonObject(c);
-    const loaded = await loadProjectForUser(c, projectId, 'manage');
-    if (!loaded) return c.json({ error: 'Not found' }, 404);
-    // Specific IAM gate so the audit trail records the precise action.
-    // assertProjectCapability (not bare assertAuthorized) so the acting token is
-    // threaded and the agent-grant fold fires.
-    await assertProjectCapability(
-      c,
-      loaded.userId,
-      loaded.row.accountId,
-      projectId,
-      PROJECT_ACTIONS.PROJECT_TRIGGER_CREATE,
-    );
-
-    const draft = parseTriggerDraft(body, { existingSlug: null });
-    if ('error' in draft) return c.json({ error: draft.error }, 400);
-    if (draft.type === 'webhook' && draft.secretEnv) {
-      const configurationError = await validateWebhookSecretConfiguration({
-        projectId,
-        secretEnv: draft.secretEnv,
-      });
-      if (configurationError) return c.json(configurationError, 409);
-    }
-    const parsedAccess =
-      body.session_access === undefined
-        ? { ok: true as const, access: PRIVATE_TRIGGER_SESSION_ACCESS }
-        : parseTriggerSessionAccess(body.session_access);
-    if (!parsedAccess.ok) return c.json({ error: parsedAccess.error }, 400);
-    const accessValidationError = await validateTriggerSessionAccessPrincipals(
-      loaded.row.accountId,
-      parsedAccess.access,
-    );
-    if (accessValidationError) return c.json({ error: accessValidationError }, 400);
-
-    // A `pinned` trigger may only target a session of THIS project that the
-    // author may see — never a nonexistent, another project's, or another
-    // member's private session. Every fire prompts that session.
-    if (draft.sessionMode === 'pinned' && draft.pinnedSessionId) {
-      const pinned = await guardSession(c, loaded, draft.pinnedSessionId, 'read');
-      if (!pinned.ok) {
-        return c.json(
-          { error: `Pinned session "${draft.pinnedSessionId}" was not found in this project.` },
-          400,
-        );
-      }
-    }
-
-    let committedManifest: ParsedManifest | undefined;
-    const result = await mutateManifestWithRetry(
-      loaded.row,
-      `trigger ${draft.slug} was being created`,
-      (manifest) => {
-        if (extractTriggers(manifest).specs.some((s) => s.slug === draft.slug)) {
-          return {
-            ok: false,
-            error: `A trigger with slug "${draft.slug}" already exists. Pick a different name.`,
-            status: 409,
-          };
-        }
-        const next = upsertTriggerInManifest(manifest, draftToSpec(draft, manifest.path));
-        manifest.raw = next.raw;
-        committedManifest = manifest;
-        return { ok: true, commitMessage: `chore: add trigger ${draft.slug}` };
-=======
   projectsApp.openapi(
     createRoute({
       method: 'get',
@@ -304,7 +165,6 @@ projectsApp.openapi(
       ...auth,
       request: {
         params: z.object({ projectId: z.string() }),
->>>>>>> upstream-dev
       },
       responses: {
         200: json(TriggerListSchema, 'Triggers, the pause switch and manifest parse errors'),
@@ -316,7 +176,7 @@ projectsApp.openapi(
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       // Leaf-gate the read (a custom role can omit project.trigger.read) — and, via
-      // the central agent-grant fold, an agent token must hold it in its Kortix permissions.
+      // the central agent-grant fold, an agent token must hold it in its Dosco permissions.
       await assertProjectCapability(
         c,
         loaded.userId,

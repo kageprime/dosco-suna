@@ -122,7 +122,7 @@ describe('Slack connect card — the payoff renders before the commitment', () =
     // carries no cover art or benefit list.
     expect(connectCardSource).toContain('<ChannelConnectHero');
     expect(connectCardSource).toContain('<SlackChannelMock');
-    expect(connectCardSource).toContain('@Kortix');
+    expect(connectCardSource).toContain('@Dosco');
     expect(connectCardSource).toContain('Bring your agent to Slack');
     expect(connectCardSource).not.toContain('SlackConnectCover');
     expect(connectCardSource).not.toContain('BlogCover');
@@ -134,39 +134,6 @@ describe('Slack connect card — the payoff renders before the commitment', () =
     expect(connectCardSource).not.toContain('usecases/slack');
   });
 
-<<<<<<< HEAD
-  test('the lockup is hidden from screen readers, since the heading already says it', () => {
-    expect(coverSource).toContain('aria-hidden');
-    // Labelling it would announce "Slack and Dosco" twice, next to <h3>Slack</h3>.
-    expect(coverSource).not.toContain('aria-label');
-  });
-
-  test('the cover is sized for a settings panel, not the blog 16/9', () => {
-    // A wide, short ratio (N/1) — the exact N is a taste call that has already
-    // moved once, so pinning it would fail on a tweak rather than a regression.
-    // What must hold is that the cover is explicitly sized and is NOT the
-    // blog's 16/9, which at max-w-2xl (672px) would be a 378px settings hero.
-    expect(coverSource).toMatch(/aspect-\[\d+\/1\]/);
-    expect(coverSource).not.toContain('aspect-[16/9]');
-    expect(coverSource).not.toContain('aspect-[16/10]');
-  });
-
-  test('the cover sits flush, with no tinted band fighting its own gradient', () => {
-    expect(connectCardSource).not.toContain('bg-muted/30 border-b p-4');
-    const wrapper = connectCardSource.match(/<div className="([^"]*)">\s*<SlackConnectCover/)?.[1];
-    // Read the wrapper's classes rather than pin its whole string: the cover is
-    // `scale-120`, so the wrapper's `overflow-hidden` is load-bearing — without
-    // it the upscaled band spills over the copy beneath. What must not appear
-    // is a fill or an inset, either of which puts a second surface between the
-    // panel and the cover's own gradient.
-    const classes = wrapper?.split(/\s+/).filter(Boolean) ?? [];
-    expect(classes).toContain('border-b');
-    expect(classes.filter((name) => name.startsWith('bg-'))).toEqual([]);
-    expect(classes.filter((name) => /^-?p[xytblrse]?-/.test(name))).toEqual([]);
-  });
-
-=======
->>>>>>> upstream-dev
   test('a self-hosted install with no managed app is a path, not an EmptyState', () => {
     expect(channelsSource).not.toContain('EmptyState');
     expect(connectCardSource).toContain('Set up Slack');

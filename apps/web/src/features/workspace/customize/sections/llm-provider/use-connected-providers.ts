@@ -66,59 +66,12 @@ export function useConnectedProviders(projectId: string, enabled: boolean) {
     // "Managed · Included with your plan" row simply doesn't render instead of
     // showing a managed provider with zero models.
     if (!llmGatewayEnabled || !isManagedProviderEnabled()) return null;
-<<<<<<< HEAD
-    const connectedIds = new Set(ocProviders?.connected ?? []);
-    const kortix = (ocProviders?.all ?? []).find((p) => p.id === 'kortix');
-    if (!kortix || !connectedIds.has('kortix')) return null;
-    const models: LlmProviderModel[] = [];
-    for (const [id, m] of Object.entries(kortix.models ?? {})) {
-      if (!MANAGED_MODEL_ID_SET.has(id)) continue;
-      // Best-effort capability/limit passthrough for the "Models in depth"
-      // display (models-tab.tsx / catalog-tab.tsx) — the opencode provider
-      // snapshot mirrors these when it has them; `vision`/`limit` otherwise
-      // fall back to `@kortix/llm-catalog`'s curated managed-model table,
-      // the canonical home for both (see MANAGED_MODELS' doc comment —
-      // managed slugs aren't reliably on models.dev, so this table is
-      // authoritative for them, not a guess).
-      const raw = m as {
-        name?: string;
-        release_date?: string;
-        reasoning?: boolean;
-        tool_call?: boolean;
-        limit?: { context?: number; output?: number };
-      };
-      const managed = getManagedModel(id);
-      models.push({
-        id,
-        name: (raw.name || id).replace('(latest)', '').trim(),
-        released: raw.release_date ?? null,
-        reasoning: raw.reasoning,
-        tool_call: raw.tool_call,
-        attachment: managed?.vision,
-        limit: raw.limit ?? managed?.limit,
-      });
-    }
-    return {
-      id: 'kortix',
-      label: kortix.name || 'Dosco',
-      envVars: [],
-      authRequirement: { methods: [] },
-      helpUrl: null,
-      // Synthetic entry: no models.dev row, so no vendor API host.
-      apiHost: null,
-      hint: tI18nComplete.raw('texte0a770200f93'),
-      models,
-      featured: true,
-      managed: true,
-    };
-=======
     // The builder also refuses the cloud state the flag cannot see: a plan-gated
     // catalog serving ZERO managed models (free tier with no servable platform
     // default — KRTX-1482) is not a connected managed provider. The model picker
     // shows "No models available — Upgrade" over the same catalog; the Providers
     // tab must not claim the opposite.
     return buildKortixManagedProvider(ocProviders, MANAGED_MODEL_ID_SET, tI18nComplete.raw('texte0a770200f93'));
->>>>>>> upstream-dev
   }, [llmGatewayEnabled, ocProviders, tI18nComplete]);
 
   const connectedProviders = useMemo(() => {

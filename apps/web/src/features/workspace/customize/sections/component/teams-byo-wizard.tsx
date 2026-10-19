@@ -73,7 +73,7 @@ import { useState, type ReactNode } from 'react';
 const AZURE_NEW_BOT_URL = 'https://portal.azure.com/#create/Microsoft.AzureBot';
 const TEAMS_ADMIN_APPS_URL = 'https://admin.teams.microsoft.com/policies/manage-apps';
 const MANIFEST_FILENAME = 'manifest.json';
-/** Microsoft's Azure brand blues — a third-party mark, not a Kortix token. */
+/** Microsoft's Azure brand blues — a third-party mark, not a Dosco token. */
 const AZURE_BRAND = { deep: '#0a5fb5', base: '#0078d4', light: '#1490df' } as const;
 
 type StepNumber = 1 | 2 | 3;

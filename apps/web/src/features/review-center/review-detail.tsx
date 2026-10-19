@@ -483,7 +483,7 @@ function DecisionBody({
                 onClose();
               }}
               className={cn(
-                'focus-visible:ring-dosco-base w-full rounded-md border px-4 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                'focus-visible:ring-kortix-blue w-full rounded-md border px-4 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none',
                 opt.recommended ? 'border-primary/40 bg-primary/[0.03]' : 'bg-popover',
                 !locked && 'hover:border-primary/40 hover:bg-primary/[0.05] active:scale-[0.99]',
                 locked && 'opacity-60',

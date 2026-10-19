@@ -48,30 +48,6 @@ import { loadProjectForUser } from '../lib/access';
 import { projectsApp } from '../lib/app';
 import { prepareRelayRequest, refuse, runRelayHops } from '../secrets/http-relay-hop';
 
-<<<<<<< HEAD
-projectsApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/{projectId}/secrets/{identifier}/relay',
-    tags: ['secrets'],
-    summary: 'Stream one policy-bound HTTPS request without exposing the secret',
-    description:
-      'The streaming sibling of /broker. The request body is the guest body verbatim; ' +
-      'url, method and headers ride in x-kortix-relay-meta. On success the response is ' +
-      'always 200 and the UPSTREAM status rides in x-kortix-relay-status — the presence ' +
-      'of that header is what distinguishes "Dosco refused" from "the upstream refused".',
-    ...auth,
-    request: {
-      // NO body schema, deliberately. A zod request body buffers and LOCKS the
-      // stream before this handler runs — measured — which is exactly why the
-      // buffered /broker route cannot be upgraded in place.
-      params: z.object({ projectId: z.string(), identifier: z.string() }),
-    },
-    responses: {
-      200: {
-        description: 'The upstream was reached. Body streams; status in x-kortix-relay-status.',
-        content: { 'application/octet-stream': { schema: z.any() } },
-=======
 export function registerSecretRelayRoutes(): void {
   projectsApp.openapi(
     createRoute({
@@ -83,14 +59,13 @@ export function registerSecretRelayRoutes(): void {
         'The streaming sibling of /broker. The request body is the guest body verbatim; ' +
         'url, method and headers ride in x-kortix-relay-meta. On success the response is ' +
         'always 200 and the UPSTREAM status rides in x-kortix-relay-status — the presence ' +
-        'of that header is what distinguishes "Kortix refused" from "the upstream refused".',
+        'of that header is what distinguishes "Dosco refused" from "the upstream refused".',
       ...auth,
       request: {
         // NO body schema, deliberately. A zod request body buffers and LOCKS the
         // stream before this handler runs — measured — which is exactly why the
         // buffered /broker route cannot be upgraded in place.
         params: z.object({ projectId: z.string(), identifier: z.string() }),
->>>>>>> upstream-dev
       },
       responses: {
         200: {

@@ -1,5 +1,5 @@
 /**
- * `/_kortix/api/v1/*` on an App's own origin: the Kortix API, as the viewer.
+ * `/_kortix/api/v1/*` on an App's own origin: the Dosco API, as the viewer.
  *
  * The API refuses an App origin's CORS preflight, and a per-App host list
  * cannot be configured. So a browser App calls this same-origin path instead.
@@ -74,7 +74,7 @@ export async function appApiProxyResponse(
   }
   const userId = resolveAppViewerUserId(request, url, app);
   if (!userId) {
-    return refuse(401, 'no_viewer_identity', 'No Kortix viewer is signed in to this App.');
+    return refuse(401, 'no_viewer_identity', 'No Dosco viewer is signed in to this App.');
   }
   const minted = await mintAppViewerToken(
     { appId: app.appId, accountId: app.accountId, name: app.name, viewerTokenScope: 'api' },

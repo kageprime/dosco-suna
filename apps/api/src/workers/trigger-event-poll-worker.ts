@@ -1,5 +1,5 @@
 /**
- * Kortix-polled app events (projects/trigger-events/mcp-poll.ts): every replica
+ * Dosco-polled app events (projects/trigger-events/mcp-poll.ts): every replica
  * claims due poll streams; SKIP LOCKED spreads them. A full batch means more
  * are due, so the next tick runs at once; else after IDLE_MS.
  */

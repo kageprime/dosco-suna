@@ -473,7 +473,7 @@ export function registerChannelBindingsRoutes(): void {
           if (!servable) {
             return c.json(
               {
-                error: `Model "${trimmed}" is not available to this conversation. A conversation is shared: it can run Kortix models and keys shared with the whole project, not anyone's own key or ChatGPT subscription.`,
+                error: `Model "${trimmed}" is not available to this conversation. A conversation is shared: it can run Dosco models and keys shared with the whole project, not anyone's own key or ChatGPT subscription.`,
                 code: "model_not_servable",
               },
               409,
@@ -481,30 +481,6 @@ export function registerChannelBindingsRoutes(): void {
           }
           stored = toWireModel(trimmed);
           }
-<<<<<<< HEAD
-          stored = trimmed;
-        } else {
-        const freeModelsOnly = !(await accountMayUseManagedModels(loaded.row.accountId as string));
-        const servable = await conversationCanRun({
-          userId: loaded.userId,
-          accountId: loaded.row.accountId as string,
-          projectId,
-          freeModelsOnly,
-          pooledEnabled: resolveFeatureFlag(loaded.row.metadata, "pooled_provider_secrets"),
-          model: trimmed,
-        });
-        if (!servable) {
-          return c.json(
-            {
-              error: `Model "${trimmed}" is not available to this conversation. A conversation is shared: it can run Dosco models and keys shared with the whole project, not anyone's own key or ChatGPT subscription.`,
-              code: "model_not_servable",
-            },
-            409,
-          );
-        }
-        stored = toWireModel(trimmed);
-=======
->>>>>>> upstream-dev
         }
         const ok = await setChannelModel(ctx, stored);
         if (!ok) return c.json({ error: "Not found" }, 404);

@@ -34,13 +34,8 @@
  */
 
 export const hero = {
-<<<<<<< HEAD
   eyebrow: 'About Dosco',
-  title: 'We are building the open-source AI Management System.',
-=======
-  eyebrow: 'About Kortix',
   title: 'We are building the open-source AI Operating System.',
->>>>>>> upstream-dev
   lead: 'Every company should own all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration.',
   ctaPrimary: 'We are hiring',
   ctaPrimaryHref: '/careers',
@@ -61,13 +56,8 @@ export const statements = [
   {
     id: 'closed',
     n: '02',
-<<<<<<< HEAD
-    title: 'One agent, every role at 100% capacity.',
-    body: '火 Dosco Network becomes whatever you need — UI engineer, logo designer, accountant, PR. Each role runs at full capacity, the moment you need it.',
-=======
     title: 'The closed platforms are becoming AGI operating systems too.',
     body: 'Claude Cowork, ChatGPT Work and the rest are heading for full AI operating systems an entire company runs on. That is the direction of the industry. The difference is that you will never own those.',
->>>>>>> upstream-dev
   },
   {
     id: 'shift',

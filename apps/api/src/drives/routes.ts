@@ -113,7 +113,7 @@ const FolderGrantSchema = z
     path: z.string(),
     /** Granted on a folder above this one. */
     inherited: z.boolean(),
-    /** Made by Kortix: a person's own folder, the default for Company. */
+    /** Made by Dosco: a person's own folder, the default for Company. */
     system: z.boolean(),
     principalType: z.enum(['user', 'group', 'agent', 'project']),
     principalId: z.string(),
@@ -241,7 +241,7 @@ function need(caller: Caller, path: string, level: FolderLevel): FolderAccess {
 
 /**
  * Folders shared with the caller by someone else: a grant naming them or one
- * of their teams, never Kortix's own grants and never inside their own folder.
+ * of their teams, never Dosco's own grants and never inside their own folder.
  * Nearest the root first, each folder once.
  */
 function sharedWithCaller(caller: Caller): Array<{ path: string; access: FolderAccess }> {
@@ -438,7 +438,7 @@ drivesApp.openapi(
     const entries = raw
       .filter((e) => !(e.type === 'file' && baseName(e.path) === FOLDER_MARKER && Number(e.size) === 0))
       .filter((e) => !(e.type === 'dir' && e.path === '/lost+found'))
-      // Kortix's own bookkeeping (the fold job's markers) is not a folder of anyone's.
+      // Dosco's own bookkeeping (the fold job's markers) is not a folder of anyone's.
       .filter((e) => !e.path.startsWith('/.kortix'))
       .map((e) => ({ path: e.path, name: baseName(e.path), type: e.type, size: Number(e.size ?? 0), mtime: Number(e.mtime ?? 0) }));
     // Folders that exist only as grants so far (a new person's folder, Company
@@ -572,7 +572,7 @@ drivesApp.openapi(
   async (c) => {
     const caller = await loadDrive(c);
     const path = drivePath((c.req.valid('json') as { path: string }).path, { allowRoot: false });
-    if (parentOf(path) === USERS_DIR) fail(400, 'People’s folders are made by Kortix');
+    if (parentOf(path) === USERS_DIR) fail(400, 'People’s folders are made by Dosco');
     need(caller, path, 'write');
     await withStorage(() =>
       writeDriveVolume(caller.drive, (volume) =>
@@ -859,7 +859,7 @@ drivesApp.openapi(
     tags: ['drives'],
     summary: 'List open conflict copies',
     description:
-      'Files Kortix kept beside the original when two writers changed it at once, named `<name> (conflict <date> <time>)<ext>`, in folders the caller can see.',
+      'Files Dosco kept beside the original when two writers changed it at once, named `<name> (conflict <date> <time>)<ext>`, in folders the caller can see.',
     ...auth,
     request: { params: DriveParams },
     responses: { 200: json(z.object({ conflicts: z.array(DriveConflictSchema) }), 'Open conflicts'), ...errors(401, 404) },

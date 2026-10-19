@@ -333,7 +333,7 @@ export async function discoverConnectorAuthFromSource(
           ? draft.baseUrl
           : null;
   if (typeof endpoint !== 'string' || !endpoint.trim()) return EMPTY_AUTH_DISCOVERY;
-  // A catalogue app Kortix signs in to with its own OAuth client takes a
+  // A catalogue app Dosco signs in to with its own OAuth client takes a
   // bearer token, even when its server lists tools without one (Google's do).
   if (provider === 'mcp' && mcpAppForUrl(endpoint)?.auth.kind === 'kortix_client') {
     return discoverHttpAuthChallenge('Bearer', 'mcp endpoint');

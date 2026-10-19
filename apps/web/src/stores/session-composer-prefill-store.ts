@@ -52,7 +52,7 @@ interface SessionComposerPrefillState {
    *  removes it so a later remount doesn't re-apply stale text. */
   clearPrefill: (sessionId: string, expectedId?: number) => void;
   /**
-   * Re-key a prefill from the Kortix session id (the route) onto the chat's
+   * Re-key a prefill from the Dosco session id (the route) onto the chat's
    * runtime session id once the session page resolves it. A producer outside
    * the session page (desktop Quick Entry) only knows the route id.
    */

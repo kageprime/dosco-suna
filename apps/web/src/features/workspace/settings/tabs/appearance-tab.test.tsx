@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppearanceTabView, DEFAULT_APPEARANCE_TAB_COPY, themeRowValue } from './appearance-tab';
 
-/** A row's expected trigger label: the catalog entry for a Kortix row, the
+/** A row's expected trigger label: the catalog entry for a Dosco row, the
  *  terminal theme's own name verbatim otherwise — mirrors `nameFor` in
  *  `appearance-tab.tsx`, which is not exported. */
 const labelFor = (option: (typeof INTERFACE_THEME_OPTIONS)[number]): string =>
@@ -49,7 +49,7 @@ describe('AppearanceTabView', () => {
             pureDark: 'Чиста тамна',
           },
           themeGroups: {
-            kortix: 'Kortix',
+            kortix: 'Dosco',
             lightThemes: 'Светле теме',
             darkThemes: 'Тамне теме',
           },
@@ -87,7 +87,7 @@ describe('AppearanceTabView', () => {
   // markup cannot reach — `INTERFACE_THEME_OPTIONS` is locked in
   // user-menu.test.tsx. What IS reachable is the trigger: it names and
   // previews the selection, for every one of the 117 rows (System, the 4
-  // Kortix palettes, and all 39 terminal themes).
+  // Dosco palettes, and all 39 terminal themes).
   test('the theme trigger names and previews every selectable theme', () => {
     expect(INTERFACE_THEME_OPTIONS.length).toBe(1 + 4 + TERMINAL_THEMES.length);
     for (const option of INTERFACE_THEME_OPTIONS) {

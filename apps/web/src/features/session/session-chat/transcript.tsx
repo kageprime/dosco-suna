@@ -378,7 +378,7 @@ interface SessionTurnProps {
   /** The member who stopped this turn, when it was not the viewer
    *  (`stoppedByName`). Null or absent: nothing to say. */
   stoppedBy?: string | null;
-  /** The models that answered this turn and what Kortix billed for it, from
+  /** The models that answered this turn and what Dosco billed for it, from
    *  the gateway's request record. Keep its identity stable: the row is memoized. */
   servedModel?: TurnServedModel;
   /** What the control plane recorded about how THIS session's turns ended. */

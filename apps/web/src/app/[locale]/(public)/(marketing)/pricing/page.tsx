@@ -38,40 +38,6 @@ const PLAN_CTAS: Record<PricingPlanId, { cta: string; href: string }> = {
   enterprise: { cta: 'Request demo', href: DEMO_URL },
 };
 
-<<<<<<< HEAD
-const FAQ: readonly FaqItem[] = [
-  {
-    id: 'free-include',
-    question: 'What does Free include?',
-    answer:
-      'Free includes 200 credits each month for sandbox compute and 1 project. Bring your own API key or connect your ChatGPT subscription for premium access. Managed Claude, GPT, and Gemini on Dosco keys are paid.',
-  },
-  {
-    id: 'team-seat-include',
-    question: 'What does a Team seat include?',
-    answer:
-      '$40/seat/month includes 2,500 pooled credits per seat, optional managed model access, and seats for the people on your team. Agent Computer runtime and managed model token usage draw from the same pool.',
-  },
-  {
-    id: 'models-and-compute',
-    question: 'How are models and compute priced?',
-    answer:
-      'Agent Computer compute is billed per second, per resource — $0.0000168/vCPU, $0.0000054/GiB RAM, $0.000000036/GiB storage — about $0.20/hour for the default 2 vCPU / 4 GiB / 20 GiB machine, and $0 while stopped. Bring your own key or connect ChatGPT to pay your model provider directly. If you choose Dosco-managed models, their input, output, and cached tokens use Team credits at that model’s rate. Free credits remain sandbox-only.',
-  },
-  {
-    id: 'seat-or-usage',
-    question: 'Do I pay per seat or per usage?',
-    answer:
-      'Both. The seat is a flat monthly fee that includes credits. Top up only when Agent Computer runtime or optional managed model usage exhausts the pooled balance.',
-  },
-  {
-    id: 'enterprise',
-    question: 'What about Enterprise?',
-    answer:
-      'Everything in Team plus SAML SSO, SCIM directory sync (Okta, Microsoft Entra, JumpCloud), advanced RBAC, audit logs, an SLA and DPA, and Cloud / VPC / on-prem deployment. Talk to us for volume pricing.',
-  },
-];
-=======
 /** The FAQ ids, in display order. Question and answer live in `billing.pricing.faq.<id>`. */
 const FAQ_IDS = [
   'free',
@@ -85,7 +51,6 @@ const FAQ_IDS = [
   'existing',
   'enterprise',
 ] as const;
->>>>>>> upstream-dev
 
 /** The compute rate card rows, in display order. */
 const RATE_ROWS = [

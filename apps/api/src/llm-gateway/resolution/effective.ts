@@ -76,12 +76,7 @@ export function chooseEffectiveModel(params: {
     source = 'account';
   }
   if (!candidate) return { model: null, source: 'platform' };
-<<<<<<< HEAD
-  // Free tier cannot use managed Dosco models; the chosen candidate is dropped
-  // to the platform default rather than falling through to a broader layer.
-  if (params.freeModelsOnly && isManagedRef(candidate)) return { model: null, source: 'platform' };
-=======
-  // Free tier cannot use managed Kortix models beyond the platform default —
+  // Free tier cannot use managed Dosco models beyond the platform default —
   // the one managed model every tier may use (KRTX-1067). The chosen candidate
   // is dropped to the platform default rather than falling through to a
   // broader layer (see choose-default-model.test).
@@ -92,7 +87,6 @@ export function chooseEffectiveModel(params: {
   ) {
     return { model: null, source: 'platform' };
   }
->>>>>>> upstream-dev
   return { model: candidate, source };
 }
 

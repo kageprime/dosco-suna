@@ -22,7 +22,7 @@ import { INTERFACE_THEME_OPTIONS } from './interface-theme';
  * the command palette. That is what this file locks.
  */
 describe('INTERFACE_THEME_OPTIONS', () => {
-  test('opens with System, then the four Kortix palettes, then one row per terminal theme', () => {
+  test('opens with System, then the four Dosco palettes, then one row per terminal theme', () => {
     expect(INTERFACE_THEME_OPTIONS.slice(0, 5).map((option) => option.value)).toEqual([
       'system',
       'light',
@@ -39,7 +39,7 @@ describe('INTERFACE_THEME_OPTIONS', () => {
     );
   });
 
-  test('is exactly System + the four Kortix palettes + every terminal theme, no more', () => {
+  test('is exactly System + the four Dosco palettes + every terminal theme, no more', () => {
     expect(INTERFACE_THEME_OPTIONS).toHaveLength(1 + 4 + TERMINAL_THEMES.length);
   });
 
@@ -49,7 +49,7 @@ describe('INTERFACE_THEME_OPTIONS', () => {
     expect(INTERFACE_THEME_OPTIONS.some((option) => option.value === 'system')).toBe(true);
   });
 
-  test('every Kortix row label resolves in the English catalog', () => {
+  test('every Dosco row label resolves in the English catalog', () => {
     const themes = en.settings.appearance.themes as Record<string, string>;
     const labelled = INTERFACE_THEME_OPTIONS.filter((option) => option.kind === 'labelled');
     expect(labelled.map((option) => themes[option.labelKey])).toEqual([

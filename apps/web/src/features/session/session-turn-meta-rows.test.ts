@@ -172,9 +172,9 @@ describe('sessionTurnMetaRows — the model that answered', () => {
   const rowsOf = (input: Partial<Parameters<typeof sessionTurnMetaRows>[0]>) =>
     sessionTurnMetaRows({ endedAt: NOW - 5_000, now: NOW, durationMs: 3_000, cost: null, ...input }, testUiTranslator);
 
-  // Incident 2026-10-02: a Kortix model answered a turn asked of a ChatGPT
+  // Incident 2026-10-02: a Dosco model answered a turn asked of a ChatGPT
   // model. The transcript priced it at the ChatGPT model: $0.
-  test('a fallback turn names the model that answered, the model it replaced, and what Kortix billed', () => {
+  test('a fallback turn names the model that answered, the model it replaced, and what Dosco billed', () => {
     expect(
       rowsOf({
         cost: { cost: 0, tokens },

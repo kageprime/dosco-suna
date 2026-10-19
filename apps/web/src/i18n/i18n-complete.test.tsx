@@ -107,8 +107,6 @@ describe('complete UI localization', () => {
       const messages = catalog.hardcodedUi.i18nComplete as Record<string, string>;
       expect(Object.keys(messages).sort(), locale).toEqual(englishKeys);
       for (const key of englishKeys) {
-        // Dosco brand stamp writes real copy for former self-host /
-        // open-source labels ("No lock-in", "On-prem") — blanks fail.
         expect(messages[key]?.trim().length, `${locale}:${key}`).toBeGreaterThan(0);
         expect(placeholders(messages[key] ?? ''), `${locale}:${key}`).toEqual(
           placeholders(english[key as keyof typeof english]),

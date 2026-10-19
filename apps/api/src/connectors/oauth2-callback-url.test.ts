@@ -39,7 +39,7 @@ describe('nativeOAuth2CallbackResponse', () => {
   test('a sign-in started without a return page (the CLI) says it connected', () => {
     expect(nativeOAuth2CallbackResponse({ ok: true, redirectUri: null })).toEqual({
       status: 200,
-      body: 'Connected. You can close this tab and return to Kortix.',
+      body: 'Connected. You can close this tab and return to Dosco.',
     });
   });
 

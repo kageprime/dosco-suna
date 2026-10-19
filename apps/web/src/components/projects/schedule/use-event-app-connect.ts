@@ -7,7 +7,7 @@
  * An event trigger runs on the project's shared account, so this always
  * connects as the project. The popup opens synchronously inside the click,
  * before any request. A Composio app connects through `connectApp`
- * (`owner: 'project'`). An app Kortix checks itself (source `mcp`) installs its
+ * (`owner: 'project'`). An app Dosco checks itself (source `mcp`) installs its
  * catalogue MCP server and signs in with that server's own OAuth.
  */
 

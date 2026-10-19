@@ -1,6 +1,6 @@
 /**
  * A device row's live status, from `live.state` and the device's last
- * `status.json` (the Kortix Capture format, schema 2). Status hues follow the
+ * `status.json` (the Dosco Capture format, schema 2). Status hues follow the
  * brand status table: green records, orange needs a person (a missing
  * permission, a pause), no hue is idle (offline, not recording, unknown).
  */

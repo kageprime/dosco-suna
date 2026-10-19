@@ -511,13 +511,8 @@ export function AccountHubContent() {
               above is the only other chrome. */}
           {activeSection === 'tokens' && sectionVisible.tokens ? (
             <div className="space-y-10">
-<<<<<<< HEAD
-              <ApiKeysSection accountId={account.account_id} canManage={canWriteAccount} />
-              {/* OAuth apps — "Sign in with Dosco" clients. A client secret
-=======
               <ApiKeysSection accountId={account.account_id} canManage={canCreateToken === true} />
-              {/* OAuth apps — "Sign in with Kortix" clients. A client secret
->>>>>>> upstream-dev
+              {/* OAuth apps — "Sign in with Dosco" clients. A client secret
                   is a credential the account issues to a machine, so it
                   sits with the other machine credentials and under the same
                   `token.*` permissions. */}

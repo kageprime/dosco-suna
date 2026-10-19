@@ -64,7 +64,7 @@ describe('harness-neutral runtime rules (F2)', () => {
   });
 });
 
-describe('raw fetches to the Kortix backend', () => {
+describe('raw fetches to the Dosco backend', () => {
   test('a fetch built from the backend URL is rejected, directly or through a const', () => {
     expect(
       scanPlanted('a.ts', 'export const f = (b: string) => fetch(`${b.replace(/\\/+$/, "")}/p/config`);\n'),

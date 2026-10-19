@@ -40,7 +40,7 @@ export interface ProtectedResourceOAuth2Discovery {
   metadata?: Partial<OAuth2ApplicationInput>;
   /** RFC 7591 endpoint when the server supports dynamic client registration. */
   registration_endpoint?: string;
-  /** Kortix signs in with its own OAuth client (a catalogue app with no
+  /** Dosco signs in with its own OAuth client (a catalogue app with no
    *  dynamic registration); register without `registration_endpoint`. */
   kortix_client?: boolean;
   token_endpoint_auth_methods_supported?: string[];
@@ -310,7 +310,7 @@ export async function discoverProtectedResourceOAuth2(
 }
 
 /**
- * A catalogue app Kortix signs in to with its own OAuth client
+ * A catalogue app Dosco signs in to with its own OAuth client
  * (`connectors/mcp-apps.ts`): the endpoints and scopes come from the
  * catalogue, never from the server, and the client stays on the server. Not
  * probed: Google's servers answer an unauthenticated probe with 200.
@@ -337,8 +337,8 @@ function kortixClientDiscovery(
 }
 
 /**
- * Whether Kortix can sign in to a server with nothing but the user's consent:
- * it publishes OAuth endpoints and lets Kortix register itself (RFC 7591).
+ * Whether Dosco can sign in to a server with nothing but the user's consent:
+ * it publishes OAuth endpoints and lets Dosco register itself (RFC 7591).
  * The same test as the web's `autoConnectPlan` 'register' plan.
  */
 export function mcpSignInCheck(discovery: ProtectedResourceOAuth2Discovery): {

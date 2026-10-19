@@ -1,5 +1,5 @@
 // What a notification email says (KRTX-1742): the immediate automation alert
-// and the digest of unread rows. One Kortix shell (lib/email/template.ts);
+// and the digest of unread rows. One Dosco shell (lib/email/template.ts);
 // voice rules: .agents/skills/kortix-brand/references/verbal/voice-and-tone.md 5.5.
 import type { NotificationKindName } from '@kortix/shared/notification-kinds';
 import { config } from '../config';
@@ -124,10 +124,10 @@ export function renderImmediateNotificationEmail(item: NotificationEmailItem): R
   return null;
 }
 
-/** A Kortix Capture computer stopped recording, or records again. Sent to the people who manage Capture. */
+/** A Dosco Capture computer stopped recording, or records again. Sent to the people who manage Capture. */
 function renderCaptureEmail(item: NotificationEmailItem): RenderedEmail {
   const cta = { url: absoluteAppUrl(item.url), label: 'Open devices' };
-  const note = 'You get this email because you manage Kortix Capture for this account.';
+  const note = 'You get this email because you manage Dosco Capture for this account.';
   if (item.kind === 'capture_device_down') {
     return message({
       subject: `Computer not recording: ${item.title}`,
@@ -166,7 +166,7 @@ export function renderNotificationDigestEmail(input: { items: readonly Notificat
         </div>`)
     .join('');
   return message({
-    subject: `Review ${total} unread ${noun} in Kortix`,
+    subject: `Review ${total} unread ${noun} in Dosco`,
     kicker: 'Notification digest',
     title: `${total} unread ${noun}`,
     lead: { text: `${total === 1 ? 'This notification was' : 'These notifications were'} unread for 15 minutes or more.` },
@@ -177,7 +177,7 @@ export function renderNotificationDigestEmail(input: { items: readonly Notificat
         ...(moreLine ? [moreLine] : []),
       ],
     },
-    cta: { url: absoluteAppUrl('/projects'), label: 'Open Kortix' },
+    cta: { url: absoluteAppUrl('/projects'), label: 'Open Dosco' },
     note: 'You get this email for unread questions, failed sessions and shares.',
   });
 }

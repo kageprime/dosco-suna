@@ -241,9 +241,6 @@ export function SecretsSection({ draft, set, options }: GrantSectionProps) {
   );
 }
 
-<<<<<<< HEAD
-/** Dosco permissions (`kortix_permissions` in kortix.yaml): which project
-=======
 /**
  * A kortix_version 3 grant over a project registry: the declared subagents
  * this agent may start, the registered commands it may run, the registered
@@ -276,8 +273,7 @@ export function RegistryGrantSection({
   );
 }
 
-/** Kortix permissions (`kortix_permissions` in kortix.yaml): which project
->>>>>>> upstream-dev
+/** Dosco permissions (`kortix_permissions` in kortix.yaml): which project
  *  operations the agent may perform, through any surface. A block read from a
  *  pre-rename server may still carry `kortix_cli`; an edit writes the canonical
  *  key and drops the alias so the two can never disagree. */

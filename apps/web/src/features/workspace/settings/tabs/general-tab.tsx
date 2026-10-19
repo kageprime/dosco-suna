@@ -52,20 +52,14 @@ export const DELETE_WORKSPACE_CONSEQUENCES = [
   'Every session in this workspace, with its files, history, and outputs',
   'All scheduled runs and triggers — they stop firing straight away',
   'Every connected integration, secret, and API key scoped to this workspace',
-  'The Kortix-managed git repository for this workspace, with every commit in it',
+  'The Dosco-managed git repository for this workspace, with every commit in it',
   'Access for everyone on the team — nobody can reach this workspace again',
 ] as const;
 
 /** Stated because it is true and because its absence would be read as a
-<<<<<<< HEAD
- *  denial. `archiveProject()` sends no `?purge=true`, which is the only thing
- *  that deletes a Dosco-managed repository (`apps/api/.../routes/project-settings.ts`);
- *  user-connected repositories are never touched at all. */
-=======
- *  denial. `deleteManagedProjectRepo` deletes only the Kortix-managed
+ *  denial. `deleteManagedProjectRepo` deletes only the Dosco-managed
  *  upstream; repositories the user connected themselves are never touched
  *  (`apps/api/src/projects/routes/project-settings.ts`). */
->>>>>>> upstream-dev
 export const DELETE_WORKSPACE_REASSURANCE =
   'Git repositories you connected yourself are not deleted. Any code already pushed to them stays where it is.';
 

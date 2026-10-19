@@ -134,7 +134,7 @@ export function ModelsTab({
     );
   }
 
-  // One managed model clears the ZDR + US claim when it serves from Kortix's
+  // One managed model clears the ZDR + US claim when it serves from Dosco's
   // own managed pool. Only a Morph route breaks it; a missing price feed still
   // serves from the verified US ZDR pool.
   const holdsDataClaim = (modelID: string) => {

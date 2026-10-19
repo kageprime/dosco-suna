@@ -66,7 +66,7 @@ const KORTIX_LABELS: readonly {
 ];
 
 /**
- * Picker rows in display order: System, then the four Kortix-designed
+ * Picker rows in display order: System, then the four Dosco-designed
  * palettes, then one row per generated terminal theme
  * (`TERMINAL_THEMES`, `lib/kortix-themes.generated.json`) in that file's
  * own order — light and dark modes interleaved, grouped alphabetically by

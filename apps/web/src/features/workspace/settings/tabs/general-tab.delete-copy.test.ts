@@ -57,7 +57,7 @@ describe('Delete workspace copy', () => {
   /**
    * The single most important assertion in this file.
    *
-   * Deleting the workspace deletes the Kortix-managed repository with it
+   * Deleting the workspace deletes the Dosco-managed repository with it
    * (`deleteManagedProjectRepo` runs on every project delete). A dialog that
    * says "permanent" while staying silent about the repo is read as "my code
    * is safe" — false for a managed repo, and the opposite of what a user
@@ -66,13 +66,13 @@ describe('Delete workspace copy', () => {
   test('warns that the managed git repository goes with the workspace', () => {
     const line = DELETE_WORKSPACE_CONSEQUENCES.find((c) => c.includes('repository'));
     expect(line).toBeDefined();
-    expect(line).toContain('Kortix-managed');
+    expect(line).toContain('Dosco-managed');
     expect(line).toContain('commit');
   });
 
   /**
    * The connected-repo boundary. `deleteManagedProjectRepo` deletes only the
-   * Kortix-managed upstream; a repository the user connected themselves is
+   * Dosco-managed upstream; a repository the user connected themselves is
    * never touched. "Permanent" plus silence about that reads as "my code is
    * gone", which is false for a connected repo and the thing a user panics
    * about first, so the reassurance is not optional polish.

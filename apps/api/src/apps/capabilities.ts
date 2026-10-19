@@ -32,7 +32,7 @@ export function appCapabilities(
   hasVolumes = false,
   external: { frameable: boolean } | null = null,
 ): AppCapability[] {
-  // An external App is only a URL: Kortix frames it when the site allows that, and runs nothing.
+  // An external App is only a URL: Dosco frames it when the site allows that, and runs nothing.
   if (external) return external.frameable ? ['preview'] : [];
   const out: AppCapability[] = ['deployments', 'rollback', 'preview', 'member_tokens'];
   if (hostingType === 'sandbox') out.push('sleep', 'machines', 'scale', 'exec');

@@ -281,7 +281,7 @@ export function AccountSecretResourcesPanel({ accountId, projectId, providerId, 
           const canReconnect = Boolean(oauth) && canWrite && secret.created_by === user?.id;
           const canChangeAccess = canManage && canShare;
           const stale = Boolean(oauth) && needsReconnection(secret);
-          // A value Kortix cannot decrypt is lost (KRTX-1719): the gateway skips
+          // A value Dosco cannot decrypt is lost (KRTX-1719): the gateway skips
           // it. A login is reconnected; a key is entered again.
           const undecryptable = secret.status === 'undecryptable';
           return (

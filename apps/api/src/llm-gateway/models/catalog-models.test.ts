@@ -230,17 +230,12 @@ describe('gatewayModelCatalog — free-tier visibility', () => {
   const defaultId = platformDefaultModelId();
 
   // Managed ids are bare; every BYOK and codex id carries a provider prefix.
-<<<<<<< HEAD
-  test('free tier sees no managed Dosco model', () => {
-    expect(Object.keys(freeFull).filter((id) => !id.includes('/'))).toEqual([]);
-=======
   // The ONE managed model free tier sees is the platform default — the model
   // /model-defaults already advertises as free-tier eligible. Hiding it left
   // every fresh free account with an empty picker and a dead composer.
   test('free tier sees only the platform default managed model', () => {
     expect(defaultId).not.toBe('');
     expect(Object.keys(freeFull).filter((id) => !id.includes('/'))).toEqual([defaultId]);
->>>>>>> upstream-dev
   });
 
   test('free tier still sees BYOK catalog models (own connected keys work)', () => {

@@ -29,7 +29,7 @@ export function useFrameSource(
 
 /**
  * The hero: the screen at the playhead. A chunk is a 1 fps video with frame i
- * at i seconds (the Kortix Capture format), so a move inside one chunk is a
+ * at i seconds (the Dosco Capture format), so a move inside one chunk is a
  * seek, not a load. Two video elements take turns: the next chunk loads and
  * seeks in the hidden one and swaps in once its frame is on screen, so
  * scrubbing across a chunk boundary never flashes blank.

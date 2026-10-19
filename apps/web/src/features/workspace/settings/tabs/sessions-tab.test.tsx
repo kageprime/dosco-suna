@@ -39,7 +39,7 @@ const SERBIAN_COPY: NonNullable<ComponentProps<typeof SessionsTabView>['copy']> 
   unsupported: 'Прегледач не подржава обавештења.',
   enableNotifications: 'Омогући обавештења',
   enableDescription: {
-    push: 'Приказује обавештења и кад је Kortix затворен.',
+    push: 'Приказује обавештења и кад је Dosco затворен.',
     desktop: 'Приказује обавештења док је прозор отворен.',
     browser: 'Приказује обавештења док је картица отворена.',
   },
@@ -51,8 +51,8 @@ const SERBIAN_COPY: NonNullable<ComponentProps<typeof SessionsTabView>['copy']> 
   notificationTypesCopy: {
     onCompletion: { label: 'Завршетак задатка', description: 'Када се задатак заврши' },
     onError: { label: 'Грешке', description: 'Када дође до грешке' },
-    onQuestion: { label: 'Питања', description: 'Када Kortix тражи одговор' },
-    onPermission: { label: 'Захтеви за дозволу', description: 'Када Kortix тражи дозволу' },
+    onQuestion: { label: 'Питања', description: 'Када Dosco тражи одговор' },
+    onPermission: { label: 'Захтеви за дозволу', description: 'Када Dosco тражи дозволу' },
   },
   kinds: {
     turn_done: { label: 'Потез завршен', description: 'Потез се завршава.' },
@@ -84,7 +84,7 @@ const SERBIAN_COPY: NonNullable<ComponentProps<typeof SessionsTabView>['copy']> 
   soundPacks: {
     off: { label: 'Искључено', description: 'Сви звуци су искључени' },
     opencode: { label: 'Подразумевано', description: 'Подразумевани пакет' },
-    kortix: { label: 'Kortix пакет', description: 'Звиждук' },
+    kortix: { label: 'Dosco пакет', description: 'Звиждук' },
   },
   volume: 'Јачина звука',
   preview: 'Послушај',
@@ -104,56 +104,7 @@ const SERBIAN_COPY: NonNullable<ComponentProps<typeof SessionsTabView>['copy']> 
  */
 describe('SessionsTabView', () => {
   test('renders injected locale body copy instead of fixed English body labels', () => {
-<<<<<<< HEAD
-    const out = renderToStaticMarkup(
-      <SessionsTabView
-        copy={{
-          notifications: 'Обавештења',
-          notificationsDescription: 'Обавештења прегледача.',
-          unsupported: 'Прегледач не подржава обавештења.',
-          enableNotifications: 'Омогући обавештења',
-          permissionGranted: 'Дозвола је одобрена',
-          permissionDenied: 'Прегледач је блокирао дозволу',
-          permissionDefault: 'Затражиће дозволу',
-          notificationTypes: 'Врсте обавештења',
-          behavior: 'Понашање',
-          sendTestNotification: 'Пошаљи пробно обавештење',
-          notificationTypesCopy: {
-            onCompletion: { label: 'Завршетак задатка', description: 'Када се задатак заврши' },
-            onError: { label: 'Грешке', description: 'Када дође до грешке' },
-            onQuestion: { label: 'Питања', description: 'Када Dosco тражи одговор' },
-            onPermission: { label: 'Захтеви за дозволу', description: 'Када Dosco тражи дозволу' },
-          },
-          notificationBehaviorCopy: {
-            onlyWhenHidden: {
-              label: 'Само у позадини',
-              description: 'Када је друга картица активна',
-            },
-            playSound: { label: 'Звук обавештења', description: 'Пусти звук' },
-          },
-          sounds: 'Звукови',
-          soundsDescription: 'Звуци за догађаје сесије.',
-          soundPacks: {
-            off: { label: 'Искључено', description: 'Сви звуци су искључени' },
-            opencode: { label: 'Подразумевано', description: 'Подразумевани пакет' },
-            kortix: { label: 'Dosco пакет', description: 'Звиждук' },
-          },
-          volume: 'Јачина звука',
-          preview: 'Послушај',
-          soundEvents: {
-            completion: { label: 'Завршетак задатка', description: 'Када AI заврши задатак' },
-            error: { label: 'Грешка', description: 'Када сесија наиђе на грешку' },
-            notification: { label: 'Обавештење', description: 'Питања и захтеви за дозволу' },
-            send: { label: 'Порука је послата', description: 'Када пошаљете поруку' },
-          },
-          testNotificationTitle: 'Пробно обавештење',
-          testNotificationBody: 'Обавештења раде исправно.',
-        }}
-      />,
-    );
-=======
     const out = renderToStaticMarkup(<SessionsTabView copy={SERBIAN_COPY} />);
->>>>>>> upstream-dev
     expect(out).toContain('Обавештења');
     expect(out).toContain('Омогући обавештења');
     expect(out).toContain('Звукови');
@@ -218,7 +169,7 @@ describe('SessionsTabView', () => {
     expect(renderToStaticMarkup(<SessionsTabView notificationPermission="denied" />)).toContain(
       'Blocked by browser',
     );
-    expect(html()).not.toContain('also with every Kortix tab closed');
+    expect(html()).not.toContain('also with every Dosco tab closed');
   });
 });
 
@@ -270,11 +221,11 @@ describe('SessionsTabView with the notification center', () => {
   });
 
   test('"Enable notifications" says where it reaches', () => {
-    expect(center()).toContain('also with every Kortix tab closed');
+    expect(center()).toContain('also with every Dosco tab closed');
     expect(center({ notificationReach: 'desktop' })).toContain(
       'from the desktop app while its window is open',
     );
-    expect(center({ notificationReach: 'browser' })).toContain('while a Kortix tab is open');
+    expect(center({ notificationReach: 'browser' })).toContain('while a Dosco tab is open');
     expect(center({ notificationPermission: 'denied' })).toContain('Blocked by browser');
   });
 

@@ -211,56 +211,6 @@ export function registerOauth2ConnectorsRoutes(): void {
     }
   });
 
-<<<<<<< HEAD
-/** RFC 7591: register Dosco with the authorization server and save the
- * issued client as this connection's OAuth2 application. */
-projectsApp.openapi(
-  createRoute({
-    tags: ['connectors'],
-    ...auth,
-    method: 'post',
-    path: '/{projectId}/connections/{connectionId}/oauth2/register',
-    summary: 'Register Dosco as an OAuth2 client (RFC 7591)',
-    request: { params: ConnectionParams, ...body(OAuth2ClientRegistrationInputSchema.innerType()) },
-    responses: { 200: json(ApplicationResponse, 'The registered application'), ...errors(400, 403, 404) },
-  }),
-  async (c) => {
-  const projectId = c.req.param('projectId');
-  const connectionId = c.req.param('connectionId');
-  const mutable = await loadMutableConnection(c, projectId, connectionId);
-  if (!mutable) return c.json({ error: 'Not found' }, 404);
-  const parsed = OAuth2ClientRegistrationInputSchema.safeParse(await readJsonObject(c));
-  if (!parsed.success) {
-    return c.json(
-      { error: parsed.error.issues[0]?.message ?? 'invalid client registration input' },
-      400,
-    );
-  }
-  try {
-    const application = await registerConnectionOAuth2Client({
-      identity: mutable.connection,
-      registration: parsed.data,
-      callbackUrl: callbackUrl(c.req.url),
-      createdBy: mutable.loaded.userId,
-    });
-    return c.json({ application: redactOAuth2Application(application) });
-  } catch (error) {
-    return c.json({ error: (error as Error).message }, 400);
-  }
-});
-
-projectsApp.openapi(
-  createRoute({
-    tags: ['connectors'],
-    ...auth,
-    method: 'post',
-    path: '/{projectId}/connections/{connectionId}/oauth2/authorize',
-    summary: 'Start an OAuth2 authorization-code flow',
-    request: { params: ConnectionParams, ...body(OAuth2AuthorizationStartInputSchema) },
-    responses: {
-      200: json(OAuth2AuthorizationStartResultSchema, 'The URL to send the user to'),
-      ...errors(400, 403, 404),
-=======
   /**
    * MCP authorization discovery: probe the connector's server, follow
    * `WWW-Authenticate resource_metadata` → RFC 9728 → RFC 8414/OIDC, and return
@@ -297,11 +247,10 @@ projectsApp.openapi(
       } catch (error) {
         return c.json({ error: (error as Error).message }, 400);
       }
->>>>>>> upstream-dev
     },
   );
 
-  /** RFC 7591: register Kortix with the authorization server and save the
+  /** RFC 7591: register Dosco with the authorization server and save the
    * issued client as this connection's OAuth2 application. */
   projectsApp.openapi(
     createRoute({
@@ -309,7 +258,7 @@ projectsApp.openapi(
       ...auth,
       method: 'post',
       path: '/{projectId}/connections/{connectionId}/oauth2/register',
-      summary: 'Register Kortix as an OAuth2 client (RFC 7591)',
+      summary: 'Register Dosco as an OAuth2 client (RFC 7591)',
       request: { params: ConnectionParams, ...body(OAuth2ClientRegistrationInputSchema.innerType()) },
       responses: { 200: json(ApplicationResponse, 'The registered application'), ...errors(400, 403, 404) },
     }),

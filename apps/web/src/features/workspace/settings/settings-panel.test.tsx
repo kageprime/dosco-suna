@@ -390,10 +390,12 @@ describe('SettingsPanelShell — real tab content gating', () => {
    * It is the exact inverse of the two loops above — same tab, same absence of
    * a `QueryClientProvider`, opposite outcome — so it cannot pass vacuously.
    */
-  test('the project panes are offered by this overlay again, under the Project group', () => {
-    // Back as live tabs: the overlay is one door for every scope now.
+  test('the project panes are not offered by this overlay any more', () => {
+    // They are the Customize bar's Settings tab since 2026-09-03; the ids
+    // stay in the type so their panes keep compiling, but no rail row or
+    // route opens them here.
     for (const tab of ['workspace', 'sandbox', 'feature-flags', 'upgrades'] as const) {
-      expect(SETTINGS_TABS).toContain(tab);
+      expect(SETTINGS_TABS).not.toContain(tab);
     }
   });
 
@@ -543,26 +545,6 @@ describe('isSettingsTabAllowed — project scope (JAY-547)', () => {
     return { hasProject: false, ...overrides };
   }
 
-<<<<<<< HEAD
-  test('with no project, every personal and account tab is allowed — project tabs are not', () => {
-    const allowed = SETTINGS_TABS.filter((tab) => isSettingsTabAllowed(tab, paramsFor()));
-    expect([...allowed].sort()).toEqual(
-      SETTINGS_TABS.filter((t) => !['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(t)).sort(),
-    );
-    for (const tab of SETTINGS_TABS) {
-      if (!['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'].includes(tab))
-        expect(ACCOUNT_SCOPED_SETTINGS_TABS).toContain(tab);
-    }
-  });
-
-  // The five project-scoped tabs, and the gate is what hides them — and
-  // with them the whole Project rail group — on `/settings` and under
-  // `/accounts/**`, where there is no project to name. Asserted as an exact
-  // list so a sixth project-scoped tab cannot be added without a decision.
-  test('live project tabs gate on a project; the rest never did', () => {
-    const projectScoped = ['workspace', 'sandbox', 'feature-flags', 'git', 'upgrades'];
-    for (const tab of projectScoped as const) {
-=======
   test('with no project, every live tab but the paired computer is allowed', () => {
     const allowed = SETTINGS_TABS.filter((tab) => isSettingsTabAllowed(tab, paramsFor()));
     expect([...allowed].sort()).toEqual(SETTINGS_TABS.filter((tab) => tab !== 'computer').sort());
@@ -585,7 +567,6 @@ describe('isSettingsTabAllowed — project scope (JAY-547)', () => {
     // without a project, so a stray `openSettings('sandbox')` on `/accounts`
     // cannot mount a project pane with nothing to point it at.
     for (const tab of ['workspace', 'sandbox', 'feature-flags', 'upgrades'] as const) {
->>>>>>> upstream-dev
       expect(isSettingsTabAllowed(tab, paramsFor())).toBe(false);
     }
   });

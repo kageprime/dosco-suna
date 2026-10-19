@@ -13,19 +13,8 @@ import {
   setPlan,
   previewPlan,
 } from '../services/subscriptions';
-<<<<<<< HEAD
-import { resolveScopedAccountId } from '../../shared/resolve-account';
-import { resolveBillingWriteAccountId } from '../require-billing-write';
-import { syncSeatQuantity } from '../services/seat-management';
-import { maybeMigrateLegacyAccount } from '../services/legacy-account-migration';
-import {
-  createPaystackSubscriptionCheckout,
-} from '../services/paystack';
-import { getCreditAccount } from '../repositories/credit-accounts';
-=======
 import { resolveScopedAccountId } from '../../middleware/resolve-account';
 import { resolveBillingWriteAccountId } from '../http-require-billing-write';
->>>>>>> upstream-dev
 import { makeOpenApiApp, json, auth, errors } from '../../openapi';
 import { readJsonObject } from '../../shared/http-body';
 
@@ -87,39 +76,8 @@ subscriptionsRouter.openapi(
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
-<<<<<<< HEAD
-    const email = c.get('userEmail');
-    const body = await c.req.json();
-
-    // Paystack is the de facto default; only an explicit 'stripe' takes the
-    // Stripe path.
-    if (body.provider !== 'stripe') {
-      const result = await createPaystackSubscriptionCheckout({
-        accountId,
-        email,
-        tierKey: body.tier_key,
-        successUrl: body.success_url,
-      });
-      return c.json(result);
-    }
-
-    const result = await createCheckoutSession({
-      accountId,
-      email,
-      tierKey: body.tier_key,
-      successUrl: body.success_url,
-      cancelUrl: body.cancel_url,
-      commitmentType: body.commitment_type,
-      locale: body.locale,
-      serverType: body.server_type,
-      location: body.location,
-    });
-
-    return c.json(result);
-=======
     const body = await readJsonObject(c);
     return c.json(await previewPlan({ accountId, monthlyUsd: parseMonthlyUsd(body.monthly_usd) }));
->>>>>>> upstream-dev
   },
 );
 
@@ -130,7 +88,7 @@ subscriptionsRouter.openapi(
     method: 'post',
     path: '/enterprise/contact',
     tags: ['billing'],
-    summary: 'Ask Kortix sales to get in touch about Enterprise',
+    summary: 'Ask Dosco sales to get in touch about Enterprise',
     ...auth,
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
     responses: {
@@ -139,35 +97,12 @@ subscriptionsRouter.openapi(
     },
   }),
   async (c) => {
-<<<<<<< HEAD
-    const accountId = await resolveBillingWriteAccountId(c, 'body');
-    const email = c.get('userEmail');
-    const body = await c.req.json();
-
-    // Paystack is the de facto default (only an explicit 'stripe' takes the
-    // Stripe path). Paystack plans are fixed-amount, so the seat count is
-    // baked into the plan name (see services/paystack.ts) — a seat change
-    // re-checks out.
-    if (body.provider !== 'stripe') {
-      const result = await createPaystackSubscriptionCheckout({
-        accountId,
-        email,
-        tierKey: 'per_seat',
-        successUrl: body.success_url,
-        seats: (await getCreditAccount(accountId))?.seatCount ?? 1,
-      });
-      return c.json(result);
-    }
-
-    const result = await createPerSeatCheckoutSession({
-=======
     const accountId = await resolveScopedAccountId(c, 'body');
     await assertAuthorized(await actorOf(c, accountId), ACCOUNT_ACTIONS.BILLING_READ);
     const body = await readJsonObject(c);
     const { resolveAccountBilling } = await import('../services/billing-cache');
     const { notifySales } = await import('../services/enterprise-sales');
     const sent = await notifySales({
->>>>>>> upstream-dev
       accountId,
       signal: 'contact',
       userEmail: c.get('userEmail') ?? null,

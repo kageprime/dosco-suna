@@ -12,12 +12,12 @@ import { accountPanelUrl, hubTarget } from '@/stores/account-panel-store';
  * spot so the overlay, the sidebar, and any deep-link helpers all agree on
  * the canonical list.
  *
- * The account-scoped half of that merge was undone, on purpose — then
- * partially restored: Credits, Plan and Connected accounts are back as live
- * overlay tabs under an explicit Account group, because one door beats two
- * and the group label (not the overlay) carries the ownership. Organization,
- * Billing, Usage, Groups, Roles, Identity and Audit log stay account-page
- * only. Those ids live in `ACCOUNT_GRADUATED` and redirect to that page.
+ * The account-scoped half of that merge has since been undone, on purpose.
+ * Organization (General, Billing, Usage, Groups, Roles, Identity, Audit log)
+ * and API keys configured the ACCOUNT, not the project, so a project overlay
+ * was the wrong home for them: the same controls already had a full page at
+ * `/accounts/[id]`, and two doors onto one set of settings is one door too
+ * many. Those ids live in `ACCOUNT_GRADUATED` now and redirect to that page.
  *
  * Files, Changes, Agent(s), Connectors, and Skills are NOT settings tabs —
  * they are standalone `/projects/[id]/<section>` pages (any member can
@@ -31,7 +31,6 @@ import { accountPanelUrl, hubTarget } from '@/stores/account-panel-store';
 import {
   capabilityTabHref,
   channelsHref,
-  marketplaceHref,
   reviewHref,
 } from '@/features/workspace/capabilities/shared/capability-tab-routes';
 
@@ -110,11 +109,6 @@ export type SettingsTab =
   // the config page, while `/settings/sandbox` opens this overlay.
   | 'sandbox'
   | 'feature-flags'
-  // Git repo rejoined the overlay on 2026-10-02: the repository connection
-  // was the one config-page section with no overlay row (feature flags had
-  // one, git did not). Mounts the same `GitView` the Settings tab's Git repo
-  // section renders — one component, two doors.
-  | 'git'
   // Upgrades MOVED here outright on 2026-09-02 (Jay: "move this upgrade
   // section over the settings panel") — it is no longer a section of
   // `/projects/<id>/config`. `UpgradesView` has one mount now, this one.
@@ -155,22 +149,6 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   'sessions',
   'preferences',
   'tokens',
-<<<<<<< HEAD
-  // Project configuration lives here again, alongside the person rows: the
-  // overlay is one door for every scope now, grouped so ownership stays
-  // explicit (Project group in the rail).
-  'workspace',
-  'sandbox',
-  'feature-flags',
-  'git',
-  'upgrades',
-  // So does the account surface: wallet, subscription and connected apps
-  // render their panes here under the Account group. The account page keeps
-  // its own full versions; these rows are the fast path, not a fork.
-  'connected',
-  'credits',
-  'plan',
-=======
   'mcp',
   'computer',
   // `connected` is still in the type but NOT here: it listed the ACCOUNT's
@@ -185,7 +163,6 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   // the overlay's Workspace group was removed on 2026-09-03 (Marko), so no
   // route or palette row may open them. Each id resolves through `GRADUATED`
   // to the Customize bar's Settings tab instead.
->>>>>>> upstream-dev
 ];
 
 export function parseSettingsTab(raw: string | null | undefined): SettingsTab | null {
@@ -221,23 +198,28 @@ export const GRADUATED: Record<string, (projectId: string) => string> = {
   schedules: (p) => capabilityTabHref(p, 'triggers'),
   webhooks: (p) => capabilityTabHref(p, 'triggers'),
 
-  // ── Project configuration lives in the overlay again ───────────────────
-  // `/projects/<id>/config` still exists, and every alias that ever named
-  // these sections still lands there (general, snapshots, experimental,
-  // upgrade below). But the overlay's own tab ids now name live overlay tabs
-  // instead of redirecting away from it — one door, not two.
-  // Review, the one section that was an inbox rather than configuration, is a capability tab of its own.
+  // ── Project configuration → the Customize bar's Settings tab ────────────
+  // `/projects/<id>/config` holds General, Sandbox templates, Feature flags
+  // and Upgrades. It was retired on 2026-09-02 for the overlay's Workspace
+  // group and brought back on 2026-09-03 (Marko), and the overlay group went
+  // — so every id that ever named one of these sections, the overlay's own
+  // tab ids included, lands on the page. Review, the one section that was an
+  // inbox rather than configuration, is a capability tab of its own.
+  workspace: (p) => `${capabilityTabHref(p, 'config')}`,
   general: (p) => `${capabilityTabHref(p, 'config')}`,
   settings: (p) => `${capabilityTabHref(p, 'config')}`,
   // Repositories and its pre-rename `git` are the Git repo section — its own
   // section of the Settings tab since 2026-09-03.
   repositories: (p) => `${capabilityTabHref(p, 'config')}?section=git`,
   git: (p) => `${capabilityTabHref(p, 'config')}?section=git`,
+  sandbox: (p) => `${capabilityTabHref(p, 'config')}?section=sandbox`,
   // Snapshots merged into Sandbox templates — a snapshot is a template's
   // build history.
   snapshots: (p) => `${capabilityTabHref(p, 'config')}?section=sandbox`,
+  'feature-flags': (p) => `${capabilityTabHref(p, 'config')}?section=feature-flags`,
   // `experimental` was renamed Feature flags on the way.
   experimental: (p) => `${capabilityTabHref(p, 'config')}?section=feature-flags`,
+  upgrades: (p) => `${capabilityTabHref(p, 'config')}?section=upgrades`,
   // `upgrade`, singular, is the old Customize id for the Upgrades pane.
   upgrade: (p) => `${capabilityTabHref(p, 'config')}?section=upgrades`,
   review: reviewHref,
@@ -266,9 +248,11 @@ export const GRADUATED: Record<string, (projectId: string) => string> = {
   'llm-budgets': (p) => capabilityTabHref(p, 'models'),
   'llm-keys': (p) => capabilityTabHref(p, 'models'),
   'llm-api': (p) => capabilityTabHref(p, 'models'),
-  // Marketplace left Customize for its own top-level URL — a stale
-  // bookmark lands straight on it.
-  marketplace: (p) => marketplaceHref(p),
+  // Marketplace was removed from the product outright, not relocated. The
+  // closest honest destination for a stale bookmark is the Customize index —
+  // it lists every surface that replaced it, rather than a 404 or a pane that
+  // no longer exists.
+  marketplace: (p) => `/projects/${p}/customize`,
 };
 
 /**
@@ -307,10 +291,12 @@ export const ACCOUNT_GRADUATED: Record<string, string> = {
   billing: 'billing',
   usage: 'transactions',
   transactions: 'transactions',
-  // Credits, Plan and Connected accounts ALSO live in the overlay's Account
-  // group now, and live overlay tabs win over these redirects — the entries
-  // below stay only for spellings with no live tab. The account page keeps
-  // its full versions; the overlay rows are the fast path, not a fork.
+  // The overlay's Account group (Credits, Plan) left on 2026-09-03: the
+  // account page already owns both.
+  credits: 'transactions',
+  plan: 'billing',
+  // Connected accounts = the account's GitHub App installations = the Git tab.
+  connected: 'git',
   groups: 'groups',
   roles: 'roles',
   identity: 'identity',

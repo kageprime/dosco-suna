@@ -170,53 +170,6 @@ export function registerSlackWebhookRoutes(): void {
     }
     bindIntegrationPrincipal('slack');
 
-<<<<<<< HEAD
-  const envelope = parseEnvelope(rawBody);
-  if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
-  if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
-  if (envelope.type !== 'event_callback' || !envelope.event) return c.json({ ok: true });
-  if (await alreadyHandled(envelope.event_id)) return c.json({ ok: true });
-
-  void (async () => {
-    const teamId = envelope.team_id ?? envelope.event?.team ?? '';
-    if (!teamId) return;
-    if (envelope.event?.type === 'member_joined_channel') {
-      await maybePostChannelIntro(teamId, envelope.event);
-      return;
-    }
-    if (
-      envelope.event?.type === 'app_home_opened' &&
-      envelope.event.tab === 'home' &&
-      envelope.event.user
-    ) {
-      await publishHomeForUser(teamId, envelope.event.user);
-      return;
-    }
-    // Opening the Dosco DM (AI-Assistant pane) → greet with the project picker.
-    // The channel/thread live on event.assistant_thread, NOT the top-level event,
-    // so resolveOauthProject can't see it — handle it before that branch.
-    if (envelope.event?.type === 'assistant_thread_started') {
-      await handleAssistantThreadStarted(teamId, envelope.event);
-      return;
-    }
-    // A `/kortix …` typed in a DM (the Assistant pane can't run real slash
-    // commands) arrives as a plain message — run it as the command it is.
-    if (envelope.event && (await maybeHandleDmCommand(teamId, envelope.event))) {
-      return;
-    }
-    const resolution = await resolveOauthProject(teamId, envelope.event?.channel, envelope.event?.thread_ts);
-    if (resolution.kind === 'project') {
-      await dispatchSlackEvent(resolution.projectId, envelope);
-    } else if (resolution.kind === 'ambiguous') {
-      await maybePostPicker(teamId, resolution.projectIds, envelope);
-    } else if (resolution.kind === 'pending') {
-      const installs = await db
-        .select({ projectId: chatInstalls.projectId })
-        .from(chatInstalls)
-        .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.workspaceId, teamId)));
-      if (installs.length > 0) {
-        await maybePostPicker(teamId, installs.map((i) => i.projectId), envelope);
-=======
     const envelope = parseEnvelope(rawBody);
     if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
     if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
@@ -228,7 +181,6 @@ export function registerSlackWebhookRoutes(): void {
       if (envelope.event?.type === 'member_joined_channel') {
         await maybePostChannelIntro(teamId, envelope.event);
         return;
->>>>>>> upstream-dev
       }
       if (
         envelope.event?.type === 'app_home_opened' &&
@@ -238,7 +190,7 @@ export function registerSlackWebhookRoutes(): void {
         await publishHomeForUser(teamId, envelope.event.user);
         return;
       }
-      // Opening the Kortix DM (AI-Assistant pane) → greet with the project picker.
+      // Opening the Dosco DM (AI-Assistant pane) → greet with the project picker.
       // The channel/thread live on event.assistant_thread, NOT the top-level event,
       // so resolveOauthProject can't see it — handle it before that branch.
       if (envelope.event?.type === 'assistant_thread_started') {
@@ -290,125 +242,11 @@ export function registerSlackWebhookRoutes(): void {
     if (!mode.available || !mode.signingSecret) {
       return c.json({ error: 'OAuth mode not configured' }, 503);
     }
-<<<<<<< HEAD
-  })().catch((err) => console.error('[slack-webhook] oauth handler failed', err));
-
-  return c.json({ ok: true });
-},
-);
-
-slackWebhookApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/interactivity',
-    tags: ['channels'],
-    summary: 'Slack interactivity webhook (signature verified)',
-    request: {
-      body: { content: { 'application/x-www-form-urlencoded': { schema: z.any() } } },
-    },
-    responses: {
-      200: json(z.object({ ok: z.boolean() }).passthrough(), 'Accepted'),
-      ...errors(401, 503),
-    },
-  }),
-  async (c: any) => {
-  const mode = slackOauthMode();
-  if (!mode.available || !mode.signingSecret) {
-    return c.json({ error: 'OAuth mode not configured' }, 503);
-  }
-  const rawBody = await c.req.text();
-  const timestamp = c.req.header('x-slack-request-timestamp') ?? '';
-  const signature = c.req.header('x-slack-signature') ?? '';
-  if (!verifySlackSignature(rawBody, timestamp, signature, mode.signingSecret)) {
-    return c.json({ error: 'Invalid signature' }, 401);
-  }
-  bindIntegrationPrincipal('slack');
-  // An empty body closes a modal; `{ok:true}` would be read as a malformed
-  // `response_action` and show the reviewer an error.
-  if (runInteractivityBody(rawBody) === 'view_submission') return c.body('', 200);
-  return c.json({ ok: true });
-},
-);
-
-// Slash commands — Slack POSTs application/x-www-form-urlencoded here when
-// a user runs `/kortix …` in any channel/DM. Must respond within 3s.
-slackWebhookApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/commands',
-    tags: ['channels'],
-    summary: 'Slack slash command webhook (signature verified)',
-    request: {
-      body: { content: { 'application/x-www-form-urlencoded': { schema: z.any() } } },
-    },
-    responses: {
-      200: json(z.object({ response_type: z.string().optional(), text: z.string().optional() }).passthrough(), 'Slash command response'),
-      ...errors(401, 503),
-    },
-  }),
-  async (c: any) => {
-  const mode = slackOauthMode();
-  if (!mode.available || !mode.signingSecret) {
-    return c.json({ response_type: 'ephemeral', text: 'OAuth mode not configured on this server.' }, 503);
-  }
-  const rawBody = await c.req.text();
-  const timestamp = c.req.header('x-slack-request-timestamp') ?? '';
-  const signature = c.req.header('x-slack-signature') ?? '';
-  if (!verifySlackSignature(rawBody, timestamp, signature, mode.signingSecret)) {
-    return c.json({ error: 'Invalid signature' }, 401);
-  }
-  bindIntegrationPrincipal('slack');
-
-  return c.json(await runSlashCommandBody(rawBody));
-},
-);
-
-slackWebhookApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/{projectId}',
-    tags: ['channels'],
-    summary: 'Per-project (BYO app) Slack Events webhook (signature verified)',
-    request: {
-      params: z.object({ projectId: z.string() }),
-      body: { content: { 'application/json': { schema: z.any() } } },
-    },
-    responses: {
-      200: json(z.object({ ok: z.boolean().optional(), challenge: z.string().optional() }).passthrough(), 'Accepted'),
-      ...errors(400, 401, 403, 404),
-    },
-  }),
-  async (c: any) => {
-  const projectId = c.req.param('projectId');
-  const rawBody = await c.req.text();
-
-  const envelope = parseEnvelope(rawBody);
-  if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
-  // Slack verifies the Events API request URL before a manual/BYO app can be
-  // installed and saved back to Dosco, so there is no project signing secret
-  // yet. Only the bootstrap challenge is allowed through this unsigned path;
-  // every real callback below remains project-secret verified.
-  if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
-
-  const verified = await verifyProjectSlackRequest(c, projectId, rawBody, envelope.team_id);
-  if ('refusal' in verified) return verified.refusal;
-  const { inbound } = verified;
-  bindIntegrationPrincipal('slack', { projectId });
-
-  if (envelope.type !== 'event_callback' || !envelope.event) return c.json({ ok: true });
-  if (await alreadyHandled(envelope.event_id)) return c.json({ ok: true });
-
-  void (async () => {
-    const teamId = inbound.kind === 'project' ? inbound.teamId : '';
-    if (envelope.event && (await maybeHandleDmCommand(teamId, envelope.event, projectId))) {
-      return;
-=======
     const rawBody = await c.req.text();
     const timestamp = c.req.header('x-slack-request-timestamp') ?? '';
     const signature = c.req.header('x-slack-signature') ?? '';
     if (!verifySlackSignature(rawBody, timestamp, signature, mode.signingSecret)) {
       return c.json({ error: 'Invalid signature' }, 401);
->>>>>>> upstream-dev
     }
     bindIntegrationPrincipal('slack');
     // An empty body closes a modal; `{ok:true}` would be read as a malformed
@@ -449,43 +287,9 @@ slackWebhookApp.openapi(
     }
     bindIntegrationPrincipal('slack');
 
-<<<<<<< HEAD
-// Per-project (BYO app) interactivity — parity with the canonical /interactivity
-// (block-action pickers + the "Open in Dosco" message shortcut), verified with
-// the project's own signing secret. The BYO manifest points interactivity here.
-slackWebhookApp.openapi(
-  createRoute({
-    method: 'post',
-    path: '/{projectId}/interactivity',
-    tags: ['channels'],
-    summary: 'Per-project (BYO app) Slack interactivity webhook (signature verified)',
-    request: {
-      params: z.object({ projectId: z.string() }),
-      body: { content: { 'application/x-www-form-urlencoded': { schema: z.any() } } },
-    },
-    responses: {
-      200: json(z.object({ ok: z.boolean() }).passthrough(), 'Accepted'),
-      ...errors(401, 403, 404),
-    },
-  }),
-  async (c: any) => {
-  const projectId = c.req.param('projectId');
-  const rawBody = await c.req.text();
-  const bodyTeamId = interactionPayload(rawBody)?.team?.id;
-  const verified = await verifyProjectSlackRequest(c, projectId, rawBody, bodyTeamId);
-  if ('refusal' in verified) return verified.refusal;
-  bindIntegrationPrincipal('slack', { projectId });
-  // The project scope travels with the payload: every handler behind this
-  // route stays inside this project and its proven workspace.
-  runInteractivityBody(rawBody, verified.inbound);
-  return c.body('', 200);
-},
-);
-=======
     return c.json(await runSlashCommandBody(rawBody));
   },
   );
->>>>>>> upstream-dev
 
   slackWebhookApp.openapi(
     createRoute({
@@ -509,7 +313,7 @@ slackWebhookApp.openapi(
     const envelope = parseEnvelope(rawBody);
     if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
     // Slack verifies the Events API request URL before a manual/BYO app can be
-    // installed and saved back to Kortix, so there is no project signing secret
+    // installed and saved back to Dosco, so there is no project signing secret
     // yet. Only the bootstrap challenge is allowed through this unsigned path;
     // every real callback below remains project-secret verified.
     if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
@@ -563,7 +367,7 @@ slackWebhookApp.openapi(
   );
 
   // Per-project (BYO app) interactivity — parity with the canonical /interactivity
-  // (block-action pickers + the "Open in Kortix" message shortcut), verified with
+  // (block-action pickers + the "Open in Dosco" message shortcut), verified with
   // the project's own signing secret. The BYO manifest points interactivity here.
   slackWebhookApp.openapi(
     createRoute({

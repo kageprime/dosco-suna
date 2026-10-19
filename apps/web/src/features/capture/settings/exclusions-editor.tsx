@@ -53,7 +53,7 @@ const GROUP_ICONS: Record<string, Icon> = {
 };
 
 /**
- * The organization's Exclusions (account settings ▸ Kortix Capture): Apps |
+ * The organization's Exclusions (account settings ▸ Dosco Capture): Apps |
  * Websites, the categories, private browsing and what is excluded. The
  * mandatory lists every device applies; apps and websites are added by id from
  * the search box. Each row is one checkbox.
@@ -379,7 +379,7 @@ function Tile({ icon: TileIcon }: { icon: Icon }) {
 }
 
 /**
- * Record only included (account settings ▸ Kortix Capture): Apps | Websites the
+ * Record only included (account settings ▸ Dosco Capture): Apps | Websites the
  * organization includes. An included app is recorded in full; an included website
  * in any browser. Everything else is blacked out. People can add their own.
  */

@@ -8,8 +8,8 @@
  *
  * Settled AFTER the request, never at admission: a BYOK request stays
  * `billingMode: 'none'`, so a drained wallet never blocks a customer's own key
- * and no Kortix-billed fallback is ever added (learnings 2026-09-22, "Resolve
- * the LLM payee before touching the Kortix wallet"). Only the fee is a Kortix
+ * and no Dosco-billed fallback is ever added (learnings 2026-09-22, "Resolve
+ * the LLM payee before touching the Dosco wallet"). Only the fee is a Dosco
  * charge; the provider's own bill stays in gateway observability.
  */
 import { gatewayRequestLogs } from '@kortix/db';

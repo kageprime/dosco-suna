@@ -110,43 +110,6 @@ describe('flattenModels — gateway provider pass-through (@kortix/sdk)', () => 
   });
 });
 
-<<<<<<< HEAD
-// Characterization (KRTX-452, phase 1 of KRTX-451): pins the host copy where
-// it still drifts from the canonical SDK flattener
-// (packages/sdk/src/core/models/model-flatten.ts). The SDK twin of this file
-// pins the same fixtures on the SDK side. Later phases reconcile the host
-// onto the SDK semantics; rewrite these assertions then, deliberately, inside
-// the reconciliation PR — never as a quiet drive-by.
-describe('flattenModels — host drift vs @kortix/sdk (characterization)', () => {
-  const driftProviders = {
-    default: {},
-    connected: ['kortix', 'anthropic'],
-    all: [
-      {
-        id: 'kortix',
-        name: 'Dosco',
-        source: 'gateway',
-        models: {
-          // A catalog silent on modalities, in both wire shapes.
-          'custom/mystery': { name: 'Mystery' },
-          'custom/silent': { name: 'Silent', capabilities: { reasoning: true } },
-          // Zero-cost managed model: the gateway stamps `free`.
-          'kortix/free-tier': { name: 'Free Tier', free: true, cost: { input: 0, output: 0 } },
-          'kortix/paid-tier': { name: 'Paid Tier', cost: { input: 1, output: 2 } },
-          // Stale pre-removal entries a baked catalog can still carry.
-          auto: { name: 'Auto' },
-          'kortix/auto': { name: 'Dosco Auto' },
-        },
-      },
-      {
-        id: 'anthropic',
-        name: 'Anthropic',
-        source: 'env',
-        models: { 'claude-sonnet-4-6': { name: 'Claude Sonnet 4.6' } },
-      },
-    ],
-  } as unknown as ProviderListResponse;
-=======
 // Phase 4 guard (KRTX-455): the host copy of the model flattener was deleted;
 // `@kortix/sdk` is its single definition. These are filesystem assertions on
 // the tracked tree, so a re-introduced host definition (or a quiet re-import
@@ -156,7 +119,6 @@ const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
   cwd: import.meta.dir,
   encoding: 'utf8',
 }).trim();
->>>>>>> upstream-dev
 
 // The pathspecs below are repo-root-relative: git grep resolves them against
 // the cwd, so every grep here runs with `cwd: repoRoot`, never the test's

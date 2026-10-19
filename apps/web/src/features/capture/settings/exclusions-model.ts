@@ -7,9 +7,9 @@ import {
 import groupsCopy from './exclusion-groups.json';
 
 /**
- * The model behind the organization's Exclusions (account settings ▸ Kortix
+ * The model behind the organization's Exclusions (account settings ▸ Dosco
  * Capture): the mandatory lists an admin edits in the policy. A person's own
- * exclusions live in the Kortix Capture app on their computer.
+ * exclusions live in the Dosco Capture app on their computer.
  */
 export type ExclusionTab = 'apps' | 'websites';
 /** One edit: an app (bundle id), a website (domain), a category, or private browsing, on or off. */

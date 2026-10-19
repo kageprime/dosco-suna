@@ -136,7 +136,7 @@ describe('reads at a commit', () => {
   test('a commit the mirror holds is read without a fetch; one it lacks fetches', async () => {
     const repoPath = await refreshMirror(project); // cold: clones
     const seeded = await mirrorTip(repoPath);
-    const pushed = await commit('pushed outside Kortix');
+    const pushed = await commit('pushed outside Dosco');
 
     // Every read is past the interval (0 ms), yet nothing at `seeded` can change.
     expect(await refreshMirror(project, false, { freshRef: seeded })).toBe(repoPath);

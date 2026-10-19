@@ -85,14 +85,14 @@ export function buildCodexProvider(
 }
 
 /**
- * The managed Kortix provider entry for the connected list, or null.
+ * The managed Dosco provider entry for the connected list, or null.
  *
  * Connected means "this gateway can serve a managed model you may use". The
  * runtime provider snapshot always marks `kortix` connected when the gateway
  * exists (`provider-selection.ts` hardcodes it), but the catalog it carries is
  * plan-gated: a free-tier account whose deployment has no servable platform
  * default gets an EMPTY managed set. Reporting that as a connected provider
- * with zero models is the "Kortix · Paid from credits · 0 models" row the
+ * with zero models is the "Dosco · Paid from credits · 0 models" row the
  * model picker contradicts with "No models available" (KRTX-1482), so an empty
  * served set returns null — the row then renders not-connected under the same
  * upgrade story the picker shows. Self-hosts (KORTIX_MANAGED_PROVIDER_ENABLED
@@ -141,7 +141,7 @@ export function buildKortixManagedProvider(
   if (models.length === 0) return null;
   return {
     id: 'kortix',
-    label: kortix.name || 'Kortix',
+    label: kortix.name || 'Dosco',
     envVars: [],
     authRequirement: { methods: [] },
     helpUrl: null,

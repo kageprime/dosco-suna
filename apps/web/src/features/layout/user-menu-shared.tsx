@@ -98,9 +98,9 @@ export const LEGAL_LINKS: MenuLink[] = [
 /**
  * Theme as a submenu.
  *
- * `INTERFACE_THEME_OPTIONS` now carries 44 rows — System, four Kortix
+ * `INTERFACE_THEME_OPTIONS` now carries 44 rows — System, four Dosco
  * palettes, and 39 curated terminal themes — too many to list in a
- * dropdown. This submenu shows the System row, the four Kortix rows, and (if
+ * dropdown. This submenu shows the System row, the four Dosco rows, and (if
  * the current selection is a terminal theme) that one extra row so the
  * checked state is never silently hidden; "More themes…" opens the
  * Appearance tab's Select, which lists every row grouped and scrollable. That

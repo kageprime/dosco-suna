@@ -174,7 +174,7 @@ export function ChannelOrigin({ info, platform }: { info: ChannelMessageInfo; pl
 /**
  * A message that arrived from a chat channel (Slack / Microsoft Teams /
  * Telegram): a source pill — mark, platform, sender — over the same bubble a
- * typed message gets. Every `@name` in the text (`@Kortix`, `@KortixDev`,
+ * typed message gets. Every `@name` in the text (`@Dosco`, `@KortixDev`,
  * `@here`) is a `MentionChip`, the chip the composer draws, static because a
  * channel mention opens nothing here. Exported for `channel-message-card.test.tsx`.
  */

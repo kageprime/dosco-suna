@@ -105,20 +105,10 @@ function rememberSandboxOrigin(sandboxId: string, candidate: unknown): void {
   sandboxOrigins.set(sandboxId, origin);
 }
 
-<<<<<<< HEAD
-// Region → origin, learned from boxes this process has already seen in that
-// region (their `api_url` / `x-pt-served-by`). A CREATE names its region in the
-// body but has no box id yet, so without this it always went to the global
-// origin: for a US box that is Dosco → EU control plane → US control plane,
-// one transatlantic forward per create (Dev, 2026-10-02: the US create also
-// paid the EU hop while every later call for the box went direct).
-// replica-local: same contract as the sandbox origins — an unlearned replica
-// pays the extra forward through the global origin, it never mis-routes.
-=======
 // Region → origin. A call that names its region in the body (a create, both
 // phases of an image build, a template prepare) has no box id to route by. It
 // used to go to the global origin until a box in that region taught its
-// origin: for a US box that is Kortix → EU control plane → US control plane,
+// origin: for a US box that is Dosco → EU control plane → US control plane,
 // one transatlantic forward per call, and an image build never teaches one. On
 // prod 2026-10-17 a US create through the EU control plane took 3.0 s median
 // against 1.9 s direct. Such a call now goes straight to the region's control
@@ -129,7 +119,6 @@ function rememberSandboxOrigin(sandboxId: string, candidate: unknown): void {
 // replica-local: same contract as the sandbox origins — a replica that cannot
 // reach a region pays the forward through the global origin, it never
 // mis-routes.
->>>>>>> upstream-dev
 const regionOrigins = new Map<string, string>();
 // replica-local: regions this replica has seen served by the configured origin
 // itself (the home region). A replica that has not seen one tries the regional

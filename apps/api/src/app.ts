@@ -83,7 +83,7 @@ registerPlatformEndpoints(app);
 // KORTIX_CAPTURE_S3_PROXY_TARGET is set (self-host without a domain).
 registerCaptureStoreProxy(app);
 
-// /v1/capture/* — Kortix Capture device sign-in (public, RFC 8628), the
+// /v1/capture/* — Dosco Capture device sign-in (public, RFC 8628), the
 // device credential endpoint (device token), the approval reads and the agent
 // tool's /v1/capture/me reads (per-route supabaseAuth). The account-scoped
 // Capture routes live under /v1/accounts/:accountId/capture.
@@ -177,20 +177,15 @@ app.use('/v1/platform/boot-timeline', supabaseAuth);
 // every fire-and-forget push, in silence.
 app.use('/v1/platform/runtime-projection', supabaseAuth);
 app.route('/v1/platform', platformApp); // /v1/platform, /v1/platform/sandbox/version
-<<<<<<< HEAD
-registerSunaMigrationRoutes(projectsApp); // /v1/projects/suna-migration/* (OG Suna → opencode, user-triggered)
-app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Dosco projects
-=======
 // A project's sign-in token issuer: public OpenID configuration and key set
 // (apps/token-issuer-routes.ts). Mounted BEFORE projectsApp, whose `/*`
 // supabaseAuth would otherwise 401 an anonymous verifier.
 import { tokenIssuerApp } from './apps/token-issuer-routes';
 app.route('/v1/projects', tokenIssuerApp); // /v1/projects/:projectId/{.well-known/openid-configuration,jwks.json}
 registerAllProjectRoutes();
-app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Kortix projects
+app.route('/v1/projects', projectsApp); // /v1/projects — Git-backed Dosco projects
 registerSessionLookupRoutes();
 app.route('/v1/sessions', sessionsApp); // GET /v1/sessions/:sessionId — one session by id, in any project
->>>>>>> upstream-dev
 // /v1/mcp — the hosted MCP server, bound to the caller's token like the CLI.
 // It answers its own 401 with an OAuth challenge, so no auth middleware here.
 // dispatchInProcess takes the assembled app as its second argument (it
