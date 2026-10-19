@@ -93,12 +93,14 @@ if (process.env.KORTIX_MODEL_CATALOG_LIVE_ENABLED !== '0') {
     );
 }
 
-// Boot only when this module is the entry point (`bun run src/index.ts`, which
-// is how both `pnpm dev` and the Docker CMD launch it). Guarding behind
-// import.meta.main lets tooling and tests `import { app }` to introspect the
-// route table without starting the DB schema check, background workers, or
-// signal handlers. Does NOT change production boot — there, import.meta.main is true.
-if (import.meta.main) {
+// Boot: DB schema check, background services, signal handlers. Exported so the
+// container launcher (`src/serve.ts`) can call it after importing this module
+// behind an already-bound `$PORT` listener — binding must happen BEFORE this
+// module's expensive evaluation to fit the platform's web boot window (see
+// serve.ts). The `import.meta.main` guard below still lets tooling and tests
+// `import { app }` to introspect the route table without starting the DB
+// schema check, background workers, or signal handlers.
+export function startBootServices(): void {
   // One line an operator can grep for when email "does not work": which
   // providers EMAIL_URL resolved to, and the address mail is sent from. Never
   // prints credentials.
@@ -121,6 +123,13 @@ if (import.meta.main) {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+// Local entries (`bun run src/index.ts`, `pnpm dev`, Docker without the
+// launcher) keep the auto-serve boot; tooling and tests that `import { app }`
+// still skip it.
+if (import.meta.main) {
+  startBootServices();
 }
 
 async function handleInbound(req: Request, server: any): Promise<Response | undefined> {

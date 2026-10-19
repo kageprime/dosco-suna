@@ -336,4 +336,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # Non-root user (bun image ships with 'bun' user)
 USER bun
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["bun", "run", "src/serve.ts"]
