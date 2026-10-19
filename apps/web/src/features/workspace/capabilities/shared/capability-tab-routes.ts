@@ -142,6 +142,16 @@ export function capabilityTabHref(projectId: string, key: CapabilityTab['key']):
 }
 
 /**
+ * Where Marketplace lives: a top-level project route, not a Customize tab.
+ * `/projects/<id>/customize/marketplace` still resolves — it redirects here —
+ * so every bookmark taken while it WAS a tab keeps working. Same arrangement
+ * as the retired `/channels` route.
+ */
+export function marketplaceHref(projectId: string): string {
+  return `/projects/${projectId}/marketplace`;
+}
+
+/**
  * The Review Center: the Customize Review tab. `/projects/<id>/review`, its
  * address from 2026-10-02 to 2026-10-17, redirects here.
  */
