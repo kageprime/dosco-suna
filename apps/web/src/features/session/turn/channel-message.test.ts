@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-
-import { within } from '@kortix/shared/tool-output/testing';
-
 import { parseChannelMessage, slackChannelNames, slackConversationName } from './channel-message';
 
+<<<<<<< HEAD
 /**
  * The scaffolds below are copied from the API renderers that produce them:
  * apps/api/src/channels/slack/session.ts, teams/session.ts,
@@ -414,6 +412,14 @@ describe('no channel message can freeze the tab that parses it', () => {
 
 // The agent's own Slack replies and the Channels page name a conversation the
 // way the incoming card does.
+=======
+// The parser's own tests live with it in `packages/shared/src/channel-message.test.ts`.
+test('the session view reads channel messages with the shared parser', () => {
+  const info = parseChannelMessage('New message from Alex Kim in the same Teams conversation:\nAnd production?');
+  expect(info).toEqual({ platform: 'Teams', context: '', userName: 'Alex Kim', messageText: 'And production?', followUp: true });
+});
+
+>>>>>>> upstream-dev
 describe('slackConversationName', () => {
   test('a channel reads #name, a DM its person, a group DM its members', () => {
     expect(slackConversationName({ channelName: 'general', channelType: 'channel' })).toBe('#general');

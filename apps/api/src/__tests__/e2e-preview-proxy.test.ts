@@ -71,7 +71,6 @@ let mockResolvedPreviewPorts: number[] = [];
 let mockResolveIngressError: Error | null = null;
 /** Called on every ingress resolution; a fake clock uses it to make one slow. */
 let mockOnResolveIngress: (() => void) | null = null;
-let mockSnapshotSyncCalls: Array<Record<string, unknown>> = [];
 
 function mockSandboxRows(): any[] {
   if (!mockDbSandbox) return [];
@@ -214,7 +213,7 @@ mock.module('../projects/lib/on-behalf-of', () => ({
 }));
 
 // IAM — a prompt that switches to a CONCRETE agent is authorized for
-// `project.agent.read` on that agent before the re-mint (sandbox-proxy/routes/preview.ts).
+// `project.agent.read` on that agent before the re-mint (sandbox-proxy/forward/access.ts).
 // The real engine issues an `innerJoin` this file's `db` stub does not build, so
 // leaving it unmocked makes `authorize` throw, the forward retry 4x, and every
 // agent-switch assertion answer 502 instead of the 204 it is about.
@@ -416,12 +415,6 @@ mock.module('../projects/secrets', () => {
   };
 });
 
-mock.module('../projects/opencode-session-snapshot', () => ({
-  scheduleOpencodeSnapshotSync: (input: Record<string, unknown>) => {
-    mockSnapshotSyncCalls.push(input);
-  },
-}));
-
 // The proxy owns two of the four title hooks. Keep the REAL prompt extraction
 // (that is the part the proxy actually decides) and capture only the generator
 // call, whose own idempotency/CAS is covered by unit + integration tests.
@@ -558,7 +551,6 @@ beforeEach(() => {
   mockResolvedPreviewPorts = [];
   mockResolveIngressError = null;
   mockOnResolveIngress = null;
-  mockSnapshotSyncCalls = [];
   mockTitleCalls = [];
   // The per-sandbox env-push memo (`env-sync-skip-decision.ts`) would
   // otherwise carry over from the previous test on the same TEST_SANDBOX_ID
@@ -692,6 +684,7 @@ describe('Preview proxy: websocket upgrade (path form)', () => {
     ['answers 500', { status: 500, body: 'boom' }, 4096],
     ['cannot be reached', { status: 0, body: '', error: new Error('ECONNREFUSED') }, 4096],
     ['is too old to report the field', { status: 200, body: '{"status":"ok"}' }, 4096],
+    ['names the OpenCode harness and its port', { status: 200, body: '{"harness":{"id":"opencode","details":{"port":4097}},"opencode_port":4097}' }, 4097],
   ])('an opencode PTY dials the live port: the daemon %s', async (_label, health, port) => {
     mockFetchResponses = [health];
 
@@ -704,6 +697,19 @@ describe('Preview proxy: websocket upgrade (path form)', () => {
     expect(healthReads()).toHaveLength(1);
     // Bounded, so a wedged box cannot hang the terminal.
     expect(healthReads()[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  // R7.5: pi reports `opencode_port: null`. The 4096 fallback dialed a port
+  // where nothing listens and the terminal died with close code 4502.
+  test('an opencode PTY on a pi box is refused with 409 naming the Kortix PTY, after one health read', async () => {
+    mockFetchResponses = [{ status: 200, body: '{"harness":{"id":"pi","details":{"model":"kortix/x"}},"opencode_port":null}' }];
+    const res = await preparePreviewWsUpgrade(upgradeUrl('ws-pi-box', 4096, '/pty/pty_1/connect'));
+    expect(res).toMatchObject({ ok: false, status: 409 });
+    if (!res.ok) {
+      expect(res.message).toContain('pty_unsupported_runtime');
+      expect(res.message).toContain('/kortix/pty/');
+    }
+    expect(healthReads()).toHaveLength(1);
   });
 
   // The value changes on exactly the event this exists for, so it is read on
@@ -927,6 +933,50 @@ describe('Preview proxy: forwarding', () => {
     expect(mockFetchCalls[1].url).toBe(
       'https://preview.daytona.io/proxy-url/session/ses_123/prompt_async?directory=%2Fworkspace',
     );
+  });
+
+  // The Platinum edge marks every answer it gives itself with
+  // `x-pt-edge-verdict`: it did not proxy the request, so the box never saw
+  // the prompt and a replay cannot post it twice (CFG-12, revocation-unavailable).
+  const sendPrompt = async () => {
+    const origSetTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: any) => fn()) as any;
+    try {
+      return await createProxyTestApp().request(
+        `/v1/p/${TEST_SANDBOX_ID}/8000/session/ses_123/prompt_async?directory=%2Fworkspace`,
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parts: [{ type: 'text', text: 'hi' }] }),
+        },
+      );
+    } finally {
+      globalThis.setTimeout = origSetTimeout;
+    }
+  };
+
+  test('a prompt the provider edge refused itself (x-pt-edge-verdict) is sent again', async () => {
+    mockFetchResponses = [
+      { status: 200, body: '{"ok":true,"changed":false,"revision":"rev"}' },
+      { status: 503, body: 'Preview access denied', headers: { 'x-pt-edge-verdict': 'revocation-unavailable' } },
+      { status: 204, body: '' },
+    ];
+    const res = await sendPrompt();
+    expect(res.status).toBe(204);
+    const prompts = mockFetchCalls.filter((c) => c.url.endsWith('/session/ses_123/prompt_async?directory=%2Fworkspace'));
+    expect(prompts).toHaveLength(2);
+  });
+
+  test('a prompt answered 502 by the box itself is never sent twice', async () => {
+    mockFetchResponses = [
+      { status: 200, body: '{"ok":true,"changed":false,"revision":"rev"}' },
+      { status: 502, body: '{"error":"upstream unreachable"}', headers: { 'x-pt-edge-served': '1' } },
+      { status: 204, body: '' },
+    ];
+    const res = await sendPrompt();
+    expect(res.status).toBe(502);
+    const prompts = mockFetchCalls.filter((c) => c.url.endsWith('/session/ses_123/prompt_async?directory=%2Fworkspace'));
+    expect(prompts).toHaveLength(1);
   });
 
   test('titles from a REST prompt_async body, with the model the user picked for the turn', async () => {
@@ -1633,7 +1683,7 @@ describe('Preview proxy: retry exhaustion', () => {
 // no wake, no resend of the (non-idempotent) message, and a distinct,
 // honest signal instead of the generic "sandbox unreachable" 502. See
 // preview-retry-budget.ts (proxyAttemptTimeoutMs) and forwardToSandbox's
-// catch block in routes/preview.ts.
+// catch block in forward/retry.ts.
 describe('Preview proxy: long-turn completion timeout', () => {
   test('a connect-timer abort on POST /session/:id/message returns 504 LONG_TURN_PROXY_TIMEOUT — no wake, no resend', async () => {
     const savedFetch = globalThis.fetch;
@@ -1862,10 +1912,11 @@ describe('Preview proxy: hop attribution when the provider never resolves', () =
 // the static-file listener (3211), which reads that session's workspace.
 // Ownership alone cannot separate end-users when every session of a wrapper
 // shares one created_by.
-describe('Preview proxy: per-session gate on session-data ports', () => {
+describe('Preview proxy: per-session gate on every port', () => {
   const FOREIGN_SESSION = '99999999-9999-4999-8999-999999999999';
 
-  test.each([8000, 4096, 4097, 3211])(
+  // Pentest M-2: an app port serves that session's workspace too.
+  test.each([8000, 4096, 4097, 3211, TEST_PORT])(
     'another session\'s caller is refused on port %p',
     async (port) => {
       const res = await createProxyTestApp().request(`/v1/p/session-gate-${port}/${port}/`, {
@@ -1876,7 +1927,7 @@ describe('Preview proxy: per-session gate on session-data ports', () => {
     },
   );
 
-  test('the session\'s own caller, and any caller on an ordinary app port, are forwarded', async () => {
+  test('the session\'s own caller is forwarded on the daemon port and an app port', async () => {
     const app = createProxyTestApp();
     const own = await app.request(`/v1/p/session-gate-own/8000/kortix/health`, {
       headers: { Authorization: 'Bearer test', 'X-Test-Caller-Session': mockDbSandbox.sessionId },
@@ -1884,7 +1935,7 @@ describe('Preview proxy: per-session gate on session-data ports', () => {
     expect(own.status).toBe(200);
 
     const appPort = await app.request(`/v1/p/session-gate-app/${TEST_PORT}/`, {
-      headers: { Authorization: 'Bearer test', 'X-Test-Caller-Session': FOREIGN_SESSION },
+      headers: { Authorization: 'Bearer test', 'X-Test-Caller-Session': mockDbSandbox.sessionId },
     });
     expect(appPort.status).toBe(200);
   });

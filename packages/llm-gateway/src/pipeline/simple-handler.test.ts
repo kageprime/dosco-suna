@@ -474,6 +474,49 @@ describe('simple gateway pipeline', () => {
     expect(traces).toHaveLength(1);
   });
 
+  test('a non-stream 200 with no usage object settles an estimate, not zero tokens', async () => {
+    const usage: UsageEvent[] = [];
+    const body = JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'z'.repeat(800) } }] });
+    const response = await handleChatCompletions(
+      {
+        hooks: hooks(usage, []),
+        logger: { info() {}, warn() {}, error() {} },
+        fetchImpl: async () => new Response(body, { headers: { 'content-type': 'application/json' } }),
+      },
+      {
+        authorization: 'Bearer token',
+        rawBody: JSON.stringify({ model: 'requested-model', messages: [{ role: 'user', content: 'p'.repeat(4_000) }] }),
+      },
+    );
+    expect(await response.text()).toBe(body);
+    expect(usage).toHaveLength(1);
+    // 800 output chars / 4 = 200 tokens; 4,000 prompt chars / 4 + framing >= 1,000 tokens.
+    expect(usage[0]).toMatchObject({ usageEstimated: true, completionTokens: 200 });
+    expect(usage[0]!.promptTokens).toBeGreaterThanOrEqual(1_000);
+  });
+
+  test('a non-stream 200 whose body read fails settles the prompt estimate', async () => {
+    const usage: UsageEvent[] = [];
+    const broken = new Response(
+      new ReadableStream<Uint8Array>({ start: (controller) => controller.error(new Error('connection reset')) }),
+      { headers: { 'content-type': 'application/json' } },
+    );
+    await handleChatCompletions(
+      {
+        hooks: hooks(usage, []),
+        logger: { info() {}, warn() {}, error() {} },
+        fetchImpl: async () => broken,
+      },
+      {
+        authorization: 'Bearer token',
+        rawBody: JSON.stringify({ model: 'requested-model', messages: [{ role: 'user', content: 'p'.repeat(4_000) }] }),
+      },
+    ).catch(() => undefined);
+    expect(usage).toHaveLength(1);
+    expect(usage[0]).toMatchObject({ usageEstimated: true, completionTokens: 0 });
+    expect(usage[0]!.promptTokens).toBeGreaterThanOrEqual(1_000);
+  });
+
   // An error frame before any output served nothing: the client gets the
   // provider's status as an HTTP error, which OpenCode can retry or compact on.
   test.each([
@@ -1206,10 +1249,20 @@ describe('model fallback chains (route.fallbackModels)', () => {
       attempts: 2,
       resolvedModel: 'fallback-model',
       candidatesTried: ['primary-upstream', 'fallback-upstream:fallback-model'],
+      // The route ids a session can show: what answered, and what it stood in for.
+      servedModel: 'fallback-model',
+      fallbackFrom: 'primary-model',
     });
     expect(traces.at(-1)?.attemptFailures?.map((f) => [f.provider, f.routeModel, f.status])).toEqual([
       ['primary-upstream', 'primary-model', 503],
     ]);
+  });
+
+  test('a request its own model answers names that model and no fallback', async () => {
+    const { response, traces } = await run({ respond: () => ok('from primary') });
+    expect(response.status).toBe(200);
+    expect(traces.at(-1)).toMatchObject({ ok: true, servedModel: 'primary-model' });
+    expect(traces.at(-1)).not.toHaveProperty('fallbackFrom');
   });
 
   // Incident 2026-09-28: a routed model the provider would not serve (404 —
@@ -1600,5 +1653,193 @@ describe('trace timing segments', () => {
     expect(timing.resolve_ms).toBeGreaterThanOrEqual(75);
     expect(timing.billing_ms).toBeGreaterThanOrEqual(95);
     expect(timing.admit_ms + timing.route_ms + timing.resolve_ms + timing.billing_ms).toBeLessThanOrEqual(timing.prep_ms);
+  });
+});
+
+describe('refused requests are traced', () => {
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const logger = { info() {}, warn() {}, error() {} };
+  async function firstTrace(traces: GatewayTrace[]): Promise<GatewayTrace | undefined> {
+    for (let i = 0; i < 50 && traces.length === 0; i++) await sleep(10);
+    return traces[0];
+  }
+
+  test('a resolution refusal (plan_upgrade_required) leaves one failed trace', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks(usage, traces),
+          resolveUpstream: async () => {
+            throw new GatewayResolutionError('plan_upgrade_required', 'Upgrade your plan to use this model.', 'Upgrade your plan.');
+          },
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe('plan_upgrade_required');
+    const trace = await firstTrace(traces);
+    // Exactly one refusal row: a double-emit would double-count the refusal in usage.
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(400);
+    expect(trace?.errorCode).toBe('plan_upgrade_required');
+    expect(trace?.accountId).toBe('account');
+    expect(trace?.projectId).toBe('project');
+    expect(trace?.requestedModel).toBe('requested-model');
+    // A refusal settles nothing: no usage row, no cost.
+    expect(usage).toHaveLength(0);
+  });
+
+  test('an admission refusal with a principal leaves one failed trace', async () => {
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks([], traces),
+          authorize: async () => ({ ok: false, status: 402, errorCode: 'budget_exceeded', message: 'Budget exceeded', principal }),
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(402);
+    const trace = await firstTrace(traces);
+    // Exactly one refusal row: a double-emit would double-count the refusal in usage.
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(402);
+    expect(trace?.errorCode).toBe('budget_exceeded');
+    expect(trace?.accountId).toBe('account');
+  });
+
+  test('a model with no configured provider leaves one failed trace', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: { ...hooks(usage, traces), resolveUpstream: async () => [] },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe('model_unavailable');
+    const trace = await firstTrace(traces);
+    // Exactly one refusal row: a double-emit would double-count the refusal in usage.
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(400);
+    expect(trace?.errorCode).toBe('model_unavailable');
+    expect(trace?.requestedModel).toBe('requested-model');
+    expect(trace?.resolvedModel).toBe('primary-model');
+    // A refusal settles nothing: no usage row, no cost.
+    expect(usage).toHaveLength(0);
+  });
+
+  test('a billing refusal (billing inactive) leaves one failed trace', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks(usage, traces),
+          assertBillingActive: async () => {
+            throw new Error('Billing inactive');
+          },
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(402);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe('subscription_required');
+    const trace = await firstTrace(traces);
+    // Exactly one refusal row: a double-emit would double-count the refusal in usage.
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(402);
+    expect(trace?.errorCode).toBe('subscription_required');
+    expect(trace?.errorMessage).toBe('Billing inactive');
+    // A refusal settles nothing: no usage row, no cost.
+    expect(usage).toHaveLength(0);
+  });
+
+  test('an invalid JSON body leaves one failed trace', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      { hooks: hooks(usage, traces), logger },
+      { authorization: 'Bearer token', rawBody: 'not json' },
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe('invalid_json');
+    const trace = await firstTrace(traces);
+    // Exactly one refusal row: a double-emit would double-count the refusal in usage.
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(400);
+    expect(trace?.errorCode).toBe('invalid_json');
+    expect(trace?.accountId).toBe('account');
+    // A refusal settles nothing: no usage row, no cost.
+    expect(usage).toHaveLength(0);
+  });
+
+  test('an admission refusal without a principal (invalid token) leaves no trace', async () => {
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks([], traces),
+          authorize: async () => ({ ok: false, status: 401, errorCode: 'invalid_token', message: 'Invalid token' }),
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(401);
+    await sleep(120);
+    expect(traces).toHaveLength(0);
+  });
+
+  // The API's authorizeRequest now attaches the matched credential row's
+  // identity to a 401 denial when the presented secret hash-matches a
+  // revoked/expired key or a dead token (KRTX-1749). The handler contract for
+  // that shape: one attributed failed trace, no usage row.
+  test('an admission refusal with a principal on a 401 (revoked key) leaves one attributed trace', async () => {
+    const usage: UsageEvent[] = [];
+    const traces: GatewayTrace[] = [];
+    const response = await handleChatCompletions(
+      {
+        hooks: {
+          ...hooks(usage, traces),
+          authorize: async () => ({
+            ok: false,
+            status: 401,
+            errorCode: 'invalid_token',
+            message: 'Invalid token',
+            principal,
+          }),
+        },
+        logger,
+      },
+      { authorization: 'Bearer token', rawBody: JSON.stringify({ model: 'requested-model', messages: [] }) },
+    );
+    expect(response.status).toBe(401);
+    const trace = await firstTrace(traces);
+    expect(traces).toHaveLength(1);
+    expect(trace?.ok).toBe(false);
+    expect(trace?.status).toBe(401);
+    expect(trace?.errorCode).toBe('invalid_token');
+    expect(trace?.accountId).toBe('account');
+    expect(trace?.projectId).toBe('project');
+    expect(usage).toHaveLength(0);
   });
 });

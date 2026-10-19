@@ -2,7 +2,7 @@
  * Blackbox coverage for the `kortix sessions` verbs added for web parity:
  * stop/start/warm, share + links, the durable prompt queue (and
  * `chat --queue`), model, connector approvals, the sandbox file surface,
- * `shell ls|kill`, `preview --list` and multi-id `rm`.
+ * `shell ls|kill`, `preview --list`, multi-id `rm`, and pin / archive.
  *
  * The CLI runs as a real process against a fake Kortix API that also serves
  * the sandbox-daemon proxy paths (`/v1/p/<external-id>/8000/...`), so every
@@ -25,6 +25,10 @@ const SESSION_B = '00000000-0000-4000-a000-000000000502';
 const SESSION_C = '00000000-0000-4000-a000-000000000503';
 /** A pi-harness session: its runtime lists no `session.compact` / `session.attach`. */
 const SESSION_PI = '00000000-0000-4000-a000-000000000504';
+/** A session the caller archived: only `GET .../sessions?archived=only` lists it. */
+const SESSION_ARCHIVED = 'a7c1e2d4-0000-4000-a000-000000000505';
+/** The time the fake API stamps on a pin or an archive. */
+const STAMP = '2026-01-03T00:00:00.000Z';
 const ACCOUNT = '00000000-0000-4000-a000-000000000401';
 const EXECUTION = '00000000-0000-4000-a000-000000000601';
 const PROMPT_ROW = '00000000-0000-4000-a000-000000000701';
@@ -56,6 +60,8 @@ let server: ReturnType<typeof Bun.serve> | null = null;
 let seen: Seen[] = [];
 
 function sessionRow(sessionId = SESSION) {
+  // A running row names its own box, exactly as `/start` does below.
+  const external = sessionId === SESSION_PI ? EXTERNAL_PI : EXTERNAL;
   return {
     session_id: sessionId,
     account_id: ACCOUNT,
@@ -64,7 +70,7 @@ function sessionRow(sessionId = SESSION) {
     base_ref: 'main',
     sandbox_provider: 'daytona',
     sandbox_id: 'sandbox-row-id',
-    sandbox_url: `http://127.0.0.1/v1/p/${EXTERNAL}/8000`,
+    sandbox_url: `http://127.0.0.1/v1/p/${external}/8000`,
     opencode_session_id: 'ses_oc',
     name: 'Parity',
     custom_name: null,
@@ -101,6 +107,30 @@ function publicShare(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+/** One row of the session audit projection, in the wire shape `GET .../audit`
+ *  returns (`@kortix/api-contract` `SessionAuditAction`). */
+function auditRow(overrides: Record<string, unknown> = {}) {
+  return {
+    execution_id: EXECUTION,
+    action: 'slack.send_message',
+    connector: 'slack',
+    connector_id: 'conn-1',
+    status: 'pending_approval',
+    risk: 'write',
+    acted_by_email: 'dev@example.test',
+    result_summary: { args_preview: { channel: '#general' } },
+    at: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+/** The rows the fake `GET .../audit` route serves; tests vary the projection. */
+let auditActions: Record<string, unknown>[] = [];
+
+/** The body the fake `GET /v1/p/config` route serves; tests vary the template. */
+let previewConfig: Record<string, unknown> = { preview_url_template: null };
+let apiBase = '';
 
 function queuedPrompt() {
   return {
@@ -169,7 +199,16 @@ function startServer(): string {
         return Response.json(sessionRow(SESSION_B));
       }
       if (method === 'GET' && path === `${project}/sessions/${SESSION_C}`) {
-        return Response.json({ ...sessionRow(SESSION_C), metadata: {} });
+        // An underscore external id: the exact shape the CLI preview bug shipped
+        // raw into a hostname, where `_` is not a legal DNS character.
+        return Response.json({
+          ...sessionRow(SESSION_C),
+          metadata: {},
+          sandbox_url: 'http://127.0.0.1/v1/p/sbx_parity/8000',
+        });
+      }
+      if (method === 'GET' && path === '/v1/p/config') {
+        return Response.json(previewConfig);
       }
       if (method === 'GET' && path === `${project}/sessions/${SESSION_PI}`) {
         return Response.json(sessionRow(SESSION_PI));
@@ -241,7 +280,19 @@ function startServer(): string {
         });
       }
       if (method === 'GET' && path === `${session}/prompts`) {
-        return Response.json({ prompts: [queuedPrompt()] });
+        return Response.json({
+          prompts: [
+            queuedPrompt(),
+            {
+              ...queuedPrompt(),
+              prompt_id: 'prompt-steer-fallback',
+              delivery: 'queue',
+              steer_fallback: 'not_prompter',
+              reason: 'turn_active',
+              text: 'also check the logs',
+            },
+          ],
+        });
       }
       if (method === 'POST' && path === `${session}/prompts`) {
         return Response.json(
@@ -274,43 +325,74 @@ function startServer(): string {
         return Response.json({ opencode_model: model, applied_live: true });
       }
       if (method === 'GET' && path === `${session}/audit`) {
+        // Real wire shape: `action` is connectorCalls.action_path, stored WITH
+        // the slug prefix (`<slug>.<action>`, see recordExecution in gateway.ts);
+        // the API mints `approval_url` on unresolved pending rows only.
         return Response.json({
           session_id: SESSION,
-          count: 2,
-          actions: [
-            {
-              execution_id: EXECUTION,
-              action: 'send_message',
-              connector: 'slack',
-              connector_id: 'conn-1',
-              status: 'pending_approval',
-              risk: 'write',
-              acted_by_email: 'dev@example.test',
-              result_summary: { args_preview: { channel: '#general' } },
-              at: '2026-01-01T00:00:00.000Z',
-            },
-            {
-              execution_id: 'other',
-              action: 'read',
-              connector: 'slack',
-              connector_id: 'conn-1',
-              status: 'ok',
-              risk: 'read',
-              acted_by_email: null,
-              result_summary: null,
-              at: '2026-01-01T00:00:00.000Z',
-            },
-          ],
+          count: auditActions.length,
+          actions: auditActions,
         });
       }
       if (method === 'POST' && path === `${project}/approvals/${EXECUTION}`) {
         return Response.json({ ok: true });
       }
       if (method === 'DELETE' && path === `${project}/sessions/${SESSION}`) {
+        return Response.json({ ok: true, restore_until: '2026-02-01T00:00:00.000Z' });
+      }
+      if (method === 'POST' && path === `${project}/sessions/${SESSION}/restore`) {
         return Response.json({ ok: true });
+      }
+      if (method === 'POST' && path === `${project}/sessions/${SESSION_B}/restore`) {
+        return Response.json(
+          { error: 'This session is not deleted', code: 'session_not_deleted' },
+          { status: 409 },
+        );
+      }
+      if (method === 'POST' && path === `${project}/sessions/${SESSION}/recover`) {
+        return Response.json({ ok: true });
+      }
+      if (method === 'POST' && path === `${project}/sessions/${SESSION_B}/recover`) {
+        return Response.json(
+          { error: "This session's computer is not lost. Open the session to resume it.", code: 'session_not_lost' },
+          { status: 409 },
+        );
+      }
+      // The provider lost this session's box: /start answers the lost verdict.
+      if (method === 'POST' && path === `${project}/sessions/${SESSION_B}/start`) {
+        return Response.json({
+          stage: 'failed',
+          agent_name: 'kortix',
+          retriable: false,
+          reason: 'runtime_identity_unavailable',
+          opencode_session_id: 'ses_oc',
+        });
       }
       if (method === 'DELETE' && path === `${project}/sessions/${SESSION_B}`) {
         return Response.json({ error: 'Only the session owner can delete this' }, { status: 403 });
+      }
+      // The list leaves out the caller's archived sessions; archived=only lists them.
+      if (method === 'GET' && path === `${project}/sessions`) {
+        return Response.json(
+          url.searchParams.get('archived') === 'only'
+            ? [{ ...sessionRow(SESSION_ARCHIVED), pinned_at: null, archived_at: STAMP }]
+            : [{ ...sessionRow(), pinned_at: null, archived_at: null }],
+        );
+      }
+      if (method === 'GET' && path === `${project}/sessions/${SESSION_ARCHIVED}`) {
+        return Response.json(sessionRow(SESSION_ARCHIVED));
+      }
+      const listState = path.match(/^\/v1\/projects\/[^/]+\/sessions\/([^/]+)\/(pin|archive)$/);
+      if (method === 'PUT' && listState) {
+        if (listState[1] === SESSION_B) {
+          return Response.json({ error: 'Only a person can pin or archive a session' }, { status: 403 });
+        }
+        const on = Object.values((body ?? {}) as Record<string, boolean>)[0] === true;
+        return Response.json(
+          listState[2] === 'pin'
+            ? { pinned_at: on ? STAMP : null, archived_at: null }
+            : { pinned_at: null, archived_at: on ? STAMP : null },
+        );
       }
 
       // ── sandbox daemon (through the /v1/p proxy) ─────────────────────────
@@ -449,7 +531,20 @@ beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'kortix-sessions-parity-'));
   process.env = { ...ORIGINAL_ENV };
   seen = [];
-  config = writeConfig(startServer());
+  auditActions = [
+    auditRow({ approval_url: 'https://kortix.example.test/approve/ksl_pending' }),
+    auditRow({
+      execution_id: 'other',
+      action: 'slack.read',
+      status: 'ok',
+      risk: 'read',
+      acted_by_email: null,
+      result_summary: null,
+    }),
+  ];
+  previewConfig = { preview_url_template: null };
+  apiBase = startServer();
+  config = writeConfig(apiBase);
 });
 
 afterEach(() => {
@@ -477,6 +572,11 @@ describe('kortix sessions — help', () => {
       'links <session-id>',
       'files <session-id>',
       'rm <session-id>...',
+      'pin <session-id>...',
+      'unpin <session-id>...',
+      'archive <session-id>...',
+      'unarchive <session-id>...',
+      '--pinned|--archived',
     ]) {
       expect(r.stdout).toContain(fragment);
     }
@@ -726,6 +826,51 @@ describe('kortix sessions chat --queue', () => {
   });
 });
 
+describe('kortix sessions chat --steer', () => {
+  test('posts to the durable inbox with delivery steer and says where it went', async () => {
+    const r = await runCli(['sessions', 'chat', SESSION, '-p', 'also check the logs', '--steer', ...P], config);
+    expect(r.code).toBe(0);
+    const post = calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/prompts`)[0];
+    expect(post?.body).toMatchObject({
+      delivery: 'steer',
+      placement: 'composer',
+      parts: [{ type: 'text', text: 'also check the logs' }],
+    });
+    expect(r.stdout).toContain('to steer the running turn');
+    expect(r.stdout).toContain('reads it at its next step');
+  });
+
+  test('--steer never touches the runtime (no /start, no daemon call)', async () => {
+    await runCli(['sessions', 'chat', SESSION, '-p', 'x', '--steer', ...P], config);
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/start`)).toEqual([]);
+    expect(seen.filter((s) => s.path.startsWith(`/v1/p/${EXTERNAL}`))).toEqual([]);
+  });
+
+  test('--steer --json prints the stored row', async () => {
+    const r = await runCli(['sessions', 'chat', SESSION, '-p', 'x', '--steer', '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout).prompt_id).toBe(PROMPT_ROW);
+  });
+
+  test('--steer without --prompt, or with --queue, exits 2', async () => {
+    const alone = await runCli(['sessions', 'chat', SESSION, '--steer', ...P], config);
+    expect(alone.code).toBe(2);
+    expect(alone.stderr).toContain('--steer needs --prompt');
+    const both = await runCli(['sessions', 'chat', SESSION, '-p', 'x', '--steer', '--queue', ...P], config);
+    expect(both.code).toBe(2);
+    expect(both.stderr).toContain('Pass --steer or --queue, not both.');
+  });
+
+  test('queue ls shows the delivery mode and why a steer prompt waits', async () => {
+    const r = await runCli(['sessions', 'queue', SESSION, 'ls', ...P], config);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('DELIVERY');
+    expect(r.stdout).toContain("Not steered (not_prompter): another member's turn is running.");
+    const json = await runCli(['sessions', 'queue', SESSION, 'ls', '--json', ...P], config);
+    expect(JSON.parse(json.stdout)[1]).toMatchObject({ delivery: 'queue', steer_fallback: 'not_prompter' });
+  });
+});
+
 describe('kortix sessions model', () => {
   test('PUTs the model and reports the live application', async () => {
     const r = await runCli(['sessions', 'model', SESSION, 'kortix/glm-5.3-flash', ...P], config);
@@ -810,6 +955,35 @@ describe('kortix sessions approvals', () => {
     expect(r.stdout).toContain('slack.send_message');
     expect(r.stdout).toContain('#general');
     expect(r.stdout).not.toContain('other');
+  });
+
+  test('ls prints the /approve decision link and both CLI hints per pending row', async () => {
+    const r = await runCli(['sessions', 'approvals', SESSION, 'ls', ...P], config);
+    expect(r.code).toBe(0);
+    // The decision surface a PAT holder can actually use: the CLI approve
+    // command is refused for every automated principal (APPROVAL_REQUIRES_HUMAN).
+    expect(r.stdout).toContain('https://kortix.example.test/approve/ksl_pending');
+    expect(r.stdout).toContain(`approve: kortix sessions approvals ${SESSION} approve ${EXECUTION}`);
+    expect(r.stdout).toContain(`deny: kortix sessions approvals ${SESSION} deny ${EXECUTION}`);
+  });
+
+  test('ls --json carries the API approval_url verbatim', async () => {
+    const r = await runCli(['sessions', 'approvals', SESSION, 'ls', '--json', ...P], config);
+    expect(r.code).toBe(0);
+    const rows: Array<{ execution_id: string; approval_url?: string }> = JSON.parse(r.stdout);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].approval_url).toBe('https://kortix.example.test/approve/ksl_pending');
+  });
+
+  test('a pending row without approval_url (older API) still lists, hints intact', async () => {
+    auditActions = [auditRow({ approval_url: null })];
+    const r = await runCli(['sessions', 'approvals', SESSION, 'ls', ...P], config);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain(EXECUTION);
+    expect(r.stdout).toContain('slack.send_message');
+    expect(r.stdout).toContain(`approve: kortix sessions approvals ${SESSION} approve ${EXECUTION}`);
+    expect(r.stdout).toContain(`deny: kortix sessions approvals ${SESSION} deny ${EXECUTION}`);
+    expect(r.stdout).not.toContain('/approve/');
   });
 
   test('approve POSTs the decision to the project approvals route', async () => {
@@ -995,6 +1169,39 @@ describe('kortix sessions preview --list', () => {
   });
 });
 
+describe('kortix sessions preview — the printed URL resolves', () => {
+  test('the deployment template wins: preview origin, label-encoded, one-shot token', async () => {
+    previewConfig = { preview_url_template: 'https://dev-p{port}-{sandbox}.p.kortix.com' };
+    const r = await runCli(['sessions', 'preview', SESSION_C, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(seen.some((s) => s.method === 'GET' && s.path === '/v1/p/config')).toBe(true);
+    const out = JSON.parse(r.stdout);
+    expect(out.sandbox).toBe('sbx_parity');
+    expect(out.url).toBe('https://dev-p3000-sbx-parity.p.kortix.com/?token=kortix_pat_parity');
+  });
+
+  test('no preview domain on a local api: label-encoded localhost origin with the token', async () => {
+    const r = await runCli(['sessions', 'preview', SESSION, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    const port = new URL(apiBase).port;
+    expect(out.url).toBe(`http://p3000-sandbox-parity.localhost:${port}/?token=kortix_pat_parity`);
+  });
+
+  test('no preview domain on a remote api: the path proxy, never a token in the url', async () => {
+    // A host the SDK does not call local (only `localhost` and `127.0.0.1`)
+    // that still reaches this server. Not 127.0.0.2: macOS answers only on
+    // 127.0.0.1, so a request to 127.0.0.2 hangs until the test times out.
+    const remote = writeConfig(`http://0.0.0.0:${new URL(apiBase).port}`);
+    const r = await runCli(['sessions', 'preview', SESSION, '--json', ...P], remote);
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.url).toBe(
+      `http://0.0.0.0:${new URL(apiBase).port}/v1/p/sandbox-parity/3000/`,
+    );
+  });
+});
+
 describe('kortix sessions rm (multiple ids)', () => {
   test('deletes each id and reports the failures, exiting 1', async () => {
     const r = await runCli(['sessions', 'rm', SESSION, SESSION_B, ...P], config);
@@ -1005,16 +1212,200 @@ describe('kortix sessions rm (multiple ids)', () => {
     expect(r.stderr).toContain('1 of 2 sessions could not be deleted');
   });
 
-  test('one id still works and exits 0', async () => {
+  test('one id still works, exits 0, and names the restore window', async () => {
     const r = await runCli(['sessions', 'rm', SESSION, ...P], config);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain('Deleted');
+    expect(r.stdout).toContain('2026-02-01');
+    expect(r.stdout).toContain(`kortix sessions restore ${SESSION}`);
+  });
+
+  test('--json carries restore_until and the project for each deleted id', async () => {
+    const r = await runCli(['sessions', 'rm', SESSION, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([
+      { session_id: SESSION, project_id: PROJECT, deleted: true, restore_until: '2026-02-01T00:00:00.000Z' },
+    ]);
+  });
+
+  // `restore` cannot locate a deleted session (its read answers 404), so the
+  // printed command must name where `rm` found it.
+  test('the printed restore command names the project and the host, and works as printed', async () => {
+    const r = await runCli(['sessions', 'rm', SESSION, ...P, '--host', 'test'], config);
+    expect(r.code).toBe(0);
+    const printed = r.stdout.match(/kortix sessions restore .+/)?.[0]?.trim();
+    expect(printed).toBe(`kortix sessions restore ${SESSION} --project ${PROJECT} --host test`);
+
+    const restore = await runCli(printed!.split(/\s+/).slice(1), config);
+    expect(restore.code).toBe(0);
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/restore`)).toHaveLength(1);
+  });
+});
+
+describe('kortix sessions recover', () => {
+  test('POSTs the recover once and says what the next start does', async () => {
+    const r = await runCli(['sessions', 'recover', SESSION, ...P], config);
+    expect(r.code).toBe(0);
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/recover`)).toEqual([
+      { method: 'POST', path: `/v1/projects/${PROJECT}/sessions/${SESSION}/recover`, body: {} },
+    ]);
+    expect(r.stdout).toContain('new computer');
+    expect(r.stdout).toContain(`kortix sessions start ${SESSION.slice(0, 8)}`);
+  });
+
+  test('--json prints the API answer', async () => {
+    const r = await runCli(['sessions', 'recover', SESSION, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ ok: true, session_id: SESSION });
+  });
+
+  test('a short id resolves to the full id', async () => {
+    const r = await runCli(['sessions', 'recover', SESSION.slice(0, 8), ...P], config);
+    expect(r.code).toBe(0);
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/recover`)).toHaveLength(1);
+  });
+
+  test('a refused recover exits 1 with the API reason', async () => {
+    const r = await runCli(['sessions', 'recover', SESSION_B, ...P], config);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('is not lost');
+  });
+
+  test('no id exits 2 without a request', async () => {
+    const r = await runCli(['sessions', 'recover', ...P], config);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain('Pass a session id');
+    expect(seen.filter((c) => c.path.endsWith('/recover'))).toEqual([]);
+  });
+
+  test('--help says what comes back and what stays lost', async () => {
+    const r = await runCli(['sessions', 'recover', '--help'], config);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('saved conversation');
+    expect(r.stdout).toContain('not committed and pushed');
+  });
+
+  test('start on a lost session exits 1 and names the recover command', async () => {
+    const r = await runCli(['sessions', 'start', SESSION_B, ...P], config);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('runtime_identity_unavailable');
+    expect(r.stderr).toContain(`kortix sessions recover ${SESSION_B.slice(0, 8)}`);
+  });
+});
+
+describe('kortix sessions restore', () => {
+  test('POSTs the restore once and says what the next start does', async () => {
+    const r = await runCli(['sessions', 'restore', SESSION, ...P], config);
+    expect(r.code).toBe(0);
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/${SESSION}/restore`)).toEqual([
+      { method: 'POST', path: `/v1/projects/${PROJECT}/sessions/${SESSION}/restore`, body: {} },
+    ]);
+    expect(r.stdout).toContain('Restored');
+    expect(r.stdout).toContain('fresh sandbox');
+  });
+
+  test('--json prints the API answer', async () => {
+    const r = await runCli(['sessions', 'restore', SESSION, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ ok: true, session_id: SESSION });
+  });
+
+  test('a refused restore exits 1 with the API reason', async () => {
+    const r = await runCli(['sessions', 'restore', SESSION_B, ...P], config);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('This session is not deleted');
+  });
+
+  test('a short id or no id exits 2 without a request', async () => {
+    const short = await runCli(['sessions', 'restore', SESSION.slice(0, 8), ...P], config);
+    expect(short.code).toBe(2);
+    expect(short.stderr).toContain('full session id');
+    const none = await runCli(['sessions', 'restore', ...P], config);
+    expect(none.code).toBe(2);
+    expect(none.stderr).toContain('Pass a session id');
+    expect(calls('POST', `/v1/projects/${PROJECT}/sessions`).filter((c) => c.path.endsWith('/restore'))).toEqual([]);
+  });
+
+  test('--help documents the window and what comes back', async () => {
+    const r = await runCli(['sessions', 'restore', '--help'], config);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('30 days');
   });
 
   test('no id exits 2', async () => {
     const r = await runCli(['sessions', 'rm', ...P], config);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('Pass a session id');
+  });
+});
+
+describe('kortix sessions pin / unpin / archive / unarchive', () => {
+  const verbs = [
+    { verb: 'pin', route: 'pin', body: { pinned: true }, done: 'Pinned' },
+    { verb: 'unpin', route: 'pin', body: { pinned: false }, done: 'Unpinned' },
+    { verb: 'archive', route: 'archive', body: { archived: true }, done: 'Archived' },
+    { verb: 'unarchive', route: 'archive', body: { archived: false }, done: 'Unarchived' },
+  ];
+  test.each(verbs)('$verb PUTs $route once with $body and prints one line', async ({ verb, route, body, done }) => {
+    const r = await runCli(['sessions', verb, SESSION, ...P], config);
+    expect(r.code).toBe(0);
+    const path = `/v1/projects/${PROJECT}/sessions/${SESSION}/${route}`;
+    expect(calls('PUT', `/v1/projects/${PROJECT}/sessions/`)).toEqual([{ method: 'PUT', path, body }]);
+    expect(r.stdout.trim()).toBe(`✓  ${done} Parity`);
+  });
+
+  test('--json prints one result per session with the API state', async () => {
+    const r = await runCli(['sessions', 'pin', SESSION, '--json', ...P], config);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([
+      { session_id: SESSION, project_id: PROJECT, ok: true, pinned_at: STAMP, archived_at: null },
+    ]);
+  });
+
+  test('several ids: each is attempted, a refusal exits 1 with the API reason', async () => {
+    const r = await runCli(['sessions', 'archive', SESSION, SESSION_B, ...P], config);
+    expect(r.code).toBe(1);
+    expect(calls('PUT', `/v1/projects/${PROJECT}/sessions/${SESSION}/archive`)).toHaveLength(1);
+    expect(calls('PUT', `/v1/projects/${PROJECT}/sessions/${SESSION_B}/archive`)).toHaveLength(1);
+    expect(r.stdout).toContain('Archived Parity');
+    expect(r.stderr).toContain('Only a person can pin or archive a session');
+    expect(r.stderr).toContain('1 of 2 sessions could not be archived');
+    const json = await runCli(['sessions', 'archive', SESSION_B, '--json', ...P], config);
+    expect(json.code).toBe(1);
+    expect(JSON.parse(json.stdout)).toEqual([
+      { session_id: SESSION_B, ok: false, error: 'Only a person can pin or archive a session' },
+    ]);
+  });
+
+  test('the short id of an archived session resolves through archived=only', async () => {
+    const r = await runCli(['sessions', 'unarchive', SESSION_ARCHIVED.slice(0, 8), ...P], config);
+    expect(r.code).toBe(0);
+    const lists = calls('GET', `/v1/projects/${PROJECT}/sessions`).filter((c) => !c.path.includes('/sessions/'));
+    expect(lists.map((c) => c.path)).toEqual([
+      `/v1/projects/${PROJECT}/sessions`,
+      `/v1/projects/${PROJECT}/sessions?archived=only`,
+    ]);
+    expect(calls('PUT', `/v1/projects/${PROJECT}/sessions/`)).toEqual([
+      {
+        method: 'PUT',
+        path: `/v1/projects/${PROJECT}/sessions/${SESSION_ARCHIVED}/archive`,
+        body: { archived: false },
+      },
+    ]);
+  });
+
+  test('no id or an unknown option exits 2 without a request; --help exits 0', async () => {
+    const none = await runCli(['sessions', 'pin', ...P], config);
+    expect(none.code).toBe(2);
+    expect(none.stderr).toContain('Pass a session id');
+    const unknown = await runCli(['sessions', 'archive', SESSION, '--force', ...P], config);
+    expect(unknown.code).toBe(2);
+    expect(unknown.stderr).toContain('unknown option "--force"');
+    expect(calls('PUT', `/v1/projects/${PROJECT}/sessions/`)).toEqual([]);
+    const usage = await runCli(['sessions', 'unarchive', '--help'], config);
+    expect(usage.code).toBe(0);
+    expect(usage.stdout).toContain('Usage: kortix sessions pin|unpin|archive|unarchive');
+    expect(usage.stdout).toContain('ls --archived');
   });
 });
 

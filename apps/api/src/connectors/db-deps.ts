@@ -1,111 +1,42 @@
-import { mapLimit } from '@kortix/registry';
-import {
-  connectorConnections,
-  connectorActions,
-  connectorPolicies,
-  connectors,
-  connectorCalls,
-  connectorProjectPolicies,
-  connectorProjectSettings,
-  projectSecrets,
-  projectSessionConnectorBindings,
-  projectSessions,
-  projects,
-} from '@kortix/db';
-import { appAuthorizationForConnectorCall } from '../apps/connector-assertion';
-import { sanitizeConnectorHeaders, SLUG_RE } from '@kortix/manifest-schema';
-import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 /**
  * Production wiring for the connector router — DB-backed ConnectorRouterDeps +
  * GatewayDeps. Access lives on the connector; credentials are split per (connector,
  * user). The pure logic (gateway/share/execute/policy/normalize) is tested; this
  * is the glue to Postgres + the credential store + Pipedream.
  */
-import type { Context } from 'hono';
+import { connectorConnections, connectors, projectSessions, projects } from '@kortix/db';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
-import { resolveAgentMailApiKey } from '../channels/agentmail-api';
-import { bindSlackThreadToSession } from '../channels/slack/binding';
-import { slackUserNames } from '../channels/slack/labels';
-import {
-  loadAgentMailApiKeyForInbox,
-  loadAgentMailApiKeyForProject,
-  loadAgentMailInstall,
-  loadSlackInstall,
-  loadSlackTeamIdForProject,
-  loadSlackTokenForProject,
-  loadTeamsBotCredentials,
-  loadTeamsInstall,
-  loadTeamsTenantForProject,
-} from '../channels/install-store';
-import { approvalPageUrl } from '../setup-links/token';
 import { config } from '../config';
 import { bindIntegrationPrincipal } from '../shared/audit-scope';
 import { projectFeatureFlagEnabled } from '../feature-flags/for-project';
-import { authorize, PROJECT_ACTIONS } from '../iam';
-import { actorOf } from '../iam/actor';
-import { principalMayUseConnector } from './principal-access';
-import type { ChannelPlatform } from '../projects/connectors';
 import { invalidateProjectMirror } from '../projects/git';
-import { loadProjectForUser } from '../projects/lib/access';
 import {
   connectionIsReachable,
-  type ConnectionOwnerType,
   type ConnectorConnectOwner,
 } from '../projects/lib/connection-access';
-import { reconcileStoredSessionAgentGrant } from '../projects/lib/session-token-grant';
-import {
-  getProjectSecretConsumerConfigurationStatus,
-  getProjectSecretValueForConsumer,
-} from '../projects/secrets';
 import {
   canonicalConnectorAlias,
   listEntitledConnectorConnections,
-  listEntitledConnectorConnectionsBatch,
-  publicConnectorAlias,
-  resolveSessionConnectorConnection,
-  resolveSessionConnectorConnectionOutcome,
 } from '../projects/lib/session-connector-bindings';
-import { validateAccountToken } from '../repositories/account-tokens';
 import { db } from '../shared/db';
-import { executeComputerCall } from '../tunnel/core/rpc-core';
-import { getRequestOnBehalfOf } from '../projects/lib/on-behalf-of';
-import { tokenAgentPrincipalScope } from '../projects/lib/personal-resources';
 import { connectorAttachmentStore } from './attachments';
-import { gateChannelRead } from './channel-read-scope';
-import { gateChannelWrite } from './channel-write-scope';
-import { hideSupersededSlack } from './channel-rules';
-import { buildAdminConnectorViews } from './connector-list';
 import { notifyConnectorSession } from './notify-session';
-import { validateConnectorSecretBinding } from './connector-secret-binding';
 import {
-  connectorIdsWithSharedCredentials,
-  connectorIdsWithReachableMemberCredential,
-  connectionIsEffectiveProjectDefault,
-  credentialExists,
   defaultConnectionIdForConnector,
   deleteCredential,
-  connectionCredentialExists,
   ensureDefaultConnection,
   ensureMemberConnection,
-  resolveCredentialValue,
-  resolveConnectionCredentialValue,
 } from './credentials';
 import {
   connectedAsOf,
   relabelToIdentity,
   resolveConnectedAs,
   rowMetadata,
-  CONNECTED_AS_KEY,
 } from './connection-identity';
-import type { ConnectorAuth } from './call';
-import { connectorEgressFetch } from './egress';
-import { CredentialNotSharedError } from './gateway';
-import type { GatewayAction, GatewayConnector, GatewayDeps } from './gateway';
 import {
   type ConnectorDraft,
   deleteConnectorFromManifest,
-  getConnectorConfigFromManifest,
-  getConnectorPoliciesFromManifest,
   getProjectPoliciesFromManifest,
   setConnectorCredentialModeInManifest,
   setConnectorAuthorizationStrategyInManifest,
@@ -116,7 +47,6 @@ import {
   setProjectPoliciesInManifest,
   upsertConnectorInManifest,
 } from './manifest-crud';
-import { graphToken } from '../channels/teams-auth';
 import {
   finalizePipedreamConnection,
   finalizePipedreamConnectionAuthorization,
@@ -124,36 +54,20 @@ import {
   pipedreamCatalogSections,
   pipedreamConfigured,
   pipedreamConnectUrl,
-  runPipedreamAction,
-  runPipedreamProxy,
   verifyWebhookSig,
 } from './pipedream';
-import {
-  type DefaultMode,
-  type EffectiveResolveResult,
-  type Policy,
-  type PolicyAction,
-  isValidMatcher,
-  parseStoredConditions,
-  resolveEffectiveAction,
-  selectPoliciesForRead,
-} from './policy';
-import type {
-  AdminConnectorView,
-  CatalogAccount,
-  CatalogConnector,
-  ConnectorPrincipal,
-  ConnectorRouterDeps,
-  ListCatalogOptions,
-} from './router';
-import { COMPUTER_SLUG, withComputerCatalog } from './computers';
-import { resolveShareSubject } from './share';
+import type { ConnectorRouterDeps } from './router-contract';
 import {
   connectorCatalogSections,
   getConnectorCatalogDetail,
+  connectorCatalogDirectIds,
+  connectorCatalogDirectMcpUrls,
   listConnectorCatalog,
 } from './connector-catalog';
+import { kortixMcpCatalog } from './mcp-apps';
+import { discoverDraftConnectorAuth, syncProjectConnectors } from './sync';
 import {
+<<<<<<< HEAD
   discoverDraftConnectorAuth,
   ensureComputerConnector,
   ensureProjectComputer,
@@ -2172,6 +2086,55 @@ async function setComputerConnectorName(
     .where(eq(connectors.connectorId, connectorId));
   return { ok: true };
 }
+=======
+  createComputerConnector,
+  deleteComputerConnectorProfile,
+  getConnectorConfig,
+  getConnectorPolicies,
+  setComputerConnectorName,
+  setComputerConnectorPolicies,
+  setComputerConnectorSensitive,
+  setConnectorSecretBinding,
+} from './db-deps-admin';
+import { listCatalog, listConnectors } from './db-deps-catalog';
+import {
+  composioConnectionMetadata,
+  composioStableUserId,
+  connectLinkEligibility,
+  loadComposioAdapter,
+  loadComposioConnector,
+  loadPipedreamConnector,
+  mergeRequestingSession,
+  readRequestingSessionId,
+} from './db-deps-connect';
+import { makeDbGatewayDeps } from './db-deps-gateway';
+import {
+  resolveAdmin,
+  resolveConnectionsManager,
+  resolvePrincipal,
+  resolveProjectPrincipal,
+  resolveReader,
+  resolveSecretBindingAdmin,
+  resolveSecretReader,
+} from './db-deps-principal';
+import { connectorConnected } from './db-deps-rows';
+
+export {
+  composioConnectionMetadata,
+  connectLinkEligibility,
+} from './db-deps-connect';
+export {
+  makeDbGatewayDeps,
+} from './db-deps-gateway';
+export {
+  projectSessionIdForProjectPrincipal,
+  resolveTokenBoundSessionId,
+} from './db-deps-principal';
+export {
+  composioConnectedAccountId,
+  composioConnectionIsNoAuth,
+} from './db-deps-rows';
+>>>>>>> upstream-dev
 
 export const dbConnectorRouterDeps: ConnectorRouterDeps = {
   attachmentStore: connectorAttachmentStore,
@@ -2734,9 +2697,14 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
     return { provider: 'pipedream', connected: r.connected, accountId: r.accountId };
   },
   discoverConnectorAuth: discoverDraftConnectorAuth,
-  listDiscoverConnectors: (input) => listConnectorCatalog(input),
-  listDiscoverSections: (input) => connectorCatalogSections(input),
-  getDiscoverConnector: (id) => getConnectorCatalogDetail(id),
+  listDiscoverConnectors: ({ catalogue, ...input }) =>
+    catalogue === 'kortix' ? kortixMcpCatalog.list(input) : listConnectorCatalog(input),
+  catalogDirectIds: () => connectorCatalogDirectIds(),
+  catalogDirectMcpUrls: () => connectorCatalogDirectMcpUrls(),
+  listDiscoverSections: ({ catalogue, ...input }) =>
+    catalogue === 'kortix' ? kortixMcpCatalog.sections(input) : connectorCatalogSections(input),
+  getDiscoverConnector: (id, catalogue) =>
+    catalogue === 'kortix' ? kortixMcpCatalog.detail(id) : getConnectorCatalogDetail(id),
   getProjectPolicies: getProjectPoliciesFromManifest,
   setProjectPolicies: (projectId, accountId, policies, defaultMode) =>
     setProjectPoliciesInManifest(projectId, accountId, policies, defaultMode),

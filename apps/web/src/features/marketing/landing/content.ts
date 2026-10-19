@@ -9,19 +9,24 @@ import type { UiTranslator } from '@/i18n/translator';
  * can iterate before paying the 8-locale parity gate (`pnpm i18n:translations`).
  * Wire i18n keys only once the copy is locked.
  *
- * Voice rules: the `kortix-brand` skill. Category = "AI Management System". Never name
+ * Voice rules: the `kortix-brand` skill. Category = "AI Operating System". Never name
  * a licence. Never claim a certification we do not hold.
  */
 
 /**
+<<<<<<< HEAD
  * Hero variants. The product pitch — what Dosco IS — not a use-case pitch.
  * Anchored on the product tagline: "Dosco Agent Terminal".
+=======
+ * Hero variants. The product pitch — what Kortix IS — not a use-case pitch.
+ * Anchored on the README's opening: "The open-source AI Operating System".
+>>>>>>> upstream-dev
  *
  * Append `?hero=1` (or 2, 3, 4) to the URL to preview an alternative; the
  * selector is dev-only and renders nothing in production.
  */
 export const hero = {
-  title: 'The open-source AI Management System',
+  title: 'The open-source AI Operating System',
   sub: 'Your agents, their skills, your company memory and every connector in one git repo you own. Any model, your keys, self-hosted or managed cloud.',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',
@@ -56,8 +61,8 @@ export const cta = {
   // ONE IDEA ONLY. This line is the invitation, nothing else. Pricing, hosting
   // and channels each pulled the reader somewhere different and belong on their
   // own pages. If a price ever comes back here it must match
-  // `features/billing/pricing-plans.ts` ($40 / seat / mo, per seat PLUS usage) —
-  // it once said $20 and was wrong by 2x.
+  // `features/billing/pricing-plans.ts` (credits, any monthly amount from $20)
+  // — an earlier price here was wrong by 2x.
   sub: 'Start with one job and grow from there.',
   trust: 'SSO, RBAC & on-prem · Any model, your keys · No lock-in',
   ctaPrimary: 'Get started',

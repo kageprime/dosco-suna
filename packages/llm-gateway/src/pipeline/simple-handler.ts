@@ -15,7 +15,9 @@ import { type FetchImpl, callUpstream } from '../http';
 import {
   type ExtractedUsage,
   type SseErrorFrame,
+  chunkOutputChars,
   estimateOutputTokens,
+  estimateCachedPromptTokens,
   estimatePromptTokens,
   extractUsageFromJson,
 } from '../usage';
@@ -288,6 +290,18 @@ export async function handleChatCompletions(
     });
   }
   if (!admission.ok) {
+    // A valid token a later gate refused is still a request: record it in usage
+    // and logs (KRTX-1749). A 401 without a principal has no account to
+    // attribute — the log store requires one, so nothing is recorded there.
+    if (admission.principal) {
+      emit({
+        ...identity(admission.principal),
+        status: admission.status,
+        ok: false,
+        errorCode: admission.errorCode,
+        errorMessage: admission.message,
+      });
+    }
     return gatewayErrorResponse(admission.status, {
       message: admission.message ?? 'Request denied',
       code: admission.errorCode,
@@ -337,6 +351,13 @@ export async function handleChatCompletions(
   } catch {
     req.rawBody = '';
     refundHold(hooks, principal, logger);
+    emit({
+      ...identity(principal),
+      status: 400,
+      ok: false,
+      errorCode: 'invalid_json',
+      errorMessage: 'Invalid JSON body',
+    });
     return gatewayErrorResponse(400, {
       message: 'Invalid JSON body',
       code: 'invalid_json',
@@ -443,7 +464,20 @@ export async function handleChatCompletions(
     const started = resolution ? await startChainWithout(resolution) : null;
     if (!started) {
       refundHold(hooks, principal, logger);
-      return gatewayErrorResponse(resolution?.code === 'provider_pool_rate_limited' ? 429 : 400, {
+      const status = resolution?.code === 'provider_pool_rate_limited' ? 429 : 400;
+      // The refusal the client sees is also the request's log row: a plan,
+      // provider or model refusal is invisible in usage and logs without it
+      // (KRTX-1749).
+      emit({
+        ...identity(principal),
+        requestedModel,
+        resolvedModel: routedModel,
+        status,
+        ok: false,
+        errorCode: resolution?.code ?? 'model_unavailable',
+        errorMessage: resolution?.message ?? `No provider is configured for model "${routedModel}"`,
+      });
+      return gatewayErrorResponse(status, {
         message: resolution?.message ?? `No provider is configured for model "${routedModel}"`,
         code: resolution?.code ?? 'model_unavailable',
         provider: '',
@@ -463,6 +497,15 @@ export async function handleChatCompletions(
   }
   if (!descriptor) {
     refundHold(hooks, principal, logger);
+    emit({
+      ...identity(principal),
+      requestedModel,
+      resolvedModel: routedModel,
+      status: 400,
+      ok: false,
+      errorCode: 'model_unavailable',
+      errorMessage: `No provider is configured for model "${routedModel}"`,
+    });
     return gatewayErrorResponse(400, {
       message: `No provider is configured for model "${routedModel}"`,
       code: 'model_unavailable',
@@ -481,6 +524,16 @@ export async function handleChatCompletions(
     if (!admitted.ok) {
       const { error } = admitted;
       const reason = (error as { reason?: unknown })?.reason;
+      emit({
+        ...identity(principal),
+        requestedModel,
+        resolvedModel: shownModel(descriptor, routedModel),
+        provider: shownProvider(descriptor),
+        status: 402,
+        ok: false,
+        errorCode: typeof reason === 'string' ? reason : 'subscription_required',
+        errorMessage: error instanceof Error ? error.message : 'Billing inactive',
+      });
       return gatewayErrorResponse(402, {
         message: error instanceof Error ? error.message : 'Billing inactive',
         code: typeof reason === 'string' ? reason : 'subscription_required',
@@ -502,7 +555,8 @@ export async function handleChatCompletions(
   const billable = descriptor.billingMode !== 'none' || (fallbackChosenByProject && Boolean(chain?.length));
   // Measured now, while the parsed body still exists: a billable stream that
   // ends before its usage frame is settled from this (see usage/estimate.ts).
-  const promptTokenEstimate = streaming && billable ? estimatePromptTokens(body) : 0;
+  const promptTokenEstimate = billable ? estimatePromptTokens(body) : 0;
+  const cachedTokenEstimate = estimateCachedPromptTokens(body, promptTokenEstimate);
   // Kept only so a STREAMING body that gets cut before a single byte reaches
   // the client can be transparently retried (see relayStream's `redispatch`
   // option / streaming.ts's `handleIncompleteTermination`). dispatch() owns
@@ -719,7 +773,7 @@ export async function handleChatCompletions(
       ? {
           promptTokens: promptTokenEstimate,
           completionTokens: estimateOutputTokens(observed!.outputChars),
-          cachedTokens: 0,
+          cachedTokens: cachedTokenEstimate,
           cacheWriteTokens: 0,
         }
       : reported;
@@ -819,6 +873,8 @@ export async function handleChatCompletions(
       attempts,
       candidatesTried,
       attemptFailures,
+      servedModel: routedModel,
+      ...(routedModel !== routeModel ? { fallbackFrom: routeModel } : {}),
       usage: counts,
       upstreamCost,
       finalCost,
@@ -883,7 +939,16 @@ export async function handleChatCompletions(
     );
   }
 
-  const responseText = await upstream.text();
+  let responseText: string;
+  try {
+    responseText = await upstream.text();
+  } catch (error) {
+    // The provider answered 200 and bills for the prompt. A connection reset
+    // while reading the body must not leave a request with no usage row and no
+    // refund: settle the prompt estimate, then fail the request as before.
+    if (upstream.ok) await settle(null, null, { outputChars: 0, clientStopped: true });
+    throw error;
+  }
   const data = (() => {
     try {
       return JSON.parse(responseText) as unknown;
@@ -891,7 +956,18 @@ export async function handleChatCompletions(
       return null;
     }
   })();
-  await settle(extractUsageFromJson(data));
+  const reportedUsage = (data as { usage?: unknown } | null)?.usage;
+  if (upstream.ok && (reportedUsage == null || typeof reportedUsage !== 'object')) {
+    // A 200 with no usage object still generated output the provider bills.
+    // Settle the estimate, never zero.
+    const choices = (data as { choices?: Array<{ message?: unknown }> } | null)?.choices;
+    const outputChars = Array.isArray(choices)
+      ? chunkOutputChars({ choices: choices.map((choice) => ({ delta: choice?.message })) })
+      : 0;
+    await settle(null, null, { outputChars, clientStopped: false });
+  } else {
+    await settle(extractUsageFromJson(data));
+  }
   if (served.publicProvider) {
     const publicText =
       data && typeof data === 'object' && !Array.isArray(data)

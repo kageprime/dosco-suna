@@ -49,6 +49,7 @@ describe('SETTINGS_TABS', () => {
       'sessions',
       'preferences',
       'tokens',
+<<<<<<< HEAD
       'workspace',
       'sandbox',
       'feature-flags',
@@ -57,6 +58,11 @@ describe('SETTINGS_TABS', () => {
       'connected',
       'credits',
       'plan',
+=======
+      // The Connect pages (KRTX-1997).
+      'mcp',
+      'computer',
+>>>>>>> upstream-dev
     ]);
   });
 
@@ -179,10 +185,21 @@ describe('legacySectionRedirect', () => {
     expect(resolveOverlayTab('repositories')).toBeNull();
   });
 
+<<<<<<< HEAD
   test('upgrades is a live overlay tab, and the old singular spelling still folds into it', () => {
     expect(parseSettingsTab('upgrades')).toBe('upgrades');
     expect(legacySectionRedirect('p1', 'upgrades')).toBe('/projects/p1/settings/upgrades');
     expect(legacySectionRedirect('p1', 'upgrade')).toBe('/projects/p1/customize/settings?section=upgrades');
+=======
+  test('upgrades is a Settings tab section, and the old singular spelling folds into it', () => {
+    expect(parseSettingsTab('upgrades')).toBeNull();
+    expect(legacySectionRedirect('p1', 'upgrades')).toBe(
+      '/projects/p1/customize/settings?section=upgrades',
+    );
+    expect(legacySectionRedirect('p1', 'upgrade')).toBe(
+      '/projects/p1/customize/settings?section=upgrades',
+    );
+>>>>>>> upstream-dev
     expect(resolveSettingsOverlayHref('/projects/p1/settings/upgrades')).toEqual({
       opensOverlay: true,
       tab: 'upgrades',
@@ -234,7 +251,7 @@ describe('legacySectionRedirect', () => {
         opensOverlay: false,
       });
     }
-    expect(legacySectionRedirect('p1', 'review')).toBe('/projects/p1/review');
+    expect(legacySectionRedirect('p1', 'review')).toBe('/projects/p1/customize/review');
     expect(resolveSettingsOverlayHref('/projects/p1/review')).toEqual({ opensOverlay: false });
   });
 
@@ -423,7 +440,9 @@ describe('account-scoped sections redirect to /accounts/[id]', () => {
     // other id. These must still resolve to their project URLs with an
     // account id in hand.
     expect(legacySectionRedirect('p1', 'skills', 'acc1')).toBe('/projects/p1/customize/skills');
-    expect(legacySectionRedirect('p1', 'schedules', 'acc1')).toBe('/projects/p1/customize/triggers');
+    expect(legacySectionRedirect('p1', 'schedules', 'acc1')).toBe(
+      '/projects/p1/customize/triggers',
+    );
     expect(legacySectionRedirect('p1', 'nope', 'acc1')).toBeNull();
   });
 
@@ -464,4 +483,12 @@ describe('resolveSettingsOverlayHref', () => {
   test('a non-settings href does not open the overlay', () => {
     expect(resolveSettingsOverlayHref('/projects/p1/files')).toEqual({ opensOverlay: false });
   });
+});
+
+test('legacy destination maps are pairwise disjoint', async () => {
+  const { RENAMED, GRADUATED, ACCOUNT_GRADUATED } = await import('./settings-tabs');
+  const maps = [RENAMED, GRADUATED, ACCOUNT_GRADUATED];
+  for (let i = 0; i < maps.length; i++)
+    for (let j = i + 1; j < maps.length; j++)
+      expect(Object.keys(maps[i]).filter((key) => Object.hasOwn(maps[j], key))).toEqual([]);
 });

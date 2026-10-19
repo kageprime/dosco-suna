@@ -39,6 +39,12 @@ export interface CreateSandboxOpts {
   serverType?: string;
   location?: string;
   /**
+   * True ⇒ the box runs in `location` or not at all. False/absent ⇒ Platinum
+   * boots it in its home region when `location` cannot hold the image and no
+   * copy is running (platinum.ts). Set for warm (speculative) session boxes.
+   */
+  locationRequired?: boolean;
+  /**
    * Override the provider's default snapshot/image with one built
    * specifically for this project. The snapshot builder
    * (apps/api/src/snapshots/builder.ts) populates this when a session
@@ -73,6 +79,17 @@ export interface CreateSandboxOpts {
   };
   /** Ports that the provider must make reachable through resolveIngress(). */
   publishedPorts?: number[];
+  /**
+   * Volumes mounted at create, keyed by guest mount path: the session's
+   * drives. Platinum only; every other provider ignores it.
+   */
+  volumes?: Record<string, { volume: string; read_only?: boolean; subdir?: string; ref?: string }>;
+  /**
+   * The box keeps its state on its `volumes` (an App machine), so Platinum's
+   * periodic whole-box backup is off. (A create refused over any `volumes`
+   * always fails: a box never boots without them.)
+   */
+  volumesRequired?: boolean;
 }
 
 export function sandboxWorkloadType(opts: CreateSandboxOpts): SandboxWorkloadType {
@@ -357,8 +374,7 @@ export interface SandboxProvider {
  *
  * FLOOR 60. Never below the value this function returned before the split, so a
  * mis-set env var cannot resurrect the mid-work-kill class. Callers needing a
- * deliberately short timer pass an explicit override instead (the trigger path
- * does: KORTIX_SANDBOX_TRIGGER_AUTOSTOP_MINUTES). The floor is also what makes
+ * deliberately short timer pass an explicit override instead. The floor is also what makes
  * the required ordering `billingLivenessGraceMinutes() <= this` structural
  * rather than coincidental — the billing grace floors at the same 60 and only
  * leaves that floor above a 30-minute idle window, which no environment sets.

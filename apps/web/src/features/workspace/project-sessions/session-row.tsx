@@ -32,11 +32,14 @@ import {
   type StatusTone as SessionStatusTone,
 } from '@kortix/sdk';
 import {
+  ArchiveIcon,
   ArrowCounterClockwiseIcon,
   CaretRightIcon,
   ChatTeardropTextIcon,
   DotsThreeIcon,
   PencilSimpleIcon,
+  PushPinIcon,
+  PushPinSlashIcon,
   TagIcon,
   ShareNetworkIcon,
   SquareIcon,
@@ -156,7 +159,7 @@ const TONE_TILE: Record<SessionStatusTone, Pick<StatusTile, 'tile' | 'icon'>> = 
  */
 function sessionStatusTile(
   session: ProjectSession,
-  options: { deleted: boolean; metadataOnly: boolean },
+  options: { deleted: boolean; metadataOnly: boolean; needsYouCount: number },
   tI18nComplete: UiTranslator,
   statusLabel: (status: SessionDisplayStatus) => string,
 ): StatusTile {
@@ -170,7 +173,7 @@ function sessionStatusTile(
   if (options.metadataOnly) {
     return { label: tI18nComplete.raw('textdf0453d185c4'), ...SECONDARY_TILE };
   }
-  const status = sessionDisplayStatus(session);
+  const status = sessionDisplayStatus(session, options.needsYouCount);
   return { label: statusLabel(status), ...TONE_TILE[SESSION_LIST_STATUS[status].tone] };
 }
 
@@ -181,6 +184,10 @@ export interface SessionRowActions {
   onDelete: (sessionId: string, label: string) => void;
   onRestart: (sessionId: string, label: string) => void;
   onStop: (sessionId: string, label: string) => void;
+  /** Pin (`true`) or unpin the session in the viewer's own list. */
+  onPin: (sessionId: string, pinned: boolean) => void;
+  /** Archive (`true`) or unarchive the session in the viewer's own list. */
+  onArchive: (sessionId: string, archived: boolean) => void;
 }
 
 export interface SessionRowProps {
@@ -199,6 +206,9 @@ export interface SessionRowProps {
   restarting: boolean;
   stopping: boolean;
   actions: SessionRowActions;
+  /** Review items, agent questions and approvals that wait on the viewer
+   *  (`useSessionNeedsYouCounts`). Above 0 the tile reads `needs-you`. */
+  needsYouCount?: number;
   /** Spawned sessions under this one (`child_count`). 0 or absent: no toggle. */
   childCount?: number;
   childrenOpen?: boolean;
@@ -218,6 +228,7 @@ function SessionRowImpl({
   restarting,
   stopping,
   actions,
+  needsYouCount = 0,
   childCount = 0,
   childrenOpen = false,
   onToggleChildren,
@@ -226,6 +237,7 @@ function SessionRowImpl({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tStatus = useTranslations('sidebar.sessionList.status');
   const tLabels = useTranslations('sidebar.labels');
+  const tPinArchive = useTranslations('sidebar.pinArchive');
   const [menuOpen, setMenuOpen] = useState(false);
   const title = getSessionDisplayTitle(session);
   const source = sessionSource(session, tI18nComplete);
@@ -238,6 +250,9 @@ function SessionRowImpl({
   // to change access and everyone else to read who else has it.
   const canManageSharing = session.can_manage_sharing !== false && !isDeleted;
   const hasLifecycleActions = access.canOpen && !isDeleted;
+  // Restart, Stop and Delete are the owner's or a project manager's; the server
+  // answers anyone else 403. Opening the session is not enough.
+  const canManageLifecycle = hasLifecycleActions && session.can_manage_lifecycle !== false;
   const showAccessEntry = hasLifecycleActions;
   const hasActions = hasLifecycleActions;
   const relativeLabel = time.relative ? shortRelative(time.relative) : '';
@@ -246,6 +261,7 @@ function SessionRowImpl({
     {
       deleted: isDeleted,
       metadataOnly: session.can_access === false,
+      needsYouCount,
     },
     tI18nComplete,
     (status) => tStatus(SESSION_STATUS_TRANSLATION_KEY[status]),
@@ -279,6 +295,13 @@ function SessionRowImpl({
             <span className="text-muted-foreground"> · {source.triggerSlug}</span>
           ) : null}
         </span>
+        {session.pinned_at ? (
+          <PushPinIcon
+            role="img"
+            aria-label={tPinArchive('pinnedMark')}
+            className="text-muted-foreground size-3.5 shrink-0"
+          />
+        ) : null}
         {childCount > 0 && onToggleChildren ? (
           <SessionChildrenToggle
             count={childCount}
@@ -309,9 +332,8 @@ function SessionRowImpl({
           disabled={isDeleted}
           onCheckedChange={() => onToggleSelect(session.session_id)}
           aria-label={title}
-          // The stock checked state is `bg-kortix-blue`, the exact accent this
-          // redesign removes; everything else about the control is inherited.
-          className="data-[state=checked]:border-foreground data-[state=checked]:bg-foreground"
+          // This redesign removes the blue accent: the black variant.
+          variant="black"
         />
         {identity}
         {relativeLabel ? (
@@ -434,7 +456,33 @@ function SessionRowImpl({
                         {canManageSharing ? 'Share' : tI18nComplete.raw('textadc01d813da0')}
                       </DropdownMenuItem>
                     ) : null}
-                    {hasLifecycleActions ? (
+                    {/* The viewer's own list (KRTX-2418): anyone who can open
+                        the session. Absent `pinned_at` = no list state. */}
+                    {hasLifecycleActions && session.pinned_at !== undefined ? (
+                      <>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() =>
+                            deferAfterClose(() => actions.onPin(session.session_id, !session.pinned_at))
+                          }
+                        >
+                          {session.pinned_at ? <PushPinSlashIcon /> : <PushPinIcon />}
+                          {tPinArchive(session.pinned_at ? 'unpin' : 'pin')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() =>
+                            deferAfterClose(() =>
+                              actions.onArchive(session.session_id, !session.archived_at),
+                            )
+                          }
+                        >
+                          <ArchiveIcon />
+                          {tPinArchive(session.archived_at ? 'unarchive' : 'archive')}
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                    {canManageLifecycle ? (
                       <DropdownMenuItem
                         className="cursor-pointer"
                         disabled={restarting}
@@ -450,7 +498,7 @@ function SessionRowImpl({
                         {tI18nComplete.raw('text6b983a81e5e8')}
                       </DropdownMenuItem>
                     ) : null}
-                    {sessionCanBeStopped(session) && hasLifecycleActions ? (
+                    {sessionCanBeStopped(session) && canManageLifecycle ? (
                       <DropdownMenuItem
                         className="cursor-pointer"
                         disabled={stopping}
@@ -462,7 +510,7 @@ function SessionRowImpl({
                         {tI18nComplete.raw('textcae7d57bc067')}
                       </DropdownMenuItem>
                     ) : null}
-                    {hasLifecycleActions ? (
+                    {canManageLifecycle ? (
                       <DropdownMenuItem
                         className="cursor-pointer"
                         variant="destructive"

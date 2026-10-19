@@ -9,7 +9,7 @@ import {
 import type { projectSecrets, projectSessions, projects, sessionSandboxes } from '@kortix/db';
 import { config } from '../config';
 import { buildSecretView, serializeProject, serializeSession } from '../projects/lib/serializers';
-import { serializeSandboxRow } from '../projects/routes/shared';
+import { serializeSandboxRow } from '../projects/session-open';
 
 const NOW = new Date('2026-07-01T12:00:00.000Z');
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555';
@@ -481,7 +481,9 @@ describe('buildSecretView ⇄ SecretSchema', () => {
     const parsed = SecretSchema.strict().parse(out);
     expect(parsed.configured).toBe(false);
     expect(parsed.effective_source).toBe('mine');
-    expect(parsed.mine).toEqual({ active: true, updated_at: NOW.toISOString() });
+    // The fixture's `valueEnc` is no real envelope, so the override reads undecryptable.
+    expect(parsed.mine).toEqual({ active: true, updated_at: NOW.toISOString(), status: 'undecryptable' });
+    expect(parsed.status).toBeUndefined();
   });
 
   test('system git-auth secret parses and cannot be managed even by an editor', () => {

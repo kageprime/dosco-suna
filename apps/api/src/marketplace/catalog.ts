@@ -32,14 +32,15 @@ import {
   loadRegistry,
   parseRegistryAddress,
   rawGithubUrl,
-  resolveOpencodeDir,
   type BuildSource,
   type RegistryItem,
   type RegistryJson,
   type RegistryRef,
 } from "@kortix/registry";
 import type { MarketplaceSource } from "./sources-store";
+import { config } from "../config";
 import { safeEgressFetch } from "../shared/ssrf-guard";
+import { mapWithConcurrency } from "../shared/map-with-concurrency";
 
 export interface ItemCapabilities {
   secrets: string[];
@@ -1009,6 +1010,15 @@ export function assertAllowedEndpointUrl(address: string): void {
       `Connector endpoint must be an absolute https URL: "${address}"`,
     );
   }
+  if (parsed.username || parsed.password) {
+    throw new AllowedSourceValidationError(
+      "Connector endpoints must not embed credentials.",
+    );
+  }
+  // A host the operator listed (self-host internal APIs, the local test stack's
+  // loopback) passes, as it does for the connector egress fetch itself.
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (config.KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS.some((h) => h.toLowerCase() === host)) return;
   if (parsed.protocol !== "https:") {
     throw new AllowedSourceValidationError(
       "Connector endpoints must use https on a public host.",
@@ -1017,11 +1027,6 @@ export function assertAllowedEndpointUrl(address: string): void {
   if (isPrivateHost(parsed.hostname)) {
     throw new AllowedSourceValidationError(
       "Connector endpoints must use https on a public host.",
-    );
-  }
-  if (parsed.username || parsed.password) {
-    throw new AllowedSourceValidationError(
-      "Connector endpoints must not embed credentials.",
     );
   }
 }
@@ -1051,25 +1056,6 @@ function startExternalBuild(): Promise<Catalog> {
 
 type LoadedRegistry = Awaited<ReturnType<typeof loadRegistry>>;
 
-async function forEachWithConcurrency<T>(
-  values: readonly T[],
-  concurrency: number,
-  operation: (value: T, index: number) => Promise<void>,
-): Promise<void> {
-  let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(concurrency, values.length) },
-    async () => {
-      while (nextIndex < values.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        await operation(values[index]!, index);
-      }
-    },
-  );
-  await Promise.all(workers);
-}
-
 async function buildExternalCatalog(): Promise<Catalog> {
   const refs = await externalRefs();
   CACHE.pending = refs.length;
@@ -1094,8 +1080,13 @@ async function buildExternalCatalog(): Promise<Catalog> {
     : (CACHE.partial ??= { items: [], byId: new Map() });
   // Resolve sources concurrently with isolation — one slow/huge/dead source
   // neither blocks the others nor sinks the catalog; each folds in the instant
+<<<<<<< HEAD
   // it arrives so the list streams Dosco-first, then source-by-source.
   await forEachWithConcurrency(
+=======
+  // it arrives so the list streams Kortix-first, then source-by-source.
+  await mapWithConcurrency(
+>>>>>>> upstream-dev
     refs,
     MARKETPLACE_EXTERNAL_BUILD_CONCURRENCY,
     async ({ ref, sourceId }, i) => {
@@ -2248,5 +2239,3 @@ export function _resetExternalCache(): void {
 export function warmMarketplaceCatalog(): void {
   void startExternalBuild().catch(() => undefined);
 }
-
-export { resolveOpencodeDir };

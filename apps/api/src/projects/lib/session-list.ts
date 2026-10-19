@@ -23,8 +23,10 @@
  *     lookup. Dropping the redundant `inArray` lets it run CONCURRENTLY with
  *     the sessions read; a row for a session that is not in the list is simply
  *     never looked up.
- *  2. The share subject and the manager-standing probe depend only on the
- *     caller, so they can start at the same time as the sessions read.
+ *  2. The share subject depends only on the caller, so it runs at the same
+ *     time as the first sessions read. The manager-standing probe and, in
+ *     `scope=project`, the oversight verdict run BEFORE that read: the page
+ *     WHERE (`sessionListViewerSql`) needs both (KRTX-2316).
  *  3. Owner identities can be resolved for the SUPERSET of `created_by` over
  *     all rows rather than only the selected ones — again a Map consumed by
  *     lookup — so it runs concurrently with the grants read instead of after
@@ -38,14 +40,15 @@ import {
   type ShareSubject,
 } from '../../connectors/share';
 import { db } from '../../shared/db';
+import { qualifiedColumn } from '../../shared/sql-qualified-column';
 import { hasAccountSessionOversight } from '../../iam/session-oversight';
 
-import { projectSessions, sessionSandboxes } from '@kortix/db';
-import { and, desc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import { accountGroupMembers, projectSessionGrants, projectSessions, sessionSandboxes } from '@kortix/db';
+import { and, desc, eq, getTableColumns, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { SessionStartedByFilter } from './session-initiator';
 import { resolveSessionOwnerIdentities, viewerManagerStanding } from './access';
-import type { ProjectRole } from '../access';
+import { SESSION_DELETE_ROWS_DAYS } from '../session-log-purge';
 import {
   SESSION_PAGE_DEFAULT_LIMIT,
   SESSION_PAGE_MAX_LIMIT,
@@ -57,6 +60,12 @@ import {
   type SessionInventoryItem,
   type SessionOwnerIdentity,
 } from './session-inventory';
+import {
+  loadSessionUserStates,
+  sessionUserStateSql,
+  type SessionListView,
+  type SessionUserState,
+} from './session-user-state';
 
 type ProjectSessionRow = typeof projectSessions.$inferSelect;
 type RuntimeStatus = typeof sessionSandboxes.$inferSelect.status;
@@ -80,6 +89,15 @@ export interface SessionListFilter {
   q?: string | null;
   /** The session carries every one of these labels (exact match). */
   labels?: string[] | null;
+  /** The person whose pins and archive apply (`personUserId`). Null: an
+   *  agent, API key or service account, which reads the raw list. */
+  personId?: string | null;
+  /** Only the person's pinned or archived sessions. Absent: every session the
+   *  person has not archived. */
+  view?: SessionListView | null;
+  /** Recently deleted (KRTX-2853): only the deleted sessions this viewer may
+   *  restore, still inside their restore window. Archived ones included. */
+  deleted?: boolean;
 }
 
 type SessionTable = typeof projectSessions;
@@ -166,7 +184,105 @@ function sessionListFilterSql(filter: SessionListFilter, viewerId: string): SQL 
         : searchMatchSql(t, filter.q),
     );
   }
+  // A deleted session is listed whether or not the person archived it.
+  if (!filter.deleted) conditions.push(sessionUserStateSql(filter.view ?? null, filter.personId ?? null));
   return conditions.length ? and(...conditions) : undefined;
+}
+
+/**
+ * A row without the soft-delete stamp. Spelled exactly as the predicate of
+ * `idx_project_sessions_project_live` (packages/db kortix.ts): the planner
+ * matches a partial index only on the same expression. `is not true` keeps a
+ * row whose metadata is null, as `selectSessionRowsForViewer` does.
+ */
+const liveSessionSql = sql`(${projectSessions.metadata} ? 'deletedAt') is not true`;
+/** `metadata.warm === true`: an unprompted warm draft (lib/warm-sessions.ts). */
+const warmSessionSql = sql`(${projectSessions.metadata} -> 'warm') = 'true'::jsonb`;
+/** `isTriggerCreatedSessionMetadata` (connectors/share.ts). */
+const triggerCreatedSql = sql`(jsonb_typeof(${projectSessions.metadata} -> 'source') = 'string'
+  and ${projectSessions.metadata} ->> 'source' like 'trigger:%'
+  and ${projectSessions.metadata} ->> 'trigger_kind' = 'git'
+  and jsonb_typeof(${projectSessions.metadata} -> 'trigger_slug') = 'string'
+  and ${projectSessions.metadata} ->> 'trigger_slug' <> '')`;
+
+/** Who reads the list, with the verdicts the page needs before its first row. */
+export interface SessionListViewer {
+  scope: ProjectSessionListScope;
+  viewerId: string;
+  boundCredentialSessionId: string | null;
+  agentPrincipal: boolean;
+  canManageProject: boolean;
+  /** `hasAccountSessionOversight`. Applied to the `project` scope only. */
+  accountSessionOversight: boolean;
+  /** Recently deleted: `SessionListFilter.deleted`. */
+  deleted?: boolean;
+}
+
+/**
+ * The oldest `deletedAt` still restorable: the stamp plus the restore window
+ * (`sessionRestoreUntil`) is after now. Compared as text, the ISO instant
+ * `deleteSession` writes: a stamp that is not one never fails the query.
+ */
+export function restorableSinceIso(now = Date.now()): string {
+  return new Date(now - SESSION_DELETE_ROWS_DAYS * 86_400_000).toISOString();
+}
+
+/**
+ * The page WHERE for one viewer: the SQL twin of `selectSessionRowsForViewer`
+ * (`isProjectSessionVisibleTo`, `agentSessionStanding`, and the scope's
+ * tombstone and warm-draft rules). With it, a page of N rows the viewer may
+ * see is one read of N + 1 rows, however many newer rows are private to
+ * someone else or deleted (KRTX-1727 scenarios A and B). The JS fold still
+ * re-checks every row; this only decides what the page reads.
+ */
+export function sessionListViewerSql(viewer: SessionListViewer): SQL {
+  const t = projectSessions;
+  const bound = viewer.boundCredentialSessionId;
+  const tombstone = viewer.deleted
+    ? // Recently deleted: what the restore route would still take back, and
+      // only for its owner or a manager (`canManageLifecycle`).
+      sql`(${t.metadata} ? 'deletedAt') is true and (${warmSessionSql}) is not true
+        and ${t.metadata} ->> 'deletedAt' > ${restorableSinceIso()}
+        ${viewer.canManageProject ? sql`` : sql`and ${t.createdBy} = ${viewer.viewerId}`}`
+    : viewer.scope === 'visible'
+      ? sql`${liveSessionSql} and (${warmSessionSql}) is not true`
+      : // A soft-deleted warm draft holds nothing to audit.
+        sql`not ((${t.metadata} ? 'deletedAt') is true and (${warmSessionSql}) is true)`;
+  // A session-bound credential reaches its own session and the ones it spawned.
+  const own = bound === null
+    ? undefined
+    : sql`(${t.sessionId} = ${bound} or ${t.metadata} ->> 'spawned_by_session' = ${bound})`;
+  // ...and no backend session but its own (`isSessionTargetVisibleToCaller`).
+  const narrow = bound === null ? undefined : sql`(${t.origin} <> 'backend' or ${t.sessionId} = ${bound})`;
+  const granted = sql`exists (
+    select 1 from ${projectSessionGrants} as g
+     where g.session_id = ${qualifiedColumn(t.sessionId)}
+       and ((g.principal_type = 'member' and g.principal_id::text = ${viewer.viewerId})
+         or (g.principal_type = 'group' and g.principal_id in (
+               select gm.group_id from ${accountGroupMembers} as gm where gm.user_id = ${viewer.viewerId}))))`;
+  // `created_by` is compared as a uuid, never cast to text: the cast hides the
+  // column's statistics, the planner then expects a handful of matching rows,
+  // and it may read and sort every live row of the project for one page.
+  const byRules = sql`(${t.createdBy} = ${viewer.viewerId} or ${t.visibility} = 'project'
+    or (${t.visibility} = 'restricted' and ${granted}))`;
+  // Oversight and the trigger-run manager override are a human's powers only.
+  const canAccess =
+    bound === null && viewer.scope === 'project' && viewer.accountSessionOversight
+      ? undefined
+      : and(
+          narrow,
+          or(
+            own,
+            bound === null && viewer.canManageProject
+              ? sql`(${t.initiatorType} = 'trigger' or ${triggerCreatedSql})`
+              : undefined,
+            byRules,
+          ),
+        );
+  const access = viewer.agentPrincipal
+    ? (or(own, and(eq(t.visibility, 'project'), canAccess)) as SQL)
+    : canAccess;
+  return and(tombstone, access) as SQL;
 }
 
 /** JS twin of `searchMatchSql`, for `search_match: self | child`. `ownerText`
@@ -206,6 +322,182 @@ export interface ProjectSessionInventory {
   childCounts: Map<string, number>;
   /** Display names of member/service-account initiators on this page. */
   initiatorNames: Map<string, string>;
+  /** The person's pin and archive per served session (`filter.personId`). */
+  userStates: Map<string, SessionUserState>;
+}
+
+type SessionInventoryInput = Parameters<typeof loadProjectSessionInventory>[0];
+
+function sessionCursorScope(input: SessionInventoryInput, filter: SessionListFilter): SessionCursorScope {
+  return {
+    projectId: input.projectId,
+    viewerId: input.userId,
+    ordering: input.orderByActivity ? 'activity' : undefined,
+    // A cursor is a scan position inside ONE filtered list.
+    filter:
+      filter.parent || filter.startedBy || filter.q || filter.labels?.length || filter.view || filter.deleted
+        ? JSON.stringify([
+            filter.parent ?? null,
+            filter.startedBy ?? null,
+            filter.q ?? null,
+            ...(filter.labels?.length ? [[...filter.labels].sort()] : []),
+            ...(filter.view ? [{ view: filter.view }] : []),
+            ...(filter.deleted ? [{ deleted: true }] : []),
+          ])
+        : undefined,
+  };
+}
+
+// Step 2 — the three reads that need these rows but not each other, then the
+// visibility fold. Scoped to the rows given, so their cost is the page's cost
+// and not the project's: the pre-paging version read every sandbox row and
+// resolved every owner in the project on every poll.
+async function foldSessionRows(
+  rows: ProjectSessionRow[],
+  ctx: {
+    input: SessionInventoryInput;
+    canManageProject: boolean;
+    subject: ShareSubject;
+    accountSessionOversight: boolean;
+    grantsBySession: Map<string, SecretGrant[]>;
+    ownerIdentities: Map<string, SessionOwnerIdentity>;
+    runtimeStatusBySession: Map<string, RuntimeStatus>;
+    userStates: Map<string, SessionUserState>;
+  },
+) {
+  const { input, canManageProject, subject, accountSessionOversight, grantsBySession, ownerIdentities, runtimeStatusBySession, userStates } = ctx;
+  const rowIds = rows.map((row) => row.sessionId);
+  const personId = input.filter?.personId ?? null;
+  const [runtimeRows, rowGrants, rowOwners, rowStates] = await Promise.all([
+    db
+      .select({ sessionId: sessionSandboxes.sessionId, status: sessionSandboxes.status })
+      .from(sessionSandboxes)
+      .where(
+        and(
+          eq(sessionSandboxes.projectId, input.projectId),
+          eq(sessionSandboxes.accountId, input.accountId),
+          inArray(sessionSandboxes.sessionId, rowIds),
+        ),
+      ),
+    loadSessionGrants(
+      rows.filter((row) => row.visibility === 'restricted').map((row) => row.sessionId),
+    ),
+    resolveSessionOwnerIdentities(
+      [
+        ...new Set(
+          rows
+            .flatMap((row) => [
+              row.createdBy,
+              row.initiatorType === 'member' || row.initiatorType === 'api' ? row.initiatorId : null,
+            ])
+            .filter((ownerId): ownerId is string => Boolean(ownerId)),
+        ),
+      ],
+      input.accountId,
+    ),
+    personId ? loadSessionUserStates(rowIds, personId) : new Map<string, SessionUserState>(),
+  ]);
+
+  const rowRuntime = new Map(runtimeRows.map((row) => [row.sessionId, row.status]));
+  for (const [key, value] of rowStates) userStates.set(key, value);
+  for (const [key, value] of rowRuntime) runtimeStatusBySession.set(key, value);
+  for (const [key, value] of rowGrants) grantsBySession.set(key, value);
+  for (const [key, value] of rowOwners) ownerIdentities.set(key, value);
+
+  return selectSessionRowsForViewer({
+    rows,
+    scope: input.scope,
+    canManageProject,
+    subject,
+    grantsBySession: rowGrants,
+    runtimeStatusBySession: rowRuntime,
+    callerSessionId: input.boundCredentialSessionId,
+    boundCredentialSessionId: input.boundCredentialSessionId,
+    accountSessionOversight,
+    agentPrincipal: input.agentPrincipal === true,
+    deleted: input.filter?.deleted === true,
+  });
+}
+
+/** Serves the ancestors a page's children point at but the page does not hold. */
+async function appendMissingAncestors(input: {
+  projectId: string;
+  accountId: string;
+  filter: SessionListFilter;
+  items: SessionInventoryItem[];
+  scannedRows: ProjectSessionRow[];
+  foldRows: (rows: ProjectSessionRow[]) => ReturnType<typeof foldSessionRows>;
+}): Promise<void> {
+  const { filter, items, scannedRows, foldRows } = input;
+  // A coordinator sorts by its OWN `updated_at`, and a child's turns never
+  // touch it. So a coordinator that went quiet while its sub-agents kept
+  // working lands on a later page than they do, and every child on this page
+  // renders as a stray top-level row. Serve the missing ancestors with the
+  // page. They ride outside the keyset (the cursor does not move), so a later
+  // page can serve one again; clients de-duplicate by `session_id`.
+  const served = new Set(items.map((item) => item.row.sessionId));
+  // A `parent`-filtered read is already a tree level: roots have no parent to
+  // append, and children are read under the parent the client expanded. A
+  // label filter promises only rows carrying every label, so it gets no
+  // unlabeled ancestors either.
+  // A pinned, archived or deleted view promises only those rows.
+  const appendAncestors = !filter.parent && !filter.labels?.length && !filter.view && !filter.deleted;
+  for (let depth = 0; appendAncestors && depth < MAX_ANCESTOR_DEPTH; depth += 1) {
+    const missing = [
+      ...new Set(
+        items
+          .map((item) => spawnedByOf(item.row))
+          .filter((id): id is string => id !== null && !served.has(id)),
+      ),
+    ];
+    if (missing.length === 0) break;
+    for (const id of missing) served.add(id);
+    const ancestorRows = await db
+      .select()
+      .from(projectSessions)
+      .where(
+        and(
+          eq(projectSessions.projectId, input.projectId),
+          eq(projectSessions.accountId, input.accountId),
+          inArray(projectSessions.sessionId, missing),
+          // A coordinator the person archived stays out of their list.
+          sessionUserStateSql(null, filter.personId ?? null),
+        ),
+      );
+    if (ancestorRows.length === 0) break;
+    // The same fold as the page: an ancestor this viewer may not see stays out.
+    for (const item of (await foldRows(ancestorRows)).items) {
+      items.push(item);
+      scannedRows.push(item.row);
+    }
+  }
+}
+
+/** `parent=root` only: non-deleted children per served session. */
+async function loadChildCounts(input: {
+  projectId: string;
+  accountId: string;
+  filter: SessionListFilter;
+  items: SessionInventoryItem[];
+}): Promise<Map<string, number>> {
+  const { filter, items } = input;
+  const childCounts = new Map<string, number>();
+  if (filter.parent === 'root' && items.length > 0) {
+    const counts = await db
+      .select({ parentSessionId: projectSessions.parentSessionId, count: sql<number>`count(*)::int` })
+      .from(projectSessions)
+      .where(
+        and(
+          eq(projectSessions.projectId, input.projectId),
+          eq(projectSessions.accountId, input.accountId),
+          inArray(projectSessions.parentSessionId, items.map((item) => item.row.sessionId)),
+          liveSessionSql,
+        ),
+      )
+      .groupBy(projectSessions.parentSessionId);
+    for (const row of counts) if (row.parentSessionId) childCounts.set(row.parentSessionId, row.count);
+  }
+  return childCounts;
 }
 
 /**
@@ -219,7 +511,6 @@ export async function loadProjectSessionInventory(input: {
   projectId: string;
   accountId: string;
   userId: string;
-  effectiveRole: ProjectRole;
   scope: ProjectSessionListScope;
   /** `callerKortixSessionId(c)` — null for a Supabase browser JWT. */
   boundCredentialSessionId: string | null;
@@ -238,21 +529,7 @@ export async function loadProjectSessionInventory(input: {
   const filterSql = sessionListFilterSql(filter, input.userId);
   // A cursor is sealed to (project, viewer): it carries the scan position, which
   // can name a row this viewer may not see. See `encodeSessionCursor`.
-  const cursorScope: SessionCursorScope = {
-    projectId: input.projectId,
-    viewerId: input.userId,
-    ordering: input.orderByActivity ? 'activity' : undefined,
-    // A cursor is a scan position inside ONE filtered list.
-    filter:
-      filter.parent || filter.startedBy || filter.q || filter.labels?.length
-        ? JSON.stringify([
-            filter.parent ?? null,
-            filter.startedBy ?? null,
-            filter.q ?? null,
-            ...(filter.labels?.length ? [[...filter.labels].sort()] : []),
-          ])
-        : undefined,
-  };
+  const cursorScope = sessionCursorScope(input, filter);
   const sortAt = input.orderByActivity
     ? sql<Date>`date_trunc('milliseconds', coalesce((${projectSessions.metadata}->>'last_activity_at')::timestamptz, ${projectSessions.updatedAt}))`
     : sql<Date>`${projectSessions.updatedAt}`;
@@ -264,37 +541,47 @@ export async function loadProjectSessionInventory(input: {
     return Number.isNaN(parsed.getTime()) ? row.updatedAt : parsed;
   };
 
+  // `updated_at` at microsecond precision for the cursor of the default order. The
+  // activity order already sorts on a millisecond-truncated key.
+  const SORT_AT_ISO = sql<string>`to_char(${projectSessions.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+  const rowSortIso = (row: ProjectSessionRow): string | undefined =>
+    input.orderByActivity ? undefined : (row as { sortAtIso?: string }).sortAtIso;
+
   const limit = Math.min(
     Math.max(Math.trunc(input.limit ?? SESSION_PAGE_DEFAULT_LIMIT), 1),
     SESSION_PAGE_MAX_LIMIT,
   );
 
-  // The visibility fold drops rows (soft-deleted, warm-unprompted, another
-  // member's private session), so a chunk of exactly `limit` rows would
-  // under-fill the page. Over-read, then keep pulling chunks until the page is
-  // full or the list ends.
-  const chunkSize = Math.min(Math.max(limit * 3, 60), 500);
+  // The page WHERE keeps only rows this viewer may see (`sessionListViewerSql`),
+  // so `limit` rows fill the page. The one extra row says whether the list
+  // goes on, so the last page carries no cursor.
+  // ponytail: one statement walks every live row of the project the viewer may
+  // not see (20,000 rows: 3.5-5 ms measured, KRTX-2316). Add per-viewer
+  // indexes (created_by, visibility) if a project outgrows that.
+  const chunkSize = limit + 1;
 
   let cursor = decodeSessionCursor(input.cursor, cursorScope);
 
   // `async`: calling it starts the read. Awaiting it later only collects it.
-  const readChunk = async (after: typeof cursor) =>
+  const readChunk = async (after: typeof cursor, viewerSql: SQL) =>
     db
-      .select()
+      .select({ ...getTableColumns(projectSessions), sortAtIso: SORT_AT_ISO })
       .from(projectSessions)
       .where(
         and(
           eq(projectSessions.projectId, input.projectId),
           eq(projectSessions.accountId, input.accountId),
           filterSql,
+          viewerSql,
           // Keyset: strictly after the cursor row in `(sort_at DESC,
-          // session_id DESC)`. Ordinary projects use the updated_at index;
-          // opted-in imports use their historical conversation activity.
+          // session_id DESC)`. Ordinary projects use the updated_at indexes
+          // (the `visible` scope the partial one on live rows); opted-in
+          // imports use their historical conversation activity.
           after
             ? or(
-                lt(sortAt, after.updatedAt.toISOString()),
+                lt(sortAt, after.updatedAtIso ?? after.updatedAt.toISOString()),
                 and(
-                  eq(sortAt, after.updatedAt.toISOString()),
+                  eq(sortAt, after.updatedAtIso ?? after.updatedAt.toISOString()),
                   lt(projectSessions.sessionId, after.sessionId),
                 ),
               )
@@ -304,8 +591,10 @@ export async function loadProjectSessionInventory(input: {
       .orderBy(desc(sortAt), desc(projectSessions.sessionId))
       .limit(chunkSize);
 
-  // Step 1 — everything that depends only on the CALLER runs together with the
-  // first row chunk. Both are needed before a single row can be folded.
+  // Step 1 — the reads that depend only on the CALLER. The share subject runs
+  // together with the first row chunk. Manager standing, and in
+  // `scope=project` the oversight verdict, run before it: the chunk's WHERE
+  // needs both. All of them are needed before a single row can be folded.
   //
   // Manager standing must be derived exactly as the lifecycle routes derive
   // it (loadVisibleSession): a session-bound agent credential never inherits
@@ -313,7 +602,6 @@ export async function loadProjectSessionInventory(input: {
   // every list row report `can_manage_lifecycle: true` to a credential whose
   // DELETE would then 403 — the two answers must come from one predicate.
   const standingRead = viewerManagerStanding(
-    input.effectiveRole,
     input.boundCredentialSessionId,
     input.probeManageCapability,
   );
@@ -322,15 +610,29 @@ export async function loadProjectSessionInventory(input: {
   // them, not after the share subject.
   // Oversight widens only the manager inventory; see selectSessionRowsForViewer.
   const managerInventory = input.scope === 'project';
-  const firstChunkRead = managerInventory
-    ? standingRead.then((allowed) => (allowed ? readChunk(cursor) : []))
-    : readChunk(cursor);
   const oversightRead =
     managerInventory && input.boundCredentialSessionId === null
       ? standingRead.then(
           (allowed) => allowed && hasAccountSessionOversight(input.userId, input.accountId),
         )
       : Promise.resolve(false);
+  const viewerSql = (canManageProject: boolean, accountSessionOversight: boolean) =>
+    sessionListViewerSql({
+      scope: input.scope,
+      viewerId: input.userId,
+      boundCredentialSessionId: input.boundCredentialSessionId,
+      agentPrincipal: input.agentPrincipal === true,
+      canManageProject,
+      accountSessionOversight,
+      deleted: filter.deleted === true,
+    });
+  // The page WHERE needs the manager standing and the oversight verdict, so
+  // the first chunk starts once both are in. It does not wait for the share
+  // subject: the WHERE reads the viewer's groups itself, and the subject feeds
+  // only the fold that re-checks each row.
+  const firstChunkRead = Promise.all([standingRead, oversightRead]).then(([allowed, oversight]) =>
+    managerInventory && !allowed ? [] : readChunk(cursor, viewerSql(allowed, oversight)),
+  );
   // Both are awaited after the caller reads. A rejection surfaces there, in
   // the original order, and must not be unhandled before.
   firstChunkRead.catch(() => undefined);
@@ -353,81 +655,41 @@ export async function loadProjectSessionInventory(input: {
       subject,
       childCounts: new Map(),
       initiatorNames: new Map(),
+      userStates: new Map(),
     };
   }
 
   const accountSessionOversight = await oversightRead;
+  const pageSql = viewerSql(canManageProject, accountSessionOversight);
 
   const items: SessionInventoryItem[] = [];
   const scannedRows: ProjectSessionRow[] = [];
   const grantsBySession = new Map<string, SecretGrant[]>();
   const ownerIdentities = new Map<string, SessionOwnerIdentity>();
   const runtimeStatusBySession = new Map<string, RuntimeStatus>();
+  const userStates = new Map<string, SessionUserState>();
 
   let nextCursor: string | null = null;
   let exhausted = false;
 
-  // Bounded so a page can never turn into a full-table walk: a project whose
-  // rows are almost all invisible to this viewer returns a short page with a
-  // cursor instead of scanning to the end of the list on one request.
+  // The fold re-checks every row the WHERE let through. A row it refuses
+  // (the two disagree) leaves the page short, and the next chunk refills it.
+  // Bounded so a page can never turn into a full-table walk.
   const MAX_CHUNKS = 8;
-
-  // Step 2 — the three reads that need these rows but not each other, then the
-  // visibility fold. Scoped to the rows given, so their cost is the page's cost
-  // and not the project's: the pre-paging version read every sandbox row and
-  // resolved every owner in the project on every poll.
-  const foldRows = async (rows: ProjectSessionRow[]) => {
-    const rowIds = rows.map((row) => row.sessionId);
-    const [runtimeRows, rowGrants, rowOwners] = await Promise.all([
-      db
-        .select({ sessionId: sessionSandboxes.sessionId, status: sessionSandboxes.status })
-        .from(sessionSandboxes)
-        .where(
-          and(
-            eq(sessionSandboxes.projectId, input.projectId),
-            eq(sessionSandboxes.accountId, input.accountId),
-            inArray(sessionSandboxes.sessionId, rowIds),
-          ),
-        ),
-      loadSessionGrants(
-        rows.filter((row) => row.visibility === 'restricted').map((row) => row.sessionId),
-      ),
-      resolveSessionOwnerIdentities(
-        [
-          ...new Set(
-            rows
-              .flatMap((row) => [
-                row.createdBy,
-                row.initiatorType === 'member' || row.initiatorType === 'api' ? row.initiatorId : null,
-              ])
-              .filter((ownerId): ownerId is string => Boolean(ownerId)),
-          ),
-        ],
-        input.accountId,
-      ),
-    ]);
-
-    const rowRuntime = new Map(runtimeRows.map((row) => [row.sessionId, row.status]));
-    for (const [key, value] of rowRuntime) runtimeStatusBySession.set(key, value);
-    for (const [key, value] of rowGrants) grantsBySession.set(key, value);
-    for (const [key, value] of rowOwners) ownerIdentities.set(key, value);
-
-    return selectSessionRowsForViewer({
-      rows,
-      scope: input.scope,
+  const foldRows = (rows: ProjectSessionRow[]) =>
+    foldSessionRows(rows, {
+      input,
       canManageProject,
       subject,
-      grantsBySession: rowGrants,
-      runtimeStatusBySession: rowRuntime,
-      callerSessionId: input.boundCredentialSessionId,
-      boundCredentialSessionId: input.boundCredentialSessionId,
       accountSessionOversight,
-      agentPrincipal: input.agentPrincipal === true,
+      grantsBySession,
+      ownerIdentities,
+      runtimeStatusBySession,
+      userStates,
     });
-  };
 
   for (let pass = 0; pass < MAX_CHUNKS && items.length < limit; pass += 1) {
-    const chunk = await (pass === 0 ? firstChunkRead : readChunk(cursor));
+    const chunk = await (pass === 0 ? firstChunkRead : readChunk(cursor, pageSql));
 
     if (chunk.length === 0) {
       exhausted = true;
@@ -436,16 +698,20 @@ export async function loadProjectSessionInventory(input: {
 
     const selected = await foldRows(chunk);
 
+    let pageFull = false;
     for (const item of selected.items) {
       // A manager's inventory lists sessions it may not open, with the title
       // redacted. Search must not match on that hidden title.
       if (filter.q && !item.canAccess) continue;
       // Stop exactly at the page boundary, and remember the row we stopped on
       // so the next page resumes from it rather than re-serving it.
-      if (items.length >= limit) break;
+      if (items.length >= limit) {
+        pageFull = true;
+        break;
+      }
       items.push(item);
       scannedRows.push(item.row);
-      nextCursor = cursorForRow({ updatedAt: rowSortAt(item.row), sessionId: item.row.sessionId }, cursorScope);
+      nextCursor = cursorForRow({ updatedAt: rowSortAt(item.row), updatedAtIso: rowSortIso(item.row), sessionId: item.row.sessionId }, cursorScope);
     }
 
     // Did the page fill before we reached the end of this chunk? Then the rows
@@ -454,74 +720,26 @@ export async function loadProjectSessionInventory(input: {
     // last row advances the cursor past it — and only then can a short chunk
     // mean the list is over. Marking `exhausted` on a chunk we stopped inside
     // would drop its tail permanently.
-    if (items.length < limit) {
-      const lastChunkRow = chunk[chunk.length - 1]!;
-      nextCursor = cursorForRow({ updatedAt: rowSortAt(lastChunkRow), sessionId: lastChunkRow.sessionId }, cursorScope);
-      cursor = { updatedAt: rowSortAt(lastChunkRow), sessionId: lastChunkRow.sessionId };
-      if (chunk.length < chunkSize) {
-        exhausted = true;
-        break;
-      }
+    if (pageFull) break;
+    const lastChunkRow = chunk[chunk.length - 1]!;
+    nextCursor = cursorForRow({ updatedAt: rowSortAt(lastChunkRow), updatedAtIso: rowSortIso(lastChunkRow), sessionId: lastChunkRow.sessionId }, cursorScope);
+    cursor = { updatedAt: rowSortAt(lastChunkRow), updatedAtIso: rowSortIso(lastChunkRow), sessionId: lastChunkRow.sessionId };
+    if (chunk.length < chunkSize) {
+      exhausted = true;
+      break;
     }
   }
 
-  // A coordinator sorts by its OWN `updated_at`, and a child's turns never
-  // touch it. So a coordinator that went quiet while its sub-agents kept
-  // working lands on a later page than they do, and every child on this page
-  // renders as a stray top-level row. Serve the missing ancestors with the
-  // page. They ride outside the keyset (the cursor does not move), so a later
-  // page can serve one again; clients de-duplicate by `session_id`.
-  const served = new Set(items.map((item) => item.row.sessionId));
-  // A `parent`-filtered read is already a tree level: roots have no parent to
-  // append, and children are read under the parent the client expanded. A
-  // label filter promises only rows carrying every label, so it gets no
-  // unlabeled ancestors either.
-  const appendAncestors = !filter.parent && !filter.labels?.length;
-  for (let depth = 0; appendAncestors && depth < MAX_ANCESTOR_DEPTH; depth += 1) {
-    const missing = [
-      ...new Set(
-        items
-          .map((item) => spawnedByOf(item.row))
-          .filter((id): id is string => id !== null && !served.has(id)),
-      ),
-    ];
-    if (missing.length === 0) break;
-    for (const id of missing) served.add(id);
-    const ancestorRows = await db
-      .select()
-      .from(projectSessions)
-      .where(
-        and(
-          eq(projectSessions.projectId, input.projectId),
-          eq(projectSessions.accountId, input.accountId),
-          inArray(projectSessions.sessionId, missing),
-        ),
-      );
-    if (ancestorRows.length === 0) break;
-    // The same fold as the page: an ancestor this viewer may not see stays out.
-    for (const item of (await foldRows(ancestorRows)).items) {
-      items.push(item);
-      scannedRows.push(item.row);
-    }
-  }
+  await appendMissingAncestors({
+    projectId: input.projectId,
+    accountId: input.accountId,
+    filter,
+    items,
+    scannedRows,
+    foldRows,
+  });
 
-  const childCounts = new Map<string, number>();
-  if (filter.parent === 'root' && items.length > 0) {
-    const counts = await db
-      .select({ parentSessionId: projectSessions.parentSessionId, count: sql<number>`count(*)::int` })
-      .from(projectSessions)
-      .where(
-        and(
-          eq(projectSessions.projectId, input.projectId),
-          eq(projectSessions.accountId, input.accountId),
-          inArray(projectSessions.parentSessionId, items.map((item) => item.row.sessionId)),
-          // The soft-delete marker the visibility fold drops (session-inventory.ts).
-          sql`not (${projectSessions.metadata} ? 'deletedAt')`,
-        ),
-      )
-      .groupBy(projectSessions.parentSessionId);
-    for (const row of counts) if (row.parentSessionId) childCounts.set(row.parentSessionId, row.count);
-  }
+  const childCounts = await loadChildCounts({ projectId: input.projectId, accountId: input.accountId, filter, items });
   const initiatorNames = new Map<string, string>();
   for (const [id, identity] of ownerIdentities) {
     const name = identity.name ?? identity.email ?? null;
@@ -543,5 +761,6 @@ export async function loadProjectSessionInventory(input: {
     ownerIdentities,
     runtimeStatusBySession,
     subject,
+    userStates,
   };
 }

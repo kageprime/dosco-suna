@@ -17,14 +17,6 @@ export interface AllowedRoute {
   prefixMatch?: boolean;
   /** Override billing tool name for this specific route (for per-model billing) */
   billingToolName?: string;
-  /**
-   * Anti-abuse gate for shared prediction endpoints (e.g. Replicate's `/predictions`,
-   * which can run ANY model via a `version` in the body). When set, the request body's
-   * `version` field must be one of these values or the proxy rejects with 403 — this
-   * keeps a versioned-community-model route locked to a specific model even though the
-   * model isn't encoded in the URL path.
-   */
-  allowedBodyVersions?: string[];
 }
 
 // === Proxy Service Configuration ===
@@ -32,14 +24,19 @@ export interface AllowedRoute {
 export interface ProxyServiceConfig {
   /** Service name / route prefix (e.g. "tavily") */
   name: string;
-  /** Real upstream base URL (e.g. "https://api.tavily.com") — used for passthrough (Mode 2/3) */
+  /** Real upstream base URL (e.g. "https://api.tavily.com") */
   targetBaseUrl: string;
+<<<<<<< HEAD
   /** Alternate upstream base URL for Dosco-managed requests (Mode 1). Falls back to targetBaseUrl. */
   kortixTargetBaseUrl?: string;
   /** Dosco-owned API key for this upstream service */
+=======
+  /** Kortix-owned API key for this upstream service */
+>>>>>>> upstream-dev
   getKortixApiKey: () => string;
-  /** How to inject the API key into upstream requests (passthrough) */
+  /** How to inject the Kortix-owned API key into upstream requests */
   keyInjection: KeyInjectionMethod;
+<<<<<<< HEAD
   /** Alternate key injection for Dosco-managed requests (Mode 1). Falls back to keyInjection. */
   kortixKeyInjection?: KeyInjectionMethod;
   /** Only these routes are allowed when using Dosco's key (prevents cost abuse) */
@@ -52,6 +49,12 @@ export interface ProxyServiceConfig {
    * Tool passthrough uses fixed per-call billing.
    */
   isLlm?: boolean;
+=======
+  /** Only these routes are allowed when using Kortix's key (prevents cost abuse) */
+  allowedRoutes: AllowedRoute[];
+  /** Default tool name for billing attribution (can be overridden per-route) */
+  billingToolName: string;
+>>>>>>> upstream-dev
 }
 
 // === Service Registry ===
@@ -84,7 +87,6 @@ export function getProxyServices(): Record<string, ProxyServiceConfig> {
       billingToolName: 'proxy_serper',
     },
 
-
     firecrawl: {
       name: 'firecrawl',
       targetBaseUrl: config.FIRECRAWL_API_URL,
@@ -92,17 +94,22 @@ export function getProxyServices(): Record<string, ProxyServiceConfig> {
       keyInjection: { type: 'header', headerName: 'Authorization', prefix: 'Bearer ' },
       allowedRoutes: [
         { path: '/v1/scrape', methods: ['POST'] },
-        { path: '/v1/crawl', methods: ['POST', 'GET'], prefixMatch: true },
+        // Starting a crawl is billed once. A status poll is free upstream, so
+        // it is not billed (`proxy_firecrawl_status` has a zero price).
+        { path: '/v1/crawl', methods: ['POST'] },
+        { path: '/v1/crawl', methods: ['GET'], prefixMatch: true, billingToolName: 'proxy_firecrawl_status' },
         { path: '/v1/map', methods: ['POST'] },
         { path: '/v1/search', methods: ['POST'] },
         // Firecrawl JS SDK v2+ uses /v2 endpoints
         { path: '/v2/scrape', methods: ['POST'] },
-        { path: '/v2/crawl', methods: ['POST', 'GET'], prefixMatch: true },
+        { path: '/v2/crawl', methods: ['POST'] },
+        { path: '/v2/crawl', methods: ['GET'], prefixMatch: true, billingToolName: 'proxy_firecrawl_status' },
         { path: '/v2/map', methods: ['POST'] },
         { path: '/v2/search', methods: ['POST'] },
       ],
       billingToolName: 'proxy_firecrawl',
     },
+<<<<<<< HEAD
 
 
     context7: {
@@ -184,6 +191,8 @@ export function getProxyServices(): Record<string, ProxyServiceConfig> {
       billingToolName: 'llm_groq',
       isLlm: true,
     },
+=======
+>>>>>>> upstream-dev
   };
 }
 

@@ -25,7 +25,9 @@ export interface NewSessionCreateInput {
  * no agent was picked), so callers can omit the create overrides entirely.
  */
 export function buildNewSessionCreateInput(
-  options: Pick<ComposerOptions, 'agent' | 'scope' | 'providerSecretPools'> & { sandbox_slug?: string } = {},
+  options: Pick<ComposerOptions, 'agent' | 'scope' | 'providerSecretPools'> & {
+    sandbox_slug?: string;
+    } = {},
 ): NewSessionCreateInput | undefined {
   const input: NewSessionCreateInput = {};
   if (isMetaAgentName(options.agent)) {

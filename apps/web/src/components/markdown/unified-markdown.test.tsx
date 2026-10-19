@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { UnifiedMarkdown } from './unified-markdown';
+import { MarkdownImage, UnifiedMarkdown } from './unified-markdown';
 import { prepareMarkdownSource } from './unified-markdown-utils';
 
 function withIntl(node: ReactNode) {
@@ -327,6 +327,23 @@ describe('prepareMarkdownSource — a setup link while it streams', () => {
   });
 });
 
+describe('prepareMarkdownSource — currency dollars', () => {
+  const FENCE = '```openui\nroot = Table(["Plan","Price"], [["Basic","$10"]])\n```';
+
+  test('prose currency is escaped so it is not read as inline math', () => {
+    expect(prepareMarkdownSource('Basic costs $10.', false)).toBe('Basic costs \\$10.');
+  });
+
+  test('a generative UI fence keeps its dollars as written, settled and while it streams', () => {
+    expect(prepareMarkdownSource(`Plans:\n\n${FENCE}`, false)).toContain('"$10"');
+    expect(prepareMarkdownSource(`Plans:\n\n${FENCE.slice(0, -4)}`, true)).toContain('"$10"');
+  });
+
+  test('inline code keeps its dollars as written', () => {
+    expect(prepareMarkdownSource('Run `echo $1` now.', false)).toBe('Run `echo $1` now.');
+  });
+});
+
 /**
  * The exact `remend` Streamdown runs over streaming text. It is Streamdown's
  * dependency, not this app's, so it is resolved through Streamdown. A server
@@ -628,5 +645,184 @@ describe('UnifiedMarkdown setup links in tables', () => {
     const html = renderToStaticMarkup(withIntl(<UnifiedMarkdown trust="untrusted" content={md} />));
     expect(html).toContain('<table');
     expect(html).not.toContain('setup-link-chip');
+  });
+});
+
+// ─── A link to a file in the session's workspace ────────────────────────────
+// GPT models link a file they wrote as `[label](sandbox:/workspace/…)`, others
+// as `file:///…` or a workspace-relative path. Sanitize strips the `sandbox:`
+// and `file:` schemes, rehype-harden refuses a bare relative path, and every
+// such link rendered as `label [blocked]`. In agent messages a file link opens
+// the file preview, the same as a path in prose does.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('UnifiedMarkdown — a link to a workspace file', () => {
+  const FILE_LINKS: [string, string][] = [
+    ['sandbox:/workspace/output/report.docx', '/workspace/output/report.docx'],
+    ['file:///workspace/output/report.pdf', '/workspace/output/report.pdf'],
+    ['/workspace/output/report.docx', '/workspace/output/report.docx'],
+    ['output/report.docx', 'output/report.docx'],
+    ['./report.docx', 'report.docx'],
+    ['<output/Quarterly report.docx>', 'output/Quarterly report.docx'],
+  ];
+
+  // bun:test's `test` typing has no `.each`; a plain loop keeps the same six
+  // named tests without fighting the overload.
+  for (const [href, path] of FILE_LINKS) {
+    test(`a ${href} link opens the file preview, never "[blocked]"`, () => {
+      const html = renderToStaticMarkup(
+        withIntl(<UnifiedMarkdown trust="agent" content={`**[Word — for editing](${href})**`} />),
+      );
+
+      expect(html).not.toContain('[blocked]');
+      expect(html).not.toContain('<a');
+      expect(html).toContain('<button');
+      expect(html).toContain(`title="${path} — Click to preview"`);
+      expect(visibleText(html)).toBe('Word — for editing');
+    });
+  }
+
+  test('an app link and a web link stay links', () => {
+    const html = renderToStaticMarkup(
+      withIntl(
+        <UnifiedMarkdown
+          trust="agent"
+          content="[home](/projects/p1) and [site](https://kortix.com/a.pdf)"
+        />,
+      ),
+    );
+
+    expect(html).toContain('href="/projects/p1"');
+    expect(html).toContain('href="https://kortix.com/a.pdf"');
+    expect(html).not.toContain('<button');
+  });
+
+  test('untrusted content does not get file links', () => {
+    const html = renderToStaticMarkup(
+      withIntl(<UnifiedMarkdown trust="untrusted" content="[x](sandbox:/workspace/a.docx)" />),
+    );
+
+    expect(html).not.toContain('<button');
+  });
+});
+
+// ─── A markdown document's own file links ───────────────────────────────────
+// A knowledge-base index such as `memory/MEMORY.md` links its siblings as
+// `[kortix-company.md](kortix-company.md)`. A relative link in a document is
+// relative to that document's directory. The document renderer used to refuse
+// the rewrite, so rehype-harden printed `label [blocked]`.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("UnifiedMarkdown — a markdown document's file links", () => {
+  const DOCUMENT = [
+    '# Index',
+    '',
+    '- [kortix-company.md](kortix-company.md) — the company brief',
+    '- [screenshot.png](sandbox:/workspace/memory/screenshot.png) — an image',
+    '',
+  ].join('\n');
+
+  test('a document with a known path opens its sibling links', () => {
+    const html = renderToStaticMarkup(
+      withIntl(
+        <UnifiedMarkdown
+          trust="agent"
+          variant="document"
+          documentPath="/workspace/memory/MEMORY.md"
+          content={DOCUMENT}
+        />,
+      ),
+    );
+
+    expect(html).not.toContain('[blocked]');
+    expect(html).toContain('title="/workspace/memory/kortix-company.md — Click to preview"');
+    expect(html).toContain('title="/workspace/memory/screenshot.png — Click to preview"');
+  });
+
+  test('a document without a known path keeps the safe default', () => {
+    const html = renderToStaticMarkup(
+      withIntl(<UnifiedMarkdown trust="agent" variant="document" content={DOCUMENT} />),
+    );
+
+    expect(html).toContain('[blocked]');
+    expect(html).not.toContain('<button');
+  });
+
+  test('untrusted documents never get file links', () => {
+    const html = renderToStaticMarkup(
+      withIntl(
+        <UnifiedMarkdown
+          trust="untrusted"
+          variant="document"
+          documentPath="/workspace/memory/MEMORY.md"
+          content={DOCUMENT}
+        />,
+      ),
+    );
+
+    expect(html).not.toContain('<button');
+  });
+
+  for (const href of ['../../etc/passwd', '/workspace/../../etc/passwd', 'sandbox:/etc/passwd', '%2fetc/passwd', '#kortix-file:%2Fworkspace%2F..%2F..%2Fetc%2Fpasswd']) {
+    test(`outside-root document target is not a preview control: ${href}`, () => {
+      const html = renderToStaticMarkup(withIntl(
+        <UnifiedMarkdown trust="agent" variant="document" documentPath="/workspace/memory/MEMORY.md" content={`[escape](${href})`} />,
+      ));
+      expect(html).not.toContain('<button');
+      expect(html).not.toContain('kortix-file');
+    });
+  }
+
+  test('traversal outside the sandbox roots stays blocked', () => {
+    const html = renderToStaticMarkup(
+      withIntl(
+        <UnifiedMarkdown
+          trust="agent"
+          variant="document"
+          documentPath="/workspace/memory/MEMORY.md"
+          content="[escape](../../../../etc/passwd)"
+        />,
+      ),
+    );
+
+    // The rewrite refuses the path, so no file control and no fragment:
+    // harden renders the raw href as a plain (dead) app link, exactly as a
+    // message-variant `../..` link renders today.
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('kortix-file');
+  });
+
+  test('a web link stays a real link', () => {
+    const html = renderToStaticMarkup(
+      withIntl(
+        <UnifiedMarkdown
+          trust="agent"
+          variant="document"
+          documentPath="/workspace/memory/MEMORY.md"
+          content="[site](https://kortix.com)"
+        />,
+      ),
+    );
+
+    expect(html).toContain('href="https://kortix.com/"');
+    expect(html).not.toContain('<button');
+  });
+});
+
+describe('MarkdownImage — a remote image in untrusted content', () => {
+  const SRC = 'https://img.example.test/a.png';
+  test('the default placeholder is a labelled button with the host text', () => {
+    const html = renderToStaticMarkup(withIntl(<MarkdownImage src={SRC} flush />));
+    expect(html).toMatch(/<button[^>]*>[\s\S]*<span class="truncate">/);
+  });
+
+  test('compact: an icon-only button that fills its thumbnail and keeps its name in aria-label and title', () => {
+    const html = renderToStaticMarkup(withIntl(<MarkdownImage src={SRC} flush compact />));
+    const button = html.match(/<button[^>]*>/)![0];
+    expect(button).toContain('size-full');
+    expect(button).toMatch(/aria-label="[^"]+"/);
+    expect(button).toMatch(/title="[^"]+"/);
+    expect(html).not.toContain('class="truncate"');
+    expect(html).not.toContain('<img');
   });
 });

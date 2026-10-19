@@ -91,7 +91,7 @@ class PreviewApproval(unittest.TestCase):
 
     def test_preview_label_approves_one_exact_sha(self):
         self.assertIn("pull_request_target:", WORKFLOW)
-        self.assertIn("branches: [main]", WORKFLOW)
+        self.assertIn("branches: [dev]", WORKFLOW)
         self.assertIn("github.event.action == 'labeled'", WORKFLOW)
         self.assertIn("github.event.label.name == 'preview'", WORKFLOW)
         # Automatic previews on open/synchronize would deploy unreviewed code.
@@ -178,12 +178,12 @@ class PreviewBuildIsolation(unittest.TestCase):
     def test_build_jobs_have_no_secret_no_registry_and_no_push(self):
         self.assertEqual(WORKFLOW.count("push: false"), 3)
         self.assertEqual(WORKFLOW.count("type=docker,dest=/tmp/preview-"), 3)
-        self.assertEqual(WORKFLOW.count("actions/download-artifact@v8"), 3)
+        self.assertEqual(WORKFLOW.count("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8"), 3)
         for name in BUILD_JOBS:
             section = job(name)
             self.assertIn("permissions:\n      contents: read", section)
             self.assertIn("submodules: false", section)
-            self.assertEqual(section.count("actions/upload-artifact@v7"), 1)
+            self.assertEqual(section.count("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7"), 1)
             self.assertIn("if-no-files-found: error", section)
             self.assertNotIn("${{ secrets.", section)
             self.assertNotIn("DOCKERHUB_", section)
@@ -196,7 +196,7 @@ class PreviewBuildIsolation(unittest.TestCase):
         self.assertIn("ref: ${{ github.event.repository.default_branch }}", deploy)
         # The privileged runner must not check out pull request code at all.
         self.assertNotIn("ref: ${{ needs.authorize.outputs.sha }}", deploy)
-        self.assertIn("docker/login-action@v3", deploy)
+        self.assertIn("docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3", deploy)
         self.assertIn("docker load --input", deploy)
         self.assertIn("docker push", deploy)
         self.assertIn(
@@ -318,13 +318,16 @@ class PreviewRuntimeIsolation(unittest.TestCase):
         # as configuration (PREVIEW_PUBLIC_ORIGIN) and is validated like any
         # other origin — the sources above still name no host of their own.
         self.assertIn("PREVIEW_PUBLIC_ORIGIN", PREVIEW_CLI)
+        # Both candidate origins pass validatedPreviewUrl: the provider URL when
+        # the sandbox is provisioned, the configured stable name when it is used.
+        self.assertIn("sandboxOrigin: validatedPreviewUrl(previewUrl)", PREVIEW_PROVIDERS)
         self.assertIn(
-            "const origin = input.publicOrigin ? validatedPreviewUrl(input.publicOrigin) : sandboxOrigin;",
+            "const origin = input.publicOrigin ? validatedPreviewUrl(input.publicOrigin) : provisioned.sandboxOrigin;",
             PREVIEW_PROVIDERS,
         )
         # The provider origin is always reported, because whatever serves the
         # stable name has to be told which sandbox to send traffic to.
-        self.assertIn("sandboxOrigin,", PREVIEW_PROVIDERS)
+        self.assertIn("sandboxOrigin: provisioned.sandboxOrigin,", PREVIEW_PROVIDERS)
 
     def test_only_the_edge_port_is_published_and_the_gateway_stays_internal(self):
         # OLD: LLM_GATEWAY_PROXY_TARGET http://127.0.0.1:8090, an API container

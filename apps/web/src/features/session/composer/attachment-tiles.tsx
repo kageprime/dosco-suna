@@ -17,6 +17,7 @@
  */
 
 import type { PromptAttachmentItem } from '@kortix/sdk';
+import type { PastedContent } from '@kortix/shared';
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,15 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
 import { convertHeicBlobToJpeg, isHeicFile } from '@/lib/utils/heic-convert';
+import { PastedTextModal } from '../pasted-text';
 import { holdConvertedPreview } from '../sent-attachment-previews';
 
-import { AttachmentRemoveButton, AttachmentTile, isPreviewableImage } from '../attachment-tile';
+import {
+  AttachmentRemoveButton,
+  AttachmentTile,
+  PASTE_PREVIEW_CHARS,
+  isPreviewableImage,
+} from '../attachment-tile';
 import {
   attachmentFailureReason,
   attachmentFailureRetryable,
@@ -219,7 +226,14 @@ function AttachmentImageTile({
     // `attachment-preview.tsx` HEIC effect tracked.
   }, [af, isHeic]);
 
-  const src = isHeic ? heicUrl : af.kind === 'local' ? af.localUrl : af.url;
+  // A restored upload (`uploaded`) has no picture in this tab: the named tile below.
+  const src = isHeic
+    ? heicUrl
+    : af.kind === 'local'
+      ? af.localUrl
+      : af.kind === 'remote'
+        ? af.url
+        : undefined;
 
   // Fall back to the named tile — the file is still attached and still sends;
   // only the thumbnail is unavailable.
@@ -243,18 +257,48 @@ export function AttachmentTiles({
   uploads = [],
   onRemove,
   onRetry,
+  pastes = [],
+  onRemovePaste,
+  onOpenPaste,
 }: {
   files: AttachedFile[];
   uploads?: readonly PromptAttachmentItem[];
   onRemove: (index: number) => void;
   onRetry?: (id: string) => void;
+  /** Pasted-text tiles. They lead the row, ahead of the files. */
+  pastes?: readonly PastedContent[];
+  onRemovePaste?: (id: string) => void;
+  /** Pressing a paste tile opens its text (the side panel). Without it the tile opens `PastedTextModal`. */
+  onOpenPaste?: (paste: PastedContent) => void;
 }) {
   const t = useTranslations('hardcodedUi.composerAttachments');
   const copy = attachmentTileCopy(t);
-  if (files.length === 0) return null;
+  // A host with no side panel (project home) opens the paste in a modal instead.
+  const [modalText, setModalText] = useState<string | null>(null);
+  if (files.length === 0 && pastes.length === 0) return null;
 
+  // One row that scrolls sideways, never a second row: at 720×480 six wrapped
+  // tiles left the transcript ~60px. `pt-1.5 -mt-1.5` keeps the remove dots
+  // (`-top-1.5`) inside the scroll box, which clips both axes.
   return (
-    <ul className="flex flex-wrap gap-2 px-3">
+    <ul className="scrollbar-hide -mt-1.5 flex gap-2 overflow-x-auto px-3 pt-1.5">
+      {/* Portals to the body: no DOM inside the list. */}
+      <PastedTextModal text={modalText} onClose={() => setModalText(null)} />
+      {pastes.map((paste) => (
+        // The same `contents` li + `relative` box split as the file tiles below.
+        <li key={`paste:${paste.id}`} className="contents">
+          <div className="group relative">
+            <AttachmentTile
+              filename="Pasted text"
+              preview={paste.text.slice(0, PASTE_PREVIEW_CHARS)}
+              onOpen={() => (onOpenPaste ? onOpenPaste(paste) : setModalText(paste.text))}
+            />
+            {onRemovePaste && (
+              <AttachmentRemoveButton filename="pasted text" onRemove={() => onRemovePaste(paste.id)} />
+            )}
+          </div>
+        </li>
+      ))}
       {files.map((af, i) => {
         const name = attachmentName(af);
         const uploadId = af.kind === 'remote' ? undefined : af.uploadId;
@@ -321,7 +365,15 @@ export function AttachmentTiles({
           // thumbnail box) — `relative` on a `contents` element is inert, so
           // that split has to live one level in from the `<li>`, not on it.
           <li
-            key={uploadId ? `attachment:${uploadId}` : af.kind === 'local' ? af.localUrl : af.url}
+            key={
+              uploadId
+                ? `attachment:${uploadId}`
+                : af.kind === 'remote'
+                  ? af.url
+                  : af.kind === 'local'
+                    ? af.localUrl
+                    : af.uploadId
+            }
             className="contents"
           >
             <div className="group relative" aria-busy={running || undefined}>

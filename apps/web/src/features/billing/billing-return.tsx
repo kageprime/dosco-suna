@@ -46,7 +46,20 @@ const RETURNS = [
       await invalidateAccountState(queryClient);
     },
     title: 'Subscription activated',
+<<<<<<< HEAD
     description: 'Your team is on Dosco Team. Compute and LLM credits are ready.',
+=======
+    description: 'Your plan is active. Credits are ready.',
+  },
+  {
+    // An accepted Enterprise offer (plan-access-notice.tsx). The webhook
+    // activates the contract and grants the pool; re-read the account state.
+    param: 'enterprise_contract',
+    value: 'success',
+    settle: (queryClient) => invalidateAccountState(queryClient, true),
+    title: 'Enterprise contract active',
+    description: 'Your Enterprise plan is on, and the annual credit pool is in your balance.',
+>>>>>>> upstream-dev
   },
   {
     param: 'credit_purchase',

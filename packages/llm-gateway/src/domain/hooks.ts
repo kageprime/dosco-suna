@@ -12,7 +12,10 @@ export type AuthorizeResult =
   | { ok: true; principal: AuthedPrincipal }
   | {
       ok: false;
-      status: 401 | 402;
+      // 401 unauthenticated, 402 billing/budget, 403 authenticated but not
+      // allowed (e.g. a project-less account PAT refused for inference,
+      // KRTX-2295).
+      status: 401 | 402 | 403;
       errorCode: string;
       message?: string;
       principal?: AuthedPrincipal;
@@ -55,8 +58,10 @@ export interface GatewayHooks {
  * `managedOnly` serves ONLY the platform-managed lineup (~3KB) instead of the
  * project's full catalog (~3.3MB). A sandbox fetches it on every boot to learn
  * the current managed set, because the catalog baked into its image goes stale
- * the moment the managed lineup changes. Free-tier semantics are unchanged: an
- * account with no managed access still gets an empty managed set. */
+ * the moment the managed lineup changes. Free tier is carved out (KRTX-1067):
+ * a free-tier account gets the platform default alone — the one managed model
+ * every tier may use — and an empty managed set only when the deployment
+ * serves no platform default. */
 export interface ListModelsOptions {
   managedOnly?: boolean;
   /**

@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import { useBranding } from '@/features/branding/branding-provider';
 import { cn } from '@/lib/utils';
 import type { ComponentPropsWithoutRef } from 'react';
@@ -148,3 +149,6 @@ export function KortixLogo({
     </>
   );
 }
+=======
+export * from '@kortix/ui/kortix-logo';
+>>>>>>> upstream-dev

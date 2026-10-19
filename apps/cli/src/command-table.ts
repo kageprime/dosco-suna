@@ -147,6 +147,7 @@ export const TIERS: readonly CommandTier[] = [
         commands: [
           { name: 'ship', blurb: 'Create the cloud project (first run) + push your code' },
           { name: 'validate', blurb: "Statically validate this project's kortix.yaml" },
+          { name: 'migrate', args: '[--write]', blurb: 'Convert kortix.yaml from kortix_version 2 to 3' },
           {
             name: 'doctor',
             args: '[--no-session]',
@@ -154,7 +155,7 @@ export const TIERS: readonly CommandTier[] = [
           },
           {
             name: 'schema',
-            args: '[--version 1|2]',
+            args: '[--version 1|2|3]',
             blurb: 'Print the canonical kortix.yaml/kortix.toml JSON Schema',
           },
         ],
@@ -166,6 +167,11 @@ export const TIERS: readonly CommandTier[] = [
             name: 'agents',
             args: '<subcommand>',
             blurb: 'Default agent, per-agent model pin, scope and full configuration',
+          },
+          {
+            name: 'tools',
+            args: '<subcommand>',
+            blurb: "List the project's tools (ls); copy a Kortix tool to change it (eject)",
           },
           {
             name: 'models',
@@ -210,7 +216,7 @@ export const TIERS: readonly CommandTier[] = [
           {
             name: 'apps',
             args: '<subcommand>',
-            blurb: 'Experimental: deploy serverless Apps with stable Kortix URLs',
+            blurb: 'Deploy Apps (sites and servers) with stable Kortix URLs',
           },
           {
             name: 'marketplace',
@@ -238,6 +244,11 @@ export const TIERS: readonly CommandTier[] = [
             name: 'reminders',
             args: '<subcommand>',
             blurb: 'Re-prompt one session later or on repeat (kortix remind "…" --in 24h)',
+          },
+          {
+            name: 'capture',
+            args: '<subcommand>',
+            blurb: 'Search the Capture timeline of the person you act for (search, timeline, frame)',
           },
         ],
       },
@@ -280,6 +291,11 @@ export const TIERS: readonly CommandTier[] = [
       {
         title: '',
         commands: [
+          {
+            name: 'feedback',
+            args: '"<message>" [--kind bug|idea|friction]',
+            blurb: 'File product feedback for the team (from a shell or an agent session)',
+          },
           { name: 'update', blurb: 'Pull the latest CLI from kortix.com/install' },
           { name: 'uninstall', blurb: 'Remove the Kortix CLI from this machine' },
           { name: 'help', blurb: 'Show this help' },

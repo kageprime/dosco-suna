@@ -231,7 +231,11 @@ export const zoomOut = () => setDesktopZoom(getDesktopZoom() / ZOOM_STEP);
 /** Back to the shell's own scale, not the browser's 100%. */
 export const zoomReset = () => setDesktopZoom(DESKTOP_BASE_ZOOM);
 
-export async function setDesktopNativeTheme(theme: string | undefined): Promise<void> {
+/** `palettes` picks the launch background (the chosen light and dark theme's canvas). */
+export async function setDesktopNativeTheme(
+  theme: string | undefined,
+  palettes?: { light: string; dark: string },
+): Promise<void> {
   if (typeof window === 'undefined' || !theme) return;
   const selected = theme === 'light' || theme === 'dark' ? theme : 'system';
   const t = (
@@ -241,7 +245,7 @@ export async function setDesktopNativeTheme(theme: string | undefined): Promise<
   ).__TAURI__;
   if (!t?.core?.invoke) return;
   try {
-    await t.core.invoke('set_native_theme', { theme: selected });
+    await t.core.invoke('set_native_theme', { theme: selected, palettes });
   } catch {
     /* older desktop shell */
   }
@@ -321,33 +325,20 @@ export interface DesktopComputerDisconnectResult {
   error?: string;
 }
 
-/** Access control enforced on this machine (the owner answers a native prompt). */
-export interface DesktopComputerAccess {
-  mode: 'ask' | 'always' | 'off';
-  grantedUntil: string | null;
-  deniedUntil: string | null;
-  keepAwake: boolean;
-  keepAwakeSupported: boolean;
-  pendingRequest: { id: string; capability: string; requestedAt: string } | null;
-}
-
-export interface DesktopComputerAccessInput {
-  mode?: DesktopComputerAccess['mode'];
-  /** Allow for this many minutes (max 24 h). */
-  grantMinutes?: number;
-  /** End the current grant now. */
-  revoke?: boolean;
-  /** Answer a pending request with "Deny": refused for 10 minutes. */
-  deny?: boolean;
-  keepAwake?: boolean;
-}
-
 async function desktopCommand<T>(cmd: string, args?: Record<string, unknown>): Promise<T | null> {
   try {
     return ((await tauriInvoke<T>(cmd, args)) ?? null) as T | null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The Dock / taskbar badge: how many sessions have a finished turn the user has
+ * not seen. A browser, and a desktop shell that predates the command, ignore it.
+ */
+export async function setDesktopBadgeCount(count: number): Promise<void> {
+  await desktopCommand('set_badge_count', { count });
 }
 
 /**
@@ -367,9 +358,14 @@ async function desktopAction<T>(cmd: string, args?: Record<string, unknown>): Pr
 
 /** Pause/resume answer `{ ok, error?, status }` (X5). */
 async function desktopServiceVerb(cmd: string): Promise<DesktopComputerStatus | null> {
-  const result = await desktopAction<{ ok: boolean; error?: string; status: DesktopComputerStatus }>(cmd);
+  const result = await desktopAction<{
+    ok: boolean;
+    error?: string;
+    status: DesktopComputerStatus;
+  }>(cmd);
   if (!result) return null;
-  if (!result.ok) throw new Error(result.error || 'The desktop app could not change computer access.');
+  if (!result.ok)
+    throw new Error(result.error || 'The desktop app could not change computer access.');
   return result.status;
 }
 
@@ -411,13 +407,68 @@ export interface DesktopComputerGrants {
   missing?: ('files' | 'accessibility' | 'screenRecording')[];
 }
 export const desktopComputerGrants = () => desktopCommand<DesktopComputerGrants>('computer_grants');
-/** Setup's "Allow all": asks macOS for every missing grant, one prompt at a time. */
-export const desktopComputerRequestGrants = () =>
-  desktopAction<DesktopComputerGrants>('computer_grants_request');
-export const desktopComputerAccessGet = () => desktopCommand<DesktopComputerAccess>('computer_access_get');
-/** Rejects with the desktop app's message on invalid input. */
-export const desktopComputerAccessSet = (input: DesktopComputerAccessInput) =>
-  desktopAction<DesktopComputerAccess>('computer_access_set', { ...input });
+/**
+ * Setup's "Allow all": asks macOS for every missing grant, one prompt at a
+ * time. `restartAgent`: the agent reports a grant missing that macOS shows
+ * as given to the app, so its process predates the grant; restart it.
+ * Access (Ask, Always, Off, keep awake) is not here: the web app changes it
+ * through Kortix (`useSetComputerAccess`), which the machine applies.
+ */
+export const desktopComputerRequestGrants = (input: { restartAgent?: boolean } = {}) =>
+  desktopAction<DesktopComputerGrants>('computer_grants_request', input);
+
+/* ─── Quick Entry (desktop app) ───────────────────────────────────────────
+   The desktop app's global shortcut opens a prompt bar over any app. Enter
+   hands the text to this page, which starts a session with it
+   (`components/desktop/desktop-quick-entry.tsx`). Both return null in a
+   browser and on a desktop build that predates Quick Entry. */
+
+/**
+ * The prompt typed in the Quick Entry bar, once. Null when there is none.
+ * `sessionId` (with its `projectId`) is set when the person picked one of the
+ * recent sessions in the bar; without it the prompt starts a new session.
+ */
+export const takeDesktopQuickEntryPrompt = () =>
+  desktopCommand<{
+    text: string;
+    /** Screenshots and files from the bar. */
+    files?: { name: string; type: string; bytes: Uint8Array }[];
+    projectId?: string;
+    sessionId?: string;
+  }>('quick_entry_take');
+
+/**
+ * The project a new Quick Entry session starts in, and the person's recent
+ * sessions there (newest first, at most 5), for the bar's picker. `status` is
+ * the sidebar's `SessionDisplayStatus`; `lastActiveAt` is an ISO time.
+ */
+export const setDesktopQuickEntryTarget = (
+  target: {
+    projectId: string;
+    name: string | null;
+    sessions: { id: string; title: string; status: string; lastActiveAt: string }[];
+    /** A new session's agent, as project home resolves it. */
+    composer: { agents: { id: string; label: string }[]; agent: string | null } | null;
+  } | null,
+) => desktopCommand<null>('quick_entry_set_target', { target });
+
+/**
+ * The Quick Entry shortcut, for Settings ▸ Preferences. `shortcut` is an
+ * Electron accelerator from `choices`, or null when Quick Entry is off.
+ * `inUse`: another app holds it, so it does not open the bar.
+ */
+export interface DesktopQuickEntryShortcut {
+  shortcut: string | null;
+  inUse: boolean;
+  choices: { value: string; label: string }[];
+}
+
+export const getDesktopQuickEntryShortcut = () =>
+  desktopCommand<DesktopQuickEntryShortcut>('quick_entry_shortcut');
+
+/** Save and register a shortcut (null = off), as File ▸ Quick Entry Shortcut does. */
+export const setDesktopQuickEntryShortcut = (shortcut: string | null) =>
+  desktopCommand<DesktopQuickEntryShortcut>('quick_entry_set_shortcut', { shortcut });
 
 /**
  * Inline script run in <head> before hydration. Sets `data-desktop` and

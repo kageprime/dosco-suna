@@ -31,6 +31,7 @@ import { useContext, useMemo, useState } from 'react';
 
 import {
   PATCH_TYPE_STYLE,
+  patchFilesFromText,
   RawPatchDiffView,
   type PatchFileLite,
 } from '@/features/session/tool/shared/patch-helpers';
@@ -42,12 +43,12 @@ const PATCH_ICON = {
   edit: PencilSimpleIcon,
 } as const;
 
-export function ApplyPatchTool({ part, defaultOpen, forceOpen, locked }: ToolProps) {
+export function ApplyPatchTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const patchTypeStyle = useLocalizedUiCatalog(PATCH_TYPE_STYLE);
-  const metadata = partMetadata(part);
-  const status = partStatus(part);
-  const output = partOutput(part);
+  const metadata = partMetadata(call);
+  const status = partStatus(call);
+  const output = partOutput(call);
   // `isErrorOutput` trims a copy of the whole output and runs `JSON.parse` over
   // it. Called from the render body it did that on every frame of the stream.
   const isError = useMemo(() => status === 'completed' && isErrorOutput(output), [status, output]);
@@ -60,8 +61,14 @@ export function ApplyPatchTool({ part, defaultOpen, forceOpen, locked }: ToolPro
 
   const files = useMemo(() => {
     const raw = metadata.files;
-    return Array.isArray(raw) ? (raw as PatchFileLite[]) : [];
-  }, [metadata.files]);
+    if (Array.isArray(raw)) return raw as PatchFileLite[];
+    // No `files` metadata (a Codex `apply_patch`): read the settled call's patch text — the
+    // whole input of a freeform call, else OpenCode's `patchText` or a wrapped `input`.
+    if (call.status !== 'complete') return [];
+    const input = call.input as { patchText?: unknown; input?: unknown } | string | null;
+    const text = typeof input === 'string' ? input : (input?.patchText ?? input?.input);
+    return typeof text === 'string' ? patchFilesFromText(text) : [];
+  }, [metadata.files, call.status, call.input]);
 
   const [expanded, setExpanded] = useState<number | null>(files.length === 1 ? 0 : null);
 

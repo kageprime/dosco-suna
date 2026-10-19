@@ -66,7 +66,7 @@ const VPS_FIRST_NOTICE =
 const HELP = help`Usage: kortix self-host <subcommand> [options]
 
 Run Kortix on your own VPS — a domain is the production path; a Cloudflare
-tunnel is for evaluation with no public domain. Docs: kortix.com/docs/guides/self-hosting
+tunnel is for evaluation with no public domain. Docs: kortix.com/docs/host
 
 Subcommands:
   init                    Create/refresh this instance's Compose + env config.
@@ -99,6 +99,7 @@ Options:
   --admin-email <email>   Grant platform-admin to this account.
   --no-restrict-account-creation   Let any signed-in user create new accounts/orgs (default: admin-only).
   --restrict-account-creation      Explicitly re-enable the admin-only restriction (the default).
+  --disable-signup        Turn self sign-up off (DISABLE_SIGNUP=true); nobody can sign up, the admin included.
   --json                  Machine-readable output where supported.
   --yes                   Accept defaults non-interactively.
   -h, --help              Show this help.
@@ -320,6 +321,7 @@ function parseGlobalFlags(args: string[]): GlobalFlags {
   const adminEmail = takeFlagValue(args, ['--admin-email']);
   const restrictAccountCreationOn = takeFlagBool(args, ['--restrict-account-creation']);
   const restrictAccountCreationOff = takeFlagBool(args, ['--no-restrict-account-creation']);
+  const disableSignup = takeFlagBool(args, ['--disable-signup']);
   if (channelRaw !== undefined && !isChannel(channelRaw)) {
     throw new Error(`--channel must be "stable" or "latest", got "${channelRaw}"`);
   }
@@ -359,6 +361,7 @@ function parseGlobalFlags(args: string[]): GlobalFlags {
       : restrictAccountCreationOff
         ? false
         : undefined,
+    disableSignup: disableSignup || undefined,
     yes,
     json,
   };
@@ -448,6 +451,10 @@ function renderInitSummary(instance: string, dir: string, env: SelfHostEnv, refr
     process.stdout.write(`  ${C.dim}${VPS_FIRST_NOTICE}${C.reset}\n`);
   }
   process.stdout.write('\n');
+  const signUp = openSignUpCheck(env);
+  if (signUp && !signUp.ok) {
+    process.stdout.write(`  ${C.yellow}warning${C.reset}  ${C.dim}Sign-up is open: ${signUp.detail}${C.reset}\n\n`);
+  }
   renderConnectionSummary(env);
   process.stdout.write(`  ${C.dim}Start      ${C.reset}${C.cyan}kortix self-host start${instance === DEFAULT_INSTANCE ? '' : ` --instance ${instance}`}${C.reset}\n`);
   process.stdout.write(`  ${C.dim}Configure  ${C.reset}${C.cyan}kortix self-host configure${C.reset}${C.dim} or ${C.reset}${C.cyan}kortix self-host env set KEY=VALUE${C.reset}\n`);
@@ -618,6 +625,19 @@ function selfHostDoctor(flags: GlobalFlags): number {
       detail: result.error?.message ?? (result.stderr.trim() || 'valid'),
     });
   }
+  if (existsSync(composePath(flags.instance))) {
+    // Kortix Capture devices upload to the bundled store. A compose file
+    // rendered by an older CLI has none, so every device gets 503
+    // capture_credentials_unavailable until `update` re-renders it.
+    const hasStore = readFileSync(composePath(flags.instance), 'utf8').includes('\n  capture-store:\n');
+    checks.push({
+      name: 'capture-store',
+      ok: hasStore,
+      detail: hasStore
+        ? 'bundled Kortix Capture store present'
+        : 'this instance has no Kortix Capture store, so Capture devices cannot sync — run: kortix self-host update',
+    });
+  }
   if (existsSync(envPath(flags.instance))) {
     // KORTIX_INSTANCE_DIR is recomputed on every writeEnv() (see
     // normalizeFullSupabaseEnv), so this can only be stale between writes —
@@ -689,6 +709,11 @@ function selfHostDoctor(flags: GlobalFlags): number {
       });
     }
   }
+  if (existsSync(envPath(flags.instance))) {
+    const env = loadEnv(flags.instance);
+    const signUp = env ? openSignUpCheck(env) : null;
+    if (signUp) checks.push({ name: 'open-sign-up', ...signUp });
+  }
   const ok = checks.every((check) => check.ok);
   if (flags.json) {
     process.stdout.write(`${JSON.stringify({ instance: flags.instance, ok, checks }, null, 2)}\n`);
@@ -733,7 +758,9 @@ async function selfHostUpdate(flags: GlobalFlags): Promise<number> {
   // moves image tags, so an explicit flag is honored (non-interactively;
   // `update` never prompts) but nothing here resets a value the operator
   // already set via `configure`/`env set`.
+  const beforeFlags = { ...env };
   applyFeatureFlags(env, flags);
+  const changedFlagKeys = Object.keys(env).filter((key) => env[key] !== beforeFlags[key]);
   applyReachabilityFlags(env, flags);
   writeEnv(flags.instance, env);
   writeCompose(flags.instance, env);
@@ -768,6 +795,23 @@ async function selfHostUpdate(flags: GlobalFlags): Promise<number> {
       + `${C.dim}Details: ${C.reset}${C.cyan}kortix self-host status --instance ${flags.instance}${C.reset}${C.dim} (per-service outcome, drift, last error)${C.reset}\n`,
     );
     return rollout;
+  }
+
+  // Converge kortix-api onto the rendered environment. The rollout above only
+  // rolls a service whose IMAGE changed, and `up --no-recreate` never touches
+  // an existing container, so an instance rendered by an older CLI keeps an
+  // API without the Kortix Capture store wiring (every device gets 503) until
+  // its container is recreated. Without `--force-recreate`, compose recreates
+  // it only when its rendered configuration differs: a no-op on every later run.
+  const converge = compose(flags.instance, ['up', '-d', '--no-deps', 'kortix-api']);
+  if (converge !== 0) return converge;
+
+  // The rollout recreates only the app services whose image moved. A flag this
+  // run changed reaches its readers through the same restart `env set` does:
+  // GoTrue reads DISABLE_SIGNUP only when supabase-auth is recreated.
+  if (changedFlagKeys.length > 0) {
+    const restart = restartServicesForKeys(flags.instance, env, changedFlagKeys);
+    if (restart !== 0) return restart;
   }
 
   // Tunnel reachability mode only, and deliberately AFTER the zero-downtime
@@ -976,6 +1020,32 @@ function warnNoAdminEmail(): void {
 }
 
 /**
+ * KRTX-1715. The shipped auth defaults leave sign-up open with email
+ * autoconfirm on. On an instance the internet can reach, anyone can then
+ * create a CONFIRMED account for any address: the admin address in
+ * KORTIX_PLATFORM_ADMIN_EMAILS, or a colleague's address an invite waits for.
+ * Either fix closes it: an email provider makes GoTrue require confirmation
+ * (`env set EMAIL_URL=…` turns autoconfirm off), or DISABLE_SIGNUP stops self
+ * sign-up once the team is in. `doctor` fails on it and `init` prints it.
+ * Null on a laptop instance, which strangers cannot reach.
+ */
+function openSignUpCheck(env: Record<string, string | undefined>): { ok: boolean; detail: string } | null {
+  if (reachabilityMode(env) === 'local') return null;
+  const signupOpen = (env.DISABLE_SIGNUP ?? 'false').trim() !== 'true';
+  const autoconfirm = (env.ENABLE_EMAIL_AUTOCONFIRM ?? 'true').trim() === 'true';
+  return {
+    ok: !(signupOpen && autoconfirm),
+    detail: !signupOpen
+      ? 'self sign-up is off (DISABLE_SIGNUP=true)'
+      : !autoconfirm
+        ? 'new accounts must confirm their email'
+        : 'anyone who reaches this instance can create a confirmed account for any email address, including an admin address. '
+          + 'Configure email so new accounts must confirm it: kortix self-host env set EMAIL_URL=smtp://user:password@smtp.example.com:587 '
+          + '— or, once your team has signed up: kortix self-host env set DISABLE_SIGNUP=true',
+  };
+}
+
+/**
  * Apply --enterprise-license onto env, non-interactively. Only overwrites
  * when the flag was actually passed (undefined = "not passed", never a
  * literal false — see parseGlobalFlags), so a bare `init`/`update` with no
@@ -1000,6 +1070,10 @@ function applyFeatureFlags(env: SelfHostEnv, flags: GlobalFlags): void {
     env.KORTIX_RESTRICT_ACCOUNT_CREATION = value;
     env.KORTIX_PUBLIC_RESTRICT_ACCOUNT_CREATION = value;
   }
+  // Nobody can sign up while it is on, the operator included: for an install
+  // that creates its accounts another way, or a team that already signed up.
+  // `env set DISABLE_SIGNUP=false` reopens it.
+  if (flags.disableSignup) env.DISABLE_SIGNUP = 'true';
 }
 
 /**
@@ -1214,7 +1288,6 @@ function selfHostStatus(flags: GlobalFlags): number {
       drift: report?.drift ?? null,
       lock: report?.lock ?? null,
     }, null, 2)}\n`);
-    compose(flags.instance, ['ps']);
     return 0;
   }
 
@@ -1454,6 +1527,7 @@ async function selfHostEnvSet(args: string[], flags: GlobalFlags): Promise<numbe
 
   const changedKeys: string[] = [];
   const previousEmailUrl = env.EMAIL_URL ?? '';
+  const previousApiKeySecret = env.API_KEY_SECRET ?? '';
 
   // `env set KEY` (no '=') — prompt interactively for exactly one key.
   if (args.length === 1 && !args[0]!.includes('=')) {
@@ -1486,6 +1560,15 @@ async function selfHostEnvSet(args: string[], flags: GlobalFlags): Promise<numbe
     }
   }
 
+  if (
+    changedKeys.includes('API_KEY_SECRET') &&
+    previousApiKeySecret !== '' &&
+    env.API_KEY_SECRET !== previousApiKeySecret
+  ) {
+    const stop = await confirmApiKeySecretChange(flags);
+    if (stop !== null) return stop;
+  }
+
   // EMAIL_URL is the one email setting; everything else it implies (the GoTrue
   // send-email hook, its shared secret, the sender identity, and the auth
   // behavior flags) is derived here rather than typed by the operator.
@@ -1499,6 +1582,27 @@ async function selfHostEnvSet(args: string[], flags: GlobalFlags): Promise<numbe
     process.stdout.write(`  ${C.dim}${note}${C.reset}\n`);
   }
   return restartServicesForKeys(flags.instance, env, changedKeys);
+}
+
+/**
+ * `env set API_KEY_SECRET=<new>` loses every stored credential: the same loss
+ * `env rotate` refuses (KRTX-1719). Warn, then require a yes at the prompt or
+ * `--yes` (the `uninstall` pattern). Returns the exit code to stop with, or
+ * null to go on. Nothing is written before it returns.
+ */
+async function confirmApiKeySecretChange(flags: GlobalFlags): Promise<number | null> {
+  process.stderr.write(`${status.warn(`API_KEY_SECRET is ${NON_ROTATABLE_GENERATED_REASONS.API_KEY_SECRET}`)}\n`);
+  if (shouldPrompt(flags)) {
+    if (await confirm('Replace API_KEY_SECRET anyway?', false)) return null;
+    process.stderr.write(`${status.err('API_KEY_SECRET is unchanged. Nothing was written.')}\n`);
+    return 1;
+  }
+  if (flags.yes) return null;
+  process.stderr.write(
+    `${status.err('Refusing to change API_KEY_SECRET non-interactively without --yes.')}\n` +
+      `  ${C.dim}Pass ${C.reset}${C.cyan}--yes${C.reset}${C.dim} to confirm. Nothing was written.${C.reset}\n`,
+  );
+  return 2;
 }
 
 // Generated secrets whose rotation cascades into a derived value elsewhere in
@@ -1529,11 +1633,10 @@ function freshTokenFor(key: string): string {
       return token(64);
     case 'DASHBOARD_PASSWORD':
       return token(24);
-    case 'POSTGRES_PASSWORD':
     case 'S3_PROTOCOL_ACCESS_KEY_SECRET':
+    case 'CAPTURE_STORE_ROOT_PASSWORD':
     case 'GATEWAY_INTERNAL_TOKEN':
     case 'INTERNAL_SERVICE_KEY':
-    case 'API_KEY_SECRET':
     case 'TUNNEL_SIGNING_SECRET':
       return token(32);
     case 'S3_PROTOCOL_ACCESS_KEY_ID':
@@ -1555,7 +1658,12 @@ const NON_ROTATABLE_GENERATED_REASONS: Record<string, string> = {
   LOGFLARE_PRIVATE_ACCESS_TOKEN: 'internal Supabase Logflare access token — not a user-facing credential, rotation unsupported.',
   SUPABASE_ANON_KEY: 'derived from SUPABASE_JWT_SECRET — run `env rotate SUPABASE_JWT_SECRET` instead.',
   SUPABASE_SERVICE_ROLE_KEY: 'derived from SUPABASE_JWT_SECRET — run `env rotate SUPABASE_JWT_SECRET` instead.',
+  CAPTURE_STORE_ROOT_USER: 'not a rotation target — rotate CAPTURE_STORE_ROOT_PASSWORD instead.',
   DASHBOARD_USERNAME: 'not a rotation target — use `env set DASHBOARD_USERNAME=<value>` to change it.',
+  API_KEY_SECRET:
+    'the encryption key of every stored secret, connector and OAuth credential and GitHub token, and the pepper of every API key, PAT and session token hash. A new value leaves all of them undecryptable, and the old value is not kept. There is no data-key rotation yet (KRTX-1719).',
+  POSTGRES_PASSWORD:
+    'the database role passwords are set once, when the data directory is first created. A new value reaches the services but not the roles, so they can no longer connect.',
   SAML_PRIVATE_KEY: 'the SAML SP signing key — rotating it changes your SP identity and breaks every already-registered IdP until you re-register with them. Set a new one deliberately with `env set SAML_PRIVATE_KEY=<base64-der>` if you understand that tradeoff.',
 };
 
@@ -1718,6 +1826,8 @@ async function selfHostConfigure(flags: GlobalFlags): Promise<number> {
   writeCompose(flags.instance, env);
   process.stdout.write(`${status.ok('Updated self-host connection config')}\n`);
   process.stdout.write(`  ${C.dim}Reachability ${C.reset}${describeReachability(env)}\n`);
+  // `configure` writes the files only; `start` recreates what they changed.
+  process.stdout.write(`  ${C.dim}Apply        ${C.reset}${C.cyan}kortix self-host start${flags.instance === DEFAULT_INSTANCE ? '' : ` --instance ${flags.instance}`}${C.reset}\n`);
   if (reachabilityMode(env) !== 'domain') {
     process.stdout.write(`  ${C.dim}${VPS_FIRST_NOTICE}${C.reset}\n`);
   }
@@ -2023,7 +2133,8 @@ const GIT_AND_SANDBOX_SECRET_KEYS: ReadonlySet<string> = new Set([
  *  `KEY (Category label)`. */
 const REQUIRED_SECRET_LABELS: Record<string, string> = {
   OPENROUTER_API_KEY: 'OpenRouter API key (LLM)',
-  POSTGRES_PASSWORD: 'Postgres password (auto-generated — regenerate via `env rotate`)',
+  POSTGRES_PASSWORD:
+    'Postgres password (auto-generated — the database roles keep the value from the first start, so restore that value; `env rotate` refuses it)',
   SUPABASE_JWT_SECRET: 'Supabase JWT secret (auto-generated — regenerate via `env rotate`)',
   SUPABASE_ANON_KEY: 'Supabase anon key (auto-generated, derived from the JWT secret)',
   SUPABASE_SERVICE_ROLE_KEY: 'Supabase service role key (auto-generated, derived from the JWT secret)',
@@ -2031,7 +2142,7 @@ const REQUIRED_SECRET_LABELS: Record<string, string> = {
   DASHBOARD_PASSWORD: 'Supabase Studio dashboard password (auto-generated — regenerate via `env rotate`)',
   GATEWAY_INTERNAL_TOKEN: 'Gateway internal token (auto-generated — regenerate via `env rotate`)',
   INTERNAL_SERVICE_KEY: 'Internal service key (auto-generated — regenerate via `env rotate`)',
-  API_KEY_SECRET: 'API key secret (auto-generated — regenerate via `env rotate`)',
+  API_KEY_SECRET: 'Data encryption key and token pepper (auto-generated — never rotate it: stored secrets become undecryptable)',
   TUNNEL_SIGNING_SECRET: 'Tunnel signing secret (auto-generated — regenerate via `env rotate`)',
 };
 
@@ -2402,6 +2513,10 @@ function defaultEnv(flags: GlobalFlags): SelfHostEnv {
     LOGFLARE_PRIVATE_ACCESS_TOKEN: token(24),
     S3_PROTOCOL_ACCESS_KEY_ID: token(16),
     S3_PROTOCOL_ACCESS_KEY_SECRET: token(32),
+    // Kortix Capture's bundled object store (the `capture-store` service). The
+    // API holds this pair to issue per-device credentials; devices never see it.
+    CAPTURE_STORE_ROOT_USER: token(8),
+    CAPTURE_STORE_ROOT_PASSWORD: token(32),
     PGRST_DB_SCHEMAS: 'public',
     PGRST_DB_MAX_ROWS: '1000',
     PGRST_DB_EXTRA_SEARCH_PATH: 'public',

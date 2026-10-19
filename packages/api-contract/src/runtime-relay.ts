@@ -22,6 +22,11 @@ export const DAEMON_TURN_STREAM_KINDS = [
   'runtime_session',
   'turn_begin',
   'end',
+  /**
+   * The running turn read a steered message (`turn_message_id`) at a step
+   * boundary. apps/api closes that message's inbox row as delivered.
+   */
+  'steer_read',
 ] as const;
 export type DaemonTurnStreamKind = (typeof DAEMON_TURN_STREAM_KINDS)[number];
 
@@ -243,6 +248,17 @@ export const RUNTIME_CAPABILITIES = [
   'session.attach',
   /** A runtime config document a client may read and patch (`/global/config`). */
   'session.config',
+  /**
+   * A message sent during a turn is read by that turn at its next step
+   * boundary (`POST /kortix/runtime/sessions/:id/steer`). The turn does not stop.
+   */
+  'session.steer',
+  /**
+   * `GET /kortix/runtime/events?schema=v2` streams the session log
+   * (`kortix.session/2`) as `log.*` frames (`@kortix/api-contract/session-log`
+   * `SESSION_LOG_EVENTS`). Without `schema` the stream is the v1 stream.
+   */
+  'session.log.v2',
 ] as const;
 export type RuntimeCapability = (typeof RUNTIME_CAPABILITIES)[number];
 
@@ -252,6 +268,27 @@ export type RuntimeCapability = (typeof RUNTIME_CAPABILITIES)[number];
  * and `GET /kortix/runtime/agents`. Listed in `capabilities` beside the runtime's own.
  */
 export const RUNTIME_TURNS_CAPABILITY = 'runtime.turns.v1' as const;
+
+/**
+ * The daemon serves `POST /kortix/runtime/messages/:id/:messageId/retract`:
+ * take back a user message that no model call has read, on every harness.
+ * `200 { retracted: true }` when it is gone, `404` when there is no such
+ * message, `409 { code: MESSAGE_READ_CODE }` when a model call read it.
+ */
+export const RUNTIME_RETRACT_CAPABILITY = 'runtime.retract.v1' as const;
+
+/**
+ * `code` on the daemon's `409` to a retract: a model call read the message
+ * (its turn runs or ran), so it stays where it is.
+ */
+export const MESSAGE_READ_CODE = 'message_read' as const;
+
+/**
+ * `code` on the daemon's `409` to `POST /kortix/runtime/sessions/:id/steer`:
+ * no turn is running, so nothing can read the message. The caller sends it as
+ * a prompt instead.
+ */
+export const STEER_NO_ACTIVE_TURN_CODE = 'no_active_turn' as const;
 
 /** The `schema` of the `/kortix/runtime/state` document. */
 export const KORTIX_RUNTIME_SCHEMA = 'kortix.runtime.v1' as const;
@@ -293,10 +330,35 @@ export interface CompiledAgent {
   color?: string;
   /** Maximum model steps per turn. */
   steps?: number;
-  /** Built-in tool toggles: `false` removes the tool; an omitted tool keeps the harness default. */
+  /**
+   * Tool access, by tool name: `false` hides the tool, `true` shows it, and
+   * `*` holds the answer for every tool not named. Omitted: every tool. Read
+   * it with `toolAllowed`.
+   */
   tools?: Record<string, boolean>;
   /** Tool policy: capability → action, or capability → pattern → action. */
   permission?: unknown;
+  /** kortix.yaml v3: the registered extensions a session of this agent loads (`CompiledAgentSet.extensions`). */
+  extensions?: string[];
+  /** kortix.yaml v3: pi's codemode tool. Omitted: `on`. */
+  codemode?: 'on' | 'only' | 'off';
+}
+
+/** A kortix.yaml v3 slash command. */
+export interface CompiledCommand {
+  description?: string;
+  /** The prompt. `$ARGUMENTS` takes the arguments; `$1`, `$2`, … take them one word at a time, the last takes the rest. */
+  template: string;
+  /** The agents that enable the command. Running it on any other agent is refused. */
+  agents: string[];
+}
+
+/** A kortix.yaml v3 extension: one implementation per harness. */
+export interface CompiledExtension {
+  /** Repo-relative module path, loaded as an OpenCode plugin. */
+  opencode?: string;
+  /** `npm:<name>@<x.y.z>`, a repo-relative path, or pi's `{ source, extensions, skills, prompts, themes }` form. */
+  pi?: string | { source: string; extensions?: string[]; skills?: string[]; prompts?: string[]; themes?: string[] };
 }
 
 /** The compiled agent set of a session. */
@@ -307,6 +369,35 @@ export interface CompiledAgentSet {
   /** The agent a session with no agent chosen runs. */
   default_agent?: string;
   agent: Record<string, CompiledAgent>;
+  /**
+   * The project's tools (kortix.yaml `tools`): tool name → repo-relative path
+   * of its module. Every harness loads them through the daemon's tool host.
+   */
+  project_tools?: Record<string, string>;
+  /**
+   * The Kortix tools the project lists as `<name>: kortix:<name>`. Present
+   * only when kortix.yaml has a `tools` key; then only these Kortix tools load,
+   * plus the ones `project_tools` replaces. Absent: all of them load.
+   */
+  kortix_tools?: string[];
+  /**
+   * `3` for a kortix.yaml v3 project. A harness then runs only the declared
+   * agents (no built-in `general`/`explore`) and reads no harness config folder.
+   */
+  schema?: 3;
+  /** v3: the project's registered skills, name → repo-relative folder holding `SKILL.md`. Kortix skills are not listed. */
+  skills?: Record<string, string>;
+  /** v3: slash commands, by name. */
+  commands?: Record<string, CompiledCommand>;
+  /** v3: registered extensions, by name. An agent loads the ones its `extensions` list names. */
+  extensions?: Record<string, CompiledExtension>;
+}
+
+/** May an agent with this compiled `tools` map use `tool`? Its own entry, else `*`, else yes. */
+export function toolAllowed(tools: Record<string, boolean> | undefined, tool: string): boolean {
+  if (!tools) return true;
+  if (Object.hasOwn(tools, tool)) return tools[tool] !== false;
+  return !Object.hasOwn(tools, '*') || tools['*'] !== false;
 }
 
 /** The agent settings a harness applies. A setting a harness does not list is ignored there. */
@@ -325,6 +416,8 @@ export const AGENT_SETTING_HARNESSES = {
   permission: ['opencode', 'pi'],
   disable: ['opencode', 'pi'],
   prompt: ['opencode', 'pi'],
+  extensions: ['opencode', 'pi'],
+  codemode: ['pi'],
 } as const satisfies Record<keyof CompiledAgent, readonly ('opencode' | 'pi')[]>;
 export type AgentSetting = keyof typeof AGENT_SETTING_HARNESSES;
 

@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 /**
  * Dosco <DefinitionList> — key:value pair list.
  *
@@ -58,3 +59,6 @@ export function DefinitionRow({ label, labelWidth = 110, children, title }: Defi
     </div>
   );
 }
+=======
+export * from '@kortix/ui/definition-list';
+>>>>>>> upstream-dev

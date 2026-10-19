@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 /**
  * Dosco <Section> — labelled section used inside PageShell.
  *
@@ -47,3 +48,6 @@ export function Section({ label, action, spacing = 'default', className, childre
     </section>
   );
 }
+=======
+export * from '@kortix/ui/section';
+>>>>>>> upstream-dev

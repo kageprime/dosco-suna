@@ -6,6 +6,7 @@ import { useTranslations } from '@/i18n/use-translations';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ComposerChatInput, type ComposerOptions } from '@/features/session/composer-chat-input';
+import { ComposerDropZone } from '@/features/session/composer/composer-drop-zone';
 import type { DraftScope } from '@/features/session/composer/draft/composer-draft';
 import type { AttachedFile } from '@/features/session/session-chat-input';
 import { SidebarToggle } from '@/features/workspace/project-layout/sidebar-toggle';
@@ -20,18 +21,20 @@ import {
   listProjectAccessRequests,
   listProjectSandboxes,
   type SandboxTemplate,
+  type SessionPromptOverrides,
 } from '@kortix/sdk';
 import type { AttachmentSubmission } from '@/features/session/composer/attachment-submission';
 import { contract, qk, type Command } from '@kortix/sdk/react';
 import { META_SANDBOX_SLUG, isMetaAgentName } from '@kortix/shared';
 import { AccessRequestsBell } from './home/access-requests-bell';
+import { notificationCenterOn } from '@/features/notifications/use-notification-center';
 import { FirstChat } from './home/first-chat';
+import { MobileAppPromo } from './home/mobile-app-promo';
 import { SandboxPicker } from './home/sandbox-picker';
 import { ProjectHomeWallpaper, ProjectHomeWelcomeBody } from './home/welcome-body';
 
 // This path is this view's public surface — the instant session shell and the
 // IAM tests already import from here, so the moved pieces keep their address.
-export { PROJECT_SETUP_TILE_ACTIONS } from './home/setup-tiles';
 export { ProjectHomeWelcomeBody } from './home/welcome-body';
 
 export interface ProjectHomeSendOptions extends ComposerOptions {
@@ -73,13 +76,18 @@ export function ProjectHome({
   // (`firstChatHref`: the sidebar row or the onboarding exit). Plain project
   // home, which "New session" opens, stays the normal home.
   const searchParams = useSearchParams();
-  const firstChat = useFirstChatPending(projectId) && isFirstChatRequested(searchParams);
+  const firstChatPending = useFirstChatPending(projectId);
+  const firstChat = firstChatPending && isFirstChatRequested(searchParams);
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [prefill, setPrefill] = useState<{ text: string; id: number; submit?: boolean } | null>(
-    null,
-  );
+  const [prefill, setPrefill] = useState<{
+    text: string;
+    id: number;
+    submit?: boolean;
+    files?: AttachedFile[];
+    options?: SessionPromptOverrides;
+  } | null>(null);
 
   // The sandbox TEMPLATE catalog, not live sandbox health (that is
   // `useSandboxHealth`, its own key and its own polling). Changed only by this
@@ -130,6 +138,12 @@ export function ProjectHome({
     ...contract('config'),
   });
   const accountId = projectDetailQuery.data?.project?.account_id;
+  // The onboarding wizard opens over this page until the project is stamped
+  // (`project-shell.tsx`); the promo waits for the stamp (KRTX-2378).
+  const onboarded = Boolean(
+    (projectDetailQuery.data?.project?.metadata as { onboarding_completed_at?: string } | undefined)
+      ?.onboarding_completed_at,
+  );
   // Resolved during render so the bell is an anchor and Next holds its payload
   // in the segment cache. `account_id` arrives on a different query than the
   // count, so the bell can paint before the destination exists.
@@ -178,7 +192,13 @@ export function ProjectHome({
   useEffect(() => {
     if (!pendingPrefill) return;
     consumePrefill(projectId);
-    setPrefill({ text: pendingPrefill.text, id: Date.now() });
+    setPrefill({
+      text: pendingPrefill.text,
+      id: Date.now(),
+      submit: pendingPrefill.submit,
+      files: pendingPrefill.files,
+      options: pendingPrefill.options,
+    });
   }, [pendingPrefill, projectId, consumePrefill]);
 
   const handleCommand = useCallback(
@@ -261,10 +281,26 @@ export function ProjectHome({
   );
 
   return (
-    <div className="bg-background relative flex min-h-0 flex-1 flex-col overflow-hidden lg:px-4.5">
+    // A file dropped anywhere on the page attaches to the composer, as on a
+    // session page.
+    <ComposerDropZone className="bg-background relative flex min-h-0 flex-1 flex-col overflow-hidden lg:px-4.5">
       <ProjectHomeWallpaper />
       <SidebarToggle placement="floating" />
-      <AccessRequestsBell count={pendingAccessCount} to={accessRequestsTo} />
+      <AccessRequestsBell
+        count={pendingAccessCount}
+        to={accessRequestsTo}
+        notificationCenter={notificationCenterOn(projectDetailQuery.data?.project)}
+      />
+      {/* Not while the project is in its first-chat era, and not over the
+          onboarding wizard: onboarding owns those screens. The era starts when
+          the wizard's exit starts the first chat and then stays for the
+          browser's lifetime (`first-chat-store.ts`: "Onboarding starts it, and
+          it stays" — `finish` runs only on sign-out), so a wizard exit (which
+          stamps the project) can never be followed by the promo popping over
+          the project page the user just asked for (KRTX-2635). On later
+          projects, which the create flow stamps without a wizard, the era
+          never starts and the promo shows as before. */}
+      {firstChatPending || !onboarded ? null : <MobileAppPromo />}
 
       {/* No bubble or "Thinking" row is painted here on send. The page stays
           the welcome screen with the sentence held in the composer until the
@@ -295,6 +331,6 @@ export function ProjectHome({
           composer={composer}
         />
       )}
-    </div>
+    </ComposerDropZone>
   );
 }

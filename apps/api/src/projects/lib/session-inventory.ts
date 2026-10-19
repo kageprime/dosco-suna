@@ -1,22 +1,17 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { config } from '../../config';
 import {
+  agentSessionStanding,
   isProjectSessionVisibleTo,
   type SecretGrant,
   type ShareSubject,
 } from '../../connectors/share';
 import type { projectSessions, sessionSandboxes } from '@kortix/db';
-import { agentSessionStanding } from './agent-session-standing';
-import { ACTIVE_SESSION_STATUSES } from './session-status';
 import { isWarmProjectSession } from './warm-sessions';
+import { sessionRestoreUntil } from '../session-log-purge';
 
 type ProjectSessionRow = typeof projectSessions.$inferSelect;
 type RuntimeStatus = typeof sessionSandboxes.$inferSelect.status;
-
-/** `ACTIVE_SESSION_STATUSES.includes(row.status)` does not typecheck against
- *  the wider status union; the Set is the no-cast membership test the fold
- *  needs per row. */
-const ACTIVE_SESSION_STATUSES_SET: ReadonlySet<string> = new Set(ACTIVE_SESSION_STATUSES);
 
 export type ProjectSessionListScope = 'visible' | 'project';
 
@@ -112,6 +107,10 @@ export function selectSessionRowsForViewer(input: {
    * never the launcher's other private or restricted ones.
    */
   agentPrincipal?: boolean;
+  /** Recently deleted (KRTX-2853): `SessionListFilter.deleted`. */
+  deleted?: boolean;
+  /** Now, for the restore window. */
+  now?: number;
 }): { authorized: boolean; items: SessionInventoryItem[] } {
   if (input.scope === 'project' && !input.canManageProject) {
     return { authorized: false, items: [] };
@@ -149,6 +148,23 @@ export function selectSessionRowsForViewer(input: {
     return { row, canAccess: access, runtimeStatus, deletedAt, deletedBy };
   });
 
+  if (input.deleted) {
+    // Recently deleted: what `POST …/restore` would still take back for this
+    // caller. A session they can open, deleted inside its restore window,
+    // that they started or manage (`canManageLifecycle`). A deleted warm
+    // draft was never prompted, so there is nothing to restore.
+    const now = input.now ?? Date.now();
+    return {
+      authorized: true,
+      items: items.filter((item) => {
+        if (!item.deletedAt || !item.canAccess || isWarmProjectSession(item.row.metadata)) return false;
+        const until = sessionRestoreUntil(item.deletedAt);
+        if (!until || until.getTime() <= now) return false;
+        return input.canManageProject || item.row.createdBy === input.subject.userId;
+      }),
+    };
+  }
+
   if (input.scope === 'project') {
     // A list row is a disclosure. Keep manager-only lifecycle coverage for
     // sessions the manager can open, including warm and soft-deleted rows, but
@@ -173,27 +189,25 @@ export function selectSessionRowsForViewer(input: {
     items: items.filter((item) => {
       if (item.deletedAt) return false;
       if (!item.canAccess) return false;
-      // A warm session the user never prompted holds no work of theirs, so
-      // while it is not actively coming up or running it stays hidden — a
-      // project visit must not litter the sidebar with rows the user never
-      // started. The marker is dropped by the first prompt, and from that
-      // moment the row lists like any other session. See lib/warm-sessions.ts.
+      // A warm session the user never prompted holds no work of theirs, so it
+      // stays hidden — a project visit must not litter the sidebar with rows
+      // the user never started. The marker is dropped by the first prompt, and
+      // from that moment the row lists like any other session. See
+      // lib/warm-sessions.ts.
       //
-      // A warm row whose session is provisioning or running is different: its
-      // box bills compute from creation (sandbox-deadline-policy.ts
-      // warmPoolGrantMs) until the reaper or the user stops it. A billed
-      // session the list hides is money its owner cannot see, open or stop, so
-      // it lists in the `visible` scope like any other running session. The
-      // session row's own status is the predicate, not the sandbox row: sandbox
-      // provisioning is fire-and-forget (session-create.ts), so the sandbox row
-      // can lag seconds behind a session that is already up and billing.
+      // This holds even while the warm box bills compute from creation
+      // (sandbox-deadline-policy.ts warmPoolGrantMs): KRTX-1068 briefly listed
+      // a billing warm row here so its owner could see and stop it, and that
+      // traded one bad state for another — every project visit painted an
+      // untitled "New session" row that spins for the whole grant on the one
+      // list the user reads constantly. The money stays visible where
+      // lifecycle work happens: the manager `project` scope keeps a live warm
+      // row listed for inspection, and open/stop/delete by id never consulted
+      // the marker.
       //
       // `visible` scope only. The `project` scope keeps accessible warm rows for
       // lifecycle inspection, but it also applies the access filter above.
-      if (
-        isWarmProjectSession(item.row.metadata) &&
-        !ACTIVE_SESSION_STATUSES_SET.has(item.row.status)
-      ) {
+      if (isWarmProjectSession(item.row.metadata)) {
         return false;
       }
       // A stopped session lists whatever its runtime row says: a terminal turn
@@ -229,6 +243,12 @@ export function selectSessionRowsForViewer(input: {
 /** One row's position in the `(updated_at DESC, session_id DESC)` order. */
 export interface SessionListCursor {
   updatedAt: Date;
+  /**
+   * `updatedAt` at full (microsecond) precision, as the database printed it.
+   * A JS Date holds milliseconds, so a keyset compare against `updatedAt` alone
+   * skipped rows that differ from the boundary row below a millisecond.
+   */
+  updatedAtIso?: string;
   sessionId: string;
 }
 
@@ -276,7 +296,7 @@ export function encodeSessionCursor(cursor: SessionListCursor, scope: SessionCur
   const cipher = createCipheriv('aes-256-gcm', cursorKey(scope), iv, {
     authTagLength: CURSOR_TAG_BYTES,
   });
-  const payload = `${cursor.updatedAt.toISOString()}|${cursor.sessionId}`;
+  const payload = `${cursor.updatedAtIso ?? cursor.updatedAt.toISOString()}|${cursor.sessionId}`;
   const ciphertext = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()]);
   return [
     'v1',
@@ -322,18 +342,22 @@ export function decodeSessionCursor(
   }
   const separator = payload.indexOf('|');
   if (separator <= 0) return null;
-  const updatedAt = new Date(payload.slice(0, separator));
+  const updatedAtIso = payload.slice(0, separator);
+  const updatedAt = new Date(updatedAtIso);
   const sessionId = payload.slice(separator + 1);
   if (!sessionId || Number.isNaN(updatedAt.getTime())) return null;
-  return { updatedAt, sessionId };
+  return { updatedAt, updatedAtIso, sessionId };
 }
 
 /** The cursor that resumes AFTER this row. */
 export function cursorForRow(
-  row: Pick<ProjectSessionRow, 'updatedAt' | 'sessionId'>,
+  row: Pick<ProjectSessionRow, 'updatedAt' | 'sessionId'> & { updatedAtIso?: string },
   scope: SessionCursorScope,
 ): string {
-  return encodeSessionCursor({ updatedAt: row.updatedAt, sessionId: row.sessionId }, scope);
+  return encodeSessionCursor(
+    { updatedAt: row.updatedAt, updatedAtIso: row.updatedAtIso, sessionId: row.sessionId },
+    scope,
+  );
 }
 
 /** Default page size for the session list, and the ceiling a caller may ask

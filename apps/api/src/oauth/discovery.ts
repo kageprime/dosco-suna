@@ -35,7 +35,11 @@ export function oauthAuthorizationServerMetadata(fallbackOrigin?: string) {
     token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
     revocation_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
     code_challenge_methods_supported: ['S256'],
+<<<<<<< HEAD
     service_documentation: `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/docs/sdk/sign-in`,
+=======
+    service_documentation: `${(config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '')}/docs/sdk/auth`,
+>>>>>>> upstream-dev
   } as const;
 }
 

@@ -2,6 +2,7 @@ import { beforeEach, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../../http/config';
 import {
   activateConnection,
+  checkMcpServerSignIn,
   addComputerToProject,
   createConnector,
   deleteConnector,
@@ -29,6 +30,7 @@ import {
   type ConnectorConnectResult,
   connectorConnect,
   connectorFinalize,
+  deleteConnectorCredential,
   pipedreamConnect,
   pipedreamConnectConnection,
   pipedreamFinalize,
@@ -255,6 +257,29 @@ test('MCP authorization discovery and dynamic client registration', async () => 
   expect(registered.application.client_id).toBe('issued-client');
 });
 
+test('a catalogue app on a Kortix OAuth client: discovery says kortix_client, registration sends no endpoint', async () => {
+  nextResponse = {
+    status: 200,
+    body: {
+      discovery: {
+        resource_url: 'https://gmailmcp.googleapis.com/mcp/v1',
+        requires_authorization: true,
+        authorization_server: 'https://accounts.google.com',
+        kortix_client: true,
+        scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+        warnings: [],
+      },
+    },
+  };
+  const { discovery } = await discoverConnectionOAuth2Resource('P1', 'connection-2');
+  expect(discovery.kortix_client).toBe(true);
+
+  nextResponse = { status: 200, body: { application: { client_id: 'kortix-google', token_endpoint_auth_method: 'client_secret_post', has_client_secret: true, has_private_key: false } } };
+  const registration = { issuer: 'https://accounts.google.com', token_url: 'https://oauth2.googleapis.com/token' };
+  await registerConnectionOAuth2Client('P1', 'connection-2', registration);
+  expect(last().body).toEqual(registration);
+});
+
 test('connection methods use the canonical connection route contract', async () => {
   nextResponse = { status: 200, body: { connections: [] } };
   await listConnections('P1');
@@ -419,6 +444,37 @@ test('listConnectors GETs the project connectors list', async () => {
   expect(last().url).toContain('/connectors/projects/P1/connectors');
   expect(last().method).toBe('GET');
   expect(result.connectors[0]?.requestAuthType).toBe('hmac');
+});
+
+test('listConnectors carries lastError for a connector whose status is error', async () => {
+  const connector = {
+    slug: 'weather',
+    name: 'Weather',
+    provider: 'mcp',
+    status: 'error',
+    credentialMode: 'shared',
+    authorizationStrategy: 'project',
+    sensitive: false,
+    actions: [],
+    authSecret: null,
+    secretSet: true,
+  };
+  nextResponse = {
+    status: 200,
+    body: {
+      connectors: [
+        { ...connector, lastError: 'MCP tools/list failed: HTTP 401' },
+        { ...connector, slug: 'healthy', status: 'active', lastError: null },
+        // An older server sends no `lastError` key at all.
+        { ...connector, slug: 'older-server' },
+      ],
+    },
+  };
+  const result = await listConnectors('P1');
+  const reasons: Array<string | null | undefined> = result.connectors.map(
+    (entry) => entry.lastError,
+  );
+  expect(reasons).toEqual(['MCP tools/list failed: HTTP 401', null, undefined]);
 });
 
 test('listConnectors throws on a failed response', async () => {
@@ -1014,6 +1070,15 @@ test('setConnectorCredential PUTs a native OAuth2 client-credentials configurati
   expect(last().body).toEqual({ oauth2 });
 });
 
+// Storing a credential re-syncs an MCP connector. The response carries that
+// sync, so a caller can tell "stored" from "stored, and the tools load".
+test('setConnectorCredential returns the re-sync the credential ran', async () => {
+  const errors = [{ slug: 'linear', error: 'MCP tools/list failed: HTTP 401' }];
+  nextResponse = { status: 200, body: { ok: true, sync: { synced: 1, errors } } };
+  const result = await setConnectorCredential('P1', 'linear', 'sekret');
+  expect(result.sync?.errors).toEqual(errors);
+});
+
 test('pipedreamFinalize POSTs an empty body to the connect/finalize endpoint', async () => {
   nextResponse = { status: 200, body: { connected: true, accountId: 'acc_1' } };
   const result = await pipedreamFinalize('P1', 'github');
@@ -1477,4 +1542,46 @@ test('describeConnectorTool: a malformed tool name (no dot) resolves to null wit
   const tool = await describeConnectorTool('P1', 'not-a-tool-name');
   expect(tool).toBeNull();
   expect(calls).toHaveLength(0);
+});
+
+test('deleteConnectorCredential DELETEs the connector credential (disconnect)', async () => {
+  nextResponse = { status: 200, body: { ok: true } };
+  const result = await deleteConnectorCredential('P1', 'google sheets');
+  expect(last().url).toBe('http://test.local/connectors/projects/P1/connectors/google%20sheets/credential');
+  expect(last().method).toBe('DELETE');
+  expect(result).toEqual({ ok: true });
+});
+
+test('deleteConnectorCredential throws on a failed response', async () => {
+  nextResponse = { status: 409, body: { error: 'connector is shared' } };
+  await expect(deleteConnectorCredential('P1', 'gmail')).rejects.toBeTruthy();
+});
+
+test('connectorConnect forwards the redirect URIs the hosted flow returns to', async () => {
+  nextResponse = { status: 200, body: { connectUrl: 'https://connect.composio.dev/link/r' } };
+  await connectorConnect('P1', 'gmail', {
+    successRedirectUri: 'kortix://connect/success',
+    errorRedirectUri: 'kortix://connect/error',
+  });
+  expect(last().body).toEqual({
+    success_redirect_uri: 'kortix://connect/success',
+    error_redirect_uri: 'kortix://connect/error',
+  });
+
+  await connectorConnect('P1', 'gmail', { owner: 'project', successRedirectUri: 'kortix://ok' });
+  expect(last().body).toEqual({ owner: 'project', success_redirect_uri: 'kortix://ok' });
+});
+
+test('checkMcpServerSignIn POSTs the server URL and returns whether sign-in is one click', async () => {
+  nextResponse = { status: 200, body: { requires_sign_in: true, one_click: true } };
+  const check: import('./connectors').McpServerSignInCheck = await checkMcpServerSignIn(
+    'p1',
+    'https://mcp.example.test/mcp',
+  );
+  expect(check).toEqual({ requires_sign_in: true, one_click: true });
+  expect(last()).toEqual({
+    url: 'http://test.local/connectors/projects/p1/connectors/mcp-sign-in-check',
+    method: 'POST',
+    body: { url: 'https://mcp.example.test/mcp' },
+  });
 });

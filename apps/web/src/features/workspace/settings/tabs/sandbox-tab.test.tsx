@@ -3,6 +3,7 @@ import { CpuIcon, PackageIcon } from '@phosphor-icons/react';
 import { describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { FactCell } from './fact-cell';
 
 import { testUiTranslator } from '@/i18n/test-translator';
 import {
@@ -14,7 +15,6 @@ import {
 } from '../../customize/sections/view/sandbox-provider-coverage';
 import {
   SandboxTabView,
-  TemplateFact,
   TemplateRuntimeFooter,
   TemplateStateLine,
   describeBase,
@@ -75,8 +75,9 @@ function renderProviderPresentation({
       coverage,
       selectedProvider,
       formatObservedAt: () => 'now',
+      runtimeLabel: runtimeLabel ?? 'Session runtime',
+      checkedLabel: (value: string) => `Checked ${value}`,
       badgeCopy,
-      runtimeLabel,
     }),
   );
 }
@@ -333,14 +334,16 @@ describe('SandboxTabView', () => {
     expect(out).toContain('header-action-marker');
   });
 
-  test('reads the manifest hint from kortix.toml by default, kortix.yaml at manifest v2', () => {
+  test('reads the manifest hint from kortix.toml by default, kortix.yaml at manifest v2 and v3', () => {
     const v1 = renderToStaticMarkup(<SandboxTabView manifestVersion={1} />);
     expect(v1).toContain('kortix.toml');
     expect(v1).not.toContain('kortix.yaml');
 
-    const v2 = renderToStaticMarkup(<SandboxTabView manifestVersion={2} />);
-    expect(v2).toContain('kortix.yaml');
-    expect(v2).not.toContain('kortix.toml');
+    for (const version of [2, 3]) {
+      const yaml = renderToStaticMarkup(<SandboxTabView manifestVersion={version} />);
+      expect(yaml).toContain('kortix.yaml');
+      expect(yaml).not.toContain('kortix.toml');
+    }
   });
 
   test('surfaces a partial-read warning without failing the whole tab', () => {
@@ -479,6 +482,7 @@ describe('template card readability', () => {
       label: 'kortix.yaml',
       mono: true,
     });
+    expect(describeSource(template({ source: 'toml' }), 3).label).toBe('kortix.yaml');
     expect(describeSource(template({ source: 'toml' }), 1).label).toBe('kortix.toml');
     expect(describeSource(template({ source: 'toml' }), null).label).toBe('kortix.toml');
   });
@@ -523,7 +527,7 @@ describe('template card readability', () => {
     const out = renderToStaticMarkup(
       <dl>
         {facts.map(([label, value]) => (
-          <TemplateFact key={label} icon={CpuIcon} label={label} value={value} />
+          <FactCell key={label} icon={CpuIcon} label={label} value={value} />
         ))}
       </dl>,
     );
@@ -534,8 +538,8 @@ describe('template card readability', () => {
   test('every spec value carries its own label, and long values truncate in-cell', () => {
     const out = renderToStaticMarkup(
       <dl>
-        <TemplateFact icon={CpuIcon} label="Processor" value="2 vCPU" />
-        <TemplateFact icon={PackageIcon} label="Base image" value="a/very/long/image:tag" mono />
+        <FactCell icon={CpuIcon} label="Processor" value="2 vCPU" />
+        <FactCell icon={PackageIcon} label="Base image" value="a/very/long/image:tag" mono />
       </dl>,
     );
     // Label + value are separate elements; the bare "4 GiB means memory, the

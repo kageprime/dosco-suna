@@ -1,5 +1,6 @@
 'use client';
 
+import type { PastedContent } from '@kortix/shared';
 import type { JSONContent } from '@tiptap/core';
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
@@ -11,6 +12,7 @@ import type { AttachedFile } from '../types';
 import {
   type DraftScope,
   type StoredDraft,
+  type StoredUpload,
   draftScopeKey,
   serializeDraft,
   shouldRestoreDraft,
@@ -25,6 +27,8 @@ import { clearDraft, readDraft, writeDraft } from './composer-draft-store';
 const SAVE_DEBOUNCE_MS = 400;
 
 const NO_QUOTES: readonly string[] = [];
+const NO_PASTES: readonly PastedContent[] = [];
+const NO_UPLOADS: readonly StoredUpload[] = [];
 
 export interface UseComposerDraftInput {
   active?: boolean;
@@ -40,6 +44,14 @@ export interface UseComposerDraftInput {
    * quote can arrive with no keystroke after it.
    */
   quotes?: readonly string[];
+  /** The pasted-text tiles, in order. Saved and scheduled like `quotes`. */
+  pastes?: readonly PastedContent[];
+  /**
+   * The tray's finished uploads (`finishedDraftUploads`). Saved and scheduled
+   * like `quotes`, keyed by their handles: an upload finishing is a change, a
+   * progress tick is not.
+   */
+  uploads?: readonly StoredUpload[];
   /** An explicit prefill outranks a stored draft — see `shouldRestoreDraft`. */
   hasPrefill: boolean;
   /** Called once, with the validated draft, when it is this draft's turn. */
@@ -69,6 +81,8 @@ export function useComposerDraft({
   editorReady,
   attachedFiles,
   quotes = NO_QUOTES,
+  pastes = NO_PASTES,
+  uploads = NO_UPLOADS,
   hasPrefill,
   onRestore,
 }: UseComposerDraftInput): UseComposerDraftResult {
@@ -83,6 +97,10 @@ export function useComposerDraft({
   const userIdRef = useLatestRef(userId);
   const filesRef = useLatestRef(attachedFiles);
   const quotesRef = useRef(quotes);
+  const pastesRef = useRef(pastes);
+  const uploadsRef = useRef(uploads);
+  const uploadsKey = uploads.map((upload) => upload.attachment_id).join(',');
+  const uploadsKeyRef = useRef(uploadsKey);
   const pendingRef = useRef<{ doc: JSONContent; isEmpty: boolean } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoredKeyRef = useRef<string | null>(null);
@@ -113,6 +131,8 @@ export function useComposerDraft({
         documentIsEmpty: pending.isEmpty,
         files: filesRef.current,
         quotes: quotesRef.current,
+        pastes: pastesRef.current,
+        uploads: uploadsRef.current,
         userId: userIdRef.current,
       }),
     );
@@ -139,19 +159,27 @@ export function useComposerDraft({
   );
 
   /**
-   * A quote list change is a draft change. The snapshot is the live editor's
+   * A quote list, tile row or finished-upload change is a draft change. The snapshot is the live editor's
    * document, read now, the same pair `handleDocChange` would receive.
    * Skipped while the list is unchanged, so the mount itself never writes: an
    * empty first snapshot would overwrite the stored draft before it restores.
    */
   useEffect(() => {
-    if (quotesRef.current === quotes) return;
+    uploadsRef.current = uploads;
+    if (
+      quotesRef.current === quotes &&
+      pastesRef.current === pastes &&
+      uploadsKeyRef.current === uploadsKey
+    )
+      return;
     quotesRef.current = quotes;
+    pastesRef.current = pastes;
+    uploadsKeyRef.current = uploadsKey;
     const editor = editorRef.current;
     if (!editorReady || !editor) return;
     const doc = editor.getDocument();
     if (doc) handleDocChange(doc, editor.isEmpty());
-  }, [quotes, editorReady, editorRef, handleDocChange]);
+  }, [quotes, pastes, uploads, uploadsKey, editorReady, editorRef, handleDocChange]);
 
   const clearSavedDraft = useCallback(() => {
     if (timerRef.current !== null) {

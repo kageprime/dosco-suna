@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
@@ -438,3 +439,6 @@ export {
 };
 
 export type { TabsListType, TabsSize, TabsTriggerSize, TabsTriggerVariant, TabsUnderlineSize };
+=======
+export * from '@kortix/ui/tabs';
+>>>>>>> upstream-dev

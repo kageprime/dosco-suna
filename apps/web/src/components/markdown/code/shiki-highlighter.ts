@@ -105,6 +105,23 @@ function loadHighlighter(): Promise<HighlighterCore | null> {
   return highlighterPromise;
 }
 
+/**
+ * Create the highlighter in idle time, ahead of the first code block.
+ *
+ * Creating it evaluates and compiles every PRELOAD_LANGS grammar in one go: a
+ * ~125 ms main-thread task (measured on /debug/stream, `tsx` the largest).
+ * Left to the first highlight, that task lands in the middle of a streaming
+ * reply — 400 ms after its first code fence closes — and freezes the paced
+ * text for a visible beat. A surface that streams replies calls this when it
+ * opens, while nothing is animating yet. Idempotent.
+ */
+export function warmHighlighter() {
+  if (highlighterPromise || typeof window === 'undefined') return;
+  const run = () => void loadHighlighter();
+  if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 3000 });
+  else setTimeout(run, 1500);
+}
+
 function ensureLangLoaded(h: HighlighterCore, lang: string): Promise<void> {
   if (PLAIN_LANGS.has(lang) || loadedLangs.has(lang)) return Promise.resolve();
   const existing = langLoadPromises.get(lang);
@@ -132,7 +149,7 @@ function clampCode(code: string, unbounded?: boolean): string {
     : code;
 }
 
-// Bounded cache keyed by (lang, theme, content hash). Survives remounts, so a
+// Bounded cache keyed by (lang, theme, rendering mode, content hash). Survives remounts, so a
 // block that re-renders with the same text never re-tokenizes.
 const shikiCache = new Map<string, string>();
 const shikiPending = new Map<string, Promise<string | null>>();
@@ -156,8 +173,8 @@ function hashCode(value: string): string {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
-function shikiKey(code: string, lang: string, theme: string): string {
-  return `${lang}:${theme}:${code.length}:${hashCode(code)}`;
+function shikiKey(code: string, lang: string, theme: string, unbounded = false): string {
+  return `${lang}:${theme}:${unbounded}:${code.length}:${hashCode(code)}`;
 }
 
 function cacheHtml(key: string, html: string) {
@@ -184,7 +201,7 @@ export function highlightSync(
   opts?: { unbounded?: boolean },
 ): string | null {
   const lang = normalizeLanguage(language);
-  const key = shikiKey(code, lang, theme);
+  const key = shikiKey(code, lang, theme, opts?.unbounded);
   const cached = shikiCache.get(key);
   if (cached) return cached;
   if (!highlighterReady) {
@@ -209,7 +226,7 @@ export function highlightAsync(
   opts?: { unbounded?: boolean },
 ): Promise<string | null> {
   const lang = normalizeLanguage(language);
-  const key = shikiKey(code, lang, theme);
+  const key = shikiKey(code, lang, theme, opts?.unbounded);
   const cached = shikiCache.get(key);
   if (cached !== undefined) return Promise.resolve(cached);
   const inflight = shikiPending.get(key);

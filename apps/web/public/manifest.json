@@ -1,7 +1,13 @@
 {
+<<<<<<< HEAD
   "name": "Dosco Agent Network",
   "short_name": "Dosco",
   "description": "Open-source AI Management System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+=======
+  "name": "Kortix",
+  "short_name": "Kortix",
+  "description": "Open-source AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+>>>>>>> upstream-dev
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
@@ -41,5 +47,20 @@
   "scope": "/",
   "lang": "en-US",
   "dir": "ltr",
+<<<<<<< HEAD
   "prefer_related_applications": false
+=======
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.kortix.application",
+      "id": "com.kortix.application"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/ie/app/kortix/id6754448524"
+    }
+  ],
+  "prefer_related_applications": true
+>>>>>>> upstream-dev
 }

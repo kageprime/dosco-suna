@@ -14,11 +14,12 @@
 
 import { accountSessionActivity, accounts } from '@kortix/db';
 import { and, eq, sql } from 'drizzle-orm';
-import type { Context, MiddlewareHandler } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { auditSessionFirstSight } from '../shared/auth-audit';
-import { requestClientIp } from '../shared/client-ip';
 import { db } from '../shared/db';
+
+// The middleware that applies this policy to a request (`accountSessionGate`)
+// lives in `middleware/session-gate.ts`. Re-exported here so every importer
+// keeps working.
+export { accountSessionGate } from '../middleware/session-gate';
 
 /** Skip the update query if last_seen_at was touched more recently than
  *  this. Bounds DB write pressure under chatty clients. */
@@ -36,7 +37,7 @@ interface PolicyAndActivity {
  * round-trip. LEFT JOIN so the policy comes back even when the activity
  * row doesn't exist yet.
  */
-async function loadPolicyAndActivity(
+export async function loadPolicyAndActivity(
   accountId: string,
   userId: string,
   sessionId: string,
@@ -62,7 +63,7 @@ async function loadPolicyAndActivity(
   return row ?? null;
 }
 
-async function markRevoked(
+export async function markRevoked(
   accountId: string,
   userId: string,
   sessionId: string,
@@ -99,7 +100,7 @@ async function markRevoked(
 /** Returns true when this call inserted a brand-new activity row
  *  (first time we've seen this session against this account). The
  *  caller emits an `auth.session.first_sight` audit event on true. */
-async function touchActivity(
+export async function touchActivity(
   accountId: string,
   userId: string,
   sessionId: string,
@@ -160,6 +161,7 @@ export function evaluateSessionGate(args: {
 
   return 'allow';
 }
+<<<<<<< HEAD
 
 /**
  * Mount this on /v1/accounts/:accountId/* AFTER auth middleware. It
@@ -267,3 +269,5 @@ export function accountSessionGate(): MiddlewareHandler {
     await next();
   };
 }
+=======
+>>>>>>> upstream-dev

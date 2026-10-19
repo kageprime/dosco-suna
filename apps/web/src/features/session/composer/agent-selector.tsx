@@ -33,6 +33,22 @@ import { composerSelectableAgents } from './composer-agent-access';
  */
 const SEARCH_MIN_AGENTS = 7;
 
+/**
+ * The agent a selector shows: the selected one, even before the roster has it,
+ * else the first selectable agent. One rule for the trigger and the chat composer.
+ */
+function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string | null) {
+  const current = primaryAgents.find((a) => a.name === selectedAgent);
+  return current?.name ?? selectedAgent ?? primaryAgents[0]?.name;
+}
+
+/** The label `AgentSelector` shows for a selection (null = nothing picked). Other surfaces that name the agent reuse it. */
+export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
+  const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
+  if (!name) return 'Agent';
+  return isMetaAgentName(name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(name);
+}
+
 export function AgentSelector({
   agents,
   selectedAgent,
@@ -100,9 +116,14 @@ export function AgentSelector({
   // happens to be first in someone else's list. The `primaryAgents[0]`
   // fallback stays only for a truly unresolved selection (no name at all),
   // matching the resolver's own first-accessible pre-selection.
+<<<<<<< HEAD
   const currentAgent = primaryAgents.find((a) => a.name === selectedAgent);
   const displayedName = currentAgent?.name ?? selectedAgent ?? primaryAgents[0]?.name;
   const displayName = displayedName ? displayAgentName(displayedName) : 'Agent';
+=======
+  const displayedName = resolveDisplayedAgentName(primaryAgents, selectedAgent);
+  const displayName = agentDisplayLabel(agents, selectedAgent);
+>>>>>>> upstream-dev
   const metaSelected = isMetaAgentName(displayedName);
 
   /**
@@ -192,7 +213,7 @@ export function AgentSelector({
         size="sm"
         disabled
         aria-label={unavailableHint ?? undefined}
-        className="text-muted-foreground rounded-lg"
+        className="text-muted-foreground rounded-lg hit-area-y-3"
       >
         <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
         <CaretDownIcon className="size-3" />
@@ -220,7 +241,7 @@ export function AgentSelector({
         variant="ghost"
         size="sm"
         disabled
-        className="text-muted-foreground rounded-lg"
+        className="text-muted-foreground rounded-lg hit-area-y-3"
       >
         {metaSelected && <SparkleIcon className="size-3.5 shrink-0" weight="fill" />}
         <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
@@ -236,7 +257,7 @@ export function AgentSelector({
           variant="ghost"
           size="sm"
           aria-label={t('selectAgent')}
-          className="text-foreground/70 rounded-lg"
+          className="text-foreground/70 rounded-lg hit-area-y-3"
         >
           {metaSelected && <SparkleIcon className="size-3.5 shrink-0" weight="fill" />}
           <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>

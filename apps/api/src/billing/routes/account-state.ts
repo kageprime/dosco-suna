@@ -3,7 +3,7 @@ import type { AppEnv } from '../../types';
 import { buildAccountState, buildMinimalAccountState, buildLocalAccountState } from '../services/account-state';
 import { hasDatabase } from '../../shared/db';
 import { config } from '../../config';
-import { resolveScopedAccountId } from '../../shared/resolve-account';
+import { resolveScopedAccountId } from '../../middleware/resolve-account';
 import { authorize } from '../../iam/authorize';
 import { actorOf } from '../../iam/actor';
 import { ACCOUNT_ACTIONS } from '../../iam/actions';
@@ -15,7 +15,7 @@ export const accountStateRouter = makeOpenApiApp<AppEnv>();
 // owners only by default). Surfaced on account-state so the UI can disable the
 // "Subscribe" / "Manage billing" CTAs for members instead of letting them click
 // through to a 403. This is a UI hint only — the billing routes enforce the
-// same gate server-side (see require-billing-write.ts). Computed per-request
+// same gate server-side (see http-require-billing-write.ts). Computed per-request
 // (NOT inside the cached buildAccountState) so one user's verdict is never
 // served to another. Defaults to `true` on a probe error so a transient glitch
 // never hides the CTA from a legitimate owner.
@@ -53,11 +53,6 @@ accountStateRouter.openapi(
       return c.json({ ...buildLocalAccountState(), can_manage_billing: true });
     }
     const accountId = await resolveScopedAccountId(c, 'query');
-
-    // NOTE: legacy → per-seat migration is NOT auto-triggered on sign-in anymore.
-    // Silently cancelling a customer's subs + creating a seat sub without consent
-    // was surprising. It now runs ONLY when the user explicitly clicks "Claim
-    // seat-based pricing" (POST /v1/billing/claim-per-seat → maybeMigrateLegacyAccount).
 
     try {
       const state = await buildAccountState(accountId);

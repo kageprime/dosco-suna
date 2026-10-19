@@ -7,6 +7,7 @@ import {
   REGISTERED_FEATURE_FLAGS,
   buildFeatureFlagCatalog,
   isFeatureFlagKey,
+  isOperatorOnlyFeatureFlag,
   resolveFeatureFlag,
   resolveFeatureFlags,
 } from '../feature-flags/registry';
@@ -23,7 +24,9 @@ function findCatalogFlag(key: string) {
 
 /** Registered but deliberately not offered as a toggle — see "Hidden flags" in
  *  the registry header. */
-const HIDDEN_KEYS = REGISTERED_FEATURE_FLAGS.filter((f) => f.catalogHidden).map((f) => f.key);
+// Flags derived from the project's Volumes flag are hidden too, but are not
+// choices of their own: they are covered by integration-volumes-feature-flag.test.ts.
+const HIDDEN_KEYS = REGISTERED_FEATURE_FLAGS.filter((f) => f.catalogHidden && !f.derivedFrom).map((f) => f.key);
 
 describe('registry ↔ contract', () => {
   // Compared as sets: the registry's order is the Settings display order and is
@@ -34,7 +37,14 @@ describe('registry ↔ contract', () => {
       buildFeatureFlagCatalog({})
         .map((f) => f.key)
         .sort(),
-    ).toEqual([...FEATURE_FLAG_KEYS].filter((key) => !HIDDEN_KEYS.includes(key)).sort());
+    ).toEqual(
+      [...FEATURE_FLAG_KEYS]
+        .filter((key) => {
+          const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === key);
+          return !def?.catalogHidden && !def?.derivedFrom;
+        })
+        .sort(),
+    );
   });
 
   test('every registered flag declares a complete, valid definition', () => {
@@ -100,20 +110,15 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     ).toBe(false);
   });
 
-  test('apps is a STABLE flag and still explicit opt-in', () => {
-    // Apps is no longer labelled experimental on any surface. Stability is a
-    // badge, not a gate: the flag stays off until a project opts in, exactly
-    // as before. `experimental` here is the metadata STORAGE key, which the
-    // registry pins as a stable storage detail.
-    expect(resolveFeatureFlag({}, 'apps')).toBe(false);
-    expect(resolveFeatureFlag({ experimental: { apps: true } }, 'apps')).toBe(true);
-    expect(resolveFeatureFlag({ experimental: { apps: false } }, 'apps')).toBe(false);
-    expect(findCatalogFlag('apps')).toMatchObject({
-      name: 'Apps',
-      stability: 'stable',
-      available: true,
-      enabled: false,
-    });
+  test('apps graduated: Apps is generally available and a stored override is inert', () => {
+    // Apps went GA (2026-10-14, spec §28): every project can create and deploy
+    // Apps — no flag, no Settings row, no operator lever, no 403. A project
+    // that stored `experimental.apps` while it was a flag keeps the value in
+    // metadata; it must not resurface as a key, a catalog row, or a gate.
+    expect(isFeatureFlagKey('apps')).toBe(false);
+    const metadata = { experimental: { apps: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('apps');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('apps');
   });
 
   test('monitors is explicit opt-in and gated on Platinum availability', () => {
@@ -129,6 +134,32 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     expect(resolveFeatureFlag({}, 'monitors')).toBe(false);
     expect(resolveFeatureFlag({ experimental: { monitors: true } }, 'monitors')).toBe(available);
     expect(resolveFeatureFlag({ experimental: { monitors: false } }, 'monitors')).toBe(false);
+  });
+
+  test('event_triggers is a beta, explicit opt-in flag offered everywhere', () => {
+    expect(findCatalogFlag('event_triggers')).toMatchObject({
+      name: 'App event triggers',
+      stability: 'beta',
+      enabled: false,
+      operator_only: false,
+    });
+    const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === 'event_triggers')!;
+    expect(def.enforcement).toBe('routes');
+    expect(def.available()).toBe(true);
+    expect(def.platformDefault()).toBe(false);
+    expect(resolveFeatureFlag({}, 'event_triggers')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { event_triggers: true } }, 'event_triggers')).toBe(true);
+    expect(resolveFeatureFlag({ experimental: { event_triggers: false } }, 'event_triggers')).toBe(false);
+  });
+
+  test('connectors_v2 is an experimental, explicit opt-in flag offered everywhere', () => {
+    expect(findCatalogFlag('connectors_v2')).toMatchObject({
+      stability: 'experimental',
+      enabled: false,
+      operator_only: false,
+    });
+    expect(resolveFeatureFlag({}, 'connectors_v2')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { connectors_v2: true } }, 'connectors_v2')).toBe(true);
   });
 
   test('session_transcript_history graduated: saved history has no off switch and a stored override is inert', () => {
@@ -155,6 +186,17 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('teams');
     expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('teams');
     expect(config).not.toHaveProperty('TEAMS_CHANNEL_ENABLED');
+  });
+
+  test('config_releases graduated: every session runs a config release and a stored override is inert', () => {
+    // A project that turned config releases on or off while they were a flag
+    // keeps the value in metadata. It must not resurface as a key, a catalog
+    // row, or a gate: a stored `false` no longer sends a session back to its
+    // workspace config dir.
+    expect(isFeatureFlagKey('config_releases')).toBe(false);
+    const metadata = { experimental: { config_releases: false } };
+    expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain('config_releases');
+    expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain('config_releases');
   });
 
   test('connectors_api_discover requires explicit opt-in', () => {
@@ -217,10 +259,25 @@ describe('resolveFeatureFlag — explicit override wins', () => {
     }
   });
 
+  test('session_log_restore follows the deployment default while a stored project value wins', () => {
+    const previous = config.SESSION_LOG_RESTORE_DEFAULT_ENABLED;
+    try {
+      config.SESSION_LOG_RESTORE_DEFAULT_ENABLED = false;
+      expect(resolveFeatureFlag({}, 'session_log_restore')).toBe(false);
+      expect(resolveFeatureFlag({ experimental: { session_log_restore: true } }, 'session_log_restore')).toBe(true);
+
+      config.SESSION_LOG_RESTORE_DEFAULT_ENABLED = true;
+      expect(resolveFeatureFlag({}, 'session_log_restore')).toBe(true);
+      expect(resolveFeatureFlag({ experimental: { session_log_restore: false } }, 'session_log_restore')).toBe(false);
+    } finally {
+      config.SESSION_LOG_RESTORE_DEFAULT_ENABLED = previous;
+    }
+  });
+
   test('non-boolean stored values are treated as "no override"', () => {
     for (const garbage of ['true', 1, 0, null, [], {}, 'yes']) {
-      expect(resolveFeatureFlag({ experimental: { apps: garbage } }, 'apps')).toBe(
-        resolveFeatureFlag({}, 'apps'),
+      expect(resolveFeatureFlag({ experimental: { monitors: garbage } }, 'monitors')).toBe(
+        resolveFeatureFlag({}, 'monitors'),
       );
       expect(resolveFeatureFlag({ experimental: { marketplace: garbage } }, 'marketplace')).toBe(
         resolveFeatureFlag({}, 'marketplace'),
@@ -291,13 +348,27 @@ describe('buildFeatureFlagCatalog', () => {
  * A hidden flag is RESOLVABLE but UNADVERTISED (registry header, "Hidden
  * flags"). The four properties below are the whole contract, and each one is a
  * different way to get it wrong: `available: () => false` would break (a);
- * dropping the entry from FLAGS would break (b); listing it would break (c);
- * filtering `isFeatureFlagKey` through the catalog would break (d) and take
- * the support escape hatch with it.
+ * dropping the entry from FLAGS would break (b); listing it while off would
+ * break (c); hiding it while on would break (c2) and leave agents blind to an
+ * enabled surface; filtering `isFeatureFlagKey` through the catalog would
+ * break (d) and take the operator lever with it.
  */
 describe('catalogHidden', () => {
-  test('no flag is hidden this release (agent_principal graduated)', () => {
-    expect(HIDDEN_KEYS).toEqual([]);
+  test('only internal-only surfaces are hidden: session_log (the v2 session-log rollout) and session_log_restore (the boot restore from the session log)', () => {
+    // `apps` graduated (2026-10-14): Apps is generally available.
+    expect(HIDDEN_KEYS).toEqual(['session_log', 'session_log_restore']);
+  });
+
+  test('session_log is a behavioral flag that defaults off', () => {
+    const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === 'session_log');
+    expect(def?.enforcement).toBe('behavioral');
+    expect(resolveFeatureFlag({}, 'session_log')).toBe(false);
+  });
+
+  test('session_log_restore is a behavioral flag that defaults off', () => {
+    const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === 'session_log_restore');
+    expect(def?.enforcement).toBe('behavioral');
+    expect(resolveFeatureFlag({}, 'session_log_restore')).toBe(false);
   });
 
   for (const key of HIDDEN_KEYS) {
@@ -315,33 +386,54 @@ describe('catalogHidden', () => {
       expect(resolveFeatureFlag({ experimental: { [key]: true } }, key)).toBe(def.available());
     });
 
-    test(`${key}: (c) is absent from the catalog the UI renders`, () => {
-      const metadata = { experimental: { [key]: false } };
+    test(`${key}: (c) is absent from the catalog while off`, () => {
+      // An overridden-off hidden flag must not reappear as a row someone can flip.
       expect(buildFeatureFlagCatalog({}).map((f) => f.key)).not.toContain(key);
-      // Also when the project set an explicit override — an overridden hidden
-      // flag must not reappear as a row someone can flip back.
-      expect(buildFeatureFlagCatalog(metadata).map((f) => f.key)).not.toContain(key);
+      expect(buildFeatureFlagCatalog({ experimental: { [key]: false } }).map((f) => f.key)).not.toContain(key);
     });
 
-    test(`${key}: (d) is still accepted by PATCH /projects/:id/features`, () => {
-      // The route validates the body with `isFeatureFlagKey` (project-settings.ts
-      // patchFeatureFlagHandler), not with the catalog. The full HTTP round
-      // trip is covered by flow AGP-3, which switches this flag off through
-      // the real route.
+    test(`${key}: (c2) is listed read-only (operator_only) while on, so agents see it`, () => {
+      const row = buildFeatureFlagCatalog({ experimental: { [key]: true } }).find((f) => f.key === key);
+      if (!def.available()) {
+        // Unavailable on this host: it resolves off, so it stays unlisted.
+        expect(row).toBeUndefined();
+        return;
+      }
+      expect(row).toMatchObject({ key, enabled: true, overridden: true, operator_only: true });
+    });
+
+    test(`${key}: (d) is a known key, writable only by a platform operator`, () => {
+      // The route validates the body with `isFeatureFlagKey`, then refuses an
+      // operator-only flag to anyone but a platform operator
+      // (project-settings.ts patchFeatureFlagHandler). Flows APP-CVX-1 and
+      // AGP-3 cover the HTTP round trip.
       expect(isFeatureFlagKey(key)).toBe(true);
+      expect(isOperatorOnlyFeatureFlag(key)).toBe(true);
     });
   }
+
+  test('every offered flag is a project flag writable by project admins (operator_only false)', () => {
+    for (const f of buildFeatureFlagCatalog({})) {
+      expect(f.scope).toBe('project');
+      expect(f.operator_only).toBe(false);
+      expect(isOperatorOnlyFeatureFlag(f.key)).toBe(false);
+    }
+  });
 });
 
 describe('featureDisabledBody', () => {
-  test('carries the machine-readable code, the flag key, and points at Settings', () => {
+  test('carries the machine-readable code and the flag key; points at Settings, or at Kortix for a hidden flag', () => {
     for (const key of FEATURE_FLAG_KEYS) {
       const body = featureDisabledBody(key);
       expect(body.code).toBe(FEATURE_DISABLED_CODE);
       expect(body.code).toBe('feature_disabled');
       expect(body.feature).toBe(key);
       expect(typeof body.error).toBe('string');
-      expect(body.error).toContain('Settings');
+      // A flag derived from Volumes points at the Volumes toggle, and a hidden
+      // flag has no toggle in Settings to point at. No message names an organization.
+      const derived = REGISTERED_FEATURE_FLAGS.find((f) => f.key === key)?.derivedFrom;
+      expect(body.error).toContain(derived ? 'Turn on Volumes' : HIDDEN_KEYS.includes(key) ? 'Contact Kortix' : 'Settings');
+      expect(body.error).not.toContain('organization');
     }
   });
 });

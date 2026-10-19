@@ -114,7 +114,10 @@ Options:
   --host <name>        Operate against a non-default Kortix host.
   -h, --help           Show this help.
 
-Pinning a provider needs the \`project.settings.write\` permission.
+Pinning a provider needs the \`project.settings.write\` permission and is a person's
+action: an agent session (a session-bound or agent-grant token) is always refused.
+A session that needs a different runtime passes \`provider\` on session create instead —
+that changes only its own session, not the project.
 `;
 
 /** The `sandboxes` flags. Values arrive as strings; each use parses its own. */
@@ -138,6 +141,12 @@ export async function runSandboxes(argv: string[]): Promise<number> {
   if (helpCode !== null) return helpCode;
 
   const sub = argv[0];
+  // A leading flag is never a subcommand name (KRTX-2620): with no subcommand
+  // the error says so instead of reporting the flag as `unknown subcommand`.
+  if (sub?.startsWith('-')) {
+    process.stderr.write(`${status.err('missing subcommand')}\n\n${HELP}`);
+    return 2;
+  }
   const rest = argv.slice(1);
   let f: Flags;
   try {

@@ -1,107 +1,10 @@
-import { BOOT_PHASE_HEADER, RUNTIME_NOT_READY_CODE } from '@kortix/api-contract/runtime-relay';
-import { isWireIdAheadOf } from '../../projects/wire-message-id';
-import { clientAbortTarget } from '../client-abort';
-import { classifyRuntimeRequest, stripInBoxProxyPrefix } from '../runtime-request';
-import { markTurnStopRequested } from '../../projects/session-turn-ledger';
-import { stripInlineAttachmentBytes } from '../inline-attachments';
-import { timeUpstream } from '../../middleware/upstream-timing';
-import { ProvisionTimeline } from '../../platform/services/provision-timeline';
-import { recordTurnStageMarks } from '../../lib/server-timing';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { PROJECT_ACTIONS, authorize } from '../../iam';
-import { actorForUser } from '../../iam/actor';
-import { getTraceHeaders, setContextField } from '../../lib/request-context';
-import { callerKortixSessionId } from '../../projects/lib/caller-session';
-import { syncSandboxEnvForPrompt } from '../../projects/lib/sandbox-env-sync';
-import {
-  agentLaunchableInProject,
-  remintGrantForAgentSwitch,
-} from '../../projects/lib/session-token-grant';
-import { bindSessionTurnIdentity } from '../../projects/lib/on-behalf-of';
-import { dropUndeclaredPromptAgent } from '../undeclared-prompt-agent';
-import { scheduleOpencodeSnapshotSync } from '../../projects/opencode-session-snapshot';
-import { resumeStoppedSandboxByExternalId } from '../../projects/routes/shared';
-import { classifyPtyWebSocketPath } from '../../platform/providers/pty-ingress';
-import { ingressTargetUrl } from '../../platform/providers/ingress-url';
-import { recordSessionActivity } from '../../projects/session-activity';
-import {
-  createExtendThrottle,
-  extendSandboxDeadline,
-  isPreviewUseObservation,
-  isSandboxAuthored,
-  isTurnStartRequest,
-  previewGrantMs,
-} from '../../projects/sandbox-deadline';
-import { generateSessionTitleFromFirstPrompt } from '../../projects/session-title-generate';
-import { KORTIX_USER_CONTEXT_HEADER } from '../../shared/kortix-user-context';
-import { previewCorsHeaders } from '../preview-hosts';
-import { appCookieHeader } from '../preview-session';
-import { isProviderIngressAuthFailure } from '../provider-auth';
-import { canAccessPreviewSandbox, canAccessSandboxSession, takeSessionAccessRefusal } from '../../shared/preview-ownership';
-import {
-  buildSandboxUpstreamHeaders,
-  invalidatePreviewLink,
-  loadSandbox,
-  markSandboxErrored,
-  markSandboxUsed,
-  resolveSandboxIngress,
-  routeSandboxIngress,
-  type SandboxRecord,
-  wakeSandbox,
-} from '../backend';
-import { takePrefetchedSandbox } from '../prefetch';
-import {
-  recordSseStreamEnd,
-  shouldBypassIngressCache,
-  trackSseBytes,
-} from '../sse-stall';
-import {
-  DEFAULT_AGENT_SENTINEL,
-  type PrePromptEnvSyncDeps,
-  bodyWithoutPromptAgent,
-  errorMessage,
-  isTurnStartEnvSync,
-  jsonProxyError,
-  requestedPromptAgent,
-  requestedPromptManagedModelId,
-  runPrePromptEnvSync,
-  secretGrantErrorResponse,
-} from '../pre-prompt-env-sync';
-import {
-  EFFECTIVE_MESSAGE_ID_HEADER,
-  PROMPT_TRANSCRIPT_READ_LIMIT,
-  WIRE_ID_PLACED_HEADER,
-  isPromptWireIdRepairPath,
-  promptBodyMessageId,
-  promptTranscriptReadPath,
-  readNewestWireIdTime,
-  repairPromptWireId,
-} from '../prompt-wire-id-repair';
-import {
-  PROXY_RETRY_BUDGET_MS,
-  PROXY_RETRY_DELAYS_MS,
-  isEnvRpcRequest,
-  isFileImportRequest,
-  isLongTurnCompletionRequest,
-  isUploadRequest,
-  proxyAttemptTimeoutMs,
-} from '../preview-retry-budget';
-import {
-  claimPromptDelivery,
-  deliveryKeyIdentifiesOneSubmission,
-  isNonIdempotentSessionWrite,
-  promptDeliveryKey,
-  releasePromptDelivery,
-} from '../prompt-dedupe';
-import { portFailureHop, type ProxyHop } from '../proxy-hop';
-import { carriesSessionData, requiresSessionVisibility } from '../session-data-ports';
-import {
-  abandonSandboxTurn,
-  acceptSandboxTurn,
-  beginSandboxTurn,
-} from '../../projects/sandbox-turn-lifecycle';
-import { extractTurnIdentity } from '../../projects/session-turn-ledger';
+import { callerKortixSessionId } from '../../middleware/caller-session';
+import { isSandboxAuthored } from '../../projects/sandbox-deadline';
+import { takePrefetchedSandbox } from '../http-prefetch';
+import { jsonProxyError } from '../pre-prompt-env-sync';
+import { forwardToSandbox } from '../forward';
 
 // `userId` is set by combinedAuth (mounted in ../index.ts) before this route.
 // `apiKeyType` is read to decide whether a request may extend the sandbox's
@@ -116,57 +19,23 @@ const preview = new Hono<{
   };
 }>();
 
-/**
- * Which upstream paths get the CLIENT's `Accept-Encoding` instead of `identity`.
- *
- * Identity is the right default and stays the default: this proxy REWRITES some
- * bodies on the way back (`stripInlineAttachmentBytes` does `await
- * upstream.text()` on a transcript list), and a rewriter handed gzip bytes
- * produces garbage. Forcing identity is what makes that safe without every
- * future rewrite having to remember to decompress.
- *
- * The daemon's Runtime API (`/kortix/runtime/*`, `/kortix/opencode/*` before W3) is the exception, and it earns it:
- *   • nothing on this proxy rewrites those bodies — the projection is already
- *     the trimmed shape, so there is nothing left to strip;
- *   • the whole point of the namespace is byte reduction across THIS hop.
- *     `/kortix/runtime/state` is 8.7 KB raw and 0.9 KB gzipped (WS-Z1 §5);
- *     forcing identity here would throw away 90% of the saving before the
- *     response ever reaches the API's own compressor.
- *
- * `/events` is excluded even inside that namespace: the daemon never gzips an
- * event stream, and asking it to would be asking for a buffered one.
- */
-export function forwardsClientEncoding(port: number, remainingPath: string): boolean {
-  if (port !== 8000) return false;
-  // `/kortix/runtime` since W3; `/kortix/opencode` on a daemon built before it.
-  if (!/^\/kortix\/(?:runtime|opencode)(?:$|\/)/.test(remainingPath)) return false;
-  return !/^\/kortix\/(?:runtime|opencode)\/events(?:$|[/?#])/.test(remainingPath);
-}
-
-// The pre-prompt turn-start gate lives in ../pre-prompt-env-sync.ts so a unit
-// test can reach it without evaluating this route — importing this file caches
-// its collaborators and silently disables every sibling suite's `mock.module`
-// (see the header comment there). Re-exported so existing import paths, and the
-// suites that already read these names off `./preview`, keep working.
+// The forwarder (wake, access, upstream hop, retry loop) lives in ../forward/.
+// Re-exported so existing import paths, and the suites that read these names
+// off `./preview` or `mock.module` this path, keep working.
 export {
-  bodyWithoutPromptAgent,
-  isTurnStartEnvSync,
-  requestedPromptAgent,
-  requestedPromptManagedModelId,
-  runPrePromptEnvSync,
-  secretGrantErrorResponse,
-} from '../pre-prompt-env-sync';
-import { STRIP_FORWARD_HEADERS, clientResponseHeaders, isBrowserNavigation, isConnectionRefusedError, longTurnTimeoutResponse, portUnreachableResponse, sanitizeRedirectLocation } from '../preview-response';
-import {
-  convergeBeforeTurnStart,
-  convergeModelCatalogForTurnStart,
-  scheduleAssetConvergence,
-} from '../../projects/lib/turn-start-convergence';
-export type { PrePromptEnvSyncDeps } from '../pre-prompt-env-sync';
+  bindSandboxRequestContext,
+  forwardToSandbox,
+  forwardsClientEncoding,
+  isProxiedBaseReset,
+  resolvePreviewWsUpstream,
+  shouldAutoResumeStoppedSandbox,
+  shouldWakeStoppedSandboxForWsAttach,
+} from '../forward';
 
 // The response/header helpers moved to ../preview-response.ts (KRTX-326 phase 2).
 export * from '../preview-response';
 
+<<<<<<< HEAD
 // One deadline write per minute per box for HUMAN preview traffic. Mirrors
 // SANDBOX_TOUCH_INTERVAL_MS in ../backend.ts, for the same reason: a single page
 // load is hundreds of requests and the extend is monotone, so collapsing them
@@ -1852,6 +1721,8 @@ export async function resolvePreviewWsUpstream(opts: {
   return { ok: true, url: upstreamUrl.toString(), headers };
 }
 
+=======
+>>>>>>> upstream-dev
 // The largest body the proxy will accept, matching Bun's own default socket
 // ceiling (128 MiB). Declared here so the limit is a stated number the client is
 // told about, rather than an implicit runtime default it discovers by failing.

@@ -7,6 +7,8 @@ import type {
 } from '@kortix/llm-gateway';
 import { BillingGateError, assertBillingActive } from '../billing/services/billing-gate';
 import { accountMayUseManagedModels, getCachedAccountTier } from '../billing/services/entitlements';
+import { resolveAccountBilling } from '../billing/services/billing-cache';
+import { byokFeeUsd, byokMonthToDateUsd, noteByokUsage } from '../billing/services/byok-fee';
 import { llmPriceMarkup } from '../billing/services/tiers';
 import { attributeYoloToken } from '../billing/services/yolo-tokens';
 import { wallet } from '../billing/wallet';
@@ -24,12 +26,10 @@ import { isGatewayKey } from '../shared/crypto';
 import { recordGatewayTrace } from '../shared/gateway-logs';
 import { recordUsageEvent } from '../shared/usage-events';
 import { isPureHoldRefund, reconcileBillingHold } from './billing-hold-reconciliation';
-import { checkBudget, releaseBudgetReservation } from './budgets';
+import { type BudgetCrossing, checkBudget, releaseBudgetReservation } from './budgets';
 import { validateGatewayKey } from './gateway-keys';
 import { resolveDefaultModelForPrincipal } from './resolution/default-model';
-import { resolveCandidates } from './resolution/resolve-candidates';
 import { resolveSessionPersonalOwner } from '../projects/lib/personal-resources';
-import { resolveGatewayRoute } from './routing';
 
 // ─── Canonical gateway control plane ────────────────────────────────────────
 //
@@ -49,9 +49,32 @@ export async function authenticatePrincipal(token: string): Promise<AuthedPrinci
 
 async function resolvePrincipalWithReason(
   token: string,
-): Promise<{ principal: AuthedPrincipal | null; reason: string | null }> {
+): Promise<{
+  principal: AuthedPrincipal | null;
+  reason: string | null;
+  /** Set when the presented secret hash-matches a stored credential that is
+   *  refused (revoked/expired/dead/lease-closed). The gateway refusal stays
+   *  401 but now carries its real identity so the trace lands on the owning
+   *  account (KRTX-1749). Absent when no row matches: garbage stays
+   *  unattributed. */
+  refusedPrincipal?: AuthedPrincipal;
+}> {
   if (isGatewayKey(token)) {
-    return { principal: await validateGatewayKey(token), reason: null };
+    const gw = await validateGatewayKey(token);
+    if (!gw) return { principal: null, reason: null };
+    if (gw.refused) {
+      return {
+        principal: null,
+        reason: null,
+        refusedPrincipal: {
+          userId: gw.userId,
+          accountId: gw.accountId,
+          projectId: gw.projectId,
+          keyId: gw.keyId,
+        },
+      };
+    }
+    return { principal: gw, reason: null };
   }
   const yolo = await attributeYoloToken(token);
   if (yolo) return { principal: yolo, reason: null };
@@ -84,7 +107,23 @@ async function resolvePrincipalWithReason(
       reason: null,
     };
   }
-  return { principal: null, reason: tokenRefusalReason(account.error) };
+  // The token refused but hash-matched a real row (revoked, expired, dead,
+  // lease closed): keep refusing, but attribute the refusal (KRTX-1749).
+  const refused = account.refusedIdentity;
+  const refusedPrincipal =
+    refused && refused.accountId && refused.userId
+      ? {
+          userId: refused.userId,
+          accountId: refused.accountId,
+          ...(refused.projectId ? { projectId: refused.projectId } : {}),
+          ...(refused.sessionId ? { sessionId: refused.sessionId } : {}),
+        }
+      : undefined;
+  return {
+    principal: null,
+    reason: tokenRefusalReason(account.error),
+    ...(refusedPrincipal ? { refusedPrincipal } : {}),
+  };
 }
 
 /**
@@ -142,12 +181,28 @@ function logGatewayBudgetWarnings(
   }
 }
 
+/**
+ * Email the budget's managers at 80% and 100% (KRTX-1718). Fire-and-forget,
+ * and lazy: no request waits on it, and the alert module (IAM, email) stays
+ * out of the request path's import graph.
+ */
+function alertBudgetCrossings(principal: AuthedPrincipal, crossings: BudgetCrossing[] | undefined): void {
+  const projectId = principal.projectId;
+  if (!crossings?.length || !projectId) return;
+  void import('./budget-alerts')
+    .then((alerts) => alerts.alertBudgetCrossings(projectId, crossings))
+    .catch((err: unknown) =>
+      logger.warn('[gateway] budget alert failed', { projectId, error: err instanceof Error ? err.message : String(err) }),
+    );
+}
+
 /** Throw with the budget message when a project/member gateway budget is exhausted. */
 export class GatewayBudgetExceededError extends Error {}
 
 export async function assertGatewayBudget(principal: AuthedPrincipal): Promise<void> {
-  const { exceeded, message, warnings } = await checkBudget(principal);
+  const { exceeded, message, warnings, crossings } = await checkBudget(principal);
   logGatewayBudgetWarnings(principal, warnings);
+  alertBudgetCrossings(principal, crossings);
   if (exceeded) throw new GatewayBudgetExceededError(message ?? 'Budget exceeded');
 }
 
@@ -165,11 +220,36 @@ export async function authorizeRequest(
     // Name the SANDBOX refusal when that is what happened. "Invalid token" for
     // a valid, unexpired token whose session was parked is a wrong answer, and
     // it costs whoever reads it a search through the wrong system.
+    //
+    // A refusal whose secret still hash-matches a stored credential (revoked
+    // key, dead PAT, parked session) carries that credential's identity: the
+    // gateway pipeline emits one attributed trace for it, so the refusal is
+    // visible in usage and logs (KRTX-1749). A token matching no row has no
+    // identity — the denial stays principal-less and unrecorded, so garbage
+    // traffic cannot flood the log store.
     return {
       ok: false,
       status: 401,
       errorCode: resolved.reason ? 'session_not_running' : 'invalid_token',
       message: resolved.reason ?? 'Invalid token',
+      ...(resolved.refusedPrincipal ? { principal: resolved.refusedPrincipal } : {}),
+    };
+  }
+  // A full-account PAT resolves with no projectId. Budgets are project-scoped
+  // (gateway_budgets.projectId NOT NULL — checkBudget would return
+  // { exceeded: false }) and metered usage is attributed to a project, so a
+  // project-less principal would bypass every budget gate and settle usage
+  // with projectId NULL (KRTX-2295). Refuse inference for it, before the
+  // billing gate so no admission hold is taken for a request we deny.
+  // /v1/llm/models still authenticates account PATs (authenticatePrincipal —
+  // listModels uses authenticate directly, never this gate).
+  if (!principal.projectId) {
+    return {
+      ok: false,
+      status: 403,
+      errorCode: 'project_required',
+      message:
+        'LLM inference requires a project context. Create a project gateway key (POST /v1/projects/{projectId}/gateway/keys) or use a project-scoped token.',
     };
   }
   // Old gateway processes omit deferBilling and still expect this RPC to take
@@ -188,8 +268,9 @@ export async function authorizeRequest(
       };
     }
   }
-  const { exceeded, message, warnings } = await checkBudget(principal);
+  const { exceeded, message, warnings, crossings } = await checkBudget(principal);
   logGatewayBudgetWarnings(principal, warnings);
+  alertBudgetCrossings(principal, crossings);
   if (exceeded) {
     // A legacy gateway can have a hold here. It refunds the hold when it sees
     // this denial's principal.
@@ -205,17 +286,31 @@ export async function authorizeRequest(
 }
 
 /**
+<<<<<<< HEAD
  * Apply the LLM wallet gate only to accounts that can spend wallet credits on
  * Dosco-managed models. Free-tier wallets fund sandbox compute only.
+=======
+ * Apply the LLM wallet gate to every request that can spend wallet credits on
+ * Kortix-managed models.
+ *
+ * An account without the managed-models entitlement (BYOK-only, whether by
+ * tier, trial, or operator override) settles its own keys and ChatGPT
+ * subscription at billingMode 'none' — nothing for this gate to fund — so the
+ * legacy non-deferred auth call (no model resolved yet) skips it. The one
+ * exception is the platform default: the ONE managed model every tier may use
+ * (KRTX-1067), which settles as credits. The deferred gateway path calls this
+ * only for a Kortix-billed request it already resolved (`creditsRequest`), so
+ * the floor applies there for every account — without it a drained free
+ * wallet ran platform-default turns with no admission hold and the settle
+ * (which never enforces a floor) drove the balance negative.
+>>>>>>> upstream-dev
  */
 export async function assertLlmBillingActive(
   accountId: string,
+  opts?: { creditsRequest?: boolean },
 ): Promise<{ holdUsd?: number } | void> {
-  // Accounts without the managed-models entitlement (BYOK-only, whether by
-  // tier, trial, or operator override) never spend wallet credits on managed
-  // inference — their wallets fund sandbox compute only, so skip the LLM gate.
   if (config.KORTIX_BILLING_INTERNAL_ENABLED) {
-    if (!(await accountMayUseManagedModels(accountId))) return;
+    if (!(await accountMayUseManagedModels(accountId)) && !opts?.creditsRequest) return;
   }
   return assertBillingActive(accountId);
 }
@@ -229,8 +324,7 @@ export async function assertLlmBillingActive(
  * — this reconciles it to the real `finalCost` instead of a flat deduct: tops
  * up the remainder if the real cost exceeds the hold, refunds the unused
  * portion otherwise (always the case for a pure hold-refund, where finalCost
- * is 0). Otherwise (no hold — billing disabled, self-host, or an active
- * per-seat subscription that bypasses the wallet floor) falls back to the
+ * is 0). Otherwise (no hold — billing disabled or self-host) falls back to the
  * original flat deduct, skipped entirely when the route isn't billable
  * (billingMode === 'none').
  */
@@ -268,6 +362,38 @@ function extendDeadlineForLlmActivity(sessionId: string | null | undefined): voi
   );
 }
 
+/**
+ * The BYOK platform fee this request owes (billing/services/byok-fee.ts), or 0.
+ * A failed lookup charges nothing: it must never fail the settlement.
+ */
+async function byokFeeFor(event: UsageEvent): Promise<number> {
+  if (event.billingMode !== 'none' || !config.KORTIX_BILLING_INTERNAL_ENABLED) return 0;
+  const cost = event.upstreamCost ?? 0;
+  if (cost <= 0) return 0;
+  try {
+    const [monthToDateUsd, billing] = await Promise.all([
+      byokMonthToDateUsd(event.accountId),
+      resolveAccountBilling(event.accountId),
+    ]);
+    const fee = byokFeeUsd({
+      provider: event.provider,
+      upstreamCostUsd: cost,
+      monthToDateUsd,
+      // An entitlement, on by default: Enterprise turns it off, and an
+      // operator override turns it off (or on) for one account.
+      feeApplies: billing.entitlements.byokFee,
+    });
+    noteByokUsage(event.accountId, event.provider, cost);
+    return fee;
+  } catch (err) {
+    logger.warn('[byok-fee] lookup failed; no fee charged', {
+      accountId: event.accountId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
+}
+
 export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   // The request is over: its cost is in the logged spend (or it cost nothing),
   // so its in-flight budget reservation must stop counting.
@@ -275,6 +401,8 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   const pureHoldRefund = isPureHoldRefund(event);
   // A pure hold refund observed nothing — no upstream call happened.
   if (!pureHoldRefund) extendDeadlineForLlmActivity(event.sessionId);
+  // On a customer's own key the only Kortix charge is the BYOK fee.
+  const byokFee = pureHoldRefund ? 0 : await byokFeeFor(event);
 
   const usageEventId = pureHoldRefund
     ? null
@@ -290,7 +418,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
         outputTokens: event.completionTokens,
         cachedTokens: event.cachedTokens,
         cacheWriteTokens: event.cacheWriteTokens,
-        costUsd: event.finalCost,
+        costUsd: byokFee > 0 ? byokFee : event.finalCost,
         streaming: event.streaming,
         // One row per gateway request: a retried settlement finds this row,
         // and the debit keyed on its id (`llm:<event id>`) runs once.
@@ -300,6 +428,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
           markup: llmPriceMarkup(),
           requestId: event.requestId,
           billingMode: event.billingMode,
+          ...(byokFee > 0 ? { byokFeeUsd: byokFee } : {}),
           // The stream ended before the provider reported usage; the token
           // counts are the gateway's estimate (see usage/estimate.ts).
           ...(event.usageEstimated ? { usageEstimated: true } : {}),
@@ -333,7 +462,10 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
     return;
   }
 
-  if (event.billingMode === 'none') return;
+  if (event.billingMode === 'none') {
+    if (byokFee > 0) await settleLlmUsage(event, byokFee, usageEventId, 'BYOK fee');
+    return;
+  }
   await settleLlmUsage(event, event.finalCost, usageEventId);
 }
 
@@ -343,14 +475,19 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
  * drained wallet and the spend would disappear from the ledger — which is
  * exactly what happened for a full billing period.
  */
-async function settleLlmUsage(event: UsageEvent, costUsd: number, usageEventId: string | null): Promise<void> {
+async function settleLlmUsage(
+  event: UsageEvent,
+  costUsd: number,
+  usageEventId: string | null,
+  label = 'LLM',
+): Promise<void> {
   if (costUsd <= 0) return;
   const markup = llmPriceMarkup();
   const hasAudit = Boolean(usageEventId) || event.upstreamCost != null;
   await settleAndCheckAutoTopup({
     accountId: event.accountId,
     amount: costUsd,
-    description: `LLM · ${event.provider ? `${event.provider}/` : ''}${event.model}`,
+    description: `${label} · ${event.provider ? `${event.provider}/` : ''}${event.model}`,
     kind: 'llm_debit',
     key: usageEventId ? { request: `llm:${usageEventId}` } : null,
     audit: hasAudit
@@ -442,8 +579,12 @@ export function emitGatewayGenAiSpan(trace: GatewayTrace): void {
 
 /** Persist a request trace to gateway_request_logs (skips unauthenticated traces). */
 export async function persistGatewayTrace(trace: GatewayTrace): Promise<void> {
-  // Pre-auth failures (401) carry no accountId — nothing useful to attribute.
+  // Unknown credentials carry no accountId — nothing useful to attribute.
   if (!trace.accountId) return;
+  // KRTX-2631: account-only refusals intentionally remain DB-forensics-only.
+  // Persist their real accountId with projectId = null; do not infer a project.
+  // Product list/detail readers stay project-scoped. An account-scoped reader
+  // needs a separate account-membership authorization contract.
   await recordGatewayTrace({
     requestId: trace.requestId,
     accountId: trace.accountId,
@@ -474,6 +615,10 @@ export async function persistGatewayTrace(trace: GatewayTrace): Promise<void> {
     metadata: {
       ...trace.metadata,
       ...(trace.attemptFailures?.length ? { attemptFailures: trace.attemptFailures } : {}),
+      // Read by `sessionModelUsage`: the session screen names the model each
+      // request ended up on, and the model it stood in for.
+      ...(trace.servedModel ? { servedModel: trace.servedModel } : {}),
+      ...(trace.fallbackFrom ? { fallbackFrom: trace.fallbackFrom } : {}),
     },
   });
   // Non-blocking: never let telemetry delay the caller or affect the trace write.

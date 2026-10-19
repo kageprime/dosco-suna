@@ -83,11 +83,13 @@ describe('secrets-registry pure helpers', () => {
     expect(servicesForKeys([])).toEqual([]);
   });
 
-  test('ROTATABLE_GENERATED_KEYS excludes the internal Supabase-infra encryption keys', () => {
+  test('ROTATABLE_GENERATED_KEYS excludes every key whose new value breaks stored data', () => {
     for (const infraKey of ['SECRET_KEY_BASE', 'REALTIME_DB_ENC_KEY', 'VAULT_ENC_KEY', 'PG_META_CRYPTO_KEY']) {
       expect(ROTATABLE_GENERATED_KEYS).not.toContain(infraKey);
     }
-    expect(ROTATABLE_GENERATED_KEYS).toContain('POSTGRES_PASSWORD');
+    // The data encryption key, and the password initdb gave the database roles.
+    expect(ROTATABLE_GENERATED_KEYS).not.toContain('API_KEY_SECRET');
+    expect(ROTATABLE_GENERATED_KEYS).not.toContain('POSTGRES_PASSWORD');
     expect(ROTATABLE_GENERATED_KEYS).toContain('SUPABASE_JWT_SECRET');
   });
 
@@ -217,6 +219,16 @@ describe('missingRequiredSecrets', () => {
     });
     const missing = missingRequiredSecrets(env);
     expect(missing.some((m) => m.hint.includes('TUNNEL_SIGNING_SECRET'))).toBe(true);
+  });
+
+  // `env rotate POSTGRES_PASSWORD` is refused (the roles keep the first-start
+  // value), so the missing-secret text must not send the operator there.
+  test('a blank POSTGRES_PASSWORD says to restore the first-start value, not to rotate it', () => {
+    const missing = missingRequiredSecrets(baseEnv({ DAYTONA_API_KEY: 'dtn_live_key', POSTGRES_PASSWORD: '' }));
+    const postgres = missing.find((m) => m.hint.includes('POSTGRES_PASSWORD'));
+    expect(postgres?.label).toContain('restore that value');
+    expect(postgres?.label).toContain('`env rotate` refuses it');
+    expect(postgres?.label).not.toContain('regenerate via `env rotate`');
   });
 });
 
@@ -386,17 +398,67 @@ describe('kortix self-host env (CLI)', () => {
     expect(readEnv().SECRET_KEY_BASE).toBe(before);
   });
 
+  // API_KEY_SECRET is the one encryption key for every stored credential and
+  // the pepper of every token hash: a new value leaves all of them
+  // undecryptable, with no copy of the old one. POSTGRES_PASSWORD reaches the
+  // services but not the database roles, which initdb set once.
+  for (const key of ['API_KEY_SECRET', 'POSTGRES_PASSWORD']) {
+    test(`env rotate ${key} is refused and says why`, async () => {
+      await run(['init', '--yes']);
+      const before = readEnv()[key];
+      const { code, stderr } = await run(['env', 'rotate', key]);
+      expect(code).toBe(2);
+      expect(stderr).toContain(`Refusing to rotate ${key}`);
+      expect(stderr).toMatch(key === 'API_KEY_SECRET' ? /undecryptable/ : /role passwords/);
+      expect(readEnv()[key]).toBe(before);
+    });
+  }
+
+  // `env set API_KEY_SECRET=<new>` loses every stored credential, the same
+  // loss `env rotate` refuses (KRTX-1719). It warns, and a non-interactive run
+  // changes it only with --yes.
+  test('env set API_KEY_SECRET without --yes is refused, says why, and writes nothing', async () => {
+    await run(['init', '--yes']);
+    const before = readEnv();
+    const { code, stderr } = await run(['env', 'set', 'API_KEY_SECRET=synthetic-new-data-key', 'OPENROUTER_API_KEY=sk-or-test-456']);
+    expect(code).toBe(2);
+    expect(stderr).toMatch(/undecryptable/);
+    expect(stderr).toContain('Refusing to change API_KEY_SECRET');
+    expect(stderr).toContain('--yes');
+    const after = readEnv();
+    expect(after.API_KEY_SECRET).toBe(before.API_KEY_SECRET);
+    expect(after.OPENROUTER_API_KEY).toBe(before.OPENROUTER_API_KEY);
+  });
+
+  test('env set API_KEY_SECRET with --yes warns and writes the new value', async () => {
+    await run(['init', '--yes']);
+    const { code, stderr } = await run(['env', 'set', 'API_KEY_SECRET=synthetic-new-data-key', '--yes']);
+    expect(code).toBe(0);
+    expect(stderr).toMatch(/undecryptable/);
+    expect(readEnv().API_KEY_SECRET).toBe('synthetic-new-data-key');
+  });
+
+  test('env set API_KEY_SECRET to its current value needs no confirmation', async () => {
+    await run(['init', '--yes']);
+    const current = readEnv().API_KEY_SECRET;
+    const { code, stderr } = await run(['env', 'set', `API_KEY_SECRET=${current}`]);
+    expect(code).toBe(0);
+    expect(stderr).not.toContain('Refusing');
+    expect(readEnv().API_KEY_SECRET).toBe(current);
+  });
+
   test('env rotate --all-generated rotates every rotatable key and leaves non-rotatable infra keys untouched', async () => {
     await run(['init', '--yes']);
     const before = readEnv();
     const { code } = await run(['env', 'rotate', '--all-generated']);
     expect(code).toBe(0);
     const after = readEnv();
-    expect(after.POSTGRES_PASSWORD).not.toBe(before.POSTGRES_PASSWORD);
     expect(after.DASHBOARD_PASSWORD).not.toBe(before.DASHBOARD_PASSWORD);
     expect(after.GATEWAY_INTERNAL_TOKEN).not.toBe(before.GATEWAY_INTERNAL_TOKEN);
     expect(after.TUNNEL_SIGNING_SECRET).not.toBe(before.TUNNEL_SIGNING_SECRET);
-    // Deliberately excluded infra keys must survive untouched.
+    // Deliberately excluded keys must survive untouched.
+    expect(after.API_KEY_SECRET).toBe(before.API_KEY_SECRET);
+    expect(after.POSTGRES_PASSWORD).toBe(before.POSTGRES_PASSWORD);
     expect(after.SECRET_KEY_BASE).toBe(before.SECRET_KEY_BASE);
     expect(after.VAULT_ENC_KEY).toBe(before.VAULT_ENC_KEY);
     expect(after.DASHBOARD_USERNAME).toBe(before.DASHBOARD_USERNAME);

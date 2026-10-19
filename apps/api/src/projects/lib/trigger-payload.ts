@@ -31,6 +31,31 @@ export function templateValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/**
+ * UTC calendar fields of a cron slot, for `session_key` templates. A keyed
+ * trigger with `{{ cron.scheduled_date }}` in its key gets one session per UTC
+ * day, so a frequent coordinator's history is bounded to one day of passes
+ * instead of growing until the model's context limit.
+ */
+export function cronSlotFields(scheduledFor: Date) {
+  const iso = scheduledFor.toISOString();
+  return { scheduled_date: iso.slice(0, 10), scheduled_hour: iso.slice(0, 13) };
+}
+
+/** Deep-merge `override` over `base`: plain objects merge, any other value replaces. */
+export function mergeTriggerPayload(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  const out = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    if (key === '__proto__') continue;
+    out[key] = isObject(out[key]) && isObject(value) ? mergeTriggerPayload(out[key], value) : value;
+  }
+  return out;
+}
+
 export function renderPromptTemplate(template: string, payload: Record<string, unknown>) {
   return template.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_match, token: string) => {
     const [root, ...path] = token.split('.');

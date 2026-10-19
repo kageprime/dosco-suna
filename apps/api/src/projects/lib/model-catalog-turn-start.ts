@@ -38,13 +38,8 @@
  */
 
 import { resolveSandboxIngress } from '../../sandbox-proxy/backend';
+import { SANDBOX_SERVICE_PORT } from './sandbox-env-transport';
 import { loadActiveSandbox } from './sandbox-runtime-refresh';
-import {
-  lastKnownManagedCatalog,
-  modelConfirmation,
-  noteModelConfirmation,
-  noteRunningCatalog,
-} from '../../runtime-assets/running-catalog';
 import { logger } from '../../lib/logger';
 
 /**
@@ -66,7 +61,6 @@ export interface ModelCatalogConvergeDeps {
   fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 }
 
-const SANDBOX_SERVICE_PORT = 8000;
 
 const defaultConvergeDeps: ModelCatalogConvergeDeps = {
   loadActiveSandbox,
@@ -77,7 +71,8 @@ const defaultConvergeDeps: ModelCatalogConvergeDeps = {
 
 /** `POST /kortix/catalog/converge`. Null on any failure to reach or parse —
  *  the caller treats that as "could not repair", never as "confirmed absent"
- *  or "confirmed present". */
+ *  or "confirmed present". `unsupported`: the box answered 404, so its runtime
+ *  has no catalog to converge (pi). */
 export async function convergeSandboxModelCatalog(
   sessionId: string,
   deps: ModelCatalogConvergeDeps = defaultConvergeDeps,
@@ -97,6 +92,7 @@ export async function convergeSandboxModelCatalog(
       ...(model ? { body: JSON.stringify({ model }) } : {}),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
+    if (res.status === 404) return { outcome: 'unsupported' };
     if (!res.ok) return null;
     const body = (await res.json().catch(() => null)) as
       | { outcome?: unknown; missing?: unknown; model_present?: unknown }
@@ -205,6 +201,9 @@ export async function convergeModelCatalogBeforeTurnStart(
     if (!deps.isManagedModelId(requestedManagedModelId)) {
       return await convergeOneModel(sessionId, requestedManagedModelId, deps);
     }
+    // The box said it cannot converge its catalog (pi): asking again is
+    // pointless until the TTL lapses. It cost every prompt a probe and a 404.
+    if (deps.modelConfirmation(sessionId, requestedManagedModelId) === 'legacy') return { decision: 'skipped' };
     let known = deps.lastKnown(sessionId);
     if (known === undefined) known = await deps.probe(sessionId).catch(() => undefined);
     if (known?.ids && known.ids.includes(requestedManagedModelId)) return { decision: 'current' };
@@ -214,6 +213,10 @@ export async function convergeModelCatalogBeforeTurnStart(
     // unnecessary (the model landed between our probe and this call) costs
     // one `unchanged` response, not a wrong restart.
     const result = await deps.convergeCatalog(sessionId);
+    if (result?.outcome === 'unsupported') {
+      deps.noteModelConfirmation(sessionId, null);
+      return { decision: 'skipped' };
+    }
     return result ? { decision: 'converged', daemonOutcome: result.outcome } : { decision: 'unknown' };
   } catch (error) {
     logger.warn('[projects] turn-start model-catalog convergence threw', {
@@ -247,31 +250,4 @@ async function convergeOneModel(
   }
   if (result.modelPresent) deps.noteModelConfirmation(sessionId, model);
   return { decision: 'converged', daemonOutcome: result.outcome };
-}
-
-/**
- * Record what a health read said about this box's managed catalog. Called
- * from the SAME probe `turn-start-convergence.ts`'s `noteAssetsFromHealth`
- * already runs — never a second network call.
- */
-export function noteManagedCatalogFromHealth(
-  sessionId: string,
-  ids: string[] | null,
-  fallbackReason: string | null,
-): void {
-  noteRunningCatalog(sessionId, ids, fallbackReason);
-}
-
-export function defaultModelCatalogTurnStartDeps(
-  isManagedModelId: (id: string) => boolean,
-  probe: (sessionId: string) => Promise<RunningCatalogLookup | undefined>,
-): ModelCatalogTurnStartDeps {
-  return {
-    isManagedModelId,
-    lastKnown: lastKnownManagedCatalog,
-    probe,
-    convergeCatalog: async (sessionId, model) => convergeSandboxModelCatalog(sessionId, undefined, model),
-    modelConfirmation,
-    noteModelConfirmation,
-  };
 }

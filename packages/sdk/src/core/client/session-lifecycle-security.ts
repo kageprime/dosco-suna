@@ -29,12 +29,19 @@ export function bindSessionLifecycleSecurity(ctx: SessionBindingContext) {
       P.getSessionTranscript(ctx.projectId, ctx.sessionId, options),
     /** Who wrote each message: a member, or another session's agent. */
     messageAuthors: () => P.getSessionMessageAuthors(ctx.projectId, ctx.sessionId),
+    /** Which model answered each turn, and what Kortix billed for it. */
+    modelUsage: () => P.getSessionModelUsage(ctx.projectId, ctx.sessionId),
     /** The DURABLE server-side transcript mirror, in sync-store shape
      *  (OpenCode message envelopes verbatim, attachment bytes and tool
      *  inputs/outputs stripped). This is the read that answers while the
      *  sandbox is stopped or still waking. */
     transcriptSync: (options?: Parameters<typeof P.getSessionTranscriptSync>[2]) =>
       P.getSessionTranscriptSync(ctx.projectId, ctx.sessionId, options),
+    /** One page of one thread of the stored session log (`kortix.session/2`), read from the
+     *  API's Postgres, so it answers while the sandbox is stopped. Null when the session has
+     *  no stored log yet, or no such thread. Older pages: `before_seq` = the first `seq`. */
+    log: (query?: Parameters<typeof P.getSessionLogPage>[2]) =>
+      P.getSessionLogPage(ctx.projectId, ctx.sessionId, query),
     /** Which turns are running right now, and how did the last one end?
      *  Server truth from the control plane's lifecycle authority, independent
      *  of the live stream. */
@@ -51,6 +58,9 @@ export function bindSessionLifecycleSecurity(ctx: SessionBindingContext) {
       /** Replace a waiting prompt's text in place; sends nothing. */
       edit: (promptId: string, text: string) =>
         P.editSessionPrompt(ctx.projectId, ctx.sessionId, promptId, text),
+      /** "Stop and send": a waiting prompt becomes Quick Queue. */
+      interrupt: (promptId: string) =>
+        P.interruptSessionPrompt(ctx.projectId, ctx.sessionId, promptId),
       /** Hold (or release) the whole queue — what the Stop button writes. */
       hold: (held: boolean) => P.holdSessionPrompts(ctx.projectId, ctx.sessionId, held),
     },

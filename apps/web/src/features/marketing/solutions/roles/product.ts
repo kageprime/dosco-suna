@@ -5,7 +5,11 @@ export const product: RoleContent = {
   slug: 'product',
   name: 'Product',
   navDescription: 'Feedback synthesised into specs, with the evidence attached',
+<<<<<<< HEAD
   seoTitle: 'Dosco for product teams',
+=======
+  seoTitle: 'AI agents for product teams',
+>>>>>>> upstream-dev
   seoDescription:
     'Turn scattered feedback into a spec with the evidence attached, keep the tracker honest, and write the release notes from the actual diff. Everything lands as a document a person reviews.',
 

@@ -29,7 +29,7 @@ mock.module('@aws-sdk/credential-provider-node', () => ({
   defaultProvider: () => async () => providerCredentials,
 }));
 
-const { configuredEmailProviders, isEmailConfigured, sendEmail } = await import('./transport');
+const { sendEmail } = await import('./transport');
 
 const originalFetch = globalThis.fetch;
 const originalContainerCredentialsRelativeUri = process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI;
@@ -91,6 +91,7 @@ const MSG = {
   category: 'unit-test',
 };
 
+<<<<<<< HEAD
 describe('configuredEmailProviders', () => {
   test('empty when no provider credentials are set', () => {
     expect(configuredEmailProviders()).toEqual([]);
@@ -129,6 +130,8 @@ describe('configuredEmailProviders', () => {
   });
 });
 
+=======
+>>>>>>> upstream-dev
 describe('sendEmail', () => {
   test('skips with email_not_configured when no provider is set', async () => {
     const result = await sendEmail(MSG);

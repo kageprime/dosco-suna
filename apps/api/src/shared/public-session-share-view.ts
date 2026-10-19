@@ -38,6 +38,9 @@ import {
 } from '../projects/lib/session-transcript-mirror';
 import type { PublicShareRow } from './session-public-shares';
 
+/** Bounds the tool input and output `compactMessage` reads; `toPublicMessage`
+ *  drops both. Message text is the full answer, line breaks kept, so the page
+ *  renders the same markdown the session shows. */
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_MESSAGES = 200;
 
@@ -126,16 +129,24 @@ export interface PublicSessionTranscript {
   messages: CompactPublicMessage[];
 }
 
-/** Seam for tests: production reads the mirror from PostgreSQL. */
+/** The stored-transcript read. The route passes `readStoredTranscriptWindow`
+ *  (the session log when the project flag `session_log` is on, else the
+ *  mirror); without it, the mirror. Tests inject their own. */
 export interface PublicSessionMessagesDeps {
   readMirror?: (sessionId: string, limit: number) => Promise<MirrorSnapshot | null>;
 }
 
+const readMirrorOnly = (sessionId: string, limit: number) => readSessionTranscriptMirror({ sessionId, limit });
+
 /** A mirror read that fails reads as "nothing saved": this is a best-effort
  *  fallback on an anonymous route, and it must never 500 it. */
-async function readMirrorSafely(sessionId: string, limit: number): Promise<MirrorSnapshot | null> {
+async function readMirrorSafely(
+  read: NonNullable<PublicSessionMessagesDeps['readMirror']>,
+  sessionId: string,
+  limit: number,
+): Promise<MirrorSnapshot | null> {
   try {
-    return await readSessionTranscriptMirror({ sessionId, limit });
+    return await read(sessionId, limit);
   } catch (err) {
     console.warn('[public-session-share-view] saved transcript read failed:', err);
     return null;
@@ -186,7 +197,7 @@ function fromMirror(
   opencodeSessionId: string | null,
 ): PublicSessionTranscript {
   const messages = mirror.messages.map((m) =>
-    toPublicMessage(compactMessage({ info: m.info as never, parts: m.parts as never }, MAX_MESSAGE_CHARS)),
+    toPublicMessage(compactMessage({ info: m.info as never, parts: m.parts as never }, MAX_MESSAGE_CHARS, true)),
   );
   return {
     available: true,
@@ -222,7 +233,7 @@ export async function getPublicSessionMessages(
   row: Pick<PublicShareRow, 'sessionId'> & { externalId: string | null; sandboxStatus: string | null },
   deps: PublicSessionMessagesDeps = {},
 ): Promise<PublicSessionMessagesResult> {
-  const readMirror = deps.readMirror ?? readMirrorSafely;
+  const readMirror = (sessionId: string, limit: number) => readMirrorSafely(deps.readMirror ?? readMirrorOnly, sessionId, limit);
   const degrade = async (
     reason: string,
     opencodeSessionId: string | null = null,
@@ -286,7 +297,7 @@ export async function getPublicSessionMessages(
       captured_at: null,
       opencode_session_id: rootId,
       message_count: rawMessages.length,
-      messages: rawMessages.map((m) => toPublicMessage(compactMessage(m, MAX_MESSAGE_CHARS))),
+      messages: rawMessages.map((m) => toPublicMessage(compactMessage(m, MAX_MESSAGE_CHARS, true))),
     },
   };
 }

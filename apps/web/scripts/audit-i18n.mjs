@@ -134,9 +134,14 @@ function designSystemTokens(key, sourceValue) {
 const ignoredPathParts = [
   '/.next/',
   '/node_modules/',
+  // Re-export shims of @kortix/ui (packages/ui/src, outside this walk). Package
+  // copy is English defaults in UiStrings, translated through KortixUiProvider.
   '/src/components/ui/',
   '/src/app/fonts/',
   '/src/app/[locale]/(system)/debug/',
+  // Tool-call fixtures (#9815): sample harness output rendered only by the tool
+  // tests and /debug/session-fixture, never product copy.
+  '/src/features/session/tool/foreign-tool-calls.ts',
   '/src/types/',
   '/__harness__/',
   // Unannounced, noindex launch film and /launch page (#8023, #8045): the copy
@@ -148,6 +153,12 @@ const ignoredPathParts = [
   // Legal texts are English only by design: one authoritative version, like
   // the Terms of Service PDF (#8315). Their page chrome still uses i18n keys.
   '/src/app/[locale]/(public)/(seo)/legal/',
+  // Pure fixture data (#9815): the foreign-tool-call samples mirror the codex and
+  // claude-code golden fixtures in @kortix/api-contract, and /debug/session-fixture
+  // (itself exempt above) renders them. The strings are fixture content the
+  // renderers parse, not UI copy; wrapping them in i18n keys would corrupt the
+  // data and the tests that import the array verbatim.
+  '/src/features/session/tool/foreign-tool-calls.ts',
 ];
 
 const ignoredFilePattern = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
@@ -828,8 +839,6 @@ function scanFile(file) {
       const coveredAuditTitleText =
         file === path.join(srcDir, 'components/iam/audit-display-helpers.ts') &&
         localizedAuditTitleText.has(node.text);
-      const coveredStarterPromptText =
-        file === path.join(srcDir, 'lib/starter-prompts.ts') && ['label', 'prompt'].includes(name);
       const coveredSessionsCopy =
         file === path.join(srcDir, 'features/workspace/settings/tabs/sessions-tab.tsx') &&
         [
@@ -845,6 +854,13 @@ function scanFile(file) {
       const coveredOnboardingProfileFixture =
         file === path.join(srcDir, 'components/projects/onboarding/onboarding-profile.ts') &&
         catalogRoot === 'USE_CASE_OPTIONS';
+      // The foreign-harness sample payloads (Codex / Claude Code session-log
+      // fixtures) are synthetic DATA, not UI copy: they render as sample tool
+      // content in tests and /debug/session-fixture, and translating what a
+      // foreign harness sent would falsify the fixture.
+      const coveredForeignToolFixture =
+        file === path.join(srcDir, 'features/session/tool/foreign-tool-calls.ts') &&
+        catalogRoot === 'FOREIGN_TOOL_CALLS';
       const coveredCompanyOsMessageKey =
         file === path.join(srcDir, 'features/marketing/company-os-sections.tsx') &&
         ['codePoints', 'runsPoints'].includes(catalogRoot);
@@ -939,7 +955,7 @@ function scanFile(file) {
           catalogRoot === 'CARD_COPY') ||
         (file ===
           path.join(srcDir, 'features/workspace/capabilities/shared/capability-tab-routes.ts') &&
-          catalogRoot === 'CAPABILITY_TABS') ||
+          ['CAPABILITY_TABS', 'FLAGGED_CAPABILITY_TABS'].includes(catalogRoot)) ||
         (file === path.join(srcDir, 'features/workspace/customize/sections/connectors-view.tsx') &&
           ['POLICY_CHOICES', 'POLICY_LABEL'].includes(catalogRoot)) ||
         (file === path.join(srcDir, 'features/workspace/customize/sections/gateway-view.tsx') &&
@@ -966,8 +982,6 @@ function scanFile(file) {
         (file === path.join(srcDir, 'lib/kortix/task-meta.ts') && catalogRoot === 'STATUS_META') ||
         (file === path.join(srcDir, 'lib/agent-discovery.ts') &&
           ['API_CATALOG', 'MCP_SERVER_CARD'].includes(catalogRoot)) ||
-        (file === path.join(srcDir, 'lib/mcp/public-content-server.ts') &&
-          catalogRoot === 'TOOL_DEFINITIONS') ||
         (file === path.join(srcDir, 'components/setup-links/setup-link-button.tsx') &&
           catalogRoot === 'COPY') ||
         (file === path.join(srcDir, 'features/billing/cost-explorer/cost-chart.tsx') &&
@@ -981,7 +995,7 @@ function scanFile(file) {
           catalogRoot === 'openSource' &&
           localizedRemainingUiText.has(node.text)) ||
         (file === path.join(srcDir, 'features/marketing/how-it-work/step/step-computer.tsx') &&
-          catalogRoot === 'TOOL_PARTS' &&
+          catalogRoot === 'TOOL_CALLS' &&
           node.text === 'Run the billing suite') ||
         (file === path.join(srcDir, 'features/project-files/components/drive-grid-view.tsx') &&
           catalogRoot === 'ELEVATED_DIR_META') ||
@@ -1017,7 +1031,7 @@ function scanFile(file) {
         (file === path.join(srcDir, 'features/marketing/landing/code-panels.tsx') &&
           catalogRoot === 'TOKEN_CLASS') ||
         (file === path.join(srcDir, 'features/marketing/how-it-work/step/step-computer.tsx') &&
-          catalogRoot === 'TOOL_PARTS' &&
+          catalogRoot === 'TOOL_CALLS' &&
           node.text === 'bun test apps/api/src/billing') ||
         (file === path.join(srcDir, 'features/session/attachment-mime.ts') &&
           catalogRoot === 'MIME_BY_EXTENSION') ||
@@ -1109,10 +1123,10 @@ function scanFile(file) {
         !coveredRoleText &&
         !coveredSiteConfigText &&
         !coveredAuditTitleText &&
-        !coveredStarterPromptText &&
         !coveredSessionsCopy &&
         !coveredSettingsRail &&
         !coveredOnboardingProfileFixture &&
+        !coveredForeignToolFixture &&
         !coveredCompanyOsMessageKey &&
         !coveredRoleCapabilityCopy &&
         !coveredSnapshotsFallbackCopy &&

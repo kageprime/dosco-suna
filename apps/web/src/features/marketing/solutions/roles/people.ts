@@ -5,7 +5,11 @@ export const people: RoleContent = {
   slug: 'people',
   name: 'People',
   navDescription: 'Scheduling, kits and onboarding — never the hiring decision',
+<<<<<<< HEAD
   seoTitle: 'Dosco for people and recruiting teams',
+=======
+  seoTitle: 'AI agents for people and recruiting teams',
+>>>>>>> upstream-dev
   seoDescription:
     'Interview kits, scheduling, onboarding runs and policy answers drawn from your own handbook. Dosco does the coordination; a person makes every decision about a person.',
 

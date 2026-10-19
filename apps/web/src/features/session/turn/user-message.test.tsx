@@ -5,40 +5,62 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MentionChip, chipClass } from '@/features/session/mention-chip';
-import type { MessageWithParts } from '@/ui';
+import { sessionLogOfV1Rows, type SessionLogMessage } from '@kortix/sdk';
 import { useSessionStateStore } from '@kortix/sdk/react';
 
 import enMessages from '../../../../translations/en.json';
 import { adoptSentAttachmentPreviews } from '../sent-attachment-previews';
-import { buildOptimisticPromptTextWithUploads, sentAttachmentsOf } from '../uploaded-file-refs';
+import {
+  buildOptimisticPromptTextWithUploads,
+  promptFileParts,
+  sentAttachmentsOf,
+  uploadedFileRefXml,
+} from '../uploaded-file-refs';
+import { serializePromptWithPastes } from '@kortix/shared';
 import {
   MessageAttachments,
   UserMessage,
   UserMessageBubble,
+  editResendAttachments,
   editablePromptText,
   normalizeAttachments,
+  userMessageCopyText,
 } from './user-message';
+import { pastedTextCounts } from '../pasted-text';
+
+/** A v1 store row: the fixtures are written as v1 rows and read through the converter. */
+type V1Row = Parameters<typeof sessionLogOfV1Rows>[2][number];
+
+/** The session-log message the transcript reads for one v1 row (`sessionLogOfV1Rows`, flag off). */
+const logOf = (row: V1Row): SessionLogMessage =>
+  sessionLogOfV1Rows('session-1', 'ses_runtime', [row]).threads[0]!.messages[0]!;
+
+/** The blocks of a user row that holds `parts`. */
+const blocksOf = (parts: unknown[]) => logOf({ info: { id: 'm', role: 'user' }, parts } as never).blocks;
 
 const message = {
   info: { id: 'message-1', role: 'user' },
   parts: [{ id: 'part-1', messageID: 'message-1', type: 'text', text: 'ship the thing' }],
-} as MessageWithParts;
+} as V1Row;
+
+/** A synthetic UUID, for `kortix-attachment://` refs. */
+const UUID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 /** The same message, stamped. Wednesday 12 August 2026, 09:34 UTC. */
 const stamped = {
   ...message,
   info: { ...message.info, time: { created: Date.UTC(2026, 7, 12, 9, 34) } },
-} as MessageWithParts;
+} as V1Row;
 
 /** `TooltipProvider` because an enabled rewind renders `Hint`, and Radix's
  *  tooltip throws without a provider above it — the app root supplies one. */
-const render = (rewindDisabled: boolean, msg: MessageWithParts = message) =>
+const render = (rewindDisabled: boolean, msg: V1Row = message) =>
   renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
       <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
         <TooltipProvider>
           <UserMessage
-            message={msg}
+            message={logOf(msg)}
             sessionId="session-1"
             ownsPlan={false}
             onRewind={() => {}}
@@ -55,12 +77,12 @@ const renderText = (text: string, props: Record<string, unknown> = {}) =>
     <QueryClientProvider client={new QueryClient()}>
       <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
         <UserMessage
-          message={
+          message={logOf(
             {
               info: { id: 'message-1', role: 'user' },
               parts: [{ id: 'part-1', messageID: 'message-1', type: 'text', text }],
-            } as MessageWithParts
-          }
+            } as V1Row,
+          )}
           sessionId="session-1"
           ownsPlan={false}
           {...props}
@@ -72,10 +94,25 @@ const renderText = (text: string, props: Record<string, unknown> = {}) =>
 describe('UserMessage actions', () => {
   test('keeps copy available while rewind is disabled', () => {
     const markup = render(true);
-    expect(markup).toContain('aria-label="Copy code"');
+    expect(markup).toContain('aria-label="Copy"');
     expect(markup).not.toContain('aria-label="Edit message and rewind session"');
   });
 
+  test('the delivery status sits at the right edge, after the hover-revealed meta', () => {
+    // The faded meta group keeps its width while invisible, and the server
+    // stamp lands while the prompt is still delivering. A status to its left
+    // jumped sideways when the stamp arrived.
+    const markup = renderText('ship the thing', {
+      message: logOf(stamped),
+      onRewind: () => {},
+      rewindDisabled: true,
+      deliveryStatus: <span data-queued-status="sending">Sending</span>,
+    });
+    const status = markup.indexOf('data-queued-status="sending"');
+    expect(markup.indexOf('<time')).toBeGreaterThan(-1);
+    expect(status).toBeGreaterThan(markup.indexOf('<time'));
+    expect(status).toBeGreaterThan(markup.indexOf('aria-label="Copy"'));
+  });
 });
 
 describe('UserMessage renders the composer chip, not its own treatment', () => {
@@ -127,6 +164,21 @@ describe('UserMessage renders a /command exactly as the composer does', () => {
     expect(markup).not.toContain('THE-WHOLE-TEMPLATE-FILE');
   });
 
+  test("a template's XML sections are never drawn as system notification cards", () => {
+    // A skill body split into `<overview>`, `<when-to-load>`, … sections drew one
+    // info card per section above the chip, because the notification parser
+    // claims every XML block it is handed. A command's text is its template.
+    const template = '<overview>\nWhat it is.\n</overview>\n<when-to-load>\nAlways.\n</when-to-load>';
+    const markup = renderText(template, { commandInfo: { name: 'kortix-memory', args: 'd' } });
+    expect(markup).toContain('aria-label="command: /kortix-memory"');
+    expect(markup).not.toContain('Overview');
+    expect(markup).not.toContain('When to load');
+  });
+
+  test('a plain message still draws its notification card', () => {
+    expect(renderText('<build_failed>\nThe build failed.\n</build_failed>')).toContain('Build failed');
+  });
+
   test('a command with no args renders the chip alone', () => {
     const markup = renderText('THE-WHOLE-TEMPLATE-FILE', {
       commandInfo: { name: 'webapp' },
@@ -175,12 +227,12 @@ describe('UserMessageBubble — a clamped message is expandable without swallowi
 
   test('the expand affordance is a real button, named and stateful', () => {
     const collapsed = renderBubble();
-    expect(collapsed).toContain('aria-label="Expand message"');
+    expect(collapsed).toContain('>Show more</button>');
     expect(collapsed).toContain('aria-expanded="false"');
     expect(collapsed).toContain('aria-controls="m1-text"');
 
     const open = renderBubble({ expanded: true });
-    expect(open).toContain('aria-label="Collapse message"');
+    expect(open).toContain('>Show less</button>');
     expect(open).toContain('aria-expanded="true"');
   });
 
@@ -201,7 +253,7 @@ describe('UserMessageBubble — a clamped message is expandable without swallowi
 
   test('an unclamped bubble offers no expand control and no ARIA state at all', () => {
     const markup = renderBubble({ canExpand: false });
-    expect(markup).not.toContain('aria-label="Expand message"');
+    expect(markup).not.toContain('Show more');
     expect(markup).not.toContain('aria-expanded');
     expect(markup).not.toContain('role="button"');
     // The chip is still the one and only control.
@@ -257,7 +309,7 @@ describe('UserMessage timestamp', () => {
     expect(markup).not.toContain('NaN');
     // The rest of the turn is unaffected.
     expect(markup).toContain('ship the thing');
-    expect(markup).toContain('aria-label="Copy code"');
+    expect(markup).toContain('aria-label="Copy"');
   });
 
   test('the timestamp reveals with the actions, inside the same hover row', () => {
@@ -272,7 +324,7 @@ describe('UserMessage timestamp', () => {
     // would sit outside it and these positions would invert.
     expect(fadeAt).toBeGreaterThan(-1);
     expect(markup.indexOf('<time')).toBeGreaterThan(fadeAt);
-    expect(markup.indexOf('aria-label="Copy code"')).toBeGreaterThan(fadeAt);
+    expect(markup.indexOf('aria-label="Copy"')).toBeGreaterThan(fadeAt);
 
     // Exactly one reveal — the row's. Nothing nested fades on its own.
     expect(markup.split('group-hover/turn:opacity-100').length - 1).toBe(1);
@@ -337,7 +389,7 @@ describe('UserMessage persisted attachments', () => {
           url: 'data:image/png;base64,iVBORw0KGgo=',
         },
       ],
-    } as MessageWithParts;
+    } as V1Row;
 
     const html = render(false, persisted);
     expect(html).toContain('bundle.zip');
@@ -385,7 +437,7 @@ describe('UserMessage persisted attachments', () => {
           url: 'data:application/pdf;base64,JVBERi0=',
         },
       ],
-    } as MessageWithParts;
+    } as V1Row;
 
     const html = render(false, persisted);
     expect(html).toContain('HII');
@@ -412,12 +464,12 @@ describe('UserMessage persisted attachments', () => {
         { id: 'p-text', messageID: 'message-streaming', type: 'text', text: 'REPRO' },
         { id: 'p-png', messageID: 'message-streaming', type: 'file', mime: 'image/png', filename: 'tiny.png', url: 'data:image/png;base64,iVBORw0KGgo=' },
       ],
-    } as MessageWithParts;
+    } as V1Row;
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
           <UserMessage
-            message={streaming}
+            message={logOf(streaming)}
             sessionId="s"
             ownsPlan={false}
             pendingAttachments={[
@@ -437,7 +489,7 @@ describe('UserMessage persisted attachments', () => {
       renderToStaticMarkup(
         <QueryClientProvider client={new QueryClient()}>
           <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
-            <UserMessage message={streaming} sessionId="s" ownsPlan={false} />
+            <UserMessage message={logOf(streaming)} sessionId="s" ownsPlan={false} />
           </NextIntlClientProvider>
         </QueryClientProvider>,
       ).split('tiny.png').length - 1,
@@ -457,12 +509,12 @@ describe('UserMessage persisted attachments', () => {
     const swapping = {
       info: { id: 'message-swapping', role: 'user', time: { created: Date.parse('2026-09-06T00:00:00.000Z') } },
       parts: [],
-    } as unknown as MessageWithParts;
+    } as unknown as V1Row;
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
           <UserMessage
-            message={swapping}
+            message={logOf(swapping)}
             sessionId="s"
             ownsPlan={false}
             pendingText="FLICKER"
@@ -510,13 +562,74 @@ describe('UserMessage persisted attachments', () => {
           url: 'data:image/png;base64,iVBORw0KGgo=',
         },
       ],
-    } as MessageWithParts;
+    } as V1Row;
 
     const html = render(false, persisted);
     expect(html).toContain('Review these files.');
     expect(html).not.toContain('&lt;file path=');
     expect(html.indexOf('README.md')).toBeLessThan(html.indexOf('report.pdf'));
     expect(html.indexOf('report.pdf')).toBeLessThan(html.indexOf('shot.png'));
+  });
+});
+
+describe('UserMessage reads a v1 prompt through the session-log converter', () => {
+  // One prompt with every user part kind the bubble reads: text, an image
+  // attachment, a text/plain file mention with its source span, and an agent
+  // mention. `sessionLogOfV1Rows` turns them into one block each, in order.
+  const row = {
+    info: { id: 'message-mixed', role: 'user', time: { created: Date.parse('2026-09-01T10:00:00.000Z') } },
+    parts: [
+      { id: 'p-text', messageID: 'message-mixed', type: 'text', text: 'review @notes.txt with @build please' },
+      {
+        id: 'p-image',
+        messageID: 'message-mixed',
+        type: 'file',
+        mime: 'image/png',
+        filename: 'shot.png',
+        url: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+      {
+        id: 'p-notes',
+        messageID: 'message-mixed',
+        type: 'file',
+        mime: 'text/plain',
+        filename: 'notes.txt',
+        url: 'file:///workspace/notes.txt',
+        source: { type: 'file', path: 'notes.txt', text: { value: '@notes.txt', start: 7, end: 17 } },
+      },
+      {
+        id: 'p-agent',
+        messageID: 'message-mixed',
+        type: 'agent',
+        name: 'build',
+        source: { value: '@build', start: 23, end: 29 },
+      },
+    ],
+  } as V1Row;
+  const log = logOf(row);
+
+  test('the converter keeps one block per part, in part order', () => {
+    expect(log.message_id).toBe('message-mixed');
+    expect(log.blocks.map((b) => [b.id, b.type, b.type === 'harness' ? b.kind : null])).toEqual([
+      ['p-text', 'text', null],
+      ['p-image', 'attachment', null],
+      ['p-notes', 'harness', 'file'],
+      ['p-agent', 'harness', 'agent'],
+    ]);
+  });
+
+  test('draws the mention chips, both tiles in part order, and copies the typed text', () => {
+    const html = render(false, row);
+    expect(html).toContain('aria-label="file mention: notes.txt"');
+    expect(html).toContain('aria-label="agent mention: build"');
+    expect(html).toContain('shot.png');
+    expect(html.indexOf('shot.png')).toBeLessThan(html.lastIndexOf('notes.txt'));
+    expect(normalizeAttachments(log.blocks, []).map((a) => [a.key, a.filename, a.mime])).toEqual([
+      ['p-image', 'shot.png', 'image/png'],
+      ['p-notes', 'notes.txt', 'text/plain'],
+    ]);
+    expect(html).toMatch(/datetime="2026-09-01T10:00:00.000Z"/i);
+    expect(userMessageCopyText(log.blocks)).toBe('review @notes.txt with @build please');
   });
 });
 
@@ -543,7 +656,7 @@ describe('UserMessage renders the plan it owns', () => {
       <QueryClientProvider client={client}>
         <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
           <TooltipProvider>
-            <UserMessage message={message} sessionId={SESSION} ownsPlan={ownsPlan} />
+            <UserMessage message={logOf(message)} sessionId={SESSION} ownsPlan={ownsPlan} />
           </TooltipProvider>
         </NextIntlClientProvider>
       </QueryClientProvider>,
@@ -640,6 +753,53 @@ describe('UserMessage inline edit-from-here editor', () => {
     expect((markup.match(/disabled=""/g) ?? []).length).toBe(2);
   });
 
+  test('the editor shows each attachment the message carried, each with a remove button', () => {
+    const ref = `kortix-attachment://${UUID(1)}/${UUID(2)}/${UUID(3)}`;
+    const text = [
+      'ship the thing',
+      '',
+      uploadedFileRefXml({
+        path: '/workspace/uploads/.kortix-inbox/shot.png',
+        mime: 'image/png',
+        filename: 'shot.png',
+        attachment: ref,
+      }),
+      uploadedFileRefXml({
+        path: '/workspace/uploads/.kortix-inbox/report.pdf',
+        mime: 'application/pdf',
+        filename: 'report.pdf',
+      }),
+    ].join('\n');
+    const markup = renderText(text, editProps);
+    expect(markup).toContain('<textarea');
+    expect(markup).toContain('aria-label="Remove shot.png"');
+    expect(markup).toContain('aria-label="Remove report.pdf"');
+    expect((markup.match(/aria-label="Remove /g) ?? []).length).toBe(2);
+    expect((markup.match(/title="(shot\.png|report\.pdf)"/g) ?? []).length).toBe(2);
+  });
+
+  test('an edit with no text cannot send, even with attachments kept', () => {
+    // A text-less replacement prompt does not commit the staged rewind: the
+    // runtime keeps the original turn and appends a new one (KRTX-962 preview).
+    const ref = `kortix-attachment://${UUID(1)}/${UUID(2)}/${UUID(3)}`;
+    const text = uploadedFileRefXml({
+      path: '/workspace/uploads/.kortix-inbox/shot.png',
+      mime: 'image/png',
+      filename: 'shot.png',
+      attachment: ref,
+    });
+    const markup = renderText(text, { ...editProps, editingText: '   ' });
+    expect(markup).toContain('aria-label="Remove shot.png"');
+    // Send only: Cancel stays live.
+    expect((markup.match(/disabled=""/g) ?? []).length).toBe(1);
+  });
+
+  test('a message without attachments draws no strip in the editor', () => {
+    const markup = renderText('ship the thing', editProps);
+    expect(markup).not.toContain('aria-label="Remove ');
+    expect(markup).not.toContain('<ul');
+  });
+
   test('editingText without handlers changes nothing — the bubble stays', () => {
     const markup = renderText('ship the thing', { editingText: 'do it differently' });
     expect(markup).not.toContain('<textarea');
@@ -663,14 +823,14 @@ describe('sent attachment tiles', () => {
   }
 
   const renderMessage = (
-    msg: MessageWithParts,
+    msg: V1Row,
     props: Record<string, unknown> = {},
     messages: Record<string, unknown> = {},
   ) =>
     renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <NextIntlClientProvider locale="en" messages={messages} onError={() => {}}>
-          <UserMessage message={msg} sessionId="session-1" ownsPlan={false} {...props} />
+          <UserMessage message={logOf(msg)} sessionId="session-1" ownsPlan={false} {...props} />
         </NextIntlClientProvider>
       </QueryClientProvider>,
     );
@@ -719,7 +879,7 @@ describe('sent attachment tiles', () => {
             text: '<file path="/workspace/uploads/.kortix-inbox/0-a.png" mime="image/png" filename="a.png">\nuploaded\n</file>',
           },
         ],
-      } as MessageWithParts,
+      } as V1Row,
       { pendingAttachments: sentAttachmentsOf([file]) },
     );
 
@@ -739,7 +899,7 @@ describe('sent attachment tiles', () => {
           text: 'look\n\n<file path="/workspace/uploads/.kortix-inbox/k/0-reload.png" mime="image/png" filename="reload.png">\nuploaded\n</file>',
         },
       ],
-    } as MessageWithParts);
+    } as V1Row);
 
     expect(tiles(html)).toBe(1);
     expect(html).toContain('title="reload.png"');
@@ -770,7 +930,7 @@ describe('sent attachment tiles', () => {
           filename: 'shot.heic',
         },
       ],
-    } as MessageWithParts);
+    } as V1Row);
 
     expect(tiles(html)).toBe(2);
     // The browser already holds these bytes: the picture is the first frame (session open, remount).
@@ -808,7 +968,7 @@ describe('sent attachment tiles', () => {
           {
             info: { id, role: 'user' },
             parts: useSessionStateStore.getState().parts[id] ?? [],
-          } as MessageWithParts,
+          } as V1Row,
           { pendingAttachments: sent },
         ),
       );
@@ -915,6 +1075,18 @@ test('saved attachments resolve before a sandbox path exists', () => {
   expect(normalizeAttachments([], [{ path: '', filename: 'a.png', mime: 'image/png', attachment: ref }])[0].src).toBe(ref);
 });
 
+test('an image a `<file>` tag names draws once: the tag tile, not its attachment block', () => {
+  const path = '/workspace/uploads/.kortix-inbox/cmd_1/1-swatch.png';
+  const ref = 'kortix-attachment://11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333';
+  const tag = { path, filename: 'swatch.png', mime: 'image/png', attachment: ref, sourcePartIndex: 0 };
+  const block = (source_path?: string) => ({ type: 'attachment' as const, id: 'msg_1-n1', mime: 'image/png', ref: `blob:${'a'.repeat(64)}`, ...(source_path ? { source_path } : {}) });
+  const text = { type: 'text' as const, id: 'msg_1-n0', text: 'look' };
+  expect(normalizeAttachments([text, block(path)], [tag]).map((a) => a.key)).toEqual([`attachment:${ref}`]);
+  // Another file's block, or one without `source_path`, still draws.
+  expect(normalizeAttachments([text, block('/workspace/uploads/.kortix-inbox/cmd_1/2-other.png')], [tag])).toHaveLength(2);
+  expect(normalizeAttachments([text, block()], [tag])).toHaveLength(2);
+});
+
 // A message can carry many `<reply_context>` quotes, each written at
 // its position in the text. The bubble draws each quote where it was written,
 // as the same left-rule blockquote the single leading quote always used.
@@ -980,7 +1152,7 @@ describe('UserMessage renders N inline reply quotes at their positions', () => {
       <QueryClientProvider client={new QueryClient()}>
         <NextIntlClientProvider locale="en" messages={{}} onError={() => {}}>
           <UserMessage
-            message={
+            message={logOf(
               {
                 info: { id: 'message-1', role: 'user' },
                 parts: [
@@ -997,8 +1169,8 @@ describe('UserMessage renders N inline reply quotes at their positions', () => {
                     text: '<reply_context>quote in part two</reply_context>\nanswer two',
                   },
                 ],
-              } as MessageWithParts
-            }
+              } as V1Row,
+            )}
             sessionId="session-1"
             ownsPlan={false}
           />
@@ -1031,7 +1203,7 @@ describe('UserMessage renders N inline reply quotes at their positions', () => {
     );
     const quotes = blockquotes(markup);
     expect(quotes).toHaveLength(2);
-    expect(markup).toContain('bg-sidebar');
+    expect(markup).toContain('bg-muted');
   });
 
   test('the quote is not inside the bold body-text run', () => {
@@ -1042,6 +1214,72 @@ describe('UserMessage renders N inline reply quotes at their positions', () => {
     const beforeFirstQuote = markup.slice(0, markup.indexOf('<blockquote'));
     const openRuns = (beforeFirstQuote.match(/<div class="[^"]*font-medium[^"]*"/g) ?? []).length;
     expect(openRuns).toBe(0);
+  });
+});
+
+describe('editResendAttachments (what an edited prompt sends again)', () => {
+  const ref = (n: number) => `kortix-attachment://${UUID(1)}/${UUID(2)}/${UUID(n)}`;
+  const REMOTE = 'https://files.example/remote.pdf';
+  const NOTES = '/workspace/uploads/.kortix-inbox/notes.md';
+  const NOTES_REF = uploadedFileRefXml({
+    path: NOTES,
+    mime: 'application/octet-stream',
+    filename: 'notes.md',
+  });
+
+  test('a saved copy and a native file part ride as URLs, a path-only upload as its ref', () => {
+    const { files, text } = editResendAttachments([
+      {
+        key: 'a',
+        filename: 'shot.png',
+        mime: 'image/png',
+        src: ref(3),
+        path: '/workspace/uploads/.kortix-inbox/shot.png',
+      },
+      { key: 'b', filename: 'remote.pdf', mime: 'application/pdf', src: REMOTE },
+      { key: 'c', filename: 'notes.md', path: NOTES, src: NOTES },
+      { key: 'd', filename: 'pending.txt', mime: 'text/plain' },
+      { key: 'e', filename: 'data.csv', mime: 'text/csv', src: ref(4), path: '/workspace/d.csv' },
+    ], 'hi');
+
+    expect(files).toEqual([
+      { kind: 'remote', url: ref(3), filename: 'shot.png', mime: 'image/png', isImage: true },
+      {
+        kind: 'remote',
+        url: REMOTE,
+        filename: 'remote.pdf',
+        mime: 'application/pdf',
+        isImage: false,
+      },
+      { kind: 'remote', url: ref(4), filename: 'data.csv', mime: 'text/csv', isImage: false },
+    ]);
+    // The saved copy is missing: the runtime still holds the file at its path.
+    expect(text).toBe(`hi\n\n${NOTES_REF}`);
+  });
+
+  test('the text joins the refs: unchanged with none, trimmed text first, refs alone for blank text', () => {
+    const upload = [{ key: 'n', filename: 'notes.md', path: NOTES, src: NOTES }];
+    expect(editResendAttachments([], '  hi  ').text).toBe('  hi  ');
+    expect(editResendAttachments(upload, ' hi ').text).toBe(`hi\n\n${NOTES_REF}`);
+    expect(editResendAttachments(upload, '   ').text).toBe(NOTES_REF);
+    expect(editResendAttachments(upload, '').text).toBe(NOTES_REF);
+  });
+
+  test('promptFileParts maps every kept tile to a file part', () => {
+    const kept = [
+      { key: 'a', filename: 'shot.png', mime: 'image/png', src: ref(3) },
+      { key: 'b', filename: 'remote.pdf', mime: 'application/pdf', src: REMOTE },
+    ];
+
+    const parts = promptFileParts(editResendAttachments(kept, '').files, []);
+    expect(parts).toEqual([
+      { type: 'file', mime: 'image/png', url: ref(3), filename: 'shot.png' },
+      { type: 'file', mime: 'application/pdf', url: REMOTE, filename: 'remote.pdf' },
+    ]);
+  });
+
+  test('nothing kept sends nothing', () => {
+    expect(editResendAttachments([], 'hi')).toEqual({ files: [], text: 'hi' });
   });
 });
 
@@ -1162,13 +1400,13 @@ describe('UserMessage member author', () => {
     email: 'member@example.test',
     avatar_url: null,
   };
-  const renderWith = (author: typeof MEMBER | undefined, showAuthor: boolean, msg: MessageWithParts = message) =>
+  const renderWith = (author: typeof MEMBER | undefined, showAuthor: boolean, msg: V1Row = message) =>
     renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <NextIntlClientProvider locale="en" timeZone="UTC" messages={enMessages}>
           <TooltipProvider>
             <UserMessage
-              message={msg}
+              message={logOf(msg)}
               sessionId="session-1"
               ownsPlan={false}
               onRewind={() => {}}
@@ -1201,5 +1439,187 @@ describe('UserMessage member author', () => {
     expect(renderWith(MEMBER, false)).not.toContain('Sent by');
     expect(renderWith(MEMBER, false)).not.toContain('data-slot="avatar"');
     expect(renderWith(undefined, true)).toBe(renderWith(undefined, false));
+  });
+});
+
+describe('UserMessage platform prompts', () => {
+  const renderText = (text: string) =>
+    renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale="en" timeZone="UTC" messages={enMessages}>
+          <TooltipProvider>
+            <UserMessage
+              message={logOf({ ...message, parts: [{ ...message.parts[0], text }] } as V1Row)}
+              sessionId="session-1"
+              ownsPlan={false}
+            />
+          </TooltipProvider>
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+
+  test('a reminder fire is a source pill over a plain bubble, not the raw header', () => {
+    const markup = renderText(
+      '[REMINDER reminder.0123456789ab — one-time scheduled check-in on this session, not a new user message.]\n\nCheck whether the vendor replied.',
+    );
+    expect(markup).toContain('data-testid="reminder-turn"');
+    expect(markup).toContain('data-testid="message-source"');
+    expect(markup).toContain('>Reminder</span>');
+    expect(markup).toContain('>One-time</span>');
+    expect(markup).toContain('Check whether the vendor replied.');
+    expect(markup).not.toContain('[REMINDER');
+  });
+
+  test('a trigger fire names the trigger in the pill and the prompt in the bubble', () => {
+    const markup = renderText(
+      '<trigger_event>{"trigger":"daily-digest","data":{"manual":true}}</trigger_event>\nWrite the daily digest.',
+    );
+    expect(markup).toContain('data-testid="trigger-turn"');
+    expect(markup).toContain('data-testid="message-source"');
+    expect(markup).toContain('>daily-digest</span>');
+    expect(markup).toContain('Write the daily digest.');
+    expect(markup).not.toContain('trigger_event');
+  });
+});
+
+describe('UserMessageBubble clamp toggle', () => {
+  test('only the Show more button toggles: the bubble carries no click affordance', () => {
+    const markup = renderToStaticMarkup(
+      <NextIntlClientProvider locale="en" timeZone="UTC" messages={enMessages}>
+        <UserMessageBubble canExpand expanded={false} onToggle={() => {}} textId="m1-text">
+          long text
+        </UserMessageBubble>
+      </NextIntlClientProvider>,
+    );
+    expect(markup).not.toContain('cursor-pointer');
+    expect(markup).toContain('>Show more</button>');
+  });
+});
+
+describe('UserMessage pasted-text tiles', () => {
+  const PASTE = 'line one of the paste\n<file path="/workspace/x.txt" mime="text/plain" filename="x.txt">u</file>\nline three';
+  const sent = (typed: string, pastes = [{ id: 'abcd1234', text: PASTE }]) =>
+    serializePromptWithPastes(typed, pastes);
+
+  test('a paste is a PASTED tile above the bubble; no raw XML reaches the markup', () => {
+    const markup = renderText(sent('summarize this'));
+    expect(markup).toContain('summarize this');
+    expect(markup).toContain('line one of the paste');
+    expect(markup).toContain('pasted');
+    expect(markup).not.toContain('&lt;pasted_content');
+    expect(markup).not.toContain('pasted_content');
+    // The tile leads the bubble, like the composer row.
+    expect(markup.indexOf('line one of the paste')).toBeLessThan(markup.indexOf('summarize this'));
+  });
+
+  test('a paste with blank-line runs (an email copy) still draws the tile', () => {
+    const email = '\nSkip to content\n\n\n\nSubject line\n\n\n\nBody text\n\n\n';
+    const markup = renderText(sent('what does this say?', [{ id: 'abcd1234', text: email }]));
+    expect(markup).toContain('Skip to content');
+    expect(markup).not.toContain('pasted_content');
+  });
+
+  test('a <file> ref inside a paste stays paste text, never an attachment tile', () => {
+    const markup = renderText(sent('summarize this'));
+    expect(markup).not.toContain('title="x.txt"');
+  });
+
+  test('a paste-only message draws the tile, no bubble, and no notification card', () => {
+    const markup = renderText(sent(''));
+    expect(markup).toContain('line one of the paste');
+    expect(markup).not.toContain('Pasted content');
+    expect(markup).not.toContain('id="message-1-text"');
+  });
+
+  test('the tile opens the paste when the host has a panel, and is inert without one', () => {
+    const opened: Array<[string, string]> = [];
+    const inert = renderText(sent('hi'));
+    expect(inert).not.toContain('<button type="button" title="Pasted text"');
+    const live = renderText(sent('hi'), {
+      onOpenPastedContent: (id: string, text: string) => opened.push([id, text]),
+    });
+    expect(live).toContain('<button type="button" title="Pasted text"');
+  });
+
+  test('a /command carrying a paste in its halves draws the tile, not the XML', () => {
+    const markup = renderText(`expanded template ${sent('fix it')}`, {
+      commandInfo: {
+        name: 'review',
+        args: sent('fix it'),
+        split: { before: sent('please'), after: 'fix it' },
+      },
+    });
+    expect(markup).not.toContain('pasted_content');
+    expect(markup).toContain('line one of the paste');
+    // One tile per paste id, though the template, the args and `before` all carry it.
+    expect((markup.match(/title="Pasted text"/g) ?? []).length).toBe(1);
+  });
+
+  test('the editor keeps each paste as a removable tile and the textarea holds only the typed text', () => {
+    const markup = renderText(sent('summarize this'), {
+      editingText: editablePromptText(sent('summarize this')),
+      onEditCancel: () => {},
+      onEditSend: () => {},
+    });
+    expect(markup).toContain('aria-label="Remove pasted text"');
+    expect(markup).toContain('line one of the paste');
+    expect(markup).not.toContain('pasted_content');
+  });
+
+  test('a typed <pasted_content> tag shows, copies and edits as typed, as plain text', () => {
+    const typed = '<pasted_content id="abcd1234" chars="3">abc</pasted_content> hello';
+    const wire = sent(typed, []);
+    const markup = renderText(wire);
+    expect(markup).toContain('&lt;pasted_content id=&quot;abcd1234&quot; chars=&quot;3&quot;&gt;abc&lt;/pasted_content&gt; hello');
+    expect(markup).not.toContain('&amp;lt;');
+    expect(markup).not.toContain('title="Pasted text"');
+    expect(editablePromptText(wire)).toBe(typed);
+    const parts = [{ id: 'p', messageID: 'm', type: 'text', text: wire }] as never;
+    expect(userMessageCopyText(blocksOf(parts))).toBe(typed);
+    expect(editResendAttachments([], typed).text).toBe(wire);
+  });
+
+  test('a /command detected from its template keeps a typed tag in its args as text, never a tile', () => {
+    const typed = '<pasted_content id="abcd1234" chars="3">abc</pasted_content> hello';
+    const commands = [
+      { name: 'review', template: 'Please review the following change carefully: $ARGUMENTS' },
+    ] as never;
+    const wire = sent(`Please review the following change carefully: ${typed}`, []);
+    const markup = renderText(wire, { commands });
+    expect(markup).not.toContain('title="Pasted text"');
+    expect(markup).toContain('&lt;pasted_content id=&quot;abcd1234&quot;');
+    expect(markup).toContain('hello');
+  });
+
+  test('editablePromptText drops paste blocks', () => {
+    expect(editablePromptText(sent('summarize this'))).toBe('summarize this');
+  });
+
+  test('editResendAttachments writes kept pastes back ahead of the text', () => {
+    const kept = [
+      { key: 'pasted:abcd1234', filename: 'Pasted text', pasted: { id: 'abcd1234', text: PASTE } },
+    ];
+    const { files, text } = editResendAttachments(kept, 'summarize this');
+    expect(files).toEqual([]);
+    expect(text).toBe(sent('summarize this'));
+  });
+
+  test('Copy message copies the paste body, not its XML', () => {
+    const parts = [{ id: 'p', messageID: 'm', type: 'text', text: sent('summarize this') }] as never;
+    expect(userMessageCopyText(blocksOf(parts))).toBe(`${PASTE}\n\nsummarize this`);
+  });
+});
+
+describe('pastedTextCounts', () => {
+  test('counts words across spaces, tabs and newlines, and every character', () => {
+    expect(pastedTextCounts('  one two\tthree\n\nfour  ')).toEqual({ words: 4, chars: 23 });
+  });
+  test('an empty or blank paste has no words', () => {
+    expect(pastedTextCounts('')).toEqual({ words: 0, chars: 0 });
+    expect(pastedTextCounts(' \n ')).toEqual({ words: 0, chars: 3 });
+  });
+  test('an emoji is one character, not two UTF-16 units', () => {
+    expect(pastedTextCounts('🚀'.repeat(600))).toEqual({ words: 1, chars: 600 });
+    expect(pastedTextCounts('👍🏽 é')).toEqual({ words: 2, chars: 3 });
   });
 });

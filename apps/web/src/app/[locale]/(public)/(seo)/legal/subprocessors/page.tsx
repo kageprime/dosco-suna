@@ -9,15 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-/**
- * The authoritative subprocessor list that the Data Processing Addendum
- * (section 7.2, Annex III) points to. English only, like the other legal
- * texts. A new entry needs 30 days' notice to customers before it processes
- * customer personal data (DPA section 7.3): update LAST_UPDATED and email the
- * change to subscribers first.
- */
-const LAST_UPDATED = 'September 29, 2026';
+import {
+  formatSubprocessorDate,
+  subprocessorEffectiveDate,
+  SUBPROCESSORS_CORE,
+  SUBPROCESSORS_OPTIONAL,
+  SUBPROCESSORS_UPDATED,
+  type Subprocessor,
+} from '@kortix/shared/subprocessors';
 
 export const metadata: Metadata = {
   title: 'Subprocessors',
@@ -25,6 +24,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/subprocessors' },
 };
 
+<<<<<<< HEAD
 type Row = { name: string; purpose: string; location: string };
 
 const CORE: Row[] = [
@@ -133,11 +133,13 @@ const OPTIONAL: Row[] = [
   },
 ];
 
+=======
+>>>>>>> upstream-dev
 const PROSE = 'text-muted-foreground text-base leading-7 text-pretty';
 const LINK =
   'text-foreground decoration-foreground/25 hover:decoration-foreground/60 underline underline-offset-4 transition-colors';
 
-function RowsTable({ rows }: { rows: Row[] }) {
+function RowsTable({ rows }: { rows: readonly Subprocessor[] }) {
   return (
     <Table>
       <TableHeader>
@@ -148,19 +150,27 @@ function RowsTable({ rows }: { rows: Row[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.name}>
-            <TableCell className="text-foreground align-top font-medium whitespace-normal">
-              {row.name}
-            </TableCell>
-            <TableCell className="text-muted-foreground align-top whitespace-normal">
-              {row.purpose}
-            </TableCell>
-            <TableCell className="text-muted-foreground align-top whitespace-normal">
-              {row.location}
-            </TableCell>
-          </TableRow>
-        ))}
+        {rows.map((row) => {
+          const effective = subprocessorEffectiveDate(row);
+          return (
+            <TableRow key={row.name}>
+              <TableCell className="text-foreground align-top font-medium whitespace-normal">
+                {row.name}
+              </TableCell>
+              <TableCell className="text-muted-foreground align-top whitespace-normal">
+                {row.purpose}
+              </TableCell>
+              <TableCell className="text-muted-foreground align-top whitespace-normal">
+                {row.location}
+                {effective && (
+                  <span className="text-foreground block">
+                    From {formatSubprocessorDate(effective)}
+                  </span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -174,7 +184,7 @@ export default function SubprocessorsPage() {
           Subprocessors
         </h1>
         <p className="text-muted-foreground mt-2 text-sm tabular-nums">
-          Last updated {LAST_UPDATED}
+          Last updated {formatSubprocessorDate(SUBPROCESSORS_UPDATED)}
         </p>
 
         <div className="mt-8 space-y-4">
@@ -182,11 +192,13 @@ export default function SubprocessorsPage() {
             Dosco AI Corp engages the third parties below to process customer personal data when we
             provide the managed cloud Services. Each is bound by written data protection terms no
             less protective than our Data Processing Addendum. We host the Services mainly in the
-            United Kingdom and the European Union.
+            United Kingdom and the European Union; agent sandboxes also run in the United States.
           </p>
           <p className={PROSE}>
             We give at least 30 days&apos; notice before a new subprocessor processes customer
-            personal data. To receive these notices, email{' '}
+            personal data. We email the notice to the owners and admins of every paid account, and
+            the new row shows the date it takes effect. To receive these notices on another address,
+            email{' '}
             <a href="mailto:privacy@kortix.com" className={LINK}>
               privacy@kortix.com
             </a>
@@ -202,14 +214,14 @@ export default function SubprocessorsPage() {
           Core infrastructure and services
         </h2>
         <div className="mt-4">
-          <RowsTable rows={CORE} />
+          <RowsTable rows={SUBPROCESSORS_CORE} />
         </div>
 
         <h2 className="text-foreground mt-12 text-lg font-medium tracking-tight">
           Used only when you enable a feature
         </h2>
         <div className="mt-4">
-          <RowsTable rows={OPTIONAL} />
+          <RowsTable rows={SUBPROCESSORS_OPTIONAL} />
         </div>
 
         <p className={`${PROSE} mt-12`}>

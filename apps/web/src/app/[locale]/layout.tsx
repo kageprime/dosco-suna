@@ -1,5 +1,6 @@
-import { WebMcpTools } from '@/components/agent-discovery/webmcp-tools';
+import { PRICING_PLANS } from '@/features/billing/pricing-plans';
 import { BrowserNoiseGuard } from '@/components/browser-noise-guard';
+import { FileDropGuard } from '@/components/file-drop-guard';
 import { DesktopBackButton } from '@/components/desktop/desktop-back-button';
 import { DesktopChrome } from '@/components/desktop/desktop-chrome';
 import { ThemeProvider } from '@/components/home/theme-provider';
@@ -10,11 +11,13 @@ import { RootClientHosts, RootQueryHosts } from '@/components/root-client-hosts'
 import { IconProvider } from '@/components/ui/icon-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MfaStepUpProvider } from '@/features/auth/mfa-step-up';
+import { SsoRequiredProvider } from '@/features/auth/sso-required';
 import { BrandingProvider } from '@/features/branding/branding-provider';
 import { RequestDemoProvider } from '@/features/contact/request-demo-provider';
 import { AuthProvider } from '@/features/providers/auth-provider';
 import { locales, type Locale } from '@/i18n/config';
 import { DESKTOP_INIT_SCRIPT } from '@/lib/desktop';
+import { INTERFACE_THEME_INIT_SCRIPT } from '@/lib/interface-themes';
 import { RouterBridge } from '@/lib/navigation/router-bridge-mount';
 import '@/lib/polyfills';
 import { getServerPublicEnv } from '@/lib/public-env-server';
@@ -30,6 +33,8 @@ import { loadMessages } from '@/i18n/messages';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Toaster } from 'sonner';
+
+import { TurnAttentionBadge } from '@/components/turn-attention-badge';
 import { roobert } from '../(system)/fonts/roobert';
 import { roobertMono } from '../(system)/fonts/roobert-mono';
 import '../globals.css';
@@ -145,6 +150,73 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * The site's entity graph, once per page. Every feature line is a row of the
+ * kortix-brand claims file. "Suna" is the repository's and the earlier
+ * product's name, so search and answer engines join the two entities.
+ */
+const SITE_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${siteMetadata.url}/#organization`,
+      name: siteMetadata.name,
+      alternateName: ['Kortix AI', 'Kortix Suna', 'Suna'],
+      url: siteMetadata.url,
+      logo: `${siteMetadata.url}/icon-512.png`,
+      description: siteMetadata.description,
+      foundingDate: '2024',
+      sameAs: [
+        'https://github.com/kortix-ai/suna',
+        'https://x.com/kortix',
+        'https://linkedin.com/company/kortix',
+      ],
+      contactPoint: { '@type': 'ContactPoint', contactType: 'Customer Support', url: `${siteMetadata.url}/support` },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${siteMetadata.url}/#software`,
+      name: siteMetadata.name,
+      alternateName: ['Kortix AI Operating System', 'Kortix AI OS', 'Suna'],
+      url: siteMetadata.url,
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: 'AI Operating System',
+      operatingSystem: 'Web, macOS, Linux',
+      downloadUrl: `${siteMetadata.url}/download`,
+      description: siteMetadata.description,
+      publisher: { '@id': `${siteMetadata.url}/#organization` },
+      isAccessibleForFree: true,
+      featureList: [
+        'Open source. Read it, fork it, audit it.',
+        'Any model provider with your own keys.',
+        'One isolated sandbox per session.',
+        '3,000+ apps in a click, plus MCP, OpenAPI, Postman, GraphQL and raw HTTP.',
+        'Session work reaches main through a change request.',
+        'Per-resource permissions for people and agents. Roles, groups, and an audit trail.',
+        'SAML 2.0 single sign-on and SCIM 2.0.',
+        'Slack and Microsoft Teams.',
+        'Run it on Kortix Cloud, in your VPC, or on your own on-prem network.',
+      ],
+      offers: PRICING_PLANS.filter((plan) => plan.price.startsWith('$')).map((plan) => ({
+        '@type': 'Offer',
+        name: plan.name,
+        price: plan.price.replace('$', ''),
+        priceCurrency: 'USD',
+        description: plan.note,
+      })),
+    },
+    {
+      '@type': 'SoftwareSourceCode',
+      '@id': `${siteMetadata.url}/#source`,
+      name: 'Kortix',
+      codeRepository: 'https://github.com/kortix-ai/suna',
+      programmingLanguage: 'TypeScript',
+      isPartOf: { '@id': `${siteMetadata.url}/#software` },
+    },
+  ],
+};
+
 export default async function RootLayout({
   children,
   params,
@@ -185,6 +257,10 @@ export default async function RootLayout({
 
         {/* Desktop runtime detection — runs before hydration so CSS reacts on first paint. */}
         <script dangerouslySetInnerHTML={{ __html: DESKTOP_INIT_SCRIPT }} />
+
+        {/* Interface theme palettes on /new, /projects/** and /settings — set
+            before first paint so the stored palette never flashes the default. */}
+        <script dangerouslySetInnerHTML={{ __html: INTERFACE_THEME_INIT_SCRIPT }} />
 
         {/* Font preloading is handled automatically by next/font/local in fonts/roobert.ts */}
 
@@ -249,6 +325,7 @@ export default async function RootLayout({
 
         <script
           type="application/ld+json"
+<<<<<<< HEAD
           dangerouslySetInnerHTML={{
             __html: safeJsonForHtml({
               '@context': 'https://schema.org',
@@ -295,6 +372,9 @@ export default async function RootLayout({
               },
             }),
           }}
+=======
+          dangerouslySetInnerHTML={{ __html: safeJsonForHtml(SITE_JSON_LD) }}
+>>>>>>> upstream-dev
         />
 
       </head>
@@ -309,7 +389,7 @@ export default async function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
@@ -318,12 +398,15 @@ export default async function RootLayout({
               <TooltipProvider delayDuration={150}>
                 <AuthProvider>
                   <I18nProvider initialLocale={htmlLang}>
-                    <WebMcpTools />
                     {/* Publishes the App Router to lib/navigation/router-bridge so
                     stores and error handlers navigate softly instead of
                     reloading the document. */}
                     <RouterBridge />
                     <BrowserNoiseGuard />
+                    {/* A file dropped outside every drop zone would replace the
+                    page with the file and lose unsent attachments. */}
+                    <FileDropGuard />
+                    <TurnAttentionBadge />
                     <DesktopChrome />
                     {/* The window's one Back: every screen gets an exit on the
                     desktop shell unless its shell navigates already. */}
@@ -331,8 +414,9 @@ export default async function RootLayout({
                     <ReactQueryProvider>
                       <Toaster />
                       {/* Global "Request a demo" qualifier modal — mounted once here
-                      so every enterprise CTA across the app (accounts settings,
-                      billing, IAM) can open it via useRequestDemo(). */}
+                      so a public-site CTA can open it via useRequestDemo(). In
+                      the signed-in app, "Talk to sales" is one click
+                      (features/billing/use-enterprise-sales.ts). */}
                       {/* Organization branding (Enterprise): the active
                       account's own logo / icon / favicon / product name.
                       Reads the shared account-list query, so it sits inside
@@ -344,7 +428,11 @@ export default async function RootLayout({
                           event (coded 403) and walks the user through a TOTP
                           step-up so the retried action passes the IAM gate. */}
                           <MfaStepUpProvider>
-                            <KortixProjectScope>{children}</KortixProjectScope>
+                            {/* SSO only: catches kortix:sso-required (coded 403)
+                            and offers to sign out and sign in through the IdP. */}
+                            <SsoRequiredProvider>
+                              <KortixProjectScope>{children}</KortixProjectScope>
+                            </SsoRequiredProvider>
                           </MfaStepUpProvider>
                         </RequestDemoProvider>
                       </BrandingProvider>

@@ -8,6 +8,7 @@ import {
   getSessionAgentContext,
 } from '../../repositories/model-preferences';
 import { chooseDefaultModel } from './choose-default-model';
+import { platformDefaultModelId } from '../models/served-managed-models';
 import {
   chooseEffectiveAgent,
   type ModelSource,
@@ -16,6 +17,7 @@ import {
   toWireModel,
 } from './effective';
 import { resolveCandidates } from './resolve-candidates';
+import { runtimeModelCatalog } from '../models/runtime-catalog';
 
 // Resolves the account/agent/project-configured default model for a gateway
 // principal, once at authentication (in withResolvedTier). The result is attached
@@ -118,6 +120,25 @@ async function connectedByokFallback(
   }
 }
 
+/**
+ * The degrade target for an unservable default: a ChatGPT (`codex/…`) default
+ * first tries the current ChatGPT flagship, so a slug ChatGPT dropped keeps
+ * the person on their subscription; then a connected BYOK provider.
+ */
+async function unservableDefaultFallback(
+  model: string,
+  probe: (candidate: string) => Promise<boolean>,
+  projectId: string | undefined,
+  principalUserId?: string,
+): Promise<string | null> {
+  const flagship = runtimeModelCatalog.codexModelIds()[0];
+  const successor = flagship ? `codex/${flagship}` : null;
+  if (successor && toWireModel(model).startsWith('codex/') && toWireModel(model) !== successor && (await probe(successor))) {
+    return successor;
+  }
+  return connectedByokFallback(projectId, principalUserId);
+}
+
 export async function resolveDefaultModelForPrincipal(
   principal: AuthedPrincipal,
 ): Promise<string | undefined> {
@@ -139,22 +160,26 @@ export async function resolveDefaultModelForPrincipal(
     agentName,
     projectDefault,
     freeModelsOnly: principal.freeModelsOnly,
+    platformDefault: platformDefaultModelId(),
   });
 
+  const probe = (model: string) =>
+    isModelServableForAccount({
+      userId: principal.userId,
+      accountId: principal.accountId,
+      projectId: principal.projectId as string,
+      freeModelsOnly: principal.freeModelsOnly ?? false,
+      model,
+      sessionId: principal.sessionId,
+    });
   const kept = await degradeUnservableDefault(
     chosen,
     { hasProject: !!principal.projectId },
+    () => probe(chosen as string),
     () =>
-      isModelServableForAccount({
-        userId: principal.userId,
-        accountId: principal.accountId,
-        projectId: principal.projectId as string,
-        freeModelsOnly: principal.freeModelsOnly ?? false,
-        model: chosen as string,
-        sessionId: principal.sessionId,
-      }),
-    () =>
-      connectedByokFallback(
+      unservableDefaultFallback(
+        chosen as string,
+        probe,
         principal.projectId,
         // Spec 2026-09-22 §2.3: personal overrides of the on-behalf-of human only.
         (principal.personalUserId === undefined ? principal.userId : principal.personalUserId) ?? undefined,
@@ -218,7 +243,11 @@ export async function isModelServableForAccount(params: {
     );
     return candidates.length > 0;
   } catch (err) {
-    if (err instanceof GatewayResolutionError) return false;
+    // A pool that is cooling down after a rate or usage limit is configured
+    // and pauses only for a while. Calling it unservable degraded the default
+    // off `project:default` (so the project's chain never ran) and refused new
+    // sessions and channel turns; the request path handles the pause itself.
+    if (err instanceof GatewayResolutionError) return err.code === 'provider_pool_rate_limited';
     throw err;
   }
 }
@@ -264,6 +293,7 @@ export async function resolveEffectiveModel(params: {
     projectDefault: defaults.projects[params.projectId],
     accountDefault: defaults.account,
     freeModelsOnly: params.freeModelsOnly,
+    platformDefault: platformDefaultModelId(),
   });
   // Degrade a stale/unservable resolved default (e.g. a BYOK model whose key was
   // disconnected) to something the project can actually use right now, so the
@@ -272,22 +302,25 @@ export async function resolveEffectiveModel(params: {
   // connected (connectedByokFallback), then finally the bare platform default.
   // The same personal scope as the explicit check above: a default reached
   // only through one person's keys is not a default for a shared session.
+  const probe = (model: string) =>
+    isModelServableForAccount({
+      userId: params.userId,
+      accountId: params.accountId,
+      projectId: params.projectId,
+      freeModelsOnly: params.freeModelsOnly,
+      model,
+      sessionId: params.sessionId,
+      providerSecretPools: params.providerSecretPools,
+      ...(params.personalUserId !== undefined ? { personalUserId: params.personalUserId } : {}),
+    });
   const kept = await degradeUnservableDefault(
     chain.model,
     { hasProject: true },
+    () => probe(chain.model as string),
     () =>
-      isModelServableForAccount({
-        userId: params.userId,
-        accountId: params.accountId,
-        projectId: params.projectId,
-        freeModelsOnly: params.freeModelsOnly,
-        model: chain.model as string,
-        sessionId: params.sessionId,
-        providerSecretPools: params.providerSecretPools,
-        ...(params.personalUserId !== undefined ? { personalUserId: params.personalUserId } : {}),
-      }),
-    () =>
-      connectedByokFallback(
+      unservableDefaultFallback(
+        chain.model as string,
+        probe,
         params.projectId,
         (params.personalUserId === undefined ? params.userId : params.personalUserId) ?? undefined,
       ),

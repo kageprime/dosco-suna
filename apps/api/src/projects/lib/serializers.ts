@@ -16,12 +16,14 @@ import {
   type projects,
 } from '@kortix/db';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
-import type { Context } from 'hono';
 import { sessionInitiatorLabel } from './session-initiator';
+import { sessionRestoreUntil } from '../session-log-purge';
 import { type SandboxProviderName, config } from '../../config';
 import { mayManageSessionSharing, type SecretGrant, visibilityToIntent } from '../../connectors/share';
 import { buildFeatureFlagCatalog, resolveFeatureFlags } from '../../feature-flags/registry';
-import { requestClientIp } from '../../shared/client-ip';
+// The request reader `requestAuditContext` lives in `middleware/request-audit.ts`.
+// Re-exported here so every importer and mock keeps working.
+export { requestAuditContext } from '../../middleware/request-audit';
 import { normalizeJsonObject } from '../../shared/json';
 import { db } from '../../shared/db';
 import type { listSandboxTemplates, listSnapshotBuilds } from '../../snapshots/builder';
@@ -39,6 +41,7 @@ import { isPlaceholderOpencodeTitle, runtimeRootTitleFromSnapshot } from './open
 import { normalizeProjectGlyph } from './project-glyph';
 import { normalizeProjectIcon } from './project-icon';
 import { isWarmProjectSession } from './warm-sessions';
+import { probeProjectSecret } from '../secrets/envelope';
 
 export const CODEX_AUTH_JSON_SECRET_NAME = 'CODEX_AUTH_JSON';
 
@@ -84,6 +87,9 @@ export const PROJECT_GIT_AUTH_SECRET_NAME = 'KORTIX_GIT_AUTH_TOKEN';
  */
 export const LIST_OMITTED_SESSION_METADATA_KEYS = [
   'initial_prompt',
+  // Same class as `initial_prompt`: a heavy write-only blob no client reads
+  // off the list (verified 2026-10-08 across apps/web, apps/mobile, packages/sdk).
+  'initial_context',
   'payload_summary',
   'session_start_timeline',
   'audit_v2',
@@ -133,6 +139,8 @@ export function serializeSession(
     runtimeStatus?: 'provisioning' | 'active' | 'stopped' | 'error' | 'archived' | null;
     /** Server-managed soft-deletion audit fields. */
     deletedAt?: string | null;
+    /** The viewing person's pin and archive. Absent: the fields are omitted. */
+    userState?: { pinnedAt: Date | null; archivedAt: Date | null };
     deletedBy?: string | null;
     /**
      * Drop the write-only heavy metadata keys (see
@@ -188,8 +196,9 @@ export function serializeSession(
     // claim `running`: nothing has ever run in it, and every list painted those
     // shells as phantom green "Running" rows (KRTX-1466). Report the status it
     // held while its box booted; the first accepted turn drops the warm marker
-    // (session-activity.ts) and the row reads `running` again. The row itself
-    // still lists and still bills — see session-inventory.ts (KRTX-1068).
+    // (session-activity.ts) and the row reads `running` again. The row still
+    // bills; the manager `project` scope keeps listing it for lifecycle
+    // inspection — see session-inventory.ts (the `visible` scope hides it).
     status:
       row.status === 'running' && isWarmProjectSession(row.metadata)
         ? 'provisioning'
@@ -247,6 +256,13 @@ export function serializeSession(
     runtime_status: ctx?.runtimeStatus ?? null,
     deleted_at: ctx?.deletedAt ?? null,
     deleted_by: ctx?.deletedBy ?? null,
+    restore_until: ctx?.deletedAt ? (sessionRestoreUntil(ctx.deletedAt)?.toISOString() ?? null) : null,
+    ...(ctx?.userState
+      ? {
+          pinned_at: ctx.userState.pinnedAt?.toISOString() ?? null,
+          archived_at: ctx.userState.archivedAt?.toISOString() ?? null,
+        }
+      : {}),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
@@ -305,7 +321,9 @@ export function serializeProject(
     // on/off map; `experimental_features` is the self-describing catalog the UI
     // renders from. Both wire names are historical and STABLE; do not rename
     // them. SoT = ../../feature-flags/registry.
-    experimental: resolveFeatureFlags(row.metadata),
+    // `apps` graduated (registry.ts) but stays here as `true`: CLIs before
+    // v0.14.0 refuse every `kortix apps` command unless it reads true.
+    experimental: { ...resolveFeatureFlags(row.metadata), apps: true },
     experimental_features: buildFeatureFlagCatalog(row.metadata),
     // Per-project sandbox-provider override (Customize → Settings). `default_sandbox_provider`
     // is the current pin (null = follow the platform default/distribution);
@@ -390,15 +408,6 @@ export function serializeGitHubRepo(repo: GitHubRepo) {
   };
 }
 
-export function requestAuditContext(c: Context): RequestAuditContext {
-  return {
-    method: c.req.method,
-    path: c.req.path,
-    ip: requestClientIp(c),
-    userAgent: c.req.header('user-agent') || null,
-  };
-}
-
 export type SecretRow = typeof projectSecrets.$inferSelect;
 
 /**
@@ -436,9 +445,11 @@ function grantAdmits(list: string[], identifier: string): boolean {
  *                  rescue it — grants come only from manifest specs.
  *   `declarative`, agents non-empty — the manifest parsed and its declarations
  *                  are the complete grant set. CERTAIN either way.
- *   `declarative`, agents EMPTY — the only ambiguous state, and it is reached by
- *                  a manifest that FAILED to parse (specs empty, errors present)
- *                  or one whose agents are all disabled. Report null.
+ *   `declarative`, agents EMPTY — the only ambiguous state, and it is reached
+ *                  by a manifest that FAILED to parse (specs empty, errors
+ *                  present). Report null. (Disabled agents stay listed with
+ *                  `enabled: false` and are skipped below, so an all-disabled
+ *                  manifest reports `no_agent_grant`, not the ambiguous null.)
  *
  * Getting this backwards would be worse than useless in both directions: silent
  * on the commonest broken setup (no `agents:` block), and crying wolf on a
@@ -457,7 +468,10 @@ export function secretDeliveryBlockedReason(
   if (config.agent_discovery !== 'declarative') return null;
   const agents = config.agents;
   if (!Array.isArray(agents) || agents.length === 0) return null;
+  // The summary lists disabled agents too (enabled: false); only an agent a
+  // session could actually launch makes "granted somewhere" certain.
   const granted = agents.some((agent) => {
+    if (agent.enabled === false) return false;
     const env = agent.scope?.env;
     return Array.isArray(env) && grantAdmits(env, identifier);
   });
@@ -551,9 +565,14 @@ export function buildSecretView(input: {
     managed_by: isGitAuth ? 'project_secret' : null,
     // Is a shared project value set at all.
     configured: Boolean(shared),
-    // MY private override (value never returned), and whether I'm using it.
+    // MY private override (value never returned), whether I'm using it, and
+    // whether the server can decrypt it: an active one is what my sessions read.
     mine: personal
-      ? { active: personal.active, updated_at: personal.updatedAt.toISOString() }
+      ? {
+          active: personal.active,
+          updated_at: personal.updatedAt.toISOString(),
+          status: probeProjectSecret(personal.projectId, personal.valueEnc),
+        }
       : null,
     // What actually gets injected into my sessions for this identifier.
     effective_source: effectiveSource,
@@ -580,6 +599,9 @@ export function buildSecretView(input: {
     strategy_locked: deliveryRow?.strategyLocked ?? false,
     last_rotated_at: deliveryRow?.rotatedAt?.toISOString() ?? null,
     requires_rotation: requiresRotation,
+    // One decrypt of the SHARED value, the one a shared write replaces; the
+    // plaintext is discarded. No shared value, no status: `mine.status` says it.
+    status: shared ? probeProjectSecret(shared.projectId, shared.valueEnc) : undefined,
   };
 }
 
@@ -825,14 +847,6 @@ export function serializeTemplate(t: Awaited<ReturnType<typeof listSandboxTempla
     ready: t.ready,
     ...(t.providerCoverage ? { provider_coverage: t.providerCoverage } : {}),
   };
-}
-
-const PROJECT_ROLES = ['manager', 'member'] as const;
-
-export type ProjectGroupGrantRole = (typeof PROJECT_ROLES)[number];
-
-export function isProjectRole(v: unknown): v is ProjectGroupGrantRole {
-  return typeof v === 'string' && (PROJECT_ROLES as readonly string[]).includes(v);
 }
 
 /**

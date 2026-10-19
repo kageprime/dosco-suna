@@ -14,6 +14,7 @@ import {
   activeHostName,
   getHost,
   setActiveAccount,
+  useHost,
   validateHostName,
 } from '../api/config.ts';
 import type { AccountMembership, MeResponse } from '../api/types.ts';
@@ -121,6 +122,7 @@ export async function performLogin(opts: PerformLoginOptions): Promise<number> {
   // If this host already has a working token + caller didn't pass
   // --token or --api, treat that as a no-op login.
   if (existing?.token && !opts.token && !opts.api) {
+    useHost(hostName);
     process.stdout.write(
       `${status.info(`Already logged in to host ${C.bold}${hostName}${C.reset} as ${C.bold}${existing.user_email || existing.user_id}${C.reset}`)}\n`,
     );
@@ -148,7 +150,10 @@ export async function performLogin(opts: PerformLoginOptions): Promise<number> {
     me = await client.get<MeResponse>('/accounts/me');
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      process.stderr.write(`${status.err('Token rejected by the API. Try again.')}\n`);
+      // The server's verdict names the credential ("project token <id> is
+      // revoked") — the token was pasted moments ago, so name it inline.
+      const why = err.message ? ` — ${err.message}` : '';
+      process.stderr.write(`${status.err(`Token rejected by the API${why}. Try again.`)}\n`);
     } else {
       process.stderr.write(`${status.err(`Failed to verify token: ${(err as Error).message}`)}\n`);
     }
@@ -170,6 +175,7 @@ export async function performLogin(opts: PerformLoginOptions): Promise<number> {
     },
     /* makeActive */ true,
   );
+  useHost(hostName);
 
   const loginIdentity = me.token_context?.agent
     ? `agent ${C.bold}${me.token_context.agent}${C.reset} ` +

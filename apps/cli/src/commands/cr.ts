@@ -22,6 +22,7 @@ import {
   crDiff,
   crVersionDiff,
   displayBranch,
+  listAllChangeRequests,
   printMergeVerdict,
   resolveCr,
 } from './cr-diff.ts';
@@ -59,6 +60,12 @@ Global options:
   --host <name>      Operate against a non-default Kortix host.
   -h, --help         Show this help.
 
+One principal: a project the CLI config supplies (.kortix/link.json in cwd or
+the active host's default project) is always paired with THAT host's login —
+never with the sandbox's ambient session token, which cannot act on it. When
+that host is not logged in here, the command stops and asks for
+kortix login --host <name>.
+
 Inside an agent sandbox the CLI reads KORTIX_TOKEN and KORTIX_PROJECT_ID
 from the environment automatically — you don't need to log in or link.
 (KORTIX_TOKEN is the sandbox service key, not a CLI token.)
@@ -80,7 +87,10 @@ export async function runCr(argv: string[]): Promise<number> {
   } catch (err) {
     return fail((err as Error).message);
   }
-  const ctxOpts: CtxOpts = { projectArg: projectFlag, hostArg: hostFlag };
+  // One principal (KRTX-1486): the CR commands operate on the configured
+  // project, so its credential travels with it — never the ambient sandbox
+  // session token.
+  const ctxOpts: CtxOpts = { projectArg: projectFlag, hostArg: hostFlag, onePrincipal: true };
 
   switch (sub) {
     case 'ls':
@@ -151,21 +161,18 @@ async function crLs(argv: string[], opts: CtxOpts, json = false): Promise<number
   const ctx = await resolveProjectContext(opts);
   if (!ctx) return 1;
 
-  let resp: ChangeRequestsListResponse;
+  let crs: ChangeRequestsListResponse['change_requests'];
   try {
-    resp = await ctx.client.get<ChangeRequestsListResponse>(
-      `/projects/${ctx.projectId}/change-requests?status=${filter}`,
-    );
+    crs = await listAllChangeRequests(ctx, filter);
   } catch (err) {
     return surfaceApiError(err);
   }
 
   if (json) {
-    emitJson(resp);
+    emitJson({ change_requests: crs });
     return 0;
   }
 
-  const crs = resp.change_requests;
   if (crs.length === 0) {
     process.stdout.write(
       `  ${C.dim}No ${filter === 'all' ? '' : filter + ' '}change requests${C.reset}\n`,

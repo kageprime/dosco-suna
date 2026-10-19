@@ -40,7 +40,7 @@
  * a time. `unit-feature-flag-drift.test.ts` compares contract <-> SDK <->
  * registry and catches 1/3/5 only. List every holder before you start:
  *
- *   rg -l "meta_agent" --glob '!node_modules' . | xargs rg -l "pi_worker"
+ *   rg -l "meta_agent" --glob '!node_modules' . | xargs rg -l "pi_harness"
  *
  * The UI renders straight from {@link buildFeatureFlagCatalog}, so a new entry
  * lights up in Settings automatically. `unit-feature-flags.test.ts` pins the
@@ -56,16 +56,31 @@
  *
  *   • `resolveFeatureFlag` / `resolveFeatureFlags` — UNCHANGED. The platform
  *     default still applies and an explicit project override still wins.
- *   • `buildFeatureFlagCatalog` — OMITS the entry, so Settings → Feature flags
- *     does not list it and no UI presents it as a toggle.
- *   • `isFeatureFlagKey` — UNCHANGED, so `PATCH /projects/:id/features` keeps
- *     accepting the key. That is the support escape hatch, and it is the whole
- *     reason this is not `available: () => false` (which would force the flag
- *     OFF for every project — the opposite of what a hidden default means).
+ *   • `buildFeatureFlagCatalog` — OMITS the entry while it is off, so
+ *     Settings → Feature flags never offers it. While it is ON the catalog
+ *     lists it with `operator_only: true`, so people and agents
+ *     (`kortix projects features`) see it, read-only.
+ *   • Writes — `PATCH /projects/:id/features` accepts the key only from a
+ *     platform operator (403 `feature_operator_only` otherwise). The operator
+ *     route is `PUT /v1/admin/api/projects/:id/features`. That is the support
+ *     lever, and it is the whole reason this is not `available: () => false`
+ *     (which would force the flag OFF for every project — the opposite of
+ *     what a hidden default means).
+ *
+ * ## Derived flags (`derivedFrom: 'volumes'`)
+ *
+ * `drives` is not a choice of its own: it follows
+ * the project's `volumes` flag and is never offered as a toggle. Every flag is
+ * per project; none is set for a whole organization (2026-10-13).
  *
  * A hidden flag is a DATED state, not a parking spot: hide it in the release
  * that makes it the default, delete it in the next one. The comment on the
  * entry names the release and the spec section that ends it.
+ *
+ * The same state also serves INTERNAL-ONLY surfaces (`session_log`,
+ * `session_log_restore`): not offered in Settings, enabled per project by a
+ * Kortix operator on request. Their 403 says "contact Kortix" instead of
+ * naming a toggle the caller cannot see (gate.ts).
  */
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
@@ -104,13 +119,18 @@ export interface FeatureFlagDef {
   /** Mandatory for 'ui-only': why the server does not enforce. */
   enforcementNote?: string;
   /**
-   * Omit this flag from the serialized catalog ({@link buildFeatureFlagCatalog})
-   * so no UI lists it as a toggle. Resolution and `PATCH /projects/:id/features`
-   * are untouched — see "Hidden flags" in this file's header. Set it only on a
-   * flag whose value is now the product behavior, and delete the flag in the
-   * next release.
+   * Not offered as a toggle: the catalog ({@link buildFeatureFlagCatalog})
+   * lists it only while it is on, marked `operator_only`, and only a platform
+   * operator can write it. Resolution is untouched — see "Hidden flags" in
+   * this file's header.
    */
   catalogHidden?: true;
+  /**
+   * The flag is not a project choice: it follows the project's `volumes`
+   * flag. A project override is ignored, and the flag is never offered as a
+   * toggle.
+   */
+  derivedFrom?: 'volumes';
 }
 
 /**
@@ -191,16 +211,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Off ⇒ the platform meta agent is not added to the agent list and is not ' +
       'the default for new sessions (projects/lib/platform-meta-agent.ts).',
   },
-  {
-    key: 'apps',
-    name: 'Apps',
-    description:
-      'Deploy static sites, JavaScript bundles, Dockerfiles, and OCI images to stable serverless URLs. Apps answer to the same machine limits, account entitlement, and per-account quotas sessions do.',
-    stability: 'stable',
-    available: () => true,
-    platformDefault: () => false,
-    enforcement: 'routes',
-  },
+  // `apps` graduated (2026-10-14, spec §28): Apps is generally available —
+  // every project can create and deploy Apps and there is no flag, no row and
+  // no operator lever. A stored `experimental.apps` override is inert.
   {
     key: 'monitors',
     name: 'Monitors',
@@ -283,22 +296,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcementNote: 'Session selection and provider credential resolution reject or ignore resource secrets while disabled.',
   },
   {
-    key: 'pi_worker',
-    name: 'Pi Worker Runtime (compiled)',
-    description:
-      'Compile boot artifacts for every push: a pi-based worker runtime .mjs per commit (agent config from kortix.yaml baked in at that exact sha, downloadable per ref+sha) plus the OpenCode compiled-boot artifacts for this project even where KORTIX_COMPILED_BOOT_MODE is off. Harness/worker split experiment. Sessions boot ON the worker when the manifest also sets `runtime: pi`; without that manifest line sessions keep the OpenCode path.',
-    stability: 'experimental',
-    available: () => true,
-    // Explicit opt-in per project. Off ⇒ no artifact is compiled on push and
-    // the download route answers 403.
-    platformDefault: () => false,
-    enforcement: 'routes',
-  },
-  {
     key: 'pi_harness',
     name: 'Pi Harness (in-sandbox)',
     description:
-      'Run sessions on the pi agent harness inside the ordinary session sandbox instead of OpenCode (KORTIX_HARNESS=pi in kortixd). Same repo layout, same agents and skills, same wire to the UI; pi starts in-process in ~100 ms after the checkout. On ⇒ every new or restarted session of this project boots pi. Off ⇒ the manifest decides: `runtime: pi` still boots pi, anything else boots OpenCode. pi calls models only through the LLM gateway: with `llm_gateway` off, sessions boot OpenCode. Distinct from `pi_worker`, which is the split worker/environment topology.',
+      'Run sessions on the pi agent harness inside the ordinary session sandbox instead of OpenCode (KORTIX_HARNESS=pi in kortixd). Same repo layout, same agents and skills, same wire to the UI; pi starts in-process in ~100 ms after the checkout. On ⇒ every new or restarted session of this project boots pi. Off ⇒ the manifest decides: `runtime: pi` still boots pi, anything else boots OpenCode. pi calls models only through the LLM gateway: with `llm_gateway` off, sessions boot OpenCode.',
     stability: 'experimental',
     available: () => true,
     platformDefault: () => false,
@@ -308,35 +309,26 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'selectSessionHarness). A running session keeps its harness until it is restarted or resumed.',
   },
   {
-    key: 'config_releases',
-    name: 'Config Releases',
+    key: 'genui',
+    name: 'Generative UI',
     description:
+<<<<<<< HEAD
       "Sessions run the base branch's current config. Dosco loads the project's latest agent config from a read-only copy instead of the session's workspace checkout, so a merged agent, skill, or tool reaches every running session, on OpenCode and on pi. Off ⇒ the session reads its config from its workspace checkout, as it did before config releases.",
+=======
+      'The agent may answer with cards, comparisons, charts, maps, and tabs instead of long text. On ⇒ every new session of this project (and any session rebuilt from scratch) lists the kortix-genui system skill, which teaches the agent the Kortix generative UI catalog when an answer needs it (KORTIX_GENUI=1 in kortixd). Off ⇒ the agent writes markdown only; blocks already in a transcript still render.',
+>>>>>>> upstream-dev
     stability: 'experimental',
     available: () => true,
-    // OFF by default until this is proven on real projects (Marko, 2026-09-24:
-    // "its off for now, as its untested"). The behaviour it gates is the
-    // intended one; the default is a rollout decision, not a design opinion.
-    // Turn it on per project in Settings, watch it, then widen. Flip this to
-    // `true` when the rollout is done.
     platformDefault: () => false,
-    enforcement: 'routes',
+    enforcement: 'behavioral',
     enforcementNote:
-      'Mixed, and both halves are enforced. ROUTES: the descriptor route ' +
-      '(POST /projects/:id/sessions/:id/config-release) and the archive route ' +
-      '(GET /projects/:id/config-archives/:tree) answer 403 `feature_disabled` ' +
-      'when off — config-releases/routes.ts. BEHAVIORAL: convergeSessionConfig ' +
-      'returns `disabled` without reaching the box (session-config-convergence.ts), ' +
-      'reloadSessionConfig takes the pre-release legacy path (session-reload.ts), ' +
-      'and GET /config omits the `release` block (routes/session-config.ts). Off ⇒ ' +
-      'no release is built, no archive is stored, and no kortix.config_releases ' +
-      'row is written.',
+      'Read at session provisioning (projects/lib/genui-env.ts → KORTIX_GENUI). An in-place restart keeps the sandbox env, so a running or restarted session keeps its skill list until a new session starts. kortixd hides the kortix-genui skill while the flag is off (OpenCode: kortixd does not write the skill files, and removes a copy a reused config release still holds, because the `"*": "allow"` of a project config outranks any skill deny; pi: the skill is dropped from its list); the catalog is never in the system prompt. A flag change deletes every unclaimed warm session of the project (pre-created by the web client before the user types, projects/lib/warm-sessions.ts; feature-flags/toggle-effects.ts → retireWarmProjectSessions), so the next prompt starts a session with the new value. The deletion runs in the background after the change is saved: a warm session claimed before it runs keeps the old value. The API kill switch GENUI_ENABLED=false forces it off for every project; it is read at API boot, and a warm session provisioned before an API restart keeps its old value until it is used or idles out.',
   },
   {
     key: 'us_region',
     name: 'US Region',
     description:
-      "Place this project's newly provisioned Platinum sandboxes in the configured US region instead of the provider's home region. Existing sandboxes keep their region, including on restart. This changes compute placement, not API, database, or archive residency. The first session after a new sandbox image may wait while the image is copied to the region.",
+      "Place this project's newly provisioned Platinum sandboxes in the configured US region instead of the provider's home region. Existing sandboxes keep their region, including on restart. This changes compute placement, not API, database, or archive residency. A new sandbox image is copied to the region before sessions use it; until then they boot from the previous image. If that copy fails, the session starts in the provider's home region instead.",
     stability: 'experimental',
     // Two operator gates: Platinum must be the configured provider, and the
     // environment must name the region (KORTIX_PLATINUM_US_REGION), which is
@@ -347,6 +339,143 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // resolveSessionSandboxRegion) and sent as `region` on the Platinum
     // create. Off ⇒ no region is sent and Platinum places in its home region.
     enforcement: 'behavioral',
+  },
+  {
+    key: 'event_triggers',
+    name: 'App event triggers',
+    description:
+      'Start an agent when something happens in a connected app — a new email, a pull request, a calendar event.',
+    stability: 'beta',
+    // Always offered: on a deployment with no event source configured, the
+    // triggers themselves say so (status `error` naming COMPOSIO_API_KEY).
+    available: () => true,
+    // Per-project opt-in on every environment.
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'ROUTES: GET /triggers/event-types, GET /triggers/event-apps, and POST|PATCH /triggers ' +
+      'with `type: event` answer 403 `feature_disabled` when off (projects/routes/triggers.ts). ' +
+      'BEHAVIORAL: a `type: event` trigger in kortix.yaml is not subscribed and reads status ' +
+      '`error` (trigger-events/subscriptions.ts); turning the flag off releases every event ' +
+      'subscription of the project and turning it on reconciles them (feature-flags/toggle-effects.ts); ' +
+      'deliverEvents never fires for a project with the flag off (trigger-events/deliver.ts).',
+  },
+  {
+    key: 'notification_center',
+    name: 'Notification Center',
+    description:
+      "Tell the people a session concerns (its prompter, its creator and its followers) through a bell inbox, browser push and email, and alert on failing triggers and reminders. Off, as before: only the session creator's phone gets a session push, and an account owner's phone gets one when a trigger starts failing.",
+    stability: 'beta',
+    available: () => true,
+    // KRTX-1742 ships dark: a project opts in from Settings → Feature flags.
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'Mixed, and both halves are enforced. ROUTES: GET/PUT ' +
+      '/projects/:id/sessions/:id/watch answer 403 `feature_disabled` ' +
+      '(routes/session-watch.ts). BEHAVIORAL: notifySessionEvent and the ' +
+      'question relay take the pre-KRTX-1742 creator-only Expo path ' +
+      '(notifications/session-push-legacy.ts), recordTriggerRunEnd pushes the ' +
+      'account owner as before, and share notices, trigger and reminder alerts, ' +
+      'prompt auto-follow, trigger follow, presence mark-read and stream-end ' +
+      'lease expiry do not run. The inbox list, unread count and digest drop ' +
+      'rows of a project with the flag off (notifications/inbox-read.ts). The ' +
+      'per-person /v1/notifications/* routes carry no project and stay ungated.',
+  },
+  {
+    key: 'volumes',
+    name: 'Volumes',
+    description:
+      'Shared Files for this project.',
+    stability: 'experimental',
+    // Every volume is a Platinum volume.
+    available: () => Boolean(config.PLATINUM_API_KEY),
+    platformDefault: () => false,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'BEHAVIORAL only, through the flag derived from it: drives (Files routes and ' +
+      'session drive mounts).',
+  },
+  {
+    key: 'drives',
+    name: 'Files',
+    description:
+      'The project\'s shared folders, in sync with sessions: everyone has their own private folder (their session desktop), and any folder can be shared with people, teams and agents. New sessions see the folders they may use under /drives.',
+    stability: 'experimental',
+    // Every drive is a Platinum volume; without Platinum there is nothing to
+    // store files in.
+    available: () => Boolean(config.PLATINUM_API_KEY),
+    // Follows the project's `volumes` flag; not a toggle of its own.
+    platformDefault: () => false,
+    derivedFrom: 'volumes',
+    catalogHidden: true,
+    enforcement: 'routes',
+    enforcementNote:
+      'Mixed, and both halves are enforced. ROUTES: GET /v1/drives?projectId= answers ' +
+      '403 `feature_disabled` when off, and so does every write addressed by drive id ' +
+      '(drives/routes.ts). Reads by drive id stay open, so a file a session already ' +
+      'wrote under /drives still opens. BEHAVIORAL: session provisioning mounts no ' +
+      'folder when off (drives/service.ts sessionVolumeMounts).',
+  },
+  {
+    key: 'session_log',
+    name: 'Session log v2',
+    description:
+      'Read a session through the v2 session log instead of the v1 transcript. Off by default and not offered in Settings: Kortix enables it per project. Prod rollout: internal projects first, then 10% of projects, then every project. It becomes the default in the release that ships v2 to everyone and is deleted in the next release.',
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    // Internal-only (2026-10-11): not offered in Settings.
+    // A Kortix operator enables it per project.
+    catalogHidden: true,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'BEHAVIORAL only. On, the API serves the stored v1 transcript reads ' +
+      '(transcript shape=sync and the compact fallback, the open bundle, the ' +
+      'public share, MCP read_session) from the session log, and the open ' +
+      'bundle carries a `log` leg (P4.2). The SDK v2 negotiation (P4.5, v2 only ' +
+      'when health lists `session.log.v2` and the flag is on) will read it too.',
+  },
+  {
+    key: 'session_log_restore',
+    name: 'Session log restore',
+    description:
+      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: Kortix enables it per project, or for a whole deployment (on by default on dev).',
+    stability: 'experimental',
+    available: () => true,
+    // Off unless the deployment sets SESSION_LOG_RESTORE_DEFAULT_ENABLED (dev does, 2026-10-15).
+    platformDefault: () => config.SESSION_LOG_RESTORE_DEFAULT_ENABLED,
+    // Internal-only (2026-10-13): not a Settings toggle. A Kortix operator sets it per project
+    // (PUT /v1/admin/api/projects/:id/features). While on, Settings lists it read-only.
+    catalogHidden: true,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'BEHAVIORAL only. Session provisioning sets KORTIX_SESSION_LOG_RESTORE=1 in the box env ' +
+      '(projects/lib/session-sandbox-env-build.ts). On, kortixd restores the harness native store ' +
+      'from the session log at boot when the store is missing or behind the log ' +
+      '(harness/shared/session-log-boot.ts). Off, the box keeps its native state. The journal uploads ' +
+      'attachment bytes (P2.13), so a restore keeps images and files. On by default only where the ' +
+      'deployment sets SESSION_LOG_RESTORE_DEFAULT_ENABLED (dev). A log over SESSION_LOG_RESTORE_MAX_BYTES ' +
+      '(24 MiB) answers 413 and the box boots with the D3 note alone (harness/README.md).',
+  },
+  {
+    key: 'connectors_v2',
+    name: 'Connectors v2',
+    description:
+      'Connectors on Kortix: the MCP app catalog in Customize → Connectors (vendor MCP servers, signed in with OAuth that Kortix runs), app events that Kortix checks on those apps (with App event triggers on), and Telegram as a channel connector. New connector accounts are no longer created for the whole project by default.',
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'ROUTES: /projects/:id/channels/telegram/* answer 403 `feature_disabled` when off ' +
+      '(projects/routes/channel-telegram.ts). BEHAVIORAL: the Telegram webhook keeps its legacy ' +
+      'one-session-per-message path when off (channels/telegram-webhook.ts); the kortix_telegram ' +
+      'connector is materialized only while on (connectors/channel-materialize.ts); sync seeds no ' +
+      'empty project-owned account while on (connectors/sync.ts). Discover serves the Kortix MCP ' +
+      'catalog while on (connectors/routes/catalogues.ts). The `mcp` app-event source exists only ' +
+      'while on (projects/trigger-events/registry.ts); turning it off moves those triggers to error ' +
+      'and drops their poll streams (feature-flags/toggle-effects.ts).',
   },
 ];
 
@@ -389,7 +518,13 @@ function explicitOverride(metadata: unknown, key: FeatureFlagKey): boolean | und
 export function resolveFeatureFlag(metadata: unknown, key: FeatureFlagKey): boolean {
   const def = FLAG_BY_KEY[key];
   if (!def || !def.available()) return false;
+  if (def.derivedFrom) return resolveFeatureFlag(metadata, def.derivedFrom);
   return explicitOverride(metadata, key) ?? def.platformDefault();
+}
+
+/** Is this flag derived from another flag (and so not a project choice)? */
+export function isDerivedFeatureFlag(key: FeatureFlagKey): boolean {
+  return Boolean(FLAG_BY_KEY[key]?.derivedFrom);
 }
 
 /** Effective enablement for every flag, keyed by flag id. */
@@ -411,24 +546,41 @@ export interface FeatureFlagView {
   enabled: boolean;
   /** True when this project set an explicit choice (vs inheriting the default). */
   overridden: boolean;
+  /** A `catalogHidden` flag: listed only while on, writable only by a platform operator. */
+  operator_only: boolean;
+  /** Always `project`: no flag is set for a whole organization. Kept for the wire contract. */
+  scope: 'project' | 'organization';
 }
 
 /**
  * Build the per-project catalog the clients render. Self-contained so the UI
  * never hard-codes the flag list — add to FLAGS and it appears.
  *
- * `catalogHidden` entries are omitted: they still resolve and are still
- * writable through `PATCH /projects/:id/features`, they are simply not offered
- * as a toggle (see "Hidden flags" in this file's header).
+ * A `catalogHidden` entry appears only while it is on for this project, with
+ * `operator_only: true`, so the clients show it read-only (see "Hidden
+ * flags" in this file's header).
  */
 export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
-  return FLAGS.filter((f) => !f.catalogHidden).map((f) => ({
-    key: f.key,
-    name: f.name,
-    description: f.description,
-    stability: f.stability,
-    available: f.available(),
-    enabled: resolveFeatureFlag(metadata, f.key),
-    overridden: explicitOverride(metadata, f.key) !== undefined,
-  }));
+  return FLAGS.flatMap((f) => {
+    // A flag that follows another flag has no row of its own.
+    if (f.derivedFrom) return [];
+    const enabled = resolveFeatureFlag(metadata, f.key);
+    if (f.catalogHidden && !enabled) return [];
+    return [{
+      key: f.key,
+      name: f.name,
+      description: f.description,
+      stability: f.stability,
+      available: f.available(),
+      enabled,
+      overridden: explicitOverride(metadata, f.key) !== undefined,
+      operator_only: isOperatorOnlyFeatureFlag(f.key),
+      scope: 'project' as const,
+    }];
+  });
+}
+
+/** True when only a platform operator may write this flag. */
+export function isOperatorOnlyFeatureFlag(key: FeatureFlagKey): boolean {
+  return FLAG_BY_KEY[key]?.catalogHidden === true;
 }

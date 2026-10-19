@@ -79,7 +79,11 @@ export const launchFilm: FilmDef = {
   slug: 'launch',
   title: 'Dosco — launch film',
   description:
+<<<<<<< HEAD
     'Dosco, the open-source AI Management System, in 64 seconds: one repo, a computer per session, change requests you approve.',
+=======
+    'Kortix, the open-source AI Operating System, in 64 seconds: one repo, a computer per session, change requests you approve.',
+>>>>>>> upstream-dev
   frames: bars(32),
   Film: LaunchFilm,
   cues,

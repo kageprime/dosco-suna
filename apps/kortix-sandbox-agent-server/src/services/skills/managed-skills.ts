@@ -1,30 +1,12 @@
 import { execFile } from 'node:child_process'
-import { access, constants, cp, readdir, readFile, writeFile } from 'node:fs/promises'
+import { access, constants, cp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
+import { managedSkillsDir } from '@/lib/config/managed-skills-dir'
 import { logger } from '@/lib/log/logger'
+import { genuiEnabled, GENUI_SKILL_NAME } from '@/lib/config/genui'
 
 const execFileAsync = promisify(execFile)
-
-/**
- * Image-baked copy of the always-latest Kortix system skills — `kortix-cli`
- * (the front door) plus the managed `kortix-*` family. Produced by the snapshot
- * Dockerfile so every session boots with the current bodies with zero network
- * work. Each subdirectory is a skill folder (`<name>/SKILL.md`, references, …).
- */
-const BAKED_MANAGED_SKILLS_DIR = '/opt/kortix/managed-skills'
-
-/**
- * Where the managed-skill overlay lives on this box. ONE resolver, because two
- * modules have to agree on it: the injector here and the config release
- * verification (boot-config.ts). When verification read "no directory passed"
- * as "no managed skills", every overlay directory counted as a file someone had
- * ADDED to the copy, verification failed on every call, and the copy was
- * silently re-extracted (#7403 preview, 2026-09-18).
- */
-export function managedSkillsDir(): string {
-  return (process.env.KORTIX_MANAGED_SKILLS_DIR ?? '').trim() || BAKED_MANAGED_SKILLS_DIR
-}
 
 /**
  * Keep the overlay out of the user's `git status`.
@@ -146,6 +128,64 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+/** The managed skills this box must not have: kortix-genui while the project's `genui` flag is off. */
+function withheldManagedSkills(env: NodeJS.ProcessEnv | Record<string, string | undefined>): string[] {
+  return genuiEnabled(env) ? [] : [GENUI_SKILL_NAME]
+}
+
+/**
+ * Make `skillsDir`, the directory OpenCode reads, match the project's `genui` flag: remove a
+ * withheld managed skill, or copy kortix-genui back from the baked overlay when the flag is on.
+ * A config release is staged once and reused from disk without the overlay step, so a copy an
+ * earlier boot left (or a skill an earlier flag-off boot withheld) survives restarts and env
+ * changes; every OpenCode spawn calls this. `unseal` opens a sealed release dir for the write and
+ * puts the seal back. Never throws.
+ */
+export async function syncFlaggedManagedSkills(
+  skillsDir: string,
+  opts: { env?: NodeJS.ProcessEnv | Record<string, string | undefined>; unseal?: boolean; bakedDir?: string } = {},
+): Promise<void> {
+  if (!(await pathExists(skillsDir))) return
+  const withheld = withheldManagedSkills(opts.env ?? process.env)
+  const baked = join(opts.bakedDir ?? managedSkillsDir(), GENUI_SKILL_NAME)
+  const stale: string[] = []
+  for (const name of withheld) if (await pathExists(join(skillsDir, name))) stale.push(name)
+  const restore = withheld.length === 0 && !(await pathExists(join(skillsDir, GENUI_SKILL_NAME))) && (await pathExists(baked))
+  if (stale.length === 0 && !restore) return
+  const unsealed = opts.unseal ? await execFileAsync('chmod', ['u+w', skillsDir]).then(() => true, () => false) : false
+  try {
+    for (const name of stale) await removeInjectedSkill(skillsDir, name, opts.unseal === true)
+    if (restore) {
+      await cp(baked, join(skillsDir, GENUI_SKILL_NAME), { recursive: true, force: true })
+      await excludeInjectedSkillsFromGit(skillsDir, [GENUI_SKILL_NAME])
+    }
+  } catch (err) {
+    logger.warn('[boot] flagged managed skill not synced', { skillsDir, err: String(err) })
+  } finally {
+    if (unsealed) await execFileAsync('chmod', ['u-w', skillsDir]).catch(() => undefined)
+  }
+}
+
+/**
+ * Remove a managed skill an earlier boot injected. A copy the project tracks in git is its own and
+ * stays; the overlay only ever adds untracked copies (`excludeInjectedSkillsFromGit`).
+ */
+async function removeInjectedSkill(skillsDir: string, name: string, unseal: boolean): Promise<void> {
+  const target = join(skillsDir, name)
+  if (!(await pathExists(target))) return
+  const tracked = await execFileAsync('git', ['-C', skillsDir, 'ls-files', '--error-unmatch', '--', name]).then(
+    () => true,
+    () => false,
+  )
+  if (tracked) return
+  try {
+    if (unseal) await execFileAsync('chmod', ['-R', 'u+w', target])
+    await rm(target, { recursive: true, force: true })
+  } catch (err) {
+    logger.warn('[boot] withheld managed skill not removed', { target, err: String(err) })
+  }
+}
+
 /**
  * Always-inject the Kortix system skills into the session's OpenCode skills dir.
  *
@@ -172,9 +212,15 @@ export async function ensureInjectedManagedSkills(
      * access back before overwriting it. Never set for a working tree.
      */
     unsealManaged?: boolean
+    /** The box env. The project's `genui` flag decides whether kortix-genui is written. */
+    env?: NodeJS.ProcessEnv | Record<string, string | undefined>
   } = {},
 ): Promise<void> {
   const bakedDir = opts.bakedDir ?? managedSkillsDir()
+  // A permission deny cannot hide a skill on OpenCode (the project's config layer merges after the
+  // composed config, and its `"*": "allow"` outranks every `skill` rule), so a flag-off box never
+  // gets the kortix-genui skill at all.
+  const withheld = withheldManagedSkills(opts.env ?? process.env)
   try {
     if (!(await pathExists(bakedDir))) return // nothing baked → leave repo copies as-is
     const skillsDir = join(configDir, 'skills')
@@ -199,6 +245,10 @@ export async function ensureInjectedManagedSkills(
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const target = join(skillsDir, entry.name)
+      if (withheld.includes(entry.name)) {
+        await removeInjectedSkill(skillsDir, entry.name, opts.unsealManaged === true)
+        continue
+      }
       try {
         if (opts.unsealManaged && (await pathExists(target))) {
           await execFileAsync('chmod', ['-R', 'u+w', target])

@@ -1,36 +1,8 @@
 /**
- * What a PERSON sees for every state a preview can be in.
- *
- * A preview address is a real website address: people paste it, bookmark it,
- * open it in a fresh tab, and send it to each other. Every state it can be in
- * therefore needs a page — not JSON, and not an intermediary's error
- * interstitial. There are six, and they are all normal:
- *
- *   signed-out    no credential yet            → offer to sign in
- *   forbidden     host claimed without a signature
- *   unknown       no such sandbox any more
- *   starting      the box is waking             → wait, retry
- *   not-listening nothing bound to that port yet → wait, retry
- *   unreachable   the box is up but not answering
- *
- * ## Why the transient states answer 200
- *
- * "The dev server has not bound the port yet" is not a gateway failure — it is
- * the ordinary first few seconds of a preview. Reporting it as 502 was both
- * wrong and fragile: Cloudflare replaces an origin 5xx with its own branded
- * error page, so the careful page below never reached the browser at all (the
- * `x-kortix-proxy-hop` header was missing from what arrived, which is how we
- * know it was swapped, not passed through).
- *
- * So a browser navigation in a transient state gets 200 and this page, which
- * says what is happening and retries itself. The true state stays fully legible
- * to machines: the status, `x-kortix-proxy-hop` and `x-kortix-upstream-status`
- * are unchanged for every non-navigation request, and are still set on the HTML
- * response too, so a `fetch` probe can read them.
- *
- * The identity states keep their real status — 401, 403 and 404 are passed
- * through by every intermediary, and a crawler or monitor should see them.
+ * The preview state page lives in `@kortix/shared` so the web app's
+ * `/debug/preview-states` harness renders the exact HTML the proxy serves.
  */
+<<<<<<< HEAD
 
 import { escapeHtml } from '../shared/html';
 
@@ -249,3 +221,6 @@ export function previewStatePage(input: {
 </body>
 </html>`;
 }
+=======
+export * from '@kortix/shared/preview-state-page';
+>>>>>>> upstream-dev

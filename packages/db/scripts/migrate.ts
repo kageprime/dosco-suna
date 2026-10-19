@@ -38,7 +38,7 @@ import {
 import { repairLocalWarmSessionIndex } from './local-warm-session-index-repair';
 import { withMigrationRetry } from './migration-retry';
 import { materializeMigrationRuntimeDirectory } from './migration-runtime-overrides';
-import { assertBootstrapTargetAllowed, migrationBootstrapsPrerequisites, migrationCheckOrder } from './migration-target';
+import { assertBootstrapTargetAllowed, RUNNER_TRANSACTION_MODE, migrationBootstrapsPrerequisites, migrationCheckOrder } from './migration-target';
 import { readMigrationStatus } from './migration-status';
 
 const MIGRATIONS_DIR = join(import.meta.dir, '..', 'migrations');
@@ -228,7 +228,7 @@ async function main() {
     migrationsSchema: 'kortix_migrations',
     createMigrationsSchema: true,
     checkOrder,
-    singleTransaction: true,
+    ...RUNNER_TRANSACTION_MODE,
     verbose: false,
     logger: console,
   } as const;

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { listProjectSecretNamesForConsumer } from '../../projects/secrets';
 import { resolveEffectiveModel } from '../resolution/default-model';
 import type { ModelSource } from '../resolution/effective';
@@ -70,3 +71,8 @@ export async function listPickerModels(params: {
     },
   };
 }
+=======
+// Compact channel pickers (Slack, Teams) label models through this module;
+// the served-model catalog itself lives in picker-catalog.ts.
+export { labelForModelRef } from './picker-catalog';
+>>>>>>> upstream-dev

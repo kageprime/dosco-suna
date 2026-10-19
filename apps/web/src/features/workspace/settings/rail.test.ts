@@ -35,11 +35,26 @@ describe('railGroups', () => {
     );
   });
 
+<<<<<<< HEAD
   // Project first. The overlay is one door for every scope now — project
   // rows lead because a project context is where the overlay most often
   // opens, then the person's own rows, then the account rows.
   test('renders three groups: Project, Personal, Account', () => {
     expect(railGroups().map((g) => g.label)).toEqual(['Project', 'Personal', 'Account']);
+=======
+  // Workspace FIRST. The overlay is entered from a row labelled "User
+  // Settings", but that row names its default TAB, not the rail's order — so
+  // leading with the workspace's own identity costs the personal tabs nothing
+  // and is what makes renaming findable again.
+  test('renders two groups: Personal, then the Connect footer', () => {
+    // Workspace (project configuration) is the Customize bar's Settings tab
+    // and Account (Credits, Plan) is the account page — Marko, 2026-09-03:
+    // the overlay is the person's own settings and nothing else.
+    // Connect (MCP, Computer) is the block at the foot of the rail
+    // (KRTX-1997), drawn like the project sidebar's connect rows.
+    expect(railGroups().map((g) => g.label)).toEqual(['Personal', 'Connect']);
+    expect(railGroups().map((g) => Boolean(g.footer))).toEqual([false, true]);
+>>>>>>> upstream-dev
   });
 
   test('holds the project tabs first, then the person-scoped tabs, then the account rows', () => {
@@ -57,9 +72,14 @@ describe('railGroups', () => {
       'sessions',
       'preferences',
       'tokens',
+<<<<<<< HEAD
       'connected',
       'credits',
       'plan',
+=======
+      'mcp',
+      'computer',
+>>>>>>> upstream-dev
     ]);
   });
 

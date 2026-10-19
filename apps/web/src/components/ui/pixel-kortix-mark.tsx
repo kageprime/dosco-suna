@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import { useId, type ComponentPropsWithoutRef } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -78,3 +79,6 @@ export function PixelKortixMark({ className, ...props }: ComponentPropsWithoutRe
     </svg>
   );
 }
+=======
+export * from '@kortix/ui/pixel-kortix-mark';
+>>>>>>> upstream-dev

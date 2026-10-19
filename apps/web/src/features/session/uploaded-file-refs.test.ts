@@ -139,6 +139,26 @@ describe('uploaded file references', () => {
     ]);
   });
 
+  test('a resent saved copy draws that copy at once, but is not an upload identity', () => {
+    // The inline editor resends a kept attachment as its `kortix-attachment://` ref.
+    const id = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+    const ref = `kortix-attachment://${id(1)}/${id(2)}/${id(3)}`;
+    const saved: AttachedFile = {
+      kind: 'remote',
+      url: ref,
+      filename: 'shot.png',
+      mime: 'image/png',
+      isImage: true,
+    };
+    expect(optimisticUploadedFileRef(saved)).toEqual({
+      path: 'shot.png',
+      mime: 'image/png',
+      filename: 'shot.png',
+      attachment: ref,
+    });
+    expect(sentAttachmentsOf([saved])).toEqual([{ filename: 'shot.png', mime: 'image/png' }]);
+  });
+
   test('a remote attachment needs no upload, so it keeps its path', () => {
     expect(optimisticUploadedFileRef(remoteFile('remote.pdf'))).toEqual({
       path: 'remote.pdf',
@@ -214,6 +234,25 @@ describe('promptFileParts', () => {
     ]);
     // Handle-only: no bytes and no data URL ride the prompt.
     expect(JSON.stringify(parts)).not.toContain('data:');
+  });
+
+  test('a finished upload restored from a draft takes its ready handle, and its ref names the upload', () => {
+    const restored = {
+      kind: 'uploaded' as const,
+      uploadId: 'local-restored',
+      filename: 'notes.pdf',
+      mime: 'application/pdf',
+      size: 1200,
+      isImage: false,
+    };
+    const parts = promptFileParts([restored], [ready('att-restored', 'notes.pdf')]);
+    expect(parts.map((part) => part.attachment_id)).toEqual(['att-restored']);
+    expect(optimisticUploadedFileRef(restored)).toEqual({
+      path: '',
+      mime: 'application/pdf',
+      filename: 'notes.pdf',
+      attachment: 'local-restored',
+    });
   });
 
   test('a local file with no ready handle is refused: Send never uploads bytes itself', () => {

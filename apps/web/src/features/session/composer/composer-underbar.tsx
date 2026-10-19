@@ -2,12 +2,12 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 
-import type { Agent, MessageWithParts } from '@kortix/sdk/react';
+import type { SessionLogMessage } from '@kortix/sdk';
+import type { Agent, FlatModel } from '@kortix/sdk/react';
 import { PaperclipIcon as Paperclip } from '@phosphor-icons/react';
 
 import { Button } from '@/components/ui/button';
 import Hint from '@/components/ui/hint';
-import type { FlatModel } from '../model-flatten';
 import { AgentSelector } from './agent-selector';
 import { NO_AGENT_ACCESS_MESSAGE } from './composer-agent-access';
 import { TokenProgress } from './token-progress';
@@ -51,7 +51,7 @@ export interface ComposerUnderbarProps {
    */
   noAccessibleAgents?: boolean;
 
-  messages: MessageWithParts[] | undefined;
+  messages: SessionLogMessage[] | undefined;
   models: FlatModel[];
   selectedModel: { providerID: string; modelID: string } | null;
   onContextClick?: () => void;
@@ -133,10 +133,9 @@ export function ComposerUnderbar({
             size="icon-base"
             onClick={onAttachClick}
             aria-label={t('attachFiles')}
-            // `hit-area-1` — the same extension the toolbar's send
-            // buttons carry. The visible chip stays 32px; the pressable box
-            // grows to 40, on a mouse as well as on a finger.
-            className="text-muted-foreground hit-area-1 rounded-lg"
+            // `hit-area-3` — the ≈29px ghost chip clears the 44px mobile tap
+            // floor only with the shared pseudo-element extension.
+            className="text-muted-foreground hit-area-3 rounded-lg"
           >
             <Paperclip className="size-4 shrink-0" />
           </Button>

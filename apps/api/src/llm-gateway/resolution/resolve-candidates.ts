@@ -21,12 +21,14 @@ import {
 import { CodexRefreshError, resolveCodexAccountCredential, resolveCodexCredential } from '../credentials/codex';
 import { opencodeInferenceBaseUrl, parseOpencodeLogin, resolveOpencodeLogin } from '../credentials/opencode-console';
 import { capabilitiesForModel } from '../models/catalog-models';
+import { isRefusedCodexModelId } from '../models/codex-models';
 import {
   canonicalManagedModelId,
   getRuntimeManagedModel,
   isKnownManagedModelId,
   isRetiredManagedModelId,
 } from '../models/managed-models';
+import { isPlatformDefaultModelId } from '../models/served-managed-models';
 import { resolveCatalogUpstream } from '../models/provider-registry';
 import {
   bedrockByokBaseUrl,
@@ -90,6 +92,25 @@ async function selectedPool(context: Context, providerId: string, name: string) 
 function codexGrantAllowed(principal: AuthedPrincipal) {
   return !Array.isArray(principal.agentGrant?.env) ||
     principal.agentGrant.env.some((name) => name.toUpperCase() === 'CODEX_AUTH_JSON');
+}
+
+/**
+ * Every ChatGPT account in reach is resting. A rest past a minute is the
+ * plan's usage limit (days, `usageLimitResetSeconds` in the gateway): say so
+ * and when it ends, with no retry-after, since a retry cannot succeed sooner.
+ */
+function chatGptAccountsResting(subject: string, retryAfterSeconds: number | undefined, suggestion: string) {
+  if (retryAfterSeconds === undefined || retryAfterSeconds <= 60) {
+    return new GatewayResolutionError('provider_pool_rate_limited', `${subject} are cooling down.`, suggestion, retryAfterSeconds);
+  }
+  const hours = retryAfterSeconds / 3600;
+  // Rounded: a floor read 4 days less a few seconds as "3 days".
+  const wait = hours >= 48 ? `${Math.round(hours / 24)} days`
+    : hours >= 2 ? `${Math.round(hours)} hours`
+    : `${Math.ceil(retryAfterSeconds / 60)} minutes`;
+  return new GatewayResolutionError('provider_pool_rate_limited',
+    `${subject} reached their usage limit. The first resets in ${wait}.`,
+    'Choose another model, or connect another ChatGPT account.');
 }
 
 function codexGrantRefusal() {
@@ -164,9 +185,8 @@ async function codexSharedCandidates(context: Context): Promise<UpstreamDescript
         ? 'The member who connected it must reconnect it, then retry.'
         : 'The members who connected them must reconnect them, then retry.');
   }
-  if (shared.coolingDown) return new GatewayResolutionError('provider_pool_rate_limited',
-    'All ChatGPT connections shared with this project are cooling down.',
-    'Retry after the cooldown, or connect another ChatGPT account.', shared.retryAfterSeconds);
+  if (shared.coolingDown) return chatGptAccountsResting('All ChatGPT connections shared with this project',
+    shared.retryAfterSeconds, 'Retry after the cooldown, or connect another ChatGPT account.');
   return null;
 }
 
@@ -198,11 +218,12 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
   const pool = await selectedPool(context, 'codex', 'CODEX_AUTH_JSON');
   if (pool?.configured) {
     if (!codexGrantAllowed(principal)) throw codexGrantRefusal();
-    if (!pool.secrets.length) throw new GatewayResolutionError(
-      pool.coolingDown ? 'provider_pool_rate_limited' : 'provider_not_connected',
-      pool.coolingDown ? 'All selected ChatGPT connections are cooling down.' :
+    if (!pool.secrets.length) throw pool.coolingDown
+      ? chatGptAccountsResting('All selected ChatGPT connections', pool.retryAfterSeconds,
+        'Select a granted ChatGPT connection in session settings.')
+      : new GatewayResolutionError('provider_not_connected',
         'No usable ChatGPT connection is selected for this session.',
-      'Select a granted ChatGPT connection in session settings.', pool.retryAfterSeconds);
+        'Select a granted ChatGPT connection in session settings.');
     const { candidates, failed } = await codexAccountCandidates(context, pool.secrets);
     if (candidates.length) return candidates;
     if (!failed.length) {
@@ -352,6 +373,7 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
   const managed = getRuntimeManagedModel(effectiveModel);
   if (!managed || !config.LLM_GATEWAY_ENABLED || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
+<<<<<<< HEAD
     'Dosco Managed Models are disabled for this project.',
     'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
   if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
@@ -359,6 +381,21 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
     const tier = await getCachedAccountTier(principal.accountId);
     throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
+=======
+    'Kortix Managed Models are disabled for this project.',
+    'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
+  // The platform default is the ONE managed model every tier may use — a fresh
+  // free account's only working model (KRTX-1067). The rest of the lineup
+  // keeps its plan gates.
+  const platformDefault = isPlatformDefaultModelId(effectiveModel);
+  if (!platformDefault) {
+    if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
+      `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
+    if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
+      const tier = await getCachedAccountTier(principal.accountId);
+      throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
+    }
+>>>>>>> upstream-dev
   }
   return managedCandidates(managed).map((candidate) => {
     const headers = opencodeHeaders(candidate.baseUrl, principal);
@@ -413,7 +450,16 @@ export async function resolveCandidates(
   }
   const provider = effectiveModel.includes('/') ? effectiveModel.split('/')[0] : '';
   const context = { principal, effectiveModel, personalUserId, pooledEnabled, options };
-  if (provider === 'codex') return resolveCodexCandidates(context);
+  if (provider === 'codex') {
+    if (isRefusedCodexModelId(effectiveModel.slice('codex/'.length))) {
+      throw new GatewayResolutionError(
+        'model_retired',
+        `The "${effectiveModel}" model is no longer available with a ChatGPT account.`,
+        'Choose another model from the current ChatGPT lineup.',
+      );
+    }
+    return resolveCodexCandidates(context);
+  }
 
   const byok = resolveCatalogUpstream(provider, provider ? effectiveModel.slice(provider.length + 1) : undefined);
   if (byok && principal.projectId) {

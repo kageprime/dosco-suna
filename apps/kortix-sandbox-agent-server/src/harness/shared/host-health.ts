@@ -80,8 +80,6 @@ export async function readHostHealth(context: HarnessDiagnosticsContext, catalog
     repo: repoInfo?.remoteUrl ?? null,
     branch: repoInfo?.branch ?? null,
     commit_sha: repoInfo?.commit ?? null,
-    compiled_boot_mode: cfg.compiledBootMode,
-    compiled_checkout: existsSync(join(cfg.projectTarget, '.git', 'kortix-compiled-checkout.json')),
     // The content hash of the compiled agent config the runtime spawned
     // with. Not derivable from commit_sha: a warm-workspace refresh advances
     // the commit while deliberately skipping the restart, so a box can report
@@ -101,13 +99,14 @@ export async function readHostHealth(context: HarnessDiagnosticsContext, catalog
     // the two; this is only the box's own answer. A pure read — never
     // triggers a reconcile attempt, so polling health cannot itself cause work.
     runtime_truth: await runtimeTruthReport(),
-    // Which config provider delivered the project this boot (git | s3), the
-    // expected vs actual SHA, and — when S3 was attempted and Git delivered
-    // instead — the classified reason. A successful fallback keeps the S3
-    // failure visible here; the same facts go to the boot timeline relay.
-    config_provider: bootState.configProvider ?? null,
-    // In-container boot timeline (ms since process start) so the dashboard can
-    // attribute the post-create boot latency (clone vs runtime vs proxy).
+    // The `/workspace` checkout, reported on its own: which transport
+    // delivered it (git | s3), the expected vs actual SHA, per-stage timings,
+    // and — when S3 was attempted and Git delivered instead — the classified
+    // reason. The workspace is not config: none of this is in `boot_timeline`.
+    workspace_provider: bootState.workspaceProvider ?? null,
+    // In-container boot timeline (ms since process start): the daemon, the
+    // config release the runtime boots from (`config-release-*`), and the
+    // runtime. No workspace step is in it; `workspace_provider` has those.
     boot_timeline: bootState.timeline,
     // Visible auth posture so misconfiguration doesn't silently downgrade.
     auth: cfg.sandboxToken ? 'configured' : 'unconfigured',

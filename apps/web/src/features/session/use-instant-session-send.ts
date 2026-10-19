@@ -34,6 +34,7 @@ import {
   writeStartStash,
   type UseSessionPromptsResult,
 } from '@kortix/sdk/react';
+import { randomUUID } from '@/lib/utils/random-uuid';
 
 /** One candidate first prompt: the text, the files this tab holds, the stable
  *  attachment identities a bubble draws and the failed-upload status. */
@@ -228,8 +229,9 @@ function deliverDetached(
   send: SendRequest,
   env: SendEnv,
   post: (attachmentParts: SessionPromptPart[]) => Promise<void>,
+  attachments: AttachmentSubmission,
 ): void {
-  const { sessionId, text, files, attachments, first, clientMessageId } = send;
+  const { sessionId, text, files, first, clientMessageId } = send;
   const { onSubmit, mountedRef, setExtraSends, tComposerAttachments } = env;
   const describe = (error: unknown) => sentFailureMessage(error, tComposerAttachments);
   if (first) {
@@ -424,7 +426,7 @@ function planSend({
   const first = !submitted && !firstSendInFlight.current;
   // Read before this send joins the session's delivery chain.
   const detached = !!attachments && deliversDetached(sessionId, attachments);
-  const clientMessageId = crypto.randomUUID();
+  const clientMessageId = randomUUID();
   const messageId = mintSessionWireMessageId(sessionId, clientMessageId);
   const placement = options.placement ?? 'transcript';
   const overrides = {
@@ -512,6 +514,8 @@ interface UseInstantSessionSendResult {
     options: ComposerOptions,
     attachments?: AttachmentSubmission,
   ) => Promise<void>;
+  /** Drop this tab's copy of a sent message, whose text outranks the row's. */
+  forgetExtraSend: (clientMessageId: string) => void;
 }
 
 /**
@@ -576,7 +580,7 @@ export function useInstantSessionSend(
       // from its place in the chain, detached, so the next Send paints at once.
       // A failure marks the message failed, with Retry.
       if (attachments && detached) {
-        deliverDetached(send, env, post);
+        deliverDetached(send, env, post, attachments);
         return;
       }
       await deliverInChain(send, env, post);
@@ -596,5 +600,13 @@ export function useInstantSessionSend(
     ],
   );
 
-  return { submitted, effectiveSubmission, extraSends, handleSend };
+  // An edited queued message (`queued-prompt-edit.ts`) must show the server's
+  // new text, not this tab's copy of the old one.
+  const forgetExtraSend = useCallback(
+    (clientMessageId: string) =>
+      setExtraSends((prev) => prev.filter((extra) => extra.id !== clientMessageId)),
+    [setExtraSends],
+  );
+
+  return { submitted, effectiveSubmission, extraSends, handleSend, forgetExtraSend };
 }

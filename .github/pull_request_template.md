@@ -1,12 +1,13 @@
 <!--
-  Every change to `main`, `staging` or `prod` goes through a pull request (SOC 2 CC8.1).
+  Every change to `dev`, `staging` or `prod` goes through a pull request (SOC 2 CC8.1).
   Procedure: CONTRIBUTING.md and the `contributing` skill (.agents/skills/contributing).
 
-  - A pull request into `main` runs no CI. Run `pnpm test` and the changed behaviour on
-    your local stack before you open it; list the commands below. Add `test` or
+  - A pull request into `dev` runs no CI. Run the tests that cover the change and the
+    changed behaviour on your local stack; list the commands below, or say why a diff
+    (docs, a skill, a script) needed none. Add `test` or
     `preview` only for one explicit CI run.
   - `prod` needs an approving review and the `full suite + quality gates` check.
-    `main` / `staging` need the pull request only. The author owns what was verified.
+    `dev` / `staging` need the pull request only. The author owns what was verified.
   - This repo is public. Use synthetic data only, in text, screenshots, and video.
 -->
 
@@ -22,7 +23,7 @@ Closes #
   Required. Record the change with agent-browser on your local stack
   (`agent-browser record start output/pr/demo.mp4 http://localhost:<web port>/<route> --cursor`).
   Keep the line below. Run from the repo root:
-    gh pr create --base main --body-file output/pr/body.md --attach ./output/pr/demo.mp4
+    gh pr create --base dev --body-file output/pr/body.md --attach ./output/pr/demo.mp4
   gh uploads the file and replaces the path with a video player.
   No user-visible surface: record the terminal or the rendered result, or state why a
   video adds nothing.
@@ -43,8 +44,8 @@ Closes #
 
 ## How was this tested?
 
-<!-- The exact commands you ran in your box and their results: the narrowest test,
-     `pnpm test`, and the changed behaviour on the local stack. -->
+<!-- The exact commands you ran in your box and their results: the tests that cover
+     the change, and the changed behaviour on the local stack. -->
 
 ## Security & data review
 
@@ -64,5 +65,5 @@ Closes #
 
 - [ ] Change is scoped and understandable
 - [ ] The demo video shows the change working
-- [ ] Tests cover the change, and `pnpm test` passed locally
+- [ ] The tests that cover the change ran locally and passed
 - [ ] Security & data review above is satisfied

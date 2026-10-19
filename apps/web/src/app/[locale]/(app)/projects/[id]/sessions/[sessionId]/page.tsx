@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import Loading from '@/components/ui/loading';
 import { errorToast, successToast } from '@/components/ui/toast';
 import { ErrorState } from '@/features/layout/section/error-state';
+import { useNotificationCenter } from '@/features/notifications/use-notification-center';
+import { useOpenSessionRead } from '@/features/notifications/use-open-session-read';
 import { useAuth } from '@/features/providers/auth-provider';
 import { InstantSessionShell } from '@/features/session/instant-session-shell';
 import { resolvePinnedRootSessionId } from '@/features/session/pinned-root-session';
@@ -51,6 +53,7 @@ import {
   isRuntimeIdentityUnavailable,
   isSandboxResumable,
   isWakeClassFailure,
+  sessionWakeProgress,
 } from '@/features/session/session-resume';
 import { canPollSessionStart } from '@/features/session/session-start-gate';
 import {
@@ -83,7 +86,10 @@ import { SidebarToggle } from '@/features/workspace/project-layout/sidebar-toggl
 import { SessionDeleteModal } from '@/features/workspace/project-sidebar/modal/session-delete-modal';
 import { useAccountState } from '@/hooks/billing';
 import { useSandboxConnection } from '@/hooks/platform/use-sandbox-connection';
-import { useRestartProjectSession } from '@/hooks/projects/use-restart-project-session';
+import {
+  useRecoverLostSession,
+  useRestartProjectSession,
+} from '@/hooks/projects/use-restart-project-session';
 import {
   billingDialogArgs,
   billingGateCopy,
@@ -94,11 +100,13 @@ import { isBillingEnabled } from '@/lib/config';
 import { finishSessionTiming, sessionMark } from '@/lib/session-timing';
 import { cn } from '@/lib/utils';
 import { useFirstPromptPreviewStore } from '@/stores/session-composer-handoff-store';
+import { useSessionComposerPrefillStore } from '@/stores/session-composer-prefill-store';
 import {
   shouldShowSessionSwitchLoading,
   useSessionSwitchStore,
 } from '@/stores/session-switch-store';
 import { useUpgradeDialogStore } from '@/stores/upgrade-dialog-store';
+import { useWebNotificationStore } from '@/stores/web-notification-store';
 import {
   clearSessionFresh,
   formatRuntimeError,
@@ -107,7 +115,6 @@ import {
   sessionStartKey,
   setActiveInstanceCookie,
   updateProjectSession,
-  wakeProgressFingerprint,
 } from '@kortix/sdk';
 import {
   type UseSessionResult,
@@ -121,6 +128,7 @@ import {
   useProjectSession,
   useSession,
   useSessionPrompts,
+  useSessionStreamConnected,
   useWakeEscalation,
 } from '@kortix/sdk/react';
 
@@ -207,10 +215,10 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const accountLoaded = !!accountState;
   // ONE resolver for "what is this account's billing situation" (see
   // lib/billing/billing-gate-state.ts). This used to be `!can_run`, rendered as
-  // `noPlan` with a "Subscribe to Team plan" pitch — which told a Team account
-  // on an ACTIVE $40/mo subscription with a $0.0099 wallet that it had no plan,
-  // while the modal that CTA opened correctly said "Out of credits — your Team
-  // plan and seats are unaffected". `can_run: false` means blocked, not unplanned.
+  // `noPlan` with a subscribe pitch — which told an account on an ACTIVE
+  // subscription with a $0.0099 wallet that it had no plan, while the modal
+  // that CTA opened correctly said "Out of credits — your plan is unaffected".
+  // `can_run: false` means blocked, not unplanned.
   const billingState = isBillingEnabled() ? resolveBillingState(accountState) : null;
   const billingBlocked =
     isBillingEnabled() && accountLoaded && !billingStateAllowsRun(billingState);
@@ -237,8 +245,18 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   // replayStartStash:false — the web has its own pending-prompt hand-off (below).
   // The default chat engine stays enabled. This hook owns message sync and the
   // question and permission recovery pollers for the root session.
+  // With the project's `notification_center` flag on (KRTX-1742), a tab that
+  // shows its own OS notification tells the server so, and the server then
+  // holds back the phone push and Web Push for this session; closing the page
+  // ends the presence lease at once. With the flag off, presence is as before.
+  const notificationCenter = useNotificationCenter(projectId);
+  const browserNotificationsOn = useWebNotificationStore((s) => s.preferences.enabled);
+  const notificationPermission = useWebNotificationStore((s) => s.permission);
   const session = useSession(projectId, sessionId, {
     browserPresence: !!user,
+    presenceAlerts:
+      notificationCenter && browserNotificationsOn && notificationPermission === 'granted',
+    presencePageExit: notificationCenter,
     enabled: canPollSessionStart({ hasUser: !!user, billingBlocked }),
     replayStartStash: false,
     initialRuntimeSessionId,
@@ -247,6 +265,9 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
     // re-renders the transcript only, not this whole page.
     subscribeMessages: false,
   });
+  // The presence write marks this session's notifications read on the server;
+  // this clears them from the bell at once. Flag off: there is no bell.
+  useOpenSessionRead(notificationCenter ? user?.id : null, sessionId);
   // `/start` no longer refuses a session created before a repository
   // replacement, so there is no error to detect and no mode to flip into: the
   // session starts, gets the project's current config release, and converges
@@ -294,6 +315,8 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   // ONE restart behavior for every card on this route: optimistic exit from the
   // terminal state, a real pending state, and a SURFACED failure.
   const restart = useRestartProjectSession(projectId, sessionId);
+  // A lost session continues on a new computer only when a person asks (KRTX-2419).
+  const recover = useRecoverLostSession(projectId, sessionId);
   // A manual restart re-arms auto-resume: the box the user just asked us to
   // reboot deserves the same wake attempts a fresh open would get.
   const handleRestart = () => {
@@ -366,9 +389,6 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const runtimeConnectionStatus = useRuntimeConnectionStore((s) => s.status);
   const runtimeVersion = useRuntimeConnectionStore((s) => s.openCodeVersion);
   const runtimeProbeError = useRuntimeConnectionStore((s) => s.runtimeError);
-  const sandboxMetadata = (sandbox?.metadata as Record<string, unknown> | undefined) ?? {};
-  const wakeStopReason =
-    typeof sandboxMetadata.stopReason === 'string' ? sandboxMetadata.stopReason : null;
   // Only an ESTABLISHED runtime is woken. A session whose first sandbox is
   // still being built (`external_id` null, "Sandbox build running…") is not
   // stuck — it is doing minutes of legitimate work with no client-visible
@@ -391,20 +411,16 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const wake = useWakeEscalation({
     waking: wakeLadderApplies,
     runtimeReachable: runtimeProbed && runtimeHealthy,
-    progress: wakeProgressFingerprint([
-      startStage,
-      session.reason,
-      sandbox?.status,
-      wakeStopReason,
-      typeof sandboxMetadata.runtimeWakeStartedAt === 'string'
-        ? sandboxMetadata.runtimeWakeStartedAt
-        : null,
-      session.runtimeSessionId,
+    progress: sessionWakeProgress({
+      stage: startStage,
+      reason: session.reason,
+      sandbox,
+      runtimeSessionId: session.runtimeSessionId,
       runtimeConnectionStatus,
       runtimeHealthy,
       runtimeVersion,
       runtimeProbeError,
-    ]),
+    }),
     serverGaveUp: wakeServerGaveUp,
     onRetryStart: () => {
       queryClient.invalidateQueries({ queryKey: sessionStartKey(projectId, sessionId) });
@@ -413,6 +429,10 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
     // own ref, so a rebuilt closure here cannot re-run its decision effect and
     // fire one rung twice.
     onRestart: handleRestart,
+    // While the session stream is up the server runs this ladder (R5.2) and
+    // the hook only reports it.
+    projectId,
+    sessionId,
   });
   // THE progress-aware budget. Every consumer below reads time-since-CHANGE,
   // never time-since-wake-started — the fixed clock this replaces expired
@@ -425,9 +445,13 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   // than one second could then never elapse, silently ending the resume loop
   // after its first immediate attempt.
   const wakeShowingProgress = wakeSilentMs < AUTO_RESUME_WINDOW_MS;
+  // With the session stream up, every change of the box row re-reads `/start`
+  // (R5.3), so only the first, waking attempt is needed here.
+  const sessionStreamConnected = useSessionStreamConnected(projectId, sessionId);
   useEffect(() => {
     if (!sandboxResumable) return;
     if (!wakeShowingProgress) return;
+    if (sessionStreamConnected && resumeAttempts > 0) return;
     // First attempt fires immediately (match the refresh); back off after that,
     // and keep re-asking for as long as the wake is still showing progress.
     const t = setTimeout(
@@ -438,7 +462,7 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
       resumeAttempts === 0 ? 0 : Math.min(1500 * 2 ** Math.min(resumeAttempts - 1, 3), 8000),
     );
     return () => clearTimeout(t);
-  }, [sandboxResumable, resumeAttempts, wakeShowingProgress, projectId, sessionId, queryClient]);
+  }, [sandboxResumable, resumeAttempts, wakeShowingProgress, sessionStreamConnected, projectId, sessionId, queryClient]);
   // While a resumable box is still SHOWING PROGRESS it is "waking", not "dead"
   // — render the boot loader, never the dead-end card.
   const autoResuming = isAutoResuming(sandbox, { elapsedMs: wakeSilentMs });
@@ -1012,25 +1036,29 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
           />
         );
       } else {
-        notice = {
-          title: tSessionPage('stopped.title'),
-          message: restart.errorMessage ?? tSessionPage('stopped.message'),
-          action: <RestartSessionButton restart={restart} onRestart={handleRestart} />,
-        };
+        // A deliberate stop with a readable transcript is not a dead end. The
+        // conversation stays, the composer stays live (a sent message wakes the
+        // box and is delivered — `deliver` carries the wake intent), and the
+        // composer's own notice says the computer is asleep. A human who left
+        // and came back re-opens the box themselves (`useSession` releases the
+        // stop hold on the next presence return), so no explicit Restart
+        // button is needed here — a `notice` would only freeze the composer
+        // (`readOnly`) and replace it with a terminal card.
       }
     }
 
-    // The provider lost this session's computer. THIS MUST NEVER HAPPEN, and
-    // when it does the only honest UI is a hard stop: nothing here is
-    // restartable (`/start` answers `retriable: false`, `POST /restart` answers
-    // 409 forever), and this session cannot be reconstructed.
+    // The provider lost this session's computer. THIS MUST NEVER HAPPEN. The
+    // box is not restartable (`/start` answers `retriable: false`, `POST
+    // /restart` answers 409 forever).
     //
     // It must NOT fall through to the generic stopped card below, which offers
     // a Restart button whose only possible outcome is that 409 — the loop a prod
-    // session hit on 2026-08-13. It must also NEVER silently continue
-    // into a fresh session: the server deliberately preserved this identity
-    // instead of attaching a replacement box, and the UI must not undo that.
-    // Say what happened, name the id, and stop.
+    // session hit on 2026-08-13. It must also NEVER silently continue into a
+    // fresh session: the server deliberately preserved this identity instead of
+    // attaching a replacement box. With a saved conversation, a person may ask
+    // for that: Continue (`POST /recover`, KRTX-2419) boots a new computer from
+    // the session branch that restores the conversation. Without one, say what
+    // happened, name the id, and stop.
     if (!notice && runtimeIdentityUnavailable && !previousRepositoryHistoryAvailable) {
       const deleteAction = (
         <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
@@ -1047,13 +1075,22 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
           />
         );
       }
-      // The conversation stays readable: nothing can continue it, but nothing
-      // about losing the computer made its history untrue.
+      // The conversation stays readable, and it can continue on a new
+      // computer. A refusal (no saved log, the old box still being removed)
+      // keeps this banner and names the reason.
       notice = {
         tone: 'destructive',
         title: tSessionPage('lost.title'),
-        message: tSessionPage('lost.message'),
-        action: deleteAction,
+        message: recover.errorMessage ?? tSessionPage('lost.continueMessage'),
+        action: (
+          <div className="flex items-center gap-2">
+            <Button size="sm" disabled={recover.isPending} onClick={() => recover.recover()}>
+              {recover.isPending ? <Loading className="size-3.5 shrink-0" /> : null}
+              {tSessionPage('lost.continue')}
+            </Button>
+            {deleteAction}
+          </div>
+        ),
       };
     }
 
@@ -1207,16 +1244,23 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
             during the wake is the composer's own notice; this says only which
             phase the boot is in. */}
         {notice && !canMountChat ? <SessionNoticeBanner {...notice} /> : null}
-        {!notice && bootPresentation === 'banner' && (startStage !== 'ready' || !chatReady) && (
-          <SessionConnectingBanner
-            stage={authLoading || !user ? 'provisioning' : startStage}
-            projectId={projectId}
-            sessionId={sessionId}
-            note={wake.note}
-            reason={session.reason}
-            failure={session.failure}
-          />
-        )}
+        {/* Dormant with a transcript paints no boot strip: nothing is booting
+            until a message or a returning human wakes the box, and the
+            composer's asleep notice is the honest state. Once the wake is
+            claimed the sandbox row reappears and this banner mounts for real. */}
+        {!notice &&
+          !dormantWithoutRuntime &&
+          bootPresentation === 'banner' &&
+          (startStage !== 'ready' || !chatReady) && (
+            <SessionConnectingBanner
+              stage={authLoading || !user ? 'provisioning' : startStage}
+              projectId={projectId}
+              sessionId={sessionId}
+              note={wake.note}
+              reason={session.reason}
+              failure={session.failure}
+            />
+          )}
       </div>
     );
   })();
@@ -1273,6 +1317,15 @@ function RestartSessionButton({
   pendingLabel?: string;
 }) {
   const t = useTranslations('sessionPage');
+  // Restart is the session owner's or a project manager's; the server answers
+  // anyone else 403. The row is the page's own cached read of this session.
+  const params = useParams<{ id: string; sessionId: string }>();
+  const { data: session } = useProjectSession(params?.id, params?.sessionId, {
+    enabled: !!params?.id && !!params?.sessionId,
+  });
+  if (session?.can_manage_lifecycle === false) {
+    return <p className="text-muted-foreground text-sm">{t('restart.ownerOnly')}</p>;
+  }
   return (
     <Button
       type="button"
@@ -1475,6 +1528,16 @@ function ActiveSessionChat({
     // were orphaned (#6110). The inbox is keyed by the KORTIX session id — the
     // route id — which never changes, so there is nothing to adopt.
   }, [sessionId, chatSessionId]);
+
+  // A desktop Quick Entry prompt for this session lands under the route id
+  // (the only id the producer knows); SessionChat reads prefills by
+  // `chatSessionId`. Keyed on the waiting prefill too: a second prompt while
+  // this page is open lands after the chat resolved, and must move as well.
+  const routePrefillId = useSessionComposerPrefillStore((s) => s.prefillBySession[sessionId]?.id);
+  useEffect(() => {
+    if (!chatSessionId || routePrefillId === undefined) return;
+    useSessionComposerPrefillStore.getState().movePrefill(sessionId, chatSessionId);
+  }, [sessionId, chatSessionId, routePrefillId]);
 
   // ── Readiness benchmarking marks ───────────────────────────────────────
   useEffect(() => {

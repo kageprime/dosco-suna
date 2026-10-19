@@ -1,299 +1,28 @@
-import { chatChannelBindings, chatInstalls, projectSecrets } from '@kortix/db';
-import { and, eq, isNull, like, ne } from 'drizzle-orm';
-import {
-  encryptProjectSecret,
-  getProjectSecretValueForConsumer,
-  getProjectSecretValuesForConsumer,
-} from '../projects/secrets';
+// Shared project-secret plumbing for the chat-channel installs. Each platform
+// owns its install rows and secret keys in its own module (slack/installs.ts,
+// email/installs.ts, teams/installs.ts); this module owns the shared secret
+// upsert/read/delete plumbing and re-exports the platform modules, so the
+// established '../install-store' and `channels` import paths keep working.
+//
+// The cycle (a platform module importing this module while this module
+// re-exports it) is safe: every shared helper is a hoisted function
+// declaration, and the platform modules touch those helpers only at call time,
+// long after both sides of the cycle have finished evaluating.
+import { chatInstalls, projectSecrets } from '@kortix/db';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { encryptProjectSecret, getProjectSecretValueForConsumer } from '../projects/secrets';
 import { db } from '../shared/db';
-import { TEAMS_MANIFEST_VERSION } from './teams-manifest';
 
-export const SLACK_BOT_TOKEN = 'SLACK_BOT_TOKEN';
-export const SLACK_SIGNING_SECRET = 'SLACK_SIGNING_SECRET';
-export const SLACK_TEAM_ID = 'SLACK_TEAM_ID';
-export const SLACK_BOT_USER_ID = 'SLACK_BOT_USER_ID';
-export const SLACK_TEAM_NAME = 'SLACK_TEAM_NAME';
+export * from './slack/installs';
+export * from './email/installs';
+export * from './teams/installs';
+export * from './telegram/installs';
 
-export const TELEGRAM_BOT_TOKEN = 'TELEGRAM_BOT_TOKEN';
-export const TELEGRAM_WEBHOOK_SECRET = 'TELEGRAM_WEBHOOK_SECRET';
-
-export async function loadTelegramWebhookSecretForProject(
+export async function deleteProjectSecrets(
   projectId: string,
-): Promise<string | null> {
-  return readSecret(projectId, TELEGRAM_WEBHOOK_SECRET);
-}
-
-export const AGENTMAIL_API_KEY = 'AGENTMAIL_API_KEY';
-export const AGENTMAIL_INBOX_ID = 'AGENTMAIL_INBOX_ID';
-export const AGENTMAIL_INBOX_EMAIL = 'AGENTMAIL_INBOX_EMAIL';
-export const AGENTMAIL_INBOX_DISPLAY_NAME = 'AGENTMAIL_INBOX_DISPLAY_NAME';
-export const AGENTMAIL_WEBHOOK_ID = 'AGENTMAIL_WEBHOOK_ID';
-export const AGENTMAIL_WEBHOOK_SECRET = 'AGENTMAIL_WEBHOOK_SECRET';
-export const AGENTMAIL_SENDER_POLICY = 'AGENTMAIL_SENDER_POLICY';
-
-const SLACK_KEYS = [
-  SLACK_BOT_TOKEN,
-  SLACK_SIGNING_SECRET,
-  SLACK_TEAM_ID,
-  SLACK_BOT_USER_ID,
-  SLACK_TEAM_NAME,
-] as const;
-
-const AGENTMAIL_KEYS = [
-  AGENTMAIL_API_KEY,
-  AGENTMAIL_INBOX_ID,
-  AGENTMAIL_INBOX_EMAIL,
-  AGENTMAIL_INBOX_DISPLAY_NAME,
-  AGENTMAIL_WEBHOOK_ID,
-  AGENTMAIL_WEBHOOK_SECRET,
-  AGENTMAIL_SENDER_POLICY,
-] as const;
-
-export interface AgentMailSenderPolicy {
-  mode: 'allow_all' | 'restricted';
-  allowedEmails: string[];
-  allowedDomains: string[];
-  allowedRegex: string | null;
-}
-
-export const DEFAULT_AGENTMAIL_SENDER_POLICY: AgentMailSenderPolicy = {
-  mode: 'allow_all',
-  allowedEmails: [],
-  allowedDomains: [],
-  allowedRegex: null,
-};
-
-export interface SlackInstallSummary {
-  workspaceId: string;
-  workspaceName: string | null;
-  botUserId: string | null;
-  installedAt: string;
-}
-
-export interface SlackInstallInput {
-  projectId: string;
-  botToken: string;
-  signingSecret: string;
-  teamId: string;
-  teamName: string | null;
-  botUserId: string;
-}
-
-export interface AgentMailInstallSummary {
-  connectionSlug: string;
-  inboxId: string;
-  email: string;
-  displayName: string | null;
-  webhookId: string | null;
-  senderPolicy: AgentMailSenderPolicy;
-  installedAt: string;
-}
-
-export interface AgentMailInstallInput {
-  projectId: string;
-  connectionSlug?: string | null;
-  apiKey?: string | null;
-  inboxId: string;
-  email: string;
-  displayName?: string | null;
-  webhookId?: string | null;
-  webhookSecret?: string | null;
-  senderPolicy?: AgentMailSenderPolicy | null;
-  /** Concrete agent for inbound messages. Null inherits the project default. */
-  agentName?: string | null;
-}
-
-function agentMailConnectionSuffix(connectionSlug?: string | null): string {
-  const slug = (connectionSlug || 'kortix_email').trim();
-  if (!slug || slug === 'kortix_email') return '';
-  return `_${slug
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')}`;
-}
-
-function agentMailKeys(connectionSlug?: string | null) {
-  const suffix = agentMailConnectionSuffix(connectionSlug);
-  return {
-    apiKey: `${AGENTMAIL_API_KEY}${suffix}`,
-    inboxId: `${AGENTMAIL_INBOX_ID}${suffix}`,
-    email: `${AGENTMAIL_INBOX_EMAIL}${suffix}`,
-    displayName: `${AGENTMAIL_INBOX_DISPLAY_NAME}${suffix}`,
-    webhookId: `${AGENTMAIL_WEBHOOK_ID}${suffix}`,
-    webhookSecret: `${AGENTMAIL_WEBHOOK_SECRET}${suffix}`,
-    senderPolicy: `${AGENTMAIL_SENDER_POLICY}${suffix}`,
-  };
-}
-
-function uniqueStrings(values: unknown): string[] {
-  if (!Array.isArray(values)) return [];
-  return Array.from(
-    new Set(
-      values
-        .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
-        .filter(Boolean),
-    ),
-  );
-}
-
-export function normalizeSenderPolicy(
-  input?: Partial<AgentMailSenderPolicy> | null,
-): AgentMailSenderPolicy {
-  const allowedEmails = uniqueStrings(input?.allowedEmails);
-  const allowedDomains = uniqueStrings(input?.allowedDomains).map((domain) =>
-    domain.replace(/^@+/, ''),
-  );
-  const rawRegex = typeof input?.allowedRegex === 'string' ? input.allowedRegex.trim() : '';
-  const restricted =
-    input?.mode === 'restricted' ||
-    allowedEmails.length > 0 ||
-    allowedDomains.length > 0 ||
-    rawRegex.length > 0;
-  return {
-    mode: restricted ? 'restricted' : 'allow_all',
-    allowedEmails,
-    allowedDomains,
-    allowedRegex: rawRegex || null,
-  };
-}
-
-function parseSenderPolicy(raw: string | null): AgentMailSenderPolicy {
-  if (!raw) return DEFAULT_AGENTMAIL_SENDER_POLICY;
-  try {
-    return normalizeSenderPolicy(JSON.parse(raw) as Partial<AgentMailSenderPolicy>);
-  } catch {
-    return DEFAULT_AGENTMAIL_SENDER_POLICY;
-  }
-}
-
-export async function saveSlackInstall(input: SlackInstallInput): Promise<SlackInstallSummary> {
-  const { projectId } = input;
-  await db
-    .insert(chatInstalls)
-    .values({
-      platform: 'slack',
-      workspaceId: input.teamId,
-      projectId,
-    })
-    .onConflictDoNothing();
-  await upsertSecret(projectId, SLACK_BOT_TOKEN, input.botToken);
-  await upsertSecret(projectId, SLACK_SIGNING_SECRET, input.signingSecret);
-  await upsertSecret(projectId, SLACK_TEAM_ID, input.teamId);
-  await upsertSecret(projectId, SLACK_BOT_USER_ID, input.botUserId);
-  await upsertSecret(projectId, SLACK_TEAM_NAME, input.teamName ?? '');
-  return {
-    workspaceId: input.teamId,
-    workspaceName: input.teamName,
-    botUserId: input.botUserId,
-    installedAt: new Date().toISOString(),
-  };
-}
-
-export async function deleteSlackInstall(projectId: string): Promise<void> {
-  for (const name of SLACK_KEYS) {
-    await db
-      .delete(projectSecrets)
-      .where(and(eq(projectSecrets.projectId, projectId), eq(projectSecrets.name, name)));
-  }
-  await db
-    .delete(chatInstalls)
-    .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.projectId, projectId)));
-}
-
-export async function saveAgentMailInstall(
-  input: AgentMailInstallInput,
-): Promise<AgentMailInstallSummary> {
-  const { projectId } = input;
-  const connectionSlug = input.connectionSlug || 'kortix_email';
-  const keys = agentMailKeys(connectionSlug);
-  const previous = await loadAgentMailInstall(projectId, connectionSlug);
-  if (input.apiKey) await upsertSecret(projectId, keys.apiKey, input.apiKey);
-  await upsertSecret(projectId, keys.inboxId, input.inboxId);
-  await upsertSecret(projectId, keys.email, input.email);
-  await upsertSecret(projectId, keys.displayName, input.displayName ?? '');
-  await upsertSecret(projectId, keys.webhookId, input.webhookId ?? '');
-  await upsertSecret(
-    projectId,
-    keys.senderPolicy,
-    JSON.stringify(normalizeSenderPolicy(input.senderPolicy)),
-  );
-  if (input.webhookSecret) {
-    await upsertSecret(projectId, keys.webhookSecret, input.webhookSecret);
-  }
-  if (previous?.inboxId) {
-    await db
-      .delete(chatChannelBindings)
-      .where(
-        and(
-          eq(chatChannelBindings.platform, 'email'),
-          eq(chatChannelBindings.projectId, projectId),
-          eq(chatChannelBindings.workspaceId, previous.inboxId),
-          eq(chatChannelBindings.channelId, connectionSlug),
-        ),
-      );
-    await db
-      .delete(chatInstalls)
-      .where(
-        and(
-          eq(chatInstalls.platform, 'email'),
-          eq(chatInstalls.projectId, projectId),
-          eq(chatInstalls.workspaceId, previous.inboxId),
-        ),
-      );
-  }
-  // Scope the inbox takeover delete to THIS project. An unscoped delete
-  // (platform + workspaceId only) would wipe another project's install row for
-  // the same inbox — a cross-tenant data-integrity bug that enabled the
-  // AgentMail inbox hijack (pentest 2026-07-27). The first delete above already
-  // filters by projectId; this one must too.
-  await db
-    .delete(chatInstalls)
-    .where(
-      and(
-        eq(chatInstalls.platform, 'email'),
-        eq(chatInstalls.projectId, projectId),
-        eq(chatInstalls.workspaceId, input.inboxId),
-      ),
-    );
-  await db
-    .insert(chatInstalls)
-    .values({ platform: 'email', workspaceId: input.inboxId, projectId })
-    .onConflictDoNothing({
-      target: [chatInstalls.platform, chatInstalls.workspaceId, chatInstalls.projectId],
-    });
-  await db
-    .insert(chatChannelBindings)
-    .values({
-      platform: 'email',
-      workspaceId: input.inboxId,
-      channelId: connectionSlug,
-      projectId,
-      channelName: input.email,
-      channelType: 'inbox',
-      agentName: input.agentName ?? null,
-    })
-    .onConflictDoNothing({
-      target: [
-        chatChannelBindings.platform,
-        chatChannelBindings.workspaceId,
-        chatChannelBindings.channelId,
-      ],
-    });
-  return {
-    connectionSlug,
-    inboxId: input.inboxId,
-    email: input.email,
-    displayName: input.displayName ?? null,
-    webhookId: input.webhookId ?? null,
-    senderPolicy: normalizeSenderPolicy(input.senderPolicy),
-    installedAt: new Date().toISOString(),
-  };
-}
-
-export async function deleteAgentMailInstall(
-  projectId: string,
-  connectionSlug?: string | null,
+  names: readonly string[],
 ): Promise<void> {
+<<<<<<< HEAD
   const keys = agentMailKeys(connectionSlug);
   const install = await loadAgentMailInstall(projectId, connectionSlug);
   for (const name of Object.values(keys)) {
@@ -523,30 +252,12 @@ export interface SlackOauthInstallInput {
 export async function saveSlackOauthInstall(
   input: SlackOauthInstallInput,
 ): Promise<SlackInstallSummary> {
+=======
+  if (names.length === 0) return;
+>>>>>>> upstream-dev
   await db
-    .insert(chatInstalls)
-    .values({
-      platform: 'slack',
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-    })
-    .onConflictDoNothing();
-
-  const projectIds = await listProjectsForWorkspace('slack', input.workspaceId);
-  if (!projectIds.includes(input.projectId)) projectIds.push(input.projectId);
-  for (const projectId of projectIds) {
-    await upsertSecret(projectId, SLACK_BOT_TOKEN, input.botToken);
-    await upsertSecret(projectId, SLACK_TEAM_ID, input.workspaceId);
-    await upsertSecret(projectId, SLACK_BOT_USER_ID, input.botUserId);
-    await upsertSecret(projectId, SLACK_TEAM_NAME, input.teamName ?? '');
-  }
-
-  return {
-    workspaceId: input.workspaceId,
-    workspaceName: input.teamName,
-    botUserId: input.botUserId,
-    installedAt: new Date().toISOString(),
-  };
+    .delete(projectSecrets)
+    .where(and(eq(projectSecrets.projectId, projectId), inArray(projectSecrets.name, [...names])));
 }
 
 export async function listProjectsForWorkspace(
@@ -560,6 +271,7 @@ export async function listProjectsForWorkspace(
   return rows.map((r) => r.projectId);
 }
 
+<<<<<<< HEAD
 export async function loadSlackInstall(projectId: string): Promise<SlackInstallSummary | null> {
   // Read scope-agnostically: Slack credentials are stored with scope='connector'
   // (kept out of the sandbox env), which listProjectSecrets deliberately drops —
@@ -839,6 +551,9 @@ export async function deleteTeamsInstall(projectId: string): Promise<void> {
 }
 
 async function upsertSecret(projectId: string, name: string, value: string): Promise<void> {
+=======
+export async function upsertSecret(projectId: string, name: string, value: string): Promise<void> {
+>>>>>>> upstream-dev
   const valueEnc = encryptProjectSecret(projectId, value);
   const updated = await updateSharedSecret(projectId, name, valueEnc);
   if (updated) return;
@@ -902,17 +617,7 @@ function isUniqueConflict(err: unknown): boolean {
   );
 }
 
-// One query for all Teams names. The connector sync calls this for every
-// project, nearly all uninstalled, so it is a probe: absent names write no audit row.
-async function readTeamsSecrets(projectId: string): Promise<Record<string, string>> {
-  return getProjectSecretValuesForConsumer({
-    projectId,
-    names: [...TEAMS_KEYS],
-    consumer: 'connector',
-  });
-}
-
-async function readSecret(projectId: string, name: string): Promise<string | null> {
+export async function readSecret(projectId: string, name: string): Promise<string | null> {
   return getProjectSecretValueForConsumer({
     projectId,
     name,

@@ -73,7 +73,6 @@ type PublicAppStatus =
   | PublicDeploymentStatus
   | 'waiting'
   | 'starting'
-  | 'budget'
   | 'unfunded'
   | 'capacity';
 
@@ -110,7 +109,11 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   provisioning: {
     title: 'Provisioning your App',
+<<<<<<< HEAD
     message: 'Dosco is creating the serverless runtime.',
+=======
+    message: 'Kortix is creating the machine for this App.',
+>>>>>>> upstream-dev
     code: 'app_deployment_provisioning',
     progress: true,
   },
@@ -128,6 +131,7 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
   },
   starting: {
     title: 'Starting your App',
+<<<<<<< HEAD
     message: 'Dosco is resuming the serverless runtime. This page will continue automatically.',
     code: 'app_starting',
     progress: true,
@@ -139,6 +143,12 @@ const PUBLIC_STATUS_COPY: Record<PublicAppStatus, {
     progress: false,
     httpStatus: 402,
   },
+=======
+    message: 'The machine was asleep and wakes on the first visit. This page continues on its own.',
+    code: 'app_starting',
+    progress: true,
+  },
+>>>>>>> upstream-dev
   unfunded: {
     title: 'App paused',
     message: 'This Dosco account cannot start compute right now. The owner can restore it in Billing.',
@@ -213,8 +223,6 @@ export function appPublicStatusResponse(
     return Response.json({
       error: status === 'waiting'
         ? 'App is waiting for its first deployment'
-        : status === 'budget'
-          ? 'App compute budget reached'
         : `App deployment is ${status === 'checking' ? 'checking readiness' : status}`,
       code: copy.code,
       status,
@@ -298,11 +306,4 @@ export function appProviderStoppedResponse(
       .test(body);
   }
   return false;
-}
-
-export function appPublicBudgetResponse(
-  request: Request,
-  app: { name: string },
-): Response {
-  return appPublicStatusResponse(request, app, { status: 'budget' });
 }

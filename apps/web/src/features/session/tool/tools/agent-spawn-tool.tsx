@@ -15,32 +15,31 @@ import {
 import { OutputBlock } from '@/features/session/tool/shared/output-block';
 import { ToolRegistry } from '@/features/session/tool/shared/registry';
 import { ToolResultCard } from '@/features/session/tool/shared/result-card';
-import { SubAgentActivity, SubAgentStatusBanner } from '@/features/session/tool/shared/sub-agent';
-import type { ToolProps } from '@/features/session/tool/shared/types';
 import {
-  getChildSessionId,
-  getChildSessionToolParts,
-  getToolInfo,
-  type MessageWithParts,
-} from '@/ui';
-import { useRuntimeMessages } from '@kortix/sdk/react';
+  SubAgentActivity,
+  SubAgentStatusBanner,
+  useSubAgentThread,
+} from '@/features/session/tool/shared/sub-agent';
+import type { ToolProps } from '@/features/session/tool/shared/types';
+import { getChildSessionId, getToolInfo } from '@/ui';
 import { CheckIcon as Check, CpuIcon as Cpu } from '@phosphor-icons/react';
 import { useTranslations } from '@/i18n/use-translations';
 import { useContext, useMemo, useState } from 'react';
 
 import { cleanWorkerOutput } from '@/features/session/tool/shared/agent-helpers';
+import { subAgentCalls } from '@kortix/sdk';
 
-export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
+export function AgentSpawnTool({ call, defaultOpen, forceOpen }: ToolProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const surface = useContext(ToolSurfaceContext);
-  const input = partInput(part);
-  const status = partStatus(part);
-  const output = partOutput(part);
+  const input = partInput(call);
+  const status = partStatus(call);
+  const output = partOutput(call);
   // Both walk the input's prose: `getAgentCardLabel` tries up to five fields and
   // `firstMeaningfulLine` splits each one on every newline before taking the
   // first non-blank. A spawn carries a whole prompt, so that is a full scan plus
   // a line array per render — and this row re-renders on every frame of the
-  // child session's stream, because `useRuntimeMessages` below subscribes to it.
+  // child session's stream, because `useSubAgentThread` below subscribes to it.
   const description = useMemo(() => getAgentCardLabel(input), [input]);
   const verification = useMemo(
     () => firstMeaningfulLine(input.verification_condition, 120),
@@ -49,22 +48,19 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
   const isRunning = status === 'running' || status === 'pending';
   const isCompleted = status === 'completed';
 
-  const childSessionId: string | undefined = useMemo(() => getChildSessionId(part), [part]);
+  const childSessionId: string | undefined = useMemo(() => getChildSessionId(call), [call]);
 
-  const { data: childMessages } = useRuntimeMessages(childSessionId ?? '');
-  const childToolParts = useMemo(() => {
-    if (!childMessages) return [];
-    return getChildSessionToolParts(childMessages as MessageWithParts[]);
-  }, [childMessages]);
+  const childThread = useSubAgentThread(childSessionId);
+  const childCalls = useMemo(() => subAgentCalls(childThread), [childThread]);
 
   const [modalOpen, setModalOpen] = useState(false);
 
   const lastActivity = useMemo(() => {
-    if (childToolParts.length === 0) return null;
-    const last = childToolParts[childToolParts.length - 1];
-    const info = getToolInfo(last.tool, partInput(last) as Record<string, any>);
+    if (childCalls.length === 0) return null;
+    const last = childCalls[childCalls.length - 1];
+    const info = getToolInfo(last.name, partInput(last) as Record<string, any>);
     return info.title + (info.subtitle ? ` · ${info.subtitle}` : '');
-  }, [childToolParts]);
+  }, [childCalls]);
 
   const cleanedOutput = useMemo(() => cleanWorkerOutput(output), [output]);
   const spawnFailure = useMemo(
@@ -88,7 +84,7 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
         }}
         onSubtitleClick={hasSession ? () => setModalOpen(true) : undefined}
         badge={
-          isCompleted && childToolParts.length > 0 ? `${childToolParts.length} steps` : undefined
+          isCompleted && childCalls.length > 0 ? `${childCalls.length} steps` : undefined
         }
         defaultOpen={defaultOpen}
         forceOpen={forceOpen}
@@ -109,7 +105,7 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
             )}
             <ToolOutputFallback output={output} toolName="agent_spawn" />
           </>
-        ) : verification || (isCompleted && (cleanedOutput || childToolParts.length > 0)) ? (
+        ) : verification || (isCompleted && (cleanedOutput || childCalls.length > 0)) ? (
           <ToolResultCard>
             <div className="space-y-2 px-2 py-1.5">
               {verification && (
@@ -120,13 +116,13 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
 
               {isCompleted && cleanedOutput ? (
                 <OutputBlock text={cleanedOutput} markdown />
-              ) : isCompleted && childToolParts.length > 0 ? (
+              ) : isCompleted && childCalls.length > 0 ? (
                 <div className="space-y-0.5">
-                  {childToolParts.slice(-3).map((tp) => {
-                    const info = getToolInfo(tp.tool, partInput(tp) as Record<string, any>);
+                  {childCalls.slice(-3).map((step) => {
+                    const info = getToolInfo(step.name, partInput(step) as Record<string, any>);
                     return (
                       <div
-                        key={tp.id}
+                        key={step.id}
                         className="text-muted-foreground flex items-center gap-1.5 truncate text-xs"
                       >
                         <Check className="text-muted-foreground/50 size-2.5 shrink-0" />
@@ -135,9 +131,9 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
                       </div>
                     );
                   })}
-                  {childToolParts.length > 3 && (
+                  {childCalls.length > 3 && (
                     <div className="text-muted-foreground/50 pl-4 text-xs">
-                      +{childToolParts.length - 3} {tI18nComplete.raw('text187897ce0afc')}
+                      +{childCalls.length - 3} {tI18nComplete.raw('text187897ce0afc')}
                     </div>
                   )}
                 </div>
@@ -146,7 +142,7 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
           </ToolResultCard>
         ) : null}
 
-        {surface === 'panel' && childToolParts.length > 0 && (
+        {surface === 'panel' && childCalls.length > 0 && (
           // Full-bleed seam, not a nested box. The panel row body already
           // supplies the 12px gutter this sits in, so a `p-3` here inset the
           // activity list a second time (24px of gutter around a 420px pane)
@@ -155,11 +151,11 @@ export function AgentSpawnTool({ part, defaultOpen, forceOpen }: ToolProps) {
           // so the `border-t` spans the card edge to edge, `px-3` puts the
           // content back where it was, and only the top inset survives.
           <div className="border-border/30 -mx-3 border-t px-3 pt-3">
-            <SubAgentActivity childSessionId={childSessionId} parts={childToolParts} />
+            <SubAgentActivity childSessionId={childSessionId} calls={childCalls} />
           </div>
         )}
 
-        <SubAgentStatusBanner childSessionId={childSessionId} childMessages={childMessages} />
+        <SubAgentStatusBanner childSessionId={childSessionId} childThread={childThread} />
       </BasicTool>
 
       {hasSession && (

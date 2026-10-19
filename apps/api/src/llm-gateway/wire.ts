@@ -1,7 +1,7 @@
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { config } from '../config';
 import { auth, errors, json, makeOpenApiApp } from '../openapi';
-import { createLlmGatewayRateLimitMiddleware } from '../shared/rate-limit';
+import { createLlmGatewayRateLimitMiddleware } from '../middleware/rate-limit';
 import { createInternalGatewayRoutes } from './internal-routes';
 
 // ─── OpenAPI documentation for the inference surface ────────────────────────
@@ -20,8 +20,7 @@ import { createInternalGatewayRoutes } from './internal-routes';
 // the SHARED `{error:true,message:"Validation failed",...}` envelope instead of
 // the gateway's own OpenAI/Anthropic-shaped error body — changing the wire
 // contract for a compatibility surface whose whole point is to match those
-// SDKs' expectations (see `/v1/router/chat/completions` in router/routes/llm.ts,
-// which avoids attaching a body schema for the same reason). `registerPath()`
+// SDKs' expectations. `registerPath()`
 // adds the operation (incl. the documented request body below) to the SAME
 // OpenAPI registry `.openapi()` would have, WITHOUT touching request handling
 // at all — the actual runtime route is still a plain `llm.post()/get()` with
@@ -30,9 +29,18 @@ const GATEWAY_INFERENCE_TAG = 'gateway-inference';
 
 const AUTH_DESCRIPTION =
   'Bearer token: a project gateway key (`kortix_gw_…`, created via ' +
+<<<<<<< HEAD
   'POST /v1/projects/{projectId}/gateway/keys) or a Dosco account token ' +
   '(PAT `kortix_pat_…`, API key, or sandbox key). Unlike most of the API, the ' +
   'raw Supabase user JWT is NOT accepted here — mint a gateway key or PAT first.';
+=======
+  'POST /v1/projects/{projectId}/gateway/keys) or a Kortix account token ' +
+  '(PAT `kortix_pat_…`, API key, or sandbox key). Inference requires a project ' +
+  'context: a project-scoped or session token is admitted, while a bare ' +
+  'account-wide PAT is refused with 403 project_required. Unlike most of the ' +
+  'API, the raw Supabase user JWT is NOT accepted here — mint a gateway key or ' +
+  'PAT first.';
+>>>>>>> upstream-dev
 
 const ChatMessageSchema = z
   .object({
@@ -118,7 +126,7 @@ const CHAT_COMPLETIONS_RESPONSES = {
       },
     },
   },
-  ...errors(400, 401, 402, 413, 429, 502),
+  ...errors(400, 401, 402, 403, 413, 429, 502),
 };
 
 function chatCompletionsRoute(path: string) {
@@ -214,7 +222,7 @@ const MESSAGES_RESPONSES = {
       },
     },
   },
-  ...errors(400, 401, 402, 413, 429, 502),
+  ...errors(400, 401, 402, 403, 413, 429, 502),
 };
 
 function messagesRoute(path: string) {

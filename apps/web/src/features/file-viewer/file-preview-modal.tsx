@@ -2,9 +2,11 @@
 
 import { PublicShareLinkButton } from '@/components/projects/public-share-link-button';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import Hint from '@/components/ui/hint';
 import Loading from '@/components/ui/loading';
 import { errorToast, successToast } from '@/components/ui/toast';
+import { Download } from '@/features/icon/icons/download';
 import { useTranslations } from '@/i18n/use-translations';
 import { cn } from '@/lib/utils';
 import {
@@ -38,7 +40,6 @@ import { FileContentRenderer } from './file-content-renderer';
 import { FileSourceProvider, type FileRefreshResult, type FileSource } from './file-source';
 import { getLanguageFromExt } from './preview-policy';
 import { SaveAsPdfButton } from './save-as-pdf-button';
-import { Download } from '@/features/icon/icons/download';
 
 /** Tabbable elements used by the focus trap below. */
 const FOCUSABLE_SELECTOR = [
@@ -76,6 +77,8 @@ export interface FilePreviewModalProps extends FilePreviewState {
   shareContext?: { projectId: string; sessionId: string };
   /** History button tooltip. */
   historyLabel?: string;
+  /** 1-based line to scroll to, e.g. a content-search match. Opens Markdown as source. */
+  targetLine?: number | null;
   /**
    * When true, the viewer renders INLINE — filling its (relative) parent
    * container instead of portaling to a full-screen overlay. An "Expand"
@@ -120,12 +123,12 @@ export function FilePreviewModal({
   onPrev,
   source,
   HistoryContent,
-  renderFileIcon,
   statusSlot,
   extraActions,
   shareContext,
   historyLabel = 'History',
   embedded = false,
+  targetLine = null,
 }: FilePreviewModalProps) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const isOpen = panelMode === 'viewer' && !!selectedFilePath;
@@ -152,7 +155,8 @@ export function FilePreviewModal({
   const isMarkdownFile = ['markdown', 'mermaid'].includes(getLanguageFromExt(fileName));
   // Markdown alone also exports to PDF. Only its text is read here — the query
   // `FileContentRenderer` already runs for the same path, so no second fetch.
-  const exportsPdf = getLanguageFromExt(fileName) === 'markdown';
+  // The PDF export renders through a session's sandbox; a bytes-only source has none.
+  const exportsPdf = getLanguageFromExt(fileName) === 'markdown' && !source.bytesOnly;
   const { data: pdfSource } = source.useFileContent(exportsPdf ? selectedFilePath : null);
   const shareInput = useMemo(() => {
     if (!selectedFilePath || !shareContext) return null;
@@ -168,12 +172,13 @@ export function FilePreviewModal({
   // The dialog surface — focus target for the trap and the focus-on-open below.
   const surfaceRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset transient view state when the file changes.
+  // Reset transient view state when the file changes. A jump to a line shows
+  // the source: rendered Markdown has no lines to scroll to.
   useEffect(() => {
     setHistoryPath(null);
-    setMarkdownPreview(true);
+    setMarkdownPreview(!targetLine);
     setExpanded(false);
-  }, [selectedFilePath]);
+  }, [selectedFilePath, targetLine]);
 
   // Keyboard navigation. Capture-phase + stopImmediatePropagation so ESC only
   // closes the preview, not a host Radix dialog underneath (Customize overlay).
@@ -304,36 +309,13 @@ export function FilePreviewModal({
 
   const toolbar = (
     <>
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Hint label={tI18nHardcoded.raw('i18nComplete.text76900f1bfd16')} side="bottom">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={tI18nHardcoded.raw('i18nComplete.text76900f1bfd16')}
-            className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 active:scale-[0.96]"
-            onClick={onClose}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        </Hint>
-        <div className="flex min-w-0 items-center gap-2">
-          {renderFileIcon(fileName)}
-          <span
-            className="max-w-[300px] truncate text-sm font-medium"
-            title={selectedFilePath ?? ''}
-          >
-            {fileName}
-          </span>
-        </div>
+      {/* Name and place in the folder only: Close is the one way out. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 pl-1">
+        <span className="max-w-[300px] truncate text-sm font-medium">{fileName}</span>
         {statusSlot}
-        {filePathList.length > 1 && (
-          <span className="text-muted-foreground bg-muted/60 shrink-0 rounded-full px-2 py-0.5 text-xs tabular-nums">
-            {currentFileIndex + 1} / {filePathList.length}
-          </span>
-        )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-1">
         {isMarkdownFile && (
           <Hint
             label={
@@ -347,7 +329,7 @@ export function FilePreviewModal({
               aria-label={
                 markdownPreview ? tI18nHardcoded.raw('i18nComplete.text6ee818aa2de3') : 'Preview'
               }
-              aria-pressed={!markdownPreview}
+              aria-pressed={markdownPreview}
               className={cn(
                 'h-8 w-8 active:scale-[0.96]',
                 markdownPreview
@@ -379,41 +361,82 @@ export function FilePreviewModal({
             </Button>
           </Hint>
         )}
-        <Hint label={historyLabel} side="bottom">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={historyLabel}
-            aria-pressed={!!historyPath}
-            className={cn(
-              'h-8 w-8 active:scale-[0.96]',
-              historyPath
-                ? 'text-foreground bg-muted'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            onClick={() => setHistoryPath(historyPath ? null : selectedFilePath)}
-          >
-            <History className="h-4 w-4" />
-          </Button>
-        </Hint>
-        {exportsPdf && (
-          <SaveAsPdfButton
-            fileName={fileName}
-            content={pdfSource?.type === 'text' ? pdfSource.content : undefined}
-            className="text-muted-foreground hover:text-foreground h-8 w-8"
-            iconClassName="h-4 w-4"
-          />
+        {filePathList.length > 1 && (
+          // Previous / next live with the other actions; the arrow keys still work.
+          <ButtonGroup>
+            <Hint
+              label={tI18nHardcoded.raw(
+                'autoFeaturesFileViewerFilePreviewModalJsxAttrTitlePreviousb7cda316',
+              )}
+              side="bottom"
+            >
+              <Button
+                variant="secondary"
+                size="icon-base"
+                disabled={!hasPrev}
+                aria-label={tI18nHardcoded.raw(
+                  'autoFeaturesFileViewerFilePreviewModalJsxAttrAriaLabel03ab3a76',
+                )}
+                className="active:scale-[0.96]"
+                onClick={onPrev}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </Hint>
+            <Hint
+              label={tI18nHardcoded.raw(
+                'autoFeaturesFileViewerFilePreviewModalJsxAttrTitleNext96666bd8',
+              )}
+              side="bottom"
+            >
+              <Button
+                variant="secondary"
+                size="icon-base"
+                disabled={!hasNext}
+                aria-label={tI18nHardcoded.raw(
+                  'autoFeaturesFileViewerFilePreviewModalJsxAttrAriaLabelda6ea7e4',
+                )}
+                className="active:scale-[0.96]"
+                onClick={onNext}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Hint>
+          </ButtonGroup>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 px-3 text-xs font-medium"
-          onClick={handleDownload}
-          aria-label={tI18nHardcoded.raw('i18nComplete.textd6eafe823591')}
-        >
-          <Download className="h-3.5 w-3.5" />
-          {tI18nHardcoded.raw('i18nComplete.textd6eafe823591')}
-        </Button>
+        <ButtonGroup>
+          <Hint label={historyLabel} side="bottom">
+            <Button
+              variant="secondary"
+              size="icon-base"
+              aria-label={historyLabel}
+              aria-pressed={!!historyPath}
+              className={cn('active:scale-[0.96]', historyPath && 'bg-accent')}
+              onClick={() => setHistoryPath(historyPath ? null : selectedFilePath)}
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </Hint>
+          {exportsPdf && (
+            <SaveAsPdfButton
+              fileName={fileName}
+              content={pdfSource?.type === 'text' ? pdfSource.content : undefined}
+              variant="secondary"
+              className="h-8 w-8"
+              iconClassName="h-4 w-4"
+            />
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1.5 active:scale-[0.96]"
+            onClick={handleDownload}
+            aria-label={tI18nHardcoded.raw('i18nComplete.textd6eafe823591')}
+          >
+            <Download className="h-3.5 w-3.5" />
+            {tI18nHardcoded.raw('i18nComplete.textd6eafe823591')}
+          </Button>
+        </ButtonGroup>
         {shareContext && (
           <PublicShareLinkButton
             projectId={shareContext.projectId}
@@ -443,67 +466,41 @@ export function FilePreviewModal({
             </Button>
           </Hint>
         )}
-        <div className="bg-border/50 mx-1 h-5 w-px" />
-        <Hint
-          label={tI18nHardcoded.raw(
-            'autoFeaturesFileViewerFilePreviewModalJsxAttrTitleClosea40d0510',
-          )}
-          side="bottom"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={tI18nHardcoded.raw(
+        <ButtonGroup className="ml-1.5">
+          <Hint
+            label={tI18nHardcoded.raw(
               'autoFeaturesFileViewerFilePreviewModalJsxAttrTitleClosea40d0510',
             )}
-            className="text-muted-foreground hover:text-foreground h-8 w-8 active:scale-[0.96]"
-            onClick={onClose}
+            side="bottom"
           >
-            <X className="h-4 w-4" />
-          </Button>
-        </Hint>
+            <Button
+              variant="secondary"
+              size="icon-base"
+              aria-label={tI18nHardcoded.raw(
+                'autoFeaturesFileViewerFilePreviewModalJsxAttrTitleClosea40d0510',
+              )}
+              className="active:scale-[0.96]"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </Hint>
+        </ButtonGroup>
       </div>
     </>
   );
 
   const body = (
     <>
-      {hasPrev && (
-        <button
-          onClick={onPrev}
-          className="bg-background/95 border-border/60 hover:bg-background absolute top-1/2 left-3 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border opacity-70 shadow-sm backdrop-blur transition-[opacity,background-color] hover:opacity-100"
-          title={tI18nHardcoded.raw(
-            'autoFeaturesFileViewerFilePreviewModalJsxAttrTitlePreviousb7cda316',
-          )}
-          aria-label={tI18nHardcoded.raw(
-            'autoFeaturesFileViewerFilePreviewModalJsxAttrAriaLabel03ab3a76',
-          )}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-      )}
-      {hasNext && (
-        <button
-          onClick={onNext}
-          className="bg-background/95 border-border/60 hover:bg-background absolute top-1/2 right-3 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border opacity-70 shadow-sm backdrop-blur transition-[opacity,background-color] hover:opacity-100"
-          title={tI18nHardcoded.raw(
-            'autoFeaturesFileViewerFilePreviewModalJsxAttrTitleNext96666bd8',
-          )}
-          aria-label={tI18nHardcoded.raw(
-            'autoFeaturesFileViewerFilePreviewModalJsxAttrAriaLabelda6ea7e4',
-          )}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      )}
-
-      <div className="h-full w-full overflow-hidden">
+      {/* Breathing room on every side, so line numbers and content never touch the frame. */}
+      <div className="h-full w-full overflow-hidden px-3 pt-3 pb-2">
         <FileSourceProvider value={source}>
           <FileContentRenderer
             filePath={selectedFilePath!}
             reloadKey={reloadKey}
             showHeader={false}
             readOnly
+            targetLine={targetLine}
             markdownPreview={markdownPreview}
             onMarkdownPreviewChange={setMarkdownPreview}
           />

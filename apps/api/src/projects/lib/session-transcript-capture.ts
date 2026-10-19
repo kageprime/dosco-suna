@@ -18,7 +18,7 @@ import {
   sessionTranscriptMessages,
   sessionTranscriptMirrors,
 } from '@kortix/db';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../../shared/db';
 import { errorSqlstate } from '../../shared/error-cause';
@@ -34,16 +34,20 @@ import {
 import { sessionAttachmentStore } from './session-attachments';
 import { sandboxRuntimeRequestHeaders } from '../sandbox-fetch';
 import { resolveSessionOpencodeEndpoint } from '../session-lifecycle/runtime-client';
+import { logger } from '../../lib/logger';
+import { writeSessionLogFromMirror } from '../session-log-capture';
 import {
   MIRROR_CAPTURE_LIMIT,
   capturedMessageIndex,
+  childReadFailureLog,
   childSessionReferences,
-  childSessionsToCapture,
   capturedPageGate,
   headCompleteAfterCapture,
   mirrorHoldsStrippedRows,
   mirrorRowsFromOpencodePayload,
+  readChildTranscripts,
 } from './session-transcript-mirror';
+import { isRuntimeUnavailableError } from './runtime-read-failure';
 
 const CAPTURE_TIMEOUT_MS = 8_000;
 
@@ -65,6 +69,8 @@ export interface CaptureOptions {
   scope?: 'auto' | 'tail';
   /** Use the authenticated caller for a manual stop, not a possibly revoked creator. */
   actorUserId?: string;
+  /** Internal: this capture was queued by the one before it (`moreChildren`). */
+  chain?: { step: number; startedAt: number };
 }
 
 export interface CaptureDeps {
@@ -90,15 +96,21 @@ export interface CaptureDeps {
      *  `childSessionsToCapture`). Written only when `complete`: a sub-agent's
      *  saved transcript is whole or absent. */
     children?: Array<{ opencodeSessionId: string; payload: unknown; complete?: boolean }>;
+    /** Another capture saves more sub-agents: this one left some unread and saved rows of one
+     *  never saved before (`readChildTranscripts`). */
+    moreChildren?: boolean;
   } | null>;
 }
 
-/** Sub-agent transcripts one capture reads at most. A finished sub-agent is
- *  read once in its life, so this bounds only a backlog (a history captured
- *  before sub-agents were saved), which later captures work through. */
+/** Sub-agent transcripts with rows one capture saves at most. A finished
+ *  sub-agent is read once in its life. A capture that leaves sub-agents unread
+ *  (one turn that started more than this, or a history captured before
+ *  sub-agents were saved) queues the next capture at once (`moreChildren`), up
+ *  to `MAX_CAPTURE_CHAIN` in a row, so the rest are saved without waiting for
+ *  another turn end. */
 const MAX_CHILD_READS_PER_CAPTURE = 12;
-/** Only an OpenCode session id may reach a URL or a row. */
-const OPENCODE_SESSION_ID = /^ses_[A-Za-z0-9]{1,124}$/;
+/** Captures one capture may queue in a row: a hard stop under `moreChildren`'s progress rule. */
+const MAX_CAPTURE_CHAIN = 8;
 
 const liveCaptureDeps: CaptureDeps = {
   async readMessages(sessionId, options) {
@@ -215,7 +227,6 @@ const liveCaptureDeps: CaptureDeps = {
       reached is read too. A finished sub-agent is final and is never read
       again; its own sub-agents are followed the same way.
     */
-    const children: Array<{ opencodeSessionId: string; payload: unknown; complete: boolean }> = [];
     const savedChildren = new Map<string, { settled: boolean }>();
     for (const row of stored) {
       if (!row.opencodeSessionId || row.opencodeSessionId === resolved.opencodeSessionId) continue;
@@ -223,37 +234,25 @@ const liveCaptureDeps: CaptureDeps = {
       entry.settled &&= row.role !== 'assistant' || row.messageCompletedAt !== null;
       savedChildren.set(row.opencodeSessionId, entry);
     }
-    const seen = new Set([resolved.opencodeSessionId]);
-    const queue = childSessionsToCapture({
+    const { children, more, failures } = await readChildTranscripts({
       references: childSessionReferences([...result.rows, ...previous]),
       stored: savedChildren,
-      limit: MAX_CHILD_READS_PER_CAPTURE,
-    });
-    while (queue.length > 0 && children.length < MAX_CHILD_READS_PER_CAPTURE) {
-      const child = queue.shift()!;
-      if (seen.has(child) || !OPENCODE_SESSION_ID.test(child)) continue;
-      seen.add(child);
-      try {
-        const walk = await readTranscriptPages(
+      cap: MAX_CHILD_READS_PER_CAPTURE,
+      root: resolved.opencodeSessionId,
+      read: (child) =>
+        readTranscriptPages(
           pageOf(child),
           true,
           recoveryFor(partsById(stored.filter((row) => row.opencodeSessionId === child))),
-        );
-        children.push({ opencodeSessionId: child, payload: walk.rows, complete: walk.complete });
-        queue.push(
-          ...childSessionsToCapture({
-            references: childSessionReferences(walk.rows),
-            stored: savedChildren,
-            limit: MAX_CHILD_READS_PER_CAPTURE,
-          }),
-        );
-      } catch (err) {
-        // One unreadable sub-agent never costs the conversation its capture.
-        console.warn('[transcript-mirror] sub-agent read failed', {
-          sessionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+        ),
+    });
+    // One line per capture. Expected states — a stopped box, gone transcripts —
+    // log info; only an unexpected failure warns. See `childReadFailureLog`.
+    const failureLine = childReadFailureLog(failures);
+    if (failureLine) {
+      const context = { sessionId, ...failureLine.context };
+      if (failureLine.level === 'warn') console.warn(failureLine.message, context);
+      else logger.info(failureLine.message, context);
     }
 
     return {
@@ -263,6 +262,7 @@ const liveCaptureDeps: CaptureDeps = {
       complete: result.complete,
       caughtUp: result.caughtUp,
       children,
+      moreChildren: more,
     };
   },
 };
@@ -285,8 +285,10 @@ export function timeField(info: Record<string, unknown>, key: 'created' | 'compl
  */
 async function captureSessionTranscript(
   sessionId: string,
-  deps: CaptureDeps = liveCaptureDeps,
-  options?: CaptureOptions,
+  deps: CaptureDeps,
+  options: CaptureOptions | undefined,
+  /** When this capture's run was queued: a stop asked for after it drops the rest of the run. */
+  chainStartedAt: number,
 ): Promise<CaptureResult | null> {
   try {
     const [session] = await db
@@ -300,6 +302,7 @@ async function captureSessionTranscript(
     if (!session) return null;
 
     const fullHistory = options?.scope !== 'tail';
+    let moreChildren = false;
     const capture = async (): Promise<CaptureResult | null> => {
       const startedAt = new Date();
       const read = await deps.readMessages(sessionId, {
@@ -310,10 +313,11 @@ async function captureSessionTranscript(
       if (!read) return null;
       const rows = mirrorRowsFromOpencodePayload(read.payload);
       /*
-        A COMPLETE read is the only one that may speak for what does NOT exist.
-        It reached the session's first message and every page in between, so an
-        id it lacks is genuinely gone; that is what licenses the delete below
-        and the `head_complete` claim.
+        A COMPLETE read reached the session's first message and every page in
+        between; that is what licenses the `head_complete` claim. It does NOT
+        license a delete: a box that lost its state answers a complete read
+        that is simply shorter. Only a recorded rewind deletes
+        (`applyRecordedRewind`).
 
         A PARTIAL full-history read — a page failed, or the daemon stopped
         advancing its cursor — used to be thrown away whole. That cost the
@@ -325,7 +329,7 @@ async function captureSessionTranscript(
       const completeRead = fullHistory && read.complete === true && read.headComplete === true;
       // A walk that stopped at already-captured history. Its rows are the
       // NEWEST ones, which is exactly the range a rewind removes from, so it
-      // may delete inside the range it covered — and never below it.
+      // may apply a rewind whose point it reached — and never below it.
       const caughtUpRead = fullHistory && read.caughtUp === true;
       if (rows.length === 0 && !completeRead) return null;
 
@@ -337,6 +341,7 @@ async function captureSessionTranscript(
             headComplete: sessionTranscriptMirrors.headComplete,
             opencodeSessionId: sessionTranscriptMirrors.runtimeSessionId,
             capturedAt: sessionTranscriptMirrors.capturedAt,
+            rewindMessageId: sessionTranscriptMirrors.rewindMessageId,
           })
           .from(sessionTranscriptMirrors)
           .where(eq(sessionTranscriptMirrors.sessionId, sessionId))
@@ -383,111 +388,183 @@ async function captureSessionTranscript(
             },
           });
 
-        const readIds = rows.map((row) => String(row.info.id));
-        if (rootChanged) {
-          // A different OpenCode root makes every stored id unreachable.
-          await tx
-            .delete(sessionTranscriptMessages)
-            .where(eq(sessionTranscriptMessages.sessionId, sessionId));
-        } else if (completeRead) {
-          /*
-            DELETE WHAT DISAPPEARED, not everything.
-
-            A COMPLETE full-history read IS the truth, so a stored id missing
-            from it is genuinely gone upstream (a rewind) and must go. That is
-            all this needs to remove — but it used to delete the session's
-            entire history and rewrite it, every single turn. A partial read
-            reaches neither branch: it cannot tell "gone" from "not read that
-            far".
-
-            Measured on a real PostgreSQL, one turn end on a session already
-            holding 242 messages: 244 inserts + 242 deletes for the two
-            messages the turn actually added. Linear in session length, paid
-            per turn, so quadratic over the life of a thread — and every
-            deleted row is a dead tuple for vacuum plus index churn.
-
-            An empty read deletes everything, which is what the old code did
-            too: with `fullHistory` there is no early return for zero rows, and
-            a complete read of nothing is a claim that nothing is there.
-          */
-          // Scoped to the ROOT's rows: a saved sub-agent transcript is not in
-          // this read and must not be taken for messages that vanished.
-          await tx.execute(
-            readIds.length > 0
-              ? // `sql.param` — a bare `${readIds}` expands to one placeholder
-                // PER ELEMENT, which is not an array and is not valid here.
-                sql`DELETE FROM kortix.session_transcript_messages
-                     WHERE session_id = ${sessionId}
-                       AND opencode_session_id = ${read.opencodeSessionId}
-                       AND NOT (message_id = ANY(${sql.param(readIds)}::text[]))`
-              : sql`DELETE FROM kortix.session_transcript_messages
-                     WHERE session_id = ${sessionId}
-                       AND opencode_session_id = ${read.opencodeSessionId}`,
-          );
-        } else if (caughtUpRead && readIds.length > 0) {
-          /*
-            A rewind removes the NEWEST messages, which is the range an
-            incremental walk reads. So a caught-up walk can still clear what a
-            rewind removed — bounded at the oldest row it actually saw, because
-            below that it read nothing and knows nothing.
-
-            The floor is that oldest row's own key in the stored order
-            (`message_created_at`, `message_id`). Rows with a NULL
-            `message_created_at` sort oldest and are therefore always below the
-            floor, so they are never touched here.
-          */
-          const oldest = rows[0];
-          const floorCreatedAt = oldest ? timeField(oldest.info, 'created') : null;
-          const floorId = oldest ? String(oldest.info.id) : null;
-          if (floorCreatedAt && floorId) {
-            const floor = floorCreatedAt.toISOString();
-            await tx.execute(sql`
-              DELETE FROM kortix.session_transcript_messages
-               WHERE session_id = ${sessionId}
-                 AND opencode_session_id = ${read.opencodeSessionId}
-                 AND NOT (message_id = ANY(${sql.param(readIds)}::text[]))
-                 AND message_created_at IS NOT NULL
-                 AND (message_created_at > ${floor}::timestamptz
-                      OR (message_created_at = ${floor}::timestamptz AND message_id >= ${floorId}))
-            `);
-          }
+        // MERGE, NEVER TRIM. A read that is shorter than what is stored says
+        // nothing about what was removed: a rewind and a box that lost its
+        // state look the same from here. So no read deletes, except where the
+        // sandbox proxy recorded a rewind. A changed root deletes nothing
+        // either: the old root's rows keep their own `opencode_session_id`.
+        if (existing?.rewindMessageId && (completeRead || caughtUpRead)) {
+          await applyRecordedRewind(tx, {
+            sessionId,
+            root: read.opencodeSessionId,
+            marker: existing.rewindMessageId,
+            rows,
+            complete: completeRead,
+          });
         }
 
         await upsertMirrorRows(tx, sessionId, read.opencodeSessionId, rows, now);
 
-        // Each sub-agent read whole replaces its saved transcript: what it no
-        // longer holds is deleted, the rest merged. A partial read writes
-        // nothing, so a saved sub-agent is always whole.
-        for (const child of read.children ?? []) {
-          if (child.complete !== true) continue;
+        // A sub-agent has no rewind, so its rows only ever merge. A partial
+        // read writes nothing, so a saved sub-agent starts whole.
+        const written = (read.children ?? []).filter((child) => child.complete === true);
+        const savedBefore = await savedRuntimeSessions(tx, sessionId, written.map((child) => child.opencodeSessionId));
+        for (const child of written) {
           const childRows = mirrorRowsFromOpencodePayload(child.payload);
-          const childIds = childRows.map((row) => String(row.info.id));
-          await tx.execute(
-            childIds.length > 0
-              ? sql`DELETE FROM kortix.session_transcript_messages
-                     WHERE session_id = ${sessionId}
-                       AND opencode_session_id = ${child.opencodeSessionId}
-                       AND NOT (message_id = ANY(${sql.param(childIds)}::text[]))`
-              : sql`DELETE FROM kortix.session_transcript_messages
-                     WHERE session_id = ${sessionId}
-                       AND opencode_session_id = ${child.opencodeSessionId}`,
-          );
           await upsertMirrorRows(tx, sessionId, child.opencodeSessionId, childRows, now);
         }
+        // Progress is what was WRITTEN: a sub-agent whose message ids are already stored
+        // unchanged under another session (a forked copy) writes nothing and is no progress.
+        const savedAfter = read.moreChildren
+          ? await savedRuntimeSessions(tx, sessionId, written.map((child) => child.opencodeSessionId))
+          : savedBefore;
+        moreChildren = read.moreChildren === true && [...savedAfter].some((id) => !savedBefore.has(id));
         return { captured: rows.length, head_complete: headComplete };
       });
     };
-    return fullHistory ? await retryTranscriptCapture(capture) : await capture();
+    const result = fullHistory ? await retryTranscriptCapture(capture) : await capture();
+    // P2.7: a box without a journal also gets its v2 log, from the mirror just written. Never throws.
+    if (result) await writeSessionLogFromMirror(sessionId);
+    // Queued behind this one (`captureSessionTranscriptMirror` runs one capture per session at a
+    // time). Not for a `tail`: the stop that asked for it powers the box off next.
+    const step = options?.chain?.step ?? 0;
+    if (result && fullHistory && moreChildren && step < MAX_CAPTURE_CHAIN) {
+      void captureSessionTranscriptMirror(sessionId, deps, {
+        ...options,
+        chain: { step: step + 1, startedAt: chainStartedAt },
+      });
+    }
+    return result;
   } catch (err) {
-    console.warn(
-      `[transcript-mirror] capture failed for session ${sessionId}:`,
-      `sqlstate=${errorSqlstate(err) ?? 'unknown'}`,
-    );
+    // A stopped, gone, or cold box is the expected state of an idle session;
+    // the capture fail-opens on it (returns null, the mirror stays as it is).
+    // That degrade is info. Anything else keeps the warn, and every line now
+    // names the real error — the old line carried only `sqlstate=unknown`, so
+    // it diagnosed nothing.
+    const detail = err instanceof Error ? err.message : String(err);
+    if (isRuntimeUnavailableError(err)) {
+      logger.info(`[transcript-mirror] capture deferred for session ${sessionId}`, {
+        sessionId,
+        error: detail,
+        sqlstate: errorSqlstate(err) ?? 'unknown',
+      });
+    } else {
+      console.warn(`[transcript-mirror] capture failed for session ${sessionId}`, {
+        sessionId,
+        error: detail,
+        sqlstate: errorSqlstate(err) ?? 'unknown',
+      });
+    }
     return null;
   }
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Apply the rewind the sandbox proxy recorded (`rewind_message_id`, set when
+ * OpenCode accepted `POST /session/:id/revert`).
+ *
+ * OpenCode only STAGES a revert: every message stays listed until the next
+ * prompt commits it, and `unrevert` (which clears the marker) can still undo
+ * it. So a read that still lists the marker message changes nothing. A read
+ * that lacks it deletes the stored rows of this root from that message on,
+ * in stored order (`message_created_at`, `message_id`), that the read lacks.
+ * Older rows are never touched. pi serves no revert (501), so a pi session
+ * never gets a marker and never loses a row.
+ */
+async function applyRecordedRewind(
+  tx: Tx,
+  input: {
+    sessionId: string;
+    root: string;
+    marker: string;
+    rows: ReturnType<typeof mirrorRowsFromOpencodePayload>;
+    /** A complete read covers every message; a caught-up one only its newest. */
+    complete: boolean;
+  },
+): Promise<void> {
+  const { sessionId, root, marker, rows } = input;
+  const readIds = rows.map((row) => String(row.info.id));
+  if (readIds.includes(marker)) return;
+  const [point] = await tx
+    .select({ createdAt: sessionTranscriptMessages.messageCreatedAt })
+    .from(sessionTranscriptMessages)
+    .where(
+      and(
+        eq(sessionTranscriptMessages.sessionId, sessionId),
+        eq(sessionTranscriptMessages.runtimeSessionId, root),
+        eq(sessionTranscriptMessages.messageId, marker),
+      ),
+    )
+    .limit(1);
+  const pointAt = point?.createdAt ? new Date(point.createdAt) : null;
+  if (pointAt) {
+    // A real commit lists the replacement prompt, which is newer than the
+    // rewind point (OpenCode cleans the reverted messages up first, then
+    // writes the prompt). A read that lists nothing at or after the point —
+    // empty, or only older history — is a box that lost its state, never a
+    // rewind: delete nothing and keep the marker for the real commit.
+    const key = (row: (typeof rows)[number]) => timeField(row.info, 'created')?.getTime();
+    const listsNewer = rows.some((row) => {
+      const at = key(row);
+      return (
+        at !== undefined &&
+        (at > pointAt.getTime() || (at === pointAt.getTime() && String(row.info.id) >= marker))
+      );
+    });
+    if (!listsNewer) return;
+    if (!input.complete) {
+      // A caught-up walk read only down to its oldest row. It must reach the
+      // rewind point, or part of the rewound range is unread: keep the marker
+      // for a later read.
+      let floor: { at: number; id: string } | null = null;
+      for (const row of rows) {
+        const at = key(row);
+        const id = String(row.info.id);
+        if (at !== undefined && (!floor || at < floor.at || (at === floor.at && id < floor.id))) {
+          floor = { at, id };
+        }
+      }
+      const reached =
+        !!floor && (floor.at < pointAt.getTime() || (floor.at === pointAt.getTime() && floor.id <= marker));
+      if (!reached) return;
+    }
+    // `::timestamptz` on an ISO string and `sql.param` for the array: see
+    // `readSessionTranscriptMirror` for why a bound Date or a bare array fails.
+    const at = pointAt.toISOString();
+    await tx.execute(sql`
+      DELETE FROM kortix.session_transcript_messages
+       WHERE session_id = ${sessionId}
+         AND opencode_session_id = ${root}
+         AND message_created_at IS NOT NULL
+         AND (message_created_at > ${at}::timestamptz
+              OR (message_created_at = ${at}::timestamptz AND message_id >= ${marker}))
+         ${readIds.length > 0 ? sql`AND NOT (message_id = ANY(${sql.param(readIds)}::text[]))` : sql``}
+    `);
+  }
+  // Spent, or nothing of this root to apply it to (a changed root, a message
+  // never captured). Cleared only while unchanged: a newer rewind stays.
+  await tx
+    .update(sessionTranscriptMirrors)
+    .set({ rewindMessageId: null })
+    .where(
+      and(
+        eq(sessionTranscriptMirrors.sessionId, sessionId),
+        eq(sessionTranscriptMirrors.rewindMessageId, marker),
+      ),
+    );
+}
+
+/** The runtime sessions among `ids` that hold at least one saved row of this session. */
+async function savedRuntimeSessions(tx: Tx, sessionId: string, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await tx
+    .selectDistinct({ id: sessionTranscriptMessages.runtimeSessionId })
+    .from(sessionTranscriptMessages)
+    .where(and(eq(sessionTranscriptMessages.sessionId, sessionId), inArray(sessionTranscriptMessages.runtimeSessionId, ids)));
+  return new Set(rows.map((row) => row.id).filter((id): id is string => !!id));
+}
 
 /** Merge one OpenCode session's rows into the mirror, 100 per statement. */
 async function upsertMirrorRows(
@@ -593,12 +670,11 @@ const BACKFILL_DONE = BACKFILL_MAX_ATTEMPTS;
  * Fire-and-forget by construction — `captureSessionTranscriptMirror` never
  * throws, and a backfill must never be able to fail or delay an open.
  *
- * SAFE AGAINST THE DELETE BRANCH. A complete full-history read licenses the
- * writer to remove stored ids the box no longer has. A backfill of an EMPTY
- * mirror has nothing to remove, and a backfill of a `head_complete: false`
- * mirror (a partial walk, or one pruned by the retention cap removed on
- * 2026-09-29) merges the head back rather than trimming — which is the repair
- * this is for.
+ * SAFE BY CONSTRUCTION. A capture deletes only after a rewind the proxy
+ * recorded, so a backfill of a box that lost its state merges what it reads
+ * and trims nothing. A backfill of a `head_complete: false` mirror (a partial
+ * walk, or one pruned by the retention cap removed on 2026-09-29) merges the
+ * head back — which is the repair this is for.
  */
 export function backfillSessionTranscriptMirrorOnWake(
   sessionId: string,
@@ -638,7 +714,7 @@ export function backfillSessionTranscriptMirrorOnWake(
         row.headComplete &&
         row.mirrorRoot &&
         row.mirrorRoot === row.root &&
-        !(await mirrorHoldsStrippedRows(sessionId))
+        !(await mirrorHoldsStrippedRows(sessionId, row.root))
       ) {
         return settle();
       }
@@ -654,20 +730,42 @@ export function backfillSessionTranscriptMirrorOnWake(
   })();
 }
 
+/** Test seam: resolves once no capture of this session is queued or running (a run queues its
+ *  next capture before its own promise settles). */
+export async function transcriptCapturesSettledForTests(sessionId: string): Promise<void> {
+  for (let pending = captures.get(sessionId); pending; pending = captures.get(sessionId)) {
+    await pending.catch(() => null);
+    if (captures.get(sessionId) === pending) captures.delete(sessionId);
+  }
+}
+
 /** Test seam: the memo is process-global and would leak between cases. */
 export function resetTranscriptBackfillMemoForTests(): void {
   backfillAttempts.clear();
 }
 
 const captures = new Map<string, Promise<CaptureResult | null>>();
+/** replica-local: when a stop last asked for a `tail` capture, per session. A queued chain
+ *  capture started before it is dropped: it would sit ahead of the next stop's tail, then
+ *  read a box that is off. Bounded like `backfillAttempts`. */
+const tailRequestedAt = new Map<string, number>();
 
 export function captureSessionTranscriptMirror(
   sessionId: string,
   deps: CaptureDeps = liveCaptureDeps,
   options?: CaptureOptions,
 ): Promise<CaptureResult | null> {
+  if (options?.scope === 'tail') {
+    if (tailRequestedAt.size >= BACKFILL_MEMO_MAX) tailRequestedAt.clear();
+    tailRequestedAt.set(sessionId, Date.now());
+  }
+  // A run is as old as the moment its first capture was queued, not when it started to run.
+  const startedAt = options?.chain?.startedAt ?? Date.now();
   const previous = captures.get(sessionId) ?? Promise.resolve(null);
-  const pending = previous.then(() => captureSessionTranscript(sessionId, deps, options));
+  const pending = previous.then(() => {
+    if (options?.chain && (tailRequestedAt.get(sessionId) ?? -Infinity) >= startedAt) return null;
+    return captureSessionTranscript(sessionId, deps, options, startedAt);
+  });
   captures.set(sessionId, pending);
   void pending.finally(() => {
     if (captures.get(sessionId) === pending) captures.delete(sessionId);

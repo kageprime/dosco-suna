@@ -13,7 +13,6 @@ let billingEnabled = true;
 mock.module('../../config', () => ({
   SANDBOX_VERSION: '0.0.0-test',
   KNOWN_PROVIDERS: [],
-  KORTIX_MARKUP: 1,
   PLATFORM_FEE_MARKUP: 1,
   getToolCost: () => 0,
   parseAllowedProviders: () => [],
@@ -44,6 +43,7 @@ mock.module('./wallet-debits', () => ({
     input: { description: string } & Record<string, unknown>,
   ) => {
     settleCalls.push(input);
+    if (settleError) throw settleError;
     return { amount: input.amount, balance: 0, overdraft: false, transactionId: 'tx_test', replayed: false };
   },
 }));
@@ -51,7 +51,7 @@ mock.module('./wallet-debits', () => ({
 mock.module('../repositories/credit-accounts', () => ({
   getCreditAccount: async () => {
     storageCalls.push('getCreditAccount');
-    return { billingModel: 'per_seat', tier: 'free' };
+    return { tier: 'free' };
   },
   getCreditBalance: async () => null,
   updateCreditAccount: async () => undefined,
@@ -86,6 +86,13 @@ mock.module('../repositories/compute-sessions', () => ({
   },
 }));
 
+/** Whether the ledger holds the debit key after a failed settle. */
+let ledgerHasKey = false;
+let settleError: Error | null = null;
+mock.module('../repositories/ledger-keys', () => ({
+  ledgerRequestKeyExists: async () => ledgerHasKey,
+}));
+
 mock.module('../../shared/db', () => ({
   db: new Proxy(
     {},
@@ -113,6 +120,8 @@ beforeEach(() => {
   staleRows = [];
   claimResult = false;
   settleCalls = [];
+  ledgerHasKey = false;
+  settleError = null;
 });
 
 /** An active sandbox row the tick would settle this pass, 10 minutes unbilled. */
@@ -167,19 +176,45 @@ describe('the partial-billing tick', () => {
   });
 });
 
+describe('a failed compute settlement', () => {
+  // 10 minutes of 2 vCPU / 4 GB / 20 GB: 600 s * ($0.109441 / 3600 s) = $0.01824.
+  test('releases the window when the ledger holds no debit under the key', async () => {
+    staleRows = [staleRow('sess-123')];
+    claimResult = true;
+    settleError = new Error('connection terminated');
+    ledgerHasKey = false;
+
+    await tickRunningComputeCharges();
+
+    expect(storageCalls).toContain('releaseComputeWindow');
+  });
+
+  test('keeps the window when the debit committed and only the response was lost', async () => {
+    staleRows = [staleRow('sess-123')];
+    claimResult = true;
+    settleError = new Error('connection terminated');
+    ledgerHasKey = true;
+
+    await tickRunningComputeCharges();
+
+    expect(settleCalls).toHaveLength(1);
+    expect(storageCalls).not.toContain('releaseComputeWindow');
+  });
+});
+
 describe('calculateComputeCost', () => {
   test.each([
     ['a zero-length window', SPEC, 0, 0],
     ['a negative window', SPEC, -5, 0],
-    ['one hour of 2 vCPU / 4 GB / 20 GB', SPEC, 3600, 0.201312],
-    ['one minute, with no minimum charge', SPEC, 60, 0.201312 / 60],
-    ['twice the machine for twice the time', { cpuCores: 4, memoryGb: 8, diskGb: 40, gpuCount: 0 }, 7200, 0.805248],
+    ['one hour of 2 vCPU / 4 GB / 20 GB', SPEC, 3600, 0.10944109589041096],
+    ['one minute, with no minimum charge', SPEC, 60, 0.10944109589041096 / 60],
+    ['twice the machine for twice the time', { cpuCores: 4, memoryGb: 8, diskGb: 40, gpuCount: 0 }, 7200, 4 * 0.10944109589041096],
   ])('%s', (_name, spec, seconds, cost) => {
     expect(calculateComputeCost(spec, seconds)).toBeCloseTo(cost, 8);
   });
 
   test.each(['e2b', 'platinum'] as const)('%s bills the one hosted customer rate', (provider) => {
-    expect(calculateComputeCost(SPEC, 3600, provider)).toBeCloseTo(0.201312, 8);
+    expect(calculateComputeCost(SPEC, 3600, provider)).toBeCloseTo(0.10944109589041096, 8);
   });
 });
 

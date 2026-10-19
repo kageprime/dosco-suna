@@ -29,7 +29,14 @@ import { runSessionsForward } from './sessions-forward.ts';
 import type { Auth } from '../api/auth.ts';
 import { confirm } from '../prompts.ts';
 import { hasEnvTokenHost } from '../api/config.ts';
-import { kortixFromAuth } from '../api/sdk.ts';
+import { kortixFromAuth, sdkBackendUrl, withKortixScope } from '../api/sdk.ts';
+import {
+  appendPreviewToken,
+  isSubdomainPreviewUrl,
+  loadPreviewUrlTemplate,
+  rewriteLocalhostUrl,
+  sessionModelPin,
+} from '@kortix/sdk';
 import type { ProjectSession, ProjectSummary } from '../api/types.ts';
 import { C, help, pad, status } from '../style.ts';
 import { sessionWebUrl } from '../web-url.ts';
@@ -47,6 +54,8 @@ import {
 import {
   runSessionsCompact,
   runSessionsModel,
+  runSessionsRecover,
+  runSessionsRestore,
   runSessionsStart,
   runSessionsStop,
   runSessionsWarm,
@@ -54,6 +63,7 @@ import {
 import { runSessionsQueue, wireMessageId } from './sessions-queue.ts';
 import { runSessionsAttachments } from './sessions-attachments.ts';
 import { sessionListQuery, startedByLabel, takeSessionListFlags, type SessionListFlags } from './sessions-list.ts';
+import { runSessionsListState } from './sessions-pin.ts';
 import { runSessionsFiles } from './sessions-sandbox-files.ts';
 import { runSessionsScope } from './sessions-scope.ts';
 import { runSessionsLinks, runSessionsShare } from './sessions-share.ts';
@@ -70,15 +80,24 @@ Subcommands:
   ls [--mine|--shared|--automated]  List sessions with who started each
      [--search <q>]                 (STARTED BY). --mine = you started it,
      [--children <session-id>]      --shared = another member did,
-     [--label <label>]...
-                                    --automated = a trigger, channel or API
-                                    key did; each lists top-level sessions
+     [--label <label>]...           --automated = a trigger, channel or API
+     [--pinned|--archived|--deleted] key did; each lists top-level sessions
                                     with their child count. --search <q>
                                     matches every session you can see.
                                     --children <id> lists one session's
                                     children. --label <l> (repeatable)
                                     lists sessions carrying every given
-                                    label. --json.
+                                    label. The list leaves out the sessions
+                                    you archived: --archived lists only
+                                    them, --pinned only your pinned ones.
+                                    --deleted lists the deleted sessions
+                                    you can still restore, with their full
+                                    id and the date they stay restorable.
+                                    A pinned row shows (pinned). --json
+                                    rows also carry model, the session's
+                                    resolved model id (null when the row
+                                    stores none), and your pinned_at and
+                                    archived_at.
   status                            Mission control: every session + what
                                     each agent is doing right now (live).
                                     --all, --json. Aliases: overview, ps.
@@ -125,7 +144,9 @@ Subcommands:
                                     one-shot with --prompt). --new starts one.
                                     --queue stores the prompt in the session's
                                     durable inbox instead of handing it to the
-                                    runtime.
+                                    runtime. --steer stores it the same way and
+                                    hands it to the running turn at its next
+                                    step.
   queue <session-id> [<sub>]        The durable prompt inbox: ls (default), rm
                                     <prompt-id>, now <prompt-id>, hold,
                                     release. --json.
@@ -235,7 +256,21 @@ Subcommands:
                                     Alias: label.
   rename <session-id> <name>        Set a session's name. Pass "" to clear it
                                     and revert to the automatic title.
-  rm <session-id>...                Stop + delete one or more sessions.
+  pin <session-id>...               Pin sessions in your own list. Only
+                                    your list changes. --json.
+  unpin <session-id>...             Unpin sessions. --json.
+  archive <session-id>...           Take sessions out of your own list.
+                                    Archiving unpins. \`ls --archived\`
+                                    lists them. --json.
+  unarchive <session-id>...         Put archived sessions back in your
+                                    list. --json.
+  rm <session-id>...                Stop + delete one or more sessions. Each
+                                    stays restorable for 30 days; its branch
+                                    is kept. --json.
+  restore <session-id>              Restore a deleted session within 30 days.
+                                    Pass the full id. --json.
+  recover <session-id>              Continue a lost session on a new computer
+                                    with its saved conversation. --json.
   open <session-id>                 Open the dashboard URL for a session.
 
 Global options:
@@ -334,6 +369,12 @@ export async function runSessions(argv: string[]): Promise<number> {
   if (sub === 'start' || sub === 'wake') {
     return runSessionsStart(argv.slice(1));
   }
+  if (sub === 'restore' || sub === 'undelete') {
+    return runSessionsRestore(argv.slice(1));
+  }
+  if (sub === 'recover') {
+    return runSessionsRecover(argv.slice(1));
+  }
   if (sub === 'warm') {
     return runSessionsWarm(argv.slice(1));
   }
@@ -342,6 +383,9 @@ export async function runSessions(argv: string[]): Promise<number> {
   }
   if (sub === 'compact' || sub === 'summarize') {
     return runSessionsCompact(argv.slice(1));
+  }
+  if (sub === 'pin' || sub === 'unpin' || sub === 'archive' || sub === 'unarchive') {
+    return runSessionsListState(sub, argv.slice(1));
   }
   const rest = argv.slice(1);
   // None of the subcommands below (ls/new/info/preview/restart/rename/rm/
@@ -513,14 +557,20 @@ async function sessionsLs(opts: CtxOpts, flags: SessionListFlags, json = false):
   }
 
   if (json) {
-    emitJson(sessions);
+    // `model`: the stored resolved model pin, read through the SDK, never
+    // from `metadata` directly (the server bakes the resolution at create).
+    emitJson(sessions.map((s) => ({ ...s, model: sessionModelPin(s) })));
     return 0;
   }
 
+  if (flags.view === 'deleted') return printDeletedSessions(sessions);
+
   if (sessions.length === 0) {
-    const filtered = flags.startedBy || flags.search || flags.children || flags.labels?.length;
+    const filtered = flags.startedBy || flags.search || flags.children || flags.labels?.length || flags.view;
     process.stdout.write(
-      `  ${C.dim}${filtered ? 'No matching sessions.' : 'No sessions yet — start one with `kortix sessions new`.'}${C.reset}\n`,
+      // The default list leaves out archived sessions: a list emptied by
+      // archiving must not read as a project with no sessions.
+      `  ${C.dim}${filtered ? 'No matching sessions.' : 'No sessions in your list — start one with `kortix sessions new`. `kortix sessions ls --archived` lists the ones you archived.'}${C.reset}\n`,
     );
     return 0;
   }
@@ -529,7 +579,7 @@ async function sessionsLs(opts: CtxOpts, flags: SessionListFlags, json = false):
   const showChildren = sessions.some((s) => typeof s.child_count === 'number');
   const showLabels = sessions.some((s) => s.labels?.length);
   const label = (s: ProjectSession) =>
-    `${s.name ?? shortId(s.session_id)}${s.search_match === 'child' ? ' (match in child)' : ''}`;
+    `${s.name ?? shortId(s.session_id)}${s.search_match === 'child' ? ' (match in child)' : ''}${s.pinned_at ? ' (pinned)' : ''}`;
   const labelW = Math.min(Math.max(...sessions.map((s) => label(s).length), 6), 48);
   const byW = Math.min(Math.max(...sessions.map((s) => startedByLabel(s, viewer).length), 10), 24);
   process.stdout.write('\n');
@@ -546,6 +596,32 @@ async function sessionsLs(opts: CtxOpts, flags: SessionListFlags, json = false):
   }
   process.stdout.write(
     `\n  ${C.dim}${sessions.length} session${sessions.length === 1 ? '' : 's'}${C.reset}\n\n`,
+  );
+  return 0;
+}
+
+/**
+ * `ls --deleted` (Recently deleted): the full id, because `sessions restore`
+ * needs it (a deleted session is not in the list a short id expands against),
+ * and the last day each one can be restored.
+ */
+function printDeletedSessions(sessions: ProjectSession[]): number {
+  if (sessions.length === 0) {
+    process.stdout.write(`  ${C.dim}No deleted sessions you can restore.${C.reset}\n`);
+    return 0;
+  }
+  const label = (s: ProjectSession) => s.name ?? shortId(s.session_id);
+  const labelW = Math.min(Math.max(...sessions.map((s) => label(s).length), 6), 40);
+  process.stdout.write('\n');
+  process.stdout.write(`  ${C.dim}${pad('NAME', labelW)}   ${pad('DELETED', 12)}  RESTORABLE UNTIL  SESSION ID${C.reset}\n`);
+  for (const s of sessions) {
+    const until = s.restore_until ? s.restore_until.slice(0, 10) : '-';
+    process.stdout.write(
+      `  ${pad(trimMid(label(s), labelW), labelW)}   ${C.faded}${pad(s.deleted_at ? formatRelative(s.deleted_at) : '-', 12)}${C.reset}  ${pad(until, 16)}  ${s.session_id}\n`,
+    );
+  }
+  process.stdout.write(
+    `\n  ${C.dim}${sessions.length} deleted session${sessions.length === 1 ? '' : 's'}. Restore one: kortix sessions restore <session-id>${C.reset}\n\n`,
   );
   return 0;
 }
@@ -601,7 +677,11 @@ async function sessionsNew(
 
   const body: Record<string, unknown> = {};
   if (prompt && uploads.length === 0) {
-    body.initial_prompt = buildSpawnPrompt(prompt, { fromSandbox });
+    // The prompt is stored verbatim; the contract rides in `initial_context`
+    // and reaches the model as a synthetic (model-only) part.
+    const spawn = buildSpawnPrompt(prompt, { fromSandbox });
+    body.initial_prompt = spawn.prompt;
+    if (spawn.context) body.initial_context = spawn.context;
   }
   // Titles derive from the user's words, not from the session-contract or the
   // --with-file manifest the CLI appends around them.
@@ -707,16 +787,20 @@ async function sessionsNew(
         if (!json) process.stdout.write(`  ${C.dim}uploaded ${u.target}${C.reset}\n`);
       }
       if (prompt) {
+        // A deferred prompt goes to a RUNNING session through the prompt
+        // inbox, which has no synthetic-part carrier yet: the contract still
+        // rides inside the text there (the caller's words stay at the top).
+        const spawn = buildSpawnPrompt(
+          buildPromptWithFiles(
+            prompt,
+            uploads.map((u) => u.target),
+          ),
+          { fromSandbox },
+        );
         await sendPromptToSession(
           ctx,
           created,
-          buildSpawnPrompt(
-            buildPromptWithFiles(
-              prompt,
-              uploads.map((u) => u.target),
-            ),
-            { fromSandbox },
-          ),
+          spawn.context ? `${spawn.prompt}\n\n${spawn.context}` : spawn.prompt,
         );
       }
     } catch (err) {
@@ -925,12 +1009,28 @@ async function sessionsPreview(
     return 1;
   }
   const ext = m[1];
-  const base = new URL(auth.api_base);
-  // Kortix subdomain preview: served at root (so SPA/Next assets resolve), the
-  // `?token` authorizes the subdomain (in-memory TTL) and sets a cookie for
-  // subsequent asset requests. `*.localhost` resolves to 127.0.0.1 in browsers.
-  const scheme = base.protocol.replace(':', '');
-  const url = `${scheme}://p${port}-${ext}.${base.host}/?token=${encodeURIComponent(auth.token)}`;
+  // The preview hostname is a deployment fact: `{env}-p{port}-{label}.{domain}`
+  // needs a wildcard DNS record, a wildcard certificate and an edge Worker that
+  // the API host says nothing about, so a client must not derive it — that is
+  // how this command printed `p{port}-{sandbox}.{api-host}`, a family with no
+  // DNS record on any deployed environment. `GET /v1/p/config` states the
+  // template; the SDK substitutes it (label-encoding `_` → `-`) and falls back
+  // to the localhost or path proxy when the deployment serves none. The
+  // one-shot `?token=` is accepted only on a preview origin (it mints the
+  // preview cookie there); the path proxy rejects query tokens, so it stays
+  // off that form.
+  const url = await withKortixScope(auth, async () => {
+    const backendUrl = sdkBackendUrl(auth.api_base);
+    const template = await loadPreviewUrlTemplate(backendUrl);
+    const parsed = new URL(backendUrl);
+    const origin = rewriteLocalhostUrl(port, '/', {
+      sandboxId: ext,
+      apiBaseUrl: backendUrl,
+      backendPort: Number(parsed.port) || (parsed.protocol === 'https:' ? 443 : 80),
+      previewUrlTemplate: template,
+    });
+    return isSubdomainPreviewUrl(origin) ? appendPreviewToken(origin, auth.token) : origin;
+  });
 
   if (json) {
     emitJson({ session_id: s.session_id, port, sandbox: ext, url });
@@ -1182,7 +1282,14 @@ async function sessionsRm(
     return 2;
   }
 
-  const results: Array<{ session_id: string; deleted: boolean; error?: string }> = [];
+  const results: Array<{
+    session_id: string;
+    project_id?: string;
+    host?: string;
+    deleted: boolean;
+    restore_until?: string;
+    error?: string;
+  }> = [];
   for (const sessionId of ids) {
     const located = await locateSessionAnywhere(
       sessionId,
@@ -1194,15 +1301,32 @@ async function sessionsRm(
       continue;
     }
     const canonicalSessionId = located.located.session.session_id;
+    const { projectId } = located.located;
+    // `restore` cannot locate a deleted session (its read answers 404), so the
+    // hint names where this session was found.
+    const host = located.located.hostName ?? opts.hostArg;
     try {
-      await located.located.client.delete(
-        `/projects/${located.located.projectId}/sessions/${canonicalSessionId}`,
+      const deleted = await located.located.client.delete<{ ok: boolean; restore_until?: string }>(
+        `/projects/${projectId}/sessions/${canonicalSessionId}`,
       );
-      results.push({ session_id: canonicalSessionId, deleted: true });
+      // An API that predates restore answers without the window.
+      const restoreUntil = deleted?.restore_until;
+      results.push({
+        session_id: canonicalSessionId,
+        project_id: projectId,
+        ...(host ? { host } : {}),
+        deleted: true,
+        ...(restoreUntil ? { restore_until: restoreUntil } : {}),
+      });
       if (!json) {
         process.stdout.write(
           `${status.ok(`Deleted ${C.bold}${shortId(canonicalSessionId)}${C.reset}`)}\n`,
         );
+        if (restoreUntil) {
+          process.stdout.write(
+            `  ${C.dim}Restorable until ${restoreUntil.slice(0, 10)}: kortix sessions restore ${canonicalSessionId} --project ${projectId}${host ? ` --host ${host}` : ''}${C.reset}\n`,
+          );
+        }
       }
     } catch (err) {
       surfaceApiError(err);

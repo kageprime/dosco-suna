@@ -7,13 +7,14 @@ import { isImageFile } from '@/lib/utils/file-utils';
 import type {
   Agent,
   Command,
-  MessageWithParts,
+  FlatModel,
   ProviderListResponse,
   UsePromptAttachmentsResult,
 } from '@kortix/sdk/react';
 import { usePromptAttachments, useRuntimeSessions } from '@kortix/sdk/react';
 import { MoonIcon, WarningIcon } from '@phosphor-icons/react';
-import { SESSION_NOTICE } from '@kortix/sdk';
+import { SESSION_NOTICE, type SessionLogMessage } from '@kortix/sdk';
+import { newPastedContentId, type PastedContent, splitPastedContent, trimPastedText } from '@kortix/shared';
 import type { JSONContent } from '@tiptap/core';
 import type { RefObject } from 'react';
 import {
@@ -23,6 +24,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -40,11 +42,12 @@ import {
   modelRejectingAttachedImages,
 } from '../model-availability';
 import { ImagesUnsupportedBar, ModelConnectionBar } from '../model-connection-gate';
-import type { FlatModel } from '../model-flatten';
 import { type ModelDefaultControls } from '../model-selector';
 import { useModelConnectionGate } from '../use-model-connection-gate';
 import { NO_AGENT_ACCESS_HINT, NO_AGENT_ACCESS_LABEL } from './composer-agent-access';
+import { useComposerDropZone } from './composer-drop-zone';
 import type { DraftScope, StoredDraft } from './draft/composer-draft';
+import { finishedDraftUploads, keepUnsentUploadFile, restoreDraftUploads } from './draft/draft-uploads';
 import { useComposerDraft } from './draft/use-composer-draft';
 import { commandBlocker, sendBlocker, sendBlockerMessage } from './send-blockers';
 import {
@@ -64,7 +67,10 @@ import {
   dispatchLatched,
   type DispatchOutcome,
   planAttachmentReplacement,
+  refusedFilesToast,
   runComposerSend,
+  heldTraySizes,
+  splitComposerFiles,
   stageComposerFiles,
   takeNewBillingRefusals,
   type AttachmentSubmission,
@@ -73,12 +79,17 @@ import { AttachmentTiles } from './attachment-tiles';
 import {
   draftWillRunCommand,
   planCommandAttachments,
+  planUnresolvedCommandChip,
   readCommandChipLabel,
 } from './command-attachments';
 import {
   appendComposerQuote,
+  classifyPaste,
+  isUndoKey,
+  popPasteUndo,
   type ComposerQuote,
   extractReplyQuotes,
+  nextPastedTextFileName,
   planDraftSubmission,
   planFailedSendRecovery,
   planPrefillMerge,
@@ -112,6 +123,8 @@ interface StashedDraft {
   files: AttachedFile[];
   /** The reply quotes, taken out of the list with the draft. */
   quotes: ComposerQuote[];
+  /** The pasted-text tiles, taken out of the row with the draft. */
+  pastes: PastedContent[];
   attachmentSubmission: AttachmentSubmission;
 }
 
@@ -157,6 +170,8 @@ export interface SessionChatInputProps {
   runtimeReady?: boolean;
   onStop?: () => void;
   stopDisabled?: boolean;
+  /** See `SendStopControl`. Default true. */
+  canStop?: boolean;
   isSending?: boolean;
   /**
    * The session sits on a rewound path: sending commits it, restoring keeps
@@ -182,6 +197,14 @@ export interface SessionChatInputProps {
   noAccessibleAgents?: boolean;
   commands?: Command[];
   /**
+   * Whether the live command list has EVER resolved — the hook's `data`
+   * present, not the `[]` the composer defaults to while it loads. The one
+   * bit that separates "the chip's command is still being looked up" from
+   * "the list answered and the command is gone": only the first may refuse a
+   * send that would otherwise carry attachments out as a prompt.
+   */
+  commandsResolved?: boolean;
+  /**
    * The session's own files, as `/` palette rows — the Outputs card's
    * deliverables and the Context card's reads, built by
    * `menus/slash-files.ts`'s `sessionSlashFiles`.
@@ -197,11 +220,23 @@ export interface SessionChatInputProps {
    */
   slashFiles?: SlashFile[];
   /**
+   * Opens a paste tile's full text — the side panel, from the host beside it
+   * (`session-chat.tsx`), for the reason `slashFiles` is a prop. Omitted, the
+   * tile is inert.
+   */
+  onOpenPastedContent?: (id: string, text: string) => void;
+  /**
    * `split` is where the chip sat in `args` — display only. Without it every
    * consumer rebuilds the sent message as `/name` + args, so a command typed
    * mid-sentence (`explain /webapp to me`) came back reordered to the front.
    */
   onCommand?: (command: Command, args?: string, split?: { before: string; after: string }) => void;
+  /**
+   * Hold a command the session cannot run yet (a turn is running, or the box
+   * is waking) and run it when it can — `held-commands.ts`. A host without it
+   * refuses the command instead and keeps the draft.
+   */
+  onHoldCommand?: (command: Command, args?: string, split?: { before: string; after: string }) => void;
   models?: FlatModel[];
   selectedModel?: { providerID: string; modelID: string } | null;
   onModelChange?: (model: { providerID: string; modelID: string } | null) => void;
@@ -209,7 +244,7 @@ export interface SessionChatInputProps {
   variants?: string[];
   selectedVariant?: string | null;
   onVariantChange?: (variant: string | null | undefined) => void;
-  messages?: MessageWithParts[];
+  messages?: SessionLogMessage[];
   sessionId?: string;
   projectId?: string;
   /**
@@ -358,6 +393,10 @@ export interface SessionChatInputProps {
   lockForApproval?: boolean;
   onCustomAnswer?: (text: string) => void;
   questionButtonLabel?: string | null;
+  /** A question or a pending approval is docked above the card: the strip
+   *  goes full width and the card squares its top corners, so both read as
+   *  one surface. */
+  questionActive?: boolean;
   /**
    * A labeled submit button replaces the icon send/stop control, busy or
    * not. Set while the composer edits a queued message: its send saves the
@@ -425,7 +464,7 @@ export const COMPOSER_SHELL_CLASS = 'relative z-10 mx-auto w-full max-w-210 shri
  * rediscovered by the next notice that gets added.
  */
 export const COMPOSER_INPUT_SLOT_CLASS =
-  'bg-sidebar border-border flex w-[96%] flex-col items-center gap-2 rounded-t-xl border border-b-0 p-1 empty:hidden';
+  'bg-sidebar border-border flex w-full flex-col items-center gap-2 rounded-t-xl border border-b-0 p-1 empty:hidden';
 
 /** Stable empty defaults so a fresh `[]` per render never breaks memoization. */
 export const EMPTY_AGENTS: Agent[] = [];
@@ -471,8 +510,11 @@ function ComposerImpl(props: SessionChatInputProps) {
   onAgentChange,
   noAccessibleAgents = false,
   commands = EMPTY_COMMANDS,
+  /** Whether the live command list has EVER resolved — see `planUnresolvedCommandChip`. */
+  commandsResolved = false,
   slashFiles = EMPTY_SLASH_FILES,
   onCommand,
+  onHoldCommand,
   models = EMPTY_MODELS,
   selectedModel = null,
   onModelChange,
@@ -577,6 +619,35 @@ function ComposerImpl(props: SessionChatInputProps) {
     [setQuoteList],
   );
   const quoteTexts = useMemo(() => quotes.map((quote) => quote.text), [quotes]);
+  /**
+   * The pasted-text tiles, in send order. Like the quotes, not part of the
+   * editor document: a send writes each as a `<pasted_content>` block ahead of
+   * the typed text (`planDraftSubmission`). `pastesRef` is the synchronous
+   * mirror, and `setPasteList` writes both.
+   */
+  const [pastes, setPastes] = useState<PastedContent[]>([]);
+  const pastesRef = useRef<PastedContent[]>([]);
+  const setPasteList = useCallback((update: (current: PastedContent[]) => PastedContent[]) => {
+    const next = update(pastesRef.current);
+    if (next === pastesRef.current) return;
+    pastesRef.current = next;
+    setPastes(next);
+  }, []);
+  /** Put tiles that left with a draft back at the head of the row, skipping ids already there. */
+  const restorePastes = useCallback(
+    (restored: readonly PastedContent[]) => {
+      if (restored.length === 0) return;
+      setPasteList((current) => [
+        ...restored,
+        ...current.filter((paste) => !restored.some((r) => r.id === paste.id)),
+      ]);
+    },
+    [setPasteList],
+  );
+  const removePaste = useCallback(
+    (id: string) => setPasteList((current) => current.filter((paste) => paste.id !== id)),
+    [setPasteList],
+  );
   const quoteListLabels = useMemo(
     () => ({
       count: tThreads('quoteCount', { count: quotes.length }),
@@ -626,6 +697,46 @@ function ComposerImpl(props: SessionChatInputProps) {
   }, []);
 
   /**
+   * The tray's finished uploads. The draft keeps their handles, so a session
+   * switch or a reload brings the files back (`draft/draft-uploads.ts`).
+   */
+  const finishedUploads = useMemo(
+    () => finishedDraftUploads(attachedFiles, promptAttachmentItems),
+    [attachedFiles, promptAttachmentItems],
+  );
+  const draftUploads = useMemo(() => finishedUploads.map(({ upload }) => upload), [finishedUploads]);
+  const finishedUploadsRef = useRef(finishedUploads);
+  useEffect(() => {
+    finishedUploadsRef.current = finishedUploads;
+  }, [finishedUploads]);
+  const keepFilesForThisTab = useCallback(() => {
+    for (const { upload, file } of finishedUploadsRef.current) {
+      if (file) keepUnsentUploadFile(upload.attachment_id, file);
+    }
+  }, []);
+  // A replacement composer (the boot shell hands its draft to the live chat)
+  // restores in a passive effect, after this layout effect: keep the Files
+  // first, so its tiles come back with their pictures.
+  useLayoutEffect(() => {
+    if (draftActive === false) keepFilesForThisTab();
+  }, [draftActive, keepFilesForThisTab]);
+  // A finished upload outlives this composer while a draft keeps its handle:
+  // release it from the controller, so the controller's dispose does not delete
+  // it. Without a draft scope nothing keeps the handle, and dispose deletes it.
+  const draftScopedRef = useRef(!!draftScope);
+  useEffect(() => {
+    draftScopedRef.current = !!draftScope;
+  }, [draftScope]);
+  useEffect(
+    () => () => {
+      if (!draftScopedRef.current) return;
+      keepFilesForThisTab();
+      promptAttachmentsRef.current.forget(finishedUploadsRef.current.map(({ uploadId }) => uploadId));
+    },
+    [keepFilesForThisTab],
+  );
+
+  /**
    * Put a stored draft back into the live editor.
    *
    * `setDocumentWithoutStealingFocus`, not `setDocument`: this fires on mount,
@@ -633,18 +744,33 @@ function ComposerImpl(props: SessionChatInputProps) {
    * yank focus into the composer on every reload.
    *
    * Attachments are only seeded into an EMPTY tray. Anything already attached
-   * was added by the person in this mount and outranks a stored list. Local
-   * attachments were never storable, so nothing is restored for them.
+   * was added by the person in this mount and outranks a stored list. A
+   * finished upload comes back by its handle (`restoreDraftUploads`); an
+   * unfinished one was never stored.
    */
   const handleDraftRestore = useCallback(
     (draft: StoredDraft) => {
       setDocumentWithoutStealingFocus(editorRef.current, draft.doc);
-      if (draft.files.length > 0) {
-        setAttachedFiles((current) => (current.length > 0 ? current : [...draft.files]));
+      const uploads = draft.uploads ?? [];
+      if ((draft.files.length > 0 || uploads.length > 0) && attachedFilesRef.current.length === 0) {
+        let restored: AttachedFile[] = [];
+        try {
+          restored = restoreDraftUploads(uploads, {
+            restore: promptAttachmentsRef.current.restore,
+            createObjectURL: (file) => URL.createObjectURL(file),
+          });
+        } catch (error) {
+          // Over a message limit: the stored files are not restored.
+          errorToast(error instanceof Error ? error.message : tComposerAttachments('couldNotAttach'));
+        }
+        const next = [...draft.files, ...restored];
+        attachedFilesRef.current = next;
+        setAttachedFiles(next);
       }
       restoreQuoteTexts(draft.quotes ?? []);
+      restorePastes(draft.pastes ?? []);
     },
-    [restoreQuoteTexts],
+    [restoreQuoteTexts, restorePastes, tComposerAttachments],
   );
 
   const { handleDocChange, clearSavedDraft } = useComposerDraft({
@@ -654,9 +780,25 @@ function ComposerImpl(props: SessionChatInputProps) {
     editorReady: editorElement != null,
     attachedFiles,
     quotes: quoteTexts,
+    pastes,
+    uploads: draftUploads,
     hasPrefill: !!prefill,
     onRestore: handleDraftRestore,
   });
+
+  /**
+   * Tiles pasted since the editor last changed, newest last. A tile paste never
+   * reaches the editor's history, so Mod-z takes these back first (`isUndoKey`);
+   * any document change clears them, and undo is the editor's again.
+   */
+  const pasteUndoRef = useRef<string[]>([]);
+  const handleEditorDocChange = useCallback(
+    (doc: JSONContent, isEmpty: boolean) => {
+      pasteUndoRef.current = [];
+      handleDocChange(doc, isEmpty);
+    },
+    [handleDocChange],
+  );
 
   const { data: allSessions } = useRuntimeSessions();
 
@@ -669,8 +811,20 @@ function ComposerImpl(props: SessionChatInputProps) {
 
   const appendAttachedFiles = useCallback(
     (files: Iterable<File>) => {
+      // One empty or oversized file must not refuse the whole drop: the SDK
+      // checks a batch at once, so the files that fit are split off first and
+      // each refused one is named (KRTX-2557).
+      const held = heldTraySizes(attachedFilesRef.current);
+      const { accepted, refused } = splitComposerFiles(Array.from(files), {
+        count: held.length,
+        bytes: held.reduce((sum, size) => sum + size, 0),
+      });
+      if (refused.length > 0) {
+        const toast = refusedFilesToast(refused, tComposerAttachments);
+        errorToast(toast.title, { description: toast.description });
+      }
       try {
-        const newFiles = stageComposerFiles(Array.from(files), {
+        const newFiles = stageComposerFiles(accepted, {
           addMany: addPromptAttachments,
           createObjectURL: (file) => URL.createObjectURL(file),
           isImage: isImageFile,
@@ -770,6 +924,17 @@ function ComposerImpl(props: SessionChatInputProps) {
     [appendAttachedFiles, disabled, lockForQuestion, dragHasFiles],
   );
 
+  // On the session page a file dropped anywhere in the column lands here
+  // (`ComposerDropZone`), and the editor takes focus for the message.
+  const acceptZoneDrop = useCallback(
+    (files: File[]) => {
+      appendAttachedFiles(files);
+      editorRef.current?.focus();
+    },
+    [appendAttachedFiles],
+  );
+  const inDropZone = useComposerDropZone(disabled || lockForQuestion ? null : acceptZoneDrop);
+
   const removeAttachedFile = useCallback(
     (index: number) => {
       const removed = attachedFilesRef.current[index];
@@ -801,13 +966,46 @@ function ComposerImpl(props: SessionChatInputProps) {
     const onPasteCapture = (e: ClipboardEvent) => {
       if (disabled || lockForQuestion) return;
       const files = extractClipboardFiles(e.clipboardData);
-      if (files.length === 0) return;
+      if (files.length > 0) {
+        e.preventDefault();
+        appendAttachedFiles(files);
+        return;
+      }
+      // A long paste becomes a tile instead of flooding the editor; one too
+      // large to send inline goes out as a `.txt` attachment (`classifyPaste`).
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      const kind = classifyPaste(text, editorRef.current?.getContent().text ?? '', pastesRef.current);
+      if (kind === 'inline') return;
       e.preventDefault();
-      appendAttachedFiles(files);
+      if (kind === 'tile') {
+        const id = newPastedContentId();
+        pasteUndoRef.current.push(id);
+        setPasteList((current) => [...current, { id, text: trimPastedText(text) }]);
+        return;
+      }
+      const names = attachedFilesRef.current.map((af) =>
+        af.kind === 'local' ? af.file.name : af.filename,
+      );
+      appendAttachedFiles([
+        new File([text], nextPastedTextFileName(names), { type: 'text/plain' }),
+      ]);
+    };
+    // Capture, so this runs before the editor's own undo keymap.
+    const onKeyDownCapture = (e: KeyboardEvent) => {
+      if (!isUndoKey(e)) return;
+      const id = popPasteUndo(pasteUndoRef.current, pastesRef.current);
+      if (id === undefined) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPasteList((current) => current.filter((paste) => paste.id !== id));
     };
     editorElement.addEventListener('paste', onPasteCapture, true);
-    return () => editorElement.removeEventListener('paste', onPasteCapture, true);
-  }, [editorElement, disabled, lockForQuestion, appendAttachedFiles]);
+    editorElement.addEventListener('keydown', onKeyDownCapture, true);
+    return () => {
+      editorElement.removeEventListener('paste', onPasteCapture, true);
+      editorElement.removeEventListener('keydown', onKeyDownCapture, true);
+    };
+  }, [editorElement, disabled, lockForQuestion, appendAttachedFiles, setPasteList]);
 
   /**
    * Whether the draft carries a `/` command chip — the other half of the
@@ -1015,7 +1213,9 @@ function ComposerImpl(props: SessionChatInputProps) {
   // Quotes alone are a message — but not an answer: a question-locked send
   // takes only the typed text, so quotes cannot enable it there.
   const canSubmit =
-    !isEmpty || attachedFiles.length > 0 || (!lockForQuestion && quotes.length > 0);
+    !isEmpty ||
+    attachedFiles.length > 0 ||
+    (!lockForQuestion && (quotes.length > 0 || pastes.length > 0));
   /**
    * No agent may run this prompt. Refused here rather than at the server:
    * `lockForQuestion` is exempt because answering an open question is not a new
@@ -1082,7 +1282,10 @@ function ComposerImpl(props: SessionChatInputProps) {
     // list, ahead of quotes already there, in both modes: a replace prefill
     // replaces the typed text, but it does not throw away quotes the user
     // collected.
-    const incoming = extractReplyQuotes(prefillText);
+    // `<pasted_content>` blocks come back as tiles the same way.
+    const quoted = extractReplyQuotes(prefillText);
+    const pasted = splitPastedContent(quoted.text);
+    const incoming = { quotes: quoted.quotes, text: pasted.text };
     if (prefillMode === 'merge') {
       const merged = planPrefillMerge({
         prefillDoc: textToDocument(incoming.text),
@@ -1095,12 +1298,17 @@ function ComposerImpl(props: SessionChatInputProps) {
       editorRef.current?.setContent(incoming.text);
     }
     restoreQuoteTexts(incoming.quotes);
+    restorePastes(pasted.pastes);
     if (prefillFiles?.length) {
       try {
         const liveIds = new Set(
           promptAttachmentsRef.current.attachments.map((attachment) => attachment.id),
         );
-        const localToStage = prefillFiles.filter(
+        // A restored upload has no File to stage again: it carries over only while listed.
+        const usableFiles = prefillFiles.filter(
+          (file) => file.kind !== 'uploaded' || liveIds.has(file.uploadId),
+        );
+        const localToStage = usableFiles.filter(
           (file): file is Extract<AttachedFile, { kind: 'local' }> =>
             file.kind === 'local' && (!file.uploadId || !liveIds.has(file.uploadId)),
         );
@@ -1113,7 +1321,7 @@ function ComposerImpl(props: SessionChatInputProps) {
           },
         );
         let localIndex = 0;
-        const prepared = prefillFiles.map((file): AttachedFile => {
+        const prepared = usableFiles.map((file): AttachedFile => {
           if (file.kind === 'remote') return file;
           if (file.uploadId && liveIds.has(file.uploadId)) return file;
           return newlyStaged[localIndex++]!;
@@ -1171,6 +1379,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     removePromptAttachment,
     tComposerAttachments,
     restoreQuoteTexts,
+    restorePastes,
   ]);
 
   useEffect(() => {
@@ -1373,6 +1582,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       const draft = stash ? stash.content : editorRef.current?.getContent();
       const filesNow = stash ? stash.files : attachedFilesRef.current;
       const quotesNow = stash ? stash.quotes : quotesRef.current;
+      const pastesNow = stash ? stash.pastes : pastesRef.current;
       // Every quote leads the message, or the command args, as its own
       // `<reply_context>` line. A question's custom answer below reads
       // `draft.text`, so it never carries them.
@@ -1382,6 +1592,8 @@ function ComposerImpl(props: SessionChatInputProps) {
         commands: commands ?? [],
         commandSplit: draft?.commandSplit,
         quotes: quotesNow.map((quote) => quote.text),
+        pastes: pastesNow,
+        mentions: draft?.mentions,
       });
       if (plan.kind === 'command') {
         // A command cannot deliver the attached files, and the code below is
@@ -1403,25 +1615,18 @@ function ComposerImpl(props: SessionChatInputProps) {
           return;
         }
 
-        // A command is REFUSED while the session is working — or while its
-        // sandbox is still waking — not queued.
+        // A command cannot go out while the session is working or its sandbox
+        // is waking. A PROMPT never waits here: it is a server-side inbox row,
+        // and the admission gate orders it. A COMMAND has no row — `runCommand`
+        // dispatches it, never `POST .../prompts` — so one put on the wire
+        // mid-turn aborts the answer in progress, and one sent at a box that is
+        // not up is swallowed by `runCommand`'s `runtimeActionReady` guard.
         //
-        // A PROMPT is never held here: it goes to the server-side inbox, which
-        // admits it only when the session can take it, so ordering is decided by
-        // server truth rather than by this component's read of `isBusy`, and a
-        // sleeping box just means the row is delivered a little later. A COMMAND
-        // has no such row — it is dispatched by `runCommand`, never by
-        // `POST .../prompts` — so no admission gate ever sees it, putting one on
-        // the wire mid-turn aborts the answer in progress, and dispatching one at
-        // a box that is not up is swallowed by `runCommand`'s own
-        // `runtimeActionReady` guard with no request and no error.
-        //
-        // It used to wait in a browser-local queue for that reason. That queue is
-        // gone: it lived in this tab's localStorage, so a closed tab lost it, a
-        // second tab could not see it, and its release timing was a guess at a
-        // turn boundary made from a debounced `isBusy`. A refusal keeps the draft
-        // in the editor and says when the command can run — nothing is stored,
-        // and nothing can be lost.
+        // So the host HOLDS it (`onHoldCommand`, `held-commands.ts`): a visible
+        // row in the queued list, released by server turn authority once the
+        // inbox is empty — not by the debounced `isBusy` the old localStorage
+        // queue guessed from. A host without a hold refuses it and keeps the
+        // draft in the editor.
         const blocker = commandBlocker({
           hasActiveQuestion: lockForQuestion,
           // The composer only knows "something is pending", not how many.
@@ -1430,15 +1635,22 @@ function ComposerImpl(props: SessionChatInputProps) {
           isWorking: sessionWorking ?? isBusy,
           runtimeReady,
         });
-        if (blocker) {
+        // A turn or a waking box only DELAYS a command: a host that can hold
+        // it does, and the queued list shows it with a Remove (KRTX-2464). A
+        // question, a permission or a read-only viewer refuse it outright.
+        const holdable = blocker === 'session_working' || blocker === 'runtime_waking';
+        if (blocker && holdable && onHoldCommand) {
+          onHoldCommand(plan.command, plan.args, plan.split);
+        } else if (blocker) {
           const copy = sendBlockerMessage(blocker, tI18nComplete);
           errorToast(
             copy.message,
             copy.description ? { description: copy.description } : undefined,
           );
           return;
+        } else {
+          onCommand?.(plan.command, plan.args, plan.split);
         }
-        onCommand?.(plan.command, plan.args, plan.split);
         // The command is on its way; the draft that produced it is spent.
         // Deliberately NOT on either refusal path above (`guard.kind ===
         // 'refuse'`, `blocker`) — those keep the text in the editor on
@@ -1451,6 +1663,7 @@ function ComposerImpl(props: SessionChatInputProps) {
         if (commandReset.clear && !stash) {
           editorRef.current?.clear();
           setQuoteList(() => []);
+          setPasteList(() => []);
           for (const url of commandReset.urlsToRevoke) revokeUnsentPreview(url);
           attachedFilesRef.current = [];
           setAttachedFiles([]);
@@ -1473,6 +1686,25 @@ function ComposerImpl(props: SessionChatInputProps) {
         return;
       }
 
+      // A chip the live list cannot resolve YET must not ride out as an
+      // ordinary prompt while files are staged — the whole story, including
+      // why only the never-resolved list refuses, lives on
+      // `planUnresolvedCommandChip`'s doc comment (KRTX-1903). It sits below
+      // the question-lock reroute: an answer takes only the text and hands
+      // the files back to the stash, so there is nothing there to lose.
+      const unresolvedGuard = planUnresolvedCommandChip(
+        {
+          commandName: draft?.commandName,
+          commandsResolved,
+          attachmentCount: filesNow.length,
+        },
+        tI18nComplete,
+      );
+      if (unresolvedGuard.kind === 'refuse') {
+        errorToast(unresolvedGuard.message, { description: unresolvedGuard.description });
+        return;
+      }
+
       const content = draft ?? { text: '', mentions: [] };
       const trimmed = plan.text;
       if ((!trimmed && filesNow.length === 0) || submitDisabled) return;
@@ -1492,6 +1724,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       if (reset.clear && !stash) {
         editorRef.current?.clear();
         setQuoteList(() => []);
+        setPasteList(() => []);
         attachedFilesRef.current = [];
         setAttachedFiles([]);
       }
@@ -1546,7 +1779,10 @@ function ComposerImpl(props: SessionChatInputProps) {
           }
           // The quotes left the list with this send (a direct send cleared
           // it, a stash took them); they lead it again.
-          if (reset.clear || stash) restoreQuoteTexts(quotesNow.map((quote) => quote.text));
+          if (reset.clear || stash) {
+            restoreQuoteTexts(quotesNow.map((quote) => quote.text));
+            restorePastes(pastesNow);
+          }
           // The tray draws these files again, so the sent cache no longer owns their pictures.
           disownSentAttachmentPreviews(sentFiles);
           // The draft was cleared at hand-off; the editor holds it again, so save it. Only where
@@ -1567,6 +1803,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       lockForApproval,
       disabled,
       commands,
+      commandsResolved,
       lockForQuestion,
       submitDisabled,
       clearOnSend,
@@ -1575,10 +1812,13 @@ function ComposerImpl(props: SessionChatInputProps) {
       isBusy,
       runtimeReady,
       onCommand,
+      onHoldCommand,
       clearSavedDraft,
       handleDocChange,
       setQuoteList,
       restoreQuoteTexts,
+      setPasteList,
+      restorePastes,
       onCustomAnswer,
       onQuestionAction,
       onSend,
@@ -1597,9 +1837,13 @@ function ComposerImpl(props: SessionChatInputProps) {
    * must survive re-renders (a fresh latch mid-send would reopen the
    * double-fire window), while each later submit must read the CURRENT
    * dispatch closure, not the one from the render that created the latch.
+   *
+   * A layout effect, so it runs before every passive effect of the same
+   * commit: the prefill effect above submits in the commit that delivers the
+   * prefill, and must send with this render's agent, model and effort.
    */
   const dispatchSubmissionRef = useRef(dispatchSubmission);
-  useEffect(() => {
+  useLayoutEffect(() => {
     dispatchSubmissionRef.current = dispatchSubmission;
   });
   const submitLatchRef = useRef<(() => Promise<void>) | null>(null);
@@ -1613,6 +1857,7 @@ function ComposerImpl(props: SessionChatInputProps) {
       // A question answer takes only the text, so the quotes come back
       // whatever the outcome.
       restoreQuoteTexts(stash.quotes.map((quote) => quote.text));
+      restorePastes(stash.pastes);
       const editor = editorRef.current;
       const plan = planFailedSendRecovery({
         clearOnSend: true,
@@ -1653,6 +1898,7 @@ function ComposerImpl(props: SessionChatInputProps) {
         // action twice. A quote-only Enter mid-send is ignored; the quotes stay.
         if (!editor || !content || !content.text.trim()) return null;
         const quotes = quotesRef.current;
+        const pastes = pastesRef.current;
         const doc = editor.getDocument() ?? null;
         const files = attachedFilesRef.current;
         // Handed off before the editor clears. A failed upload keeps the draft
@@ -1661,6 +1907,7 @@ function ComposerImpl(props: SessionChatInputProps) {
         if (!attachmentSubmission) return null;
         editor.clear();
         setQuoteList(() => []);
+        setPasteList(() => []);
         attachedFilesRef.current = [];
         setAttachedFiles([]);
         return {
@@ -1668,14 +1915,16 @@ function ComposerImpl(props: SessionChatInputProps) {
           doc,
           files,
           quotes,
+          pastes,
           attachmentSubmission,
           placement: submitPlacementRef.current,
         };
       },
     );
     return submitLatchRef.current();
-    // `restoreQuoteTexts` and `setQuoteList` are stable (`useCallback` over
-    // refs), so the handler stays created once, like its other ref inputs.
+    // `restoreQuoteTexts`, `setQuoteList`, `restorePastes` and `setPasteList`
+    // are stable (`useCallback` over refs), so the handler stays created
+    // once, like its other ref inputs.
   }, []);
   useEffect(() => {
     handleSubmitRef.current = () => void handleSubmit();
@@ -1717,14 +1966,17 @@ function ComposerImpl(props: SessionChatInputProps) {
   const cardProps: ComposerCardDerived = {
     tHardcodedUi,
     isDragOver,
-    handleDragEnter,
-    handleDragOver,
-    handleDragLeave,
-    handleDropFiles,
+    // Inside a `ComposerDropZone` the zone owns every file drag.
+    handleDragEnter: inDropZone ? undefined : handleDragEnter,
+    handleDragOver: inDropZone ? undefined : handleDragOver,
+    handleDragLeave: inDropZone ? undefined : handleDragLeave,
+    handleDropFiles: inDropZone ? undefined : handleDropFiles,
     attachedFiles,
     promptAttachmentItems,
     removeAttachedFile,
     retryAttachedFile,
+    pastes,
+    removePaste,
     commandAttachmentPlan,
     editorDisabled,
     editorRef,
@@ -1734,7 +1986,7 @@ function ComposerImpl(props: SessionChatInputProps) {
     handleSubmit,
     handleArrowUpAtStart,
     setIsEmpty,
-    handleDocChange,
+    handleDocChange: handleEditorDocChange,
     allSessions,
     slashActions,
     handleSelectAction,

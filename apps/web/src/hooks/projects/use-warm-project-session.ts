@@ -46,13 +46,12 @@ import {
  * every line of compatibility matching the alternative needs.
  *
  * `metadata.warm` hides the row from the `visible` session list until its first
- * prompt lands — unless the box is live, in which case it bills and stays
- * listed (`apps/api/src/projects/lib/session-inventory.ts`).
+ * prompt lands (`apps/api/src/projects/lib/session-inventory.ts`).
  *
  * COST. Gated by the `warm_sessions` project flag; the server enforces it (403
  * `feature_disabled`) and `enabled` is only the client short-circuit.
  *
- * ARCHITECTURE RULE — enforced by `warm-session-boundary.test.ts`: the browser
+ * ARCHITECTURE RULE: the browser
  * must never hand-roll speculative session creation. `ensureWarmProjectSession`
  * may be referenced from THIS FILE ONLY.
  */
@@ -232,7 +231,7 @@ const defaultClient: WarmSessionClient = {
 
 export interface CreateWarmSessionOptions {
   /** Forwarded to the client — see `ensureWarmProjectSession`'s option of the
-   *  same name. Set by `takeWarmSession`'s replenish to the id it just took. */
+   *  same name. Set by a take's replenish to the id it just took. */
   excludeSessionId?: string;
   /**
    * Retries left after the store rejects a produced session as already-taken
@@ -311,23 +310,20 @@ export interface TakeWarmSessionOptions {
 }
 
 /**
- * Take this project's warm session for a send, or null to create normally.
- *
- * Synchronous and network-free — the session already exists. Null covers both
- * "none ready" and "the one we have cannot serve this send"; either way the
- * caller falls back to the ordinary create path, which re-evaluates every gate
- * and surfaces the same outcome the user would have seen regardless.
- *
- * A warm session that does not fit is CONSUMED, not kept: the user changed their
- * mind about the agent, so it will not fit the next send either.
- */
-/**
  * Take this project's warm session for a send, or null to create normally —
- * the FULL entry (id, agent, sandbox, and the server row itself), not just
- * the id. `takeWarmSession` below is the historical id-only surface every
- * existing caller and test uses; `use-new-project-session.ts` calls this one
- * so it can seed the sessions-list cache with `.session` at adoption time
- * (`warm-session-seed.ts`) — see JAY-599 / T21.
+ * the FULL entry (id, agent, sandbox, and the server row itself). Synchronous
+ * and network-free — the session already exists. Null covers both "none ready",
+ * "the one we have cannot serve this send" and "another tab took it already";
+ * either way the caller falls back to the ordinary create path, which
+ * re-evaluates every gate and surfaces the same outcome the user would have
+ * seen regardless.
+ *
+ * A warm session that does not fit is CONSUMED, not kept: the user changed
+ * their mind about the agent, so it will not fit the next send either.
+ *
+ * `use-new-project-session.ts` calls this one so it can seed the sessions-list
+ * cache with `.session` at adoption time (`warm-session-seed.ts`) — see
+ * JAY-599 / T21.
  */
 export function takeWarmSessionEntry(
   projectId: string,
@@ -363,13 +359,6 @@ export function takeWarmSessionEntry(
   }
   if (stale) return null;
   return warmSessionFitsSend(warm, options.create) ? warm : null;
-}
-
-export function takeWarmSession(
-  projectId: string,
-  options: TakeWarmSessionOptions = {},
-): string | null {
-  return takeWarmSessionEntry(projectId, options)?.sessionId ?? null;
 }
 
 /**
@@ -527,8 +516,7 @@ export function useWarmProjectSession(
  * marker is already gone) — the caller falls back to the ordinary create,
  * which carries the same prompt. Never throws.
  *
- * This is the ONE place in `apps/web` that calls the SDK's claim; see
- * `warm-session-boundary.test.ts`.
+ * This is the ONE place in `apps/web` that calls the SDK's claim.
  */
 export async function primeTakenWarmSession(
   projectId: string,

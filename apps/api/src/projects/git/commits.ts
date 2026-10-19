@@ -2,12 +2,9 @@
 // LOG_FORMAT, parseLogStdout, decodeStatusChar) used by branches.ts and
 // merge.ts as well.
 
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { validateRef, validateSha } from '../git-ref';
-import { normalizeTreePath, refreshMirror, runGit } from './mirror';
-import { scaffoldTreeSha } from './scaffold-identity';
+import { normalizeTreePath, refreshMirror, repoCachePath, runGit } from './mirror';
 import type {
   CommitDiff,
   GetCommitDiffOptions,
@@ -20,7 +17,6 @@ import type {
 
 export const FIELD_SEP = '';
 export const RECORD_SEP = '';
-export const MAX_FAST_BOOT_GIT_BUNDLE_BASE64_BYTES = 24 * 1024;
 export const LOG_FORMAT = [
   '%H',
   '%h',
@@ -99,14 +95,38 @@ export function decodeStatusChar(code: string): GitCommitFile['status'] {
 export async function resolveCommitSha(project: GitBackedProject, ref?: string): Promise<string> {
   const treeRef = validateRef(ref || project.defaultBranch);
   const repoPath = await refreshMirror(project);
+  return resolveCommitShaAt(repoPath, treeRef);
+}
+
+/** `ref` as this replica's mirror holds it now: no refresh, no network. Null without a mirror. */
+export async function readMirrorCommitSha(project: GitBackedProject, ref?: string): Promise<string | null> {
+  const repoPath = repoCachePath(project);
+  if (!existsSync(repoPath)) return null;
+  return resolveCommitShaAt(repoPath, validateRef(ref || project.defaultBranch)).catch(() => null);
+}
+
+/**
+ * `git rev-parse --verify <ref>^{commit}` against an already-resolved repo —
+ * no mirror refresh. The one rev-parse site for commits.ts and
+ * fast-boot-bundle.ts. Git command failures propagate untouched; only a
+ * non-hex answer becomes the typed error below, so each caller keeps its own
+ * mapping (the boundary returns null, the project wrappers rethrow).
+ */
+export class UnexpectedRevParseOutputError extends Error {
+  constructor(treeRef: string, output: string) {
+    super(`Unexpected git rev-parse output for ${treeRef}: ${output}`);
+    this.name = 'UnexpectedRevParseOutputError';
+  }
+}
+
+export async function resolveCommitShaAt(repoPath: string, treeRef: string): Promise<string> {
   const result = await runGit(['rev-parse', '--verify', `${treeRef}^{commit}`], repoPath, false);
   const sha = result.stdout.trim();
-  if (!/^[0-9a-f]{40}$/.test(sha)) {
-    throw new Error(`Unexpected git rev-parse output for ${treeRef}: ${sha}`);
-  }
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new UnexpectedRevParseOutputError(treeRef, sha);
   return sha;
 }
 
+<<<<<<< HEAD
 export interface FastBootGitHint {
   baseSha: string;
   gitDeltaBundleBase64?: string;
@@ -323,6 +343,8 @@ export async function resolveFastBootGitHint(
   return hint;
 }
 
+=======
+>>>>>>> upstream-dev
 export async function listCommits(
   project: GitBackedProject,
   options: ListCommitsOptions = {},
@@ -351,6 +373,75 @@ export async function listCommits(
     commits: hasMore ? entries.slice(0, limit) : entries,
     hasMore,
   };
+}
+
+/**
+ * Parse the paired `--name-status -z` and `--numstat` outputs of one diff
+ * into the shared file shape. `nameStatus` is NUL-separated; rename/copy
+ * entries take two extra NULs (old path first). `numstat` carries the
+ * per-file +/- counts and emits renamed paths as `old{ => new}` — matched by
+ * destination, else the raw path. Totals count every numstat line, whether or
+ * not the name-status pass kept the file (`getCommit` ignores them,
+ * `computeDiffByRange` reports them).
+ */
+export function parseGitFileChanges(
+  nameStatus: string,
+  numstat: string,
+): { files: GitCommitFile[]; additions: number; deletions: number } {
+  const files = new Map<string, GitCommitFile>();
+  const tokens = nameStatus.split('\0');
+  for (let i = 0; i < tokens.length; i += 1) {
+    const code = tokens[i];
+    if (!code) continue;
+    if (code.startsWith('R') || code.startsWith('C')) {
+      const oldPath = tokens[i + 1];
+      const newPath = tokens[i + 2];
+      if (!oldPath || !newPath) break;
+      files.set(newPath, {
+        path: newPath,
+        old_path: oldPath,
+        status: decodeStatusChar(code),
+        additions: 0,
+        deletions: 0,
+      });
+      i += 2;
+    } else {
+      const path = tokens[i + 1];
+      if (!path) break;
+      files.set(path, {
+        path,
+        old_path: null,
+        status: decodeStatusChar(code),
+        additions: 0,
+        deletions: 0,
+      });
+      i += 1;
+    }
+  }
+
+  let additions = 0;
+  let deletions = 0;
+  for (const line of numstat.split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const [addStr, delStr, rawPath] = parts;
+    const destMatch = rawPath.match(/\{[^}]*=>\s*([^}]+)\}/);
+    const path = destMatch
+      ? rawPath.replace(/\{[^}]*=>\s*([^}]+)\}/, '$1')
+      : rawPath;
+    const addCount = addStr === '-' ? 0 : Number(addStr) || 0;
+    const delCount = delStr === '-' ? 0 : Number(delStr) || 0;
+    additions += addCount;
+    deletions += delCount;
+    const existing = files.get(path);
+    if (existing) {
+      existing.additions = addCount;
+      existing.deletions = delCount;
+    }
+  }
+
+  return { files: Array.from(files.values()), additions, deletions };
 }
 
 export async function getCommit(
@@ -385,57 +476,8 @@ export async function getCommit(
     ).catch(() => ({ stdout: '', stderr: '' })),
   ]);
 
-  // name-status is NUL-separated; rename/copy entries take two extra NULs.
-  const files = new Map<string, GitCommitFile>();
-  const tokens = nameStatus.stdout.split('\0');
-  for (let i = 0; i < tokens.length; i += 1) {
-    const code = tokens[i];
-    if (!code) continue;
-    if (code.startsWith('R') || code.startsWith('C')) {
-      const oldPath = tokens[i + 1];
-      const newPath = tokens[i + 2];
-      if (!oldPath || !newPath) break;
-      files.set(newPath, {
-        path: newPath,
-        old_path: oldPath,
-        status: decodeStatusChar(code),
-        additions: 0,
-        deletions: 0,
-      });
-      i += 2;
-    } else {
-      const path = tokens[i + 1];
-      if (!path) break;
-      files.set(path, {
-        path,
-        old_path: null,
-        status: decodeStatusChar(code),
-        additions: 0,
-        deletions: 0,
-      });
-      i += 1;
-    }
-  }
-
-  for (const line of numstat.stdout.split('\n')) {
-    if (!line.trim()) continue;
-    const parts = line.split('\t');
-    if (parts.length < 3) continue;
-    const [addStr, delStr, rawPath] = parts;
-    // For renamed entries numstat emits `old{ => new}` syntax; we'll match
-    // by the destination if present, else fall back to the raw path.
-    const destMatch = rawPath.match(/\{[^}]*=>\s*([^}]+)\}/);
-    const path = destMatch
-      ? rawPath.replace(/\{[^}]*=>\s*([^}]+)\}/, '$1')
-      : rawPath;
-    const existing = files.get(path);
-    if (existing) {
-      existing.additions = addStr === '-' ? 0 : Number(addStr) || 0;
-      existing.deletions = delStr === '-' ? 0 : Number(delStr) || 0;
-    }
-  }
-
-  return { ...entry, files: Array.from(files.values()) };
+  const { files } = parseGitFileChanges(nameStatus.stdout, numstat.stdout);
+  return { ...entry, files };
 }
 
 export async function getCommitDiff(
@@ -475,6 +517,6 @@ export async function resolveBranchTip(
 ): Promise<string> {
   validateRef(ref);
   const repoPath = await refreshMirror(project);
-  const result = await runGit(['rev-parse', `refs/heads/${ref}`], repoPath, false);
-  return result.stdout.trim();
+  // refs/heads/<ref> stays fully qualified: a tag must never shadow a branch.
+  return resolveCommitShaAt(repoPath, `refs/heads/${ref}`);
 }

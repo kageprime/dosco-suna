@@ -1,12 +1,14 @@
 'use client';
 
 import { useTranslations } from '@/i18n/use-translations';
+import { useSessionListActions } from '@/features/workspace/project-sidebar/use-session-list-actions';
 import { useLocalizedUiCatalog } from '@/i18n/use-localized-ui-catalog';
 
 import { Button } from '@/components/ui/button';
 import { sessionCanBeStopped } from '@/components/projects/session-label';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -32,6 +34,7 @@ import { SessionRemindersIndicator } from './session-reminders-indicator';
 import { SessionTitleInput } from '@/features/session/header/session-title-input';
 import { childSessionHref } from '@/features/session/tool/tools/session-spawn-urls';
 import { SubagentHoverCard, subagentTitle } from '@/features/session/header/subagent-hover-card';
+import { Copy } from '@/features/icon/icons/copy';
 import { Home } from '@/features/icon/icons/home';
 import { openSessionQuickView } from '@/features/session/open-session-quick-view';
 import { useDesktopShell } from '@/features/workspace/project-layout/sidebar-opener';
@@ -39,9 +42,12 @@ import { SidebarToggle } from '@/features/workspace/project-layout/sidebar-toggl
 import { useRenameSession } from '@/features/workspace/project-sidebar/modal/use-rename-session';
 import { SessionDeleteModal } from '@/features/workspace/project-sidebar/modal/session-delete-modal';
 import { ShareSessionModal } from '@/features/workspace/project-sidebar/modal/share-session-modal';
+import { useNotificationCenter } from '@/features/notifications/use-notification-center';
+import { useAuth } from '@/features/providers/auth-provider';
 import { getSessionDisplayTitle } from '@/features/workspace/project-sidebar/project-session-list-helpers';
 import { useReloadSessionConfig } from '@/hooks/projects/use-session-config-freshness';
 import { cn } from '@/lib/utils';
+import { useSessionHistoryViewStore } from '@/stores/session-history-view-store';
 import {
   type QuickView,
   useIsActionPanelOpen,
@@ -55,11 +61,14 @@ import {
   useProjectSession,
   useRuntimeSupports,
   useSessionParticipants,
+  useSessionWatch,
 } from '@kortix/sdk/react';
 import {
+  ArchiveIcon,
   ArrowsClockwiseIcon,
+  BellIcon,
+  BellSlashIcon,
   CaretDoubleLeftIcon,
-  CopyIcon,
   GitForkIcon,
   LinkSimpleIcon,
   CaretDownIcon,
@@ -69,6 +78,8 @@ import {
   GlobeSimpleIcon,
   StackIcon as Layers,
   PencilSimpleIcon,
+  PushPinIcon,
+  PushPinSlashIcon,
   ArrowCounterClockwiseIcon as RotateCcw,
   ShareIcon as Share,
   SquareIcon as Square,
@@ -87,10 +98,10 @@ const DEV_TOOLS: {
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { view: 'terminal', label: 'Terminal', Icon: TerminalIcon },
-  { view: 'browser', label: 'Browser', Icon: GlobeSimpleIcon },
-  { view: 'files', label: 'Files', Icon: FolderSimpleIcon },
-];
+    { view: 'terminal', label: 'Terminal', Icon: TerminalIcon },
+    { view: 'browser', label: 'Browser', Icon: GlobeSimpleIcon },
+    { view: 'files', label: 'Files', Icon: FolderSimpleIcon },
+  ];
 
 interface SessionSiteHeaderProps {
   sessionId: string;
@@ -111,6 +122,8 @@ export function SessionSiteHeader({
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tHardcodedUi = useTranslations('hardcodedUi');
   const tPalette = useTranslations('commandPalette');
+  const tNotifications = useTranslations('notifications');
+  const tPinArchive = useTranslations('sidebar.pinArchive');
   const devTools = useLocalizedUiCatalog(DEV_TOOLS);
   const router = useRouter();
   const pathname = usePathname();
@@ -162,6 +175,37 @@ export function SessionSiteHeader({
   const { data: sessionParticipants } = useSessionParticipants(projectId, projectSessionId, {
     enabled: isProjectSession,
   });
+  // Mute: the caller's watch on this session (KRTX-1742). Anyone who can open
+  // it may mute it; unmuting a session you never watched makes you a watcher.
+  // Only with the project's `notification_center` flag on: off, the watch
+  // routes answer 403 and the item does not exist.
+  const { user } = useAuth();
+  const notificationCenter = useNotificationCenter(projectId);
+  const sessionWatch = useSessionWatch({
+    userId: user?.id,
+    projectId,
+    sessionId: projectSessionId,
+    enabled: isProjectSession && !parent && notificationCenter,
+  });
+  const watching = notificationCenter ? sessionWatch.data?.watching : undefined;
+  const toggleWatch = () => {
+    if (watching === undefined) return;
+    sessionWatch
+      .setWatching(!watching)
+      .then(() =>
+        successToast(
+          watching ? tNotifications('session.muted') : tNotifications('session.unmuted'),
+        ),
+      )
+      .catch(() => {});
+  };
+  // Pin and archive: the viewer's own list (KRTX-2418). Absent `pinned_at` =
+  // no list state for this caller, and no items.
+  const listActions = useSessionListActions(projectId ?? '');
+  const listState =
+    projectSession && projectSessionId && projectSession.pinned_at !== undefined
+      ? { pinned: !!projectSession.pinned_at, archived: !!projectSession.archived_at }
+      : null;
   const canManageSharing = !!projectSession && projectSession.can_manage_sharing !== false;
   const canManageLifecycle = !!projectSession && projectSession.can_manage_lifecycle !== false;
   // The Share button's accessible name. A member who cannot change access
@@ -255,6 +299,13 @@ export function SessionSiteHeader({
   const isActionPanelOpen = useIsActionPanelOpen();
   const toggleActionPanel = useToggleActionPanel();
   const readyChip = useReadyChip();
+  // P5.6: show or hide the messages outside the agent's context (a failed attempt), per
+  // session. Listed only while the transcript on screen holds one: otherwise it changes nothing.
+  const historyKey = projectSessionId || sessionId;
+  const tHistory = useTranslations('sessionUi.history');
+  const outOfContextPresent = useSessionHistoryViewStore((s) => !!s.outOfContext[historyKey]);
+  const outOfContextHidden = useSessionHistoryViewStore((s) => s.hidden.includes(historyKey));
+  const setOutOfContextHidden = useSessionHistoryViewStore((s) => s.setHidden);
 
   // The desktop shell has no address bar, so the menu is the only way to
   // share a session: the ID for support and the CLI, the link for people.
@@ -285,58 +336,86 @@ export function SessionSiteHeader({
             </>
           )}
 
-          <DropdownMenuItem
-            className="cursor-pointer"
-            disabled={restartMutation.isPending}
-            onClick={() => restartMutation.mutate()}
-          >
-            {restartMutation.isPending ? <Loading /> : <RotateCcw />}
-            {tI18nHardcoded.raw('i18nComplete.text6b983a81e5e8')}
-          </DropdownMenuItem>
+          {/* Restart, Reload, Stop and Delete belong to the session owner or
+              a project manager: the server answers anyone else 403. */}
           {canManageLifecycle && (
-            <DropdownMenuItem
-              className="cursor-pointer"
-              disabled={reloadConfig.isPending}
-              onClick={() => reloadConfig.reload()}
-            >
-              {reloadConfig.isPending ? <Loading /> : <ArrowsClockwiseIcon />}
-              {tI18nHardcoded.raw('i18nComplete.textb4b21a20cc58')}
-            </DropdownMenuItem>
-          )}
-          {canStop && (
-            <DropdownMenuItem
-              className="cursor-pointer"
-              disabled={stopMutation.isPending}
-              onClick={() => stopMutation.mutate()}
-            >
-              {stopMutation.isPending ? <Loading /> : <Square />}
-              {tI18nHardcoded.raw('i18nComplete.textcae7d57bc067')}
-            </DropdownMenuItem>
-          )}
+            <>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                disabled={restartMutation.isPending}
+                onClick={() => restartMutation.mutate()}
+              >
+                {restartMutation.isPending ? <Loading /> : <RotateCcw />}
+                {tI18nHardcoded.raw('i18nComplete.text6b983a81e5e8')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                disabled={reloadConfig.isPending}
+                onClick={() => reloadConfig.reload()}
+              >
+                {reloadConfig.isPending ? <Loading /> : <ArrowsClockwiseIcon />}
+                {tI18nHardcoded.raw('i18nComplete.textb4b21a20cc58')}
+              </DropdownMenuItem>
+              {canStop && (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={stopMutation.isPending}
+                  onClick={() => stopMutation.mutate()}
+                >
+                  {stopMutation.isPending ? <Loading /> : <Square />}
+                  {tI18nHardcoded.raw('i18nComplete.textcae7d57bc067')}
+                </DropdownMenuItem>
+              )}
 
-          <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
+            </>
+          )}
         </>
       )}
 
       {isProjectSession && (
         <>
           <DropdownMenuItem
-            className="text-muted-foreground hover:text-foreground/90 cursor-pointer [&_svg]:opacity-70"
+            className="cursor-pointer"
             onClick={() => copyValue(tPalette('copySessionId'), projectSessionId!)}
           >
-            <CopyIcon />
+            <Copy />
             {tPalette('copyAction', { label: tPalette('copySessionId') })}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="text-muted-foreground hover:text-foreground/90 cursor-pointer [&_svg]:opacity-70"
+            className="cursor-pointer"
             onClick={() => copyValue(tPalette('copySessionLink'), window.location.href)}
           >
             <LinkSimpleIcon />
             {tPalette('copyAction', { label: tPalette('copySessionLink') })}
           </DropdownMenuItem>
+          {watching !== undefined && (
+            <DropdownMenuItem className="cursor-pointer" onClick={toggleWatch}>
+              {watching ? <BellSlashIcon /> : <BellIcon />}
+              {watching ? tNotifications('session.mute') : tNotifications('session.unmute')}
+            </DropdownMenuItem>
+          )}
+          {listState && (
+            <>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => void listActions.setPinned(projectSessionId!, !listState.pinned)}
+              >
+                {listState.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
+                {tPinArchive(listState.pinned ? 'unpin' : 'pin')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => void listActions.setArchived(projectSessionId!, !listState.archived)}
+              >
+                <ArchiveIcon />
+                {tPinArchive(listState.archived ? 'unarchive' : 'archive')}
+              </DropdownMenuItem>
+            </>
+          )}
           {canFork && (
             <DropdownMenuItem
-              className="text-muted-foreground hover:text-foreground/90 cursor-pointer [&_svg]:opacity-70"
+              className="cursor-pointer"
               disabled={forkSession.isPending}
               onClick={() =>
                 forkSession.mutate(
@@ -370,8 +449,17 @@ export function SessionSiteHeader({
         </>
       )}
 
+      {outOfContextPresent && (
+        <DropdownMenuCheckboxItem
+          className="cursor-pointer"
+          checked={!outOfContextHidden}
+          onCheckedChange={(checked) => setOutOfContextHidden(historyKey, !checked)}
+        >
+          {tHistory('showOutOfContext')}
+        </DropdownMenuCheckboxItem>
+      )}
       <DropdownMenuItem
-        className="text-muted-foreground hover:text-foreground/90 cursor-pointer [&_svg]:opacity-70"
+        className="cursor-pointer"
         onClick={() => setExportOpen(true)}
       >
         <FileDown />
@@ -380,7 +468,7 @@ export function SessionSiteHeader({
 
       {canCompact && (
         <DropdownMenuItem
-          className="text-muted-foreground hover:text-foreground/90 cursor-pointer [&_svg]:opacity-70"
+          className="cursor-pointer"
           onClick={() => setCompactOpen(true)}
         >
           <Layers />
@@ -388,7 +476,7 @@ export function SessionSiteHeader({
         </DropdownMenuItem>
       )}
 
-      {isProjectSession && (
+      {isProjectSession && canManageLifecycle && (
         <>
           <DropdownMenuSeparator />
 

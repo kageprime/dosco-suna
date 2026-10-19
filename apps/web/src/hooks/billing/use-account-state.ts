@@ -13,23 +13,17 @@ import { useTranslations } from '@/i18n/use-translations';
  * Replaces: useSubscription, useCreditBalance, useBillingStatus, useScheduledChanges
  */
 
-import { errorToast, infoToast, successToast } from '@/components/ui/toast';
+import { errorToast, successToast } from '@/components/ui/toast';
 import { shouldQueryAccountState } from '@/hooks/billing/account-state-gating';
 import { useBillingAccountId, useBillingAccountResolved } from '@/stores/billing-account-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { SEAT_GRANT_USD } from '@/features/billing/compute-pricing';
 import {
-  cancelScheduledChange,
   cancelSubscription,
-  claimPerSeatBilling,
-  createCheckoutSession,
-  createPerSeatCheckout,
   createPortalSession,
   getAccountState,
   purchaseCredits,
   reactivateSubscription,
-  scheduleDowngrade,
   syncSubscription,
   type AccountState,
 } from '@kortix/sdk';
@@ -37,6 +31,7 @@ import { dollarsToCredits } from '@kortix/shared';
 
 export type { AccountState };
 
+<<<<<<< HEAD
 export interface CreateCheckoutSessionRequest {
   tier_key: string;
   success_url: string;
@@ -49,6 +44,8 @@ export interface CreateCheckoutSessionRequest {
   provider?: 'stripe' | 'paystack';
 }
 
+=======
+>>>>>>> upstream-dev
 export interface CreatePortalSessionRequest {
   return_url: string;
 }
@@ -63,11 +60,6 @@ export interface CancelSubscriptionRequest {
   feedback?: string;
 }
 
-export interface ScheduleDowngradeRequest {
-  target_tier_key: string;
-  commitment_type?: string;
-}
-
 // =============================================================================
 // QUERY KEYS - Single key for all billing state
 // =============================================================================
@@ -78,7 +70,7 @@ export const accountStateKeys = {
   // account" (resolved server-side from the auth user) — used by global
   // surfaces like the user menu. /accounts/[id] pages pass the explicit id so
   // multi-account users don't see the same wallet/limits across all pages.
-  state: (accountId?: string) =>
+  state: (accountId?: string | null) =>
     [...accountStateKeys.all, 'state', { accountId: accountId ?? null }] as const,
   transactions: (limit?: number, offset?: number) =>
     [...accountStateKeys.all, 'transactions', { limit, offset }] as const,
@@ -88,14 +80,31 @@ export const accountStateKeys = {
 // UTILITY - Invalidation helper for mutations
 // =============================================================================
 
-// Global deduplication state for account state refetches
-let refetchTimeout: NodeJS.Timeout | null = null;
-let pendingSkipCache = false;
-let activeRefetchPromise: Promise<void> | null = null;
+// Forced refetches are debounced and deduplicated per QueryClient and per
+// account slot (KRTX-2414). One module-wide timer and promise let a second
+// account cancel the first account's pending refetch, and skip its own while
+// the first one ran.
+type QueryClientLike = ReturnType<typeof useQueryClient>;
+interface RefetchSlot {
+  timeout: ReturnType<typeof setTimeout> | null;
+  /** A caller in this window asked to bypass the server cache: the most aggressive wins. */
+  skipCache: boolean;
+  active: Promise<void> | null;
+}
+const refetchSlots = new WeakMap<QueryClientLike, Map<string, RefetchSlot>>();
 const REFETCH_DEBOUNCE_MS = 200;
 
+function refetchSlot(queryClient: QueryClientLike, accountId?: string): RefetchSlot {
+  let slots = refetchSlots.get(queryClient);
+  if (!slots) refetchSlots.set(queryClient, (slots = new Map()));
+  const key = accountId ?? '';
+  let slot = slots.get(key);
+  if (!slot) slots.set(key, (slot = { timeout: null, skipCache: false, active: null }));
+  return slot;
+}
+
 export function invalidateAccountState(
-  queryClient: ReturnType<typeof useQueryClient>,
+  queryClient: QueryClientLike,
   refetch = false,
   skipCache = false,
   accountId?: string,
@@ -112,48 +121,33 @@ export function invalidateAccountState(
 
   if (!refetch) return;
 
-  // Track if any caller wants skipCache (most aggressive wins)
-  if (skipCache) {
-    pendingSkipCache = true;
-  }
+  const slot = refetchSlot(queryClient, accountId);
+  if (skipCache) slot.skipCache = true;
 
-  // If there's already an active refetch in progress, just queue the skipCache preference
-  if (activeRefetchPromise) {
-    return;
-  }
+  // This slot is already fetching: keep the skipCache preference for its next refetch.
+  if (slot.active) return;
 
-  // Clear any pending debounce timeout
-  if (refetchTimeout) {
-    clearTimeout(refetchTimeout);
-  }
-
-  // Debounce to batch multiple rapid calls into one
-  refetchTimeout = setTimeout(() => {
-    const shouldSkipCache = pendingSkipCache;
-    pendingSkipCache = false;
-    refetchTimeout = null;
-
-    // Create a single promise that all callers will share
-    activeRefetchPromise = (async () => {
-      try {
-        // Use refetchQueries which properly deduplicates across components
-        // The queryFn in the useAccountState hook will handle skipCache
-        if (shouldSkipCache) {
-          // For skipCache, we need to bypass the cached queryFn
-          // Use setQueryData with fresh data
-          const freshData = await getAccountState({ skipCache: true, accountId });
-          queryClient.setQueryData(accountStateKeys.state(accountId), freshData);
-        } else {
-          // Normal refetch - React Query handles deduplication
-          await queryClient.refetchQueries({
-            queryKey: accountStateKeys.state(accountId),
-            type: 'active',
-          });
-        }
-      } finally {
-        activeRefetchPromise = null;
+  // Debounce to batch rapid calls for this slot into one.
+  if (slot.timeout) clearTimeout(slot.timeout);
+  slot.timeout = setTimeout(() => {
+    const shouldSkipCache = slot.skipCache;
+    slot.skipCache = false;
+    slot.timeout = null;
+    slot.active = (async () => {
+      if (shouldSkipCache) {
+        // Bypass the server cache: write fresh data straight into the slot.
+        const freshData = await getAccountState({ skipCache: true, accountId });
+        queryClient.setQueryData(accountStateKeys.state(accountId), freshData);
+      } else {
+        // Normal refetch — React Query deduplicates across components.
+        await queryClient.refetchQueries({ queryKey: accountStateKeys.state(accountId), type: 'active' });
       }
-    })();
+    })()
+      // A failed refresh keeps the stale data; the next request tries again.
+      .catch(() => undefined)
+      .finally(() => {
+        slot.active = null;
+      });
   }, REFETCH_DEBOUNCE_MS);
 }
 
@@ -167,8 +161,9 @@ interface UseAccountStateOptions {
   refetchOnMount?: boolean;
   refetchOnWindowFocus?: boolean;
   skipCache?: boolean; // Skip backend cache (useful after checkout/subscription changes)
-  /** Fetch a specific account's state. Defaults to the user's primary account. */
-  accountId?: string;
+  /** Fetch a specific account's state. Defaults to the user's primary account.
+   *  `null` (no account selected yet) reads the same slot as `undefined`. */
+  accountId?: string | null;
 }
 
 /**
@@ -230,6 +225,7 @@ export function useAccountState(options?: UseAccountStateOptions) {
 // MUTATION HOOKS - All invalidate account state after success
 // =============================================================================
 
+<<<<<<< HEAD
 export function useCreateCheckoutSession() {
   const queryClient = useQueryClient();
   const accountId = useBillingAccountId();
@@ -359,6 +355,11 @@ export function useClaimPerSeat() {
     },
   });
 }
+=======
+// A paid plan is chosen and changed through `useChangeCreditPlan`
+// (`features/billing/use-change-credit-plan.ts`), which wraps the SDK's
+// `useSetBillingPlan`. There is no seat checkout and no claim flow.
+>>>>>>> upstream-dev
 
 export function useCreatePortalSession() {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -434,14 +435,6 @@ export function usePurchaseCredits() {
       }
     },
   });
-}
-
-export function useScheduleDowngrade() {
-  return useBillingAction((accountId, request: ScheduleDowngradeRequest) => scheduleDowngrade(request.target_tier_key, request.commitment_type, accountId), 'text645418722dbb');
-}
-
-export function useCancelScheduledChange() {
-  return useBillingAction((accountId) => cancelScheduledChange(accountId), 'text9118f944fba6');
 }
 
 export function useSyncSubscription() {

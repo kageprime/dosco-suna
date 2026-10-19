@@ -3,7 +3,8 @@
 import { HubLink } from '@/features/accounts/hub/account-hub-location';
 import { useAuth } from '@/features/providers/auth-provider';
 import { ChatGptAccountsDialog } from '@/features/providers/chatgpt-accounts-dialog';
-import { useTranslations } from '@/i18n/use-translations';
+import { useLocale, useTranslations } from '@/i18n/use-translations';
+import { formatUsdAsCredits, parseBalanceUsd } from '@kortix/shared';
 import { isLlmGatewayEnabled } from '@/lib/llm-gateway';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
@@ -14,6 +15,7 @@ import {
   chatGptConnectionAction,
 } from './chatgpt-connection-action';
 import { sessionPersonalUser } from './overrides/provider-pool-draft';
+import { AskOwnerForCreditsButton } from './ask-owner-for-credits-button';
 
 import { Button } from '@/components/ui/button';
 import { ChainOfThoughtStep } from '@/components/ui/chain-of-thought';
@@ -30,7 +32,14 @@ import Loading from '@/components/ui/loading';
 import { cn } from '@/lib/utils';
 import { accountSettingsTarget } from '@/stores/account-settings-modal-store';
 import { useCurrentAccountStore } from '@/stores/current-account-store';
-import { getProjectDetail, isAbortError, turnRetryLabel, type GatewayErrorDetails } from '@kortix/sdk';
+import { useAccountState } from '@/hooks/billing';
+import {
+  canManageBilling,
+  getProjectDetail,
+  isAbortError,
+  turnRetryLabel,
+  type GatewayErrorDetails,
+} from '@kortix/sdk';
 import {
   contract,
   qk,
@@ -125,8 +134,9 @@ function ErrorRow({ className, children, ...props }: ComponentProps<typeof Item>
 }
 
 // ============================================================================
-// Insufficient-credits detection — upstream 402 from /v1/router/chat/completions
-// surfaces as "Payment Required: Insufficient credits. Balance: $-0.06". Render
+// Insufficient-credits detection — an upstream 402 from the LLM gateway
+// surfaces as "Payment Required: Insufficient credits. Balance: -6 credits"
+// (older servers: "Balance: $-0.06"). Render
 // a specialized card with one-click actions instead of raw text.
 // ============================================================================
 
@@ -188,13 +198,6 @@ function UsageLimitCard({ errorText, className }: { errorText: string; className
   );
 }
 
-function parseBalance(text: string): string | null {
-  const match = text.match(/balance:\s*\$?(-?\d+(?:\.\d+)?)/i);
-  if (!match) return null;
-  const value = parseFloat(match[1]);
-  if (Number.isNaN(value)) return null;
-  return `$${value.toFixed(2)}`;
-}
 
 function InsufficientCreditsCard({
   errorText,
@@ -204,8 +207,17 @@ function InsufficientCreditsCard({
   className?: string;
 }) {
   const tHardcodedUi = useTranslations('hardcodedUi');
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const locale = useLocale();
   const accountId = useCurrentAccountStore((s) => s.selectedAccountId);
-  const balance = parseBalance(errorText);
+  // KRTX-1720: a member cannot buy credits (`billing.write`), and the billing
+  // pane the buttons open is hidden from them. Say who can act instead. Until
+  // the account state loads, the card offers neither: no purchase link before
+  // the answer, and no "ask an owner" to an owner.
+  const accountState = useAccountState({ accountId }).data;
+  const mayManageBilling = canManageBilling(accountState);
+  // The balance the account holds reads in credits, from either message shape.
+  const balanceUsd = parseBalanceUsd(errorText);
   const billingTo = accountSettingsTarget({ tab: 'billing', accountId });
   const title = tHardcodedUi.raw(
     'componentsSessionSessionErrorBanner.line58JsxAttrTitleYouRanOutOfCredits',
@@ -221,22 +233,37 @@ function InsufficientCreditsCard({
         {/* The balance is the one number the user needs; when the message has
             none, show the raw server text so nothing is dropped on the floor. */}
         <ItemDescription className="line-clamp-none text-xs text-pretty wrap-anywhere tabular-nums">
-          {balance ? `Balance ${balance}` : errorText}
+          {balanceUsd !== null
+            ? tI18nComplete('text03217276a5f1', { value0: formatUsdAsCredits(balanceUsd, { locale }) })
+            : errorText}
         </ItemDescription>
       </ItemContent>
-      <ItemActions className={ROW_ACTIONS}>
-        <Button asChild size="sm" className="active:scale-[0.96]">
-          <HubLink to={billingTo}>
-            <LightningIcon className="size-3.5 shrink-0" />
-            {tHardcodedUi.raw('componentsSessionSessionErrorBanner.line74JsxTextEnableAutoTopUp')}
-          </HubLink>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="active:scale-[0.96]">
-          <HubLink to={billingTo}>
-            {tHardcodedUi.raw('componentsSessionSessionErrorBanner.line82JsxTextBuyCredits')}
-          </HubLink>
-        </Button>
-      </ItemActions>
+      {mayManageBilling ? (
+        <ItemActions className={ROW_ACTIONS}>
+          <Button asChild size="sm" className="active:scale-[0.96]">
+            <HubLink to={billingTo}>
+              <LightningIcon className="size-3.5 shrink-0" />
+              {tHardcodedUi.raw('componentsSessionSessionErrorBanner.line74JsxTextEnableAutoTopUp')}
+            </HubLink>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="active:scale-[0.96]">
+            <HubLink to={billingTo}>
+              {tHardcodedUi.raw('componentsSessionSessionErrorBanner.line82JsxTextBuyCredits')}
+            </HubLink>
+          </Button>
+        </ItemActions>
+      ) : accountState ? (
+        <>
+          <ItemDescription className="text-xs">
+            {tHardcodedUi.raw('componentsSessionSessionErrorBanner.askOwnerToAddCredits')}
+          </ItemDescription>
+          {accountId ? (
+            <ItemActions className={ROW_ACTIONS}>
+              <AskOwnerForCreditsButton accountId={accountId} />
+            </ItemActions>
+          ) : null}
+        </>
+      ) : null}
     </ErrorRow>
   );
 }
@@ -361,6 +388,35 @@ export function describeTurnErrorRow({
 }
 
 /**
+ * The suggestion a provider-failure row shows, adjusted for what the account
+ * can actually do (KRTX-2598). The gateway writes its hint per request —
+ * it never knows the account's lineup — so "choose another model" can reach
+ * an account with exactly one usable model, where no such move exists.
+ *
+ * `modelOptions` is the count of models the account can pick; `0` or
+ * `undefined` means "unknown" (an empty/unloaded catalog) and leaves the hint
+ * untouched. Only a hint that names the model switch is rewritten (every
+ * other suggestion — key, connect, plan — names a fix that works on any
+ * account): on a one-model account the switch hint becomes the wait it
+ * actually stands for.
+ *
+ * Pure — pinned by `session-error-banner.test.ts`.
+ */
+const MODEL_SWITCH_HINT = /choose (another|a different) model/i;
+export function actionableSuggestion(
+  suggestion: string | undefined,
+  modelOptions: number | undefined,
+): string | undefined {
+  if (!suggestion) return undefined;
+  // `0` is the boot-race empty catalog — "unknown", not "none"; only a loaded
+  // one-model catalog rewrites the hint.
+  if (modelOptions === 1 && MODEL_SWITCH_HINT.test(suggestion)) {
+    return 'The model is temporarily unavailable. Wait a moment, then retry.';
+  }
+  return suggestion;
+}
+
+/**
  * A failed turn, as a checkpoint row in the activity lane — the same lane,
  * glyph slot, type and caret as "Thought for 1s", through the same
  * `ChainOfThoughtStep` disclosure. Closed, it says what happened. Open, it
@@ -374,6 +430,7 @@ function TurnErrorCheckpoint({
   raw,
   defaultOpen,
   action,
+  modelOptions,
   className,
 }: {
   text: string;
@@ -382,16 +439,21 @@ function TurnErrorCheckpoint({
   defaultOpen?: boolean;
   /** The fix, when the reader can make it here; stays visible like the hint. */
   action?: ReactNode;
+  /** Models the account can pick — rewrites a "choose another model" hint the
+   *  composer cannot honor (see `actionableSuggestion`). */
+  modelOptions?: number;
   className?: string;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const suggestion =
-    gateway?.suggestion && gateway.suggestion !== text ? gateway.suggestion : undefined;
+  const suggestion = actionableSuggestion(
+    gateway?.suggestion && gateway.suggestion !== text ? gateway.suggestion : undefined,
+    modelOptions,
+  );
   const failures = gateway?.attemptFailures ?? [];
   const canOpen = describeTurnErrorRow({ text, gateway, raw }).expandable;
 
   const row = (
-    <div className="flex w-full items-center gap-3 text-left text-sm leading-[1.5]">
+    <div className="flex w-full items-center gap-3 text-left text-sm">
       <WarningCircleIcon className="text-kortix-red size-4 flex-none" />
       <span className="text-foreground flex-none font-medium">
         {tI18nComplete.raw('text1a4f630ac1b6')}
@@ -517,6 +579,9 @@ interface TurnErrorDisplayProps {
    * text sniff (over `text`) is used then.
    */
   isAbort?: boolean;
+  /** Models the account can pick — lets the row drop a "choose another model"
+   *  hint the composer cannot honor (KRTX-2598). */
+  modelOptions?: number;
   className?: string;
 }
 
@@ -533,6 +598,7 @@ export function TurnErrorDisplay({
   defaultDetailsOpen,
   error,
   isAbort,
+  modelOptions,
   className,
 }: TurnErrorDisplayProps) {
   const text = error ? error.message : errorText;
@@ -591,6 +657,7 @@ export function TurnErrorDisplay({
       raw={errorRaw}
       defaultOpen={defaultDetailsOpen}
       action={chatGpt ? <ChatGptConnectionSlot action={chatGpt} /> : undefined}
+      modelOptions={modelOptions}
       className={className}
     />
   );

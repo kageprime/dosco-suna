@@ -31,7 +31,17 @@
  * index cards keep their own icons in their own client files.
  */
 export interface CapabilityTab {
-  key: 'agent' | 'connectors' | 'skills' | 'triggers' | 'models' | 'secrets' | 'config';
+  key:
+    | 'agent'
+    | 'connectors'
+    | 'skills'
+    | 'triggers'
+    | 'reminders'
+    | 'models'
+    | 'secrets'
+    | 'files'
+    | 'review'
+    | 'config';
   label: string;
 }
 
@@ -69,19 +79,29 @@ export interface CapabilityTab {
  * (`settings/rail.ts`, opened with Cmd+, or from the workspace switcher).
  * `settings-tabs.ts` redirects every retired `/config?section=` link.
  *
- * Review is not a tab. It was one from 2026-09-02 until 2026-10-02, when it
- * left Customize for its own full-height page (`reviewHref`): the inbox where
- * a person approves what agents do is a primary surface, not configuration.
+ * Review is a tab again (Marko, 2026-10-17). It was one from 2026-09-02 to
+ * 2026-10-02, then its own sidebar row and page. That row showed an empty
+ * inbox to members who can act on nothing in it. As a tab it follows the
+ * Customize rule: only a caller holding `project.review.act` sees it.
  *
- * No tab is flag-gated.
+ * Reminders is a tab (Marko, 2026-10-19). It was a sidebar row, shown to every
+ * member while a reminder could still fire. It follows the Triggers rule: a
+ * reminder is a session-scoped trigger, so the tab shows only to a caller who
+ * can configure triggers.
+ *
+ * Two tabs are flag-gated: Repo needs the `drives` flag, Reminders the
+ * `reminders` flag (`capabilityAccess()`). Every other tab is always painted.
  */
 export const CAPABILITY_TABS: readonly CapabilityTab[] = [
   { key: 'agent', label: 'Agents' },
   { key: 'skills', label: 'Skills' },
   { key: 'connectors', label: 'Connectors' },
   { key: 'triggers', label: 'Triggers' },
+  { key: 'reminders', label: 'Reminders' },
   { key: 'models', label: 'Models' },
   { key: 'secrets', label: 'Secrets' },
+  { key: 'files', label: 'Repo' },
+  { key: 'review', label: 'Review' },
   { key: 'config', label: 'Settings' },
 ];
 
@@ -107,8 +127,11 @@ export const CAPABILITY_SEGMENT: Record<CapabilityTab['key'], string> = {
   skills: 'skills',
   connectors: 'connectors',
   triggers: 'triggers',
+  reminders: 'reminders',
   models: 'models',
   secrets: 'secrets',
+  files: 'repo',
+  review: 'review',
   config: 'settings',
 };
 
@@ -123,6 +146,7 @@ export function capabilityTabHref(projectId: string, key: CapabilityTab['key']):
 }
 
 /**
+<<<<<<< HEAD
  * Where Marketplace lives: a top-level project route, not a Customize tab.
  * `/projects/<id>/customize/marketplace` still resolves — it redirects here —
  * so every bookmark taken while it WAS a tab keeps working. Same arrangement
@@ -134,9 +158,21 @@ export function marketplaceHref(projectId: string): string {
 /**
  * The Review Center: a project page of its own, outside Customize and its tab
  * bar. `/projects/<id>/customize/review` redirects here.
+=======
+ * The Review Center: the Customize Review tab. `/projects/<id>/review`, its
+ * address from 2026-10-02 to 2026-10-17, redirects here.
+>>>>>>> upstream-dev
  */
 export function reviewHref(projectId: string): string {
-  return `/projects/${projectId}/review`;
+  return capabilityTabHref(projectId, 'review');
+}
+
+/**
+ * The Reminders page: the Customize Reminders tab. `/projects/<id>/reminders`,
+ * its address until 2026-10-19, redirects here.
+ */
+export function remindersHref(projectId: string): string {
+  return capabilityTabHref(projectId, 'reminders');
 }
 
 /**
@@ -168,10 +204,11 @@ export function channelsHref(projectId: string): string {
 
 /**
  * The tab a pathname is on, matched against the shape `capabilityTabHref`
- * builds — `/projects/<id>/customize/<segment>` exactly — plus the ONE deeper
- * shape this group owns, `agentHref`'s `/projects/<id>/customize/agents/<name>`,
- * which lights the Agents tab: an agent's page is the Agents tab, opened on
- * one agent.
+ * builds — `/projects/<id>/customize/<segment>` exactly — plus the deeper
+ * shapes this group owns: `agentHref`'s `/projects/<id>/customize/agents/<name>`,
+ * which lights the Agents tab (an agent's page is the Agents tab, opened on
+ * one agent), and the app and connector pages under
+ * `/projects/<id>/customize/connectors`, which light Connectors.
  *
  * The shape check is load-bearing, not defensive tidying. This used to match on
  * the LAST segment alone, which was harmless while every key was unique to this
@@ -186,6 +223,14 @@ export function activeCapabilityTab(pathname: string): CapabilityTab['key'] | nu
   const segments = pathname.split('/').filter(Boolean);
   if (segments[0] !== 'projects' || segments[2] !== 'customize') return null;
   if (segments.length === 5 && segments[3] === CAPABILITY_SEGMENT.agent) return 'agent';
+  // An app's page (`/connectors/<app>`) and a connector's page
+  // (`/connectors/<app>/<connector>`) are the Connectors tab, opened on one.
+  if (
+    (segments.length === 5 || segments.length === 6) &&
+    segments[3] === CAPABILITY_SEGMENT.connectors
+  ) {
+    return 'connectors';
+  }
   if (segments.length !== 4) return null;
   // Matched against the segment map, not the tab bar. Marketplace has no
   // entry there any more (top-level URL, not a tab), so neither its retired

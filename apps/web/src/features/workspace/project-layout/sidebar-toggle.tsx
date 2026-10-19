@@ -6,10 +6,12 @@ import Hint from '@/components/ui/hint';
 import { useOptionalSidebar } from '@/components/ui/sidebar';
 import {
   sidebarOpenerLabel,
+  sidebarPanelVisible,
   useShowPageSidebarOpener,
 } from '@/features/workspace/project-layout/sidebar-opener';
 import { cn } from '@/lib/utils';
 import { SidebarToggle as PanelLeft } from '@/features/icon/icons/sidebar-toggle';
+import { useTranslations } from '@/i18n/use-translations';
 
 /**
  * THE sidebar opener. One control, one file, every surface.
@@ -62,9 +64,10 @@ export function SidebarToggle({
   const sidebar = useOptionalSidebar();
   // Must be called before the early return — and it already covers `!sidebar`.
   const show = useShowPageSidebarOpener();
+  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   if (!sidebar || !show) return null;
 
-  const label = sidebarOpenerLabel(sidebar);
+  const label = sidebarOpenerLabel(sidebar, tI18nComplete);
   // Peek is the collapsed-only hover flyout. Wiring it while the panel is
   // docked open would arm a flyout for a panel that is already on screen.
   const collapsed = sidebar.state === 'collapsed';
@@ -74,6 +77,7 @@ export function SidebarToggle({
       <Button
         type="button"
         aria-label={label}
+        aria-expanded={sidebarPanelVisible(sidebar)}
         variant="ghost"
         size="icon"
         onClick={() => sidebar.toggleSidebar()}
@@ -81,6 +85,11 @@ export function SidebarToggle({
         onPointerLeave={collapsed ? sidebar.peekLeave : undefined}
         className={cn(
           'hover:bg-sidebar-accent hover:text-sidebar-foreground shrink-0 cursor-pointer items-center justify-center rounded-md transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96]',
+          // A `size-7` ghost box (≈26px) is far below the 44px mobile tap
+          // floor (KRTX-2004); the shared hit-area pseudo-element lifts the
+          // pointer target to ≈48px without changing the box in the header
+          // rows this control renders into.
+          'hit-area-3',
           placement === 'floating' && 'absolute top-2 left-2 z-20',
           className,
         )}

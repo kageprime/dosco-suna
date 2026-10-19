@@ -7,6 +7,7 @@ import {
   FlaskIcon as Flask,
   GitBranchIcon as GitBranch,
   KeyIcon as Key,
+  LaptopIcon as Laptop,
   LinkIcon as Link,
   PaletteIcon as Palette,
   ShieldCheckIcon as ShieldCheck,
@@ -15,13 +16,15 @@ import {
   UserIcon as User,
 } from '@phosphor-icons/react';
 
+import { Mcp } from '@/features/icon/icons/mcp';
+
 import type { SettingsTab } from './settings-tabs';
 import type { RailGroup, RailItem } from './type';
 
 export type SettingsRailTranslator = (key: string) => string;
 
 type RailGroupDefinition = RailGroup & {
-  messageKey: 'personal';
+  messageKey: 'personal' | 'connect';
 };
 
 /**
@@ -154,6 +157,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
       },
     ],
   },
+<<<<<<< HEAD
   // One Account group: Credits and Plan describe the ORGANISATION's wallet
   // and subscription, shown here under an explicit Account label so nobody
   // reads them as personal — with Connected accounts alongside, the same rows
@@ -181,6 +185,51 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
       },
     ],
   },
+=======
+  /**
+   * The connect pages (KRTX-1997): MCP, and your own computer. Drawn at the
+   * foot of the rail as one joined block — the same two rows the project
+   * sidebar footer shows as dismissible promos — but each row opens a page
+   * here, and nothing dismisses it. Both are the person's own: the MCP URL is
+   * one per person, and a paired computer follows its owner into every
+   * project.
+   */
+  {
+    messageKey: 'connect',
+    label: 'Connect',
+    footer: true,
+    items: [
+      {
+        tab: 'mcp',
+        label: 'MCP',
+        description:
+          'Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
+        docsHref: '/docs/connect/mcp',
+        icon: Mcp,
+      },
+      {
+        tab: 'computer',
+        label: 'Computer',
+        // "applications", not "apps": every word a row shows is searchable —
+        // `settings-palette-items.ts` builds the palette row's haystack from
+        // this description — and "apps" is the subject word of the Apps page
+        // (`command-palette-search.test.ts` pins `hits("apps")` to that row
+        // alone). "applications" keeps the sentence true and the singular
+        // "app" findable without answering the plural. The same sentence is
+        // stated in `translations/en.json` under `settings.rail.items.` — the
+        // palette serves the catalog, these tests search the literal, and the
+        // two copies must move together.
+        description: 'Let Kortix agents work with the files, terminal, and applications on your computer.',
+        icon: Laptop,
+      },
+    ],
+  },
+  // No Account group either (Marko, 2026-09-03): Credits and Plan describe
+  // the ORGANISATION's wallet and subscription, and every account setting
+  // lives on the account page, `/accounts/[id]`. Grouping them under a
+  // person's own settings claimed they were theirs. `/settings/credits` and
+  // `/settings/plan` redirect there through `ACCOUNT_GRADUATED`.
+>>>>>>> upstream-dev
 ];
 
 /**
@@ -189,7 +238,64 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
  * item lives in `STATIC_GROUPS` now. Kept as an export so `railItemForTab`'s
  * fallback — and the tests pinning it — keep their shape.
  */
+<<<<<<< HEAD
 export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [];
+=======
+export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
+  {
+    tab: 'workspace',
+    label: 'General',
+    description: 'Name and icon for this workspace.',
+    icon: SquaresFour,
+  },
+  {
+    tab: 'sandbox',
+    label: 'Sandbox templates',
+    // Sandbox templates AND Snapshots — a snapshot is the build history of
+    // a sandbox template, not a separate concept, so one row shows the
+    // template's recipe and the record of each time Kortix built a
+    // machine from it.
+    description:
+      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+    docsHref: '/docs/work/runtime',
+    icon: Container,
+  },
+  {
+    tab: 'feature-flags',
+    label: 'Feature flags',
+    description: 'Features you can switch on before they are generally available.',
+    icon: Flask,
+  },
+  {
+    tab: 'upgrades',
+    label: 'Upgrades',
+    description:
+      'Changes an agent makes to this workspace. Every run opens a change request for you to review — nothing merges on its own.',
+    icon: ArrowUpCircle,
+  },
+  // Connected accounts listed the ACCOUNT's GitHub App installations — the
+  // same rows the account page's Git tab manages — under a person's own
+  // settings. Gone from the rail on 2026-09-03 (Marko); `/settings/connected`
+  // redirects to that tab through `ACCOUNT_GRADUATED`.
+  {
+    tab: 'connected',
+    label: 'Connected accounts',
+    icon: Link,
+  },
+  {
+    tab: 'credits',
+    label: 'Credits',
+    description: 'What this account has left to spend, and what it spent this period.',
+    icon: Coins,
+  },
+  {
+    tab: 'plan',
+    label: 'Plan',
+    description: 'Your plan, credits, and billing for this account.',
+    icon: CreditCard,
+  },
+];
+>>>>>>> upstream-dev
 
 /**
  * The rail. One group — `Personal` — and no flag-gated rows. Project
@@ -214,6 +320,7 @@ export function railGroups(...args: [] | [SettingsRailTranslator]): readonly Rai
 
   return STATIC_GROUPS.map((group) => ({
     label: translate(`groups.${group.messageKey}`),
+    footer: group.footer,
     items: group.items.map((item) => ({
       ...item,
       label: translate(`items.${item.tab}.label`),

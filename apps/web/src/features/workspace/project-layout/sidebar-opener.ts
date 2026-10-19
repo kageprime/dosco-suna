@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { useOptionalSidebar } from '@/components/ui/sidebar';
+import type { UiTranslator } from '@/i18n/translator';
 import { desktopShellPlatform, type DesktopShellPlatform } from '@/lib/desktop';
 
 /**
@@ -91,7 +92,27 @@ export function useShowPageSidebarOpener(): boolean {
  * "Pin", not "Open", while the panel is showing as a hover flyout — the click
  * docks what is already on screen, and calling that "Open" reads as a no-op.
  */
-export function sidebarOpenerLabel(sidebar: { state: string; peek?: boolean }): string {
-  if (sidebar.state === 'expanded') return 'Collapse sidebar';
-  return sidebar.peek ? 'Pin sidebar' : 'Open sidebar';
+export function sidebarPanelVisible(sidebar: {
+  state: string;
+  isMobile?: boolean;
+  openMobile?: boolean;
+  peek?: boolean;
+}): boolean {
+  return sidebar.isMobile
+    ? !!sidebar.openMobile
+    : sidebar.state === 'expanded' || !!sidebar.peek;
+}
+
+/**
+ * The opener's label, read from the caller's catalog so it translates with
+ * the viewer's locale instead of rendering hardcoded English.
+ */
+export function sidebarOpenerLabel(
+  sidebar: Parameters<typeof sidebarPanelVisible>[0],
+  tI18nComplete: UiTranslator,
+): string {
+  if (!sidebarPanelVisible(sidebar)) return tI18nComplete.raw('text45609089ee73');
+  return !sidebar.isMobile && sidebar.state === 'collapsed' && sidebar.peek
+    ? tI18nComplete.raw('textbc44e1fccb68')
+    : tI18nComplete.raw('textaab31cde23ba');
 }

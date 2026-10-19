@@ -32,79 +32,6 @@ import {
   type SessionMode,
 } from './schedule-copy';
 
-/* ─── Panel ─────────────────────────────────────────────────────────────── */
-
-/**
- * One titled block. The detail panel is a stack of these, which is what gives
- * it a hierarchy — before, every setting sat at the same level in one flat
- * column, so nothing told you which knobs belonged together.
- *
- * The header owns its own padding rather than the bordered element, so a
- * flush child (a code block, a table) can still sit edge-to-edge.
- */
-export function PanelSection({
-  title,
-  description,
-  action,
-  children,
-  className,
-}: {
-  title: string;
-  description?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={cn('bg-popover overflow-hidden rounded-md border', className)}>
-      <header className="border-border/60 flex items-start justify-between gap-3 border-b px-4 py-3">
-        <div className="min-w-0 space-y-0.5">
-          <h3 className="text-foreground text-sm font-medium">{title}</h3>
-          {description ? (
-            <p className="text-muted-foreground text-xs leading-relaxed text-pretty">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </header>
-      <div className="space-y-4 px-4 py-4">{children}</div>
-    </section>
-  );
-}
-
-/**
- * A save control that is always present and disabled until there is something
- * to save. The old panel mounted and unmounted its Save buttons on every
- * keystroke that crossed the dirty threshold, so the header jumped while you
- * typed.
- */
-export function SaveButton({
-  dirty,
-  pending,
-  onSave,
-  label = 'Save',
-}: {
-  dirty: boolean;
-  pending: boolean;
-  onSave: () => void;
-  label?: string;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className="gap-1.5"
-      disabled={!dirty || pending}
-      onClick={onSave}
-    >
-      {pending ? <Loading className="size-3.5 shrink-0" /> : null}
-      {label}
-    </Button>
-  );
-}
-
 /* ─── Read-only property list ───────────────────────────────────────────── */
 
 /**
@@ -476,17 +403,27 @@ export function TimezoneField({
   value,
   onChange,
   disabled,
+  inline = false,
+  className,
 }: {
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
+  /** A field in a row of fields: the daylight-saving note moves to the
+   *  trigger's tooltip so the row keeps one height. */
+  inline?: boolean;
+  className?: string;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const hint = tI18nComplete.raw('textbd2b129daf78');
   return (
-    <div className="space-y-1.5">
+    <div className={cn('space-y-1.5', className)}>
       <Label className="text-xs">{tI18nComplete.raw('text4ceca1d52ced')}</Label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="w-full cursor-pointer text-sm">
+        <SelectTrigger
+          className={cn('w-full cursor-pointer text-sm', inline && 'h-9')}
+          title={inline ? hint : undefined}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -497,7 +434,7 @@ export function TimezoneField({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-muted-foreground text-xs">{tI18nComplete.raw('textbd2b129daf78')}</p>
+      {inline ? null : <p className="text-muted-foreground text-xs">{hint}</p>}
     </div>
   );
 }

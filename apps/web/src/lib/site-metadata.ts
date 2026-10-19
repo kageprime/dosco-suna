@@ -10,6 +10,7 @@
 export const CANONICAL_ORIGIN = 'https://dosco.live';
 
 export const siteMetadata = {
+<<<<<<< HEAD
  name: 'Dosco Agent Network',
  title: 'Dosco – The AI Management System',
  description:
@@ -17,4 +18,13 @@ export const siteMetadata = {
  url: CANONICAL_ORIGIN,
  keywords:
  'Dosco, AI Management System, AI Management System, alternative to Claude Cowork, ChatGPT Work alternative, company as a git repo, agents skills and memory as files, shared AI agents, scoped access, AI agents, connect 3000 tools, agent orchestration, AI-native company, AI operations',
+=======
+  name: 'Kortix',
+  title: 'Kortix – The open-source AI Operating System',
+  description:
+    'Open-source AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.',
+  url: CANONICAL_ORIGIN,
+  keywords:
+    'Kortix, AI Operating System, open-source AI Operating System, AI OS, open-source AI OS, AI Operating System for companies, what is an AI Operating System, open-source alternative to Claude Cowork, ChatGPT Work alternative, company as a git repo, agents skills and memory as files, shared AI agents, scoped access, self-hosted AI agents, connect 3000 tools, agent orchestration, AI-native company, AI operations',
+>>>>>>> upstream-dev
 };

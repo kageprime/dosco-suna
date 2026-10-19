@@ -69,6 +69,9 @@ import { parseSessionAttachmentRef } from '@kortix/shared';
 import { and, count, eq, sql } from 'drizzle-orm';
 
 import { db } from '../../shared/db';
+import { isRecord } from '@kortix/shared/guards';
+import { jsonbSafeValue } from './jsonb-safe';
+import { TranscriptReadError, isRuntimeUnavailableError } from './runtime-read-failure';
 
 /** Messages read from the box per capture. A turn adds one user message and a
  *  handful of assistant steps, so this is many turns of headroom; everything
@@ -228,9 +231,6 @@ function sanitizeShowPayload(
   }
   return Object.keys(out).length > 0 ? out : null;
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** A tool call that has ended. OpenCode's schema gives both a required
  *  `input`, which is what `mirrorPartsAreStripped` relies on. */
@@ -541,6 +541,13 @@ export function childSessionIdOf(part: unknown): string | undefined {
   if (SUBAGENT_TOOLS.has(tool)) {
     const fromMetadata = isRecord(state?.metadata) ? state.metadata.sessionId : undefined;
     if (typeof fromMetadata === 'string' && fromMetadata) return fromMetadata;
+    if (tool === 'task' && state?.status === 'error') {
+      // An errored task names its child only in the error text (the SDK's
+      // rule); the legacy title/output fallbacks never apply once it errored.
+      return typeof state.error === 'string'
+        ? state.error.match(/\btask_id:\s*(ses_[A-Za-z0-9]+)/)?.[1]
+        : undefined;
+    }
     if (typeof state?.title === 'string' && state.title) {
       const match = state.title.match(SESSION_ID_IN_TEXT);
       if (match) return match[0];
@@ -582,7 +589,7 @@ export function childSessionReferences(
 }
 
 /**
- * Pure: which sub-agent transcripts one capture reads, at most `limit`.
+ * Pure: which sub-agent transcripts a capture reads.
  *
  * A sub-agent whose dispatching call ended, and whose saved transcript has no
  * open message, is final: it is never read again. One that is new, still
@@ -593,33 +600,176 @@ export function childSessionsToCapture(input: {
   references: ReadonlyArray<ChildSessionReference>;
   /** Sub-agent session id -> every stored message of it has ended. */
   stored: ReadonlyMap<string, { settled: boolean }>;
-  limit: number;
 }): string[] {
   return input.references
     .filter((reference) => {
       const saved = input.stored.get(reference.id);
       return !saved || !reference.settled || !saved.settled;
     })
-    .map((reference) => reference.id)
-    .slice(0, Math.max(0, input.limit));
+    .map((reference) => reference.id);
+}
+
+/** Only an OpenCode session id may reach a URL or a row. */
+const CHILD_SESSION_ID = /^ses_[A-Za-z0-9]{1,124}$/;
+
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/**
+ * How one capture's sub-agent reads failed, classified.
+ *
+ * The classes are the expected states a fail-open capture tolerates — a
+ * stopped box (502/503/504 through the proxy, a transport timeout) and a
+ * runtime that no longer serves a referenced transcript (404, a box that
+ * came back without its sub-agent sessions) — plus everything else.
+ * `readInboxTranscriptState` and the capture share
+ * `isRuntimeUnavailableError` for the same distinction.
+ */
+export interface ChildReadFailures {
+  /** The runtime answers 404 for this transcript: re-reading changes nothing. */
+  missing: number;
+  /** The runtime stopped serving transcripts mid-walk. Every further read
+   *  would fail the same way, so the walk stops at the first one. */
+  unavailable: number;
+  /** Anything else — the only class a capture still warns about. */
+  other: number;
+  /** The first failure of the expected classes, for the info line. */
+  first?: string;
+  /** The first unexpected failure, for the warn line. */
+  firstOther?: string;
+}
+
+/**
+ * The one log line a capture's failed sub-agent reads earn.
+ *
+ * Expected states (a stopped box, gone transcripts) log info — warning on
+ * them was a 637-line spike over four days, every line an expected fail-open
+ * degrade. Only an unexpected failure warns, with the count of unexpected
+ * ones. Null when nothing failed.
+ */
+export function childReadFailureLog(
+  failures: ChildReadFailures,
+): { level: 'warn' | 'info'; message: string; context: Record<string, unknown> } | null {
+  if (failures.missing + failures.unavailable + failures.other === 0) return null;
+  if (failures.other > 0) {
+    return {
+      level: 'warn',
+      message: '[transcript-mirror] sub-agent reads failed',
+      context: { count: failures.other, first: failures.firstOther ?? failures.first },
+    };
+  }
+  return {
+    level: 'info',
+    message: '[transcript-mirror] sub-agent reads deferred',
+    context: { missing: failures.missing, unavailable: failures.unavailable, first: failures.first },
+  };
+}
+
+/**
+ * The sub-agent transcripts one capture saves, read through `read`, and whether
+ * another capture saves more.
+ *
+ * Breadth-first from `references`, following each read's own sub-agents. At most
+ * `cap` reads that return rows: a failed read and an empty one take no slot (the
+ * capture's deadline bounds them), so neither starves the sub-agents after it;
+ * only a runtime that cannot serve any transcript stops the walk early.
+ *
+ * `more`: sub-agents are left unread AND this capture read rows of one never saved
+ * before. A sub-agent that reads empty, fails, or was saved already (an unsettled
+ * one read again) is no progress, so a run of captures ends.
+ */
+export async function readChildTranscripts(input: {
+  references: ReadonlyArray<ChildSessionReference>;
+  stored: ReadonlyMap<string, { settled: boolean }>;
+  cap: number;
+  /** The root: never read as a sub-agent. */
+  root?: string;
+  read: (id: string) => Promise<{ rows: unknown[]; complete: boolean }>;
+}): Promise<{
+  children: Array<{ opencodeSessionId: string; payload: unknown[]; complete: boolean }>;
+  more: boolean;
+  failures: ChildReadFailures;
+}> {
+  const children: Array<{ opencodeSessionId: string; payload: unknown[]; complete: boolean }> = [];
+  const failures: ChildReadFailures = { missing: 0, unavailable: 0, other: 0 };
+  const seen = new Set(input.root ? [input.root] : []);
+  const queue = childSessionsToCapture(input);
+  let savedNew = false;
+  while (queue.length > 0 && children.length < input.cap) {
+    const child = queue.shift()!;
+    if (seen.has(child) || !CHILD_SESSION_ID.test(child)) continue;
+    seen.add(child);
+    try {
+      const walk = await input.read(child);
+      queue.push(...childSessionsToCapture({ references: childSessionReferences(walk.rows as Array<{ parts: unknown }>), stored: input.stored }));
+      if (mirrorRowsFromOpencodePayload(walk.rows).length === 0) continue;
+      children.push({ opencodeSessionId: child, payload: walk.rows, complete: walk.complete });
+      savedNew ||= walk.complete && !input.stored.has(child);
+    } catch (error) {
+      // 404 is its own class: re-reading a transcript the runtime no longer
+      // serves changes nothing, while a stopped box may come back.
+      const kind = error instanceof TranscriptReadError && error.status === 404
+        ? 'missing'
+        : isRuntimeUnavailableError(error)
+          ? 'unavailable'
+          : 'other';
+      failures[kind] += 1;
+      if (kind === 'other') failures.firstOther ??= messageOf(error);
+      else failures.first ??= messageOf(error);
+      // A runtime that cannot serve ANY transcript repeats the same failure
+      // for every sibling — walking on pays it per child (one prod capture
+      // failed 60 reads in a row against a dying box). Stop only for that
+      // class and let the next capture, or the unread chain, take the rest;
+      // a missing transcript 404s per child, instantly, and one gone child
+      // must not starve the siblings after it.
+      if (kind === 'unavailable') break;
+    }
+  }
+  const unread = queue.some((child) => !seen.has(child) && CHILD_SESSION_ID.test(child));
+  return { children, more: unread && savedNew, failures };
 }
 
 /**
  * Does this session's mirror still hold a row in the old stripped format? The
  * same question as `mirrorPartsAreStripped`, asked of the database: the wake
  * backfill reads the box again for such a history, because a mirror that
- * proved its head is otherwise left alone for good.
+ * proved its head is otherwise left alone for good. Scoped to `root`: a kept
+ * old root's rows cannot be read again from the current box.
  */
-export async function mirrorHoldsStrippedRows(sessionId: string): Promise<boolean> {
+export async function mirrorHoldsStrippedRows(sessionId: string, root: string): Promise<boolean> {
   const result = await db.execute(sql`
     SELECT EXISTS (
       SELECT 1 FROM kortix.session_transcript_messages
        WHERE session_id = ${sessionId}
+         AND opencode_session_id = ${root}
          AND parts @? '$[*] ? (@.type == "tool" && (@.state.status == "completed" || @.state.status == "error") && !(exists (@.state.input)))'
     ) AS stripped
   `);
   const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
   return (rows[0] as { stripped?: unknown } | undefined)?.stripped === true;
+}
+
+/**
+ * Record (`messageId`) or clear (`null`) the rewind marker of a session's
+ * root, when the sandbox proxy saw OpenCode accept `POST /session/:id/revert`
+ * or `/unrevert`. A capture deletes stored rows only after this marker (see
+ * `session_transcript_mirrors.rewind_message_id`). A session with no mirror
+ * row, or a revert of another OpenCode session, updates nothing: there are no
+ * rows of that root to delete.
+ */
+export async function setTranscriptRewindMarker(
+  sessionId: string,
+  runtimeSessionId: string,
+  messageId: string | null,
+): Promise<void> {
+  await db
+    .update(sessionTranscriptMirrors)
+    .set({ rewindMessageId: messageId })
+    .where(
+      and(
+        eq(sessionTranscriptMirrors.sessionId, sessionId),
+        eq(sessionTranscriptMirrors.runtimeSessionId, runtimeSessionId),
+      ),
+    );
 }
 
 /**
@@ -675,7 +825,7 @@ export function mirrorRowsFromOpencodePayload(payload: unknown): MirrorMessage[]
     if (!info) continue;
     const id = typeof info.id === 'string' ? info.id.trim() : '';
     if (!id) continue;
-    rows.push({ info, parts: sanitizeParts(msg.parts) });
+    rows.push({ info: jsonbSafeValue(info), parts: jsonbSafeValue(sanitizeParts(msg.parts)) });
   }
   return rows;
 }

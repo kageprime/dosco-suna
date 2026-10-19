@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
@@ -87,3 +88,6 @@ export function SectionCard({
     </Card>
   );
 }
+=======
+export * from '@kortix/ui/section-card';
+>>>>>>> upstream-dev

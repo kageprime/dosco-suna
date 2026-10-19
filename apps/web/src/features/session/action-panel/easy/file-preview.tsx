@@ -16,6 +16,7 @@ import { useTranslations } from '@/i18n/use-translations';
  */
 
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import Hint from '@/components/ui/hint';
 import Loading from '@/components/ui/loading';
 import {
@@ -26,10 +27,10 @@ import {
   getFileCategory,
   isUsableIntrinsicSize,
 } from '@/features/file-viewer';
+import { useContentRevision } from '@/features/file-viewer/use-content-revision';
 import { workspaceFileSource } from '@/features/files/file-source';
 import { useFileContent } from '@/features/files/hooks';
 import { useFileRefresh } from '@/features/files/hooks/use-file-refresh';
-import { useContentRevision } from '@/features/file-viewer/use-content-revision';
 import { getFileIcon } from '@/features/project-files';
 import { useIsMobile } from '@/hooks/utils';
 import { track } from '@/lib/track';
@@ -46,6 +47,8 @@ import {
   type ShareContext,
   ViewerActions,
   type ViewerCopy,
+  ViewerDownloadAction,
+  ViewerPathPill,
   fileShareInput,
 } from './viewer-actions';
 
@@ -67,9 +70,9 @@ const getSandboxAliveSnapshot = () => {
 
 /**
  * The toolbar for every state that isn't text. Same shape and same actions as
- * `FileViewer`'s — the difference is only what the split button's primary can
- * be: most of these states have no content a clipboard could hold, so `Copy`
- * gives way to `Copy link` (see `ViewerActions`). The binary-image branch is
+ * `FileViewer`'s — the difference is only which copy actions the pill holds:
+ * most of these states have no content a clipboard could hold, so only
+ * `Copy link` shows (see `ViewerActions`). The binary-image branch is
  * the exception and hands one in via `copy`. Without this shell, a file that
  * fails to load would strand the user in a pane with no title and no exit.
  */
@@ -104,7 +107,7 @@ function PreviewShell({
   onPresent?: () => void;
   /** The clipboard action for the one preview state that has one — the
    *  binary-image branch, copying the picture itself. Omitted everywhere else,
-   *  which promotes `Copy link` to the split button's primary. */
+   *  which leaves `Copy link` as the pill's only copy action. */
   copy?: ViewerCopy;
   /** Re-reads the file on demand. See `RefreshButton`. */
   refresh: ViewerRefresh;
@@ -115,41 +118,43 @@ function PreviewShell({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-2.5 py-2.5">
-        <span className="flex min-w-0 items-center gap-2.5">
-          <DetailSidebarToggle className="size-7" />
-          <span className="flex size-5 shrink-0 items-center justify-center">
-            {getFileIcon(fileName, { className: 'size-4', variant: 'monochrome' })}
-          </span>
-          <span className="text-foreground truncate text-sm font-medium">{name}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1">
-          {/* Present is not a way of taking the deck with you — it changes what
-              you are looking at — so it stays its own control rather than
-              joining the split button's menu. */}
-          {onPresent && (
-            <Hint label={tI18nComplete.raw('text43f9b89c0b9d')} side="bottom">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={tI18nComplete.raw('text43f9b89c0b9d')}
-                onClick={onPresent}
-                className="size-7 active:scale-[0.96]"
-              >
-                <Presentation className="size-3.5" />
-              </Button>
-            </Hint>
-          )}
+      <div className="flex shrink-0 items-center gap-1 border-b px-2.5 py-2">
+        <DetailSidebarToggle className="size-7" />
+        <ViewerPathPill
+          icon={getFileIcon(fileName, { className: 'size-4', variant: 'monochrome' })}
+          path={path}
+          fileName={name}
+        >
           <RefreshButton onRefresh={refresh.onRefresh} refreshing={refresh.refreshing} />
           <ViewerActions
             copy={copy}
             shareContext={shareContext}
             shareInput={fileShareInput(path, fileName)}
-            download={{ path, fileName }}
           />
+        </ViewerPathPill>
+        {/* `*:size-8`: every member matches the `h-8` path pill beside it. The
+            shared buttons default to `size-7` for the shorter app and detail
+            headers. */}
+        <ButtonGroup className="shrink-0 *:size-8">
+          {/* Present is not a way of taking the deck with you — it changes what
+              you are looking at — so it stays its own control outside the pill. */}
+          {onPresent && (
+            <Hint label={tI18nComplete.raw('text43f9b89c0b9d')} side="bottom">
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label={tI18nComplete.raw('text43f9b89c0b9d')}
+                onClick={onPresent}
+                className="active:scale-[0.96]"
+              >
+                <Presentation className="size-3.5" />
+              </Button>
+            </Hint>
+          )}
+          <ViewerDownloadAction download={{ path, fileName }} />
           <PanelWidthButton isMobile={isMobile} />
           <CloseButton onClose={onClose} />
-        </span>
+        </ButtonGroup>
       </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">{children}</div>
     </div>
@@ -185,8 +190,8 @@ async function copyImageToClipboard(mimeType: string, base64: string): Promise<v
 
 /**
  * `ClipboardItem` is missing on older browsers (and during SSR). Feature-detect
- * rather than offer a `Copy` that can only fail — without it the split button
- * falls back to `Copy link`, which every browser can do (W4).
+ * rather than offer a `Copy` that can only fail — without it the pill keeps
+ * only `Copy link`, which every browser can do (W4).
  */
 function canCopyImages(): boolean {
   return typeof ClipboardItem !== 'undefined';

@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { EmojiPicker as Frimousse } from 'frimousse';
 
@@ -263,3 +264,6 @@ export function EmojiPicker({
     </Frimousse.Root>
   );
 }
+=======
+export * from '@kortix/ui/emoji-picker';
+>>>>>>> upstream-dev

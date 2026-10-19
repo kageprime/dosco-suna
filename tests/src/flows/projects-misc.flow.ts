@@ -16,6 +16,10 @@ import { bindDatabaseSessionCredential, createDatabaseSession } from '../fixture
 // a real 201 needs a GitHub App install + reachable repo, which the harness
 // can't guarantee.
 flow('PROJ-2', { domain: 'projects', routes: ['POST /v1/projects'] }, async (ctx) => {
+  await ctx.step('missing repo_url → 400 repo_url is required', async () => {
+    (await ctx.client.as(ctx.P.OWNER).post('/v1/projects', { name: ctx.fixtures.name('byo') }))
+      .status(400).body().has('$.error', 'repo_url is required');
+  });
   await ctx.step('non-GitHub repo_url → 400', async () => {
     const r = await ctx.client
       .as(ctx.P.OWNER)
@@ -75,11 +79,11 @@ flow(
       tokenId = r.json<any>().token_id;
       ctx.track('cli-token', tokenId, { projectId: p.id });
     });
-    await ctx.step('list CLI tokens → 200 includes minted', async () => {
+    await ctx.step('list CLI tokens → 200 includes minted, hides session tokens', async () => {
       const r = await ctx.client
         .as(ctx.P.OWNER)
         .get('/v1/projects/:projectId/cli-token', { params: { projectId: p.id } });
-      r.status(200).body().exists('$.items');
+      r.status(200).body().exists('$.items').exists('$.session_tokens');
     });
     await ctx.step('revoke CLI token → 200', async () => {
       const r = await ctx.client
@@ -485,11 +489,20 @@ flow(
     routes: [
       'GET /v1/projects/:projectId/agents/:agentName/config',
       'PUT /v1/projects/:projectId/agents/:agentName/config',
+      'GET /v1/projects/:projectId/files/content',
     ],
   },
   async (ctx) => {
     const team = await ctx.fixtures.team();
     const project = await team.project({ seed: true });
+    const kortixBlock = async () => {
+      const file = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/:projectId/files/content', {
+        params: { projectId: project.id }, query: { path: 'kortix.yaml' },
+      });
+      file.status(200);
+      const content = file.json<{ content: string }>().content;
+      return content.slice(content.indexOf('\n  kortix:'));
+    };
 
     await ctx.step(
       'GET reports schema_version 2 / editable true for a seeded manifest',
@@ -516,6 +529,10 @@ flow(
         );
         read.status(200).body().has('$.block.repository_access', access);
         if ('workspace' in read.json<any>().block) throw new Error('response exposes legacy workspace');
+        const block = await kortixBlock();
+        if (!block.includes(`workspace:\n      project_repository: ${access}`) || block.includes('repository_access')) {
+          throw new Error(`kortix.yaml must store workspace.project_repository: ${access}, got:\n${block}`);
+        }
       });
     }
     await ctx.step('legacy runtime saves a disabled repository policy', async () => {
@@ -525,7 +542,7 @@ flow(
       );
       saved.status(200).body().has('$.block.repository_access', false);
     });
-    for (const body of [{ repository_access: 'false' }, { repository_access: true, workspace: 'runtime' }]) {
+    for (const body of [{ repository_access: 'false' }, { repository_access: true, workspace: 'runtime' }, { workspace: { project_repository: false } }]) {
       await ctx.step('invalid or conflicting repository policy is rejected without widening access', async () => {
         const params = { projectId: project.id, agentName: 'kortix' };
         const rejected = await ctx.client.as(ctx.P.OWNER).put(
@@ -630,6 +647,73 @@ flow(
       if (typeof r.json<any>()?.configured !== 'boolean') {
         throw new Error(`expected configured to be a boolean, got: ${r.json<any>()?.configured}`);
       }
+    });
+  },
+);
+
+// PROJ-43 — project-quota pre-flight. GET /projects/quota reports the
+// account's project-cap state so the /new form can show the cap reason and
+// keep Create disabled BEFORE a create fails with the 403 (KRTX-2495). The
+// same computation the create gate runs (`enforceProjectQuota` →
+// `projectQuotaState`), so the pre-check and the submit-time denial can never
+// disagree about `capped`, the message or the count. Auth-gated,
+// account-scoped: `account_id` must name an account of the caller (the same
+// `resolveProjectAccount` the create routes use), and omitting it resolves
+// the same default account an omitted-`account_id` create would target.
+// Read-only; the shape is asserted, not the tier — the manifest's OWNER
+// account may be free or paid on any deployment.
+flow(
+  'PROJ-43',
+  { domain: 'projects', routes: ['GET /v1/projects/quota'] },
+  async (ctx) => {
+    await ctx.step('ANON → 401', async () => {
+      const r = await ctx.client.as(ctx.P.ANON).get('/v1/projects/quota');
+      r.status(401);
+    });
+    await ctx.step('OWNER (default account) → 200 with the cap shape', async () => {
+      const r = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/quota');
+      r.status(200).body().exists('$.capped').exists('$.limit');
+      const body = r.json<any>();
+      if (typeof body.capped !== 'boolean') {
+        throw new Error(`expected a boolean capped, got: ${JSON.stringify(body.capped)}`);
+      }
+      if (typeof body.limit !== 'number' || body.limit < 1) {
+        throw new Error(`expected a positive numeric limit, got: ${JSON.stringify(body.limit)}`);
+      }
+      // `count` is null exactly when the plan does not cap (no count query
+      // ran); `message` is non-null exactly when `capped` is true.
+      if (body.count !== null && typeof body.count !== 'number') {
+        throw new Error(`expected count to be a number or null, got: ${JSON.stringify(body.count)}`);
+      }
+      if (body.message !== null && typeof body.message !== 'string') {
+        throw new Error(`expected message to be a string or null, got: ${JSON.stringify(body.message)}`);
+      }
+      if (body.capped !== (body.message !== null)) {
+        throw new Error(
+          `capped=${body.capped} must agree with message=${JSON.stringify(body.message)}`,
+        );
+      }
+    });
+    await ctx.step('explicit account_id → same shape for a caller account', async () => {
+      const p = await ctx.fixtures.project();
+      const accountId = await withDb(ctx, async (db) =>
+        (await db.query('SELECT account_id FROM kortix.projects WHERE project_id = $1', [p.id])).rows[0]
+          .account_id as string,
+      );
+      const r = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/quota', {
+        query: { account_id: accountId },
+      });
+      r.status(200).body().exists('$.capped').exists('$.limit');
+    });
+    await ctx.step('an account the caller is not a member of → 403; a malformed id → 400', async () => {
+      const denied = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/quota', {
+        query: { account_id: '00000000-0000-4000-a000-000000000009' },
+      });
+      denied.status(403);
+      const bad = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/quota', {
+        query: { account_id: '00000000-0000-4000-a000-00000000notre' },
+      });
+      bad.status(400);
     });
   },
 );
@@ -871,42 +955,6 @@ flow(
           { params: { projectId: p.id } },
         );
       r.status([403, 404]);
-    });
-  },
-);
-
-// PROJ-28 — Suna-migration status surface. Top-level `/v1/projects/suna-migration/*`
-// (NOT project-scoped, despite the path prefix) — scoped to the caller's own
-// account. eligible = the account has legacy `public.projects` rows AND no
-// completed/in-flight migration yet. A fresh e2e account (synthesized per run)
-// has neither, so this asserts the real "nothing to migrate" shape rather than
-// kicking off a real migration against production Suna data.
-flow(
-  'PROJ-28',
-  {
-    domain: 'projects',
-    routes: [
-      'GET /v1/projects/suna-migration/eligibility',
-      'GET /v1/projects/suna-migration/status',
-      'POST /v1/projects/suna-migration/start',
-    ],
-  },
-  async (ctx) => {
-    await ctx.step('GET eligibility for a fresh account → 200, not eligible', async () => {
-      const r = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/suna-migration/eligibility');
-      r.status(200).body().has('$.eligible', false).has('$.migration', null);
-    });
-    await ctx.step('GET status for a fresh account → 200, no migration on record', async () => {
-      const r = await ctx.client.as(ctx.P.OWNER).get('/v1/projects/suna-migration/status');
-      r.status(200).body().has('$.migration', null);
-    });
-    await ctx.step('POST start for a non-eligible account → 400 (nothing to migrate)', async () => {
-      const r = await ctx.client.as(ctx.P.OWNER).post('/v1/projects/suna-migration/start', {});
-      r.status(400);
-    });
-    await ctx.step('ANON cannot read eligibility → 401', async () => {
-      const r = await ctx.client.as(ctx.P.ANON).get('/v1/projects/suna-migration/eligibility');
-      r.status(401);
     });
   },
 );

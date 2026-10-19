@@ -1,6 +1,9 @@
 // Generated from the final user-visible i18n audit. Keys are SHA-256(message)[0:12].
 export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  Drive: 'text6312b4b9baf1',
+  Drives: 'text729fe0e7b138',
   '{label} has finished.': 'text27d628c8b427',
+  '{count} tasks finished': 'textc0589750863c',
   '{label} needs permission for: {toolName}': 'textbe9a4d2a34e1',
   '**This week:** 7 deals advanced, 2 slipped. - **Acme** → Proposal ($120k) - **Globex** → Negotiation ($90k) - At risk: **Initech**, **Umbrella** — no activity in 14 days':
     'texte0f5b5af5e02',
@@ -96,7 +99,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Bundle: 'textf2daa18861b5',
   Bundles: 'textff042b6ded4e',
   Cancelled: 'textd353a99eb455',
-  'Canonical path returned by list_public_content, such as /docs or /pricing.': 'text87e3eca29ea9',
   Careers: 'text7e658675b5ca',
   'Careers at Dosco – Open positions': 'text47f57c0ab829',
   'Categorizes, prioritizes and routes inbound tickets, drafting an empathetic first reply.':
@@ -139,9 +141,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Context: 'texta6e600a10fed',
   continuing: 'text6e9f041725ac',
   'Control plane': 'textf15d0e7f86b0',
+<<<<<<< HEAD
   'Converts the v1 kortix.toml into the governance-first kortix.yaml, refreshes platform-managed skills to the latest marketplace baseline, and opens a change request for review.':
     'textc3d1545dd522',
   "Conway's Game of Life, seeded from the Dosco logo.": 'text6f3297022a6b',
+=======
+  "Conway's Game of Life, seeded from the Kortix logo.": 'text6f3297022a6b',
+>>>>>>> upstream-dev
   Copied: 'text8d525e5f158b',
   Costs: 'textb88fc5fc4765',
   "Couldn't confirm this session is idle": 'text86de1bf4e1be',
@@ -215,6 +221,10 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Everything an owner can do except deleting the account or transferring ownership. Also Manager on every project.':
     'textc8ef36aed650',
   Expired: 'text424a2551d356',
+  'Converts the v1 kortix.toml into the governance-first kortix.yaml, refreshes platform-managed skills to the latest marketplace baseline, and opens a change request for review.':
+    'textc3d1545dd522',
+  Extensions: 'textfe3436af86b4',
+  'Migrate manifest to v2 (kortix.yaml)': 'textd85a383e851d',
   Failed: 'text031a8f0f659d',
   Favicon: 'text4295528943df',
   'Fetching deals updated ≤ 7d': 'text5bae674104b6',
@@ -270,8 +280,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Keep model billing with your provider': 'textcd996e5c44e9',
   'Keys are resolved on our side of the wall. The machine the model drives never holds them.':
     'texte6229e214e88',
+<<<<<<< HEAD
   'Dosco – The AI Command Center for Your Company': 'textce34af36d804',
   'Dosco is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.':
+=======
+  'Kortix – The open-source AI Operating System': 'textce34af36d804',
+  'Kortix is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.':
+>>>>>>> upstream-dev
     'text445cf0a2abfa',
   'Dosco — Presentations': 'textd84b8be91e7b',
   'Dosco API documentation': 'text7b3c138b383d',
@@ -303,7 +318,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textfde028796e58',
   Memory: 'textc3963aedaac6',
   'Memory Search': 'text9993673dd585',
-  'Migrate manifest to v2 (kortix.yaml)': 'textd85a383e851d',
   Minimal: 'text057b5de48d7b',
   Mobile: 'textcbaad3cf4a65',
   'Mobile app': 'text429bbfa117e2',
@@ -365,6 +379,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Privacy: 'text54a57c3147c4',
   privateBody: 'texte7268350dbfc',
   privateHeading: 'text5994c8a10999',
+  'Plans, credits, Enterprise, entitlements, members and billing state, per account.':
+    'text81e6bf495c98',
   'Product deck': 'text32d61a2331fe',
   Productivity: 'textf42bca637cb3',
   'Profiles the warehouse, writes performant SQL and ships a dashboard from a plain question.':
@@ -406,6 +422,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Requests are checked against the saved secret .': 'textc6fbb4b00507',
   'research/': 'text2f80158a9d89',
   'Reserving your computer': 'texta7d795204fda',
+  Reminders: 'text7971dd752669',
   Review: 'textaff0766a5290',
   Revoked: 'textf6f738d04392',
   Routing: 'textbcba696f3eb1',
@@ -491,8 +508,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The gate': 'textb46788a7c320',
   'The in-depth platform walkthrough — the full Dosco surface, from projects and sessions to connectors, channels and change requests.':
     'text7484ed6d3897',
+<<<<<<< HEAD
   'The Dosco team': 'text49e7ba9f095d',
   'The open-source AI command center for your company. Every agent, skill, and memory is a file in one versioned repo you own — a workforce of AI agents that does real work, shared across your whole team from Slack, Teams, the web, or the CLI. Self-hostable, any model, your keys.':
+=======
+  'The Kortix team': 'text49e7ba9f095d',
+  'The open-source AI Operating System for your company. Every agent, skill, and memory is a file in one versioned repo you own — a workforce of AI agents that does real work, shared across your whole team from Slack, Teams, the web, or the CLI. Self-hostable, any model, your keys.':
+>>>>>>> upstream-dev
     'text2bf70270bfde',
   'The questions people ask before the first session.': 'text2b7df1bf48b2',
   'The record': 'textd9fa05c93112',
@@ -541,7 +563,10 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Your ChatGPT subscription': 'text1797cd1f264b',
   'Your last workspace is archived': 'text9a0da87b2e56',
   'Your own API key': 'text31adf1a22230',
+<<<<<<< HEAD
   'Your team is on Dosco Team. Compute and LLM credits are ready.': 'textdbe08e62ef56',
+=======
+>>>>>>> upstream-dev
   'Your top-up landed — compute and the latest AI models are ready to go.': 'texteda7df9ad5e6',
   'your-company/': 'text7a9f6daee641',
   '. The session keeps its id; the sandbox is rebuilt.': 'text09a3bb2aced6',
@@ -805,8 +830,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'This deployment exposes no per-project feature flags.': 'text8d3df7003a8d',
   'Throw some confetti': 'texteff2ec3d9dcd',
   'Tier:': 'text50c519cd51cc',
-  'Tiers, credits, trials, entitlements, members and billing state, per account.':
-    'text0c94dd964eb3',
   'Told to this agent at the start of every session. Markdown. Leave empty to use the default instructions.':
     'text5fe8921b712c',
   'Total balance': 'text10ea22c4a146',
@@ -840,7 +863,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'You need the project&apos;s settings permission to change a feature flag.':
     'text6d484ed8c1a0',
   'Your browser does not support notifications.': 'text51464281894d',
-  'Your subscription, team seats, and billing for this account.': 'text46470f35d5d8',
+  'Your plan, credits, and billing for this account.': 'text5dffd4db88c5',
   Attach: 'textd406ade2958c',
   'Grant access ({count})': 'text7697f2d90676',
   'Pick account members to add to this group.': 'text2f5525e787a5',
@@ -868,8 +891,8 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':
     'text055026a9c10e',
   'What does it cost?': 'texte8dc9deba44c',
-  'Free is $0 — one project and 200 credits a month of sandbox compute, with your own key for any premium model. Team is $40 per seat per month and pools 2,500 credits a seat. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.':
-    'text8eb8b8551cec',
+  'Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.':
+    'text12836c0e435d',
   'Why we are building it': 'text7ee5a6d5e8ad',
   'Read the source': 'text625b22ba31d0',
   'who does the work': 'textf16b8eb8dbdc',
@@ -885,7 +908,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'per session': 'textf92898c93eec',
   'per message': 'text83d0be53d592',
   answers: 'text677fe21b65f4',
-  'We are building the open-source AI Management System. Every company should own all of it.':
+  'We are building the open-source AI Operating System. Every company should own all of it.':
     'text5f58426c214e',
   'One kortix.yaml.': 'text52867b778586',
   'Your AI workforce, as code.': 'textd0dfd435b2f4',

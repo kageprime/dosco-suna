@@ -15,9 +15,8 @@ import type { ProviderModalTab } from '@/stores/provider-modal-store';
 import { useProviderModalStore } from '@/stores/provider-modal-store';
 import { useUpgradeDialogStore } from '@/stores/upgrade-dialog-store';
 import { getProjectDetail, listProjectSecrets } from '@kortix/sdk';
-import { contract, type ModelKey, qk } from '@kortix/sdk/react';
+import { contract, type FlatModel, type ModelKey, qk } from '@kortix/sdk/react';
 import { resolveEntitlementsPending } from './entitlements-pending';
-import type { FlatModel } from './session-chat-input';
 
 /**
  * `ProviderModalTab` is the caller-facing vocabulary ('providers' | 'connected'
@@ -100,7 +99,9 @@ export function useModelConnectionGate(
   });
   const llmGatewayEnabled = isLlmGatewayEnabled(projectDetailQuery.data?.project);
   const caps = useProjectPageCans(projectId ?? undefined);
-  const canWriteProviders = caps[PROJECT_ACTIONS.PROJECT_WRITE]?.allowed === true;
+  // The provider modal's writes are `project.model.write`, the same leaf the
+  // model picker gates its "+" and sliders on.
+  const canWriteProviders = caps[PROJECT_ACTIONS.PROJECT_MODEL_WRITE]?.allowed === true;
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalTab, setProjectModalTab] = useState<'providers' | 'models'>('providers');

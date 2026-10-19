@@ -2,8 +2,8 @@
 
 import { isManagedProviderEnabled } from '@/lib/config';
 import { isLlmGatewayEnabled } from '@/lib/llm-gateway';
-import { LLM_PROVIDERS, type LlmProviderEntry, type LlmProviderModel } from '@/lib/llm-providers';
-import { getManagedModel, isProviderAuthSatisfied } from '@kortix/llm-catalog';
+import { LLM_PROVIDERS, type LlmProviderEntry } from '@/lib/llm-providers';
+import { isProviderAuthSatisfied } from '@kortix/llm-catalog';
 import { getProjectDetail, listProjectSecrets } from '@kortix/sdk';
 import { contract, qk, useRuntimeProviders } from '@kortix/sdk/react';
 import { useQuery } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import {
 } from './constants';
 import { isProviderStateLoading } from './provider-loading-state';
 import { useLlmProviderCatalogRevision } from './use-live-catalog';
-import { buildCodexProvider } from './utils';
+import { buildCodexProvider, buildKortixManagedProvider } from './utils';
 
 export function useConnectedProviders(projectId: string, enabled: boolean) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -66,6 +66,7 @@ export function useConnectedProviders(projectId: string, enabled: boolean) {
     // "Managed · Included with your plan" row simply doesn't render instead of
     // showing a managed provider with zero models.
     if (!llmGatewayEnabled || !isManagedProviderEnabled()) return null;
+<<<<<<< HEAD
     const connectedIds = new Set(ocProviders?.connected ?? []);
     const kortix = (ocProviders?.all ?? []).find((p) => p.id === 'kortix');
     if (!kortix || !connectedIds.has('kortix')) return null;
@@ -110,6 +111,14 @@ export function useConnectedProviders(projectId: string, enabled: boolean) {
       featured: true,
       managed: true,
     };
+=======
+    // The builder also refuses the cloud state the flag cannot see: a plan-gated
+    // catalog serving ZERO managed models (free tier with no servable platform
+    // default — KRTX-1482) is not a connected managed provider. The model picker
+    // shows "No models available — Upgrade" over the same catalog; the Providers
+    // tab must not claim the opposite.
+    return buildKortixManagedProvider(ocProviders, MANAGED_MODEL_ID_SET, tI18nComplete.raw('texte0a770200f93'));
+>>>>>>> upstream-dev
   }, [llmGatewayEnabled, ocProviders, tI18nComplete]);
 
   const connectedProviders = useMemo(() => {

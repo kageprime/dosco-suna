@@ -439,8 +439,13 @@ export async function decideSlackThreadJoin(input: {
   const sessionUrl = sessionWebUrl(config.FRONTEND_URL, session.projectId, input.sessionId);
   if (token) {
     const text = input.decision === 'approved'
+<<<<<<< HEAD
       ? `You've been approved for this Dosco session. Send your message again and I'll continue.`
       : 'The session owner declined your request for this Dosco session.';
+=======
+      ? `You've been approved for this Kortix session. Mention me again and I'll continue.`
+      : 'The session owner declined your request for this Kortix session.';
+>>>>>>> upstream-dev
     await postEphemeral(
       token,
       input.channelId,
@@ -452,8 +457,13 @@ export async function decideSlackThreadJoin(input: {
           text: {
             type: 'mrkdwn',
             text: input.decision === 'approved'
+<<<<<<< HEAD
               ? `*Approved.*\nSend your message again in this thread. You can also <${sessionUrl}|open the session in Dosco>.`
               : '*Request declined.*\nStart a new thread if you want Dosco to work with you separately.',
+=======
+              ? `*Approved.*\nMention me again in this thread. You can also <${sessionUrl}|open the session in Kortix>.`
+              : '*Request declined.*\nStart a new thread if you want Kortix to work with you separately.',
+>>>>>>> upstream-dev
           },
         },
       ],

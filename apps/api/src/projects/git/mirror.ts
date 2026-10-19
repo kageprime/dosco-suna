@@ -317,10 +317,32 @@ export function isGitOperationError(err: unknown): err is GitOperationError {
 const TRANSIENT_MIRROR_ERROR_PATTERN =
   /repository '[^']*' not found|could not resolve host|temporary failure in name resolution|network is unreachable|couldn't connect to server|connection (?:reset|refused|timed out|closed)|remote end hung up unexpectedly|early eof|rpc failed|the requested url returned error: 5\d\d|operation timed out|timed out|ssl_error|gnutls_handshake|tls handshake/i;
 
+/**
+ * A push the REMOTE rejected with its own server-side 5xx reason (KRTX-1683,
+ * Better Stack FE pattern `a1ed728e…`):
+ *
+ *   ! [remote rejected] <sha> -> main (Internal Server Error)
+ *   error: failed to push some refs to 'https://github.com/<org>/<repo>.git'
+ *
+ * GitHub's receive-pack 500'd mid-receive. The remote tip does NOT move, so
+ * re-pushing the same commit is safe, and a retry seconds later is what
+ * recovered the observed incident (the same POST returned 200 ~8s later).
+ * Neither the transient pattern above (no "returned error: 5xx" text) nor the
+ * policy pattern below (no rule-violation phrase) matches it, so the raw git
+ * stderr surfaced as a `Failed to commit …` 502 that paged Sentry from the
+ * connector-add flow. Anchored on the push subcommand and the explicit 5xx
+ * refusal reasons so a policy rejection (its own classifier) and a permanent
+ * reason like `insufficient permission` stay loud, and a `[remote rejected]`
+ * seen in a fetch error is not reclassified.
+ */
+const REMOTE_PUSH_TRANSIENT_REJECTION_PATTERN =
+  /\[remote rejected\][^\n]*\((?:internal server error|internal error)\)/i;
+
 export function isTransientGitMirrorError(err: unknown): err is GitOperationError {
   if (!isGitOperationError(err)) return false;
   if (err.kind === 'timeout') return true;
   const text = `${err.message}\n${err.stderr}\n${err.stdout}`;
+  if (err.gitArgs[0] === 'push' && REMOTE_PUSH_TRANSIENT_REJECTION_PATTERN.test(text)) return true;
   return TRANSIENT_MIRROR_ERROR_PATTERN.test(text);
 }
 
@@ -414,8 +436,7 @@ export async function retryTransientGitMirror(deps: {
 }): Promise<void> {
   const maxAttempts = deps.maxAttempts ?? MIRROR_RETRY_MAX_ATTEMPTS;
   const delayMs = deps.delayMs ?? MIRROR_RETRY_DELAY_MS;
-  const sleep =
-    deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep = deps.sleep ?? Bun.sleep;
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -488,6 +509,37 @@ export function isGitRefNotFoundError(err: unknown): boolean {
   return /invalid object name|not a valid object name|unknown revision|bad revision/i.test(`${err.message}\n${err.stderr}`);
 }
 
+/** Like runGit, but stdout stays bytes: the only capture a binary blob survives. */
+export async function runGitBuffer(
+  args: string[],
+  cwd?: string,
+  auth = true,
+  authToken?: string | null,
+  extraEnv?: Record<string, string>,
+  authHost = 'github.com',
+  timeoutMs: number = GIT_DEFAULT_TIMEOUT_MS,
+  authHeaders?: Record<string, string>,
+  maxBufferBytes: number = 10 * 1024 * 1024,
+): Promise<{ stdout: Buffer; stderr: string }> {
+  const authEnv = auth ? gitAuthEnv(authToken, authHost, authHeaders) : {};
+  try {
+    const result = await timeStage('git', () => execFileAsync('git', args, {
+      cwd,
+      encoding: 'buffer',
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...authEnv, ...(extraEnv || {}) },
+      maxBuffer: maxBufferBytes,
+      timeout: timeoutMs,
+    }));
+    const raw = result.stdout;
+    return {
+      stdout: Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw), 'utf8'),
+      stderr: result.stderr.toString(),
+    };
+  } catch (error) {
+    throw classifyGitError(error, args, timeoutMs);
+  }
+}
+
 export async function runGit(
   args: string[],
   cwd?: string,
@@ -498,22 +550,11 @@ export async function runGit(
   timeoutMs: number = GIT_DEFAULT_TIMEOUT_MS,
   authHeaders?: Record<string, string>,
 ) {
-  const authEnv = auth ? gitAuthEnv(authToken, authHost, authHeaders) : {};
-  try {
-    // `Server-Timing: git` — clone/fetch/ls-tree/show on the request path.
-    const result = await timeStage('git', () => execFileAsync('git', args, {
-      cwd,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...authEnv, ...(extraEnv || {}) },
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: timeoutMs,
-    }));
-    return {
-      stdout: result.stdout.toString(),
-      stderr: result.stderr.toString(),
-    };
-  } catch (error) {
-    throw classifyGitError(error, args, timeoutMs);
-  }
+  const result = await runGitBuffer(args, cwd, auth, authToken, extraEnv, authHost, timeoutMs, authHeaders);
+  return {
+    stdout: result.stdout.toString(),
+    stderr: result.stderr,
+  };
 }
 
 /**
@@ -551,7 +592,7 @@ export async function runGitCapture(
 /** Re-export so callers that spawn directly (archive streaming) share one import surface. */
 export { spawn };
 
-function refreshIntervalMs() {
+export function refreshIntervalMs() {
   const value = Number(process.env.KORTIX_GIT_REFRESH_INTERVAL_MS || 60_000);
   return Number.isFinite(value) && value >= 0 ? value : 60_000;
 }
@@ -795,12 +836,17 @@ export async function refreshMirror(
   project: GitBackedProject,
   force: MirrorRefresh = false,
   opts?: {
-    /** Freshness is only needed for THIS branch: prove it with one `ls-remote`
-     *  and skip the whole-mirror fetch when it has not moved. Ignored unless
-     *  `force` is set. */
+    /** Freshness is only needed for THIS ref. Forced: prove a branch with one
+     *  `ls-remote` and skip the whole-mirror fetch when it has not moved.
+     *  Unforced, a full commit SHA the mirror already holds skips the fetch:
+     *  nothing at a commit can change. */
     freshRef?: string;
   },
 ) {
+  if (!force && opts?.freshRef && /^[0-9a-f]{40}$/.test(opts.freshRef)) {
+    const held = await mirrorHoldingCommit(project, opts.freshRef);
+    if (held) return held;
+  }
   if (!force && staleMirrorReadsAllowed()) {
     const warm = viewableWarmMirror(project);
     if (warm) {
@@ -816,6 +862,17 @@ export async function refreshMirror(
     }
   }
   return lockedRefreshMirror(project, force, opts);
+}
+
+/** The mirror path when it already holds `commit`, else null. */
+async function mirrorHoldingCommit(project: GitBackedProject, commit: string): Promise<string | null> {
+  const repoPath = repoCachePath(project);
+  if (!existsSync(repoPath) || !looksLikeBareMirror(repoPath)) return null;
+  const held = await runGitCapture(['cat-file', '-e', `${commit}^{commit}`], repoPath).catch(() => null);
+  if (held?.exitCode !== 0) return null;
+  const now = new Date();
+  void utimes(repoPath, now, now).catch(() => {});
+  return repoPath;
 }
 
 async function lockedRefreshMirror(
@@ -956,39 +1013,6 @@ export function normalizeTreePath(input?: string | null) {
   if (!input || input === '.' || input === '/') return null;
   if (input.startsWith('/') || input.includes('..')) throw new Error('Invalid path');
   return input.replace(/^\.\/+/, '').replace(/\/+$/, '');
-}
-
-/**
- * Get the tree OID for a subtree at a given commit. This is git's own
- * content-addressed hash of every file under that path — perfect input
- * for snapshot cache invalidation: same files → same tree OID → same
- * snapshot. When `contextPath` is null/`.`/empty, returns the commit's
- * root tree OID.
- */
-export async function resolveTreeOid(
-  project: GitBackedProject,
-  ref: string,
-  contextPath?: string | null,
-): Promise<string> {
-  validateRef(ref);
-  const repoPath = await refreshMirror(project);
-  const normalized = normalizeTreePath(contextPath);
-  if (!normalized) {
-    // Root tree of the commit.
-    const result = await runGit(['rev-parse', `${ref}^{tree}`], repoPath, false);
-    const oid = result.stdout.trim();
-    if (!/^[0-9a-f]{40}$/.test(oid)) {
-      throw new Error(`Unexpected tree OID for ${ref}: ${oid}`);
-    }
-    return oid;
-  }
-  // ls-tree of the parent, parse the entry for normalized's basename.
-  const result = await runGit(['ls-tree', ref, '--', normalized], repoPath, false);
-  const line = result.stdout.split('\n').find((l) => l.trim());
-  if (!line) throw new Error(`Path "${normalized}" not found at ${ref}`);
-  const match = line.match(/^\d+\s+(tree|blob)\s+([0-9a-f]{40})\t/);
-  if (!match) throw new Error(`Unparseable ls-tree line: ${line}`);
-  return match[2]!;
 }
 
 /**

@@ -10,7 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { STATUS_DOT, STATUS_TEXT, type StatusTone } from '@/components/ui/status';
 
 import { cn } from '@/lib/utils';
-import type { MessageWithParts } from '@kortix/sdk/react';
+import type { SessionLogMessage } from '@kortix/sdk';
+import type { FlatModel } from '@kortix/sdk/react';
 import { ContextRing } from './context-ring';
 import { formatContextCount, getContextUsage } from './context-usage';
 import type { ContextBreakdown } from './context-usage';
@@ -21,10 +22,8 @@ export {
 } from './context-usage';
 export type { ContextBreakdown } from './context-usage';
 
-import type { FlatModel } from '../model-flatten';
-
 interface TokenProgressProps {
-  messages: MessageWithParts[] | undefined;
+  messages: SessionLogMessage[] | undefined;
   models?: FlatModel[];
   selectedModel?: { providerID: string; modelID: string } | null;
   onContextClick?: () => void;

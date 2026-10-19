@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import { cn } from '@/lib/utils';
 import type * as React from 'react';
 
@@ -153,3 +154,6 @@ export function DiffStat({
     </span>
   );
 }
+=======
+export * from '@kortix/ui/status';
+>>>>>>> upstream-dev

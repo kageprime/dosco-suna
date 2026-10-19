@@ -25,23 +25,24 @@ import {
   CopyIcon as Copy,
   EyeIcon as Eye,
   ClockCounterClockwiseIcon as History,
-  DotsThreeVerticalIcon as MoreVertical,
+  DotsThreeIcon as MoreVertical,
   PencilSimpleIcon,
   ScissorsIcon as Scissors,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useTranslations } from '@/i18n/use-translations';
-import { type ComponentType, type ReactNode } from 'react';
+import { type ComponentType, memo, type ReactNode } from 'react';
 import { useDriveRowInteractions } from './use-drive-row-interactions';
-import { DriveFolderIcon } from './drive-folder-icon';
-import { getFileIcon } from './file-icon';
+import { DriveFolderThumbnail } from './drive-folder-thumbnail';
 import { FileThumbnail } from './file-thumbnail';
 import { Download } from '@/features/icon/icons/download';
+import { ownClicks } from './own-clicks';
 
 interface DriveGridItemProps {
   node: FileNode;
-  onClick: () => void;
-  onDoubleClick?: () => void;
+  // Take the node, so one stable handler serves every card and `memo` holds.
+  onClick: (node: FileNode) => void;
+  onDoubleClick?: (node: FileNode) => void;
   onDownload?: (node: FileNode) => void;
   onRename?: (node: FileNode, newName: string) => void;
   onDelete?: (node: FileNode) => void;
@@ -249,7 +250,7 @@ function selectFileRenameInput(el: HTMLInputElement) {
   el.setSelectionRange(0, dotIdx > 0 ? dotIdx : el.value.length);
 }
 
-function FolderCard({
+const FolderCard = memo(function FolderCard({
   node,
   onClick,
   onDownload,
@@ -277,9 +278,10 @@ function FolderCard({
   const copyPathLabel = tHardcodedUi.raw(
     'featuresProjectFilesComponentsDriveGridView.line231JsxTextCopyPath',
   );
+  const open = () => onClick(node);
   const folderMenuProps = {
     node,
-    onClick,
+    onClick: open,
     onDownload,
     onCopy,
     onCut,
@@ -302,17 +304,17 @@ function FolderCard({
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={isRenaming ? undefined : onClick}
+          onClick={isRenaming ? undefined : ownClicks(open)}
           className={cn(
-            'group border-border bg-popover hover:bg-foreground/4 relative flex cursor-pointer flex-col overflow-hidden rounded-md border transition-colors select-none',
+            'group relative flex cursor-pointer flex-col gap-2 select-none',
             isCut && 'opacity-40',
             isDragging && 'opacity-30',
-            isDragOver && 'border-primary/40 ring-primary/50 ring-2',
           )}
         >
-          <div className="flex h-[120px] items-center justify-center">
-            <DriveFolderIcon label={node.name} className="w-[72px] drop-shadow-sm" />
-          </div>
+          <DriveFolderThumbnail
+            path={node.path}
+            className={cn('h-[120px]', isDragOver && 'ring-primary ring-2')}
+          />
 
           {!isRenaming && (
             <DropdownMenu>
@@ -321,9 +323,9 @@ function FolderCard({
                   onClick={(e) => e.stopPropagation()}
                   variant="secondary"
                   size="icon-sm"
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
                 >
-                  <MoreVertical className="text-muted-foreground size-3.5" />
+                  <MoreVertical weight="bold" className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -336,7 +338,7 @@ function FolderCard({
             </DropdownMenu>
           )}
 
-          <div className="border-border/40 bg-background flex items-center border-t px-3 py-2.5">
+          <div className="flex min-w-0 items-center px-0.5">
             {isRenaming ? (
               <input
                 ref={renameInputRef}
@@ -353,10 +355,7 @@ function FolderCard({
                 className="border-primary/50 w-full border-b bg-transparent py-0.5 text-sm outline-none"
               />
             ) : (
-              <div className="flex w-full min-w-0 items-center gap-1.5">
-                <DriveFolderIcon label={node.name} className="size-4 shrink-0" />
-                <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
-              </div>
+              <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
             )}
           </div>
         </div>
@@ -370,9 +369,9 @@ function FolderCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
 
-function FileCard({
+const FileCard = memo(function FileCard({
   node,
   onClick,
   onDoubleClick,
@@ -398,9 +397,10 @@ function FileCard({
   const checkpointHistoryLabel = tHardcodedUi.raw(
     'featuresProjectFilesComponentsDriveGridView.line402JsxTextCheckpointHistory',
   );
+  const open = () => onClick(node);
   const fileMenuProps = {
     node,
-    onClick,
+    onClick: open,
     onDownload,
     onHistory,
     onCopy,
@@ -419,15 +419,19 @@ function FileCard({
           draggable={!isRenaming}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          onClick={isRenaming ? undefined : onClick}
-          onDoubleClick={isRenaming ? undefined : onDoubleClick}
+          onClick={isRenaming ? undefined : ownClicks(open)}
+          onDoubleClick={isRenaming || !onDoubleClick ? undefined : ownClicks(() => onDoubleClick(node))}
           className={cn(
-            'group border-border bg-popover hover:bg-foreground/4 relative flex cursor-pointer flex-col overflow-hidden rounded-md border select-none',
+            'group relative flex cursor-pointer flex-col gap-2 select-none',
             isCut && 'opacity-40',
             isDragging && 'opacity-30',
           )}
         >
-          <FileThumbnail filePath={node.path} fileName={node.name} className="h-[120px]" />
+          <FileThumbnail
+            filePath={node.path}
+            fileName={node.name}
+            className="border-border h-[120px] rounded-lg border"
+          />
 
           {!isRenaming && (
             <DropdownMenu>
@@ -436,9 +440,9 @@ function FileCard({
                   onClick={(e) => e.stopPropagation()}
                   variant="secondary"
                   size="icon-sm"
-                  className="absolute top-3 right-3"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
                 >
-                  <MoreVertical className="text-muted-foreground size-3.5" />
+                  <MoreVertical weight="bold" className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -451,7 +455,7 @@ function FileCard({
             </DropdownMenu>
           )}
 
-          <div className="border-border/40 bg-background flex items-center border-t px-3 py-2.5">
+          <div className="flex min-w-0 items-center px-0.5">
             {isRenaming ? (
               <input
                 ref={renameInputRef}
@@ -468,13 +472,7 @@ function FileCard({
                 className="border-primary/50 w-full border-b bg-transparent py-0.5 text-sm outline-none"
               />
             ) : (
-              <div className="flex w-full min-w-0 items-center gap-1.5">
-                {getFileIcon(node.name, {
-                  className: 'size-3.5 shrink-0 text-muted-foreground',
-                  variant: 'monochrome',
-                })}
-                <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
-              </div>
+              <span className="text-foreground truncate text-sm font-medium">{node.name}</span>
             )}
           </div>
         </div>
@@ -488,7 +486,7 @@ function FileCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
 
 // ─── Main Grid View ─────────────────────────────────────────────────────────
 
@@ -562,8 +560,8 @@ export function DriveGridView({
             count={elevatedDirs.length}
           />
           <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
+            className="grid gap-x-4 gap-y-5"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}
           >
             {elevatedDirs.map((node) => {
               const meta = ELEVATED_DIR_META[node.name];
@@ -577,19 +575,15 @@ export function DriveGridView({
                   key={node.path}
                   onClick={() => onNavigateToDir(node)}
                   title={description}
-                  className={cn(
-                    'group border-border bg-popover hover:bg-foreground/4 relative flex cursor-pointer flex-col overflow-hidden rounded-md border transition-colors select-none',
-                  )}
+                  className="group relative flex cursor-pointer flex-col gap-2 select-none"
                 >
-                  <div className="flex h-[120px] items-center justify-center">
-                    <DriveFolderIcon label={node.name} className="w-[72px] drop-shadow-sm" />
-                  </div>
-                  <div className="border-border/40 bg-background flex items-center gap-1.5 border-t px-3 py-2.5">
-                    <DriveFolderIcon label={node.name} className="size-4 shrink-0" />
-                    <span className="text-foreground truncate text-sm font-medium">
-                      {node.name}
-                    </span>
-                  </div>
+                  <DriveFolderThumbnail
+                    path={node.path}
+                    className="h-[120px]"
+                  />
+                  <span className="text-foreground truncate px-0.5 text-sm font-medium">
+                    {node.name}
+                  </span>
                 </div>
               );
             })}
@@ -601,14 +595,14 @@ export function DriveGridView({
         <section className="space-y-2">
           <SectionHeader label={tI18nComplete.raw('textc4d6bb200f4c')} count={dirs.length} />
           <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
+            className="grid gap-x-4 gap-y-5"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}
           >
             {dirs.map((node) => (
               <FolderCard
                 key={node.path}
                 node={node}
-                onClick={() => onNavigateToDir(node)}
+                onClick={onNavigateToDir}
                 onDownload={onDownloadDir}
                 isDownloadingItem={isDirDownloading(node.path)}
                 onRename={onRename}
@@ -628,15 +622,15 @@ export function DriveGridView({
         <section className="space-y-2">
           <SectionHeader label={tI18nComplete.raw('textabc7e9892806')} count={files.length} />
           <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
+            className="grid gap-x-4 gap-y-5"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))" }}
           >
             {files.map((node) => (
               <FileCard
                 key={node.path}
                 node={node}
-                onClick={() => onPreviewFile(node)}
-                onDoubleClick={() => onOpenFile(node)}
+                onClick={onPreviewFile}
+                onDoubleClick={onOpenFile}
                 onDownload={onDownload}
                 onRename={onRename}
                 onDelete={onDelete}

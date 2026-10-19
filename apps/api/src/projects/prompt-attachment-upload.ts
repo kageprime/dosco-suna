@@ -79,7 +79,11 @@ export async function beginPromptAttachment(
   const declaredMime = input.mime.split(';')[0]!.trim().toLowerCase() || 'application/octet-stream';
   if (!/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(declaredMime) || declaredMime.length > 255)
     throw new PromptAttachmentError('attachment_mime_invalid', 'Attachment MIME type is invalid.');
-  const mime = isModelNativeAttachmentMime(declaredMime) ? declaredMime : 'application/octet-stream';
+  // `text/plain` is inert (never sniffed as active content), and a pasted-text file is one.
+  const mime =
+    isModelNativeAttachmentMime(declaredMime) || declaredMime === 'text/plain'
+      ? declaredMime
+      : 'application/octet-stream';
   // The prompt path's billing decision, without its admission hold: an upload
   // spends no compute, and the hold is reconciled only by an LLM request.
   const { checkBillingAdmission } = await import('../billing/services/billing-gate');
@@ -90,7 +94,6 @@ export async function beginPromptAttachment(
       message: billing.message,
       code: billing.reason,
       balance: billing.balance,
-      billing_model: billing.billingModel,
       has_subscription: billing.hasSubscription,
       billing_state: billing.billingState,
       account_id: scope.accountId,

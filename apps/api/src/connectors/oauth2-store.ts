@@ -13,12 +13,14 @@ import {
 } from '@kortix/db';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { connectionRowIsReachable } from '../projects/lib/connection-access';
-import { decryptProjectSecret, encryptProjectSecret } from '../projects/secrets';
+import { decryptNamedProjectSecret, decryptProjectSecret, encryptProjectSecret } from '../projects/secrets';
+import { SecretUndecryptableError } from '../secrets/undecryptable';
 import { db } from '../shared/db';
 import { isUniqueViolation } from '../shared/postgres-errors';
 import { config } from '../config';
+import { logger } from '../lib/logger';
 import { connectionIsEffectiveProjectDefault, upsertConnectionCredential } from './credentials';
-import { nativeOAuth2CallbackUrl } from './oauth2-callback-url';
+import { nativeOAuth2CallbackResponse, nativeOAuth2CallbackUrl } from './oauth2-callback-url';
 import {
   createStoredDelegatedCredential,
   parseDelegatedCredential,
@@ -34,6 +36,7 @@ import {
 } from './oauth2-lifecycle';
 import { validateAuthorizationIssuer } from './oauth2-issuer';
 import { oauthCompletionRematerializeInput } from './oauth2-rematerialize';
+import { kortixClientApplication } from './mcp-apps';
 import { registerOAuth2Client } from './oauth2-registration';
 import {
   type ProtectedResourceProvider,
@@ -158,22 +161,40 @@ export async function loadOAuth2Application(connectionId: string): Promise<{
   connectionId: string;
   application: OAuth2ApplicationInput;
 } | null> {
-  const [row] = await db
-    .select()
+  const [found] = await db
+    .select({ row: connectionOAuthApplications, slug: connectors.slug })
     .from(connectionOAuthApplications)
+    .innerJoin(connectors, eq(connectors.connectorId, connectionOAuthApplications.connectorId))
     .where(eq(connectionOAuthApplications.connectionId, connectionId))
     .limit(1);
-  if (!row) return null;
+  if (!found) return null;
+  const { row } = found;
   return {
     applicationId: row.applicationId,
     accountId: row.accountId,
     projectId: row.projectId,
     connectorId: row.connectorId,
     connectionId: row.connectionId,
+    // A config this server cannot decrypt throws SecretUndecryptableError
+    // (409 at the HTTP layer); saving the application again replaces it.
     application: JSON.parse(
-      decryptProjectSecret(row.projectId, row.configEnc),
+      decryptNamedProjectSecret(
+        row.projectId,
+        row.configEnc,
+        `The OAuth application of connector ${found.slug}`,
+        'Save the OAuth application again, then reconnect the account.',
+      ),
     ) as OAuth2ApplicationInput,
   };
+}
+
+/** The plaintext, or null when this server cannot decrypt the envelope. */
+function decryptOrNull(projectId: string, valueEnc: string): string | null {
+  try {
+    return decryptProjectSecret(projectId, valueEnc);
+  } catch {
+    return null;
+  }
 }
 
 export function redactOAuth2Application(application: OAuth2ApplicationInput) {
@@ -248,6 +269,18 @@ export async function discoverConnectionOAuth2Resource(
   );
 }
 
+async function kortixClientApplicationForConnector(
+  connectorId: string,
+): Promise<OAuth2ApplicationInput | null> {
+  const [row] = await db
+    .select({ providerType: connectors.providerType, config: connectors.config })
+    .from(connectors)
+    .where(eq(connectors.connectorId, connectorId))
+    .limit(1);
+  const url = (row?.config as { url?: unknown } | null)?.url;
+  return row?.providerType === 'mcp' && typeof url === 'string' ? kortixClientApplication(url) : null;
+}
+
 /**
  * Register Dosco as an OAuth2 client (RFC 7591) at the discovered
  * registration endpoint and save the issued client as the connection's
@@ -263,6 +296,18 @@ export async function registerConnectionOAuth2Client(
   runtime: OAuth2LifecycleRuntime = {},
 ): Promise<OAuth2ApplicationInput> {
   const { registration } = input;
+  if (!registration.registration_endpoint) {
+    // No dynamic registration: only a catalogue app signs in, with Kortix's own
+    // client and the catalogue's endpoints. Nothing from the request is used.
+    const application = await kortixClientApplicationForConnector(input.identity.connectorId);
+    if (!application) {
+      throw new Error(
+        'This authorization server does not support dynamic client registration (RFC 7591), and Kortix has no OAuth client for this server',
+      );
+    }
+    await saveOAuth2Application(input.identity, application, input.createdBy);
+    return application;
+  }
   const issued = await registerOAuth2Client(
     {
       registrationEndpoint: registration.registration_endpoint,
@@ -433,6 +478,11 @@ export async function completeAuthorizationCodeSession(input: {
     await rematerializeAfterOAuthCompletion(loaded.connectionId);
     return { redirectUri: claimed.successRedirectUri, ok: true };
   } catch (error) {
+    // The redirect only carries `token_exchange_failed`; the cause lives here.
+    logger.warn('[connector] OAuth code exchange failed', {
+      connectionId: claimed.connectionId,
+      err: (error as Error).message,
+    });
     await db
       .update(connectorConnections)
       .set({ status: 'error', updatedAt: new Date() })
@@ -584,9 +634,9 @@ export async function oauth2ConnectionStatus(connectionId: string) {
   if (!credential.valueEnc || credential.kind !== 'oauth2_delegated') {
     return { status: 'ready' as const };
   }
-  const stored = parseDelegatedCredential(
-    decryptProjectSecret(credential.projectId, credential.valueEnc),
-  );
+  const value = decryptOrNull(credential.projectId, credential.valueEnc);
+  if (value === null) return { status: 'error' as const, error_code: 'credential_undecryptable' };
+  const stored = parseDelegatedCredential(value);
   if (!stored) return { status: 'error' as const, error_code: 'invalid_credential' };
   return {
     status: 'active' as const,
@@ -596,27 +646,33 @@ export async function oauth2ConnectionStatus(connectionId: string) {
 }
 
 export async function revokeConnectionOAuth2(connectionId: string): Promise<void> {
-  const loaded = await loadOAuth2Application(connectionId);
+  // An application or a token this server cannot decrypt cannot be revoked
+  // upstream. The local credential is still deleted: a revoke must not fail on
+  // the state it clears.
+  const loaded = await loadOAuth2Application(connectionId).catch((error: unknown) => {
+    if (error instanceof SecretUndecryptableError) return 'undecryptable' as const;
+    throw error;
+  });
   if (!loaded) return;
+  const app = loaded === 'undecryptable' ? null : loaded;
   const [credential] = await db
     .select({ credentialId: connectionCredentials.credentialId, valueEnc: connectionCredentials.valueEnc })
     .from(connectionCredentials)
     .where(eq(connectionCredentials.connectionId, connectionId))
     .limit(1);
   if (credential) {
-    const stored = parseDelegatedCredential(
-      decryptProjectSecret(loaded.projectId, credential.valueEnc),
-    );
-    if (stored && loaded.application.revocation_url) {
+    const value = app ? decryptOrNull(app.projectId, credential.valueEnc) : null;
+    const stored = value === null ? null : parseDelegatedCredential(value);
+    if (app && stored && app.application.revocation_url) {
       if (stored.token.refresh_token) {
         await revokeOAuth2Token(
-          loaded.application,
+          app.application,
           stored.token.refresh_token,
           'refresh_token',
         ).catch(() => undefined);
       }
       await revokeOAuth2Token(
-        loaded.application,
+        app.application,
         stored.token.access_token,
         'access_token',
       ).catch(() => undefined);
@@ -645,11 +701,5 @@ export async function handleNativeOAuth2Callback(requestUrl: string) {
     callbackUrl: callback,
     issuer: url.searchParams.get('iss') ?? undefined,
   });
-  if (!result.redirectUri) {
-    return { status: 400 as const, body: 'OAuth2 authorization failed' };
-  }
-  const redirect = new URL(result.redirectUri);
-  redirect.searchParams.set('oauth2', result.ok ? 'connected' : 'error');
-  if (result.errorCode) redirect.searchParams.set('oauth2_error', result.errorCode);
-  return { status: 302 as const, location: redirect.href };
+  return nativeOAuth2CallbackResponse(result);
 }

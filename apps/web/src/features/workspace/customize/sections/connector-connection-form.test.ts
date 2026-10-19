@@ -162,17 +162,16 @@ describe('connector setup status', () => {
     expect(connectorSetupStatus({ ...connector, secretSet: true })).toBe('connected');
   });
 
-  test('does not infer a user authorization state from the shared secret', () => {
+  // The list's `status` is computed for the caller: a per-person connector
+  // reads `active` only when the caller's own account holds a credential, and
+  // `needs_auth` when it does not. It used to show "User-managed" either way.
+  test('a per-person connector is connected when the caller is, never "user managed"', () => {
     expect(connectorSetupStatus({ ...connector, authorizationStrategy: 'user' })).toBe(
-      'user_managed',
+      'connected',
     );
     expect(
-      connectorSetupStatus({
-        ...connector,
-        authorizationStrategy: 'user',
-        secretSet: true,
-      }),
-    ).toBe('user_managed');
+      connectorSetupStatus({ ...connector, authorizationStrategy: 'user', status: 'needs_auth' }),
+    ).toBe('needs_setup');
   });
 
   // Prod 2026-08-28: 6 of 6 GitHub connections had a null `connected_account_id`
@@ -213,5 +212,27 @@ describe('connector connection query keys', () => {
       ['connections-all', 'project-1'],
       ['session-scope-catalog', 'project-1'],
     ]);
+  });
+});
+
+describe('connectorSetupStatus: MCP sign-in still to do', () => {
+  const failing = {
+    authorizationStrategy: 'project' as const,
+    authSecret: null,
+    secretSet: false,
+    status: 'error' as const,
+    provider: 'mcp' as const,
+  };
+
+  test('an MCP server asking for sign-in is pending, not an error', () => {
+    expect(
+      connectorSetupStatus({ ...failing, lastError: 'MCP tools/list failed: HTTP 401' }),
+    ).toBe('pending');
+  });
+
+  test('any other MCP failure stays an error', () => {
+    expect(connectorSetupStatus({ ...failing, lastError: 'MCP tools/list failed: HTTP 500' })).toBe(
+      'error',
+    );
   });
 });

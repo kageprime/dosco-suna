@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -35,20 +34,34 @@ const NAV_RULES = [
   '@next/next/no-location-assign-relative-destination',
 ];
 
+/**
+ * Every child here is async `Bun.spawn`, never a sync spawn: bun <= 1.4.2's
+ * spawnSync can lose the child's exit and spin the test worker at 100% CPU
+ * forever (oven-sh/bun#34069), where no test timeout can fire. The kill
+ * bounds a child that really hangs.
+ */
+async function run(cmd: string[], timeout = 100_000): Promise<{ stdout: string; stderr: string; code: number }> {
+  const proc = Bun.spawn(cmd, { cwd: WEB_ROOT, stdout: 'pipe', stderr: 'pipe', timeout });
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (proc.signalCode) throw new Error(`${cmd[0]} killed after ${timeout} ms (${proc.signalCode})`);
+  return { stdout, stderr, code };
+}
+
 /** Files that could possibly trip either rule. */
-function candidateFiles(): string[] {
-  const out = execFileSync(
-    'grep',
-    [
+async function candidateFiles(): Promise<string[]> {
+  const { stdout } = await run([
+      'grep',
       '-rlE',
       'router\\.(push|replace)\\(|window\\.location|location\\.(href|assign|replace)\\s*=',
       'src',
       '--include=*.ts',
-      '--include=*.tsx',
-    ],
-    { cwd: WEB_ROOT, encoding: 'utf8' },
-  );
-  return out
+    '--include=*.tsx',
+  ]);
+  return stdout
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
@@ -58,15 +71,17 @@ function candidateFiles(): string[] {
 type LintMessage = { ruleId: string | null; line: number; message: string };
 type LintResult = { filePath: string; messages: LintMessage[] };
 
-function lintNavRules(files: string[]): string[] {
+/** ESLint over every candidate: 16-20 s alone, minutes on a loaded packages lane. */
+async function lintNavRules(files: string[]): Promise<string[]> {
   if (files.length === 0) return [];
-  const raw = execFileSync('npx', ['eslint', '--format', 'json', ...files], {
-    cwd: WEB_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    // eslint exits non-zero when it reports anything; we read the JSON either way.
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
+  const { stdout: raw, stderr, code } = await run([
+    resolve(WEB_ROOT, 'node_modules/.bin/eslint'),
+    '--format',
+    'json',
+    ...files,
+  ]);
+  // eslint exits 1 when it reports problems; the JSON is still on stdout.
+  if (!raw) throw new Error(`eslint exited ${code} with no output: ${stderr}`);
   const results = JSON.parse(raw) as LintResult[];
   return results.flatMap((r) =>
     r.messages
@@ -76,24 +91,8 @@ function lintNavRules(files: string[]): string[] {
 }
 
 describe('nav contract — no full page reload on an in-app navigation', () => {
-  test('no nav control reaches a static internal href through router.push or window.location', () => {
-    let violations: string[];
-    try {
-      violations = lintNavRules(candidateFiles());
-    } catch (error) {
-      // eslint exits 1 when it reports problems. execFileSync throws, but the
-      // JSON is still on stdout.
-      const stdout = (error as { stdout?: string }).stdout;
-      if (!stdout) throw error;
-      const results = JSON.parse(stdout) as LintResult[];
-      violations = results.flatMap((r) =>
-        r.messages
-          .filter((m) => m.ruleId !== null && NAV_RULES.includes(m.ruleId))
-          .map((m) => `${r.filePath.replace(`${WEB_ROOT}/`, '')}:${m.line}  [${m.ruleId}]`),
-      );
-    }
-
-    expect(violations).toEqual([]);
+  test('no nav control reaches a static internal href through router.push or window.location', async () => {
+    expect(await lintNavRules(await candidateFiles())).toEqual([]);
   }, 120_000);
 
   test('both rules are wired at error level, not warn', () => {
@@ -181,12 +180,11 @@ describe('nav contract — every URL written to history is a real route', () => 
   // hrefs is deleted (KRTX-1012); its allow-list entry went with it.
   const LEGACY_UNREACHABLE = ['src/features/workspace/command-palette.tsx'];
 
-  test('no live code writes a /sessions/<id> or /terminal/<id> tab href', () => {
-    const hits = execFileSync(
-      'grep',
-      ['-rln', 'href: `/\\(sessions\\|terminal\\)/', 'src', '--include=*.ts', '--include=*.tsx'],
-      { cwd: WEB_ROOT, encoding: 'utf8' },
-    )
+  test('no live code writes a /sessions/<id> or /terminal/<id> tab href', async () => {
+    // grep exits 1 on no match; `run` does not throw on that.
+    const hits = (
+      await run(['grep', '-rln', 'href: `/\\(sessions\\|terminal\\)/', 'src', '--include=*.ts', '--include=*.tsx'])
+    ).stdout
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import * as realAccess from '../../projects/lib/access';
+import * as realAuthorize from '../../iam/authorize';
 
 const ACCOUNT_ID = '00000000-0000-4000-a000-000000000001';
 const PROJECT_ID = '00000000-0000-4000-a000-000000000002';
@@ -12,6 +13,7 @@ let tokenProjectId: string | null = null;
 let listInput: Record<string, unknown> | null = null;
 let resolveAccountDenied = false;
 let usageCapabilityDenied = false;
+let accessibleProjects: realAuthorize.Accessible = { mode: 'all' };
 
 interface TestContext {
   set(key: string, value: unknown): void;
@@ -48,7 +50,7 @@ mock.module('../../middleware/auth', () => ({
   },
 }));
 
-mock.module('../../shared/resolve-account', () => ({
+mock.module('../../middleware/resolve-account', () => ({
   resolveScopedAccountId: async (c: TestContext) => {
     if (resolveAccountDenied) {
       throw new HTTPException(403, { message: 'Forbidden' });
@@ -62,6 +64,16 @@ mock.module('../../shared/resolve-account', () => ({
 // never calls into it, but the static import still has to resolve — the real
 // module pulls in resolveAccountId from the mocked resolve-account above,
 // which does not export it.
+// #9272: account-wide usage reads require `billing.read`. Record the check.
+const authorizedActions: string[] = [];
+mock.module('../../iam/authorize', () => ({
+  ...realAuthorize,
+  assertAuthorized: async (_actor: unknown, action: string) => {
+    authorizedActions.push(action);
+  },
+  listAccessible: async () => accessibleProjects,
+}));
+
 // Spread the real module: `mock.module` replaces it WHOLESALE, so a stub that
 // lists exports by hand deletes every export it omits — the failure surfaces in
 // whatever unrelated file imports the missing name next, attributed to no test.
@@ -131,6 +143,7 @@ beforeEach(() => {
   resolveAccountDenied = false;
   usageCapabilityDenied = false;
   projectsToReturn = [project];
+  accessibleProjects = { mode: 'all' };
 });
 
 describe('GET /v1/usage/cost-by-project', () => {
@@ -246,6 +259,26 @@ describe('GET /v1/usage/cost-by-project', () => {
 
     expect(response.status).toBe(403);
     expect(listInput).toBeNull();
+  });
+
+  test('a caller who reads every project gets no project filter', async () => {
+    const response = await createTestApp().request(`/v1/usage/cost-by-project?account_id=${ACCOUNT_ID}`);
+    expect(response.status).toBe(200);
+    expect(listInput?.visibleProjectIds).toBeUndefined();
+  });
+
+  test('a caller limited to some projects gets only those rows', async () => {
+    accessibleProjects = { mode: 'allow_only', allowed: new Set([PROJECT_ID]) };
+    const response = await createTestApp().request(`/v1/usage/cost-by-project?account_id=${ACCOUNT_ID}`);
+    expect(response.status).toBe(200);
+    expect([...(listInput?.visibleProjectIds as Set<string>)]).toEqual([PROJECT_ID]);
+  });
+
+  test('a caller who reads no project gets an empty filter, not every project', async () => {
+    accessibleProjects = { mode: 'none' };
+    const response = await createTestApp().request(`/v1/usage/cost-by-project?account_id=${ACCOUNT_ID}`);
+    expect(response.status).toBe(200);
+    expect((listInput?.visibleProjectIds as Set<string>).size).toBe(0);
   });
 });
 

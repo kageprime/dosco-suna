@@ -99,8 +99,8 @@ export function GrantHeaderTrailing({
 }: {
   value: AgentGrantSetV2 | undefined;
   tab?: 'skills' | 'connectors' | 'secrets';
-  /** A project page that is NOT a Customize tab — Apps lives at
-   *  `/projects/<id>/apps`, so it cannot be named by `tab`. */
+  /** A page `tab` cannot name — Apps is a Customize tab, reached
+   *  through `capabilityTabHref(projectId, 'apps')`. */
   href?: (projectId: string) => string;
   label: string;
 }) {
@@ -241,7 +241,43 @@ export function SecretsSection({ draft, set, options }: GrantSectionProps) {
   );
 }
 
+<<<<<<< HEAD
 /** Dosco permissions (`kortix_permissions` in kortix.yaml): which project
+=======
+/**
+ * A kortix_version 3 grant over a project registry: the declared subagents
+ * this agent may start, the registered commands it may run, the registered
+ * extensions a session of it loads. One card, the same All · Pick · None
+ * control as Skills.
+ */
+export function RegistryGrantSection({
+  grant,
+  draft,
+  set,
+  options,
+}: GrantSectionProps & { grant: 'subagents' | 'commands' | 'extensions' }) {
+  const t = useI18nTranslations('agents.grants');
+  return (
+    <EditorSection
+      title={t(`${grant}.title`)}
+      description={t(`${grant}.description`)}
+      trailing={<GrantChip value={draft[grant]} />}
+    >
+      <div className="py-4">
+        <GrantSetField
+          value={draft[grant]}
+          onChange={(v: AgentGrantSetV2) => set(grant, v)}
+          options={options}
+          allLabel={t(`${grant}.all`)}
+          emptyLabel={t(`${grant}.empty`)}
+        />
+      </div>
+    </EditorSection>
+  );
+}
+
+/** Kortix permissions (`kortix_permissions` in kortix.yaml): which project
+>>>>>>> upstream-dev
  *  operations the agent may perform, through any surface. A block read from a
  *  pre-rename server may still carry `kortix_cli`; an edit writes the canonical
  *  key and drops the alias so the two can never disagree. */

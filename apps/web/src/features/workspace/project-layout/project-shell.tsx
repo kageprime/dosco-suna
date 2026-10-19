@@ -1,5 +1,6 @@
 'use client';
 
+import { AppPreviewPoolLoader } from '@/features/apps/app-preview-pool-loader';
 import { useTranslations } from '@/i18n/use-translations';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -41,7 +42,13 @@ import { cn } from '@/lib/utils';
 import { BillingAccountProvider } from '@/stores/billing-account-context';
 import { useProjectSessionTabsStore } from '@/stores/project-session-tabs-store';
 import { getProjectDetail } from '@kortix/sdk';
-import { contract, qk, useFeatureFlag, useGatewayCatalogSync } from '@kortix/sdk/react';
+import {
+  contract,
+  qk,
+  useFeatureFlag,
+  useGatewayCatalogSync,
+  useSessionsNeedingInput,
+} from '@kortix/sdk/react';
 import { SidebarToggle as PanelLeft } from '@/features/icon/icons/sidebar-toggle';
 
 const CommandPalette = lazy(() =>
@@ -82,7 +89,7 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, bootstrapError } = useAuth();
 
-  const { data: projectDetail, error: projectDetailError } = useQuery({
+  const { data: projectDetail, error: projectDetailError, isStale: projectDetailStale } = useQuery({
     queryKey: qk.project.detail(projectId),
     queryFn: () => getProjectDetail(projectId),
     enabled: !!projectId,
@@ -93,6 +100,10 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
   // Fill every Customize tab's cache on the first idle slot, so opening
   // Customize renders from memory instead of waiting on the API.
   useCustomizePrefetch(projectId);
+  // The one 30 s poll of GET needs-input for this project (KRTX-1739). The
+  // sidebar and the Sessions page read its cache (`useSessionNeedsYouCounts`):
+  // a poll in each would read up to twice per 30 s.
+  useSessionsNeedingInput(projectId);
 
   // Presence: this shell is mounted for EVERY /projects/[id] route and survives
   // in-project navigation, so mounting the warm hook here means "one ensure
@@ -117,12 +128,15 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
 
   // Remember the project so the next `/` hit and the next sign-in land straight
   // back here instead of going through the id-free landing door. Gated on a
-  // successful detail fetch: recording a project the user cannot actually read
-  // would send them into a 404 bounce loop on their next visit.
+  // detail read the server confirmed: recording a project the user cannot
+  // actually read would send them into a 404 bounce loop on their next visit.
+  // A copy restored from this device's cache is stale until it refetches, and
+  // it outlives a deleted project: remembering it would let the self-heal below
+  // leave the "This project is gone." screen for another project.
   useEffect(() => {
-    if (!projectDetail) return;
+    if (!projectDetail || projectDetailError || projectDetailStale) return;
     writeLastProjectId(user?.id, projectId);
-  }, [projectDetail, projectId, user?.id]);
+  }, [projectDetail, projectDetailError, projectDetailStale, projectId, user?.id]);
 
   // Self-heal a stale remembered project. The cookie outlives the project it
   // names (deleted project, signed into a different account on the same
@@ -264,11 +278,27 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
 
         <SettingsPanel projectId={projectId} />
 
+        {/* App previews load here in the background and stay loaded while
+            the project is open, so the Apps page shows them at once. */}
+        <AppPreviewPoolLoader projectId={projectId} />
+
         <Suspense fallback={null}>
           <PresentationViewerWrapper />
         </Suspense>
 
-        <ProjectOnboardingWizard projectId={projectId} />
+        {/* A fresh account's first project arrives unstamped (the create flow
+            stamps only later projects — KRTX-2092), so this wizard opens on
+            the landing. It must carry the skip control: in the browser there
+            is no other exit — the close button is desktop-shell-only, outside
+            clicks are dead and Escape is intercepted. The wizard's own skip
+            already opens the first chat and stamps the project, so the shell
+            adds no navigation of its own. */}
+        <ProjectOnboardingWizard
+          projectId={projectId}
+          onSkip={() => {
+            /* the wizard's skip closes it in place; nothing to navigate to */
+          }}
+        />
 
 
         <PersonalOnboardingWelcome projectId={projectId} />

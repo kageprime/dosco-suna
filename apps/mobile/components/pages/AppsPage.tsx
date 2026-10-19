@@ -34,10 +34,9 @@ interface AppsPageProps {
   page: PageTabLike;
   projectId: string;
   onOpenDrawer?: () => void;
-  isDrawerOpen?: boolean;
 }
 
-export function AppsPage({ page, projectId, onOpenDrawer, isDrawerOpen }: AppsPageProps) {
+export function AppsPage({ page, projectId, onOpenDrawer }: AppsPageProps) {
   const { colorScheme } = useColorScheme();
   const bgColor = colorScheme === 'dark' ? THEME.dark.background : THEME.light.background;
   const toast = useToast();
@@ -71,7 +70,7 @@ export function AppsPage({ page, projectId, onOpenDrawer, isDrawerOpen }: AppsPa
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <PageHeader title={page.label} onOpenDrawer={onOpenDrawer} isDrawerOpen={isDrawerOpen} />
+      <PageHeader title={page.label} onOpenDrawer={onOpenDrawer} />
 
       <PageContent>
         <PageList<App>
@@ -83,7 +82,7 @@ export function AppsPage({ page, projectId, onOpenDrawer, isDrawerOpen }: AppsPa
           }
           onRetry={() => void refetch()}
           onRefresh={() => refetch()}
-          emptyLabel="No apps yet"
+          emptyLabel={apps.length === 0 ? 'No apps yet' : null}
           header={<View className="h-1" />}
           data={apps}
           keyExtractor={(app) => app.app_id}

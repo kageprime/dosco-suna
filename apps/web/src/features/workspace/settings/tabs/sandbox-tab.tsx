@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 /**
  * The Sandbox tab — sandbox template CRUD (list, create, edit, delete,
  * rebuild). **No build log.** Split off `sandbox-view.tsx`'s `SandboxView`,
@@ -150,6 +151,10 @@
  * is actually mounted, which `SettingsTabPane` in `settings-panel.tsx`
  * guarantees.
  */
+=======
+import { LONG_AGO, relativeTime } from '@/lib/relative-time';
+import { FactCell } from './fact-cell';
+>>>>>>> upstream-dev
 
 import { type ReactNode, useState } from 'react';
 
@@ -173,8 +178,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { errorToast, successToast } from '@/components/ui/toast';
 import { EmptyState } from '@/features/layout/section/empty-state';
 import { ErrorState } from '@/features/layout/section/error-state';
-import { useProjectManifestVersion } from '@/features/workspace/customize/migrate-to-v2/manifest-version';
+import {
+  manifestFilename,
+  useProjectManifestVersion,
+} from '@/features/workspace/customize/migrate-to-v2/manifest-version';
 import type { UiTranslator } from '@/i18n/translator';
+import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { PROJECT_ACTIONS } from '@/lib/project-actions';
 import { useProjectCans } from '@/lib/use-project-can';
 import { cn } from '@/lib/utils';
@@ -210,9 +219,7 @@ import {
   XCircleIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocale, useTranslations } from '@/i18n/use-translations';
 
-import { snapshotsQueryRetry } from './snapshots-query';
 import {
   type SandboxProvider,
   SandboxProviderBadge,
@@ -226,6 +233,7 @@ import {
   pollSandboxProviderTransition,
 } from '../../customize/sections/view/sandbox-provider-result';
 import { SettingsTabHeader } from '../settings-tab-header';
+import { snapshotsQueryRetry } from './snapshots-query';
 
 /** One batched probe for the two leaves this tab gates on. */
 const SANDBOX_TAB_ACTIONS = [
@@ -291,7 +299,7 @@ export function describeSource(
   if (template.source === 'ui')
     return { label: labels.dashboard ?? 'This dashboard', icon: SquaresFourIcon, mono: false };
   return {
-    label: manifestVersion === 2 ? 'kortix.yaml' : 'kortix.toml',
+    label: manifestFilename(manifestVersion),
     icon: FileCodeIcon,
     mono: true,
   };
@@ -358,31 +366,7 @@ export function describeRouting(
 }
 
 /** Locale-aware age for the runtime footer's "Checked …" stamp. */
-function formatRelative(input: string | null | undefined, locale = 'en'): string {
-  if (!input) return '—';
-  const then = new Date(input).getTime();
-  if (!Number.isFinite(then)) return '—';
-  const minutes = Math.trunc((Date.now() - then) / 60_000);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  if (minutes < 60) return formatter.format(-Math.max(minutes, 0), 'minute');
-  const hours = Math.trunc(minutes / 60);
-  if (hours < 24) return formatter.format(-hours, 'hour');
-  const days = Math.trunc(hours / 24);
-  if (days < 30) return formatter.format(-days, 'day');
-  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(then);
-}
 
-/**
- * The status word the old row computed and discarded. Glyph carries the same
- * meaning as the colour so the state survives greyscale, colour-blindness, and
- * a reader who has never seen this screen before.
- *
- * `busy` uses `Loading` rather than a glyph deliberately: a building template
- * is a live async operation (the tab re-polls every 5s while any provider
- * reports `building`), and motion is the only thing that says "this will
- * change on its own — don't press Rebuild". `Loading` is the codebase's single
- * spinner; no icon may be spun in its place.
- */
 export function TemplateStateLine({ tone, label }: { tone: TemplateTone; label: string }) {
   const toneClass = TEMPLATE_TONE_TEXT[tone];
 
@@ -402,73 +386,21 @@ export function TemplateStateLine({ tone, label }: { tone: TemplateTone; label: 
   );
 }
 
-/**
- * One labelled cell of the spec grid — the unit of the readability fix. The
- * `<dt>` sits above the value rather than beside it so the label column never
- * competes with the value for the same 200px, and the value truncates inside
- * its own cell (with a native `title` for the full string) instead of taking
- * the whole meta line down with it.
- */
-export function TemplateFact({
-  icon: Icon,
-  label,
-  value,
-  mono = false,
-  className,
-}: {
-  icon: PhosphorIcon;
-  label: string;
-  value: string;
-  mono?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={cn('min-w-0 space-y-1', className)}>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="flex min-w-0 items-center gap-1.5">
-        <Icon className="text-muted-foreground size-4 shrink-0" />
-        <span className={cn('truncate text-sm', mono && 'font-mono text-xs')} title={value}>
-          {value}
-        </span>
-      </dd>
-    </div>
-  );
-}
-
-/**
- * The card's runtime strip: one line, three zones, one left edge.
- *
- * ```
- * Session runtime   [Daytona · Ready] [Platinum · Building]   Checked 2 min ago
- * └ label, fixed    └ badges, flex-1                          └ stamp, pushed right
- * ```
- *
- * The previous footer nested `SandboxTemplateProviderCoverage` — a block that
- * carried its OWN label, badges and timestamp — inside a row that carried a
- * "Routing" label of its own. That produced two labels and a timestamp jammed
- * against the last badge, with no way to align anything, because the inner
- * block owned its own layout. Composing from `SandboxProviderBadge` puts the
- * row back under this component's control: `ml-auto` on the stamp is only
- * possible once the stamp is a direct child.
- *
- * Renders `null` when no provider reports coverage, so the card simply ends at
- * the spec grid rather than showing an empty strip.
- */
 export function TemplateRuntimeFooter({
   coverage,
   providerMode,
   selectedProvider,
-  formatObservedAt = formatRelative,
-  runtimeLabel = 'Session runtime',
-  checkedLabel = (value) => `Checked ${value}`,
+  formatObservedAt,
+  runtimeLabel,
+  checkedLabel,
   badgeCopy,
 }: {
   coverage: SandboxTemplate['provider_coverage'] | null | undefined;
   providerMode: SandboxProviderMode;
   selectedProvider: SandboxProvider | null;
-  formatObservedAt?: (observedAt: string) => string;
-  runtimeLabel?: string;
-  checkedLabel?: (value: string) => string;
+  formatObservedAt: (observedAt: string) => string;
+  runtimeLabel: string;
+  checkedLabel: (value: string) => string;
   badgeCopy?: import('../../customize/sections/view/sandbox-provider-coverage').SandboxProviderBadgeCopy;
 }) {
   const available = availableProviderCoverage(coverage);
@@ -659,29 +591,25 @@ function TemplateCard({
             the columns wander between cards. Matches `snapshots-tab.tsx`, the
             other half of this split, which pins its timestamps the same way. */}
         <dl className="border-border/60 grid grid-cols-2 gap-x-4 gap-y-4 border-t px-4 py-4 tabular-nums sm:grid-cols-3">
-          <TemplateFact
-            icon={CpuIcon}
-            label={t('facts.processor')}
-            value={`${template.cpu} vCPU`}
-          />
-          <TemplateFact
+          <FactCell icon={CpuIcon} label={t('facts.processor')} value={`${template.cpu} vCPU`} />
+          <FactCell
             icon={MemoryIcon}
             label={t('facts.memory')}
             value={`${template.memory_gb} GiB`}
           />
-          <TemplateFact
+          <FactCell
             icon={HardDrivesIcon}
             label={t('facts.storage')}
             value={`${template.disk_gb} GiB`}
           />
-          <TemplateFact icon={base.icon} label={base.label} value={base.value} mono={base.mono} />
-          <TemplateFact
+          <FactCell icon={base.icon} label={base.label} value={base.value} mono={base.mono} />
+          <FactCell
             icon={source.icon}
             label={t('facts.definedIn')}
             value={source.label}
             mono={source.mono}
           />
-          <TemplateFact icon={routing.icon} label={t('routing.title')} value={routing.label} />
+          <FactCell icon={routing.icon} label={t('routing.title')} value={routing.label} />
         </dl>
 
         <TemplateRuntimeFooter
@@ -690,7 +618,7 @@ function TemplateCard({
           selectedProvider={selectedProvider}
           runtimeLabel={t('runtime')}
           checkedLabel={(value) => t('checked', { value })}
-          formatObservedAt={(observedAt) => formatRelative(observedAt, locale)}
+          formatObservedAt={(observedAt) => relativeTime(observedAt, locale, Date.now(), LONG_AGO)}
           badgeCopy={{
             states: {
               ready: t('coverage.ready'),
@@ -719,40 +647,8 @@ function TemplateCard({
   );
 }
 
-/**
- * One flat block per card — deliberately NOT a wireframe of the card's insides.
- *
- * The previous version drew a `bg-popover rounded-md border` panel and packed
- * six `Skeleton` shapes into it: a tile, two text bars and a three-cell row.
- * That reads as a skeleton nested inside a skeleton — the bordered panel is
- * already surface chrome, so filling it with more grey blocks gives the eye
- * structure to parse at exactly the moment there is nothing to read. It had
- * also silently gone stale: it still drew the `size-9` status tile that the
- * card itself no longer has.
- *
- * `h-60` (240px) is the settled height of a card with a runtime footer
- * (72px header + 129px grid + 41px footer = 242px), so the list barely moves
- * when real data lands.
- */
 const TEMPLATE_SKELETON_HEIGHT = 'h-60';
 
-/**
- * Per-project sandbox-provider pin. **Moved here from `general-tab.tsx`, not
- * copied** — General no longer mentions sandboxes at all. The move is the
- * product owner's own call ("just combine truly everything in one place that
- * is sandbox related"), and it puts the control that SETS the pin directly
- * above the cards that REPORT it: every `TemplateCard`'s "Routing" cell and
- * runtime footer read the same pin this row writes.
- *
- * The mutation, the prepare-vs-immediate branch, the durable-transition
- * polling and every toast are carried over unchanged from `general-tab.tsx` —
- * only the enclosing tab and the section label ("Sandbox" -> "Routing", the
- * word the template cards already use for this) are different.
- *
- * Overrides the platform's weighted distribution for THIS project only.
- * Options come from the project payload (`available_sandbox_providers`).
- * Hidden only when no provider is usable.
- */
 const AUTO_PROVIDER = '__auto__';
 function SandboxProviderRow({
   project,
@@ -812,8 +708,7 @@ function SandboxProviderRow({
         });
       }
     },
-    onError: (error: Error) =>
-      errorToast(error.message || tI18nComplete('text914be6d9bb89')),
+    onError: (error: Error) => errorToast(error.message || tI18nComplete('text914be6d9bb89')),
   });
 
   if (available.length === 0) return null;
@@ -894,9 +789,18 @@ export interface SandboxTabViewProps {
   /** The `<ul>` of `TemplateCard`s, built by the container — see this file's
    *  header comment for why it's a slot. */
   templatesSlot?: ReactNode;
-  copy?: SandboxTabViewCopy;
+  copy?: {
+    loadFailed: string;
+    retry: string;
+    descriptionStart: string;
+    descriptionEnd: string;
+    configReadFailed: string;
+    emptyTitle: string;
+    emptyDescription: string;
+  };
 }
 
+<<<<<<< HEAD
 export interface SandboxTabViewCopy {
   loadFailed: string;
   retry: string;
@@ -919,6 +823,8 @@ const DEFAULT_SANDBOX_VIEW_COPY: SandboxTabViewCopy = {
   emptyDescription: "Create one, or add it to your project's manifest.",
 };
 
+=======
+>>>>>>> upstream-dev
 /** Presentational only — no hooks, no data fetching, no store or Supabase
  *  read. Kept separate from `SandboxTab` so this renders under
  *  `renderToStaticMarkup` with no `QueryClientProvider` — see
@@ -935,8 +841,18 @@ export function SandboxTabView({
   isEmpty = true,
   emptyAction,
   templatesSlot,
-  copy = DEFAULT_SANDBOX_VIEW_COPY,
+  copy: copyOverride,
 }: SandboxTabViewProps) {
+  const t = useTranslations('settings.sandbox');
+  const copy = copyOverride ?? {
+    loadFailed: t('loadFailed'),
+    retry: t('retry'),
+    descriptionStart: t('descriptionStart'),
+    descriptionEnd: t('descriptionEnd'),
+    configReadFailed: t('configReadFailed'),
+    emptyTitle: t('emptyTitle'),
+    emptyDescription: t('emptyDescription'),
+  };
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8">
@@ -965,7 +881,7 @@ export function SandboxTabView({
             <p className="text-muted-foreground text-sm text-pretty">
               {copy.descriptionStart} <code className="font-mono">/workspace</code>.{' '}
               {copy.descriptionEnd}{' '}
-              {manifestVersion === 2 ? (
+              {manifestFilename(manifestVersion) === 'kortix.yaml' ? (
                 <>
                   <code className="font-mono">sandbox.templates</code>{' '}
                   {tI18nComplete.raw('text582967534d0f')}{' '}
@@ -1050,23 +966,6 @@ export function SandboxTab({ projectId }: { projectId: string }) {
   const data = snapshotsQuery.data;
   const templates = Array.isArray(data?.templates) ? data.templates : [];
 
-  /**
-   * ONE pin, read once — the control and the badges must never disagree.
-   *
-   * `SandboxProviderRow` writes `project.default_sandbox_provider`;
-   * `listProjectSnapshots` derives its own `provider_mode`/`selected_provider`
-   * from the SAME `projects.metadata.default_sandbox_provider` server-side
-   * (`apps/api/src/projects/routes/sandbox-templates.ts` -> `templateProviderObservation` ->
-   * `resolveConfiguredProjectProviderPin`). They agree at the source, but they
-   * are two independent query caches and the switch only invalidates the
-   * project one — so reading the pin off the snapshots payload would leave
-   * every card's "Routing" cell showing the provider the row just changed away
-   * from, on the same screen, until the snapshots query happened to refetch.
-   *
-   * The project query is therefore authoritative. The snapshots payload is the
-   * fallback for the window before it lands, which keeps this exactly as
-   * correct as it was before the move.
-   */
   const pinnedProvider: SandboxProvider | null = projectQuery.data
     ? (projectQuery.data.default_sandbox_provider ?? null)
     : (data?.selected_provider ?? null);
@@ -1082,15 +981,12 @@ export function SandboxTab({ projectId }: { projectId: string }) {
     setFormOpen(true);
   };
 
-  // Same quirk as `sandbox-view.tsx`: this button does NOT reset
-  // `editingTemplate` (only `openNewForm`, used by the header action, does)
-  // — preserved as-is, not in scope to fix.
   const newTemplateAction = canManage ? (
     <Button
       size="sm"
       variant="outline"
       className="gap-1.5 transition-transform active:scale-[0.96]"
-      onClick={() => setFormOpen(true)}
+      onClick={openNewForm}
     >
       <PlusIcon className="size-3.5 shrink-0" />
       {t('actions.new')}
@@ -1143,15 +1039,6 @@ export function SandboxTab({ projectId }: { projectId: string }) {
             </ul>
           )
         }
-        copy={{
-          loadFailed: t('loadFailed'),
-          retry: t('retry'),
-          descriptionStart: t('descriptionStart'),
-          descriptionEnd: t('descriptionEnd'),
-          configReadFailed: t('configReadFailed'),
-          emptyTitle: t('emptyTitle'),
-          emptyDescription: t('emptyDescription'),
-        }}
       />
       <SandboxTemplateForm
         projectId={projectId}

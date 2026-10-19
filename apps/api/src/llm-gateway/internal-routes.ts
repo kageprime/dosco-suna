@@ -6,7 +6,7 @@ import type {
 } from '@kortix/llm-gateway';
 import { GatewayResolutionError } from '@kortix/llm-gateway';
 import { Hono } from 'hono';
-import { z } from 'zod';
+import { z } from '@hono/zod-openapi';
 import { logger } from '../lib/logger';
 import { checkBudget } from './budgets';
 import {
@@ -20,7 +20,7 @@ import { matchesInternalToken, weakInternalTokenWarnings } from './internal-auth
 import { gatewayModelCatalog } from './models/catalog-models';
 import { servableProjectCatalog } from './models/servable-catalog';
 import { resolveCandidates } from './resolution/resolve-candidates';
-import { coolDownAccountSecret } from '../secrets/account-resource';
+import { MAX_ACCOUNT_SECRET_REST_SECONDS, coolDownAccountSecret } from '../secrets/account-resource';
 import { refreshRefusedCodexAccountLogin } from './credentials/codex';
 import { refreshRefusedOpencodeLogin } from './credentials/opencode-console';
 import { codexDescriptor } from './resolution/descriptors';
@@ -30,15 +30,24 @@ import { resolveGatewayRoute } from './routing';
 // wrapper over the shared in-process hooks in ./hooks — the standalone service
 // and the in-API mount run identical logic; only the transport (HTTP vs direct
 // call) differs.
+/** Sent by the gateway (KORTIX_INTERNAL_EDGE_KEY) through the api-router Worker. */
+const INTERNAL_EDGE_HEADER = 'x-kortix-internal-edge-key';
+
 export function createInternalGatewayRoutes() {
   const app = new Hono();
-  const internalToken = process.env.GATEWAY_INTERNAL_TOKEN;
+  const { GATEWAY_INTERNAL_TOKEN: internalToken, KORTIX_INTERNAL_EDGE_KEY: edgeKey } = process.env;
 
   for (const warning of weakInternalTokenWarnings(internalToken)) {
-    logger.warn(`[gateway-internal-auth] ${warning}`);
+    logger.error(`[gateway-internal-auth] ${warning}`);
   }
 
   app.use('*', async (c, next) => {
+    // The api-router Worker's /internal gate, enforced again here: the backend
+    // origins are public hostnames too and never pass through that Worker, and
+    // Hono matches the DECODED path (`/%69nternal/...`) a raw prefix check misses.
+    if (edgeKey && !matchesInternalToken(`Bearer ${c.req.header(INTERNAL_EDGE_HEADER) ?? ''}`, edgeKey)) {
+      return c.json({ error: 'not found' }, 404);
+    }
     if (!internalToken) return c.json({ error: 'internal gateway disabled' }, 503);
     if (!matchesInternalToken(c.req.header('authorization'), internalToken)) {
       return c.json({ error: 'unauthorized' }, 401);
@@ -100,10 +109,12 @@ export function createInternalGatewayRoutes() {
     }
   });
 
+  // Any principal: a gateway API key has no session (KRTX-2417). The rest is
+  // keyed by the account and the secret alone.
   app.post('/pool-rate-limit', async (c) => {
     const parsed = z.object({
-      principal: z.object({ accountId: z.string().uuid(), sessionId: z.string().uuid() }),
-      secretId: z.string().uuid(), seconds: z.number().int().min(1).max(60),
+      principal: z.object({ accountId: z.string().uuid() }),
+      secretId: z.string().uuid(), seconds: z.number().int().min(1).max(MAX_ACCOUNT_SECRET_REST_SECONDS),
     }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: 'Invalid pool rate limit' }, 400);
     await coolDownAccountSecret(parsed.data.secretId, parsed.data.principal.accountId, parsed.data.seconds);
@@ -170,8 +181,9 @@ export function createInternalGatewayRoutes() {
     }
     // `managedOnly` backs the standalone gateway's `GET /models?scope=managed`
     // — the compact managed lineup a sandbox fetches on boot. Dropping the
-    // projectId is what selects MANAGED_ONLY; free-tier accounts still get an
-    // empty managed set.
+    // projectId is what selects MANAGED_ONLY: a free-tier caller gets the
+    // platform default alone (an empty set when the deployment serves none),
+    // every other managed model stays paid (KRTX-1067).
     return c.json({
       models: gatewayModelCatalog(managedOnly === true ? undefined : p.projectId, {
         freeManagedOnly: !!p.freeModelsOnly,
@@ -182,7 +194,11 @@ export function createInternalGatewayRoutes() {
   app.post('/billing', async (c) => {
     const { accountId } = await c.req.json();
     try {
-      const result = await assertLlmBillingActive(accountId);
+      // The pod calls this only for a Kortix-billed request it already
+      // resolved (`simple-handler.ts` gates admitCharge on billingMode), so
+      // the wallet floor applies to every account here — the platform default
+      // included (KRTX-1067).
+      const result = await assertLlmBillingActive(accountId as string, { creditsRequest: true });
       return c.json({ active: true, holdUsd: result?.holdUsd });
     } catch (err) {
       return c.json({

@@ -202,7 +202,11 @@ export const siteConfig = {
     ] as NavLink[],
   },
   hero: {
+<<<<<<< HEAD
     description: 'Dosco – the open-source AI Management System.',
+=======
+    description: 'Kortix – the open-source AI Operating System.',
+>>>>>>> upstream-dev
   },
   footerLinks: [
     {
@@ -224,6 +228,10 @@ export const siteConfig = {
       links: [
         { id: 10, title: 'Privacy Policy', url: '/legal?tab=privacy' },
         { id: 11, title: 'Terms of Service', url: '/legal/terms' },
+<<<<<<< HEAD
+=======
+        { id: 12, title: 'License', url: 'https://github.com/kortix-ai/suna/blob/dev/LICENSE' },
+>>>>>>> upstream-dev
       ],
     },
   ],

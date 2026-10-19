@@ -1,10 +1,12 @@
-import { projectSessions, projectTriggerRuntime } from '@kortix/db';
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { projectSessions, projectTriggerExecutions, projectTriggerRuntime } from '@kortix/db';
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { classifyTurnError } from '../../channels/slack/errors';
-import { notifySessionEvent } from '../../notifications/session-push';
+import { projectNotificationsEnabled } from '../../notifications/enabled';
+import { notifySessionPushLegacy } from '../../notifications/session-push-legacy';
 import { db } from '../../shared/db';
-import { resolveProjectAutomationActor } from '../session-lifecycle';
+import { resolveProjectAutomationActor } from '../session-lifecycle/actor';
 import { ABORT_END_ERROR_NAMES, type SandboxTurnCompletionOutcome } from '../session-turn-ledger';
+import { clearTriggerAlert, raiseTriggerAlert } from './trigger-alerts';
 
 /**
  * A trigger's runtime row records whether its prompt was DELIVERED
@@ -16,9 +18,13 @@ import { ABORT_END_ERROR_NAMES, type SandboxTurnCompletionOutcome } from '../ses
  * At the end of a turn in a session a trigger created, this records the run's
  * outcome on the trigger:
  * - failed: `last_status: failed`, the reason in `last_error`, and
- *   `run_failing_since`. The account owner (whom triggers run as) gets one
- *   push when the streak starts. Later fires keep `failed` (keepRunFailure);
+ *   `run_failing_since`. The trigger's watchers get one `automation_failed`
+ *   alert per streak (trigger-alerts.ts). With the project's
+ *   `notification_center` flag off, the account owner (whom triggers run as)
+ *   gets one push when the streak starts instead, as before KRTX-1742. Later
+ *   fires keep `failed` (keepRunFailure);
  * - succeeded after failed runs: back to `fired`, error and streak cleared;
+ *   the watchers get one `automation_recovered` alert (flag on only);
  * - failed because the history no longer fits the model even after
  *   compaction: the session is retired, so the next reuse/keyed fire starts
  *   a fresh session instead of failing into the same one.
@@ -55,16 +61,59 @@ export function triggerRunFailureText(error: { name?: string; message?: string }
   return `${title}: ${reason}`.slice(0, 1000);
 }
 
+/**
+ * KRTX-1743 ruling 3: a closed turn ends the OLDEST open run in its session,
+ * of any trigger. Queued prompts run one turn each, in order, so first in,
+ * first out gives each fire its own turn's outcome. The match is by session
+ * only: a pinned trigger's or a reminder's session carries no trigger
+ * metadata, and its runs must close too.
+ */
+async function closeTriggerRun(
+  end: TriggerRunEnd,
+  now: Date,
+  outcome: { runStatus: 'succeeded' | 'failed'; runError: string | null },
+): Promise<void> {
+  const oldestOpen = db
+    .select({ executionId: projectTriggerExecutions.executionId })
+    .from(projectTriggerExecutions)
+    .where(
+      and(
+        eq(projectTriggerExecutions.projectId, end.projectId),
+        eq(projectTriggerExecutions.sessionId, end.sessionId),
+        eq(projectTriggerExecutions.runStatus, 'running'),
+        isNull(projectTriggerExecutions.runEndedAt),
+      ),
+    )
+    .orderBy(asc(projectTriggerExecutions.createdAt))
+    .limit(1);
+  await db
+    .update(projectTriggerExecutions)
+    .set({ ...outcome, runEndedAt: now, updatedAt: now })
+    .where(inArray(projectTriggerExecutions.executionId, oldestOpen));
+}
+
 export async function recordTriggerRunEnd(
   end: TriggerRunEnd,
-  notify: typeof notifySessionEvent = notifySessionEvent,
+  legacyPush: typeof notifySessionPushLegacy = notifySessionPushLegacy,
 ): Promise<TriggerRunEndResult> {
-  const slug = triggerSlugOf(end.metadata);
   // Only a turn this call genuinely closed is a run outcome. A replay, a
-  // retry, a subagent, or a user's stop says nothing about the trigger.
-  if (!slug || end.childSession || end.outcome !== 'closed') return 'not_a_trigger_run';
-  if (end.status === 'error' && ABORT_END_ERROR_NAMES.includes(end.error?.name ?? '')) return 'not_a_trigger_run';
+  // retry or a subagent says nothing about any run.
+  if (end.childSession || end.outcome !== 'closed') return 'not_a_trigger_run';
   const now = end.now ?? new Date();
+  const aborted = end.status === 'error' && ABORT_END_ERROR_NAMES.includes(end.error?.name ?? '');
+  // The run closes before the slug check: pinned and reminder sessions have no trigger metadata.
+  await closeTriggerRun(
+    end,
+    now,
+    aborted
+      ? { runStatus: 'failed', runError: 'stopped' }
+      : end.status === 'error'
+        ? { runStatus: 'failed', runError: triggerRunFailureText(end.error) }
+        : { runStatus: 'succeeded', runError: null },
+  );
+  const slug = triggerSlugOf(end.metadata);
+  // A stopped turn ends its run, but says nothing about the trigger.
+  if (!slug || aborted) return 'not_a_trigger_run';
   const row = and(eq(projectTriggerRuntime.projectId, end.projectId), eq(projectTriggerRuntime.slug, slug));
 
   if (end.status === 'idle') {
@@ -74,6 +123,9 @@ export async function recordTriggerRunEnd(
       // A failed fire is cleared by the next good fire, not by another fire's run.
       .where(and(row, isNotNull(projectTriggerRuntime.runFailingSince)))
       .returning({ slug: projectTriggerRuntime.slug });
+    // Every finished run ends a run-failure alert, even one whose display
+    // state an earlier fire already reset.
+    await clearTriggerAlert({ projectId: end.projectId, accountId: end.accountId, slug, source: 'run' });
     return recovered.length > 0 ? 'recovered' : 'unchanged';
   }
 
@@ -90,25 +142,33 @@ export async function recordTriggerRunEnd(
 
   const lastError = triggerRunFailureText(end.error);
   // One statement starts the streak: concurrent ends of two runs cannot both
-  // see it unset, so the owner is pushed once per streak, not once per run.
+  // see it unset, so a flag-off owner is pushed once per streak.
   const transitioned = await db
     .update(projectTriggerRuntime)
     .set({ lastStatus: 'failed', lastError, runFailingSince: now, lastAttemptAt: now, updatedAt: now })
     .where(and(row, isNull(projectTriggerRuntime.runFailingSince)))
     .returning({ slug: projectTriggerRuntime.slug });
+  let result: TriggerRunEndResult = 'failed';
   if (transitioned.length === 0) {
     const refreshed = await db
       .update(projectTriggerRuntime)
       .set({ lastStatus: 'failed', lastError, lastAttemptAt: now, updatedAt: now })
       .where(row)
       .returning({ slug: projectTriggerRuntime.slug });
-    return refreshed.length > 0 ? 'still_failed' : 'unchanged';
+    result = refreshed.length > 0 ? 'still_failed' : 'unchanged';
   }
-  // The identity every trigger runs as. `owner_user_id` is deprecated and
-  // ignored (integration-trigger-actor.test.ts): it may name a stale human.
-  const owner = await resolveProjectAutomationActor(end.accountId);
-  if (owner) {
-    await notify({ type: 'error', sessionId: end.sessionId, projectId: end.projectId, recipients: [owner] });
+  if (!(await projectNotificationsEnabled(end.projectId))) {
+    if (transitioned.length === 0) return result;
+    // The identity every trigger runs as. `owner_user_id` is deprecated and
+    // ignored (integration-trigger-actor.test.ts): it may name a stale human.
+    const owner = await resolveProjectAutomationActor(end.accountId);
+    if (owner) {
+      await legacyPush({ type: 'error', sessionId: end.sessionId, projectId: end.projectId, recipients: [owner] });
+    }
+    return result;
   }
-  return 'failed';
+  // Every failed run tries: the alert edge is separate from the display
+  // streak, and a fire alert that cleared meanwhile must not hide this one.
+  await raiseTriggerAlert({ projectId: end.projectId, accountId: end.accountId, slug, source: 'run', error: lastError, notificationCenter: true });
+  return result;
 }

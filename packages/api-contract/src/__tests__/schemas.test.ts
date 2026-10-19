@@ -3,7 +3,6 @@ import {
   ConnectorAuthorizationStrategySchema,
   ConnectionSchema,
   ConnectionMetadataSchema,
-  EXPERIMENTAL_FEATURE_KEYS,
   FEATURE_FLAG_KEYS,
   FeatureFlagStabilitySchema,
   ErrorEnvelopeSchema,
@@ -138,16 +137,21 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       agentmail_email: false,
       llm_gateway: true,
       meta_agent: false,
-      apps: false,
       monitors: false,
       reminders: false,
       warm_sessions: false,
       secrets_egress: false,
-      pi_worker: false,
       pooled_provider_secrets: false,
       pi_harness: false,
-      config_releases: true,
+      genui: false,
       us_region: false,
+      event_triggers: false,
+      notification_center: false,
+      volumes: false,
+      drives: false,
+      session_log: false,
+      session_log_restore: false,
+      connectors_v2: false,
     },
     experimental_features: [],
     default_sandbox_provider: null,
@@ -227,6 +231,7 @@ function triggerFixture(overrides: Record<string, unknown> = {}) {
     mode: null,
     interval_seconds: null,
     expect_event_within_seconds: null,
+    event: null,
     prompt_template: 'Summarize yesterday.',
     session_mode: 'fresh',
     session_id: null,
@@ -530,6 +535,29 @@ describe('TriggerSchema', () => {
     ).not.toThrow();
   });
 
+  test('accepts an event trigger with its subscription state', () => {
+    const event = {
+      connector: 'github',
+      account: 'acme-bot',
+      connected_as: 'bot@example.test',
+      type: 'GITHUB_PULL_REQUEST_EVENT',
+      config: { owner: 'acme' },
+      source: 'composio',
+      provider: 'composio',
+      app: 'github',
+      status: 'needs_connection',
+      error: 'Connect a shared GitHub account to activate this trigger.',
+      last_event_at: null,
+    };
+    const trigger = triggerFixture({ type: 'event', cron: null, event });
+    expect(() => TriggerSchema.strict().parse(trigger)).not.toThrow();
+    expect(
+      TriggerSchema.safeParse(triggerFixture({ type: 'event', event: { ...event, status: 'bogus' } })).success,
+    ).toBe(false);
+    // `account` is null for the connector default and `connected_as` null when no account feeds it.
+    expect(TriggerSchema.safeParse(triggerFixture({ type: 'event', event: { ...event, account: null, connected_as: null } })).success).toBe(true);
+  });
+
   // `monitor` is the third trigger type:
   // no cron/secret_env wiring, a `run` command plus a `mode` instead.
   test('accepts a monitor trigger', () => {
@@ -601,6 +629,25 @@ describe('SecretSchema', () => {
         }),
       ),
     ).not.toThrow();
+  });
+
+  test('status is ok or undecryptable, and optional for older servers', () => {
+    for (const status of ['ok', 'undecryptable'] as const) {
+      expect(SecretSchema.strict().parse(secretFixture({ status })).status).toBe(status);
+    }
+    expect(SecretSchema.strict().parse(secretFixture()).status).toBeUndefined();
+    expect(SecretSchema.safeParse(secretFixture({ status: 'missing' })).success).toBe(false);
+  });
+
+  test("mine.status reports the caller's override apart from the shared status", () => {
+    const mine = { active: true, updated_at: NOW, status: 'undecryptable' };
+    const parsed = SecretSchema.strict().parse(
+      secretFixture({ status: 'ok', effective_source: 'mine', mine }),
+    );
+    expect(parsed.status).toBe('ok');
+    expect(parsed.mine?.status).toBe('undecryptable');
+    expect(SecretSchema.parse(secretFixture({ mine: { active: true, updated_at: NOW } })).mine?.status).toBeUndefined();
+    expect(SecretSchema.safeParse(secretFixture({ mine: { ...mine, status: 'missing' } })).success).toBe(false);
   });
 
   test('accepts the system git-auth secret shape', () => {
@@ -710,27 +757,30 @@ describe('envelopes', () => {
   });
 
   test('feature flag keys stay in sync with the map schema', () => {
-    expect(FEATURE_FLAG_KEYS).toEqual([
+    // The static tuple order of a zod `keyof()` follows union order, which tsgo
+    // (TypeScript 7) sorts differently from tsc 5; the runtime order is the contract.
+    expect(FEATURE_FLAG_KEYS as readonly string[]).toEqual([
       'marketplace',
       'connectors_api_discover',
       'agentmail_email',
       'llm_gateway',
       'meta_agent',
-      'apps',
       'monitors',
       'reminders',
       'warm_sessions',
       'secrets_egress',
-      'pi_worker',
       'pooled_provider_secrets',
       'pi_harness',
-      'config_releases',
+      'genui',
       'us_region',
+      'event_triggers',
+      'notification_center',
+      'volumes',
+      'drives',
+      'session_log',
+      'session_log_restore',
+      'connectors_v2',
     ]);
-  });
-
-  test('EXPERIMENTAL_FEATURE_KEYS is a deprecated alias of the same list', () => {
-    expect(EXPERIMENTAL_FEATURE_KEYS).toBe(FEATURE_FLAG_KEYS);
   });
 
   test('stability admits stable — a settled feature can still ship behind a flag', () => {
@@ -741,6 +791,32 @@ describe('envelopes', () => {
   test('sharing intent normalizes readonly member lists', () => {
     const parsed = SharingIntentSchema.parse({ mode: 'members', memberIds: ['u1'] });
     expect(parsed).toEqual({ mode: 'members', memberIds: ['u1'] });
+  });
+});
+
+test('SessionCreateInputSchema still accepts the withdrawn persistent_machine field (inert)', () => {
+  expect(SessionCreateInputSchema.strict().parse({ persistent_machine: true })).toMatchObject({ persistent_machine: true });
+});
+
+describe('SessionCreateInputSchema initial_context', () => {
+  test('accepts a bounded context beside the prompt and drops it when absent', () => {
+    const parsed = SessionCreateInputSchema.parse({
+      initial_prompt: 'Reply with the single word pong',
+      initial_context: '--- session contract ---\nDo not spawn other sessions.',
+    });
+    expect(parsed.initial_context).toMatch(/Do not spawn other sessions/);
+    expect(SessionCreateInputSchema.parse({ initial_prompt: 'hi' }).initial_context).toBeUndefined();
+    expect(SessionCreateInputSchema.parse({}).initial_context).toBeUndefined();
+  });
+
+  test('rejects an empty or oversized context', () => {
+    expect(SessionCreateInputSchema.safeParse({ initial_context: '' }).success).toBe(false);
+    expect(
+      SessionCreateInputSchema.safeParse({ initial_context: 'x'.repeat(8_193) }).success,
+    ).toBe(false);
+    expect(
+      SessionCreateInputSchema.safeParse({ initial_context: 'x'.repeat(8_192) }).success,
+    ).toBe(true);
   });
 });
 

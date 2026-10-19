@@ -2,7 +2,7 @@ import type { FeatureFlagView } from '@kortix/sdk';
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { DEFAULT_EXPERIMENTAL_COPY, ExperimentalTabView, filterFeatures } from './experimental-tab';
+import { DEFAULT_EXPERIMENTAL_COPY, ExperimentalTabView, filterFeatures, localizeFeatureFlag } from './experimental-tab';
 
 const betaFeature: FeatureFlagView = {
   key: 'meta_agent',
@@ -15,9 +15,9 @@ const betaFeature: FeatureFlagView = {
 };
 
 const experimentalFeature: FeatureFlagView = {
-  key: 'apps',
-  name: 'Apps',
-  description: 'Early-access app discovery.',
+  key: 'monitors',
+  name: 'Monitors',
+  description: 'Run watchers that observe and fire trigger events.',
   stability: 'experimental',
   available: true,
   enabled: false,
@@ -71,8 +71,8 @@ describe('ExperimentalTabView', () => {
     );
     expect(out).toContain('Meta Agent');
     expect(out).toContain('Coordinate agent sessions.');
-    expect(out).toContain('Apps');
-    expect(out).toContain('Early-access app discovery.');
+    expect(out).toContain('Monitors');
+    expect(out).toContain('Run watchers that observe and fire trigger events.');
     // Experimental / Beta / Stable labels were removed (Marko, 2026-09-03).
     expect(out).not.toContain('>Beta<');
     expect(out).not.toContain('>Experimental<');
@@ -83,7 +83,7 @@ describe('ExperimentalTabView', () => {
     const out = renderToStaticMarkup(
       <ExperimentalTabView features={[betaFeature, experimentalFeature]} />,
     );
-    expect(out.indexOf('Meta Agent')).toBeLessThan(out.indexOf('Apps'));
+    expect(out.indexOf('Meta Agent')).toBeLessThan(out.indexOf('Monitors'));
   });
 
   test('a feature switch reflects its enabled state via aria-checked', () => {
@@ -107,9 +107,9 @@ describe('ExperimentalTabView', () => {
       <ExperimentalTabView features={[betaFeature, experimentalFeature]} />,
     );
     expect(out).toContain('id="feature-flag-meta_agent"');
-    expect(out).toContain('id="feature-flag-apps"');
+    expect(out).toContain('id="feature-flag-monitors"');
     expect(out).toMatch(/role="switch"[^>]*aria-labelledby="feature-flag-meta_agent"/);
-    expect(out).toMatch(/role="switch"[^>]*aria-labelledby="feature-flag-apps"/);
+    expect(out).toMatch(/role="switch"[^>]*aria-labelledby="feature-flag-monitors"/);
     // Every switch in the pane is named — none may ship unlabelled.
     expect(out.match(/role="switch"/g)?.length).toBe(2);
     expect(out.match(/aria-labelledby="feature-flag-/g)?.length).toBe(2);
@@ -127,6 +127,17 @@ describe('ExperimentalTabView', () => {
       <ExperimentalTabView features={[betaFeature]} pendingKeys={['meta_agent']} canManage />,
     );
     expect(out).toMatch(/role="switch"[^>]*disabled/);
+  });
+
+  test('an operator_only flag shows "Managed by Kortix" and a disabled, checked switch even for a manager', () => {
+    const managed: FeatureFlagView = { ...experimentalFeature, key: 'session_log', name: 'Session log', enabled: true, overridden: true, operator_only: true };
+    const out = renderToStaticMarkup(<ExperimentalTabView features={[managed]} canManage />);
+    expect(out).toContain('Managed by Kortix');
+    expect(out).not.toContain('Overridden for this project');
+    expect(out).toMatch(/role="switch"[^>]*aria-checked="true"[^>]*disabled|role="switch"[^>]*disabled[^>]*aria-checked="true"/);
+    // An ordinary flag beside it stays writable.
+    const mixed = renderToStaticMarkup(<ExperimentalTabView features={[betaFeature]} canManage />);
+    expect(mixed).not.toMatch(/role="switch"[^>]*disabled/);
   });
 
   test('canManage false disables every switch, even with no pending key', () => {
@@ -256,11 +267,11 @@ describe('filterFeatures', () => {
   });
 
   test('matches the display name', () => {
-    expect(filterFeatures(all, 'apps').map((f) => f.key)).toEqual(['apps']);
+    expect(filterFeatures(all, 'monitors').map((f) => f.key)).toEqual(['monitors']);
   });
 
   test('matches the raw key — the term docs and support threads actually use', () => {
-    expect(filterFeatures(all, 'apps').map((f) => f.key)).toEqual(['apps']);
+    expect(filterFeatures(all, 'monitors').map((f) => f.key)).toEqual(['monitors']);
   });
 
   test('matches the description', () => {
@@ -268,10 +279,41 @@ describe('filterFeatures', () => {
   });
 
   test('is case-insensitive and ignores surrounding whitespace', () => {
-    expect(filterFeatures(all, '  APPS  ').map((f) => f.key)).toEqual(['apps']);
+    expect(filterFeatures(all, '  MONITORS  ').map((f) => f.key)).toEqual(['monitors']);
   });
 
   test('no match returns empty rather than falling back to everything', () => {
     expect(filterFeatures(all, 'zzz')).toEqual([]);
+  });
+});
+
+describe('localizeFeatureFlag', () => {
+  const messages: Record<string, string> = {
+    'flags.meta_agent.name': 'Мета агент',
+    'flags.meta_agent.description': 'Координишите сесије агената.',
+  };
+  const t = Object.assign((key: string) => messages[key] ?? key, {
+    has: (key: string) => key in messages,
+  });
+
+  test('a flag the catalogs translate gets the translated name and description', () => {
+    const view = localizeFeatureFlag(betaFeature, t);
+    expect(view.name).toBe('Мета агент');
+    expect(view.description).toBe('Координишите сесије агената.');
+  });
+
+  test('a flag the catalogs do not translate keeps the name and description the API sent', () => {
+    // During a deploy a page can hold a catalog from the previous API that
+    // still lists a flag this web build no longer translates (a graduated
+    // flag). The row must read as words, never as a raw message key.
+    const graduated: FeatureFlagView = {
+      ...experimentalFeature,
+      key: 'config_releases',
+      name: 'Config Releases',
+      description: "Sessions run the base branch's current config.",
+    };
+    const view = localizeFeatureFlag(graduated, t);
+    expect(view.name).toBe('Config Releases');
+    expect(view.description).toBe("Sessions run the base branch's current config.");
   });
 });

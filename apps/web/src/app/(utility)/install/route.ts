@@ -11,9 +11,15 @@ import { NextRequest, NextResponse } from 'next/server';
 // Browsers hitting this URL (Accept: text/html) get a 302 redirect to
 // the script's GitHub page so a human can review it before running.
 
+<<<<<<< HEAD
 const REPO_URL = 'https://github.com/kageprime/dosco-suna';
 const REPO_SCRIPT_URL = `${REPO_URL}/blob/main/scripts/install.sh`;
 const RAW_SCRIPT_URL = 'https://raw.githubusercontent.com/kageprime/dosco-suna/main/scripts/install.sh';
+=======
+const REPO_URL = 'https://github.com/kortix-ai/suna';
+const REPO_SCRIPT_URL = `${REPO_URL}/blob/dev/scripts/install.sh`;
+const RAW_SCRIPT_URL = 'https://raw.githubusercontent.com/kortix-ai/suna/dev/scripts/install.sh';
+>>>>>>> upstream-dev
 
 function prefersHtml(request: NextRequest): boolean {
   const accept = request.headers.get('accept') || '';

@@ -2,21 +2,28 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
-import { buildProjectSeedFiles } from '../seed-files';
+import { resolveCommitShaAt } from './commits';
 import {
   buildScaffoldDeltaBundle,
-  buildSingleParentDeltaBundle,
   resolveScaffoldDeltaBoundary,
   writeScaffoldDeltaBundle,
-} from './commits';
+} from './fast-boot-bundle';
 
 function git(args: string[], cwd: string, env?: Record<string, string>): string {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const output = execFileSync('git', args, {
       cwd,
-      env: { ...process.env, ...env },
+      // A CI runner has no global git identity, and `git commit` refuses without one.
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'T',
+        GIT_AUTHOR_EMAIL: 't@example.invalid',
+        GIT_COMMITTER_NAME: 'T',
+        GIT_COMMITTER_EMAIL: 't@example.invalid',
+        ...env,
+      },
       encoding: 'utf8',
     }).trim();
     // A successful rev-parse always prints an object ID. Bun's child-process
@@ -26,17 +33,16 @@ function git(args: string[], cwd: string, env?: Record<string, string>): string 
   throw new Error(`git ${args.join(' ')} returned an empty object ID`);
 }
 
-describe('buildSingleParentDeltaBundle', () => {
-  test('packages one exact commit on top of an image-baked parent', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'kortix-fast-boot-bundle-'));
+describe('resolveCommitShaAt', () => {
+  test('resolves a real branch to its exact commit SHA', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'kortix-resolve-sha-'));
     try {
       const source = join(root, 'source');
-      const scaffoldRepo = join(root, 'scaffold.git');
-      const scaffold = join(root, 'scaffold');
       mkdirSync(source);
       git(['init', '-b', 'main'], source);
-      writeFileSync(join(source, 'README.md'), 'generic scaffold\n');
+      writeFileSync(join(source, 'README.md'), 'x\n');
       git(['add', 'README.md'], source);
+<<<<<<< HEAD
       git(['commit', '-m', 'chore: scaffold Dosco project'], source, {
         GIT_AUTHOR_NAME: 'Dosco',
         GIT_AUTHOR_EMAIL: 'noreply@dosco.live',
@@ -69,14 +75,21 @@ describe('buildSingleParentDeltaBundle', () => {
 
       expect(git(['rev-parse', 'HEAD'], scaffold)).toBe(baseSha);
       expect(readFileSync(join(scaffold, 'README.md'), 'utf8')).toBe('customer project\n');
+=======
+      git(['commit', '-m', 'init'], source);
+      const sha = git(['rev-parse', 'HEAD'], source);
+      await expect(resolveCommitShaAt(source, 'main')).resolves.toBe(sha);
+      await expect(resolveCommitShaAt(source, 'HEAD')).resolves.toBe(sha);
+>>>>>>> upstream-dev
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test('imports when the provider gives the matching scaffold tree a different commit SHA', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'kortix-provider-fast-boot-bundle-'));
+  test('rejects an unresolvable ref with git\'s own failure, not the hex check', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'kortix-resolve-sha-'));
     try {
+<<<<<<< HEAD
       const bakedSource = join(root, 'baked-source');
       const providerSource = join(root, 'provider-source');
       const scaffoldRepo = join(root, 'scaffold.git');
@@ -188,6 +201,15 @@ describe('buildSingleParentDeltaBundle', () => {
       expect(
         Buffer.byteLength(bundle!.bundleBase64 + bundle!.parentCommitBase64, 'utf8'),
       ).toBeLessThanOrEqual(24 * 1024);
+=======
+      const source = join(root, 'source');
+      mkdirSync(source);
+      git(['init', '-b', 'main'], source);
+      git(['commit', '-q', '--allow-empty', '-m', 'init'], source);
+      await expect(resolveCommitShaAt(source, 'does-not-exist')).rejects.toThrow(
+        /Needed a single revision/,
+      );
+>>>>>>> upstream-dev
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -284,6 +306,21 @@ describe('buildScaffoldDeltaBundle', () => {
         parentSha: q.scaffoldSha,
         commitCount: 3,
       });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('propagates a git failure instead of reporting a boundary', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'kortix-scaffold-delta-'));
+    try {
+      const source = join(root, 'source');
+      mkdirSync(source);
+      git(['init', '-b', 'main'], source);
+      git(['commit', '-q', '--allow-empty', '-m', 'init'], source);
+      await expect(resolveScaffoldDeltaBoundary(source, 'does-not-exist')).rejects.toThrow(
+        /Needed a single revision/,
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -1,15 +1,13 @@
-import { lookup as dnsLookup } from 'node:dns/promises';
-import { request as httpsRequest, type RequestOptions } from 'node:https';
-import { isIP } from 'node:net';
-import type {
-  SecretBrokerRequest,
-  SecretBrokerResponse,
-} from '@kortix/api-contract';
-import type { SecretEgressPolicy, SecretInjectionSlot } from '@kortix/db';
-import { BLOCKED_REQUEST_HEADERS } from '@kortix/api-contract/secret-relay';
-import { isPrivateIp } from '../shared/ssrf-guard';
-import { matchRule } from './strategy';
+// The buffered-route orchestrator over the modules in `broker/`; the moved
+// concerns are re-exported below, so every existing import path keeps resolving.
+import type { SecretBrokerRequest, SecretBrokerResponse } from '@kortix/api-contract';
+import type { SecretEgressPolicy } from '@kortix/db';
+import { MAX_REDIRECTS, SAFE_RESPONSE_HEADERS, SecretBrokerError } from './broker/errors';
+import { redactSecretFromResponse, type SecretSubstitution } from './broker/substitution';
+import { prepareSecretBrokerRequest, type BrokerTransport } from './broker/request-gate';
+import { pinnedHttpsTransport } from './broker/pinned-transport';
 
+<<<<<<< HEAD
 const MAX_REQUEST_BYTES = 1_048_576;
 const MAX_RESPONSE_BYTES = 5_242_880;
 export const MAX_REDIRECTS = 3;
@@ -762,6 +760,20 @@ export function redactSecretFromResponse(body: Buffer, secret: string): Buffer {
   }
   return result;
 }
+=======
+export { MAX_REDIRECTS, REDACTED, SAFE_RESPONSE_HEADERS, SecretBrokerError } from './broker/errors';
+export {
+  bodyEncoding,
+  encodeSecretRepresentation,
+  redactSecretFromResponse,
+  secretRepresentations,
+  substituteBuffer,
+} from './broker/substitution';
+export type { SecretEncoding, SecretSubstitution } from './broker/substitution';
+export { assertPolicyAdmitsPath, prepareRelayHead, prepareSecretBrokerRequest } from './broker/request-gate';
+export type { BrokerTransport, PreparedRelayHead } from './broker/request-gate';
+export { createPinnedRequestOptions, resolvePinnedAddress } from './broker/pinned-transport';
+>>>>>>> upstream-dev
 
 export function responseHeaders(
   headers: Record<string, string | string[] | undefined>,
@@ -787,7 +799,7 @@ function redirectedInput(
   return { ...input, url: nextUrl };
 }
 
-export interface SecretBrokerExecuteOptions {
+interface SecretBrokerExecuteOptions {
   transport?: BrokerTransport;
   /** Other secrets this session may spend on this destination, keyed to the
    *  handle that stands in for each of them inside the sandbox. */

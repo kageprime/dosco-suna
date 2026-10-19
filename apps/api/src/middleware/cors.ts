@@ -1,6 +1,7 @@
 import { cors } from 'hono/cors';
 
 const CLOUD_ORIGINS = [
+<<<<<<< HEAD
   'https://dosco.live',
   'https://dosco.live',
   'https://dev.dosco.live',
@@ -10,6 +11,15 @@ const CLOUD_ORIGINS = [
   'https://dosco.live',
   'https://www.dosco.live',
   'https://new.dosco.live',
+=======
+  'https://www.kortix.com',
+  'https://kortix.com',
+  'https://dev.kortix.com',
+  'https://staging.kortix.com',
+  'https://kortix.cloud',
+  'https://www.kortix.cloud',
+  'https://new.kortix.com',
+>>>>>>> upstream-dev
 ];
 
 const LOCAL_ORIGINS = [
@@ -74,9 +84,8 @@ export function createCorsMiddleware(options: CorsMiddlewareOptions) {
       // server-side design refuses to allow. It has to be declared here for the
       // banner to ever be true in a browser.
       'X-Kortix-Impersonate',
-      // Same reason for the platform-admin read-only bypass the SDK already
-      // attaches (setAdminBypass → `x-kortix-admin-bypass: 1`): without it, the
-      // header never survives a cross-origin preflight.
+      // The retired read-only admin bypass. The API ignores it; it stays allowed
+      // so an older SDK that still sends it passes its preflight.
       'X-Kortix-Admin-Bypass',
     ],
     exposeHeaders: [

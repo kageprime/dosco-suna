@@ -1,6 +1,10 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import {
   type ConnectionSharePrincipal,
+  getConnectorCatalog,
   renameConnection,
+  revokeConnection,
   setConnectorSecretBinding,
   shareConnection,
 } from '@kortix/sdk';
@@ -25,6 +29,7 @@ import {
 import { promptSecret } from '../prompts.ts';
 import { C, help, pad, status, trim } from '../style.ts';
 import { runConnector } from './connector-gateway.ts';
+import { renderConnectorTypes } from './connector-types.ts';
 
 // ── Shapes (mirror apps/api/src/connectors) ───────────────────────────────────
 
@@ -108,6 +113,8 @@ interface PolicyRule {
 interface ProjectPoliciesView {
   policies: PolicyRule[];
   defaultMode: 'risk' | 'allow_all';
+  /** Per-connector tool-call rule counts (KRTX-2527). */
+  connectorRules?: { slug: string; count: number }[];
 }
 
 /** One record in the direct-connector catalogue (integrations.sh). */
@@ -158,9 +165,10 @@ dashboard's Customize → Connectors. Connectors are project-wide visible; the
 only access gate is which AGENTS may call one (\`kortix agents scope\` /
 \`[[agents]].connectors\` in kortix.yaml) — see \`kortix grants\`.
 
-Config lives in kortix.yaml (the source of truth): \`add\`/\`rm\`/\`policy set\`
-edit your LOCAL file — run \`kortix ship\` to apply, then \`sync\` to reconcile.
-Only credentials, OAuth, and reads talk to the cloud.
+Config lives in kortix.yaml: \`add\`/\`rm\` and \`policy set --default\` edit your
+LOCAL file — run \`kortix ship\` to apply (or pass --apply to apply at once),
+then \`sync\` to reconcile. Every other policy, credential, rename and mode
+change applies on the cloud project at once.
 
 Subcommands:
   ls [--session <id>] [--json]      List project or session-bound connectors.
@@ -208,6 +216,14 @@ Subcommands:
                                     \`computer\` connector. List them with
                                     \`accounts computer\`; pick one with
                                     \`call computer <tool> --account "<machine name>"\`.
+  types [--connector <a,b>]         Print TypeScript types for every callable
+        [--out <file>]              action: \`declare module '@kortix/sdk'\`
+                                    filling ConnectorActionRegistry, so
+                                    \`connectors.callAction(slug, action, args)\`
+                                    type-checks args and \`output\`. Output is
+                                    \`unknown\` for managed Composio/Pipedream
+                                    connectors (they publish no output schema).
+                                    --out writes the file instead of stdout.
   connections <subcommand>          Manage configured connector connections.
   add <slug> --provider <p> [...]   Add a [[connectors]] block to kortix.yaml.
                                     Add --apply to skip ship/CR and apply it
@@ -228,8 +244,12 @@ Subcommands:
                                     alone, the default) or \`project\` (shared
                                     with every member; needs
                                     project.connector.write).
+       [--label <name>]             Name a NEW account (a second Gmail). The
+                                    human confirms the name and who can use
+                                    the account in the setup dialog.
   connect-finalize <slug>           Confirm authorization completed. Accepts
-       [--connection-id <uuid>]     the IDs returned by \`connect\`.
+       [--owner me|project]         the IDs returned by \`connect\`. Pass the
+       [--connection-id <uuid>]     same --owner the link was started with.
        [--request-id <id>]
   apps [<query>] [--category <c>]   Search the Composio toolkit catalog — the
        [--cursor <c>] [--limit <n>]  slugs that add --provider composio --app
@@ -265,7 +285,6 @@ Subcommands:
   authorize <slug> --device         Same, on a server that supports the OAuth
                                     2.0 device flow: prints a code + URL and
                                     polls until it is approved.
-  mcp                               Run the stdio MCP server.
 
 \`policy ls|show|set|add|rm\` are the PROJECT-wide surface, so a connector
 named after one of those verbs must be addressed as \`policy <slug> ls\` etc.
@@ -300,6 +319,43 @@ Authorize options:
 Global:
   --project <id>     Operate on this project id (default: linked).
   --host <name>      Operate against a non-default Kortix host.
+  -h, --help         Show this help.
+`;
+
+const POLICY_HELP = help`Usage: kortix connectors policy <subcommand> [options]
+
+Show and change what connector calls may do without asking. Project-wide
+rules gate every connector; per-connector rules gate one connector's tool
+calls. Every form below applies on the cloud project at once — except
+\`policy set --default\` without --apply, which edits the LOCAL kortix.yaml
+for \`kortix ship\` to apply.
+
+Project-wide (a connector named like one of these verbs needs
+\`policy <slug> …\` to reach its own rules):
+  ls|show [--json]                  Show the default mode + every rule.
+  set --default <risk|allow_all>    Set the default execution mode. Without
+        [--apply]                   --apply: a LOCAL kortix.yaml edit — run
+                                    \`kortix ship\` to apply.
+  add <match> <action>              Add a rule (applies now). <action>:
+        [--condition <k=v>]…        allow | ask | block. Narrow it to a
+                                    matching argument; repeat for more;
+                                    \`k!=v\` negates. <k> is a dot path into
+                                    the call's arguments.
+  rm <match>                        Remove a rule (applies now).
+
+Per-connector:
+  <slug> ls [--json]                Show one connector's tool-call rules.
+  <slug> set <match> <action>       Allow|ask|block a tool/glob/regex (applies
+                                    now). <match> = tool name, glob (send_*)
+                                    or /regex/.
+  <slug> rm <match>                 Remove a connector rule (applies now).
+  <slug> clear                      Remove all of a connector's rules (applies
+                                    now).
+
+Global:
+  --project <id>     Operate on this project id (default: linked).
+  --host <name>      Operate against a non-default Kortix host.
+  --json             Machine-readable output.
   -h, --help         Show this help.
 `;
 
@@ -358,9 +414,16 @@ export async function runConnectors(argv: string[]): Promise<number> {
     process.stdout.write(CONNECTIONS_HELP);
     return rest.length === 0 ? 2 : 0;
   }
+  // `policy` owns dedicated help too (KRTX-1914): the four per-connector
+  // policy forms and the cloud-side semantics, not the full connectors page.
+  if ((sub === 'policy' || sub === 'policies') && (rest.includes('-h') || rest.includes('--help'))) {
+    process.stdout.write(POLICY_HELP);
+    return 0;
+  }
   // The root help promises `kortix connectors <subcommand> --help`. Only
-  // `connections` (handled above) owns dedicated help text; every other
-  // subcommand would otherwise treat `--help` as an ordinary positional arg.
+  // `connections` and `policy` (handled above) own dedicated help text; every
+  // other subcommand would otherwise treat `--help` as an ordinary positional
+  // arg.
   if (rest.includes('-h') || rest.includes('--help')) {
     process.stdout.write(HELP);
     return 0;
@@ -421,6 +484,7 @@ export async function runConnectors(argv: string[]): Promise<number> {
     f.default = takeFlagValue(rest, ['--default']);
     f.expires = takeFlagValue(rest, ['--expires']);
     f.owner = takeFlagValue(rest, ['--owner']);
+    f.label = takeFlagValue(rest, ['--label']);
     f.ownerId = takeFlagValue(rest, ['--owner-id']);
     f.connectionId = takeFlagValue(rest, ['--connection-id']);
     f.requestId = takeFlagValue(rest, ['--request-id']);
@@ -432,6 +496,8 @@ export async function runConnectors(argv: string[]): Promise<number> {
     f.errorRedirect = takeFlagValue(rest, ['--error-redirect']);
     f.category = takeFlagValue(rest, ['--category']);
     f.limit = takeFlagValue(rest, ['--limit']);
+    f.connector = takeFlagValue(rest, ['--connector']);
+    f.out = takeFlagValue(rest, ['--out']);
     if (takeFlagBool(rest, ['--pipedream', '--legacy-pipedream'])) f.pipedream = 'true';
     conditions = takeFlagValues(rest, ['--condition', '--cond']);
     shareGroups = takeFlagValues(rest, ['--group']);
@@ -665,21 +731,27 @@ export async function runConnectors(argv: string[]): Promise<number> {
           process.stderr.write(`${status.err('No value provided.')}\n`);
           return 2;
         }
-        await ctx.client.put(`${ex}/connectors/${encodeURIComponent(slug)}/credential`, { value });
+        const resp = await ctx.client.put<{ sync?: SyncResult }>(
+          `${ex}/connectors/${encodeURIComponent(slug)}/credential`,
+          { value },
+        );
         process.stdout.write(`${status.ok(`Credential set for ${C.bold}${slug}${C.reset}`)}\n`);
+        reportSync(resp?.sync);
         return 0;
       }
       case 'secret': {
         const input = connectorSecretBindingInput(positional, clearSecretBinding);
         if ('error' in input) return missing(input.error);
-        await withKortixScope(ctx.auth, () =>
+        // An MCP connector re-lists its tools with the bound secret; show why when that fails.
+        const resp = (await withKortixScope(ctx.auth, () =>
           setConnectorSecretBinding(ctx.projectId, input.slug, input.secretIdentifier),
-        );
+        )) as { sync?: SyncResult } | undefined;
         process.stdout.write(
           input.secretIdentifier
             ? `${status.ok(`Secret ${C.bold}${input.secretIdentifier}${C.reset} bound to ${C.bold}${input.slug}${C.reset}`)}\n`
             : `${status.ok(`Secret binding removed from ${C.bold}${input.slug}${C.reset}`)}\n`,
         );
+        reportSync(resp?.sync);
         return 0;
       }
       /**
@@ -793,6 +865,31 @@ export async function runConnectors(argv: string[]): Promise<number> {
         if (f.owner !== undefined && owner === undefined) {
           return fail('--owner must be me or project');
         }
+        // `--label` mints the same setup link as the MCP `connect` tool: a
+        // dialog where the human names the new account and picks who can use it.
+        if (f.label !== undefined) {
+          const label = f.label.trim();
+          if (!label) return missing('--label <account name>');
+          const link = await ctx.client.post<{ url: string; app?: string | null; expires_at?: string; label?: string | null }>(
+            `/projects/${ctx.projectId}/connect-requests`,
+            {
+              slug,
+              label,
+              ...(owner ? { owner } : {}),
+              ...(expires ? { expires_in_minutes: expires } : {}),
+            },
+          );
+          const output = { slug, owner: owner ?? 'me', label: link.label ?? label, app: link.app ?? null, url: link.url, expires_at: link.expires_at ?? null };
+          if (json) {
+            emitJson(output);
+            return 0;
+          }
+          process.stdout.write(
+            `\n  ${C.bold}Connect ${slug} as "${output.label}"${C.reset}\n  ${C.cyan}${output.url}${C.reset}\n\n` +
+              `  ${C.dim}Hand the URL to the human. They confirm the name and who can use the account.${C.reset}\n\n`,
+          );
+          return 0;
+        }
         const resp = await ctx.client.post<{
           provider: string;
           app?: string | null;
@@ -836,6 +933,13 @@ export async function runConnectors(argv: string[]): Promise<number> {
       case 'connect-finalize': {
         const slug = positional[0];
         if (!slug) return missing('a connector slug');
+        // Finalize the account the link authorized: `connect --owner project`
+        // starts a shared one, and the API looks for a private one by default.
+        const finalizeOwner: 'me' | 'project' | undefined =
+          f.owner === 'me' || f.owner === 'project' ? f.owner : undefined;
+        if (f.owner !== undefined && finalizeOwner === undefined) {
+          return fail('--owner must be me or project');
+        }
         const resp = await ctx.client.post<{
           provider: string;
           connected?: boolean;
@@ -843,6 +947,7 @@ export async function runConnectors(argv: string[]): Promise<number> {
           connectionId?: string;
           isNoAuth?: boolean;
         }>(`${ex}/connectors/${encodeURIComponent(slug)}/connect/finalize`, {
+          ...(finalizeOwner ? { owner: finalizeOwner } : {}),
           ...(f.connectionId ? { connection_id: f.connectionId } : {}),
           ...(f.requestId ? { request_id: f.requestId } : {}),
         });
@@ -1149,6 +1254,49 @@ export async function runConnectors(argv: string[]): Promise<number> {
       // ── Browse the direct-connector catalogue ───────────────────────────
       // Gated on `connectors_api_discover`; the 403 names the flag and
       // surfaceApiError prints it verbatim.
+      case 'types': {
+        const slugs = (f.connector ?? '')
+          .split(',')
+          .map((slug) => slug.trim())
+          .filter(Boolean);
+        const read = (slug?: string) =>
+          withKortixScope(ctx.auth, () =>
+            getConnectorCatalog(ctx.projectId, {
+              slug,
+              includeSchemas: true,
+              includeOutputSchemas: true,
+            }),
+          );
+        const connectors = slugs.length
+          ? (await Promise.all(slugs.map(read))).flat()
+          : await read();
+        const missingSlugs = slugs.filter((slug) => !connectors.some((c) => c.slug === slug));
+        if (missingSlugs.length) {
+          process.stderr.write(
+            `${status.err(`No callable connector: ${missingSlugs.join(', ')}. List them with \`kortix connectors ls\`.`)}\n`,
+          );
+          return 1;
+        }
+        const source = renderConnectorTypes(connectors);
+        if (!f.out) {
+          process.stdout.write(source);
+          return 0;
+        }
+        const path = resolve(f.out);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, source);
+        const actions = connectors.reduce((sum, c) => sum + c.actions.length, 0);
+        const untyped = connectors
+          .filter((c) => c.actions.length > 0 && c.actions.every((a) => !a.outputSchema))
+          .map((c) => c.slug);
+        process.stdout.write(
+          `${status.ok(`Wrote ${actions} action${actions === 1 ? '' : 's'} across ${connectors.length} connector${connectors.length === 1 ? '' : 's'} to ${f.out}`)}\n` +
+            (untyped.length
+              ? `  ${C.dim}No output schema (result is unknown): ${untyped.join(', ')}${C.reset}\n`
+              : ''),
+        );
+        return 0;
+      }
       case 'catalog':
       case 'discover-catalog': {
         if (positional[0] === 'show' || positional[0] === 'info') {
@@ -1245,7 +1393,7 @@ export async function runConnectors(argv: string[]): Promise<number> {
           process.stdout.write(
             `\n  ${C.dim}default mode: ${C.reset}${C.bold}${resp.defaultMode}${C.reset}\n`,
           );
-          if (resp.policies.length === 0) {
+          if (resp.policies.length === 0 && !(resp.connectorRules?.length)) {
             process.stdout.write(`  ${C.dim}No explicit project policies.${C.reset}\n\n`);
             return 0;
           }
@@ -1253,6 +1401,9 @@ export async function runConnectors(argv: string[]): Promise<number> {
             process.stdout.write(
               `  ${C.cyan}${p.match}${C.reset} → ${p.action}${conditionsLabel(p.conditions)}\n`,
             );
+          }
+          for (const line of connectorRulesLines(resp.connectorRules ?? [])) {
+            process.stdout.write(line);
           }
           process.stdout.write('\n');
           return 0;
@@ -1521,10 +1672,20 @@ async function runConnections(input: {
     case 'default': {
       const connectionId = positional[0];
       if (!connectionId) return missing('a connection id');
-      const response = await ctx.client.put<{ ok: true }>(
-        `${base}/${encodeURIComponent(connectionId)}/${action}`,
-        {},
-      );
+      const response = action === 'revoke'
+        ? await withKortixScope(ctx.auth, () => revokeConnection(ctx.projectId, connectionId))
+        : await ctx.client.put<{ ok: true }>(
+            `${base}/${encodeURIComponent(connectionId)}/${action}`,
+            {},
+          );
+      if (action === 'revoke') {
+        if (response?.ok !== true) return fail('Revoke was not acknowledged by the server.');
+        // A 200 acknowledgement is not proof that the connection stopped being usable.
+        const persisted = await ctx.client.get<{ connections: Connection[] }>(base);
+        if (persisted?.connections?.find((row) => row.connection_id === connectionId)?.status !== 'revoked') {
+          return fail('Could not verify the connection is revoked. Read its status before retrying.');
+        }
+      }
       if (json) emitJson(response);
       else
         process.stdout.write(
@@ -1976,6 +2137,24 @@ export function parsePolicyConditions(
 function conditionsLabel(conditions: PolicyCondition[] | undefined): string {
   if (!conditions || conditions.length === 0) return '';
   return ` when ${conditions.map((c) => `${c.arg}${c.negate ? '!=' : '='}${c.match}`).join(', ')}`;
+}
+
+/**
+ * `policy ls` renders per-connector rule counts below the project rules
+ * (KRTX-2527): a rule `policy <slug> set` wrote seconds earlier must be
+ * visible in the parent view, not only in `policy <slug> ls`.
+ */
+export function connectorRulesLines(rules: ReadonlyArray<{ slug: string; count: number }>): string[] {
+  if (rules.length === 0) return [];
+  const lines = [
+    `\n  ${C.dim}connector rules:${C.reset}\n`,
+  ];
+  for (const rule of rules) {
+    lines.push(
+      `  ${C.cyan}${rule.slug}${C.reset} ${C.dim}·${C.reset} ${rule.count} rule${rule.count === 1 ? '' : 's'}${C.dim} — policy ${rule.slug} ls${C.reset}\n`,
+    );
+  }
+  return lines;
 }
 
 /** Accept friendly verbs (allow|ask|block) or canonical actions → canonical, else null. */

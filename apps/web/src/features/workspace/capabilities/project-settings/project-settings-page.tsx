@@ -1,26 +1,34 @@
 'use client';
 
-import { hubTarget, openAccountPanel } from '@/stores/account-panel-store';
 import { useTranslations as useI18nTranslations } from '@/i18n/use-translations';
+import { hubTarget, openAccountPanel } from '@/stores/account-panel-store';
 import { getProjectDetail } from '@kortix/sdk';
 import { contract, qk } from '@kortix/sdk/react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
+import {
+  projectCapabilityNavHref,
+  projectCapabilityNavTarget,
+} from '../shared/standalone-settings-nav';
 
-import { Badge } from '@/components/ui/badge';
+import { CountBadge } from '@/components/ui/count-badge';
 import { FadedScrollArea } from '@/components/ui/faded-scroll-area';
 import { SettingsSectionHeader } from '@/components/ui/settings-section-header';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SETTINGS_SIDEBAR_WIDTH_PX } from '@/features/accounts/hub/account-settings-shell';
 import { useReviewSessionSummary } from '@/features/review-center/hooks/use-review-session-summary';
+<<<<<<< HEAD
 import {
   capabilityTabHref,
   channelsHref,
   marketplaceHref,
   type CapabilityTab,
 } from '@/features/workspace/capabilities/shared/capability-tab-routes';
+=======
+
+>>>>>>> upstream-dev
 import { detectManifestVersion } from '@/features/workspace/customize/migrate-to-v2/manifest-version';
 import { UpgradesView } from '@/features/workspace/customize/migrate-to-v2/upgrade-view';
 import { GitView } from '@/features/workspace/customize/sections/view/git-view';
@@ -180,6 +188,18 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
 
   const activeSection = sections.find((s) => s.key === active);
 
+  const sectionTriggers = (horizontal: boolean) =>
+    sections.map((section) => (
+      <SectionTrigger
+        key={section.key}
+        projectId={projectId}
+        section={section}
+        horizontal={horizontal}
+        count={section.key === 'review' ? reviewNeedsYou : undefined}
+        attention={section.key === 'upgrades' && upgradeAttention}
+      />
+    ));
+
   return (
     <SettingsNavProvider value={settingsNav}>
       <div
@@ -204,16 +224,7 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
             >
               <Tabs value={active} className="w-fit">
                 <TabsList orientation="horizontal" className="w-fit">
-                  {sections.map((section) => (
-                    <SectionTrigger
-                      key={section.key}
-                      projectId={projectId}
-                      section={section}
-                      horizontal
-                      count={section.key === 'review' ? reviewNeedsYou : undefined}
-                      attention={section.key === 'upgrades' && upgradeAttention}
-                    />
-                  ))}
+                  {sectionTriggers(true)}
                 </TabsList>
               </Tabs>
             </FadedScrollArea>
@@ -250,15 +261,7 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
                     list, no headings". */}
                 <Tabs value={active} orientation="vertical">
                   <TabsList orientation="vertical" className="w-full">
-                    {sections.map((section) => (
-                      <SectionTrigger
-                        key={section.key}
-                        projectId={projectId}
-                        section={section}
-                        count={section.key === 'review' ? reviewNeedsYou : undefined}
-                        attention={section.key === 'upgrades' && upgradeAttention}
-                      />
-                    ))}
+                    {sectionTriggers(false)}
                   </TabsList>
                 </Tabs>
               </div>
@@ -321,13 +324,7 @@ function SectionTrigger({
         <Icon className="size-4 shrink-0" />
         <span className={cn(!horizontal && 'truncate')}>{section.label}</span>
         {showCount ? (
-          <Badge
-            variant="kortix"
-            size="xs"
-            className={cn('tabular-nums', !horizontal && 'ml-auto')}
-          >
-            {count}
-          </Badge>
+          <CountBadge count={count} className={cn(!horizontal && 'ml-auto')} />
         ) : attention ? (
           <span
             aria-hidden
@@ -410,6 +407,7 @@ export function projectSettingsNavTarget(tab: string): ProjectSettingsSectionKey
  * (the overlay's old vocabulary) needs to leave this page entirely, not push a
  * `?section=` this page no longer recognizes.
  */
+<<<<<<< HEAD
 export function projectCapabilityNavTarget(tab: string): CapabilityTab['key'] | 'members' | 'marketplace' | null {
   if (tab.startsWith('llm-')) return 'models';
   // Channels is no longer a tab of its own — it is a scope of Connectors. The
@@ -455,6 +453,12 @@ export function projectCapabilityNavHref(
   if (target === 'marketplace') return marketplaceHref(projectId);
   return capabilityTabHref(projectId, target);
 }
+=======
+export {
+  projectCapabilityNavHref,
+  projectCapabilityNavTarget,
+} from '../shared/standalone-settings-nav';
+>>>>>>> upstream-dev
 
 /**
  * The `SettingsNav` adapter for this page — the second host of that context,

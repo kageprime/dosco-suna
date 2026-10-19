@@ -9,7 +9,7 @@ import Hint from '@/components/ui/hint';
 import Loading from '@/components/ui/loading';
 import { useAuthenticatedPreviewUrl } from '@/hooks/use-authenticated-preview-url';
 import { useSandboxProxy } from '@/hooks/use-sandbox-proxy';
-import { INTERACTIVE_PREVIEW_IFRAME_SANDBOX } from '@/lib/security/iframe-sandbox';
+import { framePolicy } from '@/features/file-viewer/preview-policy';
 import { cn } from '@/lib/utils';
 import { stripKortixSystemTags } from '@/lib/utils/kortix-system-tags';
 import {
@@ -32,6 +32,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 interface SandboxUrlDetectorProps {
   content: string;
   isStreaming?: boolean;
+  /** Session transcript assistant text: ```openui fences render as generative UI. */
+  genui?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +209,7 @@ function InlineIframePreview({ proxyUrl, port }: { proxyUrl: string; port: numbe
             src={authenticatedUrl}
             title={tHardcodedUi('i18nComplete.text8d0218f233bb', { value0: port })}
             className="h-full w-full border-0 bg-white"
-            sandbox={INTERACTIVE_PREVIEW_IFRAME_SANDBOX}
+            sandbox={framePolicy('app', authenticatedUrl).sandbox}
             onLoad={handleLoad}
             onError={handleError}
           />
@@ -385,6 +387,7 @@ export function CodeBlockEndpoints({ content, className }: CodeBlockEndpointsPro
 export const SandboxUrlDetector: React.FC<SandboxUrlDetectorProps> = ({
   content,
   isStreaming = false,
+  genui = false,
 }) => {
   // Strip kortix_system XML tags before any processing/rendering.
   // These tags contain internal/system content injected by OpenCode plugins
@@ -392,5 +395,5 @@ export const SandboxUrlDetector: React.FC<SandboxUrlDetectorProps> = ({
   const rawContent = typeof content === 'string' ? content : content ? String(content) : '';
   const safeContent = stripKortixSystemTags(rawContent);
 
-  return <UnifiedMarkdown content={safeContent} trust="agent" isStreaming={isStreaming} />;
+  return <UnifiedMarkdown content={safeContent} trust="agent" isStreaming={isStreaming} genui={genui} />;
 };

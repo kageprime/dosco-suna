@@ -1,6 +1,6 @@
 import { backendApi } from '../../http/api-client';
 import { unwrap } from './shared';
-import type { SecretConsumer, SecretDeliveryStrategy } from './secrets';
+import type { SecretConsumer, SecretDeliveryStrategy, SecretValueStatus } from './secrets';
 
 export interface AccountSecretResource {
   secret_id: string;
@@ -26,6 +26,10 @@ export interface AccountSecretResource {
   updated_at: string;
   granted_user_ids: string[];
   can_use: boolean;
+  /** Can the server decrypt the stored value? `undecryptable` means enter it
+   *  again with `rotateAccountSecretResource` (a ChatGPT login: reconnect).
+   *  Absent from APIs older than this field. */
+  status?: SecretValueStatus;
 }
 
 export interface CreateAccountSecretResourceInput {
@@ -62,6 +66,10 @@ export async function createAccountSecretResource(accountId: string, input: Crea
 }
 export async function rotateAccountSecretResource(accountId: string, secretId: string, value: string) {
   return unwrap(await backendApi.put<AccountSecretResource>(`${secretPath(accountId, secretId)}/value`, { value }));
+}
+/** End the rate-limit rest of one stored account now (owner, admin or creator). */
+export async function retryAccountSecretResource(accountId: string, secretId: string) {
+  return unwrap(await backendApi.post<AccountSecretResource>(`${secretPath(accountId, secretId)}/retry`));
 }
 export async function deleteAccountSecretResource(accountId: string, secretId: string) {
   return unwrap(await backendApi.delete<{ ok: boolean }>(secretPath(accountId, secretId)));

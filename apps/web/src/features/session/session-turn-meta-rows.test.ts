@@ -1,5 +1,6 @@
 import { testUiTranslator } from '@/i18n/test-translator';
-import type { MessageWithParts, Turn, TurnCostInfo } from '@/ui';
+import type { TurnCostInfo } from '@/ui';
+import type { SessionLogMessage, SessionLogTurn } from '@kortix/sdk';
 import { describe, expect, test } from 'bun:test';
 import {
   sessionTurnDurationMs,
@@ -8,16 +9,22 @@ import {
   sessionTurnSpan,
 } from './session-turn-meta-rows';
 
-function userMessage(created?: number): MessageWithParts {
-  return { info: { role: 'user', time: { created } }, parts: [] } as unknown as MessageWithParts;
+const iso = (ms: number | undefined) => (ms === undefined ? '' : new Date(ms).toISOString());
+
+function userMessage(created?: number): SessionLogMessage {
+  return { role: 'user', created_at: iso(created), completed_at: null } as SessionLogMessage;
 }
 
-function assistantMessage(time: { created?: number; completed?: number }): MessageWithParts {
-  return { info: { role: 'assistant', time }, parts: [] } as unknown as MessageWithParts;
+function assistantMessage(time: { created?: number; completed?: number }): SessionLogMessage {
+  return {
+    role: 'assistant',
+    created_at: iso(time.created),
+    completed_at: time.completed === undefined ? null : iso(time.completed),
+  } as SessionLogMessage;
 }
 
-function turn(user: MessageWithParts, assistantMessages: MessageWithParts[] = []): Turn {
-  return { userMessage: user, assistantMessages };
+function turn(user: SessionLogMessage, assistant: SessionLogMessage[] = []): Pick<SessionLogTurn, 'user' | 'assistant'> {
+  return { user, assistant };
 }
 
 const NOW = 1_000_000;
@@ -36,7 +43,7 @@ describe('sessionTurnSpan', () => {
     expect(sessionTurnSpan(t)).toEqual({ startedAt: 1_000, endedAt: 1_700 });
   });
 
-  test('an empty assistantMessages array yields endedAt: null', () => {
+  test('a turn with no reply yields endedAt: null', () => {
     const t = turn(userMessage(1_000), []);
     expect(sessionTurnSpan(t)).toEqual({ startedAt: 1_000, endedAt: null });
   });
@@ -81,11 +88,11 @@ describe('sessionTurnMetaRows', () => {
       },
       testUiTranslator,
     );
-    expect(rows.map((r) => r.label)).toEqual(['Finished', 'Duration', 'Cost', 'Tokens']);
+    expect(rows.map((r) => r.label)).toEqual(['Finished', 'Duration', 'Cost (credits)', 'Tokens']);
     expect(rows).toEqual([
       { label: 'Finished', value: '5 seconds ago' },
       { label: 'Duration', value: '3s' },
-      { label: 'Cost', value: '$0.42' },
+      { label: 'Cost (credits)', value: '42' },
       { label: 'Tokens', value: '150' },
     ]);
   });
@@ -104,7 +111,7 @@ describe('sessionTurnMetaRows', () => {
       testUiTranslator,
     );
     const labels = rows.map((r) => r.label);
-    expect(labels).not.toContain('Cost');
+    expect(labels).not.toContain('Cost (credits)');
     expect(labels).not.toContain('Tokens');
   });
 
@@ -159,3 +166,53 @@ describe('sessionTurnMetaRows', () => {
     expect(rows[0]?.value).toContain('2 minutes ago');
   });
 });
+
+describe('sessionTurnMetaRows — the model that answered', () => {
+  const tokens = { input: 100, output: 50, reasoning: 0, cacheRead: 0, cacheWrite: 0 };
+  const rowsOf = (input: Partial<Parameters<typeof sessionTurnMetaRows>[0]>) =>
+    sessionTurnMetaRows({ endedAt: NOW - 5_000, now: NOW, durationMs: 3_000, cost: null, ...input }, testUiTranslator);
+
+  // Incident 2026-10-02: a Kortix model answered a turn asked of a ChatGPT
+  // model. The transcript priced it at the ChatGPT model: $0.
+  test('a fallback turn names the model that answered, the model it replaced, and what Kortix billed', () => {
+    expect(
+      rowsOf({
+        cost: { cost: 0, tokens },
+        served: { models: ['GLM 5.3 Flash'], fallbackFrom: 'GPT-6.1 Sol (ChatGPT)', billedCost: 0.75 },
+      }),
+    ).toEqual([
+      { label: 'Finished', value: '5 seconds ago' },
+      { label: 'Duration', value: '3s' },
+      { label: 'Model', value: 'GLM 5.3 Flash' },
+      { label: 'In place of', value: 'GPT-6.1 Sol (ChatGPT)' },
+      { label: 'Cost (credits)', value: '75' },
+      { label: 'Tokens', value: '150' },
+    ]);
+  });
+
+  test('a fallback turn never shows the estimate for the model that did not answer', () => {
+    const rows = rowsOf({
+      cost: { cost: 4.2, tokens },
+      served: { models: ['GPT-6.1 Sol (ChatGPT)'], fallbackFrom: 'Claude Sonnet 5.5', billedCost: 0 },
+    });
+    expect(rows.map((row) => row.label)).toEqual(['Finished', 'Duration', 'Model', 'In place of', 'Tokens']);
+  });
+
+  test('a turn its own model answered names the model and keeps the estimate', () => {
+    const rows = rowsOf({
+      cost: { cost: 0.42, tokens },
+      served: { models: ['GLM 5.3 Flash', 'Kimi K3'], fallbackFrom: null, billedCost: 0.4 },
+    });
+    expect(rows).toContainEqual({ label: 'Model', value: 'GLM 5.3 Flash, Kimi K3' });
+    expect(rows).toContainEqual({ label: 'Cost (credits)', value: '42' });
+    expect(rows.map((row) => row.label)).not.toContain('In place of');
+  });
+
+  test('a turn with no answered request has no Model row', () => {
+    expect(rowsOf({ served: { models: [], fallbackFrom: null, billedCost: 0 } }).map((row) => row.label)).toEqual([
+      'Finished',
+      'Duration',
+    ]);
+  });
+});
+

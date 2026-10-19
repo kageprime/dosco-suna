@@ -19,20 +19,24 @@ import {
 } from '@/features/session/tool/shared/infrastructure';
 import { ToolRegistry } from '@/features/session/tool/shared/registry';
 import { ToolError } from '@/features/session/tool/tool-error';
+import { type InlinePermissionReply, replyToInlinePermission } from '@/features/session/tool/inline-permission-reply';
+import { errorToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
+import { partError, partStreamingInput } from '@/features/session/tool/shared/infrastructure-parts';
 import {
   PERMISSION_LABELS,
   type PermissionRequest,
   type QuestionRequest,
-  type ToolPart,
+  getChildSessionId,
   shouldShowToolPart,
 } from '@/ui';
+import { sessionLogCallStatus, sessionLogOpenCall, toolKind, type ToolCallBlock } from '@kortix/sdk';
 import { useTranslations } from '@/i18n/use-translations';
 import { memo, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 interface PermissionPromptInlineProps {
   permission: PermissionRequest;
-  onReply?: (requestId: string, reply: 'once' | 'always' | 'reject') => void;
+  onReply?: (requestId: string, reply: InlinePermissionReply) => Promise<void> | void;
 }
 
 function PermissionPromptInline({ permission, onReply }: PermissionPromptInlineProps) {
@@ -48,10 +52,14 @@ function PermissionPromptInline({ permission, onReply }: PermissionPromptInlineP
   const label = PERMISSION_LABELS[permission.permission] || permission.permission;
 
   const handleReply = useCallback(
-    (reply: 'once' | 'always' | 'reject') => {
+    async (reply: InlinePermissionReply) => {
       if (replying) return;
       setReplying(true);
-      onReply?.(permission.id, reply);
+      // The card disappears once the runtime accepts; a refusal re-enables it.
+      const accepted = await replyToInlinePermission(onReply, permission.id, reply, (error) =>
+        errorToast(error instanceof Error ? error.message : String(error)),
+      );
+      if (!accepted) setReplying(false);
     },
     [replying, permission.id, onReply],
   );
@@ -67,7 +75,7 @@ function PermissionPromptInline({ permission, onReply }: PermissionPromptInlineP
       <div className="flex items-center gap-1.5">
         <Button
           disabled={replying}
-          onClick={() => handleReply('reject')}
+          onClick={() => void handleReply('reject')}
           variant="muted"
           size="xs"
           className="hover:text-destructive hover:bg-destructive/10"
@@ -76,13 +84,13 @@ function PermissionPromptInline({ permission, onReply }: PermissionPromptInlineP
         </Button>
         <Button
           disabled={replying}
-          onClick={() => handleReply('always')}
+          onClick={() => void handleReply('always')}
           variant="outline"
           size="xs"
         >
           {tHardcodedUi.raw('componentsSessionToolRenderers.line8026JsxTextAllowAlways')}
         </Button>
-        <Button disabled={replying} onClick={() => handleReply('once')} variant="default" size="xs">
+        <Button disabled={replying} onClick={() => void handleReply('once')} variant="default" size="xs">
           {tHardcodedUi.raw('componentsSessionToolRenderers.line8034JsxTextAllowOnce')}
         </Button>
       </div>
@@ -91,10 +99,15 @@ function PermissionPromptInline({ permission, onReply }: PermissionPromptInlineP
 }
 
 interface ToolPartRendererProps {
-  part: ToolPart;
+  /**
+   * The session-log tool call. A caller that still holds a v1 part (a child
+   * session's rows) passes `toolCallBlock(part)`. A closure-rule block is read
+   * open (`sessionLogOpenCall`), so a dead call renders the same on v1 and v2.
+   */
+  call: ToolCallBlock;
   permission?: PermissionRequest;
   question?: QuestionRequest;
-  onPermissionReply?: (requestId: string, reply: 'once' | 'always' | 'reject') => void;
+  onPermissionReply?: (requestId: string, reply: InlinePermissionReply) => Promise<void> | void;
   onQuestionReply?: (requestId: string, answers: string[][]) => void;
   onQuestionReject?: (requestId: string) => void;
   defaultOpen?: boolean;
@@ -102,7 +115,7 @@ interface ToolPartRendererProps {
 }
 
 function ToolPartRendererImpl({
-  part,
+  call: given,
   sessionId,
   permission,
   question,
@@ -113,17 +126,20 @@ function ToolPartRendererImpl({
   disableNavigation = false,
 }: ToolPartRendererProps & { sessionId?: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  // One open block per call object (`sessionLogOpenCall` caches it), so the memos
+  // below and the renderers' own memos hold while the call is unchanged.
+  const call = sessionLogOpenCall(given);
   const toolDurationMs = useMemo(() => {
-    const s = (part.state as any)?.time?.start;
-    const e = (part.state as any)?.time?.end;
+    const s = call.started_at ? Date.parse(call.started_at) : undefined;
+    const e = call.ended_at ? Date.parse(call.ended_at) : undefined;
     if (typeof s === 'number' && typeof e === 'number' && e > s) return e - s;
     return undefined;
-  }, [part.state]);
+  }, [call]);
 
   const onActivate = useContext(ToolActivateContext);
   const boundActivate = useMemo(
-    () => (onActivate ? () => onActivate(part.callID) : null),
-    [onActivate, part.callID],
+    () => (onActivate ? () => onActivate(call.call_id) : null),
+    [onActivate, call.call_id],
   );
 
   const surface = useContext(ToolSurfaceContext);
@@ -131,23 +147,40 @@ function ToolPartRendererImpl({
   // returns — a `useContext` down beside its use site is a conditional hook,
   // and the order would break on the first errored tool part in a turn.
   const turnLive = useContext(TurnLiveContext);
-  const fillsPanel = surface === 'panel' && (part.tool === 'show' || part.tool === 'show-user');
+  const fillsPanel = surface === 'panel' && (call.name === 'show' || call.name === 'show-user');
 
   // One verdict per part, computed once here and read by every BasicTool below
   // it. See `partOutcome` — a tool that RETURNS its error looks identical to a
   // tool that threw as far as the reader is concerned, so it must look
   // identical on the row too.
-  const outcome = useMemo(() => partOutcome(part), [part]);
+  const outcome = useMemo(() => partOutcome(call), [call]);
 
   // The SDK's verdict on tools that never render (a todo read, context bookkeeping).
-  if (!shouldShowToolPart(part)) return null;
+  if (!shouldShowToolPart(call)) return null;
 
-  if (part.state.status === 'error' && 'error' in part.state) {
-    const errorStr = (part.state as { error: string }).error;
+  // A failed `task` dispatch is still a dispatch. OpenCode keeps the child
+  // session alive through the failure (its id rides the part's
+  // `state.metadata.sessionId`, or the `task_id:` sentence in the error), so
+  // the row must stay a dispatch row — TaskTool's "Open full view" affordance
+  // and the child's transcript. Collapsing it into the generic error card
+  // below left the child thread unopenable from the session UI, which is
+  // exactly what a failed subagent looked like to a reader (KRTX-1746).
+  // TaskTool draws `state.error` itself, so the failure reason stays on the
+  // row too. Only the task tool takes this route: the other errored tools have
+  // no child thread to lose, and the generic card is the only renderer that
+  // shows the error text of a tool that does not draw it itself.
+  const errorStr = partError(call);
+  const childBearingTaskError =
+    errorStr !== undefined && toolKind(call.name) === 'task' && Boolean(getChildSessionId(call));
+  // A failed codemode script keeps its partial output and the calls it made before
+  // the failure: its own row draws them, with the error.
+  const drawsOwnError = childBearingTaskError || call.name === 'codemode';
+
+  if (errorStr !== undefined && !drawsOwnError) {
     const { display, server } = (() => {
-      const slashIdx = part.tool.lastIndexOf('/');
-      const s = slashIdx > 0 ? part.tool.slice(0, slashIdx) : null;
-      const n = slashIdx > 0 ? part.tool.slice(slashIdx + 1) : part.tool;
+      const slashIdx = call.name.lastIndexOf('/');
+      const s = slashIdx > 0 ? call.name.slice(0, slashIdx) : null;
+      const n = slashIdx > 0 ? call.name.slice(slashIdx + 1) : call.name;
       const d = n.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       return { display: d, server: s };
     })();
@@ -177,7 +210,7 @@ function ToolPartRendererImpl({
               forceOpen={!!permission || !!question}
               locked={!!permission || !!question}
             >
-              <ToolError error={errorStr} toolName={part.tool} />
+              <ToolError error={errorStr} toolName={call.name} />
             </BasicTool>
           </ToolDurationContext.Provider>
         </ToolOutcomeContext.Provider>
@@ -185,7 +218,7 @@ function ToolPartRendererImpl({
     );
   }
 
-  const RegisteredComponent = ToolRegistry.get(part.tool);
+  const RegisteredComponent = ToolRegistry.get(call.name, call.kind);
   const forceOpen = !!permission || !!question;
   const isLocked = !!permission || !!question;
 
@@ -200,17 +233,15 @@ function ToolPartRendererImpl({
   // the frozen-looking row under a status line that was still saying
   // "Making changes...".
   const isStalePending =
-    !turnLive &&
-    part.state.status === 'pending' &&
-    Object.keys(part.state.input ?? {}).length === 0 &&
-    !(part.state as any).raw;
+    sessionLogCallStatus(call, turnLive) === 'interrupted' &&
+    call.status === 'pending' &&
+    Object.keys(partStreamingInput(call)).length === 0;
 
-  const isRunning =
-    !isStalePending && (part.state.status === 'running' || part.state.status === 'pending');
+  const isRunning = !isStalePending && (call.status === 'running' || call.status === 'pending');
 
   const toolElement = RegisteredComponent ? (
     <RegisteredComponent
-      part={part}
+      call={call}
       sessionId={sessionId}
       defaultOpen={defaultOpen}
       forceOpen={forceOpen}
@@ -223,7 +254,7 @@ function ToolPartRendererImpl({
     // fallback for every unregistered/MCP tool, and dropping them left that
     // whole class of call permanently closed and unopenable on the panel — the
     // one surface where a single call IS the view.
-    <GenericTool part={part} defaultOpen={defaultOpen} forceOpen={forceOpen} locked={isLocked} />
+    <GenericTool call={call} defaultOpen={defaultOpen} forceOpen={forceOpen} locked={isLocked} />
   );
 
   return (
@@ -270,7 +301,7 @@ function ToolPartRendererImpl({
  * computed the props — so without a boundary here, a fifty-turn transcript
  * re-parses every tool's output on every SSE frame.
  *
- * The default shallow compare is right: `part` objects are replaced, not
+ * The default shallow compare is right: `call` objects are replaced, not
  * mutated, when they change; `onPermissionReply` and `onQuestionReply` are
  * `useCallback`s; `permission` is either `undefined` or a store object.
  *

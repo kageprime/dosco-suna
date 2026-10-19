@@ -1,7 +1,7 @@
 import type { RuntimePermissionRequest, RuntimeQuestionRequest } from '@kortix/api-contract/transcript'
-import { retryUntilInitialSessionEstablished, maybeCreateInitialOpencodeSession, finalizeOrphanedTurn, unrequestedAbortCause, finalizeInitialSession, markSeedBakedSession } from './initial-session'
+import { retryUntilInitialSessionEstablished, maybeCreateInitialOpencodeSession, finalizeOrphanedTurn, unrequestedAbortCause, finalizeInitialSession, markSeedBakedSession, clearSeedBakedMarker } from './initial-session'
 import { reconcileInitialTurnAcceptanceToApi, createInitialOpenCodeSession, INITIAL_TURN_PICKUP_GRACE_MS } from './initial-prompt'
-export { initialSessionRetryDelayMs, finalizeInitialSession, retryUntilInitialSessionEstablished, publishInitialOpenCodeSessionAfterPrompt, finalizeOrphanedTurn, waitForOpencodeRootReadiness, resolveExistingRoot, reusedRootAlreadyDelivered, unrequestedAbortCause } from './initial-session'
+export { initialSessionRetryDelayMs, setOrphanSettleMsForTests, finalizeInitialSession, retryUntilInitialSessionEstablished, publishInitialOpenCodeSessionAfterPrompt, finalizeOrphanedTurn, waitForOpencodeRootReadiness, resolveExistingRoot, reusedRootAlreadyDelivered, unrequestedAbortCause } from './initial-session'
 export type { ExistingRootResult } from './initial-session'
 export { createInitialOpenCodeSession, deliverInitialOpenCodePrompt, reconcileInitialTurnAcceptanceToApi, waitForInitialSessionCreate, resolveOpencodeModel, buildInitialPromptBody, INITIAL_TURN_PICKUP_GRACE_MS } from './initial-prompt'
 export type { InitialTurnAcceptanceReconciliation } from './initial-prompt'
@@ -19,10 +19,6 @@ import {
   configureGitCredentialHelper,
   configureGlobalGitIdentity,
   configureRepoCredentialHelper,
-  materializeRepo,
-  materializeScaffoldSeed,
-  materializeProjectSeed,
-  scheduleHistoryBackfill,
 } from '@/lib/git/git'
 import { logger } from '@/lib/log/logger'
 import {
@@ -36,12 +32,14 @@ import {
   startManagedModelsPrefetch,
   writeManagedOverlayCatalogFile,
   waitForOpencodeReady,
+  resolveOpencodeCwd,
   type Opencode,
 } from './lifecycle'
 import { relayBootTimelineToApi } from '../shared/boot-timeline-relay'
-import { materializeProject } from '@/services/config-provider/config-provider'
-import { registerRuntimeStateReader, scheduleRuntimeProjectionPush } from '../shared/projection-relay'
-import { ConvergeBusyError } from '@/services/config-release/release'
+import { scheduleHistoryBackfill } from '@/services/workspace-provider/git'
+import { backfillAfterHydration, provideWorkspace } from '@/services/workspace-provider/workspace-provider'
+import { createSessionTreeWatch, registerRuntimeStateReader, scheduleRuntimeProjectionPush } from '../shared/projection-relay'
+import { ConvergeBusyError } from '@/services/config-provider/release'
 import { convergeConfigRelease } from './config-release'
 import { bootOpenCodeConfig } from './boot-config-path'
 import { OPENCODE_HOME } from './paths'
@@ -66,7 +64,6 @@ import { CATALOG_MOVING_EVENT_TYPES, runtimeStateStore } from './runtime-state-p
 import { createRuntimeAuditRelay } from '../shared/audit-relay'
 import {
   claimInitialTurn,
-  claimedRuntimeSessionPin,
   initialTurnClaim,
   relayPermission,
   relayRuntimeSession,
@@ -78,6 +75,7 @@ import {
   type TurnEndFrame,
 } from '../shared/turn-relay'
 import { relayQuestionToApi } from './question-relay'
+import { observeSteerRead } from './turns'
 import { readControlPlaneEnv, sandboxRelayContext } from '@/lib/kortix-api/relay-context'
 import { observeIdleForRunaway } from './runaway-turn-guard'
 import {
@@ -96,13 +94,10 @@ import {
   setLlmProxyToken,
   llmProxyReady,
   llmProxyBaseUrl,
-  startConnectorProxy,
-  setConnectorProxyToken,
-  connectorProxyReady,
-  connectorProxyBaseUrl,
 } from '@/services/llm-proxy/llm-proxy'
 import type { OpenCodeBootState as SandboxBootState } from './boot-state'
 import { createOpenCodeHarnessService, type OpenCodeHarnessService } from './service'
+import { bootOpenCodeSessionLog } from './session-log'
 import type { DaemonServer } from '../contract/server'
 import { observeOpencodeDelivery, opencodeTurnInFlight, openAssistantMessageIdOnRoot } from './opencode-turn-state'
 import { sessionTokenPresumedDead } from '@/lib/kortix-api/session-token-health'
@@ -277,15 +272,14 @@ export async function runOpenCode(context: HarnessBootContext & { cfg: Config; b
   // long-pole, so the fetch costs no critical-path time.
   startManagedModelsPrefetch(process.env.KORTIX_LLM_BASE_URL, process.env.KORTIX_TOKEN)
 
-  // Fresh-boot acquisition goes through the config-provider coordinator
-  // (git | prefer-s3 | require-s3, see src/services/config-provider). In `git` mode this
-  // is materializeRepo's exact behaviour, split across the coordinator's warm
+  // Fresh-boot acquisition goes through the workspace provider
+  // (git | prefer-s3 | require-s3, see src/services/workspace-provider). In `git` mode this
+  // is materializeRepo's exact behaviour, split across the provider's warm
   // check and the Git transport.
   const repoMaterializePromise: Promise<string | null> = cfg.autoClone
-    ? materializeProject(cfg, {
-        bootMark,
+    ? provideWorkspace(cfg, {
         onSummary: (summary) => {
-          bootState.configProvider = summary
+          bootState.workspaceProvider = summary
         },
       })
         .then(async (result) => {
@@ -293,18 +287,8 @@ export async function runOpenCode(context: HarnessBootContext & { cfg: Config; b
           // optional history backfill waits for real readiness (see
           // runDeferredHistoryBackfill) instead of competing with the runtime
           // spawn for CPU and the proxied Git path.
-          if (result.provider === 's3') {
-            // …and after the blob-pack import has settled, so the two never
-            // write packs into the same object store at once.
-            const hydration = result.hydration ?? Promise.resolve()
-            bootState.deferredHistoryBackfill = () => {
-              void hydration.then(
-                () => scheduleHistoryBackfill(cfg, cfg.projectTarget),
-                () => scheduleHistoryBackfill(cfg, cfg.projectTarget),
-              )
-            }
-          }
-          bootMark('repo-materialized')
+          // …and after the blob-pack import has settled (backfillAfterHydration).
+          if (result.provider === 's3') bootState.deferredHistoryBackfill = backfillAfterHydration(cfg, result)
           // Pin the credential helper repo-locally now the repo exists, so
           // `git push` authenticates whatever the invoking shell's HOME is.
           // Part of materialization, not a step after readiness: the agent can
@@ -666,6 +650,18 @@ async function startSessionRuntime(
   // restart here strands nothing, and the first turn must run on a provider map
   // that has every managed model the picker offers.
   await reconcileManagedModels(opencode, cfg, bootMark)
+  // The session log (P2.6, P6.4), before the event loop and the first prompt,
+  // so the first turn's end flushes it. A restore runs here: after the workspace
+  // (`opencode import` keys sessions to the served directory), before the root
+  // is resolved. It pins the log's root, so the seed's marker must go, or the
+  // root resolution would rotate off the restored root.
+  try {
+    if (await bootOpenCodeSessionLog({ bin: opencode.getBinaryPath() ?? 'opencode', cwd: await resolveOpencodeCwd(cfg), url: opencode.getInternalUrl() })) clearSeedBakedMarker()
+  } catch (err) {
+    bootState.initialRuntimeSessionError = `session log restore failed: ${err instanceof Error ? err.message : String(err)}`
+    logger.error('[boot] session log restore failed; the session does not start', { err: bootState.initialRuntimeSessionError })
+    return
+  }
   // One relay for every harness (shared/audit-relay.ts). A spool an older
   // daemon left behind is renamed first, or loading it would fail the runtime.
   const auditSpoolPath = resolveOpenCodeAuditSpoolPath(process.env)
@@ -685,6 +681,7 @@ async function startSessionRuntime(
   }
   process.once('SIGTERM', flushAuditRelay)
   process.once('SIGINT', flushAuditRelay)
+  const sessionTreeChanged = createSessionTreeWatch()
   const onEvent = (event: { type?: string; properties?: unknown }) => {
     // Fan out BEFORE the audit relay: the sequencer and the state projection
     // are what the product reads, and neither may be starved by a relay that
@@ -694,8 +691,9 @@ async function startSessionRuntime(
     try {
       publishOpenCodeEvent(kortixEventBus(), event)
       runtimeStateStore()?.noteEvent(event)
-      // A catalog-moving frame re-pushes the projection (debounced, etag-gated).
-      if (event.type && CATALOG_MOVING_EVENT_TYPES.has(event.type)) {
+      observeSteerRead(event)
+      // A catalog-moving or session-tree frame re-pushes the projection (debounced, etag-gated).
+      if (event.type && (CATALOG_MOVING_EVENT_TYPES.has(event.type) || sessionTreeChanged(event))) {
         scheduleRuntimeProjectionPush(event.type)
       }
       // A disposed instance is rebuilt lazily by its next request. Make that
