@@ -11,6 +11,10 @@ import {
   validateProductionSupabaseEnv,
 } from './validate-production-supabase-env.mjs';
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function jwtFor(ref, role = 'anon') {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ ref, role })}.signature`;
@@ -53,13 +57,11 @@ describe('validateProductionSupabaseEnv', () => {
     });
 
     assert.equal(result.projectRef, EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF);
-    assert.deepEqual(
-      calls.map(({ url }) => url),
-      [
-        `${EXPECTED_PRODUCTION_SUPABASE_URL}/auth/v1/settings`,
-        `https://${EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co/auth/v1/settings`,
-      ],
-    );
+    // The pinned production URL is the native project URL here, so the guard
+    // dedupes the two candidates into one settings request.
+    assert.deepEqual(calls.map(({ url }) => url), [
+      `${EXPECTED_PRODUCTION_SUPABASE_URL}/auth/v1/settings`,
+    ]);
     assert.ok(
       calls.every(({ apikey }) => apikey === productionEnv().NEXT_PUBLIC_SUPABASE_ANON_KEY),
     );
@@ -73,7 +75,9 @@ describe('validateProductionSupabaseEnv', () => {
         }),
         { fetchImpl: successfulFetch() },
       ),
-      /anon key project ref uhrwvisbqjfxhxjvoofd does not match required production ref jbriwassebxdwoieikga/,
+      new RegExp(
+        `anon key project ref uhrwvisbqjfxhxjvoofd does not match required production ref ${EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF}`,
+      ),
     );
   });
 
@@ -85,7 +89,9 @@ describe('validateProductionSupabaseEnv', () => {
         }),
         { fetchImpl: successfulFetch() },
       ),
-      /NEXT_PUBLIC_SUPABASE_URL must be https:\/\/supa\.kortix\.com or the native EU project URL/,
+      new RegExp(
+        `NEXT_PUBLIC_SUPABASE_URL must be ${escapeRegExp(EXPECTED_PRODUCTION_SUPABASE_URL)} or the native EU project URL`,
+      ),
     );
   });
 
@@ -98,7 +104,9 @@ describe('validateProductionSupabaseEnv', () => {
         }),
         { fetchImpl: successfulFetch() },
       ),
-      /KORTIX_PUBLIC_SUPABASE_URL must be https:\/\/supa\.kortix\.com or the native EU project URL/,
+      new RegExp(
+        `KORTIX_PUBLIC_SUPABASE_URL must be ${escapeRegExp(EXPECTED_PRODUCTION_SUPABASE_URL)} or the native EU project URL`,
+      ),
     );
   });
 
@@ -144,7 +152,7 @@ describe('deployed production validation', () => {
     assert.deepEqual(parseRuntimeConfigScript(script), config);
   });
 
-  it('validates the deployed version, backend, custom domain, and native project', async () => {
+  it('validates the deployed version, backend, and native project', async () => {
     const calls = [];
     const result = await validateDeployedProductionSupabase(
       'https://kortix.com/api/runtime-config',
@@ -163,7 +171,6 @@ describe('deployed production validation', () => {
     assert.deepEqual(calls, [
       'https://kortix.com/api/runtime-config',
       `${EXPECTED_PRODUCTION_SUPABASE_URL}/auth/v1/settings`,
-      `https://${EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co/auth/v1/settings`,
     ]);
   });
 
@@ -188,7 +195,7 @@ describe('deployed production validation', () => {
         expectedVersion: '0.11.0',
         fetchImpl: async () => new Response(wrongBackendScript, { status: 200 }),
       }),
-      /does not match https:\/\/api\.kortix\.com\/v1/,
+      new RegExp(`does not match ${escapeRegExp(EXPECTED_PRODUCTION_BACKEND_URL)}`),
     );
   });
 });

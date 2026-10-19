@@ -2,9 +2,10 @@
 
 import { pathToFileURL } from 'node:url';
 
-export const EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF = 'jbriwassebxdwoieikga';
-export const EXPECTED_PRODUCTION_SUPABASE_URL = 'https://supa.kortix.com';
-export const EXPECTED_PRODUCTION_BACKEND_URL = 'https://api.kortix.com/v1';
+// Dosco fork: the production frontend deploys on Vercel and the API on Heroku.
+export const EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF = 'uscgpdfrzfvfdlzesyuh';
+export const EXPECTED_PRODUCTION_SUPABASE_URL = 'https://uscgpdfrzfvfdlzesyuh.supabase.co';
+export const EXPECTED_PRODUCTION_BACKEND_URL = 'https://dosco-05dd0b153705.herokuapp.com/v1';
 
 const EXPECTED_NATIVE_URL = `https://${EXPECTED_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`;
 const ALLOWED_PRODUCTION_URLS = new Set([EXPECTED_PRODUCTION_SUPABASE_URL, EXPECTED_NATIVE_URL]);
