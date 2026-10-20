@@ -47,7 +47,8 @@ import type { UiTranslator } from '@/i18n/translator';
  *    `name` + `description`; the directory name must equal `name`.
  *  - Counts: 10 skills committed into a new project repo, plus 10 platform
  *    skills injected into every session at boot (`kortix-cli` is in both lists,
- *    so 19 distinct). 2 agents ship: `xera` and `memory-reflector`.
+ *    so 19 distinct). 3 agent files ship: `xera`, `harness-reflector` and
+ *    its `session-reviewer` subagent.
  *  - MARKETPLACE: ships, labelled beta, ON by default. But the deterministic
  *    installer WAS REMOVED (`apps/api/src/projects/routes/marketplace-install-session.ts`): "The
  *    deterministic install/lock/update/remove engine … has been removed …
@@ -145,7 +146,7 @@ export const agent = {
   notes: [
     'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.',
     'Markdown is the floor, not the ceiling: the whole OpenCode surface sits beside it in the same repo — your own TypeScript tools, plugins that hook the runtime, the model and provider config. An agent can pin its own model, or inherit the project, account and platform default in that order.',
-    'Two agents ship in every new project: xera, the generalist, and memory-reflector, which curates the project brain.',
+    'Three agent files ship in every new project: xera, the generalist; harness-reflector, which improves the shared harness and curates the project brain; and session-reviewer, its subagent.',
   ],
 } as const;
 
@@ -154,13 +155,13 @@ export const reach = {
   title: 'Deny by default. Never above the human.',
   sub: 'The grant block covers the whole surface, not just tools: which sandbox image the agent boots, which connectors and channels it may call, which secrets it may receive, which skills it may invoke, and what it may do to Dosco itself. An agent with no grants gets none of it. You grant explicitly, or the answer is no — and on top of that sits a ceiling nothing in the config can lift.',
   md: {
-    title: 'agents/memory-reflector.md',
-    caption: 'A real permission tree, from a real agent that ships.',
+    title: 'agents/harness-reflector.md',
+    caption: 'A permission tree an agent can declare.',
     lines: [
       '---',
-      'description: "Reflects on recent project activity and',
-      '  curates memory/ — the project brain. Runs on a',
-      '  cron and ends every run by opening a single change',
+      'description: "Reviews recent project activity and',
+      '  improves prompts, skills, tools and memory. Runs on',
+      '  a cron and ends every run by opening a single change',
       '  request."',
       'mode: primary',
       'permission:',
@@ -274,7 +275,8 @@ export const repo = {
     { path: 'kortix.yaml', note: 'governance: what each agent may touch', depth: 1 },
     { path: 'agents/', note: 'one OpenCode agent per file', depth: 1 },
     { path: 'xera.md', note: 'the generalist, in every project', depth: 2 },
-    { path: 'memory-reflector.md', note: 'curates the project brain on a cron', depth: 2 },
+    { path: 'harness-reflector.md', note: 'improves the harness and memory on a cron', depth: 2 },
+    { path: 'session-reviewer.md', note: 'the reflector subagent that reviews one session', depth: 2 },
     { path: 'skills/', note: 'one directory per skill', depth: 1 },
     { path: 'agent-browser/SKILL.md', note: 'how this company drives a browser', depth: 2 },
     { path: 'harnesses/opencode/', note: 'the runtime your agents think in', depth: 1 },

@@ -40,7 +40,7 @@ env:
 # Define `sandbox.templates` entries below if you want named custom images
 # for this project. Each entry can point at either a Dockerfile in the repo
 # (`dockerfile: …`) or a public Docker image (`image: …`). Pick one or
-# the other. The Kortix runtime layer is always added on top.
+# the other. The Dosco runtime layer is always added on top.
 #
 # Hardware: cpu = cores, memory = GiB, disk = GiB. All optional.
 #
