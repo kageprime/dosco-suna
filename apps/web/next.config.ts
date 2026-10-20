@@ -316,6 +316,16 @@ const nextConfig = (): NextConfig => ({
     ignoreBuildErrors: true,
   },
 
+  // Same OOM kill as the staticGeneration* knobs below (next.config's
+  // experimental block): the prerender phase maps stack traces to source while
+  // it renders, and on an 8 GB build machine that mapping is one more
+  // multiplicative cost. Top-level since 16.0 (was
+  // experimental.enablePrerenderSourceMaps), default true since 16.3. Costs
+  // nothing at runtime — this only affects stack traces DURING the build.
+  // Tradeoff: a prerender crash shows unminified-ish frames instead of original
+  // sources; debug with `next build --debug-prerender`.
+  enablePrerenderSourceMaps: false,
+
   // --- Next.js 16.3 posture ------------------------------------------------
   // Recording WHY each 16.3 knob is set or left alone, so nobody "adds the
   // missing config" later or wonders whether we missed the release. The only
@@ -463,6 +473,18 @@ const nextConfig = (): NextConfig => ({
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
     turbopackGc: true,
+    // The Vercel build machine is 8 GB on both Hobby and Pro defaults, and the
+    // default `next build` fan-out killed it: build-utils SIGKILLed `next build`
+    // (OOM) on 2026-10-20. The default spawns os.cpus()-1 prerender workers for
+    // this app's static pages, and each worker loads the full module graph plus
+    // writePublicCatalogs()' output for all nine locales. Both knobs come from
+    // /docs/app/api-reference/config/next-config-js/staticGeneration. 250 means
+    // one additional worker per 250 prerendered pages: for this app's static
+    // surface that is one worker total. Concurrency 2 bounds how much render
+    // state exists at once instead of eight-odd pages in flight. The phase gets
+    // slower (maybe minutes); the process stays under the 8 GB edge.
+    staticGenerationMinPagesPerWorker: 250,
+    staticGenerationMaxConcurrency: 2,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
       '@phosphor-icons/react',
