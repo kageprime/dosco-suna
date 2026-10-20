@@ -539,24 +539,8 @@
   }
 }
 
-/* The frame travels 24px rather than 14 and settles from 0.99 rather than out
-   of blur. It is the only element on the fold big enough for scale to register
-   as approach instead of as a wobble, and the floor stays high on purpose:
-   anything under ~0.95 on a screenshot stops reading as motion and starts
-   reading as a zoom effect. */
-@keyframes kx-hero-frame {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
 
 .kx-hero-text,
-.kx-hero-frame,
 .kx-hero-veil {
   animation-delay: var(--kx-enter, 0ms);
   animation-fill-mode: both;
@@ -568,10 +552,6 @@
   animation-duration: 620ms;
 }
 
-.kx-hero-frame {
-  animation-name: kx-hero-frame;
-  animation-duration: 820ms;
-}
 
 /* The wallpaper is ambient, so it gets no movement and the longest ramp on the
    page. It should read as having been there all along, not as arriving. */
@@ -582,11 +562,10 @@
 }
 
 /* Reduced motion removes the movement, not the animation. The fade stays,
-   because it is what tells a reader the fold finished loading; the travel, the
-   scale and the staged delays go. */
+   because it is what tells a reader the fold finished loading; the travel and
+   the staged delays go. */
 @media (prefers-reduced-motion: reduce) {
-  .kx-hero-text,
-  .kx-hero-frame {
+  .kx-hero-text {
     animation-name: kx-fade;
     animation-duration: 260ms;
     animation-delay: 0ms;

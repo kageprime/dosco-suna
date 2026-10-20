@@ -19,15 +19,83 @@ type FooterSection = {
   links: FooterLinkItem[];
 };
 
+/**
+ * Five columns, restored in the 2026-10-20 footer rebuild — "some of the footer
+ * links, the ones that make sense": the shipped sitemap routes only. Every
+ * label except 'Contact', 'CLI', 'SDK' and 'Subprocessors' already carries a
+ * generated translation key, so the columns localize without catalog edits.
+ * Kortix-owned surfaces the old footer pointed at (x.com/kortix,
+ * linkedin.com/company/kortix, status.kortix.com, github.com/kortix-ai/suna)
+ * stay out: the footer links to routes Dosco serves plus one Dosco mailbox.
+ */
 const FOOTER_SECTIONS: FooterSection[] = [
   {
-    title: '火 Dosco',
+    title: 'Product',
     links: [
-      { label: 'Dosco', href: '/' },
-      { label: 'Privacy', href: '/legal?tab=privacy' },
-      { label: 'Terms', href: '/legal/terms' },
+      { label: 'Agent Computer', href: '/agent-computer' },
+      { label: 'Agents & Skills', href: '/agents-and-skills' },
+      { label: 'Company as Code', href: '/company-as-code' },
+      { label: 'Connectors', href: '/connectors' },
+      { label: 'Automations', href: '/automations' },
+      { label: 'Channels', href: '/channels' },
+      { label: 'Security', href: '/security' },
+      { label: 'Self-hosted', href: '/self-hosted' },
+      { label: 'Enterprise', href: '/enterprise' },
+      { label: 'Pricing', href: '/pricing' },
+      { label: 'Download', href: '/download' },
     ],
   },
+  {
+    // Pulled out of the top bar: eight roles is a wide menu beside Product and
+    // Company, and a reader looking for their own function looks down here.
+    title: 'Solutions',
+    links: [
+      { label: 'Sales', href: '/solutions/sales' },
+      { label: 'Marketing', href: '/solutions/marketing' },
+      { label: 'Engineering', href: '/solutions/engineering' },
+      { label: 'Product', href: '/solutions/product' },
+      { label: 'Finance', href: '/solutions/finance' },
+      { label: 'People', href: '/solutions/people' },
+      { label: 'IT', href: '/solutions/it' },
+      { label: 'Data Science', href: '/solutions/data-science' },
+    ],
+  },
+  {
+    title: 'Developers',
+    // /docs/reference/cli 404s — there is no reference/ directory. The page
+    // is content/docs/cli.mdx, routed at /docs/cli.
+    links: [
+      { label: 'Documentation', href: '/docs' },
+      { label: 'CLI', href: '/docs/cli' },
+      { label: 'SDK', href: '/docs/sdk' },
+      { label: 'Quickstart', href: '/docs/quickstart' },
+      { label: 'For developers', href: '/developers' },
+      { label: 'Marketplace', href: '/marketplace' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', href: '/about' },
+      { label: 'Use Cases', href: '/use-cases' },
+      { label: 'Brand', href: '/design-system' },
+    ],
+  },
+  {
+    title: 'Connect',
+    links: [
+      { label: 'Support', href: '/support' },
+      { label: 'Contact', href: 'mailto:support@dosco.live' },
+    ],
+  },
+];
+
+/** Legal surfaces sit one level below the column grid: the copyright row owns
+ *  them, so the five columns stay product-shaped. */
+const FOOTER_LEGAL_LINKS: FooterLinkItem[] = [
+  { label: 'Privacy', href: '/legal?tab=privacy' },
+  { label: 'Terms', href: '/legal/terms' },
+  { label: 'Subprocessors', href: '/legal/subprocessors' },
 ];
 
 function FooterLink({ label, href, external }: FooterLinkItem) {
@@ -54,6 +122,7 @@ const Footer = () => {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const footerSections = localizeUiCatalog(FOOTER_SECTIONS, tI18nComplete, FOOTER_TRANSLATION_KEYS);
+  const legalLinks = localizeUiCatalog(FOOTER_LEGAL_LINKS, tI18nComplete, FOOTER_TRANSLATION_KEYS);
   const currentYear = new Date().getFullYear();
 
   return (
@@ -91,7 +160,21 @@ const Footer = () => {
             </small>
           </div>
 
-          <ThemeToggle variant="compact" systemTheme={false} />
+          <div className="flex items-center gap-6">
+            <nav className="flex items-center gap-4" aria-label="Legal">
+              {legalLinks.map((l) => (
+                <Link
+                  key={l.label}
+                  href={l.href}
+                  className="text-muted-foreground hover:text-foreground whitespace-nowrap text-sm"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+
+            <ThemeToggle variant="compact" systemTheme={false} />
+          </div>
         </div>
       </footer>
 

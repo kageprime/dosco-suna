@@ -9,9 +9,13 @@
 //   1. Their wheel-event forwarding is gone: the scene has `trackMouse: 0` —
 //      nothing in it follows the pointer — so the page's native scrolling and
 //      touch stay untouched here.
-//   2. The scene crossfades over the brandmark wallpaper instead of fading in
-//      against bare page background: the wallpaper covers the engine's load
-//      window and any runtime error, and stays under the opaque canvas after.
+//   2. The brandmark wallpaper is NOT an under-layer. The first live build
+//      (2026-10-20) crossfaded the scene over it, and the brandmark sat visible
+//      through the engine's whole load window — it read as a logo flash. Now
+//      `mode` starts `pending` (SSR renders nothing at all), and the wallpaper
+//      mounts only for the users who never get the scene: reduced-motion, no
+//      WebGL, or a scene error. Scene browsers get the bare page background
+//      for the load window and the canvas fading in over it.
 //   3. prefers-reduced-motion keeps the wallpaper permanently; Onlook animates
 //      regardless of the preference.
 //   4. Narrow viewports render at 30 fps — the flow is slow, so half the frame
@@ -32,35 +36,47 @@ const UnicornScene = dynamic(
 const HERO_SCENE_URL = '/scenes/flow-background.json';
 
 export function HeroBackground({ className }: { className?: string }) {
-  const [mode, setMode] = useState<'fallback' | 'scene'>('fallback');
+  const [mode, setMode] = useState<'pending' | 'fallback' | 'scene'>('pending');
   const [loaded, setLoaded] = useState(false);
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    // A browser without WebGL holds the fallback: headless shells and
+    if (typeof window.matchMedia !== 'function') {
+      setMode('fallback');
+      return;
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Reduced motion never gets the engine; the brandmark stays.
+      setMode('fallback');
+      return;
+    }
+    // A browser without WebGL keeps the fallback too: headless shells and
     // driverless machines get the static brandmark, not a blank canvas.
     const probe = document.createElement('canvas');
-    if (!(probe.getContext('webgl2') ?? probe.getContext('webgl'))) return;
+    if (!(probe.getContext('webgl2') ?? probe.getContext('webgl'))) {
+      setMode('fallback');
+      return;
+    }
     setNarrow(window.matchMedia('(max-width: 767px)').matches);
     setMode('scene');
   }, []);
 
   return (
     <div
-      data-a11y-decorative
       className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}
+      aria-hidden
+      data-a11y-decorative
     >
-      {/* The wallpaper stays mounted under the canvas: it covers the engine's
-          load window, remains visible if the scene errors, and is the whole
-          surface for reduced-motion users. `mode` flips after effects run, so
-          the SSR/test markup is exactly the fallback — no hydration mismatch. */}
-      <WallpaperBackground wallpaperId="brandmark" />
+      {/* The wallpaper is the fallback surface only (`mode === 'fallback'`):
+          reduced-motion and no-WebGL users get it, and a scene error flips back
+          to it. Scene browsers see nothing before the canvas — the brandmark
+          must not flash in the load window. SSR renders the `pending` state, so
+          hydration is a no-op. */}
+      {mode === 'fallback' && <WallpaperBackground wallpaperId="brandmark" />}
       {mode === 'scene' && (
         <div
           className={cn(
-            'absolute inset-0 transition-opacity duration-700',
+            'absolute inset-0 transition-opacity duration-500',
             loaded ? 'opacity-100' : 'opacity-0',
           )}
         >

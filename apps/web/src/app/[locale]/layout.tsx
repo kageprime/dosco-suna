@@ -35,6 +35,7 @@ import { connection } from 'next/server';
 import { Toaster } from 'sonner';
 
 import { TurnAttentionBadge } from '@/components/turn-attention-badge';
+import { onlookMono, onlookSans } from '../(system)/fonts/onlook';
 import { roobert } from '../(system)/fonts/roobert';
 import { roobertMono } from '../(system)/fonts/roobert-mono';
 import '../globals.css';
@@ -243,7 +244,7 @@ export default async function RootLayout({
       translate="no"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn('notranslate', roobert.variable, roobertMono.variable)}
+      className={cn('notranslate', roobert.variable, roobertMono.variable, onlookSans.variable, onlookMono.variable)}
     >
       <head>
         {/* Runtime config. Standalone/Docker: evaluated per request via

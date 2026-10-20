@@ -22,7 +22,10 @@ describe('hero and solutions characterization', () => {
     const html = renderToStaticMarkup(<Hero />);
     expect(html).toMatchSnapshot();
     expect(html).toContain('id="hero"');
-    expect(html).toContain('id="demo"');
+    expect(html).not.toContain('id="demo"');
+    expect(html).toContain('The cloud platform where AI agents get work done.');
+    expect(html).toContain('Spin up agents that code');
+    expect(html).toContain('The agentic OS that replaces');
     expect(html).not.toContain('Request demo');
     expect(html).not.toContain('Get started');
   });

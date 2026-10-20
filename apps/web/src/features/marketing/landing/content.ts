@@ -14,17 +14,13 @@ import type { UiTranslator } from '@/i18n/translator';
  */
 
 /**
- * Hero variants. The product pitch — what Dosco IS — not a use-case pitch.
- * Anchored on the README's opening: "The open-source AI Operating System".
- *
- * Append `?hero=1` (or 2, 3, 4) to the URL to preview an alternative; the
- * selector is dev-only and renders nothing in production.
+ * The home fold's pitch — what Dosco IS, in the Onlook register: one claim up
+ * front, one line of mechanism under it. Renders only on the home hero
+ * (features/marketing/hero.tsx); every other page has its own content module.
  */
 export const hero = {
-  title: 'The open-source AI Operating System',
-  sub: 'Your agents, their skills, your company memory and every connector in one git repo you own. Any model, your keys, self-hosted or managed cloud.',
-  ctaPrimary: 'Get started',
-  ctaSecondary: 'Request demo',
+  title: 'The cloud platform where AI agents get work done.',
+  sub: 'Spin up agents that code, operate and ship — supervised from one place.',
   trust: 'Open source · Any model, your keys · Self-host, VPC, or on-prem',
 } as const;
 
@@ -39,15 +35,6 @@ export const heroEyebrow = {
     { id: 'chatgpt-work', icon: 'OpenAI', label: 'ChatGPT Work' },
   ],
 } as const;
-
-/** Deliverable-row artifacts shown under the hero — proof the agent
- *  ships finished work, not chat. Rendered by the Hero component in
- *  lieu of the product/chat surfaces frame. */
-export const heroDeliverables = [
-  { id: 'frontend', role: 'Frontend', artifact: 'Design handoff', note: 'FINAL' },
-  { id: 'backend', role: 'Backend', artifact: 'API shipped', note: 'FINAL' },
-  { id: 'pm', role: 'Product', artifact: 'Roadmap locked', note: 'FINAL' },
-] as const;
 
 /** Closing CTA. Same block the page has always ended with. */
 export const cta = {
