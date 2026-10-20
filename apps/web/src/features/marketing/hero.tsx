@@ -1,6 +1,6 @@
 'use client';
 
-import { WallpaperBackground } from '@/components/ui/wallpaper-background';
+import { HeroBackground } from '@/features/marketing/hero-background';
 import { Claude } from '@/features/icon/icons/claude';
 import { OpenAI } from '@/features/icon/icons/open-ai';
 import { DeliverableRow } from '@/features/marketing/hero-deliverables';
@@ -69,12 +69,16 @@ const Hero = () => {
       id="hero"
       className="relative flex min-h-svh flex-col justify-center overflow-hidden pt-32 pb-12 sm:pt-36 sm:pb-16 lg:pt-32 lg:pb-14"
     >
+      {/* The flowing gradient behind the fold. It was the desktop-only
+          brandmark veil; the Unicorn scene (hero-background.tsx) now renders on
+          every viewport and holds the brandmark as its own reduced-motion and
+          WebGL fallback inside its layer. */}
       <div
-        className="kx-hero-veil inset-0 z-0 hidden mask-t-from-70% lg:absolute"
+        className="kx-hero-veil inset-0 z-0 mask-t-from-70% absolute"
         aria-hidden
         data-a11y-decorative
       >
-        <WallpaperBackground wallpaperId="brandmark" />
+        <HeroBackground />
       </div>
 
       {/* Six bands enter in reading order — eyebrow → headline → sub → actions →
