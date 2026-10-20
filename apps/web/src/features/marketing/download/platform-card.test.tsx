@@ -4,21 +4,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MOBILE_CARD, MOBILE_ROWS } from './content';
 import { MOBILE_ORDER } from './detect-os';
 import { type CardRow, PlatformCard } from './platform-card';
+import { APP_STORE_URL, GOOGLE_PLAY_URL } from './mobile-store-urls';
 
 const Mark = () => <svg />;
 
 /**
- * The mobile rows exactly as `/download` builds them, so this file fails when
- * the page changes, not only when the card does.
+ * The mobile rows exactly as `/download` builds them (null hrefs filtered out),
+ * so this file fails when the page changes, not only when the card does.
  */
-const mobileRows: CardRow[] = MOBILE_ORDER.map((os) => ({
-  id: os,
-  label: MOBILE_ROWS[os].label,
-  meta: MOBILE_ROWS[os].hint,
-  href: MOBILE_ROWS[os].href,
-  external: true,
-  Mark,
-}));
+const mobileRows: CardRow[] = MOBILE_ORDER.flatMap((os) => {
+  const href = MOBILE_ROWS[os].href;
+  if (href === null) return [];
+  return [{ id: os, label: MOBILE_ROWS[os].label, meta: MOBILE_ROWS[os].hint, href, external: true, Mark }];
+});
 
 const mobileCard = renderToStaticMarkup(
   <PlatformCard
@@ -31,28 +29,14 @@ const mobileCard = renderToStaticMarkup(
 );
 
 describe('the mobile card', () => {
-  test('links each canonical store listing in a new tab', () => {
-    // No storefront country and no `hl=`: each store picks the visitor's region.
-    expect(mobileCard).toContain('href="https://apps.apple.com/app/kortix/id6754448524"');
-    expect(mobileCard).toContain(
-      'href="https://play.google.com/store/apps/details?id=com.kortix.application"',
-    );
-    expect(mobileCard).not.toContain('/cg/');
-    expect(mobileCard).not.toContain('hl=');
-    expect(mobileCard.match(/target="_blank" rel="noopener noreferrer"/g)).toHaveLength(2);
-  });
-
-  test('labels the store buttons Open, with the store in the accessible name', () => {
-    expect(mobileCard).toContain('aria-label="Open App Store"');
-    expect(mobileCard).toContain('aria-label="Open Google Play"');
-    expect(mobileCard).not.toContain('Coming soon');
-  });
-
-  test('fills the visitor\'s own store', () => {
-    const onAndroid = renderToStaticMarkup(
-      <PlatformCard image={null} title="" description="" rows={mobileRows} filled="android" />,
-    );
-    expect(onAndroid.match(/ bg-foreground /g)).toHaveLength(1);
+  test('publishes no store links while the store listings are null', () => {
+    // The current listings belong to the legacy Kortix apps, so the page
+    // renders no mobile card and no store row until the Dosco apps ship
+    // (mobile-store-urls.ts fills them back in).
+    expect(APP_STORE_URL).toBeNull();
+    expect(GOOGLE_PLAY_URL).toBeNull();
+    expect(mobileCard).not.toContain('href=');
+    expect(mobileCard).not.toContain('target="_blank"');
     expect(mobileCard).not.toContain(' bg-foreground ');
   });
 });

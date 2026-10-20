@@ -71,14 +71,20 @@ export default async function DownloadPage({
     };
   });
 
-  const mobileRows: CardRow[] = MOBILE_ORDER.map((os) => ({
-    id: os,
-    label: MOBILE_ROWS[os].label,
-    meta: MOBILE_ROWS[os].hint,
-    href: MOBILE_ROWS[os].href,
-    external: true,
-    Mark: MOBILE_MARKS[os],
-  }));
+  // Rows with a null href are unpublished listings (mobile-store-urls.ts);
+  // a card with zero rows renders nothing at all until the apps are ported.
+  const mobileRows: CardRow[] = MOBILE_ORDER.flatMap((os) => {
+    const href = MOBILE_ROWS[os].href;
+    if (href === null) return [];
+    return [{
+      id: os,
+      label: MOBILE_ROWS[os].label,
+      meta: MOBILE_ROWS[os].hint,
+      href,
+      external: true,
+      Mark: MOBILE_MARKS[os],
+    }];
+  });
 
   const onPhone = isMobilePlatform(detected);
 
@@ -118,7 +124,7 @@ export default async function DownloadPage({
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           {desktopCard}
-          {mobileCard}
+          {mobileRows.length > 0 ? mobileCard : null}
         </div>
         <TerminalBlock />
       </div>

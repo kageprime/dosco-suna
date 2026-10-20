@@ -15,8 +15,10 @@
  *     terminal block says "macOS & Linux · WSL on Windows".
  *  4. There is no Chrome extension in this repo — no manifest, no app. The page
  *     must not advertise one, not even as "coming soon".
- *  5. Both mobile apps are public: iOS on the App Store, Android on Google
- *     Play. The rows link the store listings — see MOBILE_ROWS.
+ *  5. The mobile apps are UNPUBLISHED: the current store listings belong to
+ *     the legacy Kortix apps. The store URLs are null (`mobile-store-urls.ts`),
+ *     so the page renders no mobile card and no store row. Fill the URLs back
+ *     in when the Dosco apps are ported and the card returns on its own.
  */
 
 import { localizeUiCatalog } from '@/i18n/localize-ui-catalog';
@@ -27,11 +29,11 @@ import { APP_STORE_URL, GOOGLE_PLAY_URL } from './mobile-store-urls';
 
 export const hero = {
   title: 'Download Dosco',
-  sub: 'Get the app for your desktop, your phone, or your terminal.',
+  sub: 'Get the app for your desktop or your terminal.',
 };
 
 export type CardCopy = { title: string; description: string };
-export type RowCopy = { label: string; hint: string; href: string };
+export type RowCopy = { label: string; hint: string; href: string | null };
 
 export const DESKTOP_CARD: CardCopy = {
   title: 'Desktop app',
@@ -57,7 +59,7 @@ export const DESKTOP_ROWS: Record<DesktopOs, ComingSoonRowCopy> = {
   linux: { label: 'Linux', hint: 'AppImage · x86_64' },
 };
 
-/** Store URLs live in `mobile-store-urls.ts`. */
+/** Store URLs live in `mobile-store-urls.ts`; nulls mean the listing is not published. */
 export const MOBILE_ROWS: Record<MobileOs, RowCopy> = {
   ios: {
     label: 'iPhone and iPad',

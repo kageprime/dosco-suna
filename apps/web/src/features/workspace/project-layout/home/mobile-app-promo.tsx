@@ -41,7 +41,7 @@ const SCREEN_FADE = 'linear-gradient(to bottom in oklab, transparent 45%, #000 9
 const STORES = [
   { key: 'appStore', badge: '/images/store-badges/app-store.svg', href: APP_STORE_URL },
   { key: 'googlePlay', badge: '/images/store-badges/google-play.svg', href: GOOGLE_PLAY_URL },
-] as const;
+].filter((store) => store.href !== null) as readonly { key: 'appStore' | 'googlePlay'; badge: string; href: string }[];
 
 /** Nothing to subscribe to: false on the server, true once mounted. */
 const subscribeToNothing = () => () => { };
@@ -53,6 +53,10 @@ const subscribeToNothing = () => () => { };
  * them. Every way out closes it for good (`mobile-app-promo-store.ts`).
  */
 export function MobileAppPromo() {
+  // No store links to send anyone anywhere: the promo is pointless without
+  // them, and the stores themselves are unpublished (mobile-store-urls.ts).
+  // Render nothing until the links exist again.
+  if (STORES.length === 0) return null;
   const t = useTranslations('mobileAppPromo');
   const closed = useMobileAppPromoStore((state) => state.closed);
   const close = useMobileAppPromoStore((state) => state.close);
