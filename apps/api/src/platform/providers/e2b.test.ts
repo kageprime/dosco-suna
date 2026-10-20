@@ -223,19 +223,49 @@ describe('E2B provider lifecycle', () => {
     expect(connected).toEqual([]);
   });
 
-  test('refuses to report a renewal the provider clamped (endAt pinned by max_length_hours)', async () => {
+  test('a clamped renewal (endAt pinned by max_length_hours) warns and never throws', async () => {
     // SampleCo 2026-08-25: tier base_v1 max_length_hours=1 → every 204 left
-    // endAt at startedAt+1h; here the sandbox has 20 minutes left.
-    infoEndAt = new Date(Date.now() + 20 * 60_000);
-    const provider = new E2BProvider();
+    // endAt at startedAt+1h; here the sandbox has 20 minutes left. A clamp is
+    // not a refusal: the box runs to the clamped deadline and the wake that
+    // follows it resumes the box. Throwing turned every renewal tick into a
+    // provider failure.
+    const warns: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (line: unknown) => {
+      if (typeof line === 'string') warns.push(line);
+    };
+    try {
+      infoEndAt = new Date(Date.now() + 20 * 60_000);
+      const provider = new E2BProvider();
 
-    await expect(provider.renewLifecycle('sb-capped')).rejects.toMatchObject({
-      name: 'E2BLifecycleRenewalIgnoredError',
-      code: 'e2b_lifecycle_renewal_ignored',
-      message: expect.stringContaining('max_length_hours'),
-    });
-    expect(timeoutRenewals.map((r) => r.sandboxId)).toEqual(['sb-capped']);
-    expect(connected).toEqual([]);
+      await provider.renewLifecycle('sb-capped');
+
+      expect(timeoutRenewals.map((r) => r.sandboxId)).toEqual(['sb-capped']);
+      expect(connected).toEqual([]);
+      expect(warns.join('\n')).toContain('max_length_hours');
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
+  test('the clamp warning is rate-limited to one line per box per window', async () => {
+    const warns: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (line: unknown) => {
+      if (typeof line === 'string') warns.push(line);
+    };
+    try {
+      infoEndAt = new Date(Date.now() + 20 * 60_000);
+      const provider = new E2BProvider();
+
+      await provider.renewLifecycle('sb-capped-twice');
+      await provider.renewLifecycle('sb-capped-twice');
+
+      expect(timeoutRenewals.map((r) => r.sandboxId)).toEqual(['sb-capped-twice', 'sb-capped-twice']);
+      expect(warns).toHaveLength(1);
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   test('bounds a hung provider deadline renewal', async () => {

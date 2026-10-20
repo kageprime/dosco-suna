@@ -77,17 +77,19 @@ const E2B_RENEWAL_TOLERANCE_MS = configuredTimeoutMs(
   1_000,
 );
 
-/** The provider acknowledged a renewal (204) but its deadline did not move. */
-export class E2BLifecycleRenewalIgnoredError extends Error {
-  readonly code = 'e2b_lifecycle_renewal_ignored';
-  constructor(
-    message: string,
-    readonly providerEndAtMs: number,
-  ) {
-    super(message);
-    this.name = 'E2BLifecycleRenewalIgnoredError';
-  }
-}
+/**
+ * A clamped renewal — the tier's `max_length_hours` capping the deadline — is
+ * logged, rate-limited per box. The reaper renews every ~20 s; one error line
+ * per tick per box drowned that page while every clamped box still ran to its
+ * ceiling.
+ */
+const E2B_CLAMP_WARN_INTERVAL_MS = configuredTimeoutMs(
+  'KORTIX_E2B_CLAMP_WARN_INTERVAL_MS',
+  5 * 60_000,
+  1_000,
+);
+// replica-local: last clamp-warning epoch per sandbox id, loggers only.
+const clampWarningAt = new Map<string, number>();
 
 function parseProviderInstant(value: unknown): number | null {
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.getTime() : null;
@@ -609,11 +611,29 @@ export class E2BProvider implements SandboxProvider {
     if (endAtMs === null) return;
     const expectedMinMs = requestedAtMs + E2B_RUNTIME_BACKSTOP_MS - E2B_RENEWAL_TOLERANCE_MS;
     if (endAtMs >= expectedMinMs) return;
-    const shortfallS = Math.round((requestedAtMs + E2B_RUNTIME_BACKSTOP_MS - endAtMs) / 1000);
-    const backstopS = Math.round(E2B_RUNTIME_BACKSTOP_MS / 1000);
-    const message = `E2B ignored the lifecycle renewal for ${externalId}: provider endAt ${new Date(endAtMs).toISOString()} is ${shortfallS}s short of the requested ${backstopS}s backstop. The E2B team's max_length_hours caps every renewal; raise it (tiers.max_length_hours / project_limits) or this sandbox is paused mid-turn at endAt.`;
-    console.error(`[e2b] ${message}`);
-    throw new E2BLifecycleRenewalIgnoredError(message, endAtMs);
+    // Read-back short of now+backstop is the E2B tier clamp, not a refusal:
+    // the team's `max_length_hours` pins every renewal at
+    // `startedAt + max_length_hours`, so a 1h tier shortens within minutes of
+    // create (measured: 1072s short at ~T+42m). Throwing turned every 20-s
+    // renewal into a provider failure — an error per tick per box — and told
+    // the wake evidence that a RUNNING box had died. The box is alive and its
+    // deadline already sits at the ceiling this plan allows; log the clamp
+    // (rate-limited) and count the renewal as applied to it. The pause at
+    // endAt and the wake that resumes the box are the established lifecycle;
+    // the cure for a mid-turn pause is the plan upgrade, not a thrown call.
+    const lastWarn = clampWarningAt.get(externalId) ?? 0;
+    if (requestedAtMs - lastWarn >= E2B_CLAMP_WARN_INTERVAL_MS) {
+      clampWarningAt.set(externalId, requestedAtMs);
+      const remainingS = Math.round((endAtMs - requestedAtMs) / 1000);
+      const shortfallS = Math.round((requestedAtMs + E2B_RUNTIME_BACKSTOP_MS - endAtMs) / 1000);
+      const backstopS = Math.round(E2B_RUNTIME_BACKSTOP_MS / 1000);
+      console.warn(
+        `[e2b] lifecycle renewal for ${externalId} clamped by the E2B plan's max_length_hours: ` +
+          `provider deadline ${new Date(endAtMs).toISOString()} (${remainingS}s ahead, ` +
+          `${shortfallS}s short of the ${backstopS}s backstop). The box runs to the deadline and ` +
+          `pauses at it; a wake resumes it. Raise the plan (tiers.max_length_hours / project_limits) to renew past it.`,
+      );
+    }
   }
 
   async stop(externalId: string): Promise<void> {
@@ -706,6 +726,21 @@ export class E2BProvider implements SandboxProvider {
 
     const providerStatus = await this.getStatus(externalId);
     if (providerStatus !== 'running') {
+      // A WAKE in flight for this same box is the one allowed cooperation.
+      // A pause's cold boot re-runs the template start command, so the
+      // provider reports 'stopped' for tens of seconds while the boot runs;
+      // the wake's own probe and relayed daemon traffic dial through here in
+      // that window and refusing stamped the failure evidence the wake was
+      // trying to prove wrong. Await the same operation once, then return
+      // its handle. No op in flight → the refusal stands: a parked box is
+      // never woken by a stray control route.
+      const waking = startOperations.get(externalId);
+      if (waking) {
+        await waking;
+        const handled = connectedSandboxes.get(externalId);
+        if (handled) return handled;
+        return this.connectFresh(externalId, currentStatusGeneration(externalId));
+      }
       throw new Error(`[e2b] sandbox ${externalId} is not running (status: ${providerStatus})`);
     }
     const generation = currentStatusGeneration(externalId);
