@@ -102,6 +102,47 @@ function parseProviderInstant(value: unknown): number | null {
 const E2B_STOP_TIMEOUT_MS = configuredTimeoutMs('KORTIX_E2B_STOP_TIMEOUT_MS', 25_000, 1_000);
 
 /**
+ * Budget for one `Sandbox.connect` on a REQUEST path (ingress resolution, the
+ * readiness pin, any proxy dial). Observed 2026-10-20: one `Sandbox.connect`
+ * wedged well past Heroku's 30 s router cap against a healthy box, and
+ * `connectOperations` handed EVERY later caller that same pending promise —
+ * `/start` and `/events` H12'd until a dyno restart while
+ * `POST .../config-release` (no box touch) kept returning 200. Bounding the
+ * awaited connect means a wedged attempt fails fast, the map entry is dropped
+ * by its `finally`, and the next caller re-dials instead of inheriting the
+ * corpse. The wake's own connect keeps the provider budget (a filesystem
+ * resume boots the VM and can outlast this on control-plane latency); the wake
+ * as a whole is bounded by E2B_WAKE_BUDGET_MS instead.
+ */
+const E2B_CONNECT_BUDGET_MS = configuredTimeoutMs(
+  'KORTIX_E2B_CONNECT_BUDGET_MS',
+  20_000,
+  1_000,
+);
+
+/**
+ * How long a request-side `connected()` may cooperate with an in-flight wake.
+ * The wake legitimately runs for minutes server-side (its health wait covers a
+ * full cold boot); a REQUEST must answer inside this slice with `starting` —
+ * the long-poll handler and every proxy dial re-check status after it elapses
+ * and never inherit a hung or half-done wake.
+ */
+const E2B_WAKE_COOPERATION_MS = configuredTimeoutMs(
+  'KORTIX_E2B_WAKE_COOPERATION_MS',
+  20_000,
+  1_000,
+);
+
+/**
+ * Hard bound for a whole wake (connect + entrypoint checks + the 190 s health
+ * wait). A stuck E2B command stream — the same wedge the request-path bound
+ * guards against — must fail the wake and release `startOperations` instead of
+ * pinning it for the SDK's own, far longer, deadline. 240 s floors above the
+ * 190 s health wait plus the resume probe margin.
+ */
+const E2B_WAKE_BUDGET_MS = configuredTimeoutMs('KORTIX_E2B_WAKE_BUDGET_MS', 240_000, 1_000);
+
+/**
  * Every E2B SDK call this provider makes. `domain` is explicit and required:
  * the SDK defaults it to the E2B_DOMAIN process variable or `e2b.app`, while
  * Dosco's own config defaults E2B_DOMAIN to `e2b.dev`. Leaving it off pointed
@@ -521,28 +562,42 @@ export class E2BProvider implements SandboxProvider {
   }
 
   private async startOnce(externalId: string, generation: object): Promise<void> {
+    const wake = this.wakeSandboxRuntime(externalId, generation);
+    // A budget timeout leaves the wake settling in the background; without its
+    // own handler its later rejection would surface as an unhandled rejection.
+    wake.catch(() => undefined);
     try {
-      const sandbox = await this.connectFresh(externalId, generation);
-      if (statusCacheGeneration.get(externalId) === generation) {
-        connectedSandboxes.set(externalId, sandbox);
-        connectedSandboxCachedAt.set(externalId, this.now());
-      }
-      // A filesystem-only pause cold-boots on connect. E2B normally runs the
-      // template start command during that boot; this explicit check makes the
-      // Dosco runtime invariant independent of provider startup behavior.
-      const envVars = await loadRuntimeEnv(sandbox);
-      if (envVars.KORTIX_WORKLOAD_TYPE === 'app') await ensureAppEntrypoint(sandbox, envVars);
-      // RESUME, not create: this is the path that has to survive a provider
-      // resume which brings the VM back with a dead process tree.
-      else await ensureKortixEntrypoint(sandbox, envVars, { reviveOnStall: true });
-      if (statusCacheGeneration.get(externalId) === generation) {
-        runningStatusCache.set(externalId, Date.now());
-        connectedSandboxCachedAt.set(externalId, this.now());
-      }
+      await withTimeout(wake, E2B_WAKE_BUDGET_MS, `E2B wake(${externalId})`);
     } catch (error) {
       invalidateConnectedSandbox(externalId);
       invalidateRunningStatus(externalId);
       throw error;
+    }
+  }
+
+  private async wakeSandboxRuntime(externalId: string, generation: object): Promise<void> {
+    // The wake connects directly, not through connectFresh: its budget is the
+    // whole-wake E2B_WAKE_BUDGET_MS, because a filesystem resume cold-boots
+    // the VM and legitimately outlasts the request-path connect budget.
+    const sandbox = await Sandbox.connect(externalId, {
+      ...apiOpts(),
+      timeoutMs: E2B_RUNTIME_BACKSTOP_MS,
+    });
+    if (statusCacheGeneration.get(externalId) === generation) {
+      connectedSandboxes.set(externalId, sandbox);
+      connectedSandboxCachedAt.set(externalId, this.now());
+    }
+    // A filesystem-only pause cold-boots on connect. E2B normally runs the
+    // template start command during that boot; this explicit check makes the
+    // Dosco runtime invariant independent of provider startup behavior.
+    const envVars = await loadRuntimeEnv(sandbox);
+    if (envVars.KORTIX_WORKLOAD_TYPE === 'app') await ensureAppEntrypoint(sandbox, envVars);
+    // RESUME, not create: this is the path that has to survive a provider
+    // resume which brings the VM back with a dead process tree.
+    else await ensureKortixEntrypoint(sandbox, envVars, { reviveOnStall: true });
+    if (statusCacheGeneration.get(externalId) === generation) {
+      runningStatusCache.set(externalId, Date.now());
+      connectedSandboxCachedAt.set(externalId, this.now());
     }
   }
 
@@ -724,22 +779,42 @@ export class E2BProvider implements SandboxProvider {
     if (cached && cachedAt !== undefined && this.now() - cachedAt < E2B_INGRESS_HANDLE_TTL_MS)
       return cached;
 
-    const providerStatus = await this.getStatus(externalId);
+    let providerStatus = await this.getStatus(externalId);
     if (providerStatus !== 'running') {
       // A WAKE in flight for this same box is the one allowed cooperation.
       // A pause's cold boot re-runs the template start command, so the
       // provider reports 'stopped' for tens of seconds while the boot runs;
       // the wake's own probe and relayed daemon traffic dial through here in
       // that window and refusing stamped the failure evidence the wake was
-      // trying to prove wrong. Await the same operation once, then return
-      // its handle. No op in flight → the refusal stands: a parked box is
-      // never woken by a stray control route.
+      // trying to prove wrong.
+      //
+      // The cooperation is BOUNDED: the wake legitimately runs for minutes
+      // server-side, but a request must answer within E2B_WAKE_COOPERATION_MS.
+      // A hung or slow wake must never wedge a request past the server
+      // deadline (observed: /start and /events H12'd while awaiting a wake
+      // that never settled). After the slice, a fresh status read answers —
+      // running → connect; anything else → the not-running refusal with the
+      // accurate status, and the caller answers `starting` for the client to
+      // re-poll.
       const waking = startOperations.get(externalId);
       if (waking) {
-        await waking;
+        // The race's loser keeps settling in the background; without its own
+        // handler a later wake rejection would be an unhandled rejection.
+        waking.catch(() => undefined);
+        try {
+          await withTimeout(
+            // Normalized so the wrapped promise itself never rejects.
+            waking.then(() => undefined, () => undefined),
+            E2B_WAKE_COOPERATION_MS,
+            `E2B wake cooperation(${externalId})`,
+          );
+        } catch {
+          // The wake is still booting (bounded by E2B_WAKE_BUDGET_MS) or has
+          // just failed. Fall through to the status read; never rethrow.
+        }
         const handled = connectedSandboxes.get(externalId);
         if (handled) return handled;
-        return this.connectFresh(externalId, currentStatusGeneration(externalId));
+        providerStatus = await this.getStatus(externalId);
       }
       throw new Error(`[e2b] sandbox ${externalId} is not running (status: ${providerStatus})`);
     }
@@ -751,10 +826,18 @@ export class E2BProvider implements SandboxProvider {
     const inFlight = connectOperations.get(externalId);
     if (inFlight) return inFlight.promise;
 
-    const promise = Sandbox.connect(externalId, {
-      ...apiOpts(),
-      timeoutMs: E2B_RUNTIME_BACKSTOP_MS,
-    })
+    // Bounded: a wedged SDK connect must FAIL this attempt (and drop this map
+    // entry via the finally) instead of parking every later caller on the same
+    // pending promise — one hung connect once poisoned /start and /events for
+    // the whole process, well past the 30 s router cap, until a dyno restart.
+    const promise = withTimeout(
+      Sandbox.connect(externalId, {
+        ...apiOpts(),
+        timeoutMs: E2B_RUNTIME_BACKSTOP_MS,
+      }),
+      E2B_CONNECT_BUDGET_MS,
+      `E2B connect(${externalId})`,
+    )
       .then((sandbox) => {
         if (statusCacheGeneration.get(externalId) === generation) {
           connectedSandboxes.set(externalId, sandbox);
