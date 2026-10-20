@@ -32,7 +32,7 @@ const TEST_AUTH_KEY = '__KORTIX_E2E_AUTH__';
 const BASE_STARTER_PATHS = [
   '.gitignore',
   'agents/harness-reflector.md',
-  'agents/kortix.md',
+  'agents/xera.md',
   'agents/session-reviewer.md',
   'harnesses/opencode/bun.lock',
   'harnesses/opencode/opencode.jsonc',
@@ -729,7 +729,7 @@ describe('create-repo starter scaffold contract', () => {
     expect(
       files.find((file) => file.path === 'skills/kortix-system/SKILL.md'),
     ).toBeUndefined();
-    expect(files.find((file) => file.path === 'agents/kortix.md')).toBeDefined();
+    expect(files.find((file) => file.path === 'agents/xera.md')).toBeDefined();
     // The manifest IS shipped and names the project.
     const manifest = files.find((file) => file.path === 'kortix.yaml');
     expect(manifest?.content).toContain('name: "Company OS"');

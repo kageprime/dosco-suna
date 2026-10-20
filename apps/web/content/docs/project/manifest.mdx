@@ -8,14 +8,14 @@ description: "Every kortix.yaml key with its type, default and validation rule, 
 ```yaml
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
 kortix_version: 2
-default_agent: kortix
+default_agent: xera
 
 env:
   optional: [STRIPE_API_KEY]
 
 agents:
-  kortix:
-    file: agents/kortix.md
+  xera:
+    file: agents/xera.md
     connectors: all
     secrets: all
     skills: all
@@ -24,7 +24,7 @@ agents:
 
 ## File and schema
 
-The project's `manifest_path` (default `kortix.yaml`) sets where Kortix looks. Change it with `kortix projects set --manifest <path>` or in **Customize → Settings**. Kortix reads the first file that exists of `kortix.yaml`, `kortix.yml` and `kortix.toml` at that path. A repository with both a YAML and a TOML file uses the YAML file.
+The project's `manifest_path` (default `kortix.yaml`) sets where Dosco looks. Change it with `kortix projects set --manifest <path>` or in **Customize → Settings**. Dosco reads the first file that exists of `kortix.yaml`, `kortix.yml` and `kortix.toml` at that path. A repository with both a YAML and a TOML file uses the YAML file.
 
 Add the schema line at the top of the file. A YAML editor then validates and completes every key:
 
@@ -56,7 +56,7 @@ kortix validate --scopes              # print every grantable kortix_permissions
 | `--scopes` | Print the grantable `kortix_permissions` entries and their aliases, then exit. |
 | `--no-dockerfile-lint` | Skip the checks on sandbox template Dockerfiles. |
 
-`kortix validate` exits `0` with no errors, `1` with one or more errors, and `2` when the file is missing or unreadable. The same schema check runs in `kortix ship` and in the change request merge check. An error blocks the push or the merge. A warning never does. Kortix ignores unknown top-level keys.
+`kortix validate` exits `0` with no errors, `1` with one or more errors, and `2` when the file is missing or unreadable. The same schema check runs in `kortix ship` and in the change request merge check. An error blocks the push or the merge. A warning never does. Dosco ignores unknown top-level keys.
 
 The CLI also checks the files around the manifest. In a v2 manifest it reports these as errors:
 
@@ -105,13 +105,13 @@ A v3 agent block also takes `variant`, `temperature`, `top_p`, `steps`, `color`,
 | `default_agent` | string | required (v2, v3) | Names a declared agent that is not `enabled: false`. Sessions and triggers that name no agent use it. |
 | `agents` | map | required (v2, v3) | Agent name to agent block. At least one agent. See [agents](#agents). |
 | `imports` | list | none | Other YAML files whose collections merge into this one. See [imports](#imports). |
-| `project` | map | none | `name`, `description`. For people who read the repository. The project name in Kortix does not come from here. |
+| `project` | map | none | `name`, `description`. For people who read the repository. The project name in Dosco does not come from here. |
 | `env` | map | none | `required`, `optional`: secret names. See [env](#env). |
 | `runtime` | string | `opencode` | `opencode` or `pi`. See [harnesses, opencode and pi](#harnesses-opencode-and-pi). |
 | `harnesses` | map | none | `pi.packages`, `opencode.plugins`. |
 | `opencode.config_dir` | path | `harnesses/opencode`, then `.kortix/opencode` | OpenCode config directory. An error in v3. |
 | `pi.config_dir` | path | `harnesses/pi`, then `.kortix/pi` | pi config directory. |
-| `tools` | map | all five Kortix tools | Tool name to `kortix:<name>` or a module path. See [Tools](/docs/project/tools). |
+| `tools` | map | all five Dosco tools | Tool name to `kortix:<name>` or a module path. See [Tools](/docs/project/tools). |
 | `commands` | map | none | v3 only. Slash command name to its template. See [commands (v3)](#commands-v3). |
 | `sandbox` | map | platform image | `templates`, `default`. See [sandbox](#sandbox). |
 | `triggers` | list | none | Schedules, webhooks, monitors, app events. |
@@ -129,12 +129,12 @@ A v2 or v3 manifest rejects `channels`, `sandboxes`, and the image keys `image`,
 ```yaml
 # kortix.yaml
 kortix_version: 2
-default_agent: kortix
+default_agent: xera
 imports:
   - triggers/          # every .yaml and .yml file below this directory
   - agents.yaml        # one file
 agents:
-  kortix:
+  xera:
     connectors: all
 ```
 
@@ -143,14 +143,14 @@ agents:
 triggers:
   - slug: weekly-report
     type: cron
-    agent: kortix
+    agent: xera
     cron: "0 0 15 * * 0"
     prompt: Build the weekly report.
 ```
 
 1. A path is relative to the repository root. `..`, absolute paths and globs are errors. A path that matches no `.yaml` or `.yml` file is an error.
 2. A directory import takes every `.yaml` and `.yml` file below it, at any depth, sorted by path.
-3. An imported file declares `triggers`, `connectors`, `agents`, `apps`, `tools` and `imports`. `kortix_version`, `default_agent`, `runtime`, `project`, `env`, `opencode`, `sandbox`, `policy` and `policies` in an imported file are errors. Kortix drops any other key in an imported file, for example `harnesses`.
+3. An imported file declares `triggers`, `connectors`, `agents`, `apps`, `tools` and `imports`. `kortix_version`, `default_agent`, `runtime`, `project`, `env`, `opencode`, `sandbox`, `policy` and `policies` in an imported file are errors. Dosco drops any other key in an imported file, for example `harnesses`.
 4. Imports nest up to 8 levels and 200 files. A cycle is an error. A file reached twice merges once.
 5. One name, one file. A trigger slug, connector slug, agent name, App slug or tool name declared in two files is an error that names both files.
 6. Entries merge in order: the importing file first, then its imports as listed.
@@ -170,7 +170,7 @@ An agent name matches `[a-z0-9][a-z0-9_-]{0,127}`.
 | Field | Default | Rule |
 | --- | --- | --- |
 | `file` | `agents/<name>.md` | v2 only. The agent `.md`, relative to the repository root. |
-| `enabled` | `true` | Boolean. `false`: Kortix does not start the agent. |
+| `enabled` | `true` | Boolean. `false`: Dosco does not start the agent. |
 | `connectors` | none | Grant set of connector slugs. |
 | `secrets` | none | Grant set of secret names the agent receives in its sandbox. |
 | `skills` | the `.md` decides | Grant set of skill names. Set, it overrides `permission.skill` in the agent `.md`. Omitted, the `.md` rule applies. |
@@ -185,7 +185,7 @@ An agent name matches `[a-z0-9][a-z0-9_-]{0,127}`.
 
 A grant set is `all` (or `*`), `none` (or `""`), or a list of names. A list that contains `*` means all.
 
-**`file` rules.** The path ends in `.md`. It does not start with `/` or `-`. It has no `.`, `..` or empty segment. Each segment uses letters, digits, `_`, `-`, `.` and spaces. With `file` omitted, Kortix reads `agents/<name>.md`, then `.kortix/opencode/agents/<name>.md`, or `<opencode.config_dir>/agents/<name>.md` when that key is set. The API refuses a request that changes `file` (`400`, `invalid_config`). To move an agent, move its `.md` and edit `file` in the same commit.
+**`file` rules.** The path ends in `.md`. It does not start with `/` or `-`. It has no `.`, `..` or empty segment. Each segment uses letters, digits, `_`, `-`, `.` and spaces. With `file` omitted, Dosco reads `agents/<name>.md`, then `.kortix/opencode/agents/<name>.md`, or `<opencode.config_dir>/agents/<name>.md` when that key is set. The API refuses a request that changes `file` (`400`, `invalid_config`). To move an agent, move its `.md` and edit `file` in the same commit.
 
 **`kortix_permissions` rules.** Each entry is a project permission. `kortix validate --scopes` prints the list. Account permissions such as `member.*`, `billing.*` and `project.create` are errors. The alias entries `project.cr.open`, `project.cr.merge`, `project.customize.read` and `project.customize.write` resolve to their current permissions and warn. The no-op entries `project.session.exec`, `project.gateway.routing.edit`, `project.schedule.*`, `project.webhook.*` and `channel.*` are errors in v2 and v3.
 
@@ -214,7 +214,7 @@ agents:
 - `project_repository: false`: the session gets no checkout, no git variables, and no repository API access (`403`). Its [project tools](/docs/project/tools#agents-without-the-project-repository) still load: the sandbox receives only the modules of the tools the agent may call.
 - Omitted: `false` in `kortix_version: 3`, `true` in versions 1 and 2. A v2 project keeps its behavior. The starter, `kortix init`, Create project, the agent editor and `kortix migrate` write the value explicitly, so a new or migrated agent states it.
 - A running session keeps the value it started with. A change applies to new sessions.
-- Any other key under `workspace` is an error. A typo does not fall back to the default: Kortix withholds the repository from that agent until the block is fixed.
+- Any other key under `workspace` is an error. A typo does not fall back to the default: Dosco withholds the repository from that agent until the block is fixed.
 
 ## commands (v3)
 
@@ -239,7 +239,7 @@ agents:
 | --- | --- |
 | name | Lowercase letters and digits, in words joined by `-`. At most 64 characters. |
 | `prompt` | The template, as a non-empty string. |
-| `prompt_file` | A repository path to a `.md` file. Kortix uses the whole file as the template; it does not remove a frontmatter block. |
+| `prompt_file` | A repository path to a `.md` file. Dosco uses the whole file as the template; it does not remove a frontmatter block. |
 | `description` | Optional. Shown in the `/` menu. |
 
 - Set exactly one of `prompt` or `prompt_file`. Any other key is an error. An `agent` key points you to `agents.<name>.commands`.
@@ -269,7 +269,7 @@ The Secrets store refuses a name longer than 64 characters or one that starts wi
 
 ## sandbox
 
-`sandbox.templates` lists named sandbox images. With no template, every session boots the platform image. What Kortix adds on top of an image is on [Sandboxes & previews](/docs/work/runtime#the-image-and-templates).
+`sandbox.templates` lists named sandbox images. With no template, every session boots the platform image. What Dosco adds on top of an image is on [Sandboxes & previews](/docs/work/runtime#the-image-and-templates).
 
 ```yaml
 sandbox:
@@ -312,7 +312,7 @@ A session runs one of two harnesses. `runtime: pi` or the project's `pi_harness`
 
 | Key | Default | Holds |
 | --- | --- | --- |
-| `opencode.config_dir` | `harnesses/opencode`, then `.kortix/opencode` | Files only OpenCode reads: `opencode.jsonc`, `plugins/`, `tools/`. Without the key, Kortix uses the first directory that holds an `opencode.json` or `opencode.jsonc`. |
+| `opencode.config_dir` | `harnesses/opencode`, then `.kortix/opencode` | Files only OpenCode reads: `opencode.jsonc`, `plugins/`, `tools/`. Without the key, Dosco uses the first directory that holds an `opencode.json` or `opencode.jsonc`. |
 | `pi.config_dir` | `harnesses/pi`, then `.kortix/pi` | Files only pi reads: `settings.json`, `extensions/`, `skills/`, `prompts/`. |
 
 **`harnesses.pi.packages`** lists the pi packages every pi session loads:
@@ -370,7 +370,7 @@ agents:
 
 ## tools
 
-`tools` maps a tool name to `kortix:<name>` (a Kortix tool) or a repository-relative `.ts` or `.js` module. With no `tools` key, sessions get all five Kortix tools. With a `tools` key, sessions get only the tools it lists. The rules, errors and module contract are on [Tools](/docs/project/tools).
+`tools` maps a tool name to `kortix:<name>` (a Dosco tool) or a repository-relative `.ts` or `.js` module. With no `tools` key, sessions get all five Dosco tools. With a `tools` key, sessions get only the tools it lists. The rules, errors and module contract are on [Tools](/docs/project/tools).
 
 ## triggers, connectors, apps
 
@@ -418,7 +418,7 @@ A monitor trigger rejects `cron`, `run_at`, `timezone` and `secret_env`. An even
 - `allow_all` (default): the call runs.
 - `risk`: a read runs; a write or destructive call needs approval.
 
-`policies` holds project-wide rules. A rule matches a fully qualified tool path, `<connector-slug>.<tool>`, with `*` globs. Kortix checks project rules first, then the connector's own `policies`. The first matching rule wins. `conditions` limits a rule to calls whose arguments match:
+`policies` holds project-wide rules. A rule matches a fully qualified tool path, `<connector-slug>.<tool>`, with `*` globs. Dosco checks project rules first, then the connector's own `policies`. The first matching rule wins. `conditions` limits a rule to calls whose arguments match:
 
 ```yaml
 policy:
@@ -435,7 +435,7 @@ policies:
 
 All conditions of a rule must hold. `negate: true` inverts one condition. How approvals reach a person is on [Policies and approvals](/docs/connect/connectors#policies-and-approvals).
 
-`kortix validate` does not check `policy` or `policies`. When Kortix syncs connectors, it skips a malformed rule and reports it as a connector sync error. Check the rules in the connector settings after the merge.
+`kortix validate` does not check `policy` or `policies`. When Dosco syncs connectors, it skips a malformed rule and reports it as a connector sync error. Check the rules in the connector settings after the merge.
 
 ## Dashboard and CLI edits
 
@@ -449,7 +449,7 @@ A manifest edit takes effect when it reaches the default branch. A dashboard, AP
 
 ## Migrate from kortix.toml
 
-Kortix reads and runs a v1 `kortix.toml`. To move it to v2, open **Customize → Settings → Upgrades** and run **Migrate manifest to v2 (kortix.yaml)**, or run:
+Dosco reads and runs a v1 `kortix.toml`. To move it to v2, open **Customize → Settings → Upgrades** and run **Migrate manifest to v2 (kortix.yaml)**, or run:
 
 ```bash
 kortix projects upgrade [<id>]

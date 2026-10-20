@@ -1,19 +1,19 @@
 ---
 title: Capture
-description: Record each member's screen, input actions and audio 24/7 into a searchable timeline that belongs to the Kortix account.
+description: Record each member's screen, input actions and audio 24/7 into a searchable timeline that belongs to the Dosco account.
 ---
 
-Kortix Capture records a member's own computer 24/7:
+Dosco Capture records a member's own computer 24/7:
 
 - the screen: video, the app, the window title, the URL and the on-screen text;
 - input actions (clicks, typing) with a screenshot of each;
 - audio, with a transcript, when the account's policy turns it on.
 
-Kortix indexes the recordings into one timeline per person. You can rewatch
+Dosco indexes the recordings into one timeline per person. You can rewatch
 any moment and search all of it. Capture v1 is raw capture: it records,
 uploads and indexes. It does no further processing.
 
-Capture belongs to the **Kortix account** (your organization), not to a
+Capture belongs to the **Dosco account** (your organization), not to a
 project. One account has one Capture workspace: one switch and one policy.
 Devices sign in to the account.
 
@@ -25,43 +25,43 @@ it is off:
 
 - every Capture route answers `403` with `code: "capture_disabled"`;
 - a device cannot sign in or get storage credentials;
-- Kortix indexes nothing new.
+- Dosco indexes nothing new.
 
-Everything about Kortix Capture lives under `/capture` in Kortix. Open
-**Kortix Capture** (command palette, or `/capture`), then **Settings**
-(owners and admins), and turn on **Kortix Capture** for the organization. The
+Everything about Dosco Capture lives under `/capture` in Dosco. Open
+**Dosco Capture** (command palette, or `/capture`), then **Settings**
+(owners and admins), and turn on **Dosco Capture** for the organization. The
 same page holds the organization's rules: what computers record, how long
-Kortix keeps it, an account-wide pause and an optional notice.
+Dosco keeps it, an account-wide pause and an optional notice.
 
 From the API: `PATCH /v1/accounts/<account_id>/capture` with `{"enabled": true}`.
 From TypeScript: `kortix.capture.account(accountId).workspace.setEnabled(true)`.
 
-## Install Kortix Capture
+## Install Dosco Capture
 
-Kortix Capture is its own app, installed apart from the Kortix app. It runs in
+Dosco Capture is its own app, installed apart from the Dosco app. It runs in
 the background on Windows, macOS and Linux, shows an icon in the notification
-area (the menu bar on macOS), and records into one Kortix account. A computer
+area (the menu bar on macOS), and records into one Dosco account. A computer
 connects in one of two ways:
 
 | Way | For | How |
 |---|---|---|
-| Sign in with Kortix | one person on their own computer | the person approves the computer in the browser |
+| Sign in with Dosco | one person on their own computer | the person approves the computer in the browser |
 | Enrollment token | IT, for many computers at once | IT installs with a token; nobody signs in. See [IT rollout](/docs/capture/rollout) |
 
 Download the installer for the computer: [Windows](/download/capture/windows)
 (`.msi`), [macOS](/download/capture/macos) (`.pkg`) or
 [Linux](/download/capture/linux) (`.deb`).
 
-The installers are attached to every Kortix release, under the same version.
+The installers are attached to every Dosco release, under the same version.
 Each one is also on the
 [releases page](https://github.com/kortix-ai/suna/releases/latest) with its
 checksums in `CAPTURE-SHA256SUMS`. Install a newer installer over the old one to
 update; the configuration stays.
 
-To sign in with Kortix:
+To sign in with Dosco:
 
-1. Install Kortix Capture and open it from the Kortix Capture icon.
-2. Choose **Sign in with Kortix…**. The browser opens `/capture/authorize`
+1. Install Dosco Capture and open it from the Dosco Capture icon.
+2. Choose **Sign in with Dosco…**. The browser opens `/capture/authorize`
    with a code. Check that the code matches, then choose the account. Only
    accounts with Capture on are listed.
 3. On macOS, grant the permissions when asked: Screen Recording for the
@@ -69,13 +69,13 @@ To sign in with Kortix:
    audio. Windows and Linux ask for none.
 
 Without the icon, the same sign-in is
-`kortix-capture sync setup --provider kortix --issuer <your Kortix API>`.
+`kortix-capture sync setup --provider kortix --issuer <your Dosco API>`.
 
 The computer records into that account as you, 24/7, and uploads every
 finished item. It gets a revocable device token and, from it, short-lived
 storage credentials for its own folder (`orgs/<account_id>/<device_id>/`) and
 read access to the policy. Signing in again on the same computer reuses the
-device. Forgetting a time range on the device removes it from Kortix too.
+device. Forgetting a time range on the device removes it from Dosco too.
 
 ## Link a computer to a person
 
@@ -98,7 +98,7 @@ it.
 
 ## Who sees what
 
-Access is Kortix IAM. Capture has no roles of its own.
+Access is Dosco IAM. Capture has no roles of its own.
 
 | Who | Reads | Writes |
 |---|---|---|
@@ -109,7 +109,7 @@ Access is Kortix IAM. Capture has no roles of its own.
 
 Account owners and admins have `capture.read_all` and `capture.manage` by
 default. To give either one to someone else, add it to a custom role
-(**Account → Roles**, area **Capture**). A Kortix API key acts as the person
+(**Account → Roles**, area **Capture**). A Dosco API key acts as the person
 who made it, with the same permissions.
 
 Every read of another member's data writes `capture.member_view` to the
@@ -138,7 +138,7 @@ One policy applies to every device of the account:
     macOS and Windows ids together and shows by name.
   - Anything skipped is blacked out, a display with nothing left to record
     writes no frame, and actions in skipped apps are not recorded. A person can
-    add their own entries in Kortix Capture (Settings, Apps and websites) but
+    add their own entries in Dosco Capture (Settings, Apps and websites) but
     cannot remove the organization's or switch an inclusion policy back.
     Audio is not filtered by app: leave the audio layer off under an inclusion
     policy;
@@ -148,7 +148,7 @@ One policy applies to every device of the account:
   every 2 s, 1440p). Set, every computer uses it and shows it locked. Clicks,
   typing and scrolling are recorded with their own screenshots at any interval;
   pick 1 s when screens change fast without input, such as live dashboards;
-- how long Kortix keeps recordings (`remote_days`);
+- how long Dosco keeps recordings (`remote_days`);
 - an optional notice: each person sees it once, and again when its text changes;
 - **Experimental → Privacy controls** (off by default) shows personal-data
   masking on the computer (each computer first downloads a ~1 GB model).
@@ -160,28 +160,28 @@ Each computer chooses how long it keeps recordings after uploading them
 A computer gets the policy the moment it signs in or IT enrolls it, so a new
 computer starts under your exclusion or inclusion policy with nothing to set up.
 Until the policy has arrived (seconds after sign-in), the computer records
-nothing. In Kortix Capture, Settings, Apps and websites says where its rules
+nothing. In Dosco Capture, Settings, Apps and websites says where its rules
 come from: "Synced from" your organization with the policy type, or "Set on
 this computer" when it is not synced to an organization.
 
-Kortix publishes the policy to `orgs/<account_id>/policy.json` in the capture
+Dosco publishes the policy to `orgs/<account_id>/policy.json` in the capture
 store, where every device reads it within a minute. A device cannot write a
-policy of its own. Kortix also enforces the layers when it indexes: a device
+policy of its own. Dosco also enforces the layers when it indexes: a device
 never widens the policy.
 
 A device records every connected display, the active one (the display with
 the focused window) first. Each display is its own recorded item; the
 timeline names the display of every item and frame.
 
-## Kortix Capture API
+## Dosco Capture API
 
-Everything Capture records is readable with a Kortix API key, from a script, a
+Everything Capture records is readable with a Dosco API key, from a script, a
 notebook, a BI tool or an agent.
 
-**Auth.** Create a key in Kortix (Settings → API keys) or with
+**Auth.** Create a key in Dosco (Settings → API keys) or with
 `POST /v1/accounts/tokens`. Send it as `Authorization: Bearer kortix_pat_…`.
 
-**Base URL.** `https://<your Kortix API>/v1/accounts/<account_id>/capture`.
+**Base URL.** `https://<your Dosco API>/v1/accounts/<account_id>/capture`.
 `GET /v1/accounts` lists your accounts.
 
 **Scoping.** Every route reads your own data by default. With
@@ -220,7 +220,7 @@ Example:
 
 ```bash
 curl -s -H "Authorization: Bearer $KORTIX_API_KEY" \
-  "https://<your Kortix API>/v1/accounts/$ACCOUNT/capture/search?q=invoice&limit=5"
+  "https://<your Dosco API>/v1/accounts/$ACCOUNT/capture/search?q=invoice&limit=5"
 ```
 
 The TypeScript SDK wraps the same routes: `kortix.capture.account(accountId)`

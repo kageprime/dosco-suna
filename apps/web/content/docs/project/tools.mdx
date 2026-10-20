@@ -1,6 +1,6 @@
 ---
 title: Tools
-description: The five Kortix tools, project tools you write in TypeScript or JavaScript, and which agent may call which.
+description: The five Dosco tools, project tools you write in TypeScript or JavaScript, and which agent may call which.
 ---
 
 A tool is a function the model calls during a turn. This page is for project authors who choose the tools a project loads, write their own, and limit them per agent. Tool selection and per-agent access live in [`kortix.yaml`](/docs/project/manifest).
@@ -10,12 +10,12 @@ A tool is a function the model calls during a turn. This page is for project aut
 | Kind | Names | Comes from |
 | --- | --- | --- |
 | Harness tools | `bash`, `read`, `write`, `edit`, `apply_patch`, `glob`, `grep`, `list`, `task`, `question`, `todowrite`, `webfetch`, `websearch`, `skill`, `lsp` | The harness, OpenCode or pi. |
-| Kortix tools | `web_search`, `image_search`, `scrape_webpage`, `memory`, `show` | Kortix maintains them. You select them under `tools:`. |
+| Dosco tools | `web_search`, `image_search`, `scrape_webpage`, `memory`, `show` | Dosco maintains them. You select them under `tools:`. |
 | Project tools | Any name you declare | One module in your repo, declared under `tools:`. |
 
-Kortix tools and project tools are one module each. The sandbox runs the same module on both [harnesses](/docs/project/agents#harnesses-opencode-and-pi), with the same name, arguments, and output.
+Dosco tools and project tools are one module each. The sandbox runs the same module on both [harnesses](/docs/project/agents#harnesses-opencode-and-pi), with the same name, arguments, and output.
 
-| Kortix tool | What it does |
+| Dosco tool | What it does |
 | --- | --- |
 | `web_search` | Searches the web. Returns titles, URLs, snippets, and a short answer. |
 | `image_search` | Searches for images. Returns image URLs, titles, source pages, and dimensions. |
@@ -23,13 +23,13 @@ Kortix tools and project tools are one module each. The sandbox runs the same mo
 | `memory` | Views, creates, edits, renames, and deletes files under `memory/`, the project memory. |
 | `show` | Presents a file, image, URL, document, or text to the person in the session. |
 
-## Choose Kortix tools
+## Choose Dosco tools
 
 A new project lists all five under the top-level `tools:` key:
 
 ```yaml
 tools:
-  web_search: kortix:web_search      # maintained by Kortix, updated automatically
+  web_search: kortix:web_search      # maintained by Dosco, updated automatically
   image_search: kortix:image_search
   scrape_webpage: kortix:scrape_webpage
   memory: kortix:memory
@@ -37,16 +37,16 @@ tools:
   # lookup_order: tools/lookup_order.ts   # your own tool: a module in your repo
 ```
 
-`<name>: kortix:<name>` keeps the tool Kortix maintains. A fix to it reaches the project with no change in the repo.
+`<name>: kortix:<name>` keeps the tool Dosco maintains. A fix to it reaches the project with no change in the repo.
 
-| `kortix.yaml` | Kortix tools a session gets |
+| `kortix.yaml` | Dosco tools a session gets |
 | --- | --- |
 | No `tools:` key, in the root file or in any [imported](/docs/project/manifest#imports) file | All five. |
-| A `tools:` key in any file, even an empty one | Only the Kortix tools it lists. |
+| A `tools:` key in any file, even an empty one | Only the Dosco tools it lists. |
 
 Project tools load in both cases.
 
-- **Remove a Kortix tool:** delete its line. Every agent of the project loses it. To hide a tool from one agent only, use [`agents.<name>.tools`](#give-each-agent-its-tools).
+- **Remove a Dosco tool:** delete its line. Every agent of the project loses it. To hide a tool from one agent only, use [`agents.<name>.tools`](#give-each-agent-its-tools).
 - **A skill that names a removed tool still loads.** The model finds no such tool and uses other tools.
 - **See what a session gets:** run `kortix tools ls` from the project root.
 
@@ -59,11 +59,11 @@ memory          kortix               kortix:memory
 show            kortix               kortix:show
 lookup_order    project              tools/lookup_order.ts
 
-Removed Kortix tools: image_search
+Removed Dosco tools: image_search
 Add `<name>: kortix:<name>` under `tools:` to get one back.
 ```
 
-`KIND` is `kortix`, `kortix (overridden)` (a Kortix tool name with your module), or `project`. `kortix tools ls --json` prints `{ manifest, tools_key, tools: [{ name, kind, source }], removed }`.
+`KIND` is `kortix`, `kortix (overridden)` (a Dosco tool name with your module), or `project`. `kortix tools ls --json` prints `{ manifest, tools_key, tools: [{ name, kind, source }], removed }`.
 
 Rules for every entry under `tools:`:
 
@@ -124,7 +124,7 @@ export default {
 env:
   optional: [WEATHER_API_KEY]
 tools:
-  # … the Kortix tools you keep
+  # … the Dosco tools you keep
   weather_now: tools/weather_now.ts
 agents:
   my-agent:
@@ -148,7 +148,7 @@ The default export is a plain object. It imports nothing from a harness.
 
 | Field | Value |
 | --- | --- |
-| `sessionId` | The Kortix session the call belongs to. |
+| `sessionId` | The Dosco session the call belongs to. |
 | `agent` | The agent that made the call. |
 | `directory` | The project checkout the session works in, `/workspace`. Resolve relative paths against it. |
 | `env` | The sandbox environment plus the secrets this agent receives, with their current values. Read a secret as `context.env.NAME`. A secret changed after the sandbox started is in `context.env`, not in `process.env`. |
@@ -169,11 +169,11 @@ bun -e "import { z } from 'zod'; console.log(JSON.stringify(z.toJSONSchema(z.obj
 
 ## Give each agent its tools
 
-`agents.<name>.tools` decides which tools an agent's model sees. It names harness, Kortix, and project tools alike.
+`agents.<name>.tools` decides which tools an agent's model sees. It names harness, Dosco, and project tools alike.
 
 ```yaml
 agents:
-  kortix:
+  xera:
     tools: all                                    # every tool (the default)
   researcher:
     tools: [read, grep, web_search, weather_now]  # only these
@@ -193,11 +193,11 @@ agents:
 | `{ bash: false, … }` | The map form: `false` removes a tool. |
 
 - **Visibility, not permission.** A hidden tool is also denied if the model calls it. For a visible tool, the agent's `permission` rules decide allow, ask, or deny. See [Agents & permissions](/docs/project/agents#ask-allow-or-deny).
-- **Kortix tools.** An agent list cannot add a Kortix tool the project does not load. List it under the top-level `tools:` first.
+- **Dosco tools.** An agent list cannot add a Dosco tool the project does not load. List it under the top-level `tools:` first.
 - **Connector tools** follow `agents.<name>.connectors`, not this list. See [Connectors](/docs/connect/connectors).
 - **Subagents.** On pi, a subagent gets only the tools that both its own list and the parent agent's list allow. On OpenCode, a subagent gets the tools of its own list. To stop an agent from delegating, leave `task` out of its list.
 - **OpenCode groups.** On OpenCode, `bash` also covers the `pty_*` terminal tools. `write`, `edit`, and `apply_patch` share one permission: listing one shows all three, and excluding one hides all three. pi has separate `write` and `edit` tools.
-- **Typos.** `kortix validate` warns about a name that is not a harness, Kortix, or project tool, and about a Kortix tool the project does not load. A typo in an `exclude` list leaves the real tool on.
+- **Typos.** `kortix validate` warns about a name that is not a harness, Dosco, or project tool, and about a Dosco tool the project does not load. A typo in an `exclude` list leaves the real tool on.
 
 ### Agents without the project repository
 
@@ -222,14 +222,14 @@ agents:
 - `context.directory` is `/workspace`, which is empty for this agent.
 - A change to a shipped file reaches running sessions as their config converges, like any tool change.
 
-## Eject or override a Kortix tool
+## Eject or override a Dosco tool
 
-`kortix tools eject <name>` gives the project its own copy of a Kortix tool:
+`kortix tools eject <name>` gives the project its own copy of a Dosco tool:
 
 ```text
 $ kortix tools eject web_search
   ✓  Ejected web_search
-  wrote   tools/web_search.ts (the Kortix source, now the project's to change)
+  wrote   tools/web_search.ts (the Dosco source, now the project's to change)
   set     kortix.yaml: tools.web_search: tools/web_search.ts
 
 Next:
@@ -242,36 +242,36 @@ Sessions load the copy after the change request merges.
 
 In a local checkout, give `kortix cr open` the branch you pushed: `--head <branch>`. Inside a sandbox the CLI fills it in.
 
-- It writes the source the sandbox runs to `tools/<name>.ts`. The copy imports only `node:*` modules, so it runs as it is. `web_search`, `image_search`, and `scrape_webpage` call the Kortix API with `KORTIX_API_URL` and `KORTIX_TOKEN` from `context.env`. `memory` and `show` work on files in the project checkout.
+- It writes the source the sandbox runs to `tools/<name>.ts`. The copy imports only `node:*` modules, so it runs as it is. `web_search`, `image_search`, and `scrape_webpage` call the Dosco API with `KORTIX_API_URL` and `KORTIX_TOKEN` from `context.env`. `memory` and `show` work on files in the project checkout.
 - It sets `<name>: tools/<name>.ts` in the file that declares the entry, the root file or an imported file. The line ends with `# ejected from kortix:<name>`. Other lines and comments stay.
-- With no `tools:` key, it creates one and also lists the other four Kortix tools as `kortix:<name>`, so the eject removes nothing.
+- With no `tools:` key, it creates one and also lists the other four Dosco tools as `kortix:<name>`, so the eject removes nothing.
 - It refuses when `tools/<name>.ts` exists or when the tool already points at another module. `--force` overwrites.
-- It refuses a name that is not a Kortix tool, and a project without `kortix.yaml` at `kortix_version` 2 or 3.
+- It refuses a name that is not a Dosco tool, and a project without `kortix.yaml` at `kortix_version` 2 or 3.
 
-Kortix does not update an ejected copy. To override without a copy, point the Kortix tool name at any module of yours:
+Dosco does not update an ejected copy. To override without a copy, point the Dosco tool name at any module of yours:
 
 ```yaml
 tools:
   web_search: integrations/search/web_search.ts
 ```
 
-The module replaces the Kortix tool on every harness. Keep the name, the arguments, and the output shape, so skills that name the tool and the web app's view of it still work.
+The module replaces the Dosco tool on every harness. Keep the name, the arguments, and the output shape, so skills that name the tool and the web app's view of it still work.
 
 To return to the maintained tool, set the line back to `<name>: kortix:<name>` and delete the module.
 
 ## Test a tool
 
-A tool change reaches sessions when it reaches the default branch, usually through a [change request](/docs/git#change-requests). New sessions then load the change, and running sessions pick it up as their config converges. On pi, a change to a project tool or to the Kortix tool list restarts the runtime in place while no turn runs. The session keeps its messages. See [How a change takes effect](/docs/project#how-a-change-takes-effect).
+A tool change reaches sessions when it reaches the default branch, usually through a [change request](/docs/git#change-requests). New sessions then load the change, and running sessions pick it up as their config converges. On pi, a change to a project tool or to the Dosco tool list restarts the runtime in place while no turn runs. The session keeps its messages. See [How a change takes effect](/docs/project#how-a-change-takes-effect).
 
 <Steps>
 <Step title="Validate">
 
-`kortix validate` checks names, paths, missing module files, and `kortix:` values. It warns when a `tools:` key lists no Kortix tool.
+`kortix validate` checks names, paths, missing module files, and `kortix:` values. It warns when a `tools:` key lists no Dosco tool.
 
 </Step>
 <Step title="Check the list">
 
-`kortix tools ls` shows each tool a session gets and the Kortix tools the project removed.
+`kortix tools ls` shows each tool a session gets and the Dosco tools the project removed.
 
 </Step>
 <Step title="Merge">
@@ -297,7 +297,7 @@ kortix sessions new --wait --prompt "Call the weather_now tool once with city Be
 
 OpenCode also loads tool files from the `tools/` folder of its config directory (`opencode.config_dir`, `harnesses/opencode` in a new project). pi does not read that folder.
 
-- On OpenCode, a tool in that folder wins over a Kortix tool or project tool of the same name. Delete copies of Kortix tools from it, so the maintained tools run.
+- On OpenCode, a tool in that folder wins over a Dosco tool or project tool of the same name. Delete copies of Dosco tools from it, so the maintained tools run.
 - To run an OpenCode tool on both harnesses, port it to a project tool:
   1. Move the file out of the folder, for example to `tools/<name>.ts`.
   2. Replace `tool({ description, args, execute })` with the plain default export object. Write `args` as JSON Schema under `parameters`.

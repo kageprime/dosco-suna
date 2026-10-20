@@ -1,9 +1,9 @@
 ---
 title: "Slack, Teams & email"
-description: "Start and continue sessions from Slack, Microsoft Teams and email. In Slack and Teams, each person acts as their own linked Kortix account."
+description: "Start and continue sessions from Slack, Microsoft Teams and email. In Slack and Teams, each person acts as their own linked Dosco account."
 ---
 
-A channel lets people start and continue [sessions](/docs/work/sessions) from outside Kortix. There are 4 channels: Slack, Microsoft Teams, email and Telegram (experimental). This page is for the person who connects a channel and for everyone who works with the agent from one.
+A channel lets people start and continue [sessions](/docs/work/sessions) from outside Dosco. There are 4 channels: Slack, Microsoft Teams, email and Telegram (experimental). This page is for the person who connects a channel and for everyone who works with the agent from one.
 
 <Steps>
 <Step title="Connect the platform">
@@ -15,7 +15,7 @@ kortix channels connect --platform teams   # Microsoft Teams
 ```
 </Step>
 <Step title="Add the bot">
-Invite the bot to a Slack channel, or add the Kortix app to a Teams chat or channel. A DM with the bot needs no invite.
+Invite the bot to a Slack channel, or add the Dosco app to a Teams chat or channel. A DM with the bot needs no invite.
 </Step>
 <Step title="Link your account">
 Send `/kortix login` in Slack or `/login` in Teams, open the link, and sign in. You do this once per workspace or tenant.
@@ -35,7 +35,7 @@ The agent replies in the Slack thread or Teams chat, with live progress.
 
 ## Link your identity
 
-A Slack or Teams message carries no Kortix credential. Each person links a Kortix account once. After that, Kortix knows who sent each message, and the session runs on behalf of that person. Kortix checks that the sender may run the agent and holds `project.session.start`. The agent then acts with its own grant, not with the sender's role. The sender's own secrets, connector accounts and provider keys reach only a DM or a Teams personal chat, which is private to that person. See [Personal resources stay personal](/docs/project/agents#personal-resources-stay-personal).
+A Slack or Teams message carries no Dosco credential. Each person links a Dosco account once. After that, Dosco knows who sent each message, and the session runs on behalf of that person. Dosco checks that the sender may run the agent and holds `project.session.start`. The agent then acts with its own grant, not with the sender's role. The sender's own secrets, connector accounts and provider keys reach only a DM or a Teams personal chat, which is private to that person. See [Personal resources stay personal](/docs/project/agents#personal-resources-stay-personal).
 
 1. Send `/kortix login` in Slack, or `/login` in Teams.
 2. Open the link. Only you see it: Slack shows it as a reply only you can see, and Teams shows it in your personal chat with the bot or as a reply only you can see.
@@ -43,12 +43,12 @@ A Slack or Teams message carries no Kortix credential. Each person links a Korti
 
 - The link works once and expires after 10 minutes.
 - A message you sent while unlinked runs when you link within 10 minutes.
-- One Slack or Teams identity links to one Kortix account. To link another account, send `/kortix logout` (Slack) or `/logout` (Teams) first.
-- When an account you belong to requires two-factor authentication, Kortix asks for your second factor before it links you. A link made without it counts as unlinked in that account: you get the connect prompt and link again. See [Sign-in, SSO & API keys](/docs/accounts/identity#two-factor-and-mfa-enforcement).
+- One Slack or Teams identity links to one Dosco account. To link another account, send `/kortix logout` (Slack) or `/logout` (Teams) first.
+- When an account you belong to requires two-factor authentication, Dosco asks for your second factor before it links you. A link made without it counts as unlinked in that account: you get the connect prompt and link again. See [Sign-in, SSO & API keys](/docs/accounts/identity#two-factor-and-mfa-enforcement).
 - An unlinked sender gets a prompt to connect instead of a run.
-- A linked sender without access to the project gets a card to request access. Every account owner and admin receives the request in Kortix.
+- A linked sender without access to the project gets a card to request access. Every account owner and admin receives the request in Dosco.
 
-`/kortix whoami` (Slack) and `/whoami` (Teams) show the Kortix account you are linked as.
+`/kortix whoami` (Slack) and `/whoami` (Teams) show the Dosco account you are linked as.
 
 ## Who can do what
 
@@ -70,7 +70,7 @@ Every action runs as the linked account of the person who takes it, with that ac
 
 The join policy decides who may join a session that a channel message started. Each binding has one policy. New sessions use it. An existing session keeps the policy it started with.
 
-| Policy | Teams word | Who may join | Who sees the session in Kortix |
+| Policy | Teams word | Who may join | Who sees the session in Dosco |
 | --- | --- | --- | --- |
 | `project_open` (default) | `open` | Any linked project member | The project |
 | `owner_approval` | `approval` | The session owner gets **Approve** and **Deny** for each new person | The owner, approved people, and admins who [oversee sessions](/docs/work/sessions#who-can-open-a-session) |
@@ -107,7 +107,7 @@ See [Models](/docs/project/models#shared-keys-and-chatgpt-accounts) for shared k
 | A change | **Ship it**, **Reject**, request changes |
 | A decision | **Answer**, request changes |
 
-Every card also has **View in Kortix**. The request-changes button is **Ask for changes** in Slack, which opens a text box, and **Request changes** in Teams, whose card has an optional **Feedback** box. Kortix passes your text to the agent with the decision. The [Review page](/docs/git#the-review-page) holds the same items.
+Every card also has **View in Dosco**. The request-changes button is **Ask for changes** in Slack, which opens a text box, and **Request changes** in Teams, whose card has an optional **Feedback** box. Dosco passes your text to the agent with the decision. The [Review page](/docs/git#the-review-page) holds the same items.
 
 **Connector approval cards.** A [connector call that needs approval](/docs/connect/connectors#policies-and-approvals) posts a card with the action, the parameters the connector will receive, and the agent's description of the effect, marked as not verified. Select **Approve** or **Deny**. In Slack, **Reply…** sends a message to the agent with your decision.
 
@@ -115,7 +115,7 @@ Every card also has **View in Kortix**. The request-changes button is **Ask for 
 
 ## What the agent can read and post
 
-All projects in one Slack workspace share one bot, and all projects in one Teams tenant share one app. Kortix keeps each project's agent inside that project's own conversations.
+All projects in one Slack workspace share one bot, and all projects in one Teams tenant share one app. Dosco keeps each project's agent inside that project's own conversations.
 
 | Target | Read | Post (Slack) |
 | --- | --- | --- |
@@ -133,13 +133,13 @@ All projects in one Slack workspace share one bot, and all projects in one Teams
 - In Teams, the agent posts only into chats and channels the bot is in for this project.
 - A file download stops at 50 MB and answers `413`.
 
-Kortix shows channel and people names, not platform ids, on the Channels page, in `kortix channels bindings`, in session titles and in the agent's prompt. A Slack channel that Slack cannot find shows as **Unavailable channel**.
+Dosco shows channel and people names, not platform ids, on the Channels page, in `kortix channels bindings`, in session titles and in the agent's prompt. A Slack channel that Slack cannot find shows as **Unavailable channel**.
 
 ## Slack
 
 ### Connect Slack
 
-On Kortix Cloud, and on any host with the shared Slack app configured:
+On Dosco Cloud, and on any host with the shared Slack app configured:
 
 1. On the Channels page, select **Add to Slack**. Or run `kortix channels connect` and open the link it prints. The link is valid for about 10 minutes.
 2. Pick the workspace and select **Allow**.
@@ -170,13 +170,13 @@ kortix channels disconnect    # aliases: remove, rm. Removes the stored secrets.
 
 ### Slack commands
 
-Send `/kortix <command>`. The bare `/kortix` opens the channel panel: project, agent, model and policy, with buttons to change each. Slack does not run slash commands in the Assistant pane or in a thread. In a DM there, send `/kortix <command>` as a message, and Kortix runs it as a command.
+Send `/kortix <command>`. The bare `/kortix` opens the channel panel: project, agent, model and policy, with buttons to change each. Slack does not run slash commands in the Assistant pane or in a thread. In a DM there, send `/kortix <command>` as a message, and Dosco runs it as a command.
 
 | Command | Aliases | What it does |
 | --- | --- | --- |
 | `/kortix` | `whoami`, `who`, `config`, `channel`, `settings` | Open the channel panel |
-| `login` | `connect` | Link your Kortix account |
-| `logout` | `disconnect` | Unlink your Kortix account |
+| `login` | `connect` | Link your Dosco account |
+| `logout` | `disconnect` | Unlink your Dosco account |
 | `projects` | `list` | List the projects connected to this workspace |
 | `switch` | `use`, `rebind` | Bind this channel to another project |
 | `unbind` | | Remove this channel's binding. The next mention shows the picker again. |
@@ -190,23 +190,23 @@ Send `/kortix <command>`. The bare `/kortix` opens the channel panel: project, a
 | `link-bot <bot>` | | Link another app's bot to your account |
 | `help` | | List the commands |
 
-**Link a bot.** A bot cannot link an account, so its mentions of Kortix do nothing. `/kortix link-bot <bot>` links that bot to your own Kortix account. Its mentions in this workspace then run as you. Pass the bot's exact name or its member ID (the bot's profile → **⋮** → **Copy member ID**). Kortix refuses a person's ID and a bot that is linked to someone else.
+**Link a bot.** A bot cannot link an account, so its mentions of Dosco do nothing. `/kortix link-bot <bot>` links that bot to your own Dosco account. Its mentions in this workspace then run as you. Pass the bot's exact name or its member ID (the bot's profile → **⋮** → **Copy member ID**). Dosco refuses a person's ID and a bot that is linked to someone else.
 
 ## Microsoft Teams
 
-### Connect with the Kortix app
+### Connect with the Dosco app
 
-The managed app needs the Microsoft app configured on the server, as on Kortix Cloud.
+The managed app needs the Microsoft app configured on the server, as on Dosco Cloud.
 
 1. A Teams tenant admin opens the consent link from the **Microsoft Teams** row on the Channels page, or from `kortix channels connect --platform teams`.
-2. The admin signs in and grants tenant-wide consent. Kortix publishes the app to your organization's Teams catalog.
+2. The admin signs in and grants tenant-wide consent. Dosco publishes the app to your organization's Teams catalog.
 3. The row now offers **Add to Teams**. Anyone in the tenant uses it to add the app to a chat or channel.
 
 `kortix channels status --platform teams` shows the tenant and the catalog state:
 
 | State | Meaning |
 | --- | --- |
-| `publishing` | Kortix is publishing the app to the catalog. Check again in a minute. |
+| `publishing` | Dosco is publishing the app to the catalog. Check again in a minute. |
 | `review` | A Teams admin must approve the app in the Teams admin center. |
 | `failed` | The publish failed. The status shows the reason. Fix it, then run `kortix channels connect --platform teams` again. |
 | `published` | The catalog serves the app. |
@@ -220,14 +220,14 @@ kortix channels disconnect --platform teams   # removes the Teams install from t
 Select **Use your own Microsoft Teams app** on the Channels page. The wizard has 3 steps:
 
 1. **Register the bot in Azure.** Create an Azure Bot resource (multi-tenant or single-tenant). On its **Configuration** page, paste the messaging endpoint the wizard shows: `https://<your-kortix-api>/v1/webhooks/teams/<project_id>/messages`. Create a client secret and copy its value.
-2. **Connect it to this project.** Enter the **Application (client) ID**, the **Client secret** and the **Directory (tenant) ID**. Kortix verifies the tenant with the bot's credentials.
+2. **Connect it to this project.** Enter the **Application (client) ID**, the **Client secret** and the **Directory (tenant) ID**. Dosco verifies the tenant with the bot's credentials.
 3. **Upload the app to Teams.** Download the manifest, which carries your bot's app ID. Zip it with a 192×192 `color.png` and a 32×32 transparent `outline.png`. In Teams, go to **Apps → Manage your apps → Upload an app**.
 
 Your own bot serves only this project, so `/projects`, `/use` and `/unbind` do not apply.
 
 ### Update the app
 
-When your Teams catalog serves an older version of the Kortix app, the Channels page shows **Update the Kortix app in Teams**, and the row's button reads **Publish app update**. `kortix channels status --platform teams` prints both versions.
+When your Teams catalog serves an older version of the Dosco app, the Channels page shows **Update the Dosco app in Teams**, and the row's button reads **Publish app update**. `kortix channels status --platform teams` prints both versions.
 
 1. A Teams admin selects **Publish app update**, or runs `kortix channels connect --platform teams`, and signs in.
 2. In each team where Teams offers the update, a team owner opens the team → **⋯** → **Manage team** → **Apps** and selects **Update**.
@@ -242,9 +242,9 @@ When your Teams catalog serves an older version of the Kortix app, the Channels 
 
 Replies without a mention need the app's resource-specific permissions `ChannelMessage.Read.Group` (channels) and `ChatMessage.Read.Chat` (group chats). Teams grants them when the app is added.
 
-`/new [message]` starts a new session in a personal or group chat. Text after `/new` starts the new session with that text. The previous session stays in Kortix, and the confirmation links to it. `/new` is refused while a run is in progress. Stop the run with `/stop`, or wait for it to finish, then send `/new` again.
+`/new [message]` starts a new session in a personal or group chat. Text after `/new` starts the new session with that text. The previous session stays in Dosco, and the confirmation links to it. `/new` is refused while a run is in progress. Stop the run with `/stop`, or wait for it to finish, then send `/new` again.
 
-On any message, **⋯ → Open in Kortix** opens the session behind it.
+On any message, **⋯ → Open in Dosco** opens the session behind it.
 
 ### Teams commands
 
@@ -253,9 +253,9 @@ In a channel or group chat, mention the bot before the command.
 | Command | Aliases | What it does |
 | --- | --- | --- |
 | `/help` | | List the commands |
-| `/login` | `/connect` | Link your Kortix account |
-| `/logout` | `/disconnect` | Unlink your Kortix account |
-| `/whoami` | `/who` | Show the Kortix account you are linked as |
+| `/login` | `/connect` | Link your Dosco account |
+| `/logout` | `/disconnect` | Unlink your Dosco account |
+| `/whoami` | `/who` | Show the Dosco account you are linked as |
 | `/status` | `/config`, `/settings` | The project, agent, model, policy and run here, with buttons to change them |
 | `/sessions` | | Your 5 most recent sessions started from Teams |
 | `/stop` | `/cancel` | Stop the run in progress here |
@@ -300,7 +300,7 @@ kortix channels email connect --allow @example.com
 ```
 
 - **One email thread is one session.** A new message starts a session. A reply in the thread continues it. The agent reads and replies through the email connector.
-- **Email has no identity link.** An email session runs as the account owner. Restrict who may write to the inbox with an allow-list. Kortix drops mail from any other sender. Without `--allow` or `--allow-regex`, the inbox accepts mail from every sender. Pass `--allow` on `connect`.
+- **Email has no identity link.** An email session runs as the account owner. Restrict who may write to the inbox with an allow-list. Dosco drops mail from any other sender. Without `--allow` or `--allow-regex`, the inbox accepts mail from every sender. Pass `--allow` on `connect`.
 - Connecting needs `project.connector.write`.
 
 | Command | What it does |
@@ -329,7 +329,7 @@ Telegram is experimental and off by default. Turn on the **Connectors v2** proje
 In Telegram, message **@BotFather**, send `/newbot`, and copy the token it gives you.
 </Step>
 <Step title="Connect it">
-Open **Customize → Connectors**, select the **Channels** scope, and select **Connect** on the Telegram row. Paste the token and list the Telegram user ids that may talk to the bot. Kortix registers the bot's webhook and keeps the token on the server.
+Open **Customize → Connectors**, select the **Channels** scope, and select **Connect** on the Telegram row. Paste the token and list the Telegram user ids that may talk to the bot. Dosco registers the bot's webhook and keeps the token on the server.
 </Step>
 <Step title="Message the bot">
 A message from an allowed user starts a session. Anyone else gets a reply that shows their user id; a project manager adds it under **Allowed users**.
@@ -375,6 +375,6 @@ Pass at least one flag. `bind` needs `project.connector.write`. The `bindings` l
 
 The same settings change from chat (`/kortix agent`, `/model`, `/policy`, and the other commands above) and on the Channels page. On the Teams row, **N channels** lists every bound chat and channel post.
 
-Each channel is also a connector with `provider: channel`: `kortix_slack`, `kortix_teams` and `kortix_email` (or the slug you pass). Kortix writes the Slack and email entries in `kortix.yaml` when you connect, and removes them when you disconnect. Teams needs no entry. These slugs are reserved: `kortix connectors add slack` is refused and points to `kortix channels connect`. The bot token and the bot's client secret never enter a sandbox and do not appear on the Secrets page. See [Connectors](/docs/connect/connectors).
+Each channel is also a connector with `provider: channel`: `kortix_slack`, `kortix_teams` and `kortix_email` (or the slug you pass). Dosco writes the Slack and email entries in `kortix.yaml` when you connect, and removes them when you disconnect. Teams needs no entry. These slugs are reserved: `kortix connectors add slack` is refused and points to `kortix channels connect`. The bot token and the bot's client secret never enter a sandbox and do not appear on the Secrets page. See [Connectors](/docs/connect/connectors).
 
 A self-hosted instance needs the Slack, Microsoft and AgentMail credentials for the managed paths. See [Self-hosting](/docs/host#integrations).

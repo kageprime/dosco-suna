@@ -3,14 +3,14 @@ title: "Agents & permissions"
 description: "Define an agent's behavior, skills and harness, give it access to connectors, secrets and Apps, and understand exactly what it is allowed to do."
 ---
 
-An agent is a system prompt, a model and tool rules that a [session](/docs/work/sessions) runs, plus grants that decide which connectors, secrets, skills, Apps and Kortix permissions it may use.
+An agent is a system prompt, a model and tool rules that a [session](/docs/work/sessions) runs, plus grants that decide which connectors, secrets, skills, Apps and Dosco permissions it may use.
 
 ## What an agent is
 
 An agent has two halves:
 
 - **Behavior.** The prompt, the model, the mode, and the `permission` rules for its tools.
-- **Governance.** The grants: connectors, secrets, skills, Apps, Kortix permissions and tools. Governance always lives in `kortix.yaml`.
+- **Governance.** The grants: connectors, secrets, skills, Apps, Dosco permissions and tools. Governance always lives in `kortix.yaml`.
 
 Where behavior lives depends on the manifest's `kortix_version`:
 
@@ -81,7 +81,7 @@ Rules for both versions:
 - An agent name is 1 to 128 characters: lowercase letters, digits, `-` and `_`, starting with a letter or digit.
 - The manifest declares at least one agent and sets `default_agent`.
 - In v2, a behavior key (`model`, `mode`, `prompt`, `permission`, …) in the `kortix.yaml` block is an error. Put it in the agent file.
-- In v2, `file` names the agent file. Without it, Kortix reads `agents/<name>.md`. The API does not change `file`: to move an agent, move the file and update `file` in the same commit. The full path rules are in [the `kortix.yaml` reference](/docs/project/manifest#agents).
+- In v2, `file` names the agent file. Without it, Dosco reads `agents/<name>.md`. The API does not change `file`: to move an agent, move the file and update `file` in the same commit. The full path rules are in [the `kortix.yaml` reference](/docs/project/manifest#agents).
 
 <Callout type="info">
 Grants are deny-by-default. An agent with no `connectors`, `secrets`, `apps` or `kortix_permissions` key gets none of them. Two keys differ: an omitted `tools` grants every tool, and an omitted `skills` leaves skill access to the agent's own `permission` rules.
@@ -167,7 +167,7 @@ permission:
 
 ## Skills
 
-A skill is a folder of instructions an agent loads when a task needs it. Kortix does not put skill bodies in every prompt.
+A skill is a folder of instructions an agent loads when a task needs it. Dosco does not put skill bodies in every prompt.
 
 ```markdown
 ---
@@ -205,7 +205,7 @@ When `skills` is set, it replaces any `permission.skill` rule in the agent file.
 
 pi also reads `harnesses/pi/skills/` after these.
 
-**Managed skills.** Kortix copies 12 skills into every session when it boots: `kortix-cli`, `kortix-apps`, `kortix-computer`, `kortix-connectors`, `kortix-drives`, `kortix-harness-refinement`, `kortix-marketplace`, `kortix-memory`, `kortix-onboarding`, `kortix-slack`, `kortix-system` and `kortix-teams`. They overwrite a project copy of the same name, so a project cannot override them. A new project commits only `skills/kortix-cli`. Git ignores the others in the session. A `skills` list must name each `kortix-*` skill the agent needs.
+**Managed skills.** Dosco copies 12 skills into every session when it boots: `kortix-cli`, `kortix-apps`, `kortix-computer`, `kortix-connectors`, `kortix-drives`, `kortix-harness-refinement`, `kortix-marketplace`, `kortix-memory`, `kortix-onboarding`, `kortix-slack`, `kortix-system` and `kortix-teams`. They overwrite a project copy of the same name, so a project cannot override them. A new project commits only `skills/kortix-cli`. Git ignores the others in the session. A `skills` list must name each `kortix-*` skill the agent needs.
 
 Read the managed skills from any terminal. The signed-in host serves them, so they match that host's version:
 
@@ -230,8 +230,8 @@ Each grant in `agents.<name>` unlocks one kind of resource:
 | `secrets` | secret identifiers | none | Those [secrets](/docs/project/secrets#which-agents-receive-it) in the sandbox and through the secrets API. |
 | `skills` | skill names | the agent file decides | Loading those skills. See [Skills](#skills). |
 | `apps` | App slugs | none | Opening those [Apps](/docs/apps#agents-and-apps) when their access is restricted or private. The agent also needs `project.app.read`. |
-| `kortix_permissions` | `project.*` permissions | none | Kortix CLI, API and git actions. See [What an agent may do](#what-an-agent-may-do). |
-| `tools` | tool names, or `exclude: [...]` | every tool | The harness, Kortix and project [tools](/docs/project/tools#give-each-agent-its-tools) the agent may call. |
+| `kortix_permissions` | `project.*` permissions | none | Dosco CLI, API and git actions. See [What an agent may do](#what-an-agent-may-do). |
+| `tools` | tool names, or `exclude: [...]` | every tool | The harness, Dosco and project [tools](/docs/project/tools#give-each-agent-its-tools) the agent may call. |
 
 The first five take the same values:
 
@@ -244,7 +244,7 @@ Set grants in one of three ways. Each one commits `kortix.yaml` on the default b
 <Tabs>
 
 <Tab title="Dashboard">
-Open **Customize → Agents →** the agent. The **Access** pages are **Skills**, **Connectors**, **Secrets**, **Apps** and **Kortix permissions**. The **Runtime** pages are **Model**, **Tools** and **Workspace**.
+Open **Customize → Agents →** the agent. The **Access** pages are **Skills**, **Connectors**, **Secrets**, **Apps** and **Dosco permissions**. The **Runtime** pages are **Model**, **Tools** and **Workspace**.
 </Tab>
 
 <Tab title="CLI">
@@ -303,7 +303,7 @@ kortix agents ls                         # each agent, its file and its model
 
 ## What an agent may do
 
-**An agent acts as itself, not as the person who started it.** Kortix creates one service account per agent per project. A governed session authorizes as that service account. The role of the person who starts the session does not apply, so an agent does the same thing whoever runs it.
+**An agent acts as itself, not as the person who started it.** Dosco creates one service account per agent per project. A governed session authorizes as that service account. The role of the person who starts the session does not apply, so an agent does the same thing whoever runs it.
 
 An agent's effective permissions are:
 
@@ -315,9 +315,9 @@ An agent's effective permissions are:
 - `project.read` of its own project is always held. `project.write` needs only the ceiling.
 - Account actions are never granted. An agent session's token is scoped to one project.
 
-Open **Customize → Agents →** the agent → **Kortix permissions** to edit the list. Its **What this agent can do** panel shows the declared permissions, the ceiling role, the human-only permission and the effective set.
+Open **Customize → Agents →** the agent → **Dosco permissions** to edit the list. Its **What this agent can do** panel shows the declared permissions, the ceiling role, the human-only permission and the effective set.
 
-### Kortix permissions
+### Dosco permissions
 
 | Area | Permissions |
 | --- | --- |
@@ -336,7 +336,7 @@ Open **Customize → Agents →** the agent → **Kortix permissions** to edit t
 | Review | `project.review.read`, `project.review.submit`, `project.review.act` |
 | Credentials | `project.credentials.issue` (human-only) |
 
-What each permission allows is in [Permissions](/docs/accounts#permissions). `kortix validate --scopes` prints the live list. An entry that is not on the list fails `kortix validate` and a change request merge. At runtime Kortix ignores it and applies the rest.
+What each permission allows is in [Permissions](/docs/accounts#permissions). `kortix validate --scopes` prints the live list. An entry that is not on the list fails `kortix validate` and a change request merge. At runtime Dosco ignores it and applies the rest.
 
 Deprecated names still validate and resolve to their replacements:
 
@@ -350,7 +350,7 @@ Deprecated names still validate and resolve to their replacements:
 
 ### Who may run an agent
 
-The person who runs an agent lends it no authority, so the right to run it is the delegation. Kortix checks it when a person creates, starts or prompts a session, switches a session's agent, or fires a trigger by hand.
+The person who runs an agent lends it no authority, so the right to run it is the delegation. Dosco checks it when a person creates, starts or prompts a session, switches a session's agent, or fires a trigger by hand.
 
 | Person | May run |
 | --- | --- |
@@ -399,13 +399,13 @@ A refused request answers `403` with a `code` and the `action` it checked:
 | `project_role_insufficient` | The person's own project role does not allow `action`. | Change their project role. See [Accounts & access](/docs/accounts#project-access). |
 | `token_out_of_scope` | A project-scoped token called an account action or another project. | Use a credential for that scope. |
 
-When an agent session merges and Kortix cannot read the manifest, the merge answers `503` with `code: "CR_GOVERNANCE_UNVERIFIED"` and `Retry-After: 5`. Retry the merge.
+When an agent session merges and Dosco cannot read the manifest, the merge answers `503` with `code: "CR_GOVERNANCE_UNVERIFIED"` and `Retry-After: 5`. Retry the merge.
 
 ## Harnesses: OpenCode and pi
 
-A harness is the agent runtime inside a session's sandbox. It runs the model loop, calls tools and writes the transcript. Kortix has two: **OpenCode**, the default, and **pi**. Both read the same `agents/`, `skills/`, root `AGENTS.md` and `kortix.yaml`, and every client reads both through the same session API.
+A harness is the agent runtime inside a session's sandbox. It runs the model loop, calls tools and writes the transcript. Dosco has two: **OpenCode**, the default, and **pi**. Both read the same `agents/`, `skills/`, root `AGENTS.md` and `kortix.yaml`, and every client reads both through the same session API.
 
-Kortix picks the harness when a session starts, restarts or resumes. A running session keeps its harness until then.
+Dosco picks the harness when a session starts, restarts or resumes. A running session keeps its harness until then.
 
 | Rule, in order | Harness |
 | --- | --- |
@@ -414,7 +414,7 @@ Kortix picks the harness when a session starts, restarts or resumes. A running s
 | `kortix.yaml` sets `runtime: pi` (`kortix_version` 2 or 3) | pi |
 | Anything else | OpenCode |
 
-- pi calls models only through the Kortix [LLM gateway](/docs/project/models), so row 1 overrides the flag and the manifest.
+- pi calls models only through the Dosco [LLM gateway](/docs/project/models), so row 1 overrides the flag and the manifest.
 - `pi_harness` is off by default. See [Feature flags](/docs/project#feature-flags).
 - The session daemon's `GET /kortix/health` reports `harness.id` (`opencode` or `pi`) and the `capabilities` the session serves. From the SDK, call `kortix.session(projectId, sessionId).health()`. A client hides a control whose capability is missing: `runtimeSupports` in the SDK, `useRuntimeSupports` in React.
 
@@ -426,7 +426,7 @@ Both harnesses serve:
 - the agent file fields (pi ignores `options` and `color`);
 - per-agent tool access, `permission` rules and permission requests;
 - questions and skills;
-- Kortix and project [tools](/docs/project/tools);
+- Dosco and project [tools](/docs/project/tools);
 - the terminal, [secrets](/docs/project/secrets) and the `kortix` CLI.
 
 The optional features are capabilities:
@@ -461,4 +461,4 @@ Each harness reads one directory that the other ignores. A tool that both need i
 | Contents | `opencode.jsonc` (plugins, MCP servers, providers, `permission`, `subagent_depth`), `plugins/`, `commands/` | `settings.json`, `extensions/`, `skills/`, `prompts/` |
 | Extensions | Plugins in `plugins/`; `harnesses.opencode.plugins` selects them | Packages from [pi.dev/packages](https://pi.dev/packages) in `harnesses.pi.packages` (at most 20), and `.pi/extensions/*.ts` |
 
-The keys are in [the `kortix.yaml` reference](/docs/project/manifest#harnesses-opencode-and-pi). Kortix loads a pi package as published. It does not test third-party packages.
+The keys are in [the `kortix.yaml` reference](/docs/project/manifest#harnesses-opencode-and-pi). Dosco loads a pi package as published. It does not test third-party packages.

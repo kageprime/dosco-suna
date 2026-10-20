@@ -3,7 +3,7 @@ title: Git
 description: "Every project is a git repository: clone it, push to it with any git client, follow each session's branch, and land work through change requests."
 ---
 
-Every Kortix project is one git repository. You clone it, push to it with any git client, fetch the branch of each session, and land work on the base branch through change requests. This page is for everyone who works on project files outside the web app, and for admins who decide who may push.
+Every Dosco project is one git repository. You clone it, push to it with any git client, fetch the branch of each session, and land work on the base branch through change requests. This page is for everyone who works on project files outside the web app, and for admins who decide who may push.
 
 The shortest path from a project to a reviewed change:
 
@@ -23,11 +23,11 @@ A project has one of three kinds of repository. All three work the same way afte
 
 | Kind | What it is | How you get it |
 | --- | --- | --- |
-| Managed | Kortix creates and manages a private repository. You need no GitHub account. | Pick **Kortix managed** under **Git account** when you create a project. Or run `kortix ship` in a folder with no `origin` remote, or `kortix ship --origin managed`. |
-| GitHub | A repository in your GitHub account or organization. Kortix reaches it through the Kortix GitHub App, which you install under **Account settings → Git**, or through a GitHub token. | Pick a GitHub account under **Git account**, then **Create a new repository** or **Import an existing repository**. Or run `kortix ship` in a folder whose `origin` is on GitHub. |
+| Managed | Dosco creates and manages a private repository. You need no GitHub account. | Pick **Dosco managed** under **Git account** when you create a project. Or run `kortix ship` in a folder with no `origin` remote, or `kortix ship --origin managed`. |
+| GitHub | A repository in your GitHub account or organization. Dosco reaches it through the Dosco GitHub App, which you install under **Account settings → Git**, or through a GitHub token. | Pick a GitHub account under **Git account**, then **Create a new repository** or **Import an existing repository**. Or run `kortix ship` in a folder whose `origin` is on GitHub. |
 | Other git host | A repository at any other git URL. | Run `kortix ship` in a folder with that `origin`, or `kortix ship --origin <git-url>`. |
 
-On a self-hosted instance, a platform admin sets up managed repositories in the admin console. `GET /v1/projects/managed-git/status` returns `configured: false` until then, and the new-project form says "Kortix-managed repositories are not available on this instance." See [Self-hosting](/docs/host).
+On a self-hosted instance, a platform admin sets up managed repositories in the admin console. `GET /v1/projects/managed-git/status` returns `configured: false` until then, and the new-project form says "Dosco-managed repositories are not available on this instance." See [Self-hosting](/docs/host).
 
 ### The git origin
 
@@ -37,15 +37,15 @@ Every project has one clone URL, whatever its kind:
 https://<api-host>/v1/git/<project_id>.git
 ```
 
-On Kortix Cloud this is `https://api.kortix.com/v1/git/<project_id>.git`. Find it in two places:
+On Dosco Cloud this is `https://api.kortix.com/v1/git/<project_id>.git`. Find it in two places:
 
 - `kortix projects info <project_id> --json`, field `git_origin_url`.
 - **Customize → Settings → Git repo → Use your own Git client → Clone address**.
 
-Clone `git_origin_url`, not `repo_url`. `repo_url` is the upstream repository that Kortix forwards to.
+Clone `git_origin_url`, not `repo_url`. `repo_url` is the upstream repository that Dosco forwards to.
 
 - The origin speaks git over HTTPS only.
-- You authenticate with a Kortix token. Kortix adds the upstream credential on the server. No GitHub or other provider credential reaches your computer or a sandbox.
+- You authenticate with a Dosco token. Dosco adds the upstream credential on the server. No GitHub or other provider credential reaches your computer or a sandbox.
 - The audit log records each clone and fetch as `git.clone` and each push as `git.push`. See [Audit actions](/docs/audit-actions).
 
 ## Clone a project
@@ -58,7 +58,7 @@ Follow [CLI → Install](/docs/cli), then run `kortix login`.
 Run `kortix projects clone [<project_id>] [<dir>]`. `kortix projects ls` lists project ids. Without an id, the command clones the linked or default project. The directory defaults to the project id, not the project name.
 </Step>
 <Step title="Finish setup in the new folder">
-Optional: run `kortix init --force` to configure your local coding agents in the checkout. Run `kortix env pull` to write a `.env` file with one line per project secret. It writes names only: secret values stay in Kortix.
+Optional: run `kortix init --force` to configure your local coding agents in the checkout. Run `kortix env pull` to write a `.env` file with one line per project secret. It writes names only: secret values stay in Dosco.
 </Step>
 </Steps>
 
@@ -78,13 +78,13 @@ The clone does three things:
 	useHttpPath = true
 ```
 
-The empty `helper =` line turns off every helper you configured elsewhere for this URL, so your keychain never stores the Kortix token. `kortix git-credential` gives git the token of your stored login each time git asks. After the clone, plain `git pull` and `git push` work. If that login is gone, git stops with `Kortix Git needs login. Run: kortix login`, plus `--host <name>` when the link names a host.
+The empty `helper =` line turns off every helper you configured elsewhere for this URL, so your keychain never stores the Dosco token. `kortix git-credential` gives git the token of your stored login each time git asks. After the clone, plain `git pull` and `git push` work. If that login is gone, git stops with `Dosco Git needs login. Run: kortix login`, plus `--host <name>` when the link names a host.
 
 The clone writes the link and the helper only when the repository root has `.kortix/`, `kortix.yaml`, `kortix.yml` or `kortix.toml`. In any other repository, create a `.kortix/` folder at the root, then wire them by hand as in [Wire the helper by hand](#wire-the-helper-by-hand).
 
 ## Use any git client
 
-The origin accepts HTTP Basic authentication. The username can be anything; the convention is `x-access-token`. The password is a Kortix token.
+The origin accepts HTTP Basic authentication. The username can be anything; the convention is `x-access-token`. The password is a Dosco token.
 
 ```bash
 git clone https://api.kortix.com/v1/git/<project_id>.git
@@ -100,7 +100,7 @@ git -c http.extraHeader="Authorization: Bearer $KORTIX_GIT_TOKEN" clone https://
 
 | Token | What it can do |
 | --- | --- |
-| Personal access key, `kortix_pat_…`, from `kortix login`, **Settings → Personal access keys** or `kortix tokens new` | Acts as you. Kortix checks it against your role on the project. Membership of the account alone gives no access. |
+| Personal access key, `kortix_pat_…`, from `kortix login`, **Settings → Personal access keys** or `kortix tokens new` | Acts as you. Dosco checks it against your role on the project. Membership of the account alone gives no access. |
 | Project CLI token, `kortix_pat_…`, from `kortix projects cli-tokens new` | Acts as you, on one project only. |
 | Session token, `KORTIX_TOKEN` inside a sandbox | Reads the repository and pushes the session's own branch. See [Who can clone and push](#who-can-clone-and-push). |
 | Service account key (`kortix_sa_…`), OAuth token, gateway key, browser sign-in token | Refused with `401`. |
@@ -138,14 +138,14 @@ git -c http.extraHeader="$AUTH" push origin HEAD:refs/heads/ci-update
 | Status | Message | Fix |
 | --- | --- | --- |
 | `400` | `invalid project identifier` | Use the project id, a UUID, in the URL. |
-| `401` | `authentication required`, with `WWW-Authenticate: Basic realm="Kortix Git"` | Send a token. Git prompts for one. |
-| `401` | `git proxy requires a Kortix token` | The password is not a Kortix token. Use a `kortix_pat_` token. |
+| `401` | `authentication required`, with `WWW-Authenticate: Basic realm="Dosco Git"` | Send a token. Git prompts for one. |
+| `401` | `git proxy requires a Dosco token` | The password is not a Dosco token. Use a `kortix_pat_` token. |
 | `403` | `token is not authorized for this project` | You have no role on the project that allows the operation. See [Who can clone and push](#who-can-clone-and-push). |
 | `403` | `token is scoped to a different project` | The token is bound to another project. |
 | `404` | `Not found` | The project does not exist or was deleted. |
 | `409` | `Repository changed during authorization; retry the request` | Someone replaced the repository while you connected. Retry. |
-| `502` | `No git upstream is configured for this project` or `git upstream unreachable` | Kortix cannot reach the upstream repository. Check the connection under **Git repo**. |
-| `503` | `git_credential_unavailable` | Kortix could not get a credential for the upstream. Retry when the body says `retry: true`. Otherwise check the connection. |
+| `502` | `No git upstream is configured for this project` or `git upstream unreachable` | Dosco cannot reach the upstream repository. Check the connection under **Git repo**. |
+| `503` | `git_credential_unavailable` | Dosco could not get a credential for the upstream. Retry when the body says `retry: true`. Otherwise check the connection. |
 
 ## Commit and push
 
@@ -165,7 +165,7 @@ A folder with no `.kortix/link.json` gets a new project. Ship picks the reposito
 
 | `origin` of the folder | What ship creates |
 | --- | --- |
-| A GitHub URL | A GitHub project through the Kortix GitHub App. If the App is not installed, ship prints an install link and asks you to retry after you install it. With `-y` it stops instead. `--github-token <PAT>` links without the App; the token needs repository Contents read and write. |
+| A GitHub URL | A GitHub project through the Dosco GitHub App. If the App is not installed, ship prints an install link and asks you to retry after you install it. With `-y` it stops instead. `--github-token <PAT>` links without the App; the token needs repository Contents read and write. |
 | Another URL | A project for that URL. |
 | None, or `--origin managed` | A managed repository. Ship sets `origin` to the git origin and installs the credential helper. |
 
@@ -206,11 +206,11 @@ IP allowlist and MFA policies of the account apply to git requests too.
 
 By default, agents land work through [change requests](#change-requests). [Agents & permissions](/docs/project/agents) shows how to grant leaves.
 
-Kortix does not block a force-push. On a GitHub repository, add a ruleset that blocks force-pushes and deletions on the default branch. The ruleset does not block change-request merges, because a merge is a fast-forward or a merge commit.
+Dosco does not block a force-push. On a GitHub repository, add a ruleset that blocks force-pushes and deletions on the default branch. The ruleset does not block change-request merges, because a merge is a fast-forward or a merge commit.
 
 ### Read a refused push
 
-Kortix refuses the whole push when it refuses one ref. Git prints the reason for each ref:
+Dosco refuses the whole push when it refuses one ref. Git prints the reason for each ref:
 
 ```text
  ! [remote rejected] HEAD -> feature-x (a session may only push its own branch (<session_id>); commit there and open a change request to land this elsewhere)
@@ -227,7 +227,7 @@ Kortix refuses the whole push when it refuses one ref. Git prints the reason for
 
 ## Session branches
 
-Each session works on its own branch. The branch name is the `session_id`, with no prefix. Kortix cuts it from the session's `base_ref`, which is the project default branch unless the session was created with another one.
+Each session works on its own branch. The branch name is the `session_id`, with no prefix. Dosco cuts it from the session's `base_ref`, which is the project default branch unless the session was created with another one.
 
 Inside the sandbox, the branch is `$KORTIX_BRANCH_NAME`. The agent commits there and runs `git push origin HEAD`. [Sandboxes & previews](/docs/work/runtime) lists the other variables.
 
@@ -248,7 +248,7 @@ When the base branch moves, open the command palette in the session and run **As
 
 ## Change requests
 
-A change request merges one branch, the head, into another, the base. Kortix runs the merge, the diff and the conflict check as git operations on the project repository, so change requests work on every kind of repository.
+A change request merges one branch, the head, into another, the base. Dosco runs the merge, the diff and the conflict check as git operations on the project repository, so change requests work on every kind of repository.
 
 ```text
 open ──merge──▶ merged          (final)
@@ -291,12 +291,12 @@ kortix cr request-changes 3 --message "Rename the flag first"
 
 A merge runs these steps:
 
-1. Kortix validates `kortix.yaml` on the head branch, with its `imports:`. An invalid manifest stops the merge with `422` `MANIFEST_INVALID`. A head with no manifest passes.
-2. Kortix fast-forwards the base when the head is strictly ahead.
-3. Otherwise it creates a merge commit, `Merge CR #<n>: <title>`, authored by `Kortix <noreply@kortix.ai>`. `--message` sets another message.
+1. Dosco validates `kortix.yaml` on the head branch, with its `imports:`. An invalid manifest stops the merge with `422` `MANIFEST_INVALID`. A head with no manifest passes.
+2. Dosco fast-forwards the base when the head is strictly ahead.
+3. Otherwise it creates a merge commit, `Merge CR #<n>: <title>`, authored by `Dosco <noreply@kortix.ai>`. `--message` sets another message.
 4. A conflict stops the merge with `409` and the list of conflicting files.
 
-After the merge, running sessions on that base pick up the new config, and Kortix syncs the project's connectors from the new `kortix.yaml`. See [Config comes from the base branch](#config-comes-from-the-base-branch).
+After the merge, running sessions on that base pick up the new config, and Dosco syncs the project's connectors from the new `kortix.yaml`. See [Config comes from the base branch](#config-comes-from-the-base-branch).
 
 **Request changes** records the note on the change request and sends it to the session that opened it as a new prompt. A sleeping sandbox wakes.
 
@@ -349,8 +349,8 @@ Each command takes `--project <id>` and `--host <name>`. `ls`, `show`, `diff`, `
 | (conflict) | `409` | The merge conflicts. The body lists the files. |
 | (not open) | `409` | The change request is merged or closed. |
 | `CR_SELF_MERGE_REFUSED` | `403` | A session tried to merge its own change request without a merge grant. |
-| `CR_GOVERNANCE_UNVERIFIED` | `503` | Kortix could not read the manifest to check an agent's merge. Nothing merged. Retry. |
-| (manifest unreadable) | `502` | Kortix could not read the manifest from the head branch. |
+| `CR_GOVERNANCE_UNVERIFIED` | `503` | Dosco could not read the manifest to check an agent's merge. Nothing merged. Retry. |
+| (manifest unreadable) | `502` | Dosco could not read the manifest from the head branch. |
 
 ## The Review page
 
@@ -439,22 +439,22 @@ datasets/raw export-ignore
 
 | `state` | Meaning |
 | --- | --- |
-| `connected` | Kortix can reach the repository. |
-| `reconnect_required` | The Kortix GitHub App installation is missing, unusable, or does not match the repository. Open the `install_url` in the response to install the App again. |
-| `unavailable` | Kortix cannot reach the repository for a reason you cannot fix with the App. |
+| `connected` | Dosco can reach the repository. |
+| `reconnect_required` | The Dosco GitHub App installation is missing, unusable, or does not match the repository. Open the `install_url` in the response to install the App again. |
+| `unavailable` | Dosco cannot reach the repository for a reason you cannot fix with the App. |
 | `not_connected` | The project has no repository. |
 
 ### Replace the repository
 
-Under **Git repo**, select **Change** and enter the new GitHub repository URL. Kortix verifies access through the GitHub App. The new repository needs the manifest file on its default branch. Stop active sessions, and close or merge open change requests, first. New sessions use the new repository. Existing sessions cannot restart after the change. The route is `PUT /v1/projects/<project_id>/git/repository`. It needs `project.settings.write` and `project.connector.write`.
+Under **Git repo**, select **Change** and enter the new GitHub repository URL. Dosco verifies access through the GitHub App. The new repository needs the manifest file on its default branch. Stop active sessions, and close or merge open change requests, first. New sessions use the new repository. Existing sessions cannot restart after the change. The route is `PUT /v1/projects/<project_id>/git/repository`. It needs `project.settings.write` and `project.connector.write`.
 
 ### Give people direct access
 
-A managed repository lives on GitHub under Kortix. To let someone work on it on github.com, add their GitHub username under **People with access**, with **Can edit** or **Can view**. GitHub emails them an invite. This needs `project.members.manage`, and works on managed repositories only. For a repository you own, manage access on GitHub.
+A managed repository lives on GitHub under Dosco. To let someone work on it on github.com, add their GitHub username under **People with access**, with **Can edit** or **Can view**. GitHub emails them an invite. This needs `project.members.manage`, and works on managed repositories only. For a repository you own, manage access on GitHub.
 
 ### A repository on another git host
 
-To let Kortix reach a repository on another git host, store a token with `PUT /v1/projects/<project_id>/git-credential` and the body `{ "token": "…" }`. Kortix keeps it as a platform credential, not as a secret a sandbox can read. It needs `project.connector.write`. GitHub and managed repositories refuse it with `409`. For a repository on another git host, `kortix sessions new` run in a checkout whose `origin` is that repository creates the session branch. It pushes your current branch with your own git credentials.
+To let Dosco reach a repository on another git host, store a token with `PUT /v1/projects/<project_id>/git-credential` and the body `{ "token": "…" }`. Dosco keeps it as a platform credential, not as a secret a sandbox can read. It needs `project.connector.write`. GitHub and managed repositories refuse it with `409`. For a repository on another git host, `kortix sessions new` run in a checkout whose `origin` is that repository creates the session branch. It pushes your current branch with your own git credentials.
 
 ### Browse without a clone
 

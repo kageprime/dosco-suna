@@ -1,11 +1,11 @@
 ---
-title: Kortix MCP server
-description: Add Kortix to Claude, ChatGPT, Cursor, VS Code or Codex with one URL, and drive sessions, sandboxes, connectors and the API from there.
+title: Dosco MCP server
+description: Add Dosco to Claude, ChatGPT, Cursor, VS Code or Codex with one URL, and drive sessions, sandboxes, connectors and the API from there.
 ---
 
-The Kortix MCP server lets an AI client such as Claude, ChatGPT, Cursor, VS Code or Codex use Kortix. The client starts and follows sessions, runs commands in their sandboxes, calls your connectors and reaches the whole Kortix API. It acts as you, with your permissions. You install nothing.
+The Dosco MCP server lets an AI client such as Claude, ChatGPT, Cursor, VS Code or Codex use Dosco. The client starts and follows sessions, runs commands in their sandboxes, calls your connectors and reaches the whole Dosco API. It acts as you, with your permissions. You install nothing.
 
-## Add Kortix to your client
+## Add Dosco to your client
 
 Add this URL to your client:
 
@@ -72,7 +72,7 @@ Add a remote MCP server with the Streamable HTTP transport and the URL. A client
 
 ## Sign in and revoke
 
-The client signs you in with OAuth on its first call. Your browser opens the Kortix consent screen. The screen names the app and where it returns you. A client that registered itself is marked **Unverified app**. Approve it only when you connect it yourself.
+The client signs you in with OAuth on its first call. Your browser opens the Dosco consent screen. The screen names the app and where it returns you. A client that registered itself is marked **Unverified app**. Approve it only when you connect it yourself.
 
 | Token | Lifetime |
 | --- | --- |
@@ -133,7 +133,7 @@ A stopped sandbox starts on the first sandbox call. In `read_file` and `write_fi
 
 ### Guides
 
-- `read_skill`: the Kortix platform guides. `name=kortix-system` is the complete reference. With `project_id`, the project's own skills come first.
+- `read_skill`: the Dosco platform guides. `name=kortix-system` is the complete reference. With `project_id`, the project's own skills come first.
 
 ### Connectors
 
@@ -202,4 +202,4 @@ Sessions, sandbox files and connectors have their own tools. Prefer them to the 
 
 ## This server vs MCP connectors
 
-This server is the inbound direction: your AI client calls Kortix. A connector with `provider: mcp` is the outbound direction: a Kortix agent calls someone else's MCP server through the Kortix gateway, and the sandbox never holds the credential. To add one, see [Connectors](/docs/connect/connectors).
+This server is the inbound direction: your AI client calls Dosco. A connector with `provider: mcp` is the outbound direction: a Dosco agent calls someone else's MCP server through the Dosco gateway, and the sandbox never holds the credential. To add one, see [Connectors](/docs/connect/connectors).

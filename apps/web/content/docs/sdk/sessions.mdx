@@ -116,7 +116,7 @@ Which methods ready the session for you:
 | --- | --- |
 | Call `ensureReady()` themselves | `send`, `abort`, `rewind`, `restoreRewind`, `stream`, `messages`, `pending`, `answerPermission`, `answerQuestion`, `compact`, every `files.*` method |
 | Throw `SessionNotReadyError` before a ready | `previewUrl`, `proxyUrl`, `sandboxPortUrl` |
-| Read only the Kortix API, never the sandbox | `get`, `update`, `cost`, `scope`, `transcript`, `transcriptSync`, `log`, `messageAuthors`, `modelUsage`, `turn`, `attachments.read` |
+| Read only the Dosco API, never the sandbox | `get`, `update`, `cost`, `scope`, `transcript`, `transcriptSync`, `log`, `messageAuthors`, `modelUsage`, `turn`, `attachments.read` |
 
 `s.health()` never throws `SessionNotReadyError`. Before this handle has a runtime it returns `{ status: 0, ok: false }`.
 
@@ -145,7 +145,7 @@ const { applied_live } = await s.changeModel('kimi-k3');
 
 The same model-id rule applies as for `model` at create. `changeModel()` restarts the runtime when the model changes on a running session, so a running turn ends. `applied_live` is `true` when a running session took the model now, and `false` when it applies at the next start. `push_failed: true` means the model is stored, but the running runtime still uses the old one. On a `stopped`, `failed` or `completed` session it returns `409` `SESSION_NOT_RUNNING`. Only the session owner or a project manager may call it. Anyone else gets `403`.
 
-The Kortix web and mobile apps open a session on its saved model. A model set at create or with `changeModel()` is the model their next message uses, unless the person picks another model in that session. The same ranking is `sessionModelCandidates()` in the root barrel.
+The Dosco web and mobile apps open a session on its saved model. A model set at create or with `changeModel()` is the model their next message uses, unless the person picks another model in that session. The same ranking is `sessionModelCandidates()` in the root barrel.
 
 ### Steer, queue or interrupt
 
@@ -222,7 +222,7 @@ const stream = await s.stream({
 stream.close();
 ```
 
-`stream()` readies the session, then opens the session runtime's event stream through the Kortix API. It is server-sent events over a streaming `fetch`. There is no WebSocket. The same stream serves both harnesses.
+`stream()` readies the session, then opens the session runtime's event stream through the Dosco API. It is server-sent events over a streaming `fetch`. There is no WebSocket. The same stream serves both harnesses.
 
 1. Open the stream before you send, so you do not miss the first events.
 2. Send the prompt.
@@ -370,7 +370,7 @@ See [Harnesses: OpenCode and pi](/docs/project/agents#harnesses-opencode-and-pi)
 
 ## Start sessions from your server
 
-Your server holds one Kortix credential and starts sessions for its own customers. Your customers never sign in to Kortix.
+Your server holds one Dosco credential and starts sessions for its own customers. Your customers never sign in to Dosco.
 
 1. Get a credential. A personal access key (`kortix_pat_…`) acts as you. A service account key (`kortix_sa_…`) acts as itself and needs a project role first. See [API keys and tokens](/docs/accounts/identity#api-keys-and-tokens).
 2. Create the client with `createScopedKortix` from `@kortix/sdk/server`. It never writes the process-wide config, so one request never reads another request's config or sandbox. See [Servers that act for many users](/docs/sdk/auth#servers-that-act-for-many-users).
@@ -418,7 +418,7 @@ The API answers `201` with the session. The full route reference is at https://a
 ### Retry a create safely
 
 - Send one `Idempotency-Key` per logical create: 1 to 255 characters of `A-Z a-z 0-9 . _ : + / = -`. A replay with the same key returns the same session.
-- A key is unique across all of Kortix. A key that another project or account already used returns `409` `IDEMPOTENCY_KEY_CONFLICT`. Put your own unique ids in the key.
+- A key is unique across all of Dosco. A key that another project or account already used returns `409` `IDEMPOTENCY_KEY_CONFLICT`. Put your own unique ids in the key.
 - A replay while the first create still runs answers `202` with `status` and `session_id`.
 - A replay with different `connector_bindings`, `provider_secret_pools`, `secrets` or `runtime_context` returns `409` `IDEMPOTENCY_BINDING_CONFLICT`, `IDEMPOTENCY_PROVIDER_POOL_CONFLICT`, `IDEMPOTENCY_SECRETS_CONFLICT` or `IDEMPOTENCY_CONTEXT_CONFLICT`.
 - A key whose session was deleted returns `409` `IDEMPOTENCY_KEY_SESSION_DELETED`. Use a new key.
@@ -439,7 +439,7 @@ The API answers `201` with the session. The full route reference is at https://a
 - When you set it, an alias you did not bind gets no account. Pass `inherit_unbound: true` to let unbound aliases use the project default.
 - A shared (`project`) account works for a personal access key and a service account key.
 - A private (`member`) account works only for its owner, and only in a private session. A new session is private. Binding a private account to a shared session returns `409`. A service account never uses a private account.
-- The credential never enters the sandbox. Kortix resolves it on every connector call. See [Connectors, connections and accounts](/docs/connect/connectors#connectors-connections-and-accounts).
+- The credential never enters the sandbox. Dosco resolves it on every connector call. See [Connectors, connections and accounts](/docs/connect/connectors#connectors-connections-and-accounts).
 
 `secrets` narrows the project secrets the sandbox receives, from the agent's grant down to the identifiers you list. It never widens the grant. `[]` delivers no project secrets. Only a `backend`-origin caller may set it; any other caller gets `403` `origin_override_forbidden`. See [Secrets](/docs/project/secrets).
 

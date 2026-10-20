@@ -1,6 +1,6 @@
 ---
 title: "Accounts & access"
-description: "Accounts, roles, members, project access, groups, object grants and custom roles: who can do what in Kortix."
+description: "Accounts, roles, members, project access, groups, object grants and custom roles: who can do what in Dosco."
 ---
 
 An account holds projects and the people who work in them. Every person holds one account role, and a project role on each project they work in. This page is for the owners and admins who invite a team and decide who can do what.
@@ -22,8 +22,8 @@ An account holds projects and the people who work in them. Every person holds on
     Give them at least one agent. In the **Grant access** dialog, set **Agents** to **All agents** or **Only these…**. From a terminal:
 
     ```bash
-    kortix access grant --user alice@example.com --agent kortix   # one person
-    kortix access grant --everyone --agent kortix                 # every project member
+    kortix access grant --user alice@example.com --agent xera   # one person
+    kortix access grant --everyone --agent xera                 # every project member
     ```
 
     Without an agent grant, a `member` cannot start a session: the API answers `403` with "You don't have access to any agent in this project."
@@ -34,11 +34,11 @@ Owners and admins reach every project without a grant.
 
 ## Accounts
 
-Kortix creates a personal account when you sign up. You are its owner and its [super-admin](#super-admin). Invite people to work in it with you.
+Dosco creates a personal account when you sign up. You are its owner and its [super-admin](#super-admin). Invite people to work in it with you.
 
 - **Several accounts, one login.** One login can belong to many accounts. Each account keeps its own projects, members and settings.
 - **Switch.** Open the project menu → **Switch Project**. It lists your projects grouped by account. In the CLI, `kortix accounts use <slug|id>` sets the account that account-scoped commands act on.
-- **Create a team account first.** The account Kortix creates at sign-up is personal. It cannot hold SAML SSO (`403` `sso_personal_account`), and a project cannot move to another account. For a team, select **Create an account…** before you create projects.
+- **Create a team account first.** The account Dosco creates at sign-up is personal. It cannot hold SAML SSO (`403` `sso_personal_account`), and a project cannot move to another account. For a team, select **Create an account…** before you create projects.
 - **Create another.** Open the project menu → **Switch Project** → **Create an account…**. The creator becomes owner and super-admin. A self-hosted instance can restrict this to its server admin; the API then returns `403` `account_creation_restricted`. See [Self-hosting](/docs/host).
 - **Rename.** **Account settings** → **Settings**. Needs `account.write`.
 
@@ -80,7 +80,7 @@ Each person holds exactly one account role: `owner`, `admin` or `member`.
 
 - **Members cannot create projects** and cannot change billing. Owners and admins hold `billing.write`. Only an owner holds `account.delete`.
 - **Owners and admins are manager on every project** in the account. This is a rule of the account role, not a grant, and a project grant cannot lower it. To limit an owner or admin on one project, change their account role to `member` first.
-- **Promotion removes project grants.** When a person becomes owner or admin, Kortix deletes their direct project grants because the account role already covers every project.
+- **Promotion removes project grants.** When a person becomes owner or admin, Dosco deletes their direct project grants because the account role already covers every project.
 - **Only an owner touches owners.** An admin who tries to remove an owner gets `403`. Only an owner can grant the `owner` role or change an owner's role.
 - **The last owner stays.** Removing, demoting or leaving as the last owner returns `409`. Make another member owner first.
 - **An account role belongs to a person.** Binding `owner`, `admin` or `member` to a group returns `400`. Give a group a project role or a custom role instead.
@@ -117,12 +117,12 @@ To show the whole directory to more people, create a custom account role with `m
 
 What happens next depends on the address:
 
-- **The address has a Kortix login.** Kortix adds the person at once, with the project roles you picked.
-- **The address has no login.** Kortix emails an invite link. The invite is valid for 14 days. The project roles apply when the person accepts.
+- **The address has a Dosco login.** Dosco adds the person at once, with the project roles you picked.
+- **The address has no login.** Dosco emails an invite link. The invite is valid for 14 days. The project roles apply when the person accepts.
 
-A self-hosted instance with no email provider confirms sign-ups without an email, so a password login does not prove its address there. Kortix adds such a login at once only when it is already a member of the account. Otherwise it creates an invite, and the login with that address accepts it from the project chooser or the **Switch Project** menu. That login is whoever signed up first with the address. See [Unconfirmed email addresses](/docs/host#unconfirmed-email-addresses).
+A self-hosted instance with no email provider confirms sign-ups without an email, so a password login does not prove its address there. Dosco adds such a login at once only when it is already a member of the account. Otherwise it creates an invite, and the login with that address accepts it from the project chooser or the **Switch Project** menu. That login is whoever signed up first with the address. See [Unconfirmed email addresses](/docs/host#unconfirmed-email-addresses).
 
-Project roles in an invite apply to `member` invites only. Kortix ignores them on an `admin` invite, because an admin already reaches every project. To make someone owner, invite them as admin or member, then change their role.
+Project roles in an invite apply to `member` invites only. Dosco ignores them on an `admin` invite, because an admin already reaches every project. To make someone owner, invite them as admin or member, then change their role.
 
 ### Accept an invite
 
@@ -150,7 +150,7 @@ Removal, [Leave](#leave) and SCIM deactivation (`active: false` or `DELETE`, see
 - the person's roles, project grants and group memberships;
 - their personal access keys and the tokens of their running sessions;
 - their notifications and follows in the account's projects;
-- every computer account in the account that reaches a machine they own. This covers a computer they shared with a project and a computer they paired for themselves. The account becomes `revoked`, with `metadata.revokedReason: owner_left`. The computer stays theirs and keeps working in their other Kortix accounts;
+- every computer account in the account that reaches a machine they own. This covers a computer they shared with a project and a computer they paired for themselves. The account becomes `revoked`, with `metadata.revokedReason: owner_left`. The computer stays theirs and keeps working in their other Dosco accounts;
 - every reminder they set in the account's projects. The reminder becomes `paused`. A reminder that a session's agent set keeps firing;
 - their seat on a per-seat plan. Their personal drive folders pass to an owner.
 
@@ -213,7 +213,7 @@ Inviting an email address outside the account creates an account invite with the
 
 ### Access requests
 
-A signed-in person who opens a project they cannot read sees **Request access**, with an optional note to the managers. Kortix notifies the project's managers. One person can send 10 requests per hour, and one project receives at most 30 per hour.
+A signed-in person who opens a project they cannot read sees **Request access**, with an optional note to the managers. Dosco notifies the project's managers. One person can send 10 requests per hour, and one project receives at most 30 per hour.
 
 A manager approves the request with a role (`member` by default) or rejects it. Approving grants the role at once.
 
@@ -257,7 +257,7 @@ kortix groups rm Engineering
 
 ## Grant access to one object
 
-Kortix has one grant record: an **assignment**. Every grant on this page is an assignment.
+Dosco has one grant record: an **assignment**. Every grant on this page is an assignment.
 
 | Field | Meaning |
 | --- | --- |
@@ -336,7 +336,7 @@ A session runs with the agent's permissions, not the permissions of the person w
 
 A custom role is a role your account defines from catalog permissions. It needs the Enterprise `rbac` entitlement: creating, editing or assigning one without it returns `402` `entitlement_required`.
 
-- **Only adds.** A custom role grants permissions. Kortix has no deny rule.
+- **Only adds.** A custom role grants permissions. Dosco has no deny rule.
 - **One scope.** A role is account-scoped or project-scoped. It holds only permissions of its scope.
 - **No escalation.** A custom role cannot hold a permission marked *no* under "Custom role" in [Permissions](#permissions). Owner and admin powers stay with the built-in roles.
 - **Key and name.** The key is 2 to 64 characters of `a-z`, `0-9` and `_`. It never changes. The name is up to 128 characters.
@@ -391,7 +391,7 @@ Super-admin is a flag on one membership, not a role. A super-admin passes every 
 
 ## Branding
 
-An account with the Enterprise `branding` entitlement replaces the Kortix marks its members see in the web app. Open **Account settings** → **Branding**.
+An account with the Enterprise `branding` entitlement replaces the Dosco marks its members see in the web app. Open **Account settings** → **Branding**.
 
 | Item | Where it shows |
 | --- | --- |
@@ -399,13 +399,13 @@ An account with the Enterprise `branding` entitlement replaces the Kortix marks 
 | `icon` | The square mark |
 | `favicon` | The browser-tab icon |
 | `logo_dark`, `icon_dark`, `favicon_dark` | The same, in dark mode |
-| `app_name` | Replaces "Kortix" in the browser tab title. Up to 60 characters. |
+| `app_name` | Replaces "Dosco" in the browser tab title. Up to 60 characters. |
 
-- **Formats.** PNG, JPEG, WebP, SVG or ICO, up to 1 MiB each. Kortix rejects an SVG that carries script or other active content.
+- **Formats.** PNG, JPEG, WebP, SVG or ICO, up to 1 MiB each. Dosco rejects an SVG that carries script or other active content.
 - **Fallbacks.** A missing logo uses the icon. A missing favicon uses the icon. A missing dark variant uses the dark icon, then the light image.
 - **Scope.** Inside a project, members see the brand of the account that owns the project. The favicon follows the operating system's color scheme; the other marks follow the app theme.
-- **Kortix stays.** Sign-in pages, emails and public share pages stay Kortix-branded.
-- **Plan change.** When the entitlement lapses, members see Kortix again. Nothing is deleted. Removing images and resetting stay available without the entitlement.
+- **Dosco stays.** Sign-in pages, emails and public share pages stay Dosco-branded.
+- **Plan change.** When the entitlement lapses, members see Dosco again. Nothing is deleted. Removing images and resetting stay available without the entitlement.
 
 Writes need `account.write` and the entitlement (`402` `entitlement_required` otherwise).
 
@@ -415,7 +415,7 @@ The audit log records who did what in the account, when, through which credentia
 
 ### What is recorded
 
-Kortix writes one row for every request that reaches the API: HTTP requests, WebSocket upgrades, preview requests, git clones and pushes, and SCIM calls. A refused request is a row with `outcome: denied`. Events outside a request, such as a sandbox reading a secret or a background job expiring a grant, are rows too.
+Dosco writes one row for every request that reaches the API: HTTP requests, WebSocket upgrades, preview requests, git clones and pushes, and SCIM calls. A refused request is a row with `outcome: denied`. Events outside a request, such as a sandbox reading a secret or a background job expiring a grant, are rows too.
 
 | Field | Values |
 | --- | --- |
@@ -426,9 +426,9 @@ Kortix writes one row for every request that reaches the API: HTTP requests, Web
 | `outcome` | `success`, `failure`, `denied`, `pending` |
 | `metadata.http` | The route template, never the raw path. |
 
-An agent's row also names the person the agent acted for (`on_behalf_of_user_id`). Kortix derives the caller and the credential from what it authenticated, never from a request header. An anonymous request that names one of your projects is written with `actor_type: anonymous`.
+An agent's row also names the person the agent acted for (`on_behalf_of_user_id`). Dosco derives the caller and the credential from what it authenticated, never from a request header. An anonymous request that names one of your projects is written with `actor_type: anonymous`.
 
-Kortix does not record health probes, CORS preflights, or anonymous visitors to a deployed App.
+Dosco does not record health probes, CORS preflights, or anonymous visitors to a deployed App.
 
 ### Read the log
 
@@ -512,7 +512,7 @@ function verify(rawBody: string, header: string, secret: string): boolean {
 }
 ```
 
-A `2xx` response within 5 seconds is a success. Kortix retries any other result up to 8 attempts, waiting 30 seconds and doubling up to 1 hour between attempts. After the last attempt the delivery is `dead_letter`. Read deliveries with `GET /v1/accounts/:accountId/audit/webhooks/:webhookId/deliveries?status=<status>`, and send one again with `POST .../deliveries/:deliveryId/replay`.
+A `2xx` response within 5 seconds is a success. Dosco retries any other result up to 8 attempts, waiting 30 seconds and doubling up to 1 hour between attempts. After the last attempt the delivery is `dead_letter`. Read deliveries with `GET /v1/accounts/:accountId/audit/webhooks/:webhookId/deliveries?status=<status>`, and send one again with `POST .../deliveries/:deliveryId/replay`.
 
 ### Action names
 
@@ -624,16 +624,16 @@ Open **Account settings** → **Members**, open the menu on your own row, and se
 
 ### Delete
 
-Deletion needs `account.delete`, which only an owner holds. It acts on your primary account: the first account you joined, normally the personal account Kortix created at sign-up. Open **Settings** → **Profile** and select **Delete account**. Pick one:
+Deletion needs `account.delete`, which only an owner holds. It acts on your primary account: the first account you joined, normally the personal account Dosco created at sign-up. Open **Settings** → **Profile** and select **Delete account**. Pick one:
 
-- **Grace period.** Kortix deletes the account 14 days later. You can cancel any time before then.
-- **Delete immediately.** Kortix deletes the account at once. This cannot be undone.
+- **Grace period.** Dosco deletes the account 14 days later. You can cancel any time before then.
+- **Delete immediately.** Dosco deletes the account at once. This cannot be undone.
 
 Deletion removes:
 
-- the account's sandboxes, session files and Kortix-managed repositories;
+- the account's sandboxes, session files and Dosco-managed repositories;
 - every project and session in the account, with its secrets and connector accounts;
-- the subscription, which Kortix cancels, and the remaining credits;
+- the subscription, which Dosco cancels, and the remaining credits;
 - for your personal account, your login, your devices and your notifications.
 
 The deletion routes are under `/v1/account/` in the [API reference](https://api.kortix.com/v1/docs).

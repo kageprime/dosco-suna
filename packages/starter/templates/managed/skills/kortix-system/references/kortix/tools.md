@@ -241,13 +241,13 @@ tools:
 | `web_serch: kortix:web_serch` | error | ``must be a repo-relative path to a .ts or .js module (e.g. `tools/web_serch.ts`). `kortix:<name>` names a Kortix tool under its own name: …`` |
 | A module path that does not exist | error | `"tools/x.ts" does not exist in the project files.` |
 | A `tools:` key with no Kortix tool | warning | ``Sessions of this project get no Kortix tool (web_search, image_search, scrape_webpage, memory, show). Add `<name>: kortix:<name>` to keep one.`` |
-| An agent's `tools` names a Kortix tool the project does not load | warning | ``"show" is a Kortix tool this project does not load: add `show: kortix:show` under the top-level `tools`, or remove it here.`` |
+| An agent's `tools` names a Dosco tool the project does not load | warning | ``"show" is a Dosco tool this project does not load: add `show: kortix:show` under the top-level `tools`, or remove it here.`` |
 
 ## Who may use which tool: `agents.<name>.tools`
 
 ```yaml
 agents:
-  kortix:
+  xera:
     tools: all                                   # every tool (the default)
   researcher:
     tools: [read, grep, web_search, lookup_order] # only these

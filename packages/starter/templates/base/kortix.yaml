@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
 #
-# Kortix project manifest. Source of truth for project-wide config that
+# Dosco project manifest. Source of truth for project-wide config that
 # lives in git alongside the code. `kortix_version` pins the schema so
 # the platform can evolve safely. v2 manifests are YAML-only, with one
 # `agents:` map per project — GOVERNANCE ONLY (connectors/secrets/
@@ -20,13 +20,13 @@ kortix_version: 2
 
 # The agent a session/trigger boots when it names no concrete agent (the
 # "default" sentinel). Must always resolve to a declared agent below.
-default_agent: kortix
+default_agent: xera
 
 project:
   name: "{{projectName}}"
-  description: A Kortix project.
+  description: A Dosco project.
 
-# Env vars the runtime needs. Required values must be set in the Kortix
+# Env vars the runtime needs. Required values must be set in the Dosco
 # Secrets Manager before a session can start.
 env:
   required: []
@@ -34,7 +34,7 @@ env:
 
 # ─── Sandbox templates ───────────────────────────────────────────────────
 # Sessions boot from a sandbox image. The platform's default image (Ubuntu +
-# the Kortix runtime layer) is always available — sessions clone your repo
+# the Dosco runtime layer) is always available — sessions clone your repo
 # into /workspace at boot, so no per-project build is needed by default.
 #
 # Define `sandbox.templates` entries below if you want named custom images
@@ -77,14 +77,14 @@ opencode:
 
 # ─── Tools ───────────────────────────────────────────────────────────────
 # The tools every agent of this project gets, on every harness (OpenCode, pi).
-# `kortix:<name>` is a tool Kortix maintains and updates. A path is your own
+# `kortix:<name>` is a tool Dosco maintains and updates. A path is your own
 # module, in any folder (https://kortix.com/docs/project/tools).
 #   - Delete a line to remove that tool from every agent.
-#   - Run `kortix tools eject <name>` to own and change a Kortix tool.
+#   - Run `kortix tools eject <name>` to own and change a Dosco tool.
 #   - Use `agents.<name>.tools` to limit one agent.
 # `kortix tools ls` lists what a session gets.
 tools:
-  web_search: kortix:web_search      # maintained by Kortix, updated automatically
+  web_search: kortix:web_search      # maintained by Dosco, updated automatically
   image_search: kortix:image_search
   scrape_webpage: kortix:scrape_webpage
   memory: kortix:memory
@@ -99,17 +99,17 @@ tools:
 # in that file — open it to see/change what the agent actually does.
 # v2 is deny-by-default: an omitted connectors/secrets/kortix_permissions/
 # skills grant resolves to "none", so a scoped specialist starts locked down.
-# The starter's own `kortix` agent is deliberately
+# The starter's own `xera` agent is deliberately
 # granted "all" across the board so a fresh project is capable out of the
 # box — narrow it once you know what this project actually needs.
 agents:
-  kortix:
-    file: agents/kortix.md
+  xera:
+    file: agents/xera.md
     connectors: all
     secrets: all
     kortix_permissions: all
     skills: all
-    # Tools this agent may use (harness, Kortix and project tools). Default: all.
+    # Tools this agent may use (harness, Dosco and project tools). Default: all.
     # tools: [read, grep, web_search, lookup_order]   # only these
     # tools: { exclude: [bash] }                      # every tool but these
     # sandbox: python # Must name an available project template, or "default".
@@ -144,7 +144,7 @@ agents:
 
 # ─── Triggers ────────────────────────────────────────────────────────────
 # Each entry spawns a fresh session that runs `prompt` as its initial
-# message. Add from the Kortix UI or uncomment one below. Slugs must be
+# message. Add from the Dosco UI or uncomment one below. Slugs must be
 # lowercase URL-safe and unique per project. `agent` must name a declared
 # agent above (or be omitted to fall back to `default_agent`).
 
@@ -181,7 +181,7 @@ triggers:
   # - slug: daily-digest
   #   name: Daily digest
   #   type: cron
-  #   agent: kortix                  # must name a declared agent above
+  #   agent: xera                    # must name a declared agent above
   #   enabled: true
   #   cron: "0 0 9 * * 1-5"          # 09:00 Mon–Fri
   #   timezone: America/Los_Angeles
@@ -198,7 +198,7 @@ triggers:
   # - slug: slack-hook
   #   name: Slack handler
   #   type: webhook
-  #   agent: kortix
+  #   agent: xera
   #   enabled: true
   #   secret_env: WEBHOOK_SLACK_SECRET  # add the value via Secrets Manager
   #   prompt: |

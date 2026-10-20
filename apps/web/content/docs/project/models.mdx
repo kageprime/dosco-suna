@@ -1,13 +1,13 @@
 ---
 title: Models
-description: "Kortix-managed models, your own provider keys and subscriptions, how the default is chosen, routing, budgets, and calling the LLM gateway from other tools."
+description: "Dosco-managed models, your own provider keys and subscriptions, how the default is chosen, routing, budgets, and calling the LLM gateway from other tools."
 ---
 
-A model is the LLM that a session's agent runs on. A project can use Kortix-managed models, your own provider API keys, and a ChatGPT or OpenCode subscription. This page is for the people who choose models, connect keys, and control model spend in a project.
+A model is the LLM that a session's agent runs on. A project can use Dosco-managed models, your own provider API keys, and a ChatGPT or OpenCode subscription. This page is for the people who choose models, connect keys, and control model spend in a project.
 
 <Steps>
   <Step title="Run on the default">
-    Start a [session](/docs/work/sessions). On Kortix Cloud it runs on the platform default, `deepseek-v4.1-flash`. You set up nothing.
+    Start a [session](/docs/work/sessions). On Dosco Cloud it runs on the platform default, `deepseek-v4.1-flash`. You set up nothing.
   </Step>
   <Step title="Pick another model">
     Choose a model in the composer's model picker, or run `kortix sessions new --model kimi-k3`. To switch a running session, run `kortix sessions model <session-id> <model-id>`. A live sandbox restarts and the turn in flight ends. A stopped session uses the new model at its next start.
@@ -26,19 +26,19 @@ Every model request goes through the LLM gateway. The gateway finds the credenti
 
 | Shape | Example | Who supplies the credentials | Who bills |
 | --- | --- | --- | --- |
-| Bare managed id | `kimi-k3` | Kortix | Kortix credits |
-| `provider/model` | `anthropic/<model-id>` | Your provider API key | Your provider; past $1,000 a month, a 5% Kortix fee in credits |
+| Bare managed id | `kimi-k3` | Dosco | Dosco credits |
+| `provider/model` | `anthropic/<model-id>` | Your provider API key | Your provider; past $1,000 a month, a 5% Dosco fee in credits |
 | `codex/<id>` | `codex/gpt-5.6-sol` | Your ChatGPT Plus or Pro subscription | OpenAI, through your plan |
 
 Inside the sandbox, OpenCode shows every gateway model under the `kortix` provider, for example `kortix/kimi-k3`. The gateway removes the `kortix/` prefix. Use the bare id everywhere else.
 
-The catalog comes from [models.dev](https://models.dev) and the Codex model list. The API refreshes it every hour, so a new provider model appears without a Kortix release.
+The catalog comes from [models.dev](https://models.dev) and the Codex model list. The API refreshes it every hour, so a new provider model appears without a Dosco release.
 
 The `llm_gateway` project flag selects this path. It is on by default. With the flag off, the project runs native OpenCode model management: see [Without the gateway](#without-the-gateway).
 
-## Kortix-managed models
+## Dosco-managed models
 
-Kortix Cloud serves three managed models. You need no key.
+Dosco Cloud serves three managed models. You need no key.
 
 | Model | Id | Tier | Context | Max output | Images |
 | --- | --- | --- | --- | --- | --- |
@@ -46,9 +46,9 @@ Kortix Cloud serves three managed models. You need no key.
 | DeepSeek V4.1 Flash | `deepseek-v4.1-flash` | balanced, platform default | 1,000,000 | 65,536 | Yes |
 | GLM 5.3 Flash | `glm-5.3-flash` | fast | 1,000,000 | 65,536 | Yes |
 
-- The picker lists them under **Kortix**.
+- The picker lists them under **Dosco**.
 - Every plan, Free included, can run the platform default. Another managed model needs a plan that includes it. Otherwise the request returns `plan_upgrade_required`.
-- Kortix sends each managed model only to a fixed pool of US inference endpoints with zero data retention.
+- Dosco sends each managed model only to a fixed pool of US inference endpoints with zero data retention.
 - Managed requests use credits. See [Plans & credits](/docs/credits).
 - The managed lineup has no OpenAI or Anthropic models. Use your own key or a ChatGPT subscription for them.
 - A self-hosted instance has no managed models. Connect your own providers.
@@ -91,11 +91,11 @@ kortix providers login opencode      # OpenCode Zen
 kortix providers login opencode-go   # OpenCode Go
 ```
 
-In the web app, use **Connect ChatGPT** and **Connect OpenCode Go**. The OpenCode Zen login runs only from the CLI. Zen and Go each need their own login. An OpenCode login lasts 30 days, and Kortix renews it one day before it expires. When a renewal is refused, requests return `provider_reauth_required`: sign in again.
+In the web app, use **Connect ChatGPT** and **Connect OpenCode Go**. The OpenCode Zen login runs only from the CLI. Zen and Go each need their own login. An OpenCode login lasts 30 days, and Dosco renews it one day before it expires. When a renewal is refused, requests return `provider_reauth_required`: sign in again.
 
-**A custom endpoint.** For a self-hosted or unlisted OpenAI-compatible endpoint, open the **Custom** tab. Enter a provider id, a name, the base URL, a model id and a model name. The key is optional. Kortix saves the key as `CUSTOM_<ID>_API_KEY` and shows an OpenCode provider snippet. Commit the snippet to `opencode.jsonc` in the project's OpenCode config directory (`harnesses/opencode/` by default). A custom provider calls its endpoint directly, not through the gateway. Budgets, logs and routing do not apply to it, and only the OpenCode harness reads it.
+**A custom endpoint.** For a self-hosted or unlisted OpenAI-compatible endpoint, open the **Custom** tab. Enter a provider id, a name, the base URL, a model id and a model name. The key is optional. Dosco saves the key as `CUSTOM_<ID>_API_KEY` and shows an OpenCode provider snippet. Commit the snippet to `opencode.jsonc` in the project's OpenCode config directory (`harnesses/opencode/` by default). A custom provider calls its endpoint directly, not through the gateway. Budgets, logs and routing do not apply to it, and only the OpenCode harness reads it.
 
-Your provider bills a request that runs on your own key or subscription. Kortix charges nothing for the first $1,000 of key usage a month at list price, then 5% of each request's list price, from credits ([Credits](/docs/credits)). A ChatGPT subscription and OpenCode Go are never charged. The one other charge is a Kortix model that you put in your own fallback chain: see [Routing and fallback](#routing-and-fallback).
+Your provider bills a request that runs on your own key or subscription. Dosco charges nothing for the first $1,000 of key usage a month at list price, then 5% of each request's list price, from credits ([Credits](/docs/credits)). A ChatGPT subscription and OpenCode Go are never charged. The one other charge is a Dosco model that you put in your own fallback chain: see [Routing and fallback](#routing-and-fallback).
 
 ## How the default is chosen
 
@@ -105,7 +105,7 @@ A session that names no model uses the first of these that is set:
 2. **Agent pin.** `kortix agents model <agent> <model-id>`. `--clear` removes it.
 3. **Project default.** `kortix models default <model-id>`.
 4. **Account default.** `kortix models default <model-id> --account`. It applies to every project in the account that has no project default.
-5. **Platform default.** `deepseek-v4.1-flash` on Kortix Cloud.
+5. **Platform default.** `deepseek-v4.1-flash` on Dosco Cloud.
 
 The `model:` field in the [agent file](/docs/project/agents#the-agent-file) is not in this chain. It applies only to a prompt that names no model:
 
@@ -121,7 +121,7 @@ A stale default never fails a session. A less specific default is not tried when
 
 `kortix models default` prints the chain and what it resolves to. `kortix models default --clear [--account]` removes a default. Writes need the `project.model.write` permission.
 
-When a gateway project saves a provider key, and neither the project nor the account has a default, Kortix sets that provider's flagship model as the project default, if the project can run it. It never replaces a default that exists.
+When a gateway project saves a provider key, and neither the project nor the account has a default, Dosco sets that provider's flagship model as the project default, if the project can run it. It never replaces a default that exists.
 
 ## Offer vs allow
 
@@ -134,7 +134,7 @@ Two separate controls decide which models a project uses:
 
 - `kortix models enable <model-id>...` and `disable <model-id>...` store exceptions to the catalog default. `kortix models reset` removes every exception.
 - A disabled provider blocks all its models, including models the catalog adds later. Its credentials stay saved.
-- Disable the **Kortix** provider to run only on your own providers. First set a project default on one of your providers: while the default is a Kortix model, the switch returns `409 cannot_disable_default`.
+- Disable the **Dosco** provider to run only on your own providers. First set a project default on one of your providers: while the default is a Dosco model, the switch returns `409 cannot_disable_default`.
 - Access applies to every new request: picker choices, saved session selections and fallback candidates. A request already sent upstream finishes.
 - You cannot hide the default model (project, else account, else platform), and you cannot disable it or its provider. Set another project default first.
 
@@ -165,7 +165,7 @@ kortix gateway routing reset
 - The project's chain also runs when every key or ChatGPT account that the request may use is paused after a rate limit. With `--fallback-on any-error`, it also runs when the login needs reconnection.
 - `--vision-model` takes a request that carries images when the default model accepts only text.
 
-**Billing in a fallback.** A request on your own key moves to a Kortix-billed model only when your project's chain names that model and the account can pay for it. Kortix's own platform chain never moves your request onto credits. On Kortix Cloud, the platform chain moves `deepseek-v4.1-flash` to `glm-5.3-flash` on transient errors.
+**Billing in a fallback.** A request on your own key moves to a Dosco-billed model only when your project's chain names that model and the account can pay for it. Dosco's own platform chain never moves your request onto credits. On Dosco Cloud, the platform chain moves `deepseek-v4.1-flash` to `glm-5.3-flash` on transient errors.
 
 When a fallback model answers, the composer shows **Running on** and the model name. The turn details name the model that answered and the model it replaced. **Costs** counts the spend under the model that answered.
 
@@ -206,10 +206,10 @@ kortix gateway budget rm <budget-id>
 - `--limit` takes US dollars, the unit of the API's `limit_usd` field. One credit is $0.01, so `--limit 20` is a 2,000-credit budget. The CLI shows budgets and spend in credits, and `--json` returns the API's dollar fields.
 - `--period` is `day`, `week` or `month`, in UTC. A week starts on Monday. A month starts on the 1st.
 - **Block** (`block`) refuses new requests at the limit with `402 budget_exceeded`. **Warn only** (`warn`) lets them run.
-- A budget counts all spend: Kortix credits and the cost on your own keys.
+- A budget counts all spend: Dosco credits and the cost on your own keys.
 - Each budget shows its spend in its own period, for example `1,500 of 2,000 credits per day · blocks at limit · 75% used`, and when the period resets. This is the number the gateway compares with the limit. `GET /v1/projects/<project-id>/gateway/budgets` returns it per budget in US dollars as `spent_usd`, `period_start` and `resets_at`, and a member budget's member as `subject_email`. `project_spend` and `members` in the same response are month-to-date.
 - Every member cap has a row in the list, also when its member has spent nothing this month.
-- At 80% and at 100% of the limit, Kortix emails the account owners and admins and the project managers, once per threshold per period.
+- At 80% and at 100% of the limit, Dosco emails the account owners and admins and the project managers, once per threshold per period.
 - Setting a budget needs `project.gateway.budget.set`. Reading spend needs `project.gateway.spend.read`.
 - A project manager reads every member's spend and cap. A plain `member` reads the project budget, their own cap and their own spend row, and never another member's id or email.
 
@@ -231,8 +231,8 @@ A project manager reads every log and every session's spend. A plain `member` re
 
 A gateway key lets any OpenAI- or Anthropic-compatible client call the project's models. The client gets the same keys, routing, access rules and budgets as a session.
 
-1. Create a key in **Customize → Models → Gateway**, or run `kortix gateway keys new <name>`. The key starts with `kortix_gw_`. Kortix shows it once. `kortix gateway keys` lists keys, and `kortix gateway keys rm <key-id>` revokes one. Managing keys needs `project.gateway.keys.manage`.
-2. Point the client at the gateway. On Kortix Cloud the base URL is `https://gateway.kortix.com`. A self-hosted instance shows its own URL in the **Gateway** tab.
+1. Create a key in **Customize → Models → Gateway**, or run `kortix gateway keys new <name>`. The key starts with `kortix_gw_`. Dosco shows it once. `kortix gateway keys` lists keys, and `kortix gateway keys rm <key-id>` revokes one. Managing keys needs `project.gateway.keys.manage`.
+2. Point the client at the gateway. On Dosco Cloud the base URL is `https://gateway.kortix.com`. A self-hosted instance shows its own URL in the **Gateway** tab.
 
 | Endpoint | Protocol |
 | --- | --- |
@@ -265,7 +265,7 @@ model = "kimi-k3"
 model_provider = "kortix"
 
 [model_providers.kortix]
-name = "Kortix"
+name = "Dosco"
 base_url = "https://gateway.kortix.com/v1"
 env_key = "KORTIX_GATEWAY_KEY"
 wire_api = "responses"
@@ -286,7 +286,7 @@ Limits:
 
 | Code | Cause | Fix |
 | --- | --- | --- |
-| `subscription_required` | The account has no active plan for Kortix-billed models. | Subscribe, or run on your own key. |
+| `subscription_required` | The account has no active plan for Dosco-billed models. | Subscribe, or run on your own key. |
 | `insufficient_credits` | The credit balance is empty. | Add credits, or run on your own key. |
 | `budget_exceeded` (`402`) | A **Block** budget reached its limit. | Raise or remove the budget in **Costs**, or wait for the next period. |
 | `plan_upgrade_required` | The plan does not include this managed model. | Use `deepseek-v4.1-flash`, upgrade, or connect your own key. |

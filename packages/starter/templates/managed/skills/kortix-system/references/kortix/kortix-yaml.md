@@ -35,7 +35,7 @@ Use `kortix schema --version 2` offline.
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
 kortix_version: 2
 
-default_agent: kortix
+default_agent: xera
 
 project:
   name: my-project
@@ -192,8 +192,8 @@ triggers:
 
 # ─── Agents (governance only) ─────────────────────────────────────
 agents:
-  kortix:
-    file: agents/kortix.md
+  xera:
+    file: agents/xera.md
     connectors: all
     secrets: all
     kortix_permissions: all
@@ -447,12 +447,12 @@ the root file.
 ```yaml
 # kortix.yaml
 kortix_version: 2
-default_agent: kortix
+default_agent: xera
 imports:
   - triggers/                # a directory: every .yaml/.yml below it, any depth
   - agents.yaml              # a single file
 agents:
-  kortix:
+  xera:
     connectors: all
 ```
 

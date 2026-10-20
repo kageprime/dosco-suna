@@ -8,11 +8,11 @@ A session is one unit of agent work. It runs in its own sandbox, on its own git 
 ## What a session is
 
 <Steps>
-  <Step title="Kortix creates the session">
+  <Step title="Dosco creates the session">
     It cuts a branch from `base_ref`. The default `base_ref` is the project's default branch. The branch name is the `session_id`.
   </Step>
   <Step title="The sandbox boots">
-    Kortix boots a sandbox from the session's sandbox template, or from the platform default image when the project has none. See [Sandboxes & previews](/docs/work/runtime#the-image-and-templates).
+    Dosco boots a sandbox from the session's sandbox template, or from the platform default image when the project has none. See [Sandboxes & previews](/docs/work/runtime#the-image-and-templates).
   </Step>
   <Step title="The agent starts">
     The sandbox clones the repo to `/workspace` and starts the harness, OpenCode or pi. The session status becomes `running`.
@@ -29,7 +29,7 @@ The `session_id`, the branch name, and the session's `sandbox_id` field are the 
 
 | Status | Meaning |
 | --- | --- |
-| `provisioning` | Kortix cuts the branch and boots the sandbox. |
+| `provisioning` | Dosco cuts the branch and boots the sandbox. |
 | `running` | The sandbox is live. |
 | `stopped` | You stopped the session, or it went to sleep. It wakes on demand. |
 | `failed` | Provisioning failed. The session's `error` field says why. |
@@ -42,7 +42,7 @@ Each session also has an `origin`, the class of caller that started it.
 | `trigger` | A webhook, app event, monitor, or manual [trigger](/docs/connect/triggers) run, or a [reminder](/docs/connect/triggers#reminders). |
 | `schedule` | A cron trigger. |
 | `backend` | A personal access key, which includes the `kortix` CLI on your machine, or a service account, for example the [SDK](/docs/sdk) on your server. |
-| `system` | Kortix itself. |
+| `system` | Dosco itself. |
 
 ## Start a session
 
@@ -70,7 +70,7 @@ kortix sessions new -p "Fix the failing test in src/billing and open a change re
 | `--label <label>` | Add a label. Repeatable. |
 | `--meta <key>=<value>` | Set a metadata key. Repeatable. |
 | `--connector <alias>=<connection-id>`, `--no-connectors` | Bind a connector account, or use none. See [Connectors](/docs/connect/connectors). |
-| `--secret <id>`, `--no-secrets` | Narrow the project secrets the session gets. Kortix refuses it with `403` from inside a session sandbox. See [Secrets](/docs/project/secrets). |
+| `--secret <id>`, `--no-secrets` | Narrow the project secrets the session gets. Dosco refuses it with `403` from inside a session sandbox. See [Secrets](/docs/project/secrets). |
 | `--context <key>=<value>` | Set a runtime context value. Repeatable. |
 | `--json` | Print the session object. Read `session_id` from it. |
 
@@ -80,7 +80,7 @@ A create answers `402` when the account has no credits left. See [Plans & credit
 
 A turn is one round of agent work, from a message to the agent's last reply.
 
-A message you send from the app, the API, or `kortix sessions chat --queue` or `--steer` is stored on the server first, in the session's prompt inbox. It survives a closed tab, a device switch, and a sleeping sandbox. Kortix delivers it when the session can take it.
+A message you send from the app, the API, or `kortix sessions chat --queue` or `--steer` is stored on the server first, in the session's prompt inbox. It survives a closed tab, a device switch, and a sleeping sandbox. Dosco delivers it when the session can take it.
 
 A message reaches a running turn in one of 3 ways. With no turn running, all 3 start a new turn.
 
@@ -121,7 +121,7 @@ kortix sessions queue <session_id> now <prompt_id> # run this one next
 
 In the composer, type `@` to mention a file, an agent or another session, and `/` to run a command.
 
-- Kortix sends each mention to the agent as a reference: a file's path, an agent's name, a session's id. The agent can open the file, hand off to the agent, or read the session.
+- Dosco sends each mention to the agent as a reference: a file's path, an agent's name, a session's id. The agent can open the file, hand off to the agent, or read the session.
 - References work on a chat's first message, on every later message, and in a command's arguments.
 - On a new chat, the `@` list shows agents only. Files show once the session's sandbox runs.
 
@@ -155,7 +155,7 @@ kortix sessions approve <session_id> [<request_id>] --always # or --reject, --me
 kortix sessions answer <session_id> [<request_id>] --option "<value>" --text "<answer>"
 ```
 
-A turn that waits does no work. It keeps its sandbox for at most 2 hours. A session with origin `trigger`, `schedule`, or `system` has no one to ask, and its limit is 30 minutes. Then the turn ends and the sandbox stops. Kortix stores an open question outside the sandbox, so the session still reads **Needs you**. The session page then shows no answer card, and `kortix sessions answer` finds no question: send a message to continue. That message answers the question and closes it.
+A turn that waits does no work. It keeps its sandbox for at most 2 hours. A session with origin `trigger`, `schedule`, or `system` has no one to ask, and its limit is 30 minutes. Then the turn ends and the sandbox stops. Dosco stores an open question outside the sandbox, so the session still reads **Needs you**. The session page then shows no answer card, and `kortix sessions answer` finds no question: send a message to continue. That message answers the question and closes it.
 
 ### Needs you in the session lists
 
@@ -223,7 +223,7 @@ A restore needs the same permission as the delete: the session owner or a person
 | `409` `session_sandbox_removal_pending` | The provider has not confirmed that the old sandbox is gone, or the session was deleted while its first sandbox was starting and that sandbox can still arrive (up to 10 minutes). Try again in a minute. |
 | `410` `session_purged` | More than 30 days passed. Its conversation and files are deleted; only the branch remains. |
 
-Kortix deletes a deleted session's conversation 30 days after the delete, and its stored files 7 days after that.
+Dosco deletes a deleted session's conversation 30 days after the delete, and its stored files 7 days after that.
 
 A stopped session wakes when it gets:
 
@@ -234,7 +234,7 @@ A stopped session wakes when it gets:
 
 ### Continue a lost session
 
-A session is lost when the provider removed its sandbox and Kortix could not bring it back in place. The session page then shows **This session's computer was lost**, and `kortix sessions start` exits 1 with `runtime_identity_unavailable`. The branch and the saved conversation remain. The sandbox disk is gone, and with it every change that was not committed and pushed.
+A session is lost when the provider removed its sandbox and Dosco could not bring it back in place. The session page then shows **This session's computer was lost**, and `kortix sessions start` exits 1 with `runtime_identity_unavailable`. The branch and the saved conversation remain. The sandbox disk is gone, and with it every change that was not committed and pushed.
 
 To continue a lost session on a new sandbox:
 
@@ -254,9 +254,9 @@ The next start boots a new sandbox from the session branch. The new sandbox load
 
 ### When the sandbox stops during a turn
 
-The provider can stop a sandbox while a turn runs, and a runtime restart (for example, to apply a config change) ends the running turn. Nobody asked for either. After a provider stop the turn ends with the reason "The sandbox stopped unexpectedly while this turn was running." Kortix then gives the work back once:
+The provider can stop a sandbox while a turn runs, and a runtime restart (for example, to apply a config change) ends the running turn. Nobody asked for either. After a provider stop the turn ends with the reason "The sandbox stopped unexpectedly while this turn was running." Dosco then gives the work back once:
 
-| What the turn did before the stop | What Kortix sends |
+| What the turn did before the stop | What Dosco sends |
 | --- | --- |
 | The agent did not answer the message | The same message again. |
 | The agent started an answer and did not finish it | One continuation message: `[auto-recovery] The previous turn was interrupted at <time> UTC. <reason> Continue from where you left off. Do not repeat steps that already completed.` The original message is not sent again. |
@@ -264,28 +264,28 @@ The provider can stop a sandbox while a turn runs, and a runtime restart (for ex
 
 When it goes out:
 
-- **A session people use.** The message waits in the queue, held, so the stopped sandbox stays stopped. When the sandbox wakes, for example when someone opens the session, the message goes out. To send it before that, select **Resume** above the composer (web) or **Send now** on the message (mobile), or send any message. From the CLI: `kortix sessions queue <session_id> release`. A session's first turn has no queued message, so Kortix puts a held continuation in the queue of the person who created the session.
+- **A session people use.** The message waits in the queue, held, so the stopped sandbox stays stopped. When the sandbox wakes, for example when someone opens the session, the message goes out. To send it before that, select **Resume** above the composer (web) or **Send now** on the message (mobile), or send any message. From the CLI: `kortix sessions queue <session_id> release`. A session's first turn has no queued message, so Dosco puts a held continuation in the queue of the person who created the session.
 - **A `trigger`, `schedule` or `system` session, or a worker session another session started.** At once. Each sandbox recovers at most 2 times per rolling hour. After that the message waits, held, until the sandbox wakes, and a session's first turn gets no continuation.
 - **A runtime restart on a sandbox that runs again.** At once.
 
-When the continuation reaches the sandbox, the turn's reason changes to "The sandbox stopped unexpectedly. Kortix restarted it and resumed this turn." After a runtime restart it changes to "The runtime restarted during this turn. Kortix resumed it."
+When the continuation reaches the sandbox, the turn's reason changes to "The sandbox stopped unexpectedly. Dosco restarted it and resumed this turn." After a runtime restart it changes to "The runtime restarted during this turn. Dosco resumed it."
 
-Kortix never continues a turn that someone ended: the Stop button (also when the sandbox stopped before the Stop reached it), `kortix sessions stop`, a model change (`kortix sessions model` restarts the runtime and ends the turn in flight), or an idle stop. A message comes back at most 3 times. The 4th time it fails, and the queue shows it with a retry. A continuation counts as a message: when the sandbox stops during the continuation, Kortix continues it again.
+Dosco never continues a turn that someone ended: the Stop button (also when the sandbox stopped before the Stop reached it), `kortix sessions stop`, a model change (`kortix sessions model` restarts the runtime and ends the turn in flight), or an idle stop. A message comes back at most 3 times. The 4th time it fails, and the queue shows it with a retry. A continuation counts as a message: when the sandbox stops during the continuation, Dosco continues it again.
 
 Limits:
 
-- A session on the pi harness keeps the running turn in memory until the turn ends. After a provider stop the cut-off answer is gone, so Kortix sends the original message again.
-- A sandbox that stops between two steps of a turn leaves a finished answer, so Kortix sends nothing. Send a message to continue.
+- A session on the pi harness keeps the running turn in memory until the turn ends. After a provider stop the cut-off answer is gone, so Dosco sends the original message again.
+- A sandbox that stops between two steps of a turn leaves a finished answer, so Dosco sends nothing. Send a message to continue.
 
 ## When a session sleeps
 
-Kortix stops a sandbox when nothing keeps it awake. Each event below keeps the sandbox for a set time. The longest one wins.
+Dosco stops a sandbox when nothing keeps it awake. Each event below keeps the sandbox for a set time. The longest one wins.
 
 | Event | Keeps the sandbox for |
 | --- | --- |
 | The last turn ends | 15 minutes |
 | The last turn of a [child session](#child-sessions) ends | 2 minutes |
-| A turn runs | 4 hours, renewed while Kortix sees the turn running |
+| A turn runs | 4 hours, renewed while Dosco sees the turn running |
 | The agent makes an LLM call through the gateway | 4 hours |
 | A person uses a preview port | 30 minutes after the last request |
 | A turn waits on a person | 2 hours. 30 minutes for `trigger`, `schedule`, and `system` sessions. |
@@ -314,7 +314,7 @@ kortix sessions rename <session_id> ""         # back to the automatic title
 kortix sessions ls --label needs-review
 ```
 
-`kortix sessions update` also takes `--clear-labels` and `--unmeta <key>`. Kortix refuses a metadata key it manages itself with `400`.
+`kortix sessions update` also takes `--clear-labels` and `--unmeta <key>`. Dosco refuses a metadata key it manages itself with `400`.
 
 ### Pin and archive
 
@@ -357,7 +357,7 @@ kortix sessions share <session_id> --show
 ```
 
 - **Everyone with access reads and continues the conversation.**
-- **A shared session uses only provider keys shared with the whole project.** If its model ran on your own keys, sharing switches it to the project's keys for that provider. If no shared key runs the model, Kortix refuses the share. See [Models](/docs/project/models#shared-keys-and-chatgpt-accounts).
+- **A shared session uses only provider keys shared with the whole project.** If its model ran on your own keys, sharing switches it to the project's keys for that provider. If no shared key runs the model, Dosco refuses the share. See [Models](/docs/project/models#shared-keys-and-chatgpt-accounts).
 - **Only the owner changes access.** A project manager who can open the session can stop, restart, and delete it, but cannot change its access.
 - **A trigger's sessions take their access from the trigger.** See [Triggers & reminders](/docs/connect/triggers#session-access).
 - **A removed member keeps their sessions.** Their access stays as it was. A project manager can stop or delete those sessions.
@@ -371,7 +371,7 @@ An account owner can let account owners and admins open every session in the acc
 - Only an account owner changes it.
 - Admins find these sessions on the project's **Sessions** page, and get full access to them.
 - While it is on, the **Session access** dialog tells members.
-- Kortix audits each change as `iam.session_oversight.enable` or `iam.session_oversight.disable`, and each session an admin opens through it as `project.admin_oversight_session_read`, at most once per admin and session per hour. See [Audit actions](/docs/audit-actions).
+- Dosco audits each change as `iam.session_oversight.enable` or `iam.session_oversight.disable`, and each session an admin opens through it as `project.admin_oversight_session_read`, at most once per admin and session per hour. See [Audit actions](/docs/audit-actions).
 - Agent and sandbox tokens never get this access.
 
 ## Public links
@@ -391,8 +391,8 @@ kortix sessions links <session_id> revoke <share_id>
 ```
 
 - Only the session owner creates a link. A project manager lists and revokes links.
-- Kortix refuses a preview link for ports 22, 4096, 4097, 8000, and 3211.
-- Kortix refuses any link with `409` for a session that holds a secret shared only with you, or that uses a personal connector account. Start a new session to share.
+- Dosco refuses a preview link for ports 22, 4096, 4097, 8000, and 3211.
+- Dosco refuses any link with `409` for a session that holds a secret shared only with you, or that uses a personal connector account. Start a new session to share.
 - A revoked or expired link answers `410`. Deleting the session revokes all its links.
 
 For signed-in previews and ports, see [Sandboxes & previews](/docs/work/runtime#ports-and-previews).
@@ -420,7 +420,7 @@ kortix sessions ls --children "$KORTIX_SESSION_ID"
 - A child's turn end notifies nobody. The parent reports.
 - The API lists one session's children with `GET /v1/projects/<project_id>/sessions?parent=<session_id>`, and top-level sessions with `?parent=root`. Each top-level row carries `child_count`.
 
-The `meta_agent` project flag, off by default, adds a coordinator agent that Kortix maintains and makes it the default agent for new sessions. See [Feature flags](/docs/project#feature-flags).
+The `meta_agent` project flag, off by default, adds a coordinator agent that Dosco maintains and makes it the default agent for new sessions. See [Feature flags](/docs/project#feature-flags).
 
 ## Warm sessions
 
@@ -435,11 +435,11 @@ kortix sessions warm                        # create or reuse your warm session
 kortix sessions warm --exclude <session_id> # never hand back this session
 ```
 
-`POST /v1/projects/<project_id>/sessions/warm` answers `409` with `WARM_SESSION_UNAVAILABLE` when Kortix cannot prepare a warm session, and `403` with `feature_disabled` when the `warm_sessions` flag is off. In both cases, create a normal session. The SDK call is `project.sessions.ensureWarm()`.
+`POST /v1/projects/<project_id>/sessions/warm` answers `409` with `WARM_SESSION_UNAVAILABLE` when Dosco cannot prepare a warm session, and `403` with `feature_disabled` when the `warm_sessions` flag is off. In both cases, create a normal session. The SDK call is `project.sessions.ensureWarm()`.
 
 ## Notifications
 
-A notification tells you that a session or a trigger needs you. Kortix writes each one to the bell, then sends it to your phone, your browser, or your email, as your settings allow.
+A notification tells you that a session or a trigger needs you. Dosco writes each one to the bell, then sends it to your phone, your browser, or your email, as your settings allow.
 
 ### In the app
 
@@ -457,7 +457,7 @@ kortix projects features enable notification_center
 
 With the flag off:
 
-- only the session creator's phone gets a session push, for a turn that ends, fails, asks a question, or asks for permission. Kortix skips the push while the creator has the session open;
+- only the session creator's phone gets a session push, for a turn that ends, fails, asks a question, or asks for permission. Dosco skips the push while the creator has the session open;
 - an account owner's phone gets one when a trigger starts failing;
 - the project shows no bell and no **Mute notifications**, and sends no Web Push and no email;
 - `GET` and `PUT /v1/projects/<project_id>/sessions/<session_id>/watch` answer `403` with `feature_disabled`.
@@ -497,7 +497,7 @@ A session's notifications go to:
 
 - **The bell**, at the top of the project sidebar and on the projects page, in the web and desktop apps. Choose a notification to open its session, or the **Triggers** or **Reminders** page for an alert. **Mark all as read** clears the count. Opening a session marks its notifications read, in every app. A new notification also shows as a toast, unless it is about the session on your screen.
 - **The mobile app** gets a push for each kind your **Push** switches allow. **Notifications** in the drawer lists them across projects.
-- **The browser**, with every Kortix tab closed, through Web Push in Chrome, Edge, Firefox, and Safari on macOS. Open **Settings → Notifications**, turn on **Enable notifications**, and allow it when the browser asks. The setting is per browser. Signing out stops it. An account that requires MFA sends browser push only to a browser signed in with MFA; its super admins get it either way, as the app lets them in without MFA.
+- **The browser**, with every Dosco tab closed, through Web Push in Chrome, Edge, Firefox, and Safari on macOS. Open **Settings → Notifications**, turn on **Enable notifications**, and allow it when the browser asks. The setting is per browser. Signing out stops it. An account that requires MFA sends browser push only to a browser signed in with MFA; its super admins get it either way, as the app lets them in without MFA.
 - **The desktop app** checks about once a minute while its window is open. When the window is not in focus, it shows up to 3 new ones per check as OS notifications.
 - **Email:** `automation_failed` goes at once. A digest kind joins your next digest when it is still unread 15 minutes after it arrives. You get at most one digest per hour, listing up to 10 notifications plus a count of the rest. A self-hosted instance needs an email provider. Without one, the **Email** switches do not show.
 
@@ -515,9 +515,9 @@ Open the session menu next to the session title and choose **Mute notifications*
 
 ### Privacy and retention
 
-- Kortix writes a notification only for a person who can open its session, or read the project's triggers for an alert. A notification leaves your bell when you lose that access.
+- Dosco writes a notification only for a person who can open its session, or read the project's triggers for an alert. A notification leaves your bell when you lose that access.
 - Leaving an account deletes your notifications in it.
 - In an account that requires two-factor authentication, the bell shows its notifications only after you sign in with your second factor.
 - A push or an email carries the session title and a short detail, such as the question or the error.
-- Kortix deletes notifications after 90 days.
+- Dosco deletes notifications after 90 days.
 - The `/v1/notifications` routes accept a person's sign-in or personal access key only. An agent token or a service account gets `403`. See [SDK reference](/docs/sdk/reference).

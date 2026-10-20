@@ -3,7 +3,7 @@ title: "Sign-in, SSO & API keys"
 description: Two-factor and MFA enforcement, session controls, SAML SSO, SCIM provisioning, API keys and service accounts, and OAuth apps.
 ---
 
-These controls decide how people and machines sign in to a Kortix account.
+These controls decide how people and machines sign in to a Dosco account.
 Every member uses them to secure their own sign-in and create keys. Owners and
 admins use them to set account rules, connect an identity provider, and issue
 keys for CI and apps. Each control also has an API route. See the
@@ -34,7 +34,7 @@ roles hold. Roles, members, and groups are on [Accounts & access](/docs/accounts
    **Can't scan? Enter this key**.
 4. Type the 6-digit code. It verifies when you type the sixth digit.
 
-Kortix then asks for a code at sign-in and before sensitive changes: removing a
+Dosco then asks for a code at sign-in and before sensitive changes: removing a
 factor and signing out devices. Remove a factor from the same page.
 
 ### Require two-factor for the account
@@ -52,7 +52,7 @@ app opens a code prompt. A member with no factor enrolls one under
 
 - **Exempt:** super-admins, personal access keys, and service account keys. A
   key has no second factor to prompt for.
-- **Lockout guard:** Kortix refuses to turn the requirement on when no
+- **Lockout guard:** Dosco refuses to turn the requirement on when no
   super-admin exists and no member has a verified factor (`409`).
 - **Turn it off:** select **Stop requiring it**. Members can then sign in with a
   password alone.
@@ -93,7 +93,7 @@ sign-in of yours.
 SAML SSO lets members sign in with your identity provider (IdP). It needs the
 `sso` entitlement (see [Enterprise features](#enterprise-features)) and an
 organization account. A personal account gets `403`
-`code: "sso_personal_account"`. The account Kortix creates at sign-up is
+`code: "sso_personal_account"`. The account Dosco creates at sign-up is
 personal. Create an organization account with the project menu → **Switch
 Project** → **Create an account…**, and create the team's projects there. A
 project cannot move between accounts. An account has one SSO provider.
@@ -106,7 +106,7 @@ Open **Account settings → Identity**. On the **SAML SSO** card, select **Confi
 pick your IdP: Microsoft Entra ID, Okta, Google Workspace, Cloudflare Access,
 OneLogin, JumpCloud, PingOne, Auth0, or a custom SAML provider. The wizard shows each click in that IdP's console.
 </Step>
-<Step title="Register Kortix in your IdP">
+<Step title="Register Dosco in your IdP">
 Create a SAML app in your IdP. Copy the two values from **Service provider
 details**: **Identifier (Entity ID)** and **Reply URL (ACS)**. Assign the people
 who may sign in.
@@ -130,19 +130,19 @@ the IdP.
 </Steps>
 
 From then on, a person who enters a work email on the sign-in page goes to the
-IdP. With **Auto-create members** on (the default), Kortix adds them to the
+IdP. With **Auto-create members** on (the default), Dosco adds them to the
 account on their first SSO sign-in.
 
 | Setting | Default | Effect |
 |---|---|---|
-| **Group claim name** | `groups` | The SAML attribute Kortix reads groups from. Okta sends group names on `groups`. Entra sends group object IDs by default. The Entra guide names the claim `memberOf`, so set **Group claim name** to `memberOf` for Entra. |
+| **Group claim name** | `groups` | The SAML attribute Dosco reads groups from. Okta sends group names on `groups`. Entra sends group object IDs by default. The Entra guide names the claim `memberOf`, so set **Group claim name** to `memberOf` for Entra. |
 | **Auto-create members** | On | Adds every person who signs in through the IdP as a `member`. Off: SSO adds only existing members and people your SCIM directory provisioned. |
-| **Auto-provision groups** | Off | Creates a Kortix group for every group the IdP sends, and adds the person to it. |
+| **Auto-provision groups** | Off | Creates a Dosco group for every group the IdP sends, and adds the person to it. |
 | **Enforce SSO for this domain** | Off | Refuses every other way to sign in for the primary domain, and ends the existing sign-ins made another way. |
 
 ### Verify the domain
 
-The IdP asserts each person's email address. Kortix trusts that address only for
+The IdP asserts each person's email address. Dosco trusts that address only for
 a domain your account verified with DNS.
 
 | Record | Name | Value |
@@ -158,7 +158,7 @@ DNS changes can take a few minutes to appear.
   groups. Their SSO identity matches no invitation from another account, no
   existing identity merges into it, and **Enforce SSO** has no effect.
 - With a verified domain, an existing member with the same email merges into
-  the SSO identity and keeps their roles. Kortix never merges an owner or a
+  the SSO identity and keeps their roles. Dosco never merges an owner or a
   super-admin. Their SSO sign-in joins as a separate member.
 
 ### Enforce SSO
@@ -175,7 +175,7 @@ that domain that did not come from your IdP is refused with `403`:
   password grant against the auth server, mobile. Their account and project
   requests get `code: "sso_required"`.
 
-When enforcement takes effect, Kortix ends every existing sign-in of those
+When enforcement takes effect, Dosco ends every existing sign-in of those
 identities that are members of the account. Enforcement takes effect when you
 turn it on for a verified domain, or when the domain is verified while it is on.
 
@@ -184,14 +184,14 @@ turn it on for a verified domain, or when the domain is verified while it is on.
 - A sign-in belongs to the person, not to one account. It ends in every account
   they use.
 - API keys stay. They get `403` `code: "sso_required"` while enforcement is on.
-- A Kortix platform admin keeps their sign-in, so the break-glass below stays
+- A Dosco platform admin keeps their sign-in, so the break-glass below stays
   possible. The account still refuses it with `403` `code: "sso_required"`.
 - A member who joins after enforcement took effect is refused at once, but keeps
   their existing sign-ins until the next save of the SSO provider ends them.
 - The audit event of the change records the number of ended sign-ins in
   `after.revoked_sessions`: `iam.sso.provider.update` when you turn enforcement
   on, `iam.sso.provider.domain_verify` when DNS verification turns it on, and
-  `admin.account.sso_domain.set` when a Kortix platform admin verifies the
+  `admin.account.sso_domain.set` when a Dosco platform admin verifies the
   domain.
 - If ending the sign-ins fails, the change is still saved and the request
   returns `500` `code: "sso_sign_out_failed"`. Save the SSO provider again, or
@@ -202,7 +202,7 @@ turn it on for a verified domain, or when the domain is verified while it is on.
 <Callout type="warning">
 Enforcement covers the account owner's own email too. If you signed in without
 SSO, turning it on signs you out. Before you turn it on, sign in once through
-the IdP and give that SSO identity the role it needs. If the IdP fails, a Kortix
+the IdP and give that SSO identity the role it needs. If the IdP fails, a Dosco
 platform admin marks the domain unverified, which lifts enforcement. On a
 self-hosted instance, the platform admin is an email in
 `KORTIX_PLATFORM_ADMIN_EMAILS`. If that email is in the enforced domain, keep
@@ -211,7 +211,7 @@ its current sign-in: a new password sign-in for the domain is refused.
 
 ### Groups from the IdP
 
-Kortix syncs groups on every SSO sign-in:
+Dosco syncs groups on every SSO sign-in:
 
 - It adds the person to each group a claim value maps to.
 - It removes the person from a mapped group when the IdP stops sending its
@@ -239,7 +239,7 @@ members, and SSO is how they sign in.
 1. Open **Account settings → Identity**. On the **Directory Sync** card, select
    **Guided setup** and pick your IdP: Microsoft Entra ID, Okta, OneLogin, JumpCloud,
    PingOne, or any SCIM 2.0 provider.
-2. Mint a token. Kortix shows the secret (`kortix_scim_…`) once.
+2. Mint a token. Dosco shows the secret (`kortix_scim_…`) once.
 3. In the IdP, enter the **SCIM base URL** and the token as a bearer token.
 4. Start provisioning in the IdP.
 
@@ -258,7 +258,7 @@ The guided setup shows each step in the IdP console. Check these settings:
   `userName` → `user.userprincipalname`. Entra syncs about every 40 minutes.
   **Provision on demand** pushes one person at once.
 
-Kortix checks the `scim` entitlement on every SCIM request, so a token stops
+Dosco checks the `scim` entitlement on every SCIM request, so a token stops
 working when the account loses it.
 
 ### What the endpoints do
@@ -273,15 +273,15 @@ working when the account loses it.
   `id`, and `externalId`. `/Groups` matches `displayName`, `id`, and
   `externalId`. A filter in any other form returns `400`. A filter on another
   attribute returns an empty list.
-- **New person:** a `POST /Users` for an email with no Kortix sign-in creates a
+- **New person:** a `POST /Users` for an email with no Dosco sign-in creates a
   pending invitation with the `member` role, valid for 14 days. SCIM lists it as
-  an active user. A person who already has a Kortix sign-in joins as a `member`.
+  an active user. A person who already has a Dosco sign-in joins as a `member`.
   On a self-hosted instance that confirms sign-ups without an email, a password
   sign-in that is not yet a member gets the pending invitation instead. That
   sign-in cannot see or accept the invitation: the person joins through the
   account's SAML provider. See
   [Unconfirmed email addresses](/docs/host#unconfirmed-email-addresses).
-- **Groups:** a SCIM group is an ordinary Kortix group. Give it project roles
+- **Groups:** a SCIM group is an ordinary Dosco group. Give it project roles
   like any other.
 - **Remove a person:** `active: false` or `DELETE` removes the membership, its
   roles and groups, and revokes the person's keys and live session tokens. It
@@ -293,19 +293,19 @@ working when the account loses it.
 
 ## API keys and tokens
 
-Every Kortix credential starts with a prefix that names its kind.
+Every Dosco credential starts with a prefix that names its kind.
 
 | Prefix | Credential | Acts as | Get one |
 |---|---|---|---|
 | `kortix_pat_` | Personal access key | You, with your roles. Optionally one project only. | **Settings → Personal access keys**, `kortix tokens new`, `kortix login` |
 | `kortix_pat_` | Project CLI token | You, on one project only | `kortix projects cli-tokens new` |
 | `kortix_sa_` | Service account key | The service account. It has no access until a role is assigned. | **Account settings → API keys**, `kortix tokens service-accounts new` |
-| `kortix_oat_`, `kortix_ort_` | OAuth access token (1 hour), refresh token (30 days) | The person who approved the app | [Sign in with Kortix](/docs/sdk/auth#sign-in-with-kortix) |
+| `kortix_oat_`, `kortix_ort_` | OAuth access token (1 hour), refresh token (30 days) | The person who approved the app | [Sign in with Dosco](/docs/sdk/auth#sign-in-with-dosco) |
 | `kortix_gw_` | Gateway key | Model calls through one project's LLM gateway | `kortix gateway keys new` ([Models](/docs/project/models)) |
 | `kortix_scim_` | SCIM token | Directory sync for one account | **Account settings → Identity** |
-| `kortix_pat_` | Session token, in `KORTIX_TOKEN` | The agent of one session | Kortix sets it in the sandbox. It ends with the session. |
+| `kortix_pat_` | Session token, in `KORTIX_TOKEN` | The agent of one session | Dosco sets it in the sandbox. It ends with the session. |
 
-Kortix shows a secret once, when you create it, and stores only its hash.
+Dosco shows a secret once, when you create it, and stores only its hash.
 Connected apps (`kortix_oat_`) cannot create keys, service accounts, SCIM
 tokens, or OAuth apps (`403`).
 
@@ -348,7 +348,7 @@ Projects** → the project → **Grant access** → **Agents**, not here. See
 ### Key rules
 
 **Account settings → API keys → Key rules** governs the personal access keys and project
-CLI tokens people create in the account. Keys Kortix creates for a running
+CLI tokens people create in the account. Keys Dosco creates for a running
 session follow the session instead.
 
 | Rule | Field | Limit | Effect |
@@ -364,7 +364,7 @@ when a key is created. **Turn off unused keys** also applies to existing keys.
 
 ### Register an OAuth app
 
-An OAuth app signs Kortix members in on your own site ("Sign in with Kortix").
+An OAuth app signs Dosco members in on your own site ("Sign in with Dosco").
 
 1. Open **Account settings → API keys → OAuth apps** and select **Register app**.
 2. Enter a name, the type, the redirect URIs, and the scopes.
@@ -375,20 +375,20 @@ An OAuth app signs Kortix members in on your own site ("Sign in with Kortix").
 |---|---|
 | Type | **Confidential**: a server-side app with a client secret. **Public**: a browser or native app with PKCE and no secret. Fixed at registration. |
 | Redirect URIs | Matched byte for byte. `https`, except `localhost`. |
-| Scopes | `profile` (who the person is), `email`, `kortix` (act as the person on the Kortix API). Default: all three. |
+| Scopes | `profile` (who the person is), `email`, `kortix` (act as the person on the Dosco API). Default: all three. |
 | **Active** | Off stops new sign-ins without deleting the app. |
 
 **Rotate secret** issues a new secret, and the old one stops working at once.
 **Delete app** ends every token the app holds. In code, use
 `kortix.iam.oauthClients` (`list`, `get`, `create`, `update`, `rotateSecret`,
 `remove`). The sign-in flow is in
-[Sign in with Kortix](/docs/sdk/auth#sign-in-with-kortix).
+[Sign in with Dosco](/docs/sdk/auth#sign-in-with-dosco).
 
 ### Connected apps
 
-A connected app is an app you approved with Sign in with Kortix, for example an
+A connected app is an app you approved with Sign in with Dosco, for example an
 MCP client such as Claude Code or Cursor. It acts as you, in every account you
-belong to, until you revoke it. See [Kortix MCP server](/docs/connect/mcp).
+belong to, until you revoke it. See [Dosco MCP server](/docs/connect/mcp).
 
 - **Web:** **Settings → Personal access keys → Connected apps → Revoke access**.
 - **CLI:** `kortix tokens apps ls` and `kortix tokens apps rm <client-id>`.
@@ -404,8 +404,8 @@ two ways:
 
 - **Enterprise demo.** An owner or admin turns it on in **Billing → Plan** or in
   the account settings, and turns it off at any time. The account is marked
-  "Demo", and Kortix sales gets in touch.
-- **Enterprise license.** An annual license from Kortix sales. The account is
+  "Demo", and Dosco sales gets in touch.
+- **Enterprise license.** An annual license from Dosco sales. The account is
   marked "Licensed". A license carries no credits: usage is paid from the
   account's plan and top-ups, like any account.
 
@@ -426,7 +426,7 @@ Without the entitlement, the gated route returns `402` with
 configuration (an SSO provider, a SCIM token) never needs the entitlement. Plans
 are on [Plans & credits](/docs/credits).
 
-On a self-hosted instance, a Kortix Enterprise license unlocks all five for
+On a self-hosted instance, a Dosco Enterprise license unlocks all five for
 every account: set `ENTERPRISE_LICENSE_AVAILABLE=true`, or install with
 `kortix self-host init --enterprise-license`. See
 [Self-hosting](/docs/host).

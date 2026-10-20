@@ -1,11 +1,11 @@
 ---
 title: Authentication
-description: Pick a credential, wire getToken, sign people in headlessly, add Sign in with Kortix to your own app, and isolate requests on a server.
+description: Pick a credential, wire getToken, sign people in headlessly, add Sign in with Dosco to your own app, and isolate requests on a server.
 ---
 
 Every SDK request carries one bearer credential. `createKortix` reads it from
 your `getToken` function and sends it as `Authorization: Bearer <token>`. This
-page is for developers who call Kortix from a script, a backend, or an app
+page is for developers who call Dosco from a script, a backend, or an app
 that people sign in to.
 
 ```ts
@@ -30,10 +30,10 @@ principal it acts as, and nothing more.
 |---|---|---|---|
 | A script, a CI job, your own backend | Personal access key, `kortix_pat_` | You, with your roles. Optionally one project only. | **Settings → Personal access keys**, or `kortix tokens new` |
 | Unattended automation that must not act as a person | Service account key, `kortix_sa_` | The service account. It has no access until you assign it a role. | **Account settings → API keys**, or `kortix tokens service-accounts new` |
-| Your product, where people sign in with their Kortix email, password, magic link, social login or SSO | The person's access token from [headless sign-in](#headless-sign-in) | The person who signed in | `kortix.auth.*` + `createKortixSession` |
-| Your own web app with a "Sign in with Kortix" button | OAuth access token, `kortix_oat_` (1 hour; refresh token `kortix_ort_`, 30 days) | The person who approved your app | [`createKortixAuth`](#sign-in-with-kortix) |
-| Code inside a Kortix App | App viewer token. The App's viewer scope must be `api`. | The person viewing the App, capped by their role | `kortix apps access <app> --viewer api`, then `kortixAppViewerToken()`. See [Apps](/docs/apps#know-who-is-looking). |
-| Code inside a session sandbox | `KORTIX_TOKEN` | The session's agent (its service account), limited to that project and session. Its permissions are the agent's `kortix_permissions` capped by its ceiling role. See [What an agent may do](/docs/project/agents#what-an-agent-may-do). | Kortix sets it, with `KORTIX_API_URL` as the `backendUrl`. See [Sandboxes & previews](/docs/work/runtime#environment-variables). |
+| Your product, where people sign in with their Dosco email, password, magic link, social login or SSO | The person's access token from [headless sign-in](#headless-sign-in) | The person who signed in | `kortix.auth.*` + `createKortixSession` |
+| Your own web app with a "Sign in with Dosco" button | OAuth access token, `kortix_oat_` (1 hour; refresh token `kortix_ort_`, 30 days) | The person who approved your app | [`createKortixAuth`](#sign-in-with-dosco) |
+| Code inside a Dosco App | App viewer token. The App's viewer scope must be `api`. | The person viewing the App, capped by their role | `kortix apps access <app> --viewer api`, then `kortixAppViewerToken()`. See [Apps](/docs/apps#know-who-is-looking). |
+| Code inside a session sandbox | `KORTIX_TOKEN` | The session's agent (its service account), limited to that project and session. Its permissions are the agent's `kortix_permissions` capped by its ceiling role. See [What an agent may do](/docs/project/agents#what-an-agent-may-do). | Dosco sets it, with `KORTIX_API_URL` as the `backendUrl`. See [Sandboxes & previews](/docs/work/runtime#environment-variables). |
 
 Creation, expiry, project binding and key rules are in
 [API keys and tokens](/docs/accounts/identity#api-keys-and-tokens).
@@ -94,7 +94,7 @@ try {
 
 Set `clientVersion` to your app's name and version, for example
 `clientVersion: 'my-app/1.4.0'`. The SDK sends it as `X-Kortix-Client-Version`.
-Kortix writes it to request logs only. It grants nothing and never reaches the
+Dosco writes it to request logs only. It grants nothing and never reaches the
 audit log, which records the credential `getToken` returned.
 
 Set `credentialHeader` when a backend proxy reads the credential from a custom
@@ -105,8 +105,8 @@ itself wins.
 
 ## Headless sign-in
 
-`kortix.auth.*` signs people up and in through the Kortix API at `/v1/auth/*`.
-It needs no Supabase URL or key and works the same on Kortix Cloud and on a
+`kortix.auth.*` signs people up and in through the Dosco API at `/v1/auth/*`.
+It needs no Supabase URL or key and works the same on Dosco Cloud and on a
 self-hosted instance. Use it for a CLI, a native app, or your own sign-in
 screen.
 
@@ -172,7 +172,7 @@ personal access key, with `401 invalid_token`.
 | `auth.mfa.verify(factorId, { challenge_id, code }, accessToken)` | Verifies the code. Returns the new token pair at the second assurance level at the top level (`access_token`, `refresh_token`, `expires_at`), not as `{ session, user }`. Store it with `session.set(result as AuthSession)`. |
 | `auth.mfa.unenroll(factorId, accessToken)` | Removes a factor |
 | `auth.refresh({ refresh_token })` | Rotates the token pair. `createKortixSession` calls it for you. |
-| `auth.signOut(accessToken, { scope? })` | Revokes the session at Kortix. `scope`: `global` (default, every device), `local` (this session), `others` (every other session). |
+| `auth.signOut(accessToken, { scope? })` | Revokes the session at Dosco. `scope`: `global` (default, every device), `local` (this session), `others` (every other session). |
 
 To sign out, revoke the session, then clear the store:
 
@@ -205,7 +205,7 @@ and keep it.
 | `load()` | Reads storage now instead of on first use |
 | `clear()` | Forgets the session locally. Call `auth.signOut` first to revoke it. |
 
-A refresh that Kortix rejects with a `4xx` signs the person out: the store
+A refresh that Dosco rejects with a `4xx` signs the person out: the store
 clears itself and `getToken()` returns `null`. A network failure keeps the
 stored session for the next call.
 
@@ -225,12 +225,12 @@ Every `kortix.auth.*` call throws `HeadlessAuthError` with `code`, `message` and
 All public `/v1/auth/*` routes share one limit: 30 attempts per minute per
 client IP, counted on each API replica. Other codes come unchanged from the identity service.
 
-## Sign in with Kortix
+## Sign in with Dosco
 
-Sign in with Kortix makes Kortix the identity provider for a web app you run.
-People sign in with their Kortix account. Your server knows who they are, and
-your app calls Kortix as that person, with that person's roles. It is OAuth 2.1
-with PKCE, and the browser never holds a Kortix token.
+Sign in with Dosco makes Dosco the identity provider for a web app you run.
+People sign in with their Dosco account. Your server knows who they are, and
+your app calls Dosco as that person, with that person's roles. It is OAuth 2.1
+with PKCE, and the browser never holds a Dosco token.
 
 <Steps>
   <Step title="Register your app">
@@ -247,7 +247,7 @@ with PKCE, and the browser never holds a Kortix token.
     // app.client_id; app.client_secret is shown once
     ```
 
-    Kortix compares redirect URIs byte for byte. They must use `https`, except
+    Dosco compares redirect URIs byte for byte. They must use `https`, except
     on a loopback host (`localhost`, `*.localhost`, `127.0.0.1`, `[::1]`). `kortix.iam.oauthClients` also has `list`, `get`, `update`,
     `rotateSecret` and `remove`. Field details are in
     [OAuth apps and connected apps](/docs/accounts/identity#oauth-apps-and-connected-apps).
@@ -278,7 +278,7 @@ with PKCE, and the browser never holds a Kortix token.
     Any framework works: pass a Web `Request` to `auth.handler` and return its
     `Response`.
   </Step>
-  <Step title="Gate pages and call Kortix as the person">
+  <Step title="Gate pages and call Dosco as the person">
     ```ts
     import { auth } from '@/lib/kortix-auth';
 
@@ -291,7 +291,7 @@ with PKCE, and the browser never holds a Kortix token.
     }
     ```
   </Step>
-  <Step title="Call Kortix from the browser">
+  <Step title="Call Dosco from the browser">
     ```tsx
     import { createKortix } from '@kortix/sdk';
     import { SignInWithKortix, useKortixViewer } from '@kortix/sdk/react';
@@ -325,7 +325,7 @@ with PKCE, and the browser never holds a Kortix token.
 
 | Option | Default | Does |
 |---|---|---|
-| `backendUrl` | required | Kortix API base, including `/v1` |
+| `backendUrl` | required | Dosco API base, including `/v1` |
 | `clientId` | required | The registered client id |
 | `clientSecret` | none | The client secret. Omit it for a public client. |
 | `redirectUri` | required | Absolute callback URL, identical to a registered one |
@@ -340,7 +340,7 @@ with PKCE, and the browser never holds a Kortix token.
 |---|---|
 | `profile` | The person's id, email and account memberships |
 | `email` | The email address |
-| `kortix` | Acting as the person on the whole Kortix API. Without it the token reaches only the identity routes. |
+| `kortix` | Acting as the person on the whole Dosco API. Without it the token reaches only the identity routes. |
 
 ### Routes the handler serves
 
@@ -348,12 +348,12 @@ All paths are under `basePath`, `/api/kortix/auth` in the example.
 
 | Path | Does |
 |---|---|
-| `/signin?return_to=/path` | Starts sign-in with PKCE and a 10-minute transaction cookie, then redirects to Kortix |
+| `/signin?return_to=/path` | Starts sign-in with PKCE and a 10-minute transaction cookie, then redirects to Dosco |
 | `/callback` | Exchanges the code, sets the encrypted `HttpOnly` session cookie, redirects to `return_to` |
 | `/refresh?return_to=/path` | Rotates the token pair and redirects. `requireViewer` sends people here. |
-| `/signout?return_to=/path` | Revokes the refresh token at Kortix and clears the cookie |
+| `/signout?return_to=/path` | Revokes the refresh token at Dosco and clears the cookie |
 | `/me` | The person as JSON, or `401`. Refreshes an expired access token. |
-| `/proxy/*` | Forwards the request to the Kortix API as the person |
+| `/proxy/*` | Forwards the request to the Dosco API as the person |
 
 `return_to` is always reduced to a same-origin path. When the person declines
 consent, the callback redirects to `return_to` with `?kortix_auth_error=<code>`.
@@ -384,8 +384,8 @@ elsewhere.
 
 ### What the person sees
 
-The first sign-in shows a Kortix consent screen with your app's name and
-scopes. Kortix remembers the approval per person and app, so later sign-ins
+The first sign-in shows a Dosco consent screen with your app's name and
+scopes. Dosco remembers the approval per person and app, so later sign-ins
 return straight to your app. People revoke an app in code with
 `kortix.accounts.connectedApps.list()` and `.revoke(clientId)`, or on the web
 and in the CLI as described in
@@ -397,7 +397,7 @@ app's tokens stop working and the app must ask again.
 The SDK derives every endpoint from `backendUrl`. A generic OAuth client reads
 `GET /.well-known/oauth-authorization-server` on the API origin, also served at
 `/v1/oauth/.well-known/oauth-authorization-server`. Open dynamic client
-registration is at `POST /v1/oauth/register`. Kortix deletes a self-registered
+registration is at `POST /v1/oauth/register`. Dosco deletes a self-registered
 client after 7 days when it has no approval and no token.
 
 ## Servers that act for many users
@@ -442,7 +442,7 @@ app.use(async (req, res, next) => {
 ```
 
 **A proxy for your browser code.** `forwardKortixRequest` forwards one request
-from your own route to the Kortix API with a token your server holds.
+from your own route to the Dosco API with a token your server holds.
 
 ```ts
 import { forwardKortixRequest } from '@kortix/sdk/server';
@@ -459,7 +459,7 @@ export async function handle(request: Request) {
 ```
 
 It removes the browser's `cookie` and `host` headers, sets the bearer, keeps
-streamed response bodies, and removes `set-cookie` from the answer. When Kortix
+streamed response bodies, and removes `set-cookie` from the answer. When Dosco
 is unreachable it answers `502` with `{ "error": "Upstream request failed" }`.
 Point the browser client at the route with any non-null placeholder token:
 `createKortix({ backendUrl: '/api/kortix', getToken: async () => 'proxy' })`.

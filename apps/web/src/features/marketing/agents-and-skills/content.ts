@@ -47,7 +47,7 @@ import type { UiTranslator } from '@/i18n/translator';
  *    `name` + `description`; the directory name must equal `name`.
  *  - Counts: 10 skills committed into a new project repo, plus 10 platform
  *    skills injected into every session at boot (`kortix-cli` is in both lists,
- *    so 19 distinct). 2 agents ship: `kortix` and `memory-reflector`.
+ *    so 19 distinct). 2 agents ship: `xera` and `memory-reflector`.
  *  - MARKETPLACE: ships, labelled beta, ON by default. But the deterministic
  *    installer WAS REMOVED (`apps/api/src/projects/routes/marketplace-install-session.ts`): "The
  *    deterministic install/lock/update/remove engine … has been removed …
@@ -84,11 +84,11 @@ export const agent = {
   title: 'Two files. No hidden object behind them.',
   sub: 'An agent has exactly two homes. The markdown file carries how it thinks — its prompt, its mode, its model, its permission tree — and it is a stock OpenCode agent file, because Dosco adds no dialect to it. The manifest block carries what it may touch. Nothing about an agent lives in a database you cannot read.',
   md: {
-    title: 'agents/kortix.md',
+    title: 'agents/xera.md',
     caption: 'Excerpt of the default agent in every new Dosco project.',
     lines: [
       '---',
-      'description: "Generic Dosco general knowledge worker.',
+      'description: "Xera, the Dosco crew\'s hands-on generalist.',
       '  Hands-on, full tool access, handles coding / research /',
       '  content / ops / data tasks end-to-end in an isolated',
       '  session sandbox. Edit this file to specialize."',
@@ -96,7 +96,7 @@ export const agent = {
       'permission: allow',
       '---',
       '',
-      'You are a **Dosco general knowledge worker**.',
+      'You are **Xera**, the Dosco crew\'s hands-on generalist.',
       '',
       'You are hands-on: you read, edit, run, search, fetch, and',
       'ship. The session you are in is an isolated sandbox — an',
@@ -121,10 +121,10 @@ export const agent = {
     title: 'kortix.yaml',
     lines: [
       '# behavior lives in the .md — this block is governance only',
-      'default_agent: kortix',
+      'default_agent: xera',
       '',
       'agents:',
-      '  kortix:',
+      '  xera:',
       '    connectors: all',
       '    secrets: all',
       '    skills: all',
@@ -145,7 +145,7 @@ export const agent = {
   notes: [
     'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.',
     'Markdown is the floor, not the ceiling: the whole OpenCode surface sits beside it in the same repo — your own TypeScript tools, plugins that hook the runtime, the model and provider config. An agent can pin its own model, or inherit the project, account and platform default in that order.',
-    'Two agents ship in every new project: kortix, the generalist, and memory-reflector, which curates the project brain.',
+    'Two agents ship in every new project: xera, the generalist, and memory-reflector, which curates the project brain.',
   ],
 } as const;
 
@@ -273,7 +273,7 @@ export const repo = {
     { path: 'your-company/', note: '', depth: 0 },
     { path: 'kortix.yaml', note: 'governance: what each agent may touch', depth: 1 },
     { path: 'agents/', note: 'one OpenCode agent per file', depth: 1 },
-    { path: 'kortix.md', note: 'the generalist, in every project', depth: 2 },
+    { path: 'xera.md', note: 'the generalist, in every project', depth: 2 },
     { path: 'memory-reflector.md', note: 'curates the project brain on a cron', depth: 2 },
     { path: 'skills/', note: 'one directory per skill', depth: 1 },
     { path: 'agent-browser/SKILL.md', note: 'how this company drives a browser', depth: 2 },

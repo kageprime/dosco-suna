@@ -3,7 +3,7 @@ title: "Web, desktop & mobile"
 description: "Where every control lives in the web app, how to install and update the desktop and mobile apps, and how to point any client at a self-hosted instance."
 ---
 
-The Kortix apps are the visual surface for your projects. In them you start and follow sessions, review change requests, and configure projects and accounts. The web app runs at [kortix.com](https://kortix.com). The desktop app renders the same web app in a native window. The mobile app is a native iOS and Android app.
+The Dosco apps are the visual surface for your projects. In them you start and follow sessions, review change requests, and configure projects and accounts. The web app runs at [kortix.com](https://kortix.com). The desktop app renders the same web app in a native window. The mobile app is a native iOS and Android app.
 
 This page covers the web, desktop and mobile apps. For the terminal, see the [CLI](/docs/cli) and the [TUI](/docs/tui).
 
@@ -26,7 +26,7 @@ Each desktop link redirects to the installer in the latest GitHub release. If th
 
 ### Open a project
 
-After sign-in, Kortix opens `/projects/start`. This route opens the project you had open last in this browser, or your only project. It opens `/projects`, the project selector, when you have a pending invite, when you have several projects and no last project, or when you have no project. The selector lists pending invites. Kortix never creates a project for you.
+After sign-in, Dosco opens `/projects/start`. This route opens the project you had open last in this browser, or your only project. It opens `/projects`, the project selector, when you have a pending invite, when you have several projects and no last project, or when you have no project. The selector lists pending invites. Dosco never creates a project for you.
 
 To create a project, open the project menu at the top of the sidebar and select **Switch Project** → **Create a project…**, or go to `/new`. See [Projects](/docs/project).
 
@@ -45,7 +45,7 @@ To create a project, open the project menu at the top of the sidebar and select 
 | **Reminders** | The project's reminders. Shown when the `reminders` flag is on and a reminder is not done. See [Triggers & reminders](/docs/connect/triggers). |
 | **Files** | A file browser over the project's git repository. Needs read access to project files. When shared folders are on for the account, this entry reads **Repo**. |
 | **Connect GPT subscription** | Connects a ChatGPT subscription as a model provider. Shown on a free plan until a subscription is connected. See [Models](/docs/project/models). |
-| **Connect MCP**, **Connect your computer** | Shortcuts to add Kortix to an MCP client and to pair this machine. Dismiss each with its **×**. See [Kortix MCP server](/docs/connect/mcp) and [Computers](/docs/connect/computers). |
+| **Connect MCP**, **Connect your computer** | Shortcuts to add Dosco to an MCP client and to pair this machine. Dismiss each with its **×**. See [Dosco MCP server](/docs/connect/mcp) and [Computers](/docs/connect/computers). |
 
 The session list menu sets three things:
 
@@ -119,7 +119,7 @@ Only the session owner or a project manager sees **Restart**, **Reload config**,
 
 ## Where settings live
 
-Kortix has three settings surfaces. Each one has a different scope.
+Dosco has three settings surfaces. Each one has a different scope.
 
 ### Customize: the project
 
@@ -213,7 +213,7 @@ The desktop app is the web app in a native window, with automatic updates and a 
 
 A new install asks which instance to use before it loads a page:
 
-- **Kortix Cloud** connects to kortix.com.
+- **Dosco Cloud** connects to kortix.com.
 - **Self-hosted** connects to the URL you type.
 
 URL rules for **Self-hosted**:
@@ -222,7 +222,7 @@ URL rules for **Self-hosted**:
 - A URL that contains a username or password is refused.
 - The app checks the URL with an 8 s timeout. Any HTTP answer counts as reachable. If the host does not answer, the app shows the error and offers **Continue Anyway**, for a host that is only reachable on a VPN.
 
-To change the instance later, select **Kortix** → **Change Kortix Instance…** on macOS, or **View** → **Change Kortix Instance…** on Windows and Linux. If the instance cannot be reached at launch, the same window opens with **Can't reach `<host>`**.
+To change the instance later, select **Dosco** → **Change Dosco Instance…** on macOS, or **View** → **Change Dosco Instance…** on Windows and Linux. If the instance cannot be reached at launch, the same window opens with **Can't reach `<host>`**.
 
 ### Sign in
 
@@ -230,9 +230,9 @@ Sign-in opens your system browser. After you sign in, the browser returns you to
 
 ### Quick Entry
 
-Press **Command+Shift+Space** (**Ctrl+Shift+Space** on Windows and Linux) while you work in any app. A prompt bar opens at the bottom of the screen and the screen behind it dims. Type the task and press Enter. Kortix starts a new session with that prompt and brings its window forward.
+Press **Command+Shift+Space** (**Ctrl+Shift+Space** on Windows and Linux) while you work in any app. A prompt bar opens at the bottom of the screen and the screen behind it dims. Type the task and press Enter. Dosco starts a new session with that prompt and brings its window forward.
 
-- The session starts in the project the Kortix window shows, or in the project you opened last. Hover **New session** to see that project.
+- The session starts in the project the Dosco window shows, or in the project you opened last. Hover **New session** to see that project.
 - Under the prompt, the bar has the composer's agent picker for a new session. It starts on the same agent as project home, and a choice there is remembered the same way. The session uses the model and effort that agent has on project home.
 - To attach files, select the paperclip, paste, or drop them on the bar. On macOS, the camera button takes a screenshot: drag across a region, or press Space to pick a window. macOS asks once for Screen Recording access. If the selected model cannot read images, the prompt opens in the composer instead of sending, so you can pick another model.
 - To send the prompt to an existing session instead, open the picker on the right of the bar. It lists your 5 most recent sessions in that project, newest first, each with its status (the same dot as the sidebar) and when it was last active. The prompt goes to that session as if you typed it there: a running turn is steered. That session keeps its own agent and model. The next time the bar opens, it keeps that session while it is running, starting, or waiting for you; otherwise it starts a new session.
@@ -243,7 +243,7 @@ Press **Command+Shift+Space** (**Ctrl+Shift+Space** on Windows and Linux) while 
 
 ### Updates
 
-The app updates itself from the stable channel. It checks at launch and every 6 hours, and downloads the update in the background. When the update is ready, an **Update ready** dialog offers **Restart now** and **Later**. If you select **Later**, the update installs when you quit. Select **Check for Updates…** (in the **Kortix** menu on macOS, the **View** menu elsewhere) to check now.
+The app updates itself from the stable channel. It checks at launch and every 6 hours, and downloads the update in the background. When the update is ready, an **Update ready** dialog offers **Restart now** and **Later**. If you select **Later**, the update installs when you quit. Select **Check for Updates…** (in the **Dosco** menu on macOS, the **View** menu elsewhere) to check now.
 
 ### Install path, tray and notifications
 
@@ -270,8 +270,8 @@ The mobile app runs on iPhone, iPad and Android.
 To use your own instance, select **Self-hosted** on the sign-in screen. The **Self-hosted instance** sheet takes the instance's web URL or its API URL, for example `kortix.example.com`.
 
 - The URL must use `https://`. Plain `http://` works only for loopback, `.local`, and private network addresses (`10.x`, `172.16.x` to `172.31.x`, `192.168.x`).
-- The app checks that the host is a Kortix instance before it connects. Then it reloads on the new instance.
-- **Use Kortix Cloud** switches back.
+- The app checks that the host is a Dosco instance before it connects. Then it reloads on the new instance.
+- **Use Dosco Cloud** switches back.
 
 ### What you can do
 
@@ -291,7 +291,7 @@ Every client works with a self-hosted instance. Point each one at the instance's
 | Web | Open the instance's own web URL in a browser. |
 | CLI | On another machine: `kortix hosts add my-kortix --url https://api.kortix.example.com --dashboard-url https://kortix.example.com --login`, then `kortix hosts use my-kortix`. On the machine that runs `kortix self-host`: `kortix hosts login selfhost`. Any command takes `--host <name>`. |
 | TUI | `kortix tui --host selfhost`, or any host name from `kortix hosts ls`. |
-| Desktop | Choose **Self-hosted** at first launch, or select **Change Kortix Instance…**. |
+| Desktop | Choose **Self-hosted** at first launch, or select **Change Dosco Instance…**. |
 | Mobile | Select **Self-hosted** on the sign-in screen. |
 
 To run your own instance, see [Self-hosting](/docs/host).

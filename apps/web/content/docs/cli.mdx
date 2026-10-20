@@ -3,7 +3,7 @@ title: CLI
 description: Install the kortix CLI, sign in, run the everyday loop, script it in CI or from a coding agent, and find any command.
 ---
 
-`kortix` is the Kortix command line. It does from a terminal what the web app does: create and clone projects, run sessions, review change requests, and configure agents, connectors and secrets. Use it on your own machine, in CI, from a coding agent, and inside a session sandbox, where it is already installed and signed in.
+`kortix` is the Dosco command line. It does from a terminal what the web app does: create and clone projects, run sessions, review change requests, and configure agents, connectors and secrets. Use it on your own machine, in CI, from a coding agent, and inside a session sandbox, where it is already installed and signed in.
 
 ```sh
 curl -fsSL https://kortix.com/install | bash
@@ -38,7 +38,7 @@ Check the install with `kortix version`. To update or remove the CLI, see [Maint
 kortix login
 ```
 
-The CLI signs in to one Kortix instance at a time. An instance is a **host**. The order is always host › account › project › session: you sign in to a host, pick an account in it, pick a project in that account, and run sessions in the project.
+The CLI signs in to one Dosco instance at a time. An instance is a **host**. The order is always host › account › project › session: you sign in to a host, pick an account in it, pick a project in that account, and run sessions in the project.
 
 `kortix login` does these steps:
 
@@ -65,7 +65,7 @@ Every host keeps its own login. You use these two built-in hosts:
 | `cloud` | `https://api.kortix.com`. The default. |
 | `selfhost` | `http://localhost:13738`. `kortix self-host start` sets it to your instance's URL. |
 
-`kortix hosts ls` also lists `local-dev` and `kortix-internal-dev`. Kortix uses them to develop Kortix. You do not need them.
+`kortix hosts ls` also lists `local-dev` and `kortix-internal-dev`. Dosco uses them to develop Dosco. You do not need them.
 
 | Task | Command |
 | --- | --- |
@@ -126,7 +126,7 @@ kortix init my-agent && cd my-agent      # new project from the starter
 kortix projects clone <project_id> my-agent
 ```
 
-`kortix projects clone` clones through Kortix with your Kortix login and installs a git credential helper, so plain `git pull` and `git push` work in the clone.
+`kortix projects clone` clones through Dosco with your Dosco login and installs a git credential helper, so plain `git pull` and `git push` work in the clone.
 
 </Step>
 <Step title="Push your changes">
@@ -247,7 +247,7 @@ The commands below are `kortix sessions <subcommand>`. `chat` and `connect` also
 
 | Command | Effect |
 | --- | --- |
-| `share <session_id> --mode private\|project\|members` | Set who in Kortix can open the session. `--member <id\|email>`, `--group <id>`. |
+| `share <session_id> --mode private\|project\|members` | Set who in Dosco can open the session. `--member <id\|email>`, `--group <id>`. |
 | `scope <session_id>` | Read or replace the session's secrets and connections. The change applies to the next prompt. |
 | `links <session_id>` | Public links to one preview port or one file: `ls`, `create`, `revoke <share-id>`. |
 | `open <session_id>` | Open the session in the web app. |
@@ -260,7 +260,7 @@ Give the job a token in the environment. The CLI then needs no `kortix login`:
 | --- | --- |
 | `KORTIX_TOKEN` | A personal access key (`kortix_pat_`). |
 | `KORTIX_PROJECT_ID` | The project to act on, when the job runs outside a linked directory. |
-| `KORTIX_API_URL` | The host's API URL. Leave it unset for Kortix Cloud. |
+| `KORTIX_API_URL` | The host's API URL. Leave it unset for Dosco Cloud. |
 
 `KORTIX_TOKEN` outranks any stored login, and the CLI never writes it to disk. Create a key that can reach only one project:
 
@@ -290,9 +290,9 @@ jobs:
           kortix sessions log "$id" --limit 1
 ```
 
-Pipe `--json` output into `jq`. Update checks are off when `CI` is set or stdout is not a terminal. To start sessions on a schedule inside Kortix itself, use [Triggers & reminders](/docs/connect/triggers).
+Pipe `--json` output into `jq`. Update checks are off when `CI` is set or stdout is not a terminal. To start sessions on a schedule inside Dosco itself, use [Triggers & reminders](/docs/connect/triggers).
 
-## Use Kortix from your coding agent
+## Use Dosco from your coding agent
 
 A coding agent such as Claude Code, Codex, Cursor or pi needs only the binary, a login and the platform manual.
 
@@ -317,7 +317,7 @@ kortix doctor
 kortix system-skills get kortix-system
 ```
 
-The host serves the Kortix system skills live, so they match the version you talk to. Tell your agent to run this command first.
+The host serves the Dosco system skills live, so they match the version you talk to. Tell your agent to run this command first.
 
 </Step>
 <Step title="Wire the project into local tools">
@@ -347,7 +347,7 @@ Exit `3` means the agent waits on a question or a permission. Answer it with `ko
 </Step>
 </Steps>
 
-An MCP client can use Kortix without the CLI. See [Kortix MCP server](/docs/connect/mcp).
+An MCP client can use Dosco without the CLI. See [Dosco MCP server](/docs/connect/mcp).
 
 ## Inside a session sandbox
 
@@ -382,7 +382,7 @@ A `.kortix/link.json` for another project needs a stored login for that project'
 | `kortix validate` | Check `kortix.yaml` against the schema, lint each `sandbox.templates` Dockerfile, and warn about large files in git. Exit `0` valid, `1` errors, `2` file not found. `--file <path>`, `--json`, `--no-dockerfile-lint`. `kortix ship` runs the same checks. |
 | `kortix schema` | Print the `kortix.yaml` JSON Schema. `--version 1\|2\|3` picks one version. `--url` prints the schema's URL instead, such as `https://kortix.com/schema/kortix.v3.schema.json` for version 3. |
 | `kortix doctor` | Check the login and project, then start a throwaway session, send `ping` and wait for a reply. `--no-session`, `--keep-session`, `--prompt "<text>"`, `--timeout <seconds>` (default 180). Exit `0` pass, `1` fail. |
-| `kortix system-skills list` | List the Kortix system skills. `kortix skills` is the same command. |
+| `kortix system-skills list` | List the Dosco system skills. `kortix skills` is the same command. |
 | `kortix system-skills get <name>` | Print one skill and the paths of its reference files. `--full` adds every reference file. |
 | `kortix system-skills file <name> <path>` | Print one reference file. |
 | `kortix system-skills path [<name>]` | Print the skill's directory on disk. |
@@ -420,7 +420,7 @@ Every group prints its subcommands and flags with `kortix <group> --help`. The l
 | Group | Purpose | Page |
 | --- | --- | --- |
 | `agents` | The default agent, model pins, scope and agent config. | [Agents & permissions](/docs/project/agents) |
-| `tools` | List the project's tools; `eject` a Kortix tool to change it. | [Tools](/docs/project/tools) |
+| `tools` | List the project's tools; `eject` a Dosco tool to change it. | [Tools](/docs/project/tools) |
 | `models` | The models the project offers and its default model. | [Models](/docs/project/models) |
 | `providers` | Connect model providers with an API key or OAuth. | [Models](/docs/project/models) |
 | `gateway` | LLM gateway routing, budgets, keys, usage, logs and tests. | [Models](/docs/project/models) |
@@ -451,7 +451,7 @@ Every group prints its subcommands and flags with `kortix <group> --help`. The l
 
 | Group | Purpose | Page |
 | --- | --- | --- |
-| `self-host` | Set up, start, update and stop your own Kortix instance from Docker images. | [Self-hosting](/docs/host) |
+| `self-host` | Set up, start, update and stop your own Dosco instance from Docker images. | [Self-hosting](/docs/host) |
 
 ## Conventions
 
@@ -491,7 +491,7 @@ Every group prints its subcommands and flags with `kortix <group> --help`. The l
 | `kortix version` | Print the version. `kortix --version` and `-v` do the same. |
 | `kortix update` | Run the install script again and replace the binary. |
 | `kortix uninstall` | Remove the binary, the `kortix` and `kortixt` links, and `~/.kortix`, and sign out of the active host. |
-| `kortix feedback "<message>"` | Send product feedback to the Kortix team. |
+| `kortix feedback "<message>"` | Send product feedback to the Dosco team. |
 
 The bare `kortix` command checks for a new release at most every 6 hours and offers to install it. Other commands show a one-line notice from the cached check. Turn the check off with `KORTIX_NO_UPDATE_CHECK=1`. Keep the notice but skip the question with `KORTIX_NO_UPDATE_PROMPT=1`.
 

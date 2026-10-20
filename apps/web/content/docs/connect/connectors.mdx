@@ -1,9 +1,9 @@
 ---
 title: Connectors
-description: "Give agents and your own code governed access to external apps, MCP servers and APIs: Kortix holds the credential, applies your policies and records every call."
+description: "Give agents and your own code governed access to external apps, MCP servers and APIs: Dosco holds the credential, applies your policies and records every call."
 ---
 
-A connector gives a project governed access to one external app, MCP server or API. Agents call it as a tool, and your own code calls it through the SDK. Kortix stores the credential, picks the account, applies the project's policies, calls the provider and writes an audit event for every call. The credential never enters a sandbox.
+A connector gives a project governed access to one external app, MCP server or API. Agents call it as a tool, and your own code calls it through the SDK. Dosco stores the credential, picks the account, applies the project's policies, calls the provider and writes an audit event for every call. The credential never enters a sandbox.
 
 This page is for project members who connect apps, decide who may use them, and call them from sessions or code.
 
@@ -13,7 +13,7 @@ A connector has:
 
 - a slug, unique in the project (`[a-z0-9][a-z0-9_-]`, up to 128 characters);
 - a display name;
-- a provider, which decides how Kortix reaches the service;
+- a provider, which decides how Dosco reaches the service;
 - its actions, the tools an agent calls (`<slug>.<action>`);
 - its policies, which decide which actions run, need approval, or are blocked.
 
@@ -27,14 +27,14 @@ Connectors live in `kortix.yaml` under `connectors:`, or in a file it lists unde
 | `mcp` | A remote MCP server. | `url`; `transport` is `http` (default) or `sse` |
 | `openapi` | An API with an OpenAPI document. | `spec` (a URL or a repo path) |
 | `postman` | An API described by a Postman collection. | `spec` |
-| `graphql` | A GraphQL endpoint. Kortix introspects it when `spec` is absent. | `endpoint` |
+| `graphql` | A GraphQL endpoint. Dosco introspects it when `spec` is absent. | `endpoint` |
 | `http` | A raw HTTP API. | `base_url` |
-| `channel` | Slack, Microsoft Teams or email. Kortix writes it when you connect a [channel](/docs/connect/channels). | `platform` |
+| `channel` | Slack, Microsoft Teams or email. Dosco writes it when you connect a [channel](/docs/connect/channels). | `platform` |
 | `computer` | Built in. Each connected [computer](/docs/connect/computers) is one account. It is never written to `kortix.yaml`. | — |
 
 `pipedream` is a legacy provider: existing connectors run, and new managed apps use `composio`.
 
-A `provider: mcp` connector is Kortix calling someone else's MCP server. The [Kortix MCP server](/docs/connect/mcp) is the other direction: your MCP client calls Kortix.
+A `provider: mcp` connector is Dosco calling someone else's MCP server. The [Dosco MCP server](/docs/connect/mcp) is the other direction: your MCP client calls Dosco.
 
 ## Add a connector
 
@@ -43,14 +43,14 @@ A `provider: mcp` connector is Kortix calling someone else's MCP server. The [Ko
 1. Open **Customize → Connectors**.
 2. On the **All** tab, find the app and select **Install**.
 3. When the app has its own hosted MCP server with one-click sign-in, **Connect** *app* opens. That means OAuth with dynamic client registration, for example Linear, Notion or Sentry. Choose **Who can use it** (**Only you** by default) and select **Connect**. You sign in to the app and return to the connector's page with its tools loaded.
-4. Otherwise Kortix adds the managed app, opens its page and opens **Add account** with **Only you** selected. [Authorize an account](#authorize-an-account) there.
+4. Otherwise Dosco adds the managed app, opens its page and opens **Add account** with **Only you** selected. [Authorize an account](#authorize-an-account) there.
 
 - **Install** shows only to members who can change the project's connectors. Other members add their own account on an installed connector's **Accounts** tab.
 - Installing an app that the project already has adds an account to the existing connector. It does not create a second connector.
 - An app page lists its **Ways to connect** (for example an MCP server and a REST API). **Install** uses the MCP server when the catalog lists one.
-- Kortix checks the app's MCP server when you select **Install**. A server that needs a pasted token, or has no dynamic client registration (for example GitHub's remote MCP server), installs as the managed app instead.
-- For an MCP server, [add it from its URL](#add-an-mcp-server-from-its-url). For another API that is not in the catalog, select **New → Add a custom connector** and choose OpenAPI, Postman, GraphQL, MCP or HTTP. Paste the source URL and Kortix proposes the slug: the document's title, or else the URL's domain. Kortix then opens the connector's page. An MCP server that asks for sign-in (HTTP `401` or `403`) opens **Add account** there, as **Install** does. This needs an auth scheme: one you pick under **Auth**, or one **Auto-detect** finds in the server's `WWW-Authenticate` challenge. Without one, the `401` or `403` is shown as the failure. **New → Create in chat** has an agent scaffold the connector and open a change request.
-- When Kortix cannot load a new connector's tools, the connector's page shows the reason and **Retry**. The connector stays in the project. OAuth 2.0 client credentials entered in the form are saved as well, so **Retry** uses them.
+- Dosco checks the app's MCP server when you select **Install**. A server that needs a pasted token, or has no dynamic client registration (for example GitHub's remote MCP server), installs as the managed app instead.
+- For an MCP server, [add it from its URL](#add-an-mcp-server-from-its-url). For another API that is not in the catalog, select **New → Add a custom connector** and choose OpenAPI, Postman, GraphQL, MCP or HTTP. Paste the source URL and Dosco proposes the slug: the document's title, or else the URL's domain. Dosco then opens the connector's page. An MCP server that asks for sign-in (HTTP `401` or `403`) opens **Add account** there, as **Install** does. This needs an auth scheme: one you pick under **Auth**, or one **Auto-detect** finds in the server's `WWW-Authenticate` challenge. Without one, the `401` or `403` is shown as the failure. **New → Create in chat** has an agent scaffold the connector and open a change request.
+- When Dosco cannot load a new connector's tools, the connector's page shows the reason and **Retry**. The connector stays in the project. OAuth 2.0 client credentials entered in the form are saved as well, so **Retry** uses them.
 - With OAuth 2.0 client credentials, **Added and connected** means the tools loaded with them. When the server still refuses them, the page shows the refusal and **Retry**.
 - A search on **All** also covers published OpenAPI, MCP, GraphQL and Postman surfaces when the project flag **Connectors API Discover** (`connectors_api_discover`, off by default) is on. Turn it on under **Customize → Settings → [Feature flags](/docs/project#feature-flags)**.
 
@@ -66,9 +66,9 @@ A connector page has up to four tabs:
 ### Add an MCP server from its URL
 
 1. Open **Customize → Connectors** and select **New → MCP server**.
-2. Paste the server's URL, for example `https://mcp.linear.app/mcp`. Kortix names the connector after the domain (`linear`) and shows the name under the field.
+2. Paste the server's URL, for example `https://mcp.linear.app/mcp`. Dosco names the connector after the domain (`linear`) and shows the name under the field.
 3. Choose **Who can use it**. **Only you** is selected by default.
-4. Select **Connect**. Kortix adds the connector and the account, then opens the server's sign-in. After you approve, you return to the connector's page with its tools loaded.
+4. Select **Connect**. Dosco adds the connector and the account, then opens the server's sign-in. After you approve, you return to the connector's page with its tools loaded.
 
 - **Only you** adds no shared account. Your login stays in your private account.
 - **Everyone in** *project* and **Specific people, groups, or agents** need permission to manage the project's connections.
@@ -78,7 +78,7 @@ A connector page has up to four tabs:
 
 ### The MCP app catalog (experimental)
 
-With the project flag **Connectors v2** (`connectors_v2`, off by default) on, the **All** tab lists the Kortix MCP app catalog instead of the managed apps. Every app in it is a remote MCP server that its vendor runs, and Kortix connects to it directly. Turn the flag on under **Customize → Settings → [Feature flags](/docs/project#feature-flags)**.
+With the project flag **Connectors v2** (`connectors_v2`, off by default) on, the **All** tab lists the Dosco MCP app catalog instead of the managed apps. Every app in it is a remote MCP server that its vendor runs, and Dosco connects to it directly. Turn the flag on under **Customize → Settings → [Feature flags](/docs/project#feature-flags)**.
 
 1. Find the app and select **Install**.
 2. **Connect** *app* opens. Choose **Who can use it** and select **Connect**.
@@ -88,15 +88,15 @@ Apps sign in one of three ways:
 
 | Sign-in | Apps | Setup |
 | --- | --- | --- |
-| The vendor registers Kortix on the fly | Linear, Notion, Atlassian, Figma, Stripe, Sentry, Airtable, Dropbox, Canva, Miro, monday.com, ClickUp, Intercom, PostHog, Supabase, Vercel, Cloudflare and more | None |
-| Kortix's own OAuth client | Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, GitHub, Slack, HubSpot, Asana, Box | The operator configures the client (`KORTIX_OAUTH_CLIENTS`, see [Self-host](/docs/host#integrations)). Until then the app is not listed. |
+| The vendor registers Dosco on the fly | Linear, Notion, Atlassian, Figma, Stripe, Sentry, Airtable, Dropbox, Canva, Miro, monday.com, ClickUp, Intercom, PostHog, Supabase, Vercel, Cloudflare and more | None |
+| Dosco's own OAuth client | Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, GitHub, Slack, HubSpot, Asana, Box | The operator configures the client (`KORTIX_OAUTH_CLIENTS`, see [Self-host](/docs/host#integrations)). Until then the app is not listed. |
 | None | DeepWiki, Context7 | None. The app is ready when it is installed. |
 
-- Kortix's own OAuth client is used only for the exact MCP server URL in the catalog, with the catalog's endpoints and scopes. Its client secret stays on the server.
+- Dosco's own OAuth client is used only for the exact MCP server URL in the catalog, with the catalog's endpoints and scopes. Its client secret stays on the server.
 - Connectors you added from the managed catalog keep working with the flag on.
-- Agents see the same catalog: the `search_connector_apps` tool of the [Kortix MCP server](/docs/connect/mcp) lists the MCP apps, and `add_connector` with `app` adds the app's MCP server.
+- Agents see the same catalog: the `search_connector_apps` tool of the [Dosco MCP server](/docs/connect/mcp) lists the MCP apps, and `add_connector` with `app` adds the app's MCP server.
 
-Catalog apps can start [triggers](/docs/connect/triggers#app-events). With the project flag `event_triggers` also on, Kortix checks an installed app's MCP server for new items, such as a new email in Gmail, and fires the trigger once for each one. Every tool that lists items and only reads can be an event, on catalog apps and on your own MCP servers. The trigger runs on an account shared with the whole project.
+Catalog apps can start [triggers](/docs/connect/triggers#app-events). With the project flag `event_triggers` also on, Dosco checks an installed app's MCP server for new items, such as a new email in Gmail, and fires the trigger once for each one. Every tool that lists items and only reads can be an event, on catalog apps and on your own MCP servers. The trigger runs on an account shared with the whole project.
 
 ### From the CLI
 
@@ -107,10 +107,10 @@ kortix connectors connect gmail                                # authorize your 
 ```
 
 - Without `--apply`, `add` and `rm` edit your local `kortix.yaml`. Run `kortix ship` to apply the change, then `kortix connectors sync` to reconcile the connector.
-- With `--apply`, Kortix commits the change to the default branch and syncs the connector at once, like the web app.
+- With `--apply`, Dosco commits the change to the default branch and syncs the connector at once, like the web app.
 - `kortix connectors rm <slug> [--apply]` removes a connector. `kortix connectors rename <slug> <name>` sets its display name and applies at once.
 - `kortix connectors catalog [<query>]` and `catalog show <id>` browse the direct API catalog. They need the `connectors_api_discover` flag.
-- `--auth-type none|bearer|basic|custom|oauth1` overrides the authentication Kortix detects from the source.
+- `--auth-type none|bearer|basic|custom|oauth1` overrides the authentication Dosco detects from the source.
 
 ### In kortix.yaml
 
@@ -141,16 +141,16 @@ connectors:
         action: require_approval
 ```
 
-A change to `connectors:` applies when it reaches the default branch, through a change request merge or a direct push. A merge syncs at once. After a push, Kortix syncs on its next periodic pass. Run `kortix connectors sync` to apply it now. See [Change requests](/docs/git#change-requests).
+A change to `connectors:` applies when it reaches the default branch, through a change request merge or a direct push. A merge syncs at once. After a push, Dosco syncs on its next periodic pass. Run `kortix connectors sync` to apply it now. See [Change requests](/docs/git#change-requests).
 
 | Field | Rule |
 | --- | --- |
-| `auth.type` | `bearer`, `basic`, `custom`, `api_key`, `oauth1`, `hmac`, `aws_sigv4`, `mtls` or `none`. Omit `auth` on a direct provider and Kortix detects it. `none` opts out. `oauth1` works on `openapi`, `postman` and `http` only. |
+| `auth.type` | `bearer`, `basic`, `custom`, `api_key`, `oauth1`, `hmac`, `aws_sigv4`, `mtls` or `none`. Omit `auth` on a direct provider and Dosco detects it. `none` opts out. `oauth1` works on `openapi`, `postman` and `http` only. |
 | `auth.in`, `auth.name`, `auth.prefix` | Where a `custom` or `api_key` credential goes: `in` is `header` (default), `query` or `cookie`. `name` is required for both types. |
 | `auth` on `composio` or `channel` | Not allowed. The provider authorizes the account. |
 | `headers` | Static headers sent on every call: at most 32, names up to 128 characters, values up to 2,048 characters, no line breaks. Transport headers such as `Host` and `Content-Length` are refused. The auth header always wins over a static header of the same name. Not allowed on `composio`, `pipedream` or `channel`. Values are plaintext in git: never put a credential in a header. |
 | `sensitive: true` | Every action that no rule matches needs approval, reads included. See [Policies and approvals](#policies-and-approvals). |
-| `enabled: false` | Kortix keeps the connector but refuses its calls with `connector_disabled`. |
+| `enabled: false` | Dosco keeps the connector but refuses its calls with `connector_disabled`. |
 | Reserved slugs | `kortix_slack`, `kortix_teams` and `kortix_email` belong to channel connectors. `computer` belongs to the built-in computer connector. A new connector added from the web app, `--apply` or MCP also cannot take `slack` or `email` (`400`): connect Slack with `kortix channels connect`. |
 
 The full schema is in the [`kortix.yaml` reference](/docs/project/manifest#triggers-connectors-apps).
@@ -186,7 +186,7 @@ In the web app, open the account row's menu and select **Rename**. The label can
 
 Then sign in to the app, or enter its API key.
 
-A connector with exactly one shared account uses it as its default. Kortix makes an empty shared account when it adds a connector, except an MCP server added for **Only you**. The **Accounts** list does not show that empty account, so the connector reads **has no account** until someone adds one. While that account is still not signed in and is the only shared account, a new shared account reuses it instead of adding a second one. It keeps its name unless you type another. Two shared accounts with no default pinned leave the connector with no default. A sign-in on a shared account that is not the default does not reload an MCP connector's tools.
+A connector with exactly one shared account uses it as its default. Dosco makes an empty shared account when it adds a connector, except an MCP server added for **Only you**. The **Accounts** list does not show that empty account, so the connector reads **has no account** until someone adds one. While that account is still not signed in and is the only shared account, a new shared account reuses it instead of adding a second one. It keeps its name unless you type another. Two shared accounts with no default pinned leave the connector with no default. A sign-in on a shared account that is not the default does not reload an MCP connector's tools.
 
 When you have no account of your own on a connector, the **Sign in**, **Set credential** or **Connect** button at the top of the connector page opens **Add account**. It never signs a shared account in with your login. To sign in a shared account, select **Connect** on its row.
 
@@ -212,11 +212,11 @@ kortix connectors connect-finalize gmail                 # confirm; pass the sam
 
 ### Connect links inside a session
 
-A session starts even when a granted connector has no account. The first call is denied with `connector_not_connected` and a `connect_url`. The web transcript shows it as a **Connect** button. The button opens the **Add account** dialog with the name and audience the agent suggests. By default the account is private. Kortix tells the agent the new account's name. For a shared account from a terminal, run `kortix connectors connect <slug> --owner project`.
+A session starts even when a granted connector has no account. The first call is denied with `connector_not_connected` and a `connect_url`. The web transcript shows it as a **Connect** button. The button opens the **Add account** dialog with the name and audience the agent suggests. By default the account is private. Dosco tells the agent the new account's name. For a shared account from a terminal, run `kortix connectors connect <slug> --owner project`.
 
 ### OAuth for MCP servers and direct APIs
 
-Kortix discovers the server's OAuth metadata (RFC 9728, RFC 8414), registers itself as a client when the server supports dynamic client registration (RFC 7591), and runs PKCE (S256) with a `resource` parameter (RFC 8707). With registration support you create no OAuth app.
+Dosco discovers the server's OAuth metadata (RFC 9728, RFC 8414), registers itself as a client when the server supports dynamic client registration (RFC 7591), and runs PKCE (S256) with a `resource` parameter (RFC 8707). With registration support you create no OAuth app.
 
 When the server does not support registration, the web app opens credential entry. Enter the client ID (and secret) of an OAuth app you create with the provider, and register this redirect URI with it:
 
@@ -238,9 +238,9 @@ kortix connectors authorize docs-search --status   # exits non-zero on error
 | `--device` | Uses the device flow (RFC 8628): prints a code and a URL, then polls until approval, denial or expiry. |
 | `--scope "a b"` | Requests only these scopes. |
 | `--client-id`, `--client-secret` | Uses an existing OAuth app, for servers without dynamic registration. |
-| `--success-redirect`, `--error-redirect` | Where the browser lands after approval or denial. Without them the browser shows **Connected. You can close this tab and return to Kortix.**, or the failure with its reason code. |
+| `--success-redirect`, `--error-redirect` | Where the browser lands after approval or denial. Without them the browser shows **Connected. You can close this tab and return to Dosco.**, or the failure with its reason code. |
 
-Kortix refreshes the connector's tool catalog when authorization completes. Direct API connectors also support the client credentials grant (`client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt`). Kortix refreshes access tokens before they expire and stores each rotated refresh token.
+Dosco refreshes the connector's tool catalog when authorization completes. Direct API connectors also support the client credentials grant (`client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt`). Dosco refreshes access tokens before they expire and stores each rotated refresh token.
 
 ## Share accounts and give agents access
 
@@ -319,12 +319,12 @@ kortix connectors call gmail <action> '{}' --account "Support inbox"
 ```
 
 - `--account` takes a label (any case), a connection id, `me` or `project`.
-- A named account that does not match is denied with `connector_not_connected` and the names you can use. Kortix never substitutes another account.
+- A named account that does not match is denied with `connector_not_connected` and the names you can use. Dosco never substitutes another account.
 - Every result carries `account: { connection_id, label, owner_type }`, so the transcript shows which identity ran the call.
 
 ## Policies and approvals
 
-A policy decides what happens when an action is called: **Allow** (`always_run`), **Ask** (`require_approval`) or **Block** (`block`). Kortix evaluates each call in this order, and the first match wins:
+A policy decides what happens when an action is called: **Allow** (`always_run`), **Ask** (`require_approval`) or **Block** (`block`). Dosco evaluates each call in this order, and the first match wins:
 
 1. Project-wide `policies:` in `kortix.yaml`. Patterns are fully qualified (`gmail.send_email`, `*.delete*`). A connector rule cannot override them.
 2. The connector's own `policies:`. Patterns are relative to the connector (`send_*`).
@@ -367,9 +367,9 @@ kortix connectors sensitive gmail on                          # or off
 
 A held call returns `202` with `status: "pending_approval"`, `approval_url`, `approval_summary` and `execution_id`. Nothing ran.
 
-1. A person opens the approval in **Review → Needs you**, through `approval_url`, or on the approval card in a [Slack or Teams thread](/docs/connect/channels#approvals-and-stopping-a-run). The page asks for a signed-in Kortix account that can approve actions in the project.
+1. A person opens the approval in **Review → Needs you**, through `approval_url`, or on the approval card in a [Slack or Teams thread](/docs/connect/channels#approvals-and-stopping-a-run). The page asks for a signed-in Dosco account that can approve actions in the project.
 2. The page shows the redacted arguments the provider will receive. They decide **Approve** or **Deny**, with an optional message back to the agent.
-3. Kortix sends the decision into the session, and the agent continues.
+3. Dosco sends the decision into the session, and the agent continues.
 
 - An approval covers one exact request: the same connector, action, arguments and account. A changed argument needs a new approval.
 - After an approval, the identical call runs once when it repeats within 15 minutes.
@@ -377,7 +377,7 @@ A held call returns `202` with `status: "pending_approval"`, `approval_url`, `ap
 - A project manager or the person who started the session decides a held call. A session started with an API token (the CLI, a service account) is decided by project managers only.
 - Anyone else who can open the session sees the call and who decides it, with no **Approve** or **Deny**. They can copy `approval_url` and send it to that person: the approval page answers them with `403` too. In **Review**, the call is under **Waiting** for them, not **Needs you**.
 - `GET /v1/projects/<project_id>/sessions/<session_id>/audit` and `GET /v1/projects/<project_id>/review/items` return `can_resolve` and `resolvers` on each pending call. `can_resolve` is `true` only when the caller's `POST /v1/projects/<project_id>/approvals/<execution_id>` would succeed. Any other caller gets `403`. `resolvers` is `managers` or `managers_and_launcher`.
-- `--reason` (SDK: `approvalContext`) describes the effect when the arguments are only ids, for example who a draft goes to. The approver sees it marked as unverified. Kortix never sends it to the provider.
+- `--reason` (SDK: `approvalContext`) describes the effect when the arguments are only ids, for example who a draft goes to. The approver sees it marked as unverified. Dosco never sends it to the provider.
 
 ## Call a connector from a session
 
@@ -412,24 +412,24 @@ jq '.data' /workspace/output/issues.json
 
 ### Attach files
 
-Arguments never carry file bytes. Stage the file, and Kortix writes the bytes into the provider request server-side.
+Arguments never carry file bytes. Stage the file, and Dosco writes the bytes into the provider request server-side.
 
 ```bash
 kortix connectors call outlook send_mail @mail.json --attach /workspace/artifacts/report.pdf
 kortix connectors upload /workspace/artifacts/report.pdf --connector outlook   # prints ref
 ```
 
-- `--attach` appends a reference to the action's attachments array. Name the array with `--attach-path body.message.attachments` when Kortix cannot find it.
+- `--attach` appends a reference to the action's attachments array. Name the array with `--attach-path body.message.attachments` when Dosco cannot find it.
 - `upload` returns `ref`, `{"$kortix_attachment": "<id>"}`. In an attachments array it becomes the provider's attachment item. In a string field it becomes the file's base64. On the email channel it becomes a signed download URL.
 - Files come from `/workspace/output`, `/workspace/artifacts`, `/workspace/reports` or `/workspace/deliverables`. Symbolic links and hard links are refused.
 - One call carries at most 20 files and 25 MiB. A staged file is single-use, private to its session, and deleted after 24 hours.
 - `composio`, `pipedream` and `computer` connectors do not accept staged files (`connector_attachments_unsupported`).
 
-From an MCP client, the [Kortix MCP server](/docs/connect/mcp) offers the same flow through `list_connectors`, `search_connector_actions`, `describe_connector_action`, `call_connector` and `upload_connector_attachment`.
+From an MCP client, the [Dosco MCP server](/docs/connect/mcp) offers the same flow through `list_connectors`, `search_connector_actions`, `describe_connector_action`, `call_connector` and `upload_connector_attachment`.
 
 ## Call connectors from code
 
-Code calls a connector through `@kortix/sdk` and holds only a Kortix credential. Do not put a provider API key in an App or a backend when a connector for that provider exists: the key skips policies, approvals and audit.
+Code calls a connector through `@kortix/sdk` and holds only a Dosco credential. Do not put a provider API key in an App or a backend when a connector for that provider exists: the key skips policies, approvals and audit.
 
 ### Pick the credential
 
@@ -534,7 +534,7 @@ An `error` reason starts with the code in the table. Text after the first `:` is
 | `connector_not_connected` | 403 | No usable account, or `--account` named one that does not exist. | Open `connect_url`, or retry with a name from `available_accounts`. |
 | `account_required` | 403 | Several accounts are reachable, none is named, none is pinned. | Pass `--account`, or pin a default. |
 | `credential_not_shared` | 403 | The connector's project secret is not shared with the person this call acts for. | Ask the secret's owner to share it. |
-| `credential_undecryptable` | 403 | Kortix cannot decrypt the connector's stored credential, or the project secret it uses: the server's encryption key changed, or the stored value is damaged. `message` names the connector or the secret. | Reconnect the account, or enter the credential or the secret again. For an OAuth 2.0 account, save its OAuth application again first: the same key encrypts it, and until then its routes answer `409 SECRET_UNDECRYPTABLE`. |
+| `credential_undecryptable` | 403 | Dosco cannot decrypt the connector's stored credential, or the project secret it uses: the server's encryption key changed, or the stored value is damaged. `message` names the connector or the secret. | Reconnect the account, or enter the credential or the secret again. For an OAuth 2.0 account, save its OAuth application again first: the same key encrypts it, and until then its routes answer `409 SECRET_UNDECRYPTABLE`. |
 | `connector_disabled` | 403 | The connector is declared with `enabled: false`. | Enable it. |
 | `policy_block` | 403 | A **Block** rule matched. Final. | Do not retry. Change the policy. |
 | `connector_not_found` | 404 | No connector with this slug. | Run `kortix connectors ls`. |
@@ -548,10 +548,10 @@ An `error` reason starts with the code in the table. Text after the first `:` is
 
 ## Network safety
 
-Kortix checks every connector request before it leaves: calls to `http`, `openapi`, `graphql`, `mcp`, `postman` and `channel` connectors, and the catalog reads of a sync.
+Dosco checks every connector request before it leaves: calls to `http`, `openapi`, `graphql`, `mcp`, `postman` and `channel` connectors, and the catalog reads of a sync.
 
 - The host must resolve to public addresses. A private or internal address is refused with `connector_egress_blocked`.
-- Kortix follows redirects itself and checks each hop again. A redirect to another origin drops the `Authorization` header.
+- Dosco follows redirects itself and checks each hop again. A redirect to another origin drops the `Authorization` header.
 - Both `http` and `https` are allowed.
 
 A self-hosted instance can allow internal hosts with `KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS`. Managed apps that need your own OAuth app, and the other integration settings, are on [Self-hosting](/docs/host#integrations).

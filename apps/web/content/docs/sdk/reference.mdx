@@ -16,7 +16,7 @@ await p.secrets.list();
 await s.send('Run the tests.');
 ```
 
-Each client method calls the Kortix API. Session runtime methods reach the session's sandbox through the API at `{backendUrl}/p/…`. Route paths on this page are relative to `backendUrl`, which ends in `/v1`. Each route is in the [REST reference](https://api.kortix.com/v1/docs). A failed call throws an `ApiError` with `status`, `code` and `details`.
+Each client method calls the Dosco API. Session runtime methods reach the session's sandbox through the API at `{backendUrl}/p/…`. Route paths on this page are relative to `backendUrl`, which ends in `/v1`. Each route is in the [REST reference](https://api.kortix.com/v1/docs). A failed call throws an `ApiError` with `status`, `code` and `details`.
 
 ## Entry points and stability
 
@@ -27,12 +27,12 @@ Each client method calls the Kortix API. Session runtime methods reach the sessi
 | `@kortix/sdk/server` | Stable | Server helpers for Node and Bun (table below). It imports `node:async_hooks`. Never bundle it for a browser. |
 | `@kortix/sdk/wire-message-id` | Stable | `mintWireMessageId` and `WIRE_MESSAGE_ID` in one module with no imports. The root exports the same names. |
 | `@kortix/sdk/workspace-search` | Stable | `createWorkspaceSearchClient(fileClient)`: ranked file and folder search over a session workspace, with a cached index. `fileClient` has `listFiles(path)` and `findFiles(query, options?)`. |
-| `@kortix/sdk/message-queue` | Deprecated | Client-side prompt queue reducers. Kortix orders prompts on the server: use `s.send` or `useSession().send`. |
+| `@kortix/sdk/message-queue` | Deprecated | Client-side prompt queue reducers. Dosco orders prompts on the server: use `s.send` or `useSession().send`. |
 | `@kortix/sdk/turns`, `/files`, `/session`, `/session/url`, `/projects-client`, `/platform-client`, `/api-client`, `/auth`, `/config`, `/event-stream`, `/opencode-client`, `/opencode-errors`, `/feature-flags`, `/fresh-sessions`, `/instance-routes` | Deprecated | Aliases. Each re-exports names that the root already exports. Import from the root. |
 | `@kortix/sdk/sync-store`, `/server-store`, `/sandbox-connection-store`, `/opencode-pending-store`, `/idb-sync-cache` | Deprecated | Aliases of the internal web-app stores. They have no replacement. Read session state with `useSession` from `@kortix/sdk/react`. |
-| `@kortix/sdk/internal/*` | Internal | State stores for the Kortix web app. Outside semver. Do not import. |
+| `@kortix/sdk/internal/*` | Internal | State stores for the Dosco web app. Outside semver. Do not import. |
 
-Deprecated subpaths and names resolve until the next major version. The package also ships two browser bundles, `dist/kortix.esm.min.js` and `dist/kortix.global.js` (`window.Kortix`). See [Install](/docs/sdk#install).
+Deprecated subpaths and names resolve until the next major version. The package also ships two browser bundles, `dist/kortix.esm.min.js` and `dist/kortix.global.js` (`window.Dosco`). See [Install](/docs/sdk#install).
 
 ### `@kortix/sdk/server`
 
@@ -40,11 +40,11 @@ Deprecated subpaths and names resolve until the next major version. The package 
 | --- | --- |
 | `createScopedKortix(config)` | The same client as `createKortix`, but every call, including calls on `project()` and `session()` handles, runs with this config only. Create one per request in a server that acts for many people. |
 | `runWithKortix(config, fn)` · `getScopedConfig()` | Run `fn` with a request-scoped config (Node `AsyncLocalStorage`) · read the config in scope. |
-| `forwardKortixRequest(options)` | Forward one same-origin request to the Kortix API with an upstream token. It strips host credentials and keeps a streaming response body. |
-| `createKortixAuth(options)` | Sign in with Kortix for your own app: OAuth 2.1 with PKCE, an encrypted session cookie, refresh, sign-out, `/me` and a same-origin `/proxy`. Register the client with `kortix.iam.oauthClients.create`. See [Sign in with Kortix](/docs/sdk/auth#sign-in-with-kortix). |
-| `readAppViewer(request, options?)` | Inside a Kortix App: verify the signed `x-kortix-app-viewer` header with `KORTIX_APP_VIEWER_SECRET` and return the viewer, or `null`. |
-| `createAppViewerKortix(request, options)` | Inside a Kortix App: a client that calls the Kortix API as the viewer. |
-| `createKortixAppGuard(options)` | One viewer resolver for an App behind the Kortix gate or set to `public`. `requireViewer` and `requireGroup` return a viewer or a `Response`. |
+| `forwardKortixRequest(options)` | Forward one same-origin request to the Dosco API with an upstream token. It strips host credentials and keeps a streaming response body. |
+| `createKortixAuth(options)` | Sign in with Dosco for your own app: OAuth 2.1 with PKCE, an encrypted session cookie, refresh, sign-out, `/me` and a same-origin `/proxy`. Register the client with `kortix.iam.oauthClients.create`. See [Sign in with Dosco](/docs/sdk/auth#sign-in-with-dosco). |
+| `readAppViewer(request, options?)` | Inside a Dosco App: verify the signed `x-kortix-app-viewer` header with `KORTIX_APP_VIEWER_SECRET` and return the viewer, or `null`. |
+| `createAppViewerKortix(request, options)` | Inside a Dosco App: a client that calls the Dosco API as the viewer. |
+| `createKortixAppGuard(options)` | One viewer resolver for an App behind the Dosco gate or set to `public`. `requireViewer` and `requireGroup` return a viewer or a `Response`. |
 | `KortixAuthError`, `AppViewerUnavailableError`, `safeReturnTo`, `APP_VIEWER_HEADER`, `APP_VIEWER_TOKEN_HEADER`, `APP_VIEWER_SECRET_ENV`, `KORTIX_SESSION_SENTINEL` | Errors, a return-URL guard and the header and environment variable names. |
 
 App viewers are described in [Know who is looking](/docs/apps#know-who-is-looking).
@@ -65,10 +65,10 @@ App viewers are described in [Know who is looking](/docs/apps#know-who-is-lookin
 | `session(projectId, sessionId)` | The [session handle](#the-session-handle). | `/projects/{projectId}/sessions/{sessionId}/…` |
 | `connectors` · `connector(slug)` | Connector calls with a token that carries its project, such as a session token. Same methods as `p.connectors` (data plane) and `p.connector(slug)`. | `/connectors/…` |
 | `github` | GitHub App installations and repository links, per account. | `/projects/github/…` |
-| `gitBackend` | The instance git backend that holds Kortix-managed repositories. | `/projects/git/backend` |
+| `gitBackend` | The instance git backend that holds Dosco-managed repositories. | `/projects/git/backend` |
 | `billing` | Plan, credit balance, transactions, usage, subscription. | `/billing/…`, `/usage/…` |
 | `notifications` | The caller's inbox, preferences, Web Push and device tokens. | `/notifications/…` |
-| `capture` | Kortix Capture: one account's recorded screen, actions and audio, and the device sign-in approval. | `/accounts/{accountId}/capture/…`, `/capture/…` |
+| `capture` | Dosco Capture: one account's recorded screen, actions and audio, and the device sign-in approval. | `/accounts/{accountId}/capture/…`, `/capture/…` |
 | `marketplace` | The public marketplace catalog and its sources. | `/marketplace/…` |
 | `sandboxShares` | Public share links for one sandbox port. | `/p/share` |
 | `connectStatus()` | Whether the managed OAuth connect provider is configured on this instance. | `/connectors/connect-status` |
@@ -82,11 +82,11 @@ App viewers are described in [Know who is looking](/docs/apps#know-who-is-lookin
 | --- | --- |
 | `list()` · `listForAccount(accountId)` | Projects you can open · projects in one account. |
 | `get(projectId)` · `detail(projectId)` | Summary · full detail with config. |
-| `provision(input)` | New project on a new Kortix-managed repository: `{ name, account_id?, seed_starter?, starter_template?: 'general-knowledge-worker' \| 'minimal', marketplace_items?, source_item_id?, default_branch?, icon?, icon_glyph?, idempotency_key? }`. |
+| `provision(input)` | New project on a new Dosco-managed repository: `{ name, account_id?, seed_starter?, starter_template?: 'general-knowledge-worker' \| 'minimal', marketplace_items?, source_item_id?, default_branch?, icon?, icon_glyph?, idempotency_key? }`. |
 | `create(input)` · `createRepo(input)` | From an existing `repo_url` · on a new GitHub repository. |
 | `update(projectId, input)` · `archive(projectId)` | Change settings · archive. |
 | `llmCatalog(projectId)` · `modelPicker(projectId)` | Full model catalog · the compact list for a model picker. |
-| `modelAccess(projectId)` · `setModelAccess(projectId, { target: 'provider' \| 'model', id, enabled })` | Read · turn on or off one provider or model. Provider id `kortix` is the Kortix-managed models. Disabling the current default returns `409 cannot_disable_default`. |
+| `modelAccess(projectId)` · `setModelAccess(projectId, { target: 'provider' \| 'model', id, enabled })` | Read · turn on or off one provider or model. Provider id `kortix` is the Dosco-managed models. Disabling the current default returns `409 cannot_disable_default`. |
 | `sandboxHealth(projectId)` · `sandboxTemplates(projectId)` | Sandbox build health · build templates. |
 | `sessions(projectId)` · `createSession(projectId, input?)` | Same as `p.sessions.list()` · `p.sessions.create()`. |
 
@@ -144,7 +144,7 @@ Account features are explained in [Accounts & access](/docs/accounts), keys in [
 
 ### `kortix.iam`
 
-Kortix has one grant record, the assignment: one principal (`user`, `group`, `service_account`, `pending` or `project`), one role, one scope (`account` or one `project`), an optional object (`agent`, `skill`, `secret`, `app`, `trigger` or `connection`) and an optional `expiresAt`.
+Dosco has one grant record, the assignment: one principal (`user`, `group`, `service_account`, `pending` or `project`), one role, one scope (`account` or one `project`), an optional object (`agent`, `skill`, `secret`, `app`, `trigger` or `connection`) and an optional `expiresAt`.
 
 | Method | What it does |
 | --- | --- |
@@ -154,7 +154,7 @@ Kortix has one grant record, the assignment: one principal (`user`, `group`, `se
 | `roles.list` · `.create` · `.update` · `.setPermissions` · `.remove` · `.usage` | Custom roles. Without the account's `rbac` entitlement the API returns `402 entitlement_required`. |
 | `groups.list` · `.get` · `.create` · `.update` · `.remove` · `groups.members.list` · `.add` · `.remove` | Groups and their members. |
 | `agentIdentities(accountId)` | Agent principals, for binding a role to an agent. |
-| `oauthClients.list` · `.get` · `.create` · `.update` · `.rotateSecret` · `.remove` | Sign in with Kortix clients. The secret is returned once, on create and on rotate. |
+| `oauthClients.list` · `.get` · `.create` · `.update` · `.rotateSecret` · `.remove` | Sign in with Dosco clients. The secret is returned once, on create and on rotate. |
 | `can(accountId, userId, { action, resourceType?, resourceId? })` · `canBatch(accountId, userId, probes)` | Ask whether a principal may do one action · many, in one round trip, answers in input order. |
 
 Gate a control in your UI with `can` or `canBatch` on the action the route checks, not on a role name. `PROJECT_ACTIONS` (root export) names every project action the API answers about, for example `PROJECT_ACTIONS.PROJECT_GITOPS_MERGE` is `project.gitops.merge`. The API answers an unknown action with `400`. For triggers, probe `TRIGGER_CONTROL_ACTIONS` and pass the result to `triggerControlsFrom(cans)`: it returns `{ canCreate, canFire, canUpdate, canDelete }`, one flag per trigger route, each `false` until the probe allows it. Create, update and delete also need `project.write`, because their routes load the project for write first.
@@ -265,8 +265,8 @@ These methods read the project repository. To read and write files in a running 
 | `files.archive(options?)` · `files.archiveRequest(options?)` | Download a tarball · the same as a request your host streams to disk. |
 | `git.commits()` · `git.commit(sha)` · `git.commitDiff(sha)` | The log · one commit · its diff. |
 | `git.branches()` · `git.versionDiff(…)` | Branches · the diff between two refs. |
-| `git.inviteCollaborator(…)` | Invite a GitHub user to a Kortix-managed repository. |
-| `gitToken()` | A fresh scoped push token for a Kortix-managed repository. A bring-your-own repository returns `409`. |
+| `git.inviteCollaborator(…)` | Invite a GitHub user to a Dosco-managed repository. |
+| `gitToken()` | A fresh scoped push token for a Dosco-managed repository. A bring-your-own repository returns `409`. |
 | `changeRequests.list(status?, { limit?, cursor? })` · `.get(crId)` · `.diff(crId)` · `.mergePreview(crId)` | Read change requests. `list` returns one page, newest number first: 50 by default, at most 500. Pass `next_cursor` back as `cursor`; it is `null` on the last page. |
 | `changeRequests.open(input)` · `.update(crId, input)` · `.merge(crId, input?)` · `.close(crId, input?)` · `.reopen(crId, input?)` | Change request lifecycle. |
 | `changeRequests.requestChanges(crId, input)` | Record feedback and, optionally, send it to the session that made the change. |
@@ -305,7 +305,7 @@ Policies and approvals are explained in [Policies and approvals](/docs/connect/c
 | `secrets.setPersonal(name, { value?, active? })` · `secrets.removePersonal(name)` | Your own value for a secret, used in your sessions. `active: false` keeps your value but uses the shared one. `removePersonal` deletes your value. |
 | `secrets.setGitCredential(input)` | The credential for a bring-your-own git repository. |
 | `secrets.listProviderOAuth()` · `.startProviderOAuth(…)` · `.pollProviderOAuth(…)` · `.removeProviderOAuth(provider)` | Subscription logins for model providers, through a device-code flow. |
-| `tokens.list()` · `tokens.create(input?)` · `tokens.revoke(tokenId)` | Project API keys. Kortix also mints one per session as `KORTIX_TOKEN`. |
+| `tokens.list()` · `tokens.create(input?)` · `tokens.revoke(tokenId)` | Project API keys. Dosco also mints one per session as `KORTIX_TOKEN`. |
 | `setupLinks.requestSecret(input)` · `setupLinks.requestConnector(input)` | A link a person opens to enter a secret or connect an app, without full project access. |
 
 Exposure policies and flags are explained in [Secrets](/docs/project/secrets).
@@ -354,7 +354,7 @@ Every field of `create` is in [Triggers & reminders](/docs/connect/triggers#fiel
 | `rollback(appId, deploymentId)` · `start(appId)` · `stop(appId)` | Move traffic to an earlier release · start · stop. |
 | `machines.list(appId)` · `.start` · `.stop` · `.restart` · `.destroy(appId, machineId)` | Machines. Destroying one keeps its volume. |
 | `scale(appId, { group: count })` | Machines per process group, 0 to 20. |
-| `exec(appId, input)` | Run one command in a machine. Needs `project.app.admin`. Kortix audits each call. |
+| `exec(appId, input)` | Run one command in a machine. Needs `project.app.admin`. Dosco audits each call. |
 | `volumes.list(appId)` · `.create` · `.update` · `.destroy(appId, volumeId, confirmName)` · `.snapshots` · `.snapshot` · `.restore(appId, volumeId, snapshotId)` · `.fork` | Persistent volumes and their snapshots. |
 | `access.get(appId)` · `access.update(appId, …)` · `access.session(appId)` · `access.agents(appId)` | Who can open the App · an access session · agents granted the App in `kortix.yaml`. |
 | `token(appId)` | A 15-minute sign-in token for the App that names the caller. Needs the `member_tokens` capability. |
@@ -445,7 +445,7 @@ The root `@kortix/sdk` exports these modules next to the client. Use them for on
 | Auth | `authenticatedFetch`, `getAuthToken` | A `fetch` that adds the token from your `getToken`. |
 | API client | `backendApi` | The typed HTTP client under every method. Use it only for an endpoint with no method. |
 | Errors | `ApiError`, `isFeatureDisabledError`, `featureDisabledKey` | Error types and checks. |
-| Composer lists | `projectConfigAgentsToRuntimeAgents`, `composerSelectableAgents`, `resolveComposerAgent`, `pickerProviderList`, `flattenModels`, `createModelVisibility`, `modelInDefaultView`, `resolveComposerModel`, `resolveModelDefault`, `sessionModelCandidates`, `latestPromptModel`, `modelRefToKey` | Build an agent picker and a model picker with the rules of the Kortix web app. Every function is pure. |
+| Composer lists | `projectConfigAgentsToRuntimeAgents`, `composerSelectableAgents`, `resolveComposerAgent`, `pickerProviderList`, `flattenModels`, `createModelVisibility`, `modelInDefaultView`, `resolveComposerModel`, `resolveModelDefault`, `sessionModelCandidates`, `latestPromptModel`, `modelRefToKey` | Build an agent picker and a model picker with the rules of the Dosco web app. Every function is pure. |
 | Transcript export | `formatTranscript(session, messages, options?)` | One session as a Markdown string. |
 | Sandboxes by id | `restartSandbox(id)`, `stopSandbox(id)`, `getSandboxById(id)` | Act on a session's sandbox with only its `session_id`. One `GET /v1/sessions/:id` finds the project, however old the session is. A provider external id still works, but only for a session on its project's first sessions page. With the project id, use `s.restart()`, `s.stop()` and `s.get()`. |
 | Sandboxes, every project | `getSandbox()`, `ensureSandbox()`, `listSandboxes(id?)` | Read each project's first sessions page only (default 50 rows). They need a project to find older sessions: use `p.sessions.listPage()`. |
@@ -483,7 +483,7 @@ Pure functions that turn session messages into renderable parts. Use them to bui
 
 ### Classify parts and turns
 
-`classifyPart(part)` turns one part of the Kortix transcript format (`kortix.transcript.v1`, `KORTIX_TRANSCRIPT_SCHEMA`) into a `ClassifiedPart`, keyed by `kind`:
+`classifyPart(part)` turns one part of the Dosco transcript format (`kortix.transcript.v1`, `KORTIX_TRANSCRIPT_SCHEMA`) into a `ClassifiedPart`, keyed by `kind`:
 
 | `kind` | Fields |
 | --- | --- |
@@ -554,7 +554,7 @@ The grouping and status functions accept the structural types `PartLike`, `Messa
 
 ## Session log types
 
-The root exports the types of the Kortix session log, the harness-neutral record of a session, schema `kortix.session/2`. Kortix stores every session as a session log. The SDK exports the types and three constants, with no validators. In React, `useSessionLog` and `useSessionLogThread` return a session's log once the session reads it: see [Read the session log](/docs/sdk/react#read-the-session-log).
+The root exports the types of the Dosco session log, the harness-neutral record of a session, schema `kortix.session/2`. Dosco stores every session as a session log. The SDK exports the types and three constants, with no validators. In React, `useSessionLog` and `useSessionLogThread` return a session's log once the session reads it: see [Read the session log](/docs/sdk/react#read-the-session-log).
 
 | Name | What it is |
 | --- | --- |

@@ -8,7 +8,7 @@ This page takes you from a fresh terminal, or the web app, to a merged change re
 | Step | Command | What happens in git |
 | --- | --- | --- |
 | Create a project | `kortix init`, `kortix ship` | `git init`, commit, push to the project's repository |
-| Get a project | `kortix projects clone` | `git clone` through Kortix |
+| Get a project | `kortix projects clone` | `git clone` through Dosco |
 | Run a session | `kortix sessions new` | The agent works on its own branch, named `<session_id>` |
 | Review and merge | `kortix cr merge` | The session branch merges into the default branch |
 
@@ -47,7 +47,7 @@ kortix ship
 
 `kortix init` creates the `my-agent` directory from the starter, runs `git init -b main`, and asks which local coding tools to wire up (OpenCode, Claude Code, Codex, pi, Cursor). It prints a starter prompt for your coding agent. The starter layout is on [Projects](/docs/project).
 
-`kortix ship` validates `kortix.yaml`, commits, asks for missing secrets, pushes the current branch and asks you to connect declared connectors. The first run creates the project: with no `origin` it creates a Kortix-managed repository, with a GitHub `origin` it links that repository. After it, plain `git push` and `git pull` work. Details: [Commit and push](/docs/git#commit-and-push).
+`kortix ship` validates `kortix.yaml`, commits, asks for missing secrets, pushes the current branch and asks you to connect declared connectors. The first run creates the project: with no `origin` it creates a Dosco-managed repository, with a GitHub `origin` it links that repository. After it, plain `git push` and `git pull` work. Details: [Commit and push](/docs/git#commit-and-push).
 
 </Tab>
 <Tab title="Existing project">
@@ -58,9 +58,9 @@ kortix projects clone <project_id> my-agent
 cd my-agent
 ```
 
-`kortix projects clone` clones the repository through Kortix with your Kortix login. The directory name defaults to the project ID, so pass a name. Inside the clone, the CLI writes `.kortix/link.json` and installs a credential helper. Plain `git pull` then works. `git push` and `kortix ship` need `project.gitops.push`, which the project **Manager** role holds. A **Member** can clone and pull only.
+`kortix projects clone` clones the repository through Dosco with your Dosco login. The directory name defaults to the project ID, so pass a name. Inside the clone, the CLI writes `.kortix/link.json` and installs a credential helper. Plain `git pull` then works. `git push` and `kortix ship` need `project.gitops.push`, which the project **Manager** role holds. A **Member** can clone and pull only.
 
-To start a session, a Member also needs an agent grant. A manager runs `kortix access grant --user <your-email> --agent kortix`, or `--everyone --agent kortix` for every project member. The first grant on an agent closes it to everyone the grants do not name, managers included. See [Accounts & access](/docs/accounts#project-access).
+To start a session, a Member also needs an agent grant. A manager runs `kortix access grant --user <your-email> --agent xera`, or `--everyone --agent xera` for every project member. The first grant on an agent closes it to everyone the grants do not name, managers included. See [Accounts & access](/docs/accounts#project-access).
 
 Run the next commands from inside the clone. Outside it, commands use your default project, which can be a different one.
 
@@ -71,9 +71,9 @@ Open **Create a project** in the web app (`/new`). Pick the **Account**, type a 
 
 | Choice | Result |
 | --- | --- |
-| **Kortix managed** | Kortix creates and manages a private repository. |
-| A GitHub account, **Create a new repository** | Kortix creates a private repository in that GitHub account. |
-| A GitHub account, **Import an existing repository** | Kortix links a repository you already have. |
+| **Dosco managed** | Dosco creates and manages a private repository. |
+| A GitHub account, **Create a new repository** | Dosco creates a private repository in that GitHub account. |
+| A GitHub account, **Import an existing repository** | Dosco links a repository you already have. |
 
 Click **Create project**. To work on it from a terminal, run `kortix projects clone`.
 
@@ -99,14 +99,14 @@ The session runs the project's default agent. `--agent <name>` and `--model <id>
 | Talk to the agent | `kortix chat` (picks your most recent running session) |
 | Send one prompt | `kortix chat <session_id> --prompt "…"` |
 | Attach the OpenCode TUI (OpenCode sessions) | `kortix connect <session_id>` |
-| Open the Kortix terminal app | `kortix tui` |
+| Open the Dosco terminal app | `kortix tui` |
 | List sessions | `kortix sessions ls` |
 
 The platform default model runs on every plan. To use your own provider keys, see [Models](/docs/project/models). Everything else about sessions is on [Sessions](/docs/work/sessions).
 
 ## Review and merge
 
-A change request proposes to merge the session branch into the project's default branch (`main` in a new project). The agent opens it with `kortix cr open`, because the `kortix-system` skill that Kortix adds to every session tells it to. The platform does not open one by itself. If the agent did not open one, ask it to, or open it yourself:
+A change request proposes to merge the session branch into the project's default branch (`main` in a new project). The agent opens it with `kortix cr open`, because the `kortix-system` skill that Dosco adds to every session tells it to. The platform does not open one by itself. If the agent did not open one, ask it to, or open it yourself:
 
 ```sh
 kortix cr open --head <session_id> --session <session_id> --title "Weekly status report skill"
@@ -125,7 +125,7 @@ git pull              # bring the merged work into your clone
 
 An agent declared in `kortix.yaml` merges only when its `kortix_permissions` include `project.gitops.merge`. Otherwise the merge returns `403` with code `agent_scope_insufficient`. See [Agents that merge](/docs/git#agents-that-merge).
 
-The starter `kortix` agent has `kortix_permissions: all`, so the API lets it merge its own change request. The managed `kortix-system` skill tells it to stop after it opens one, so a person merges.
+The starter `xera` agent has `kortix_permissions: all`, so the API lets it merge its own change request. The managed `kortix-system` skill tells it to stop after it opens one, so a person merges.
 
 ## Check your setup
 

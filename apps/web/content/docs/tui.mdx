@@ -1,9 +1,9 @@
 ---
 title: TUI
-description: "kortix tui: the full Kortix client in your terminal, with sessions, a real sandbox shell, files, review, Apps and settings."
+description: "kortix tui: the full Dosco client in your terminal, with sessions, a real sandbox shell, files, review, Apps and settings."
 ---
 
-`kortix tui` opens the Kortix client in your terminal. A sidebar lists accounts, projects and sessions. The session view has the transcript, the composer, and a shell in the session's sandbox. The Files, Review, Apps, Customize and Account screens are one key away. It reads the same data as the web app, so a session in the terminal is the same session in the browser. The TUI is experimental: its screens, keys and flags can change between releases.
+`kortix tui` opens the Dosco client in your terminal. A sidebar lists accounts, projects and sessions. The session view has the transcript, the composer, and a shell in the session's sandbox. The Files, Review, Apps, Customize and Account screens are one key away. It reads the same data as the web app, so a session in the terminal is the same session in the browser. The TUI is experimental: its screens, keys and flags can change between releases.
 
 Use it when you work from a terminal and want to drive sessions with the keyboard. For one-shot commands and scripts, use the [CLI](/docs/cli).
 
@@ -48,7 +48,7 @@ When the launcher cannot install:
 | Situation | Result |
 | --- | --- |
 | No terminal (a pipe, CI) and no installed version | Exits `2` and prints `kortix tui --install`. Nothing downloads. An installed older version updates with no prompt, also without a terminal. |
-| Inside a Kortix session sandbox | Refuses to install and exits `1`. Run `kortix tui` on your own machine, or set `KORTIX_TUI_BIN`. |
+| Inside a Dosco session sandbox | Refuses to install and exits `1`. Run `kortix tui` on your own machine, or set `KORTIX_TUI_BIN`. |
 | You answer no to the prompt | Exits `0`. Nothing is installed. |
 | The download or the checksum fails | Exits `1`. Nothing is left in the cache. |
 | A `kortix` built from source (version `dev`) | Exits `1`. No release matches it. Build the binary with `pnpm --filter @kortix/tui bundle` and set `KORTIX_TUI_BIN`, or copy it to `~/.kortix/tui/dev/kortix-tui`. |
@@ -165,9 +165,9 @@ Attach hands the session to the stock OpenCode TUI. Use one of these:
 - `a` on a session row in the sidebar.
 - `/attach` in the composer.
 
-The first attach downloads the OpenCode version that the sandbox runs. It stores it in `~/.kortix/opencode/<version>/`. Later attaches reuse it. A local proxy adds your Kortix token to each request. A session that is not running starts first, and attach waits until its sandbox is ready.
+The first attach downloads the OpenCode version that the sandbox runs. It stores it in `~/.kortix/opencode/<version>/`. Later attaches reuse it. A local proxy adds your Dosco token to each request. A session that is not running starts first, and attach waits until its sandbox is ready.
 
-While OpenCode has the terminal, the Kortix TUI paints nothing. To leave OpenCode, press `Ctrl+C` twice within 1 second. `Esc` does not leave it. The Kortix TUI then returns to the same session.
+While OpenCode has the terminal, the Dosco TUI paints nothing. To leave OpenCode, press `Ctrl+C` twice within 1 second. `Esc` does not leave it. The Dosco TUI then returns to the same session.
 
 A session on the pi harness has no attach. `Alt+O` and `a` show a notice, and `/attach` is not in the command picker. `a` on a pi session that is not open starts its sandbox first, then shows the notice. Use `Alt+T` for a shell in its sandbox. See [Harnesses: OpenCode and pi](/docs/project/agents#harnesses-opencode-and-pi).
 

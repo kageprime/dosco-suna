@@ -1,9 +1,9 @@
 ---
-title: Kortix UI
-description: "@kortix/ui: the Kortix React components and the session chat, themed by CSS variables, for your own app."
+title: Dosco UI
+description: "@kortix/ui: the Dosco React components and the session chat, themed by CSS variables, for your own app."
 ---
 
-`@kortix/ui` is the React component library that the Kortix web app renders. The same package serves Kortix Apps, white-label hosts and your own app, so a button, a modal or a chat thread looks and behaves the same everywhere. Components are Tailwind CSS v4 class strings that read CSS variables. You re-theme them by overriding the variables, never by copying a component.
+`@kortix/ui` is the React component library that the Dosco web app renders. The same package serves Dosco Apps, white-label hosts and your own app, so a button, a modal or a chat thread looks and behaves the same everywhere. Components are Tailwind CSS v4 class strings that read CSS variables. You re-theme them by overriding the variables, never by copying a component.
 
 <Callout type="warning">
 `@kortix/ui` is not on npm yet. Today it is a workspace package of the [kortix-ai/suna](https://github.com/kortix-ai/suna) repository: inside that repository, add `"@kortix/ui": "workspace:*"` to your package's dependencies. This page describes the package as it ships there.
@@ -79,7 +79,7 @@ It holds no class that only your own code uses. Style your own markup with plain
 
 - Dark mode is the `dark` class on `<html>`. Add or remove it to switch themes. `useIsDark()` returns the current state.
 - Both paths style the page itself: `body` paints `--background` and `--foreground`, borders default to `--border`, native controls follow the theme (`color-scheme`), text selection reads `--selection`, and interactive elements show the pointer cursor. You add no base rules of your own.
-- `@kortix/ui/fonts.css` loads the Roobert font, for Kortix-owned surfaces only. Every other host renders the system font stack (`--font-sans-system`).
+- `@kortix/ui/fonts.css` loads the Roobert font, for Dosco-owned surfaces only. Every other host renders the system font stack (`--font-sans-system`).
 
 ## Mount the providers
 
@@ -108,8 +108,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 | Provider | What it does | Without it |
 | --- | --- | --- |
-| `UiProvider` | `strings`: the copy the components render when you pass no label, for translation: `confirm`, `cancel`, `close` (the screen-reader label of the dialog and sheet close button), `commandPaletteTitle`, `commandPaletteDescription`, and `chat` for every string of `@kortix/ui/chat` (`defaultChatStrings` lists the keys and their English values). Pass only the keys you translate. `link`: the link component of your router, called with `href`. `useBrand`: a hook that returns your organization's logo URLs for `KortixLogo`. | English copy, a plain `<a>` and the Kortix logo. |
-| `IconProvider` | Gives every Phosphor icon the Kortix weight and size. | Phosphor's defaults. |
+| `UiProvider` | `strings`: the copy the components render when you pass no label, for translation: `confirm`, `cancel`, `close` (the screen-reader label of the dialog and sheet close button), `commandPaletteTitle`, `commandPaletteDescription`, and `chat` for every string of `@kortix/ui/chat` (`defaultChatStrings` lists the keys and their English values). Pass only the keys you translate. `link`: the link component of your router, called with `href`. `useBrand`: a hook that returns your organization's logo URLs for `KortixLogo`. | English copy, a plain `<a>` and the Dosco logo. |
+| `IconProvider` | Gives every Phosphor icon the Dosco weight and size. | Phosphor's defaults. |
 | `<Toaster />` from `@kortix/ui/toast` | Renders the toasts that `successToast`, `errorToast` and the other helpers in `@kortix/ui/toast` raise. | No toast appears. |
 
 ## Theme it for your brand
@@ -118,8 +118,8 @@ Every color, radius and font is a CSS variable from `tokens.css`. To white-label
 
 | Variable | Default | What follows it |
 | --- | --- | --- |
-| `--kortix-blue` | Kortix blue | The accent: a checked `Switch`, `Checkbox` and `RadioGroup`, the `brand` and `blue` `Button` variants, the info `Badge`, `InfoBanner`, `Alert` and status tone. |
-| `--ring` | Kortix blue | Focus rings and the focused composer border. `--kortix-base`, the sidebar focus ring (`--sidebar-ring`) and the sidebar selection (`--sidebar-primary`) follow it. |
+| `--kortix-blue` | Dosco blue | The accent: a checked `Switch`, `Checkbox` and `RadioGroup`, the `brand` and `blue` `Button` variants, the info `Badge`, `InfoBanner`, `Alert` and status tone. |
+| `--ring` | Dosco blue | Focus rings and the focused composer border. `--kortix-base`, the sidebar focus ring (`--sidebar-ring`) and the sidebar selection (`--sidebar-primary`) follow it. |
 | `--foreground`, `--background` | Ink on white | Text, the page, and the default `Button` (`bg-foreground text-background`). |
 | `--primary`, `--primary-foreground` | Ink | `Progress`, `Slider`, the `Calendar` selection, the menu row highlight tint and the default text selection. |
 | `--kortix-green`, `--kortix-orange`, `--destructive` | Green, orange, red | The success, warning and error tones. Keep their meaning. |
@@ -195,9 +195,9 @@ The parent sets the height, and the thread fills it. Everything reads off `sessi
 | `renderTool` | `(tool) => ReactNode \| undefined`. Replaces the card of one tool call. Return `undefined` to keep the default `ToolCall`. |
 | `renderers` | Overrides the renderer of any part kind (`text`, `reasoning`, `tool`, `file` and the rest). |
 | `onError` | `(message, error) => void`. Reports a failed permission reply, question reply or slash command, for a toast. Without it, the error shows inline. A refused slash command also puts the typed line back into the composer. |
-| `providerLabel` | `(model) => string`. The provider line of a model row in the model picker. A white-label returns its own name for Kortix-managed models (`model.providerID === 'kortix'`). `ModelPicker` takes the same prop. |
+| `providerLabel` | `(model) => string`. The provider line of a model row in the model picker. A white-label returns its own name for Dosco-managed models (`model.providerID === 'kortix'`). `ModelPicker` takes the same prop. |
 
-The thread follows the transcript rules of the Kortix web app. When a provider error interrupts a turn, the harness resumes it with its own `[auto-recovery]` prompt: the thread shows no bubble for that prompt and no error row for the failure it continued. If the chain still ends in failure, one error row shows, with how many automatic retries ran. The composer shows the `/ for commands` hint only when the session has a command. In the model picker, ArrowUp and ArrowDown move the highlight and Enter picks it.
+The thread follows the transcript rules of the Dosco web app. When a provider error interrupts a turn, the harness resumes it with its own `[auto-recovery]` prompt: the thread shows no bubble for that prompt and no error row for the failure it continued. If the chain still ends in failure, one error row shows, with how many automatic retries ran. The composer shows the `/ for commands` hint only when the session has a command. In the model picker, ArrowUp and ArrowDown move the highlight and Enter picks it.
 
 For a layout of your own, compose the parts from the same `useSession` result: `MessageList`, `MessageView`, `Composer`, `PermissionPrompt`, `QuestionPrompt`, `ModelPicker` and `AgentPicker`, all from `@kortix/ui/chat`. `Markdown` renders a streaming message and holds back half-written code fences and tables, so the text does not flicker.
 
@@ -207,11 +207,11 @@ To draw every part with your own components, skip `@kortix/ui/chat` and use the 
 
 ## For agents
 
-The package ships a skill at `packages/ui/skills/kortix-ui/SKILL.md`, and every Kortix session loads it as the `kortix-ui` skill. It tells an agent how to set up the package, which component to compose, which primitives are banned, and how to verify a page. Point your own coding agent at it before it writes UI with `@kortix/ui`.
+The package ships a skill at `packages/ui/skills/kortix-ui/SKILL.md`, and every Dosco session loads it as the `kortix-ui` skill. It tells an agent how to set up the package, which component to compose, which primitives are banned, and how to verify a page. Point your own coding agent at it before it writes UI with `@kortix/ui`.
 
 ## Next steps
 
 <CardGroup>
   <Card icon="atom" title="React" href="/docs/sdk/react">The `useSession` hook and the data hooks the chat reads.</Card>
-  <Card icon="app-window" title="Apps" href="/docs/apps#build-an-internal-tool">Build an internal tool as a Kortix App.</Card>
+  <Card icon="app-window" title="Apps" href="/docs/apps#build-an-internal-tool">Build an internal tool as a Dosco App.</Card>
 </CardGroup>
