@@ -7,11 +7,13 @@
 # Two stages run in order:
 #   1. FE-relevance — if a push changed NOTHING that feeds the apps/web build
 #      (only sibling apps / infra / tests / docs), skip it on every branch.
-#   2. Deploy-target — staging auto-builds. Production deploys through the
-#      gated workflow. Dev uses ECS. PR previews use Platinum or Daytona.
+#   2. Deploy-target — staging auto-builds; a production build of any ref
+#      other than `prod` passes stage 1 and builds (case production:*).
+#      Prod-branch pushes skip: deploy-prod.yml owns that route. Dev uses
+#      ECS. PR previews use Platinum or Daytona.
 #
-# Staging defaults to BUILD on uncertainty. Dev and PR previews default to SKIP.
-# Production auto-builds always skip because deploy-prod.yml owns that release.
+# Staging defaults to BUILD on uncertainty. Dev, PR previews, and prod-branch
+# pushes default to SKIP. Production auto-builds of main build normally.
 #
 # WHY THIS EXISTS
 # A backend/infra-only push to `prod` (e.g. a rollback that only flips
