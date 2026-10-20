@@ -46,7 +46,10 @@ Values live in `visual-system.json` (keys `color.*`). This file says which token
 | top surface | `bg-popover` | Overlays, fields, and rows or panels inside another panel. |
 | ink | `text-foreground` | Primary text. |
 | ink-muted | `text-muted-foreground` | Descriptions, meta, idle state. |
+| ink over media | `text-scene-foreground`, `text-scene-foreground-muted` (`color.semantic.scene-foreground*`) | Text on the landing fold's Unicorn scene. The scene is dark in both themes, so this ink is light in both (K10). |
 | hairline | `border-border` | Every content border. |
+
+**Rule.** Ink over the fold's media follows the media, not the theme. The landing fold's Unicorn scene is dark in both themes; `hero-background.tsx` reports its mode, and the `kx-hero` CSS in `globals.css` swaps the theme ink pair (`--hero-ink`, `--hero-ink-muted`) for the `scene-foreground` pair when `data-hero-media="scene"`. SSR (`pending`) and the brandmark fallback sit on the page background and keep the theme ink. — *Why:* theme-bound ink put dark headline text on the dark scene in light mode and the fold lost legibility (reported 2026-10-20); a `dark:` pair is banned and an opacity step fails on the media, so the tokens carry the surface's own inks, as the terminal family already does. — *Where:* marketing. — *When silent:* nothing else paints on a theme-invariant media; a second one needs its own tokens, not a reuse of the fold's.
 
 **Rule.** Use `bg-popover` for a floating or inset surface: an overlay, a field, or a row or panel inside another panel. Do not use `bg-card` for these. — *Why:* `bg-card` is the washed region tone. `bg-popover` is the flat elevated surface that sits on top of another surface. — *Where:* app. — *When silent:* if it floats, or sits inside another panel, use `bg-popover`. If it sits directly on the page, see the in-flow rule below.
 

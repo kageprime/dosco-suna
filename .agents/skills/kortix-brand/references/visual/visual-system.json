@@ -34,6 +34,8 @@
       "foreground": { "light": "oklch(0.2393 0 0)", "dark": "oklch(1 0 0)", "hex": ["#1f1f1f", "#ffffff"], "ramp": "ink", "utility": "text-foreground", "mobile": true, "use": "Primary text." },
       "foreground-strong": { "ref": "foreground", "utility": "text-foreground-strong", "mobile": true, "use": "Alias for title-weight text." },
       "foreground-weak": { "ref": "muted-foreground", "utility": "text-foreground-weak", "mobile": true, "use": "Alias for description-weight text." },
+      "scene-foreground": { "light": "oklch(1 0 0)", "dark": "oklch(1 0 0)", "hex": ["#ffffff", "#ffffff"], "ramp": "ink", "utility": "text-scene-foreground", "mobile": false, "use": "Primary ink over the landing fold's Unicorn scene. The scene is dark in both themes, so this ink is light in both." },
+      "scene-foreground-muted": { "light": "oklch(0.683 0 0)", "dark": "oklch(0.683 0 0)", "hex": ["#999999", "#999999"], "ramp": "ink-muted", "utility": "text-scene-foreground-muted", "mobile": false, "use": "Muted ink over the landing fold's Unicorn scene. The scene is dark in both themes, so this ink is light in both." },
       "card": {
         "light": "oklch(0.9672 0 0)",
         "dark": "oklch(0.1913 0 0)",

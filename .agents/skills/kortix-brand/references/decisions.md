@@ -10,6 +10,16 @@ Ids: `D1` to `D8` and `D4a` to `D4k` come from the 2026-10-01 brand-kit build. `
 
 ---
 
+## 2026-10-20
+
+### K10 Ink over the fold's media: `scene-foreground` tokens
+- **Date:** 2026-10-20
+- **Decision:** The landing fold's ink follows the media, not the theme. Two new semantic tokens, `scene-foreground` and `scene-foreground-muted`, carry light ink in both themes and reuse the values the dark theme already uses for `foreground` and `muted-foreground`, so no value is new. `hero-background.tsx` reports its mode (`pending`, `fallback`, `scene`) to the fold, and the hand-authored `kx-hero` region of `globals.css` swaps a fold ink pair (`--hero-ink`, `--hero-ink-muted`) for the scene pair when `data-hero-media="scene"`. No `dark:` pair, no opacity on text.
+- **Why:** the fold's Unicorn scene is dark in both themes, and the theme-bound `text-foreground` / `text-muted-foreground` put dark headline ink on it in light mode — the fold read as grey and lost legibility (reported 2026-10-20). A call-site white is banned and opacity steps fail on the media; the terminal family (a surface with its own constant tokens) is the precedent.
+- **Where:** `visual/visual-system.json` (`color.semantic.scene-foreground`, `scene-foreground-muted`), the generated token files, `apps/web/src/app/globals.css` (`kx-hero-fold` ink rules), `apps/web/src/features/marketing/hero.tsx`, `apps/web/src/features/marketing/hero-background.tsx`, `visual/color.md` (ink-over-media ladder row and rule).
+- **Supersedes:** none. The Per-surface `Theme: follow` row keeps the general law; the ink-over-media rule in `color.md` scopes this exception to the fold's media.
+- **Source:** the landing fold light-mode readability fix on `main` (2026-10-20).
+
 ## 2026-10-19
 
 ### K9 `@kortix/ui`: the shared Tailwind v4 component library

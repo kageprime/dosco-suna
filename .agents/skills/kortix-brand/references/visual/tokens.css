@@ -11,6 +11,8 @@
   --foreground: #1f1f1f;
   --foreground-strong: #1f1f1f;
   --foreground-weak: #666666;
+  --scene-foreground: #ffffff;
+  --scene-foreground-muted: #999999;
   --card: #f4f4f4;
   --card-foreground: #1f1f1f;
   --popover: #ffffff;
@@ -136,6 +138,8 @@
   --foreground: #ffffff;
   --foreground-strong: #ffffff;
   --foreground-weak: #999999;
+  --scene-foreground: #ffffff;
+  --scene-foreground-muted: #999999;
   --card: #141414;
   --card-foreground: #ffffff;
   --popover: #141414;
@@ -191,6 +195,8 @@
     --foreground: #ffffff;
     --foreground-strong: #ffffff;
     --foreground-weak: #999999;
+    --scene-foreground: #ffffff;
+    --scene-foreground-muted: #999999;
     --card: #141414;
     --card-foreground: #ffffff;
     --popover: #141414;

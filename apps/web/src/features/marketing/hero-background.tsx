@@ -35,8 +35,19 @@ const UnicornScene = dynamic(
 
 const HERO_SCENE_URL = '/scenes/flow-background.json';
 
-export function HeroBackground({ className }: { className?: string }) {
-  const [mode, setMode] = useState<'pending' | 'fallback' | 'scene'>('pending');
+/** What owns the surface under the fold's type: `scene` is the Unicorn canvas
+ *  (dark in both themes), `pending` (SSR) and `fallback` (brandmark wallpaper)
+ *  sit on the page background. The fold's ink follows this, not the theme. */
+export type HeroMediaMode = 'pending' | 'fallback' | 'scene';
+
+export function HeroBackground({
+  className,
+  onMediaChange,
+}: {
+  className?: string;
+  onMediaChange?: (mode: HeroMediaMode) => void;
+}) {
+  const [mode, setMode] = useState<HeroMediaMode>('pending');
   const [loaded, setLoaded] = useState(false);
   const [narrow, setNarrow] = useState(false);
 
@@ -60,6 +71,13 @@ export function HeroBackground({ className }: { className?: string }) {
     setNarrow(window.matchMedia('(max-width: 767px)').matches);
     setMode('scene');
   }, []);
+
+  /* The parent swaps the fold's ink pair for the scene-foreground pair on
+     `scene` (globals.css); on `pending` and `fallback` it keeps the theme ink.
+     A scene error (onError below) flips back and the ink follows. */
+  useEffect(() => {
+    onMediaChange?.(mode);
+  }, [mode, onMediaChange]);
 
   return (
     <div

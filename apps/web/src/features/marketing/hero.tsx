@@ -1,11 +1,11 @@
 'use client';
 
-import { HeroBackground } from '@/features/marketing/hero-background';
+import { HeroBackground, type HeroMediaMode } from '@/features/marketing/hero-background';
 import { Claude } from '@/features/icon/icons/claude';
 import { OpenAI } from '@/features/icon/icons/open-ai';
 import { getLocalizedLandingContent } from '@/features/marketing/landing/content';
 import { useTranslations } from '@/i18n/use-translations';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 /** `heroEyebrow.rivals[].icon` selects a logo by name at runtime, so it can't be
  *  statically resolved to a single import — this explicit map is the smallest set
@@ -24,19 +24,19 @@ export function RivalEyebrow({
     /* `justify-center` centres the wrapped rows as a unit; each rival stays its
        own inline `flex items-center` span, so the logo and its label never
        separate when the row wraps on a phone. */
-    <div className="kx-hero-text text-muted-foreground flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-center text-sm">
+    <div className="kx-hero-text text-[color:var(--hero-ink-muted)] flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-center text-sm">
       <span>{content.lead}</span>
       {content.rivals.map((r, i) => {
         const Glyph = RIVAL_ICONS[r.icon] as ((p: { className?: string }) => ReactNode) | undefined;
         return (
           <span key={r.id} className="flex items-center gap-1.5">
             {i > 0 && (
-              <span className="text-muted-foreground/50 mr-1">
+              <span className="text-[color:var(--hero-ink-muted)] mr-1">
                 {tI18nComplete.raw('text6201111b83a0')}
               </span>
             )}
             {Glyph ? <Glyph className="size-4" /> : null}
-            <span className="text-foreground font-medium">{r.label}</span>
+            <span className="text-[color:var(--hero-ink)] font-medium">{r.label}</span>
           </span>
         );
       })}
@@ -47,6 +47,10 @@ export function RivalEyebrow({
 const Hero = () => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const { hero, heroEyebrow } = getLocalizedLandingContent(tI18nComplete);
+  /* The fold's ink follows the media, not the theme (color.md): scene mode
+     swaps in the scene-foreground pair, pending and fallback keep the theme
+     pair. The swap lives in globals.css under `data-hero-media='scene'`. */
+  const [media, setMedia] = useState<HeroMediaMode>('pending');
 
   /* The measure and the gutter belong on the same element, which is the rule the
      navbar already follows (`mx-auto w-full max-w-7xl px-6`). Splitting them —
@@ -80,7 +84,7 @@ const Hero = () => {
         aria-hidden
         data-a11y-decorative
       >
-        <HeroBackground />
+        <HeroBackground onMediaChange={setMedia} />
       </div>
 
       {/* The fold is type only. Families are scoped through the Inter /
@@ -95,14 +99,18 @@ const Hero = () => {
           `animation-delay` would outrank the stylesheet and keep the staged
           reveal alive after prefers-reduced-motion removed the travel. Setting
           only `--kx-enter` leaves the stylesheet free to zero it. */}
-      <div className="relative z-20">
+      {/* The fold's ink follows the media (color.md, scene-foreground tokens):
+          `kx-hero-fold` + `data-hero-media` let globals.css swap the theme ink
+          pair for the scene pair once the scene owns the surface; SSR and the
+          fallback wallpaper keep the theme ink. */}
+      <div className="kx-hero-fold relative z-20" data-hero-media={media}>
         <div className="mx-auto w-full max-w-7xl px-6">
           <RivalEyebrow content={heroEyebrow} />
 
           {/* `mx-auto` on the measure is what actually centres the block: without
               it `max-w-3xl` stays flush left inside max-w-7xl and only the glyphs
               inside it centre, which leaves the headline off-axis on desktop. */}
-          <h1 className="kx-hero-text text-foreground mx-auto mt-5 max-w-3xl text-center font-[family-name:var(--font-onlook-sans)] text-[min(2.25rem,9vw)] leading-[1.04] font-light tracking-[-0.04em] text-balance [--kx-enter:70ms] sm:text-6xl">
+          <h1 className="kx-hero-text text-[color:var(--hero-ink)] mx-auto mt-5 max-w-3xl text-center font-[family-name:var(--font-onlook-sans)] text-[min(2.25rem,9vw)] leading-[1.04] font-light tracking-[-0.04em] text-balance [--kx-enter:70ms] sm:text-6xl">
             {hero.title}
           </h1>
 
@@ -110,13 +118,13 @@ const Hero = () => {
               and then the deliverable cards; the fold is type only now, so the
               wrapper is just the single line. */}
           <div className="mt-6 flex flex-col items-center">
-            <p className="kx-hero-text text-muted-foreground mx-auto max-w-xl text-center font-[family-name:var(--font-onlook-sans)] text-base leading-relaxed text-balance [--kx-enter:150ms] sm:text-lg">
+            <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto max-w-xl text-center font-[family-name:var(--font-onlook-sans)] text-base leading-relaxed text-balance [--kx-enter:150ms] sm:text-lg">
               {hero.sub}
             </p>
           </div>
         </div>
 
-        <p className="kx-hero-text text-muted-foreground/60 mx-auto mt-10 max-w-7xl px-6 text-center font-[family-name:var(--font-onlook-mono)] text-[11px] tracking-wide [--kx-enter:490ms]">
+        <p className="kx-hero-text text-[color:var(--hero-ink-muted)] mx-auto mt-10 max-w-7xl px-6 text-center font-[family-name:var(--font-onlook-mono)] text-[11px] tracking-wide [--kx-enter:490ms]">
           {hero.trust}
         </p>
       </div>

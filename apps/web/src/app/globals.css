@@ -45,6 +45,8 @@
   --foreground: oklch(0.2393 0 0); /* ink #1f1f1f */
   --foreground-strong: var(--foreground);
   --foreground-weak: var(--muted-foreground);
+  --scene-foreground: oklch(1 0 0); /* ink #ffffff */
+  --scene-foreground-muted: oklch(0.683 0 0); /* ink-muted #999999 */
   --card: oklch(0.9672 0 0); /* surface-1 #f4f4f4 */
   --card-foreground: oklch(0.2393 0 0); /* ink #1f1f1f */
   --popover: oklch(1 0 0); /* canvas / surface-1 #ffffff */
@@ -559,6 +561,25 @@
   animation-name: kx-fade;
   animation-duration: 1100ms;
   animation-timing-function: linear;
+}
+
+/* The fold's ink follows the media, not the theme (color.md, ink-over-media
+   rule): the Unicorn scene is dark in both themes, so when it owns the fold
+   (`data-hero-media="scene"`, set from `HeroBackground`'s mode) the bands swap
+   the theme ink pair for the scene-foreground pair. `.kx-hero-text` carries
+   the theme defaults on every band, so a band rendered outside the fold — the
+   RivalEyebrow in its tests — keeps them. The color flip is 300ms (the ramp's
+   slow step), timed inside the canvas's longer fade; it is a pure color
+   change with no travel, so reduced motion keeps it. */
+.kx-hero-text {
+  --hero-ink: var(--foreground);
+  --hero-ink-muted: var(--muted-foreground);
+  transition: color 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.kx-hero-fold[data-hero-media='scene'] .kx-hero-text {
+  --hero-ink: var(--scene-foreground);
+  --hero-ink-muted: var(--scene-foreground-muted);
 }
 
 /* Reduced motion removes the movement, not the animation. The fade stays,

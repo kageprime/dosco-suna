@@ -10,6 +10,8 @@
   --foreground: oklch(0.2393 0 0); /* ink #1f1f1f */
   --foreground-strong: var(--foreground);
   --foreground-weak: var(--muted-foreground);
+  --scene-foreground: oklch(1 0 0); /* ink #ffffff */
+  --scene-foreground-muted: oklch(0.683 0 0); /* ink-muted #999999 */
   --card: oklch(0.9672 0 0); /* surface-1 #f4f4f4 */
   --card-foreground: oklch(0.2393 0 0); /* ink #1f1f1f */
   --popover: oklch(1 0 0); /* canvas / surface-1 #ffffff */
