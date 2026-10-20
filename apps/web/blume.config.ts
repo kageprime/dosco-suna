@@ -27,7 +27,7 @@ const sidebar = [
 // The docs render through Blume, not through the Next app. Nothing in
 // content/docs may import an app component. Blume built-ins only.
 export default defineConfig({
-  title: 'Kortix',
+  title: 'Dosco',
   description: 'Open-source AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.',
 
   // Content stays where it has always been. src/lib/seo/public-content.ts
@@ -46,7 +46,7 @@ export default defineConfig({
     // canonical home, not at whichever host rendered the page.
     // seo.sitemap stays false: the Next app owns /sitemap.xml for the whole
     // domain, so setting `site` must not hand that surface to Blume.
-    site: 'https://kortix.com',
+    site: 'https://dosco.live',
   },
 
   // Stock theme, deliberately. A Kortix skin is a separate follow-up; see
@@ -69,7 +69,7 @@ export default defineConfig({
       // correct. Keep both slots symbol-only.
       light: '/kortix-symbol.svg',
       dark: '/kortix-symbol-white.svg',
-      alt: 'Kortix',
+      alt: 'Dosco',
     },
   },
 
@@ -146,7 +146,7 @@ export default defineConfig({
         // supported way to point a tab off-site. `href` would be redundant:
         // Header.astro renders `tab.href ?? tab.path`.
         label: 'API reference',
-        path: 'https://api.kortix.com/v1/docs',
+        path: 'https://dosco-05dd0b153705.herokuapp.com/v1/docs',
       },
     ],
     sidebar: { items: sidebar },

@@ -49,7 +49,7 @@ index 03f3926ddc15546f0473a1a08557255dd4b2ea31..936c9ce2e12e1d7fda5a45493351dcfe
    chatgpt: "ChatGPT",
    claude: "Claude",
    cursor: "Cursor",
-+  kortix: "Kortix",
++  kortix: "Dosco",
    scira: "Scira",
    t3: "T3 Chat",
    v0: "v0",

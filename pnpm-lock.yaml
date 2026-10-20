@@ -69,7 +69,7 @@ overrides:
 
 patchedDependencies:
   blume@1.5.3:
-    hash: e2lihfsjc4kvtdhxezjuaintza
+    hash: yvhw7rxv2hlzpct37ayvb6lsr4
     path: patches/blume@1.5.3.patch
   dmg-builder@25.1.8:
     hash: x5orqgpci6mca5rbjguv3lxtri
@@ -1162,7 +1162,7 @@ importers:
         version: 35.3.1(react-dom@19.3.0)(react@19.3.0)
       blume:
         specifier: 1.5.3
-        version: 1.5.3(patch_hash=e2lihfsjc4kvtdhxezjuaintza)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@20.19.43)(@types/react-dom@19.2.3)(@types/react@19.2.18)(csstype@3.2.3)(next@16.4.0)(preact@10.29.8)(prettier@3.9.7)(svelte@5.57.1)(vite@8.3.2)(vue@3.5.43)
+        version: 1.5.3(patch_hash=yvhw7rxv2hlzpct37ayvb6lsr4)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@20.19.43)(@types/react-dom@19.2.3)(@types/react@19.2.18)(csstype@3.2.3)(next@16.4.0)(preact@10.29.8)(prettier@3.9.7)(svelte@5.57.1)(vite@8.3.2)(vue@3.5.43)
       cannon-es:
         specifier: ^0.20.0
         version: 0.20.0
@@ -17129,7 +17129,7 @@ packages:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
     dev: true
 
-  /blume@1.5.3(patch_hash=e2lihfsjc4kvtdhxezjuaintza)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@20.19.43)(@types/react-dom@19.2.3)(@types/react@19.2.18)(csstype@3.2.3)(next@16.4.0)(preact@10.29.8)(prettier@3.9.7)(svelte@5.57.1)(vite@8.3.2)(vue@3.5.43):
+  /blume@1.5.3(patch_hash=yvhw7rxv2hlzpct37ayvb6lsr4)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@20.19.43)(@types/react-dom@19.2.3)(@types/react@19.2.18)(csstype@3.2.3)(next@16.4.0)(preact@10.29.8)(prettier@3.9.7)(svelte@5.57.1)(vite@8.3.2)(vue@3.5.43):
     resolution: {integrity: sha512-8oaUwDtMcEWdCxnUmnPnw6SJol93EAavUq7ihFcr6ur2mCPcdkMjMzphM5Y3qIAexwy2J/bsQKRzAWKqHqIUSw==}
     engines: {node: '>=22.12.0'}
     hasBin: true

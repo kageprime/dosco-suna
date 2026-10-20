@@ -13,8 +13,8 @@ export const siteMetadata = {
  name: 'Dosco Agent Network',
  title: 'Dosco – The AI Operating System',
  description:
- ' AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. or cloud.',
+ 'Dosco AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.',
  url: CANONICAL_ORIGIN,
  keywords:
- 'Dosco, AI Operating System, AI Operating System, AI OS, AI OS, AI Operating System for companies, what is an AI Operating System, alternative to Claude Cowork, ChatGPT Work alternative, company as a git repo, agents skills and memory as files, shared AI agents, scoped access, AI agents, connect 3000 tools, agent orchestration, AI-native company, AI operations',
+ 'Dosco, AI Operating System, AI OS, AI Operating System for companies, what is an AI Operating System, alternative to Claude Cowork, ChatGPT Work alternative, company as a git repo, agents skills and memory as files, shared AI agents, scoped access, AI agents, connect 3000 tools, agent orchestration, AI-native company, AI operations',
 };
