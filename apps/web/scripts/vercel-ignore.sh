@@ -33,11 +33,26 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 1
 cd "$ROOT" || exit 1
 
-# Need the previous commit to diff against. Vercel keeps >=2 commits for the
-# ignore step (its own docs use `git diff HEAD^ HEAD`). If absent → BUILD.
-git rev-parse --verify -q "HEAD^" >/dev/null || exit 1
+# ── Diff base ────────────────────────────────────────────────────────────────
+# What the change is measured against. Vercel builds only the pushed tip; a
+# push carrying TWO commits — an FE commit plus a non-FE tail — diffed against
+# HEAD^ looks non-FE and cancels, and the FE commit in the same push never
+# deploys (2026-10-20: exactly that skipped a hero-and-footer deploy). Vercel
+# sets VERCEL_GIT_PREVIOUS_SHA to the commit the previous build ran on when one
+# exists; fall back to HEAD^. If neither resolves → BUILD.
+BASE=""
+if [ -n "${VERCEL_GIT_PREVIOUS_SHA:-}" ] && git rev-parse --verify -q "${VERCEL_GIT_PREVIOUS_SHA}" >/dev/null 2>&1; then
+  BASE="${VERCEL_GIT_PREVIOUS_SHA}"
+  echo "vercel-ignore: diff base = previous deployed commit ${BASE:0:10}"
+elif git rev-parse --verify -q "HEAD^" >/dev/null; then
+  BASE="HEAD^"
+  echo "vercel-ignore: diff base = HEAD^ (no VERCEL_GIT_PREVIOUS_SHA)"
+else
+  echo "vercel-ignore: no diff base resolvable — building frontend."
+  exit 1
+fi
 
-changed="$(git diff --name-only HEAD^ HEAD 2>/dev/null)" || exit 1
+changed="$(git diff --name-only "$BASE" HEAD 2>/dev/null)" || exit 1
 [ -n "$changed" ] || exit 1   # unknown/empty diff → BUILD
 
 # ── Stage 1: FE-relevance ────────────────────────────────────────────────────
@@ -49,7 +64,7 @@ changed="$(git diff --name-only HEAD^ HEAD 2>/dev/null)" || exit 1
 # through to a build.
 SAFE='^(\.agents/|infra/|tests/|docs/|apps/(api|cli|desktop-electron|kortix-sandbox-agent-server|llm-gateway|mobile|sandbox|whitelabel-demo)/)'
 if ! printf '%s\n' "$changed" | grep -qvE "$SAFE"; then
-  echo "vercel-ignore: only non-FE paths (other apps / infra / tests / docs) changed since HEAD^ — skipping build."
+  echo "vercel-ignore: only non-FE paths (other apps / infra / tests / docs) changed since ${BASE:0:10} — skipping build."
   exit 0
 fi
 
