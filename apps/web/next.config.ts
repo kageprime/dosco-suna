@@ -473,18 +473,34 @@ const nextConfig = (): NextConfig => ({
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
     turbopackGc: true,
-    // The Vercel build machine is 8 GB on both Hobby and Pro defaults, and the
-    // default `next build` fan-out killed it: build-utils SIGKILLed `next build`
-    // (OOM) on 2026-10-20. The default spawns os.cpus()-1 prerender workers for
-    // this app's static pages, and each worker loads the full module graph plus
+    // The Vercel build machine is 8 GB (both plan defaults), and the default
+    // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
+    // on 2026-10-20. The default spawns os.cpus()-1 prerender workers for this
+    // app's static pages; each worker loads the full module graph plus
     // writePublicCatalogs()' output for all nine locales. Both knobs come from
-    // /docs/app/api-reference/config/next-config-js/staticGeneration. 250 means
-    // one additional worker per 250 prerendered pages: for this app's static
-    // surface that is one worker total. Concurrency 2 bounds how much render
-    // state exists at once instead of eight-odd pages in flight. The phase gets
-    // slower (maybe minutes); the process stays under the 8 GB edge.
+    // /docs/app/api-reference/config/next-config-js/staticGeneration.
+    // staticGenerationMinPagesPerWorker: 250 keeps the phase at exactly one
+    // worker for this app's 954-page static surface.
+    //
+    // The phase OOM'd a second time the same afternoon with the first knobs in
+    // place: its generate phase ran 99 s to a container SIGKILL without even a
+    // quarter-milestone printed (never reached 238/954), while the warm-cache
+    // build ~100 min earlier finished all 954 pages in 96 s. The second
+    // container started cold: the last build wrote a 2.4 GB cache that breaches
+    // the Hobby 1.5 GB cap (not fixable from vercel.json), so every following
+    // build invalidates the cache, and a cold turbopack compile keeps its
+    // program resident through the generate phase — same code, ~1 GB higher
+    // baseline. Concurrency 2 -> 1 renders one page at a time so the cold
+    // envelope fits too.
+    //
+    // The heaps are bounded in vercel.json's buildCommand:
+    // NODE_OPTIONS=--max-old-space-size=3584. Parent + the single worker then
+    // never legally exceed 7 GB of the 8 GB container; the previous 6144 cap
+    // allowed a 12.3 GB combined draw. A too-tight cap fails as a named V8
+    // heap-limit abort with a stack, not a container SIGKILL; if that appears,
+    // bump toward the container edge and never past a 7 GB combined sum.
     staticGenerationMinPagesPerWorker: 250,
-    staticGenerationMaxConcurrency: 2,
+    staticGenerationMaxConcurrency: 1,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
       '@phosphor-icons/react',
