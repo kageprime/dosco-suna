@@ -34,7 +34,7 @@ import { WHITE_LABEL_TRANSLATION_KEYS } from '@/i18n/white-label-translation-key
 
 export const SIGN_URL = 'https://app.documenso.com/d/gaAaA6NPc_E9c6C-sl9YB';
 export const AGREEMENT_URL = '?/blob/dev/WHITE-LABEL-LICENSE.md';
-export const CUSTOM_TERMS_URL = 'mailto:marko@kortix.ai';
+export const CUSTOM_TERMS_URL = 'mailto:support@dosco.live';
 
 /** The real config a licensed partner sets: agreement, "After you sign", step 2. */
 export const ENV_LINES = [
@@ -162,7 +162,7 @@ export const steps = {
     {
       n: '02',
       k: 'Get Platinum.dev access',
-      v: 'Create an API key in the Platinum.dev dashboard. Access is by request today: email marko@kortix.ai from the address you signed with.',
+      v: 'Create an API key in the Platinum.dev dashboard. Access is by request today: email support@dosco.live from the address you signed with.',
     },
     {
       n: '03',
@@ -196,7 +196,7 @@ export const terms = {
     {
       id: 'custom',
       k: 'Custom agreements',
-      v: 'A fixed term, committed volumes, dedicated capacity or other terms. Email marko@kortix.ai.',
+      v: 'A fixed term, committed volumes, dedicated capacity or other terms. Email support@dosco.live.',
     },
   ],
   readLabel: 'Read the full agreement',

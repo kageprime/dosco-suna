@@ -415,7 +415,7 @@ export const posture = {
    The mailbox is ALREADY published publicly on
    /support (support/page.tsx), so naming it here adds no new exposure, and the
    three timelines below are the security disclosure policy, quoted exactly.
-   ⚠️ BEFORE THIS PAGE GOES LIVE: security@kortix.com is
+   ⚠️ BEFORE THIS PAGE GOES LIVE: security@dosco.live is
    a PLACEHOLDER that "must be created and monitored before this policy is
    published externally". Confirm the mailbox is real and watched, or cut the
    SLA rows — publishing a 3-day acknowledgement against an unread inbox is

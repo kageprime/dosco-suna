@@ -262,7 +262,7 @@ export const skill = {
   counts: [
     { k: '10', v: 'skills committed into a new project repo on day one' },
     { k: '10', v: 'platform skills injected into every session at boot' },
-    { k: '2', v: 'agents in a new project: a generalist and a memory curator' },
+    { k: '3', v: 'agent files in a new project: a generalist, a harness improver, and its reviewer' },
   ],
 } as const;
 
