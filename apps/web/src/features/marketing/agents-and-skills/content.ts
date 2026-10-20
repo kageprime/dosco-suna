@@ -276,7 +276,6 @@ export const repo = {
     { path: 'agents/', note: 'one OpenCode agent per file', depth: 1 },
     { path: 'xera.md', note: 'the generalist, in every project', depth: 2 },
     { path: 'harness-reflector.md', note: 'improves the harness and memory on a cron', depth: 2 },
-    { path: 'session-reviewer.md', note: 'the reflector subagent that reviews one session', depth: 2 },
     { path: 'skills/', note: 'one directory per skill', depth: 1 },
     { path: 'agent-browser/SKILL.md', note: 'how this company drives a browser', depth: 2 },
     { path: 'harnesses/opencode/', note: 'the runtime your agents think in', depth: 1 },

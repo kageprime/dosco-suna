@@ -659,7 +659,7 @@ const nextConfig = (): NextConfig => ({
       },
       {
         source: '/docs/sdk/sign-in',
-        destination: '/docs/sdk/auth#sign-in-with-kortix',
+        destination: '/docs/sdk/auth#sign-in-with-dosco',
         permanent: true,
       },
       {
