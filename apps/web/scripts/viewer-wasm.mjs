@@ -1,4 +1,5 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
 // Document viewers (PDF, DOCX, XLSX) load their WebAssembly engines inside
@@ -38,7 +39,9 @@ export const VIEWER_WASM_ASSETS = [
 ];
 
 function resolve(relativePath) {
-  return new URL(relativePath, import.meta.url).pathname;
+  // fileURLToPath, not URL#pathname: on Windows pathname is "/C:/Users/…",
+  // which node:fs reads as drive-relative and turns into "C:\C:\…".
+  return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
 /** Absolute paths of the `public/` wasm files the viewers require at runtime. */

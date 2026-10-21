@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, watch, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { locales } from '../src/i18n/catalog.mjs';
 
@@ -18,7 +19,9 @@ import { locales } from '../src/i18n/catalog.mjs';
 // returned hashes as NEXT_PUBLIC_KORTIX_I18N_VERSIONS. public/i18n/ is
 // gitignored.
 
-const webRoot = new URL('..', import.meta.url).pathname;
+// fileURLToPath, not URL#pathname: on Windows pathname is "/C:/Users/…",
+// which node:path joins into "C:\C:\…" and node:fs then refuses.
+const webRoot = fileURLToPath(new URL('..', import.meta.url));
 const translationsDir = path.join(webRoot, 'translations');
 export const PUBLIC_CATALOG_DIR = path.join(webRoot, 'public', 'i18n');
 
