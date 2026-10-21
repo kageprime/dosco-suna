@@ -10,8 +10,8 @@ import {
 import type { CardRow } from '@/features/marketing/download/platform-card';
 import { PlatformCard } from '@/features/marketing/download/platform-card';
 import { getTranslations } from '@/i18n/get-translations';
+import { AndroidLogoIcon } from '@/lib/icons/ssr';
 import { localizedMarketingMetadata } from '@/lib/seo/metadata';
-import { AndroidLogo } from '@phosphor-icons/react';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
@@ -20,7 +20,7 @@ export function generateMetadata(): Promise<Metadata> {
 }
 
 const MOBILE_MARKS: Record<'android', CardRow['Mark']> = {
-  android: AndroidLogo,
+  android: AndroidLogoIcon,
 };
 
 export default async function DownloadPage({

@@ -25,6 +25,7 @@ import { DEFAULT_ICON_WEIGHT } from './icon-config';
 import {
   ActivityIcon as ActivityBase,
   AlarmIcon as AlarmBase,
+  AndroidLogoIcon as AndroidLogoBase,
   AppleLogoIcon as AppleLogoBase,
   ArrowLeftIcon as ArrowLeftBase,
   ArrowRightIcon as ArrowRightBase,
@@ -120,6 +121,7 @@ function withDefaultWeight(Base: Icon): SsrIcon {
 
 export const ActivityIcon = withDefaultWeight(ActivityBase);
 export const AlarmIcon = withDefaultWeight(AlarmBase);
+export const AndroidLogoIcon = withDefaultWeight(AndroidLogoBase);
 export const AppleLogoIcon = withDefaultWeight(AppleLogoBase);
 export const ArrowLeftIcon = withDefaultWeight(ArrowLeftBase);
 export const ArrowRightIcon = withDefaultWeight(ArrowRightBase);
