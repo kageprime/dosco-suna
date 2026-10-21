@@ -1,0 +1,87 @@
+# ── EAS Build upload excludes ─────────────────────────────────────────────
+# When this file exists, `eas build` uses it INSTEAD of .gitignore to decide
+# what enters the upload tarball. It must therefore re-list every exclusion
+# the gitignores guarantee (secrets, keys, caches, junk) plus the monorepo
+# paths the mobile cloud build does not need: apps/web alone is ~290 MB and
+# packages/db ~100 MB, and uploading them ran the archive out of disk twice
+# (ENOSPC at "Compressing project files", 2026-10-21).
+#
+# The mobile EAS build needs: apps/mobile (with its tracked android/), its
+# workspace graph — @kortix/sdk → @kortix/llm-catalog, @kortix/shared — and
+# @kortix/agent-tunnel (it is the root package.json devDependency, so
+# pnpm install needs it on disk), plus patches/ and the root config files.
+# Everything else is cut from the upload.
+#
+# When apps/mobile gains a workspace dependency, add its package dir back
+# into the archive keep-set (i.e. remove that line from this list).
+
+# Dependencies / generated / build outputs (mirrors root + mobile .gitignore)
+node_modules/
+**/node_modules/
+.git/
+.next/
+.turbo/
+.expo/
+.metro-health-check*/
+dist/
+build/
+out/
+coverage/
+.jacoco/
+.tsgo/
+*.tsbuildinfo
+
+# Secrets / native signing material
+.env
+.env.local
+.env.*.local
+*.local.json.tmp
+loc.env.local
+*.jks
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+ios/build/
+ios/Pods/
+ios/Frameworks/
+
+# Logs / editor / OS junk
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode-standalone/
+*.swp
+*.swo
+*~
+*.bak
+*.backup
+*.tmp
+*.orig.*
+
+# Mobile dev-only workspace notes and registry captures (gitignored bits)
+scratchpad/
+**/scratchpad/
+
+# Monorepo paths the mobile build never imports
+docs/
+scripts/
+tests/
+.github/
+apps/web
+packages/db
+packages/api-contract
+packages/llm-gateway
+packages/manifest-schema
+packages/registry
+packages/starter
+packages/ui
