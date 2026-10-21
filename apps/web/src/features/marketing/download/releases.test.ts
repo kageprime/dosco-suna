@@ -1,19 +1,37 @@
 import { describe, expect, test } from 'bun:test';
 
-import { formatSize, getLatestCaptureRelease, pickCliAsset, pickDesktopAsset, type ReleaseAsset } from './releases';
+import {
+  type ReleaseAsset,
+  formatSize,
+  getLatestCaptureRelease,
+  pickCliAsset,
+  pickDesktopAsset,
+} from './releases';
 
 /** Mirrors the real v0.11.0 asset list, including the decoys. */
 const ASSETS: ReleaseAsset[] = [
   { name: 'Dosco-0.11.0-universal-mac.zip', url: 'u/zip', size: 197_650_000 },
   { name: 'Dosco-0.11.0-universal.dmg', url: 'u/dmg', size: 204_800_000 },
-  { name: 'Dosco-0.11.0-universal.dmg.blockmap', url: 'u/dmg.blockmap', size: 210_000 },
-  { name: 'Dosco-0.11.0-x86_64.AppImage', url: 'u/appimage', size: 115_900_000 },
+  {
+    name: 'Dosco-0.11.0-universal.dmg.blockmap',
+    url: 'u/dmg.blockmap',
+    size: 210_000,
+  },
+  {
+    name: 'Dosco-0.11.0-x86_64.AppImage',
+    url: 'u/appimage',
+    size: 115_900_000,
+  },
   { name: 'kortix-darwin-arm64', url: 'u/cli-darwin-arm64', size: 69_700_000 },
   { name: 'kortix-darwin-x64', url: 'u/cli-darwin-x64', size: 75_400_000 },
   { name: 'kortix-linux-arm64', url: 'u/cli-linux-arm64', size: 99_900_000 },
   { name: 'kortix-linux-x64', url: 'u/cli-linux-x64', size: 100_800_000 },
   { name: 'Dosco-Setup-0.11.0.exe', url: 'u/exe', size: 96_000_000 },
-  { name: 'Dosco-Setup-0.11.0.exe.blockmap', url: 'u/exe.blockmap', size: 100_000 },
+  {
+    name: 'Dosco-Setup-0.11.0.exe.blockmap',
+    url: 'u/exe.blockmap',
+    size: 100_000,
+  },
   { name: 'latest-mac.yml', url: 'u/yml', size: 1_000 },
   { name: 'SHA256SUMS', url: 'u/sums', size: 900 },
 ];
@@ -77,7 +95,11 @@ describe('formatSize', () => {
 });
 
 describe('getLatestCaptureRelease', () => {
-  const asset = (name: string) => ({ name, browser_download_url: `?/releases/download/x/${name}`, size: 2_097_152 });
+  const asset = (name: string) => ({
+    name,
+    browser_download_url: `?/releases/download/x/${name}`,
+    size: 2_097_152,
+  });
   const withReleases = async (releases: unknown[], run: () => Promise<void>) => {
     const real = globalThis.fetch;
     const urls: string[] = [];
@@ -96,26 +118,64 @@ describe('getLatestCaptureRelease', () => {
   test('the newest published vX.Y.Z release that carries Capture installers, never a draft, a prerelease or a dev tag', async () => {
     const urls = await withReleases(
       [
-        { tag_name: 'v0.14.1', draft: false, assets: [asset('Dosco-Setup-0.14.1.exe')] },
-        { tag_name: 'v0.14.0-dev.3', draft: false, prerelease: true, assets: [asset('KortixCapture-x64.msi')] },
-        { tag_name: 'capture-dev-latest', draft: false, prerelease: true, assets: [asset('KortixCapture-x64.msi')] },
-        { tag_name: 'v0.14.0', draft: true, assets: [asset('KortixCapture-x64.msi')] },
-        { tag_name: 'v0.13.9', draft: false, assets: [asset('KortixCapture-x64.msi'), asset('kortix-capture_amd64.deb')] },
-        { tag_name: 'v0.13.8', draft: false, assets: [asset('KortixCapture-x64.msi')] },
+        {
+          tag_name: 'v0.14.1',
+          draft: false,
+          assets: [asset('Dosco-Setup-0.14.1.exe')],
+        },
+        {
+          tag_name: 'v0.14.0-dev.3',
+          draft: false,
+          prerelease: true,
+          assets: [asset('KortixCapture-x64.msi')],
+        },
+        {
+          tag_name: 'capture-dev-latest',
+          draft: false,
+          prerelease: true,
+          assets: [asset('KortixCapture-x64.msi')],
+        },
+        {
+          tag_name: 'v0.14.0',
+          draft: true,
+          assets: [asset('KortixCapture-x64.msi')],
+        },
+        {
+          tag_name: 'v0.13.9',
+          draft: false,
+          assets: [asset('KortixCapture-x64.msi'), asset('kortix-capture_amd64.deb')],
+        },
+        {
+          tag_name: 'v0.13.8',
+          draft: false,
+          assets: [asset('KortixCapture-x64.msi')],
+        },
       ],
       async () => {
         const release = await getLatestCaptureRelease();
         expect(release?.version).toBe('0.13.9');
-        expect(release?.assets.map((a) => a.name)).toEqual(['KortixCapture-x64.msi', 'kortix-capture_amd64.deb']);
+        expect(release?.assets.map((a) => a.name)).toEqual([
+          'KortixCapture-x64.msi',
+          'kortix-capture_amd64.deb',
+        ]);
       },
     );
-    expect(urls[0]).toBe('https://api.github.com/repos/kortix-ai/suna/releases?per_page=30');
+    expect(urls[0]).toBe('https://api.github.com/repos/kageprime/dosco-suna/releases?per_page=30');
   });
 
   test('none published, or GitHub failing: null, so the caller degrades', async () => {
-    await withReleases([{ tag_name: 'v0.14.0', draft: false, assets: [asset('Dosco-Setup-0.14.0.exe')] }], async () => {
-      expect(await getLatestCaptureRelease()).toBeNull();
-    });
+    await withReleases(
+      [
+        {
+          tag_name: 'v0.14.0',
+          draft: false,
+          assets: [asset('Dosco-Setup-0.14.0.exe')],
+        },
+      ],
+      async () => {
+        expect(await getLatestCaptureRelease()).toBeNull();
+      },
+    );
     await withReleases({ message: 'API rate limit exceeded' } as never, async () => {
       expect(await getLatestCaptureRelease()).toBeNull();
     });

@@ -78,7 +78,7 @@ test('buildMobileDeepLink keeps the auth code, state, and registration marker', 
 
   assert.equal(
     link,
-    'kortix://auth/callback?mobile_callback=1&code=a+b&state=native-state&x=%3C%2Fscript%3E',
+    'dosco://auth/callback?mobile_callback=1&code=a+b&state=native-state&x=%3C%2Fscript%3E',
   );
 });
 
@@ -95,10 +95,10 @@ test('buildMobileBounceHtml keeps a state-validated callback safe without an aut
   assert.equal((html.match(/<\/script>/gi) ?? []).length, 0);
   assert.ok(
     html.includes(
-      'kortix://auth/callback?mobile_callback=1&amp;code=abc123&amp;state=native-state',
+      'dosco://auth/callback?mobile_callback=1&amp;code=abc123&amp;state=native-state',
     ),
   );
-  assert.ok(html.includes('Open Kortix'));
+  assert.ok(html.includes('Open Dosco'));
 });
 
 // ── buildDesktopBounceHtml: end-to-end, with a malicious payload ────────────

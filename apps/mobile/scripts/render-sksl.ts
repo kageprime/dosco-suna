@@ -31,7 +31,7 @@ const effect = CanvasKit.RuntimeEffect.Make(HEATMAP_SKSL, (e) => {
   throw new Error(e);
 })!;
 
-const tex = CanvasKit.MakeImageFromEncoded(readFileSync(path.join(import.meta.dir, '../assets/brand/kortix-heatmap.png')))!;
+const tex = CanvasKit.MakeImageFromEncoded(readFileSync(path.join(import.meta.dir, '../assets/brand/dosco-heatmap.png')))!;
 const imageShader = tex.makeShaderOptions(
   CanvasKit.TileMode.Clamp,
   CanvasKit.TileMode.Clamp,

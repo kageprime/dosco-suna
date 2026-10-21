@@ -45,8 +45,8 @@ describe('show header label', () => {
   });
 
   test('a title-less safe url shows its domain', () => {
-    expect(showDisplayTitle({ isCarousel: false, itemCount: 0, title: '', type: 'url', url: 'https://www.kortix.com/x' })).toBe(
-      'kortix.com',
+    expect(showDisplayTitle({ isCarousel: false, itemCount: 0, title: '', type: 'url', url: 'https://www.dosco.live/x' })).toBe(
+      'dosco.live',
     );
   });
 
@@ -175,7 +175,7 @@ describe('show renderer branch (web ShowContentRenderer cascade)', () => {
     expect(branch({ type: 'url', url: 'http://localhost:3000/app' })).toBe('localhost');
     expect(branch({ type: 'file', path: '/workspace/site/index.html' })).toBe('html-file');
     expect(branch({ type: 'html', path: '/workspace/site/index.html' })).toBe('html-file');
-    expect(branch({ type: 'url', url: 'https://kortix.com' })).toBe('url');
+    expect(branch({ type: 'url', url: 'https://dosco.live' })).toBe('url');
     expect(branch({ type: 'url', url: '/relative' })).toBe('url-unsafe');
   });
 
@@ -220,7 +220,7 @@ describe('show carousel', () => {
     expect(getShowCarouselItemLabel({ type: 'file', path: '/workspace/report.pdf', title: 'Report' })).toBe('PDF');
     expect(getShowCarouselItemLabel({ type: 'docx' })).toBe('DOCX');
     expect(getShowCarouselItemLabel({ type: 'text', title: 'A very long deliverable title' })).toBe('A very long deliv…');
-    expect(getShowCarouselItemLabel({ type: 'url', url: 'https://www.kortix.com/a' })).toBe('kortix.com');
+    expect(getShowCarouselItemLabel({ type: 'url', url: 'https://www.dosco.live/a' })).toBe('dosco.live');
     expect(getShowCarouselItemLabel({ type: 'file', path: '/workspace/notes.md' })).toBe('notes.md');
     expect(getShowCarouselItemLabel({ type: 'markdown', content: 'x' })).toBe('Markdown');
     expect(getShowCarouselItemLabel({ type: '' })).toBe('Item');
@@ -243,7 +243,7 @@ describe('show preview target', () => {
     expect(html).toContain('localhost');
     expect(html).toContain('a.html');
     expect(resolveShowPreviewUrl({ activeUrl: '', activePath: '/workspace/a.html', activeType: 'code' })).toBe('');
-    expect(resolveShowPreviewUrl({ activeUrl: 'https://kortix.com', activePath: '', activeType: 'url' })).toBe('');
+    expect(resolveShowPreviewUrl({ activeUrl: 'https://dosco.live', activePath: '', activeType: 'url' })).toBe('');
   });
 });
 
@@ -259,9 +259,9 @@ describe('show open target (useShowOpenInTab)', () => {
   });
 
   test('a safe http(s) URL opens externally, normalised like web safeHttpUrl', () => {
-    expect(showOpenTarget({ type: 'url', url: ' https://kortix.com ', path: '' })).toEqual({
+    expect(showOpenTarget({ type: 'url', url: ' https://dosco.live ', path: '' })).toEqual({
       kind: 'external',
-      url: 'https://kortix.com/',
+      url: 'https://dosco.live/',
     });
   });
 

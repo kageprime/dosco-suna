@@ -14,7 +14,7 @@
  * safe to share and whether the caller must revoke it first.
  */
 
-export const NON_TRANSCRIPT_SHARE_MESSAGE = 'Public links need a newer Kortix server.';
+export const NON_TRANSCRIPT_SHARE_MESSAGE = 'Public links need a newer Dosco server.';
 
 export interface PublicShareGuardResult {
   /** True only for a live `transcript` share — safe to open the share sheet with. */

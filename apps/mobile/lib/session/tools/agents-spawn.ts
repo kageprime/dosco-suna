@@ -105,7 +105,10 @@ export function sessionSpawnModel({
   input: Record<string, unknown>;
   childCalls: readonly ToolCallBlock[];
 }): SessionSpawnModel {
-  const agentName = capitalizeWords((input.agent as string) || 'kortix');
+  const rawAgent = (input.agent as string) || 'kortix';
+  // Matches web's displayAgentName: the built-in 'kortix' agent id renders as
+  // the product-surface name Xera (web .../agent-display-name.ts).
+  const agentName = rawAgent === 'kortix' ? 'Xera' : capitalizeWords(rawAgent);
   const description = (input.description as string) || '';
   const projectName = (input.project as string) || '';
   const fullPrompt = (input.prompt as string) || '';

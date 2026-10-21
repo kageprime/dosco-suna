@@ -25,7 +25,6 @@ import { runtimeConfigIsBakedAtBuild } from '@/lib/runtime-config-mode';
 import { safeJsonForHtml } from '@/lib/security/safe-json';
 import { siteMetadata } from '@/lib/site-metadata';
 import { cn } from '@/lib/utils';
-import { featureFlags } from '@kortix/sdk';
 import type { Metadata, Viewport } from 'next';
 import { getTranslations } from '@/i18n/get-translations';
 import { normalizeLocale } from '@/i18n/locale';
@@ -316,13 +315,9 @@ export default async function RootLayout({
           }}
         />
 
-        {/* iOS Smart App Banner - shows native install banner in Safari */}
-        {!featureFlags.disableMobileAdvertising ? (
-          <meta
-            name="apple-itunes-app"
-            content={"app-id=6754448524, app-argument=kortix://"}
-          />
-        ) : null}
+        {/* iOS Smart App Banner: removed. It pointed Safari visitors at the old
+            Kortix App Store listing (app-id=6754448524, app-argument=kortix://);
+            Dosco has no iOS build yet - restore when one ships. */}
 
         <script
           type="application/ld+json"

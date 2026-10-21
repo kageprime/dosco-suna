@@ -5,7 +5,7 @@
  * `flattenModels`), the same list web's session model selector renders.
  *
  * Groups are the REAL upstream provider (`provider`, else the wire id prefix),
- * never the raw provider name: under the gateway that name is always "Kortix".
+ * never the raw provider name: the gateway's wire name is mapped to the brand.
  * The groups, labels, and row names are web's `model-grouping.ts` and
  * `model-tags.ts`, which live in `apps/web`, not the SDK.
  *
@@ -68,7 +68,7 @@ export const PICKER_PROVIDER_ORDER = [
 
 /** Group titles. A copy of the @kortix/llm-catalog `PROVIDER_LABELS` entries a picker can meet; pinned by the same test. */
 export const PICKER_PROVIDER_LABELS: Record<string, string> = {
-  kortix: 'Kortix',
+  kortix: 'Dosco',
   opencode: 'OpenCode Zen',
   anthropic: 'Anthropic',
   openai: 'OpenAI',

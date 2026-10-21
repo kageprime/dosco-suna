@@ -1,9 +1,18 @@
-# Mobile Build Guide
+# Dosco Mobile Build Guide
+
+App identity: name **Dosco**, scheme `dosco`, Android package
+`com.dosco.application`, iOS bundle `com.dosco.app`, web root
+<https://dosco.live>. EAS project **ka9es-team/dosco** (`eas init` wrote
+`extra.eas.projectId` and `updates.url` in `app.json`).
+
+The backend the official builds talk to is the deployed Dosco stack
+(`https://dosco-05dd0b153705.herokuapp.com/v1`); its value lives in the EAS
+environment (`EXPO_PUBLIC_BACKEND_URL`), not in this repo.
 
 ## Setup
 ```bash
 pnpm install -g eas-cli
-eas login
+eas login            # ka9e / ka9es-team
 ```
 
 ## Android Development Setup
@@ -27,17 +36,32 @@ npx expo run:ios
 Every profile name states its backend and its artifact. Every profile increments
 the build number (EAS keeps it remotely).
 
-| Profile | Backend | EAS environment | Update channel | Artifact |
+| Profile | Backend (from EAS environment) | EAS environment | Update channel | Artifact |
 |---|---|---|---|---|
-| `prod-store` | `api.kortix.com` | `production` | `production` | App Store / Play (AAB) |
-| `prod-apk` | `api.kortix.com` | `production` | `production` | installable APK |
-| `dev-store` | `dev-api.kortix.com` | `preview` | `dev` | TestFlight / Play internal (AAB) |
-| `dev-apk` | `dev-api.kortix.com` | `preview` | `dev` | installable APK |
+| `prod-store` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | App Store / Play (AAB) |
+| `prod-apk` | `https://dosco-05dd0b153705.herokuapp.com/v1` | `production` | `production` | installable APK |
+| `dev-store` | no staging deployment yet — unset | `preview` | `dev` | TestFlight / Play internal (AAB) |
+| `dev-apk` | no staging deployment yet — unset | `preview` | `dev` | installable APK |
 | `development` | local `.env` | — | `development` | dev client |
 
 `EXPO_PUBLIC_*` values come from the EAS environment only, for builds and for
 OTA updates alike: `eas env:list production`. Change them there, never in
 `eas.json`, or a build and an update of the same release disagree.
+
+The Dosco production environment carries:
+
+| Variable | Value |
+|---|---|
+| `EXPO_PUBLIC_BACKEND_URL` | `https://dosco-05dd0b153705.herokuapp.com/v1` |
+| `EXPO_PUBLIC_SUPABASE_URL` | `https://uscgpdfrzfvfdlzesyuh.supabase.co` |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | the anon key (`heroku config -a dosco`) |
+| `EXPO_PUBLIC_ENV_MODE` | `production` |
+| `EXPO_PUBLIC_AUTH_METHODS` | `magic,password` |
+| `EXPO_PUBLIC_AUTH_PROVIDERS` | `google` (Apple sign-in is off until the backend enables it) |
+
+Mirror the last two on the API as `KORTIX_PUBLIC_AUTH_METHODS` /
+`KORTIX_PUBLIC_AUTH_PROVIDERS` so self-hosted instances resolve the same list
+through `GET /v1/auth/client-config`.
 
 ## Release a store version
 

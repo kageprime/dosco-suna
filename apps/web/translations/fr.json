@@ -21436,8 +21436,7 @@
       "dictation": "Dites-le, envoyez-le",
       "dictationDescription": "Dictez un prompt au lieu de le taper."
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "Télécharger l'APK"
   },
   "capture": {
     "authorize": {

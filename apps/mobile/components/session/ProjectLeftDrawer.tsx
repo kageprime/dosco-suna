@@ -717,7 +717,7 @@ export const ProjectLeftDrawer = React.memo(function ProjectLeftDrawer({
             Couldn&apos;t load sessions
           </Text>
           <Text variant="muted" className="text-center">
-            Kortix didn&apos;t respond. Your sessions are safe.
+            Dosco didn&apos;t respond. Your sessions are safe.
           </Text>
           <View className="mt-1">
             <Button variant="secondary" size="sm" className="rounded-full" onPress={handleRetrySessions}>

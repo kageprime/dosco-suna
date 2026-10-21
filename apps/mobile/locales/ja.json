@@ -77,7 +77,7 @@
     "guest": {
       "label": "ゲスト",
       "title": "Browse Without\nan Account",
-      "description": "Try Kortix with limited features. No signup required!",
+      "description": "Try Dosco with limited features. No signup required!",
       "continue": "Continue as Guest",
       "signUp": "Sign Up Instead",
       "agreement": "By continuing, you agree to our",
@@ -94,7 +94,7 @@
     "logIn": "ログイン",
     "passwordsDontMatch": "パスワードが一致しません",
     "passwordTooShort": "パスワードは8文字以上必要です",
-    "welcomeTitle": "Kortixを雇って",
+    "welcomeTitle": "Doscoを雇って",
     "rotatingPhrases": {
       "presentations": "プレゼン",
       "writing": "文書作成",
@@ -150,12 +150,12 @@
     }
   },
   "onboarding": {
-    "welcome": "Kortixができることを見る",
+    "welcome": "Doscoができることを見る",
     "welcomeSubtitle": "行動するAIアシスタント",
     "skip": "スキップ",
     "next": "次へ",
     "getStarted": "始める",
-    "kortixComputer": "Kortix Computer",
+    "kortixComputer": "Dosco Computer",
     "ready": "準備完了",
     "examples": {
       "presentations": {
@@ -277,8 +277,8 @@
   },
   "chat": {
     "newChat": "新しいチャット",
-    "placeholder": "Kortixにタスクを...",
-    "inputPlaceholder": "Kortixに何でも聞いて...",
+    "placeholder": "Doscoにタスクを...",
+    "inputPlaceholder": "Doscoに何でも聞いて...",
     "recording": "録音中...",
     "cancelRecording": "録音キャンセル",
     "stopRecording": "録音停止",
@@ -291,7 +291,7 @@
     "rateThisResult": "この結果を評価",
     "feedbackHelpsImprove": "フィードバックは改善に役立ちます",
     "additionalFeedbackOptional": "追加のフィードバック（任意）",
-    "helpKortixImprove": "フィードバックでKortixの改善にご協力ください",
+    "helpKortixImprove": "フィードバックでDoscoの改善にご協力ください",
     "submit": "送信",
     "submitting": "送信中...",
     "suggestedFollowUps": "提案されたフォローアップ",
@@ -306,7 +306,7 @@
     "newWorker": "新しいWorker",
     "myWorkers": "マイWorkers",
     "searchAgents": "Worker検索",
-    "defaultAgent": "Kortix",
+    "defaultAgent": "Xera",
     "defaultDescription": "すべてのタスクに対応する汎用AI",
     "superWorker": "Super Worker",
     "coder": "Coder",
@@ -515,8 +515,8 @@
   "billing": {
     "loadingPaywall": "プランを読み込み中...",
     "checkoutUnavailable": "モバイル決済は利用できません",
-    "checkoutUnavailableMessage": "プランに登録するには、ウェブでkortix.comにアクセスしてください。",
-    "goToWeb": "kortix.comに移動",
+    "checkoutUnavailableMessage": "プランに登録するには、ウェブでdosco.liveにアクセスしてください。",
+    "goToWeb": "dosco.liveに移動",
     "billingStatus": "請求ステータス",
     "loading": "請求情報を読み込み中...",
     "error": "請求情報の読み込みに失敗しました",
@@ -544,8 +544,8 @@
     "choosePackageBoost": "パッケージを選んでクレジット残高を增やそう",
     "title": "請求",
     "cancelsOn": "終了日",
-    "manageOnWeb": "kortix.comで管理",
-    "openWebFailed": "kortix.comを開けませんでした。もう一度お試しください。"
+    "manageOnWeb": "dosco.liveで管理",
+    "openWebFailed": "dosco.liveを開けませんでした。もう一度お試しください。"
   },
   "theme": {
     "title": "外観",
@@ -567,12 +567,12 @@
   "beta": {
     "title": "ベータ機能",
     "webSupportTitle": "Web版で完全サポート",
-    "webSupportDescription": "Kortix.comで利用可能。モバイル版は近日公開予定—こちらではまだ開発中です。",
-    "visitKortix": "Kortix.comを訪問",
+    "webSupportDescription": "dosco.liveで利用可能。モバイル版は近日公開予定—こちらではまだ開発中です。",
+    "visitKortix": "dosco.liveを訪問",
     "advancedFeatures": "高度な機能",
     "mobileBeta": "モバイルベータ",
     "pleaseNote": "注意事項",
-    "mobileWarning": "モバイル版は開発中で問題が発生する可能性があります。最良の体験のため、Kortix.comをご利用ください。"
+    "mobileWarning": "モバイル版は開発中で問題が発生する可能性があります。最良の体験のため、dosco.liveをご利用ください。"
   },
   "accountDeletion": {
     "title": "アカウント削除",
@@ -627,7 +627,7 @@
     "mode": "モード"
   },
   "placeholders": {
-    "default": "Kortixにタスクを...",
+    "default": "Doscoにタスクを...",
     "search": "検索...",
     "searchConversations": "チャット検索",
     "searchAgents": "Worker検索",
@@ -1173,7 +1173,7 @@
     "enterpriseLabel": "{{plan}} · Enterprise"
   },
   "upgrade": {
-    "creditsPlan": "Kortix Credits",
+    "creditsPlan": "Dosco Credits",
     "pickAmount": "月額は Web で自由に選べます。メンバーは無制限で、1つのクレジットプールを共有します。",
     "includes": "含まれるもの",
     "notNow": "後で"
@@ -1216,8 +1216,8 @@
   },
   "updateRequired": {
     "title": "アップデートが必要です",
-    "body": "このバージョンのKortixはサポートが終了しました。続けるにはアプリを更新してください。",
-    "bodyNoStore": "このバージョンのKortixはサポートが終了しました。続けるにはApp StoreまたはGoogle Playからアプリを更新してください。",
+    "body": "このバージョンのDoscoはサポートが終了しました。続けるにはアプリを更新してください。",
+    "bodyNoStore": "このバージョンのDoscoはサポートが終了しました。続けるにはApp StoreまたはGoogle Playからアプリを更新してください。",
     "button": "アップデート"
   },
   "invites": {

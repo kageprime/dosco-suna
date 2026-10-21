@@ -36,7 +36,7 @@ export async function createAuthCallbackRedirect(
     if (value === undefined || value === false) continue;
     search.set(key, value === true ? 'true' : value);
   }
-  return `kortix://auth/callback?${search.toString()}`;
+  return `dosco://auth/callback?${search.toString()}`;
 }
 
 export async function consumeAuthCallbackState(state: string | null | undefined): Promise<boolean> {

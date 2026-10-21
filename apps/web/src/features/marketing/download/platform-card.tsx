@@ -1,7 +1,7 @@
-import { Button } from '@/components/ui/marketing/button';
-import { cn } from '@/lib/utils';
-import { useTranslations } from '@/i18n/use-translations';
 import Link from '@/components/site-link';
+import { Button } from '@/components/ui/marketing/button';
+import { useTranslations } from '@/i18n/use-translations';
+import { cn } from '@/lib/utils';
 
 import type { Platform } from './detect-os';
 
@@ -14,9 +14,15 @@ type CardRowBase = {
 };
 
 export type CardRow = CardRowBase & {
-  href: string;
+  /**
+   * Where the row's button goes. A platform without its build yet has no href:
+   * the row then renders `status` as a muted pill instead of a button.
+   */
+  href?: string;
   /** Store links leave the site and read "Open"; the internal platform redirects read "Download". */
   external?: boolean;
+  /** The pill text of an href-less row, e.g. "Coming soon". */
+  status?: string;
 };
 
 /**
@@ -77,34 +83,36 @@ export function PlatformCard({
 
             <div className="min-w-0 flex-1">
               <p className="text-foreground truncate text-sm font-medium">{row.label}</p>
-              {row.meta ? (
-                <p className="text-muted-foreground text-xs">{row.meta}</p>
-              ) : null}
+              {row.meta ? <p className="text-muted-foreground text-xs">{row.meta}</p> : null}
             </div>
 
-            <Button
-              asChild
-              size="sm"
-              variant={row.id === filled ? 'default' : 'outline'}
-              className="shrink-0 active:scale-[0.96]"
-            >
-              <Link
-                href={row.href}
-                // Five buttons with one short label are useless to a screen
-                // reader. The accessible name keeps the visible label and adds
-                // the platform or the store.
-                aria-label={
-                  row.external
-                    ? `${tI18nComplete.raw('texted077f3d8125')} ${row.meta}`
-                    : tI18nComplete('text8d602d64e902', { value0: row.label })
-                }
-                {...(row.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            {row.href ? (
+              <Button
+                asChild
+                size="sm"
+                variant={row.id === filled ? 'default' : 'outline'}
+                className="shrink-0 active:scale-[0.96]"
               >
-                {row.external
-                  ? tI18nComplete.raw('texted077f3d8125')
-                  : tI18nComplete.raw('textd6eafe823591')}
-              </Link>
-            </Button>
+                <Link
+                  href={row.href}
+                  // Five buttons with one short label are useless to a screen
+                  // reader. The accessible name keeps the visible label and adds
+                  // the platform or the store.
+                  aria-label={
+                    row.external
+                      ? `${tI18nComplete.raw('texted077f3d8125')} ${row.meta}`
+                      : tI18nComplete('text8d602d64e902', { value0: row.label })
+                  }
+                  {...(row.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                >
+                  {row.external
+                    ? tI18nComplete.raw('texted077f3d8125')
+                    : tI18nComplete.raw('textd6eafe823591')}
+                </Link>
+              </Button>
+            ) : row.status ? (
+              <span className="text-muted-foreground shrink-0 text-xs">{row.status}</span>
+            ) : null}
           </li>
         ))}
       </ul>

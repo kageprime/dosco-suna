@@ -27,7 +27,7 @@ describe('keysToClear', () => {
       'presence_session_id',
       'kortix:ssh-access-meta:v1',
       'tab-screenshots',
-      'kortix.composerDrafts',
+      'dosco.liveposerDrafts',
     ];
     expect(keysToClear(userData)).toEqual(userData);
   });

@@ -21436,8 +21436,7 @@
       "dictation": "Fale e envie",
       "dictationDescription": "Dite um prompt em vez de digitar."
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "Baixar o APK"
   },
   "capture": {
     "authorize": {

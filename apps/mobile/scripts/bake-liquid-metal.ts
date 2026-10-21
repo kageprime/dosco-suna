@@ -23,13 +23,13 @@ import {
   workingSize,
 } from '../lib/effects/liquid-metal-bake';
 
-/** Plane size: the symbol's 30 x 25 box. At 3x a 150pt symbol is 450 px wide. */
-const PLANE_WIDTH = 720;
-const PLANE_HEIGHT = 600;
+/** Plane size: the crest's 477 x 301 box (the SVG viewBox × 2). */
+const PLANE_WIDTH = 954;
+const PLANE_HEIGHT = 601;
 
 const root = path.join(import.meta.dir, '..');
-const svgPath = path.join(root, 'assets/brand/kortix-symbol.svg');
-const outPath = path.join(root, 'assets/brand/kortix-liquid-metal.png');
+const svgPath = path.join(root, 'assets/brand/dosco-mark.svg');
+const outPath = path.join(root, 'assets/brand/dosco-liquid-metal.png');
 const svg = readFileSync(svgPath);
 
 async function alphaAt(width: number, height: number): Promise<Uint8ClampedArray> {

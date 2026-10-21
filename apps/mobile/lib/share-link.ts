@@ -1,5 +1,5 @@
 /**
- * Public share links (`kortix.com/share/*`).
+ * Public share links (`dosco.live/share/*`).
  *
  * The app claims `/share/*` as a universal link (iOS `associatedDomains` +
  * the web AASA file, Android `intentFilters`), but has no in-app share
@@ -11,7 +11,7 @@
 import { KORTIX_WEB_URL } from './kortix-web';
 
 /** The web hosts whose links the app reads (share links, invite links). */
-export const KORTIX_LINK_HOSTS = new Set(['kortix.com', 'www.kortix.com', 'staging.kortix.com']);
+export const KORTIX_LINK_HOSTS = new Set(['dosco.live', 'www.dosco.live', 'staging.dosco.live']);
 
 /** `scheme://authority/path?query#fragment`, each part kept verbatim. */
 export const URL_PARTS = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/i;
@@ -22,9 +22,9 @@ const SHARE_PATH = /^\/share\/[^/?#]+/;
 /**
  * The https web URL to open for a share link, or `null` when `url` is not a
  * share link.
- * - `https://{kortix.com,www.kortix.com,staging.kortix.com}/share/…` is
+ * - `https://{dosco.live,www.dosco.live,staging.dosco.live}/share/…` is
  *   returned as-is (host, path, query and fragment preserved).
- * - `kortix://share/…` and `kortix:///share/…` map onto `KORTIX_WEB_URL`.
+ * - `dosco://share/…` and `dosco:///share/…` map onto `KORTIX_WEB_URL`.
  */
 export function resolveShareLinkUrl(url: string): string | null {
   const match = URL_PARTS.exec(url.trim());
@@ -39,7 +39,7 @@ export function resolveShareLinkUrl(url: string): string | null {
   if (scheme === 'https') {
     if (!KORTIX_LINK_HOSTS.has(authority)) return null;
     origin = `https://${authority}`;
-  } else if (scheme === 'kortix') {
+  } else if (scheme === 'dosco') {
     if (authority === 'share') path = `/share${path}`;
     else if (authority !== '') return null;
     origin = KORTIX_WEB_URL;

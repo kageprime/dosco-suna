@@ -16,7 +16,7 @@
  * still a web hand-off, just reached from Customize instead of the drawer.
  * The per-page `···` menu (`PageContextMenuSheet`) is deleted with the
  * Workspace and Files pages it served (COR-156).
- * "More on kortix.com" is a web-handoff row `SettingsNavPage` adds itself directly (`lib/projects/web-project-links.ts`), not data here.
+ * "More on dosco.live" is a web-handoff row `SettingsNavPage` adds itself directly (`lib/projects/web-project-links.ts`), not data here.
  *
  * Pure data only. No React, no icons, no zustand: this module is
  * unit-tested under `bun test`, which cannot load native modules. Icon keys
@@ -63,7 +63,7 @@ export type ProjectCustomizeItem = ProjectCustomizePushItem | ProjectCustomizeHa
 
 /**
  * The project Settings page's "Customize" group: Schedules, Secrets, Members,
- * then Connectors — in that order, right above "More on kortix.com".
+ * then Connectors — in that order, right above "More on dosco.live".
  */
 export const PROJECT_CUSTOMIZE_ITEMS: ProjectCustomizeItem[] = [
   { kind: 'item', label: 'Schedules', icon: 'schedules', pageId: 'page:schedules', access: SCHEDULES_ACCESS },

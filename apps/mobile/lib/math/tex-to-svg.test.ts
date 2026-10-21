@@ -55,7 +55,7 @@ describe('texToSvg', () => {
   });
 
   test('a link keeps its content as a group', () => {
-    const { xml } = texToSvg('\\href{https://kortix.com}{x}', false);
+    const { xml } = texToSvg('\\href{https://dosco.live}{x}', false);
     expect(xml).not.toContain('<a');
     expect(xml).toContain('<path');
   });

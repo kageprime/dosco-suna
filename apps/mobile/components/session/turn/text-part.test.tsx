@@ -109,7 +109,7 @@ if (process.env[PROBE_ENV] === '1') {
     });
 
     test('non-localhost text renders no card', async () => {
-      const rendered = await renderText('Deployed at https://kortix.com/docs; localhost:3000 and 127.0.0.1:9000 without a scheme are not URLs.');
+      const rendered = await renderText('Deployed at https://dosco.live/docs; localhost:3000 and 127.0.0.1:9000 without a scheme are not URLs.');
       expect(rendered).toHaveLength(0);
       done += 1;
     });

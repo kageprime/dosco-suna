@@ -3,21 +3,22 @@
  * routes.
  *
  * Detection runs on the SERVER, from the request's user-agent header, so the
- * page paints the correct filled button (and, on a phone, the mobile card
- * first) on first render. A client-side `useEffect` swap would let a visitor click the wrong
- * installer during the flash — the exact failure this page exists to prevent.
+ * page paints the correct filled button (and, on a phone, the mobile row's
+ * solid button) on first render. A client-side `useEffect` swap would let a
+ * visitor click the wrong installer during the flash — the exact failure this
+ * page exists to prevent.
  *
- * Architecture is deliberately NOT detected: macOS ships a single universal
- * .dmg, and macOS user agents misreport arch anyway (they always claim Intel).
+ * Desktop platforms still resolve through the alias table because the
+ * `/download/<os>` redirect routes must keep answering old links with a 302 to
+ * the page — the page, not an installer for another product.
  */
 
 export type DesktopOs = 'macos' | 'windows' | 'linux';
 export type MobileOs = 'ios' | 'android';
 export type Platform = DesktopOs | MobileOs;
 
-/** Fixed row order. Detection never reorders rows; it only picks the filled button. */
-export const DESKTOP_ORDER: readonly DesktopOs[] = ['macos', 'windows', 'linux'];
-export const MOBILE_ORDER: readonly MobileOs[] = ['ios', 'android'];
+/** The page's single mobile row — Android only (no iOS build; see content.ts). */
+export const MOBILE_ORDER = ['android'] as const satisfies readonly MobileOs[];
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
   mac: 'macos',
@@ -52,12 +53,12 @@ export function normalizePlatform(raw: string | null | undefined): Platform | nu
  * KNOWN LIMITATION: an iPad with "Request Desktop Website" enabled sends a UA
  * byte-identical to a Mac's. No server can separate them — real detection needs
  * `navigator.maxTouchPoints`, which is not in any request header. That visitor
- * gets the Desktop card first; the Mobile card is still on the page, one tap
- * away. Fixing it client-side would reintroduce the wrong-file-click window
- * this module exists to close.
+ * is treated as desktop: no row is pre-filled for them, and the page still
+ * shows the one row there is. Fixing it client-side would reintroduce the
+ * wrong-file-click window this module exists to close.
  *
- * Defaults to macOS: the largest desktop segment for this product, and every
- * other platform stays one click away on the page.
+ * Defaults to macOS: a desktop visitor gets no filled button either way, so
+ * the default only has to be stable, not smart.
  */
 export function detectPlatform(userAgent: string | null | undefined): Platform {
   const ua = (userAgent || '').toLowerCase();

@@ -81,7 +81,7 @@ export function reviewDetailRows(item: ReviewItem, extras: ReviewDetailExtras = 
 }
 
 /**
- * The change request on kortix.com: its session with `?cr=` (web opens the
+ * The change request on dosco.live: its session with `?cr=` (web opens the
  * change request dialog from it), else the project's Review page.
  */
 export function changeRequestWebUrl(projectId: string, item: ReviewItem): string {

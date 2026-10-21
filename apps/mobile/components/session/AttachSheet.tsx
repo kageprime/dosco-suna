@@ -110,7 +110,7 @@ export const AttachSheet = React.memo(React.forwardRef<AttachSheetRef, AttachShe
             <AlertDialogHeader>
               <AlertDialogTitle>Camera access is off</AlertDialogTitle>
               <AlertDialogDescription>
-                Turn on Camera for Kortix in Settings to take a photo.
+                Turn on Camera for Dosco in Settings to take a photo.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

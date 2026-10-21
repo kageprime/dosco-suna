@@ -48,7 +48,7 @@ describe('decidePreviewNavigation', () => {
   });
 
   test('opens outside the app only for a user click when a click is required', () => {
-    const allowedOrigin = 'https://api.kortix.com';
+    const allowedOrigin = 'https://api.dosco.live';
     const external = 'https://other.example/page';
     // iOS link tap
     expect(
@@ -66,7 +66,7 @@ describe('decidePreviewNavigation', () => {
     expect(decidePreviewNavigation('mailto:a@b.c', { externalRequiresClick: true })).toBe('block');
     // Same-origin pages still load in the WebView
     expect(
-      decidePreviewNavigation('https://api.kortix.com/v1/p/x/8000/b.html', {
+      decidePreviewNavigation('https://api.dosco.live/v1/p/x/8000/b.html', {
         allowedOrigin,
         externalRequiresClick: true,
       }),
@@ -92,18 +92,18 @@ describe('decidePreviewNavigation', () => {
     expect(decidePreviewNavigation('javascript:alert(1)')).toBe('block');
     expect(decidePreviewNavigation(' javascript:alert(1)')).toBe('block');
     expect(decidePreviewNavigation('intent://scan/#Intent;scheme=zxing;end')).toBe('block');
-    expect(decidePreviewNavigation('kortix://auth/callback')).toBe('block');
+    expect(decidePreviewNavigation('dosco://auth/callback')).toBe('block');
     expect(decidePreviewNavigation('tel:123')).toBe('block');
     expect(decidePreviewNavigation('')).toBe('block');
   });
 
   test('keeps same-origin navigation in an allowed-origin preview', () => {
-    const allowedOrigin = 'https://api.kortix.com';
+    const allowedOrigin = 'https://api.dosco.live';
     expect(
-      decidePreviewNavigation('https://api.kortix.com/v1/p/abc/8000/index.html', { allowedOrigin }),
+      decidePreviewNavigation('https://api.dosco.live/v1/p/abc/8000/index.html', { allowedOrigin }),
     ).toBe('allow');
-    expect(decidePreviewNavigation('HTTPS://API.KORTIX.COM/other', { allowedOrigin })).toBe('allow');
-    expect(decidePreviewNavigation('https://api.kortix.com.evil.example/', { allowedOrigin })).toBe(
+    expect(decidePreviewNavigation('HTTPS://API.dosco.live/other', { allowedOrigin })).toBe('allow');
+    expect(decidePreviewNavigation('https://api.dosco.live.evil.example/', { allowedOrigin })).toBe(
       'open-external',
     );
     expect(
@@ -137,7 +137,7 @@ describe('decidePreviewNavigation in browser mode', () => {
       'tel:123',
       'sms:123',
       'mailto:a@b.c',
-      'kortix://auth/callback?code=x',
+      'dosco://auth/callback?code=x',
       'javascript:alert(1)',
       'file:///etc/hosts',
       'about:config',
@@ -154,7 +154,7 @@ describe('allowBrowserNavigation', () => {
     expect(allowBrowserNavigation({ url: 'https://example.com/' })).toBe(true);
     expect(allowBrowserNavigation({ url: 'about:blank' })).toBe(true);
     expect(allowBrowserNavigation({ url: 'intent://x#Intent;end' })).toBe(false);
-    expect(allowBrowserNavigation({ url: 'kortix://auth/callback' })).toBe(false);
+    expect(allowBrowserNavigation({ url: 'dosco://auth/callback' })).toBe(false);
   });
 });
 
@@ -292,17 +292,17 @@ describe('HTML_SANITIZER_SCRIPT', () => {
 });
 
 describe('isTrustedProxyUrl', () => {
-  const BACKEND = 'https://api.kortix.com/v1';
+  const BACKEND = 'https://api.dosco.live/v1';
 
   test('accepts the sandbox-proxy origin, path and port ignored', () => {
-    expect(isTrustedProxyUrl('https://api.kortix.com/p/sbx_1/3000/', BACKEND)).toBe(true);
-    expect(isTrustedProxyUrl('https://api.kortix.com/p/sbx_1/3000/app?x=1', BACKEND)).toBe(true);
+    expect(isTrustedProxyUrl('https://api.dosco.live/p/sbx_1/3000/', BACKEND)).toBe(true);
+    expect(isTrustedProxyUrl('https://api.dosco.live/p/sbx_1/3000/app?x=1', BACKEND)).toBe(true);
   });
 
   test('rejects every other host, scheme, and a malformed URL', () => {
     expect(isTrustedProxyUrl('https://evil.example/p/sbx_1/3000/', BACKEND)).toBe(false);
-    expect(isTrustedProxyUrl('http://api.kortix.com/p/sbx_1/3000/', BACKEND)).toBe(false);
-    expect(isTrustedProxyUrl('https://api.kortix.com.evil.example/steal', BACKEND)).toBe(false);
+    expect(isTrustedProxyUrl('http://api.dosco.live/p/sbx_1/3000/', BACKEND)).toBe(false);
+    expect(isTrustedProxyUrl('https://api.dosco.live.evil.example/steal', BACKEND)).toBe(false);
     expect(isTrustedProxyUrl('not a url', BACKEND)).toBe(false);
   });
 });

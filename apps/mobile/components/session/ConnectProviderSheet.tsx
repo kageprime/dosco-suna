@@ -4,9 +4,9 @@
  *
  * Handle only, no title row: `HandoffSheetBody` — `ConnectorHandshake` (the
  * Kortix tile, the dotted bridge, a plug tile — no provider is chosen yet)
- * over a title and one muted line, then a primary "Continue to kortix.com"
+ * over a title and one muted line, then a primary "Continue to dosco.live"
  * pill (opens
- * `/projects/:id/customize/models?return_to=kortix://providers/connected` in
+ * `/projects/:id/customize/models?return_to=dosco://providers/connected` in
  * an in-app auth session that closes itself once a provider is connected)
  * and a secondary
  * "Not now".
@@ -93,8 +93,8 @@ export const ConnectProviderSheet = React.forwardRef<SheetRef, ConnectProviderSh
           name=""
           iconUrl={null}
           title="Connect a model provider"
-          body="Add a provider on kortix.com. You come back here when you're done."
-          action="Continue to kortix.com"
+          body="Add a provider on dosco.live. You come back here when you're done."
+          action="Continue to dosco.live"
           onContinue={handleContinue}
           onClose={() => sheetRef.current?.close()}
         />

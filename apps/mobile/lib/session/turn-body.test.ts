@@ -263,7 +263,7 @@ describe('standaloneCallIdsFor', () => {
           ok: false,
           status: 'denied',
           reason: 'connector_not_connected',
-          connect_url: 'https://kortix.com/connect/abc',
+          connect_url: 'https://dosco.live/connect/abc',
           connector: 'gmail',
         }),
       },

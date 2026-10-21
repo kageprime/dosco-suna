@@ -21,7 +21,7 @@
  *     the web app" — whose Continue runs the connectors web flow, unchanged
  *     from the old drawer row's auth session + query invalidation), then one
  *     web-handoff row opened directly in the in-app browser
- *     (`lib/projects/web-project-links.ts`): "More on kortix.com" (the
+ *     (`lib/projects/web-project-links.ts`): "More on dosco.live" (the
  *     project's full Customize hub). This group replaces the project sheet
  *     (`CustomizeSheet`), deleted in COR-123/COR-160 Task 3: Agents, Skills
  *     and Terminal have no mobile page; Members was a web handoff until it
@@ -252,7 +252,7 @@ function AddCollaboratorSheet({ projectId, modalRef }: { projectId: string; moda
       <BottomSheetView>
         <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 16 }}>
           <Text variant="muted">
-            Kortix owns this repo. Add a GitHub user as a collaborator so they can clone, browse, and work on it
+            Dosco owns this repo. Add a GitHub user as a collaborator so they can clone, browse, and work on it
             directly on github.com.
           </Text>
           <SheetTextInput
@@ -453,7 +453,7 @@ export function SettingsNavPage({
   // Mobile still has no connector catalog, so web's Customize → Connectors
   // page still owns connecting — only the entry point changed, from a full
   // drawer row to a "Customize in the web app" hand-off sheet. Continue opens
-  // the page in an in-app auth session with `return_to=kortix://connectors/done`:
+  // the page in an in-app auth session with `return_to=dosco://connectors/done`:
   // its bottom bar sends the browser there once the user is done, and the
   // session closes itself on that redirect (or on the user closing the
   // browser by hand). Either way the project's connector list refetches, so a
@@ -500,7 +500,7 @@ export function SettingsNavPage({
                     }}
                   />
                 ))}
-                <SettingsRow icon={Globe} label="More on kortix.com" external onPress={openCustomizeOnWeb} />
+                <SettingsRow icon={Globe} label="More on dosco.live" external onPress={openCustomizeOnWeb} />
               </SettingsGroup>
               ) : null}
 
@@ -556,7 +556,7 @@ export function SettingsNavPage({
       <WebHandoffSheet
         ref={connectorsHandoffRef}
         title="Customize in the web app"
-        line="Connectors are set up on kortix.com."
+        line="Connectors are set up on dosco.live."
         run={runConnectorsHandoff}
       />
       {project ? (

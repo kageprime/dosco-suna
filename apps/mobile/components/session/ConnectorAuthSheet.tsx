@@ -15,7 +15,7 @@
  * Continue tries the project's own Pipedream connect flow first — the
  * `pipedreamConnect`/`pipedreamFinalize` round trip
  * (`lib/projects/projects-client.ts`), which mints a URL that
- * supports a `kortix://` redirect (`WebBrowser.openAuthSessionAsync` auto-
+ * supports a `dosco://` redirect (`WebBrowser.openAuthSessionAsync` auto-
  * dismisses on it) — and falls back to the agent's own `connect_url` (a
  * `/connect/<token>` public web page with no redirect support, so it opens
  * plain, via `openBrowserAsync`) only when that project-scoped connect can't
@@ -50,11 +50,11 @@ import type { ConnectorHandoffRequest } from './tool/shared/connector-handoff-co
 
 // App deep links so the connect browser auto-dismisses back to the app
 // (`openAuthSessionAsync` returns when it sees this scheme) instead of
-// stranding the user on Pipedream's web success page. `kortix://connectors`
+// stranding the user on Pipedream's web success page. `dosco://connectors`
 // is a browser-return root (`isBrowserReturnPath`, `lib/session/connect-model.ts`).
-const CONNECT_RETURN_URL = 'kortix://connectors';
-const CONNECT_SUCCESS_URI = 'kortix://connectors/success';
-const CONNECT_ERROR_URI = 'kortix://connectors/error';
+const CONNECT_RETURN_URL = 'dosco://connectors';
+const CONNECT_SUCCESS_URI = 'dosco://connectors/success';
+const CONNECT_ERROR_URI = 'dosco://connectors/error';
 
 export interface ConnectorAuthSheetProps {
   /** The row currently asking to connect. Null between requests — the sheet
@@ -72,7 +72,7 @@ export const ConnectorAuthSheet = React.forwardRef<SheetRef, ConnectorAuthSheetP
       if (!request) return;
       const { projectId, slug, label, fallbackConnectUrl, onSettled } = request;
       let connected = false;
-      // The project's own connect returned through the `kortix://` redirect.
+      // The project's own connect returned through the `dosco://` redirect.
       let authorized = false;
 
       try {
@@ -110,7 +110,7 @@ export const ConnectorAuthSheet = React.forwardRef<SheetRef, ConnectorAuthSheetP
       // when it is the call that persists; after the project finalize below it
       // would find the credential saved and stay silent. Public and
       // idempotent. It also answers when the browser closed without the
-      // `kortix://` redirect (Expo Go, a tab closed by hand).
+      // `dosco://` redirect (Expo Go, a tab closed by hand).
       const setupLink = parseSetupLinkHref(fallbackConnectUrl);
       if (setupLink?.kind === 'connector') {
         const finalized = await finalizeConnectorSetupLink(setupLink.token, { backendUrl: API_URL }).catch(

@@ -21436,8 +21436,7 @@
       "dictation": "Dillo e invialo",
       "dictationDescription": "Detta un prompt invece di scriverlo."
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "Scarica l'APK"
   },
   "capture": {
     "authorize": {

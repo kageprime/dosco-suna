@@ -1,12 +1,14 @@
 /**
  * The single source of truth for "what can you actually download right now".
  *
- * BOTH the /download page and the /download/<platform> redirect handlers import
- * this module. That is the point: the size and version the page prints and the
- * bytes the button delivers are resolved by the same function, so they cannot
- * drift apart.
+ * The /download page imports this module for the desktop cards' live sizes.
+ * The APK lives outside this module (`mobile-store-urls.ts`): it is an EAS
+ * artifact, not a GitHub release.
  *
- * Verified against release v0.11.0 (2026-07-28):
+ * The feed is Dosco's own repository (`kageprime/dosco-suna`) — the fork, not
+ * its upstream. Until desktop releases are published there `getLatestRelease`
+ * returns null and the page simply prints copy without sizes. Verified asset
+ * shapes when desktop ships (from the upstream feed this replaced):
  *   macOS   Dosco-<v>-universal.dmg          (universal: Apple Silicon + Intel)
  *   Windows Dosco-Setup-<v>.exe
  *   Linux   Dosco-<v>-x86_64.AppImage        (x86_64 ONLY — no arm64 build)
@@ -15,7 +17,7 @@
 
 import type { DesktopOs } from './detect-os';
 
-const REPO = 'kortix-ai/suna';
+const REPO = 'kageprime/dosco-suna';
 const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 /** Where every download falls back to when the API is unreachable. */
@@ -55,7 +57,11 @@ export function pickDesktopAsset(assets: ReleaseAsset[], os: DesktopOs): Release
  * `kortix-capture_amd64.deb`, each also under a versioned name.
  */
 export function pickCaptureAsset(assets: ReleaseAsset[], os: DesktopOs): ReleaseAsset | undefined {
-  const pattern = { windows: /^kortixcapture.*\.msi$/, macos: /^kortixcapture.*\.pkg$/, linux: /^kortix-capture.*\.deb$/ }[os];
+  const pattern = {
+    windows: /^kortixcapture.*\.msi$/,
+    macos: /^kortixcapture.*\.pkg$/,
+    linux: /^kortix-capture.*\.deb$/,
+  }[os];
   return pattern ? assets.find((a) => pattern.test(a.name.toLowerCase())) : undefined;
 }
 
@@ -76,7 +82,11 @@ export function formatSize(bytes: number): string {
   return `${Math.round(bytes / 1_048_576)} MB`;
 }
 
-type GithubAsset = { name?: string; browser_download_url?: string; size?: number };
+type GithubAsset = {
+  name?: string;
+  browser_download_url?: string;
+  size?: number;
+};
 
 /**
  * Fetch the newest release. Returns null on any failure — rate limit, network,
@@ -91,17 +101,27 @@ type GithubAsset = { name?: string; browser_download_url?: string; size?: number
 export async function getLatestRelease(): Promise<Release | null> {
   try {
     const res = await fetch(LATEST_API, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kortix-download' },
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'kortix-download',
+      },
       next: { revalidate: 600 },
       signal: AbortSignal.timeout(3_000),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { tag_name?: string; assets?: GithubAsset[] };
+    const data = (await res.json()) as {
+      tag_name?: string;
+      assets?: GithubAsset[];
+    };
     const assets: ReleaseAsset[] = (data.assets ?? [])
       .filter((a): a is GithubAsset & { name: string; browser_download_url: string } =>
         Boolean(a.name && a.browser_download_url),
       )
-      .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size ?? 0 }));
+      .map((a) => ({
+        name: a.name,
+        url: a.browser_download_url,
+        size: a.size ?? 0,
+      }));
     if (!assets.length) return null;
     return { version: (data.tag_name ?? '').replace(/^v/, ''), assets };
   } catch {
@@ -120,17 +140,28 @@ const CAPTURE_DEV_API = `https://api.github.com/repos/${REPO}/releases/tags/capt
 export async function getCaptureDevRelease(): Promise<Release | null> {
   try {
     const res = await fetch(CAPTURE_DEV_API, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kortix-download' },
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'kortix-download',
+      },
       next: { revalidate: 600 },
       signal: AbortSignal.timeout(3_000),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { name?: string; tag_name?: string; assets?: GithubAsset[] };
+    const data = (await res.json()) as {
+      name?: string;
+      tag_name?: string;
+      assets?: GithubAsset[];
+    };
     const assets: ReleaseAsset[] = (data.assets ?? [])
       .filter((a): a is GithubAsset & { name: string; browser_download_url: string } =>
         Boolean(a.name && a.browser_download_url),
       )
-      .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size ?? 0 }));
+      .map((a) => ({
+        name: a.name,
+        url: a.browser_download_url,
+        size: a.size ?? 0,
+      }));
     return assets.length ? { version: data.name ?? data.tag_name ?? 'dev', assets } : null;
   } catch {
     return null;
@@ -147,21 +178,45 @@ export async function getCaptureDevRelease(): Promise<Release | null> {
 export async function getLatestCaptureRelease(): Promise<Release | null> {
   try {
     const res = await fetch(RELEASES_API, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kortix-download' },
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'kortix-download',
+      },
       next: { revalidate: 600 },
       signal: AbortSignal.timeout(3_000),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as unknown;
     if (!Array.isArray(data)) return null;
-    for (const r of data as Array<{ tag_name?: string; draft?: boolean; prerelease?: boolean; assets?: GithubAsset[] }>) {
+    for (const r of data as Array<{
+      tag_name?: string;
+      draft?: boolean;
+      prerelease?: boolean;
+      assets?: GithubAsset[];
+    }>) {
       if (r.draft || r.prerelease || !/^v\d+\.\d+\.\d+$/.test(r.tag_name ?? '')) continue;
       const assets: ReleaseAsset[] = (r.assets ?? [])
-        .filter((a): a is GithubAsset & { name: string; browser_download_url: string } =>
-          Boolean(a.name && a.browser_download_url),
+        .filter(
+          (
+            a,
+          ): a is GithubAsset & {
+            name: string;
+            browser_download_url: string;
+          } => Boolean(a.name && a.browser_download_url),
         )
-        .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size ?? 0 }));
-      if (assets.some((a) => pickCaptureAsset([a], 'windows') || pickCaptureAsset([a], 'macos') || pickCaptureAsset([a], 'linux'))) {
+        .map((a) => ({
+          name: a.name,
+          url: a.browser_download_url,
+          size: a.size ?? 0,
+        }));
+      if (
+        assets.some(
+          (a) =>
+            pickCaptureAsset([a], 'windows') ||
+            pickCaptureAsset([a], 'macos') ||
+            pickCaptureAsset([a], 'linux'),
+        )
+      ) {
         return { version: (r.tag_name ?? '').slice(1), assets };
       }
     }

@@ -140,7 +140,7 @@ function isExpectedAuthCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return (
-      parsed.protocol === 'kortix:' && parsed.hostname === 'auth' && parsed.pathname === '/callback'
+      parsed.protocol === 'dosco:' && parsed.hostname === 'auth' && parsed.pathname === '/callback'
     );
   } catch {
     return false;
@@ -622,7 +622,7 @@ export function useAuth() {
       // missing from its allow-list and falls back to SITE_URL, so the IdP
       // would land on web and the app would stay signed out (KRTX-2052). The
       // web origin is always allowed: web auth runs SSO and hands the session
-      // back through `kortix://auth/callback`. Reuse the state already in
+      // back through `dosco://auth/callback`. Reuse the state already in
       // `redirectTo`; a second state would overwrite the persisted one.
       const authUrl =
         provider === 'sso'
@@ -898,7 +898,7 @@ export function useAuth() {
   /**
    * Sign in with magic link (passwordless)
    * Auto-creates account if it doesn't exist
-   * Uses kortix:// deep link - works when app is installed
+   * Uses dosco:// deep link - works when app is installed
    */
   const signInWithMagicLink = useCallback(
     async ({ email, acceptedTerms }: { email: string; acceptedTerms?: boolean }) => {
@@ -928,7 +928,7 @@ export function useAuth() {
             message: magicLinkError.message,
             status: magicLinkError.status,
             attemptedUrl: emailRedirectTo,
-            hint: 'Add kortix://** to Auth → Redirect URLs (local: supabase/config.toml additional_redirect_urls)',
+            hint: 'Add dosco://** to Auth → Redirect URLs (local: supabase/config.toml additional_redirect_urls)',
           });
         }
 
@@ -963,7 +963,7 @@ export function useAuth() {
       setError(null);
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'kortix://auth/reset-password',
+        redirectTo: 'dosco://auth/reset-password',
       });
 
       if (resetError) {

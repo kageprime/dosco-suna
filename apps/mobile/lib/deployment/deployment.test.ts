@@ -148,12 +148,12 @@ describe('checkDeployment', () => {
     ]);
   });
 
-  test('a host without the runtime config is not a Kortix instance', async () => {
+  test('a host without the runtime config is not a Dosco instance', async () => {
     const { fetchImpl } = fakeFetch({
       'https://kortix.example.com/api/runtime-config': { status: 404, body: 'not found' },
     });
     const result = await checkDeployment(ORIGIN, fetchImpl);
-    expect(result).toEqual({ ok: false, error: 'kortix.example.com is not a Kortix instance (HTTP 404).' });
+    expect(result).toEqual({ ok: false, error: 'kortix.example.com is not a Dosco instance (HTTP 404).' });
   });
 
   test('an older API (no client config) is refused with a pointer to the web URL', async () => {
@@ -164,7 +164,7 @@ describe('checkDeployment', () => {
     });
     expect(await checkDeployment('api.kortix.example.com', fetchImpl)).toEqual({
       ok: false,
-      error: 'api.kortix.example.com runs an older Kortix API. Enter the web URL, or update the instance.',
+      error: 'api.kortix.example.com runs an older Dosco API. Enter the web URL, or update the instance.',
     });
   });
 
@@ -348,17 +348,17 @@ describe('parseSavedDeployment', () => {
 
 describe('resolveEndpoints', () => {
   const BUILD_ENV = {
-    EXPO_PUBLIC_BACKEND_URL: 'https://api.kortix.com/v1',
+    EXPO_PUBLIC_BACKEND_URL: 'https://api.dosco.live/v1',
     EXPO_PUBLIC_SUPABASE_URL: 'https://build.supabase.example.com',
     EXPO_PUBLIC_SUPABASE_ANON_KEY: 'build-anon-key',
   };
 
-  test('no saved deployment keeps every build-time endpoint and kortix.com links', () => {
+  test('no saved deployment keeps every build-time endpoint and dosco.live links', () => {
     expect(resolveEndpoints(null, BUILD_ENV)).toEqual({
-      backendUrl: 'https://api.kortix.com/v1',
+      backendUrl: 'https://api.dosco.live/v1',
       supabaseUrl: 'https://build.supabase.example.com',
       supabaseAnonKey: 'build-anon-key',
-      webUrl: 'https://kortix.com',
+      webUrl: 'https://dosco.live',
     });
   });
 

@@ -37,14 +37,14 @@ describe('openApp', () => {
       {
         createSession: async () => {
           calls.push('session');
-          return { url: 'https://seed.apps.kortix.com/s/abc' };
+          return { url: 'https://seed.apps.dosco.live/s/abc' };
         },
         openLink: async (url) => {
           calls.push(`open:${url}`);
         },
       },
     );
-    expect(calls).toEqual(['session', 'open:https://seed.apps.kortix.com/s/abc']);
+    expect(calls).toEqual(['session', 'open:https://seed.apps.dosco.live/s/abc']);
   });
 
   test('an app the viewer cannot open throws before any request', async () => {
@@ -55,7 +55,7 @@ describe('openApp', () => {
       {
         createSession: async () => {
           sessions += 1;
-          return { url: 'https://seed.apps.kortix.com/s/abc' };
+          return { url: 'https://seed.apps.dosco.live/s/abc' };
         },
         openLink: async () => {
           opened += 1;
@@ -74,7 +74,7 @@ describe('openApp', () => {
       {
         createSession: async () => {
           sessions += 1;
-          return { url: 'https://seed.apps.kortix.com/s/abc' };
+          return { url: 'https://seed.apps.dosco.live/s/abc' };
         },
         openLink: async () => {},
       },

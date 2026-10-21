@@ -160,11 +160,11 @@ describe('composerModelList — the SDK list, fed the sources web reads', () => 
 });
 
 describe('modelPickerOptions — groups and rows in web order', () => {
-  test('Kortix first, known providers in table order, unknown last by label; rows by name', () => {
+  test('Dosco first, known providers in table order, unknown last by label; rows by name', () => {
     const options = modelPickerOptions(composerModelList(gateway), null);
     expect(options.map((o) => [o.group, o.label])).toEqual([
-      ['Kortix', 'DeepSeek V4.1 Flash'],
-      ['Kortix', 'Kimi K3 2.8T'],
+      ['Dosco', 'DeepSeek V4.1 Flash'],
+      ['Dosco', 'Kimi K3 2.8T'],
       ['Anthropic', 'Claude Sonnet 5'],
       ['ChatGPT subscription', 'GPT-5.5'],
       ['ChatGPT subscription', 'GPT-6 Astra'],

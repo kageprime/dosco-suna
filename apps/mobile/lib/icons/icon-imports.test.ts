@@ -89,7 +89,7 @@ function readSourceTree(): SourceFile[] {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) walk(path);
       else if (/\.(tsx?|jsx?)$/.test(entry.name) && !entry.name.endsWith('.test.ts')) {
-        files.push({ path: relative(MOBILE_ROOT, path), source: readFileSync(path, 'utf8') });
+        files.push({ path: relative(MOBILE_ROOT, path).replace(/\\/g, '/'), source: readFileSync(path, 'utf8') });
       }
     }
   };

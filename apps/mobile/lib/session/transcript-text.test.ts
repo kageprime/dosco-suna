@@ -38,12 +38,12 @@ describe('buildTranscriptText', () => {
       msg('user', [text('Why does CI fail?')]),
       msg('assistant', [text('The lockfile is stale.')]),
     ]);
-    expect(out).toBe('Fix the build\n\nYou:\nWhy does CI fail?\n\nKortix:\nThe lockfile is stale.');
+    expect(out).toBe('Fix the build\n\nYou:\nWhy does CI fail?\n\nDosco:\nThe lockfile is stale.');
   });
 
   test('a tool call is one line with its name only: no input, no output', () => {
     const out = buildTranscriptText('T', [msg('assistant', [text('Checking.'), tool('bash'), text('Done.')])])!;
-    expect(out).toBe('T\n\nKortix:\nChecking.\nTool: bash\nDone.');
+    expect(out).toBe('T\n\nDosco:\nChecking.\nTool: bash\nDone.');
     expect(out).not.toContain('SECRET');
   });
 
@@ -51,7 +51,7 @@ describe('buildTranscriptText', () => {
     const out = buildTranscriptText('T', [
       msg('assistant', [reasoning('private thoughts'), text('hidden', { synthetic: true }), text('skip', { ignored: true }), text('Visible')]),
     ])!;
-    expect(out).toBe('T\n\nKortix:\nVisible');
+    expect(out).toBe('T\n\nDosco:\nVisible');
   });
 
   test('file contents in a user message are stripped to the visible text', () => {
@@ -74,7 +74,7 @@ describe('buildTranscriptText', () => {
       msg('assistant', [tool('read')]),
       msg('user', [text('Two')]),
     ]);
-    expect(out).toBe('T\n\nKortix:\nOne\nTool: read\n\nYou:\nTwo');
+    expect(out).toBe('T\n\nDosco:\nOne\nTool: read\n\nYou:\nTwo');
   });
 
   test('system and context messages and messages with nothing to show are skipped', () => {

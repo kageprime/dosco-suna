@@ -1,9 +1,7 @@
-import { AppleMark, LinuxMark, PlayStoreMark, WindowsMark } from '@/components/brand/brand-logos';
-import { DesktopCardImage, MobileCardImage } from '@/features/marketing/download/card-images';
+import Link from '@/components/site-link';
+import { MobileCardImage } from '@/features/marketing/download/card-images';
 import { localizedDownloadContent } from '@/features/marketing/download/content';
-import type { DesktopOs, MobileOs, Platform } from '@/features/marketing/download/detect-os';
 import {
-  DESKTOP_ORDER,
   MOBILE_ORDER,
   detectPlatform,
   isMobilePlatform,
@@ -11,104 +9,60 @@ import {
 } from '@/features/marketing/download/detect-os';
 import type { CardRow } from '@/features/marketing/download/platform-card';
 import { PlatformCard } from '@/features/marketing/download/platform-card';
-import {
-  formatSize,
-  getLatestRelease,
-  pickDesktopAsset,
-} from '@/features/marketing/download/releases';
-import { TerminalBlock } from '@/features/marketing/download/terminal-block';
-import { localizedMarketingMetadata } from '@/lib/seo/metadata';
-import type { Metadata } from 'next';
 import { getTranslations } from '@/i18n/get-translations';
+import { localizedMarketingMetadata } from '@/lib/seo/metadata';
+import { AndroidLogo } from '@phosphor-icons/react';
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export function generateMetadata(): Promise<Metadata> {
   return localizedMarketingMetadata('/download');
 }
 
-const DESKTOP_MARKS: Record<DesktopOs, CardRow['Mark']> = {
-  macos: AppleMark,
-  windows: WindowsMark,
-  linux: LinuxMark,
+const MOBILE_MARKS: Record<'android', CardRow['Mark']> = {
+  android: AndroidLogo,
 };
 
-const MOBILE_MARKS: Record<MobileOs, CardRow['Mark']> = {
-  ios: AppleMark,
-  android: PlayStoreMark,
-};
 export default async function DownloadPage({
   searchParams,
 }: {
   searchParams: Promise<{ platform?: string }>;
 }) {
-  const [headerList, params, release, tI18nComplete] = await Promise.all([
+  const [headerList, params, tI18nComplete] = await Promise.all([
     headers(),
     searchParams,
-    getLatestRelease(),
     getTranslations('hardcodedUi.i18nComplete'),
   ]);
   const {
     hero,
-    desktopCard: DESKTOP_CARD,
     mobileCard: MOBILE_CARD,
-    desktopRows: DESKTOP_ROWS,
     mobileRows: MOBILE_ROWS,
   } = localizedDownloadContent(tI18nComplete);
 
-  const detected: Platform =
+  const detected =
     normalizePlatform(params.platform) ?? detectPlatform(headerList.get('user-agent'));
 
-  const desktopRows: CardRow[] = DESKTOP_ORDER.map((os) => {
-    const size = release ? formatSize(pickDesktopAsset(release.assets, os)?.size ?? 0) : '';
-    return {
-      id: os,
-      label: DESKTOP_ROWS[os].label,
-      // The size drops out of the join when GitHub is unreachable, leaving just
-      // the copy. Never a placeholder, never a stale number.
-      meta: [DESKTOP_ROWS[os].hint, size].filter(Boolean).join(' · '),
-      href: DESKTOP_ROWS[os].href,
-      Mark: DESKTOP_MARKS[os],
-    };
-  });
-
-  // Rows with a null href are unpublished listings (mobile-store-urls.ts);
-  // a card with zero rows renders nothing at all until the apps are ported.
-  const mobileRows: CardRow[] = MOBILE_ORDER.flatMap((os) => {
-    const href = MOBILE_ROWS[os].href;
-    if (href === null) return [];
-    return [{
-      id: os,
-      label: MOBILE_ROWS[os].label,
-      meta: MOBILE_ROWS[os].hint,
-      href,
-      external: true,
-      Mark: MOBILE_MARKS[os],
-    }];
-  });
+  const mobileRows: CardRow[] = MOBILE_ORDER.map((os) => ({
+    id: os,
+    label: MOBILE_ROWS[os].label,
+    meta: MOBILE_ROWS[os].hint,
+    href: MOBILE_ROWS[os].href,
+    // Not `external` — the internal redirect route reads "Download".
+    Mark: MOBILE_MARKS[os],
+  }));
 
   const onPhone = isMobilePlatform(detected);
 
-  const desktopCard = (
-    <PlatformCard
-      image={<DesktopCardImage />}
-      title={DESKTOP_CARD.title}
-      description={DESKTOP_CARD.description}
-      rows={desktopRows}
-      filled={onPhone ? null : detected}
-    />
-  );
-
   const mobileCard = (
     <PlatformCard
-      // Desktop sits left and Mobile right at md+, always. On the stacked phone
-      // layout a phone visitor sees the Mobile card first.
-      className={onPhone ? 'order-first md:order-none' : undefined}
+      className="mx-auto w-full max-w-lg"
       image={<MobileCardImage />}
       title={MOBILE_CARD.title}
       description={MOBILE_CARD.description}
       rows={mobileRows}
-      // A phone visitor's own store gets the one solid button.
-      filled={onPhone ? detected : null}
+      // A phone visitor's own platform gets the one solid button (an iPhone
+      // has no APK to fill — the single row stays outline for them).
+      filled={onPhone && detected === 'android' ? detected : null}
     />
   );
 
@@ -121,13 +75,15 @@ export default async function DownloadPage({
         <p className="text-muted-foreground mx-auto mt-3 max-w-md text-balance">{hero.sub}</p>
       </header>
 
-      <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          {desktopCard}
-          {mobileRows.length > 0 ? mobileCard : null}
-        </div>
-        <TerminalBlock />
-      </div>
+      {mobileCard}
+
+      <p className="text-muted-foreground mx-auto mt-6 max-w-md text-center text-sm text-balance">
+        Prefer the browser? Dosco runs at dosco.live —{' '}
+        <Link href="/" className="text-foreground underline underline-offset-4 hover:no-underline">
+          open the web app
+        </Link>
+        , nothing to install.
+      </p>
     </main>
   );
 }

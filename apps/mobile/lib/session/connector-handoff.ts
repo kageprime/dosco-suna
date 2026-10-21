@@ -18,7 +18,7 @@
  * The connect hand-off itself prefers the project's own Pipedream connect
  * round trip (`lib/projects/projects-client.ts` `pipedreamConnect` /
  * `pipedreamFinalize`) over opening the agent's `connect_url` directly: the
- * project-scoped flow mints a URL that supports a `kortix://` redirect, so
+ * project-scoped flow mints a URL that supports a `dosco://` redirect, so
  * the in-app browser auto-dismisses; the public `/connect/<token>` page does
  * not, and is kept only as a fallback (`ConnectorAuthSheet`).
  *
@@ -259,7 +259,7 @@ export function connectorHandoffCopy(
 ): { title: string; body: string; action: string } {
   return {
     title: projectName ? `Connect ${providerLabel} to ${projectName}` : `Connect ${providerLabel}`,
-    body: `You sign in on ${providerLabel} in the browser, then come back to this chat. Kortix never sees your password.`,
+    body: `You sign in on ${providerLabel} in the browser, then come back to this chat. Dosco never sees your password.`,
     action: `Continue to ${providerLabel}`,
   };
 }

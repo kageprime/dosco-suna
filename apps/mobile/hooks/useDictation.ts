@@ -174,7 +174,7 @@ export function useDictation({
     if (session.current !== s) return; // cancelled while the prompt was up
     if (!permission?.granted) {
       teardown();
-      toast.error('Kortix cannot use the microphone', {
+      toast.error('Dosco cannot use the microphone', {
         description: 'Allow microphone and speech recognition in Settings.',
         action: { label: 'Settings', onPress: () => void Linking.openSettings() },
       });

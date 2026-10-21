@@ -5,7 +5,7 @@
  * the real `SessionTurn` transcript, for side-by-side comparison with the web
  * page `/debug/session-fixture`.
  *
- * Open: `kortix://session-fixture` (dev client), or
+ * Open: `dosco://session-fixture` (dev client), or
  * `exp://<metro-host>:8081/--/session-fixture` (Expo Go). The route needs a
  * signed-in user: `AuthProtection` sends everyone else to /auth.
  *

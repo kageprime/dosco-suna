@@ -9,8 +9,9 @@
  * Email methods come from env (lib/auth/auth-config): a one-time code and/or a
  * password. The code step replaces the form in place; back returns to the form.
  *
- * `?method=sso` (the welcome screen's "Continue with SSO", self-hosted instances):
- * the email alone, then the domain's identity provider in the browser.
+ * `?method=sso` starts the screen on the domain-SSO form (work email → the IdP
+ * in the browser). No in-app entry point sets it today; the param stays for
+ * deep links.
  *
  * SSO required (KRTX-1716, lib/auth/sso-required): before a password, code,
  * sign-up or password-reset attempt the screen asks the API whether the

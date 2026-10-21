@@ -3,7 +3,7 @@
  * (apps/web/src/app/[locale]/(app)/invites/[inviteId]/page.tsx).
  *
  * Reached from the start screen (a pending invite, or an invite link opened
- * before sign-in — `takeInviteLink`), from a `kortix://invites/<id>` link, and
+ * before sign-in — `takeInviteLink`), from a `dosco://invites/<id>` link, and
  * from the switcher sheet's Invites group.
  *
  * States: loading; not found or not loaded; addressed to another account

@@ -27,9 +27,9 @@ function fingerprint(nm: string, overrides: { svg?: string; patches?: string; ea
 
 describe('OTA native-change guard', () => {
   test('compares only builds of the app id this checkout builds', () => {
-    // A stale com.kortix.app APK on the channel must not block the Play app.
-    expect(appIdentifier(appJson.expo, 'android')).toBe('com.kortix.application');
-    expect(appIdentifier(appJson.expo, 'ios')).toBe('com.kortix.app');
+    // A stale com.dosco.app APK on the channel must not block the Play app.
+    expect(appIdentifier(appJson.expo, 'android')).toBe('com.dosco.application');
+    expect(appIdentifier(appJson.expo, 'ios')).toBe('com.dosco.app');
   });
 
   test('normalizes both path forms to the same node_modules path', () => {

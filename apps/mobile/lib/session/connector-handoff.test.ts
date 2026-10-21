@@ -59,9 +59,9 @@ describe('connectorConnectNeed', () => {
         ok: false,
         status: 'denied',
         reason: 'connector_not_connected',
-        connect_url: 'https://kortix.com/connect/abc123',
+        connect_url: 'https://dosco.live/connect/abc123',
       }),
-    ).toEqual({ slug: 'gmail', label: 'Gmail', connectUrl: 'https://kortix.com/connect/abc123' });
+    ).toEqual({ slug: 'gmail', label: 'Gmail', connectUrl: 'https://dosco.live/connect/abc123' });
   });
 
   test('falls back to the tool input connector when the payload omits it', () => {
@@ -70,10 +70,10 @@ describe('connectorConnectNeed', () => {
         ok: false,
         status: 'denied',
         reason: 'connector_not_connected',
-        connect_url: 'https://kortix.com/connect/abc123',
+        connect_url: 'https://dosco.live/connect/abc123',
         connector: undefined,
       }),
-    ).toEqual({ slug: 'gmail', label: 'Gmail', connectUrl: 'https://kortix.com/connect/abc123' });
+    ).toEqual({ slug: 'gmail', label: 'Gmail', connectUrl: 'https://dosco.live/connect/abc123' });
   });
 
   test('null when neither payload nor input names a connector', () => {
@@ -84,7 +84,7 @@ describe('connectorConnectNeed', () => {
           ok: false,
           status: 'denied',
           reason: 'connector_not_connected',
-          connect_url: 'https://kortix.com/connect/abc123',
+          connect_url: 'https://dosco.live/connect/abc123',
         },
       ),
     ).toBeNull();
@@ -185,7 +185,7 @@ describe('connectorHandoffCallIds', () => {
     ok: false,
     status: 'denied',
     reason: 'connector_not_connected',
-    connect_url: 'https://kortix.com/connect/abc',
+    connect_url: 'https://dosco.live/connect/abc',
     connector: 'gmail',
   });
   const approval = JSON.stringify({ status: 'pending_approval', execution_id: 'exec_1', connector: 'gmail' });
@@ -316,7 +316,7 @@ describe('connectorHandoffCopy', () => {
   test('names the provider in the title, the body, and the action', () => {
     expect(connectorHandoffCopy('Gmail')).toEqual({
       title: 'Connect Gmail',
-      body: 'You sign in on Gmail in the browser, then come back to this chat. Kortix never sees your password.',
+      body: 'You sign in on Gmail in the browser, then come back to this chat. Dosco never sees your password.',
       action: 'Continue to Gmail',
     });
   });

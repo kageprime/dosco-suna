@@ -89,7 +89,7 @@
     "openEmailApp": "Open email app",
     "goToSignIn": "Go to sign in",
     "verifyEmailInstructions": "Click the link in the email to verify your account, then sign in.",
-    "welcomeTitle": "Hire Kortix for",
+    "welcomeTitle": "Hire Dosco for",
     "rotatingPhrases": {
       "presentations": "presentations",
       "writing": "writing",
@@ -114,13 +114,13 @@
       "passwordTooShort": "Password must be at least 8 characters"
     },
     "drawer": {
-      "defaultTitle": "Welcome to Kortix",
+      "defaultTitle": "Welcome to Dosco",
       "defaultMessage": "The AI Super Mega Giga app.",
-      "signInToChat": "Welcome to Kortix",
+      "signInToChat": "Welcome to Dosco",
       "signInToChatMessage": "The AI Super Mega Giga app.",
-      "signUpUnlock": "Welcome to Kortix",
+      "signUpUnlock": "Welcome to Dosco",
       "signUpUnlockMessage": "The AI Super Mega Giga app.",
-      "welcomeBack": "Welcome to Kortix",
+      "welcomeBack": "Welcome to Dosco",
       "welcomeBackMessage": "The AI Super Mega Giga app.",
       "signUpToContinue": "Sign up to continue",
       "signUpToContinueMessage": "Please sign up or sign in to create and select workers, connect apps and much more"
@@ -128,7 +128,7 @@
     "guest": {
       "label": "Guest",
       "title": "Browse Without\nan Account",
-      "description": "Try Kortix with limited features. No signup required!",
+      "description": "Try Dosco with limited features. No signup required!",
       "continue": "Continue as Guest",
       "signUp": "Sign Up Instead",
       "agreement": "By continuing, you agree to our",
@@ -150,12 +150,12 @@
     }
   },
   "onboarding": {
-    "welcome": "See what Kortix can do",
+    "welcome": "See what Dosco can do",
     "welcomeSubtitle": "Your AI assistant that takes action",
     "skip": "Skip",
     "next": "Next",
     "getStarted": "Get Started",
-    "kortixComputer": "Kortix Computer",
+    "kortixComputer": "Dosco Computer",
     "ready": "Ready",
     "examples": {
       "presentations": {
@@ -277,8 +277,8 @@
   },
   "chat": {
     "newChat": "New Chat",
-    "placeholder": "Give Kortix a task...",
-    "inputPlaceholder": "Ask Kortix anything...",
+    "placeholder": "Give Dosco a task...",
+    "inputPlaceholder": "Ask Dosco anything...",
     "recording": "Recording...",
     "cancelRecording": "Cancel recording",
     "stopRecording": "Stop recording",
@@ -291,7 +291,7 @@
     "rateThisResult": "Rate this result",
     "feedbackHelpsImprove": "Your feedback helps us improve",
     "additionalFeedbackOptional": "Additional feedback (optional)",
-    "helpKortixImprove": "Help Kortix improve with my feedback",
+    "helpKortixImprove": "Help Dosco improve with my feedback",
     "submit": "Submit",
     "submitting": "Submitting...",
     "suggestedFollowUps": "Suggested follow-ups",
@@ -312,7 +312,7 @@
     "newWorker": "New Worker",
     "myWorkers": "My Workers",
     "searchAgents": "Search workers",
-    "defaultAgent": "Kortix",
+    "defaultAgent": "Xera",
     "defaultDescription": "General purpose AI for all tasks",
     "superWorker": "Super Worker",
     "coder": "Coder",
@@ -530,7 +530,7 @@
     "mode": "Mode"
   },
   "placeholders": {
-    "default": "Give Kortix a task...",
+    "default": "Give Dosco a task...",
     "search": "Search...",
     "searchConversations": "Search chats",
     "searchAgents": "Search workers",
@@ -564,8 +564,8 @@
   "billing": {
     "loadingPaywall": "Loading plans...",
     "checkoutUnavailable": "Mobile checkout not available",
-    "checkoutUnavailableMessage": "To subscribe to a plan, please visit kortix.com on the web.",
-    "goToWeb": "Go to kortix.com",
+    "checkoutUnavailableMessage": "To subscribe to a plan, please visit dosco.live on the web.",
+    "goToWeb": "Go to dosco.live",
     "billingStatus": "Billing Status",
     "loading": "Loading billing information...",
     "error": "Failed to load billing information",
@@ -593,8 +593,8 @@
     "choosePackageBoost": "Choose a package and boost your credit balance",
     "title": "Billing",
     "cancelsOn": "Cancels on",
-    "manageOnWeb": "Manage on kortix.com",
-    "openWebFailed": "Could not open kortix.com. Try again."
+    "manageOnWeb": "Manage on dosco.live",
+    "openWebFailed": "Could not open dosco.live. Try again."
   },
   "theme": {
     "title": "Appearance",
@@ -616,12 +616,12 @@
   "beta": {
     "title": "Beta Features",
     "webSupportTitle": "Fully Supported on Web",
-    "webSupportDescription": "Available on Kortix.com. Coming to mobile soon—still work-in-progress here.",
-    "visitKortix": "Visit Kortix.com",
+    "webSupportDescription": "Available on dosco.live. Coming to mobile soon—still work-in-progress here.",
+    "visitKortix": "Visit dosco.live",
     "advancedFeatures": "Advanced Features",
     "mobileBeta": "Mobile Beta",
     "pleaseNote": "Please Note",
-    "mobileWarning": "Work-in-progress on mobile and may have issues. For the best experience, use Kortix.com."
+    "mobileWarning": "Work-in-progress on mobile and may have issues. For the best experience, use dosco.live."
   },
   "accountDeletion": {
     "title": "Delete account",
@@ -1175,7 +1175,7 @@
     "enterpriseLabel": "{{plan}} · Enterprise"
   },
   "upgrade": {
-    "creditsPlan": "Kortix Credits",
+    "creditsPlan": "Dosco Credits",
     "pickAmount": "Pick any monthly amount on the web. Unlimited members share one credit pool.",
     "includes": "Includes",
     "notNow": "Not now"
@@ -1218,8 +1218,8 @@
   },
   "updateRequired": {
     "title": "Update required",
-    "body": "This version of Kortix is no longer supported. Update the app to continue.",
-    "bodyNoStore": "This version of Kortix is no longer supported. Update the app from the App Store or Google Play to continue.",
+    "body": "This version of Dosco is no longer supported. Update the app to continue.",
+    "bodyNoStore": "This version of Dosco is no longer supported. Update the app from the App Store or Google Play to continue.",
     "button": "Update"
   },
   "invites": {

@@ -6,7 +6,7 @@
  * - change: what changed, the agent's checks, then its Files — one row per
  *   changed file with its +/− counts, no diff drawn. A file row pushes that
  *   file's diff inside the sheet (`ReviewFileDiff`, virtualized; Back returns),
- *   and "Open on web" opens the change request on kortix.com (Jay, 2026-09-27:
+ *   and "Open on web" opens the change request on dosco.live (Jay, 2026-09-27:
  *   the whole diff in the sheet stalled the device).
  * - approval: each connector call with its arguments. Arguments the viewer may
  *   not see are named as hidden, never shown as empty.

@@ -91,7 +91,7 @@ describe('questionReminderRequest', () => {
     expect(request).toEqual({
       identifier: 'question-reminder:q1',
       content: {
-        title: 'Kortix',
+        title: 'Xera',
         body: 'You need to answer the question.',
         sound: 'kortix_attention.wav',
         data: { kind: 'question', type: 'question', projectId: 'p1', sessionId: 's1', reminder: true },

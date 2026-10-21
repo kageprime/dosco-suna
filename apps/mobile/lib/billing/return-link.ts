@@ -2,7 +2,7 @@
  * Deep-link contract for the web-checkout round-trip.
  *
  * Mobile has NO in-app payment — the upgrade opens the backend's masked
- * kortix.com checkout in an in-app browser, and the web redirects back to the
+ * dosco.live checkout in an in-app browser, and the web redirects back to the
  * app via the `agentpress://` scheme. `WebBrowser.openAuthSessionAsync` closes
  * on that redirect; `parseBillingReturn` also lets the global deep-link handler
  * recognise a return if the link arrives out-of-band (e.g. universal link).

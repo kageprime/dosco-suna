@@ -1,11 +1,14 @@
 import * as React from 'react';
-import { View, type ViewProps, type ViewStyle } from 'react-native';
-import KortixSymbolBlack from '@/assets/brand/kortix-symbol.svg';
-import KortixSymbolWhite from '@/assets/brand/Symbol.svg';
-import LogomarkBlack from '@/assets/brand/Logomark-Black.svg';
-import LogomarkWhite from '@/assets/brand/Logomark-White.svg';
-import LogomarkTextBlack from '@/assets/brand/Logomark-Text-Black.svg';
-import LogomarkTextWhite from '@/assets/brand/Logomark-Text-White.svg';
+import { Image, View, type ViewProps, type ViewStyle } from 'react-native';
+
+// Baked by scripts/bake-brand-assets.mjs from the dosco-brand sources:
+// the full-colour crest (theme-invariant — chrome + red read on both
+// surfaces) for the symbol, and the alpha silhouettes of the wordmark for
+// the wide marks. Fitted with `contain`, so the exact pixel ratio only
+// letterboxes transparent padding.
+const CrestSquare = require('@/assets/brand/dosco-crest-square.png');
+const WordmarkDark = require('@/assets/brand/dosco-wordmark-dark.png');
+const WordmarkLight = require('@/assets/brand/dosco-wordmark-light.png');
 
 interface KortixLogoProps extends Omit<ViewProps, 'style'> {
   size?: number;
@@ -15,20 +18,23 @@ interface KortixLogoProps extends Omit<ViewProps, 'style'> {
   color?: 'light' | 'dark';
 }
 
-// One row per variant × color: the SVG to render and its aspect ratio
-// (the wide marks scale `size` by it; the symbol is square).
-const LOGOS: Record<'symbol' | 'logomark' | 'text', Record<'light' | 'dark', { logo: React.ComponentType<{ width: number; height: number }>; ratio: number }>> = {
+// One row per variant × surface: the image to render (baked PNG) and its
+// aspect ratio (`size` is the height; the wide marks scale `size` by it, the
+// symbol is square). `color` names the SURFACE (`dark` = it sits on a dark
+// background), not the ink.
+const LOGOS: Record<'symbol' | 'logomark' | 'text', Record<'light' | 'dark', { logo: number; ratio: number }>> = {
   symbol: {
-    light: { logo: KortixSymbolBlack, ratio: 1 },
-    dark: { logo: KortixSymbolWhite, ratio: 1 },
+    light: { logo: CrestSquare, ratio: 1 },
+    dark: { logo: CrestSquare, ratio: 1 },
   },
   logomark: {
-    light: { logo: LogomarkBlack, ratio: 5 },
-    dark: { logo: LogomarkWhite, ratio: 5 },
+    // 1600×342 — the wordmark silhouette baked from the brand lockup.
+    light: { logo: WordmarkDark, ratio: 1600 / 342 },
+    dark: { logo: WordmarkLight, ratio: 1600 / 342 },
   },
   text: {
-    light: { logo: LogomarkTextBlack, ratio: 74 / 22 },
-    dark: { logo: LogomarkTextWhite, ratio: 74 / 22 },
+    light: { logo: WordmarkDark, ratio: 1600 / 342 },
+    dark: { logo: WordmarkLight, ratio: 1600 / 342 },
   },
 };
 
@@ -40,12 +46,12 @@ export function KortixLogo({
   color = 'dark',
   ...props
 }: KortixLogoProps) {
-  const { logo: Logo, ratio } = LOGOS[variant][color];
+  const { logo: source, ratio } = LOGOS[variant][color];
   const width = size * ratio;
   const containerStyle: ViewStyle = { width, height: size, flexShrink: 0, ...style };
   return (
     <View className={className} style={containerStyle} {...props}>
-      <Logo width={width} height={size} />
+      <Image source={source} style={{ width, height: size }} resizeMode="contain" />
     </View>
   );
 }

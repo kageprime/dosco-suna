@@ -7,8 +7,8 @@ import {
   type SetupLinkSegment,
 } from './setup-links';
 
-const CONNECT = 'https://kortix.com/connect/ksl_abc-DEF_123';
-const SECRET = 'https://kortix.com/secret-intake/ksl_zzz';
+const CONNECT = 'https://dosco.live/connect/ksl_abc-DEF_123';
+const SECRET = 'https://dosco.live/secret-intake/ksl_zzz';
 type Card = Extract<SetupLinkSegment, { type: 'setup' }>;
 const card = (over: Partial<Card> = {}): Card => ({
   type: 'setup',
@@ -26,17 +26,17 @@ describe('parseSetupLinkHref', () => {
   });
 
   test('ignores every other link', () => {
-    expect(parseSetupLinkHref('https://kortix.com/connect/not-a-token')).toBeNull();
-    expect(parseSetupLinkHref('https://kortix.com/docs/connect/ksl_abc')).toBeNull();
-    expect(parseSetupLinkHref('kortix://connect/ksl_abc')).toBeNull();
+    expect(parseSetupLinkHref('https://dosco.live/connect/not-a-token')).toBeNull();
+    expect(parseSetupLinkHref('https://dosco.live/docs/connect/ksl_abc')).toBeNull();
+    expect(parseSetupLinkHref('dosco://connect/ksl_abc')).toBeNull();
     expect(parseSetupLinkHref(undefined)).toBeNull();
   });
 });
 
 describe('splitSetupLinks', () => {
   test('text without a setup link is one markdown segment', () => {
-    expect(splitSetupLinks('Hello [docs](https://kortix.com/docs).')).toEqual([
-      { type: 'markdown', text: 'Hello [docs](https://kortix.com/docs).' },
+    expect(splitSetupLinks('Hello [docs](https://dosco.live/docs).')).toEqual([
+      { type: 'markdown', text: 'Hello [docs](https://dosco.live/docs).' },
     ]);
   });
 
@@ -113,13 +113,13 @@ describe('streaming', () => {
   const pending = card({ token: null, href: null });
 
   test('a setup link whose URL is still arriving is a pending card', () => {
-    expect(splitSetupLinks('[Connect GitHub](https://kortix.com/connect/ksl_ab', true)).toEqual([
+    expect(splitSetupLinks('[Connect GitHub](https://dosco.live/connect/ksl_ab', true)).toEqual([
       { ...pending, label: 'GitHub' },
     ]);
-    expect(splitSetupLinks('[Connect GitHub](https://kortix.com/connect/ks', true)).toEqual([
+    expect(splitSetupLinks('[Connect GitHub](https://dosco.live/connect/ks', true)).toEqual([
       { ...pending, label: 'GitHub' },
     ]);
-    expect(splitSetupLinks('[https://kortix.com/connect/ksl_ab', true)).toEqual([pending]);
+    expect(splitSetupLinks('[https://dosco.live/connect/ksl_ab', true)).toEqual([pending]);
   });
 
   test('a bare setup URL at the end of the stream is pending: its token may be cut', () => {
@@ -136,16 +136,16 @@ describe('streaming', () => {
   });
 
   test('any other link that is still arriving shows its label, never the raw URL', () => {
-    expect(holdStreamingLink('See [the docs](https://kortix.com/do')).toBe('See [the docs](#)');
-    expect(holdStreamingLink('See [the docs](https://kortix.com/docs)')).toBe(
-      'See [the docs](https://kortix.com/docs)',
+    expect(holdStreamingLink('See [the docs](https://dosco.live/do')).toBe('See [the docs](#)');
+    expect(holdStreamingLink('See [the docs](https://dosco.live/docs)')).toBe(
+      'See [the docs](https://dosco.live/docs)',
     );
     expect(holdStreamingLink('arr[0')).toBe('arr[0');
   });
 
   test('a settled message is never rewritten', () => {
-    expect(splitSetupLinks('See [the docs](https://kortix.com/do')).toEqual([
-      { type: 'markdown', text: 'See [the docs](https://kortix.com/do' },
+    expect(splitSetupLinks('See [the docs](https://dosco.live/do')).toEqual([
+      { type: 'markdown', text: 'See [the docs](https://dosco.live/do' },
     ]);
   });
 });
@@ -163,8 +163,8 @@ describe('assistantSegments', () => {
   });
 
   test('a bare setup URL is still its card, and the prose around it is linked', () => {
-    expect(assistantSegments(`Docs at https://kortix.com/docs\n\n${CONNECT}`)).toEqual([
-      { type: 'markdown', text: 'Docs at [https://kortix.com/docs](https://kortix.com/docs)' },
+    expect(assistantSegments(`Docs at https://dosco.live/docs\n\n${CONNECT}`)).toEqual([
+      { type: 'markdown', text: 'Docs at [https://dosco.live/docs](https://dosco.live/docs)' },
       card(),
     ]);
   });

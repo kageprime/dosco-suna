@@ -148,7 +148,10 @@ export function latestAssistantAgent(messages: ReadonlyArray<{ role: string; age
 }
 
 export function agentDisplayName(name: string | undefined): string {
-  return name ? capitalise(name) : 'Agent';
+  // Web's `displayAgentName` (`apps/web/.../agent-display-name.ts`): the
+  // backend's default agent id ('kortix', never renamed) renders as the
+  // product-surface name Xera. Every other agent renders capitalized raw.
+  return name ? (name === 'kortix' ? 'Xera' : capitalise(name)) : 'Agent';
 }
 
 /**

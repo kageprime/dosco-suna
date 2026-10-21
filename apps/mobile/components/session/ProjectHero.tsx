@@ -76,7 +76,7 @@ export const ProjectHero = React.memo(function ProjectHero() {
         style={scaleStyle}
         accessible
         accessibilityRole="image"
-        accessibilityLabel="Kortix">
+        accessibilityLabel="Dosco">
         <Pressable
           onPress={Keyboard.dismiss}
           delayLongPress={LOGO_SHEET_HOLD_MS}

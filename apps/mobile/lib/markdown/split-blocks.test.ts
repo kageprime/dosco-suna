@@ -336,7 +336,7 @@ describe('splitMarkdown endsInOpenFence', () => {
   });
 
   test('reports the fence state for a single-block reference-definition message too', () => {
-    const text = '[a]: https://kortix.com\n\n```ts\nconst a';
+    const text = '[a]: https://dosco.live\n\n```ts\nconst a';
     expect(splitMarkdown(text)).toEqual({ blocks: [text], endsInOpenFence: true });
   });
 
@@ -382,11 +382,11 @@ describe('splitMarkdown while text streams', () => {
     'Math:\n\n$$\nx = 1\n\ny = 2\n$$\n\n$$$\na\n$$\nstill math\n$$$\n\nAfter $x$ text',
     '- step\n\n  ```sh\n  a\n\n  b\n  ```\n\n- next\n\n> quote\n>\n> ```\n> code\n\nOutside',
     'Text\n---\n\n***\n\n- a\n  ---\n\n    indented\n\n    code\n\npara\r\n\r\nCRLF para\r\n```\r\nx\r\n```\r\n',
-    'Intro\n\n[ref]: https://kortix.com\n\nUses [a][ref]\n\n```\nunclosed',
+    'Intro\n\n[ref]: https://dosco.live\n\nUses [a][ref]\n\n```\nunclosed',
     '~~~\n```\nnot closed by backticks\n~~~\n\n````\n```\ninner\n````\n\n1. one\n2) two\n\n   continued',
     '<div align="center">\n  <img src="a.png">\n\n</div>\n\nAfter the HTML block\n\n<!-- comment\n\nstill comment -->\n\nEnd',
     'See [the docs][docs] first.\n\nMore text\n\n- list\n\n[docs]: https://docs.example.com\n\nTail paragraph',
-    'Plan\n\n[ref]: https://kortix.com\n\n```md\n[r2]: https://kortix.com\n```\n\nUses [a][ref]\n\n$$\n[r3]: https://kortix.com\n$$\n\nDone',
+    'Plan\n\n[ref]: https://dosco.live\n\n```md\n[r2]: https://dosco.live\n```\n\nUses [a][ref]\n\n$$\n[r3]: https://dosco.live\n$$\n\nDone',
   ];
 
   test('every streamed prefix of the corpus equals a full scan', () => {

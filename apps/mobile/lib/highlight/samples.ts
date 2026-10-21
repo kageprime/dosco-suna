@@ -11,7 +11,7 @@ export const HIGHLIGHT_SAMPLES: Record<HighlightLang, string> = {
   yaml: 'name: kortix\non:\n  push:\n    branches: [main] # trunk',
   toml: '[package]\nname = "kortix"\nversion = "1.0.0"',
   ini: '[core]\n; leading comment\neditor = vim ; trailing comment',
-  dotenv: 'API_URL="https://api.kortix.com" # prod\nDEBUG=true',
+  dotenv: 'API_URL="https://api.dosco.live" # prod\nDEBUG=true',
   xml: '<?xml version="1.0"?>\n<note id="1"><to>Jay</to></note>',
   diff: '--- a/app.ts\n+++ b/app.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;',
   html: '<!doctype html>\n<a href="/docs" class="link">Docs</a>',

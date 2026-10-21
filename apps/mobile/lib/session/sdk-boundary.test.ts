@@ -193,7 +193,9 @@ describe('the Kortix API is the SDK', () => {
   test('the scan equals the committed baseline', () => {
     const files = SOURCE_DIRS.flatMap((dir) => sourceFiles(join(APP_ROOT, dir))).sort();
     const actual = files.flatMap((path) =>
-      /\.tsx?$/.test(path) ? apiBoundaryViolations(relative(APP_ROOT, path), readFileSync(path, 'utf8')) : [],
+      /\.tsx?$/.test(path)
+        ? apiBoundaryViolations(relative(APP_ROOT, path).replace(/\\/g, '/'), readFileSync(path, 'utf8'))
+        : [],
     );
     const baseline = JSON.parse(readFileSync(join(import.meta.dir, 'sdk-boundary-baseline.json'), 'utf8')) as Array<{
       violation: string;

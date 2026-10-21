@@ -1,8 +1,8 @@
 const MOBILE_CALLBACK_FLAG = 'mobile_callback';
 const KORTIX_CALLBACK_HOSTS = new Set([
-  'kortix.com',
-  'www.kortix.com',
-  'staging.kortix.com',
+  'dosco.live',
+  'www.dosco.live',
+  'staging.dosco.live',
 ]);
 
 /**
@@ -34,7 +34,7 @@ export function isMobileAuthCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (
-      parsed.protocol === 'kortix:' &&
+      parsed.protocol === 'dosco:' &&
       parsed.hostname === 'auth' &&
       parsed.pathname === '/callback'
     ) {
@@ -56,7 +56,7 @@ export function isMobileRegistrationHandoffUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (
-      parsed.protocol === 'kortix:' &&
+      parsed.protocol === 'dosco:' &&
       parsed.hostname === 'auth' &&
       parsed.pathname === '/callback'
     ) {

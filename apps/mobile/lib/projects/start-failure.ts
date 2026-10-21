@@ -28,7 +28,7 @@ export function startFailureCopy(kind: StartFailure): { title: string; body: str
     case 'session':
       return { title: 'Your session has ended', body: 'Sign in again to continue.' };
     case 'unreachable':
-      return { title: "Can't reach Kortix", body: 'Check your connection, then try again.' };
+      return { title: "Can't reach Dosco", body: 'Check your connection, then try again.' };
     case 'server':
       return { title: 'Could not open your project', body: 'Try again, or open another project.' };
   }

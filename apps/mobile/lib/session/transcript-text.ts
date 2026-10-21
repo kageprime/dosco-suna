@@ -35,7 +35,7 @@ function cutAt(text: string, max: number): string {
   return text.slice(0, endsOnHighSurrogate ? max - 1 : max);
 }
 
-const ROLE_LABEL = { user: 'You:', assistant: 'Kortix:' } as const;
+const ROLE_LABEL = { user: 'You:', assistant: 'Dosco:' } as const;
 
 /** A text block the harness did not write (ignored text is a harness block), trimmed; null when blank. */
 function visibleText(block: SessionLogBlock): string | null {

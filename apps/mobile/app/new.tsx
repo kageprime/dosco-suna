@@ -8,7 +8,7 @@
  * Sign out at the top right; the project home hero (`ProjectHero`, the
  * tilt-following dither) centred in the free space; then, left-aligned,
  * "Set up your first project" (`h1`) and one `muted` line; then a "Create on
- * kortix.com ↗" pill (icon pinned left, the auth screen's pill); no second
+ * dosco.live ↗" pill (icon pinned left, the auth screen's pill); no second
  * action — coming back to the app re-checks every account and opens the
  * newest project (AppState 'active'). The pill
  * opens web `/new?account=<current account>` in an in-app auth session
@@ -164,7 +164,7 @@ export default function NewProjectScreen() {
               Set up your first project
             </Text>
             <Text variant="muted" className="text-base leading-6" lineBreakStrategyIOS="standard">
-              A project is the repo your agents work from. Create it on kortix.com and it opens here when it's ready.
+              A project is the repo your agents work from. Create it on dosco.live and it opens here when it's ready.
             </Text>
           </View>
         </View>
@@ -173,7 +173,7 @@ export default function NewProjectScreen() {
             edge (`PlatformFullWidthButton leading`). */}
         <PlatformFullWidthButton
           size="lg"
-          label="Create on kortix.com"
+          label="Create on dosco.live"
           leading={<ArrowUpRightIcon size={18} color={onPrimary} />}
           disabled={busy}
           onPress={() => void handleContinue()}

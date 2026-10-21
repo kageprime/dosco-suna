@@ -27,7 +27,7 @@ export async function openBillingPortal(returnUrl?: string): Promise<void> {
   log.log('🌐 Opening web billing portal...');
 
   try {
-    // Web billing on kortix.com. `/subscription` has no route in apps/web
+    // Web billing on dosco.live. `/subscription` has no route in apps/web
     // (it 404'd after sign-in); `/settings/billing` is the billing page.
     await openExternalUrl(getWebBillingUrl());
   } catch (error) {

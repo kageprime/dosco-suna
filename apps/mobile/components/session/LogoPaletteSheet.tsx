@@ -53,7 +53,7 @@ export const LogoPaletteSheet = React.forwardRef<SheetRef>((_props, ref) => {
   return (
     <KortixBottomSheetModal
       ref={modalRef}
-      title="Kortix"
+      title="Dosco"
       enableDynamicSizing
       maxDynamicContentSize={Math.floor(height * 0.5)}
       enablePanDownToClose

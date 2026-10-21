@@ -21436,8 +21436,7 @@
       "dictation": "说出来，直接发送",
       "dictationDescription": "口述提示词，不用打字。"
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "下载 APK"
   },
   "capture": {
     "authorize": {

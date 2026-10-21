@@ -94,8 +94,8 @@ const HEATMAP_PALETTE: Record<Tone, { first: Rgba; second: Rgba }> = {
 };
 const TRANSPARENT: Rgba = [0, 0, 0, 0];
 
-const HEATMAP_TEXTURE = require('@/assets/brand/kortix-heatmap.png');
-const SYMBOL_TEXTURE = require('@/assets/brand/kortix-liquid-metal.png');
+const HEATMAP_TEXTURE = require('@/assets/brand/dosco-heatmap.png');
+const SYMBOL_TEXTURE = require('@/assets/brand/dosco-liquid-metal.png');
 const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None };
 
 const SKSL: Record<LogoStyleId, string> = {

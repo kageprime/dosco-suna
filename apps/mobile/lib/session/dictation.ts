@@ -84,7 +84,7 @@ export function dictationErrorMessage(code: string): string | null {
     case 'speech-timeout':
       return null;
     case 'not-allowed':
-      return 'Allow microphone and speech recognition for Kortix in Settings.';
+      return 'Allow microphone and speech recognition for Dosco in Settings.';
     case 'network':
       return 'Dictation needs a connection. Check your network and try again.';
     case 'language-not-supported':

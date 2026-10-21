@@ -1,14 +1,33 @@
 import * as React from 'react';
-import { View, type ViewStyle } from 'react-native';
-import LottieView from 'lottie-react-native';
-import { useColorScheme } from 'nativewind';
+import { Image, View, type ViewStyle } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { cn } from '@/lib/utils';
+
+/**
+ * KortixLoader - The Dosco loading animation.
+ *
+ * The brand crest (the red diamond) breathing gently — in place of the old
+ * Kortix eclipse-ring Lottie. Reduced Motion holds the mark at full opacity.
+ *
+ * The mark is theme-invariant (it reads on both surfaces), so there is no
+ * ink recoloring and no `forceTheme` prop (that prop existed for the white /
+ * black Lottie; removed with it). Deterministic on every renderer: no
+ * animation library beyond Reanimated on the UI thread.
+ */
 
 interface KortixLoaderProps {
   /**
    * Size preset. `small` is the loader everywhere: lists, pages, sheets,
-   * previews, buttons. `large` is the boot screens only (it matches the 80 pt
-   * native splash mark); `medium` is the session-wake screen only
+   * previews, buttons. `large` is the boot screens only (it matches the 200 pt
+   * native splash mark scaled down); `medium` is the session-wake screen only
    * (`SessionConnecting`). `kortix-loader-size.test.ts` enforces this (KRTX-559).
    * @default 'small'
    */
@@ -25,11 +44,6 @@ interface KortixLoaderProps {
    * Additional style for the container
    */
   style?: ViewStyle;
-  /**
-   * Force a specific color (overrides theme)
-   * Use 'light' or 'dark' to force a specific theme color
-   */
-  forceTheme?: 'light' | 'dark';
 }
 
 const SIZE_MAP = {
@@ -38,80 +52,51 @@ const SIZE_MAP = {
   large: 80,
 } as const;
 
-// The shipped animation is white. Light mode needs a black loader, and
-// lottie-react-native's colorFilters keypath matching is unreliable across
-// platforms/versions (the loader rendered white-on-white in light mode), so
-// recolor the animation data itself — deterministic on every renderer.
-const WHITE_SOURCE = require('@/components/animations/loading.json');
+// The baked crest (`scripts/bake-brand-assets.mjs`: a 480 px downscale of the
+// trimmed full-resolution crest). `size` / `customSize` name the mark's
+// WIDTH; the height follows the baked crest's aspect (dosco-crest-ratio.txt).
+const CREST_SOURCE = require('@/assets/brand/dosco-crest-loader.png');
+const CREST_ASPECT = 1.6276;
 
-function recolorLottie(source: unknown, rgb: [number, number, number]) {
-  const clone = JSON.parse(JSON.stringify(source));
-  const walk = (node: any) => {
-    if (Array.isArray(node)) {
-      node.forEach(walk);
-      return;
-    }
-    if (node && typeof node === 'object') {
-      // 'fl' = fill, 'st' = stroke; static colors keep their alpha channel.
-      if ((node.ty === 'fl' || node.ty === 'st') && Array.isArray(node.c?.k)) {
-        node.c.k = node.c.k.length > 3 ? [...rgb, node.c.k[3]] : [...rgb];
-      }
-      Object.values(node).forEach(walk);
-    }
-  };
-  walk(clone);
-  return clone;
-}
+const PULSE_MS = 950;
 
-const BLACK_SOURCE = recolorLottie(WHITE_SOURCE, [0, 0, 0]);
-
-/**
- * KortixLoader - A unified loading animation component
- * 
- * Uses the Lottie animation for consistent loading indicators across the app.
- * Automatically adapts to light/dark mode with appropriate colors.
- * Can be used as a replacement for ActivityIndicator with better visual appeal.
- * 
- * **Theme Support:**
- * - Light mode: Black loader
- * - Dark mode: White loader
- * 
- * @example
- * ```tsx
- * // Simple usage (auto-themed)
- * <KortixLoader />
- *
- * // Force dark theme (white loader)
- * <KortixLoader forceTheme="dark" />
- * ```
- */
 export function KortixLoader({
   size = 'small',
   customSize,
   className,
   style,
-  forceTheme,
 }: KortixLoaderProps) {
-  const { colorScheme } = useColorScheme();
-  const loaderSize = customSize || SIZE_MAP[size];
+  const width = customSize || SIZE_MAP[size];
+  const reducedMotion = useReducedMotion();
+  // Breathe: 0.35 → 1 and back (reversed repeat from the resting dim value).
+  const opacity = useSharedValue(reducedMotion ? 1 : 0.35);
 
-  // Determine which theme to use: white loader on dark, black loader on light.
-  const effectiveTheme = forceTheme || colorScheme;
-  const source = effectiveTheme === 'dark' ? WHITE_SOURCE : BLACK_SOURCE;
+  React.useEffect(() => {
+    if (reducedMotion) {
+      cancelAnimation(opacity);
+      opacity.value = 1;
+      return;
+    }
+    opacity.value = withRepeat(
+      withTiming(1, { duration: PULSE_MS, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(opacity);
+  }, [reducedMotion, opacity]);
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
-    <View className={cn('items-center justify-center', className)} style={style}>
-      <LottieView
-        // Remount when the theme flips — LottieView doesn't reliably reload
-        // a changed `source` in place.
-        key={effectiveTheme}
-        source={source}
-        style={{ width: loaderSize, height: loaderSize }}
-        autoPlay
-        loop
-        speed={1.2}
+    <View
+      className={cn('items-center justify-center', className)}
+      style={[{ width, height: width / CREST_ASPECT }, style]}>
+      <Animated.Image
+        source={CREST_SOURCE}
+        resizeMode="contain"
+        style={[{ width: '100%', height: '100%' }, animatedStyle]}
       />
     </View>
   );
 }
-

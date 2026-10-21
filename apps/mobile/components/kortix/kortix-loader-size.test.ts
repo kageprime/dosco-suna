@@ -44,7 +44,7 @@ function readSourceTree(): SourceFile[] {
       if (entry.name === 'node_modules') continue;
       const path = join(dir, entry.name);
       if (entry.isDirectory()) walk(path);
-      else if (entry.name.endsWith('.tsx')) files.push({ path: relative(MOBILE_ROOT, path), source: readFileSync(path, 'utf8') });
+      else if (entry.name.endsWith('.tsx')) files.push({ path: relative(MOBILE_ROOT, path).replace(/\\/g, '/'), source: readFileSync(path, 'utf8') });
     }
   };
   for (const dir of SOURCE_DIRS) walk(join(MOBILE_ROOT, dir));

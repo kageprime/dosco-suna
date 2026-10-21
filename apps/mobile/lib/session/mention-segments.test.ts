@@ -60,8 +60,8 @@ describe('buildMentionSegments', () => {
   });
 
   test('an email address is not a mention', () => {
-    expect(buildMentionSegments({ text: 'mail jay@kortix.com' })).toEqual([
-      { text: 'mail jay@kortix.com' },
+    expect(buildMentionSegments({ text: 'mail jay@dosco.live' })).toEqual([
+      { text: 'mail jay@dosco.live' },
     ]);
   });
 

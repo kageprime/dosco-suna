@@ -118,7 +118,7 @@ describe('connectStepFromRequestError', () => {
       kind: 'fail',
       failure: {
         title: 'Could not reach the server',
-        message: 'The app could not connect to the Kortix API. Check the connection and try again.',
+        message: 'The app could not connect to the Dosco API. Check the connection and try again.',
         detail: 'Network request failed',
       },
     });

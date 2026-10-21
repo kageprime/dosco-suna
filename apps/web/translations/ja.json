@@ -21436,8 +21436,7 @@
       "dictation": "話して、送るだけ",
       "dictationDescription": "プロンプトを入力せずに音声で伝えられます。"
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "APKをダウンロード"
   },
   "capture": {
     "authorize": {

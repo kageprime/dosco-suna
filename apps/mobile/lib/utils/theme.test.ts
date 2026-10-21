@@ -577,7 +577,11 @@ describe('toHexColor matches the real parser for every THEME colour', () => {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const WEB_CSS_PATH = join(__dirname, '../../../web/src/app/globals.css');
-const webCss = readFileSync(WEB_CSS_PATH, 'utf8');
+// Web's globals.css imports `@kortix/ui/theme.css` (its line 16) before its own
+// token blocks, and the shared `@theme` aliases (`--color-ring: var(--ring)`)
+// moved into that file. Cascade order = shared tokens first, globals.css on top.
+const WEB_SHARED_THEME_PATH = join(__dirname, '../../../..', 'packages/ui/src/styles/theme.css');
+const webCss = [readFileSync(WEB_SHARED_THEME_PATH, 'utf8'), readFileSync(WEB_CSS_PATH, 'utf8')].join('\n');
 
 /** Max allowed difference per HSL component (degrees for H, points for S/L). */
 const HSL_TOLERANCE = 0.2;

@@ -81,7 +81,7 @@
     "guest": {
       "label": "访客",
       "title": "Browse Without\nan Account",
-      "description": "Try Kortix with limited features. No signup required!",
+      "description": "Try Dosco with limited features. No signup required!",
       "continue": "Continue as Guest",
       "signUp": "Sign Up Instead",
       "agreement": "By continuing, you agree to our",
@@ -99,7 +99,7 @@
     "resetFailed": "发送失败，请重试",
     "passwordsDontMatch": "密码不匹配",
     "passwordTooShort": "密码至少需要8个字符",
-    "welcomeTitle": "雇用 Kortix 来",
+    "welcomeTitle": "雇用 Dosco 来",
     "rotatingPhrases": {
       "presentations": "做演示",
       "writing": "写作",
@@ -150,12 +150,12 @@
     }
   },
   "onboarding": {
-    "welcome": "看看Kortix能做什么",
+    "welcome": "看看Dosco能做什么",
     "welcomeSubtitle": "您的AI助手会采取行动",
     "skip": "跳过",
     "next": "下一步",
     "getStarted": "开始使用",
-    "kortixComputer": "Kortix Computer",
+    "kortixComputer": "Dosco Computer",
     "ready": "就绪",
     "examples": {
       "presentations": {
@@ -277,8 +277,8 @@
   },
   "chat": {
     "newChat": "新对话",
-    "placeholder": "给 Kortix 一个任务...",
-    "inputPlaceholder": "向 Kortix 提问任何问题...",
+    "placeholder": "给 Dosco 一个任务...",
+    "inputPlaceholder": "向 Dosco 提问任何问题...",
     "recording": "录音中...",
     "cancelRecording": "取消录音",
     "stopRecording": "停止录音",
@@ -291,7 +291,7 @@
     "rateThisResult": "评价此结果",
     "feedbackHelpsImprove": "您的反馈帮助我们改进",
     "additionalFeedbackOptional": "附加反馈（可选）",
-    "helpKortixImprove": "帮助 Kortix 通过我的反馈改进",
+    "helpKortixImprove": "帮助 Dosco 通过我的反馈改进",
     "submit": "提交",
     "submitting": "提交中...",
     "suggestedFollowUps": "建议的后续问题",
@@ -306,7 +306,7 @@
     "newWorker": "新建 Worker",
     "myWorkers": "我的 Workers",
     "searchAgents": "搜索 workers",
-    "defaultAgent": "Kortix",
+    "defaultAgent": "Xera",
     "defaultDescription": "适用于所有任务的通用 AI",
     "superWorker": "Super Worker",
     "coder": "Coder",
@@ -515,8 +515,8 @@
   "billing": {
     "loadingPaywall": "加载套餐中...",
     "checkoutUnavailable": "移动端结账不可用",
-    "checkoutUnavailableMessage": "要订阅套餐，请在网页上访问 kortix.com。",
-    "goToWeb": "前往 kortix.com",
+    "checkoutUnavailableMessage": "要订阅套餐，请在网页上访问 dosco.live。",
+    "goToWeb": "前往 dosco.live",
     "billingStatus": "账单状态",
     "loading": "加载账单信息中...",
     "error": "加载账单信息失败",
@@ -544,8 +544,8 @@
     "choosePackageBoost": "选择一个包来提升你的积分余额",
     "title": "账单",
     "cancelsOn": "取消日期",
-    "manageOnWeb": "在 kortix.com 管理",
-    "openWebFailed": "无法打开 kortix.com，请重试。"
+    "manageOnWeb": "在 dosco.live 管理",
+    "openWebFailed": "无法打开 dosco.live，请重试。"
   },
   "theme": {
     "title": "外观",
@@ -567,12 +567,12 @@
   "beta": {
     "title": "测试功能",
     "webSupportTitle": "网页版完全支持",
-    "webSupportDescription": "可在 Kortix.com 使用。即将登陆移动端—移动端仍在开发中。",
-    "visitKortix": "访问 Kortix.com",
+    "webSupportDescription": "可在 dosco.live 使用。即将登陆移动端—移动端仍在开发中。",
+    "visitKortix": "访问 dosco.live",
     "advancedFeatures": "高级功能",
     "mobileBeta": "移动端测试版",
     "pleaseNote": "注意事项",
-    "mobileWarning": "移动端仍在开发中，可能存在问题。为了获得最佳体验，请使用 Kortix.com。"
+    "mobileWarning": "移动端仍在开发中，可能存在问题。为了获得最佳体验，请使用 dosco.live。"
   },
   "accountDeletion": {
     "title": "删除账户",
@@ -627,7 +627,7 @@
     "mode": "模式"
   },
   "placeholders": {
-    "default": "给 Kortix 一个任务...",
+    "default": "给 Dosco 一个任务...",
     "search": "搜索...",
     "searchConversations": "搜索对话",
     "searchAgents": "搜索 workers",
@@ -1173,7 +1173,7 @@
     "enterpriseLabel": "{{plan}} · Enterprise"
   },
   "upgrade": {
-    "creditsPlan": "Kortix Credits",
+    "creditsPlan": "Dosco Credits",
     "pickAmount": "在网页上选择任意月度金额。不限成员数量，共用同一个额度池。",
     "includes": "包含",
     "notNow": "以后再说"
@@ -1216,8 +1216,8 @@
   },
   "updateRequired": {
     "title": "需要更新",
-    "body": "此版本的 Kortix 已不再受支持。请更新应用以继续使用。",
-    "bodyNoStore": "此版本的 Kortix 已不再受支持。请从 App Store 或 Google Play 更新应用以继续使用。",
+    "body": "此版本的 Dosco 已不再受支持。请更新应用以继续使用。",
+    "bodyNoStore": "此版本的 Dosco 已不再受支持。请从 App Store 或 Google Play 更新应用以继续使用。",
     "button": "更新"
   },
   "invites": {

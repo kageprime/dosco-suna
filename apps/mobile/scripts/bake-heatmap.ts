@@ -15,8 +15,8 @@ import sharp from 'sharp';
 import { CANVAS_SIZE, PADDING, packHeatmap, splitPlanes } from '../lib/effects/heatmap-bake';
 
 const root = path.join(import.meta.dir, '..');
-const svgPath = path.join(root, 'assets/brand/kortix-symbol.svg');
-const outPath = path.join(root, 'assets/brand/kortix-heatmap.png');
+const svgPath = path.join(root, 'assets/brand/dosco-mark.svg');
+const outPath = path.join(root, 'assets/brand/dosco-heatmap.png');
 
 const symbol = await sharp(readFileSync(svgPath), { density: 600 })
   .resize(CANVAS_SIZE, CANVAS_SIZE, { fit: 'inside', background: '#ffffff' })

@@ -1,30 +1,8 @@
-import { KortixLogo } from '@/components/ui/kortix-logo';
-import { BeamsShader } from '@/components/ui/paper-wallpaper-shaders';
-import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
-const SLOT = 'aspect-[16/10] w-full overflow-hidden border-b bg-muted';
+import { cn } from '@/lib/utils';
 
-/**
- * The desktop app's art: the same light-beam shader as the "Connect your
- * computer" modal, with the Dosco brandmark on it. Dark in both themes, so the
- * slot resolves its tokens under `dark` and the mark renders white. It rounds
- * its own top corners: the card's `overflow-hidden` does not clip the shader's
- * WebGL canvas.
- */
-export function DesktopCardImage() {
-  return (
-    <div
-      className={cn(
-        SLOT,
-        'dark bg-background relative isolate flex items-center justify-center rounded-t-md',
-      )}
-    >
-      <BeamsShader />
-      <KortixLogo variant="brandmark" size={28} className="text-foreground relative" />
-    </div>
-  );
-}
+const SLOT = 'aspect-[16/10] w-full overflow-hidden border-b bg-muted';
 
 const MOBILE_SHOTS = [
   '/images/mobile-app/app-1.png',
@@ -33,15 +11,14 @@ const MOBILE_SHOTS = [
 ];
 
 /**
- * Three phones in the same 16:10 box the desktop poster occupies, so both cards'
- * headers are the same height and their first row seams line up.
+ * Three phones in one 16:10 slot, so the card's image and first-row seam read
+ * as one designed object.
  *
  * Each phone is HEIGHT-bound (`h-full w-auto` against the 1080x2337 ratio), not
  * width-bound. Width-bound was the first attempt and it was wrong: at a third of
  * the card's width each phone computes taller than the slot, so the bottoms
  * clipped at an arbitrary point mid-screenshot. That reads as a mistake rather
- * than a crop. Height-bound shows every phone whole, which also matches the
- * desktop card — that poster is shown complete too.
+ * than a crop. Height-bound shows every phone whole.
  *
  * Borders, never shadows. The `MobileSurface` treatment in `hero-surfaces.tsx`
  * frames these same shots with `shadow-md`; that part is deliberately not

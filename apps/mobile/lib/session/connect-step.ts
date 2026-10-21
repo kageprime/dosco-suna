@@ -78,7 +78,7 @@ export function connectStepFromRequestError(
   if (status === null) {
     return fail(
       'Could not reach the server',
-      'The app could not connect to the Kortix API. Check the connection and try again.',
+      'The app could not connect to the Dosco API. Check the connection and try again.',
       message ?? undefined,
     );
   }

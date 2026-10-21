@@ -9,12 +9,12 @@
  *
  * Reads the account passed as `accountId` (the account the user opened), else
  * the active account (hooks/useActiveAccount). Mobile has no in-app purchase:
- * Buy credits and Manage on kortix.com open web billing in the browser. The
+ * Buy credits and Manage on dosco.live open web billing in the browser. The
  * balance refetches when the app returns to the foreground and on pull to
  * refresh, so a web purchase shows up on return.
  *
  * iOS (App Store guideline 3.1.1 — no link to purchase outside IAP): Buy
- * credits, Change plan, and Manage on kortix.com are hidden. iOS shows
+ * credits, Change plan, and Manage on dosco.live are hidden. iOS shows
  * balance, plan, and the read-only subscription rows only.
  * `canShowExternalPurchase` (`lib/billing/store-policy`) gates all three.
  */
@@ -102,7 +102,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
     }
   }, [queryClient, refetch]);
 
-  // Back from kortix.com (a purchase, a plan change): show the new balance.
+  // Back from dosco.live (a purchase, a plan change): show the new balance.
   useEffect(() => {
     if (!visible) return;
     const subscription = AppState.addEventListener('change', (state) => {
@@ -128,7 +128,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
     try {
       await openExternalUrl(getWebBillingUrl());
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
     }
   }, [t, toast]);
 
@@ -197,7 +197,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
       : null;
 
   // iOS (App Store guideline 3.1.1): no external-purchase action, so Buy
-  // credits / Change plan / Manage on kortix.com never render there.
+  // credits / Change plan / Manage on dosco.live never render there.
   // Buying, changing the plan and managing on web need the billing leaf: a
   // member who cannot manage billing reads balance and plan only.
   const canPurchase = canShowExternalPurchase(Platform.OS) && canManageBilling(accountState);
@@ -277,7 +277,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
             ) : null}
             {canPurchase ? (
               <SettingsRow
-                label={t('billing.manageOnWeb', 'Manage on kortix.com')}
+                label={t('billing.manageOnWeb', 'Manage on dosco.live')}
                 external
                 onPress={openWebBilling}
               />

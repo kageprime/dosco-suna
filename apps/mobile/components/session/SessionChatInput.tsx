@@ -516,7 +516,7 @@ function SessionChatInputImpl({
   }, [submitNow]);
 
   // Web's groups, order, and empty-search view (`lib/session/model-picker.ts`):
-  // the real upstream provider, never the raw provider name (always "Kortix"
+  // the real upstream provider, never the raw provider name (mapped to the brand via
   // under the gateway).
   const modelOptions = useMemo<PickerOption[]>(
     () => modelPickerOptions(models, modelKey ?? null),

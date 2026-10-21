@@ -13,7 +13,7 @@
  * that flow; this sheet is the plain shell for every other web hand-off.
  *
  * First use: project Settings → Customize → Connectors ("Customize in the
- * web app" / "Connectors are set up on kortix.com." / "Continue" opens the
+ * web app" / "Connectors are set up on dosco.live." / "Continue" opens the
  * connectors web flow). Task 3 (KRTX-246, project/account creation and the
  * GitHub import flow) reuses it with its own copy and `run`.
  */

@@ -398,7 +398,7 @@ export default function ProjectsPage() {
       <WebHandoffSheet
         ref={newProjectHandoffRef}
         title="Create a project on the web"
-        line="Projects are created on kortix.com."
+        line="Projects are created on dosco.live."
         run={runNewProjectHandoff}
       />
     </View>

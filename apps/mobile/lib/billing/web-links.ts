@@ -1,5 +1,5 @@
 /**
- * kortix.com pages the mobile billing screens open. Mobile has no in-app
+ * dosco.live pages the mobile billing screens open. Mobile has no in-app
  * purchase: plan changes, credit top-ups, and invoices happen on web.
  */
 

@@ -9,7 +9,7 @@ import OAIIcon from '@/assets/images/models/OAI.svg';
 import GeminiIcon from '@/assets/images/models/Gemini.svg';
 import GrokIcon from '@/assets/images/models/Grok.svg';
 import MoonshotIcon from '@/assets/images/models/Moonshot.svg';
-import KortixSymbolIcon from '@/assets/brand/kortix-symbol.svg';
+import KortixSymbolIcon from '@/assets/brand/dosco-mark.svg';
 import type { SvgProps } from 'react-native-svg';
 import type React from 'react';
 
@@ -99,7 +99,7 @@ export function getModelProviderName(modelId: string): string {
   const provider = getModelProvider(modelId);
 
   const nameMap: Record<ModelProvider, string> = {
-    kortix: 'Kortix',
+    kortix: 'Dosco',
     anthropic: 'Anthropic',
     openai: 'OpenAI',
     google: 'Google',

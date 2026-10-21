@@ -845,7 +845,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       log.error('[SessionPage] Abort failed:', reason instanceof Error ? reason.message : reason);
       if (previousStatus) setLocalSessionStatus(sessionId, previousStatus);
       // A refused stop (403 `not_turn_prompter`) says who may stop the run.
-      toast.error(stopRefusalMessage(reason, t('sessions.stopNotAllowed')) ?? "Couldn't stop. Kortix is still working.");
+      toast.error(stopRefusalMessage(reason, t('sessions.stopNotAllowed')) ?? "Couldn't stop. Dosco is still working.");
     };
     try {
       const current = runtimeRef.current;

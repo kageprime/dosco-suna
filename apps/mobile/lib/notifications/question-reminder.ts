@@ -115,7 +115,7 @@ export function questionReminderRequest(input: {
   return {
     identifier: reminderIdentifier(input.requestId),
     content: {
-      title: 'Kortix',
+      title: 'Xera',
       body: QUESTION_REMINDER_BODY,
       sound: iosSound ?? (false as const),
       data: {

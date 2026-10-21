@@ -15,11 +15,11 @@ export function projectCustomizeWebUrl(frontendUrl: string, projectId: string): 
  * The project drawer's Connectors row: web's Customize → Connectors page,
  * opened in an in-app auth session. Mobile has no connector catalog; web
  * owns connecting. With `return_to`, the page shows a "Done" bar that sends
- * the browser to that `kortix://` URL, and the auth session closes itself on
+ * the browser to that `dosco://` URL, and the auth session closes itself on
  * the redirect. The user taps it once, after the last connector.
  */
-export const CONNECTORS_RETURN_URL = 'kortix://connectors';
-export const CONNECTORS_DONE_URI = 'kortix://connectors/done';
+export const CONNECTORS_RETURN_URL = 'dosco://connectors';
+export const CONNECTORS_DONE_URI = 'dosco://connectors/done';
 
 /** `${frontendUrl}/projects/<projectId>/customize/connectors[?return_to=…]`, id encoded. */
 export function projectConnectorsWebUrl(
@@ -38,7 +38,7 @@ export function projectConnectorsWebUrl(
  * `WEB_CREATE_RETURN_URL`: the user comes back by closing the browser, and
  * the app then refetches (`useWebCreateHandoff`).
  */
-export const WEB_CREATE_RETURN_URL = 'kortix://web';
+export const WEB_CREATE_RETURN_URL = 'dosco://web';
 
 /**
  * Web's create-project page, `/new`. With an account, `?account=<id>`

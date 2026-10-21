@@ -7,7 +7,7 @@ import { GET } from './route';
 const realFetch = globalThis.fetch;
 const asset = (name: string) => ({
   name,
-  browser_download_url: `?/releases/download/v1.0.0/${name}`,
+  browser_download_url: `https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/${name}`,
   size: 1,
 });
 let assets = [
@@ -21,7 +21,11 @@ beforeEach(() => {
   // The Releases list: a newer Dosco release without Capture installers (skipped) and the one that has them.
   globalThis.fetch = (async () =>
     Response.json([
-      { tag_name: 'v1.0.1', draft: false, assets: [asset('Dosco-Setup-1.0.1.exe')] },
+      {
+        tag_name: 'v1.0.1',
+        draft: false,
+        assets: [asset('Dosco-Setup-1.0.1.exe')],
+      },
       { tag_name: 'v1.0.0', draft: false, assets },
     ])) as unknown as typeof fetch;
 });
@@ -30,7 +34,9 @@ afterEach(() => {
 });
 
 const call = (platform: string) =>
-  GET(new NextRequest(`https://dosco.live/download/capture/${platform}`), { params: Promise.resolve({ platform }) });
+  GET(new NextRequest(`https://dosco.live/download/capture/${platform}`), {
+    params: Promise.resolve({ platform }),
+  });
 
 describe('GET /download/capture/<platform>', () => {
   test('302s each OS to its Dosco Capture installer, never the Dosco app', async () => {
@@ -57,13 +63,18 @@ describe('GET /download/capture/<platform>', () => {
   test('the docs fallback never names the internal host the request arrived on', async () => {
     assets = [asset('Dosco-1.0.0-universal.dmg')];
     const res = await GET(
-      new NextRequest('http://ip-10-14-146-154.us-east-2.compute.internal:3000/download/capture/macos'),
+      new NextRequest(
+        'http://ip-10-14-146-154.us-east-2.compute.internal:3000/download/capture/macos',
+      ),
       { params: Promise.resolve({ platform: 'macos' }) },
     );
     expect(res.headers.get('location')).toBe('/docs/capture#install-kortix-capture');
   });
 
   test('the dev deployment (backend dev-api) serves the capture-dev-latest build', async () => {
+    // The upstream dev contract: a deployment whose backend host is the upstream
+    // dev-api serves the dev channel. Dormant on dosco.live (no dev deployment),
+    // the test exercises the branch with its own value.
     const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
     process.env.NEXT_PUBLIC_BACKEND_URL = 'https://dev-api.kortix.com/v1';
     const urls: string[] = [];
@@ -72,12 +83,21 @@ describe('GET /download/capture/<platform>', () => {
       return Response.json({
         name: 'Dosco Capture 0.13.58-dev.33',
         tag_name: 'capture-dev-latest',
-        assets: [{ name: 'KortixCapture-universal.pkg', browser_download_url: '?/releases/download/capture-dev-latest/KortixCapture-universal.pkg', size: 1 }],
+        assets: [
+          {
+            name: 'KortixCapture-universal.pkg',
+            browser_download_url:
+              'https://github.com/kageprime/dosco-suna/releases/download/capture-dev-latest/KortixCapture-universal.pkg',
+            size: 1,
+          },
+        ],
       });
     }) as unknown as typeof fetch;
     try {
       const res = await call('macos');
-      expect(res.headers.get('location')).toBe('?/releases/download/capture-dev-latest/KortixCapture-universal.pkg');
+      expect(res.headers.get('location')).toBe(
+        'https://github.com/kageprime/dosco-suna/releases/download/capture-dev-latest/KortixCapture-universal.pkg',
+      );
       expect(urls.some((u) => u.endsWith('/releases/tags/capture-dev-latest'))).toBe(true);
     } finally {
       if (backend === undefined) delete process.env.NEXT_PUBLIC_BACKEND_URL;

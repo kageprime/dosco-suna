@@ -67,7 +67,7 @@ const SAMPLE = [
   '  <b>html block</b>',
   '</div>',
   '',
-  'Some **bold** and *em* text with `code`, $x^2$ and a [link](https://kortix.com).',
+  'Some **bold** and *em* text with `code`, $x^2$ and a [link](https://dosco.live).',
   '',
   '- one',
   '- two with ![img](https://example.com/a.png)',

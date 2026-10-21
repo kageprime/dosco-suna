@@ -60,7 +60,7 @@ describe('web search list', () => {
 
   test('a single-query search captions nothing; a multi-query search captions each non-empty query, humanised', () => {
     const single = webSearchSourceSegments([
-      { query: 'kortix', sources: [{ title: 'Kortix', url: 'https://kortix.com' }] },
+      { query: 'kortix', sources: [{ title: 'Kortix', url: 'https://dosco.live' }] },
     ]);
     expect(single[0].caption).toBeUndefined();
 

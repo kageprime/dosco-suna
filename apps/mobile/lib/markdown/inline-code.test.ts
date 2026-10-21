@@ -20,9 +20,9 @@ describe('isHexColor', () => {
 
 describe('looksLikeUrl', () => {
   test('needs a scheme and no whitespace', () => {
-    expect(looksLikeUrl('https://kortix.com/docs')).toBe(true);
+    expect(looksLikeUrl('https://dosco.live/docs')).toBe(true);
     expect(looksLikeUrl('ftp://host/file')).toBe(true);
-    expect(looksLikeUrl('kortix.com')).toBe(false);
+    expect(looksLikeUrl('dosco.live')).toBe(false);
     expect(looksLikeUrl('https://a b')).toBe(false);
   });
 });
@@ -47,7 +47,7 @@ describe('looksLikeFilePath', () => {
 describe('classifyInlineCode', () => {
   test('orders hex, url, path, plain', () => {
     expect(classifyInlineCode(' #0ea5e9 ')).toBe('hex');
-    expect(classifyInlineCode('https://kortix.com')).toBe('url');
+    expect(classifyInlineCode('https://dosco.live')).toBe('url');
     expect(classifyInlineCode('/workspace/a.py')).toBe('path');
     expect(classifyInlineCode('useState')).toBe('plain');
   });
@@ -70,7 +70,7 @@ describe('splitInlineCode', () => {
   });
 
   test('keeps a URL scheme and a flag prefix whole', () => {
-    expect(splitInlineCode('https://kortix.com/docs/sdk?x=1')).toEqual(['https://', 'kortix.com/', 'docs/sdk?', 'x=1']);
+    expect(splitInlineCode('https://dosco.live/docs/sdk?x=1')).toEqual(['https://', 'dosco.live/', 'docs/sdk?', 'x=1']);
     expect(splitInlineCode('pnpm test -- --sdk-only')).toEqual(['pnpm test ', '-- --sdk-', 'only']);
   });
 

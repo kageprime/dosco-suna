@@ -867,7 +867,7 @@ export function ProjectDetailPage({
                   paddingHorizontal: 20,
                   lineHeight: 17,
                 }}>
-                Create tasks so Kortix knows what to work on next.
+                Create tasks so Dosco knows what to work on next.
               </RNText>
               <Pressable
                 onPress={openNewTaskSheet}
@@ -1139,7 +1139,7 @@ export function ProjectDetailPage({
                         }}
                       >
                         {contextSaving ? (
-                          <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+                          <KortixLoader />
                         ) : (
                           <RNText
                             style={{
@@ -2282,7 +2282,7 @@ export function ProjectDetailPage({
                   opacity: canSubmit ? 1 : 0.55,
                 }}>
                 {isBusy ? (
-                  <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+                  <KortixLoader />
                 ) : autoRun ? (
                   <Play
                     size={14}

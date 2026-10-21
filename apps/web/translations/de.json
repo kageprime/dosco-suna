@@ -21436,8 +21436,7 @@
       "dictation": "Sag es, schick es ab",
       "dictationDescription": "Diktiere einen Prompt, statt ihn zu tippen."
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "APK herunterladen"
   },
   "capture": {
     "authorize": {

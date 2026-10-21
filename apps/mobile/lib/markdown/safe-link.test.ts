@@ -3,7 +3,7 @@ import { isSafeExternalLink } from './safe-link';
 
 describe('isSafeExternalLink', () => {
   test('allows http, https, and mailto', () => {
-    expect(isSafeExternalLink('https://kortix.com/docs')).toBe(true);
+    expect(isSafeExternalLink('https://dosco.live/docs')).toBe(true);
     expect(isSafeExternalLink('http://example.com')).toBe(true);
     expect(isSafeExternalLink('mailto:team@example.com')).toBe(true);
   });
@@ -23,7 +23,7 @@ describe('isSafeExternalLink', () => {
 
   test('rejects app, intent, file, and phone schemes', () => {
     expect(isSafeExternalLink('intent://scan/#Intent;scheme=zxing;end')).toBe(false);
-    expect(isSafeExternalLink('kortix://auth/callback?x=1')).toBe(false);
+    expect(isSafeExternalLink('dosco://auth/callback?x=1')).toBe(false);
     expect(isSafeExternalLink('file:///etc/hosts')).toBe(false);
     expect(isSafeExternalLink('tel:+15555550100')).toBe(false);
     expect(isSafeExternalLink('sms:+15555550100')).toBe(false);

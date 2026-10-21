@@ -1,16 +1,19 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '@/components/ui/modal';
-import { APP_STORE_URL, GOOGLE_PLAY_URL } from '@/features/marketing/download/mobile-store-urls';
 import { useTranslations } from '@/i18n/use-translations';
 import { useMobileAppPromoStore } from '@/stores/mobile-app-promo-store';
-import { BellIcon, ChatCircleIcon, MicrophoneIcon, type Icon } from '@phosphor-icons/react';
+import { BellIcon, ChatCircleIcon, type Icon, MicrophoneIcon } from '@phosphor-icons/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
 
-const FEATURES: readonly { key: 'sessions' | 'notifications' | 'dictation'; icon: Icon }[] = [
+const FEATURES: readonly {
+  key: 'sessions' | 'notifications' | 'dictation';
+  icon: Icon;
+}[] = [
   { key: 'sessions', icon: ChatCircleIcon },
   { key: 'notifications', icon: BellIcon },
   { key: 'dictation', icon: MicrophoneIcon },
@@ -28,23 +31,21 @@ const FEATURES: readonly { key: 'sessions' | 'notifications' | 'dictation'; icon
  * ending. No border ring layer: the card draws its own border.
  */
 // prettier-ignore
-const SMOOTH_SHADOW_LG = '0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04), 0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02), 0 1.5px 3px 0 rgba(0, 0, 0, 0.02)';
+const SMOOTH_SHADOW_LG =
+	"0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04), 0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02), 0 1.5px 3px 0 rgba(0, 0, 0, 0.02)";
 
 // prettier-ignore
-const MOBILE_PROMO_GRADIENT = 'linear-gradient(170deg in oklab, #DAD9D5 0%, #DAD9D5 34%, #943637 50%, #1D1F2C 60%, #000 82%)';
+const MOBILE_PROMO_GRADIENT =
+	"linear-gradient(170deg in oklab, #DAD9D5 0%, #DAD9D5 34%, #943637 50%, #1D1F2C 60%, #000 82%)";
 
 /** The official store badges, unmodified (Apple and Google forbid edits). Both are 3.375:1, so one height gives one width. */
 /** Laid over the whole art panel: fades the card, border included, into the black floor. */
 // prettier-ignore
-const SCREEN_FADE = 'linear-gradient(to bottom in oklab, transparent 45%, #000 95%)';
-
-const STORES = [
-  { key: 'appStore', badge: '/images/store-badges/app-store.svg', href: APP_STORE_URL },
-  { key: 'googlePlay', badge: '/images/store-badges/google-play.svg', href: GOOGLE_PLAY_URL },
-].filter((store) => store.href !== null) as readonly { key: 'appStore' | 'googlePlay'; badge: string; href: string }[];
+const SCREEN_FADE =
+	"linear-gradient(to bottom in oklab, transparent 45%, #000 95%)";
 
 /** Nothing to subscribe to: false on the server, true once mounted. */
-const subscribeToNothing = () => () => { };
+const subscribeToNothing = () => () => {};
 
 /**
  * Introduces the Dosco mobile app on the project page, once per browser.
@@ -53,10 +54,6 @@ const subscribeToNothing = () => () => { };
  * them. Every way out closes it for good (`mobile-app-promo-store.ts`).
  */
 export function MobileAppPromo() {
-  // No store links to send anyone anywhere: the promo is pointless without
-  // them, and the stores themselves are unpublished (mobile-store-urls.ts).
-  // Render nothing until the links exist again.
-  if (STORES.length === 0) return null;
   const t = useTranslations('mobileAppPromo');
   const closed = useMobileAppPromoStore((state) => state.closed);
   const close = useMobileAppPromoStore((state) => state.close);
@@ -113,7 +110,11 @@ export function MobileAppPromo() {
             </div>
             {/* Above the card, not inside it, so the fade covers the card's
                 border too and the whole phone sinks into the black floor. */}
-            <div aria-hidden style={{ backgroundImage: SCREEN_FADE }} className="pointer-events-none absolute inset-0" />
+            <div
+              aria-hidden
+              style={{ backgroundImage: SCREEN_FADE }}
+              className="pointer-events-none absolute inset-0"
+            />
           </div>
           <div className="flex min-w-0 flex-col gap-4 p-5 sm:gap-5 lg:p-8">
             <header className="space-y-1.5 pr-10 sm:pr-0">
@@ -141,20 +142,14 @@ export function MobileAppPromo() {
             </ul>
 
             {/* Actions sit on the bottom edge, level with the foot of the art.
-                Two equal choices, so one size for both. */}
+                No store listing yet: one APK download (see
+                features/marketing/download/mobile-store-urls.ts). */}
             <div className="mt-auto flex flex-wrap gap-2">
-              {STORES.map(({ key, badge, href }) => (
-                <Link
-                  key={key}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={close}
-                  className="focus-visible:ring-ring rounded-md transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <Image src={badge} alt={t(key)} width={135} height={40} className="h-11 w-auto" />
+              <Button asChild variant="brand" size="default" onClick={close}>
+                <Link href="/download/android" target="_blank" rel="noopener noreferrer">
+                  {t('apk')}
                 </Link>
-              ))}
+              </Button>
             </div>
           </div>
         </div>

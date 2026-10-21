@@ -16,8 +16,8 @@
 // before any match, every anchor is asserted to exist before it is used, and
 // this file names `router.push` / `router.replace` only inside string
 // constants — never in prose that a future slice could pick up.
-import { describe, expect, test } from 'bun:test';
 import { existsSync, readdirSync, readFileSync, statSync } from '@/i18n/test-source';
+import { describe, expect, test } from 'bun:test';
 import { dirname, relative, resolve } from 'node:path';
 
 const WEB_SRC = resolve(import.meta.dir, '../..');
@@ -135,7 +135,9 @@ describe('the one sign-out leaves on a document load', () => {
       'export async function performSignOut(',
       '\n}\n',
     );
-    expect(body).toContain('window.location.assign(target === SIGN_OUT_DESTINATION ? destination : target)');
+    expect(body).toContain(
+      'window.location.assign(target === SIGN_OUT_DESTINATION ? destination : target)',
+    );
     // The one destination: `/auth`, or `/auth?returnUrl=<same-origin path>`.
     expect(body).toContain('const destination = signOutDestination(options?.returnUrl);');
   });
@@ -510,7 +512,9 @@ function resolveLocal(specifier: string, fromFile: string): string | null {
     base,
   ]) {
     if (existsSync(candidate) && statSync(candidate).isFile()) {
-      return relative(WEB_SRC, candidate);
+      // `relative` yields backslashes on Windows; graph paths are canonical
+      // POSIX so assertions and dedup keys match everywhere.
+      return relative(WEB_SRC, candidate).replaceAll('\\', '/');
     }
   }
   return null;

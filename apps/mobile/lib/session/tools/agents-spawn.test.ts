@@ -75,7 +75,7 @@ describe('agentSpawnModel (web agent-spawn-tool.tsx)', () => {
 describe('sessionSpawnModel (web session-spawn-tool.tsx)', () => {
   test('agent name is capitalised, label falls back description → project → prompt line', () => {
     const base = { status: 'completed', childCalls: [] as ToolCallBlock[] };
-    expect(sessionSpawnModel({ ...base, input: {} }).agentName).toBe('Kortix');
+    expect(sessionSpawnModel({ ...base, input: {} }).agentName).toBe('Xera');
     expect(sessionSpawnModel({ ...base, input: { agent: 'code-reviewer' } }).agentName).toBe('Code-Reviewer');
     expect(sessionSpawnModel({ ...base, input: { description: 'D', project: 'P' } }).label).toBe('D');
     expect(sessionSpawnModel({ ...base, input: { project: 'P', prompt: 'x' } }).label).toBe('P');
@@ -84,7 +84,7 @@ describe('sessionSpawnModel (web session-spawn-tool.tsx)', () => {
 
   test('title, running subtitle, steps label, session title', () => {
     const running = sessionSpawnModel({ status: 'running', input: { description: 'Ship it' }, childCalls: STEPS });
-    expect(running.titleLabel).toBe('Worker · Kortix');
+    expect(running.titleLabel).toBe('Worker · Xera');
     expect(running.subtitle).toBe('Glob · d');
     expect(running.isRunning).toBe(true);
     expect(running.stepsLabel).toBeUndefined();
@@ -92,7 +92,7 @@ describe('sessionSpawnModel (web session-spawn-tool.tsx)', () => {
     const done = sessionSpawnModel({ status: 'completed', input: { description: 'Ship it' }, childCalls: STEPS });
     expect(done.subtitle).toBe('Ship it');
     expect(done.stepsLabel).toBe('4 steps');
-    expect(done.sessionTitle).toBe('Worker · Kortix: Ship it');
-    expect(sessionSpawnModel({ status: 'completed', input: {}, childCalls: [] }).sessionTitle).toBe('Worker · Kortix');
+    expect(done.sessionTitle).toBe('Worker · Xera: Ship it');
+    expect(sessionSpawnModel({ status: 'completed', input: {}, childCalls: [] }).sessionTitle).toBe('Worker · Xera');
   });
 });

@@ -32,7 +32,7 @@ describe('classifyStartFailure', () => {
 describe('startFailureCopy', () => {
   test('each kind has one short line that says what to do', () => {
     expect(startFailureCopy('unreachable')).toEqual({
-      title: "Can't reach Kortix",
+      title: "Can't reach Dosco",
       body: 'Check your connection, then try again.',
     });
     expect(startFailureCopy('session')).toEqual({

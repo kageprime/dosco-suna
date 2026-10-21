@@ -51,7 +51,7 @@ mock.module('expo-auth-session/build/QueryParams', empty);
 mock.module('@/lib/billing/provider', () => ({ shouldUseRevenueCat: () => false }));
 mock.module('@/lib/auth/callback-state', () => ({
   consumeAuthCallbackState: async () => true,
-  createAuthCallbackRedirect: async () => 'kortix://auth/callback',
+  createAuthCallbackRedirect: async () => 'dosco://auth/callback',
   clearWebRegistrationHandoff: async () => {},
   grantWebRegistrationHandoff: async () => {},
 }));

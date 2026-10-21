@@ -559,14 +559,14 @@ export function ProjectSwitcherSheet({
       <WebHandoffSheet
         ref={newProjectHandoffRef}
         title="Create a project on the web"
-        line="Projects are created on kortix.com."
+        line="Projects are created on dosco.live."
         run={handoffs.runNewProjectHandoff}
         onCancel={handoffs.handleHandoffCancel}
       />
       <WebHandoffSheet
         ref={newAccountHandoffRef}
         title="Create an account on the web"
-        line="Accounts are created on kortix.com."
+        line="Accounts are created on dosco.live."
         run={handoffs.runNewAccountHandoff}
         onCancel={handoffs.handleHandoffCancel}
       />

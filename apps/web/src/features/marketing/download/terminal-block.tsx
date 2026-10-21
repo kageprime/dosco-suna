@@ -5,10 +5,19 @@ import { getEnv } from '@/lib/env-config';
 import { useDeploymentCliInstallCommand } from '@/lib/use-deployment-cli-install-command';
 import { TerminalIcon } from '@phosphor-icons/react';
 
-import { TERMINAL } from './content';
+/**
+ * Copy for the CLI section. Owned here so `/download` can drop the section
+ * without losing the launch page's. Plain English, same precedent as the
+ * download content.
+ */
+const TERMINAL = {
+  title: 'Terminal',
+  description: 'Install the CLI and drive Dosco from your shell.',
+  support: 'macOS & Linux · WSL on Windows',
+};
 
 /**
- * The CLI install command for THIS deployment (kortix.com, dev, or a preview).
+ * The CLI install command for THIS deployment (dosco.live, dev, or a preview).
  *
  * Client-only because the origin is a browser fact: the hook reads
  * `window.location.origin` through `useSyncExternalStore`. It renders the

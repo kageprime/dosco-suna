@@ -10,13 +10,13 @@ import {
 describe('web fetch trigger', () => {
   test('the page title leads and the domain is its subtitle', () => {
     expect(
-      webFetchTrigger({ url: 'https://docs.kortix.com/a', format: 'html', pageTitle: 'Docs', domain: 'docs.kortix.com' }),
-    ).toEqual({ title: 'Docs', subtitle: 'docs.kortix.com', args: ['html'] });
+      webFetchTrigger({ url: 'https://docs.dosco.live/a', format: 'html', pageTitle: 'Docs', domain: 'docs.dosco.live' }),
+    ).toEqual({ title: 'Docs', subtitle: 'docs.dosco.live', args: ['html'] });
   });
 
   test('no title: the domain is the title, with no repeated subtitle', () => {
-    expect(webFetchTrigger({ url: 'https://kortix.com', format: '', pageTitle: undefined, domain: 'kortix.com' })).toEqual({
-      title: 'kortix.com',
+    expect(webFetchTrigger({ url: 'https://dosco.live', format: '', pageTitle: undefined, domain: 'dosco.live' })).toEqual({
+      title: 'dosco.live',
       subtitle: undefined,
       args: undefined,
     });
@@ -24,7 +24,7 @@ describe('web fetch trigger', () => {
 
   test('a title equal to the domain draws no subtitle', () => {
     expect(
-      webFetchTrigger({ url: 'https://kortix.com', format: '', pageTitle: 'kortix.com', domain: 'kortix.com' }).subtitle,
+      webFetchTrigger({ url: 'https://dosco.live', format: '', pageTitle: 'dosco.live', domain: 'dosco.live' }).subtitle,
     ).toBeUndefined();
   });
 

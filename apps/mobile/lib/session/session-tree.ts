@@ -162,7 +162,7 @@ export function sessionStarter(session: ProjectSession, viewerId: string | null 
     if (viewerId && id === viewerId) return { type: 'member', label: 'You', icon: null };
     return { type: 'member', label: initiator?.label?.trim() || 'Member', icon: null };
   }
-  const label = initiator.label?.trim() || initiator.id || 'Kortix';
+  const label = initiator.label?.trim() || initiator.id || 'Xera';
   switch (initiator.type) {
     case 'trigger': {
       const source = typeof session.metadata?.source === 'string' ? session.metadata.source : '';

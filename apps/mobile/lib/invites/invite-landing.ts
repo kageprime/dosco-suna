@@ -4,8 +4,8 @@
  *
  * - Where an accepted invite lands is the SDK's `accountInviteLanding`, the
  *   rule web reads too; the invite screen maps it to a route.
- * - `inviteIdFromUrl` reads `https://{kortix.com,www,staging}/invites/<uuid>`
- *   and `kortix://invites/<uuid>`. `app/+native-intent.ts` remembers the id;
+ * - `inviteIdFromUrl` reads `https://{dosco.live,www,staging}/invites/<uuid>`
+ *   and `dosco://invites/<uuid>`. `app/+native-intent.ts` remembers the id;
  *   the start screen (`app/index.tsx`) takes it after sign-in.
  *
  * Pure: no React Native imports, so bun tests run it directly.
@@ -24,7 +24,7 @@ export function inviteIdFromUrl(url: string): string | null {
   let path = match[3];
   if (scheme === 'https') {
     if (!KORTIX_LINK_HOSTS.has(authority)) return null;
-  } else if (scheme === 'kortix') {
+  } else if (scheme === 'dosco') {
     if (authority === 'invites') path = `/invites${path}`;
     else if (authority !== '') return null;
   } else {

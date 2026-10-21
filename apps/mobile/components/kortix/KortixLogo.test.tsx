@@ -1,6 +1,7 @@
 /**
- * KortixLogo picks one of the six brand SVGs from `variant` × `color` and
- * sizes the wide variants (logomark 5:1, text 74:22) from the square `size`.
+ * KortixLogo picks one of the baked Dosco brand PNGs from `variant` ×
+ * `color` and sizes the wide variants (wordmark 1600:342) from the square
+ * `size`. The symbol is the full-colour crest on both surfaces.
  */
 import { afterEach, beforeAll, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -9,24 +10,27 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 type HostProps = Record<string, unknown>;
 const host = (name: string) => (props: HostProps) => React.createElement(name, props);
 
-const svgPicks: string[] = [];
-const svg = (name: string) => (props: HostProps) => {
-  svgPicks.push(name);
-  return React.createElement('svg', props);
-};
-
+// The png modules are mocked to named strings; CJS interop may hand the
+// component the bare string or the `{ default: name }` namespace, so the
+// asset under test is read back through both shapes.
 mock.module('react-native', () => ({
   View: host('view'),
+  Image: host('image'),
   StyleSheet: { flatten: (s: unknown) => s, create: (s: unknown) => s },
   Platform: { OS: 'android', select: (o: Record<string, unknown>) => o.android },
 }));
-mock.module('@/assets/brand/kortix-symbol.svg', () => ({ default: svg('symbol-black') }));
-mock.module('@/assets/brand/Symbol.svg', () => ({ default: svg('symbol-white') }));
-mock.module('@/assets/brand/Logomark-Black.svg', () => ({ default: svg('logomark-black') }));
-mock.module('@/assets/brand/Logomark-White.svg', () => ({ default: svg('logomark-white') }));
-mock.module('@/assets/brand/Logomark-Text-Black.svg', () => ({ default: svg('text-black') }));
-mock.module('@/assets/brand/Logomark-Text-White.svg', () => ({ default: svg('text-white') }));
+mock.module('@/assets/brand/dosco-crest-square.png', () => ({ default: 'crest-square' }));
+mock.module('@/assets/brand/dosco-wordmark-dark.png', () => ({ default: 'wordmark-dark' }));
+mock.module('@/assets/brand/dosco-wordmark-light.png', () => ({ default: 'wordmark-light' }));
 mock.module('nativewind', () => ({ useColorScheme: () => ({ colorScheme: 'dark' }) }));
+
+const assetName = (source: unknown): string => {
+  if (typeof source === 'string') return source;
+  if (source && typeof source === 'object' && typeof (source as { default?: unknown }).default === 'string') {
+    return (source as { default: string }).default;
+  }
+  return String(source);
+};
 
 let KortixLogo: typeof import('./KortixLogo').KortixLogo;
 beforeAll(async () => {
@@ -38,7 +42,6 @@ let tree: ReactTestRenderer | undefined;
 afterEach(() => {
   act(() => tree?.unmount());
   tree = undefined;
-  svgPicks.length = 0;
 });
 
 const render = (props: Record<string, unknown>) => {
@@ -47,24 +50,25 @@ const render = (props: Record<string, unknown>) => {
     tree = create(React.createElement(KortixLogo as any, props));
   });
   const view = tree!.root.findByType('view' as never);
-  const svgEl = tree!.root.findByType('svg' as never);
-  return { view: view.props as Record<string, unknown>, svg: svgEl.props as Record<string, unknown>, picked: svgPicks[svgPicks.length - 1] };
+  const imgEl = tree!.root.findByType('image' as never);
+  return { view: view.props as Record<string, unknown>, img: imgEl.props as Record<string, unknown> };
 };
 
 describe('KortixLogo variant × color', () => {
+  const WORDMARK_RATIO = 1600 / 342;
   test.each([
-    ['symbol', 'dark', 'symbol-white', 1],
-    ['symbol', 'light', 'symbol-black', 1],
-    ['logomark', 'dark', 'logomark-white', 5],
-    ['logomark', 'light', 'logomark-black', 5],
-    ['text', 'dark', 'text-white', 74 / 22],
-    ['text', 'light', 'text-black', 74 / 22],
+    ['symbol', 'dark', 'crest-square', 1],
+    ['symbol', 'light', 'crest-square', 1],
+    ['logomark', 'dark', 'wordmark-light', WORDMARK_RATIO],
+    ['logomark', 'light', 'wordmark-dark', WORDMARK_RATIO],
+    ['text', 'dark', 'wordmark-light', WORDMARK_RATIO],
+    ['text', 'light', 'wordmark-dark', WORDMARK_RATIO],
   ] as const)('variant=%s color=%s renders %s at %s:1', (variant, color, asset, ratio) => {
-    const { view, svg, picked } = render({ size: 24, variant, color });
-    expect(picked).toBe(asset);
+    const { view, img } = render({ size: 24, variant, color });
+    expect(assetName(img.source)).toBe(asset);
     // The wide variants scale width by their aspect ratio; the symbol is square.
-    expect(svg.width).toBe(24 * ratio);
-    expect(svg.height).toBe(24);
+    expect(img.style).toMatchObject({ width: 24 * ratio, height: 24 });
+    expect(img.resizeMode).toBe('contain');
     // The wrapper reserves the same box (and never shrinks in a row).
     expect(view.style).toMatchObject({ width: 24 * ratio, height: 24, flexShrink: 0 });
   });

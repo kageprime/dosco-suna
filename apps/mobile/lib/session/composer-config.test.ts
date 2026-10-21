@@ -65,7 +65,7 @@ describe('picker sheet sections', () => {
 describe('composer chip (KRTX-247)', () => {
   test('the agent name, capitalised, not the model, as a low-key ghost chip', () => {
     expect(composerChip({ connectModel: false, agentName: 'kortix', modelName: 'Sonnet 5' })).toEqual({
-      label: 'Kortix',
+      label: 'Xera',
       variant: 'ghost',
     });
     expect(composerChip({ connectModel: false, agentName: 'plan', modelName: undefined })).toEqual({
@@ -93,7 +93,7 @@ describe('composer chip (KRTX-247)', () => {
     // A new thread: its sandbox has not listed its agents yet.
     expect(
       composerChip({ connectModel: false, agentName: null, pendingAgentName: 'kortix', agentsLoading: true, modelName: 'Sonnet 5' }),
-    ).toEqual({ label: 'Kortix', variant: 'ghost' });
+    ).toEqual({ label: 'Xera', variant: 'ghost' });
     expect(
       composerChip({ connectModel: false, agentName: null, pendingAgentName: null, agentsLoading: true, modelName: 'Sonnet 5' }),
     ).toBeNull();
@@ -227,7 +227,7 @@ describe('agents — the SDK resolver over the thread roster', () => {
   });
 
   test('display name capitalises the first letter; unknown agent says Agent', () => {
-    expect(agentDisplayName('kortix')).toBe('Kortix');
+    expect(agentDisplayName('kortix')).toBe('Xera');
     expect(agentDisplayName('chief-of-staff')).toBe('Chief-of-staff');
     expect(agentDisplayName(undefined)).toBe('Agent');
   });

@@ -91,7 +91,7 @@ describe('pages', () => {
 test('WebViews load only the inline document', async () => {
   const { allowInlineDocumentLoad } = await import('./mermaid-html');
   expect(allowInlineDocumentLoad({ url: 'about:blank' })).toBe(true);
-  expect(allowInlineDocumentLoad({ url: 'https://kortix.com' })).toBe(false);
+  expect(allowInlineDocumentLoad({ url: 'https://dosco.live' })).toBe(false);
   expect(allowInlineDocumentLoad({ url: 'javascript:alert(1)' })).toBe(false);
   expect(allowInlineDocumentLoad({ url: 'file:///etc/hosts' })).toBe(false);
 });

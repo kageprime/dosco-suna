@@ -77,7 +77,7 @@ export function GlobalUpgradeSheet() {
           gap: 18,
         }}>
         <View className="items-center">
-          <Text variant="large">{t('upgrade.creditsPlan', 'Kortix Credits')}</Text>
+          <Text variant="large">{t('upgrade.creditsPlan', 'Dosco Credits')}</Text>
           {canPurchase ? (
             <Text variant="muted" className="mt-1 text-center">
               {t(

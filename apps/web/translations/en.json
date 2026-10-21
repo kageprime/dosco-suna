@@ -21439,8 +21439,7 @@
       "dictation": "Say it, send it",
       "dictationDescription": "Dictate a prompt instead of typing it."
     },
-    "appStore": "App Store",
-    "googlePlay": "Google Play"
+    "apk": "Download the APK"
   },
   "capture": {
     "authorize": {

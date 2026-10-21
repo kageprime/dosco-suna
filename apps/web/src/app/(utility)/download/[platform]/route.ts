@@ -1,41 +1,28 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { isMobilePlatform, normalizePlatform } from '@/features/marketing/download/detect-os';
-import {
-  RELEASES_PAGE,
-  getLatestRelease,
-  pickDesktopAsset,
-} from '@/features/marketing/download/releases';
+import { normalizePlatform } from '@/features/marketing/download/detect-os';
+import { ANDROID_APK_URL } from '@/features/marketing/download/mobile-store-urls';
 
 /**
- * Desktop installer redirector — the machine half of /download.
+ * Download redirector — hand-writable URLs that go in emails, docs, chats.
  *
- *   /download/macos   → latest universal .dmg
- *   /download/windows → latest .exe
- *   /download/linux   → latest x86_64 .AppImage
+ *   /download/android  → the current installable APK, straight from EAS
+ *                        (mobile-store-urls.ts; immutable per build)
+ *   /download/<other>  → the /download page
  *
- * These are hand-writable URLs on purpose: they go in emails, docs, and support
- * replies. Asset resolution is shared with the /download page, so the file a
- * visitor receives is always the one the page advertised.
- *
- * Anything unresolvable falls back to the releases page rather than erroring —
- * a visitor who wanted software should always land somewhere they can get it.
+ * The Dosco apps are the web app and the Android APK: no desktop, no iOS.
+ * A hand-typed desktop or iOS URL lands on the /download page, which offers
+ * exactly what exists, instead of serving another product's installers. The
+ * redirect target is absolute: NextResponse.redirect rejects relative URLs.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ platform: string }> },
 ) {
   const { platform } = await params;
-  const os = normalizePlatform(platform);
-
-  // Mobile values are rejected here, not left to pickDesktopAsset. That
-  // function's isInstaller() ends in an unguarded `return n.endsWith('.appimage')`
-  // fallthrough, so /download/ios would hand an iPhone visitor a Linux AppImage.
-  // Phones are served by the App Store and Play Store links on the page.
-  if (!os || isMobilePlatform(os)) return NextResponse.redirect(RELEASES_PAGE, 302);
-
-  const release = await getLatestRelease();
-  const asset = release ? pickDesktopAsset(release.assets, os) : undefined;
-  return NextResponse.redirect(asset?.url ?? RELEASES_PAGE, 302);
+  if (normalizePlatform(platform) === 'android') {
+    return NextResponse.redirect(ANDROID_APK_URL, 302);
+  }
+  return NextResponse.redirect(new URL('/download', request.nextUrl.origin), 302);
 }

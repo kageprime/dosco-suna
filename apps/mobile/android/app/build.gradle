@@ -87,21 +87,24 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    // Internal identifier (java package of MainActivity/MainApplication). The
+    // user-visible application id — com.dosco.application — is the one that
+    // differs on purpose, mirroring how the Kortix build diverged.
     namespace 'com.kortix.app'
     defaultConfig {
-        applicationId 'com.kortix.application'
+        applicationId 'com.dosco.application'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.5.0"
+        versionName "1.0.0"
 
         // `APP_VARIANT=dev` (the dev-* EAS profiles) installs the build next to the
-        // store app as `com.kortix.application.dev`, labelled "Kortix (dev)" with the
+        // store app as `com.dosco.application.dev`, labelled "Dosco (dev)" with the
         // dev icon. An env var, not committed native code, so both builds share one
         // fingerprint.
         def devVariant = System.getenv('APP_VARIANT') == 'dev'
         if (devVariant) applicationIdSuffix '.dev'
-        resValue "string", "app_name", devVariant ? "Kortix (dev)" : "Kortix"
+        resValue "string", "app_name", devVariant ? "Dosco (dev)" : "Dosco"
         manifestPlaceholders += [
             appIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher",
             appRoundIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher_round",

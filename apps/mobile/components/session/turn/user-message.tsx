@@ -252,10 +252,10 @@ function SessionSourcePill({
     <SourcePill
       mark={<KortixLogo size={12} color={logoColor} />}
       sheetMark={<KortixLogo size={22} color={logoColor} />}
-      source="Kortix"
+      source="Dosco"
       sender={author.agent || name}
       title={name}
-      subtitle={author.agent ? `Kortix session · sent by ${author.agent}` : 'Kortix session'}
+      subtitle={author.agent ? `Dosco session · sent by ${author.agent}` : 'Dosco session'}
       rows={[
         { label: 'Agent', value: author.agent },
         {

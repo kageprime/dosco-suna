@@ -38,22 +38,28 @@ export function escapeHtmlAttribute(value: string): string {
 export function serializeForInlineScript(value: unknown): string {
   return JSON.stringify(value).replace(
     /[<>&\u2028\u2029]/g,
-    (ch) => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase(),
+    (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()}`,
   );
 }
 
 /**
- * Build the `kortix://auth/callback` deep link from an inbound web callback.
+ * Build the native `…://auth/callback` deep link from an inbound web callback.
  * A supplied transport marker is omitted; every value is re-encoded via
- * URLSearchParams before it reaches either native client.
+ * URLSearchParams before it reaches either native client. `base` selects the
+ * scheme: the Dosco mobile app answers `dosco://`; the desktop shell still
+ * registers `kortix://` (it is not rebranded yet).
  */
-export function buildNativeDeepLink(searchParams: URLSearchParams, transportFlag?: string): string {
+export function buildNativeDeepLink(
+  searchParams: URLSearchParams,
+  transportFlag?: string,
+  base = 'kortix://auth/callback',
+): string {
   const forwardParams = new URLSearchParams();
   for (const [k, v] of searchParams) {
     if (!transportFlag || k !== transportFlag) forwardParams.set(k, v);
   }
   const qs = forwardParams.toString();
-  return `kortix://auth/callback${qs ? `?${qs}` : ''}`;
+  return `${base}${qs ? `?${qs}` : ''}`;
 }
 
 /** Build the desktop callback deep link, dropping the desktop marker. */
@@ -65,7 +71,7 @@ export function buildDesktopDeepLink(searchParams: URLSearchParams): string {
 export function buildMobileDeepLink(searchParams: URLSearchParams): string {
   // Unlike desktop, mobile needs this marker after the browser fallback so it
   // can admit a newly-created user only for a state-validated web handoff.
-  return buildNativeDeepLink(searchParams);
+  return buildNativeDeepLink(searchParams, undefined, 'dosco://auth/callback');
 }
 
 /** Render the native handoff document, optionally starting the app automatically. */

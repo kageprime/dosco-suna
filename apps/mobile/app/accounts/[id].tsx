@@ -6,7 +6,7 @@
  *
  * Native back header titled with the account name, one Billing row (plan ·
  * balance as its value, opens `/billing` for this account), then "On
- * kortix.com" — Members, Git, Audit log — each opening the matching web tab
+ * dosco.live" — Members, Git, Audit log — each opening the matching web tab
  * in the in-app browser. Git and Audit log are hidden when the signed-in
  * user lacks the same capability the old tabs gated on.
  */
@@ -103,7 +103,7 @@ export default function AccountDetailScreen() {
             <SettingsRow label="Billing" value={billingSummary} onPress={openBilling} />
           </SettingsGroup>
 
-          <SettingsGroup title="On kortix.com">
+          <SettingsGroup title="On dosco.live">
             <SettingsRow icon={Users} label="Members" external onPress={() => openWebTab('members')} />
             {can['account.write'] && (
               <SettingsRow icon={GitBranch} label="Git" external onPress={() => openWebTab('git')} />

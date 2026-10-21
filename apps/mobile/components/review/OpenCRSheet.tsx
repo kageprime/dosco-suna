@@ -189,7 +189,7 @@ export function OpenCRSheet({
           disabled={!canSubmit}
           style={{ height: 46, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, backgroundColor: theme.primary, opacity: canSubmit ? 1 : 0.5 }}
         >
-          {createMut.isPending && <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />}
+          {createMut.isPending && <KortixLoader />}
           <Text style={{ fontSize: 15, fontFamily: 'Roobert-Medium', color: theme.primaryForeground }}>Open change request</Text>
         </Pressable>
       </View>

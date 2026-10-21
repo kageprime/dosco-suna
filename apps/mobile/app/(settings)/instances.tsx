@@ -360,7 +360,7 @@ const AddInstanceSheet = React.forwardRef<
                   <Icon as={Globe} size={18} className="text-foreground/80" />
                   <View className="ml-4 flex-1">
                     <Text className="font-roobert-medium text-[15px] text-foreground">Custom URL</Text>
-                    <Text className="mt-0.5 font-roobert text-[13px] text-muted-foreground">Connect to any Kortix instance by address</Text>
+                    <Text className="mt-0.5 font-roobert text-[13px] text-muted-foreground">Connect to any Dosco instance by address</Text>
                   </View>
                 </View>
               </Pressable>
@@ -372,7 +372,7 @@ const AddInstanceSheet = React.forwardRef<
               Custom URL
             </Text>
             <Text className="mb-4 font-roobert text-[13px] text-muted-foreground">
-              Enter the address of your Kortix instance.
+              Enter the address of your Dosco instance.
             </Text>
 
             <BottomSheetTextInput
@@ -422,7 +422,7 @@ const AddInstanceSheet = React.forwardRef<
               {isCreating ? (
                 // The loader sits on the filled (foreground-colored) button — invert vs.
                 // the usual isDark mapping so it reads dark-on-light / light-on-dark.
-                <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+                <KortixLoader />
               ) : (
                 <Text
                   className="font-roobert-semibold text-[15px]"

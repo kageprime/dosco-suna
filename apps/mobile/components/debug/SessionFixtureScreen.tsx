@@ -10,7 +10,7 @@
  *
  * No network: the fixture is seeded into the store under `ses_FixtureParity…`
  * ids, file taps and mention taps are inert, and no `ToolFilePreviewHost` is
- * mounted. Open it in a dev build with `kortix://session-fixture`.
+ * mounted. Open it in a dev build with `dosco://session-fixture`.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';

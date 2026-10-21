@@ -6,7 +6,7 @@
  * URL. For a web origin the app reads its public runtime config
  * (`GET /api/runtime-config`, served by apps/web from the same env as its own
  * auth page) for the API URL, the Supabase URL + anon key and the auth
- * methods. For an API URL (`api.kortix.com`, `…/v1`, a LAN `:8008`) it reads
+ * methods. For an API URL (`api.dosco.live`, `…/v1`, a LAN `:8008`) it reads
  * the API's public `GET /v1/auth/client-config` instead: a web app behind
  * access protection (dev, staging) cannot be read from a phone, its API can.
  *
@@ -29,7 +29,7 @@ export interface Deployment {
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
-export const KORTIX_CLOUD_WEB_URL = 'https://kortix.com';
+export const KORTIX_CLOUD_WEB_URL = 'https://dosco.live';
 /** The self-hosting guide (`apps/web/content/docs/host/index.mdx`), behind the sheet's Docs button. */
 export const SELF_HOST_DOCS_URL = `${KORTIX_CLOUD_WEB_URL}/docs/host`;
 const DEFAULT_BACKEND_URL = 'http://localhost:8008/v1';
@@ -70,7 +70,7 @@ function hostOf(url: string): string {
 /** What the user typed → the deployment origin. Mirrors apps/desktop-electron instance-rules.js. */
 export function normalizeDeploymentUrl(raw: unknown): { ok: true; origin: string } | { ok: false; error: string } {
   const input = typeof raw === 'string' ? raw.trim() : '';
-  if (!input) return { ok: false, error: 'Enter the URL of your Kortix instance.' };
+  if (!input) return { ok: false, error: 'Enter the URL of your Dosco instance.' };
 
   // `localhost:3000` parses as the scheme `localhost:`; a host:port prefix is a bare host.
   const isHostPort = /^[^\s/:]+:\d+(?:[/?#]|$)/.test(input);
@@ -129,7 +129,7 @@ export function parseRuntimeConfig(
   origin: string
 ): { ok: true; deployment: Deployment } | { ok: false; error: string } {
   const host = hostOf(origin);
-  const notKortix = { ok: false as const, error: `${host} is not a Kortix instance.` };
+  const notKortix = { ok: false as const, error: `${host} is not a Dosco instance.` };
   const match = RUNTIME_CONFIG.exec(script);
   if (!match) return notKortix;
   let env: Record<string, unknown>;
@@ -202,8 +202,8 @@ async function readApiConfig(origin: string, webStatus: number, fetchImpl: Fetch
     return {
       ok: false,
       error: isApi
-        ? `${host} runs an older Kortix API. Enter the web URL, or update the instance.`
-        : `${host} is not a Kortix instance (HTTP ${webStatus}).`,
+        ? `${host} runs an older Dosco API. Enter the web URL, or update the instance.`
+        : `${host} is not a Dosco instance (HTTP ${webStatus}).`,
     };
   }
 
@@ -335,6 +335,7 @@ export interface BuildEnv {
   EXPO_PUBLIC_SUPABASE_URL?: string;
   EXPO_PUBLIC_SUPABASE_ANON_KEY?: string;
   EXPO_PUBLIC_AUTH_METHODS?: string;
+  EXPO_PUBLIC_AUTH_PROVIDERS?: string;
 }
 
 /** Every endpoint the app uses, from one place: the saved deployment, else the build. */
@@ -351,7 +352,7 @@ export function resolveEndpoints(deployment: Deployment | null, env: BuildEnv) {
     backendUrl: env.EXPO_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL,
     supabaseUrl: env.EXPO_PUBLIC_SUPABASE_URL ?? '',
     supabaseAnonKey: env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
-    // Always kortix.com for the build default (lib/kortix-web.ts).
+    // Always dosco.live for the build default (lib/kortix-web.ts).
     webUrl: KORTIX_CLOUD_WEB_URL,
   };
 }
@@ -366,17 +367,22 @@ function parseList(raw: string | null | undefined): string[] {
 /**
  * Which sign-in options the auth screens render. The build default keeps the
  * shipped behavior (Google + Apple always, email methods from
- * `EXPO_PUBLIC_AUTH_METHODS`). A self-hosted instance renders exactly what its
- * web auth page renders (`AUTH_METHODS` / `AUTH_PROVIDERS`); a list the
- * instance does not report (null, an API without the setting) keeps the
- * build default.
+ * `EXPO_PUBLIC_AUTH_METHODS`) unless `EXPO_PUBLIC_AUTH_PROVIDERS` names the
+ * providers the backend actually enables. A self-hosted instance renders
+ * exactly what its web auth page renders (`AUTH_METHODS` / `AUTH_PROVIDERS`);
+ * a list the instance does not report (null, an API without the setting)
+ * keeps the build default.
  */
 export function authOptionsFor(deployment: Deployment | null, env: BuildEnv) {
   const methods = parseList(deployment?.authMethods ?? env.EXPO_PUBLIC_AUTH_METHODS).filter(
     (m) => m === 'magic' || m === 'password'
   );
   const both = methods.length === 0;
-  const reported = deployment?.authProviders ?? null;
+  // A self-hosted instance reports what its web auth page renders; an official
+  // build takes the same list from `EXPO_PUBLIC_AUTH_PROVIDERS` (apple off for
+  // builds whose backend doesn't offer it). Null (nothing reported) keeps the
+  // default: Google + Apple.
+  const reported = deployment?.authProviders ?? env.EXPO_PUBLIC_AUTH_PROVIDERS ?? null;
   const providers = parseList(reported);
   return {
     magic: both || methods.includes('magic'),

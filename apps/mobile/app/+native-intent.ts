@@ -3,16 +3,16 @@ import { resolveShareLinkUrl } from '@/lib/share-link';
 import { isBrowserReturnPath } from '@/lib/session/connect-model';
 
 /**
- * Share links (`kortix.com/share/*`) have no in-app route. The root layout's
+ * Share links (`dosco.live/share/*`) have no in-app route. The root layout's
  * link handler opens them in the in-app browser, so the router must not
  * navigate: a warm link keeps the current screen, a cold start begins at the
  * splash screen.
  *
- * In-app browser return URLs (`kortix://providers/…`, `kortix://connectors/…`)
+ * In-app browser return URLs (`dosco://providers/…`, `dosco://connectors/…`)
  * only close the browser session. On Android they also arrive as a deep link;
  * the same rule keeps the user on the screen that opened the browser.
  *
- * Invite links (`kortix://invites/<id>`) route to `app/invites/[id].tsx`. The
+ * Invite links (`dosco://invites/<id>`) route to `app/invites/[id].tsx`. The
  * id is also remembered (KRTX-1731): signed out, `AuthProtection` sends the
  * user to /auth, and the start screen opens the invite after sign-in.
  */

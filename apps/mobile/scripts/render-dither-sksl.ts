@@ -30,7 +30,7 @@ const effect = CanvasKit.RuntimeEffect.Make(DITHERING_SKSL, (e) => {
 })!;
 
 const tex = CanvasKit.MakeImageFromEncoded(
-  readFileSync(path.join(import.meta.dir, '../assets/brand/kortix-liquid-metal.png')),
+  readFileSync(path.join(import.meta.dir, '../assets/brand/dosco-liquid-metal.png')),
 )!;
 const imageShader = tex.makeShaderOptions(
   CanvasKit.TileMode.Clamp,

@@ -47,7 +47,7 @@ export const useComposerDraftStore = create<ComposerDraftState>()(
       },
     }),
     {
-      name: 'kortix.composerDrafts',
+      name: 'dosco.liveposerDrafts',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ drafts: state.drafts }),
     },

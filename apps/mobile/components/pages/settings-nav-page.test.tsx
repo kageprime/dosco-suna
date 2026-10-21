@@ -69,8 +69,8 @@ const fakes: Record<string, Record<string, unknown>> = {
   },
   '@/lib/projects/projects-client': { inviteRepoCollaborator: async () => ({}), isManagedGithubProject: () => true },
   '@/lib/projects/web-project-links': {
-    CONNECTORS_DONE_URI: 'kortix://connectors/done',
-    CONNECTORS_RETURN_URL: 'kortix://connectors',
+    CONNECTORS_DONE_URI: 'dosco://connectors/done',
+    CONNECTORS_RETURN_URL: 'dosco://connectors',
     projectConnectorsWebUrl: () => 'https://example.test',
     projectCustomizeWebUrl: () => 'https://example.test',
   },
@@ -172,7 +172,7 @@ describe('project Settings controls', () => {
 });
 
 describe('Customize group follows the read leaf and a write leaf', () => {
-  const CUSTOMIZE = ['Schedules', 'Secrets', 'Members', 'Connectors', 'More on kortix.com'];
+  const CUSTOMIZE = ['Schedules', 'Secrets', 'Members', 'Connectors', 'More on dosco.live'];
   test('a plain member sees no Customize row and no hand-off', () => {
     renderAs({
       'project.trigger.read': can(true),
@@ -190,6 +190,6 @@ describe('Customize group follows the read leaf and a write leaf', () => {
     renderAs({ 'project.secret.read': can(true), 'project.secret.write': can(true) });
     expect(row('Secrets')).toBeTruthy();
     expect(row('Schedules')).toBeUndefined();
-    expect(row('More on kortix.com')).toBeTruthy();
+    expect(row('More on dosco.live')).toBeTruthy();
   });
 });

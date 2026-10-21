@@ -210,7 +210,7 @@ function EditorHeaderActions({
             gap: 6,
           }}>
           {isPending ? (
-            <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+            <KortixLoader />
           ) : (
             <Icon as={Check} size={16} color={isDark ? THEME.dark.background : THEME.light.background} />
           )}

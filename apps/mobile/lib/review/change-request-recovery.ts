@@ -47,7 +47,7 @@ export function resolveConflictsPrompt(input: { number: number; conflictCount: n
     ...UNTRUSTED,
     '',
     'Complete these steps:',
-    `1. Inspect change request #${number} with the Kortix CLI or API to identify its source and target branches.`,
+    `1. Inspect change request #${number} with the Dosco CLI or API to identify its source and target branches.`,
     '2. Check out the source branch if this session is not on it.',
     '3. Fetch the latest target branch from origin.',
     '4. Merge the target branch into the source branch.',

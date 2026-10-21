@@ -118,7 +118,7 @@ export function AccountPage({
     [router]
   );
 
-  // Docs and Support open kortix.com in the in-app browser (`openLink`).
+  // Docs and Support open dosco.live in the in-app browser (`openLink`).
   const openWebPage = React.useCallback((path: string) => {
     haptics.tap();
     void openLink(`${KORTIX_WEB_URL}${path}`).catch(() => {});
@@ -400,7 +400,7 @@ function AppVersionFooter() {
     <View
       className="flex-row items-center justify-center gap-2 py-8"
       accessible
-      accessibilityLabel={version ? `Kortix version ${version}` : 'Kortix'}>
+      accessibilityLabel={version ? `Dosco version ${version}` : 'Dosco'}>
       <KortixLogo variant="logomark" size={14} color={colorScheme === 'dark' ? 'dark' : 'light'} className="opacity-50" />
       {version ? <Text variant="muted">v{version}</Text> : null}
     </View>

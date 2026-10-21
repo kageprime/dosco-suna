@@ -27,7 +27,7 @@ beforeAll(async () => {
 
 /** Documents with every construct `autoLinkUrls` protects, split across lines and blocks. */
 const CORPUS: Record<string, string> = {
-  plain: 'See https://kortix.com/docs and www.example.com, mail me at dev@kortix.com.\n\nNext para github.com/kortix/suna\n',
+  plain: 'See https://dosco.live/docs and www.example.com, mail me at dev@dosco.live.\n\nNext para github.com/kortix/suna\n',
   fences:
     'Run this:\n\n```bash\ncurl https://api.example.com/v1 # not linked\n```\n\nThen visit https://example.com.\n\n````md\n```\nhttps://inner.example.com\n```\n````\nafter https://after.example.com\n',
   unclosedFence: 'Intro https://a.example.com\n\n```ts\nconst url = "https://in-code.example.com";\nmore code\n',
@@ -35,17 +35,17 @@ const CORPUS: Record<string, string> = {
   displayMath: 'Math:\n\n$$\nf(x) = https://not.example.com\n$$\n\nand $$inline https://z.example.com$$ text\n\n$$\nunclosed https://m.example.com\n',
   inlineMath: 'Cost $5 and $x + y$ with https://cost.example.com and \\$ escaped $a$ https://b.example.com\n',
   links:
-    '[Kortix](https://kortix.com) and [multi\nline label](https://multi.example.com) and [label\n\nwith blank](https://blank.example.com)\n[open label https://open.example.com\n\nlater https://later.example.com\n',
+    '[Kortix](https://dosco.live) and [multi\nline label](https://multi.example.com) and [label\n\nwith blank](https://blank.example.com)\n[open label https://open.example.com\n\nlater https://later.example.com\n',
   openDestination: 'Here [docs](https://docs.example.com/very/long/path\n\nand https://next.example.com\n',
   multilineDestination: 'A [label](first\nhttps://inside.example.com) after https://after.example.com\n',
   references: '[ref]: https://ref.example.com\n  [ref2]: https://ref2.example.com\n\nText [a][ref] https://text.example.com\n',
-  angle: '<https://angle.example.com> and <mailto:dev@kortix.com> and <https://broken\n> https://after.example.com\n',
-  lists: '- item https://one.example.com\n- item [two](https://two.example.com)\n  - nested www.three.com\n\n1. first dev@kortix.com\n2. second\n',
+  angle: '<https://angle.example.com> and <mailto:dev@dosco.live> and <https://broken\n> https://after.example.com\n',
+  lists: '- item https://one.example.com\n- item [two](https://two.example.com)\n  - nested www.three.com\n\n1. first dev@dosco.live\n2. second\n',
   tables: '| Name | Link |\n|---|---|\n| a | https://a.example.com |\n| b | [b](https://b.example.com) |\n\nafter table https://c.example.com\n',
   images: '![alt](https://img.example.com/a.png)\n\n![one](https://i.example.com/1.png) ![two](https://i.example.com/2.png)\n\ntext https://t.example.com\n',
   localhost: 'App at http://localhost:3000/app and http://127.0.0.1:8080\n\n```\ncurl http://localhost:5173\n```\n',
   setupLinks:
-    'Connect here:\n\n- Gmail: https://kortix.com/connect/ksl_abcdef123\n- [Slack](https://kortix.com/connect/ksl_slack456)\n\nThen https://after.example.com\n',
+    'Connect here:\n\n- Gmail: https://dosco.live/connect/ksl_abcdef123\n- [Slack](https://dosco.live/connect/ksl_slack456)\n\nThen https://after.example.com\n',
   crlf: 'Line one https://crlf.example.com\r\n\r\n```\r\nhttps://code.example.com\r\n```\r\nend https://end.example.com\r\n',
   htmlBlock:
     '<div align="center">\n  <img src="https://img.example.com/a.png">\n  https://inside.example.com\n</div>\n\nafter https://after.example.com\n',

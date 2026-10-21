@@ -49,8 +49,14 @@ describe('PreviewAuthorizeView', () => {
     expect(html).toContain('not a preview this deployment serves');
     expect(html).toContain('example.test/login');
     expect(html).not.toContain('<button');
-    // The only link is the shell's home mark; nothing points at the refused address.
-    expect([...html.matchAll(/href="([^"]*)"/g)].map((match) => match[1])).toEqual(['/']);
+    // The only link is the shell's home mark: nothing points at the refused
+    // address. (The mark's two crest PNG sources ride inside that same link
+    // as `<image href="/brand/…">`.)
+    expect(
+      [...html.matchAll(/href="([^"]*)"/g)]
+        .map((match) => match[1])
+        .filter((href) => !href.startsWith('/brand/')),
+    ).toEqual(['/']);
   });
 
   test('address not served with no address at all shows no empty row', () => {

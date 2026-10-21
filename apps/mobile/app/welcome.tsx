@@ -90,7 +90,7 @@ export default function WelcomeScreen() {
       await openExternalUrl(getWebBillingUrl());
       router.replace('/new');
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
     } finally {
       setOpening(false);
     }
@@ -115,7 +115,7 @@ export default function WelcomeScreen() {
         style={{ paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 16) }}>
         <View className="flex-1 justify-center gap-6">
           <View className="items-center">
-            <Text variant="h3">{t('upgrade.creditsPlan', 'Kortix Credits')}</Text>
+            <Text variant="h3">{t('upgrade.creditsPlan', 'Dosco Credits')}</Text>
             {offer.action === 'none' ? null : (
               <Text variant="muted" className="mt-1 text-center">
                 {t(
