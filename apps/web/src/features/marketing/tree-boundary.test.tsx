@@ -4,7 +4,6 @@ import { RepoTree as CompanyTree } from './company-as-code/repo-tree';
 import { FileTree } from './agent-computer/file-tree';
 import { RepoTree as AgentsTree } from './agents-and-skills/repo-tree';
 import { BoundaryDiagram as SecurityBoundary } from './security-page/boundary-diagram';
-import { BoundaryDiagram as SelfHostedBoundary } from './self-hosted/boundary-diagram';
 
 // Render shipped page content, with the English fallback from test-setup.ts.
 // These snapshots pin the complete output before the shared-primitive refactor.
@@ -14,7 +13,6 @@ describe('marketing trees and boundaries characterization', () => {
     ['agent-computer tree', FileTree],
     ['agents-and-skills tree', AgentsTree],
     ['security boundary', SecurityBoundary],
-    ['self-hosted boundary', SelfHostedBoundary],
   ] as const) {
     test(name, () => {
       expect(renderToStaticMarkup(<Component />)).toMatchSnapshot();
@@ -46,7 +44,6 @@ describe('marketing trees and boundaries characterization', () => {
 
   for (const [name, Component, variants] of [
     ['security', SecurityBoundary, ['border-border bg-background border border-dashed', 'border-border bg-background/40 border']],
-    ['self-hosted', SelfHostedBoundary, ['border-border bg-background border', 'border-border bg-background/40 border border-dashed']],
   ] as const) {
     for (const [index, variant] of variants.entries()) {
       test(`${name} ${index === 0 ? 'inside/on' : 'outside/off'} column variant`, () => {

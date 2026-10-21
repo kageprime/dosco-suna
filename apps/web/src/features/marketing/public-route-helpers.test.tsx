@@ -17,7 +17,6 @@ import Automations from '@/app/[locale]/(public)/(marketing)/automations/page';
 import Channels from '@/app/[locale]/(public)/(marketing)/channels/page';
 import CompanyAsCode from '@/app/[locale]/(public)/(marketing)/company-as-code/page';
 import Security from '@/app/[locale]/(public)/(marketing)/security/page';
-import SelfHosted from '@/app/[locale]/(public)/(marketing)/self-hosted/page';
 
 type Props = { children?: ReactNode; id?: string; rows?: readonly { id: string; k: string; v: string }[] };
 
@@ -37,7 +36,7 @@ const TERM_CLASS = 'text-foreground font-mono text-[11px] tracking-widest upperc
 const VALUE_CLASS = 'text-muted-foreground text-sm leading-relaxed sm:col-span-8';
 const FRAME = 'border-border bg-card overflow-hidden rounded-sm border';
 
-for (const [name, Page] of [['security', Security], ['self-hosted', SelfHosted]] as const) {
+for (const [name, Page] of [['security', Security]] as const) {
   describe(`${name} definition rows`, () => {
     test('empty rows retain the exact definition-list frame', async () => {
       const lists = named(await Page(), 'RowList');
@@ -70,7 +69,6 @@ const ROUTES = [
   ['channels', Channels],
   ['company-as-code', CompanyAsCode],
   ['security', Security],
-  ['self-hosted', SelfHosted],
 ] as const;
 
 describe('capability dividers', () => {

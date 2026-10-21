@@ -51,7 +51,6 @@ function loadContentTimestamps(): Record<string, string> {
 export const STATIC_PUBLIC_ROUTES = [
   '/',
   '/a1o',
-  '/about',
   '/agent-computer',
   '/agents-and-skills',
   '/automations',
@@ -68,7 +67,6 @@ export const STATIC_PUBLIC_ROUTES = [
   '/marketplace',
   '/pricing',
   '/security',
-  '/self-hosted',
   '/solutions',
   '/support',
   '/use-cases',
@@ -88,17 +86,8 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     kind: 'marketing',
     slug: 'contact',
     title: 'Contact sales and book a demo',
-    description: 'Request a tailored Dosco walkthrough for cloud, VPC, or on-prem deployment.',
+    description: 'Request a tailored Dosco walkthrough.',
     htmlPath: '/contact',
-  },
-  {
-    kind: 'marketing',
-    slug: 'about',
-    title: 'About',
-    description:
-      'Our mission: take a company from human to AGI, and let it keep every byte of itself on the way there.',
-    htmlPath: '/about',
-    markdownPath: '/markdown/about.md',
   },
   {
     kind: 'marketing',
@@ -252,15 +241,6 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
       'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.',
     htmlPath: '/security',
     markdownPath: '/markdown/security.md',
-  },
-  {
-    kind: 'marketing',
-    slug: 'self-hosted',
-    title: 'Self-hosted AI agents on your infrastructure',
-    description:
-      'Run the same Dosco on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use selfhost.',
-    htmlPath: '/self-hosted',
-    markdownPath: '/markdown/self-hosted.md',
   },
   {
     kind: 'marketing',

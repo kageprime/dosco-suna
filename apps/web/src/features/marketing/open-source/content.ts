@@ -12,21 +12,21 @@
  * the reason is what earns it the slot between the security close and the
  * questions under it. Everything that was neither of those has been cut.
  *
- * WHERE THE REASON COMES FROM. `title` is the `/about` thesis, taken from
- * `marketing/about/content.ts` → `hero.title` plus the first clause of
- * `hero.lead`, because that page is already accuracy-reviewed and the home page
- * must not invent a second version of it. `aboutHref` sends a reader there for
- * the rest — the enumeration ("every agent, all of their data, every skill,
- * every connector, the memory, the whole configuration") stays on `/about`
- * rather than being restated here. Do not widen the claim past what `/about`
- * says.
+ * WHERE THE REASON COMES FROM. `title` condenses the home-page hero position
+ * (`features/marketing/landing/content.ts` → `hero.title` plus the first clause
+ * of `hero.sub`, accuracy-reviewed there); the home page is the canonical
+ * statement and this section must not invent a second version of it.
+ * `aboutHref` sends a reader there for the rest — the enumeration ("every
+ * agent, all of their data, every skill, every connector, the memory, the
+ * whole configuration") lives on the home page rather than being restated here.
+ * Do not widen the claim past what the home hero says.
  *
  * WHAT WAS CUT, AND WHY IT IS NOT LOST. A lifted `bg-card` slab, a headline, a
  * two-command self-host terminal, a four-row self-hosting ledger and a centred
  * closing line — 1014px of it — came out on 2026-07-31, then a three-job body
  * paragraph and a mono fact line went with them. The two commands are still on
- * the page in the hero's CLI panel; the self-hosting ledger reads better on
- * `/self-hosted`; and the fact line ("Developed in the open / Self-host or
+ * the page in the hero's CLI panel; the self-hosting ledger was retired with
+ * the /self-hosted page; and the fact line ("Developed in the open / Self-host or
  * managed cloud / Any model, your keys") only restated the paragraph above it.
  *
  * ACCURACY GATE for this section specifically. Every item is still binding on
@@ -80,14 +80,16 @@ export const openSource = {
   },
 
   /**
-   * The whole note. Sentence one is `/about` → `hero.title` verbatim; sentence
-   * two is the first clause of `hero.lead`. Keep the two files in step.
+   * The whole note. Sentence one is the home-page hero position condensed;
+   * sentence two is the first clause of the hero's sub. Keep the two files in
+   * step.
    */
-  title: 'We are building the open-source AI Operating System. Every company should own all of it.',
+  title:
+    'We are building the agentic operating system. Every company should own all of it.',
 
-  /** Primary way out: the rest of the reason. */
+  /** Primary way out: the rest of the reason, on the home page. */
   aboutLabel: 'Why we are building it',
-  aboutHref: '/about',
+  aboutHref: '/',
 
   /** Secondary: the proof the number is about something real. */
   repoLabel: 'Read the source',

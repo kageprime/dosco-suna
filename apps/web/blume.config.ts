@@ -16,7 +16,7 @@ const sidebar = [
     label: 'Connect',
     items: ['connect/connectors', 'connect/channels', 'connect/triggers', 'connect/computers', 'connect/mcp'],
   },
-  { label: 'Kortix Capture', items: ['capture', 'capture/rollout'] },
+  { label: 'Capture', items: ['capture', 'capture/rollout'] },
   { label: 'Ship', items: ['apps'] },
   { label: 'Administer', items: ['accounts', 'accounts/identity', 'audit-actions', 'credits'] },
   { label: 'Self-host', items: ['host'] },
@@ -28,7 +28,8 @@ const sidebar = [
 // content/docs may import an app component. Blume built-ins only.
 export default defineConfig({
   title: 'Dosco',
-  description: 'Open-source AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.',
+  description:
+    'Dosco is the agentic operating system — agents, skills, memory and connectors in one managed workspace.',
 
   // Content stays where it has always been. src/lib/seo/public-content.ts
   // reads these same files off disk for /llms.txt, /markdown/docs/*.md and
@@ -61,14 +62,12 @@ export default defineConfig({
     // 1.5.3 correction: light/dark/alt live under `image`, not top-level
     // `logo` — see task-4-report.md for the config-key corrections log.
     image: {
-      // BOTH are symbol-only, the same 30x25 mark in black and white.
-      // Blume renders the logo image and then a <span> with the site title
-      // beside it, so the dark slot must NOT hold a full logomark: it used to
-      // point at kortix-logomark-white.svg (708x142), which already contains
-      // the wordmark, and dark mode printed "Kortix" twice while light was
-      // correct. Keep both slots symbol-only.
-      light: '/kortix-symbol.svg',
-      dark: '/kortix-symbol-white.svg',
+      // BOTH are symbol-only: the diamond mark in dark and light ink. Blume
+      // renders the logo image and then a <span> with the site title beside
+      // it, so the dark slot must NOT hold a full logomark — dark mode would
+      // print the wordmark twice. Keep both slots symbol-only.
+      light: '/brand/dosco-icon-dark.png',
+      dark: '/brand/dosco-icon-light.png',
       alt: 'Dosco',
     },
   },
@@ -93,8 +92,8 @@ export default defineConfig({
   // per-page "Edit this page" target. `dir` is required because this is a
   // monorepo: the Blume project root is apps/web, not the repo root.
   github: {
-    owner: 'kortix-ai',
-    repo: 'suna',
+    owner: 'kageprime',
+    repo: 'dosco-suna',
     dir: 'apps/web',
   },
 
@@ -122,9 +121,9 @@ export default defineConfig({
     // v0, t3 and Scira are dropped because they are not tools this audience
     // reaches for. `openInChatProviders` in the installed package is a closed
     // enum, so "kortix" is added to it by patches/blume@1.5.3.patch, which also
-    // carries the Kortix mark and the URL builder in PageActions.astro. The
-    // Kortix link is ORIGIN-RELATIVE (/projects/start?q=…), so it resolves to
-    // localhost in dev and kortix.com in production with nothing to configure.
+    // carries the Dosco mark and the URL builder in PageActions.astro. The
+    // link is ORIGIN-RELATIVE (/projects/start?q=…), so it resolves to
+    // localhost in dev and dosco.live in production with nothing to configure.
     openInChat: ['kortix', 'chatgpt', 'claude', 'cursor'],
   },
 

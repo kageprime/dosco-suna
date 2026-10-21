@@ -25,7 +25,7 @@ export const pillars = {
       id: 'open',
       title: 'Open and yours',
       body: 'Open source and self-hostable. Your data, your models, your infrastructure. No lock-in, and every line auditable.',
-      href: '/self-hosted',
+      href: '/enterprise',
       link: 'Self-hosting',
     },
     {

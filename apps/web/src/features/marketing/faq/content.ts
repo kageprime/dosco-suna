@@ -55,8 +55,8 @@
  *    correction). Name ChatGPT only.
  *  - SELF-HOST IS NOT AIR-GAPPED. `kortix self-host start` pulls images over the
  *    internet, the default sandbox provider is remote, and the instance must be
- *    reachable so the sandbox can call back (`apps/cli/src/commands/self-host.ts`,
- *    and the honesty gate in `marketing/self-hosted/content.ts`). Say it.
+ *    reachable so the sandbox can call back (`apps/cli/src/commands/self-host.ts`).
+ *    Say it.
  *  - APPROVAL GATES ARE OFF BY DEFAULT. `policy.default_mode` falls back to
  *    `allow_all` when a project declares no `policy:` block
  *    (`apps/api/src/projects/policies.ts:73`). Write "you set allow, ask or

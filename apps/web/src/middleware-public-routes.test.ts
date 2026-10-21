@@ -35,7 +35,6 @@ test('middleware imports locale constants without bundling translation loaders',
 test('every supported public surface accepts an explicit locale prefix', async () => {
   const routes = [
     '/',
-    '/about',
     '/agent-computer',
     '/agents-and-skills',
     '/automations',
@@ -53,7 +52,6 @@ test('every supported public surface accepts an explicit locale prefix', async (
     '/marketplace',
     '/pricing',
     '/security',
-    '/self-hosted',
     '/solutions',
     '/support',
     '/use-cases',

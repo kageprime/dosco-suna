@@ -41,7 +41,6 @@ import { openExternalRoute } from '@/lib/desktop';
 import { isInterfaceThemeId } from '@/lib/interface-themes';
 import { useSettingsPanelStore } from '@/stores/settings-panel-store';
 import {
-  ArticleIcon,
   BookOpenIcon,
   LifebuoyIcon,
   Moon,
@@ -84,7 +83,6 @@ export const HELP_LINKS: MenuLink[] = [
   // the /help one was the weaker page. The help centre is now part of /support.
   { label: 'Support', href: '/support', Icon: LifebuoyIcon },
   { label: 'Docs', href: '/docs', Icon: BookOpenIcon },
-  { label: 'Blog', href: '/blog', Icon: ArticleIcon },
   { label: 'Marketplace', href: '/marketplace', Icon: StorefrontIcon, internal: true },
   { label: 'Contact', href: '/contact', Icon: PaperPlaneTiltIcon },
 ];

@@ -21,7 +21,6 @@ type SitemapEntry = MetadataRoute.Sitemap[number];
 // bodies, so they stay English-only.
 export const LOCALIZED_ROUTES = [
   '/',
-  '/about',
   '/agent-computer',
   '/agents-and-skills',
   '/automations',
@@ -36,7 +35,6 @@ export const LOCALIZED_ROUTES = [
   '/legal',
   '/pricing',
   '/security',
-  '/self-hosted',
   '/solutions',
   '/support',
   '/white-label',

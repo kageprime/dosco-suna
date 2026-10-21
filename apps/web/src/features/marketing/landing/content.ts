@@ -21,7 +21,7 @@ import type { UiTranslator } from '@/i18n/translator';
 export const hero = {
   title: 'The cloud platform where AI agents get work done.',
   sub: 'Spin up agents that code, operate and ship — supervised from one place.',
-  trust: 'Open source · Any model, your keys · Self-host, VPC, or on-prem',
+  trust: 'Any model, your keys · Managed cloud · Built by AltMatter',
 } as const;
 
 /** The eyebrow renders as a row with the two competitor marks, so its parts
@@ -46,7 +46,7 @@ export const cta = {
   // `features/billing/pricing-plans.ts` (credits, any monthly amount from $20)
   // — an earlier price here was wrong by 2x.
   sub: 'Start with one job and grow from there.',
-  trust: 'SSO, RBAC & on-prem · Any model, your keys · No lock-in',
+  trust: 'SSO, RBAC & audit · Any model, your keys · No lock-in',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',
 } as const;

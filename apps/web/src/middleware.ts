@@ -37,10 +37,9 @@ type Locale = (typeof locales)[number];
 const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE';
 
 // Public application surfaces that support explicit locale routing for SEO
-// and unauthenticated language verification (/de/about, /sr/pricing, etc.).
+// and unauthenticated language verification (/de/developers, /sr/pricing, etc.).
 const MARKETING_ROUTES = [
   '/',
-  '/about',
   '/agent-computer',
   '/agents-and-skills',
   '/automations',
@@ -58,7 +57,6 @@ const MARKETING_ROUTES = [
   '/marketplace',
   '/pricing',
   '/security',
-  '/self-hosted',
   '/solutions',
   '/support',
   '/use-cases',
@@ -71,13 +69,11 @@ const MARKETING_ROUTES = [
 // /marketplace, /share, /download, /maintenance, …) stay reachable; only the
 // marketing site itself is deactivated.
 const SELF_HOST_MARKETING_ONLY = [
-  '/about',
   '/launch',
   '/agent-computer',
   '/agents-and-skills',
   '/automations',
   '/channels',
-  '/self-hosted',
   '/company-as-code',
   '/careers',
   '/changelog',
@@ -111,12 +107,10 @@ const PUBLIC_ROUTES = [
   '/checkout', // Public checkout wrapper for Apple compliance
   '/support', // Support hub — FAQ, contact channels, account deletion
   '/docs', // Product documentation (Fumadocs) should be public
-  '/about', // About page should be public
   '/agent-computer', // Agent computer marketing page should be public
   '/agents-and-skills', // marketing page should be public
   '/automations', // marketing page should be public
   '/channels', // marketing page should be public
-  '/self-hosted', // marketing page should be public
   '/white-label', // marketing page should be public
   '/company-as-code', // marketing page should be public
   '/changelog', // Public release notes (sourced from GitHub Releases)
@@ -154,7 +148,6 @@ const STATIC_PUBLIC_ROUTES = ['/game-of-life', '/rauch'];
 
 const MARKDOWN_NEGOTIATION_ROUTES = new Set([
   '/',
-  '/about',
   '/developers',
   '/enterprise',
   '/pricing',

@@ -39,7 +39,6 @@ const FOOTER_SECTIONS: FooterSection[] = [
       { label: 'Automations', href: '/automations' },
       { label: 'Channels', href: '/channels' },
       { label: 'Security', href: '/security' },
-      { label: 'Self-hosted', href: '/self-hosted' },
       { label: 'Enterprise', href: '/enterprise' },
       { label: 'Pricing', href: '/pricing' },
       { label: 'Download', href: '/download' },
@@ -76,7 +75,6 @@ const FOOTER_SECTIONS: FooterSection[] = [
   {
     title: 'Company',
     links: [
-      { label: 'About', href: '/about' },
       { label: 'Use Cases', href: '/use-cases' },
       { label: 'Brand', href: '/design-system' },
     ],
@@ -181,7 +179,7 @@ const Footer = () => {
       {/* Dithered wordmark: an alpha mask painted with the foreground token, so it follows the theme. */}
       <div
         aria-hidden
-        className="bg-foreground mx-auto mt-6 aspect-[1440/381] w-full max-w-7xl opacity-15"
+        className="bg-foreground mx-auto mt-6 aspect-[1440/308] w-full max-w-7xl opacity-15"
         style={{
           maskImage: 'url(/marketing/dither-wordmark.png)',
           WebkitMaskImage: 'url(/marketing/dither-wordmark.png)',

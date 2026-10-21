@@ -163,33 +163,3 @@ exports[`capability dividers security preserves divider output and section order
   "section:disclosure",
 ]
 `;
-
-exports[`capability dividers self-hosted preserves divider output and section order 1`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 2`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 3`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 4`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 5`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 6`] = `"<div class="mx-auto max-w-7xl px-6"><div data-orientation="horizontal" role="none" data-slot="separator" class="bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div></div>"`;
-
-exports[`capability dividers self-hosted preserves divider output and section order 7`] = `
-[
-  "section:what-you-keep",
-  "divider",
-  "section:commands",
-  "divider",
-  "section:first-run",
-  "divider",
-  "section:stack",
-  "divider",
-  "section:parity",
-  "divider",
-  "section:models",
-  "divider",
-  "section:targets",
-]
-`;

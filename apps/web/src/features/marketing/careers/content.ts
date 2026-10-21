@@ -41,7 +41,7 @@ export const hero = {
   lead: 'Belgrade, Serbia and San Francisco.',
   ctaPrimary: 'Apply',
   ctaSecondary: 'Why Dosco exists',
-  ctaSecondaryHref: '/about',
+  ctaSecondaryHref: '/',
 } as const;
 
 /** The board. Collapsed shows name, locations and the summary line. */

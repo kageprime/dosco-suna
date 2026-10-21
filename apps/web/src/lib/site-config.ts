@@ -51,14 +51,6 @@ export const productMenu: NavMenu = {
           icon: 'git-branch',
         },
         {
-          name: 'On-prem',
-          href: '/self-hosted',
-          // ACCURACY: never "air-gapped" — `self-host start` pulls images from
-          // docker.io, so a fully disconnected install is not shipped.
-          description: 'Your own VPC or your own on-prem network',
-          icon: 'hard-drives',
-        },
-        {
           name: 'Security',
           href: '/security',
           description: 'Isolation, credentials, permissions and audit',
@@ -170,39 +162,21 @@ export const solutionsMenu: NavMenu = {
   ],
 };
 
-/**
- * One column, no descriptions — five short destinations read faster as a list
- * than as a grid of explained cards, and a narrow panel stops the menu from
- * spanning half the viewport for five links.
- */
-export const companyMenu: NavMenu = {
-  columns: [
-    {
-      title: 'Company',
-      links: [
-        { name: 'About', href: '/about' },
-
-        { name: 'Blog', href: '/blog' },
-      ],
-    },
-  ],
-};
-
 export const siteConfig = {
   url: CANONICAL_ORIGIN,
   nav: {
     links: [
       { id: 1, name: 'Product', menu: productMenu },
       // Solutions is deliberately NOT in the top bar. Eight role pages is a
-      // wide menu beside Product and Company; the roles live in the footer,
-      // and the home-page use-case cards are the in-page entry point.
-      { id: 3, name: 'Company', menu: companyMenu },
+      // wide menu beside Product; the roles live in the footer, and the
+      // home-page use-case cards are the in-page entry point.
       { id: 4, name: 'Pricing', href: '/pricing' },
       { id: 6, name: 'Docs', href: '/docs' },
     ] as NavLink[],
   },
   hero: {
-    description: 'Dosco – the open-source AI Operating System.',
+    description:
+      "Dosco is the agentic operating system — agents, skills, memory and connectors in one managed workspace, and the software foundation for AltMatter's intelligent hardware.",
   },
   footerLinks: [
     {
