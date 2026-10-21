@@ -182,7 +182,7 @@ const SITE_JSON_LD = {
       url: siteMetadata.url,
       applicationCategory: 'BusinessApplication',
       applicationSubCategory: 'AI Operating System',
-      operatingSystem: 'Web, macOS, Linux',
+      operatingSystem: 'Web, Android',
       downloadUrl: `${siteMetadata.url}/download`,
       description: siteMetadata.description,
       publisher: { '@id': `${siteMetadata.url}/#organization` },

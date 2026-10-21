@@ -26,7 +26,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'textb57f2c70525f',
   'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco AI Operating System.':
     'text3661bf7ae497',
-  'Get Dosco for macOS, Windows, Linux, iOS, and Android.': 'textd587acccbf63',
+  'Get the Dosco Android APK, or use Dosco in the browser.': 'textd587acccbf63',
   'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.':
     'textbe229f0684bc',
   'How teams put a workforce of AI agents to work — the loops they engineer, the deliverables they ship, and the reviewed changes that make the company better every day.':
@@ -73,7 +73,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   "Careers": 'text7e658675b5ca',
   "Changelog": 'textead07c84baac',
   "Use cases: AI agents doing real company work": 'textb39694bde847',
-  "Download the desktop app and CLI": 'text2d077d6a915b',
+  "Download the Dosco mobile app": 'text2d077d6a915b',
   "Enterprise AI agents: SSO, SCIM, audit, your VPC": 'texte5328779436c',
   "Pricing": 'textdfe95783edfe',
   "Support": 'textbe91940b79f4',

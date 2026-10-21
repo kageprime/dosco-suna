@@ -151,8 +151,8 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'download',
-    title: 'Download the desktop app and CLI',
-    description: 'Get Dosco for macOS, Windows, Linux, iOS, and Android.',
+    title: 'Download the Dosco mobile app',
+    description: 'Get the Dosco Android APK, or use Dosco in the browser.',
     htmlPath: '/download',
   },
   {
