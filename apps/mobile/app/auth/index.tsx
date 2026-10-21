@@ -145,15 +145,6 @@ export default function AuthScreen() {
                 disabled={!!oauthPending}
                 onPress={() => router.push('/auth/email')}
               />
-
-              {/* Email — both platforms. Opens the email screen. */}
-              <PlatformFullWidthButton
-                size="xl"
-                variant="outline"
-                label="Continue with email"
-                disabled={!!oauthPending}
-                onPress={() => router.push('/auth/email')}
-              />
             </View>
           </View>
         </View>
