@@ -1,14 +1,11 @@
 [
   {
-    "relation": [
-      "delegate_permission/common.handle_all_urls",
-      "delegate_permission/common.get_login_creds"
-    ],
+    "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.kortix.application",
+      "package_name": "com.dosco.application",
       "sha256_cert_fingerprints": [
-        "YOUR_SHA256_FINGERPRINT_HERE"
+        "67:a0:48:8c:f2:a1:c0:67:f2:2b:de:cf:48:8e:7e:09:35:77:71:2b:21:e0:1f:1d:50:fa:d2:cc:0f:9a:d7:46"
       ]
     }
   }
