@@ -132,13 +132,13 @@ export const faq = {
       id: 'models',
       question: 'Can I use the models I already pay for?',
       answer:
-        'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.',
+        'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for. Managed models are not currently enabled. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.',
     },
     {
       id: 'price',
       question: 'What does it cost?',
       answer:
-        'Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. the software costs nothing; you pay your own model bill and your own compute bill instead.',
+        'Free is $0 — one project, 500 credits a month, every self-serve feature, with your own key for any model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. The software costs nothing; you pay your own model bill and your own compute bill instead.',
     },
   ] satisfies readonly FaqItem[],
 } as const;

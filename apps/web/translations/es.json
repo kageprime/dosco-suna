@@ -2498,15 +2498,15 @@
           "f1": "Todo lo de Créditos",
           "f2": "SAML SSO + sincronización de directorio SCIM",
           "f3": "RBAC avanzado + registros de auditoría",
-          "f4": "Nube, VPC o local",
-          "f5": "BYOK, suscripción de ChatGPT y controles de modelos gestionados",
+          "f4": "Despliegue dedicado en la nube",
+          "f5": "BYOK, suscripción de ChatGPT y control total de modelos",
           "f6": "SLA, DPA y soporte dedicado"
         }
       },
       "faq": {
         "free": {
           "question": "¿Qué incluye Free?",
-          "answer": "Free incluye 500 créditos al mes, modelos gestionados y todas las funciones, para 1 proyecto. Los créditos pagan el ordenador del agente y los modelos de Dosco. Usa tu propia clave de API o conecta tu suscripción de ChatGPT para cualquier otro modelo."
+          "answer": "Free incluye 500 créditos al mes, todas las funciones de autoservicio, para 1 proyecto. Los créditos pagan el ordenador del agente. Usa tu propia clave de API o conecta tu suscripción de ChatGPT para cualquier modelo."
         },
         "credit": {
           "question": "¿Qué se puede comprar con un crédito?",
@@ -18830,7 +18830,7 @@
       "text618ad8d1c91a": "¿Los datos de mi empresa son suyos?",
       "textda09b5e9847d": "No. Un proyecto es un repositorio de Git: al clonarlo, te llevas los agentes, las habilidades y todo lo que la empresa ha aprendido. Con el alojamiento propio, la base de datos, los archivos, los repositorios, los secretos y el registro de auditoría se guardan en un disco bajo tu control, en una única pila de Docker Compose creada con las mismas imágenes que usa la nube gestionada. No está aislado de Internet y no afirmamos lo contrario. Los sandboxes de los agentes se ejecutan en el proveedor de computación configurado, y tu instancia debe ser accesible para recibir sus llamadas.",
       "text151863950f0e": "¿Puedo usar los modelos por los que ya pago?",
-      "text055026a9c10e": "Sí. Usa tu propia clave de API para cualquier proveedor importante, inicia sesión con la suscripción de ChatGPT que ya pagas o utiliza la puerta de enlace gestionada sin proporcionar ninguna clave. El modelo es una línea de configuración en tu repositorio, por lo que cambiar de proveedor es un diff, no una migración.",
+      "text055026a9c10e": "Sí. Usa tu propia clave de API para cualquier proveedor importante, inicia sesión con la suscripción de ChatGPT que ya pagas. Los modelos gestionados no están habilitados actualmente. El modelo es una línea de configuración en tu repositorio, por lo que cambiar de proveedor es un diff, no una migración.",
       "texte8dc9deba44c": "¿Cuánto cuesta?",
       "text7ee5a6d5e8ad": "Por qué lo estamos construyendo",
       "text625b22ba31d0": "Leer el código fuente",
@@ -19986,7 +19986,7 @@
       "text146aaf3c71fa": "Mantiene habilitados SSO, SCIM, RBAC y auditoría en una cuenta Enterprise firmada que también se factura mediante un plan de pago, para que la conciliación de Stripe no los retire.",
       "text517105fd13ce": "Los créditos financian el cómputo en sandbox: incluso una prueba BYOK necesita saldo en el monedero para ejecutar sesiones. La concesión de bienvenida gratuita es de 2 $.",
       "text2f1d17f50af8": "Enterprise desbloquea SAML SSO, sincronización de directorio SCIM, RBAC y acceso a auditoría para esta cuenta. El plan facturado no cambia.",
-      "text12836c0e435d": "Free cuesta 0 $: un proyecto, 500 créditos al mes, modelos gestionados y todas las funciones, con tu propia clave para cualquier otro modelo. Los planes de pago son de créditos: eliges un importe mensual, los miembros son gratuitos e ilimitados y un único fondo cubre toda la cuenta. Autoalojar el software no cuesta nada; en su lugar pagas tu propia factura de modelos y de cómputo.",
+      "text12836c0e435d": "Free cuesta 0 $: un proyecto, 500 créditos al mes, todas las funciones de autoservicio, con tu propia clave para cualquier otro modelo. Los planes de pago son de créditos: eliges un importe mensual, los miembros son gratuitos e ilimitados y un único fondo cubre toda la cuenta. Autoalojar el software no cuesta nada; en su lugar pagas tu propia factura de modelos y de cómputo.",
       "text5dffd4db88c5": "Tu plan, tus créditos y la facturación de esta cuenta.",
       "text49fd64c206dd": "Tu plan está activo. Los créditos están listos.",
       "textad828837ddd8": "miembros miembro acceso al espacio de trabajo colaboradores personas compañeros lista quién puede ver permisos conceder compartir",

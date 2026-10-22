@@ -2498,15 +2498,15 @@
           "f1": "Tutto ciò che è in Crediti",
           "f2": "SAML SSO + sincronizzazione directory SCIM",
           "f3": "RBAC avanzato + log di audit",
-          "f4": "Cloud, VPC o on-prem",
-          "f5": "BYOK, abbonamento ChatGPT e controlli sui modelli gestiti",
+          "f4": "Deployment cloud dedicato",
+          "f5": "BYOK, abbonamento ChatGPT e controllo completo dei modelli",
           "f6": "SLA, DPA e supporto dedicato"
         }
       },
       "faq": {
         "free": {
           "question": "Cosa include Free?",
-          "answer": "Free include ogni mese 500 crediti, modelli gestiti e tutte le funzionalità, per 1 progetto. I crediti pagano il computer dell'agente e i modelli Dosco. Usa la tua chiave API o collega il tuo abbonamento ChatGPT per qualsiasi altro modello."
+          "answer": "Free include ogni mese 500 crediti, tutte le funzionalità self-service, per 1 progetto. I crediti pagano il computer dell'agente. Usa la tua chiave API o collega il tuo abbonamento ChatGPT per qualsiasi modello."
         },
         "credit": {
           "question": "Cosa si può comprare con un credito?",
@@ -18830,7 +18830,7 @@
       "text618ad8d1c91a": "I dati della mia azienda diventano vostri?",
       "textda09b5e9847d": "No. Un progetto è un repository Git: clonandolo porti con te gli agenti, le competenze e tutto ciò che l’azienda ha appreso. Con il self-hosting, database, file, repository, segreti e registro di audit risiedono su un disco sotto il tuo controllo, in un unico stack Docker Compose creato dalle stesse immagini usate dal cloud gestito. Non è isolato da Internet e non fingiamo che lo sia: le sandbox degli agenti operano sul provider di calcolo configurato e la tua istanza deve essere raggiungibile per ricevere le loro chiamate.",
       "text151863950f0e": "Posso usare i modelli per cui pago già?",
-      "text055026a9c10e": "Sì. Usa la tua chiave API per qualsiasi provider principale, accedi con l’abbonamento ChatGPT che già paghi oppure usa il gateway gestito senza fornire alcuna chiave. Il modello è una riga di configurazione nel repository, quindi cambiare provider è un diff, non una migrazione.",
+      "text055026a9c10e": "Sì. Usa la tua chiave API per qualsiasi provider principale, accedi con l’abbonamento ChatGPT che già paghi. I modelli gestiti non sono attualmente abilitati. Il modello è una riga di configurazione nel repository, quindi cambiare provider è un diff, non una migrazione.",
       "texte8dc9deba44c": "Quanto costa?",
       "text7ee5a6d5e8ad": "Perché lo stiamo costruendo",
       "text625b22ba31d0": "Leggi il codice sorgente",
@@ -19986,7 +19986,7 @@
       "text146aaf3c71fa": "Mantiene abilitati SSO, SCIM, RBAC e audit per un account Enterprise firmato che è anche fatturato tramite un piano a pagamento, così la riconciliazione di Stripe non può rimuoverli.",
       "text517105fd13ce": "I crediti finanziano il calcolo sandbox: anche una prova BYOK richiede saldo nel portafoglio per eseguire le sessioni. Il credito di benvenuto gratuito è di 2 $.",
       "text2f1d17f50af8": "Enterprise sblocca SAML SSO, sincronizzazione directory SCIM, RBAC e accesso all'audit per questo account. Il piano fatturato non cambia.",
-      "text12836c0e435d": "Free costa 0 $ – un progetto, 500 crediti al mese, modelli gestiti e tutte le funzionalità, con la tua chiave per qualsiasi altro modello. I piani a pagamento sono a crediti: scegli un importo mensile, i membri sono gratuiti e illimitati e un unico pool copre l'intero account. L'self-hosting del software non costa nulla; paghi invece la tua fattura per i modelli e quella per il calcolo.",
+      "text12836c0e435d": "Free costa 0 $ – un progetto, 500 crediti al mese, tutte le funzionalità self-service, con la tua chiave per qualsiasi altro modello. I piani a pagamento sono a crediti: scegli un importo mensile, i membri sono gratuiti e illimitati e un unico pool copre l'intero account. L'self-hosting del software non costa nulla; paghi invece la tua fattura per i modelli e quella per il calcolo.",
       "text5dffd4db88c5": "Il tuo piano, i tuoi crediti e la fatturazione per questo account.",
       "text49fd64c206dd": "Il tuo piano è attivo. I crediti sono pronti.",
       "textad828837ddd8": "membri membro accesso allo spazio di lavoro collaboratori persone compagni di team elenco chi può vedere autorizzazioni concedi condividi",

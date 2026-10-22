@@ -2498,15 +2498,15 @@
           "f1": "Tudo do Créditos",
           "f2": "SAML SSO + sincronização de diretório SCIM",
           "f3": "RBAC avançado + logs de auditoria",
-          "f4": "Nuvem, VPC ou local",
-          "f5": "BYOK, assinatura do ChatGPT e controles de modelos gerenciados",
+          "f4": "Implantação dedicada na nuvem",
+          "f5": "BYOK, assinatura do ChatGPT e controle total de modelos",
           "f6": "SLA, DPA e suporte dedicado"
         }
       },
       "faq": {
         "free": {
           "question": "O que o Free inclui?",
-          "answer": "O Free inclui 500 créditos por mês, modelos gerenciados e todos os recursos, para 1 projeto. Os créditos pagam o computador do agente e os modelos da Dosco. Use sua própria chave de API ou conecte sua assinatura do ChatGPT para qualquer outro modelo."
+          "answer": "O Free inclui 500 créditos por mês, todos os recursos de autoatendimento, para 1 projeto. Os créditos pagam o computador do agente. Use sua própria chave de API ou conecte sua assinatura do ChatGPT para qualquer modelo."
         },
         "credit": {
           "question": "O que um crédito compra?",
@@ -18830,7 +18830,7 @@
       "text618ad8d1c91a": "Os dados da minha empresa pertencem a vocês?",
       "textda09b5e9847d": "Não. Um projeto é um repositório Git: ao cloná-lo, você leva os agentes, as habilidades e tudo o que a empresa aprendeu. Na hospedagem própria, o banco de dados, os arquivos, os repositórios, os segredos e o registro de auditoria ficam em um disco sob seu controle, em uma única stack Docker Compose criada com as mesmas imagens da nuvem gerenciada. Ela não é isolada da Internet, e não afirmamos o contrário. As sandboxes dos agentes são executadas no provedor de computação configurado, e sua instância precisa estar acessível para receber as chamadas delas.",
       "text151863950f0e": "Posso usar os modelos pelos quais já pago?",
-      "text055026a9c10e": "Sim. Use sua própria chave de API para qualquer provedor importante, entre com a assinatura do ChatGPT que você já paga ou use o gateway gerenciado sem fornecer chave alguma. O modelo é uma linha de configuração no repositório, portanto trocar de provedor é um diff, não uma migração.",
+      "text055026a9c10e": "Sim. Use sua própria chave de API para qualquer provedor importante, entre com a assinatura do ChatGPT que você já paga. Os modelos gerenciados não estão habilitados no momento. O modelo é uma linha de configuração no repositório, portanto trocar de provedor é um diff, não uma migração.",
       "texte8dc9deba44c": "Quanto custa?",
       "text7ee5a6d5e8ad": "Por que estamos construindo isso",
       "text625b22ba31d0": "Leia o código-fonte",
@@ -19986,7 +19986,7 @@
       "text146aaf3c71fa": "Mantém SSO, SCIM, RBAC e auditoria habilitados para uma conta Enterprise contratada que também é cobrada por um plano pago, para que a reconciliação do Stripe não os remova.",
       "text517105fd13ce": "Os créditos financiam a computação em sandbox — até um teste BYOK precisa de saldo na carteira para executar sessões. O crédito de boas-vindas gratuito é de US$ 2.",
       "text2f1d17f50af8": "O Enterprise libera SAML SSO, sincronização de diretório SCIM, RBAC e acesso à auditoria para esta conta. O plano cobrado não muda.",
-      "text12836c0e435d": "O Free custa US$ 0 — um projeto, 500 créditos por mês, modelos gerenciados e todos os recursos, com sua própria chave para qualquer outro modelo. Os planos pagos são em créditos: escolha um valor mensal, os membros são gratuitos e ilimitados, e um único pool cobre a conta inteira. Hospedar o software por conta própria não custa nada; você paga a sua própria conta de modelos e de computação.",
+      "text12836c0e435d": "O Free custa US$ 0 — um projeto, 500 créditos por mês, todos os recursos de autoatendimento, com sua própria chave para qualquer outro modelo. Os planos pagos são em créditos: escolha um valor mensal, os membros são gratuitos e ilimitados, e um único pool cobre a conta inteira. Hospedar o software por conta própria não custa nada; você paga a sua própria conta de modelos e de computação.",
       "text5dffd4db88c5": "Seu plano, seus créditos e o faturamento desta conta.",
       "text49fd64c206dd": "Seu plano está ativo. Os créditos estão prontos.",
       "textad828837ddd8": "membros membro acesso ao espaço de trabalho colaboradores pessoas colegas lista quem pode ver permissões conceder compartilhar",

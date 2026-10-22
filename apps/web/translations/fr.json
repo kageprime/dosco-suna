@@ -2498,15 +2498,15 @@
           "f1": "Tout ce qui est dans Crédits",
           "f2": "SAML SSO + synchronisation d'annuaire SCIM",
           "f3": "RBAC avancé + journaux d'audit",
-          "f4": "Cloud, VPC ou sur site",
-          "f5": "BYOK, abonnement ChatGPT et contrôles des modèles gérés",
+          "f4": "Déploiement cloud dédié",
+          "f5": "BYOK, abonnement ChatGPT et contrôle total des modèles",
           "f6": "SLA, DPA et support dédié"
         }
       },
       "faq": {
         "free": {
           "question": "Que comprend Free ?",
-          "answer": "Free inclut 500 crédits par mois, les modèles gérés et toutes les fonctionnalités, pour 1 projet. Les crédits paient l’ordinateur de l’agent et les modèles Dosco. Apportez votre propre clé API ou connectez votre abonnement ChatGPT pour tout autre modèle."
+          "answer": "Free inclut 500 crédits par mois, toutes les fonctionnalités en libre-service, pour 1 projet. Les crédits paient l’ordinateur de l’agent. Apportez votre propre clé API ou connectez votre abonnement ChatGPT pour tout modèle."
         },
         "credit": {
           "question": "Que permet d'acheter un crédit ?",
@@ -18830,7 +18830,7 @@
       "text618ad8d1c91a": "Les données de mon entreprise vous appartiennent-elles ?",
       "textda09b5e9847d": "Non. Un projet est un dépôt Git : clonez-le, et les agents, les compétences ainsi que tout ce que l’entreprise a appris vous accompagnent. En auto-hébergement, la base de données, les fichiers, les dépôts, les secrets et le journal d’audit résident sur un disque que vous contrôlez, dans une seule pile Docker Compose construite avec les mêmes images que le cloud géré. Le système n’est pas isolé d’Internet, et nous ne prétendons pas le contraire. Les sandboxes des agents s’exécutent chez le fournisseur de calcul configuré, et votre instance doit rester accessible pour recevoir leurs appels.",
       "text151863950f0e": "Puis-je utiliser les modèles que je paie déjà ?",
-      "text055026a9c10e": "Oui. Utilisez votre propre clé API pour tout fournisseur majeur, connectez-vous avec l’abonnement ChatGPT que vous payez déjà, ou utilisez la passerelle gérée sans fournir de clé. Le modèle est une ligne de configuration dans votre dépôt. Changer de fournisseur est donc un diff, pas une migration.",
+      "text055026a9c10e": "Oui. Utilisez votre propre clé API pour tout fournisseur majeur, connectez-vous avec l’abonnement ChatGPT que vous payez déjà. Les modèles gérés ne sont pas activés pour le moment. Le modèle est une ligne de configuration dans votre dépôt. Changer de fournisseur est donc un diff, pas une migration.",
       "texte8dc9deba44c": "Combien cela coûte-t-il ?",
       "text7ee5a6d5e8ad": "Pourquoi nous le construisons",
       "text625b22ba31d0": "Lire le code source",
@@ -19986,7 +19986,7 @@
       "text146aaf3c71fa": "Maintient SSO, SCIM, RBAC et audit activés pour un compte Enterprise signé également facturé via un forfait payant, afin que le rapprochement Stripe ne les retire pas.",
       "text517105fd13ce": "Les crédits financent le calcul en sandbox : même un essai BYOK nécessite un solde de portefeuille pour exécuter des sessions. Le crédit de bienvenue gratuit est de 2 $.",
       "text2f1d17f50af8": "Enterprise débloque SAML SSO, la synchronisation d'annuaire SCIM, RBAC et l'accès à l'audit pour ce compte. Le forfait facturé ne change pas.",
-      "text12836c0e435d": "Free coûte 0 $ — un projet, 500 crédits par mois, les modèles gérés et toutes les fonctionnalités, avec votre propre clé pour tout autre modèle. Les forfaits payants sont en crédits : choisissez un montant mensuel, les membres sont gratuits et illimités, et un seul pool couvre tout le compte. L'auto-hébergement du logiciel ne coûte rien ; vous payez à la place votre propre facture de modèles et de calcul.",
+      "text12836c0e435d": "Free coûte 0 $ — un projet, 500 crédits par mois, toutes les fonctionnalités en libre-service, avec votre propre clé pour tout autre modèle. Les forfaits payants sont en crédits : choisissez un montant mensuel, les membres sont gratuits et illimités, et un seul pool couvre tout le compte. L'auto-hébergement du logiciel ne coûte rien ; vous payez à la place votre propre facture de modèles et de calcul.",
       "text5dffd4db88c5": "Votre forfait, vos crédits et la facturation de ce compte.",
       "text49fd64c206dd": "Votre forfait est actif. Les crédits sont prêts.",
       "textad828837ddd8": "membres membre accès à l’espace de travail collaborateurs personnes coéquipiers liste qui peut voir permissions accorder partager",

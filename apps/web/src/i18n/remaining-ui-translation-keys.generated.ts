@@ -868,10 +868,10 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.':
     'textda09b5e9847d',
   'Can I use the models I already pay for?': 'text151863950f0e',
-  'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':
+  'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for. Managed models are not currently enabled. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':
     'text055026a9c10e',
   'What does it cost?': 'texte8dc9deba44c',
-  'Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. the software costs nothing; you pay your own model bill and your own compute bill instead.':
+  'Free is $0 — one project, 500 credits a month, every self-serve feature, with your own key for any model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. The software costs nothing; you pay your own model bill and your own compute bill instead.':
     'text12836c0e435d',
   'Why we are building it': 'text7ee5a6d5e8ad',
   'Read the source': 'text625b22ba31d0',

@@ -2501,15 +2501,15 @@
           "f1": "Everything in Credits",
           "f2": "SAML SSO + SCIM directory sync",
           "f3": "Advanced RBAC + audit logs",
-          "f4": "Cloud, VPC, or on-prem",
-          "f5": "BYOK, ChatGPT subscription, and managed model controls",
+          "f4": "Dedicated cloud deployment",
+          "f5": "BYOK, ChatGPT subscription and full model controls",
           "f6": "SLA, DPA & dedicated support"
         }
       },
       "faq": {
         "free": {
           "question": "What does Free include?",
-          "answer": "Free includes 500 credits each month, managed models and every feature, for 1 project. Credits pay for the agent computer and for Dosco models. Bring your own API key or connect your ChatGPT subscription for any other model."
+          "answer": "Free includes 500 credits each month, every self-serve feature, for 1 project. Credits pay for the agent computer. Bring your own API key or connect your ChatGPT subscription for any model."
         },
         "credit": {
           "question": "What does a credit buy?",
@@ -18844,7 +18844,7 @@
       "text618ad8d1c91a": "Is my company data yours?",
       "textda09b5e9847d": "No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.",
       "text151863950f0e": "Can I use the models I already pay for?",
-      "text055026a9c10e": "Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.",
+      "text055026a9c10e": "Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for. Managed models are not currently enabled. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.",
       "texte8dc9deba44c": "What does it cost?",
       "text7ee5a6d5e8ad": "Why we are building it",
       "text625b22ba31d0": "Read the source",
@@ -20000,7 +20000,7 @@
       "text146aaf3c71fa": "Keeps SSO, SCIM, RBAC, and audit entitled for a signed Enterprise account that is also billed through a paid plan, so the Stripe reconciliation cannot strip them.",
       "text517105fd13ce": "Credits fund sandbox compute — even a BYOK trial needs wallet balance to run sessions. The free welcome grant is $2.",
       "text2f1d17f50af8": "Enterprise unlocks SAML SSO, SCIM directory sync, RBAC and audit access for this account. The billed plan is unchanged.",
-      "text12836c0e435d": "Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. the software costs nothing; you pay your own model bill and your own compute bill instead.",
+      "text12836c0e435d": "Free is $0 — one project, 500 credits a month, every self-serve feature, with your own key for any model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. The software costs nothing; you pay your own model bill and your own compute bill instead.",
       "text5dffd4db88c5": "Your plan, credits, and billing for this account.",
       "text49fd64c206dd": "Your plan is active. Credits are ready.",
       "textad828837ddd8": "members member workspace access collaborators people teammates roster who can see permissions grant share",
