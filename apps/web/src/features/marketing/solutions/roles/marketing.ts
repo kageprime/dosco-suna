@@ -78,7 +78,7 @@ export const marketing: RoleContent = {
       ],
     },
     caption:
-      'Illustration. The paths are the real shape of a Dosco project, the copy is fictional.',
+      'Illustration. The paths are the real shape of a project, the copy is fictional.',
     notes: [
       {
         id: 'voice',

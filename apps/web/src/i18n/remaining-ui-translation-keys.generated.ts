@@ -110,7 +110,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Choose which agent answers': 'texta33bc2792173',
   'Choose which model runs this turn': 'text0e22e022480d',
   'Claude Code': 'text246ef8c1130d',
-  'Clone a full, working Dosco project in one click, or add skills from every source into your own.':
+  'Clone a full, working project in one click, or add skills from every source into your own.':
     'text5a7b24722fae',
   Closed: 'textc21ead0614e7',
   'Cloud runtime': 'texta5a909060ba4',
@@ -301,7 +301,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Manager: 'text8b2085f74dfa',
   Markdown: 'text0e52f6b9d025',
   Marketplace: 'textc608981d8d68',
-  'Marketplace — Clone a ready-made Dosco project': 'text7eebc3924618',
+  'Marketplace — Clone a ready-made project': 'text7eebc3924618',
   Member: 'text7c968fb71f50',
   "Members, billing, roles, and audit live in each organization's own settings.":
     'textfde028796e58',
@@ -429,7 +429,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Sales & marketing': 'text8228542fed70',
   'Sales deck': 'text14d04a4900a4',
   Sandbox: 'text67fc62497e85',
-  'scaffold a new Dosco project': 'textaeb72f2ccad6',
+  'scaffold a new project': 'textaeb72f2ccad6',
   'Scanning commits since Monday…': 'text70e8adbbc0b2',
   Scheduled: 'text4724f344c1c0',
   Schedules: 'text221ff19c904c',

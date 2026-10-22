@@ -142,7 +142,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // stated in `translations/en.json` under `settings.rail.items.` — the
         // palette serves the catalog, these tests search the literal, and the
         // two copies must move together.
-        description: 'Let Dosco agents work with the files, terminal, and applications on your computer.',
+        description: 'Let agents work with the files, terminal, and applications on your computer.',
         icon: Laptop,
       },
     ],

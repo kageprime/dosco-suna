@@ -309,7 +309,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text69c063f8947f',
   'Illustration. The excluded domain is a placeholder — Dosco never names a real customer or tenant.':
     'text3cc0540830e1',
-  'Illustration. The paths are the real shape of a Dosco project, the copy is fictional.':
+  'Illustration. The paths are the real shape of a project, the copy is fictional.':
     'text97f1a47d1742',
   'Illustration. The principals are fictional. Note that one of them is an agent — both kinds of principal appear in the same review.':
     'textaf82e7e6c590',

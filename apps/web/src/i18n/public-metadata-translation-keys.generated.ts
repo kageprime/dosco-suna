@@ -1,11 +1,11 @@
 // Generated from public marketing metadata records.
 export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A Dosco agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.':
+  'An agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.':
     'texte436179861c8',
-  'A Dosco project is a git repo, and that repo is the company. kortix.yaml and the OpenCode config define it; agents, skills and memory are files beside your code. Every change is a commit a person approves.':
+  'A project is a git repo, and that repo is the company. kortix.yaml and the OpenCode config define it; agents, skills and memory are files beside your code. Every change is a commit a person approves.':
     'text023827a097e3',
   'About Dosco': 'text56d4e6956bc3',
-  'Browse skills, agents, and commands from every source. Add them to a Dosco project in one click.':
+  'Browse skills, agents, and commands from every source. Add them to a project in one click.':
     'text3d41d76bb5fb',
   'Build with Dosco from the terminal: drive projects, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.':
     'texte3c63340ccb1',
@@ -13,7 +13,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   'Company as Code': 'text6007b5baf3f3',
   'Connect 3,000+ apps, MCP servers, OpenAPI, GraphQL and raw HTTP once for the whole company. Agents reach them through one scoped token — credentials stay server-side, every action is allowed, gated, or blocked, and every call is logged.':
     'texta98d70820b62',
-  'Connect Slack or Microsoft Teams to a Dosco project and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.':
+  'Connect Slack or Microsoft Teams to a project and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.':
     'text94c8919486af',
   'Contact Dosco': 'text20c32c06512f',
   'Cron schedules and signed webhooks start Dosco sessions with nobody present. Each trigger names the agent it runs as, carries a prompt template, and lands its work through a change request a person approves.':

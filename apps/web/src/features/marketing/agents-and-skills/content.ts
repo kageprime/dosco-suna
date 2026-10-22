@@ -86,7 +86,7 @@ export const agent = {
   sub: 'An agent has exactly two homes. The markdown file carries how it thinks — its prompt, its mode, its model, its permission tree — and it is a stock OpenCode agent file, because Dosco adds no dialect to it. The manifest block carries what it may touch. Nothing about an agent lives in a database you cannot read.',
   md: {
     title: 'agents/xera.md',
-    caption: 'Excerpt of the default agent in every new Dosco project.',
+    caption: 'Excerpt of the default agent in every new project.',
     lines: [
       '---',
       'description: "Xera, the Dosco crew\'s hands-on generalist.',

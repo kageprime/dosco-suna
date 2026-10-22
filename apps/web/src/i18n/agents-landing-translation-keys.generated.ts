@@ -153,7 +153,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textb21276f9e4bb',
   'Everything is files': 'text81c55672efb4',
   'Excerpt of a skill that ships in every new project.': 'text0bc2032da091',
-  'Excerpt of the default agent in every new Dosco project.': 'textbb650fd852da',
+  'Excerpt of the default agent in every new project.': 'textbb650fd852da',
   'Export times out over 10k rows': 'textb39845ffaebd',
   'Filter state lost on reload': 'textd1d6f38c037e',
   Finance: 'textb696d75511dc',

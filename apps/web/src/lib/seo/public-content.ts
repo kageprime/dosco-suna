@@ -101,7 +101,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'marketplace',
     title: 'Marketplace: agents, skills and project templates',
     description:
-      'Browse skills, agents, and commands from every source. Add them to a Dosco project in one click.',
+      'Browse skills, agents, and commands from every source. Add them to a project in one click.',
     htmlPath: '/marketplace',
   },
   {
@@ -188,7 +188,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'agents-and-skills',
     title: 'AI agents and skills as files in git',
     description:
-      'A Dosco agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.',
+      'An agent is a markdown persona with a deny-by-default reach into connectors, secrets and skills. A skill is the markdown that encodes how your company does one job. Both are files in your repo, versioned and reviewed.',
     htmlPath: '/agents-and-skills',
     markdownPath: '/markdown/agents-and-skills.md',
   },
@@ -206,7 +206,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'channels',
     title: 'AI agents in Slack and Microsoft Teams',
     description:
-      'Connect Slack or Microsoft Teams to a Dosco project and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.',
+      'Connect Slack or Microsoft Teams to a project and a message in a thread starts a session. The agent works on its own cloud computer and replies in the same thread. Email is in preview.',
     htmlPath: '/channels',
     markdownPath: '/markdown/channels.md',
   },
@@ -215,7 +215,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'company-as-code',
     title: 'Company as Code: your company in one git repo',
     description:
-      'A Dosco project is a git repo, and that repo is the company. kortix.yaml and the OpenCode config define it; agents, skills and memory are files beside your code. Every change is a commit a person approves.',
+      'A project is a git repo, and that repo is the company. kortix.yaml and the OpenCode config define it; agents, skills and memory are files beside your code. Every change is a commit a person approves.',
     htmlPath: '/company-as-code',
     markdownPath: '/markdown/company-as-code.md',
   },

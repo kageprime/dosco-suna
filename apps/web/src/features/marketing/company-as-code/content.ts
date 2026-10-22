@@ -32,7 +32,7 @@ import type { UiTranslator } from '@/i18n/translator';
 export const hero = {
   eyebrow: 'Company as code',
   title: 'A company is going to be a git repository.',
-  sub: 'Not as a metaphor. A Dosco project is a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.',
+  sub: 'Not as a metaphor. A project is a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.',
   ctaPrimary: 'Start a project',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Read the manifest spec',

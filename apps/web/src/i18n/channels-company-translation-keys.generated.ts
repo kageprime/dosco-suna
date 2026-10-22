@@ -270,7 +270,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'No reply relay. A real channel streams the answer back for you; here the agent has to send the outbound message itself, through a connector you have granted it. Inbound is solved. Outbound is your wiring.':
     'text81c1677c6fc1',
   'northwind — main': 'text6d97796afbde',
-  'Not as a metaphor. A Dosco project is a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.':
+  'Not as a metaphor. A project is a git repo, and that repo is the company: its agents, the skills it has built up, everything it has learned, and the definition of the machines all of it runs on. Versioned. Diffable. Owned outright.':
     'textf1a43c68a361',
   'Nothing merges itself': 'text956d3b01e6ca',
   'On a card, in the thread': 'textbcd03103c8c1',
