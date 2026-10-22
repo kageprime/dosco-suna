@@ -2542,7 +2542,7 @@
         },
         "enterprise": {
           "question": "Шта је са Enterprise-ом?",
-          "answer": "Све из плана Кредити плус SAML SSO, SCIM синхронизација директоријума (Okta, Microsoft Entra, JumpCloud), напредни RBAC, евиденције ревизије, SLA и DPA, и Cloud / VPC / on-prem окружење. Обратите нам се за цене по количини."
+          "answer": "Све из плана Кредити плус SAML SSO, SCIM синхронизација директоријума (Okta, Microsoft Entra, JumpCloud), напредни RBAC, евиденције ревизије, SLA и DPA, и наменско cloud окружење. Обратите нам се за цене по количини."
         }
       },
       "hero": {

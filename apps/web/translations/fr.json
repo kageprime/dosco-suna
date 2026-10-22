@@ -2542,7 +2542,7 @@
         },
         "enterprise": {
           "question": "Et pour Enterprise ?",
-          "answer": "Tout ce qui est dans Crédits, plus SAML SSO, synchronisation d'annuaire SCIM (Okta, Microsoft Entra, JumpCloud), RBAC avancé, journaux d'audit, SLA et DPA, et déploiement Cloud / VPC / sur site. Contactez-nous pour une tarification au volume."
+          "answer": "Tout ce qui est dans Crédits, plus SAML SSO, synchronisation d'annuaire SCIM (Okta, Microsoft Entra, JumpCloud), RBAC avancé, journaux d'audit, SLA et DPA, et un déploiement cloud dédié. Contactez-nous pour une tarification au volume."
         }
       },
       "hero": {

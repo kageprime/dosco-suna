@@ -2542,7 +2542,7 @@
         },
         "enterprise": {
           "question": "E o Enterprise?",
-          "answer": "Tudo do Créditos mais SAML SSO, sincronização de diretório SCIM (Okta, Microsoft Entra, JumpCloud), RBAC avançado, logs de auditoria, SLA e DPA, e implantação em nuvem / VPC / local. Fale conosco sobre preços por volume."
+          "answer": "Tudo do Créditos mais SAML SSO, sincronização de diretório SCIM (Okta, Microsoft Entra, JumpCloud), RBAC avançado, logs de auditoria, SLA e DPA, e uma implantação dedicada na nuvem. Fale conosco sobre preços por volume."
         }
       },
       "hero": {

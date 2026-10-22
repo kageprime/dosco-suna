@@ -2542,7 +2542,7 @@
         },
         "enterprise": {
           "question": "企业版呢？",
-          "answer": "包含积分版的全部功能，另有 SAML SSO、SCIM 目录同步（Okta、Microsoft Entra、JumpCloud）、高级 RBAC、审计日志、SLA 与 DPA，以及云端 / VPC / 本地部署。批量定价请联系我们。"
+          "answer": "包含积分版的全部功能，另有 SAML SSO、SCIM 目录同步（Okta、Microsoft Entra、JumpCloud）、高级 RBAC、审计日志、SLA 与 DPA，以及专属云部署。批量定价请联系我们。"
         }
       },
       "hero": {

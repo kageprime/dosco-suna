@@ -2542,7 +2542,7 @@
         },
         "enterprise": {
           "question": "Was ist mit Enterprise?",
-          "answer": "Alles aus Credits plus SAML-SSO, SCIM-Verzeichnissynchronisierung (Okta, Microsoft Entra, JumpCloud), erweitertes RBAC, Audit-Logs, SLA und DPA sowie Cloud-/VPC-/On-Prem-Deployment. Sprich uns für Mengenpreise an."
+          "answer": "Alles aus Credits plus SAML-SSO, SCIM-Verzeichnissynchronisierung (Okta, Microsoft Entra, JumpCloud), erweitertes RBAC, Audit-Logs, SLA und DPA sowie ein dediziertes Cloud-Deployment. Sprich uns für Mengenpreise an."
         }
       },
       "hero": {
