@@ -85,7 +85,7 @@ describe('NotFoundTitleSync', () => {
       expect(document.title).toBe('404 Page not found | Dosco');
       // The tree's own metadata commit re-asserts the previous page's title
       // after client effects run (session-tab-title-sync measured the race).
-      document.title = 'Dosco – The open-source AI Operating System';
+      document.title = 'Dosco – The agentic operating system';
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(document.title).toBe('404 Page not found | Dosco');
     } finally {

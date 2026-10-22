@@ -408,7 +408,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Repos, docs, secrets, and connected tools are shared context rather than a prompt you paste again each morning. Connect a system once and every agent inherits it.':
     'textcbdc5495f318',
   Requests: 'textada27592c957',
-  'Requests are checked against the saved secret .': 'textc6fbb4b00507',
+  'Requests are checked against the saved secret <name>.': 'textc6fbb4b00507',
   'research/': 'text2f80158a9d89',
   'Reserving your computer': 'texta7d795204fda',
   Reminders: 'text7971dd752669',
@@ -599,7 +599,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Browser permission granted': 'text328f99ac05b6',
   'Can edit': 'text5abe9e1fbc5b',
   'Can view': 'text151dc282a69e',
-  'Change what can do in .': 'text8c4e24be27f2',
+  'Change what an agent can do in <project>.': 'text8c4e24be27f2',
   'Changes an agent makes to this workspace. Every run opens a change request for you to review — nothing merges on its own.':
     'textc6414eb01d9a',
   'Clear notifications': 'texte6f312c6b6ef',
@@ -685,7 +685,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Invite someone by their GitHub username. GitHub emails them an invite to accept.':
     'text51df486e7027',
   'is back on its billed tier.': 'textd9d0364fb8bc',
-  'is now .': 'textf4d149d4f9a4',
+  'is now <name>.': 'textf4d149d4f9a4',
   'is now the project default': 'text384c077e42b5',
   "It may have been renamed or removed from the project's configuration.": 'text2ad30464c3ed',
   "Dosco can't reach this repository": 'textcb25ff313d81',
@@ -888,7 +888,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'per session': 'textf92898c93eec',
   'per message': 'text83d0be53d592',
   answers: 'text677fe21b65f4',
-  'We are building the open-source AI Operating System. Every company should own all of it.':
+  'We are building the agentic operating system. Every company should own all of it.':
     'text5f58426c214e',
   'One kortix.yaml.': 'text52867b778586',
   'Your AI workforce, as code.': 'textd0dfd435b2f4',

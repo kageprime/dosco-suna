@@ -229,7 +229,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'One thing this is not: a package manager. There is no lockfile, no version pin and no automatic update — an item you add becomes your own files, exactly like code you wrote. That is a deliberate trade, and it is the one we would make again.':
     'textcd3fefb94c04',
   'Open source': 'text67a0d2e0dab4',
-  'Open source · Any model, your keys · Self-host, VPC, or on-prem': 'textb205e3c57a77',
+  'Any model, your keys · Managed cloud · Built by AltMatter': 'textb205e3c57a77',
   'Open source · SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
   'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
     'text1d9a8dde5629',
