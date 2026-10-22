@@ -2475,7 +2475,7 @@
           "name": "Free",
           "note": "Starte mit echten Sandbox-Credits.",
           "f1": "500 Credits / Monat, keine Karte nötig",
-          "f2": "Verwaltete Modelle: Kimi, DeepSeek, GLM. Keine Datenspeicherung, Inferenz in den USA",
+          "f2": "Verwaltete Modelle: GLM 5.3 Flash. Keine Datenspeicherung, Inferenz in den USA",
           "f3": "1 Projekt",
           "f4": "Eigener API-Schlüssel für jedes Premium-Modell",
           "f5": "Verbinde dein ChatGPT-Abo"

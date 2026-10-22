@@ -40,7 +40,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     note: 'Start with real sandbox credits.',
     features: [
       '500 credits / month, no card needed',
-      'Managed models: Kimi, DeepSeek, GLM. Zero data retention, US inference',
+      'Managed models: GLM 5.3 Flash. Zero data retention, US inference',
       '1 project',
       'Bring your own API key for any premium model',
       'Connect your ChatGPT subscription',
