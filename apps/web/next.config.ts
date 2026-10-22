@@ -494,11 +494,16 @@ const nextConfig = (): NextConfig => ({
     // envelope fits too.
     //
     // The heaps are bounded in vercel.json's buildCommand:
-    // NODE_OPTIONS=--max-old-space-size=3584. Parent + the single worker then
-    // never legally exceed 7 GB of the 8 GB container; the previous 6144 cap
-    // allowed a 12.3 GB combined draw. A too-tight cap fails as a named V8
+    // NODE_OPTIONS=--max-old-space-size=3072. The previous 6144 cap allowed a
+    // 12.3 GB combined draw, and the 3584 cap that replaced it still landed
+    // parent + worker at exactly 7 GB - with the ~1 GB cold baseline on top of
+    // that, a cold build drew the whole 8 GB container and build-utils
+    // SIGKILLed `next build` (twice on 2026-10-22, no stack, at the collect
+    // phase). 3072 keeps parent + worker at 6 GB, so the cold baseline still
+    // fits with ~1 GB to spare. A too-tight cap fails as a named V8
     // heap-limit abort with a stack, not a container SIGKILL; if that appears,
     // bump toward the container edge and never past a 7 GB combined sum.
+    // `node scripts/check-build-memory.mjs` prints this arithmetic.
     staticGenerationMinPagesPerWorker: 250,
     staticGenerationMaxConcurrency: 1,
     // Optimize package imports for faster builds and smaller bundles
