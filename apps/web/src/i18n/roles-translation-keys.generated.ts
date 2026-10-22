@@ -178,7 +178,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text111534bb6407',
   'Close-lost: no reply to three touches': 'text9f4f0fa7e685',
   'Cloud infrastructure': 'text4bba4ad3c2e5',
-  'Cloud, your VPC, or on-prem': 'text9a4a0ce6a928',
+  'Dosco Cloud': 'text9a4a0ce6a928',
   'Configuration drift, reported not fixed': 'text4c97eef02faf',
   'Connect each source once for the whole project. Credentials are decrypted on our side and attached to the outgoing call. They never land in the machine the model is driving.':
     'textde0a6db058a5',

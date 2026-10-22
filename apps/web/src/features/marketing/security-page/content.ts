@@ -237,7 +237,7 @@ export const identity = {
       },
       { k: 'Groups', v: 'Grant to a group once instead of to twenty people twenty times.' },
     ],
-    note: 'Available on Enterprise, and on a self-hosted instance with an Enterprise license. The built-in roles above are free on every plan.',
+    note: 'Available on Enterprise. The built-in roles above are free on every plan.',
   },
   agents: {
     title: 'Service accounts',
@@ -380,7 +380,7 @@ export const audit = {
    here without a report to point at. */
 export const posture = {
   eyebrow: 'Deployment & posture',
-  title: 'Run it where your policy says it has to run.',
+  title: 'Run it under controls you can audit.',
   sub: 'The same product ships as managed cloud, with an isolated machine for every session. And because every run is audited, you do not have to take our word for it.',
   deployments: [
     {
@@ -389,14 +389,14 @@ export const posture = {
       v: 'The managed service. We run the control plane and the compute; you run the company.',
     },
     {
-      id: 'selfhost',
-      k: 'On-prem',
-      v: 'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.',
+      id: 'dedicated',
+      k: 'Dedicated cloud',
+      v: 'A single-tenant deployment in a cloud account we scope with you.',
     },
     {
-      id: 'vpc',
-      k: 'Your VPC or on-prem',
-      v: 'A single-tenant deployment inside your own network. Isolated topologies are scoped with us rather than self-served.',
+      id: 'onboarding',
+      k: 'Enterprise onboarding',
+      v: 'We stand the deployment up alongside your team.',
     },
   ],
   compliance: {

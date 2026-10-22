@@ -126,7 +126,7 @@ export const faq = {
       id: 'ownership',
       question: 'Is my company data yours?',
       answer:
-        'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.',
+        'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. The repository, its history and the configuration are yours to inspect, fork and take with you.',
     },
     {
       id: 'models',

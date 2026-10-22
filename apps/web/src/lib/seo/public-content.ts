@@ -147,7 +147,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'enterprise',
-    title: 'Enterprise AI agents: SSO, SCIM, audit, your VPC',
+    title: 'Enterprise AI agents: SSO, SCIM, audit, dedicated cloud',
     description: PRICING_PLANS.find((plan) => plan.id === 'enterprise')?.note,
     htmlPath: '/enterprise',
     markdownPath: '/markdown/enterprise.md',

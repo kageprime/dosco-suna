@@ -32,8 +32,8 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'A session is not a tab in a shared runtime. It is a machine of its own, and the database will not let two sessions have the same one. Separating two of your own sessions is the same mechanism as separating two different customers.':
     'text77413322bcd5',
   "A session's chamber: what is {inside}, and what {outside}.": 'text8552ade1b621',
-  'A single-tenant deployment inside your own network. Air-gapped and other isolated topologies are scoped with us rather than self-served.':
-    'text0b930139d03b',
+  'A single-tenant deployment in a cloud account we scope with you.':
+    'textf17e37545b39',
   'A tool needs a real credential to do real work, so the honest question is not whether the machine ever holds one. It is which machine holds which key, who decided that, and what never gets in at all.':
     'textf680871347c5',
   'A VPS or cloud VM': 'text756d9ae136b6',
@@ -193,8 +193,6 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'One branch per session': 'textb0f2f6dd1e38',
   'One Compose project, no hidden pieces.': 'text2a2728fd9252',
   'One Docker Compose project': 'textc28e1cbeedd6',
-  'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.':
-    'textf17e37545b39',
   'One honest exception': 'text7b2aba63cf85',
   'One sandbox per session': 'texta8c9aab244af',
   'One sandbox per session · Connector keys never enter it · Nothing merges itself':
@@ -229,7 +227,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Read, run sessions and fire triggers. The project floor role.': 'text3330cf80040f',
   'Recording is never the thing you pay for.': 'text7387eb9a3a98',
   'Responsible disclosure': 'text404238e6cf20',
-  'Run it where your policy says it has to run.': 'text7bc05befca96',
+  'Run it under controls you can audit.': 'text7bc05befca96',
   'Run it yourself, or let us run it.': 'textb216cf259699',
   Runtime: 'text109311589787',
   'Same images as the cloud · One command · Any model, your keys': 'text60e3fb7a4521',
@@ -245,7 +243,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Security: 'text8f6fb4eb7f42',
   'See enterprise': 'text08c74a58ac03',
   'Free to deploy': 'text6cad1856bada',
-  'On-prem': 'textbeafec79ffdd',
+  'Dedicated cloud': 'textbeafec79ffdd',
   'Running it yourself is free and always will be. Dosco Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
     'text2461783e77d5',
   'The private deployment is not a smaller Dosco with the interesting parts removed. It is the whole control plane — accounts, projects, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
@@ -358,5 +356,5 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Your own VPC or on-prem': 'text2a568b20ca7b',
   'Your provider, your keys': 'text48d12c2f0363',
   'Your sandbox provider and its key': 'text6b23ec7fdf98',
-  'Your VPC or on-prem': 'textfbc1c4745323',
+  'Enterprise onboarding': 'textfbc1c4745323',
 };

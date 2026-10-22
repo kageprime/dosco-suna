@@ -74,7 +74,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   "Changelog": 'textead07c84baac',
   "Use cases: AI agents doing real company work": 'textb39694bde847',
   "Download the Dosco mobile app": 'text2d077d6a915b',
-  "Enterprise AI agents: SSO, SCIM, audit, your VPC": 'texte5328779436c',
+  "Enterprise AI agents: SSO, SCIM, audit, dedicated cloud": 'texte5328779436c',
   "Pricing": 'textdfe95783edfe',
   "Support": 'textbe91940b79f4',
   "Agent Computer: a cloud computer per session": 'text09aa31d75506',

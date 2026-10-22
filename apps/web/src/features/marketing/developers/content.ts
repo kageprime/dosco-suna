@@ -198,8 +198,8 @@ export const cli = {
     {
       label: 'Operate',
       cmds: [
-        ['kortix self-host', 'Run your own Dosco cloud'],
-        ['kortix hosts use', 'Switch cloud ↔ local'],
+        ['kortix ship', 'Ship the project live'],
+        ['kortix hosts use', 'Switch workspaces'],
         ['kortix providers', 'Bring your own model keys'],
       ],
     },
@@ -236,13 +236,6 @@ export const closing = {
       question: 'Which models can I use?',
       answer:
         'Bring your own keys: Anthropic, OpenAI or local models. Or run on Dosco compute. Add your keys with kortix providers.',
-    },
-    {
-      id: 'developers-faq-self-host',
-      question: 'Can I Dosco?',
-      // ACCURACY: not "air-gapped": `self-host start` pulls images from docker.io.
-      answer:
-        'Yes. Run the exact same stack on a laptop, a VPS or your own VPC with kortix self-host.',
     },
     {
       id: 'developers-faq-credentials',

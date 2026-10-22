@@ -99,11 +99,10 @@ export const trust = {
     },
     {
       id: 'deploy',
-      title: 'Yours, down to the metal',
-      // ACCURACY: never restore "air-gapped". `kortix self-host start` pulls
-      // images from docker.io and reaches a sandbox provider over egress, so a
-      // fully disconnected install is not a shipped capability.
-      body: 'Dosco Cloud, your own VPC, or your own on-prem network — yours down to the metal.',
+      title: 'Yours, end to end',
+      // ACCURACY: the managed cloud is the shipped deployment. Do not turn
+      // this card into a VPC, on-prem or air-gapped marketing claim.
+      body: 'Dosco Cloud runs on infrastructure we operate. Your workspace, models, keys and data stay under your control.',
     },
   ],
 } as const;

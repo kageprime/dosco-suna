@@ -865,7 +865,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'It is all recorded, on every plan. Recording is never gated — actions, approvals and the session transcript are captured whatever you pay. Reading, exporting and streaming that audit trail out to your own SIEM is an Enterprise entitlement, so on the lower plans the record exists but the export does not.':
     'text36814e8d3c88',
   'Is my company data yours?': 'text618ad8d1c91a',
-  'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.':
+  'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. The repository, its history and the configuration are yours to inspect, fork and take with you.':
     'textda09b5e9847d',
   'Can I use the models I already pay for?': 'text151863950f0e',
   'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for. Managed models are not currently enabled. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':

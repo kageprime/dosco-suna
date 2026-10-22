@@ -32,10 +32,10 @@ const VALUE_PROPS = [
   },
   {
     icon: <Server className="size-4" />,
-    title: 'Deploy your way',
-    // ACCURACY: not "air-gapped" — `self-host start` pulls images from
-    // docker.io. Isolated topologies get scoped with us, not self-served.
-    desc: 'Managed cloud, your private VPC, or your own on-prem network.',
+    title: 'Deployment options',
+    // ACCURACY: the managed cloud is the shipped deployment. Do not turn this
+    // card into a VPC, on-prem or air-gapped marketing claim.
+    desc: 'Dosco Cloud, with a dedicated cloud deployment for Enterprise.',
   },
   {
     icon: <Boxes className="size-4" />,

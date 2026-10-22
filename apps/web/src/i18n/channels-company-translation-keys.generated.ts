@@ -315,7 +315,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'text43daf9c5f6cf',
   'Rebind this channel to a different project, or unbind it': 'text72e3213c16d7',
   'Reviewed by a person, then merged to main': 'text402ce0e016a1',
-  'Run it on Dosco Cloud, in your own VPC, or fully on-prem. Read the code, fork it, audit it. Nobody rents your company back to you.':
+  'Run it on Dosco Cloud. Read the code, fork it, audit it. Nobody rents your company back to you.':
     'text5b4d78bf9475',
   'Run the project without leaving the conversation.': 'text429be41120e9',
   Runtime: 'text109311589787',

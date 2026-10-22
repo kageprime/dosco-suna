@@ -17,7 +17,7 @@ export const it: RoleContent = {
       { k: 'Runbooks', v: 'Markdown in your repo, not in a head' },
       { k: 'Reach', v: 'Granted per agent, never inherited' },
       { k: 'Every action', v: 'Allowed, gated, or blocked' },
-      { k: 'Deployment', v: 'Cloud, your VPC, or on-prem' },
+      { k: 'Deployment', v: 'Dosco Cloud' },
     ],
   },
 
