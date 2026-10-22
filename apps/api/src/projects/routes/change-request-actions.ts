@@ -201,8 +201,8 @@ export function registerChangeRequestActionsRoutes(): void {
       try {
         result = await mergeBranches(projectForGit, cr.baseRef, cr.headRef, {
           message: customMessage ?? `Merge CR #${cr.number}: ${cr.title}`,
-          authorName: 'Dosco',
-          authorEmail: 'noreply@dosco.live',
+          authorName: 'Xera',
+          authorEmail: 'xera@dosco.live',
         });
       } catch (error) {
         if (error instanceof MergeConflictError) {

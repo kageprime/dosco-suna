@@ -188,7 +188,7 @@ function handleExisting(abs: string, overwrite: boolean): boolean {
 function agentsPointer(layout: LocalLayout, hasOpencodeDir: boolean): string {
   return `# Kortix project
 
-This repository is a [Kortix](https://kortix.ai) project. The manifest is
+This repository is a [Dosco](https://dosco.live) project. The manifest is
 \`kortix.yaml\`: it registers the skills, tools, commands and extensions, and
 declares each agent. Agent prompts live in \`${layout.agents}/\`, skills in
 \`${layout.skills}/\`${hasOpencodeDir ? `, and OpenCode's own files in \`${layout.opencode}/\`` : ''}.

@@ -1,5 +1,7 @@
 import type { CoverLogo } from '@/components/blog/blog-cover';
 
+const AUTHOR_EMAIL = 'xera@dosco.live';
+
 /**
  * Post shapes and the author registry shared by the use-case pages. The blog
  * itself moved to its own codebase (kortix-ai/marketing) and is served at
@@ -28,18 +30,18 @@ export const AUTHORS: Record<string, Author> = {
   marko: {
     name: 'Marko Kraemer',
     role: 'Co-founder',
-    email: 'marko@kortix.ai',
+    email: AUTHOR_EMAIL,
   },
   team: {
     name: 'The Dosco Team',
     role: 'Dosco',
-    email: 'team@kortix.ai',
+    email: AUTHOR_EMAIL,
     isKortix: true,
   },
 };
 
 export function resolveAuthor(key: string): Author {
-  return AUTHORS[key] ?? { name: key, role: '', email: `${key}@kortix.ai` };
+  return AUTHORS[key] ?? { name: key, role: '', email: AUTHOR_EMAIL };
 }
 
 export interface PostFrontmatter {

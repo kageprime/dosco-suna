@@ -19,7 +19,7 @@ async function makeRepo(root: string): Promise<string> {
   const repo = join(root, 'repo')
   await mkdir(repo, { recursive: true })
   await git(repo, 'init', '-q', '-b', 'main')
-  await git(repo, 'config', 'user.email', 'test@kortix.ai')
+  await git(repo, 'config', 'user.email', 'test@dosco.live')
   await git(repo, 'config', 'user.name', 'test')
   await writeFile(join(repo, 'README.md'), 'hi\n')
   await git(repo, 'add', '-A')

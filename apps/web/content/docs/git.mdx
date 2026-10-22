@@ -293,7 +293,7 @@ A merge runs these steps:
 
 1. Dosco validates `kortix.yaml` on the head branch, with its `imports:`. An invalid manifest stops the merge with `422` `MANIFEST_INVALID`. A head with no manifest passes.
 2. Dosco fast-forwards the base when the head is strictly ahead.
-3. Otherwise it creates a merge commit, `Merge CR #<n>: <title>`, authored by `Dosco <noreply@kortix.ai>`. `--message` sets another message.
+3. Otherwise it creates a merge commit, `Merge CR #<n>: <title>`, authored by `Xera <xera@dosco.live>`. `--message` sets another message.
 4. A conflict stops the merge with `409` and the list of conflicting files.
 
 After the merge, running sessions on that base pick up the new config, and Dosco syncs the project's connectors from the new `kortix.yaml`. See [Config comes from the base branch](#config-comes-from-the-base-branch).

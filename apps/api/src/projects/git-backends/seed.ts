@@ -36,8 +36,8 @@ export async function seedRepoViaGitPush(input: {
   baseFiles?: SeedFile[];
 }): Promise<void> {
   const branch = input.branch || 'main';
-  const name = input.authorName || 'Dosco';
-  const email = input.authorEmail || 'noreply@dosco.live';
+  const name = input.authorName || 'Xera';
+  const email = input.authorEmail || 'xera@dosco.live';
   const dir = await mkdtemp(join(tmpdir(), 'kortix-seed-'));
 
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };

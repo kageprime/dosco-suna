@@ -83,8 +83,8 @@ jobs:
         run: |
           set -euo pipefail
           BR="bot/catalog-refresh"
-          git config user.name "kortix-bot"
-          git config user.email "bot@kortix.ai"
+          git config user.name "Xera"
+          git config user.email "xera@dosco.live"
           git checkout -B "$BR"
           git add ${{ steps.diff.outputs.files }}
           git commit -m "chore(catalog): refresh model seeds ($(date -u +%F))"

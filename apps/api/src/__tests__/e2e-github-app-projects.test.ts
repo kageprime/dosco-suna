@@ -206,12 +206,12 @@ describe('GitHub App project repository auth', () => {
     expect((readFile?.init?.headers as Record<string, string>).Authorization).toBe('Bearer installation-token');
     expect((writeFile?.init?.headers as Record<string, string>).Authorization).toBe('Bearer installation-token');
 
-    // Contents-API commits MUST pin the Dosco identity explicitly. Otherwise
+    // Contents-API commits MUST pin the Xera identity explicitly. Otherwise
     // GitHub attributes the commit to whoever owns the token (a personal PAT
-    // surfaces "<user> committed" instead of Dosco).
+    // surfaces "<user> committed" instead of Xera).
     const writeBody = JSON.parse(String(writeFile?.init?.body));
-    expect(writeBody.author).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
-    expect(writeBody.committer).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
+    expect(writeBody.author).toEqual({ name: 'Xera', email: 'xera@dosco.live' });
+    expect(writeBody.committer).toEqual({ name: 'Xera', email: 'xera@dosco.live' });
   });
 
   test('accepts the personal installation owner', async () => {

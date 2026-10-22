@@ -170,7 +170,7 @@ implementation:
 1. Fast-forward if `head_ref` is strictly ahead of `base_ref`.
 2. Otherwise create a merge commit (three-way merge). Default message
    `Merge CR #<n>: <title>`; override with `--message`. Author is
-   `Kortix <noreply@kortix.ai>`.
+   `Xera <xera@dosco.live>`.
 3. On success: update `change_requests` row to `merged`, capture SHAs,
    invalidate the project's mirror cache.
 4. On conflict: 409 with `error: "Merge failed"` and the conflict
@@ -297,7 +297,7 @@ Validation rules on `POST /`:
 
 ## Gotchas
 
-- **Merge is `Kortix <noreply@kortix.ai>`-authored.** If you want the
+- **Merge is `Xera <xera@dosco.live>`-authored.** If you want the
   user's name on the merge commit, that's a dashboard-side option,
   not a CLI flag today.
 - **You cannot close a `merged` CR.** It's the terminal state.

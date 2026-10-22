@@ -66,8 +66,8 @@ const Schema = z.object({
   // daemon asks the config-release route.
   KORTIX_CONFIG_RELEASE: z.string().optional(),
   KORTIX_TOKEN: z.string().optional(),
-  KORTIX_GIT_USER_NAME: z.string().default('Kortix Agent'),
-  KORTIX_GIT_USER_EMAIL: z.string().default('agent@kortix.ai'),
+  KORTIX_GIT_USER_NAME: z.string().default('Xera'),
+  KORTIX_GIT_USER_EMAIL: z.string().default('xera@dosco.live'),
   // Depth of the boot-time `git clone`. 1 (the default) is a SHALLOW clone:
   // one commit, no history — the only thing a fresh session's working tree
   // actually needs at boot. History is restored right after boot by a

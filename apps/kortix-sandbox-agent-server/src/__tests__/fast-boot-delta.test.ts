@@ -11,10 +11,10 @@ import { __setScaffoldRepoPathForTests, buildFastBootBundleUrl, materializeRepo 
 const roots: string[] = []
 const realFetch = globalThis.fetch
 const PINNED = {
-  GIT_AUTHOR_NAME: 'Kortix',
-  GIT_AUTHOR_EMAIL: 'noreply@kortix.ai',
-  GIT_COMMITTER_NAME: 'Kortix',
-  GIT_COMMITTER_EMAIL: 'noreply@kortix.ai',
+  GIT_AUTHOR_NAME: 'Xera',
+  GIT_AUTHOR_EMAIL: 'xera@dosco.live',
+  GIT_COMMITTER_NAME: 'Xera',
+  GIT_COMMITTER_EMAIL: 'xera@dosco.live',
 }
 
 function git(cwd: string, ...args: string[]): string {

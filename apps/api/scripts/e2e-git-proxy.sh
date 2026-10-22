@@ -75,8 +75,8 @@ if [ "${PUSH:-0}" = "1" ]; then
   TMP_BRANCH="kortix-e2e-proxy-$$-$RANDOM"
   git checkout -q -b "$TMP_BRANCH"
   echo "git-proxy e2e $(date -u +%FT%TZ)" > ".kortix-git-proxy-e2e"
-  git -c user.email=noreply@kortix.ai -c user.name=Kortix add -A
-  git -c user.email=noreply@kortix.ai -c user.name=Kortix commit -q -m "chore: git-proxy e2e probe"
+  git -c user.email=xera@dosco.live -c user.name=Xera add -A
+  git -c user.email=xera@dosco.live -c user.name=Xera commit -q -m "chore: git-proxy e2e probe"
   git -c "$HDR" push -q origin "$TMP_BRANCH" \
     >"$WORK/push.log" 2>&1 || { cat "$WORK/push.log"; fail "push through proxy (write scope)"; }
   pass "PUSH  pushed throwaway branch ${TMP_BRANCH}"

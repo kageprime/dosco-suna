@@ -37,8 +37,8 @@ function baseConfig(): Config {
     sessionFresh: false,
     baseSha: undefined,
     sandboxToken: TEST_TOKEN,
-    gitUserName: 'Kortix Agent',
-    gitUserEmail: 'agent@kortix.ai',
+    gitUserName: 'Xera',
+    gitUserEmail: 'xera@dosco.live',
     cloneFilter: '',
     cloneDepth: 1,
     workload: '',
@@ -528,7 +528,7 @@ describe('daemon file read + list + status + find routes', () => {
   beforeAll(async () => {
     WS = await fs.mkdtemp(path.join(os.tmpdir(), 'kortix-read-test-'))
     git('init', '-q')
-    git('config', 'user.email', 'test@kortix.ai')
+    git('config', 'user.email', 'test@dosco.live')
     git('config', 'user.name', 'Kortix Test')
 
     await fs.writeFile(`${WS}/hello.txt`, 'line one\nline two\n')

@@ -237,8 +237,8 @@ function rig(
     projectTarget: workspace,
     opencodeInternalPort: primary,
     opencodeStandbyPort: standby,
-    gitUserName: 'Kortix Agent',
-    gitUserEmail: 'agent@kortix.ai',
+    gitUserName: 'Xera',
+    gitUserEmail: 'xera@dosco.live',
   } as Config
   const marks: Rig['marks'] = []
   const { projectEnv, binary: _binary, ports: _ports, ...lifecycleOptions } = options
@@ -514,8 +514,8 @@ describe('verified reload', () => {
       projectTarget: workspace,
       opencodeInternalPort: primary,
       opencodeStandbyPort: standby,
-      gitUserName: 'Kortix Agent',
-      gitUserEmail: 'agent@kortix.ai',
+      gitUserName: 'Xera',
+      gitUserEmail: 'xera@dosco.live',
     } as Config
     let spawned = 0
     const harness = createOpenCodeHarnessService(cfg, undefined, {
@@ -1039,7 +1039,7 @@ describe('a daemon killed with SIGKILL', () => {
       `import { createOpencodeLifecycle, waitForOpencodeReady } from ${JSON.stringify(LIFECYCLE_MODULE)}
 const workspace = ${JSON.stringify(workspace)}
 const lifecycle = createOpencodeLifecycle(
-  { workspace, projectTarget: workspace, opencodeInternalPort: ${primary}, opencodeStandbyPort: ${standby}, gitUserName: 'Kortix Agent', gitUserEmail: 'agent@kortix.ai' } as any,
+  { workspace, projectTarget: workspace, opencodeInternalPort: ${primary}, opencodeStandbyPort: ${standby}, gitUserName: 'Xera', gitUserEmail: 'xera@dosco.live' } as any,
   undefined,
   { binaryPathOverride: ${JSON.stringify(binary)}, configPathOverride: ${JSON.stringify(join(root, 'daemon-config.json'))} },
 )

@@ -74,8 +74,8 @@ async function harnessOn(dir: string) {
     projectTarget: workspace,
     opencodeInternalPort,
     opencodeStandbyPort,
-    gitUserName: 'Kortix Agent',
-    gitUserEmail: 'agent@kortix.ai',
+    gitUserName: 'Xera',
+    gitUserEmail: 'xera@dosco.live',
   } as Config
   await serveTestConfigDir(dir, join(root, 'boot-store'))
   const harness = createOpenCodeHarnessService(cfg, undefined, {

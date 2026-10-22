@@ -229,16 +229,16 @@ Load the `openalex-paper-search` skill for full API reference. Quick patterns:
 
 ```bash
 # Find highly-cited papers on a topic
-curl -s "https://api.openalex.org/works?search=topic+keywords&filter=cited_by_count:>50,type:article,has_abstract:true&sort=cited_by_count:desc&per_page=15&select=id,display_name,publication_year,cited_by_count,doi,authorships,abstract_inverted_index&mailto=agent@kortix.ai"
+curl -s "https://api.openalex.org/works?search=topic+keywords&filter=cited_by_count:>50,type:article,has_abstract:true&sort=cited_by_count:desc&per_page=15&select=id,display_name,publication_year,cited_by_count,doi,authorships,abstract_inverted_index&mailto=agent@dosco.live"
 
 # Find recent preprints
-curl -s "https://api.openalex.org/works?search=topic&filter=type:preprint,publication_year:2025&sort=publication_date:desc&per_page=10&mailto=agent@kortix.ai"
+curl -s "https://api.openalex.org/works?search=topic&filter=type:preprint,publication_year:2025&sort=publication_date:desc&per_page=10&mailto=agent@dosco.live"
 
 # Find review/survey papers
-curl -s "https://api.openalex.org/works?search=topic&filter=type:review,cited_by_count:>20&sort=cited_by_count:desc&per_page=10&mailto=agent@kortix.ai"
+curl -s "https://api.openalex.org/works?search=topic&filter=type:review,cited_by_count:>20&sort=cited_by_count:desc&per_page=10&mailto=agent@dosco.live"
 
 # Follow citation chains: who cites a seminal paper?
-curl -s "https://api.openalex.org/works?filter=cites:WORK_ID&sort=cited_by_count:desc&per_page=10&mailto=agent@kortix.ai"
+curl -s "https://api.openalex.org/works?filter=cites:WORK_ID&sort=cited_by_count:desc&per_page=10&mailto=agent@dosco.live"
 ```
 
 Save paper metadata to `sources-index.md` and raw API responses to `sources/` for later processing.

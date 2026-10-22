@@ -436,7 +436,7 @@ describe('commitFiles', () => {
     const commit = calls[3]!.body;
     expect(commit.tree).toBe('n'.repeat(40));
     expect(commit.parents).toEqual(['a'.repeat(40)]);
-    expect(commit.author).toEqual({ name: 'Dosco', email: 'noreply@dosco.live' });
+    expect(commit.author).toEqual({ name: 'Xera', email: 'xera@dosco.live' });
     expect(calls[4]!.body).toEqual({ sha: 'c'.repeat(40), force: false });
   });
 

@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 const MARKO_CAL_LINK = 'team/kortix/demo';
 const MARKO_CAL_NAMESPACE = 'kortix-onboarding';
-const MARKO_EMAIL = 'marko@kortix.ai';
+const MARKO_EMAIL = 'marko@dosco.live';
 const MARKO_WHATSAPP = '17372940835';
 const STORAGE_KEY = 'kortix:marko-welcome-dismissed';
 

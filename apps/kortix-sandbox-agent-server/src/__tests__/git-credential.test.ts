@@ -36,8 +36,8 @@ function baseConfig(over: Partial<Config> = {}): Config {
     sessionFresh: false,
     baseSha: undefined,
     sandboxToken: 'kortix_sb_secret',
-    gitUserName: 'Kortix Agent',
-    gitUserEmail: 'agent@kortix.ai',
+    gitUserName: 'Xera',
+    gitUserEmail: 'xera@dosco.live',
     cloneFilter: '',
     cloneDepth: 1,
     workload: '',
@@ -172,8 +172,8 @@ describe('git credential helper', () => {
       const env = { ...process.env, HOME: home }
       const name = await execFileAsync('git', ['config', '--global', 'user.name'], { env, encoding: 'utf8' })
       const email = await execFileAsync('git', ['config', '--global', 'user.email'], { env, encoding: 'utf8' })
-      expect(name.stdout.trim()).toBe('Kortix Agent')
-      expect(email.stdout.trim()).toBe('agent@kortix.ai')
+      expect(name.stdout.trim()).toBe('Xera')
+      expect(email.stdout.trim()).toBe('xera@dosco.live')
     } finally {
       await rm(home, { recursive: true, force: true })
     }

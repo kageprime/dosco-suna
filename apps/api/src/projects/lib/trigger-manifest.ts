@@ -219,7 +219,7 @@ async function commitGitCliRepoFile(
   }
 
   try {
-    const commit = { message, branch, authorName: 'Dosco', authorEmail: 'noreply@dosco.live' };
+    const commit = { message, branch, authorName: 'Xera', authorEmail: 'xera@dosco.live' };
     if (extra) {
       // A manifest with `imports:` — every changed source file in ONE commit,
       // guarded by the root revision plus every imported file's revision.
