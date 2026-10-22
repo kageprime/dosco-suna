@@ -2478,7 +2478,7 @@
           "name": "Free",
           "note": "Start with real sandbox credits.",
           "f1": "500 credits / month, no card needed",
-          "f2": "Managed models: GLM 5.3 Flash. Zero data retention, US inference",
+          "f2": "Sandbox compute, Apps and every self-serve feature",
           "f3": "1 project",
           "f4": "Bring your own API key for any premium model",
           "f5": "Connect your ChatGPT subscription"
