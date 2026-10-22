@@ -196,7 +196,7 @@ export const connect = {
       '$ kortix channels connect --wait',
       '→ connected: slack workspace acme-hq',
       '',
-      '# self-hosting? the same command falls back to manual',
+      '# ? the same command falls back to manual',
       '$ kortix channels manifest > slack-app.json',
       '$ kortix channels connect --manual \\',
       '    --bot-token xoxb-... --signing-secret ...',
@@ -345,7 +345,7 @@ export const custom = {
 export const closing = {
   eyebrow: 'Connect it',
   title: 'Put it in the thread people already use.',
-  sub: 'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.',
+  sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.',
   ctaPrimary: 'Connect Slack',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Read the channel docs',

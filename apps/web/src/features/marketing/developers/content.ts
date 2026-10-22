@@ -124,7 +124,7 @@ export const thesis = {
     {
       line: 'You own the stack.',
       // ACCURACY: say "open source" and stop. Never characterise the licence.
-      body: 'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.',
+      body: 'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.',
       hosts: { from: 'kortix cloud', to: 'your servers' },
     },
   ],
@@ -239,7 +239,7 @@ export const closing = {
     },
     {
       id: 'developers-faq-self-host',
-      question: 'Can I self-host Dosco?',
+      question: 'Can I Dosco?',
       // ACCURACY: not "air-gapped": `self-host start` pulls images from docker.io.
       answer:
         'Yes. Run the exact same stack on a laptop, a VPS or your own VPC with kortix self-host.',

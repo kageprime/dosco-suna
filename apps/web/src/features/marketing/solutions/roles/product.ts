@@ -185,6 +185,6 @@ export const product: RoleContent = {
 
   closing: {
     title: 'Do the reading. Keep the deciding.',
-    sub: 'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
   },
 };

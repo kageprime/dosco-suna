@@ -50,7 +50,7 @@ const VALUE_PROPS = [
   {
     icon: <Lock className="size-4" />,
     title: 'Yours to own',
-    desc: 'Self-host, bring your own models, no vendor lock-in.',
+    desc: 'Bring your own models, no vendor lock-in.',
   },
 ];
 

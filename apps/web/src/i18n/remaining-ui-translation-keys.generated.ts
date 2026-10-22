@@ -265,7 +265,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Install the CLI and drive Dosco from your shell.': 'text1f1146934bab',
   'Internal Dosco presentations.': 'text2e7ba6cc8aa3',
   'iPhone and iPad': 'text0c567ac76e89',
-  'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO and role-based access come standard; self-host it entirely if you want.':
+  'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO and role-based access come standard; it entirely if you want.':
     'textdeefeb7a0e9e',
   Isolation: 'text45c4fc064e52',
   'It all starts with a sentence.': 'text5dfe877b22ee',
@@ -274,7 +274,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Keep model billing with your provider': 'textcd996e5c44e9',
   'Keys are resolved on our side of the wall. The machine the model drives never holds them.':
     'texte6229e214e88',
-  'Dosco – The open-source AI Operating System': 'textce34af36d804',
+  'Dosco – The agentic operating system': 'textce34af36d804',
   'Dosco is building the open AGI platform. A company owns all of it — every agent, all of their data, every skill, every connector, the memory, the whole configuration, on their own infrastructure.':
     'text445cf0a2abfa',
   'Dosco — Presentations': 'textd84b8be91e7b',
@@ -498,7 +498,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The in-depth platform walkthrough — the full Dosco surface, from projects and sessions to connectors, channels and change requests.':
     'text7484ed6d3897',
   'The Dosco team': 'text49e7ba9f095d',
-  'The open-source AI Operating System for your company. Every agent, skill, and memory is a file in one versioned repo you own — a workforce of AI agents that does real work, shared across your whole team from Slack, Teams, the web, or the CLI. Self-hostable, any model, your keys.':
+  'AI Operating System: your agents, skills, memory, and connectors in one repo you own. Any model. or cloud.':
     'text2bf70270bfde',
   'The questions people ask before the first session.': 'text2b7df1bf48b2',
   'The record': 'textd9fa05c93112',
@@ -865,13 +865,13 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'It is all recorded, on every plan. Recording is never gated — actions, approvals and the session transcript are captured whatever you pay. Reading, exporting and streaming that audit trail out to your own SIEM is an Enterprise entitlement, so on the lower plans the record exists but the export does not.':
     'text36814e8d3c88',
   'Is my company data yours?': 'text618ad8d1c91a',
-  'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. Self-host and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.':
+  'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.':
     'textda09b5e9847d',
   'Can I use the models I already pay for?': 'text151863950f0e',
   'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.':
     'text055026a9c10e',
   'What does it cost?': 'texte8dc9deba44c',
-  'Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.':
+  'Free is $0 — one project, 500 credits a month, managed models and every feature, with your own key for any other model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. the software costs nothing; you pay your own model bill and your own compute bill instead.':
     'text12836c0e435d',
   'Why we are building it': 'text7ee5a6d5e8ad',
   'Read the source': 'text625b22ba31d0',
@@ -916,7 +916,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Agents, skills, triggers, connectors and policies are plain files in one repo. Diff them, review them in a change request, roll them back.':
     'text2ec1c779f38c',
   'You own the stack.': 'text48ab3bffe3da',
-  'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   'kortix cloud': 'textea64448cda1c',
   'your servers': 'textdb80902e511f',
@@ -988,7 +988,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Which models can I use?': 'text16b672d86284',
   'Bring your own keys: Anthropic, OpenAI or local models. Or run on Dosco compute. Add your keys with kortix providers.':
     'text671f35507c5d',
-  'Can I self-host Dosco?': 'text9a80eb70d6b4',
+  'Can I Dosco?': 'text9a80eb70d6b4',
   'Yes. Run the exact same stack on a laptop, a VPS or your own VPC with kortix self-host.':
     'textb393e2a90943',
   'Where do my tool credentials live?': 'text25ef8b079eed',

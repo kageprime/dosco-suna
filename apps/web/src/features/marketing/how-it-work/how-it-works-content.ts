@@ -31,7 +31,7 @@
  *     by the v2 manifest validator (`rejectChannelsV2`), so `kortix.yaml` never
  *     "declares channels" — channel routing is live project state, not repo
  *     config. The manifest declares the machine image, connectors and triggers.
- *   - "Open source", never a licence name. SOC 2 Type II is in progress, never
+ *   - "No lock-in", never a licence name. SOC 2 Type II is in progress, never
  *     "certified" or "compliant".
  *   - OpenCode is the only harness that may be named.
  *
@@ -132,7 +132,7 @@ export const LAYERS: Layer[] = [
       // same repo. Do not shorten this back to "an agent is markdown".
       'An OpenCode agent: markdown, plus the tools and plugins beside it',
       'Say allow, ask or deny per tool — down to a single shell command',
-      'Open source, so the harness is never the thing you are locked into',
+      'So the harness is never the thing you are locked into',
     ],
   },
   {

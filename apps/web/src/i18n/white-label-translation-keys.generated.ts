@@ -41,7 +41,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text115bdf31a28d',
   'Dosco gives you the agents, the sandboxes, the connectors and the repo underneath. You bring the market, the brand and the front end.':
     'textb475d38fb868',
-  'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the open-source terms apply as they do to everyone.':
+  'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the terms apply as they do to everyone.':
     'textbb34416ac186',
   'Dosco underneath, your interface and your plans on top. Your customers see one product: yours.':
     'textb1629a8ab76f',
@@ -77,7 +77,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The one thing you need from us is compute.': 'textc897764874f9',
   'The right to offer Dosco to your customers as a hosted service under your brand.':
     'text6cd480833e4b',
-  'The whole product, open source: read it, fork it, audit it.': 'textca045660b259',
+  'The whole product, : read it, fork it, audit it.': 'textca045660b259',
   'Three steps, and no call with us unless you want custom terms.': 'text0d68dc7a9ba1',
   'Vertical AI': 'text31122808c69c',
   'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.':

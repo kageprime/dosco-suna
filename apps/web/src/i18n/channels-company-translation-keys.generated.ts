@@ -84,7 +84,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   '# Reach into the outside world. The definition is in': 'text1195022baf37',
   '# Schema version 2. The runtime is OpenCode.': 'text1815aa434bc6',
   '# Secret NAMES only. The values are encrypted in the': 'text59af4efa0483',
-  '# self-hosting? the same command falls back to manual': 'textd09ddaf3e168',
+  '# ? the same command falls back to manual': 'textd09ddaf3e168',
   '# The agent that answers when nothing names one.': 'text040fa2b6dfb1',
   '# The machine a session boots on.': 'text6d84fd8ae086',
   '# turn any directory into a Dosco': 'textbad42e1e2c1c',
@@ -290,8 +290,8 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
     'texta31aa14c0634',
   'Only the owner. Everyone else gets nothing, predictably.': 'text89e2ee9d1cd7',
   'Open a change request against main?': 'text08bd9a10da30',
-  'Open source and self-hostable': 'text782a07562e97',
-  'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
+  'No lock-in': 'text782a07562e97',
+  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
     'text1d9a8dde5629',
   'Open the repo': 'text1fa449139a48',
   'OpenCode, declared in the repo': 'text8eb07f243576',

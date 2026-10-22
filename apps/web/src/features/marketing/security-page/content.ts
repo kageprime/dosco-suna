@@ -381,7 +381,7 @@ export const audit = {
 export const posture = {
   eyebrow: 'Deployment & posture',
   title: 'Run it where your policy says it has to run.',
-  sub: 'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. Open source, so what you are trusting is code you can read.',
+  sub: 'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. so what you are trusting is code you can read.',
   deployments: [
     {
       id: 'cloud',
@@ -390,7 +390,7 @@ export const posture = {
     },
     {
       id: 'selfhost',
-      k: 'Self-hosted',
+      k: 'On-prem',
       v: 'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.',
     },
     {

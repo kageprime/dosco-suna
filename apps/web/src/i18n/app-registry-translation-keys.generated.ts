@@ -69,7 +69,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textc910d1020fa8',
   'Nothing prepared yet': 'text8b64afef1a24',
   'Offboard someone everywhere by removing one membership': 'text6d2d6f5347aa',
-  'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   Operate: 'text58c3939c4ce9',
   'Preparing this project’s environment': 'text69e4bd3a0f79',
@@ -95,7 +95,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Scaffold & ship': 'textbb742be18fc7',
   Scheduling: 'texted5c58303a98',
   Security: 'text8f6fb4eb7f42',
-  'Self-host anywhere': 'text6416e5f37409',
+  'Run anywhere': 'text6416e5f37409',
   Sessions: 'text6fa3cbf451b2',
   'Single sign-on with just-in-time member provisioning': 'texte67b8abd74eb',
   Skills: 'text66d0f523a379',

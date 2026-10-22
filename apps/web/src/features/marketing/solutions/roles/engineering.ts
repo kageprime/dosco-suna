@@ -188,6 +188,6 @@ export const engineering: RoleContent = {
 
   closing: {
     title: 'Give it the ticket nobody picked up.',
-    sub: 'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
   },
 };

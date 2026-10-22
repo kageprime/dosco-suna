@@ -77,7 +77,7 @@ export const CONNECTORS_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'OAuth access tokens': 'textfe2db5690c6e',
   'One connection. Every agent, every session, every person.': 'text1b602e7270b7',
   'One scoped token, and nothing else': 'texte0661dab3f98',
-  'Open source and self-hostable — Dosco Cloud, your VPC, or on-prem.': 'texta6e6f5c3b55b',
+  'No lock-in — Dosco Cloud, your VPC, or on-prem.': 'texta6e6f5c3b55b',
   Outcome: 'text4e80abb5b146',
   'Pauses for a human': 'text8932a840affb',
   'Per agent': 'text79b8817235ae',
@@ -106,7 +106,7 @@ export const CONNECTORS_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text8f6e69f092b0',
   'Slack and email connect the same way, so an agent can be reached and can reply where the work already happens.':
     'texte0401ccff09d',
-  'Start free, connect a tool, and watch the first approval gate stop an agent mid-run. Self-host it if you would rather the whole thing lived in your own environment.':
+  'Start free, connect a tool, and watch the first approval gate stop an agent mid-run. it if you would rather the whole thing lived in your own environment.':
     'text656db1b39511',
   'stripe.delete_customer': 'text6ada30b23e0e',
   'Talk to sales': 'textcfd0b0225710',

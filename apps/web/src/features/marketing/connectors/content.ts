@@ -341,12 +341,12 @@ export const audit = {
 
 export const close = {
   title: 'Connect the first one in a minute.',
-  sub: 'Start free, connect a tool, and watch the first approval gate stop an agent mid-run. Self-host it if you would rather the whole thing lived in your own environment.',
+  sub: 'Start free, connect a tool, and watch the first approval gate stop an agent mid-run. it if you would rather the whole thing lived in your own environment.',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Read the docs',
   ctaSecondaryHref: '/docs/connect/connectors',
   points: [
-    'Open source and self-hostable — Dosco Cloud, your VPC, or on-prem.',
+    'No lock-in — Dosco Cloud, your VPC, or on-prem.',
     'Credentials encrypted, brokered server-side, never handed to the model.',
     'Allow, Ask, or Block on every action, with a human in the loop where it matters.',
   ],

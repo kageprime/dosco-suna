@@ -108,7 +108,7 @@ export const deal = {
       'Your name, logo, domain and colors in place of Dosco.',
       'Your structure: change the source, the navigation, the features and the defaults.',
       'The right to offer Dosco to your customers as a hosted service under your brand.',
-      'The whole product, open source: read it, fork it, audit it.',
+      'The whole product, : read it, fork it, audit it.',
     ],
   },
   commit: {
@@ -191,7 +191,7 @@ export const terms = {
     {
       id: 'ending',
       k: 'If Dosco ends it',
-      v: 'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the open-source terms apply as they do to everyone.',
+      v: 'Dosco may end the default agreement with notice. You then have up to 90 days to move existing customers. After that, the terms apply as they do to everyone.',
     },
     {
       id: 'custom',

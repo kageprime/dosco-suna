@@ -56,9 +56,9 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'text5b4afe177d99',
   'Request a tailored Dosco walkthrough for cloud, VPC, or on-prem deployment.':
     'text4cd05d3456c4',
-  'Run the same Dosco on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use selfhost.':
+  'Run the same Dosco on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use .':
     'textcb7f1382ce75',
-  'Self-host Dosco': 'textdc99025834c1',
+  'Deploy Dosco': 'textdc99025834c1',
   'We build self-driving companies. Humans verify, steer, and govern while agent teams do work across engineering, product, operations, finance, support, and growth.':
     'textd7f179da0e70',
   'Our mission: take a company from human to AGI, and let it keep every byte of itself on the way there.':

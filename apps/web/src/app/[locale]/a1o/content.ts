@@ -70,7 +70,7 @@ export const LAYERS = [
     ordinal: '06',
     title: 'Governance',
     teaser: 'Built in, not bolted on',
-    body: 'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO and role-based access come standard; self-host it entirely if you want.',
+    body: 'Isolated execution, scoped credentials, and a complete audit trail are how the platform is built. SSO and role-based access come standard; it entirely if you want.',
   },
 ] as const satisfies readonly Layer[];
 

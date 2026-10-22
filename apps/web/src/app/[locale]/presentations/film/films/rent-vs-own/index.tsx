@@ -14,7 +14,7 @@ import { Headline } from '../launch/parts';
 const ROWS = [
   { label: 'Models', rented: "One lab's models", owned: 'Any model. Your keys.' },
   { label: 'Your context', rented: 'Inside their product', owned: 'Files in a repo you own' },
-  { label: 'Code', rented: 'Closed', owned: 'Open source' },
+  { label: 'Code', rented: 'Closed', owned: 'No lock-in' },
   {
     label: 'Workforce',
     rented: 'An assistant per seat',

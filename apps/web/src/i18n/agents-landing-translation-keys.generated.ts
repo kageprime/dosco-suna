@@ -198,7 +198,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'text06cf627597d9',
   'It wires itself up': 'textf87700ba8e67',
   Dosco: 'textab54cf5e1d9d',
-  'Dosco Cloud, your own VPC, or your own on-prem network. It is open source, so you can read every line of what you are trusting.':
+  'Dosco Cloud, your own VPC, or your own on-prem network. It is yours, so you can read every line of what you are trusting.':
     'textb6de6f87c92d',
   'kortix.yaml': 'text1965f383021e',
   'Large Language Models': 'text0340bfb383fc',
@@ -214,7 +214,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Mobile: 'textcbaad3cf4a65',
   'month end close': 'textecc7ed048b32',
   'More than prose': 'text11ad216eb380',
-  'Most tools hand you one layer and rent you the rest. Dosco is all of them, open source, running wherever you put it.':
+  'Most tools hand you one layer and rent you the rest. Dosco is all of them, running wherever you put it.':
     'text3c579d4ff304',
   new: 'text11507a0e2f5e',
   'No systems depth': 'textdfa2cff42f0c',
@@ -228,10 +228,10 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'One platform': 'text708bb99739ea',
   'One thing this is not: a package manager. There is no lockfile, no version pin and no automatic update — an item you add becomes your own files, exactly like code you wrote. That is a deliberate trade, and it is the one we would make again.':
     'textcd3fefb94c04',
-  'Open source': 'text67a0d2e0dab4',
+  'No lock-in': 'text67a0d2e0dab4',
   'Any model, your keys · Managed cloud · Built by AltMatter': 'textb205e3c57a77',
-  'Open source · SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
-  'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
+  'SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
+  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
     'text1d9a8dde5629',
   OpenAI: 'text8b7d1a3187ab',
   OpenCode: 'text3af0e55ccc96',
@@ -284,7 +284,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Security & compliance': 'text4aeeea333672',
   'Security & Governance': 'text72cbbeda15fa',
   'Security & trust': 'textf1608bbc8b05',
-  'Self-hostable': 'texta2536dee19c6',
+  'On-prem': 'texta2536dee19c6',
   'Set one action for a whole capability — read, edit, bash, task, websearch, or reaching outside the workspace — or add glob rules underneath it, so git push asks while everything else is allowed.':
     'text8591ccff74ef',
   Signal: 'text1e9806e4227b',
@@ -297,7 +297,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   sourced: 'text11d1b3d47709',
   'Sources the pipeline, not just the inbox.': 'text664de33d29c2',
   SSO: 'text5ba3ac9fc8e8',
-  'SSO, members, groups and role-based access come built in, with per-resource permissions for people and agents, encrypted secrets and a full audit trail. Self-host so the entire platform runs inside your own environment.':
+  'SSO, members, groups and role-based access come built in, with per-resource permissions for people and agents, encrypted secrets and a full audit trail. so the entire platform runs inside your own environment.':
     'text0f600458e375',
   Stage: 'textde838855e4a6',
   'Start a session': 'textb7a2eb97cb86',
@@ -316,10 +316,10 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textea25cb521ec9',
   'The layer that turns a model into an agent: planning, tool use, and multi-step runs it actually finishes. Fully customizable and powered by OpenCode, so the way your agents think is yours to edit.':
     'textcd3a5d4a1364',
-  'The leading open-source alternative to': 'text3d40244f591d',
+  'The leading alternative to': 'text3d40244f591d',
   'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.':
     'textec69732f4600',
-  'The open-source AI Operating System': 'text1806843c0554',
+  'The agentic operating system': 'text1806843c0554',
   'the runtime your agents think in': 'text16886514658f',
   'The session opens a change request. You read exactly which files are about to join your company, and merge when you are happy. Nothing lands unreviewed.':
     'text2fa77dd466b4',
@@ -347,7 +347,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'Win rate by quarter': 'text8a5603decf3a',
   'Write it once. Every session knows it.': 'textec73f9f19e7c',
   'You approve it': 'text10d9cd688efc',
-  'Your agents, their skills, your company memory and every connector in one platform. Any model, your keys, self-hosted or managed cloud.':
+  'Your agents, their skills, your company memory and every connector in one platform. Any model, your keys, or managed cloud.':
     'text32017b8ca825',
   'Your four new platform hires': 'text66e6ac60ab94',
   'Your own, on-prem': 'textb2279807303a',

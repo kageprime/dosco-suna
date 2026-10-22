@@ -21,9 +21,9 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'A record for the domain and for api.<domain>': 'text6251a79326de',
   'A runtime secret a session is granted is a real environment value inside that session, because that is how a tool uses it. We would rather say so than tell you it is invisible. The controls that matter are the two gates above, and the fact that the machine is destroyed with it.':
     'text36f80c38222d',
-  'A self-hosted instance has no managed model lineup and does not want one. You connect the providers you already pay for, and every model call routes through the gateway running on your own box.':
+  'A instance has no managed model lineup and does not want one. You connect the providers you already pay for, and every model call routes through the gateway running on your own box.':
     'text45ba74fd89a9',
-  'A self-hosted instance runs its own gateway for its own model routing. It never sees or routes to Dosco credentials, and there is no platform fee on a self-hosted account.':
+  'A private instance runs its own gateway for its own model routing. It never sees or routes to Dosco credentials, and there is no platform fee on a private account.':
     'text2c9254d4dcde',
   'A service account is a first-class machine identity the account owns, not a human token wearing a hat. Policies attach to it directly, and a request it makes is evaluated purely against its own policies — it never inherits the reach of whoever created it.':
     'text93cf8ed6d1fd',
@@ -65,7 +65,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'textc73d5a471c50',
   Audit: 'textbb6aea287396',
   'Automatic TLS. Rendered only when you set a domain': 'text870770429ab2',
-  'Available on Enterprise, and on a self-hosted instance with an Enterprise licence. The built-in roles above are free on every plan.':
+  'Available on Enterprise, and on a private instance with an Enterprise licence. The built-in roles above are free on every plan.':
     'text7ea4733fb624',
   'Baseline account membership.': 'textb90eab55d0d5',
   'bring the stack up': 'text0e8cb88f5b30',
@@ -156,7 +156,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   kortix: 'text388f7968512c',
   'Dosco Cloud': 'text493bdb7154e4',
   'kortix self-host start': 'textdbef6cc84fef',
-  'kortix self-host start registers the selfhost host for you and makes it active.':
+  'kortix self-host start registers the host for you and makes it active.':
     'text8ea44187f958',
   'kortix-api': 'text53b816218aba',
   'kortix-migrate': 'text763fafcec9c0',
@@ -195,7 +195,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'One Docker Compose project': 'textc28e1cbeedd6',
   'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.':
     'textf17e37545b39',
-  'One Docker Compose stack, built from the same images the managed cloud runs. Your database, your files, your repos and your policies sit on disk you control. It is open source, so what you are running is code you can read.':
+  'One Docker Compose stack, built from the same images the managed cloud runs. Your database, your files, your repos and your policies sit on disk you control. It is yours, so what you are running is code you can read.':
     'textfbdfd536fa56',
   'One honest exception': 'text7b2aba63cf85',
   'One sandbox per session': 'texta8c9aab244af',
@@ -236,7 +236,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Runtime: 'text109311589787',
   'Same images as the cloud · One command · Any model, your keys': 'text60e3fb7a4521',
   'SAML 2.0 SSO': 'text1e9406a77696',
-  'SAML SSO, SCIM directory sync, custom roles, groups and reading the audit log are Enterprise entitlements. On a self-hosted instance they switch on with an Enterprise licence. The built-in owner, admin, member, manager and editor roles are there on every install, and the audit record is written on every install whether or not you can read it back yet.':
+  'SAML SSO, SCIM directory sync, custom roles, groups and reading the audit log are Enterprise entitlements. On a private instance they switch on with an Enterprise licence. The built-in owner, admin, member, manager and editor roles are there on every install, and the audit record is written on every install whether or not you can read it back yet.':
     'text2288facc3728',
   sandbox: 'textb7ad567477c8',
   'Sandbox compute is a provider choice: Daytona by default, or Platinum or E2B. Air-gapped and other fully isolated topologies are scoped with us rather than self-served.':
@@ -247,11 +247,11 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Security: 'text8f6fb4eb7f42',
   'security@kortix.com': 'text67b8b00d7d81',
   'See enterprise': 'text08c74a58ac03',
-  'Self-host free': 'text6cad1856bada',
-  'Self-hosted': 'textbeafec79ffdd',
-  'Self-hosting is free and always will be. Dosco Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
+  'Free to deploy': 'text6cad1856bada',
+  'On-prem': 'textbeafec79ffdd',
+  'Running it yourself is free and always will be. Dosco Cloud is the same product with the box, the upgrades and the sandbox tier taken off your hands.':
     'text2461783e77d5',
-  'Self-hosting is not a smaller Dosco with the interesting parts removed. It is the whole control plane — accounts, projects, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
+  'The private deployment is not a smaller Dosco with the interesting parts removed. It is the whole control plane — accounts, projects, repos, secrets, connectors, policies, audit — running inside your network, on storage you back up yourself.':
     'text4e1407fe77a8',
   'Send the questionnaire, the architecture questions, the deployment constraints. We would rather answer them properly than have you guess from a marketing page.':
     'text5b643170d839',
@@ -281,7 +281,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The database password, the JWT signing secret and the API keys derived from it':
     'text7d0d0e55bc3e',
   'The file is wiped on shutdown and the machine is destroyed with it.': 'text68631de30841',
-  'The frontend, the API and the gateway are the published Dosco images. A self-hosted instance never builds its own — it consumes exactly what the release pipeline already produced.':
+  'The frontend, the API and the gateway are the published Dosco images. A instance never builds its own — it consumes exactly what the release pipeline already produced.':
     'texte46c387f3dee',
   'The gateway is yours': 'textea59a002b930',
   'The gateway, service and tunnel signing tokens': 'text841050a9c1e6',
@@ -304,7 +304,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text894031366a18',
   'The same images': 'text92f91971fba0',
   'The same Dosco, on your box.': 'textf99aa2b72432',
-  'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. Open source, so what you are trusting is code you can read.':
+  'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. so what you are trusting is code you can read.':
     'textcbb8b2ff8cdf',
   'The same product surface': 'text01ea7ab2073a',
   'The same stack inside your network. Isolated and air-gapped topologies need the sandbox tier moved inside with it, which we scope with you.':
@@ -320,7 +320,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'The whole docker-compose.yml and .env, written at mode 0600': 'text13c531d3fe85',
   'There is no separate provisioning step and no console to click through. One command brings the stack up. One more decides which Dosco your CLI is talking to.':
     'text8bf73992ff9b',
-  'This is not a stripped build with the good parts held back for the paid tier. Self-hosted instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train.':
+  'This is not a stripped build with the good parts held back for the paid tier. instances run the same images the managed cloud runs, produced by the same pipeline, on the same release train.':
     'textc01240eae6d5',
   'Three actions': 'text4b39312e24c1',
   'Tokens are stored per host, so switching hosts switches the account and the default project with it.':

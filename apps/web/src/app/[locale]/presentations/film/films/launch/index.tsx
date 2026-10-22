@@ -101,6 +101,6 @@ export const launchFilm: FilmDef = {
     { frame: at('connectors'), label: 'Any app, any model' },
     { frame: at('surfaces'), label: 'Web, Slack, CLI' },
     { frame: at('triggers'), label: 'It improves itself' },
-    { frame: at('open'), label: 'Open source' },
+    { frame: at('open'), label: 'No lock-in' },
   ],
 };

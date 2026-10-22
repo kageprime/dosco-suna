@@ -178,13 +178,13 @@ export const people: RoleContent = {
       {
         id: 'sovereign',
         k: 'Where the data sits is your choice',
-        v: 'Dosco is open source and self-hostable: Dosco Cloud, your own VPC, or your own on-prem network. If personal data may not leave your infrastructure, run the whole platform inside it. For deployment and compliance questions, talk to us rather than trusting a claim on a marketing page.',
+        v: 'Dosco is and : Dosco Cloud, your own VPC, or your own on-prem network. If personal data may not leave your infrastructure, run the whole platform inside it. For deployment and compliance questions, talk to us rather than trusting a claim on a marketing page.',
       },
     ],
   },
 
   closing: {
     title: 'Take back the week the coordination ate.',
-    sub: 'Open source and self-hostable. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
   },
 };

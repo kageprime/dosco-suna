@@ -236,7 +236,7 @@ export const isolation = {
 export const closing = {
   eyebrow: 'Get a computer',
   title: 'Start a session. Get a computer.',
-  sub: 'Open source, with support for any AI model. Use Dosco Cloud or run it on your own systems.',
+  sub: 'With support for any AI model. Use Dosco Cloud or run it on your own systems.',
   ctaPrimary: 'Start a session',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Talk to us about enterprise',

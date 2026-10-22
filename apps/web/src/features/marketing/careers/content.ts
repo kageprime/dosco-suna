@@ -50,7 +50,7 @@ export const openings = [
     id: 'marketing',
     name: 'Marketing / Content',
     summary:
-      'Make Dosco the instant answer to "what is the open-source Claude Cowork or ChatGPT Work?"',
+      'Make Dosco the instant answer to "what is the Claude Cowork or ChatGPT Work?"',
     bullets: [
       'Build the content baseline, and the system that keeps producing it.',
       'Daily platform and feature explainers.',

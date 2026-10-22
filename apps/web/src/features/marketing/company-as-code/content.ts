@@ -385,7 +385,7 @@ export const portable = {
     },
     {
       id: 'hosting',
-      k: 'Open source and self-hostable',
+      k: 'No lock-in',
       v: 'Run it on Dosco Cloud, in your own VPC, or fully on-prem. Read the code, fork it, audit it. Nobody rents your company back to you.',
     },
   ],

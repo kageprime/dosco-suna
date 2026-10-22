@@ -30,7 +30,6 @@ export const SITE_CONFIG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   GitHub: 'textf911e414cf6b',
   'Isolation, credentials, permissions and audit': 'text1493d5e5a577',
   IT: 'textf415bf7b07a9',
-  'Dosco – the open-source AI Operating System for your company.': 'text75f8cf60c514',
   Legal: 'text4787eaf7c938',
   License: 'textc011d6097bfb',
   LinkedIn: 'textdd84425b72da',
@@ -49,7 +48,7 @@ export const SITE_CONFIG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Sales: 'text8de4e0ea7370',
   'Scheduling, kits and onboarding — never the decision': 'text58e3e16cc67b',
   Security: 'text8f6fb4eb7f42',
-  'Self-hosted': 'textbeafec79ffdd',
+  'On-prem': 'textbeafec79ffdd',
   'Slack threads that start real sessions': 'text82c543bb1ef9',
   'SSO, RBAC, audit trails and approval gates': 'text63ac97370591',
   Status: 'text920e413c7d41',
@@ -58,5 +57,4 @@ export const SITE_CONFIG_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The close, the reconciliation and the variance note': 'textaab4e49e9274',
   X: 'text4b68ab3847fe',
   'Your own VPC or your own on-prem network': 'textfe7fcc4818d3',
-  'Dosco – the open-source AI Operating System.': 'textdcb3e70ce4dc',
 };
