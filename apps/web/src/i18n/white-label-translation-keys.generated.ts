@@ -1,6 +1,6 @@
 // Generated from the white-label user-visible UI catalog.
 export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A fixed term, committed volumes, dedicated capacity or other terms. Email marko@kortix.ai.':
+  'A fixed term, committed volumes, dedicated capacity or other terms. Email support@dosco.live.':
     'text2a4e4f838b60',
   'A free default, and custom terms when you need them.': 'textd0b5d8d1bbd8',
   'A managed agent cloud under your own name, sold to your own customers on your own contracts.':
@@ -21,7 +21,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Build your own AI product on Dosco.': 'textd8e2b67ec496',
   'Competitive rates': 'text2a64b1f9ed34',
   Cost: 'text204a5eb2cd28',
-  'Create an API key in the Platinum.dev dashboard. Access is by request today: email marko@kortix.ai from the address you signed with.':
+  'Create an API key in the Platinum.dev dashboard. Access is by request today: email support@dosco.live from the address you signed with.':
     'text0d9fbe256201',
   'Custom agreements': 'textf4967f9f60fc',
   'Each Platinum.dev sandbox is a hardware-isolated microVM. Every session your product starts gets its own.':

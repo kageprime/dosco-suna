@@ -150,5 +150,4 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
     'text3877d553bdf4',
   'kortix.yaml declares the machine image, the connectors and the triggers': 'text52771248cb6a',
   'linkedin.com/in/markokraemer': 'textc998ec5c08d3',
-  'marko@kortix.com': 'textb9addc023078',
 };

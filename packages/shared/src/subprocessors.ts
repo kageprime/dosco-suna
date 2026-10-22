@@ -53,7 +53,7 @@ export const SUBPROCESSORS_CORE: readonly Subprocessor[] = [
   {
     name: "Amazon Web Services, Inc.",
     purpose:
-      "Hosting of the API and gateway, storage, secrets, transactional email (SES), inference for Kortix-managed AI models (Amazon Bedrock)",
+      "Hosting of the API and gateway, storage, secrets, transactional email (SES), inference for Dosco-managed AI models (Amazon Bedrock)",
     location: "United Kingdom",
   },
   {
@@ -73,12 +73,12 @@ export const SUBPROCESSORS_CORE: readonly Subprocessor[] = [
   },
   {
     name: "Scaleway SAS",
-    purpose: "Servers and storage for agent sandboxes (Kortix Platinum, EU)",
+    purpose: "Servers and storage for agent sandboxes (Dosco Credits, EU)",
     location: "France, Netherlands, Poland",
   },
   {
     name: "Hivelocity, Inc.",
-    purpose: "Servers for agent sandboxes (Kortix Platinum, US)",
+    purpose: "Servers for agent sandboxes (Dosco Credits, US)",
     location: "United States",
   },
   {
@@ -93,72 +93,72 @@ export const SUBPROCESSORS_CORE: readonly Subprocessor[] = [
   },
   {
     name: "OpenRouter, Inc.",
-    purpose: "Routing of requests to Kortix-managed AI models",
+    purpose: "Routing of requests to Dosco-managed AI models",
     location: "United States",
   },
   {
     name: "CoreWeave, Inc.; Fireworks AI, Inc.; Decart",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter",
+      "Inference for Dosco-managed AI models, reached through OpenRouter",
     location: "United States",
   },
   {
     name: "OpenCode Zen; Morph",
-    purpose: "Inference for Kortix-managed AI models, reached directly",
+    purpose: "Inference for Dosco-managed AI models, reached directly",
     location: "United States",
   },
   {
     name: "Deep Infra, Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Together Computer Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Baseten Labs, Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Parasail",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Modal Labs, Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Groq, Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "Cerebras Systems Inc.",
     purpose:
-      "Inference for Kortix-managed AI models, reached through OpenRouter or directly",
+      "Inference for Dosco-managed AI models, reached through OpenRouter or directly",
     location: "United States",
     addedOn: "2026-10-18",
   },
   {
     name: "GitHub, Inc.",
-    purpose: "Hosting of Kortix-managed project repositories",
+    purpose: "Hosting of Dosco-managed project repositories",
     location: "United States",
   },
   {
@@ -214,7 +214,7 @@ export const SUBPROCESSORS_OPTIONAL: readonly Subprocessor[] = [
   {
     name: "Expo (650 Industries, Inc.)",
     purpose:
-      "Push notifications to the Kortix mobile app, when you enable them (title, short message, and a link; no files)",
+      "Push notifications to the Dosco mobile app, when you enable them (title, short message, and a link; no files)",
     location: "United States",
   },
   {

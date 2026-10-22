@@ -11,7 +11,7 @@ export const TERMS_VERSION = '2026-07-14';
 export const TERMS_LAST_UPDATED = 'July 14, 2026';
 export const TERMS_EFFECTIVE = 'July 14, 2026';
 
-export const TERMS_OF_SERVICE = `These Terms of Service (the "Terms") are a legal agreement between Dosco AI Corp, a Delaware corporation ("Dosco," "we," "us," or "our"), and the person or organization accepting these Terms ("Customer," "you," or "your"). They govern access to and use of the Services.
+export const TERMS_OF_SERVICE = `These Terms of Service (the "Terms") are a legal agreement between Altmatter Systems LTD, a company registered in Nigeria with its registered office in Abuja ("Dosco," "we," "us," or "our"), and the person or organization accepting these Terms ("Customer," "you," or "your"). They govern access to and use of the Services.
 
 If you use the Services for an organization, you accept these Terms for that organization and represent that you have authority to bind it. If you do not have that authority, or do not agree to these Terms, do not use the Services.
 
@@ -63,7 +63,7 @@ You accept these Terms when you click to accept them, create an Account, sign or
 
 **Accounts.** Customer will provide accurate Account information and keep it current. Customer is responsible for selecting its Users, assigning appropriate roles and permissions, and all activity under its Account by Customer, its Users, its Agents, and anyone using its credentials or API keys, except to the extent caused by Dosco's breach of the Agreement.
 
-**Credential security.** Customer and its Users must keep passwords, tokens, API keys, signing keys, connected-account credentials, and recovery methods confidential and may not share individual login credentials. Customer will promptly rotate or revoke compromised credentials and notify Dosco at security@kortix.com of known or suspected unauthorized Account access.
+**Credential security.** Customer and its Users must keep passwords, tokens, API keys, signing keys, connected-account credentials, and recovery methods confidential and may not share individual login credentials. Customer will promptly rotate or revoke compromised credentials and notify Dosco at security@dosco.live of known or suspected unauthorized Account access.
 
 
 ## 3. Subscription and Access
@@ -157,7 +157,7 @@ Dosco may investigate suspected violations and may remove or restrict affected c
 
 **Security.** Dosco will maintain reasonable administrative, technical, and organizational safeguards designed to protect Customer Data in managed cloud Services against unauthorized access, use, alteration, and disclosure. Safeguards do not guarantee that security incidents will never occur. Any specific controls, audits, certifications, residency obligations, incident notice commitments, or security exhibits apply only if expressly stated in a DPA or Order.
 
-**Shared responsibility.** Customer is responsible for security within its control, including User lifecycle management, role configuration, endpoint security, connected systems, credential protection, instructions, Agent permissions, and Customer controlled deployment environments. Dosco is not responsible for a security incident caused by Customer's failure to meet these responsibilities, except to the extent Dosco contributed to the incident through its breach. Customer may not perform penetration testing or vulnerability scanning of the Services without Dosco's prior written authorization. Customer may report suspected vulnerabilities to security@kortix.com.
+**Shared responsibility.** Customer is responsible for security within its control, including User lifecycle management, role configuration, endpoint security, connected systems, credential protection, instructions, Agent permissions, and Customer controlled deployment environments. Dosco is not responsible for a security incident caused by Customer's failure to meet these responsibilities, except to the extent Dosco contributed to the incident through its breach. Customer may not perform penetration testing or vulnerability scanning of the Services without Dosco's prior written authorization. Customer may report suspected vulnerabilities to security@dosco.live.
 
 
 ## 9. Confidentiality
@@ -181,7 +181,7 @@ Dosco may investigate suspected violations and may remove or restrict affected c
 
 **Marks and publicity.** Neither party may use the other's name, logo, or marks except with prior written permission or as needed to identify the parties in a non-public business record. Customer-specific Agent configurations, skills, prompts, and workflow code are Customer Deliverables only when expressly identified as such in an Order.
 
-**Takedown notices.** Dosco respects intellectual property rights. Notices of claimed infringement should be sent to legal@kortix.com with sufficient information to identify the work, allegedly infringing material, contact information, and the basis for the claim. Dosco may remove or restrict material and may terminate repeat infringers.
+**Takedown notices.** Dosco respects intellectual property rights. Notices of claimed infringement should be sent to hello@altmatter.space with sufficient information to identify the work, allegedly infringing material, contact information, and the basis for the claim. Dosco may remove or restrict material and may terminate repeat infringers.
 
 
 ## 11. Warranties and Disclaimers
@@ -252,7 +252,7 @@ For self-serve Services, Dosco may update these Terms by posting a revised versi
 
 **Jury trial waiver.** TO THE EXTENT PERMITTED BY LAW, EACH PARTY KNOWINGLY AND IRREVOCABLY WAIVES ANY RIGHT TO A JURY TRIAL IN A PROCEEDING ARISING OUT OF OR RELATING TO THE AGREEMENT.
 
-**Notices.** Legal notices must be in writing. Notices to Dosco must be sent to legal@kortix.com and, for notices of breach, indemnity, or legal process, by nationally recognized overnight courier to: Dosco AI Corp, 701 Tillery Street, Unit 12-2521, Austin, Texas 78702, United States. Notices to Customer may be sent to the legal or administrative email or address in the Account or Order. Email notice is effective on confirmed transmission without bounce-back; courier notice is effective on delivery. Routine operational notices may be provided in the Services.
+**Notices.** Legal notices must be in writing. Notices to Dosco must be sent to hello@altmatter.space and, for notices of breach, indemnity, or legal process, by nationally recognized overnight courier to: Altmatter Systems LTD, Abuja, Nigeria. Notices to Customer may be sent to the legal or administrative email or address in the Account or Order. Email notice is effective on confirmed transmission without bounce-back; courier notice is effective on delivery. Routine operational notices may be provided in the Services.
 
 **Entire agreement.** The Agreement is the entire agreement about its subject and supersedes prior or contemporaneous proposals, statements, and agreements about that subject. Customer acknowledges it is not relying on future functionality, roadmaps, sales statements, or other terms not in the Agreement. An Order may incorporate an attachment by reference.
 
@@ -271,13 +271,13 @@ For self-serve Services, Dosco may update these Terms by posting a revised versi
 
 ## 18. Contact
 
-- **Questions about the Services:** info@kortix.com
+- **Questions about the Services:** support@dosco.live
 
-- **Legal notices and intellectual property reports:** legal@kortix.com
+- **Legal notices and intellectual property reports:** hello@altmatter.space
 
-- **Security reports:** security@kortix.com
+- **Security reports:** security@dosco.live
 
-- **Mail:** Dosco AI Corp, 701 Tillery Street, Unit 12-2521, Austin, Texas 78702, United States
+- **Mail:** Altmatter Systems LTD, Abuja, Nigeria
 
 **Common Paper attribution.** Portions of these Terms are adapted from the Common Paper Cloud Service Agreement Standard Terms Version 2.1, the Common Paper Terms of Service based on that standard, and the Common Paper Professional Services Agreement Standard Terms Version 1.1, each made available under the Creative Commons Attribution 4.0 International License. The source standards are available at Common Paper's Cloud Service Agreement and Common Paper's Professional Services Agreement. Common Paper has not endorsed Dosco or these modified Terms.
 `;

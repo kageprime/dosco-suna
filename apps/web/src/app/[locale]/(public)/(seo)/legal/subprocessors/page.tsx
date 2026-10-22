@@ -78,7 +78,7 @@ export default function SubprocessorsPage() {
 
         <div className="mt-8 space-y-4">
           <p className={PROSE}>
-            Dosco AI Corp engages the third parties below to process customer personal data when we
+            Altmatter Systems LTD engages the third parties below to process customer personal data when we
             provide the managed cloud Services. Each is bound by written data protection terms no
             less protective than our Data Processing Addendum. We host the Services mainly in the
             United Kingdom and the European Union; agent sandboxes also run in the United States.
@@ -88,8 +88,8 @@ export default function SubprocessorsPage() {
             personal data. We email the notice to the owners and admins of every paid account, and
             the new row shows the date it takes effect. To receive these notices on another address,
             email{' '}
-            <a href="mailto:privacy@kortix.com" className={LINK}>
-              privacy@kortix.com
+            <a href="mailto:hello@altmatter.space" className={LINK}>
+              hello@altmatter.space
             </a>
             . Our{' '}
             <Link href="/legal?tab=privacy" className={LINK}>

@@ -243,7 +243,6 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'Scope a team to specific agents': 'text7bbd0566a549',
   Secrets: 'textd8707d411d99',
   Security: 'text8f6fb4eb7f42',
-  'security@kortix.com': 'text67b8b00d7d81',
   'See enterprise': 'text08c74a58ac03',
   'Free to deploy': 'text6cad1856bada',
   'On-prem': 'textbeafec79ffdd',

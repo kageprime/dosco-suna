@@ -114,29 +114,16 @@ function Imprint() {
           <span className="text-foreground font-medium">
             {t.raw('appLegalPage.line101JsxTextKortixAiCorp')}
           </span>
-          {' — '}
+          {', '}
           {t.raw('appLegalPage.line103JsxTextIncorporatedInDelawareUnitedStates')}
         </P>
 
-        {/* Two address blocks side by side from `sm` up. Stacked, these were
-            eight consecutive <p> tags that read as one undifferentiated wall. */}
-        <dl className="grid gap-6 pt-2 sm:grid-cols-2 sm:gap-x-10">
+        <dl className="grid gap-6 pt-2">
           <AddressBlock
             label={t.raw('appLegalPage.line105JsxTextPrincipalPlaceOfBusiness')}
             lines={[
               t.raw('appLegalPage.line107JsxTextText701TilleryStreet'),
               t.raw('appLegalPage.line108JsxTextUnit122521'),
-              t.raw('appLegalPage.line109JsxTextAustinTx78702'),
-              t.raw('appLegalPage.line110JsxTextUnitedStates'),
-            ]}
-          />
-          <AddressBlock
-            label={t.raw('appLegalPage.line112JsxTextRegisteredAgent')}
-            lines={[
-              t.raw('appLegalPage.line114JsxTextFirstbaseAgentLlc'),
-              t.raw('appLegalPage.line115JsxTextText1007NOrangeSt4thFloorSuite1382'),
-              t.raw('appLegalPage.line116JsxTextWilmingtonDe19801'),
-              t.raw('appLegalPage.line117JsxTextUnitedStates'),
             ]}
           />
         </dl>
@@ -145,7 +132,7 @@ function Imprint() {
       <Section id="imprint-contact" title={t.raw('i18nComplete.text2b5c3d26721a')}>
         <P>
           {t.raw('i18nComplete.text969ccbd3cf63')}{' '}
-          <a href="mailto:support@dosco.live" className={LINK}>
+          <a href="mailto:hello@altmatter.space" className={LINK}>
             {t.raw('appLegalPage.line130JsxTextInfoKortixCom')}
           </a>
           .
@@ -172,7 +159,7 @@ function Imprint() {
  * the Data Processing Addendum and the retention summary also state; change
  * them together.
  */
-const PRIVACY_EMAIL = 'privacy@kortix.com';
+const PRIVACY_EMAIL = 'hello@altmatter.space';
 
 function MailLink({ address }: { address: string }) {
   return (
@@ -187,10 +174,10 @@ function PrivacyPolicy() {
     <div className="space-y-10">
       <Section id="privacy" title="Who we are">
         <P>
-          Dosco AI Corp, a Delaware corporation at 701 Tillery Street Unit 12-2521, Austin, Texas
-          78702, United States (&quot;Dosco&quot;, &quot;we&quot;), is the controller of the
-          personal information described in this policy. It applies to our websites, apps, APIs, and
-          the other services that link to it (the &quot;Services&quot;).
+          Altmatter Systems LTD, a company registered in Nigeria with its registered office in
+          Abuja (&quot;Dosco&quot;, &quot;we&quot;), is the controller of the personal information
+          described in this policy. It applies to our websites, apps, APIs, and the other services
+          that link to it (the &quot;Services&quot;).
         </P>
         <P>
           Our Data Protection Officer is reachable at <MailLink address={PRIVACY_EMAIL} />.
@@ -372,8 +359,8 @@ function PrivacyPolicy() {
       <Section id="privacy-contact" title="Contact">
         <P>
           Privacy questions and requests, including for our Data Protection Officer:{' '}
-          <MailLink address={PRIVACY_EMAIL} />. Post: Dosco AI Corp, Attn: Data Protection Officer,
-          701 Tillery Street Unit 12-2521, Austin, Texas 78702, United States.
+          <MailLink address={PRIVACY_EMAIL} />. Post: Altmatter Systems LTD, Attn: Data Protection
+          Officer, Abuja, Nigeria.
         </P>
       </Section>
     </div>
@@ -429,7 +416,7 @@ const TERMS = parseTerms(TERMS_OF_SERVICE);
 function TermsInline({ text }: { text: string }) {
   return (
     <>
-      {text.split(/(\*\*[^*]+\*\*|[a-z]+@kortix\.com)/g).map((part, index) => {
+      {text.split(/(\*\*[^*]+\*\*|[a-z]+@altmatter\.space)/g).map((part, index) => {
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
             <strong key={index} className="text-foreground font-medium">
@@ -437,7 +424,7 @@ function TermsInline({ text }: { text: string }) {
             </strong>
           );
         }
-        if (/^[a-z]+@kortix\.com$/.test(part)) return <MailLink key={index} address={part} />;
+        if (/^[a-z]+@altmatter\.space$/.test(part)) return <MailLink key={index} address={part} />;
         return <Fragment key={index}>{part}</Fragment>;
       })}
     </>
