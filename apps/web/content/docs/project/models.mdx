@@ -1,57 +1,43 @@
 ---
 title: Models
-description: "Dosco-managed models, your own provider keys and subscriptions, how the default is chosen, routing, budgets, and calling the LLM gateway from other tools."
+description: "Your own provider keys and subscriptions, how the default is chosen, routing, budgets, and calling the LLM gateway from other tools."
 ---
 
-A model is the LLM that a session's agent runs on. A project can use Dosco-managed models, your own provider API keys, and a ChatGPT or OpenCode subscription. This page is for the people who choose models, connect keys, and control model spend in a project.
+A model is the LLM that a session's agent runs on. A project runs on your own provider API key, a ChatGPT subscription, or an OpenCode subscription. This page is for the people who choose models, connect keys, and control model spend in a project.
 
 <Steps>
-  <Step title="Run on the default">
-    Start a [session](/docs/work/sessions). On Dosco Cloud it runs on the platform default, `deepseek-v4.1-flash`. You set up nothing.
+  <Step title="Connect a provider">
+    Open **Customize → Models → Providers** and paste a key, or run `kortix providers set anthropic` and paste the key on stdin. For a ChatGPT subscription, choose **Connect ChatGPT** in the model picker.
   </Step>
-  <Step title="Pick another model">
-    Choose a model in the composer's model picker, or run `kortix sessions new --model kimi-k3`. To switch a running session, run `kortix sessions model <session-id> <model-id>`. A live sandbox restarts and the turn in flight ends. A stopped session uses the new model at its next start.
-  </Step>
-  <Step title="Connect your own provider">
-    Open **Customize → Models → Providers** and paste a key, or run `kortix providers set anthropic` and paste the key on stdin.
+  <Step title="Pick a model">
+    Choose a model in the composer's model picker, or run `kortix sessions new --model anthropic/claude-sonnet-4-6`. To switch a running session, run `kortix sessions model <session-id> <model-id>`. A live sandbox restarts and the turn in flight ends. A stopped session uses the new model at its next start.
   </Step>
   <Step title="Set the project default">
-    Run `kortix models default <model-id>`. Copy the id from `kortix models ls --json`.
+    Run `kortix models default <provider>/<model-id>`. Copy the id from `kortix models ls --json`.
   </Step>
 </Steps>
 
 ## How a session gets a model
 
-Every model request goes through the LLM gateway. The gateway finds the credentials, applies the project's routing, access rules and budgets, and records the cost. A model id has one of three shapes:
+Every model request goes through the LLM gateway. The gateway finds the credentials, applies the project's routing, access rules and budgets, and records the cost. A model id has one of two shapes:
 
 | Shape | Example | Who supplies the credentials | Who bills |
 | --- | --- | --- | --- |
-| Bare managed id | `kimi-k3` | Dosco | Dosco credits |
-| `provider/model` | `anthropic/<model-id>` | Your provider API key | Your provider; past $1,000 a month, a 5% Dosco fee in credits |
+| `provider/model` | `anthropic/claude-sonnet-4-6` | Your provider API key | Your provider; past $1,000 a month, a 5% Dosco fee in credits |
 | `codex/<id>` | `codex/gpt-5.6-sol` | Your ChatGPT Plus or Pro subscription | OpenAI, through your plan |
 
-Inside the sandbox, OpenCode shows every gateway model under the `kortix` provider, for example `kortix/kimi-k3`. The gateway removes the `kortix/` prefix. Use the bare id everywhere else.
+Inside the sandbox, OpenCode shows every gateway model under the `kortix` provider, for example `kortix/anthropic/claude-sonnet-4-6`. The gateway removes the `kortix/` prefix. Use the two-part id everywhere else.
 
 The catalog comes from [models.dev](https://models.dev) and the Codex model list. The API refreshes it every hour, so a new provider model appears without a Dosco release.
 
 The `llm_gateway` project flag selects this path. It is on by default. With the flag off, the project runs native OpenCode model management: see [Without the gateway](#without-the-gateway).
 
-## Dosco-managed models
+## Managed models
 
-Dosco Cloud serves three managed models. You need no key.
+Dosco Cloud does not currently serve managed models. A project runs on a provider key or subscription you connect. The managed path is built for one model, GLM 5.3 Flash (`glm-5.3-flash`), and will appear under **Dosco** in the picker when it is enabled. Until then, a bare managed id is not usable, and a self-hosted instance has no managed models either.
 
-| Model | Id | Tier | Context | Max output | Images |
-| --- | --- | --- | --- | --- | --- |
-| Kimi K3 2.8T | `kimi-k3` | flagship | 1,000,000 | 65,536 | Yes |
-| DeepSeek V4.1 Flash | `deepseek-v4.1-flash` | balanced, platform default | 1,000,000 | 65,536 | Yes |
-| GLM 5.3 Flash | `glm-5.3-flash` | fast | 1,000,000 | 65,536 | Yes |
-
-- The picker lists them under **Dosco**.
-- Every plan, Free included, can run the platform default. Another managed model needs a plan that includes it. Otherwise the request returns `plan_upgrade_required`.
-- Dosco sends each managed model only to a fixed pool of US inference endpoints with zero data retention.
-- Managed requests use credits. See [Plans & credits](/docs/credits).
+- When the managed path is on, its requests use credits. See [Plans & credits](/docs/credits).
 - The managed lineup has no OpenAI or Anthropic models. Use your own key or a ChatGPT subscription for them.
-- A self-hosted instance has no managed models. Connect your own providers.
 
 ## Connect your own provider
 
@@ -105,7 +91,8 @@ A session that names no model uses the first of these that is set:
 2. **Agent pin.** `kortix agents model <agent> <model-id>`. `--clear` removes it.
 3. **Project default.** `kortix models default <model-id>`.
 4. **Account default.** `kortix models default <model-id> --account`. It applies to every project in the account that has no project default.
-5. **Platform default.** `deepseek-v4.1-flash` on Dosco Cloud.
+
+With none of these set, the session has no model. Connect a provider and set one before the first prompt.
 
 The `model:` field in the [agent file](/docs/project/agents#the-agent-file) is not in this chain. It applies only to a prompt that names no model:
 
@@ -116,8 +103,7 @@ The `model:` field in the [agent file](/docs/project/agents#the-agent-file) is n
 A stale default never fails a session. A less specific default is not tried when a more specific one cannot run:
 
 - An explicit pin that the project cannot run falls through to the defaults.
-- A default that cannot run, for example after its key was removed, falls back to a model of another connected provider, then to the platform default.
-- On the Free plan, a default that names another managed model falls back to the platform default.
+- A default that cannot run, for example after its key was removed, falls back to a model of another connected provider.
 
 `kortix models default` prints the chain and what it resolves to. `kortix models default --clear [--account]` removes a default. Writes need the `project.model.write` permission.
 
@@ -134,9 +120,9 @@ Two separate controls decide which models a project uses:
 
 - `kortix models enable <model-id>...` and `disable <model-id>...` store exceptions to the catalog default. `kortix models reset` removes every exception.
 - A disabled provider blocks all its models, including models the catalog adds later. Its credentials stay saved.
-- Disable the **Dosco** provider to run only on your own providers. First set a project default on one of your providers: while the default is a Dosco model, the switch returns `409 cannot_disable_default`.
+- When managed models are enabled, disable the **Dosco** provider to run only on your own providers. First set a project default on one of your providers: while the default is a Dosco model, the switch returns `409 cannot_disable_default`.
 - Access applies to every new request: picker choices, saved session selections and fallback candidates. A request already sent upstream finishes.
-- You cannot hide the default model (project, else account, else platform), and you cannot disable it or its provider. Set another project default first.
+- You cannot hide the default model (project, else account), and you cannot disable it or its provider. Set another project default first.
 
 ## Thinking effort
 
@@ -151,11 +137,11 @@ Open **Customize → Models → Routing**, or use the CLI:
 ```bash
 kortix gateway routing                      # effective policy and its sources
 kortix gateway routing set \
-  --default-model kimi-k3 \
-  --fallback anthropic/<model-id>,glm-5.3-flash \
+  --default-model anthropic/claude-sonnet-4-6 \
+  --fallback anthropic/claude-haiku-4-5,openai/gpt-5.1 \
   --fallback-on transient \
-  --vision-model kimi-k3
-kortix gateway routing preview kimi-k3 --image
+  --vision-model anthropic/claude-sonnet-4-6
+kortix gateway routing preview anthropic/claude-sonnet-4-6 --image
 kortix gateway routing reset
 ```
 
@@ -165,7 +151,7 @@ kortix gateway routing reset
 - The project's chain also runs when every key or ChatGPT account that the request may use is paused after a rate limit. With `--fallback-on any-error`, it also runs when the login needs reconnection.
 - `--vision-model` takes a request that carries images when the default model accepts only text.
 
-**Billing in a fallback.** A request on your own key moves to a Dosco-billed model only when your project's chain names that model and the account can pay for it. Dosco's own platform chain never moves your request onto credits. On Dosco Cloud, the platform chain moves `deepseek-v4.1-flash` to `glm-5.3-flash` on transient errors.
+**Billing in a fallback.** A request on your own key moves to a Dosco-billed model only when your project's chain names that model, managed models are enabled, and the account can pay for it. Dosco's own platform chain never moves your request onto credits.
 
 When a fallback model answers, the composer shows **Running on** and the model name. The turn details name the model that answered and the model it replaced. **Costs** counts the spend under the model that answered.
 
@@ -220,7 +206,7 @@ kortix gateway usage --days 7      # requests, errors and cost by model
 kortix gateway sources --hours 24  # spend by trigger, member, channel and API
 kortix gateway logs --failed       # recent failed requests
 kortix gateway logs <log-id>       # one request in full
-kortix gateway test kimi-k3 glm-5.3-flash --prompt "Say hi"
+kortix gateway test anthropic/claude-sonnet-4-6 openai/gpt-5.1 --prompt "Say hi"
 ```
 
 The **Costs** and **Logs** tabs show the same data. For account-wide usage, see [Plans & credits](/docs/credits).
@@ -247,7 +233,7 @@ The gateway reads the key from `Authorization: Bearer`, and on `/v1/messages` al
 curl https://gateway.kortix.com/v1/chat/completions \
   -H "Authorization: Bearer kortix_gw_..." \
   -H "Content-Type: application/json" \
-  -d '{"model": "kimi-k3", "messages": [{"role": "user", "content": "Hello"}]}'
+  -d '{"model": "anthropic/claude-sonnet-4-6", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
 **Claude Code:**
@@ -255,13 +241,13 @@ curl https://gateway.kortix.com/v1/chat/completions \
 ```bash
 ANTHROPIC_BASE_URL=https://gateway.kortix.com \
 ANTHROPIC_AUTH_TOKEN=kortix_gw_... \
-claude --model kimi-k3
+claude --model anthropic/claude-sonnet-4-6
 ```
 
 **Codex CLI** speaks only the Responses protocol. Add a provider to `~/.codex/config.toml`:
 
 ```toml
-model = "kimi-k3"
+model = "openai/gpt-5.1"
 model_provider = "kortix"
 
 [model_providers.kortix]
@@ -289,7 +275,6 @@ Limits:
 | `subscription_required` | The account has no active plan for Dosco-billed models. | Subscribe, or run on your own key. |
 | `insufficient_credits` | The credit balance is empty. | Add credits, or run on your own key. |
 | `budget_exceeded` (`402`) | A **Block** budget reached its limit. | Raise or remove the budget in **Costs**, or wait for the next period. |
-| `plan_upgrade_required` | The plan does not include this managed model. | Use `deepseek-v4.1-flash`, upgrade, or connect your own key. |
 | `provider_disabled` | A project manager disabled the provider. | Choose another model, or enable the provider in **Providers**. |
 | `model_disabled` | A project manager disabled the model. | Choose another model, or enable it in **Models**. |
 | `provider_not_connected` | No usable key or ChatGPT account for this provider. | Connect one in **Providers**, or select one in **Session overrides → Provider keys**. |

@@ -6,7 +6,7 @@ description: Install the kortix CLI, sign in, run the everyday loop, script it i
 `kortix` is the Dosco command line. It does from a terminal what the web app does: create and clone projects, run sessions, review change requests, and configure agents, connectors and secrets. Use it on your own machine, in CI, from a coding agent, and inside a session sandbox, where it is already installed and signed in.
 
 ```sh
-curl -fsSL https://kortix.com/install | bash
+curl -fsSL https://dosco.live/install | bash
 kortix login
 kortix --help
 ```
@@ -27,7 +27,7 @@ The install script supports macOS and Linux on x86_64 and arm64. On Windows, run
 | `KORTIX_BIN_DIR=<dir>` | Link the commands into this directory instead of `/usr/local/bin`. |
 
 ```sh
-curl -fsSL https://kortix.com/install | KORTIX_VERSION=0.13.52 bash
+curl -fsSL https://dosco.live/install | KORTIX_VERSION=0.13.52 bash
 ```
 
 Check the install with `kortix version`. To update or remove the CLI, see [Maintain the CLI](#maintain-the-cli).
@@ -283,7 +283,7 @@ jobs:
       KORTIX_TOKEN: ${{ secrets.KORTIX_TOKEN }}
       KORTIX_PROJECT_ID: ${{ vars.KORTIX_PROJECT_ID }}
     steps:
-      - run: curl -fsSL https://kortix.com/install | bash
+      - run: curl -fsSL https://dosco.live/install | bash
       - run: |
           id=$(kortix sessions new --prompt "Write the nightly report" --wait --json | jq -r .session_id)
           kortix sessions wait-for "$id" --timeout 1800

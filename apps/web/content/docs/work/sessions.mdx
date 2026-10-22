@@ -38,7 +38,7 @@ Each session also has an `origin`, the class of caller that started it.
 
 | `origin` | Started by |
 | --- | --- |
-| `user` | A person in the web, desktop, or mobile app; a Slack, Teams, or email message; or an agent inside a session. |
+| `user` | A person in the web or Android app; a Slack, Teams, or email message; or an agent inside a session. |
 | `trigger` | A webhook, app event, monitor, or manual [trigger](/docs/connect/triggers) run, or a [reminder](/docs/connect/triggers#reminders). |
 | `schedule` | A cron trigger. |
 | `backend` | A personal access key, which includes the `kortix` CLI on your machine, or a service account, for example the [SDK](/docs/sdk) on your server. |
@@ -48,8 +48,7 @@ Each session also has an `origin`, the class of caller that started it.
 
 You need the `project.session.start` permission. The agent you pick, or the project's default agent, must be one you may launch.
 
-- **Web, desktop, or mobile app:** write a prompt in the composer and send it. See [Web, desktop & mobile](/docs/clients).
-- **Desktop app, from any other app:** press **Command+Shift+Space** (**Ctrl+Shift+Space** on Windows and Linux), type the prompt, and press Enter. See [Quick Entry](/docs/clients#quick-entry).
+- **Web or Android app:** write a prompt in the composer and send it. See [Web & Android](/docs/clients).
 - **CLI:** run `kortix sessions new` from a linked project directory.
 - **API and SDK:** `POST /v1/projects/<project_id>/sessions` answers `201` with the session, or `202` when the create continues in the background. See [Sessions from code](/docs/sdk/sessions).
 - **Slack, Microsoft Teams, and email:** a message to the bot starts a session. See [Slack, Teams & email](/docs/connect/channels).
@@ -443,7 +442,7 @@ A notification tells you that a session or a trigger needs you. Dosco writes eac
 
 ### In the app
 
-These need no flag and no browser permission. A turn that ends while you are elsewhere in the web or desktop app shows a **Task complete** toast with **Open session**. A failed turn shows **Session error**. Elsewhere means another page, another session, another tab or another app. The browser tab's icon gets a dot until you open the session.
+These need no flag and no browser permission. A turn that ends while you are elsewhere in the web app shows a **Task complete** toast with **Open session**. A failed turn shows **Session error**. Elsewhere means another page, another session, another tab or another app. The browser tab's icon gets a dot until you open the session.
 
 This covers the sessions you open in that window, also one you leave while its turn runs. The session on your screen shows no toast: its transcript shows the end. For turns that start elsewhere, such as a trigger or another device, turn on the notification center below.
 
@@ -495,10 +494,9 @@ A session's notifications go to:
 
 ### Where they appear
 
-- **The bell**, at the top of the project sidebar and on the projects page, in the web and desktop apps. Choose a notification to open its session, or the **Triggers** or **Reminders** page for an alert. **Mark all as read** clears the count. Opening a session marks its notifications read, in every app. A new notification also shows as a toast, unless it is about the session on your screen.
-- **The mobile app** gets a push for each kind your **Push** switches allow. **Notifications** in the drawer lists them across projects.
+- **The bell**, at the top of the project sidebar and on the projects page, in the web app. Choose a notification to open its session, or the **Triggers** or **Reminders** page for an alert. **Mark all as read** clears the count. Opening a session marks its notifications read, in every app. A new notification also shows as a toast, unless it is about the session on your screen.
+- **The Android app** gets a push for each kind your **Push** switches allow. **Notifications** in the drawer lists them across projects.
 - **The browser**, with every Dosco tab closed, through Web Push in Chrome, Edge, Firefox, and Safari on macOS. Open **Settings → Notifications**, turn on **Enable notifications**, and allow it when the browser asks. The setting is per browser. Signing out stops it. An account that requires MFA sends browser push only to a browser signed in with MFA; its super admins get it either way, as the app lets them in without MFA.
-- **The desktop app** checks about once a minute while its window is open. When the window is not in focus, it shows up to 3 new ones per check as OS notifications.
 - **Email:** `automation_failed` goes at once. A digest kind joins your next digest when it is still unread 15 minutes after it arrives. You get at most one digest per hour, listing up to 10 notifications plus a count of the rest. A self-hosted instance needs an email provider. Without one, the **Email** switches do not show.
 
 ### Choose what you get

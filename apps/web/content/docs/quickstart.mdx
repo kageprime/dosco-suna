@@ -15,7 +15,7 @@ This page takes you from a fresh terminal, or the web app, to a merged change re
 ## Install the CLI
 
 ```sh
-curl -fsSL https://kortix.com/install | bash
+curl -fsSL https://dosco.live/install | bash
 ```
 
 The script supports macOS and Linux on x86_64 and arm64. On Windows, run it inside WSL. It installs two commands: `kortix` and `kortixt` (the [TUI](/docs/tui)). To pin a version or use the dev channel, see [CLI → Install](/docs/cli#install).
@@ -82,6 +82,17 @@ Click **Create project**. To work on it from a terminal, run `kortix projects cl
 
 The [Git](/docs/git) page covers cloning, pushing from any git client, and who can push.
 
+## Connect a model provider
+
+Dosco Cloud does not currently include a managed model. Connect your own provider key or subscription before the first prompt:
+
+```sh
+kortix providers set anthropic
+kortix models default anthropic/claude-sonnet-4-6
+```
+
+In the web app, open **Customize → Models → Providers**, add a key, then pick a model in the composer. See [Models](/docs/project/models).
+
 ## Run a session
 
 A session is one unit of agent work. It runs in its own sandbox, on its own branch.
@@ -102,7 +113,7 @@ The session runs the project's default agent. `--agent <name>` and `--model <id>
 | Open the Dosco terminal app | `kortix tui` |
 | List sessions | `kortix sessions ls` |
 
-The platform default model runs on every plan. To use your own provider keys, see [Models](/docs/project/models). Everything else about sessions is on [Sessions](/docs/work/sessions).
+The session runs on the project's default model. Without a connected provider and a usable model, the first turn cannot run. See [Models](/docs/project/models). Everything else about sessions is on [Sessions](/docs/work/sessions).
 
 ## Review and merge
 

@@ -11,24 +11,22 @@ To see the balance now, run `kortix billing status`, or open the project menu �
 
 ## Plans
 
-An account is on one of two plans: Free or Credits. See [kortix.com/pricing](https://kortix.com/pricing) for what each plan costs and grants. Enterprise is not a plan: it turns the Enterprise features on, on either plan. See [Enterprise features](/docs/accounts/identity#enterprise-features).
+An account is on one of two plans: Free or Credits. See [dosco.live/pricing](https://dosco.live/pricing) for what each plan costs and grants. Enterprise is not a plan: it turns the Enterprise features on, on either plan. See [Enterprise features](/docs/accounts/identity#enterprise-features).
 
 | | Free | Credits |
 | --- | --- | --- |
 | Billed | No charge | A monthly amount you choose |
 | Credit grant | Every month, for the account | Every billing cycle, 100 credits per dollar of the monthly amount, in one wallet |
 | Members | Unlimited | Unlimited, no per-member charge |
-| Dosco-managed models | The platform default only | All |
 | Buy credits and auto top-up | No | Yes |
 | Projects | 1 | 200 (no limit with an Enterprise license) |
 | SSO, SCIM, groups and custom roles, audit log, branding | With Enterprise | With Enterprise |
 
-- Every plan can use models on your own provider key or a ChatGPT subscription. See [Models](/docs/project/models).
-- A managed model outside your plan returns `plan_upgrade_required`.
+- Every plan runs on models you connect with your own provider key or a ChatGPT subscription. Managed models are not currently enabled on Dosco Cloud. See [Models](/docs/project/models).
 - An Enterprise feature without Enterprise on returns `402` with code `entitlement_required`. An owner or admin can turn the Enterprise demo on. See [Enterprise features](/docs/accounts/identity#enterprise-features).
 - Every older paid plan became a Credits plan at the same monthly price. A per-seat plan receives its full bill as credits in one shared wallet. Seats no longer exist: members are free and unlimited.
 - Creating a project over the limit returns `403` with code `project_limit_reached`. An archived project does not count.
-- To move from Free to Credits, choose a tier on **Billing → Plan** and select **Subscribe**. Tiers run from 5,000 credits a month to 1,000,000 credits a month, all at one rate: a bigger tier buys more credits, never a cheaper credit. For an Enterprise license, select **Talk to sales** in the app, or email [support@kortix.com](mailto:support@kortix.com).
+- To move from Free to Credits, choose a tier on **Billing → Plan** and select **Subscribe**. Tiers run from 5,000 credits a month to 1,000,000 credits a month, all at one rate: a bigger tier buys more credits, never a cheaper credit. For an Enterprise license, select **Talk to sales** in the app, or email [support@dosco.live](mailto:support@dosco.live).
 
 A self-hosted instance runs with billing off by default (`KORTIX_BILLING_INTERNAL_ENABLED=false`). It has no credits, no plan limits and no managed models. `kortix billing status` still answers there and never blocks a run. `kortix billing transactions` returns `404` with `billing_disabled: true`. See [Self-hosting](/docs/host).
 
@@ -36,7 +34,6 @@ A self-hosted instance runs with billing off by default (`KORTIX_BILLING_INTERNA
 
 | What | How Dosco meters it |
 | --- | --- |
-| Dosco-managed model calls | Input, output and cache tokens of each request, at the provider's base price plus a 5.5% platform fee. |
 | Model calls on your own provider key | Nothing for the first $1,000 of usage a month at the provider's list price. After that, 5% of each request's list price. A ChatGPT subscription and OpenCode Go are never charged. Enterprise has no fee, and Dosco can waive it per account. |
 | Sandbox compute | The reserved spec (`cpu`, `memory`, `disk`) multiplied by the seconds the sandbox is active. Session sandboxes, App machines and project monitors all count. |
 | Dosco-proxied tools | Each web search, image search or web scraping request that goes through Dosco. |
@@ -54,7 +51,7 @@ A self-hosted instance runs with billing off by default (`KORTIX_BILLING_INTERNA
 - A stopped or sleeping sandbox accrues nothing. See [Sessions](/docs/work/sessions#when-a-session-sleeps).
 - A running sandbox is billed every 5 minutes and again when it stops.
 - Your provider bills a request on your own provider key. Dosco charges only the 5% fee past the monthly $1,000 allowance, after the request completes: an empty wallet never blocks your own key.
-- Model prices in the app are the provider's base prices. The 5.5% fee is added when the request is charged.
+- Model prices in the app are the provider's base prices. The 5% fee past the monthly $1,000 allowance is added when the request is charged.
 
 ## Credit buckets
 
@@ -125,7 +122,7 @@ When the balance reaches zero, agents pause and triggers stop starting sessions.
 | --- | --- | --- |
 | `insufficient_credits` | The wallet is empty, or the last payment failed. | Add credits, or update the payment method. On Free, subscribe to Credits or wait for the next monthly grant. |
 | `subscription_required` | The account has no active plan. | Subscribe on **Billing → Plan**. |
-| `no_account` | The account has no credit account yet. | Finish account setup, or email [support@kortix.com](mailto:support@kortix.com). |
+| `no_account` | The account has no credit account yet. | Finish account setup, or email [support@dosco.live](mailto:support@dosco.live). |
 
 - The `402` body also carries `billing_state`: `out_of_credits`, `payment_failed`, `no_subscription` or `no_account`.
 - Dosco stops the running Apps of the account. A visitor gets `402` with code `app_account_unfunded` and an **App paused** page. See [Apps](/docs/apps).
@@ -175,4 +172,4 @@ Account reports count what Dosco charged: `total_cost` = `llm_cost` + `compute_c
 - **Right-size the sandbox.** Compute meters the reserved spec, so do not reserve more `cpu`, `memory` or `disk` than the work needs.
 - **Check Usage.** `kortix billing costs --by session` lists the costliest sessions first. Fix those first.
 
-For a billing question, email [support@kortix.com](mailto:support@kortix.com) or ask in [Discord](https://discord.com/invite/RvFhXUdZ9H).
+For a billing question, email [support@dosco.live](mailto:support@dosco.live) or ask in [Discord](https://discord.com/invite/RvFhXUdZ9H).
