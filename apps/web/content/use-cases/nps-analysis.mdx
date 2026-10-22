@@ -17,14 +17,14 @@ and never gets aggregated with the hundred other comments saying the same thing.
 By the time a theme is obvious to a human skimming the sheet, it's been building
 for months.
 
-We run an NPS analysis agent on Kortix that reads new survey responses every week
+We run an NPS analysis agent on Dosco that reads new survey responses every week
 and posts the themes, sentiment, and detractor drivers to our customer-success
 Slack channel, alongside how the score moved since last week. It only reads the
 survey sheet; the single output is the Slack post. This is how we keep our own
 NPS program from turning into an unread spreadsheet.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Connected systems">Google Sheets · Slack</Fact>
   <Fact label="Mode">Read-only · one Slack post per week</Fact>
@@ -47,7 +47,7 @@ identical to one that appeared once and went away.
 
 ## What we built
 
-On Kortix, a weekly cron triggers an agent. It spawns an isolated session (a cloud
+On Dosco, a weekly cron triggers an agent. It spawns an isolated session (a cloud
 sandbox) with read-only access to the Google Sheet the survey tool exports
 responses into, reads the full response history, clusters the free-text comments
 into themes, tags each response's sentiment and score band, isolates what's

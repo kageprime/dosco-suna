@@ -1,6 +1,6 @@
 ---
 title: "How we groom our production error backlog"
-description: The error-triage agent we run on Kortix — connected to Sentry and GitHub. Hourly, it groups new and spiking errors, dedupes against our existing GitHub issues, and drafts an issue with the stack trace and impact for the top offenders, then alerts Slack. It never resolves, ignores, or assigns an error itself.
+description: The error-triage agent we run on Dosco — connected to Sentry and GitHub. Hourly, it groups new and spiking errors, dedupes against our existing GitHub issues, and drafts an issue with the stack trace and impact for the top offenders, then alerts Slack. It never resolves, ignores, or assigns an error itself.
 date: "2026-03-28"
 author: team
 tags:
@@ -17,7 +17,7 @@ don't, and by the time an engineer has the hour to sit down and sort it, the
 backlog is long enough that sorting it feels like its own project. Most weeks,
 no one has that hour, so the backlog just grows.
 
-We run an error-triage agent on Kortix that grooms that backlog every hour. It
+We run an error-triage agent on Dosco that grooms that backlog every hour. It
 reads the current state of Sentry, groups new and spiking errors, checks which
 ones already have a tracked GitHub issue, and drafts an issue with the stack
 trace and impact for the ones that don't — then posts a summary to Slack. This
@@ -25,7 +25,7 @@ is grooming, not paging: it doesn't wake anyone up and it doesn't decide
 anything is fixed.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Hourly cron</Fact>
   <Fact label="Connected systems">Sentry · GitHub · Slack</Fact>
   <Fact label="Mode">Drafts issues + alerts only · never resolves or assigns</Fact>
@@ -50,7 +50,7 @@ still need a decision.
 
 ## What we built
 
-On Kortix, an hourly cron triggers an agent. It spawns a fresh session with
+On Dosco, an hourly cron triggers an agent. It spawns a fresh session with
 read-only access to Sentry, pulls the errors that are new or whose event
 frequency has spiked over their trailing baseline, and groups them by
 fingerprint. For each one, it checks our GitHub repo for an existing issue

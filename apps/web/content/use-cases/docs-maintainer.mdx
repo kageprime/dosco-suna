@@ -1,6 +1,6 @@
 ---
 title: "How we keep our docs in sync with the code"
-description: The docs agent we run on Kortix — connected to GitHub and our codebase. Once a day it checks the code that landed since its last run and updates the docs those changes affected, opening a PR for review.
+description: The docs agent we run on Dosco — connected to GitHub and our codebase. Once a day it checks the code that landed since its last run and updates the docs those changes affected, opening a PR for review.
 date: "2026-07-05"
 author: team
 tags:
@@ -19,11 +19,11 @@ change and a docs change that often goes unmade.
 
 We handle this by running a docs sweep close to when the code changes: once a
 day, over everything that merged since the last run. This writes up how we run
-that on Kortix — the connections, the steps, and the guardrails — so you can set
+that on Dosco — the connections, the steps, and the guardrails — so you can set
 up the same thing for your own repo.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Source of truth">The codebase</Fact>
   <Fact label="Connected systems">GitHub · Codebase · Docs site</Fact>
   <Fact label="Mode">Daily sweep · PR-gated</Fact>
@@ -41,7 +41,7 @@ merge rather than in periodic cleanups.
 
 ## What we built
 
-On Kortix, a docs agent runs once a day in the same persistent session — a
+On Dosco, a docs agent runs once a day in the same persistent session — a
 cloud sandbox — with scoped access to what a docs update needs: the commits
 that landed since its last run, the codebase for context, and the docs. It
 picks up from a checkpoint it kept from the previous run, determines what
@@ -113,7 +113,7 @@ handler. A removed feature becomes a PR that strips the stale section.
 ## Guardrails
 
 Giving an agent write access to documentation is a trust question. The relevant
-controls on Kortix:
+controls on Dosco:
 
 - **Isolation.** The daily sweep runs in its own isolated sandbox, resuming the
   same session across runs via a durable checkpoint rather than persisting the

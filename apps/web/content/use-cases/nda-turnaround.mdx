@@ -1,6 +1,6 @@
 ---
 title: "How we turn NDAs around in minutes, not days"
-description: The NDA agent we run on Kortix — every 15 minutes it reviews a new inbound NDA against our standard playbook, redlines the non-standard terms in the document, and drafts a flag summary for counsel. It never signs or sends; counsel does.
+description: The NDA agent we run on Dosco — every 15 minutes it reviews a new inbound NDA against our standard playbook, redlines the non-standard terms in the document, and drafts a flag summary for counsel. It never signs or sends; counsel does.
 date: "2026-07-04"
 author: team
 tags:
@@ -16,14 +16,14 @@ open it. The deal doesn't move until it's signed, but the review itself is
 usually mechanical: the same eight or nine clauses, checked against the same
 standard positions, over and over.
 
-We run an NDA-turnaround agent on Kortix that watches for inbound NDAs and gives
+We run an NDA-turnaround agent on Dosco that watches for inbound NDAs and gives
 each one its first pass within fifteen minutes of arriving. It redlines what
 deviates from our standard positions and drafts a flag summary for counsel. It
 never signs anything and never sends anything to the counterparty — counsel does
 both. This is how we keep NDAs from being the thing a deal waits on.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Every 15 minutes</Fact>
   <Fact label="Connected systems">Gmail · Google Drive · Google Docs</Fact>
   <Fact label="Mode">Redline + flag only · counsel signs</Fact>
@@ -45,7 +45,7 @@ everything to do with queue position.
 
 ## What we built
 
-On Kortix, a **cron** fires every 15 minutes and checks a watched Gmail label
+On Dosco, a **cron** fires every 15 minutes and checks a watched Gmail label
 for a new inbound NDA. Each firing spawns a fresh session — a cloud sandbox —
 that saves the attached document into a Drive folder, opens it in Docs, checks
 it clause by clause against our standard NDA playbook, redlines every

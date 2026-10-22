@@ -1,6 +1,6 @@
 ---
 title: "How we catch cloud cost spikes before the bill lands"
-description: The cloud-cost anomaly agent we run on Kortix — connected to AWS Cost Explorer and Slack. Every day it keeps a running spend baseline per service and account, flags whatever breaks out of that baseline, attributes the likely driver, and alerts with the delta. Read-only and alert-only; it never touches a resource or a budget.
+description: The cloud-cost anomaly agent we run on Dosco — connected to AWS Cost Explorer and Slack. Every day it keeps a running spend baseline per service and account, flags whatever breaks out of that baseline, attributes the likely driver, and alerts with the delta. Read-only and alert-only; it never touches a resource or a budget.
 date: "2026-04-08"
 author: team
 tags:
@@ -18,14 +18,14 @@ that started scaling past its usual ceiling, a region nobody meant to deploy
 to — each one is a small decision that turns into a line item nobody
 recognizes.
 
-We run a cloud-cost anomaly agent on Kortix that watches AWS spend every day,
+We run a cloud-cost anomaly agent on Dosco that watches AWS spend every day,
 one persistent session that remembers what "normal" looks like per service and
 per account. It only reads billing data; the single output is a Slack alert
 with the delta and its best guess at what caused it. This is how we catch a
 cost problem while it's still one day old, not one invoice old.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron, reusable session</Fact>
   <Fact label="Connected systems">AWS Cost Explorer · Slack</Fact>
   <Fact label="Mode">Read-only · alert only, never modifies a resource or a budget</Fact>
@@ -49,7 +49,7 @@ $5,000/day, so it's either too noisy or too blind. And none of it tells you
 
 ## What we built
 
-On Kortix, a daily cron re-prompts one persistent agent session with read-only
+On Dosco, a daily cron re-prompts one persistent agent session with read-only
 access to AWS Cost Explorer. It pulls the prior day's spend broken out by
 service and by linked account, updates its running baseline for each, and
 flags anything that breaks out of its own normal range — not a flat threshold,

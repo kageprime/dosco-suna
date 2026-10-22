@@ -1,6 +1,6 @@
 ---
 title: "How we handle GDPR data-subject requests on a deadline"
-description: The GDPR-DSAR agent we run on Kortix — it verifies each incoming access or deletion request, locates the subject's data across our product database, compiles the report inside the SLA, and flags it for legal to review before anything goes out.
+description: The GDPR-DSAR agent we run on Dosco — it verifies each incoming access or deletion request, locates the subject's data across our product database, compiles the report inside the SLA, and flags it for legal to review before anything goes out.
 date: "2026-07-11"
 author: team
 tags:
@@ -17,14 +17,14 @@ orders table, a support history, an events table, a dozen joins a person has to
 know to write by hand. Miss the deadline or miss a table, and the exposure is the
 regulator's, not just the requester's.
 
-We run a GDPR-DSAR agent on Kortix that reads each request out of our legal inbox,
+We run a GDPR-DSAR agent on Dosco that reads each request out of our legal inbox,
 verifies it, locates the subject across the product database, and compiles the
 access-or-deletion report as a Google Doc — every day, well inside the SLA. It
 never deletes anything and never replies to the requester. It compiles and flags;
 legal decides and sends.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Gmail · Postgres · Google Docs</Fact>
   <Fact label="Mode">Compile + flag only · legal signs off before anything ships</Fact>
@@ -48,7 +48,7 @@ and ask a lawyer first.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent. It spawns a fresh session that checks
+On Dosco, a daily cron triggers an agent. It spawns a fresh session that checks
 our legal inbox in Gmail for new DSAR emails, verifies each requester against the
 identity details we already hold, then queries Postgres read-only across every
 table keyed to that subject — account, orders, support history, consent records —

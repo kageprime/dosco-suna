@@ -16,14 +16,14 @@ with whether the customer still wants the product. Left alone, that failed
 invoice quietly turns into a canceled subscription. This is involuntary churn,
 and it's recoverable if someone catches it fast and follows up consistently.
 
-We run a payment-recovery agent on Kortix that watches every failed Stripe
+We run a payment-recovery agent on Dosco that watches every failed Stripe
 invoice, works it through a fixed escalation ladder — smart retry, reminder,
 update-your-card notice, final notice — and stops the instant the invoice is
 paid. It never cancels a subscription, issues a credit, or refunds anything;
 those decisions stay with a human.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Hourly cron, reusable session</Fact>
   <Fact label="Connected systems">Stripe · Slack · Email</Fact>
   <Fact label="Mode">Smart-retry + dunning only · escalation, never cancellation</Fact>
@@ -48,7 +48,7 @@ queue.
 
 ## What we built
 
-On Kortix, an hourly cron re-prompts one **persistent session** that keeps a
+On Dosco, an hourly cron re-prompts one **persistent session** that keeps a
 per-subscription ledger of where every failed invoice sits on the recovery
 ladder: smart retry, payment reminder, update-your-card notice, or final
 notice. Each run it reads Stripe for failed invoices and subscription state,

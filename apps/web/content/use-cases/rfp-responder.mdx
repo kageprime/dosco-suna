@@ -1,6 +1,6 @@
 ---
 title: "How we draft RFP responses"
-description: The RFP-responder agent we run on Kortix — connected to the inbound RFP and our vetted answer library. It parses each question, drafts a response in a new Google Doc from the library and our product docs, and flags anything it can't answer confidently for a human to review before it goes out.
+description: The RFP-responder agent we run on Dosco — connected to the inbound RFP and our vetted answer library. It parses each question, drafts a response in a new Google Doc from the library and our product docs, and flags anything it can't answer confidently for a human to review before it goes out.
 date: "2026-06-19"
 author: team
 tags:
@@ -18,12 +18,12 @@ across old submissions and no one remembers exactly where. A rep spends a day
 combing through past deals and pinging product and support for lines that
 already exist, before writing a single new sentence.
 
-We run an RFP-responder agent on Kortix that drafts the response from our vetted
+We run an RFP-responder agent on Dosco that drafts the response from our vetted
 answer library the moment the RFP arrives. This is how we answer our own RFPs and
 proposal questionnaires, including the connections and guardrails involved.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Every 15 minutes</Fact>
   <Fact label="Connected systems">Gmail · Google Drive · Google Docs</Fact>
   <Fact label="Mode">Drafts only · a human reviews and submits</Fact>
@@ -49,7 +49,7 @@ blank one.
 
 ## What we built
 
-On Kortix, a cron checks the inbox every 15 minutes for a new RFP or proposal
+On Dosco, a cron checks the inbox every 15 minutes for a new RFP or proposal
 questionnaire. Each check spawns a fresh session (a cloud sandbox) with access
 to our vetted past-answers library, our product docs, and the incoming RFP
 document. It parses the RFP into individual questions, matches each against the

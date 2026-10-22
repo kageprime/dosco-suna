@@ -1,6 +1,6 @@
 ---
 title: "How we roll the pipeline into a weekly forecast"
-description: The sales-forecast agent we run on Kortix — a weekly cron rolls up HubSpot's open pipeline into a weighted forecast vs quota by stage, rep, and segment, flags deals slipping the quarter, and posts it to Slack. Read-only — it never touches a deal's amount or close date.
+description: The sales-forecast agent we run on Dosco — a weekly cron rolls up HubSpot's open pipeline into a weighted forecast vs quota by stage, rep, and segment, flags deals slipping the quarter, and posts it to Slack. Read-only — it never touches a deal's amount or close date.
 date: "2026-05-02"
 author: team
 tags:
@@ -18,14 +18,14 @@ built — and it says nothing about the deal whose close date quietly slid past
 last week, or the six-figure deal that hasn't had a logged activity in a
 month.
 
-We run a sales-forecast agent on Kortix that reads HubSpot every week and
+We run a sales-forecast agent on Dosco that reads HubSpot every week and
 posts a weighted forecast to our sales Slack channel — broken down by stage,
 rep, and segment, measured against quota, with the deals putting that number
 at risk called out by name. It only reads the pipeline; the single output is
 the Slack post. This is how we forecast our own quarter.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="CRM">HubSpot</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Mode">Read-only · one Slack post per week</Fact>
@@ -51,7 +51,7 @@ the quarter is nearly over.
 
 ## What we built
 
-On Kortix, a weekly cron triggers an agent. It spawns a fresh session with
+On Dosco, a weekly cron triggers an agent. It spawns a fresh session with
 read-only access to HubSpot, pulls every open deal — stage, amount, close
 date, owner, and its segment — weights each one by the probability already
 configured on its HubSpot pipeline stage, and rolls the weighted amounts up by

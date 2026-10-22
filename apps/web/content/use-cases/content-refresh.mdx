@@ -1,6 +1,6 @@
 ---
 title: "How we keep our content from going stale"
-description: The content-refresh agent we run on Kortix — a weekly agent that finds decaying marketing and blog pages via Search Console, refreshes the copy, stats, and internal links, and opens a PR for review.
+description: The content-refresh agent we run on Dosco — a weekly agent that finds decaying marketing and blog pages via Search Console, refreshes the copy, stats, and internal links, and opens a PR for review.
 date: "2026-04-22"
 author: team
 tags:
@@ -17,14 +17,14 @@ to a feature we renamed six months back. None of it is broken enough to
 trigger an alert, so it just sits there, quietly losing impressions, until
 someone happens to look.
 
-We run a content-refresh agent on Kortix that watches for that decay every
+We run a content-refresh agent on Dosco that watches for that decay every
 week and does something about it. It reads Search Console for pages losing
 impressions and clicks, cross-references them against our content repo,
 refreshes the copy, the stats, and the internal links, and opens a PR. It
 never publishes anything itself — a human reviews and merges.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Connected systems">Google Search Console · GitHub</Fact>
   <Fact label="Mode">Reusable session · PR only, never publishes</Fact>
@@ -48,7 +48,7 @@ quietly rots.
 
 ## What we built
 
-On Kortix, a weekly cron re-prompts a **persistent session** — the same agent,
+On Dosco, a weekly cron re-prompts a **persistent session** — the same agent,
 picking up where last week left off. It pulls the pages losing the most
 impressions and clicks from Search Console, cross-references them against our
 content repo, and rotates through them so the same three pages don't get all

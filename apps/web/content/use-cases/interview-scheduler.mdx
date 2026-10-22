@@ -1,6 +1,6 @@
 ---
 title: "How we coordinate interview loops"
-description: The interview-scheduling agent we run on Kortix — daily, it finds candidates ready to schedule in Greenhouse, checks interviewer availability on Google Calendar, and drafts a slot proposal to the candidate and the calendar invites for a coordinator to confirm.
+description: The interview-scheduling agent we run on Dosco — daily, it finds candidates ready to schedule in Greenhouse, checks interviewer availability on Google Calendar, and drafts a slot proposal to the candidate and the calendar invites for a coordinator to confirm.
 date: "2026-06-20"
 author: team
 tags:
@@ -17,7 +17,7 @@ invites onto everyone's calendar before the slot goes stale. None of it is hard,
 but it's tedious across several interviewers and several candidates at once, and
 every day it sits undone is a day the loop stalls.
 
-We run an interview-scheduling agent on Kortix that does the coordination every
+We run an interview-scheduling agent on Dosco that does the coordination every
 day. For every candidate marked ready to schedule in Greenhouse, it reads the
 interview plan, checks the panel's availability on Google Calendar, and drafts a
 slot proposal to the candidate plus the calendar invites for each interviewer. It
@@ -26,7 +26,7 @@ every proposal and invite before it goes out. This is how we keep our own interv
 loops moving.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Greenhouse · Google Calendar · Email</Fact>
   <Fact label="Mode">Proposes and drafts only · coordinator confirms and sends</Fact>
@@ -50,7 +50,7 @@ too.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent. It spawns a fresh session (a cloud
+On Dosco, a daily cron triggers an agent. It spawns a fresh session (a cloud
 sandbox) that reads every candidate marked ready to schedule in Greenhouse, pulls
 that candidate's interview plan to see who's on the panel, checks each panelist's
 Google Calendar for open slots, and drafts a slot proposal for the candidate along

@@ -1,6 +1,6 @@
 ---
 title: "How we process vendor invoices as they land"
-description: The accounts payable agent we run on Kortix — connected to Gmail, Google Sheets, and Slack. Every 15 minutes it pulls new invoices from the inbox, extracts vendor, amount, and line items, matches them against POs and the ledger, and routes anything clean or flagged to Slack for approval — never scheduling or marking a payment itself.
+description: The accounts payable agent we run on Dosco — connected to Gmail, Google Sheets, and Slack. Every 15 minutes it pulls new invoices from the inbox, extracts vendor, amount, and line items, matches them against POs and the ledger, and routes anything clean or flagged to Slack for approval — never scheduling or marking a payment itself.
 date: "2026-06-03"
 author: team
 tags:
@@ -19,13 +19,13 @@ five minutes is where duplicates and overcharges slip through — not because
 anyone is careless, but because checking against every prior invoice and every
 open PO doesn't scale to a person's afternoon.
 
-We run an accounts-payable agent on Kortix that checks the inbox every 15 minutes,
+We run an accounts-payable agent on Dosco that checks the inbox every 15 minutes,
 extracts every new invoice, matches it against POs and the AP ledger, and posts it
 to Slack for approval — flagged if it's a duplicate, an overcharge, or missing a
 PO. It records; it never pays.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Cron, every 15 minutes</Fact>
   <Fact label="Connected systems">Gmail · Google Sheets · Slack</Fact>
   <Fact label="Mode">Record + route for approval — never schedules or pays</Fact>
@@ -48,7 +48,7 @@ PO and every prior invoice at the moment it arrives.
 
 ## What we built
 
-On Kortix, a cron fires every 15 minutes. Each firing spawns a fresh agent
+On Dosco, a cron fires every 15 minutes. Each firing spawns a fresh agent
 session — a cloud sandbox with no memory of the last run, because the AP ledger
 in Google Sheets *is* the record. The agent checks a Gmail label for new invoice
 emails, extracts the vendor, amount, and line items from each attachment, matches

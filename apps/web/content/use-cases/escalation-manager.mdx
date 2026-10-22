@@ -1,6 +1,6 @@
 ---
 title: "How we route support escalations"
-description: The escalation-manager agent we run on Kortix — every 15 minutes it scans the Plain queue for SLA breaches, VIP accounts, and high-severity tickets, routes each to the right team, opens a linked Linear issue when engineering is needed, and posts to our escalation Slack channel. It never closes a ticket or promises a resolution.
+description: The escalation-manager agent we run on Dosco — every 15 minutes it scans the Plain queue for SLA breaches, VIP accounts, and high-severity tickets, routes each to the right team, opens a linked Linear issue when engineering is needed, and posts to our escalation Slack channel. It never closes a ticket or promises a resolution.
 date: "2026-03-20"
 author: team
 tags:
@@ -17,7 +17,7 @@ a busy queue, those tickets sit in first-in-first-out order next to everything
 else, and the person who should be routing them is also the person answering
 the queue.
 
-We run an escalation-manager agent on Kortix that checks the Plain queue every
+We run an escalation-manager agent on Dosco that checks the Plain queue every
 15 minutes, finds the tickets that meet our escalation criteria, routes each
 one to the right internal team, opens a linked Linear issue when it's an
 engineering problem, and posts the whole thing to our escalation Slack
@@ -25,7 +25,7 @@ channel. It routes, links, and alerts. It never closes a ticket and never
 tells a customer when or how their issue will be fixed.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Every 15 minutes</Fact>
   <Fact label="Connected systems">Plain · Linear · Slack</Fact>
   <Fact label="Mode">Routes + alerts · never closes a ticket</Fact>
@@ -49,7 +49,7 @@ engineering has seen.
 
 ## What we built
 
-On Kortix, a cron fires every 15 minutes and spawns a fresh agent session. It
+On Dosco, a cron fires every 15 minutes and spawns a fresh agent session. It
 reads the current state of the Plain queue, checks every open ticket against
 three criteria — SLA breach, VIP account, high severity — routes each
 qualifying ticket to the right internal team, opens a linked Linear issue when

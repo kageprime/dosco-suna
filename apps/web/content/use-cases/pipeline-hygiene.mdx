@@ -1,6 +1,6 @@
 ---
 title: "How we keep deals moving"
-description: The pipeline-hygiene agent we run on Kortix — it scans HubSpot every day for stale deals, missing next steps, deals stalled in a stage, and overdue tasks, nudges the owning rep in Slack, and escalates the worst offenders to their manager.
+description: The pipeline-hygiene agent we run on Dosco — it scans HubSpot every day for stale deals, missing next steps, deals stalled in a stage, and overdue tasks, nudges the owning rep in Slack, and escalates the worst offenders to their manager.
 date: "2026-05-06"
 author: team
 tags:
@@ -17,7 +17,7 @@ comes due and slides by unflagged. None of this shows up in a stage-by-stage
 pipeline report — the deal is still "open," still counted, still apparently
 fine.
 
-We run a pipeline-hygiene agent on Kortix that reads HubSpot every day and
+We run a pipeline-hygiene agent on Dosco that reads HubSpot every day and
 flags exactly this: deals gone quiet, missing next steps and close dates,
 deals stuck in their current stage, and tasks past due. It nudges the owning
 rep in Slack and escalates the worst of the day to their manager. It is
@@ -25,7 +25,7 @@ read-mostly — it flags and it nudges, and it never touches a deal's stage,
 owner, or amount.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="CRM">HubSpot</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Mode">Read-mostly · nudge + flag only</Fact>

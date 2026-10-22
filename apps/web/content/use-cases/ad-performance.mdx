@@ -1,6 +1,6 @@
 ---
 title: "How we monitor ad performance"
-description: The ad-performance agent we run on Kortix — connected to Google Ads and Meta Ads, with alerts in Slack. Every day it checks budget pacing, CPA and ROAS drift, and underperforming ads and keywords, then posts ranked findings and optimization recommendations — it never changes a budget, pauses a campaign, or edits an ad itself.
+description: The ad-performance agent we run on Dosco — connected to Google Ads and Meta Ads, with alerts in Slack. Every day it checks budget pacing, CPA and ROAS drift, and underperforming ads and keywords, then posts ranked findings and optimization recommendations — it never changes a budget, pauses a campaign, or edits an ad itself.
 date: "2026-06-11"
 author: team
 tags:
@@ -17,13 +17,13 @@ that still do. None of it is a single dramatic failure — it's a slow leak
 across two ad platforms that nobody has time to check line by line every
 morning.
 
-We run an ad-performance agent on Kortix that reads campaign spend and
+We run an ad-performance agent on Dosco that reads campaign spend and
 performance from Google Ads and Meta Ads every day and posts ranked findings
 and optimization recommendations to Slack. It never touches a budget, a
 campaign, or an ad — it only ever recommends.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Google Ads · Meta Ads · Slack</Fact>
   <Fact label="Mode">Read-only · recommend-only · one Slack post per day</Fact>
@@ -47,7 +47,7 @@ thing a marketing team actually wants to keep: the decision.
 
 ## What we built
 
-On Kortix, a daily cron spawns a fresh agent session. It reads campaign spend
+On Dosco, a daily cron spawns a fresh agent session. It reads campaign spend
 and performance from Google Ads and Meta Ads, checks budget pacing against
 each campaign's monthly target, computes CPA and ROAS drift against trailing
 performance, flags underperforming ads and keywords and any spend or

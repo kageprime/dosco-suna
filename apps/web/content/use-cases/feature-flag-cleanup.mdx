@@ -1,6 +1,6 @@
 ---
 title: "How we remove stale feature flags"
-description: The flag-cleanup agent we run on Kortix — a weekly sweep that finds feature flags that are fully rolled out or long dead, deletes the flag and the dead code branch it guards, and opens a PR for a human to merge.
+description: The flag-cleanup agent we run on Dosco — a weekly sweep that finds feature flags that are fully rolled out or long dead, deletes the flag and the dead code branch it guards, and opens a PR for a human to merge.
 date: "2026-03-05"
 author: team
 tags:
@@ -16,13 +16,13 @@ practice that last step loses to whatever shipped after it. Flags pile up, each
 one leaving an `if` branch, a dead `else`, and a config entry that nobody reads
 anymore — until the codebase is carrying the weight of every rollout it ever did.
 
-We run a flag-cleanup agent on Kortix that sweeps our repo every week, finds the
+We run a flag-cleanup agent on Dosco that sweeps our repo every week, finds the
 flags that are safe to remove, deletes them and the branches they guard, and
 opens a PR. It never merges its own work, and it never touches a flag that's
 still in the middle of a rollout — those get flagged for a human instead.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron, reusable session</Fact>
   <Fact label="Connected systems">GitHub</Fact>
   <Fact label="Mode">Opens PRs only · human merges</Fact>
@@ -44,7 +44,7 @@ a flag that turns out to still matter.
 
 ## What we built
 
-On Kortix, a weekly cron re-prompts one **reusable session** that treats flag
+On Dosco, a weekly cron re-prompts one **reusable session** that treats flag
 cleanup as an ongoing sweep rather than a one-off task. It clones our repo,
 inventories every feature flag, and classifies each one: fully rolled out and
 safe to remove, long dead with no live check left, still in partial rollout, or

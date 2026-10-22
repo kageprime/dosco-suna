@@ -1,6 +1,6 @@
 ---
 title: "How we run our month-end close"
-description: The finance agent we run on Kortix — connected to Stripe, the close checklist and revenue ledger in Google Sheets, and Slack. Each month it walks the checklist, reconciles revenue against the ledger, flags anomalies and missing docs, and posts the open items — never touching a journal entry or closing the books itself.
+description: The finance agent we run on Dosco — connected to Stripe, the close checklist and revenue ledger in Google Sheets, and Slack. Each month it walks the checklist, reconciles revenue against the ledger, flags anomalies and missing docs, and posts the open items — never touching a journal entry or closing the books itself.
 date: "2026-06-01"
 author: team
 tags:
@@ -17,7 +17,7 @@ the trend before anyone signs off. None of it is hard. All of it is slow, and
 most of the time goes to confirming that the easy 90% is actually fine so the
 close team can focus on the 10% that isn't.
 
-We run a close agent on Kortix that does that first pass every month. It
+We run a close agent on Dosco that does that first pass every month. It
 reconciles our Stripe revenue against the ledger, works the rest of the
 checklist for missing docs, flags anything that looks off against prior
 months, and posts the open items to our finance Slack channel. It never
@@ -25,7 +25,7 @@ writes a journal entry and it never marks a period closed — a human owns the
 close.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Monthly cron</Fact>
   <Fact label="Connected systems">Stripe · Google Sheets · Slack</Fact>
   <Fact label="Mode">Assemble and flag · human closes the books</Fact>
@@ -49,7 +49,7 @@ carefully as there's time for.
 
 ## What we built
 
-On Kortix, a monthly **cron** triggers a close agent after the period closes.
+On Dosco, a monthly **cron** triggers a close agent after the period closes.
 Each run spawns its own isolated session — a cloud sandbox — with read access
 to Stripe revenue and to the close checklist and ledger tabs in a Google
 Sheet. It reconciles Stripe revenue against what the ledger recorded, works

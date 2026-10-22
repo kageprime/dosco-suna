@@ -1,6 +1,6 @@
 ---
 title: "How we triage reported phishing emails"
-description: The phishing-triage agent we run on Kortix — every 15 minutes it pulls newly reported emails from our phishing-report inbox, inspects headers, links, and attachments for phishing indicators, and posts a risk verdict with a recommended action to our security channel. It only recommends; a human decides whether to block a sender or warn staff.
+description: The phishing-triage agent we run on Dosco — every 15 minutes it pulls newly reported emails from our phishing-report inbox, inspects headers, links, and attachments for phishing indicators, and posts a risk verdict with a recommended action to our security channel. It only recommends; a human decides whether to block a sender or warn staff.
 date: "2026-06-06"
 author: team
 tags:
@@ -18,13 +18,13 @@ the gateway already caught it. What lands in the report inbox is the ambiguous
 case, the one that needs an actual look, and during a real campaign it arrives
 in a burst.
 
-We run a phishing-triage agent on Kortix that checks that inbox every 15
+We run a phishing-triage agent on Dosco that checks that inbox every 15
 minutes, analyzes each reported email, and posts a verdict and a recommended
 action to our security Slack channel. It reads mail and it recommends; it never
 blocks a sender, deletes a message, or touches anything else in Gmail.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Every 15 minutes</Fact>
   <Fact label="Connected systems">Gmail · Slack</Fact>
   <Fact label="Mode">Read-only on Gmail · one Slack alert per report</Fact>
@@ -49,7 +49,7 @@ sender is its own incident.
 
 ## What we built
 
-On Kortix, a cron fires every 15 minutes and spawns a fresh agent session with
+On Dosco, a cron fires every 15 minutes and spawns a fresh agent session with
 read-only access to the phishing-report Gmail inbox. It pulls every message
 reported since the last check, examines the sender's authentication results,
 the reply-to and return-path against the display name, where every link

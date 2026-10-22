@@ -1,6 +1,6 @@
 ---
 title: "How we turn resolved tickets into KB articles"
-description: The ticket-to-KB agent we run on Kortix — clusters resolved Plain support tickets for recurring questions with no matching help-center article, drafts the top gaps as real articles from the actual resolutions, and opens a PR for a human to review and publish.
+description: The ticket-to-KB agent we run on Dosco — clusters resolved Plain support tickets for recurring questions with no matching help-center article, drafts the top gaps as real articles from the actual resolutions, and opens a PR for a human to review and publish.
 date: "2026-04-12"
 author: team
 tags:
@@ -17,14 +17,14 @@ article. Weeks later the same question comes in again, gets solved the same
 way, and disappears again. The knowledge was generated a dozen times over; it
 was never captured once.
 
-We run a ticket-to-KB agent on Kortix that reads our resolved Plain tickets
+We run a ticket-to-KB agent on Dosco that reads our resolved Plain tickets
 every week, finds the questions that keep recurring with no article to answer
 them, and drafts the highest-value gaps as real articles pulled from how we
 actually solved them — then opens one PR. This is how new KB coverage gets
 written from what our support queue already knows.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron · reusable session</Fact>
   <Fact label="Connected systems">Plain · GitHub (docs/KB repo)</Fact>
   <Fact label="Mode">Draft-only · one PR per run</Fact>
@@ -47,7 +47,7 @@ existing articles or writes generic copy that doesn't match a real resolution.
 
 ## What we built
 
-On Kortix, a weekly cron re-prompts the same persistent session — a cloud
+On Dosco, a weekly cron re-prompts the same persistent session — a cloud
 sandbox that resumes its own ledger rather than starting cold. Each run it
 reads recently resolved threads from Plain, clusters them into recurring
 topics, checks each topic against both the KB repo's existing articles and its

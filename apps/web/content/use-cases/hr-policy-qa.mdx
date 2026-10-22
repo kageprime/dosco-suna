@@ -1,6 +1,6 @@
 ---
 title: "How we answer HR policy questions automatically"
-description: The HR-policy helpdesk agent we run on Kortix — connected to Gmail, our Notion policy library, and Slack. Every 15 minutes it reads new questions from the HR inbox, answers strictly from documented policy, and drafts a reply for HR to send — escalating anything ambiguous, legal, personal, or compensation-related to Slack instead of answering it.
+description: The HR-policy helpdesk agent we run on Dosco — connected to Gmail, our Notion policy library, and Slack. Every 15 minutes it reads new questions from the HR inbox, answers strictly from documented policy, and drafts a reply for HR to send — escalating anything ambiguous, legal, personal, or compensation-related to Slack instead of answering it.
 date: "2026-06-27"
 author: team
 tags:
@@ -18,13 +18,13 @@ read. But finding the right page, quoting it accurately, and drafting a reply
 takes a person's attention away from the HR work that actually needs a person: the
 exception request, the accommodation, the sensitive conversation.
 
-We run an HR-policy helpdesk agent on Kortix that reads the inbox every 15
+We run an HR-policy helpdesk agent on Dosco that reads the inbox every 15
 minutes, answers what's documented, and hands off everything else. It never
 sends an email itself and it never decides a policy question the library doesn't
 already answer — it drafts, or it escalates, and a human takes it from there.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Every 15 minutes</Fact>
   <Fact label="Connected systems">Gmail · Notion · Slack</Fact>
   <Fact label="Mode">Fresh session · drafts only · escalates the rest</Fact>
@@ -48,7 +48,7 @@ comp conversations — which is exactly backwards.
 
 ## What we built
 
-On Kortix, a cron fires every 15 minutes and spawns a fresh session with
+On Dosco, a cron fires every 15 minutes and spawns a fresh session with
 read-only access to the HR Gmail inbox and the Notion policy library, plus a
 channel into Slack. It reads new questions, classifies each one, and for
 anything the library documents, searches for the exact policy section and drafts

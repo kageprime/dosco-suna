@@ -1,6 +1,6 @@
 ---
 title: "How we onboard new vendors"
-description: The vendor-onboarding agent we run on Kortix — connected to Gmail, Google Sheets, and Slack. Every day it checks new vendor requests for a completed W-9, banking form, and signed contract, records each vendor's status to our vendor register, and flags anything missing or invalid — never approving a vendor or touching payment setup itself.
+description: The vendor-onboarding agent we run on Dosco — connected to Gmail, Google Sheets, and Slack. Every day it checks new vendor requests for a completed W-9, banking form, and signed contract, records each vendor's status to our vendor register, and flags anything missing or invalid — never approving a vendor or touching payment setup itself.
 date: "2026-06-14"
 author: team
 tags:
@@ -17,14 +17,14 @@ ready to be set up. Done by hand, that check gets skipped under deadline pressur
 and the gap that slips through is exactly the one that matters: a vendor entered
 into a payment system on an unsigned contract or a W-9 with no TIN.
 
-We run a vendor-onboarding agent on Kortix that checks the inbox every day,
+We run a vendor-onboarding agent on Dosco that checks the inbox every day,
 validates the required documents for every new vendor request against a fixed
 checklist, records the result to our vendor register, and flags anything missing
 or invalid in Slack. It collects, validates, and records; it never approves a
 vendor and never touches payment or banking setup.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Gmail · Google Sheets · Slack</Fact>
   <Fact label="Mode">Collect + validate + record — never approves, never sets up payment</Fact>
@@ -48,7 +48,7 @@ to the next request.
 
 ## What we built
 
-On Kortix, a daily cron re-prompts a fresh session with no memory of the prior
+On Dosco, a daily cron re-prompts a fresh session with no memory of the prior
 run — the vendor register in Google Sheets is the record it works from. Each run
 reads new vendor-request threads from a Gmail label, checks each attachment
 against a fixed checklist (a complete, signed W-9; a complete banking form; a

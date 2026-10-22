@@ -1,6 +1,6 @@
 ---
 title: "How we analyze why deals are won and lost"
-description: The win-loss agent we run on Kortix — a weekly cron reads every HubSpot deal closed-won or closed-lost since the last run and posts the patterns by segment, competitor, price, and stage of death to Slack.
+description: The win-loss agent we run on Dosco — a weekly cron reads every HubSpot deal closed-won or closed-lost since the last run and posts the patterns by segment, competitor, price, and stage of death to Slack.
 date: "2026-05-16"
 author: team
 tags:
@@ -17,13 +17,13 @@ nothing. Read across a hundred deals a quarter, they say exactly where we're
 strong, where a competitor is beating us, and where our own pipeline quietly
 falls apart.
 
-We run a win-loss analysis agent on Kortix that reads closed deals from
+We run a win-loss analysis agent on Dosco that reads closed deals from
 HubSpot every week and posts the patterns to our sales Slack channel. It only
 reads deal data; the single output is the Slack post. This is how we watch our
 own win rate.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Connected systems">HubSpot · Slack</Fact>
   <Fact label="Mode">Read-only · one Slack post per week</Fact>
@@ -47,7 +47,7 @@ Monday.
 
 ## What we built
 
-On Kortix, a weekly cron triggers an agent. It spawns a fresh session (a cloud
+On Dosco, a weekly cron triggers an agent. It spawns a fresh session (a cloud
 sandbox) with read-only access to HubSpot, pulls every deal closed-won or
 closed-lost since the last run, and breaks the outcomes down by segment,
 competitor, price band, and the stage where lost deals actually die. It

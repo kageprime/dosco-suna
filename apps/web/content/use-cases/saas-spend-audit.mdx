@@ -1,6 +1,6 @@
 ---
 title: "How we audit our SaaS spend for waste"
-description: The SaaS spend audit agent we run on Kortix — reconciles recurring card and bank charges against our subscription register every week and flags duplicate tools, unused seats, price hikes, and shadow IT, recommending only — it never touches a subscription.
+description: The SaaS spend audit agent we run on Dosco — reconciles recurring card and bank charges against our subscription register every week and flags duplicate tools, unused seats, price hikes, and shadow IT, recommending only — it never touches a subscription.
 date: "2026-04-15"
 author: team
 tags:
@@ -17,13 +17,13 @@ something that was never logged anywhere. None of this shows up until someone
 sits down with a spreadsheet and a list of bank transactions, which happens
 rarely because it's tedious and the spreadsheet is usually stale by then.
 
-We run a SaaS spend audit agent on Kortix that reconciles our card and bank
+We run a SaaS spend audit agent on Dosco that reconciles our card and bank
 charges against our subscription register every week and posts what it finds
 to Slack. It never touches a subscription — it only ever recommends. This is
 how we keep our SaaS spend honest.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Connected systems">Plaid · Google Sheets · Slack</Fact>
   <Fact label="Mode">Read-only · recommend-only · never cancels</Fact>
@@ -46,7 +46,7 @@ nobody has a spare afternoon every week.
 
 ## What we built
 
-On Kortix, a weekly **cron** re-prompts a persistent agent **session**. It
+On Dosco, a weekly **cron** re-prompts a persistent agent **session**. It
 reads recurring card and bank charges from Plaid, reads the subscription
 register we keep in Google Sheets, and reconciles the two: duplicate or
 overlapping tools, seats that look unused, price hikes since the last time it

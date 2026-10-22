@@ -1,6 +1,6 @@
 ---
 title: "How we draft QBR decks for key accounts"
-description: The QBR-prep agent we run on Kortix — connected to Postgres, HubSpot, Google Slides, and Google Docs. Weekly, for every account due a quarterly business review, it pulls usage trends, account health, support activity, and expansion signals into a draft deck and briefing doc for the CSM to review and present.
+description: The QBR-prep agent we run on Dosco — connected to Postgres, HubSpot, Google Slides, and Google Docs. Weekly, for every account due a quarterly business review, it pulls usage trends, account health, support activity, and expansion signals into a draft deck and briefing doc for the CSM to review and present.
 date: "2026-05-20"
 author: team
 tags:
@@ -18,14 +18,14 @@ a deck by hand takes an afternoon per account, and with a book of a few dozen
 accounts, QBR week turns into a slide-building sprint instead of an
 account-strategy exercise.
 
-We run a QBR-prep agent on Kortix that does that assembly every week. It reads
+We run a QBR-prep agent on Dosco that does that assembly every week. It reads
 across the source systems, drafts a deck and a companion briefing doc per
 account due a review, and stops there. It never writes back to a source system
 and never presents anything — the CSM opens the draft, edits the story, and
 walks into the room with it.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Weekly cron</Fact>
   <Fact label="Connected systems">Postgres · HubSpot · Google Slides · Google Docs</Fact>
   <Fact label="Mode">Read-only across sources · draft deck + briefing doc per account</Fact>
@@ -48,7 +48,7 @@ under-prepared for a renewal conversation.
 
 ## What we built
 
-On Kortix, a weekly cron triggers an agent. It spawns an isolated session with
+On Dosco, a weekly cron triggers an agent. It spawns an isolated session with
 read-only access to Postgres and HubSpot, finds every account whose next QBR
 falls due in the coming window, and for each one pulls usage trends, value
 delivered, account health, a support summary, and expansion opportunities.

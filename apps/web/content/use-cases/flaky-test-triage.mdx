@@ -1,6 +1,6 @@
 ---
 title: "How we detect and quarantine flaky tests"
-description: The flaky-test agent we run on Kortix — connected to GitHub CI history and Slack. It scores every test's non-determinism, opens a quarantine PR for the worst offenders, and files a tracking issue for a human to review.
+description: The flaky-test agent we run on Dosco — connected to GitHub CI history and Slack. It scores every test's non-determinism, opens a quarantine PR for the worst offenders, and files a tracking issue for a human to review.
 date: "2026-02-20"
 author: team
 tags:
@@ -16,14 +16,14 @@ regression hides behind the same "oh that one's just flaky" shrug. Nobody
 schedules time to fix the true flakes because nobody has a ranked list of
 which ones are actually costing the team reruns.
 
-We run a flaky-test-triage agent on Kortix that reads the CI run history every
+We run a flaky-test-triage agent on Dosco that reads the CI run history every
 day, scores every test on how often it flips outcome on unchanged code, and
 opens a quarantine PR for the worst offenders with a tracking issue attached.
 It only skips tests, never deletes one, and it never merges its own PR — a
 human reviews the quarantine and eventually retires it once the test is fixed.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron, one persistent session</Fact>
   <Fact label="Connected systems">GitHub · CI run history · Slack</Fact>
   <Fact label="Mode">Quarantine PR + tracking issue only — never merges, never deletes</Fact>
@@ -46,7 +46,7 @@ find which tests are actually the worst offenders.
 
 ## What we built
 
-On Kortix, a daily cron re-prompts one persistent agent session. It resumes
+On Dosco, a daily cron re-prompts one persistent agent session. It resumes
 from a flakiness ledger, pulls the CI run history from GitHub since the last
 check, updates every test's non-determinism score, and once a test crosses
 the quarantine threshold, opens a PR that skips it with a reason and a link to

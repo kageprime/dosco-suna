@@ -16,13 +16,13 @@ to change hands, and their licenses have to come back. Miss a step and a former
 employee keeps a login, a shared drive loses its owner, or a paid seat sits
 unused. The steps are simple; the risk is in the ones that get skipped.
 
-We run offboarding through an agent on Kortix. On a schedule, the agent checks
+We run offboarding through an agent on Dosco. On a schedule, the agent checks
 for newly marked departures and works the checklist across every connected
 tool, posting what it did and what is still pending. This is the security
 counterpart to how we onboard.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Scheduled Okta departure check</Fact>
   <Fact label="Connected systems">Okta/SSO · Google Workspace · Google Drive · GitHub</Fact>
   <Fact label="Mode">Schedule-driven · ownership transfer gated</Fact>
@@ -43,7 +43,7 @@ forget are exactly the ones that matter for security.
 
 ## What we built
 
-On Kortix, an agent checks Okta on a schedule for newly marked departures. Each
+On Dosco, an agent checks Okta on a schedule for newly marked departures. Each
 check spawns an isolated session (a cloud sandbox) with scoped access to Okta,
 Google Workspace, Google Drive, and GitHub, and works the offboarding checklist
 for every departure it finds: revoke SSO and app access, remove the person from

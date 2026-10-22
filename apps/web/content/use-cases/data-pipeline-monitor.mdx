@@ -1,6 +1,6 @@
 ---
 title: "How we monitor our data pipelines and warehouse health"
-description: The pipeline-health agent we run on Kortix — connected to the warehouse and GitHub. Every hour it checks table freshness, row-count anomalies, and schema drift, alerts Slack, and drafts a GitHub issue with the likely cause. It never touches the data.
+description: The pipeline-health agent we run on Dosco — connected to the warehouse and GitHub. Every hour it checks table freshness, row-count anomalies, and schema drift, alerts Slack, and drafts a GitHub issue with the likely cause. It never touches the data.
 date: "2026-04-30"
 author: team
 tags:
@@ -17,7 +17,7 @@ error anyone sees — the dashboards built on top of it just start being wrong,
 and usually the first person to notice is whoever's report looks off in a
 stakeholder meeting.
 
-We run a pipeline-monitor agent on Kortix that checks the warehouse itself,
+We run a pipeline-monitor agent on Dosco that checks the warehouse itself,
 every hour: is every table as fresh as its SLA requires, does today's row count
 look like the rest of the trend, has the schema changed under anyone, did a load
 job fail. It only reads the warehouse. When something is wrong, it posts to the
@@ -25,7 +25,7 @@ data team's Slack channel and drafts a GitHub issue with its best guess at the
 cause. This is how we watch our own warehouse.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Hourly cron</Fact>
   <Fact label="Connected systems">Postgres warehouse · Slack · GitHub</Fact>
   <Fact label="Mode">Read-only · alert + draft issue, nothing else</Fact>
@@ -51,7 +51,7 @@ unhealthy.
 
 ## What we built
 
-On Kortix, an hourly cron triggers an agent. It spawns a fresh session with
+On Dosco, an hourly cron triggers an agent. It spawns a fresh session with
 read-only access to the warehouse and checks every monitored table against its
 freshness SLA, compares today's row count to the table's own trailing baseline,
 diffs the current schema against the last-seen shape, and looks for loads that

@@ -1,6 +1,6 @@
 ---
 title: "How we source candidates for open roles"
-description: The outbound-sourcing agent we run on Kortix — daily, it finds candidates on LinkedIn for each open role, checks Greenhouse so no one already in the pipeline gets a duplicate reach-out, and drafts a personalized email for the recruiter to review and send.
+description: The outbound-sourcing agent we run on Dosco — daily, it finds candidates on LinkedIn for each open role, checks Greenhouse so no one already in the pipeline gets a duplicate reach-out, and drafts a personalized email for the recruiter to review and send.
 date: "2026-06-08"
 author: team
 tags:
@@ -18,7 +18,7 @@ pipeline, and writing an intro that actually references their background
 instead of a generic template. Done well, it's hours of work per role.
 Done under time pressure, it gets skipped and the role stays open longer.
 
-We run a candidate-sourcing agent on Kortix that does the search and the
+We run a candidate-sourcing agent on Dosco that does the search and the
 first draft every day. For an open role, it finds matching candidates on
 LinkedIn, checks Greenhouse so it never resurfaces someone already in the
 pipeline, and drafts a personalized outreach email referencing each
@@ -27,7 +27,7 @@ reviews every draft, and nothing sends and no one is added to the ATS
 without them. This is how we source our own outbound pipeline.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Greenhouse · LinkedIn · Email</Fact>
   <Fact label="Mode">Sources and drafts only · recruiter reviews and sends</Fact>
@@ -52,7 +52,7 @@ they get fixed by connecting the systems that already have the answer.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent. It spawns a fresh session (a cloud
+On Dosco, a daily cron triggers an agent. It spawns a fresh session (a cloud
 sandbox) scoped to an open role, searches LinkedIn for candidates matching
 that role's profile, checks the role's Greenhouse pipeline so it never
 proposes someone already there, and drafts a personalized outreach email for

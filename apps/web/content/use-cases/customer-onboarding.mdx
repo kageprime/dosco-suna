@@ -1,6 +1,6 @@
 ---
 title: "How we drive new customers to activation"
-description: The customer onboarding agent we run on Kortix — a daily cron that checks every new account against its onboarding milestones in Postgres, drafts a nudge email when one stalls, and alerts the owning CSM in Slack with the context to act.
+description: The customer onboarding agent we run on Dosco — a daily cron that checks every new account against its onboarding milestones in Postgres, drafts a nudge email when one stalls, and alerts the owning CSM in Slack with the context to act.
 date: "2026-06-25"
 author: team
 tags:
@@ -18,7 +18,7 @@ already at risk, and usually nobody notices until the CSM happens to open
 HubSpot and wonder why an account they haven't heard from in three weeks is
 still on "customer since" last month.
 
-We run a customer-onboarding agent on Kortix that checks every new account
+We run a customer-onboarding agent on Dosco that checks every new account
 against its onboarding milestones every day, catches the ones that are
 stalling, drafts a nudge for the customer, and alerts the owning CSM with
 exactly what's stuck and why. It never changes an account and never sends
@@ -26,7 +26,7 @@ anything itself — it hands the CSM a head start instead of a surprise churn
 conversation two quarters later.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Postgres · HubSpot · Slack · Email</Fact>
   <Fact label="Mode">Draft + alert only · CSM sends</Fact>
@@ -49,7 +49,7 @@ it's often past the point where a simple nudge would have fixed it.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent that reads HubSpot for every
+On Dosco, a daily cron triggers an agent that reads HubSpot for every
 account inside its onboarding window and owned by a CSM, checks that
 account's activation milestones and product events in Postgres, and
 classifies each one as on track, stalled at a specific milestone, or overdue

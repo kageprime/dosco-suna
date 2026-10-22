@@ -1,6 +1,6 @@
 ---
 title: "How we keep code review from stalling"
-description: The pull-request review agent we run on Kortix — it flags PRs stuck past a review SLA, gone stale, or sitting on unaddressed change requests, then nudges the author or reviewer in Slack with exactly what's blocking.
+description: The pull-request review agent we run on Dosco — it flags PRs stuck past a review SLA, gone stale, or sitting on unaddressed change requests, then nudges the author or reviewer in Slack with exactly what's blocking.
 date: "2026-03-14"
 author: team
 tags:
@@ -16,14 +16,14 @@ gives up and context-switches to something else. Multiply that across a team
 and a review SLA becomes a suggestion nobody enforces, and "requested changes"
 becomes a state a PR can live in indefinitely.
 
-We run a PR review nudge agent on Kortix that reads every open pull request
+We run a PR review nudge agent on Dosco that reads every open pull request
 across our repos once a day and posts a Slack nudge for anything stuck: past
 the review SLA, gone stale, or sitting on unaddressed change requests. It only
 reads GitHub; the single output is the Slack nudge. It never merges, closes, or
 approves anything.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">GitHub · Slack</Fact>
   <Fact label="Mode">Read-only on GitHub · nudge + summarize only</Fact>
@@ -49,7 +49,7 @@ second.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent. It spawns a fresh session with
+On Dosco, a daily cron triggers an agent. It spawns a fresh session with
 read-only access to GitHub through the `gh` CLI, pulls every open PR across our
 repos, and classifies each one against three rules: awaiting review past the
 SLA, stale with no activity in N days, or carrying requested changes the author

@@ -1,6 +1,6 @@
 ---
 title: "How we draft social posts from our content calendar"
-description: The social-scheduler agent we run on Kortix — a daily agent that reads our Notion content calendar, drafts platform-appropriate posts for upcoming content, launches, and announcements, and holds them in Slack with the scheduled date for a human to approve and publish.
+description: The social-scheduler agent we run on Dosco — a daily agent that reads our Notion content calendar, drafts platform-appropriate posts for upcoming content, launches, and announcements, and holds them in Slack with the scheduled date for a human to approve and publish.
 date: "2026-04-25"
 author: team
 tags:
@@ -16,14 +16,14 @@ LinkedIn post, a tweet, and an Instagram caption is a separate manual step
 that happens later, usually the day of, sometimes not at all. The calendar
 says what should go out; nobody had turned it into copy yet.
 
-We run a social-scheduler agent on Kortix that closes that gap every day. It
+We run a social-scheduler agent on Dosco that closes that gap every day. It
 reads the content calendar in Notion, drafts platform-appropriate posts for
 anything launching or publishing soon, and holds every draft in our marketing
 Slack channel with its scheduled date. It never posts anywhere itself — a
 person reviews, edits, and publishes.
 
 <KeyFacts>
-  <Fact label="Team">Kortix</Fact>
+  <Fact label="Team">Dosco</Fact>
   <Fact label="Runs on">Daily cron</Fact>
   <Fact label="Connected systems">Notion · Slack</Fact>
   <Fact label="Mode">Fresh session · draft-only, human publishes</Fact>
@@ -46,7 +46,7 @@ right before it's needed.
 
 ## What we built
 
-On Kortix, a daily cron triggers an agent. It spawns a fresh session that
+On Dosco, a daily cron triggers an agent. It spawns a fresh session that
 reads our Notion content calendar for anything launching, publishing, or
 being announced in the days just ahead, drafts a platform-appropriate post
 for each one — LinkedIn, X, and Instagram get different lengths, tone, and
