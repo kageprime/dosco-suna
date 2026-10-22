@@ -61,14 +61,9 @@ const FOOTER_SECTIONS: FooterSection[] = [
   },
   {
     title: 'Developers',
-    // /docs/reference/cli 404s — there is no reference/ directory. The page
-    // is content/docs/cli.mdx, routed at /docs/cli.
     links: [
       { label: 'Documentation', href: '/docs' },
-      { label: 'CLI', href: '/docs/cli' },
-      { label: 'SDK', href: '/docs/sdk' },
       { label: 'Quickstart', href: '/docs/quickstart' },
-      { label: 'For developers', href: '/developers' },
       { label: 'Marketplace', href: '/marketplace' },
     ],
   },

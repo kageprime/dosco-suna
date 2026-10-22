@@ -171,7 +171,6 @@ export const siteConfig = {
       // wide menu beside Product; the roles live in the footer, and the
       // home-page use-case cards are the in-page entry point.
       { id: 4, name: 'Pricing', href: '/pricing' },
-      { id: 6, name: 'Docs', href: '/docs' },
     ] as NavLink[],
   },
   hero: {

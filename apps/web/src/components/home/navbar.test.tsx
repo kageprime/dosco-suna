@@ -129,13 +129,14 @@ async function commitNavigation(next: string) {
 
 const header = () => container!.querySelector('header');
 
-test('the bar renders the brand, the desktop nav and a GitHub stars chip', async () => {
+test('the bar renders the brand and the desktop nav without a docs link', async () => {
   await mountNavbar();
   const html = container!.innerHTML;
   expect(header()).not.toBeNull();
-  expect(html).toContain('4,321');
   // The desktop navigation renders every top-level site link.
   expect(html).toContain('href="/pricing"');
+  // Docs lives in the footer only; it is not a top-bar destination.
+  expect(html).not.toContain('href="/docs"');
 });
 
 test('the mobile drawer locks body scroll while open and unlocks on close', async () => {
@@ -203,20 +204,6 @@ test('a tap on the row of the page already committed closes the drawer at once',
   });
   // No navigation is in flight: the drawer must not hang on a commit that
   // never comes.
-  expect(container!.querySelector('.bg-background.fixed.inset-0')).toBeNull();
-  expect(win.document.body.style.overflow).toBe('');
-});
-
-test('an off-site drawer row closes the drawer at once', async () => {
-  await openDrawer();
-  const row = container!.querySelector<HTMLAnchorElement>(
-    '.bg-background.fixed.inset-0 a[href="https://x.com/kortix"]',
-  );
-  expect(row).not.toBeNull();
-  await act(async () => {
-    lib.click(row!);
-  });
-  // The row opens a new tab; this page never commits, so the drawer closes.
   expect(container!.querySelector('.bg-background.fixed.inset-0')).toBeNull();
   expect(win.document.body.style.overflow).toBe('');
 });
@@ -298,31 +285,4 @@ test('mobile tap targets: the Get started CTA extends its hit area to the 44px f
   const cta = header()!.querySelector<HTMLAnchorElement>('a[href="/auth"]');
   expect(cta).not.toBeNull();
   expect(cta!.className).toContain('hit-area-y-3');
-});
-
-test('the drawer docs row stays a plain anchor: the tap marks it pending and leaves the document load to the browser', async () => {
-  await openDrawer();
-  const drawer = () => container!.querySelector('.bg-background.fixed.inset-0');
-  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/docs"]');
-  expect(row).not.toBeNull();
-  // `/docs` is the static Astro build under `public/docs` (KRTX-1592): the row
-  // renders a plain anchor — no soft-link marker, no new-tab target, nothing
-  // to hand to the router.
-  expect(row!.getAttribute('data-next-link')).toBeNull();
-  expect(row!.getAttribute('target')).toBeNull();
-  let click: Event | undefined;
-  await act(async () => {
-    click = lib.click(row!);
-  });
-  if (!click) throw new Error('the tap dispatched no click event');
-  // The handler must not hijack the tap: the anchor's default document load is
-  // what serves the docs site. A `preventDefault` here would either strand the
-  // reader (no soft nav exists into a static file) or force a doomed `RSC: 1`
-  // round trip before the same reload.
-  expect(click.defaultPrevented).toBe(false);
-  // The row still shows the pending spinner while the document loads; the
-  // reload itself is what closes the drawer.
-  expect(drawer()).not.toBeNull();
-  expect(drawer()!.innerHTML).toContain('animate-spinner');
-  expect(win.document.body.style.overflow).toBe('hidden');
 });
