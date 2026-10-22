@@ -1,5 +1,6 @@
 'use client';
 
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import { Button } from '@/components/ui/button';
 import { KortixLogo } from '@/components/ui/kortix-logo';
 import { useAuth } from '@/features/providers/auth-provider';
@@ -84,12 +85,9 @@ export function ProjectPendingScreen({ fill = 'viewport' }: ProjectPendingScreen
       aria-live="polite"
     >
       <span className="sr-only">{tI18nComplete.raw('text9498be620d80')}</span>
-      <KortixLogo
-        size={28}
-        variant="icon"
-        className="text-foreground motion-safe:animate-pulse"
-        aria-hidden="true"
-      />
+      {/* The mark breathes instead of pulsing: the same motion the mobile
+          loader uses, on the same waiting moment. */}
+      <BreathingCrest size={28} />
     </div>
   );
 }

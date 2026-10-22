@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import { SessionWelcome } from '@/features/session/session-welcome';
 import { useProjectName } from '@kortix/sdk/react';
 import {
@@ -104,6 +105,18 @@ export function ProjectHomeWelcomeBody({
       */}
       <div className="m-auto flex w-full max-w-3xl shrink-0 flex-col gap-10 py-8 sm:px-4">
         <div className="flex w-full flex-col gap-6">
+          {/*
+            The mark, breathing, on the empty new-chat screen — the moment the
+            product is waiting on the reader. It sits on the same `px-4` rail as
+            the heading below it, and it is hidden the moment a turn is sent:
+            the screen has work to show then.
+          */}
+          {sentTurn ? null : (
+            <div className="px-4">
+              <BreathingCrest size={40} />
+            </div>
+          )}
+
           {/*
               `w-full` with no `max-w`: the line runs the full column and breaks
               where the column ends, which is the composer's own right edge.

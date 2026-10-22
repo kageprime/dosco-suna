@@ -1,5 +1,6 @@
 'use client';
 
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import { Button } from '@/components/ui/button';
 import Loading from '@/components/ui/loading';
 import { useRestartProjectSession } from '@/hooks/projects/use-restart-project-session';
@@ -237,10 +238,9 @@ function QuietProgressLoader({
     <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center px-4 sm:px-8">
       {show ? (
         <div role="status" aria-live="polite" className="flex w-full max-w-xs items-start gap-3">
-          <Loading
-            variant="spokes"
-            className="text-muted-foreground mt-0.5 size-4 shrink-0 motion-reduce:animate-none"
-          />
+          {/* The mark breathes where the spinner was: same waiting moment, and
+              it says the same thing without spinning. */}
+          <BreathingCrest size={20} className="mt-0.5" />
           <div className="min-w-0 flex-1">
             <h2 className="text-foreground text-sm font-medium text-balance">
               {tI18nComplete.raw('textac4e05b19878')}

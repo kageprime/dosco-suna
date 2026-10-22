@@ -3,7 +3,7 @@
 import type { ProvisionPhase } from '@kortix/sdk';
 import { m, useReducedMotion } from 'motion/react';
 
-import { KortixLogo } from '@/components/ui/kortix-logo';
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import { TodoStatusIcon } from '@/features/session/tool/shared/todo-helpers';
 import { useTranslations } from '@/i18n/use-translations';
@@ -97,12 +97,7 @@ export function WorkspaceHandoff({
       aria-busy="true"
       className="flex flex-col items-center gap-6 text-center"
     >
-      <KortixLogo
-        aria-hidden
-        size={44}
-        variant="icon"
-        className="text-foreground animate-pulse motion-reduce:animate-none"
-      />
+      <BreathingCrest aria-hidden size={44} />
 
       <m.div
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}

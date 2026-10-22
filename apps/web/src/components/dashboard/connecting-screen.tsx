@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import { translateUiCatalogText } from '@/i18n/localize-ui-catalog';
 import { REMAINING_UI_TRANSLATION_KEYS } from '@/i18n/remaining-ui-translation-keys.generated';
 import { PROJECT_LANDING_PATH } from '@/lib/onboarding/landing-destination';
@@ -248,7 +248,9 @@ function ProvisioningView({
 
   return (
     <>
-      <KortixLogo size={40} />
+      {/* The mark breathes while the workspace is being prepared — the same
+          motion the mobile loader uses, on the same waiting moment. */}
+      <BreathingCrest size={40} />
 
       <p className="text-foreground/55 max-w-[320px] truncate text-sm font-normal">{label}</p>
 

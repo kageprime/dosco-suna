@@ -13,8 +13,8 @@ const render = (props: Parameters<typeof WorkspaceHandoff>[0]) =>
 
 const source = readFileSync(join(import.meta.dir, 'workspace-handoff.tsx'), 'utf8');
 
-/** The `<svg>` the Dosco mark renders into, cells and all. */
-const markup = (html: string): string => html.match(/<svg[\s\S]*<\/svg>/)?.[0] ?? '';
+/** The mark the component renders. The crest is an image, not inline SVG. */
+const markup = (html: string): string => html.match(/<img[\s\S]*?>/)?.[0] ?? '';
 
 describe('WorkspaceHandoff', () => {
   test('announces itself as a status, with the caption as the content', () => {
@@ -61,16 +61,21 @@ describe('WorkspaceHandoff', () => {
     expect(delay).toBeLessThan(0.3);
   });
 
-  test('the mark is the canonical Dosco logo, breathing rather than spinning', () => {
-    expect(source).toContain("from '@/components/ui/kortix-logo'");
-    expect(source).toContain('variant="icon"');
-    expect(source).toContain('animate-pulse');
+  test('the mark is the canonical Dosco crest, breathing rather than spinning', () => {
+    expect(source).toContain("from '@/components/ui/breathing-crest'");
+    expect(source).toContain('<BreathingCrest');
   });
 
-  test('the pulse is gated on reduced motion, since Tailwind loops it forever', () => {
-    // `globals.css` has no blanket prefers-reduced-motion rule, so an
-    // ungated `animate-pulse` runs regardless of the preference.
-    expect(source).toContain('animate-pulse motion-reduce:animate-none');
+  test('the breathing is gated on reduced motion, inside the shared component', () => {
+    // `globals.css` has no blanket prefers-reduced-motion rule, so the gate
+    // has to be explicit. It lives in BreathingCrest, which every waiting
+    // surface now uses - the gate is written down once, in one place.
+    const crest = readFileSync(
+      join(import.meta.dir, '../../../components/ui/breathing-crest.tsx'),
+      'utf8',
+    );
+    expect(crest).toContain('useReducedMotion');
+    expect(crest).toContain('reducedMotion ? 1');
   });
 
   test('the caption carries the shimmer, the same busy treatment as a live session', () => {
