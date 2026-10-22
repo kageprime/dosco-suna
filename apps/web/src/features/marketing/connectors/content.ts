@@ -346,7 +346,7 @@ export const close = {
   ctaSecondary: 'Read the docs',
   ctaSecondaryHref: '/docs/connect/connectors',
   points: [
-    'No lock-in — Dosco Cloud, your VPC, or on-prem.',
+    'No lock-in — any model, your keys, your data.',
     'Credentials encrypted, brokered server-side, never handed to the model.',
     'Allow, Ask, or Block on every action, with a human in the loop where it matters.',
   ],

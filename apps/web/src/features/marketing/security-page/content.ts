@@ -381,7 +381,7 @@ export const audit = {
 export const posture = {
   eyebrow: 'Deployment & posture',
   title: 'Run it where your policy says it has to run.',
-  sub: 'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. so what you are trusting is code you can read.',
+  sub: 'The same product ships as managed cloud, with an isolated machine for every session. And because every run is audited, you do not have to take our word for it.',
   deployments: [
     {
       id: 'cloud',

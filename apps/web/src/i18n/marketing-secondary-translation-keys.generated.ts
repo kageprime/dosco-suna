@@ -63,7 +63,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   'Dosco is model-agnostic. Pick the model per agent, per session or per message, and switch the day a better one lands.':
     'textcc65757529c4',
   'Large language models': 'text5f69c8b42ef2',
-  'Make Dosco the instant answer to "what is the Claude Cowork or ChatGPT Work?"':
+  'Make Dosco the answer to “what replaces Claude Cowork and ChatGPT Work?”':
     'texteed85df67313',
   'Most tools hand you one layer and rent you the rest. Dosco is all six — they read in order, and the sixth commits the work back into the first.':
     'text85e7ee9efd75',
@@ -82,7 +82,7 @@ export const MARKETING_SECONDARY_TRANSLATION_KEYS: Readonly<Record<string, strin
   'One place your agents run and all of your context connects. Six verbs, one system.':
     'text62ddfb05e17d',
   'Open positions.': 'text8c32a6e96921',
-  'So the harness is never the thing you are locked into': 'text1d7bec01eefe',
+  'The harness is never the thing you are locked into.': 'text1d7bec01eefe',
   'Or sign in with the ChatGPT subscription you already pay for': 'text9f18644f852a',
   'Or your own models, behind your own URL — anything OpenAI-compatible': 'text952de9b7d9e0',
   'Own services end to end, and build the engineering team behind it.': 'text4e9c9a2dc8bd',

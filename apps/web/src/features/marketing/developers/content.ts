@@ -124,7 +124,7 @@ export const thesis = {
     {
       line: 'You own the stack.',
       // ACCURACY: say "open source" and stop. Never characterise the licence.
-      body: 'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.',
+      body: 'Bring your own model keys. No black box, no lock-in.',
       hosts: { from: 'kortix cloud', to: 'your servers' },
     },
   ],

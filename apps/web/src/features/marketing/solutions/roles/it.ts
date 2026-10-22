@@ -191,13 +191,13 @@ export const it: RoleContent = {
       {
         id: 'deploy',
         k: 'Identity, audit and where it runs',
-        v: 'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Deployment is Dosco Cloud, your own VPC, or your own on-prem network — and you can read what you are running. It is not air-gapped: starting a private stack pulls images over the network. For an isolated topology, talk to us.',
+        v: 'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Dosco runs on Dosco Cloud, with a dedicated isolated machine for every session. Every change is versioned and every run is audited, so you can verify what happened. For questions about isolation and compliance, talk to us.',
       },
     ],
   },
 
   closing: {
     title: 'Read the security page before the pitch.',
-    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   },
 };

@@ -132,7 +132,7 @@ export const LAYERS: Layer[] = [
       // same repo. Do not shorten this back to "an agent is markdown".
       'An OpenCode agent: markdown, plus the tools and plugins beside it',
       'Say allow, ask or deny per tool — down to a single shell command',
-      'So the harness is never the thing you are locked into',
+      'The harness is never the thing you are locked into.',
     ],
   },
   {

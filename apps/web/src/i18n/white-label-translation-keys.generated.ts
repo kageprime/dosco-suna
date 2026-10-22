@@ -77,7 +77,7 @@ export const WHITE_LABEL_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The one thing you need from us is compute.': 'textc897764874f9',
   'The right to offer Dosco to your customers as a hosted service under your brand.':
     'text6cd480833e4b',
-  'The whole product, : read it, fork it, audit it.': 'textca045660b259',
+  'The whole product, under your brand: ship it, price it, support it.': 'textca045660b259',
   'Three steps, and no call with us unless you want custom terms.': 'text0d68dc7a9ba1',
   'Vertical AI': 'text31122808c69c',
   'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.':

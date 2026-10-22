@@ -334,7 +334,7 @@ export const marketplace = {
 export const closing = {
   eyebrow: 'Build the workforce',
   title: 'Write it once. Every session knows it.',
-  sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.',
+  sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   ctaPrimary: 'Start a session',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Read the agent docs',

@@ -291,7 +291,7 @@ export const CHANNELS_COMPANY_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'Only the owner. Everyone else gets nothing, predictably.': 'text89e2ee9d1cd7',
   'Open a change request against main?': 'text08bd9a10da30',
   'No lock-in': 'text782a07562e97',
-  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
+  'No lock-in. Any model, your keys. Dosco Cloud, managed for you.':
     'text1d9a8dde5629',
   'Open the repo': 'text1fa449139a48',
   'OpenCode, declared in the repo': 'text8eb07f243576',

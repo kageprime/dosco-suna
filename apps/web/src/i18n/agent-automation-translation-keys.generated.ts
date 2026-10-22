@@ -120,9 +120,9 @@ export const AGENT_AUTOMATION_TRANSLATION_KEYS: Readonly<Record<string, string>>
   'One machine per session · Pre-configured · Nothing runs on your laptop': 'text7a04f383ef22',
   'one OpenCode agent per file': 'text18a59ffd5fa8',
   'One switch pauses everything': 'textfb2ab460e464',
-  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
+  'No lock-in. Any model, your keys. Dosco Cloud, managed for you.':
     'text1d9a8dde5629',
-  'With support for any AI model. Use Dosco Cloud or run it on your own systems.':
+  'With support for any AI model, on Dosco Cloud.':
     'text5b6a9e140d4b',
   OpenCode: 'text3af0e55ccc96',
   'OpenCode runs inside the machine as the agent harness, with your models, your tools and your secrets injected at runtime. The machine is ready. The agent begins.':

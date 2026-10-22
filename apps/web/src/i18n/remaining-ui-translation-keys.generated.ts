@@ -916,7 +916,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Agents, skills, triggers, connectors and policies are plain files in one repo. Diff them, review them in a change request, roll them back.':
     'text2ec1c779f38c',
   'You own the stack.': 'text48ab3bffe3da',
-  'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Bring your own model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   'kortix cloud': 'textea64448cda1c',
   'your servers': 'textdb80902e511f',

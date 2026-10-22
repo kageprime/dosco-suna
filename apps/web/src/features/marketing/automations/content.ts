@@ -273,7 +273,7 @@ export const review = {
 export const closing = {
   eyebrow: 'Automate it',
   title: 'Write the schedule. Read the change request.',
-  sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.',
+  sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   ctaPrimary: 'Start a session',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Read the trigger docs',

@@ -345,7 +345,7 @@ export const custom = {
 export const closing = {
   eyebrow: 'Connect it',
   title: 'Put it in the thread people already use.',
-  sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.',
+  sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   ctaPrimary: 'Connect Slack',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Read the channel docs',

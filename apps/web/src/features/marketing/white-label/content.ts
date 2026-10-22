@@ -108,7 +108,7 @@ export const deal = {
       'Your name, logo, domain and colors in place of Dosco.',
       'Your structure: change the source, the navigation, the features and the defaults.',
       'The right to offer Dosco to your customers as a hosted service under your brand.',
-      'The whole product, : read it, fork it, audit it.',
+      'The whole product, under your brand: ship it, price it, support it.',
     ],
   },
   commit: {

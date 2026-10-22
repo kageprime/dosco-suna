@@ -161,18 +161,11 @@ export function useSlides(): SlideDef[] {
             )}
             lead={tI18nHardcoded.raw('autoAppPresentationSlidesEngJsxAttrLeadTheFirstOpen3002ec16')}
           />
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatBlock
               icon={Users}
               value="400K+"
               label={tI18nHardcoded.raw('i18nComplete.text6b0cc904d081')}
-            />
-            <StatBlock
-              icon={Star}
-              value="~20K"
-              label={tI18nHardcoded.raw(
-                'autoAppPresentationSlidesEngJsxAttrLabelGitHubStars281bbe4f',
-              )}
             />
             <StatBlock
               icon={Wallet}

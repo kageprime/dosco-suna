@@ -410,7 +410,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Dosco for sales teams': 'text48de6f4846b1',
   'Dosco has a real account, member, group and role model with per-resource permissions for people and for agents. An access review that covers your humans and not your automation is half a review.':
     'text895560302007',
-  'Dosco is and : Dosco Cloud, your own VPC, or your own on-prem network. If personal data may not leave your infrastructure, run the whole platform inside it. For deployment and compliance questions, talk to us rather than trusting a claim on a marketing page.':
+  'Dosco is a managed cloud platform: Dosco Cloud, with a dedicated isolated machine for every session. If personal data may not leave your region, or you need a specific deployment, talk to us rather than trusting a claim on a marketing page.':
     'textba3f27dd11a9',
   'Lands as': 'text91a5715f7014',
   'Last night’s exceptions, grouped': 'text4d77a6d5bda3',
@@ -464,7 +464,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text64c41c6adfa4',
   'One rename, one API move, one lint rule turned on — the kind of change that is trivial per file and unbearable at scale. It works file by file on its own branch and lands one reviewable diff.':
     'text2c0f44757d70',
-  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.':
+  'No lock-in. Any model, your keys. Dosco Cloud, managed for you.':
     'text8af666ebb4c8',
   'packages/export/': 'text7fec5f7bc46e',
   People: 'text7db20897053b',
@@ -581,7 +581,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textbb5635b0e8d3',
   'Set the send action to Ask and the run holds at the call, showing you the message and who it is addressed to. Approve and the same call completes. Deny and the session carries on without it.':
     'text10e0b5222505',
-  'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Deployment is Dosco Cloud, your own VPC, or your own on-prem network — and you can read what you are running. It is not air-gapped: starting a private stack pulls images over the network. For an isolated topology, talk to us.':
+  'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Dosco runs on Dosco Cloud, with a dedicated isolated machine for every session. Every change is versioned and every run is audited, so you can verify what happened. For questions about isolation and compliance, talk to us.':
     'text07d514c3e52e',
   'skills/claims/SKILL.md': 'text7779bc2ac4be',
   'skills/voice/SKILL.md': 'textf947a3ead994',

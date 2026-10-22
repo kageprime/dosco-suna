@@ -186,6 +186,6 @@ export const marketing: RoleContent = {
 
   closing: {
     title: 'Put the voice in the repo. Let the production line run.',
-    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   },
 };

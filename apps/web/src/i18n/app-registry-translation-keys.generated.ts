@@ -69,7 +69,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textc910d1020fa8',
   'Nothing prepared yet': 'text8b64afef1a24',
   'Offboard someone everywhere by removing one membership': 'text6d2d6f5347aa',
-  'Run the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
+  'Bring your own model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   Operate: 'text58c3939c4ce9',
   'Preparing this project’s environment': 'text69e4bd3a0f79',

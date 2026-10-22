@@ -191,6 +191,6 @@ export const sales: RoleContent = {
 
   closing: {
     title: 'Give it the admin. Keep the conversations.',
-    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   },
 };

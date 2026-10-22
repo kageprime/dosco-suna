@@ -77,7 +77,7 @@ export const CONNECTORS_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'OAuth access tokens': 'textfe2db5690c6e',
   'One connection. Every agent, every session, every person.': 'text1b602e7270b7',
   'One scoped token, and nothing else': 'texte0661dab3f98',
-  'No lock-in — Dosco Cloud, your VPC, or on-prem.': 'texta6e6f5c3b55b',
+  'No lock-in — any model, your keys, your data.': 'texta6e6f5c3b55b',
   Outcome: 'text4e80abb5b146',
   'Pauses for a human': 'text8932a840affb',
   'Per agent': 'text79b8817235ae',

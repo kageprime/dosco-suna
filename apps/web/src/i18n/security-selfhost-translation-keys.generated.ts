@@ -195,8 +195,6 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'One Docker Compose project': 'textc28e1cbeedd6',
   'One Docker Compose stack on your box, from the same images the managed cloud runs. Your database and your files sit on disk you control.':
     'textf17e37545b39',
-  'One Docker Compose stack, built from the same images the managed cloud runs. Your database, your files, your repos and your policies sit on disk you control. It is yours, so what you are running is code you can read.':
-    'textfbdfd536fa56',
   'One honest exception': 'text7b2aba63cf85',
   'One sandbox per session': 'texta8c9aab244af',
   'One sandbox per session · Connector keys never enter it · Nothing merges itself':
@@ -304,7 +302,7 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
     'text894031366a18',
   'The same images': 'text92f91971fba0',
   'The same Dosco, on your box.': 'textf99aa2b72432',
-  'The same product ships as managed cloud, as a stack inside your own network, and as an isolated deployment. so what you are trusting is code you can read.':
+  'The same product ships as managed cloud, with an isolated machine for every session. And because every run is audited, you do not have to take our word for it.':
     'textcbb8b2ff8cdf',
   'The same product surface': 'text01ea7ab2073a',
   'The same stack inside your network. Isolated and air-gapped topologies need the sandbox tier moved inside with it, which we scope with you.':

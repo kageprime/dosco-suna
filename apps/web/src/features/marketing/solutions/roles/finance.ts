@@ -205,6 +205,6 @@ export const finance: RoleContent = {
 
   closing: {
     title: 'Hand over the assembly. Keep the judgement.',
-    sub: 'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or your own on-prem network.',
+    sub: 'No lock-in. Any model, your keys. Dosco Cloud, managed for you.',
   },
 };

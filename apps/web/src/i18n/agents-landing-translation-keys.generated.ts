@@ -198,8 +198,6 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'text06cf627597d9',
   'It wires itself up': 'textf87700ba8e67',
   Dosco: 'textab54cf5e1d9d',
-  'Dosco Cloud, your own VPC, or your own on-prem network. It is yours, so you can read every line of what you are trusting.':
-    'textb6de6f87c92d',
   'kortix.yaml': 'text1965f383021e',
   'Large Language Models': 'text0340bfb383fc',
   left: 'text360f84035942',
@@ -214,8 +212,6 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   Mobile: 'textcbaad3cf4a65',
   'month end close': 'textecc7ed048b32',
   'More than prose': 'text11ad216eb380',
-  'Most tools hand you one layer and rent you the rest. Dosco is all of them, running wherever you put it.':
-    'text3c579d4ff304',
   new: 'text11507a0e2f5e',
   'No systems depth': 'textdfa2cff42f0c',
   Notion: 'text73bcfe98830b',
@@ -230,8 +226,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textcd3fefb94c04',
   'No lock-in': 'text67a0d2e0dab4',
   'Any model, your keys · Managed cloud · Built by AltMatter': 'textb205e3c57a77',
-  'SSO, RBAC & on-prem · Any model, your keys · No lock-in': 'texte6ae56a1f248',
-  'No lock-in. Any model, your keys. Dosco Cloud, your own VPC, or fully on-prem.':
+  'No lock-in. Any model, your keys. Dosco Cloud, managed for you.':
     'text1d9a8dde5629',
   OpenAI: 'text8b7d1a3187ab',
   OpenCode: 'text3af0e55ccc96',
@@ -316,7 +311,6 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
     'textea25cb521ec9',
   'The layer that turns a model into an agent: planning, tool use, and multi-step runs it actually finishes. Fully customizable and powered by OpenCode, so the way your agents think is yours to edit.':
     'textcd3a5d4a1364',
-  'The leading alternative to': 'text3d40244f591d',
   'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.':
     'textec69732f4600',
   'The agentic operating system': 'text1806843c0554',
