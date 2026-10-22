@@ -38,7 +38,7 @@ Under the default:
 
 Kortix and a partner can sign a custom agreement instead, for example with a fixed
 term, committed volumes, or other terms. A signed custom agreement controls over
-the default. Email [marko@kortix.ai](mailto:marko@kortix.ai).
+the default. Email [hello@altmatter.space](mailto:hello@altmatter.space).
 
 ## Get a license
 
@@ -46,14 +46,14 @@ the default. Email [marko@kortix.ai](mailto:marko@kortix.ai).
 It takes about two minutes. The agreement is in force when you sign. Kortix does
 not countersign. You get the signed copy by email.
 
-For custom terms, email [marko@kortix.ai](mailto:marko@kortix.ai).
+For custom terms, email [hello@altmatter.space](mailto:hello@altmatter.space).
 
 ## After you sign
 
 1. **Get Platinum access.** Sign in at
    [platinum.dev/dashboard](https://platinum.dev/dashboard) and create an API key
    (`pt_live_…`). If signup is not open for you, email
-   [marko@kortix.ai](mailto:marko@kortix.ai) from the address you signed with.
+   [support@dosco.live](mailto:support@dosco.live) from the address you signed with.
 2. **Point your Kortix at Platinum.** Set these in the API environment of your
    deployment, whatever infrastructure it runs on:
 
@@ -258,7 +258,7 @@ jurisdiction.
 consent. Kortix may assign this Agreement to an affiliate or to a successor.
 
 13.4. **Notices.** Notices to Kortix go to
-[legal@kortix.com](mailto:legal@kortix.com). Notices to Partner go to the email
+[hello@altmatter.space](mailto:hello@altmatter.space). Notices to Partner go to the email
 address in its signature.
 
 13.5. **Relationship.** The parties are independent contractors. This Agreement does

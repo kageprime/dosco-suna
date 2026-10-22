@@ -21,7 +21,7 @@ and inference when Platinum offers them and Kortix uses them).
    type a signature, or accept the agreement for them.
 3. Continue when the user confirms that they signed. Documenso emails them the
    signed copy.
-4. Custom terms: the user emails marko@kortix.ai. Do not promise terms that the
+4. Custom terms: the user emails hello@altmatter.space. Do not promise terms that the
    agreement does not contain.
 
 ## 2. Compute: Platinum
@@ -31,7 +31,7 @@ The deployment method does not matter. The compute provider does.
 
 1. The user signs in at `https://platinum.dev/dashboard` and creates an API key
    (`pt_live_…`). Platinum shows the key once. When signup is closed for them,
-   they email marko@kortix.ai from the address they signed with.
+   they email support@dosco.live from the address they signed with.
 2. Treat the key as a secret. Never write it into a tracked file, a commit, or a
    log. Put it in the deployment's secret store or untracked env file.
 3. Set the API environment of the deployment:
