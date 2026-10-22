@@ -8,14 +8,20 @@ const PREVIEW_SESSION_COOKIE = '__preview_session';
 /**
  * Set (or refresh) the preview session cookie.
  * Scoped to /v1/p/ so it only applies to preview proxy routes.
- * SameSite=Lax allows the cookie on same-site navigations and sub-resource loads.
- * Max-Age=3600 (1 hour) — the frontend refreshes the token periodically.
+ *
+ * The web app and the API can sit on different registrable domains (for
+ * example dosco.live and api.kortix.com). The preview iframe is therefore a
+ * third-party context, and a `SameSite=Lax` cookie is not sent with it: the
+ * iframe gets a 401 even after `POST /v1/p/auth` succeeded. `SameSite=None`
+ * plus `Partitioned` keeps the credential scoped to the embedding site while
+ * still sending it in the iframe. Max-Age=3600 (1 hour) — the frontend
+ * refreshes the token periodically.
  */
 export function setPreviewSessionCookie(c: Context, token: string) {
   const encoded = encodeURIComponent(token);
   c.header(
     'Set-Cookie',
-    `${PREVIEW_SESSION_COOKIE}=${encoded}; Path=/v1/p/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`,
+    `${PREVIEW_SESSION_COOKIE}=${encoded}; Path=/v1/p/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=3600`,
     { append: true },
   );
 }

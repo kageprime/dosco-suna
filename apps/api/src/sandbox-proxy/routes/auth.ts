@@ -69,6 +69,13 @@ getAuthToken.openapi(
     // scopes it to the exact subdomain that served the response. This avoids
     // Chrome rejecting the cookie when Domain=localhost is treated as a public suffix.
     //
+    // The web app and the API can sit on different registrable domains (for
+    // example dosco.live and api.kortix.com). A `SameSite=Lax` cookie is then
+    // omitted from the preview iframe's third-party request, so the exchange
+    // succeeds and the next request still answers 401. `SameSite=None` keeps
+    // it on cross-site requests; `Partitioned` scopes it to the embedding site
+    // and survives third-party-cookie blocking.
+    //
     // IMPORTANT: Path MUST be /v1/p/ — matching the combinedAuth middleware cookie
     // path. Using Path=/ would create a SECOND cookie at a different scope, causing
     // both to be sent on /v1/p/* requests and doubling the Cookie header size,
@@ -76,7 +83,7 @@ getAuthToken.openapi(
     const encoded = encodeURIComponent(token);
     c.header(
       'Set-Cookie',
-      `${PREVIEW_SESSION_COOKIE}=${encoded}; Path=/v1/p/; HttpOnly; Secure; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`,
+      `${PREVIEW_SESSION_COOKIE}=${encoded}; Path=/v1/p/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${COOKIE_MAX_AGE}`,
       { append: true },
     );
 
