@@ -86,7 +86,7 @@ App viewers are described in [Know who is looking](/docs/apps#know-who-is-lookin
 | `create(input)` · `createRepo(input)` | From an existing `repo_url` · on a new GitHub repository. |
 | `update(projectId, input)` · `archive(projectId)` | Change settings · archive. |
 | `llmCatalog(projectId)` · `modelPicker(projectId)` | Full model catalog · the compact list for a model picker. |
-| `modelAccess(projectId)` · `setModelAccess(projectId, { target: 'provider' \| 'model', id, enabled })` | Read · turn on or off one provider or model. Provider id `kortix` is the Dosco-managed models. Disabling the current default returns `409 cannot_disable_default`. |
+| `modelAccess(projectId)` · `setModelAccess(projectId, { target: 'provider' \| 'model', id, enabled })` | Read · turn on or off one provider or model. Provider id `kortix` holds the Dosco-managed models when that path is enabled. Disabling the current default returns `409 cannot_disable_default`. |
 | `sandboxHealth(projectId)` · `sandboxTemplates(projectId)` | Sandbox build health · build templates. |
 | `sessions(projectId)` · `createSession(projectId, input?)` | Same as `p.sessions.list()` · `p.sessions.create()`. |
 

@@ -195,7 +195,7 @@ The parent sets the height, and the thread fills it. Everything reads off `sessi
 | `renderTool` | `(tool) => ReactNode \| undefined`. Replaces the card of one tool call. Return `undefined` to keep the default `ToolCall`. |
 | `renderers` | Overrides the renderer of any part kind (`text`, `reasoning`, `tool`, `file` and the rest). |
 | `onError` | `(message, error) => void`. Reports a failed permission reply, question reply or slash command, for a toast. Without it, the error shows inline. A refused slash command also puts the typed line back into the composer. |
-| `providerLabel` | `(model) => string`. The provider line of a model row in the model picker. A white-label returns its own name for Dosco-managed models (`model.providerID === 'kortix'`). `ModelPicker` takes the same prop. |
+| `providerLabel` | `(model) => string`. The provider line of a model row in the model picker. A white-label returns its own name for managed Dosco models (`model.providerID === 'kortix'`), when that path is enabled. `ModelPicker` takes the same prop. |
 
 The thread follows the transcript rules of the Dosco web app. When a provider error interrupts a turn, the harness resumes it with its own `[auto-recovery]` prompt: the thread shows no bubble for that prompt and no error row for the failure it continued. If the chain still ends in failure, one error row shows, with how many automatic retries ran. The composer shows the `/ for commands` hint only when the session has a command. In the model picker, ArrowUp and ArrowDown move the highlight and Enter picks it.
 
