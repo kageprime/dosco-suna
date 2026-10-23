@@ -94,13 +94,24 @@ Local working copies:
       web: Dockerfile.heroku
     config:
       SERVICE: apps/api
-  run:
-    web: cd apps/api && exec bun run src/serve.ts
   ```
 
-- The runner lands `apps/api` at `/app/apps/api`; the `run:` line `cd`s there
-  before `exec bun run src/serve.ts` (this replaces the old `start.sh`).
-  `serve.ts` binds `$PORT` immediately and evaluates the app behind the
+- The runner stage ends with `WORKDIR /app/apps/api` and
+  `CMD ["bun","run","src/serve.ts"]` on the `bun` user. Heroku runs the image
+  CMD as the web process — keep `heroku.yml` WITHOUT a `run:` section. A run
+  line executes from that final WORKDIR: the `cd apps/api` variant (added
+  from a `/app`-WORKDIR assumption) fails instantly and silently against it
+  (H10 crash loop, no app output — release v39, 2026-10-23 worst-crash lesson).
+
+  ```yaml
+  build:
+    docker:
+      web: Dockerfile.heroku
+    config:
+      SERVICE: apps/api
+  ```
+
+- `serve.ts` binds `$PORT` immediately and evaluates the app behind the
   listener, so the platform sees the port open before the route graph finishes
   loading.
 - Upkeep on every Dockerfile sync from `main`:

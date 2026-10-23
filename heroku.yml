@@ -3,5 +3,3 @@ build:
     web: Dockerfile.heroku
   config:
     SERVICE: apps/api
-run:
-  web: cd apps/api && exec bun run src/serve.ts
