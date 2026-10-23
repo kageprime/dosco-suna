@@ -333,6 +333,16 @@ export function invalidatePreviewLink(sandboxId: string, port: number): void {
   dropIngress(`${sandboxId}:${port}:`);
 }
 
+/** Drop EVERY cached preview link for a sandbox, all transports and ports.
+ * Providers that mint a new ingress token when their runtime resumes (E2B
+ * rotates the traffic token on every pause-resume; Daytona's replacement edge
+ * rejects the stale link) must not serve requests with a link captured before
+ * the restart — the resolve after this call is the first thing that mints the
+ * fresh credential. */
+export function invalidateSandboxPreviewLinks(sandboxId: string): void {
+  dropIngress(`${sandboxId}:`);
+}
+
 // ── Upstream auth headers (shared by HTTP forward + WebSocket) ────────────────
 
 /**
@@ -396,6 +406,14 @@ export async function wakeSandbox(externalId: string): Promise<void> {
     await provider.ensureRunning(externalId);
     console.log(`[PREVIEW] Wake-up triggered for sandbox ${externalId}`);
     if (before === 'stopped') {
+      // A runtime restart invalidates whatever the provider edge minted for the
+      // previous boot. The cached preview links (URL + per-token headers) point at
+      // material that no longer authenticates — E2B rotates the traffic token on
+      // every resume — so the FIRST request through a cached link would answer
+      // with the provider's own 403 page. Drop them; the next request re-resolves.
+      // The link keys are EXTERNAL ids (the id the preview hosts and /v1/p embed),
+      // which is exactly the domain `wakeSandbox` is called in.
+      invalidateSandboxPreviewLinks(record.externalId ?? externalId);
       await recoverTurnsAfterRuntimeRestart({
         sandboxId: record.sandboxId,
         sessionId: record.sessionId,

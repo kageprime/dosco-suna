@@ -32,6 +32,9 @@ mock.module('../shared/kortix-user-context', () => ({
 }));
 let providerStatusBeforeWake: 'running' | 'stopped' | 'unknown' = 'running';
 const recoveryCalls: Array<Record<string, unknown>> = [];
+// The ingress fake is observable so a test can prove a cached preview link is
+// dropped (not merely tolerated) across the restart boundary.
+let ingressResolveCalls: string[] = [];
 mock.module('../projects/session-lifecycle/runtime-restart-recovery', () => ({
   recoverTurnsAfterRuntimeRestart: async (input: Record<string, unknown>) => {
     recoveryCalls.push(input);
@@ -46,6 +49,15 @@ mock.module('../platform/providers', () => ({
     },
     async ensureRunning(externalId: string) {
       ensureRunningCalls.push(externalId);
+    },
+    ingressCacheTtlMs: 60_000,
+    async resolveIngress(externalId: string) {
+      ingressResolveCalls.push(externalId);
+      return {
+        url: 'http://upstream.local',
+        headers: { 'e2b-traffic-access-token': 'tok' },
+        effectivePort: 3000,
+      };
     },
   }),
 }));
@@ -92,10 +104,10 @@ const { wakeSandbox } = await import('./backend');
 function reset(nextDeadline: Date | null) {
   ensureRunningCalls = [];
   recoveryCalls.length = 0;
+  ingressResolveCalls = [];
   providerStatusBeforeWake = 'running';
   deadlineAt = nextDeadline;
 }
-
 describe('wakeSandbox — a provider start obeys the deadline', () => {
   test('wakes a box whose deadline is still live', async () => {
     reset(new Date(Date.now() + 60 * 60_000));
@@ -127,6 +139,44 @@ describe('wakeSandbox — a provider start obeys the deadline', () => {
     await wakeSandbox('ext-1');
 
     expect(recoveryCalls).toEqual([]);
+  });
+
+  test('a restart drops every cached preview link so the next resolve re-mints the token', async () => {
+    // The restart mints a NEW provider ingress credential (E2B rotates the
+    // traffic token on every resume). A link cached before the restart would
+    // replay the dead one — the resolve after the wake must go to the provider
+    // again, not to the cache.
+    reset(new Date(Date.now() + 60 * 60_000));
+    providerStatusBeforeWake = 'stopped';
+    const backend = await import('./backend');
+    // The module-internal link cache outlives the fake rows a test seeds, so
+    // each of these tests starts from an empty one.
+    backend.invalidateSandboxPreviewLinks('ext-1');
+    const ref = { externalId: 'ext-1', provider: 'daytona' };
+    const request = { port: 3000, path: '/', transport: 'http' as const };
+
+    await backend.resolveSandboxIngress(ref, request);
+    await backend.resolveSandboxIngress(ref, request); // served by the cache
+    expect(ingressResolveCalls).toEqual(['ext-1']);
+
+    await wakeSandbox('ext-1');
+
+    await backend.resolveSandboxIngress(ref, request);
+    expect(ingressResolveCalls).toEqual(['ext-1', 'ext-1']);
+  });
+
+  test('a wake that was already running does not drop cached preview links', async () => {
+    reset(new Date(Date.now() + 60 * 60_000));
+    providerStatusBeforeWake = 'running';
+    const backend = await import('./backend');
+    backend.invalidateSandboxPreviewLinks('ext-1');
+    const ref = { externalId: 'ext-1', provider: 'daytona' };
+    const request = { port: 3000, path: '/', transport: 'http' as const };
+
+    await backend.resolveSandboxIngress(ref, request);
+    await wakeSandbox('ext-1');
+    await backend.resolveSandboxIngress(ref, request);
+    expect(ingressResolveCalls).toEqual(['ext-1']);
   });
 
   test('REFUSES to wake a box whose deadline has passed', async () => {

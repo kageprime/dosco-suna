@@ -588,6 +588,76 @@ describe('forwardToSandbox authentication failures', () => {
     expect(fetchCalls).toBe(1);
   });
 
+  describe('an E2B edge that rotated the traffic token during a resume', () => {
+    // E2B mints a NEW traffic access token every time the sandbox resumes, so a
+    // link cached before the restart answers 403 with the edge's own copy
+    // naming the header. The proxy must spot that refusal, drop the cached
+    // link, and re-resolve once — the same healing the Daytona 401 above gets.
+    const staleToken403 = () =>
+      new Response(
+        JSON.stringify({
+          message:
+            "Sandbox is secured with traffic access token.\nToken header 'e2b-traffic-access-token' is missing",
+          sandboxId: 'iskbwr82f9wc2k0srkdv1',
+        }),
+        { status: 403, headers: { 'content-type': 'application/json' } },
+      );
+
+    beforeEach(() => {
+      currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
+    });
+
+    test('a GET drops the cached link once and succeeds on the re-resolve', async () => {
+      queueFetch(staleToken403(), new Response('ok', { status: 200 }));
+      const res = await forward({ port: 3000, path: '/' });
+      expect(res.status).toBe(200);
+      expect(fetchCalls).toBe(2);
+      expect(counts.invalidatePreviewLink).toBe(1);
+    });
+
+    test('the browser-shaped HTML edge page is recognized the same way', async () => {
+      queueFetch(
+        new Response(
+          '<h1>Missing traffic access token</h1><p>The sandbox iskbwr82f9wc2k0srkdv1 requires a traffic access token. The e2b-traffic-access-token header is missing.</p>',
+          { status: 403, headers: { 'content-type': 'text/html' } },
+        ),
+        new Response('ok', { status: 200 }),
+      );
+      const res = await forward({ port: 3000, path: '/' });
+      expect(res.status).toBe(200);
+      expect(fetchCalls).toBe(2);
+      expect(counts.invalidatePreviewLink).toBe(1);
+    });
+
+    test('a write is never replayed — 503 with the refresh code, link dropped once', async () => {
+      queueFetch(staleToken403());
+      const res = await forward({
+        method: 'POST',
+        path: '/upload',
+        port: 3000,
+        body: bodyOf({ a: 1 }),
+      });
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        error: 'sandbox provider authentication unavailable',
+        code: 'sandbox_provider_auth_unavailable',
+        retry: true,
+      });
+      expect(fetchCalls).toBe(1);
+      expect(counts.invalidatePreviewLink).toBe(1);
+    });
+
+    test('any other E2B 403 is an upstream body the proxy passes through', async () => {
+      currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
+      queueFetch(new Response('forbidden: the app itself said no', { status: 403 }));
+      const res = await forward({ port: 3000, path: '/' });
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe('forbidden: the app itself said no');
+      expect(fetchCalls).toBe(1);
+      expect(counts.invalidatePreviewLink).toBe(0);
+    });
+  });
+
   test('an upstream 401 that the provider did not sign is a 502 signed-context rejection', async () => {
     currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
     queueFetch(new Response('unauthorized', { status: 401 }));

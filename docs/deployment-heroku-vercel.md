@@ -668,3 +668,17 @@ WHERE NOT granted;
 | Service role key rotation | **pending** |
 | Pipedream credentials | invalid (401) - connectors disabled with the scheduler |
 | TUNNEL_ENABLED | false - "Computers" routes return 503 `tunnel_disabled` by design |
+
+## 12. Known incidents and fixes (2026-10-23)
+
+- **Sandbox previews on E2B broke after a resume** ("Missing traffic access
+  token. The e2b-traffic-access-token header is missing", for example sandbox
+  `iskbwr82f9wc2k0srkdv1`). E2B mints a NEW traffic token on every
+  pause-resume; the preview proxy's per-port link cache kept serving the
+  pre-restart token for up to its 5-minute TTL, and the cached-token refusal
+  refresh path (`provider-auth.ts` / sandbox-proxy `retry.ts`) covered Daytona
+  only. Fixed by recognizing E2B's 403 traffic-token refusals (JSON or HTML,
+  both name the header) in `isProviderIngressAuthFailure` — the same
+  invalidate-and-retry-once healing — and by dropping ALL of a sandbox's cached
+  preview links at the restart boundary in `wakeSandbox`. Deploy requires an
+  apps/api release.
