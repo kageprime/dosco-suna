@@ -8,7 +8,7 @@ export async function isProviderIngressAuthFailure(provider: string, response: R
   // way the Daytona 401 below does: drop the cached preview link and re-resolve
   // once. Without this, every request during the whole link-cache TTL kept
   // replaying the rotated-during-resume token, so the preview showed E2B's 403
-  // page (dosco, 2026-10-23: sandbox iskbwr82f9wc2k0srkdv1).
+  // page (a dosco prod sandbox that had resumed mid-serve, 2026-10-23).
   if (provider === 'e2b') {
     if (response.status !== 403) return false;
     const body = await response.clone().text().catch(() => '');

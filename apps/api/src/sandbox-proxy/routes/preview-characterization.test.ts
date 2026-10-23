@@ -598,7 +598,7 @@ describe('forwardToSandbox authentication failures', () => {
         JSON.stringify({
           message:
             "Sandbox is secured with traffic access token.\nToken header 'e2b-traffic-access-token' is missing",
-          sandboxId: 'iskbwr82f9wc2k0srkdv1',
+          sandboxId: 'x7k2m9q4z6c1v0b8n5j3',
         }),
         { status: 403, headers: { 'content-type': 'application/json' } },
       );
@@ -618,7 +618,7 @@ describe('forwardToSandbox authentication failures', () => {
     test('the browser-shaped HTML edge page is recognized the same way', async () => {
       queueFetch(
         new Response(
-          '<h1>Missing traffic access token</h1><p>The sandbox iskbwr82f9wc2k0srkdv1 requires a traffic access token. The e2b-traffic-access-token header is missing.</p>',
+          '<h1>Missing traffic access token</h1><p>The sandbox x7k2m9q4z6c1v0b8n5j3 requires a traffic access token. The e2b-traffic-access-token header is missing.</p>',
           { status: 403, headers: { 'content-type': 'text/html' } },
         ),
         new Response('ok', { status: 200 }),

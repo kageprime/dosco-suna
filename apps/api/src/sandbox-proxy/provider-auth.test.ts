@@ -33,7 +33,7 @@ test('recognizes an E2B traffic-token refusal, missing or invalid, whatever body
   const jsonMissing = Response.json(
     {
       message: "Sandbox is secured with traffic access token.\nToken header 'e2b-traffic-access-token' is missing",
-      sandboxId: 'iskbwr82f9wc2k0srkdv1',
+      sandboxId: 'x7k2m9q4z6c1v0b8n5j3',
     },
     { status: 403 },
   );
@@ -42,7 +42,7 @@ test('recognizes an E2B traffic-token refusal, missing or invalid, whatever body
   const jsonInvalid = Response.json(
     {
       message: "Sandbox is secured with traffic access token.\nProvided token in header 'e2b-traffic-access-token' is invalid",
-      sandboxId: 'iskbwr82f9wc2k0srkdv1',
+      sandboxId: 'x7k2m9q4z6c1v0b8n5j3',
     },
     { status: 403 },
   );
@@ -51,7 +51,7 @@ test('recognizes an E2B traffic-token refusal, missing or invalid, whatever body
   // Browser-shaped requests get an HTML page whose copy rep phrases the same
   // sentences; the header name is the stable marker.
   const htmlMissing = new Response(
-    '<h1>Missing traffic access token</h1><p>The sandbox iskbwr82f9wc2k0srkdv1 requires a traffic access token. The e2b-traffic-access-token header is missing.</p>',
+    '<h1>Missing traffic access token</h1><p>The sandbox x7k2m9q4z6c1v0b8n5j3 requires a traffic access token. The e2b-traffic-access-token header is missing.</p>',
     { status: 403, headers: { 'content-type': 'text/html' } },
   );
   expect(await isProviderIngressAuthFailure('e2b', htmlMissing)).toBe(true);

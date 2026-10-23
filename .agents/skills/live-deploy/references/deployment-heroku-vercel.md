@@ -674,8 +674,8 @@ WHERE NOT granted;
 ## 12. Known incidents and fixes (2026-10-23)
 
 - **Sandbox previews on E2B broke after a resume** ("Missing traffic access
-  token. The e2b-traffic-access-token header is missing", for example sandbox
-  `iskbwr82f9wc2k0srkdv1`). E2B mints a NEW traffic token on every
+  token. The e2b-traffic-access-token header is missing", against the served
+  sandbox id). E2B mints a NEW traffic token on every
   pause-resume; the preview proxy's per-port link cache kept serving the
   pre-restart token for up to its 5-minute TTL, and the cached-token refusal
   refresh path (`provider-auth.ts` / sandbox-proxy `retry.ts`) covered Daytona
