@@ -20,7 +20,7 @@ FROM oven/bun:${BUN_VERSION}-slim AS base
 # App snapshots are built at API runtime. The deployed API image therefore
 # carries the exact supervisor and ingress binaries that every provider adds to
 # a user image.
-FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS app-runtime
+FROM golang:1.26-bookworm AS app-runtime
 
 WORKDIR /runtime
 COPY apps/kortix-app-runtime/go.mod apps/kortix-app-runtime/main.go ./
@@ -38,7 +38,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # The API builds Daytona layered snapshots at runtime. Those snapshots bake the
 # sandbox-side daemon from this repo, so the deployable API image must carry the
 # latest compiled Linux binary even though we no longer publish a sandbox image.
-FROM --platform=$BUILDPLATFORM oven/bun:${SANDBOX_AGENT_BUN_VERSION}-slim AS sandbox-agent
+FROM oven/bun:${SANDBOX_AGENT_BUN_VERSION}-slim AS sandbox-agent
 
 # The daemon builds STANDALONE (its own package.json + bun.lock, no workspace
 # root), but it shares ONE module with apps/api: the relay wire contract
@@ -66,7 +66,7 @@ RUN BUN_COMPILE_TARGET=${KORTIX_AGENT_BUN_TARGET} bash scripts/build.sh
 # it to a self-contained Linux binary here, the same way as the daemon above,
 # and the runner copies it to the path the snapshot builder reads
 # (apps/cli/dist/kortix → KORTIX_SNAPSHOT_CLI_BIN_PATH).
-FROM --platform=$BUILDPLATFORM oven/bun:${BUN_VERSION}-slim AS sandbox-cli
+FROM oven/bun:${BUN_VERSION}-slim AS sandbox-cli
 
 WORKDIR /cli
 
