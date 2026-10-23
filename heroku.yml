@@ -1,7 +1,7 @@
 build:
   docker:
-    web: apps/api/Dockerfile
+    web: Dockerfile.heroku
   config:
     SERVICE: apps/api
 run:
-  web: bun run src/serve.ts
+  web: cd apps/api && exec bun run src/serve.ts

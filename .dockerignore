@@ -50,6 +50,10 @@ docs
 **/docs
 *.md
 !core/kortix-master/opencode/**/*.md
+!apps/sandbox/MACHINE.md
+!apps/kortix-app-runtime/**
+!apps/kortix-sandbox-agent-server/**
+!apps/sandbox/**
 
 # ── Node modules (exclude all EXCEPT standalone output) ──
 # The standalone output is self-contained and MUST keep its node_modules.

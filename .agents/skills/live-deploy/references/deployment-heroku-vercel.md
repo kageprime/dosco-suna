@@ -81,26 +81,40 @@ Local working copies:
 ### 3.1 Runtime shape
 
 - Stack: `container`, generation `cedar`.
+- Heroku pins the Docker build context to the directory holding the chosen
+  Dockerfile (devcenter: _"can't be configured independently"_). The deploy
+  therefore uses a repo-root context: `Dockerfile.heroku` at the repo root is a
+  byte copy of `apps/api/Dockerfile` with the three `FROM
+  --platform=$BUILDPLATFORM` tokens stripped.
 - `heroku.yml`:
 
   ```yaml
   build:
     docker:
-      web: apps/api/Dockerfile
+      web: Dockerfile.heroku
     config:
       SERVICE: apps/api
   run:
-    web: bun run src/serve.ts
+    web: cd apps/api && exec bun run src/serve.ts
   ```
 
-- `apps/api/src/serve.ts` (the runner's 138-step Dockerfile) binds
-  `$PORT` immediately and evaluates the app behind the listener, so the platform
-  sees the port open before the route graph finishes loading.
-- **The three `FROM` lines of the go/agent/cli stages must stay
-  `--platform`-free on this deploy branch.** Heroku's docker builder is not
-  BuildKit: `$BUILDPLATFORM` expands empty there and `FROM --platform=` fails
-  the whole push (_"'' is an invalid OS component"_). Trunk keeps the token;
-  this branch strips it (resolve on every Dockerfile sync from `main`).
+- The runner lands `apps/api` at `/app/apps/api`; the `run:` line `cd`s there
+  before `exec bun run src/serve.ts` (this replaces the old `start.sh`).
+  `serve.ts` binds `$PORT` immediately and evaluates the app behind the
+  listener, so the platform sees the port open before the route graph finishes
+  loading.
+- Upkeep on every Dockerfile sync from `main`:
+  1. Copy `apps/api/Dockerfile` over `Dockerfile.heroku`, then strip the three
+     `FROM --platform=$BUILDPLATFORM` tokens. Heroku's builder is not BuildKit:
+     the token expands empty there and the push fails with
+     _"'' is an invalid OS component"_.
+  2. Keep the four build-context negations after `*.md` in `.dockerignore`:
+     `!apps/sandbox/MACHINE.md`, `!apps/kortix-app-runtime/**`,
+     `!apps/kortix-sandbox-agent-server/**`, `!apps/sandbox/**`. Trunk pruned
+     them in the apps/api-context era; a root-context build needs them back.
+  3. Keep the `--platform` strip OUT of `main`: origin's CI relies on
+     `$BUILDPLATFORM` to keep the go/agent stages native during emulated arm
+     builds.
 
 ### 3.2 The 40-layer limit (the original crash)
 
