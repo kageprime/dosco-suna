@@ -194,10 +194,8 @@ ENV KORTIX_COMMIT=${KORTIX_COMMIT}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    docker.io \
-    git \
-    openssh-client && \
-    apt-get upgrade -y && \
+    curl \
+    git && \
     rm -rf /var/lib/apt/lists/*
 
 # License & Root config files
@@ -208,61 +206,8 @@ COPY package.json tsconfig.base.json bunfig.toml ./
 # Root node_modules contains all hoisted deps (--shamefully-hoist).
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy workspace packages — source only, skip nested node_modules
-# which may contain stale symlinks to the .pnpm store.
-# Full dirs (not src-only): the API and @kortix/llm-gateway resolve @kortix/llm-catalog
-# (and @kortix/shared's subpaths) at runtime, which needs package-resolution intact.
-COPY --from=deps /app/packages/shared ./packages/shared
-COPY --from=deps /app/packages/llm-catalog ./packages/llm-catalog
-COPY --from=deps /app/packages/llm-gateway ./packages/llm-gateway
-COPY --from=deps /app/packages/db/src ./packages/db/src
-COPY --from=deps /app/packages/db/drizzle.config.ts ./packages/db/drizzle.config.ts
-COPY --from=deps /app/packages/db/package.json ./packages/db/package.json
-COPY --from=deps /app/packages/db/tsconfig.json ./packages/db/tsconfig.json
-# Migrations + the node-pg-migrate runner — so the image can apply migrations.
-# Self-hosters (no CI pipeline): `docker run <image> bun packages/db/scripts/migrate.ts up`.
-# Kortix cloud applies them in the deploy pipeline's migrate-db job instead.
-COPY --from=deps /app/packages/db/migrations ./packages/db/migrations
-COPY --from=deps /app/packages/db/scripts/migrate.ts ./packages/db/scripts/migrate.ts
-COPY --from=deps /app/packages/db/scripts/early-applied-migration-repair.ts ./packages/db/scripts/early-applied-migration-repair.ts
-COPY --from=deps /app/packages/db/scripts/local-audit-v2-ledger-repair.ts ./packages/db/scripts/local-audit-v2-ledger-repair.ts
-COPY --from=deps /app/packages/db/scripts/local-invalid-index-repair.ts ./packages/db/scripts/local-invalid-index-repair.ts
-COPY --from=deps /app/packages/db/scripts/local-warm-session-index-repair.ts ./packages/db/scripts/local-warm-session-index-repair.ts
-COPY --from=deps /app/packages/db/scripts/migration-target.ts ./packages/db/scripts/migration-target.ts
-COPY --from=deps /app/packages/db/scripts/migration-ledger-repair.ts ./packages/db/scripts/migration-ledger-repair.ts
-COPY --from=deps /app/packages/db/scripts/migration-retry.ts ./packages/db/scripts/migration-retry.ts
-COPY --from=deps /app/packages/db/scripts/migration-runtime-overrides.ts ./packages/db/scripts/migration-runtime-overrides.ts
-COPY --from=deps /app/packages/db/scripts/migration-status.ts ./packages/db/scripts/migration-status.ts
-COPY --from=deps /app/packages/db/scripts/catalog.ts ./packages/db/scripts/catalog.ts
-# Non-kortix bootstrap (basejump + credit RPCs + signup triggers) for FRESH
-# self-host databases. `migrate.ts bootstrap` applies this before `up` when
-# basejump is absent (no-op on provisioned cloud/dev DBs).
-COPY --from=deps /app/packages/db/drizzle/0000_bootstrap.sql ./packages/db/drizzle/0000_bootstrap.sql
-COPY --from=deps /app/packages/agent-tunnel/src ./packages/agent-tunnel/src
-COPY --from=deps /app/packages/agent-tunnel/package.json ./packages/agent-tunnel/package.json
-COPY --from=deps /app/packages/starter/src ./packages/starter/src
-COPY --from=deps /app/packages/starter/package.json ./packages/starter/package.json
-COPY --from=deps /app/packages/starter/tsconfig.json ./packages/starter/tsconfig.json
-# starter and registry import @kortix/manifest-schema/layout. pnpm links it in
-# the package's own node_modules; the root node_modules hoists no @kortix package.
-COPY --from=deps /app/packages/starter/node_modules ./packages/starter/node_modules
-# Project-scaffold templates read at runtime: packages/starter/src/index.ts
-# resolves BASE_TEMPLATE_DIR = join(import.meta.dir,'..','templates','base').
-# Without this the "Create project" seed path throws
-# ENOENT scandir packages/starter/templates/base → 502.
-COPY --from=deps /app/packages/starter/templates ./packages/starter/templates
-COPY --from=deps /app/packages/manifest-schema/src ./packages/manifest-schema/src
-COPY --from=deps /app/packages/manifest-schema/package.json ./packages/manifest-schema/package.json
-COPY --from=deps /app/packages/manifest-schema/tsconfig.json ./packages/manifest-schema/tsconfig.json
-# Its node_modules holds the @kortix/shared link (the release config validator).
-COPY --from=deps /app/packages/manifest-schema/node_modules ./packages/manifest-schema/node_modules
-COPY --from=deps /app/packages/api-contract/src ./packages/api-contract/src
-COPY --from=deps /app/packages/api-contract/package.json ./packages/api-contract/package.json
-COPY --from=deps /app/packages/api-contract/tsconfig.json ./packages/api-contract/tsconfig.json
-COPY --from=deps /app/packages/registry/src ./packages/registry/src
-COPY --from=deps /app/packages/registry/package.json ./packages/registry/package.json
-COPY --from=deps /app/packages/registry/tsconfig.json ./packages/registry/tsconfig.json
-COPY --from=deps /app/packages/registry/node_modules ./packages/registry/node_modules
+# Consolidated packages tree (keep layer count low).
+COPY --from=deps /app/packages ./packages
 
 # Migrations are NOT bundled into the image: deployed ensureSchema() is warn-only
 # (it never applies at boot), and migrations run in the deploy pipeline's
@@ -270,30 +215,19 @@ COPY --from=deps /app/packages/registry/node_modules ./packages/registry/node_mo
 
 # Copy runtime artifacts used by the layered snapshot builder.
 COPY --from=sandbox-agent /repo/apps/kortix-sandbox-agent-server/dist/kortix-agent ./apps/kortix-sandbox-agent-server/dist/kortix-agent
-COPY --from=sandbox-cli /cli/apps/cli/dist/kortix ./apps/cli/dist/kortix
-COPY --from=sandbox-cli /cli/apps/cli/dist/kortix.version ./apps/cli/dist/kortix.version
-COPY --from=sandbox-cli /cli/apps/cli/dist/kortix-connectors-runtime.attestation.json ./apps/cli/dist/kortix-connectors-runtime.attestation.json
+COPY --from=sandbox-cli /cli/apps/cli/dist/kortix /cli/apps/cli/dist/kortix.version /cli/apps/cli/dist/kortix-connectors-runtime.attestation.json ./apps/cli/dist/
 COPY --from=app-runtime /out/kortix-appd ./apps/kortix-app-runtime/dist/kortix-appd-linux-amd64
 COPY --from=app-runtime /out/caddy ./apps/kortix-app-runtime/dist/caddy-linux-amd64
-COPY apps/sandbox/entrypoint.sh ./apps/sandbox/entrypoint.sh
-COPY apps/sandbox/opencode-warmup.sh ./apps/sandbox/opencode-warmup.sh
-COPY apps/sandbox/MACHINE.md ./apps/sandbox/MACHINE.md
-COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
-# From deps, not the build context: the SDK imports @kortix/llm-catalog at
-# runtime (composer-model.ts), and only the deps stage carries the SDK's own
-# node_modules symlink to it. The context copy has none (.dockerignore), and the
-# API crash-looped on "Cannot find module '@kortix/llm-catalog/lite'".
-COPY --from=deps /app/packages/sdk ./packages/sdk
+COPY apps/sandbox/entrypoint.sh apps/sandbox/opencode-warmup.sh apps/sandbox/MACHINE.md apps/sandbox/slack-cli ./apps/sandbox/
+# SDK is already in the consolidated packages tree above.
 
 # Source the layered-snapshot builder fingerprints at RUNTIME. It hashes the
 # SOURCE (not the compiled binaries above, which `bun build --compile` produces
 # non-deterministically — see apps/api/src/snapshots/templates.ts), so these
 # trees + package.json must be present in the image. Without them the Sandbox
 # panel throws "Failed to list sandbox templates: ENOENT … package.json".
-COPY apps/kortix-sandbox-agent-server/package.json ./apps/kortix-sandbox-agent-server/package.json
-COPY apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/src
-COPY apps/cli/package.json ./apps/cli/package.json
-COPY apps/cli/src ./apps/cli/src
+COPY apps/kortix-sandbox-agent-server/package.json apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/
+COPY apps/cli/package.json apps/cli/src ./apps/cli/
 
 # Copy the app (source + its node_modules if any)
 COPY --from=deps /app/${SERVICE} ./${SERVICE}
@@ -303,8 +237,7 @@ COPY --from=deps /app/${SERVICE} ./${SERVICE}
 # exist in the runtime image layout. Replace it with a direct source copy.
 RUN rm -f ${SERVICE}/node_modules/agent-tunnel 2>/dev/null; \
     mkdir -p ${SERVICE}/node_modules/agent-tunnel
-COPY --from=deps /app/packages/agent-tunnel/src ./${SERVICE}/node_modules/agent-tunnel/src
-COPY --from=deps /app/packages/agent-tunnel/package.json ./${SERVICE}/node_modules/agent-tunnel/package.json
+COPY --from=deps /app/packages/agent-tunnel/src /app/packages/agent-tunnel/package.json ./${SERVICE}/node_modules/agent-tunnel/
 
 # Drop test-only source copied in with workspace packages. The runtime image
 # executes the API directly from TypeScript source, but does not need tests.
@@ -321,12 +254,12 @@ RUN rm -rf \
 
 # Restore the Heroku launcher (the runner stage below overwrites apps/api from deps).
 COPY apps/api/start.sh ./apps/api/start.sh
-RUN chmod +x ./apps/api/start.sh
 
 WORKDIR /app/${SERVICE}
 
 # Pre-create the data dir and give the bun user write access before dropping privileges.
-RUN mkdir -p /app/${SERVICE}/.kortix-data && \
+RUN chmod +x /app/${SERVICE}/start.sh && \
+    mkdir -p /app/${SERVICE}/.kortix-data && \
     chown -R bun:bun /app/${SERVICE}/.kortix-data
 
 LABEL org.opencontainers.image.title="kortix-api" \
