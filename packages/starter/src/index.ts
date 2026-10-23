@@ -282,7 +282,10 @@ function rawFilesForRoot(name: string, dir: string): StarterFile[] {
   }
   return walk(dir).map((absPath) => ({
     path: relative(dir, absPath).split(sep).join('/'),
-    content: readFileSync(absPath, 'utf8'),
+    // Same CRLF→LF normalization as `scripts/generate-embedded.ts`: the compiled
+    // binary serves the snapshot (LF) while a source checkout walks disk, so a
+    // Windows checkout must scaffold the same bytes the snapshot holds.
+    content: readFileSync(absPath, 'utf8').replace(/\r\n/g, '\n'),
   }));
 }
 

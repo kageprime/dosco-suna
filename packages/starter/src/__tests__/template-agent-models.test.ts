@@ -59,16 +59,19 @@ function resolvesToManagedModel(model: string): boolean {
 }
 
 describe('starter template agent model declarations', () => {
+  /** Forward-slash form of a walk result, so `endsWith` checks work on Windows too. */
+  function posixOf(abs: string): string {
+    return relative(TEMPLATES_ROOT, abs).split(sep).join('/');
+  }
+
   test('finds the agent definition files it is supposed to guard', () => {
     const files = agentDefinitionFiles();
 
     expect(files.length).toBeGreaterThan(50);
-    expect(files.some((f) => f.endsWith('templates/base/agents/kortix.md'))).toBe(
-      true,
-    );
+    expect(files.map(posixOf)).toContain('base/agents/xera.md');
     expect(
-      files.some((f) => f.endsWith('templates/marketplace/runtime/agents/flaky-test-triage.md')),
-    ).toBe(true);
+      files.map(posixOf),
+    ).toContain('marketplace/runtime/agents/flaky-test-triage.md');
   });
 
   test('every declared model resolves to a real managed catalog id', () => {

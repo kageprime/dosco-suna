@@ -1,10 +1,10 @@
 {
   // OpenCode runtime config. Docs: https://opencode.ai/docs/
   "$schema": "https://opencode.ai/config.json",
-  // The default agent is `kortix` — a generic general-knowledge worker.
-  // Edit `agents/kortix.md` at the repo root (or add more agents there and
+  // The default agent is `xera` — a generic general-knowledge worker.
+  // Edit `agents/xera.md` at the repo root (or add more agents there and
   // declare each one under `agents:` in kortix.yaml).
-  "default_agent": "kortix",
+  "default_agent": "xera",
   // Dosco sessions are already sandboxed (isolated VM, ephemeral branch),
   // so the agent has full access by default. Tighten per-tool here if you
   // want a stricter policy. Docs: https://opencode.ai/docs/permissions/

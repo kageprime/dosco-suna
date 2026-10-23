@@ -78,8 +78,28 @@ describe('the starter is OpenCode-native', () => {
     expect(manifest).not.toContain('runtime:');
   });
 
-  test('its default agent is the declared opencode agent', () => {
-    expect(manifestFor()).toContain('default_agent: kortix');
+  /**
+   * The default agent must exist in BOTH places a release reads it: the
+   * manifest's `default_agent` (governance, what the platform stamps) and the
+   * OpenCode config's `default_agent` (what `GET /config` actually reports, and
+   * therefore what `proven-check` validates against `GET /agent`). The reskin
+   * renamed the starter's agent kortix → xera in the manifest and the `.md` but
+   * missed `opencode.jsonc`, so every seeded release failed its proven check
+   * with "the default agent "kortix" is not loaded". This guard keeps the three
+   * in lockstep: manifest default == opencode config default == a shipped file.
+   */
+  test('its declared default agent is consistent across the manifest, the OpenCode config, and a shipped agent file', () => {
+    const files = filesFor();
+    const byPath = new Map(files.map((file) => [file.path, file.content]));
+    const manifestDefault = /^default_agent:[ \t]*(\S+)[ \t]*$/m.exec(
+      byPath.get('kortix.yaml') ?? '',
+    )?.[1];
+    expect(manifestDefault).toBe('xera');
+    const configDefault = /"default_agent"[ \t]*:[ \t]*"([^"]+)"/.exec(
+      byPath.get('harnesses/opencode/opencode.jsonc') ?? '',
+    )?.[1];
+    expect(configDefault).toBe(manifestDefault);
+    expect(byPath.has(`agents/${manifestDefault}.md`)).toBe(true);
   });
 
   test('the manifest advertises no other starter to switch to', () => {
@@ -116,7 +136,7 @@ describe('the starter is OpenCode-native', () => {
     const paths = filesFor().map((file) => file.path);
 
     expect(paths).toContain('skills/pdf/SKILL.md');
-    expect(paths).toContain('agents/kortix.md');
+    expect(paths).toContain('agents/xera.md');
   });
 
   test('keeps the fast starter tool ABI independent of the full plugin SDK', () => {

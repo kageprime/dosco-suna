@@ -169,7 +169,7 @@ describe('getStarterFiles', () => {
     const manifest = byPath(getStarterFiles({ projectName: 'X' })).get('kortix.yaml') ?? '';
     const agents = manifest.slice(manifest.indexOf('\nagents:\n'), manifest.indexOf('\ntriggers:\n'));
     const names = [...agents.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map((m) => m[1]);
-    expect(names).toEqual(['kortix', 'harness-reflector', 'session-reviewer']);
+    expect(names).toEqual(['xera', 'harness-reflector', 'session-reviewer']);
     // One explicit, uncommented line per agent: v3 defaults it to false.
     expect(agents.match(/^    workspace: \{ project_repository: true \}/gm)?.length).toBe(names.length);
   });

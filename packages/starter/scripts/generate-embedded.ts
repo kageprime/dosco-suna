@@ -72,7 +72,12 @@ function rawFiles(root: string): RawFile[] {
   return walk(root)
     .map((abs) => ({
       path: relative(root, abs).split(sep).join('/'),
-      content: readFileSync(abs, 'utf8'),
+      // Normalize CRLF to LF: the snapshot is embedded in compiled binaries and
+      // compared byte-for-byte by `src/__tests__/embedded.test.ts`. Without this
+      // a Windows checkout (git's autocrlf) generates a snapshot with CRLF
+      // escapes that can never match a Linux checkout's, so the two platforms
+      // would scaffold different files.
+      content: readFileSync(abs, 'utf8').replace(/\r\n/g, '\n'),
     }))
     .sort((a, b) => a.path.localeCompare(b.path));
 }
