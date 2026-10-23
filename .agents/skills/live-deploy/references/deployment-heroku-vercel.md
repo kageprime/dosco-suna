@@ -108,10 +108,12 @@ Local working copies:
      `FROM --platform=$BUILDPLATFORM` tokens. Heroku's builder is not BuildKit:
      the token expands empty there and the push fails with
      _"'' is an invalid OS component"_.
-  2. Keep the four build-context negations after `*.md` in `.dockerignore`:
+  2. Keep the three build-context negations after `*.md` in `.dockerignore`:
      `!apps/sandbox/MACHINE.md`, `!apps/kortix-app-runtime/**`,
-     `!apps/kortix-sandbox-agent-server/**`, `!apps/sandbox/**`. Trunk pruned
-     them in the apps/api-context era; a root-context build needs them back.
+     `!apps/sandbox/**`. Do NOT add a negation for
+     `apps/kortix-sandbox-agent-server/**`: with it, the agent's
+     `src/__tests__` enter the build context and the stage's `tsc --noEmit`
+     fails on modules only trunk's full context would carry.
   3. Keep the `--platform` strip OUT of `main`: origin's CI relies on
      `$BUILDPLATFORM` to keep the go/agent stages native during emulated arm
      builds.

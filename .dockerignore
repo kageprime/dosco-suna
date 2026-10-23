@@ -52,7 +52,6 @@ docs
 !core/kortix-master/opencode/**/*.md
 !apps/sandbox/MACHINE.md
 !apps/kortix-app-runtime/**
-!apps/kortix-sandbox-agent-server/**
 !apps/sandbox/**
 
 # ── Node modules (exclude all EXCEPT standalone output) ──
