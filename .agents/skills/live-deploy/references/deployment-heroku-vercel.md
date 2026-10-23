@@ -50,18 +50,22 @@ Canonical URLs:
 
 | Repo / branch | Purpose | Build target |
 |---|---|---|
-| `kageprime/dosco-suna` `main` | Full source (backend + `apps/web`) | Vercel |
-| `heroku-clean` (orphan) | Backend-only tree, no `apps/web` | Heroku (pushed to Heroku `main`) |
+| `kageprime/dosco-suna` `main` | Full source of truth (backend + `apps/web`); unified 2026-10-23 | Vercel + source for both |
+| `heroku-clean` | Deploy branch: `main` + the backend-fix commits + ONE Heroku-only patch (`apps/api/Dockerfile` from-lines carry no `--platform`; see 3.1) | Heroku (pushed as Heroku `main`) |
 
 Rules:
 
 - Vercel builds **only** from `main`, with **Root Directory = `apps/web`**.
-- Heroku is pushed from `heroku-clean` only:
-  `git push https://heroku:$HEROKU_TOKEN@git.heroku.com/dosco.git HEAD:main --force`
-- **Never push `heroku-clean` to `origin/main`.** It is an orphan backend-only
-  branch and would replace the frontend source.
-- Heroku builds `Dockerfile.heroku` via `heroku.yml`; the root `Dockerfile` is
-  kept for self-hosted/full deployments.
+- Heroku is pushed from `heroku-clean` only; history was unified 2026-10-23, so
+  pushes are force-pushes from now on:
+  `git push https://heroku:$HEROKU_TOKEN@git.heroku.com/dosco.git +heroku-clean:main --force`
+- `heroku-clean` is `origin/main` **plus the deploy-branch commit only**. Keep
+  the Dockerfile `--platform` strip OUT of `main`: origin's CI relies on
+  `$BUILDPLATFORM` to keep go/agent stages native during emulated arm builds;
+  Heroku's docker builder is not BuildKit and parses the token as an empty
+  platform instead.
+- Heroku builds `apps/api/Dockerfile` via `heroku.yml`; the root `Dockerfile`
+  is kept for self-hosted/full deployments.
 
 Local working copies:
 
@@ -82,14 +86,21 @@ Local working copies:
   ```yaml
   build:
     docker:
-      web: Dockerfile.heroku
+      web: apps/api/Dockerfile
+    config:
+      SERVICE: apps/api
   run:
-    web: /app/apps/api/start.sh
+    web: bun run src/serve.ts
   ```
 
-- `apps/api/start.sh` ends with `exec bun run src/serve.ts`. `serve.ts` binds
+- `apps/api/src/serve.ts` (the runner's 138-step Dockerfile) binds
   `$PORT` immediately and evaluates the app behind the listener, so the platform
   sees the port open before the route graph finishes loading.
+- **The three `FROM` lines of the go/agent/cli stages must stay
+  `--platform`-free on this deploy branch.** Heroku's docker builder is not
+  BuildKit: `$BUILDPLATFORM` expands empty there and `FROM --platform=` fails
+  the whole push (_"'' is an invalid OS component"_). Trunk keeps the token;
+  this branch strips it (resolve on every Dockerfile sync from `main`).
 
 ### 3.2 The 40-layer limit (the original crash)
 
@@ -426,7 +437,7 @@ Required records at the registrar:
 | `TXT` | `_vercel` | `vc-domain-verify=dosco.live,6c1362a3c4869fe4a4aa` |
 | `A` | `@` | `216.198.79.1` |
 | `A` | `@` | `64.29.17.1` |
-| `CNAME` | `www` | `cname.vercel-dns.com` (optional, if `www` is wanted) |
+| `CNAME` | `www` | `dosco.live` (added 2026-10-23, TTL 300; Vercel verified it and serves the 301 → apex, functionally verified the same day) |
 
 The TXT record must be **renamed, not recreated**: keep the value and change
 the host from `_vercel.dosco.live.dosco.live` to `_vercel`. The registrar
@@ -665,7 +676,7 @@ WHERE NOT granted;
 | Google provider (Supabase) | enabled, redirects to Google |
 | Google button (frontend) | enabled via `NEXT_PUBLIC_AUTH_PROVIDERS=google`; verified in the deployed `/auth` HTML on 2026-10-20 |
 | Supabase redirect allowlist | Vercel callback accepted (verified 2026-10-20); localhost still to add |
-| `dosco.live` DNS (Name.com) | apex `64.29.17.1` (Vercel, verified via `_vercel` TXT 2026-10-20); `api` CNAME → `fluffy-parsnip-mgd3ejvtvyyvydkhbor18vwb.herokudns.com` (2026-10-23); `status` → betteruptime; SES mail records intact (`send` SPF, `resend._domainkey` DKIM, `_dmarc`, inbound MX). `www` has NO record after the 216.198.79.1 cleanup — add `CNAME www → dosco.live`; `*.apps` / `*.preview` wildcards still point at raw Vercel IPs that serve nothing (dead leftovers, safe to delete or repurpose when a wildcard story lands). `www.dosco.live` is attached to the Vercel project as a 301 → apex pending that record. |
+| `dosco.live` DNS (Name.com) | apex `64.29.17.1` + `216.198.79.1` (Vercel's current anycast pair; verified via `_vercel` TXT 2026-10-20); `api` CNAME → `fluffy-parsnip-mgd3ejvtvyyvydkhbor18vwb.herokudns.com` (2026-10-23); `www` CNAME → `dosco.live` (2026-10-23, verified, 301 → apex — checked: `https://www.dosco.live/` → 301 → 200 at apex, TLS clean); `status` → betteruptime; SES mail records intact (`send` SPF, `resend._domainkey` DKIM, `_dmarc`, inbound MX). `*.apps` / `*.preview` wildcards still attached (Vercel shows verified, but they serve nothing) — optional delete until a wildcard story lands. |
 | GitHub App callbacks | minted from `KORTIX_URL` → now `api.dosco.live`; the App's registered callback list must include `https://api.dosco.live/v1/platform/github-app/oauth/callback` (old hosts keep working) — **pending in GitHub settings** |
 | Service role key rotation | **pending** |
 | Pipedream credentials | invalid (401) - connectors disabled with the scheduler |
