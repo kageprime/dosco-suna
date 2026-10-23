@@ -654,17 +654,19 @@ WHERE NOT granted;
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X, trigger scheduler disabled (release v26 at the 2026-10-20 verification) |
-| `/health`, `/health/ready` | 200 |
+| Heroku API | up, Standard-2X (release v38 at the 2026-10-23 verification; v37 shipped the xera starter fix + the E2B preview fix) |
+| Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v38), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
+| `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
 | Authenticated API (`/v1/accounts`, `/v1/user-roles`, `/v1/account-invites`) | 200 with a real Supabase token |
 | DB migrations | up to date |
 | Marketplace / access endpoints | 200 |
-| Vercel frontend | live at `dosco-virid.vercel.app` |
+| Vercel frontend | live at `dosco-virid.vercel.app`; production deploys built from the manual `vercel-redeploy.mjs` flow (prod auto-deploy disabled) |
 | Google provider (Supabase) | enabled, redirects to Google |
 | Google button (frontend) | enabled via `NEXT_PUBLIC_AUTH_PROVIDERS=google`; verified in the deployed `/auth` HTML on 2026-10-20 |
 | Supabase redirect allowlist | Vercel callback accepted (verified 2026-10-20); localhost still to add |
-| `dosco.live` DNS | A records live at Vercel; TXT `_vercel` TXT value sits at the doubled name - **verification pending** |
+| `dosco.live` DNS (Name.com) | apex `64.29.17.1` (Vercel, verified via `_vercel` TXT 2026-10-20); `api` CNAME → `fluffy-parsnip-mgd3ejvtvyyvydkhbor18vwb.herokudns.com` (2026-10-23); `status` → betteruptime; SES mail records intact (`send` SPF, `resend._domainkey` DKIM, `_dmarc`, inbound MX). `www` has NO record after the 216.198.79.1 cleanup — add `CNAME www → dosco.live`; `*.apps` / `*.preview` wildcards still point at raw Vercel IPs that serve nothing (dead leftovers, safe to delete or repurpose when a wildcard story lands). `www.dosco.live` is attached to the Vercel project as a 301 → apex pending that record. |
+| GitHub App callbacks | minted from `KORTIX_URL` → now `api.dosco.live`; the App's registered callback list must include `https://api.dosco.live/v1/platform/github-app/oauth/callback` (old hosts keep working) — **pending in GitHub settings** |
 | Service role key rotation | **pending** |
 | Pipedream credentials | invalid (401) - connectors disabled with the scheduler |
 | TUNNEL_ENABLED | false - "Computers" routes return 503 `tunnel_disabled` by design |
