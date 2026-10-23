@@ -6,4 +6,4 @@
  * this constant.
  */
 export const ANDROID_APK_URL =
-  'https://expo.dev/artifacts/eas/CRbZoDIUXAUe7Lbu7S74VHbScK9Gzu89nK8VzZxZWDc.apk';
+  'https://expo.dev/artifacts/eas/-mbTSXE4nynNHqohTJ-Jwyn6iFbB1EpRLifkf_a-T00.apk';
