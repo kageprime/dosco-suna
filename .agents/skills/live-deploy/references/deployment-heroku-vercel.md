@@ -96,12 +96,7 @@ Local working copies:
       SERVICE: apps/api
   ```
 
-- The runner stage ends with `WORKDIR /app/apps/api` and
-  `CMD ["bun","run","src/serve.ts"]` on the `bun` user. Heroku runs the image
-  CMD as the web process — keep `heroku.yml` WITHOUT a `run:` section. A run
-  line executes from that final WORKDIR: the `cd apps/api` variant (added
-  from a `/app`-WORKDIR assumption) fails instantly and silently against it
-  (H10 crash loop, no app output — release v39, 2026-10-23 worst-crash lesson).
+- `heroku.yml` keeps an explicit absolute run line:
 
   ```yaml
   build:
@@ -109,16 +104,27 @@ Local working copies:
       web: Dockerfile.heroku
     config:
       SERVICE: apps/api
+  run:
+    web: /app/apps/api/start.sh
   ```
 
-- `serve.ts` binds `$PORT` immediately and evaluates the app behind the
-  listener, so the platform sees the port open before the route graph finishes
-  loading.
+  Heroku executes the run line with `/bin/sh -c`. `start.sh` then
+  `exec bun run src/index.ts` from `/app/apps/api`. Never prefix a `cd
+  apps/api`: the runner's final `WORKDIR` is already `/app/apps/api`.
+
+- `start.sh` must stay LF-only in the git blob (122 bytes, no `0d` bytes). A
+  CRLF launcher cannot exec and produces no useful log line.
+
+- `src/index.ts` imports the assembled app first, then calls `Bun.serve` on
+  `config.PORT`. The route graph is evaluated before the listener opens. Boot
+  takes ~1 s in the current image, well inside Heroku's 60 s boot timeout.
 - Upkeep on every Dockerfile sync from `main`:
-  1. Copy `apps/api/Dockerfile` over `Dockerfile.heroku`, then strip the three
-     `FROM --platform=$BUILDPLATFORM` tokens. Heroku's builder is not BuildKit:
-     the token expands empty there and the push fails with
-     _"'' is an invalid OS component"_.
+  1. `Dockerfile.heroku` is NOT a byte copy of `apps/api/Dockerfile`. It is the
+     consolidated Heroku variant. Port source changes by hand and keep the
+     final stage at or below **32 instructions** (the final stage of the image
+     that boots today). Heroku's Common Runtime refuses images over ~40
+     layers, and the failure is silent: no `Starting process` line, no app
+     output, `crashed` 2-18 s after start (v39, v41-v55, 2026-10-23).
   2. Keep the three build-context negations after `*.md` in `.dockerignore`:
      `!apps/sandbox/MACHINE.md`, `!apps/kortix-app-runtime/**`,
      `!apps/sandbox/**`. Do NOT add a negation for
@@ -128,6 +134,23 @@ Local working copies:
   3. Keep the `--platform` strip OUT of `main`: origin's CI relies on
      `$BUILDPLATFORM` to keep the go/agent stages native during emulated arm
      builds.
+  4. Give every directory `COPY` source an explicit destination. A merged
+     `COPY a b ./target/` copies the *contents* of each directory into
+     `target/`, not the directories themselves. This flattened
+     `agent-tunnel/src` (boot died with `Cannot find package
+     'agent-tunnel'`) and the fingerprint trees `apps/sandbox/slack-cli`,
+     `apps/kortix-sandbox-agent-server/src`, and `apps/cli/src` (startup
+     pre-build died with `ENOENT ... lstat`), both 2026-10-23. Correct forms:
+     `COPY .../agent-tunnel/package.json ./node_modules/agent-tunnel/package.json`
+     plus `COPY .../agent-tunnel/src ./node_modules/agent-tunnel/src`.
+  5. Debug boot failures on the canary app, never on prod. The canary is kept
+     scaled to zero: `heroku ps:scale web=1 -a dosco-boot-debug`, then
+     `git push https://git.heroku.com/dosco-boot-debug.git +heroku-clean:main`.
+     Inspect the canary image with
+     `heroku run --no-tty -a dosco-boot-debug "…"`. It runs the same image
+     and config (49 vars copied from prod on 2026-10-23). A green `/health`
+     is not a full boot check: also require the startup pre-build `ready`
+     line (`heroku logs -a dosco-boot-debug --num 400`).
 
 ### 3.2 The 40-layer limit (the original crash)
 
@@ -147,17 +170,24 @@ Symptoms: `State changed from starting to crashed` ~12-18 s later, with no
 A minimal probe image (`oven/bun:1.4.3-slim` + a 3-line server) booted in ~2 s
 and logged stdout, proving the platform, `$PORT`, egress, and logging were fine.
 
-Fix: `Dockerfile.heroku` now produces a **14-layer** image (verified from the
-registry manifest):
+Fix: the deploy branch carries a consolidated `Dockerfile.heroku`. Its final
+stage is **32 instructions** (the unified-tree sync initially reused origin's
+`apps/api/Dockerfile` verbatim at **75** — releases v39/v41-v55 crashed on it,
+2026-10-23). Consolidation made the container start and exposed a second
+defect: merged `COPY` lines had flattened directory sources (see upkeep
+rule 4):
 
-- all `pnpm install` work and every file fixup happens in the `deps` stage;
-- the runner copies three consolidated trees:
-  `node_modules`, `packages`, and `apps`;
-- the agent-tunnel workaround and test-file pruning also happen in `deps`;
+- all `pnpm install` work happens in the `deps` stage;
+- the runner copies consolidated trees: `node_modules`, `packages`,
+  `${SERVICE}` (apps/api), and the app source trees the runtime fingerprints;
+- the agent-tunnel workaround and test-file pruning happen in the runner as
+  two-copy blocks (see upkeep rule 4);
 - only `ca-certificates`, `curl`, and `git` are installed at runtime.
 
 Do not introduce new `COPY`/`RUN` instructions in the runner stage without
-counting layers. Keep the final image comfortably under 40 layers (aim < 20).
+counting instructions. Keep the final stage at or below **32 instructions**
+(the image that boots today). The previous minimal variant reached 14; the
+unified tree needs the extra source copies.
 
 ### 3.3 What the image contains
 
@@ -167,22 +197,23 @@ Included:
 - `node_modules` and workspace `packages/*` (including DB migrations and
   starter templates);
 - `apps/api`;
-- `apps/kortix-sandbox-agent-server` and `apps/cli` **source** (runtime
-  fingerprints read them);
-- `apps/kortix-app-runtime` Go **source** files. `apps/api/src/apps/runtime-artifacts.ts`
-  hashes `main.go` and the caddy sources at boot; omitting them caused an
-  `ENOENT ... /app/apps/kortix-app-runtime/main.go` at module evaluation.
+- compiled `kortix-agent`, the `kortix` CLI (plus version and connector
+  attestation), and the `kortix-appd` / `caddy` linux-amd64 binaries;
+- `apps/kortix-sandbox-agent-server` and `apps/cli` **source and
+  `package.json`** (the runtime fingerprints read them);
+- `apps/sandbox` assets: `entrypoint.sh`, `opencode-warmup.sh`, `MACHINE.md`,
+  and the `slack-cli` directory.
 
 Deliberately excluded:
 
-- compiled Go binaries (`kortix-appd`, `caddy`);
-- compiled sandbox agent/CLI binaries;
 - `docker.io`;
-- `apps/sandbox` assets.
+- the other apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`,
+  `apps/whitelabel-demo`), tests, and docs.
 
-Consequence: Daytona snapshot builds that need the compiled binaries would fail
-inside this image. The deployment uses **E2B**, so this is intentional. If
-Daytona is enabled later, build and ship those artifacts (and re-check layers).
+The runtime fingerprints hash the source trees and the sandbox assets at boot.
+A flattened or missing tree fails the startup pre-build with
+`ENOENT ... lstat '<path>'` (release v60, 2026-10-23). Give every directory
+`COPY` an explicit destination (upkeep rule 4).
 
 ### 3.4 Dyno size
 
@@ -688,12 +719,12 @@ WHERE NOT granted;
 
 ---
 
-## 11. Current status (2026-10-20)
+## 11. Current status (2026-10-23)
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release v38 at the 2026-10-23 verification; v37 shipped the xera starter fix + the E2B preview fix) |
-| Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v38), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
+| Heroku API | up, Standard-2X (release **v61** at the 2026-10-23 verification; v61 is the unified tree on the 32-instruction image; v37 shipped the xera starter fix + the E2B preview fix) |
+| Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
 | Authenticated API (`/v1/accounts`, `/v1/user-roles`, `/v1/account-invites`) | 200 with a real Supabase token |
@@ -711,6 +742,25 @@ WHERE NOT granted;
 
 ## 12. Known incidents and fixes (2026-10-23)
 
+- **The unified-tree image crashed silently, then booted with two COPY
+  defects.** Releases v39-v55 ran origin's `apps/api/Dockerfile` verbatim
+  (75 final-stage instructions); the Common Runtime refused to start the image
+  (no `Starting process` line, no stdout, `crashed` 2-18 s). The consolidated
+  `Dockerfile.heroku` (32 instructions) boots, and exposed two merged-`COPY`
+  flattenings: `agent-tunnel/src` (boot exit 1 with `Cannot find package
+  'agent-tunnel'`) and three fingerprint trees (startup pre-build `ENOENT ...
+  lstat`). Release v61 is the fixed image. Proof: `web.1 up`, `/health` 200,
+  `/health/ready` 200, CORS preflight 204, startup pre-build `ready`.
+- **Meta image pre-build fails on E2B (pre-existing, open).** The startup
+  pre-build logs `Invalid source path "/workspace/AGENTS.md": absolute paths
+  are not allowed` for the meta image, while the default image reports
+  `ready`. The path comes from the heredoc `COPY ... /workspace/AGENTS.md` in
+  `packages/shared/src/sandbox/meta-dockerfile.ts` (introduced in
+  `bc13c87e00`). The old branch carries the same file, so this is not a
+  regression from the unified tree. The error text does not exist in the repo,
+  so it comes from the E2B SDK's build-context upload. Project sessions use
+  the default image and are unaffected. Fix: handle the heredoc in the E2B
+  context builder, or write the file with a `RUN` step.
 - **Sandbox previews on E2B broke after a resume** ("Missing traffic access
   token. The e2b-traffic-access-token header is missing", against the served
   sandbox id). E2B mints a NEW traffic token on every
