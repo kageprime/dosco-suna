@@ -4,4 +4,4 @@ build:
   config:
     SERVICE: apps/api
 run:
-  web: cd /app/apps/api && exec bun run src/serve.ts
+  web: /app/apps/api/start.sh
