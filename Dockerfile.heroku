@@ -200,8 +200,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
 
-# License
+# License & Root config files
 COPY LICENSE /LICENSE
+COPY package.json tsconfig.base.json bunfig.toml ./
 
 # Copy installed node_modules and source from deps stage.
 # Root node_modules contains all hoisted deps (--shamefully-hoist).
