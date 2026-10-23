@@ -776,11 +776,11 @@ WHERE NOT granted;
 
 ---
 
-## 11. Current status (2026-10-23)
+## 11. Current status (2026-10-24)
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release **v62** at the 2026-10-23 verification; v62 runs the same 32-instruction image as v61 and only adds the wildcard config vars; v61 is the unified tree; v37 shipped the xera starter fix + the E2B preview fix) |
+| Heroku API | up, Standard-2X (release **v63** at the 2026-10-24 verification; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
 | Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
@@ -818,14 +818,17 @@ WHERE NOT granted;
   so it comes from the E2B SDK's build-context upload. Project sessions use
   the default image and are unaffected. Fix: handle the heredoc in the E2B
   context builder, or write the file with a `RUN` step.
-- **Sandbox previews on E2B broke after a resume** ("Missing traffic access
-  token. The e2b-traffic-access-token header is missing", against the served
-  sandbox id). E2B mints a NEW traffic token on every
-  pause-resume; the preview proxy's per-port link cache kept serving the
-  pre-restart token for up to its 5-minute TTL, and the cached-token refusal
-  refresh path (`provider-auth.ts` / sandbox-proxy `retry.ts`) covered Daytona
-  only. Fixed by recognizing E2B's 403 traffic-token refusals (JSON or HTML,
-  both name the header) in `isProviderIngressAuthFailure` — the same
-  invalidate-and-retry-once healing — and by dropping ALL of a sandbox's cached
-  preview links at the restart boundary in `wakeSandbox`. Deploy requires an
-  apps/api release.
+- **Sandbox previews and App previews on E2B broke after a resume** ("Missing
+  traffic access token. The e2b-traffic-access-token header is missing",
+  against the served sandbox id). E2B mints a NEW traffic token on every
+  pause-resume. The first fix (2026-10-23) recognized E2B's 403 refusals and
+  dropped the per-port preview link cache, but E2B disables that cache
+  (`ingressCacheTtlMs = 0`). The stale token lived in the provider's 5 s
+  `connectedSandboxes` handle, so the retry re-resolved the same token. The App
+  public proxy (`*.apps.dosco.live`) also passed the 403 through because its
+  recovery handled only 400/5xx. Release **v63** adds
+  `SandboxProvider.invalidateIngress?`; `E2BProvider` drops the connected handle
+  and the running-status cache. The sandbox proxy and the App public proxy call
+  it before their single retry; the App proxy replays only a GET/HEAD. The raw
+  `*.e2b.app` URL remains provider-owned and still needs the header; use the
+  Dosco App host or `*.preview.dosco.live`.
