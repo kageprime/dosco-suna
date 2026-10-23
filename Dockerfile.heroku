@@ -275,8 +275,6 @@ COPY --from=sandbox-cli /cli/apps/cli/dist/kortix-connectors-runtime.attestation
 COPY --from=app-runtime /out/kortix-appd ./apps/kortix-app-runtime/dist/kortix-appd-linux-amd64
 COPY --from=app-runtime /out/caddy ./apps/kortix-app-runtime/dist/caddy-linux-amd64
 COPY apps/sandbox/entrypoint.sh ./apps/sandbox/entrypoint.sh
-COPY apps/api/start.sh ./apps/api/start.sh
-RUN chmod +x ./apps/api/start.sh
 COPY apps/sandbox/opencode-warmup.sh ./apps/sandbox/opencode-warmup.sh
 COPY apps/sandbox/MACHINE.md ./apps/sandbox/MACHINE.md
 COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
@@ -319,6 +317,10 @@ RUN rm -rf \
     packages/manifest-schema/src/__tests__ \
     packages/api-contract/src/__tests__ && \
     touch apps/kortix-sandbox-agent-server/dist/kortix-agent
+
+# Restore the Heroku launcher (the runner stage below overwrites apps/api from deps).
+COPY apps/api/start.sh ./apps/api/start.sh
+RUN chmod +x ./apps/api/start.sh
 
 WORKDIR /app/${SERVICE}
 
