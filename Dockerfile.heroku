@@ -218,7 +218,8 @@ COPY --from=sandbox-agent /repo/apps/kortix-sandbox-agent-server/dist/kortix-age
 COPY --from=sandbox-cli /cli/apps/cli/dist/kortix /cli/apps/cli/dist/kortix.version /cli/apps/cli/dist/kortix-connectors-runtime.attestation.json ./apps/cli/dist/
 COPY --from=app-runtime /out/kortix-appd ./apps/kortix-app-runtime/dist/kortix-appd-linux-amd64
 COPY --from=app-runtime /out/caddy ./apps/kortix-app-runtime/dist/caddy-linux-amd64
-COPY apps/sandbox/entrypoint.sh apps/sandbox/opencode-warmup.sh apps/sandbox/MACHINE.md apps/sandbox/slack-cli ./apps/sandbox/
+COPY apps/sandbox/entrypoint.sh apps/sandbox/opencode-warmup.sh apps/sandbox/MACHINE.md ./apps/sandbox/
+COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
 # SDK is already in the consolidated packages tree above.
 
 # Source the layered-snapshot builder fingerprints at RUNTIME. It hashes the
@@ -226,8 +227,10 @@ COPY apps/sandbox/entrypoint.sh apps/sandbox/opencode-warmup.sh apps/sandbox/MAC
 # non-deterministically — see apps/api/src/snapshots/templates.ts), so these
 # trees + package.json must be present in the image. Without them the Sandbox
 # panel throws "Failed to list sandbox templates: ENOENT … package.json".
-COPY apps/kortix-sandbox-agent-server/package.json apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/
-COPY apps/cli/package.json apps/cli/src ./apps/cli/
+COPY apps/kortix-sandbox-agent-server/package.json ./apps/kortix-sandbox-agent-server/package.json
+COPY apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/src
+COPY apps/cli/package.json ./apps/cli/package.json
+COPY apps/cli/src ./apps/cli/src
 
 # Copy the app (source + its node_modules if any)
 COPY --from=deps /app/${SERVICE} ./${SERVICE}
