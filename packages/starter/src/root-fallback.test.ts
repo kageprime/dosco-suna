@@ -8,6 +8,24 @@ afterEach(() => {
   for (const dir of fixtures.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
+// The `propagates a nested missing entry` test needs a dangling symlink, and
+// Windows refuses to create one without Developer Mode or admin rights
+// (EPERM). Probe the capability once; where it is missing, the test skips
+// (Linux CI always runs the real behavior).
+const canCreateSymlink: boolean = (() => {
+  const dir = mkdtempSync(join(import.meta.dir, '../.symlink-cap-'));
+  try {
+    symlinkSync(join(dir, 'absent'), join(dir, 'probe'));
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EPERM') return false;
+    throw e;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+})();
+const danglingSymlinkTest = canCreateSymlink ? test : test.skip;
+
 async function fixture() {
   const dir = mkdtempSync(join(import.meta.dir, '../.root-fallback-'));
   fixtures.push(dir);
@@ -31,7 +49,7 @@ describe('template root fallback', () => {
     expect(starter.getProjectTemplateFiles()).toEqual([]);
   });
 
-  test('propagates a nested missing entry instead of using the snapshot', async () => {
+  danglingSymlinkTest('propagates a nested missing entry instead of using the snapshot', async () => {
     const { dir, starter } = await fixture();
     const root = join(dir, 'templates/managed');
     mkdirSync(join(root, 'nested'), { recursive: true });
