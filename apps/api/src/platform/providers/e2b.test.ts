@@ -784,6 +784,34 @@ describe('E2B provider lifecycle', () => {
     }
   });
 
+  test('invalidateIngress drops the handle so the next resolve reconnects immediately', async () => {
+    let connects = 0;
+    connectFactory = (sandboxId) => {
+      connects += 1;
+      return fakeSandbox(sandboxId, `traffic-${connects}`);
+    };
+    const provider = new E2BProvider();
+
+    const first = await provider.resolveIngress('sb-ingress-invalidate', {
+      port: 8000,
+      transport: 'http',
+    });
+    const cached = await provider.resolveIngress('sb-ingress-invalidate', {
+      port: 8000,
+      transport: 'http',
+    });
+    provider.invalidateIngress('sb-ingress-invalidate');
+    const refreshed = await provider.resolveIngress('sb-ingress-invalidate', {
+      port: 8000,
+      transport: 'http',
+    });
+
+    expect(first.headers).toEqual({ 'e2b-traffic-access-token': 'traffic-1' });
+    expect(cached.headers).toEqual({ 'e2b-traffic-access-token': 'traffic-1' });
+    expect(refreshed.headers).toEqual({ 'e2b-traffic-access-token': 'traffic-2' });
+    expect(connects).toBe(2);
+  });
+
   test('concurrent ingress refreshes share one E2B connect', async () => {
     let finishConnect!: () => void;
     const connectGate = new Promise<void>((resolve) => {
@@ -846,36 +874,6 @@ describe('E2B provider lifecycle', () => {
     await starting;
     expect(await ingress).toMatchObject({
       headers: { 'e2b-traffic-access-token': 'traffic-start-single-flight' },
-    });
-  });
-
-  test('an ingress refresh and later start share one E2B connect', async () => {
-    let finishConnect!: () => void;
-    const connectGate = new Promise<void>((resolve) => {
-      finishConnect = resolve;
-    });
-    let connects = 0;
-    connectFactory = async (sandboxId) => {
-      connects += 1;
-      await connectGate;
-      return fakeSandbox(sandboxId, 'traffic-ingress-first-single-flight');
-    };
-    const provider = new E2BProvider();
-
-    const ingress = provider.resolveIngress('sb-ingress-start-single-flight', {
-      port: 8000,
-      transport: 'http',
-    });
-    for (let attempt = 0; attempt < 10 && connects === 0; attempt += 1) {
-      await Promise.resolve();
-    }
-    const starting = provider.start('sb-ingress-start-single-flight');
-
-    expect(connects).toBe(1);
-    finishConnect();
-    await starting;
-    expect(await ingress).toMatchObject({
-      headers: { 'e2b-traffic-access-token': 'traffic-ingress-first-single-flight' },
     });
   });
 

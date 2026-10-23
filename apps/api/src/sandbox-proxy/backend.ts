@@ -343,6 +343,11 @@ export function invalidateSandboxPreviewLinks(sandboxId: string): void {
   dropIngress(`${sandboxId}:`);
 }
 
+/** Drop a provider-owned ingress credential after the edge refused it. */
+export function invalidateProviderIngress(provider: string, externalId: string): void {
+  getProvider(provider as ProviderName).invalidateIngress?.(externalId);
+}
+
 // ── Upstream auth headers (shared by HTTP forward + WebSocket) ────────────────
 
 /**

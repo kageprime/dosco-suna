@@ -325,6 +325,14 @@ export interface SandboxProvider {
     externalId: string,
     request: SandboxIngressRequest,
   ): Promise<ResolvedSandboxIngress>;
+  /**
+   * Drop the provider-owned cached ingress credential for a sandbox after the
+   * provider edge refuses it. E2B rotates its traffic token on every
+   * pause-resume; the provider handle is the credential source, so the proxy
+   * must ask the provider to drop it before re-resolving. Providers without a
+   * provider-owned credential cache omit this hook.
+   */
+  invalidateIngress?(externalId: string): void;
   ensureRunning(externalId: string): Promise<void>;
   getProvisioningStatus(sandboxId: string): Promise<ProvisioningStatus | null>;
   /**

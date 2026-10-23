@@ -53,6 +53,7 @@ let shareRow: Record<string, unknown> | null = null;
 const counts = {
   wakeSandbox: 0,
   invalidatePreviewLink: 0,
+  invalidateProviderIngress: 0,
   markSandboxUsed: 0,
   markSandboxErrored: 0,
   resumeStopped: 0,
@@ -137,6 +138,9 @@ mock.module('../backend', () => ({
   buildSandboxUpstreamHeaders: async () => ({ ...upstreamAuthHeaders }),
   invalidatePreviewLink: () => {
     counts.invalidatePreviewLink += 1;
+  },
+  invalidateProviderIngress: () => {
+    counts.invalidateProviderIngress += 1;
   },
   markSandboxUsed: () => {
     counts.markSandboxUsed += 1;
@@ -613,6 +617,7 @@ describe('forwardToSandbox authentication failures', () => {
       expect(res.status).toBe(200);
       expect(fetchCalls).toBe(2);
       expect(counts.invalidatePreviewLink).toBe(1);
+      expect(counts.invalidateProviderIngress).toBe(1);
     });
 
     test('the browser-shaped HTML edge page is recognized the same way', async () => {
@@ -627,6 +632,7 @@ describe('forwardToSandbox authentication failures', () => {
       expect(res.status).toBe(200);
       expect(fetchCalls).toBe(2);
       expect(counts.invalidatePreviewLink).toBe(1);
+      expect(counts.invalidateProviderIngress).toBe(1);
     });
 
     test('a write is never replayed — 503 with the refresh code, link dropped once', async () => {
@@ -645,6 +651,7 @@ describe('forwardToSandbox authentication failures', () => {
       });
       expect(fetchCalls).toBe(1);
       expect(counts.invalidatePreviewLink).toBe(1);
+      expect(counts.invalidateProviderIngress).toBe(1);
     });
 
     test('any other E2B 403 is an upstream body the proxy passes through', async () => {
@@ -655,6 +662,7 @@ describe('forwardToSandbox authentication failures', () => {
       expect(await res.text()).toBe('forbidden: the app itself said no');
       expect(fetchCalls).toBe(1);
       expect(counts.invalidatePreviewLink).toBe(0);
+      expect(counts.invalidateProviderIngress).toBe(0);
     });
   });
 

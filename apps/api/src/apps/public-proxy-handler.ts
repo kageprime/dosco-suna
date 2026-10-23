@@ -4,13 +4,15 @@ import { markComputeSessionAlive } from '../billing/services/compute-metering';
 import { type SandboxProviderName } from '../config';
 import { db } from '../shared/db';
 import { ingressTargetUrl } from '../platform/providers/ingress-url';
+import { invalidateProviderIngress } from '../sandbox-proxy/backend';
 import { AppAccountUnfundedError, AppLimitError } from './limits';
 import { AppHostingProvider } from './hosting';
 import { enqueueCurrentAppRuntime } from './deployment-worker';
 import { authorizeAppRequest, authorizeServiceRequest, resolveAppViewerUserId, bindAppViewerSession, appViewerEndpointResponse,
   appTokenResponse, appViewerContextHeader } from './public-proxy-access';
 import { resolveAppRequest, verifyAppEdgeRequest } from './public-proxy-edge';
-import { appPublicStatusResponse, publicDeploymentStatus, appPublicUnavailableResponse, appProviderStoppedResponse, appColdStartUpstreamResponse } from './public-proxy-status';
+import { appPublicStatusResponse, publicDeploymentStatus, appPublicUnavailableResponse, appColdStartUpstreamResponse } from './public-proxy-status';
+import { fetchWithRecovery } from './public-proxy-recovery';
 import { loadPublicAppState, loadPublicApp, ensureAppRuntimeRunning, appRuntimeNeedsWake, releaseServes } from './public-proxy-runtime';
 import { appUpstreamHeaders, appPublicResponseHeaders } from './public-proxy-headers';
 import { serveStaticDeployment } from './static-site';
@@ -211,61 +213,10 @@ export async function proxyRunningApp(
 
   const { upstream, recoveredProvider, starting } = await fetchWithRecovery(
     fetchUpstream, recoverProviderRuntime, startingResponse, () => runtime.provider as SandboxProviderName,
-    replayableRequest, coldStart,
+    () => invalidateProviderIngress(runtime.provider, runtime.externalId), replayableRequest, coldStart,
   );
   if (starting) return starting;
   return respondFromUpstream(request, loaded, runtime, upstream, coldStart || recoveredProvider);
-}
-
-async function fetchWithRecovery(
-  fetchUpstream: () => Promise<Response>,
-  recoverProviderRuntime: (force: boolean) => Promise<void>,
-  startingResponse: () => Promise<Response>,
-  provider: () => SandboxProviderName,
-  replayableRequest: boolean,
-  coldStart: boolean,
-): Promise<{ upstream: Response; recoveredProvider: boolean; starting?: never } | { starting: Response; upstream?: never; recoveredProvider?: never }> {
-  let upstream: Response;
-  let recoveredProvider = false;
-  try {
-    upstream = await fetchUpstream();
-  } catch {
-    try {
-      await recoverProviderRuntime(false);
-      recoveredProvider = true;
-      if (!replayableRequest) return { starting: await startingResponse() };
-      upstream = await fetchUpstream();
-    } catch {
-      return { starting: await startingResponse() };
-    }
-  }
-
-  // 400 was Daytona's shape. E2B reports a dead runtime as 5xx, so the check has
-  // to see those statuses or the recovery below can never run for it.
-  if (upstream.status === 400 || upstream.status >= 502) {
-    const body = await upstream.clone().text().catch(() => '');
-    if (appProviderStoppedResponse(provider(), upstream.status, body)) {
-      await upstream.body?.cancel().catch(() => {});
-      if (coldStart) return { starting: await startingResponse() };
-      try {
-        await recoverProviderRuntime(true);
-        recoveredProvider = true;
-        if (!replayableRequest) return { starting: await startingResponse() };
-        upstream = await fetchUpstream();
-      } catch {
-        return { starting: await startingResponse() };
-      }
-      if (upstream.status === 400 || upstream.status >= 502) {
-        const retryBody = await upstream.clone().text().catch(() => '');
-        if (appProviderStoppedResponse(provider(), upstream.status, retryBody)) {
-          await upstream.body?.cancel().catch(() => {});
-          return { starting: await startingResponse() };
-        }
-      }
-    }
-  }
-
-  return { upstream, recoveredProvider };
 }
 
 async function respondFromUpstream(

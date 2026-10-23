@@ -3,6 +3,7 @@ import { ingressTargetUrl } from '../../platform/providers/ingress-url';
 import {
   buildSandboxUpstreamHeaders,
   invalidatePreviewLink,
+  invalidateProviderIngress,
   markSandboxErrored,
   markSandboxUsed,
   resolveSandboxIngress,
@@ -242,6 +243,7 @@ async function handleUpstreamFailureStatus(
   if (await isProviderIngressAuthFailure(record.provider, upstream)) {
     await upstream.body?.cancel().catch(() => {});
     invalidatePreviewLink(sandboxId, port);
+    invalidateProviderIngress(record.provider, record.externalId);
     if (!state.providerCredentialsRefreshed && (method === 'GET' || method === 'HEAD') && attempt < MAX_RETRIES) {
       state.providerCredentialsRefreshed = true;
       return 'retry';

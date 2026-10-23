@@ -869,6 +869,11 @@ export class E2BProvider implements SandboxProvider {
     };
   }
 
+  invalidateIngress(externalId: string): void {
+    invalidateConnectedSandbox(externalId);
+    invalidateRunningStatus(externalId);
+  }
+
   routeIngress(request: SandboxIngressRequest) {
     return { effectivePort: request.port };
   }
