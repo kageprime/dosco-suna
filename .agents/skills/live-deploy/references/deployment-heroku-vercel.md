@@ -509,6 +509,63 @@ required.
 `dosco.live` is also `FRONTEND_URL` and the Supabase Site URL, so fixing DNS
 makes every auth redirect land on a working origin.
 
+### 6.1 Wildcard domains for Apps and previews
+
+Two wildcard domains are product surfaces, not marketing aliases:
+
+| Surface | Public host | Heroku domain | DNS |
+|---|---|---|---|
+| Apps | `prod-<slug>-<route-key>.apps.dosco.live` | `*.apps.dosco.live` | CNAME `*.apps` → `structural-shore-qk0rvv6ze40z08csve4z2tos.herokudns.com` |
+| Previews | `prod-p<port>-<sandbox-label>.preview.dosco.live` | `*.preview.dosco.live` | CNAME `*.preview` → `general-springs-2pos51cqi60ejh9byk8tttv1.herokudns.com` |
+
+Both are on the Heroku Common Runtime, which supports wildcard custom domains
+and ACM wildcard certificates. ACM issued a Let's Encrypt certificate for each
+wildcard on 2026-10-23 (valid to 2027-01-21). The wildcard DNS records were
+removed from the Vercel project the same day; Vercel no longer serves them.
+
+Release **v62** sets:
+
+```text
+KORTIX_APPS_BASE_DOMAIN=apps.dosco.live
+KORTIX_PREVIEW_BASE_DOMAIN=preview.dosco.live
+KORTIX_APPS_ALLOW_DIRECT_EDGE=true
+KORTIX_PREVIEW_ALLOW_DIRECT_EDGE=true
+```
+
+`KORTIX_APPS_BASE_DOMAIN` was previously derived from `KORTIX_URL`; setting it
+explicitly pins the host. `KORTIX_PREVIEW_BASE_DOMAIN` was unset, so previews
+were path-based on `api.dosco.live/v1/p/...`; they are now host-based.
+
+**Trust model.** There is no Cloudflare Worker in front of these domains. The
+Heroku wildcard router is the trust boundary; the API reads the real `Host`
+because `KORTIX_APPS_ALLOW_DIRECT_EDGE` and `KORTIX_PREVIEW_ALLOW_DIRECT_EDGE`
+are `true`. App viewer gates and preview auth still enforce access. The tradeoff
+is no edge signature and no Cloudflare edge cache: every App and preview
+request reaches the Heroku dyno. Add the Cloudflare Workers only if the edge
+cache or the HMAC signature is required.
+
+Verify:
+
+```bash
+heroku domains -a dosco
+heroku certs:auto -a dosco
+curl -sS -i https://prod-<slug>-<route-key>.apps.dosco.live/
+curl -sS -i https://prod-p<port>-<sandbox-label>.preview.dosco.live/
+```
+
+A valid-shape App host that does not exist returns
+`{"error":"App not found"}` from the App handler. A preview host without a
+session returns `401 {"error":"Unauthorized"}` from the preview gate. Both
+responses carry `Server: Heroku`; a Vercel marketing page means DNS or the
+Vercel domain attachment is still wrong.
+
+Rollback:
+
+1. `heroku config:unset KORTIX_APPS_BASE_DOMAIN KORTIX_PREVIEW_BASE_DOMAIN KORTIX_APPS_ALLOW_DIRECT_EDGE KORTIX_PREVIEW_ALLOW_DIRECT_EDGE -a dosco`
+2. `heroku domains:remove '*.apps.dosco.live' '*.preview.dosco.live' -a dosco`
+3. Re-add the wildcards to the Vercel project.
+4. Restore the Name.com wildcard `A` records to `64.29.17.65` and `216.198.79.65`.
+
 ---
 
 ## 7. Authentication: how it works and why login failed
@@ -723,7 +780,7 @@ WHERE NOT granted;
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release **v61** at the 2026-10-23 verification; v61 is the unified tree on the 32-instruction image; v37 shipped the xera starter fix + the E2B preview fix) |
+| Heroku API | up, Standard-2X (release **v62** at the 2026-10-23 verification; v62 runs the same 32-instruction image as v61 and only adds the wildcard config vars; v61 is the unified tree; v37 shipped the xera starter fix + the E2B preview fix) |
 | Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
@@ -734,7 +791,7 @@ WHERE NOT granted;
 | Google provider (Supabase) | enabled, redirects to Google |
 | Google button (frontend) | enabled via `NEXT_PUBLIC_AUTH_PROVIDERS=google`; verified in the deployed `/auth` HTML on 2026-10-20 |
 | Supabase redirect allowlist | Vercel callback accepted (verified 2026-10-20); localhost still to add |
-| `dosco.live` DNS (Name.com) | apex `64.29.17.1` + `216.198.79.1` (Vercel's current anycast pair; verified via `_vercel` TXT 2026-10-20); `api` CNAME → `fluffy-parsnip-mgd3ejvtvyyvydkhbor18vwb.herokudns.com` (2026-10-23); `www` CNAME → `dosco.live` (2026-10-23, verified, 301 → apex — checked: `https://www.dosco.live/` → 301 → 200 at apex, TLS clean); `status` → betteruptime; SES mail records intact (`send` SPF, `resend._domainkey` DKIM, `_dmarc`, inbound MX). `*.apps` / `*.preview` wildcards are attached to the Vercel project and resolve to Vercel; any subdomain serves the production web app (200). The API does not use them today: `KORTIX_APPS_BASE_DOMAIN` and `KORTIX_PREVIEW_BASE_DOMAIN` are unset, so previews are path-based on `api.dosco.live/v1/p/...` and Apps hosting is disabled. Enabling either needs the wildcard routed to the API edge through a Worker/proxy (Heroku has no wildcard domains), not Vercel. Safe to delete until then. |
+| `dosco.live` DNS (Name.com) | apex `64.29.17.1` + `216.198.79.1` (Vercel's current anycast pair; verified via `_vercel` TXT 2026-10-20); `api` CNAME → `fluffy-parsnip-mgd3ejvtvyyvydkhbor18vwb.herokudns.com` (2026-10-23); `www` CNAME → `dosco.live` (2026-10-23, verified, 301 → apex — checked: `https://www.dosco.live/` → 301 → 200 at apex, TLS clean); `status` → betteruptime; SES mail records intact (`send` SPF, `resend._domainkey` DKIM, `_dmarc`, inbound MX). `*.apps` CNAME → `structural-shore-qk0rvv6ze40z08csve4z2tos.herokudns.com`; `*.preview` CNAME → `general-springs-2pos51cqi60ejh9byk8tttv1.herokudns.com` (both added 2026-10-23; removed from Vercel the same day). Heroku ACM issued `*.apps.dosco.live` and `*.preview.dosco.live` (Let's Encrypt, valid to 2027-01-21). Release **v62** sets `KORTIX_APPS_BASE_DOMAIN=apps.dosco.live`, `KORTIX_PREVIEW_BASE_DOMAIN=preview.dosco.live`, `KORTIX_APPS_ALLOW_DIRECT_EDGE=true`, `KORTIX_PREVIEW_ALLOW_DIRECT_EDGE=true`; Apps and previews are host-routed through Heroku with no Cloudflare Worker. See §6.1. |
 | GitHub App callbacks | minted from `KORTIX_URL` → now `api.dosco.live`; the App's registered callback list must include `https://api.dosco.live/v1/platform/github-app/oauth/callback` (old hosts keep working) — **pending in GitHub settings** |
 | Service role key rotation | **pending** |
 | Pipedream credentials | invalid (401) - connectors disabled with the scheduler |
