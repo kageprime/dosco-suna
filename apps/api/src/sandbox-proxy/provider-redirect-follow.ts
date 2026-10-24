@@ -37,6 +37,8 @@ export const MAX_PROVIDER_REDIRECT_HOPS = 3;
  * caller's own handling of it is enough (and the browser resolves it without
  * losing anything). Returns the absolute target URL, or null.
  */
+const E2B_CLOUD_DOMAINS = new Set(['e2b.app', 'e2b.dev', 'e2b.pro']);
+
 export function providerIngressTarget(
   provider: string,
   location: string | null,
@@ -47,15 +49,18 @@ export function providerIngressTarget(
   if (provider !== 'e2b') return null;
   try {
     const target = new URL(location, baseUrl);
-    // The ingress host is `<port>-<sandbox_id>.<sandbox domain>`. On E2B Cloud
-    // the sandbox domain (`e2b.app`) is not the API domain in E2B_DOMAIN
-    // (`e2b.dev`), so the host we just dialled names the family it owns.
-    // Trusting E2B_DOMAIN alone handed every E2B Cloud hop to the browser,
-    // which then hit E2B's "Missing traffic access token" page (v67,
-    // 2026-10-24). A one-label parent (`app`) is never trusted.
-    const ingressDomain = new URL(baseUrl).hostname.split('.').slice(1).join('.');
-    const domains = [ingressDomain.includes('.') ? ingressDomain : '', configuredE2bDomain()];
-    return domains.some((domain) => domain && target.hostname.endsWith(`.${domain}`)) ? target.href : null;
+    const parent = new URL(baseUrl).hostname.split('.').slice(1).join('.');
+    const ingressDomain = parent.includes('.') ? parent : '';
+    const domains = new Set([ingressDomain, configuredE2bDomain()].filter(Boolean));
+    // E2B Cloud redirects every browser navigation on `*.e2b.dev` (308) onto
+    // `*.e2b.app`. When E2B_DOMAIN is `e2b.dev`, both `getHost()` (`baseUrl`)
+    // and `E2B_DOMAIN` are `e2b.dev`, so without uniting E2B Cloud's sibling
+    // domains (`supportedDomains` in the E2B SDK) the hop still escaped to the
+    // browser (v67/v68, 2026-10-24). Self-hosted clusters stay isolated.
+    if ([...domains].some((d) => E2B_CLOUD_DOMAINS.has(d))) {
+      for (const cloud of E2B_CLOUD_DOMAINS) domains.add(cloud);
+    }
+    return [...domains].some((domain) => target.hostname.endsWith(`.${domain}`)) ? target.href : null;
   } catch {
     return null;
   }

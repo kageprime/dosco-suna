@@ -204,7 +204,7 @@ describe('E2B provider lifecycle', () => {
         timeoutMs: 3_600_000,
         opts: expect.objectContaining({
           apiKey: 'e2b_test_key',
-          domain: 'e2b.dev',
+          domain: 'e2b.app',
           requestTimeoutMs: 20_000,
         }),
       },
