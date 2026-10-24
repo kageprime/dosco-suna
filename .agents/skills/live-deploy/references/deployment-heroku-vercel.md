@@ -780,7 +780,7 @@ WHERE NOT granted;
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release **v66** verified running on 2026-10-24 with v65 code; v65 shipped the first redirect fix and its app-host rewrite is replaced by v67's server-side follower, prepared on the branch pending deploy; v64 enabled the tunnel + set `TUNNEL_SIGNING_SECRET`, rotated at v66; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
+| Heroku API | up, Standard-2X (release **v68** `Deploy 7ef32993`, live 2026-10-24 11:31Z, `/health` 200; v68 makes the v67 redirect follower trust the dialled ingress domain (`*.e2b.app`) — v67 checked `E2B_DOMAIN=e2b.dev` only and handed every E2B Cloud hop to the browser; v67 replaced v65's app-host Location rewrite with the server-side follower; v64 enabled the tunnel + set `TUNNEL_SIGNING_SECRET`, rotated at v66; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
 | Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
@@ -841,8 +841,17 @@ WHERE NOT granted;
   against any app whose middleware bounces every path back onto the upstream
   host: rewrite and app answer each other forever. Release **v67** replaces the
   rewrite with a bounded server-side follow (`provider-redirect-follow.ts`):
-  GET/HEAD only, max 3 hops, only hosts under the configured E2B cluster
-  domain, the ingress credential headers re-attached on every hop, a write
-  redirect passed through untouched, and a fruitless chain answered with a
-  visible `502 sandbox_redirect_loop` instead of a Location the browser spins
-  on. `sanitizeRedirectLocation` is back to self/external Locations only.
+  GET/HEAD only, max 3 hops, only provider-owned hosts, the ingress credential
+  headers re-attached on every hop, a write redirect passed through untouched,
+  and a fruitless chain answered with a visible `502 sandbox_redirect_loop`
+  instead of a Location the browser spins on. `sanitizeRedirectLocation` is
+  back to self/external Locations only.
+- **v67's follower never followed an E2B Cloud hop (fixed in v68).** It
+  trusted only hosts under `E2B_DOMAIN`, which is `e2b.dev` on this app (the
+  API domain). Sandbox ingress is served on `*.e2b.app`, so every
+  canonical-host 308 reached the browser, which then hit E2B's "Missing traffic
+  access token" page. Symptom in `heroku logs`: `GET /v1/p/<sandbox_id>/<port>
+  308` from the API. Release **v68** trusts the parent domain of the ingress
+  host just dialled (`<port>-<sandbox_id>.<domain>`; a one-label parent is
+  never trusted) plus `E2B_DOMAIN`. Do not set `E2B_DOMAIN=e2b.app` as a
+  workaround: the same value configures the E2B SDK and the templates API.
