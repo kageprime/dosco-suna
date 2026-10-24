@@ -95,4 +95,15 @@ describe('describeTopup', () => {
       expect(describeTopup(amount).hint.length).toBeGreaterThan(0);
     }
   });
+
+  test('paystackNgnLabel is appended only when buyable', () => {
+    const buyable = describeTopup(25, false, undefined, '≈ ₦40,000 charged');
+    expect(buyable.hint).toContain('· ≈ ₦40,000 charged');
+
+    const tooLow = describeTopup(2, false, undefined, '≈ ₦3,200 charged');
+    expect(tooLow.hint).not.toContain('≈ ₦3,200 charged');
+
+    const noAmount = describeTopup(null, false, undefined, '≈ ₦40,000 charged');
+    expect(noAmount.hint).not.toContain('≈ ₦40,000 charged');
+  });
 });

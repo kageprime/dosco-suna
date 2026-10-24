@@ -961,6 +961,8 @@ export interface SetBillingPlanParams {
   cancelUrl: string;
   locale?: string;
   accountId?: string;
+  /** Paystack checkout instead of Stripe. Defaults to paystack. */
+  provider?: BillingProvider;
 }
 
 /**
@@ -1038,6 +1040,7 @@ export async function setBillingPlan(params: SetBillingPlanParams): Promise<SetB
       cancel_url: params.cancelUrl,
       locale: params.locale,
       account_id: params.accountId,
+      provider: params.provider ?? 'paystack',
     }),
     'Failed to set billing plan',
   );

@@ -38,7 +38,7 @@ import { insertPurchase, updatePurchaseStatus } from '../repositories/transactio
 import { upsertCustomer } from '../repositories/customers';
 import { applyStripeSync } from './account-write-owner';
 import { wallet } from '../wallet';
-import { resolvePlanRecord } from './plan-catalog';
+
 
 export function paystackEnabled(): boolean {
   return paystack.paystackConfigured();
@@ -192,9 +192,15 @@ export async function createPaystackCreditCheckout(params: {
 // ─── Subscriptions (recurring) ──────────────────────────────────────────────
 
 /** Plan names are deterministic so repeat checkouts reuse the same plan. */
-function paystackPlanName(tierKey: string, seats?: number): string {
-  if (seats && seats > 1) return `dosco_${tierKey}_${seats}seats`;
-  return `dosco_${tierKey}`;
+function paystackPlanName(amountUsd: number): string {
+  return `dosco_credits_${amountUsd}`;
+}
+
+/** `dosco_credits_<amount>` → monthly USD amount. */
+function parseMonthlyUsdFromPlanName(name: string): number | null {
+  const match = name.match(/dosco_credits_(\d+)/);
+  if (match) return Number(match[1]);
+  return null;
 }
 
 /** `dosco_<tier>` / `dosco_<tier>_<n>seats` → tier key. */
@@ -211,69 +217,85 @@ async function tierKeyFromPaystackPlan(planCode: string): Promise<string | null>
   }
 }
 
-async function ensurePaystackPlan(
-  tierKey: string,
-  seats?: number,
-): Promise<{ planCode: string; amountNgn: number }> {
-  const plan = resolvePlanRecord(tierKey);
-  const seatsMultiplier = plan.price.unit === 'seat_month' ? Math.max(1, seats ?? 1) : 1;
-  const amountUsd = plan.price.amountUsd * seatsMultiplier;
-  if (amountUsd <= 0) throw new BillingError('This plan does not require payment');
+async function ensurePaystackPlan(params: {
+  monthlyUsd?: number;
+  tierKey?: string;
+  seats?: number;
+}): Promise<{ planCode: string; amountNgn: number; monthlyUsd: number }> {
+  let amountUsd = params.monthlyUsd;
+  if (!amountUsd && params.tierKey) {
+    const match = params.tierKey.match(/^credits_(\d+)$/);
+    if (match) {
+      amountUsd = Number(match[1]);
+    } else if (params.tierKey === 'credits') {
+      amountUsd = 50;
+    }
+  }
+  if (!amountUsd || amountUsd <= 0) {
+    throw new BillingError('This plan does not require payment');
+  }
 
-  // USD-denominated catalog price → whole naira at the configured rate.
   const rate = checkoutUsdNgnRate();
   const amountNgn = paystack.usdToNgn(amountUsd, rate);
+  const name = paystackPlanName(amountUsd);
 
-  const name = paystackPlanName(tierKey, seats);
   const plans = await paystack.listPlans(name);
   const hit = plans.find((p) => p.name === name && p.currency === paystack.PAYSTACK_CHARGE_CURRENCY);
-  if (hit) return { planCode: hit.plan_code, amountNgn };
+  if (hit) return { planCode: hit.plan_code, amountNgn, monthlyUsd: amountUsd };
 
   const created = await paystack.createPlan({
     name,
     amountSubunits: paystack.toSubunits(amountNgn),
     currency: paystack.PAYSTACK_CHARGE_CURRENCY,
     interval: 'monthly',
-    description: `Dosco ${tierKey} plan${seatsMultiplier > 1 ? ` (${seatsMultiplier} seats)` : ''}`,
+    description: `Dosco Credits plan (${amountUsd}/mo)`,
   });
-  return { planCode: created.plan_code, amountNgn };
+  return { planCode: created.plan_code, amountNgn, monthlyUsd: amountUsd };
 }
 
 export async function createPaystackSubscriptionCheckout(params: {
   accountId: string;
   email: string;
-  tierKey: string;
+  monthlyUsd?: number;
+  tierKey?: string;
   successUrl?: string;
   seats?: number;
-}): Promise<{ checkout_url: string; reference: string }> {
+}): Promise<{ checkout_url: string; reference: string; status: 'checkout_created'; monthly_usd: number }> {
   requirePaystack();
 
-  const { init } = await paystackCheckout('subscription checkout', async () => {
-    const { planCode, amountNgn } = await ensurePaystackPlan(params.tierKey, params.seats);
+  const { init, plan } = await paystackCheckout('subscription checkout', async () => {
+    const plan = await ensurePaystackPlan(params);
     const customerId = await getOrCreatePaystackCustomer(params.accountId, params.email);
 
     const reference = `psk_sub_${randomUUID()}`;
     const init = await paystack.initializeTransaction({
       email: params.email,
-      amountSubunits: paystack.toSubunits(amountNgn),
+      amountSubunits: paystack.toSubunits(plan.amountNgn),
       currency: paystack.PAYSTACK_CHARGE_CURRENCY,
       reference,
       callbackUrl: params.successUrl,
-      planCode,
+      planCode: plan.planCode,
       metadata: {
         account_id: params.accountId,
-        tier_key: params.tierKey,
-        plan_key: params.tierKey,
+        tier_key: 'credits',
+        plan_key: 'credits',
+        monthly_usd: plan.monthlyUsd,
         type: 'subscription',
-        seats: params.seats ?? null,
         paystack_customer: customerId,
       },
     });
-    return { init };
+    return { init, plan };
   });
 
-  return { checkout_url: init.authorization_url, reference: init.reference };
+  return {
+    status: 'checkout_created',
+    checkout_url: init.authorization_url,
+    reference: init.reference,
+    monthly_usd: plan.monthlyUsd,
+  };
 }
+
+
 
 /** Cancel at period end — Paystack stops renewals; the tier lapses on the
  *  `subscription.disable` webhook, mirroring Stripe's cancelled-at-period-end. */
@@ -323,21 +345,26 @@ async function activatePaystackSubscription(
   accountId: string,
   tierKey: string,
   reference: string,
+  monthlyUsd?: number,
 ): Promise<void> {
-  const plan = resolvePlanRecord(tierKey);
-  if (plan.grant.includedCreditsUsd > 0) {
-    await wallet.grant({
-      accountId,
-      amount: plan.grant.includedCreditsUsd,
-      kind: 'purchase',
-      description: `${tierKey} plan credits (Paystack)`,
-      expiring: false,
-      key: { event: `paystack:${reference}` },
-    });
-  }
+  const amountUsd = monthlyUsd && monthlyUsd > 0 ? monthlyUsd : 50;
+  await wallet.grant({
+    accountId,
+    amount: amountUsd,
+    kind: 'tier_grant',
+    description: `Credits plan ($${amountUsd}/mo, Paystack)`,
+    expiring: false,
+    key: { event: `paystack:${reference}` },
+  });
   await applyStripeSync(
     accountId,
-    { tier: tierKey, provider: 'paystack', paymentStatus: 'active' },
+    {
+      tier: 'credits',
+      provider: 'paystack',
+      paymentStatus: 'active',
+      planMonthlyUsd: String(amountUsd),
+      scheduledMonthlyUsd: null,
+    },
     { reason: 'paystack:charge.success' },
   );
 }
@@ -402,15 +429,16 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
   // ── Subscription charge (first payment OR renewal) ──
   const accountId: string | undefined = metadata.account_id;
   const tierKey: string | undefined = metadata.tier_key ?? metadata.plan_key;
-  if (type === 'subscription' && accountId && tierKey) {
-    await activatePaystackSubscription(accountId, tierKey, reference);
-    console.log(`[Paystack] Subscription charge settled for ${accountId} (${tierKey})`);
+  const metadataMonthlyUsd = metadata.monthly_usd ? Number(metadata.monthly_usd) : undefined;
+  if (type === 'subscription' && accountId) {
+    await activatePaystackSubscription(accountId, tierKey ?? 'credits', reference, metadataMonthlyUsd);
+    console.log(`[Paystack] Subscription charge settled for ${accountId} ($${metadataMonthlyUsd ?? 'default'}/mo)`);
     return;
   }
 
   // Renewals don't carry our original checkout metadata — resolve the account
-  // through the subscription / paystack customer, and the tier through the
-  // plan's deterministic name.
+  // through the subscription / paystack customer, and the monthly amount through the
+  // plan's deterministic name or settled charge amount.
   const subCode: string | undefined = data.subscription?.subscription_code;
   const planCode: string | undefined = data.plan?.plan_code ?? data.plan_object?.plan_code;
   let renewalAccount = subCode ? await getAccountIdByPaystackSubscriptionCode(subCode) : null;
@@ -418,10 +446,21 @@ async function handleChargeSuccess(data: Record<string, any>): Promise<void> {
     renewalAccount = await getAccountIdByPaystackCustomerCode(data.customer.customer_code);
   }
   if (renewalAccount && planCode) {
-    const renewalTier = await tierKeyFromPaystackPlan(planCode);
-    if (renewalTier) {
-      await activatePaystackSubscription(renewalAccount, renewalTier, reference);
-      console.log(`[Paystack] Renewal settled for ${renewalAccount} (${renewalTier})`);
+    let renewalUsd: number | null = null;
+    try {
+      const plan = await paystack.fetchPlan(planCode);
+      if (plan?.name) {
+        renewalUsd = parseMonthlyUsdFromPlanName(plan.name);
+      }
+    } catch (err) {
+      console.warn(`[Paystack] could not fetch plan ${planCode} for renewal:`, err);
+    }
+    if (!renewalUsd && amountUsd > 0) {
+      renewalUsd = Math.round(amountUsd);
+    }
+    if (renewalUsd && renewalUsd > 0) {
+      await activatePaystackSubscription(renewalAccount, 'credits', reference, renewalUsd);
+      console.log(`[Paystack] Renewal settled for ${renewalAccount} ($${renewalUsd}/mo)`);
       return;
     }
   }

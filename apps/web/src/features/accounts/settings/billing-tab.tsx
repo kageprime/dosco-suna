@@ -129,6 +129,9 @@ export function BillingTab({
 
   const subscription = accountState?.subscription;
   const canPurchaseCredits = subscription?.can_purchase_credits || false;
+  // The Stripe customer portal does not exist for Paystack-billed accounts
+  // (the portal route 400s for them) — hide its CTAs instead of erroring.
+  const isPaystackBilled = subscription?.provider === 'paystack';
   // The wallet blocks are for a wallet the plan can FUND. A plan that cannot
   // purchase credits (Free) would show a balance its plan can never refill —
   // the dead-end wallet of the dogfood finding (KRTX-2376) — so the caller's
@@ -257,18 +260,20 @@ export function BillingTab({
                   {t('cancelSubscription')}
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={handleManageSubscription}
-                disabled={createPortalSessionMutation.isPending}
-              >
-                {createPortalSessionMutation.isPending ? (
-                  <Loading className="size-4 shrink-0" />
-                ) : null}
-                {t('manageBilling')}
-              </Button>
+              {isPaystackBilled ? null : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={handleManageSubscription}
+                  disabled={createPortalSessionMutation.isPending}
+                >
+                  {createPortalSessionMutation.isPending ? (
+                    <Loading className="size-4 shrink-0" />
+                  ) : null}
+                  {t('manageBilling')}
+                </Button>
+              )}
             </SettingsRow>
           </SettingsRowGroup>
           {hasActiveSubscription ? (

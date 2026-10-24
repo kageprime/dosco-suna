@@ -169,6 +169,17 @@ test('setBillingPlan posts monthly_usd to /billing/plan and returns the checkout
     cancel_url: 'https://example.com/cancel',
     locale: 'de',
     account_id: 'acc-1',
+    provider: 'paystack',
+  });
+
+  // Explicit provider override
+  await setBillingPlan({
+    monthlyUsd: 100,
+    provider: 'stripe',
+  });
+  expect(last().body).toMatchObject({
+    monthly_usd: 100,
+    provider: 'stripe',
   });
   expect(result).toEqual({
     status: 'checkout_created',

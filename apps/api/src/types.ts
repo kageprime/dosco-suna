@@ -232,7 +232,7 @@ export interface AccountStateResponse {
     monthly_usd: number | null;
     status: string;
     billing_period: 'monthly' | 'yearly' | 'yearly_commitment' | null;
-    provider: 'stripe' | 'revenuecat' | 'local';
+    provider: 'stripe' | 'paystack' | 'revenuecat' | 'local';
     subscription_id: string | null;
     current_period_end: number | null;
     cancel_at_period_end: boolean;
@@ -259,6 +259,9 @@ export interface AccountStateResponse {
    *  forces every enterprise entitlement on platform-wide. The frontend then
    *  hides every Enterprise upsell. */
   enterprise_license_available: boolean;
+  /** Paystack billing currency + USD→NGN rate for pre-redirect display
+   *  ("≈ ₦X charged"). `usd_ngn_rate` null = rate unconfigured. */
+  billing_fx?: { currency: string; usd_ngn_rate: number | null };
   /** @deprecated Read `plan.family === 'enterprise'`. True on the Enterprise
    *  plan (a contract or an Enterprise trial). */
   enterprise_entitled: boolean;

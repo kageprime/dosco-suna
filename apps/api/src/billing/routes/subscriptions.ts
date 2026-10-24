@@ -47,10 +47,25 @@ subscriptionsRouter.openapi(
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
     const body = await readJsonObject(c);
+    const monthlyUsd = parseMonthlyUsd(body.monthly_usd);
+    const provider = body.provider ?? 'paystack';
+
+    // Paystack is the default payment provider; only an explicit 'stripe' routes to Stripe.
+    if (provider !== 'stripe') {
+      const { createPaystackSubscriptionCheckout } = await import('../services/paystack');
+      const result = await createPaystackSubscriptionCheckout({
+        accountId,
+        email: c.get('userEmail'),
+        monthlyUsd,
+        successUrl: String(body.success_url ?? ''),
+      });
+      return c.json(result);
+    }
+
     const result = await setPlan({
       accountId,
       email: c.get('userEmail'),
-      monthlyUsd: parseMonthlyUsd(body.monthly_usd),
+      monthlyUsd,
       successUrl: String(body.success_url ?? ''),
       cancelUrl: String(body.cancel_url ?? ''),
       locale: typeof body.locale === 'string' ? body.locale : undefined,
@@ -176,6 +191,13 @@ subscriptionsRouter.openapi(
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
     const body = await readJsonObject(c);
+    const { getCreditAccount } = await import('../repositories/credit-accounts');
+    const account = await getCreditAccount(accountId);
+    if (account?.provider === 'paystack') {
+      const { cancelPaystackSubscription } = await import('../services/paystack');
+      const result = await cancelPaystackSubscription(accountId);
+      return c.json(result);
+    }
     const result = await cancelSubscription(
       accountId,
       typeof body.feedback === 'string' ? body.feedback : undefined,

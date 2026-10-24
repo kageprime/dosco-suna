@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { timingSafeEqual } from 'node:crypto';
 import { config } from '../../config';
 import { processStripeWebhook, processRevenueCatWebhook } from '../services/webhooks';
+import { processPaystackWebhook } from '../services/paystack';
 import { makeOpenApiApp, json, errors } from '../../openapi';
 import { bindIntegrationPrincipal } from '../../shared/audit-scope';
 
@@ -66,6 +67,27 @@ webhooksRouter.openapi(
 
     const body = await c.req.json();
     const result = await processRevenueCatWebhook(body);
+    return c.json(result);
+  },
+);
+
+webhooksRouter.openapi(
+  createRoute({
+    method: 'post',
+    path: '/paystack',
+    tags: ['billing'],
+    summary: 'Paystack webhook (signature-verified, public)',
+    responses: {
+      200: json(z.record(z.string(), z.any()), 'Webhook processing result'),
+      ...errors(400, 500),
+    },
+  }),
+  async (c: any) => {
+    const signature = c.req.header('x-paystack-signature');
+    if (!signature) return c.json({ error: 'Missing x-paystack-signature header' }, 400);
+
+    const rawBody = await c.req.text();
+    const result = await processPaystackWebhook(rawBody, signature);
     return c.json(result);
   },
 );

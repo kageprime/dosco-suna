@@ -41,6 +41,16 @@ import { ArrowRightIcon as ArrowRight, UserPlusIcon as UserPlus } from '@phospho
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
+/** Whole-naira figure for pre-redirect display ("≈ ₦60,000 charged"). */
+function formatNgn(amountNgn: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amountNgn);
+}
+
 export interface UpgradePlansModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -140,6 +150,7 @@ export function UpgradePlansModal({
                 onContinueFree={() => onOpenChange(false)}
                 ownerRequired={ownerRequired}
                 mayManageBilling={mayManageBilling}
+                accountState={accountState}
               />
             ))}
           </div>
@@ -187,11 +198,13 @@ function UpgradePlanCard({
   onContinueFree,
   ownerRequired,
   mayManageBilling,
+  accountState,
 }: {
   plan: PricingPlan;
   onContinueFree: () => void;
   ownerRequired: boolean;
   mayManageBilling: boolean;
+  accountState?: AccountState;
 }) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const tAccess = useTranslations('billing.access');
@@ -225,6 +238,11 @@ function UpgradePlanCard({
         <div className="space-y-3">
           <CreditTierSelect value={monthlyUsd} onChange={setMonthlyUsd} disabled={isPending} />
           <p className="text-muted-foreground text-xs text-balance">{tCard('rate')}</p>
+          {accountState?.billing_fx?.usd_ngn_rate ? (
+            <p className="text-muted-foreground text-xs tabular-nums">
+              ≈ {formatNgn(Math.round(monthlyUsd * accountState.billing_fx.usd_ngn_rate))} / mo charged via Paystack
+            </p>
+          ) : null}
         </div>
       }
       action={
@@ -302,6 +320,9 @@ function CreditTopUpModal({
   const copy = leadWithTopUp
     ? billingModalCopy(billingState ?? null, tI18nComplete)
     : { title: t('planTitle'), description: t('planDescription') };
+  // The Stripe customer portal does not exist for Paystack-billed accounts
+  // (the portal route 400s for them) — hide its CTA instead of erroring.
+  const isPaystackBilled = accountState?.subscription?.provider === 'paystack';
 
   const topup = (
     <TopupControls
@@ -360,19 +381,21 @@ function CreditTopUpModal({
           )}
         </ModalBody>
 
-        <ModalFooter className="pt-4 pb-5 sm:justify-start">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground gap-1.5"
-            disabled={createPortal.isPending}
-            onClick={() => createPortal.mutate({ return_url: window.location.href })}
-          >
-            {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
-            {tI18nComplete.raw('text7ea27c63aff1')}
-          </Button>
-        </ModalFooter>
+        {isPaystackBilled ? null : (
+          <ModalFooter className="pt-4 pb-5 sm:justify-start">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground gap-1.5"
+              disabled={createPortal.isPending}
+              onClick={() => createPortal.mutate({ return_url: window.location.href })}
+            >
+              {createPortal.isPending ? <Loading className="size-4 shrink-0" /> : null}
+              {tI18nComplete.raw('text7ea27c63aff1')}
+            </Button>
+          </ModalFooter>
+        )}
       </ModalContent>
     </Modal>
   );

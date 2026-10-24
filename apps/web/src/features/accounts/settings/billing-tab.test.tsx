@@ -208,6 +208,13 @@ describe('BillingTab — cancel control on a subscribed account', () => {
     expect(html).not.toContain('Reactivate subscription');
   });
 
+  test('a Paystack-billed subscription hides the Stripe Manage billing button', () => {
+    accountStateData = subscribedState({ provider: 'paystack' });
+    const html = renderPlan();
+    expect(html).toContain('Cancel subscription');
+    expect(html).not.toContain('Manage billing');
+  });
+
   test('a pending cancellation offers Reactivate instead of a second Cancel', () => {
     accountStateData = subscribedState({ cancel_at_period_end: true });
     const html = renderPlan();

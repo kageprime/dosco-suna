@@ -124,7 +124,8 @@ export function parseMorphManagedModels(value: string): string[] {
   return value.split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-const envSchema = z.object({
+/** Exported for the config-completeness regression test (unit-config-object.test.ts). */
+export const envSchema = z.object({
   // ── Core (required) ──────────────────────────────────────────────────────
   PORT: optInt(8008),
 
@@ -564,6 +565,13 @@ const envSchema = z.object({
   // ── Billing — Stripe (optional, only for cloud billing) ──────────────────
   STRIPE_SECRET_KEY: optStr,
   STRIPE_WEBHOOK_SECRET: optStr,
+
+  // ── Billing — Paystack (Nigerian market) ─────────────────────────────────
+  PAYSTACK_API_URL: optUrl('https://api.paystack.co'),
+  PAYSTACK_PUBLIC_KEY: optStr,
+  PAYSTACK_SECRET_KEY: optStr,
+  PAYSTACK_WEBHOOK_SECRET: optStr,
+  PAYSTACK_USD_NGN_RATE: optStr,
 
   // ── Billing — RevenueCat (optional) ──────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: optStr,
@@ -1079,23 +1087,47 @@ function validateEnv(): z.infer<typeof envSchema> {
     });
   }
 
-  // ── Conditional: Billing enabled → need Stripe keys ────────────────────
+  // ── Conditional: Billing enabled → need at least one payment provider ──
+  // Stripe and Paystack are alternatives. Every checkout route takes
+  // `provider: 'stripe' | 'paystack'`, defaulting to Paystack. Billing boots
+  // when EITHER provider is complete, and a Paystack-only deployment never dies
+  // on missing Stripe keys.
   const billingWillBeEnabled =
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === 'true' ||
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === true;
   if (billingWillBeEnabled) {
-    if (!raw.STRIPE_SECRET_KEY)
+    const stripeReady = Boolean(raw.STRIPE_SECRET_KEY && raw.STRIPE_WEBHOOK_SECRET);
+    const paystackReady = Boolean(raw.PAYSTACK_SECRET_KEY);
+    if (!stripeReady && !paystackReady) {
       issues.push({
-        var: 'STRIPE_SECRET_KEY',
-        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
+        var: 'PAYSTACK_SECRET_KEY',
+        message:
+          'Billing is enabled but no payment provider is configured — set PAYSTACK_SECRET_KEY, or STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET',
         level: 'error',
       });
-    if (!raw.STRIPE_WEBHOOK_SECRET)
-      issues.push({
-        var: 'STRIPE_WEBHOOK_SECRET',
-        message: 'Required when KORTIX_BILLING_INTERNAL_ENABLED=true',
-        level: 'error',
-      });
+    } else {
+      if (!stripeReady) {
+        if (!raw.STRIPE_SECRET_KEY)
+          issues.push({
+            var: 'STRIPE_SECRET_KEY',
+            message: 'Not set — Stripe checkout/portal paths return 400; Paystack paths are unaffected',
+            level: 'warn',
+          });
+        if (!raw.STRIPE_WEBHOOK_SECRET)
+          issues.push({
+            var: 'STRIPE_WEBHOOK_SECRET',
+            message: 'Not set — Stripe webhooks are rejected; Paystack webhooks are unaffected',
+            level: 'warn',
+          });
+      }
+      if (!paystackReady) {
+        issues.push({
+          var: 'PAYSTACK_SECRET_KEY',
+          message: 'Not set — Paystack checkout/webhook paths return 400; Stripe paths are unaffected',
+          level: 'warn',
+        });
+      }
+    }
   }
 
   // ── Config archives → the ONE object store ──────────────────────────────
@@ -1427,6 +1459,13 @@ export const config = {
   STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET,
 
+  // ─── Paystack (Billing, Nigerian market) ──────────────────────────────────
+  PAYSTACK_API_URL: env.PAYSTACK_API_URL,
+  PAYSTACK_PUBLIC_KEY: env.PAYSTACK_PUBLIC_KEY,
+  PAYSTACK_SECRET_KEY: env.PAYSTACK_SECRET_KEY,
+  PAYSTACK_WEBHOOK_SECRET: env.PAYSTACK_WEBHOOK_SECRET,
+  PAYSTACK_USD_NGN_RATE: env.PAYSTACK_USD_NGN_RATE,
+
   // ─── RevenueCat (Billing) ─────────────────────────────────────────────────
   REVENUECAT_WEBHOOK_SECRET: env.REVENUECAT_WEBHOOK_SECRET,
 
@@ -1492,6 +1531,9 @@ export const config = {
   KORTIX_SANDBOX_AUTODELETE_MINUTES: env.KORTIX_SANDBOX_AUTODELETE_MINUTES,
   KORTIX_SANDBOX_PROVIDER_AUTOSTOP_MINUTES: env.KORTIX_SANDBOX_PROVIDER_AUTOSTOP_MINUTES,
 
+  PLATINUM_TARGET: env.PLATINUM_TARGET,
+  PLATINUM_API_KEY_LOCAL: env.PLATINUM_API_KEY_LOCAL,
+  PLATINUM_API_URL_LOCAL: env.PLATINUM_API_URL_LOCAL,
   PLATINUM_API_KEY: env.PLATINUM_TARGET === 'local' ? env.PLATINUM_API_KEY_LOCAL : env.PLATINUM_API_KEY,
   PLATINUM_API_URL: env.PLATINUM_TARGET === 'local' ? env.PLATINUM_API_URL_LOCAL : env.PLATINUM_API_URL,
   PLATINUM_TEMPLATE: env.PLATINUM_TEMPLATE,
@@ -1499,6 +1541,7 @@ export const config = {
   E2B_API_KEY: env.E2B_API_KEY,
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
+  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,
@@ -1662,6 +1705,14 @@ export const config = {
     return this.ALLOWED_SANDBOX_PROVIDERS.includes('platinum') && !!this.PLATINUM_API_KEY;
   },
 };
+
+// ─── Billing Markup Constants ────────────────────────────────────────────────
+//
+// Dosco-managed inference uses 1.2x provider cost (20% markup).
+// BYOK inference always has a zero Dosco charge.
+
+/** Markup when Dosco provides the API key. */
+export const KORTIX_MARKUP = 1.2;
 
 // ─── Tool Pricing (Router) ──────────────────────────────────────────────────
 

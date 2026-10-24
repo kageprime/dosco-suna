@@ -1,4 +1,5 @@
 import { AUTO_TOPUP_DEFAULT_AMOUNT, AUTO_TOPUP_DEFAULT_THRESHOLD } from '@kortix/shared';
+import { PAYSTACK_CHARGE_CURRENCY } from '../../shared/paystack';
 import { config } from '../../config';
 import { isPlatformAdmin } from '../../shared/platform-roles';
 import { isoValue } from '../../shared/cost-values';
@@ -30,6 +31,12 @@ import { getAccountEntitlements } from './entitlements';
 import { currentPeriodStart, getUsageBreakdownThisPeriod } from './usage-breakdown';
 
 type CreditAccountRow = Awaited<ReturnType<typeof getCreditAccount>>;
+
+/** Configured USD→NGN rate for Paystack display, or null when unset. */
+function paystackUsdNgnRateOrNull(): number | null {
+  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
+  return Number.isFinite(rate) && rate > 0 ? rate : null;
+}
 
 export async function buildMinimalAccountState(accountId: string): Promise<AccountStateResponse> {
   // Single source of truth for the credit_accounts row for this request.
@@ -171,6 +178,10 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
       entitlements,
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
+    billing_fx: {
+      currency: PAYSTACK_CHARGE_CURRENCY,
+      usd_ngn_rate: paystackUsdNgnRateOrNull(),
+    },
     enterprise_entitled: resolved.enterprise !== 'off',
     // Trials are removed (plans-and-access.md): always null, kept for the wire shape.
     trial: null,
@@ -284,6 +295,10 @@ export function buildLocalAccountState(): AccountStateResponse {
       entitlements: getTierEntitlements('free'),
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
+    billing_fx: {
+      currency: PAYSTACK_CHARGE_CURRENCY,
+      usd_ngn_rate: paystackUsdNgnRateOrNull(),
+    },
     // No-DB local mode has no credit_accounts row, so the contracted-Enterprise
     // flag is false by construction (fail-closed).
     enterprise_entitled: false,
