@@ -5,6 +5,7 @@ import { type SandboxProviderName } from '../config';
 import { db } from '../shared/db';
 import { ingressTargetUrl } from '../platform/providers/ingress-url';
 import { invalidateProviderIngress } from '../sandbox-proxy/backend';
+import { sanitizeRedirectLocation } from '../sandbox-proxy/preview-response';
 import { AppAccountUnfundedError, AppLimitError } from './limits';
 import { AppHostingProvider } from './hosting';
 import { enqueueCurrentAppRuntime } from './deployment-worker';
@@ -243,6 +244,13 @@ async function respondFromUpstream(
   for (const name of ['connection', 'keep-alive', 'transfer-encoding', 'upgrade']) {
     responseHeaders.delete(name);
   }
+  const location = sanitizeRedirectLocation(
+    request.url,
+    responseHeaders.get('location'),
+    '',
+    ['.e2b.app'],
+  );
+  if (location) responseHeaders.set('location', location);
   if (!upstream.body || request.method === 'HEAD') {
     return new Response(null, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
   }

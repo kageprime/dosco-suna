@@ -823,6 +823,15 @@ describe('forwardToSandbox redirect rewriting and CORS', () => {
     expect(res.headers.get('location')).toBe('/v1/p/ext-1/3000/dash');
   });
 
+  test('an E2B provider-host redirect is brought back to the preview origin', async () => {
+    currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
+    ingress = { url: 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app', headers: {} };
+    queueFetch(redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1'));
+    const res = await forward({ port: 3000, path: '/', redirectPrefix: '', originMode: true });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/dash?tab=1');
+  });
+
   test('a genuinely external redirect passes through untouched', async () => {
     queueFetch(redirect('https://idp.example/oauth?client=1'));
     const res = await forward({ port: 3000, path: '/' });

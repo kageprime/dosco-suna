@@ -22,6 +22,16 @@ const { createAppAccessToken } = await import('./access');
 const { config } = await import('../config');
 
 describe('Apps public edge', () => {
+  test('a provider-host redirect is kept on the App host', async () => {
+    const { sanitizeRedirectLocation } = await import('../sandbox-proxy/preview-response');
+    expect(sanitizeRedirectLocation(
+      'https://dev-project-cccccccccccccccc.apps.dosco.live/',
+      'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1',
+      '',
+      ['.e2b.app'],
+    )).toBe('/dash?tab=1');
+  });
+
   test('recognises a dead E2B runtime, which is a 502 and not a throw', () => {
     // The outage this pins. An App ran fine after every deploy and then served
     // `{"message":"The sandbox is running but port is not open","port":8080}`

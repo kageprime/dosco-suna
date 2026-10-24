@@ -266,6 +266,7 @@ async function handleUpstreamFailureStatus(
       previewUrl,
       upstream.headers.get('location'),
       redirectPrefix,
+      record.provider === 'e2b' ? ['.e2b.app'] : [],
     );
     if (safeLocation) respHeaders.set('Location', safeLocation);
     return new Response(null, {
