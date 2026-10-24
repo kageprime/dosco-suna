@@ -780,7 +780,7 @@ WHERE NOT granted;
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release **v63** at the 2026-10-24 verification; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
+| Heroku API | up, Standard-2X (release **v66** verified running on 2026-10-24 with v65 code; v65 shipped the first redirect fix and its app-host rewrite is replaced by v67's server-side follower, prepared on the branch pending deploy; v64 enabled the tunnel + set `TUNNEL_SIGNING_SECRET`, rotated at v66; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
 | Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
@@ -795,7 +795,7 @@ WHERE NOT granted;
 | GitHub App callbacks | minted from `KORTIX_URL` → now `api.dosco.live`; the App's registered callback list must include `https://api.dosco.live/v1/platform/github-app/oauth/callback` (old hosts keep working) — **pending in GitHub settings** |
 | Service role key rotation | **pending** |
 | Pipedream credentials | invalid (401) - connectors disabled with the scheduler |
-| TUNNEL_ENABLED | false - "Computers" routes return 503 `tunnel_disabled` by design |
+| TUNNEL_ENABLED | true (set at v64). `GET /v1/tunnel/connections` answers 401 unauthenticated (verified 2026-10-24; it was 503 `tunnel_disabled` before). `TUNNEL_SIGNING_SECRET` was set at v64 and **rotated at v66** after `releases:info` printed a config readout — never run an unfiltered `releases:info`; read one var with `heroku config:get <VAR>` and never print its value. |
 
 ## 12. Known incidents and fixes (2026-10-23)
 
@@ -832,3 +832,17 @@ WHERE NOT granted;
   it before their single retry; the App proxy replays only a GET/HEAD. The raw
   `*.e2b.app` URL remains provider-owned and still needs the header; use the
   Dosco App host or `*.preview.dosco.live`.
+- **The first redirect fix (v65) redirected the App host into an
+  `ERR_TOO_MANY_REDIRECTS` loop.** E2B canonicalizes an app across its own host
+  family: a request on the port-ingress host is bounced (308/302, sometimes a
+  303 after a login form) to the bare sandbox host, or re-schemed. Given such a
+  Location the browser loses the token header and faces the provider's 403
+  page; v65 therefore rewrote the Location onto the App host — which loops
+  against any app whose middleware bounces every path back onto the upstream
+  host: rewrite and app answer each other forever. Release **v67** replaces the
+  rewrite with a bounded server-side follow (`provider-redirect-follow.ts`):
+  GET/HEAD only, max 3 hops, only hosts under the configured E2B cluster
+  domain, the ingress credential headers re-attached on every hop, a write
+  redirect passed through untouched, and a fruitless chain answered with a
+  visible `502 sandbox_redirect_loop` instead of a Location the browser spins
+  on. `sanitizeRedirectLocation` is back to self/external Locations only.
