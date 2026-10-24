@@ -46,13 +46,27 @@ export function providerIngressTarget(
   if (location.startsWith('/') && !location.startsWith('//')) return null;
   if (provider !== 'e2b') return null;
   try {
-    // e2bDomain() throws when the operator left E2B_DOMAIN empty; an unset
-    // cluster must mean "nothing to follow", not a 500 for one response.
-    const suffix = `.${e2bDomain()}`;
     const target = new URL(location, baseUrl);
-    return target.hostname.endsWith(suffix) ? target.href : null;
+    // The ingress host is `<port>-<sandbox_id>.<sandbox domain>`. On E2B Cloud
+    // the sandbox domain (`e2b.app`) is not the API domain in E2B_DOMAIN
+    // (`e2b.dev`), so the host we just dialled names the family it owns.
+    // Trusting E2B_DOMAIN alone handed every E2B Cloud hop to the browser,
+    // which then hit E2B's "Missing traffic access token" page (v67,
+    // 2026-10-24). A one-label parent (`app`) is never trusted.
+    const ingressDomain = new URL(baseUrl).hostname.split('.').slice(1).join('.');
+    const domains = [ingressDomain.includes('.') ? ingressDomain : '', configuredE2bDomain()];
+    return domains.some((domain) => domain && target.hostname.endsWith(`.${domain}`)) ? target.href : null;
   } catch {
     return null;
+  }
+}
+
+/** E2B_DOMAIN, or '' when unset: an empty cluster leaves the ingress domain alone, not a 500. */
+function configuredE2bDomain(): string {
+  try {
+    return e2bDomain();
+  } catch {
+    return '';
   }
 }
 
