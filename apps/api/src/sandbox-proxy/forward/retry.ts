@@ -26,9 +26,11 @@ import {
   isFileImportRequest,
   isLongTurnCompletionRequest,
   isUploadRequest,
+  proxyAttemptTimeoutMs,
 } from '../preview-retry-budget';
 import { releasePromptDelivery } from '../prompt-dedupe';
 import { isProviderIngressAuthFailure } from '../provider-auth';
+import { followProviderIngressRedirects } from '../provider-redirect-follow';
 import { portFailureHop } from '../proxy-hop';
 import { shouldBypassIngressCache } from '../sse-stall';
 import type { ForwardRequest, ForwardState } from './context';
@@ -151,6 +153,7 @@ async function forwardAttempt(
   attempt: number,
   budgetRemainingMs: number,
 ): Promise<Response | 'retry'> {
+  const attemptStartedAt = Date.now();
   const { sandboxId, port, method, remainingPath, queryString, upstreamPort, record, ingressRequest, ptl, userId, serviceKey } = req;
   state.lastAttemptHop = 'provider_ingress';
   if (req.isSseEventStreamRequest && attempt === 0 && shouldBypassIngressCache(plan.sseStallKey)) {
@@ -211,12 +214,76 @@ async function forwardAttempt(
     plan.nonReplayableWrite,
   );
   if ('refusal' in sent) return sent.refusal;
-  const upstream = sent.upstream;
+  // The provider's own canonical-host redirects (E2B: port host to bare
+  // sandbox host, or the reverse) are followed HERE, never in the browser:
+  // a browser cannot carry the token header through a redirect, and rewriting
+  // the Location let an app loop on itself (v67). Writes are never followed —
+  // no body replay — so their redirects keep flowing through classification.
+  let upstream = sent.upstream;
+  if (upstream.status >= 300 && upstream.status < 400 && (method === 'GET' || method === 'HEAD')) {
+    const followed = await followProviderIngressRedirects(
+      upstream,
+      targetUrl,
+      providerRedirectHops(req, headers, budgetRemainingMs - (Date.now() - attemptStartedAt)),
+      { provider: record.provider, method },
+    );
+    if (!followed) {
+      // Two hosts answering each other with redirects: the loop answer leaves
+      // this proxy directly, without touching the upstream classification.
+      // A GET hop chain released nothing the dedupe claim guards.
+      await req.turn.abandon();
+      return jsonProxyError(
+        {
+          error: 'The sandbox kept redirecting into its provider host',
+          code: 'sandbox_redirect_loop',
+          retry: true,
+        },
+        502,
+        req.origin,
+      );
+    }
+    upstream = followed;
+  }
 
   const failure = await handleUpstreamFailureStatus(req, state, plan, upstream, previewUrl, attempt);
   if (failure) return failure;
 
   return respondFromUpstream(req, state, upstream, plan.sseStallKey);
+}
+
+/**
+ * One upstream dial for a redirect hop. Reuses the first attempt's header
+ * build, with the host pair each hop answers on re-owned the way
+ * `buildUpstreamRequestHeaders` pinned the first one (same-origin frameworks
+ * check against the host they were asked at), and keeps the attempt's
+ * connect-phase bounding.
+ */
+function providerRedirectHops(
+  req: ForwardRequest,
+  firstHeaders: Headers,
+  hopBudgetMs: number,
+): (targetUrl: string) => Promise<Response> {
+  return (targetUrl) => {
+    const hopUrl = new URL(targetUrl);
+    const hopHeaders = new Headers(firstHeaders);
+    if (hopHeaders.has('origin')) hopHeaders.set('origin', hopUrl.origin);
+    hopHeaders.set('x-forwarded-host', hopUrl.host);
+    const hopController = new AbortController();
+    const hopTimer = setTimeout(
+      () => hopController.abort(new DOMException('proxy redirect hop connect timeout', 'TimeoutError')),
+      proxyAttemptTimeoutMs(hopBudgetMs, { method: req.method, path: req.remainingPath, port: req.upstreamPort }),
+    );
+    return fetch(targetUrl, {
+      method: req.method,
+      headers: hopHeaders,
+      redirect: 'manual',
+      signal: hopController.signal,
+      // Same passthrough rules as the attempt itself: no decompression, and
+      // Bun's half-duplex extension for the request stream.
+      decompress: false,
+      duplex: 'half',
+    } as RequestInit).finally(() => clearTimeout(hopTimer));
+  };
 }
 
 /**
@@ -266,7 +333,6 @@ async function handleUpstreamFailureStatus(
       previewUrl,
       upstream.headers.get('location'),
       redirectPrefix,
-      record.provider === 'e2b' ? ['.e2b.app'] : [],
     );
     if (safeLocation) respHeaders.set('Location', safeLocation);
     return new Response(null, {

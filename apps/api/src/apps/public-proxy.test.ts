@@ -3,6 +3,9 @@ import { describe, expect, test } from 'bun:test';
 process.env.INTERNAL_KORTIX_ENV = 'dev';
 process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
 process.env.KORTIX_APPS_ALLOW_LOCAL_EDGE = 'true';
+// The E2B cluster these tests model canonicalizes onto its own base domain:
+// port-ingress hosts and bare sandbox hosts are siblings of one suffix.
+process.env.E2B_DOMAIN = 'e2b.app';
 
 const {
   appPublicUnavailableResponse,
@@ -20,16 +23,93 @@ const {
 } = await import('./public-proxy');
 const { createAppAccessToken } = await import('./access');
 const { config } = await import('../config');
+const { followProviderIngressRedirects } = await import('../sandbox-proxy/provider-redirect-follow');
 
 describe('Apps public edge', () => {
-  test('a provider-host redirect is kept on the App host', async () => {
-    const { sanitizeRedirectLocation } = await import('../sandbox-proxy/preview-response');
-    expect(sanitizeRedirectLocation(
-      'https://dev-project-cccccccccccccccc.apps.dosco.live/',
-      'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1',
-      '',
-      ['.e2b.app'],
-    )).toBe('/dash?tab=1');
+  test('follows a provider canonical-host redirect server-side', async () => {
+    // The loop incident: an app whose middleware bounced EVERY path onto its
+    // upstream host. The rewritten Location for that app was itself canonical
+    // — rewrite + app = an endless browser bounce. Following the chain here
+    // keeps the browser on the App host for the entire dance (v67).
+    const hops: string[] = [];
+    const followed = await followProviderIngressRedirects(
+      new Response(null, { status: 308, headers: { location: 'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard' } }),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
+      async (target) => {
+        hops.push(target);
+        return new Response('dashboard', { status: 200 });
+      },
+      { provider: 'e2b', method: 'GET' },
+    );
+    expect(followed?.status).toBe(200);
+    expect(await followed?.text()).toBe('dashboard');
+    expect(hops).toEqual(['https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard']);
+  });
+
+  test('only the provider owns the follow rule', async () => {
+    const bounce = (location: string) =>
+      new Response(null, { status: 302, headers: { location } });
+    // An external Location is the browser's business (OAuth providers, CDNs).
+    const external = await followProviderIngressRedirects(
+      bounce('https://idp.example/oauth?client=1'),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
+      async () => {
+        throw new Error('an external redirect must never be fetched server-side');
+      },
+      { provider: 'e2b', method: 'GET' },
+    );
+    expect(external?.headers.get('location')).toBe('https://idp.example/oauth?client=1');
+
+    // Other providers answer auth redirects through their own recovery path.
+    const daytona = await followProviderIngressRedirects(
+      bounce('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard'),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
+      async () => {
+        throw new Error('a non-E2B provider must never be followed');
+      },
+      { provider: 'daytona', method: 'GET' },
+    );
+    expect(daytona?.status).toBe(302);
+
+    // A relative Location stays on whatever host answered it.
+    const relative = await followProviderIngressRedirects(
+      bounce('/login?next=/x'),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
+      async () => {
+        throw new Error('a same-origin Location must never be fetched server-side');
+      },
+      { provider: 'e2b', method: 'GET' },
+    );
+    expect(relative?.headers.get('location')).toBe('/login?next=/x');
+  });
+
+  test('a write redirect is never followed', async () => {
+    const followed = await followProviderIngressRedirects(
+      new Response(null, { status: 303, headers: { location: 'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session' } }),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/save',
+      async () => {
+        throw new Error('a write must never be re-sent');
+      },
+      { provider: 'e2b', method: 'POST' },
+    );
+    expect(followed?.status).toBe(303);
+    expect(followed?.headers.get('location')).toBe('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session');
+  });
+
+  test('a redirect storm between the two hosts caps and fails visibly', async () => {
+    const alternates = ['https://x7k2m9q4z6c1v0b8n5j3.e2b.app/', 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/'];
+    let dialed = 0;
+    const followed = await followProviderIngressRedirects(
+      new Response(null, { status: 308, headers: { location: alternates[0] } }),
+      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
+      async () => {
+        dialed += 1;
+        return new Response(null, { status: 308, headers: { location: alternates[dialed % alternates.length] } });
+      },
+      { provider: 'e2b', method: 'GET' },
+    );
+    expect(followed).toBeNull(); // the caller answers 502 sandbox_redirect_loop
+    expect(dialed).toBe(3);
   });
 
   test('recognises a dead E2B runtime, which is a 502 and not a throw', () => {

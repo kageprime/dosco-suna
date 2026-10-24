@@ -272,17 +272,15 @@ export function longTurnTimeoutResponse(origin: string): Response {
 //   - subdomain previews (p{port}-{sandbox}.host):  '' (root-relative)
 //   - path-based previews (/v1/p/{sandbox}/{port}):  '/v1/p/{sandbox}/{port}'
 // App self-redirects (relative, or absolute to the upstream's own origin) are
-// kept on the preview. `providerHostSuffixes` catches the provider's sibling
-// hosts — E2B redirects from the port host to the sandbox host, or changes the
-// scheme — which are still this sandbox and must not send the browser to the
-// provider edge without its traffic token. Genuinely external redirects (OAuth,
-// CDNs, …) pass through unchanged so the browser can follow them — we never
-// hard-block, since blocking turned ordinary app redirects into 502s.
+// kept on the preview. Genuinely external
+// redirects (OAuth, CDNs, …) pass through unchanged so the browser can follow
+// them — we never hard-block, since blocking turned ordinary app redirects
+// into 502s. The provider's own canonical-host redirects never reach this
+// point: they are followed server-side before classification.
 export function sanitizeRedirectLocation(
   previewUrl: string,
   location: string | null,
   redirectPrefix: string,
-  providerHostSuffixes: readonly string[] = [],
 ): string | null {
   if (!location) return null;
   if (location.startsWith('/') && !location.startsWith('//')) {
@@ -292,8 +290,7 @@ export function sanitizeRedirectLocation(
     const target = new URL(location, previewUrl);
     const preview = new URL(previewUrl);
     const selfHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(target.hostname);
-    const providerHost = providerHostSuffixes.some((suffix) => target.hostname.endsWith(suffix));
-    if (target.origin === preview.origin || selfHost || providerHost) {
+    if (target.origin === preview.origin || selfHost) {
       return `${redirectPrefix}${target.pathname}${target.search}${target.hash}`;
     }
     return location;

@@ -63,7 +63,7 @@ const counts = {
 // attempts and their outcome, not the backoff's wall time.
 mock.module('../preview-retry-budget', () => ({ ...realRetryBudget, PROXY_RETRY_DELAYS_MS: [1, 1, 1] }));
 mock.module('../../config', () => ({
-  config: { FRONTEND_URL: 'http://localhost:3000' },
+  config: { FRONTEND_URL: 'http://localhost:3000', E2B_DOMAIN: 'e2b.app' },
 }));
 mock.module('../../lib/request-context', () => ({
   ...realRequestContext,
@@ -823,13 +823,53 @@ describe('forwardToSandbox redirect rewriting and CORS', () => {
     expect(res.headers.get('location')).toBe('/v1/p/ext-1/3000/dash');
   });
 
-  test('an E2B provider-host redirect is brought back to the preview origin', async () => {
+  test('an E2B canonical-host redirect is followed server-side, the browser never sees the hop', async () => {
     currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
     ingress = { url: 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app', headers: {} };
-    queueFetch(redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1'));
+    recordingFetch(
+      redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1'),
+      new Response('dash content', { status: 200 }),
+    );
     const res = await forward({ port: 3000, path: '/', redirectPrefix: '', originMode: true });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('dash content');
+    expect(fetchCalls).toBe(2);
+    // The second dial is the hop itself: same origin family, no browser round trip.
+    expect(lastFetch?.url).toBe('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dash?tab=1');
+  });
+
+  test('an E2B redirect storm ends in the loop 502, not a Location to spin on', async () => {
+    currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
+    ingress = { url: 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app', headers: {} };
+    queueFetch(
+      redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/a'),
+      redirect('https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/b'),
+      redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/c'),
+      redirect('https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/d'),
+    );
+    const res = await forward({ port: 3000, path: '/', redirectPrefix: '', originMode: true });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ code: 'sandbox_redirect_loop' });
+    expect(fetchCalls).toBe(4); // the request plus the three capped hops
+  });
+
+  test('a provider redirect after a write is never followed or rewritten', async () => {
+    currentRecord = { ...ACTIVE_RECORD, provider: 'e2b' };
+    ingress = { url: 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app', headers: {} };
+    queueFetch(redirect('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session'));
+    const res = await forward({
+      method: 'POST',
+      port: 3000,
+      path: '/save',
+      redirectPrefix: '',
+      originMode: true,
+      body: bodyOf({ saved: true }),
+    });
+    // The body must not be re-sent, so the proxy cannot follow. The Location is
+    // the app's own instruction — pass it through exactly as it was issued.
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('/dash?tab=1');
+    expect(res.headers.get('location')).toBe('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session');
+    expect(fetchCalls).toBe(1);
   });
 
   test('a genuinely external redirect passes through untouched', async () => {

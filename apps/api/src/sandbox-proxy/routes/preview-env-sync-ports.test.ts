@@ -97,6 +97,7 @@ mock.module('../backend', () => ({
   resolveSandboxIngress: async () => ({ url: 'http://sandbox.local', headers: {} }),
   buildSandboxUpstreamHeaders: async () => ({}),
   invalidatePreviewLink: () => {},
+  invalidateProviderIngress: () => {},
   markSandboxUsed: () => {},
   markSandboxErrored: async () => {},
   wakeSandbox: async () => {},

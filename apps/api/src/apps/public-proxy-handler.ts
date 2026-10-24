@@ -5,7 +5,7 @@ import { type SandboxProviderName } from '../config';
 import { db } from '../shared/db';
 import { ingressTargetUrl } from '../platform/providers/ingress-url';
 import { invalidateProviderIngress } from '../sandbox-proxy/backend';
-import { sanitizeRedirectLocation } from '../sandbox-proxy/preview-response';
+import { followProviderIngressRedirects } from '../sandbox-proxy/provider-redirect-follow';
 import { AppAccountUnfundedError, AppLimitError } from './limits';
 import { AppHostingProvider } from './hosting';
 import { enqueueCurrentAppRuntime } from './deployment-worker';
@@ -187,14 +187,35 @@ export async function proxyRunningApp(
   const replayableRequest = request.method === 'GET' || request.method === 'HEAD';
   const fetchUpstream = async () => {
     const ingress = await hosting.ingress(runtime.provider as SandboxProviderName, runtime.externalId, 'http', servicePort);
-    const upstreamUrl = ingressTargetUrl(ingress, `${url.pathname}${url.search}`);
-    return fetch(upstreamUrl, {
+    const headers = appUpstreamHeaders(request, ingress.headers, publicHost, viewer);
+    // One upstream fetch, triggered by hand so the E2B canonical-host
+    // redirects are followed SERVER-side instead of handed to the browser:
+    // the browser cannot carry the token header through a redirect, and the
+    // rewrite-to-public-host attempt looped (see provider-redirect-follow).
+    const dial = (targetUrl: string) => fetch(targetUrl, {
       method: request.method,
-      headers: appUpstreamHeaders(request, ingress.headers, publicHost, viewer),
+      headers,
       body: replayableRequest ? undefined : request.body,
       redirect: 'manual',
       duplex: 'half',
     } as RequestInit);
+    const firstUrl = ingressTargetUrl(ingress, `${url.pathname}${url.search}`);
+    const followed = await followProviderIngressRedirects(
+      await dial(firstUrl),
+      firstUrl,
+      dial,
+      { provider: runtime.provider as SandboxProviderName, method: request.method },
+    );
+    // The chain never settled: two hosts answering each other with redirects.
+    // The write path never gets here (writes are never followed), so a GET
+    // that spins produces a visible 502 instead of an endless bounce.
+    if (!followed) {
+      return Response.json(
+        { error: 'This App kept redirecting into its provider host', code: 'sandbox_redirect_loop' },
+        { status: 502 },
+      );
+    }
+    return followed;
   };
   const recoverProviderRuntime = async (forceProviderStart: boolean) => {
     runtime = await ensureAppRuntimeRunning({
@@ -244,13 +265,6 @@ async function respondFromUpstream(
   for (const name of ['connection', 'keep-alive', 'transfer-encoding', 'upgrade']) {
     responseHeaders.delete(name);
   }
-  const location = sanitizeRedirectLocation(
-    request.url,
-    responseHeaders.get('location'),
-    '',
-    ['.e2b.app'],
-  );
-  if (location) responseHeaders.set('location', location);
   if (!upstream.body || request.method === 'HEAD') {
     return new Response(null, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
   }
