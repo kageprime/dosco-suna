@@ -780,7 +780,7 @@ WHERE NOT granted;
 
 | Component | Status |
 |---|---|
-| Heroku API | up, Standard-2X (release **v68** `Deploy 7ef32993`, live 2026-10-24 11:31Z, `/health` 200; v68 makes the v67 redirect follower trust the dialled ingress domain (`*.e2b.app`) — v67 checked `E2B_DOMAIN=e2b.dev` only and handed every E2B Cloud hop to the browser; v67 replaced v65's app-host Location rewrite with the server-side follower; v64 enabled the tunnel + set `TUNNEL_SIGNING_SECRET`, rotated at v66; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
+| Heroku API | up, Standard-2X (release **v70** `Deploy 558b67d1`, live 2026-10-24 13:13Z, `/health` 200; v69 set `E2B_DOMAIN=e2b.app` config var; v70 defaults `E2B_DOMAIN` to `e2b.app` and unites E2B Cloud's sibling domains (`e2b.app`, `e2b.dev`, `e2b.pro`) in `providerIngressTarget` so E2B Cloud canonical-host redirects are followed server-side; v68 made `providerIngressTarget` trust dialled ingress domain; v67 replaced v65's app-host Location rewrite with the server-side follower; v64 enabled the tunnel + set `TUNNEL_SIGNING_SECRET`, rotated at v66; v63 adds the E2B provider-handle invalidation; v62 added the wildcard config vars and runs the same 32-instruction image as v61; v61 is the unified tree; v37 shipped the xera starter fix + the first E2B preview fix) |
 | Backend domain | **`https://api.dosco.live`** — Heroku custom domain + ACM (Let's Encrypt, renews 2026-12-21), `KORTIX_URL=https://api.dosco.live` (v61), frontend `NEXT_PUBLIC_BACKEND_URL` pointed at `https://api.dosco.live/v1` (prod+preview; `development` keeps the herokuapp value), web redeployed 2026-10-23. The raw `dosco-05dd0b153705.herokuapp.com` keeps serving for everything (sandboxes, CLIs, connector callbacks already registered against it). |
 | `/health`, `/health/ready` | 200 on both `api.dosco.live` and the herokuapp origin |
 | Starter and blank-project default agent | `agents/xera.md`, `default_agent: xera`; verified inside the release v26 image. The OpenCode config must agree: `harnesses/opencode/opencode.jsonc` `"default_agent": "xera"` — it briefly shipped `kortix` (left over from the reskin), so every seeded release failed its proven check with `the default agent "kortix" is not loaded`; fixed 2026-10-23. |
@@ -846,12 +846,18 @@ WHERE NOT granted;
   and a fruitless chain answered with a visible `502 sandbox_redirect_loop`
   instead of a Location the browser spins on. `sanitizeRedirectLocation` is
   back to self/external Locations only.
-- **v67's follower never followed an E2B Cloud hop (fixed in v68).** It
-  trusted only hosts under `E2B_DOMAIN`, which is `e2b.dev` on this app (the
-  API domain). Sandbox ingress is served on `*.e2b.app`, so every
-  canonical-host 308 reached the browser, which then hit E2B's "Missing traffic
-  access token" page. Symptom in `heroku logs`: `GET /v1/p/<sandbox_id>/<port>
-  308` from the API. Release **v68** trusts the parent domain of the ingress
-  host just dialled (`<port>-<sandbox_id>.<domain>`; a one-label parent is
-  never trusted) plus `E2B_DOMAIN`. Do not set `E2B_DOMAIN=e2b.app` as a
-  workaround: the same value configures the E2B SDK and the templates API.
+- **v67's follower never followed an E2B Cloud hop, and v68 still saw baseUrl on .e2b.dev (fixed in v69/v70).**
+  When `E2B_DOMAIN` was configured to `e2b.dev` (the legacy default), E2B's JS SDK
+  derived `getHost()` as `<port>-<sandbox_id>.e2b.dev`. E2B Cloud's edge
+  308-redirects every browser navigation on `*.e2b.dev` onto `*.e2b.app`.
+  On v67/v68, `baseUrl` was `https://<port>-<id>.e2b.dev/`, so extracting the
+  parent domain yielded `e2b.dev`, which still failed to match `*.e2b.app`.
+  The 308 passed through to the browser without the traffic token header,
+  displaying "Missing traffic access token". Symptom in `heroku logs`:
+  `GET /v1/p/<sandbox_id>/<port> 308` or `GET / 308` on `*.preview.dosco.live`
+  and `*.apps.dosco.live`. Release **v69** set `E2B_DOMAIN=e2b.app` on Heroku
+  (eliminating the edge 308 bounce completely and saving one edge round-trip
+  per navigation). Release **v70** defaulted `E2B_DOMAIN` to `e2b.app` in code
+  and united E2B Cloud's sibling domains (`e2b.app`, `e2b.dev`, `e2b.pro`) in
+  `providerIngressTarget` so redirects between them are recognized and followed
+  server-side, while keeping self-hosted clusters isolated.
