@@ -3,7 +3,7 @@
 import type { ProvisionPhase } from '@kortix/sdk';
 import { m, useReducedMotion } from 'motion/react';
 
-
+import { BreathingCrest } from '../../primitives/breathing-crest';
 import { DoscoLogo } from '../../primitives/kortix-logo';
 import { TextShimmer } from '../../primitives/text-shimmer';
 import { TodoStatusIcon } from '../../session/tool/shared/todo-helpers';

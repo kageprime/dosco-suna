@@ -46,6 +46,10 @@ export {
   type ButtonProps,
 } from './primitives/button';
 export {
+  BreathingCrest,
+  type BreathingCrestProps,
+} from './primitives/breathing-crest';
+export {
   Badge,
   badgeVariants,
 } from './primitives/badge';

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 
-
+import { BreathingCrest } from '../../primitives/breathing-crest';
 import { SessionWelcome } from '../../session/thread/session-welcome';
 import { useProjectName } from '@kortix/sdk/react';
 import {

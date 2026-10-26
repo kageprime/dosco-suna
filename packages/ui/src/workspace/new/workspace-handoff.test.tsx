@@ -63,9 +63,8 @@ describe('WorkspaceHandoff', () => {
 
 
   test('the mark is the canonical Dosco logo, breathing rather than spinning', () => {
-    expect(source).toContain("from '../../primitives/kortix-logo'");
-    expect(source).toContain('variant="icon"');
-    expect(source).toContain('animate-pulse');
+    expect(source).toContain("from '../../primitives/breathing-crest'");
+    expect(source).toContain('<BreathingCrest');
   });
 
   test('the breathing is gated on reduced motion, inside the shared component', () => {
@@ -73,7 +72,7 @@ describe('WorkspaceHandoff', () => {
     // has to be explicit. It lives in BreathingCrest, which every waiting
     // surface now uses - the gate is written down once, in one place.
     const crest = readFileSync(
-      join(import.meta.dir, '../../../components/ui/breathing-crest.tsx'),
+      join(import.meta.dir, '../../primitives/breathing-crest.tsx'),
       'utf8',
     );
     expect(crest).toContain('useReducedMotion');

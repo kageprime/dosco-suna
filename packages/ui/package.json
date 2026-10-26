@@ -45,6 +45,7 @@
     "./back-pill": "./src/primitives/back-pill.tsx",
     "./badge": "./src/primitives/badge.tsx",
     "./breadcrumb": "./src/primitives/breadcrumb.tsx",
+    "./breathing-crest": "./src/primitives/breathing-crest.tsx",
     "./browser": "./src/browser/index.ts",
     "./bubble": "./src/primitives/bubble.tsx",
     "./button": "./src/primitives/button.tsx",
