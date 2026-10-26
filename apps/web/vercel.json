@@ -1,5 +1,5 @@
 {
-  "buildCommand": "NODE_OPTIONS=--max-old-space-size=2816 next build",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=3584 next build",
   "installCommand": "pnpm install --frozen-lockfile",
   "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "regions": ["lhr1"],
