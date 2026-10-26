@@ -20,7 +20,7 @@
  */
 
 import { m, useReducedMotion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn } from '@kortix/ui/lib/utils';
 
 /** The baked crest's own aspect (480x295), so the mark is never squashed. */
 const CREST_ASPECT = 480 / 295;

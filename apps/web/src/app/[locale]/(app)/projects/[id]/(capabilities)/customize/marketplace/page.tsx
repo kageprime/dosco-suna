@@ -1,7 +1,5 @@
 import { redirect } from 'next/navigation';
 
-import { marketplaceHref } from '@/features/workspace/capabilities/shared/capability-tab-routes';
-
 /**
  * `/projects/[id]/customize/marketplace` — kept only to forward.
  *
@@ -20,5 +18,5 @@ export default async function RetiredCustomizeMarketplaceRoute({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(marketplaceHref(id));
+  redirect(`/projects/${id}/marketplace`);
 }

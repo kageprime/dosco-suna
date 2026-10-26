@@ -10,7 +10,7 @@ import { useBillingReturnUrl } from '@/features/billing/billing-return';
 import { topUpBonusCredits } from '@kortix/ui/internal/billing/compute-pricing';
 import { spring, cn } from '@kortix/ui';
 import { useBillingAccountId } from '@kortix/ui/internal/stores/billing-account-context';
-import { useAccountState } from '@/hooks/billing/use-account-state';
+import { useAccountState } from '@kortix/ui/internal/billing/use-account-state';
 import { purchaseCredits } from '@kortix/sdk';
 import { dollarsToCredits, formatCredits } from '@kortix/shared';
 import { m } from 'motion/react';

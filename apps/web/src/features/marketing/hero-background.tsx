@@ -22,7 +22,7 @@
 //      rate halves GPU and battery cost with no visible difference.
 
 import { WallpaperBackground } from '@/components/ui/wallpaper-background';
-import { cn } from '@/lib/utils';
+import { cn } from '@kortix/ui/lib/utils';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
