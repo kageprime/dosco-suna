@@ -123,6 +123,7 @@ COPY patches ./patches
 # two lists must stay in sync: a package whose manifest is present but whose
 # source is missing installs fine and then fails at runtime.
 COPY ${SERVICE}/package.json ./${SERVICE}/
+COPY apps/llm-gateway/package.json ./apps/llm-gateway/
 COPY packages/api-contract/package.json ./packages/api-contract/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/llm-catalog/package.json ./packages/llm-catalog/
@@ -142,7 +143,7 @@ COPY packages/sdk/package.json ./packages/sdk/
 # with `bun packages/db/scripts/migrate.ts up`. node-pg-migrate lives at the root
 # (not @kortix/db) to keep the db package's drizzle-orm resolution single.
 RUN corepack enable pnpm && \
-    pnpm install --filter ./${SERVICE}... --filter kortix --shamefully-hoist --prod=false --ignore-scripts
+    pnpm install --filter ./${SERVICE}... --filter ./apps/llm-gateway... --filter kortix --shamefully-hoist --prod=false --ignore-scripts
 
 # The Supabase CLI is a LOCAL-DEV tool. `--prod=false` above is load-bearing —
 # the API runs TypeScript directly and the migration runner (node-pg-migrate,
@@ -162,6 +163,7 @@ RUN rm -rf node_modules/supabase \
 # so these COPYs merge over the installed tree without clobbering what pnpm
 # just wrote. Keep this list identical to the manifest list above.
 COPY ${SERVICE} ./${SERVICE}
+COPY apps/llm-gateway ./apps/llm-gateway
 COPY packages/api-contract ./packages/api-contract
 COPY packages/shared ./packages/shared
 COPY packages/llm-catalog ./packages/llm-catalog
@@ -235,6 +237,7 @@ COPY apps/cli/src ./apps/cli/src
 
 # Copy the app (source + its node_modules if any)
 COPY --from=deps /app/${SERVICE} ./${SERVICE}
+COPY --from=deps /app/apps/llm-gateway ./apps/llm-gateway
 
 # Fix agent-tunnel resolution.
 # pnpm may resolve agent-tunnel to a workspace/file symlink target that does not
