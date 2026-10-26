@@ -41,7 +41,13 @@ export function WeekSummary({ lines, className }: { lines: string[]; className?:
   );
 }
 
-export async function WeeklyView({ data }: { data: ChangelogWeekly }) {
+export async function WeeklyView({
+  data,
+  weeks: rawWeeks,
+}: {
+  data?: ChangelogWeekly;
+  weeks?: ChangelogWeekly;
+}) {
   const tI18nComplete = await getTranslations('hardcodedUi.i18nComplete');
   const tI18nHardcoded = await getTranslations('hardcodedUi');
   const locale = await getLocale();
@@ -51,7 +57,8 @@ export async function WeeklyView({ data }: { data: ChangelogWeekly }) {
     timeZone: 'UTC',
   });
   const list = new Intl.ListFormat(locale, { type: 'conjunction' });
-  const { weeks, tagPages } = data;
+  const weeklyData = data ?? rawWeeks ?? { weeks: [], tagPages: {} };
+  const { weeks = [], tagPages = {} } = weeklyData;
 
   return (
     <main className="bg-background min-h-screen">

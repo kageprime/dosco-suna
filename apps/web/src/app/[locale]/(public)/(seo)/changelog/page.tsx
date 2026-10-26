@@ -39,6 +39,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ChangelogPage() {
-  const weeks = await getWeeklyChangelog();
-  return <WeeklyView weeks={weeks} />;
+  const data = await getWeeklyChangelog();
+  return <WeeklyView data={data} />;
 }
