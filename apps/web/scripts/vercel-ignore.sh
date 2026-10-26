@@ -65,7 +65,7 @@ changed="$(git diff --name-only "$BASE" HEAD 2>/dev/null)" || exit 1
 # root config here — those (and any UNKNOWN new top-level path) must fall
 # through to a build.
 SAFE='^(\.agents/|infra/|tests/|docs/|apps/(api|cli|desktop-electron|kortix-sandbox-agent-server|llm-gateway|mobile|sandbox|white-label|whitelabel-demo)/)'
-if ! printf '%s\n' "$changed" | grep -qvE "$SAFE"; then
+if ! printf '%s\n' "$changed" | grep -vE "$SAFE" >/dev/null; then
   echo "vercel-ignore: only non-FE paths (other apps / infra / tests / docs) changed since ${BASE:0:10} — skipping build."
   exit 0
 fi
