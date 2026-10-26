@@ -201,13 +201,17 @@ const KORTIX_COMMIT =
 // `'ful'` straight into the config as a value Next never defined.
 function resolveTurbopackMemoryEviction(): false | 'auto' | 'full' {
   const raw = process.env.KORTIX_TURBOPACK_EVICTION;
-  if (raw === undefined || raw === '') return 'auto';
   if (raw === 'false') return false;
   if (raw === 'auto' || raw === 'full') return raw;
-  console.warn(
-    `[next.config.ts] Ignoring KORTIX_TURBOPACK_EVICTION=${JSON.stringify(raw)} — ` +
-      `expected one of 'auto', 'full', 'false'. Falling back to 'auto'.`,
-  );
+  if (raw !== undefined && raw !== '') {
+    console.warn(
+      `[next.config.ts] Ignoring KORTIX_TURBOPACK_EVICTION=${JSON.stringify(raw)} — ` +
+        `expected one of 'auto', 'full', 'false'.`,
+    );
+  }
+  // On Vercel / CI, drop intermediate memory after snapshots to stay inside
+  // the 8 GB container limit.
+  if (process.env.VERCEL || process.env.CI) return 'full';
   return 'auto';
 }
 
@@ -240,6 +244,21 @@ function resolveTurbopackFileSystemCacheForDev(): boolean {
     `[next.config.ts] Ignoring KORTIX_TURBOPACK_FS_CACHE=${JSON.stringify(raw)} — ` +
       `expected one of 'on', 'off'. Falling back to the Next default (on).`,
   );
+  return true;
+}
+
+// --- Turbopack build filesystem cache -------------------------------------
+// In Next 16.3+, `experimental.turbopackFileSystemCacheForBuild` defaults to
+// true. However, on Vercel Hobby (8 GB container, 1.5 GB build cache cap),
+// the Turbopack build cache reaches 2.4 GB, which causes Vercel to discard
+// it on every build. Buffering and serializing this 2.4 GB cache during
+// `next build` balloons memory usage and causes container OOM kills (SIGKILL).
+// Disable it on Vercel/CI or when KORTIX_TURBOPACK_BUILD_CACHE=off.
+function resolveTurbopackFileSystemCacheForBuild(): boolean {
+  const raw = process.env.KORTIX_TURBOPACK_BUILD_CACHE;
+  if (raw === 'off' || raw === 'false') return false;
+  if (raw === 'on' || raw === 'true') return true;
+  if (process.env.VERCEL || process.env.CI) return false;
   return true;
 }
 
@@ -317,6 +336,10 @@ const nextConfig = (): NextConfig => ({
   // Skip type checking during build (done in CI via `pnpm typecheck`)
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // Skip ESLint during build (done in CI via `pnpm lint`)
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 
   // Same OOM kill as the staticGeneration* knobs below (next.config's
@@ -475,14 +498,17 @@ const nextConfig = (): NextConfig => ({
     // 20GB in 2 days and 60GB in one case. GC drops unreachable work from
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
-    turbopackGc: true,
+    turbopackGc: process.env.VERCEL
+      ? { minProgressMs: 100, rootTtlMs: 0 }
+      : true,
+    turbopackFileSystemCacheForBuild: resolveTurbopackFileSystemCacheForBuild(),
     // The Vercel build machine is 8 GB (both plan defaults), and the default
     // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
     // on 2026-10-20. The default spawns os.cpus()-1 prerender workers for this
     // app's static pages; each worker loads the full module graph plus
     // writePublicCatalogs()' output for all nine locales. Both knobs come from
     // /docs/app/api-reference/config/next-config-js/staticGeneration.
-    // staticGenerationMinPagesPerWorker: 250 keeps the phase at exactly one
+    // staticGenerationMinPagesPerWorker: 1000 keeps the phase at exactly one
     // worker for this app's 954-page static surface.
     //
     // The phase OOM'd a second time the same afternoon with the first knobs in
@@ -513,7 +539,7 @@ const nextConfig = (): NextConfig => ({
     // envelope described above, and it is intermittent - the same commit
     // built green on a warm container. `node scripts/check-build-memory.mjs`
     // prints the arithmetic.
-    staticGenerationMinPagesPerWorker: 250,
+    staticGenerationMinPagesPerWorker: 1000,
     staticGenerationMaxConcurrency: 1,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
@@ -523,6 +549,27 @@ const nextConfig = (): NextConfig => ({
       '@tanstack/react-query',
       'cmdk',
       'next-intl',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-collapsible',
+      '@radix-ui/react-context-menu',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-label',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-progress',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-select',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slider',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toggle',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-visually-hidden',
+      'motion',
     ],
   },
 
