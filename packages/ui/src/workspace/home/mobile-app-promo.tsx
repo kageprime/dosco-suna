@@ -40,6 +40,11 @@ const SMOOTH_SHADOW_LG =
 const SCREEN_FADE =
 	"linear-gradient(to bottom in oklab, transparent 45%, #000 95%)";
 
+const STORES = [
+  { key: 'appStore', badge: '/images/store-badges/app-store.svg', href: APP_STORE_URL },
+  { key: 'googlePlay', badge: '/images/store-badges/google-play.svg', href: GOOGLE_PLAY_URL },
+] as const;
+
 /** Nothing to subscribe to: false on the server, true once mounted. */
 const subscribeToNothing = () => () => {};
 
