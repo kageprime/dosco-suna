@@ -65,6 +65,7 @@ const observeTemplates = shortLivedObservation(
 );
 
 function matchesTemplate(template: E2BTemplateView, name: string): boolean {
+  if (template.templateID && template.templateID === name) return true;
   return [...(template.names ?? []), ...(template.aliases ?? [])].some(
     (candidate) =>
       candidate === name ||

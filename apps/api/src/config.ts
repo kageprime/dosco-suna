@@ -1669,6 +1669,8 @@ export const config = {
         return !!this.DAYTONA_API_KEY;
       case 'platinum':
         return !!this.PLATINUM_API_KEY;
+      case 'e2b':
+        return !!this.E2B_API_KEY;
       default: {
         const exhaustive: never = name;
         return exhaustive;

@@ -621,6 +621,8 @@ export async function recordTemplateFailed(
 
 function synthesizedDefault(): ResolvedTemplate {
   const tpl = buildDefaultSandboxTemplate();
+  const defaultProvider = config.getDefaultProvider();
+  const fallbackSnapshot = defaultProvider === 'e2b' && config.E2B_TEMPLATE ? config.E2B_TEMPLATE : null;
   return {
     templateId: null,
     projectId: null,
@@ -628,7 +630,7 @@ function synthesizedDefault(): ResolvedTemplate {
     name: tpl.name ?? 'Default',
     isShared: true,
     source: 'platform',
-    provider: config.getDefaultProvider(),
+    provider: defaultProvider,
     image: null,
     dockerfilePath: null,
     entrypoint: null,
@@ -636,12 +638,14 @@ function synthesizedDefault(): ResolvedTemplate {
     memoryGb: DEFAULT_MEMORY_GB,
     diskGb: DEFAULT_DISK_GB,
     containerRuntime: false,
-    providerState: 'missing',
-    providerSnapshotName: null,
+    providerState: fallbackSnapshot ? 'active' : 'missing',
+    providerSnapshotName: fallbackSnapshot,
     contentHash: null,
     builtFromCommit: null,
     swapKey: null,
-    lastReady: {},
+    lastReady: fallbackSnapshot
+      ? { [defaultProvider]: { snapshotName: fallbackSnapshot, contentHash: 'fallback' } }
+      : {},
   };
 }
 
