@@ -496,6 +496,9 @@ export const envSchema = z.object({
   // (`managedCandidates`). The key is a pt_live_ key with `inference:write`.
   PLATINUM_INFERENCE_URL: optUrl('https://api.platinum.dev/v1/inference'),
   PLATINUM_INFERENCE_API_KEY: optStr,
+  OPENROUTER_URL: optUrl('https://openrouter.ai/api/v1'),
+  OPENROUTER_API_KEY: optStr,
+  KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolTrue,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
   // deployment. The lineup is served by Platinum inference on Dosco's key.
   // Dosco bills each request as platform credits.
@@ -1217,11 +1220,11 @@ function validateEnv(): z.infer<typeof envSchema> {
   }
 
   // ── Warnings (non-fatal but worth knowing) ─────────────────────────────
-  if (raw.KORTIX_MANAGED_PROVIDER_ENABLED === 'true' && !raw.PLATINUM_INFERENCE_API_KEY) {
+  if (raw.KORTIX_MANAGED_PROVIDER_ENABLED === 'true' && !raw.PLATINUM_INFERENCE_API_KEY && !raw.OPENROUTER_API_KEY) {
     issues.push({
-      var: 'PLATINUM_INFERENCE_API_KEY',
+      var: 'OPENROUTER_API_KEY',
       message:
-        'Managed models are on but PLATINUM_INFERENCE_API_KEY is unset — Dosco managed models are unavailable',
+        'Managed models are on but neither PLATINUM_INFERENCE_API_KEY nor OPENROUTER_API_KEY is set — Dosco managed models are unavailable',
       level: 'warn',
     });
   }
@@ -1419,6 +1422,9 @@ export const config = {
   // ─── LLM Providers ────────────────────────────────────────────────────────
   PLATINUM_INFERENCE_URL: env.PLATINUM_INFERENCE_URL,
   PLATINUM_INFERENCE_API_KEY: env.PLATINUM_INFERENCE_API_KEY,
+  OPENROUTER_URL: env.OPENROUTER_URL,
+  OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
+  KORTIX_MANAGED_FREE_TIER_ENABLED: env.KORTIX_MANAGED_FREE_TIER_ENABLED,
   // Unset → follow billing (cloud keeps its revenue lineup even if the env
   // blob misses the var; self-host stays off). Explicit value always wins.
   KORTIX_MANAGED_PROVIDER_ENABLED:

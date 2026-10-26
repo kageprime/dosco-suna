@@ -89,6 +89,8 @@ export async function accountMayUseManagedModels(
   // Billing off (local / self-hosted): the tier system is a no-op and every
   // account sees the full lineup — same convention as the limit resolvers.
   if (!config.KORTIX_BILLING_INTERNAL_ENABLED) return true;
+  // Platform-managed free tier models (e.g. backed by OpenRouter): every account may use them.
+  if (config.KORTIX_MANAGED_FREE_TIER_ENABLED || config.OPENROUTER_API_KEY) return true;
   return (await resolveAccountBilling(accountId, { now })).entitlements.managedModels;
 }
 

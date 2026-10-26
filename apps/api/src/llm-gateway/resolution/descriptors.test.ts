@@ -203,6 +203,31 @@ describe('managed models: one Platinum inference candidate', () => {
       expect(managedCandidates(glm!)).toEqual([]);
     } finally { config.KORTIX_MANAGED_PROVIDER_ENABLED = true; }
   });
+
+  test('resolves to OpenRouter when OPENROUTER_API_KEY is set and PLATINUM is unset', () => {
+    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.OPENROUTER_API_KEY = 'sk-or-test-managed';
+    try {
+      expect(managedCandidates(deepseek!)).toEqual([{
+        provider: 'openrouter',
+        kind: 'openai-compat',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'sk-or-test-managed',
+        billingMode: 'none',
+        markup: 0,
+        resolvedModel: deepseek!.id,
+        pricing: deepseek!.pricing,
+        publicProvider: 'kortix',
+        headers: {
+          'HTTP-Referer': 'https://dosco.live',
+          'X-Title': 'Dosco AI',
+        },
+      }]);
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = 'pt_live_test';
+      config.OPENROUTER_API_KEY = undefined;
+    }
+  });
 });
 
 describe('bedrockByokBaseUrl', () => {

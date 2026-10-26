@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { config } from '../../config';
 import { PLATINUM_MODELS_RESPONSE, TEST_MANAGED_LINEUP } from '../../__tests__/fixtures/managed-lineup';
 import {
   canonicalManagedModelId,
@@ -126,5 +127,27 @@ describe('a retired id follows the live lineup — no successor is hardcoded', (
     expect(canonicalManagedModelId('deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash');
     __setManagedLineupForTest([]);
     expect(canonicalManagedModelId('morph-dsv41flash')).toBe('morph-dsv41flash');
+  });
+});
+
+describe('the managed lineup with OpenRouter as provider', () => {
+  test('loads DEFAULT_OPENROUTER_MANAGED_MODELS when OPENROUTER_API_KEY is set and PLATINUM is unset', async () => {
+    const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
+    const origOpenRouter = config.OPENROUTER_API_KEY;
+    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.OPENROUTER_API_KEY = 'sk-or-test';
+    try {
+      expect(await loadManagedLineup()).toBe(true);
+      const ids = managedLineup().map((m) => m.id);
+      expect(ids).toContain('deepseek-v4.1-flash');
+      expect(ids).toContain('qwen3-coder');
+      expect(ids).toContain('openrouter-free');
+      expect(isKnownManagedModelId('deepseek/deepseek-v4.1-flash')).toBe(true);
+      expect(canonicalManagedModelId('deepseek/deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash');
+      expect(canonicalManagedModelId('openrouter/free')).toBe('openrouter-free');
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
+      config.OPENROUTER_API_KEY = origOpenRouter;
+    }
   });
 });
