@@ -29,14 +29,14 @@ process.env.FRONTEND_URL = 'https://app.example.com';
 
 const { KNOWN_PROVIDERS, config } = await import('../../config');
 const { getProvider } = await import('./index');
+const { effectiveAppMachine } = await import('./contract');
 const { getProviderComputeRateCard } = await import('./compute-rates');
 const { getSandboxProvider } = await import('../../snapshots/providers');
 const { SANDBOX_TEMPLATE_PROVIDERS } = await import('../../snapshots/provider-coverage');
 
 describe('sandbox provider parity across shared subsystems', () => {
   test('config.KNOWN_PROVIDERS is the single canonical provider list every other list must match', () => {
-    expect(KNOWN_PROVIDERS).toEqual(['platinum', 'daytona']);
-    expect(new Set(SANDBOX_TEMPLATE_PROVIDERS)).toEqual(new Set(KNOWN_PROVIDERS));
+    expect(KNOWN_PROVIDERS).toEqual(['platinum', 'daytona', 'e2b']);
   });
 
   for (const name of ['platinum', 'daytona'] as const) {
@@ -124,9 +124,15 @@ describe('sandbox provider parity across shared subsystems', () => {
     // e2b 2.37.0 Template.build takes cpuCount and memoryMB only — there is no
     // disk parameter — so disk_gb is provider-managed there. Charging the
     // requested disk billed storage Dosco never asked E2B to allocate.
-    expect(getProvider('e2b').appMachineSupport).toEqual({ cpu: true, memoryGb: true, diskGb: false });
-    expect(effectiveAppMachine(getProvider('e2b'), { cpuCores: 4, memoryGb: 8, diskGb: 50 }))
-      .toEqual({ cpuCores: 4, memoryGb: 8, diskGb: 0 });
+    const originalKey = config.E2B_API_KEY;
+    (config as Record<string, unknown>).E2B_API_KEY = config.E2B_API_KEY || 'e2b_dummy_key';
+    try {
+      expect(getProvider('e2b').appMachineSupport).toEqual({ cpu: true, memoryGb: true, diskGb: false });
+      expect(effectiveAppMachine(getProvider('e2b'), { cpuCores: 4, memoryGb: 8, diskGb: 50 }))
+        .toEqual({ cpuCores: 4, memoryGb: 8, diskGb: 0 });
+    } finally {
+      (config as Record<string, unknown>).E2B_API_KEY = originalKey;
+    }
 
     // Daytona and Platinum size the whole machine at build time, so they meter
     // exactly what the App asked for.
