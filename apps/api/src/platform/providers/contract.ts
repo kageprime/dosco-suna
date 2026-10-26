@@ -1,6 +1,9 @@
 import { config } from '../../config';
 
-export type ProviderName = 'daytona' | 'platinum' | 'e2b';
+// Platinum is the reference provider; Daytona is a legacy fallback (removal
+// scheduled). E2B support is discontinued: a stored `e2b` row resolves through
+// tryGetProvider() to null.
+export type ProviderName = 'platinum' | 'daytona';
 
 export class WarmRuntimeUnavailableError extends Error {
   constructor(message: string) {
@@ -83,7 +86,7 @@ export interface CreateSandboxOpts {
    * Volumes mounted at create, keyed by guest mount path: the session's
    * drives. Platinum only; every other provider ignores it.
    */
-  volumes?: Record<string, { volume: string; read_only?: boolean; subdir?: string; ref?: string }>;
+  volumes?: Record<string, { volume: string; read_only?: boolean; subdir?: string; ref?: string; share?: 'node' | 'private' }>;
   /**
    * The box keeps its state on its `volumes` (an App machine), so Platinum's
    * periodic whole-box backup is off. (A create refused over any `volumes`
@@ -220,7 +223,6 @@ export function effectiveAppMachine(
   };
 }
 
-
 /** Result of a provider-level command run inside a sandbox VM/container. */
 export interface SandboxExecResult {
   exitCode: number;
@@ -270,7 +272,7 @@ export interface SandboxProvider {
    * precise warm image activation chose — the name path can drift behind a
    * truncated template list or an idempotent-adopt that reused a name. OPTIONAL:
    * only providers with a durable external template id implement it (Platinum;
-   * Daytona and E2B keep the name-only default). On a DEFINITIVE
+   * Daytona keeps the name-only default). On a DEFINITIVE
    * not-found (404 = GC'd pin) it MUST throw {@link SandboxTemplateNotFoundError}
    * so the caller can fall back to a name-boot; a transient 5xx throws a normal
    * (retryable) error and MUST NOT be turned into a name fallback.
@@ -304,7 +306,7 @@ export interface SandboxProvider {
   recoverInPlace?(externalId: string): Promise<InPlaceRecoveryStatus>;
   /**
    * Run one command as root inside the sandbox through the PROVIDER's own
-   * channel (Platinum `/exec`, Daytona toolbox, E2B commands) — independent of
+   * channel (Platinum `/exec`, Daytona toolbox) — independent of
    * the in-box kortix-agent daemon, which is exactly what a legacy-runtime
    * bootstrap needs: the daemon being replaced cannot be the thing that
    * replaces it. Optional: a provider without an exec channel cannot be

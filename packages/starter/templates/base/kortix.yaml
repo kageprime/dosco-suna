@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
 #
-# Dosco project manifest. Source of truth for project-wide config that
+# Kortix project manifest. Source of truth for project-wide config that
 # lives in git alongside the code. `kortix_version` pins the schema so
 # the platform can evolve safely. v2 manifests are YAML-only, with one
 # `agents:` map per project — GOVERNANCE ONLY (connectors/secrets/
@@ -20,13 +20,13 @@ kortix_version: 2
 
 # The agent a session/trigger boots when it names no concrete agent (the
 # "default" sentinel). Must always resolve to a declared agent below.
-default_agent: xera
+default_agent: kortix
 
 project:
   name: "{{projectName}}"
-  description: A Dosco project.
+  description: A Kortix project.
 
-# Env vars the runtime needs. Required values must be set in the Dosco
+# Env vars the runtime needs. Required values must be set in the Kortix
 # Secrets Manager before a session can start.
 env:
   required: []
@@ -34,13 +34,13 @@ env:
 
 # ─── Sandbox templates ───────────────────────────────────────────────────
 # Sessions boot from a sandbox image. The platform's default image (Ubuntu +
-# the Dosco runtime layer) is always available — sessions clone your repo
+# the Kortix runtime layer) is always available — sessions clone your repo
 # into /workspace at boot, so no per-project build is needed by default.
 #
 # Define `sandbox.templates` entries below if you want named custom images
 # for this project. Each entry can point at either a Dockerfile in the repo
 # (`dockerfile: …`) or a public Docker image (`image: …`). Pick one or
-# the other. The Dosco runtime layer is always added on top.
+# the other. The Kortix runtime layer is always added on top.
 #
 # Hardware: cpu = cores, memory = GiB, disk = GiB. All optional.
 #
@@ -77,14 +77,14 @@ opencode:
 
 # ─── Tools ───────────────────────────────────────────────────────────────
 # The tools every agent of this project gets, on every harness (OpenCode, pi).
-# `kortix:<name>` is a tool Dosco maintains and updates. A path is your own
+# `kortix:<name>` is a tool Kortix maintains and updates. A path is your own
 # module, in any folder (https://kortix.com/docs/project/tools).
 #   - Delete a line to remove that tool from every agent.
-#   - Run `kortix tools eject <name>` to own and change a Dosco tool.
+#   - Run `kortix tools eject <name>` to own and change a Kortix tool.
 #   - Use `agents.<name>.tools` to limit one agent.
 # `kortix tools ls` lists what a session gets.
 tools:
-  web_search: kortix:web_search      # maintained by Dosco, updated automatically
+  web_search: kortix:web_search      # maintained by Kortix, updated automatically
   image_search: kortix:image_search
   scrape_webpage: kortix:scrape_webpage
   memory: kortix:memory
@@ -99,17 +99,17 @@ tools:
 # in that file — open it to see/change what the agent actually does.
 # v2 is deny-by-default: an omitted connectors/secrets/kortix_permissions/
 # skills grant resolves to "none", so a scoped specialist starts locked down.
-# The starter's own `xera` agent is deliberately
+# The starter's own `kortix` agent is deliberately
 # granted "all" across the board so a fresh project is capable out of the
 # box — narrow it once you know what this project actually needs.
 agents:
-  xera:
-    file: agents/xera.md
+  kortix:
+    file: agents/kortix.md
     connectors: all
     secrets: all
     kortix_permissions: all
     skills: all
-    # Tools this agent may use (harness, Dosco and project tools). Default: all.
+    # Tools this agent may use (harness, Kortix and project tools). Default: all.
     # tools: [read, grep, web_search, lookup_order]   # only these
     # tools: { exclude: [bash] }                      # every tool but these
     # sandbox: python # Must name an available project template, or "default".
@@ -144,7 +144,7 @@ agents:
 
 # ─── Triggers ────────────────────────────────────────────────────────────
 # Each entry spawns a fresh session that runs `prompt` as its initial
-# message. Add from the Dosco UI or uncomment one below. Slugs must be
+# message. Add from the Kortix UI or uncomment one below. Slugs must be
 # lowercase URL-safe and unique per project. `agent` must name a declared
 # agent above (or be omitted to fall back to `default_agent`).
 
@@ -175,35 +175,43 @@ triggers:
       components with observed failures, and open a single CR titled
       `harness: …`. Exit silently if nothing is worth changing.
 
-  # Cron trigger — fires on a 6-field croner expression
-  # (second minute hour day month weekday).
+  # A trigger is `on:` (what fires it) + `run:` (what runs). `kortix triggers
+  # add` writes this shape; the flat form (`type: cron`, `prompt:` …) stays valid.
+  #
+  # Schedule — `cron` (6 fields: second minute hour day month weekday),
+  # `every: 5m` (at least 60s) or `at: <ISO-8601>` (once).
   #
   # - slug: daily-digest
-  #   name: Daily digest
-  #   type: cron
-  #   agent: xera                    # must name a declared agent above
-  #   enabled: true
-  #   cron: "0 0 9 * * 1-5"          # 09:00 Mon–Fri
-  #   timezone: America/Los_Angeles
-  #   prompt: |
-  #     Summarize yesterday's commits across the repo. Save the result to
-  #     notes/digest-{{ fired_at }}.md and open a PR against main.
+  #   on:  { cron: "0 0 9 * * 1-5", timezone: America/Los_Angeles }   # 09:00 Mon–Fri
+  #   run:
+  #     agent: kortix                # must name a declared agent above
+  #     prompt: |
+  #       Summarize yesterday's commits across the repo. Save the result to
+  #       notes/digest-{{ cron.scheduled_date }}.md and open a PR against main.
   #
-  # Webhook trigger — fires on signed POSTs to
-  #   /v1/webhooks/projects/<project_id>/<slug>
-  # Signature header: `X-Kortix-Signature: sha256=<hmac>` (HMAC-SHA256 over
-  # the raw body using the secret named by `secret_env`).
-  # GitHub's `X-Hub-Signature-256` is also accepted.
+  # Webhook — fires on signed POSTs to /v1/webhooks/projects/<project_id>/<slug>
+  # (`X-Kortix-Signature: sha256=<hmac>`, HMAC-SHA256 over the raw body with
+  # the secret; GitHub's `X-Hub-Signature-256` is also accepted).
   #
   # - slug: slack-hook
-  #   name: Slack handler
-  #   type: webhook
-  #   agent: xera
-  #   enabled: true
-  #   secret_env: WEBHOOK_SLACK_SECRET  # add the value via Secrets Manager
-  #   prompt: |
-  #     Slack event from {{ headers.user_agent }}.
-  #     User said: {{ body.text }}
+  #   on:  { webhook: { secret: WEBHOOK_SLACK_SECRET } }   # add the value via Secrets Manager
+  #   run:
+  #     prompt: |
+  #       Slack event from {{ headers.user_agent }}.
+  #       User said: {{ body.text }}
+  #
+  # App event — one of your Apps posts `reply.received` to $KORTIX_APP_EVENTS_URL.
+  # Use it last: a connector event, a webhook or a schedule fits first.
+  #
+  # - slug: handle-reply
+  #   on:  { event: reply.received, app: inbox-poller }
+  #   run: { prompt: "Answer {{ event.data.subject }}" }
+  #
+  # Call an App instead of an agent — no session, no model.
+  #
+  # - slug: poll-inbox
+  #   on:  { every: 5m }
+  #   run: { app: inbox-poller, path: /tick }
 
 # ─── Channels ────────────────────────────────────────────────────────────
 # v2 removes `channels` from the manifest — channel↔agent routing (Slack

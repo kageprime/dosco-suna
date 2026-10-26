@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { PRICING_PLANS } from '@/features/billing/pricing-plans';
 import { ROLES } from '@/features/marketing/solutions/registry';
-import { CANONICAL_ORIGIN, siteMetadata } from '@/lib/site-metadata';
+import { CANONICAL_ORIGIN, siteMetadata } from '@kortix/ui/internal/lib/site-metadata';
 
 // The blog is not listed here: it is its own app (kortix-ai/marketing), served
 // at /blog through a next.config.ts rewrite, with its own sitemap, llms.txt and
@@ -55,6 +55,7 @@ export const STATIC_PUBLIC_ROUTES = [
   '/agents-and-skills',
   '/automations',
   '/changelog',
+  '/changelog/releases',
   '/channels',
   '/company-as-code',
   '/contact',

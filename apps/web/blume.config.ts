@@ -62,10 +62,6 @@ export default defineConfig({
     // 1.5.3 correction: light/dark/alt live under `image`, not top-level
     // `logo` — see task-4-report.md for the config-key corrections log.
     image: {
-      // BOTH are symbol-only: the diamond mark in dark and light ink. Blume
-      // renders the logo image and then a <span> with the site title beside
-      // it, so the dark slot must NOT hold a full logomark — dark mode would
-      // print the wordmark twice. Keep both slots symbol-only.
       light: '/brand/dosco-icon-dark.png',
       dark: '/brand/dosco-icon-light.png',
       alt: 'Dosco',

@@ -17,7 +17,7 @@ import { db } from '../../shared/db';
 import { canonicalJson } from './canonical-json';
 import { EVENT_TRIGGERS_OFF_MESSAGE, eventTriggersOffForProject } from './flag';
 import { appLabel, connectorEventApp, MCP_SOURCE_ID } from './mcp-source';
-import { eventSourceAvailable, eventSourceFor, unknownSourceMessage } from './registry';
+import { eventSourceFor, unknownSourceMessage } from './registry';
 import * as store from './store';
 import { EventConnectionNotReadyError, type EventSourceConnection, type EventSourceProvider } from './types';
 
@@ -63,11 +63,7 @@ export async function resolveSource(
   projectId: string,
   accountId: string,
   event: NonNullable<GitTriggerSpec['event']>,
-  projectMetadata?: unknown,
 ): Promise<Resolution & { providerId?: string }> {
-  const metadata = projectMetadata !== undefined
-    ? projectMetadata
-    : (await db.select({ metadata: projects.metadata }).from(projects).where(eq(projects.projectId, projectId)).limit(1))[0]?.metadata ?? null;
   const [connector] = await db
     .select({
       connectorId: connectors.connectorId,
@@ -84,7 +80,7 @@ export async function resolveSource(
   }
   // The adapter is the declared `source`, else the connector's own provider.
   if (event.source) {
-    const unknown = unknownSourceMessage(event.source, metadata);
+    const unknown = unknownSourceMessage(event.source);
     if (unknown) return { kind: 'error', message: unknown };
     if (event.source !== connector.provider) {
       return {
@@ -94,7 +90,7 @@ export async function resolveSource(
     }
   }
   const provider = eventSourceFor(connector.provider);
-  if (!provider || !eventSourceAvailable(provider.id, metadata)) {
+  if (!provider) {
     return { kind: 'error', message: `Connector "${event.connector}" (${connector.provider}) has no app-event source. Use an app connector.` };
   }
   if (!provider.configured()) {
@@ -181,14 +177,25 @@ async function reconcileOne(
   spec: GitTriggerSpec,
   prev: store.EventSubscriptionRow | undefined,
   flagOff: boolean,
-  projectMetadata: unknown,
 ): Promise<void> {
   const event = spec.event!;
   // Flag off: the trigger stays declared but is never subscribed; a live instance is dropped below.
   const resolved: Resolution & { providerId?: string } = flagOff
     ? { kind: 'error', message: EVENT_TRIGGERS_OFF_MESSAGE }
-    : await resolveSource(projectId, accountId, event, projectMetadata);
+    : await resolveSource(projectId, accountId, event);
   const providerId = resolved.providerId ?? prev?.provider ?? 'composio';
+  // The source changed (a connector moved from Composio to Kortix): the old
+  // instance belongs to the old source, and only that source can drop it, once
+  // this row no longer references it.
+  const moved =
+    prev?.externalId && prev.provider !== providerId
+      ? { provider: prev.provider, externalId: prev.externalId }
+      : null;
+  const prevExternalId = moved ? null : (prev?.externalId ?? null);
+  const dropMovedInstance = async () => {
+    const old = moved ? eventSourceFor(moved.provider) : undefined;
+    if (moved && old) await unsubscribeIfUnreferenced(old, moved.externalId);
+  };
   const base = {
     projectId,
     slug: spec.slug,
@@ -208,7 +215,8 @@ async function reconcileOne(
       lastError: resolved.message,
     });
     const provider = eventSourceFor(providerId);
-    if (provider && prev?.externalId) await unsubscribeIfUnreferenced(provider, prev.externalId);
+    if (provider && prevExternalId) await unsubscribeIfUnreferenced(provider, prevExternalId);
+    await dropMovedInstance();
     return;
   }
   const { provider, connection } = resolved;
@@ -217,7 +225,7 @@ async function reconcileOne(
     prev &&
     prev.status === 'active' &&
     prev.desiredHash === hash &&
-    (!prev.externalId || !provider.instanceExists || (await provider.instanceExists(prev.externalId)))
+    (!prevExternalId || !provider.instanceExists || (await provider.instanceExists(prevExternalId)))
   ) {
     return;
   }
@@ -231,18 +239,20 @@ async function reconcileOne(
       status: status?.kind ?? 'active',
       lastError: status?.message ?? null,
     });
-    if (prev?.externalId && prev.externalId !== externalId) {
-      await unsubscribeIfUnreferenced(provider, prev.externalId);
+    if (prevExternalId && prevExternalId !== externalId) {
+      await unsubscribeIfUnreferenced(provider, prevExternalId);
     }
+    await dropMovedInstance();
   } catch (error) {
     await store.upsert({
       ...base,
       connectionId: connection.connectionId,
-      externalId: prev?.externalId ?? null,
+      externalId: prevExternalId,
       desiredHash: hash,
       status: error instanceof EventConnectionNotReadyError ? 'needs_connection' : 'error',
       lastError: errorText(error),
     });
+    await dropMovedInstance();
   }
 }
 
@@ -268,7 +278,7 @@ export async function reconcileEventSubscriptions(
       const flagOff = eventTriggersOffForProject(project?.metadata);
       for (const spec of desired) {
         try {
-          await reconcileOne(projectId, accountId, spec, rows.get(spec.slug), flagOff, project?.metadata ?? null);
+          await reconcileOne(projectId, accountId, spec, rows.get(spec.slug), flagOff);
         } catch (error) {
           logger.warn('[trigger-events] reconcile failed', { projectId, slug: spec.slug, error: errorText(error) });
         }

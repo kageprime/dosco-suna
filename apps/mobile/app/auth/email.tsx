@@ -1,3 +1,4 @@
+
 /**
  * Email auth screen — sign in or create an account with email.
  *
@@ -9,9 +10,8 @@
  * Email methods come from env (lib/auth/auth-config): a one-time code and/or a
  * password. The code step replaces the form in place; back returns to the form.
  *
- * `?method=sso` starts the screen on the domain-SSO form (work email → the IdP
- * in the browser). No in-app entry point sets it today; the param stays for
- * deep links.
+ * `?method=sso` (the welcome screen's "Continue with SSO", self-hosted instances):
+ * the email alone, then the domain's identity provider in the browser.
  *
  * SSO required (KRTX-1716, lib/auth/sso-required): before a password, code,
  * sign-up or password-reset attempt the screen asks the API whether the
@@ -34,6 +34,7 @@ import * as Haptics from 'expo-haptics';
 import { checkAccessEmail } from '@kortix/sdk';
 
 import { PillInput } from '@/components/kortix/pill-input';
+import { useFieldRefocus } from '@/lib/ui/use-field-refocus';
 import { SettingsGroup } from '@/components/kortix/settings-list';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -116,6 +117,9 @@ export default function EmailAuthScreen() {
   const [verifying, setVerifying] = React.useState(false);
 
   const passwordRef = React.useRef<TextInput>(null);
+  // Back from Mail with the code: the keyboard comes back on a tap and on return.
+  const codeRef = React.useRef<TextInput>(null);
+  const refocusCode = useFieldRefocus(codeRef, !verifying);
   // Set when the user switches to a password, so the new field takes focus.
   const focusPasswordOnMount = React.useRef(false);
 
@@ -438,6 +442,8 @@ export default function EmailAuthScreen() {
               </Text>
 
               <PillInput
+                ref={codeRef}
+                onPressIn={refocusCode}
                 value={otpCode}
                 onChangeText={handleCodeChange}
                 placeholder="Code"

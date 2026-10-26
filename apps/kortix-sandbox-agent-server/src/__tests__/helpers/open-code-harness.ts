@@ -65,9 +65,6 @@ export function testOpenCodeConfig(over: Partial<OpenCodeConfig> = {}): OpenCode
     gitUserEmail: 'xera@dosco.live',
     cloneFilter: '',
     cloneDepth: 1,
-    workload: '',
-    monitorsJson: '',
-    monitorBoxEpoch: '',
     ...over,
   }
 }

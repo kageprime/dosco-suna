@@ -18,11 +18,17 @@ An account is on one of two plans: Free or Credits. See [dosco.live/pricing](htt
 | Billed | No charge | A monthly amount you choose |
 | Credit grant | Every month, for the account | Every billing cycle, 100 credits per dollar of the monthly amount, in one wallet |
 | Members | Unlimited | Unlimited, no per-member charge |
+
+| Dosco-managed models | None | All |
+
 | Buy credits and auto top-up | No | Yes |
 | Projects | 1 | 200 (no limit with an Enterprise license) |
 | SSO, SCIM, groups and custom roles, audit log, branding | With Enterprise | With Enterprise |
 
-- Every plan runs on models you connect with your own provider key or a ChatGPT subscription. Managed models are not currently enabled on Dosco Cloud. See [Models](/docs/project/models).
+
+- Every plan can use models on your own provider key or a ChatGPT subscription. See [Models](/docs/project/models).
+- On Free, every managed model returns `plan_upgrade_required`. Free credits pay for compute and your own models only.
+
 - An Enterprise feature without Enterprise on returns `402` with code `entitlement_required`. An owner or admin can turn the Enterprise demo on. See [Enterprise features](/docs/accounts/identity#enterprise-features).
 - Every older paid plan became a Credits plan at the same monthly price. A per-seat plan receives its full bill as credits in one shared wallet. Seats no longer exist: members are free and unlimited.
 - Creating a project over the limit returns `403` with code `project_limit_reached`. An archived project does not count.
@@ -34,9 +40,12 @@ A self-hosted instance runs with billing off by default (`KORTIX_BILLING_INTERNA
 
 | What | How Dosco meters it |
 | --- | --- |
+
+| Dosco-managed model calls | Input, output and cache tokens of each request, at the provider's base price plus a 5.5% platform fee. |
 | Model calls on your own provider key | Nothing for the first $1,000 of usage a month at the provider's list price. After that, 5% of each request's list price. A ChatGPT subscription and OpenCode Go are never charged. Enterprise has no fee, and Dosco can waive it per account. |
-| Sandbox compute | The reserved spec (`cpu`, `memory`, `disk`) multiplied by the seconds the sandbox is active. Session sandboxes, App machines and project monitors all count. |
+| Sandbox compute | The reserved spec (`cpu`, `memory`, `disk`) multiplied by the seconds the sandbox is active. Session sandboxes and App machines count. An on-demand App that has stopped uses no compute. |
 | Dosco-proxied tools | Each web search, image search or web scraping request that goes through Dosco. |
+
 
 - Compute meters the spec the sandbox reserves, not what it uses. Set the spec in `kortix.yaml`. See [Sandboxes & previews](/docs/work/runtime#hardware-and-docker).
 - One compute rate applies to every sandbox provider and to every plan, billed per second for the reserved size:

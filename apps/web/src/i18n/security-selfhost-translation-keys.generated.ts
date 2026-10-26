@@ -90,8 +90,8 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   Credentials: 'textd48a617c7da5',
   'Custom roles': 'textc703c7f9cbe6',
   'data plane': 'text7225a08be0c6',
-  'Daytona, Platinum, or E2B. This is the one credential the stack genuinely cannot start without.':
-    'textfe1e8536b04d',
+  'A Platinum API key. This is the one credential the stack genuinely cannot start without.':
+    'texta4df7a062ff9',
   'Decide what needs a human before it happens.': 'text77ad70aefdce',
   'default_mode: risk makes reads run and sends writes and destructive calls to a person. A project with no policy block keeps the permissive legacy default, so set this explicitly.':
     'text221bf49bd2bb',
@@ -235,8 +235,8 @@ export const SECURITY_SELFHOST_TRANSLATION_KEYS: Readonly<Record<string, string>
   'SAML SSO, SCIM directory sync, custom roles, groups and reading the audit log are Enterprise entitlements. On a private instance they switch on with an Enterprise licence. The built-in owner, admin, member, manager and editor roles are there on every install, and the audit record is written on every install whether or not you can read it back yet.':
     'text2288facc3728',
   sandbox: 'textb7ad567477c8',
-  'Sandbox compute is a provider choice: Daytona by default, or Platinum or E2B. Air-gapped and other fully isolated topologies are scoped with us rather than self-served.':
-    'text193ea53a9706',
+  'Sandbox compute runs on Platinum. Daytona remains a legacy fallback, and its removal is scheduled. Fully isolated topologies are scoped with us rather than self-served.':
+    'text9c282c968d5e',
   'SCIM 2.0': 'text98fe74b2a48a',
   'Scope a team to specific agents': 'text7bbd0566a549',
   Secrets: 'textd8707d411d99',

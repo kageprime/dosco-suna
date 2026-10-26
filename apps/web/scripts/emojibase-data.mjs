@@ -2,7 +2,7 @@ import { copyFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// The emoji picker (packages/ui/src/components/ui/emoji-picker.tsx) is built on frimousse, which
+// The emoji picker (packages/ui/src/primitives/emoji-picker.tsx) is built on frimousse, which
 // fetches the emojibase dataset in the browser the first time the picker opens.
 // Left at its default it fetches from `https://cdn.jsdelivr.net/npm/emojibase-data`
 // — a third-party CDN, at runtime, in the user's browser. Kortix ships

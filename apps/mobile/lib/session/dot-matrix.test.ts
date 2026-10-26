@@ -1,3 +1,4 @@
+
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ import {
   type DotMatrixVariant,
 } from './dot-matrix';
 
+// Web renders the catalog from @kortix/ui (`primitives/dot-matrix/` since #10480).
 const WEB_CATALOG = join(
   import.meta.dir,
   '..',
@@ -26,8 +28,7 @@ const WEB_CATALOG = join(
   'packages',
   'ui',
   'src',
-  'components',
-  'ui',
+  'primitives',
   'dot-matrix',
   'session-dot-matrix.tsx',
 );

@@ -44,9 +44,11 @@ import { registerChannelTeamsRoutes } from './routes/channel-teams';
 import { registerChannelEmailRoutes } from './routes/channel-email';
 import { registerTurnStreamRoutes } from './routes/turn-stream';
 import { registerModelsRoutes } from './routes/models';
+import { registerCustomProvidersRoutes } from './routes/custom-providers';
 import { registerTurnQuestionsRoutes } from './routes/turn-questions';
 import { registerTurnPermissionsRoutes } from './routes/turn-permissions';
 import { registerOauth2ConnectorsRoutes } from './routes/oauth2-connectors';
+import { registerConnectorMoveRoutes } from './routes/connector-moves';
 import { registerProjectDetailRoutes } from './routes/project-detail';
 import { registerProjectFilesRoutes } from './routes/project-files';
 import { registerProjectSettingsRoutes } from './routes/project-settings';
@@ -77,6 +79,8 @@ import { registerSessionWatchRoutes } from './routes/session-watch';
 import { registerSessionListStateRoutes } from './routes/session-list-state';
 import { registerSessionParticipantsRoutes } from './routes/session-participants';
 import { registerSessionPromptsRoutes } from './routes/session-prompts';
+import { registerRoomsRoutes } from './routes/rooms';
+import { registerArtifactRoutes } from './routes/artifacts';
 import { registerSessionRemindersRoutes } from './routes/session-reminders';
 import { registerChangeRequestsRoutes } from './routes/change-requests';
 import { registerPromptAttachmentsRoutes } from './routes/prompt-attachments';
@@ -88,7 +92,6 @@ import { registerAgentConfigRoutes } from './routes/agent-config';
 import { registerProjectSkillsRoutes } from './routes/project-skills';
 import { registerGatewayRoutes } from './routes/gateway';
 import { registerChannelBindingsRoutes } from './routes/channel-bindings';
-import { registerMonitorsRoutes } from './routes/monitors';
 import { registerAppsRoutes } from '../apps/routes';
 
 /**
@@ -130,9 +133,11 @@ export function registerAllProjectRoutes(): void {
   registerChannelEmailRoutes();
   registerTurnStreamRoutes();
   registerModelsRoutes();
+  registerCustomProvidersRoutes();
   registerTurnQuestionsRoutes();
   registerTurnPermissionsRoutes();
   registerOauth2ConnectorsRoutes();
+  registerConnectorMoveRoutes();
   registerProjectDetailRoutes();
   registerProjectFilesRoutes();
   registerProjectSettingsRoutes();
@@ -163,6 +168,8 @@ export function registerAllProjectRoutes(): void {
   registerSessionListStateRoutes();
   registerSessionParticipantsRoutes();
   registerSessionPromptsRoutes();
+  registerRoomsRoutes();
+  registerArtifactRoutes();
   registerSessionRemindersRoutes();
   registerChangeRequestsRoutes();
   registerPromptAttachmentsRoutes();
@@ -174,7 +181,6 @@ export function registerAllProjectRoutes(): void {
   registerProjectSkillsRoutes();
   registerGatewayRoutes();
   registerChannelBindingsRoutes();
-  registerMonitorsRoutes();
   registerAppsRoutes();
 }
 

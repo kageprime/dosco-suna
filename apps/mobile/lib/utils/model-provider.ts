@@ -1,3 +1,4 @@
+
 /**
  * Model Provider Utilities
  *
@@ -9,7 +10,7 @@ import OAIIcon from '@/assets/images/models/OAI.svg';
 import GeminiIcon from '@/assets/images/models/Gemini.svg';
 import GrokIcon from '@/assets/images/models/Grok.svg';
 import MoonshotIcon from '@/assets/images/models/Moonshot.svg';
-import KortixSymbolIcon from '@/assets/brand/dosco-mark.svg';
+import KortixSymbolIcon from '@/assets/brand/kortix-symbol.svg';
 import type { SvgProps } from 'react-native-svg';
 import type React from 'react';
 
@@ -30,8 +31,8 @@ export function isKortixMode(modelId: string): boolean {
   const id = modelId.startsWith('kortix/') ? modelId.slice('kortix/'.length) : modelId;
   return (
     id === 'auto' ||
-    // 2026-08-10 managed slim-down: claude-opus-4.8 / claude-sonnet-4.6 /
-    // kimi-k3 are deactivated in @kortix/llm-catalog MANAGED_MODELS.
+    // Legacy Kortix mode ids. The managed lineup itself comes from Platinum
+    // Inference through the API, not from this list.
     id === 'glm-5.3-flash' ||
     id === 'qwen3.7-max' ||
     id === 'deepseek-v4-pro' ||
@@ -99,7 +100,7 @@ export function getModelProviderName(modelId: string): string {
   const provider = getModelProvider(modelId);
 
   const nameMap: Record<ModelProvider, string> = {
-    kortix: 'Dosco',
+    kortix: 'Kortix',
     anthropic: 'Anthropic',
     openai: 'OpenAI',
     google: 'Google',

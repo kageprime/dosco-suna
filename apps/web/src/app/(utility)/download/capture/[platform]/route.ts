@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { isMobilePlatform, normalizePlatform } from '@/features/marketing/download/detect-os';
 import {
+  deploymentChannel,
   getCaptureDevRelease,
   getLatestCaptureRelease,
   pickCaptureAsset,
@@ -20,9 +21,9 @@ export async function GET(
 ) {
   const os = normalizePlatform((await params).platform);
   if (!os || isMobilePlatform(os)) return toDocs();
-  const release = isDevDeployment()
-    ? await getCaptureDevRelease()
-    : await getLatestCaptureRelease();
+  // Capture has no staging channel: staging serves the newest vX.Y.Z, like production.
+  const release =
+    deploymentChannel() === 'dev' ? await getCaptureDevRelease() : await getLatestCaptureRelease();
   const asset = release ? pickCaptureAsset(release.assets, os) : undefined;
   return asset ? NextResponse.redirect(asset.url, 302) : toDocs();
 }
@@ -34,16 +35,4 @@ function toDocs(): Response {
     status: 302,
     headers: { Location: '/docs/capture#install-kortix-capture' },
   });
-}
-
-/** dev.kortix.com (its backend is dev-api) serves the dev channel, whose installers sync to
- *  dev-api. Production, staging and every self-hosted instance serve the newest vX.Y.Z.
- *  Dormant on this deployment: Dosco ships no Capture builds yet (no releases in the
- *  feed), so every /download/capture visit lands on the install docs. */
-function isDevDeployment(): boolean {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_BACKEND_URL ?? '').hostname === 'dev-api.kortix.com';
-  } catch {
-    return false;
-  }
 }

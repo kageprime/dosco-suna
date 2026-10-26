@@ -1,3 +1,4 @@
+
 /**
  * Account page — the app's one settings page (COR-120: "less is more").
  *
@@ -41,7 +42,7 @@ import Constants from 'expo-constants';
 import { useColorScheme } from 'nativewind';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/kortix/switch';
 import { Text } from '@/components/ui/text';
 import { Avatar } from '@/components/kortix/avatar';
 import { KortixLogo } from '@/components/kortix/KortixLogo';
@@ -118,7 +119,7 @@ export function AccountPage({
     [router]
   );
 
-  // Docs and Support open dosco.live in the in-app browser (`openLink`).
+  // Docs and Support open kortix.com in the in-app browser (`openLink`).
   const openWebPage = React.useCallback((path: string) => {
     haptics.tap();
     void openLink(`${KORTIX_WEB_URL}${path}`).catch(() => {});
@@ -400,7 +401,7 @@ function AppVersionFooter() {
     <View
       className="flex-row items-center justify-center gap-2 py-8"
       accessible
-      accessibilityLabel={version ? `Dosco version ${version}` : 'Dosco'}>
+      accessibilityLabel={version ? `Kortix version ${version}` : 'Kortix'}>
       <KortixLogo variant="logomark" size={14} color={colorScheme === 'dark' ? 'dark' : 'light'} className="opacity-50" />
       {version ? <Text variant="muted">v{version}</Text> : null}
     </View>

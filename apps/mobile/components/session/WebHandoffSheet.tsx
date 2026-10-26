@@ -1,3 +1,4 @@
+
 /**
  * WebHandoffSheet — the generic "continue on the web app" hand-off sheet
  * (KRTX-249). A title, one short line of body copy, and a primary Continue
@@ -13,7 +14,7 @@
  * that flow; this sheet is the plain shell for every other web hand-off.
  *
  * First use: project Settings → Customize → Connectors ("Customize in the
- * web app" / "Connectors are set up on dosco.live." / "Continue" opens the
+ * web app" / "Connectors are set up on kortix.com." / "Continue" opens the
  * connectors web flow). Task 3 (KRTX-246, project/account creation and the
  * GitHub import flow) reuses it with its own copy and `run`.
  */
@@ -25,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useHandoffDismiss } from './handoff-sheet';
 
-export interface WebHandoffSheetProps {
+interface WebHandoffSheetProps {
   title: string;
   /** One short line of body copy under the title. */
   line: string;

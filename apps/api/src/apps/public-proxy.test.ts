@@ -134,6 +134,9 @@ describe('Apps public edge', () => {
     expect(appProviderStoppedResponse('e2b', 200, dead)).toBe(false);
 
     // Daytona's shape is unchanged.
+  });
+
+  test('recognises a dead Daytona runtime by its 400 shape', () => {
     expect(appProviderStoppedResponse('daytona', 400, 'no IP address found')).toBe(true);
     expect(appProviderStoppedResponse('daytona', 502, 'port is not open')).toBe(false);
   });

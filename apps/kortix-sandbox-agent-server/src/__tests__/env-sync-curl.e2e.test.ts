@@ -37,9 +37,6 @@ function baseConfig(): Config {
     gitUserEmail: 'xera@dosco.live',
     cloneFilter: '',
     cloneDepth: 1,
-    workload: '',
-    monitorsJson: '',
-    monitorBoxEpoch: '',
   }
 }
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { Dosco } from '@/features/icon/icons/kortix';
-import { Slack } from '@/features/icon/icons/slack';
-import { cn } from '@/lib/utils';
+import { Dosco } from '@kortix/ui/internal/icons/kortix';
+import { Slack } from '@kortix/ui/internal/icons/slack';
+import { cn } from '@kortix/ui';
 import { useTranslations } from '@/i18n/use-translations';
 import type { ReactNode } from 'react';
 import { getLocalizedChannelsContent } from './content';

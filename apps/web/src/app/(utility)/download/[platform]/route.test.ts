@@ -14,7 +14,7 @@ describe('GET /download/<platform>', () => {
     const res = await call('android');
     expect(res.status).toBe(302);
     const location = res.headers.get('location') ?? '';
-    // The current EAS artifact (mobile-store-urls.ts) — immutable per build.
+    // The current EAS artifact — immutable per build.
     expect(location).toContain('expo.dev/artifacts/eas/');
   });
 
@@ -32,5 +32,30 @@ describe('GET /download/<platform>', () => {
       expect(res.status).toBe(302);
       expect(res.headers.get('location')).toBe(`${origin}/download`);
     }
+  });
+});
+
+describe('GET /download/mobile (the store QR code target)', () => {
+  const scan = (userAgent: string) =>
+    GET(new NextRequest(`${origin}/download/mobile`, { headers: { 'user-agent': userAgent } }), {
+      params: Promise.resolve({ platform: 'mobile' }),
+    });
+
+  test('an Android phone lands on the APK download', async () => {
+    const res = await scan('Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Mobile');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('expo.dev/artifacts/eas/');
+  });
+
+  test('an iPhone lands on /download', async () => {
+    const res = await scan('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`${origin}/download`);
+  });
+
+  test('a desktop browser lands on /download', async () => {
+    const res = await scan('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`${origin}/download`);
   });
 });

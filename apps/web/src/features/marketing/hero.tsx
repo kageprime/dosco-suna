@@ -1,8 +1,9 @@
 'use client';
 
 import { HeroBackground, type HeroMediaMode } from '@/features/marketing/hero-background';
-import { Claude } from '@/features/icon/icons/claude';
-import { OpenAI } from '@/features/icon/icons/open-ai';
+import { Claude } from '@kortix/ui/internal/icons/claude';
+import { OpenAI } from '@kortix/ui/internal/icons/open-ai';
+import { HeroSurfaces } from '@/features/marketing/hero-surfaces';
 import { getLocalizedLandingContent } from '@/features/marketing/landing/content';
 import { useTranslations } from '@/i18n/use-translations';
 import { type ReactNode, useState } from 'react';

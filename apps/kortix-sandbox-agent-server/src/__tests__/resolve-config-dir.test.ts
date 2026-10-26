@@ -42,9 +42,6 @@ function cfg(overrides: Partial<Config> = {}): Config {
     gitUserEmail: 'xera@dosco.live',
     cloneFilter: 'blob:none',
     cloneDepth: 1,
-    workload: '',
-    monitorsJson: '',
-    monitorBoxEpoch: '',
     ...overrides,
   }
 }

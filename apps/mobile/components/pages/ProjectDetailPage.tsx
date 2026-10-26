@@ -1,3 +1,4 @@
+
 /**
  * ProjectDetailPage — Single project view with tabs (Sessions, Tasks, Agents).
  * Ported from web's /projects/[id]/page.tsx.
@@ -29,7 +30,7 @@ import { Text } from '@/components/ui/text';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/kortix/switch';
 import { Icon } from '@/components/ui/icon';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -867,7 +868,7 @@ export function ProjectDetailPage({
                   paddingHorizontal: 20,
                   lineHeight: 17,
                 }}>
-                Create tasks so Dosco knows what to work on next.
+                Create tasks so Kortix knows what to work on next.
               </RNText>
               <Pressable
                 onPress={openNewTaskSheet}
@@ -1139,7 +1140,7 @@ export function ProjectDetailPage({
                         }}
                       >
                         {contextSaving ? (
-                          <KortixLoader />
+                          <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
                         ) : (
                           <RNText
                             style={{
@@ -2282,7 +2283,7 @@ export function ProjectDetailPage({
                   opacity: canSubmit ? 1 : 0.55,
                 }}>
                 {isBusy ? (
-                  <KortixLoader />
+                  <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
                 ) : autoRun ? (
                   <Play
                     size={14}

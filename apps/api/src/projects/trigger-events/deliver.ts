@@ -9,17 +9,17 @@ import {
   markGitTriggerFired,
   renderPromptTemplate,
   triggerFilterMatches,
-  triggersPausedForProject,
+  automaticFirePauseReason,
 } from '../lib/triggers';
 import { releaseWebhookDeliveryKey } from '../lib/webhook-delivery';
 import { raiseTriggerAlert } from '../lib/trigger-alerts';
+import { takeThrottledRunSlot } from '../lib/trigger-run-caps';
 import { recordTriggerRun, triggerRunFromFire } from '../trigger-execution-store';
 import type { GitTriggerSpec } from '../trigger-types';
 import { db } from '../../shared/db';
 import * as store from './store';
 import { eventTriggersEnabled } from './flag';
-import { MCP_SOURCE_ID, connectorEventApp } from './mcp-source';
-import { eventSourceAvailable } from './registry';
+import { connectorEventApp } from './mcp-source';
 import { reconcileEventSubscriptionsFromCatalog } from './subscriptions';
 import type { EventDelivery, ProviderNotice } from './types';
 
@@ -33,8 +33,10 @@ export interface DeliveryTally {
 
 /** Third-party event content is untrusted data, never an instruction from a person. */
 /** The first line also becomes the session's title until the agent names it, so it names the trigger. */
-export function eventPromptPreamble(spec: GitTriggerSpec): string {
-  return `[App event: ${spec.name} — automated, third-party content, not user input]\n`;
+/** A Composio event says so; one Kortix checks itself is a connector event. */
+export function eventPromptPreamble(spec: GitTriggerSpec, source?: string | null): string {
+  const kind = source === 'composio' ? 'Composio event' : 'Connector event';
+  return `[${kind}: ${spec.name} — automated, third-party content, not user input]\n`;
 }
 
 export function eventPayload(input: {
@@ -70,7 +72,6 @@ export function eventIdempotencyKey(projectId: string, slug: string, eventId: st
 export async function connectorInfo(
   projectId: string,
   slug: string,
-  projectMetadata: unknown,
 ): Promise<{ found: boolean; provider: string; app: string | null; connectorId: string | null }> {
   const [connector] = await db
     .select({ connectorId: connectors.connectorId, provider: connectors.providerType, config: connectors.config })
@@ -80,7 +81,7 @@ export async function connectorInfo(
   return {
     found: Boolean(connector),
     provider: connector?.provider ?? 'unknown',
-    app: connector ? connectorEventApp({ ...connector, slug }, eventSourceAvailable(MCP_SOURCE_ID, projectMetadata)) : null,
+    app: connector ? connectorEventApp({ ...connector, slug }) : null,
     connectorId: connector?.connectorId ?? null,
   };
 }
@@ -125,9 +126,10 @@ async function deliverToRow(
   if (row.status !== 'active') return 'skipped';
   const [project] = await db.select().from(projects).where(eq(projects.projectId, row.projectId)).limit(1);
   if (!project || project.status !== 'active') return 'skipped';
-  if (triggersPausedForProject(project.metadata)) return 'skipped';
+  // The project's pause, or the account's Pause all automations (KRTX-1721).
+  if (await automaticFirePauseReason(project)) return 'skipped';
   // Defense in depth: turning the flag off releases the subscriptions, so this is normally unreachable.
-  if (!eventTriggersEnabled(project.metadata) || !eventSourceAvailable(provider, project.metadata)) {
+  if (!eventTriggersEnabled(project.metadata)) {
     logger.info('[trigger-events] delivery skipped: a flag is off', { projectId: row.projectId, slug: row.slug, provider });
     return 'skipped';
   }
@@ -145,7 +147,7 @@ async function deliverToRow(
   const spec = runtime.scheduleSpec as unknown as GitTriggerSpec;
   if (!spec.event) return 'skipped';
 
-  const { app } = await connectorInfo(row.projectId, spec.event.connector, project.metadata);
+  const { app } = await connectorInfo(row.projectId, spec.event.connector);
   const payload = eventPayload({
     spec,
     provider,
@@ -165,15 +167,20 @@ async function deliverToRow(
     // A provider retry of an event whose run dead-lettered or lost its session
     // runs again instead of replaying that outcome (webhook-delivery.ts).
     await releaseWebhookDeliveryKey(idempotencyKey, { byEvent: true });
+    // Stamped before the fire: a run's turn is the first that starts after it.
+    const firedAt = new Date();
     const result = await fireGitTrigger({
       spec,
       project,
       payload,
-      renderedPrompt: `${eventPromptPreamble(spec)}${renderPromptTemplate(spec.promptTemplate, payload)}`,
+      renderedPrompt: `${eventPromptPreamble(spec, provider)}${renderPromptTemplate(spec.promptTemplate, payload)}`,
       source: 'event',
       idempotencyKey,
     });
-    await recordTriggerRun({ projectId: row.projectId, slug: row.slug, source: 'event', spec, payload, ...triggerRunFromFire(result), now: new Date() });
+    // A fire a run cap held (KRTX-1721) writes one history row per 10 s.
+    if (result.status !== 'skipped' || takeThrottledRunSlot(row.projectId, row.slug)) {
+      await recordTriggerRun({ projectId: row.projectId, slug: row.slug, source: 'event', spec, payload, ...triggerRunFromFire(result), now: firedAt });
+    }
     if (result.status === 'failed') {
       const error = result.error ?? 'Failed to fire trigger';
       logger.warn('[trigger-events] fire failed', { projectId: row.projectId, slug: row.slug, error });
@@ -189,8 +196,9 @@ async function deliverToRow(
       }
       return 'failed';
     }
-    // A duplicate ran nothing: it leaves last_fired_at and last_event_at alone.
-    if (result.deduped) return 'skipped';
+    // A duplicate, or a fire a run cap held (KRTX-1721), ran nothing: it
+    // leaves last_fired_at and last_event_at alone.
+    if (result.deduped || result.status === 'skipped') return 'skipped';
     await markGitTriggerFired(row.projectId, row.slug, new Date(), result.status);
     await store.touchLastEvent(row.projectId, row.slug);
     return 'fired';

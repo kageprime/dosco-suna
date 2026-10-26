@@ -34,7 +34,7 @@
  */
 
 import { markComputeSessionAlive } from '../../billing/services/compute-metering';
-import { type SandboxProvider, type SandboxStatus, getProvider } from '../../platform/providers';
+import { type SandboxProvider, type SandboxStatus, getProvider, isProviderName } from '../../platform/providers';
 import { invalidateSandbox } from '../../sandbox-proxy/backend';
 import { isDaytonaRateLimitError } from '../../shared/daytona-rate-limit';
 import { isDaytonaTransientProviderError } from '../../shared/daytona-transient';
@@ -341,6 +341,12 @@ interface ReapPass {
 /** One candidate row: ask the provider its real state, then act on it. */
 async function reapOneSandbox(pass: ReapPass, row: ReapCandidate): Promise<void> {
   try {
+    // A legacy `e2b` row (E2B support is discontinued) has no provider to ask:
+    // reconcile it locally as removed so its row and billing close.
+    if (!isProviderName(row.provider)) {
+      await reconcileNotRunningSandbox(pass, row, 'removed');
+      return;
+    }
     const provider = getProvider(row.provider);
     const providerStatus: SandboxStatus = await provider.getStatus(row.externalId);
 

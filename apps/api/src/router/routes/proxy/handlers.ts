@@ -184,7 +184,57 @@ async function forwardUpstream(
   });
 }
 
+
+/**
+ * What a provider answers when it refuses or limits the ACCOUNT behind the key:
+ * a refused key (401), no credit (402), a rate limit (429), and Tavily's plan
+ * and pay-as-you-go limits (432, 433). On the Dosco-owned key that account is
+ * Dosco's, so passing the provider's text through told a user to "upgrade
+ * your plan" for a plan they do not have, and logged nothing (KRTX-3022).
+ * 400 and 403 stay as they are: they are about the request (Firecrawl answers
+ * 403 for a site it will not read).
+ */
+const PLATFORM_ACCOUNT_REFUSALS = new Set([401, 402, 429, 432, 433]);
+
+/** The capability a person loses, named the way the product names it. */
+const TOOL_LABELS: Record<string, string> = {
+  tavily: 'Web search',
+  serper: 'Image search',
+  firecrawl: 'Reading web pages',
+};
+
+async function platformKeyRefusal(service: ProxyServiceConfig, response: Response): Promise<Response | null> {
+  if (!PLATFORM_ACCOUNT_REFUSALS.has(response.status)) return null;
+  const reason = (await response.text().catch(() => ''))
+    .slice(0, 300)
+    .replace(/https?:\/\/\S+/g, '<url>')
+    .replace(/\s+/g, ' ')
+    .trim();
+  appLogger.error(`[PROXY] ${service.name} refused Dosco's key: upstream ${response.status}`, {
+    upstream_status: response.status,
+    upstream_reason: reason || '(no body)',
+  });
+  const tool = TOOL_LABELS[service.name] ?? `The ${service.name} tool`;
+  const cause =
+    response.status === 401
+      ? "the provider is not accepting Dosco's key"
+      : "Dosco's account with the provider is over its usage limit";
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const retryAfter = response.headers.get('retry-after');
+  if (retryAfter) headers.set('Retry-After', retryAfter);
+  return new Response(
+    JSON.stringify({
+      error: 'tool_unavailable',
+      service: service.name,
+      upstream_status: response.status,
+      message: `${tool} is unavailable right now: ${cause}. This is not a limit on your account, and there is nothing to change on your side.`,
+    }),
+    { status: 503, headers },
+  );
+}
+
 // === Dosco User: match allowed route, inject our key, bill with route-specific pricing ===
+
 
 async function handleKortixProxy(
   c: any,
@@ -233,7 +283,8 @@ async function handleKortixProxy(
     `[PROXY] ${service.name} (kortix:${accountId}) ${method} ${subPath} → ${targetUrl} [bill:${billingToolName}]`,
   );
 
-  return forwardUpstream(service, method, subPath, targetUrl, headers, body, toolReservation);
+  const response = await forwardUpstream(service, method, subPath, targetUrl, headers, body, toolReservation);
+  return (await platformKeyRefusal(service, response)) ?? response;
 }
 
 // === Dosco user with own key: passthrough, billed the tool price ===

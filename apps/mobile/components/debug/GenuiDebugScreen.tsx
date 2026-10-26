@@ -1,10 +1,11 @@
+
 /**
  * GenuiDebugScreen — every generative UI block, rendered by the mobile renderer the transcript uses.
  *
  * The samples are `@kortix/shared/genui-samples`, the same list as the web page `/debug/genui`, so a
  * block can be compared side by side. Blocks render as UI whatever the Rich answers preference says,
- * and remote images load as in an agent reply. Open it from the project home's "Debug GenUI" button
- * in a dev build, or with `dosco://genui-debug`.
+ * and remote images load as in an agent reply. Open it from the project home's "Debug" button (→ Generative UI)
+ * in a dev build, or with `kortix://genui-debug`.
  */
 
 import { useMemo } from 'react';

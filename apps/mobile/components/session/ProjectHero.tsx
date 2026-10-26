@@ -1,3 +1,4 @@
+
 /**
  * ProjectHero — the Kortix symbol, alone. No sentence, no project name (Jay,
  * 2026-09-21). It is a shader that follows the phone's tilt
@@ -27,7 +28,6 @@ import * as React from 'react';
 import { Keyboard, Pressable, useWindowDimensions } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Reanimated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
-import { useColorScheme } from 'nativewind';
 
 import { MetalKortixLogo } from '@/components/kortix/MetalKortixLogo';
 import type { SheetRef } from '@/components/kortix/sheet';
@@ -36,6 +36,7 @@ import { LOGO_PALETTES, logoFrontColor, logoPaletteColors } from '@/lib/effects/
 import { haptics } from '@/lib/haptics';
 import { HERO_KEYBOARD_SCALE, heroLogoSize } from '@/lib/session/project-hero';
 import { THEME } from '@/lib/utils/theme';
+import { useTone } from '@/lib/utils/tone';
 import { useLogoPaletteStore } from '@/stores/logo-palette-store';
 
 /** How long the symbol must be held before the colour sheet opens. */
@@ -47,8 +48,7 @@ const LOGO_SHEET_HOLD_MS = 5_000;
  * inputs: theme, window width, keyboard, and the palette store.
  */
 export const ProjectHero = React.memo(function ProjectHero() {
-  const { colorScheme } = useColorScheme();
-  const tone = colorScheme === 'dark' ? 'dark' : 'light';
+  const tone = useTone();
   const { width } = useWindowDimensions();
   const { progress } = useReanimatedKeyboardAnimation();
   const sheetRef = React.useRef<SheetRef>(null);
@@ -76,7 +76,7 @@ export const ProjectHero = React.memo(function ProjectHero() {
         style={scaleStyle}
         accessible
         accessibilityRole="image"
-        accessibilityLabel="Dosco">
+        accessibilityLabel="Kortix">
         <Pressable
           onPress={Keyboard.dismiss}
           delayLongPress={LOGO_SHEET_HOLD_MS}
