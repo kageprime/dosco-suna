@@ -17,6 +17,9 @@ export type DesktopOs = 'macos' | 'windows' | 'linux';
 export type MobileOs = 'ios' | 'android';
 export type Platform = DesktopOs | MobileOs;
 
+/** Canonical desktop row order. */
+export const DESKTOP_ORDER = ['macos', 'windows', 'linux'] as const satisfies readonly DesktopOs[];
+
 /** The page's single mobile row — Android only (no iOS build; see content.ts). */
 export const MOBILE_ORDER = ['android'] as const satisfies readonly MobileOs[];
 

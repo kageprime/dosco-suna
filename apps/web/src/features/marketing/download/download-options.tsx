@@ -43,9 +43,43 @@ export function DownloadOptions({
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tComputers = useTranslations('computers');
-  const { desktopCard, mobileCard, desktopRows, mobileRows } =
-    localizedDownloadContent(tI18nComplete);
+  const content = localizedDownloadContent(tI18nComplete) as any;
+  const { desktopCard, mobileCard, desktopRows, mobileRows } = content;
   const onPhone = isMobilePlatform(detected);
+
+  // If there is no desktop card (Dosco is web app + Android APK only),
+  // render the mobile card centered with the web app link.
+  if (!desktopCard || !desktopRows) {
+    return (
+      <div className="space-y-4">
+        <PlatformCard
+          className="mx-auto w-full max-w-lg"
+          image={<MobileCardImage />}
+          title={mobileCard.title}
+          description={mobileCard.description}
+          aside={onPhone ? null : <MobileQrRow />}
+          rows={MOBILE_ORDER.map((os) => ({
+            id: os,
+            label: mobileRows[os].label,
+            meta: mobileRows[os].hint,
+            href: mobileRows[os].href,
+            Mark: MOBILE_MARKS[os] ?? PlayStoreMark,
+          }))}
+          filled={onPhone && detected === 'android' ? detected : null}
+        />
+        <p className="text-muted-foreground mx-auto mt-6 max-w-md text-center text-sm text-balance">
+          Prefer the browser? Dosco runs at dosco.live —{' '}
+          <Link
+            href="/"
+            className="text-foreground underline underline-offset-4 hover:no-underline"
+          >
+            open the web app
+          </Link>
+          , nothing to install.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
