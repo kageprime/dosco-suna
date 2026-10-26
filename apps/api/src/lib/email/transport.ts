@@ -30,7 +30,7 @@ import type {
 
 export type { EmailSendResult } from './types';
 
-const FALLBACK_FROM: EmailAddress = { email: 'noreply@dosco.live', name: 'Dosco' };
+const FALLBACK_FROM: EmailAddress = { email: 'noreply@dosco.live', name: 'Dosco Tek' };
 
 // RFC 2606 / RFC 6761 names have no mailbox. Test suites sign up and invite
 // such addresses on deployed stacks, and relaying them through a real provider
