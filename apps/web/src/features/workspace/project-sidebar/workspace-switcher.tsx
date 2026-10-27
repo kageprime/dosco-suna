@@ -235,7 +235,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                   </>
                 )}
 
-                <CaretUpDownIcon className="text-muted-foreground/50 group-hover/workspace:text-muted-foreground size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
+                <CaretUpDownIcon className="text-muted-foreground group-hover/workspace:text-foreground size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
@@ -331,23 +331,12 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                   under `ProjectShell`, which renders `SettingsPanel` as a
                   sibling (`project-layout/project-shell.tsx:195`) — the
                   header `UserMenu` has no such renderer and must navigate. */}
-              <DropdownMenuItem onSelect={() => openUserSettings('profile')} size="sm">
-                <CogOne />
-                {t('workspace.settings')}
-                {/* The keycap sits on this row because this row is what the
-                    keystroke does — `useSettingsKeyboardShortcut` calls the
-                    same `openSettings()`. It is the only row in the app that
-                    opens the overlay, so it is the only honest place to
-                    advertise Mod+, (the old sidebar Settings row that carried
-                    it was removed on 2026-08-17, and the shortcut has been
-                    undiscoverable since). The symbol follows the platform;
-                    the handler accepts Cmd and Ctrl on all of them.
-
-                    `DropdownMenuShortcut` (plain muted text, `MENU_SHORTCUT`)
-                    rather than `<Kbd>` chips: this is a menu row, and that is
-                    the recipe every menu row in the design system uses for a
-                    trailing keystroke. */}
-                <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
+              <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
+                <Link href={`/projects/${projectId}/settings`} prefetch>
+                  <CogOne />
+                  {t('workspace.settings')}
+                  <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
+                </Link>
               </DropdownMenuItem>
 
               {/* A modal, not a route: the user stays in the workspace. It

@@ -1,25 +1,15 @@
+import { UnifiedSettingsPage } from '@kortix/ui/customize';
+
 /**
- * /projects/[id]/settings — the project's settings.
- *
- * The project's own settings page is `/customize/settings` (General, Git
- * repository, Sandbox templates, Feature flags, Upgrades). This URL used to
- * open the merged ACCOUNT settings overlay on Profile instead, so a person
- * looking for "Delete project" met a danger zone that offered "Delete
- * account" (KRTX-2491). It is also where the project-scoped fallbacks land
- * (`/settings/<unknown tab>`, `/customize/<unknown section>`, `/members`), so
- * they now land on the project's settings too.
- *
- * Account tabs keep their deep links: `/projects/[id]/settings/[tab]` opens
- * the overlay on that tab.
+ * /projects/[id]/settings — Unified Settings & Customization Hub (T3 Chat Paradigm).
+ * Merges persona customization, models, API keys, capabilities, account, and preferences
+ * into a single full-screen surface with persistent HUD and conversational form design.
  */
-
-import { redirect } from 'next/navigation';
-
 export default async function ProjectSettingsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/projects/${id}/customize/settings`);
+  return <UnifiedSettingsPage projectId={id} />;
 }

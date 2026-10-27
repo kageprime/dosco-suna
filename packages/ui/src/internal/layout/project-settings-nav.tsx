@@ -277,7 +277,9 @@ export function ProjectCustomizeNavItem({ projectId }: { projectId: string }) {
   // Connectors or one agent's page, not just on the landing tab.
   const isActive =
     !!pathname &&
-    (pathname === customizePath(projectId) || activeCapabilityTab(pathname) !== null);
+    (pathname === customizePath(projectId) ||
+      activeCapabilityTab(pathname) !== null ||
+      pathname.startsWith(`/projects/${projectId}/settings`));
 
   if (!tab) return null;
   // No project id means no valid href, so there is nothing to render.
@@ -286,14 +288,14 @@ export function ProjectCustomizeNavItem({ projectId }: { projectId: string }) {
   return (
     <ProjectNavRow
       active={isActive}
-      label={t('customize')}
-      href={capabilityTabHref(projectId, tab)}
+      label="Settings & Customization"
+      href={`/projects/${projectId}/settings`}
       prefetch
     >
       <span className="shrink-0">
         <CustomizeGlyph />
       </span>
-      {t('customize')}
+      Settings & Customization
       {reviewCount > 0 ? (
         <span className="ml-auto flex shrink-0 items-center gap-1">
           <CountBadge count={reviewCount} tone="waiting" />

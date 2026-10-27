@@ -50,9 +50,9 @@ export function useNavRowMeta(projectId: string): Partial<Record<SidebarNavItemI
       ...(customizeTab
         ? {
             customize: {
-              label: t('customize'),
+              label: 'Settings & Customization',
               icon: <CustomizeGlyph />,
-              href: capabilityTabHref(projectId, customizeTab),
+              href: `/projects/${projectId}/settings`,
             },
           }
         : {}),

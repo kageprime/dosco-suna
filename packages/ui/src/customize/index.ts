@@ -12,3 +12,4 @@ export { CapabilityPageShell } from './shared/capability-page-shell';
 export { CustomizeSidebar } from './shared/customize-sidebar';
 export { SkillsPage } from './skills/skills-page';
 export { TriggersPage } from './triggers/triggers-page';
+export { UnifiedSettingsPage } from './unified-settings/unified-settings-page';
