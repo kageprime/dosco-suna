@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { BackPillBody, backPillClass } from '@kortix/ui/back-pill';
 import { Button } from '@kortix/ui/button';
 import { ModalClose } from '@kortix/ui/modal';
@@ -32,15 +34,44 @@ export function RailNav({
   onPick?: () => void;
   className?: string;
 }) {
+  const [search, setSearch] = useState('');
+  const normalized = search.trim().toLowerCase();
+
+  const filteredGroups = normalized
+    ? groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item) =>
+              item.label.toLowerCase().includes(normalized) ||
+              item.description?.toLowerCase().includes(normalized),
+          ),
+        }))
+        .filter((group) => group.items.length > 0)
+    : groups;
+
   return (
     <nav
       aria-label={chrome.settings}
       className={cn(
-        'flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-2 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+        'flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-3 overflow-y-auto px-2 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
     >
-      {groups.map((group) => (
+      <div className="px-0.5 pt-1">
+        <div className="relative flex items-center">
+          <MagnifyingGlassIcon className="text-muted-foreground pointer-events-none absolute left-2.5 size-3.5" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search settings..."
+            className="bg-popover border-border/80 text-foreground placeholder:text-muted-foreground w-full rounded-md border py-1 pr-2 pl-7 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
+
+      {filteredGroups.map((group) => (
         <div key={group.label}>
           {showGroupLabels ? (
             <div className="text-muted-foreground flex h-7 items-center px-2.5 text-xs font-medium">

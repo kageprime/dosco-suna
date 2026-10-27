@@ -62,9 +62,9 @@ const ROOT_METADATA: Metadata = {
   },
   description: siteMetadata.description,
   keywords: siteMetadata.keywords,
-  authors: [{ name: 'Dosco Team', url: siteMetadata.url }],
-  creator: 'Dosco Team',
-  publisher: 'Dosco Team',
+  authors: [{ name: 'Dosco Tek Team', url: siteMetadata.url }],
+  creator: 'Dosco Tek Team',
+  publisher: 'Dosco Tek Team',
   applicationName: siteMetadata.name,
   robots: {
     index: true,

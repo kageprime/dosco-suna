@@ -125,6 +125,7 @@ import {
   PuzzlePieceIcon,
   RobotIcon,
   SlidersHorizontalIcon,
+  SparkleIcon,
   StarIcon,
   TerminalWindowIcon,
   TimerIcon,
@@ -159,6 +160,8 @@ import { connectorPolicySetOptions } from './agent-policy-sets';
 import { AgentPeopleSection } from './agent-people-section';
 import { AgentShareControl } from './agent-share-control';
 import { AgentTriggersSection } from './agent-triggers-section';
+import { AgentStudioView } from './agent-studio-view';
+import { AgentPlaygroundSheet } from '../shared/playground/agent-playground-sheet';
 
 type Agent = ProjectConfigSummary['agents'][number];
 
@@ -294,7 +297,7 @@ function AgentPageFrame({
   pane,
   footer,
 }: {
-  header: ReactNode;
+  header?: ReactNode;
   section: AgentConfigSectionKey;
   sections: readonly AgentConfigSectionKey[];
   sectionHref: (key: AgentConfigSectionKey) => string;
@@ -344,7 +347,7 @@ function AgentPageFrame({
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col">
-      <div className="border-border/60 shrink-0 border-b px-5 py-3">{header}</div>
+      {header ? <div className="border-border/60 shrink-0 border-b px-5 py-3">{header}</div> : null}
       <div
         className={cn(
           'min-h-0 flex-1',
@@ -471,11 +474,13 @@ function AgentActions({
   agent,
   config,
   canWrite,
+  onOpenPlayground,
 }: {
   projectId: string;
   agent: Agent;
   config: ProjectConfigSummary;
   canWrite: boolean;
+  onOpenPlayground?: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const queryClient = useQueryClient();
@@ -501,6 +506,17 @@ function AgentActions({
         agentName={agent.name}
         peopleHref={`${pathname}?section=people`}
       />
+      {onOpenPlayground ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onOpenPlayground}
+          className="gap-1.5 shadow-xs"
+        >
+          <SparkleIcon weight="fill" className="text-kortix-blue size-3.5" />
+          <span>Test</span>
+        </Button>
+      ) : null}
       {startBlocked ? (
         <Hint label={startBlocked}>
           {/* A span, so the tooltip still fires over a disabled button. */}
@@ -610,12 +626,18 @@ function AgentHeader({
   agent,
   config,
   canWrite,
+  viewMode,
+  onViewModeChange,
+  onOpenPlayground,
   children,
 }: {
   projectId: string;
   agent: Agent;
   config: ProjectConfigSummary;
   canWrite: boolean;
+  viewMode?: 'studio' | 'engine';
+  onViewModeChange?: (mode: 'studio' | 'engine') => void;
+  onOpenPlayground?: () => void;
   children?: ReactNode;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -643,7 +665,43 @@ function AgentHeader({
           </h1>
           <AgentChips agent={agent} config={config} size="xs" />
         </nav>
-        <AgentActions projectId={projectId} agent={agent} config={config} canWrite={canWrite} />
+
+        {viewMode && onViewModeChange ? (
+          <div className="bg-muted p-[2px] rounded-md hidden sm:flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('studio')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium rounded-sm transition-colors cursor-pointer',
+                viewMode === 'studio'
+                  ? 'bg-popover text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Studio
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('engine')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium rounded-sm transition-colors cursor-pointer',
+                viewMode === 'engine'
+                  ? 'bg-popover text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Engine Bay
+            </button>
+          </div>
+        ) : null}
+
+        <AgentActions
+          projectId={projectId}
+          agent={agent}
+          config={config}
+          canWrite={canWrite}
+          onOpenPlayground={onOpenPlayground}
+        />
       </div>
       {children}
     </header>
@@ -680,6 +738,9 @@ function EditableAgentPage({
   schemaVersion: number;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
+  const [viewMode, setViewMode] = useState<'studio' | 'engine'>('studio');
+  const [playgroundOpen, setPlaygroundOpen] = useState(false);
+  const startSession = useNewProjectSession(projectId);
   const editor = useAgentDraft(initial);
   const options = useAgentEditorOptions(projectId);
   const update = useUpdateAgentConfig(projectId, agent.name);
@@ -724,100 +785,133 @@ function EditableAgentPage({
   useSaveShortcut(onSave);
 
   return (
-    <AgentPageFrame
-      header={<AgentHeader projectId={projectId} agent={agent} config={config} canWrite />}
-      section={section}
-      sections={sections}
-      sectionHref={sectionHrefFor(pathname)}
-      pane={
-        <AgentConfigSections
-          section={section}
-          editor={editor}
-          options={options}
-          skillsOptions={skillsOptions}
-          registryOptions={registryOptions}
-          skills={<SkillsGrantPage projectId={projectId} config={config} editor={editor} />}
-          connectors={
-            <ConnectorsGrantPage
-              projectId={projectId}
+    <>
+      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="border-border/60 shrink-0 border-b px-5 py-3">
+          <AgentHeader
+            projectId={projectId}
+            agent={agent}
+            config={config}
+            canWrite
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onOpenPlayground={() => setPlaygroundOpen(true)}
+          />
+        </div>
+
+        {viewMode === 'studio' ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <AgentStudioView
+              agentName={agent.name}
               editor={editor}
-              policySetOptions={policySetOptions}
+              config={config}
+              onOpenEngine={() => setViewMode('engine')}
+              onOpenPlayground={() => setPlaygroundOpen(true)}
             />
-          }
-          secrets={<SecretsGrantPage projectId={projectId} editor={editor} />}
-          apps={<AppsGrantPage projectId={projectId} editor={editor} />}
-          drives={<AgentDrivesSection projectId={projectId} agentName={agent.name} />}
-          overview={
-            <OverviewPane
-              description={editor.oc.description ?? ''}
-              onDescriptionChange={(next) => editor.setOc('description', next)}
-              descriptionHelp={
-                editor.oc.mode === 'subagent'
-                  ? 'Required. This is how other agents decide to call it.'
-                  : 'One line on what this agent is for. Other agents read it when picking a subagent.'
-              }
-              prompt={editor.oc.prompt ?? ''}
-              onPromptChange={(next) => editor.setOc('prompt', next)}
-            />
-          }
-          triggers={
-            <AgentTriggersSection
-              projectId={projectId}
-              agentName={agent.name}
-              defaultAgent={config.default_agent ?? config.open_code_default_agent}
-            />
-          }
-          people={<AgentPeopleSection projectId={projectId} agentName={agent.name} />}
-          authority={
-            <AgentAuthorityCard
-              projectId={projectId}
-              agentName={agent.name}
-              grant={editor.draft.kortix_permissions ?? editor.draft.kortix_cli}
-            />
-          }
+          </div>
+        ) : (
+          <AgentPageFrame
+            section={section}
+            sections={sections}
+            sectionHref={sectionHrefFor(pathname)}
+            pane={
+              <AgentConfigSections
+                section={section}
+                editor={editor}
+                options={options}
+                skillsOptions={skillsOptions}
+                registryOptions={registryOptions}
+                skills={<SkillsGrantPage projectId={projectId} config={config} editor={editor} />}
+                connectors={
+                  <ConnectorsGrantPage
+                    projectId={projectId}
+                    editor={editor}
+                    policySetOptions={policySetOptions}
+                  />
+                }
+                secrets={<SecretsGrantPage projectId={projectId} editor={editor} />}
+                apps={<AppsGrantPage projectId={projectId} editor={editor} />}
+                drives={<AgentDrivesSection projectId={projectId} agentName={agent.name} />}
+                overview={
+                  <OverviewPane
+                    description={editor.oc.description ?? ''}
+                    onDescriptionChange={(next) => editor.setOc('description', next)}
+                    descriptionHelp={
+                      editor.oc.mode === 'subagent'
+                        ? 'Required. This is how other agents decide to call it.'
+                        : 'One line on what this agent is for. Other agents read it when picking a subagent.'
+                    }
+                    prompt={editor.oc.prompt ?? ''}
+                    onPromptChange={(next) => editor.setOc('prompt', next)}
+                  />
+                }
+                triggers={
+                  <AgentTriggersSection
+                    projectId={projectId}
+                    agentName={agent.name}
+                    defaultAgent={config.default_agent ?? config.open_code_default_agent}
+                  />
+                }
+                people={<AgentPeopleSection projectId={projectId} agentName={agent.name} />}
+                authority={
+                  <AgentAuthorityCard
+                    projectId={projectId}
+                    agentName={agent.name}
+                    grant={editor.draft.kortix_permissions ?? editor.draft.kortix_cli}
+                  />
+                }
+              />
+            }
+          />
+        )}
+
+        <SaveBar
+          dirty={editor.isDirty}
+          pending={update.isPending}
+          onDiscard={() => setConfirmDiscard(true)}
+          onSave={onSave}
         />
-      }
-      footer={
-        <>
-          <SaveBar
-            dirty={editor.isDirty}
-            pending={update.isPending}
-            onDiscard={() => setConfirmDiscard(true)}
-            onSave={onSave}
-          />
 
-          <ConfirmDialog
-            open={confirmDiscard}
-            onOpenChange={setConfirmDiscard}
-            title={tI18nComplete.raw('text3b13192b9d88')}
-            description={tI18nComplete('text8a36cce34f68', { value0: capitalizeWords(agent.name) })}
-            confirmLabel={tI18nComplete.raw('texteb1a70e39274')}
-            cancelLabel={tI18nComplete.raw('texte76fd2add010')}
-            confirmVariant="destructive"
-            onConfirm={() => {
-              setConfirmDiscard(false);
-              editor.discard();
-            }}
-          />
+        <ConfirmDialog
+          open={confirmDiscard}
+          onOpenChange={setConfirmDiscard}
+          title={tI18nComplete.raw('text3b13192b9d88')}
+          description={tI18nComplete('text8a36cce34f68', { value0: capitalizeWords(agent.name) })}
+          confirmLabel={tI18nComplete.raw('texteb1a70e39274')}
+          cancelLabel={tI18nComplete.raw('texte76fd2add010')}
+          confirmVariant="destructive"
+          onConfirm={() => {
+            setConfirmDiscard(false);
+            editor.discard();
+          }}
+        />
 
-          {/* The same question, asked by a link click while dirty — the
-              sidebar, a tab, the breadcrumb. Confirming leaves; cancelling
-              stays put. */}
-          <ConfirmDialog
-            open={leaveGuard.pendingHref !== null}
-            onOpenChange={(open) => {
-              if (!open) leaveGuard.stay();
-            }}
-            title={tI18nComplete.raw('text2190d03af90a')}
-            description={tI18nComplete('textbbc5a3f2ca48', { value0: capitalizeWords(agent.name) })}
-            confirmLabel={tI18nComplete.raw('textfc6e4a408d56')}
-            cancelLabel={tI18nComplete.raw('texte76fd2add010')}
-            confirmVariant="destructive"
-            onConfirm={leaveGuard.leave}
-          />
-        </>
-      }
-    />
+        {/* The same question, asked by a link click while dirty — the
+            sidebar, a tab, the breadcrumb. Confirming leaves; cancelling
+            stays put. */}
+        <ConfirmDialog
+          open={leaveGuard.pendingHref !== null}
+          onOpenChange={(open) => {
+            if (!open) leaveGuard.stay();
+          }}
+          title={tI18nComplete.raw('text2190d03af90a')}
+          description={tI18nComplete('textbbc5a3f2ca48', { value0: capitalizeWords(agent.name) })}
+          confirmLabel={tI18nComplete.raw('textfc6e4a408d56')}
+          cancelLabel={tI18nComplete.raw('texte76fd2add010')}
+          confirmVariant="destructive"
+          onConfirm={leaveGuard.leave}
+        />
+      </div>
+
+      <AgentPlaygroundSheet
+        open={playgroundOpen}
+        onOpenChange={setPlaygroundOpen}
+        agentName={agent.name}
+        prompt={editor.oc.prompt ?? ''}
+        description={editor.oc.description ?? ''}
+        onStartSession={() => startSession({ create: { agent_name: agent.name } })}
+      />
+    </>
   );
 }
 
