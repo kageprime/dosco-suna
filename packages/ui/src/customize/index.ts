@@ -9,5 +9,6 @@ export { ModelsPage } from './models/models-page';
 export { ProjectSettingsPage } from './project-settings/project-settings-page';
 export { SecretsPage } from './secrets/secrets-page';
 export { CapabilityPageShell } from './shared/capability-page-shell';
+export { CustomizeSidebar } from './shared/customize-sidebar';
 export { SkillsPage } from './skills/skills-page';
 export { TriggersPage } from './triggers/triggers-page';

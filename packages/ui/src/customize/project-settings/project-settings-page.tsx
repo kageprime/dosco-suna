@@ -105,7 +105,13 @@ import {
  * reading. This mirrors the overlay's `SettingsTabPane`, which returned `null`
  * for every inactive tab for the same reason.
  */
-export function ProjectSettingsPage({ projectId }: { projectId: string }) {
+export function ProjectSettingsPage({
+  projectId,
+  hideDesktopNav = true,
+}: {
+  projectId: string;
+  hideDesktopNav?: boolean;
+}) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const isMobile = useIsMobile();
   const searchParams = useUiSearchParams();
@@ -195,12 +201,16 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
       <div
         className={cn(
           'min-h-0 flex-1',
-          isMobile ? 'flex flex-col overflow-hidden' : 'grid overflow-hidden',
+          isMobile || hideDesktopNav ? 'flex flex-col overflow-hidden' : 'grid overflow-hidden',
         )}
         // The Preferences overlay's rail width (`settings-panel.tsx`), so the
         // two settings surfaces a person meets are one shape (Marko,
         // 2026-09-03).
-        style={isMobile ? undefined : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }}
+        style={
+          isMobile || hideDesktopNav
+            ? undefined
+            : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }
+        }
       >
         {isMobile ? (
           <nav
@@ -219,36 +229,15 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
               </Tabs>
             </FadedScrollArea>
           </nav>
-        ) : (
-          /* No identity header — and that is the ONLY change to this rail. It
-             named the project a SECOND time: the app sidebar already carries
-             this project's avatar and name two columns to the left, at the
-             same `md` size. Everything else is untouched — the 230px column,
-             the `border-r`, its own scroller, `py-4`, the `Tabs` vertical
-             list. */
-          /* The same aside the Preferences overlay draws
-             (`settings-panel.tsx`): `border-r`, `bg-inherit`, one nav that
-             scrolls itself with the scrollbar hidden, `px-2`, rows in the
-             overlay's trigger dialect (`size="md"`, `bg-active` when
-             selected). Identical on purpose — a person moving between the
-             two settings surfaces should not be able to tell them apart by
-             their rails. */
+        ) : hideDesktopNav ? null : (
+          /* Desktop aside is omitted when rendered inside the double-sidebar shell,
+             where CustomizeSidebar already presents all project settings sections. */
           <aside className="flex min-h-0 flex-col border-r bg-inherit">
             <nav
               aria-label={tI18nComplete.raw('textfccd73a69e8b')}
               className="flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
               <div>
-                {/* ONE unlabeled nav group — the account rail's own
-                    precedent for a cluster with nothing to split into (its
-                    leading Settings/Git/Tokens group carries no label
-                    either; see `NAV_GROUPS` in `accounts/[id]/page.tsx`).
-                    Still no group HEADING over these four-to-six rows —
-                    Jay's 2026-08-17 call ("you don't need the categories")
-                    stands, this just renders that same choice through the
-                    account page's own group-wrapper shape instead of a bare
-                    list. See `project-settings-sections.ts`'s "One flat
-                    list, no headings". */}
                 <Tabs value={active} orientation="vertical">
                   <TabsList orientation="vertical" className="w-full">
                     {sectionTriggers(false)}

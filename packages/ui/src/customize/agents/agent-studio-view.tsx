@@ -9,14 +9,14 @@ import {
   SparkleIcon,
   SlidersHorizontalIcon,
   CheckIcon,
-  CpuIcon,
+  PlusIcon,
   WrenchIcon,
   ArrowRightIcon,
+  ChatCircleDotsIcon,
 } from '@phosphor-icons/react';
 
 import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../primitives/card';
 import { Switch } from '../../primitives/switch';
 import { Textarea } from '../../primitives/textarea';
 import { Input } from '../../primitives/input';
@@ -61,6 +61,55 @@ const BLUEPRINTS: readonly AgentBlueprint[] = [
   },
 ];
 
+export interface AgentTrait {
+  id: string;
+  label: string;
+  snippet: string;
+}
+
+const AGENT_TRAITS: readonly AgentTrait[] = [
+  {
+    id: 'concise',
+    label: 'Concise & Direct',
+    snippet: 'Keep responses concise, direct, and technically precise without conversational filler.',
+  },
+  {
+    id: 'analytical',
+    label: 'Highly Analytical',
+    snippet: 'Think through edge cases methodically. Break down complex problems before writing code.',
+  },
+  {
+    id: 'friendly',
+    label: 'Friendly & Warm',
+    snippet: 'Maintain an approachable, encouraging, and collaborative tone.',
+  },
+  {
+    id: 'adversarial',
+    label: 'Adversarial QA',
+    snippet: 'Challenge assumptions aggressively, scrutinize diffs for subtle bugs, and verify with tests.',
+  },
+  {
+    id: 'empathetic',
+    label: 'Empathetic & Supportive',
+    snippet: 'Acknowledge pain points patiently and guide users through troubleshooting steps clearly.',
+  },
+  {
+    id: 'creative',
+    label: 'Creative & Exploratory',
+    snippet: 'Brainstorm unconventional alternatives and offer multiple novel architectural solutions.',
+  },
+  {
+    id: 'formal',
+    label: 'Executive & Formal',
+    snippet: 'Communicate in professional, executive-ready language with structured briefings.',
+  },
+  {
+    id: 'socratic',
+    label: 'Socratic & Educational',
+    snippet: 'Explain the "why" behind decisions and teach principles rather than just handing over fixes.',
+  },
+];
+
 interface AgentStudioViewProps {
   agentName: string;
   editor: AgentDraft;
@@ -72,7 +121,7 @@ interface AgentStudioViewProps {
 /**
  * AgentStudioView — An outcome-driven, intuitive configuration experience for agents.
  * Designed for non-power users to configure agent personality, capabilities, and tools
- * without needing to navigate complex permission matrices or raw manifest files.
+ * with 1-click starter blueprints, T3-Chat interactive trait chips, and plain-English controls.
  */
 export function AgentStudioView({
   agentName,
@@ -89,14 +138,37 @@ export function AgentStudioView({
     editor.setOc('prompt', blueprint.prompt);
   };
 
+  const currentPrompt = editor.oc.prompt ?? '';
+
+  // Toggle trait chip in prompt
+  const toggleTrait = (trait: AgentTrait) => {
+    if (currentPrompt.includes(trait.snippet)) {
+      // Remove snippet and clean up double newlines
+      const cleaned = currentPrompt
+        .replace(`\n- ${trait.snippet}`, '')
+        .replace(`- ${trait.snippet}`, '')
+        .replace(trait.snippet, '')
+        .trim();
+      editor.setOc('prompt', cleaned);
+    } else {
+      // Append snippet cleanly
+      const prefix = currentPrompt.trim() ? `${currentPrompt.trim()}\n\n- ` : '- ';
+      editor.setOc('prompt', `${prefix}${trait.snippet}`);
+    }
+  };
+
   // Determine active capabilities from editor state
   const hasWebBrowsing = Boolean(editor.draft.connectors?.length || editor.oc.mode === 'primary');
   const hasCodeExecution = editor.draft.permissions !== 'none';
   const hasDriveAccess = Boolean(editor.draft.drives?.length);
 
+  // Live prompt statistics
+  const promptLength = currentPrompt.length;
+  const estimatedTokens = Math.ceil(promptLength / 4);
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 pb-24">
-      {/* ── 1. Hero Identity Banner ── */}
+      {/* ── 1. Hero Identity Banner & HUD ── */}
       <div className="bg-popover border-border/80 relative flex flex-col gap-5 rounded-md border p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <AgentMark slug={agentName} />
@@ -108,6 +180,9 @@ export function AgentStudioView({
               <Badge variant="secondary" size="xs">
                 {editor.oc.mode || 'Primary'}
               </Badge>
+              <span className="text-muted-foreground text-xs">
+                ~{estimatedTokens} tokens
+              </span>
             </div>
             <p className="text-muted-foreground text-xs">
               {editor.oc.description || 'Configure this agent’s behavior, skills, and tools.'}
@@ -139,13 +214,11 @@ export function AgentStudioView({
 
       {/* ── 2. Starter Blueprints ── */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <h3 className="text-foreground text-sm font-medium">Starter Blueprints</h3>
-            <p className="text-muted-foreground text-xs">
-              Apply a battle-tested configuration preset with one click.
-            </p>
-          </div>
+        <div className="space-y-0.5">
+          <h3 className="text-foreground text-sm font-medium">Starter Blueprints</h3>
+          <p className="text-muted-foreground text-xs">
+            Apply a battle-tested configuration preset with one click.
+          </p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -192,19 +265,48 @@ export function AgentStudioView({
         </div>
       </section>
 
-      {/* ── 3. Role & Personality (Plain-English Instructions) ── */}
-      <section className="space-y-3">
+      {/* ── 3. Conversational Role & Trait Chips (T3 Chat Inspired) ── */}
+      <section className="space-y-4">
         <div className="space-y-0.5">
-          <h3 className="text-foreground text-sm font-medium">Instructions & Identity</h3>
+          <h3 className="text-foreground text-sm font-medium">
+            How should this agent behave and communicate?
+          </h3>
           <p className="text-muted-foreground text-xs">
-            Describe what this agent does and how it should make decisions.
+            Click traits to toggle behavioral rules directly in the agent’s instructions.
           </p>
         </div>
 
-        <div className="space-y-3">
+        {/* 1-Click Interactive Trait Chips */}
+        <div className="flex flex-wrap gap-2">
+          {AGENT_TRAITS.map((trait) => {
+            const isActive = currentPrompt.includes(trait.snippet);
+            return (
+              <button
+                type="button"
+                key={trait.id}
+                onClick={() => toggleTrait(trait)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                  isActive
+                    ? 'bg-kortix-blue/15 text-kortix-blue border-kortix-blue/15 ring-1 ring-border'
+                    : 'bg-muted/40 text-muted-foreground hover:bg-hover hover:text-foreground border-border/60',
+                )}
+              >
+                {isActive ? (
+                  <CheckIcon className="size-3 shrink-0" />
+                ) : (
+                  <PlusIcon className="size-3 shrink-0 opacity-60" />
+                )}
+                <span>{trait.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="space-y-3 pt-2">
           <div className="space-y-1.5">
             <label htmlFor="agent-studio-description" className="text-muted-foreground text-xs font-medium">
-              One-Line Summary
+              What is this agent’s primary role?
             </label>
             <Input
               id="agent-studio-description"
@@ -216,12 +318,17 @@ export function AgentStudioView({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="agent-studio-instructions" className="text-muted-foreground text-xs font-medium">
-              System Instructions
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="agent-studio-instructions" className="text-muted-foreground text-xs font-medium">
+                Operating Guidelines & Instructions
+              </label>
+              <span className="text-muted-foreground text-xs">
+                {promptLength} chars
+              </span>
+            </div>
             <Textarea
               id="agent-studio-instructions"
-              value={editor.oc.prompt ?? ''}
+              value={currentPrompt}
               onChange={(e) => editor.setOc('prompt', e.target.value)}
               placeholder="Tell your agent how to act, what guidelines to follow, and what tone to use..."
               rows={8}
@@ -234,7 +341,7 @@ export function AgentStudioView({
       {/* ── 4. Core Capabilities (Superpowers) ── */}
       <section className="space-y-3">
         <div className="space-y-0.5">
-          <h3 className="text-foreground text-sm font-medium">Superpowers & Permissions</h3>
+          <h3 className="text-foreground text-sm font-medium">What superpowers does this agent have?</h3>
           <p className="text-muted-foreground text-xs">
             High-level permissions that govern what this agent is allowed to do.
           </p>
@@ -311,7 +418,7 @@ export function AgentStudioView({
         </div>
       </section>
 
-      {/* ── 5. Engine Bay Callout ── */}
+      {/* ── 5. Technical Tuning Callout ── */}
       <div className="bg-muted/40 border-border/60 flex items-center justify-between rounded-md border p-4">
         <div className="flex items-center gap-3">
           <WrenchIcon className="text-muted-foreground size-5 shrink-0" />
