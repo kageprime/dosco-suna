@@ -14,6 +14,7 @@ import { cn } from '../../internal/lib/utils';
 export function AgentCoverCard({
   slug,
   href,
+  onClick,
   onIntent,
   title,
   description,
@@ -23,6 +24,7 @@ export function AgentCoverCard({
 }: {
   slug: string;
   href: string;
+  onClick?: () => void;
   onIntent?: () => void;
   title: ReactNode;
   description?: string | null;
@@ -31,15 +33,23 @@ export function AgentCoverCard({
   /** A short pill on the cover's top-left corner — "Default". */
   coverLabel?: string;
 }) {
+  const handleClick = (e: React.MouseEvent) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <Link
       href={href}
       prefetch
+      onClick={handleClick}
       onPointerEnter={onIntent}
       onFocus={onIntent}
       style={agentMarkVars(slug)}
       className={cn(
-        'group bg-card border-border/60 flex flex-col overflow-hidden rounded-md border text-left',
+        'group bg-card border-border/60 flex flex-col overflow-hidden rounded-md border text-left cursor-pointer',
         'hover:border-border transition-[border-color] duration-(--duration-normal) ease-out',
         'focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none',
       )}

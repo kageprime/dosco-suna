@@ -81,7 +81,13 @@ type Agent = ProjectConfigSummary['agents'][number];
  * The trigger count on each card comes from the same `qk.project.triggers`
  * list the Triggers tab reads — one request, counted per agent name.
  */
-export function AgentsPage({ projectId }: { projectId: string }) {
+export function AgentsPage({
+  projectId,
+  onSelectAgent,
+}: {
+  projectId: string;
+  onSelectAgent?: (agentName: string) => void;
+}) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   // `accountId` skips useProjectCan's own getProject and lets the IAM probe
   // run on the first render instead of waiting a round-trip for it.
@@ -265,6 +271,7 @@ export function AgentsPage({ projectId }: { projectId: string }) {
             key={agent.path}
             slug={agent.name}
             href={agentHref(projectId, agent.name)}
+            onClick={onSelectAgent ? () => onSelectAgent(agent.name) : undefined}
             onIntent={() => prefetchAgentConfig(queryClient, projectId, agent.name)}
             title={agentTitle(agent.name)}
             description={agent.description}
@@ -298,6 +305,7 @@ export function AgentsPage({ projectId }: { projectId: string }) {
                 key={agent.path}
                 slug={agent.name}
                 href={agentHref(projectId, agent.name)}
+                onClick={onSelectAgent ? () => onSelectAgent(agent.name) : undefined}
                 onIntent={() => prefetchAgentConfig(queryClient, projectId, agent.name)}
                 title={agentTitle(agent.name)}
                 description={agent.description}

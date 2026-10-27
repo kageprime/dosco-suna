@@ -184,7 +184,21 @@ const SECTION_ICON: Record<AgentConfigSectionKey, Icon> = {
   workspace: CubeIcon,
 };
 
-export function AgentPage({ projectId, agentName }: { projectId: string; agentName: string }) {
+export function AgentPage({
+  projectId,
+  agentName,
+  hideNav,
+  activeSection,
+  onSectionChange,
+  onBack,
+}: {
+  projectId: string;
+  agentName: string;
+  hideNav?: boolean;
+  activeSection?: AgentConfigSectionKey;
+  onSectionChange?: (section: AgentConfigSectionKey) => void;
+  onBack?: () => void;
+}) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   // `accountId` skips useProjectCan's own getProject and lets the IAM probe
   // run on the first render instead of waiting a round-trip for it.
@@ -267,6 +281,10 @@ export function AgentPage({ projectId, agentName }: { projectId: string; agentNa
       config={config}
       initial={configQuery.data?.block ?? {}}
       schemaVersion={configQuery.data?.schema_version ?? 2}
+      hideNav={hideNav}
+      activeSection={activeSection}
+      onSectionChange={onSectionChange}
+      onBack={onBack}
     />
   ) : (
     <ReadOnlyAgentPage
@@ -276,6 +294,10 @@ export function AgentPage({ projectId, agentName }: { projectId: string; agentNa
       canWrite={canWrite}
       showUpgradeHint={isV1}
       isPlatform={isPlatform}
+      hideNav={hideNav}
+      activeSection={activeSection}
+      onSectionChange={onSectionChange}
+      onBack={onBack}
     />
   );
 }
@@ -294,6 +316,7 @@ function AgentPageFrame({
   sectionHref,
   pane,
   footer,
+  hideNav,
 }: {
   header?: ReactNode;
   section: AgentConfigSectionKey;
@@ -301,6 +324,7 @@ function AgentPageFrame({
   sectionHref: (key: AgentConfigSectionKey) => string;
   pane: ReactNode;
   footer?: ReactNode;
+  hideNav?: boolean;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const localizedConfig = useLocalizedAgentConfigCatalog();
@@ -328,22 +352,24 @@ function AgentPageFrame({
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {header ? <div className="border-border/60 shrink-0 border-b px-5 py-3">{header}</div> : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <nav
-          aria-label={tI18nComplete.raw('text7be318295927')}
-          className="border-border/60 flex h-auto shrink-0 items-center border-b px-5"
-        >
-          <FadedScrollArea
-            orientation="horizontal"
-            fadeColor="from-background"
-            className="min-w-0 flex-1 py-2"
+        {!hideNav ? (
+          <nav
+            aria-label={tI18nComplete.raw('text7be318295927')}
+            className="border-border/60 flex h-auto shrink-0 items-center border-b px-5"
           >
-            <Tabs value={section} className="w-fit">
-              <TabsList orientation="horizontal" className="w-fit">
-                {items.map((item) => trigger(item))}
-              </TabsList>
-            </Tabs>
-          </FadedScrollArea>
-        </nav>
+            <FadedScrollArea
+              orientation="horizontal"
+              fadeColor="from-background"
+              className="min-w-0 flex-1 py-2"
+            >
+              <Tabs value={section} className="w-fit">
+                <TabsList orientation="horizontal" className="w-fit">
+                  {items.map((item) => trigger(item))}
+                </TabsList>
+              </Tabs>
+            </FadedScrollArea>
+          </nav>
+        ) : null}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-3xl px-4 py-8 pb-32 lg:py-10 lg:pb-32">{pane}</div>
         </main>
@@ -573,6 +599,7 @@ function AgentHeader({
   config,
   canWrite,
   onOpenPlayground,
+  onBack,
   children,
 }: {
   projectId: string;
@@ -580,6 +607,7 @@ function AgentHeader({
   config: ProjectConfigSummary;
   canWrite: boolean;
   onOpenPlayground?: () => void;
+  onBack?: () => void;
   children?: ReactNode;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -593,13 +621,23 @@ function AgentHeader({
           aria-label={tI18nComplete.raw('text2bd873d6c734')}
           className="flex min-w-0 items-center gap-1.5 text-sm"
         >
-          <Link
-            href={capabilityTabHref(projectId, 'agent')}
-            prefetch
-            className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-          >
-            {tI18nComplete.raw('text279b44d2ab4b')}
-          </Link>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-muted-foreground hover:text-foreground shrink-0 transition-colors cursor-pointer"
+            >
+              {tI18nComplete.raw('text279b44d2ab4b')}
+            </button>
+          ) : (
+            <Link
+              href={capabilityTabHref(projectId, 'agent')}
+              prefetch
+              className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+            >
+              {tI18nComplete.raw('text279b44d2ab4b')}
+            </Link>
+          )}
           <CaretRightIcon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
           <AgentMark slug={agent.name} />
           <h1 className="text-foreground truncate text-sm font-semibold">
@@ -642,6 +680,10 @@ function EditableAgentPage({
   config,
   initial,
   schemaVersion,
+  hideNav,
+  activeSection,
+  onSectionChange,
+  onBack,
 }: {
   projectId: string;
   agent: Agent;
@@ -649,6 +691,10 @@ function EditableAgentPage({
   initial: AgentConfigBlock;
   /** The manifest version: v3 adds the subagent, command and extension grants. */
   schemaVersion: number;
+  hideNav?: boolean;
+  activeSection?: AgentConfigSectionKey;
+  onSectionChange?: (section: AgentConfigSectionKey) => void;
+  onBack?: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
@@ -677,7 +723,8 @@ function EditableAgentPage({
     () => connectorPolicySetOptions(config.manifest_raw),
     [config.manifest_raw],
   );
-  const section = useAgentSection(sections);
+  const derivedSection = useAgentSection(sections);
+  const section = activeSection ?? derivedSection;
 
   const onSave = useCallback(async () => {
     if (!editor.isDirty || update.isPending) return;
@@ -706,6 +753,7 @@ function EditableAgentPage({
             config={config}
             canWrite
             onOpenPlayground={() => setPlaygroundOpen(true)}
+            onBack={onBack}
           />
         </div>
 
@@ -713,6 +761,7 @@ function EditableAgentPage({
           section={section}
           sections={sections}
           sectionHref={sectionHrefFor(pathname)}
+          hideNav={hideNav}
           pane={
               <AgentConfigSections
                 section={section}
@@ -1058,6 +1107,10 @@ function ReadOnlyAgentPage({
   canWrite,
   showUpgradeHint,
   isPlatform,
+  hideNav,
+  activeSection,
+  onSectionChange,
+  onBack,
 }: {
   projectId: string;
   agent: Agent;
@@ -1065,6 +1118,10 @@ function ReadOnlyAgentPage({
   canWrite: boolean;
   showUpgradeHint: boolean;
   isPlatform: boolean;
+  hideNav?: boolean;
+  activeSection?: AgentConfigSectionKey;
+  onSectionChange?: (section: AgentConfigSectionKey) => void;
+  onBack?: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const tUpgrades = useI18nTranslations('settings.upgrades');
@@ -1080,7 +1137,8 @@ function ReadOnlyAgentPage({
     enabled: !isPlatform,
   });
   const pathname = useUiPathname();
-  const section = useAgentSection(isPlatform ? PLATFORM_SECTIONS : READ_ONLY_SECTIONS);
+  const derivedSection = useAgentSection(isPlatform ? PLATFORM_SECTIONS : READ_ONLY_SECTIONS);
+  const section = activeSection ?? derivedSection;
 
   const source = (
     <EditorSection
@@ -1114,6 +1172,7 @@ function ReadOnlyAgentPage({
           agent={agent}
           config={config}
           canWrite={canWrite && !isPlatform}
+          onBack={onBack}
         >
           {agent.description ? (
             <p className="text-muted-foreground max-w-2xl text-sm text-pretty">
@@ -1125,6 +1184,7 @@ function ReadOnlyAgentPage({
       section={section}
       sections={isPlatform ? PLATFORM_SECTIONS : READ_ONLY_SECTIONS}
       sectionHref={sectionHrefFor(pathname)}
+      hideNav={hideNav}
       pane={
         <EditorSectionStyleProvider value="panel">
           <div className="space-y-8">

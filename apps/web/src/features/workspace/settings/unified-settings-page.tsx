@@ -24,20 +24,32 @@ import {
   UsersIcon,
   CreditCardIcon,
   ScrollIcon,
+  CoinsIcon,
+  FingerprintIcon,
+  FolderOpenIcon,
+  ShieldIcon,
+  FileTextIcon,
+  WrenchIcon,
+  BookOpenTextIcon,
   MagnifyingGlassIcon,
   CaretRightIcon,
   CaretDownIcon,
-  CheckIcon,
+  SlidersHorizontalIcon,
 } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { getProjectDetail } from '@kortix/sdk';
 import { contract, qk } from '@kortix/sdk/react';
+import { capitalizeWords } from '@kortix/shared';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
+import { Hint } from '@kortix/ui/hint';
 import { cn } from '@kortix/ui';
+import { AgentMark } from '@kortix/ui/internal/components/agent-mark';
 import { useAccountState } from '@kortix/ui/internal/billing/index';
 import { useSettingsNav } from '@kortix/ui/internal/layout/settings-nav-context';
 import { PROJECT_ACTIONS, useProjectCan } from '@kortix/ui/workspace';
+import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-account-context';
+import { AccountHubSheetProvider } from '@kortix/ui/internal/account-hub/hub-sheet';
 
 // Personal Tabs
 import { ProfileTab } from './tabs/profile-tab';
@@ -50,11 +62,6 @@ import { McpTab } from './tabs/mcp-tab';
 import { ComputerTab } from './tabs/computer-tab';
 import { CreditsTab } from './tabs/credits-tab';
 import { PlanTab } from './tabs/plan-tab';
-import {
-  AccountMembershipsSection,
-  useAccountMemberships,
-  DEFAULT_ACCOUNT_MEMBERSHIPS_COPY,
-} from './tabs/account-memberships';
 import { useSettingsAccountId } from './use-settings-account-id';
 
 // Capabilities & Project Tabs
@@ -70,11 +77,16 @@ import {
   useStandaloneCapabilityNav,
   SettingsNavProvider,
 } from '@kortix/ui/customize';
+import { AgentPage } from '@kortix/ui/customize/agents/agent-page';
+import type { AgentConfigSectionKey } from '@kortix/ui/customize/sections/view/agent-editor';
 import { GeneralTab } from '@kortix/ui/customize/settings/tabs/general-tab';
 import { SandboxTab } from '@kortix/ui/customize/settings/tabs/sandbox-tab';
 import { SnapshotsTab } from '@kortix/ui/customize/settings/tabs/snapshots-tab';
 import { ExperimentalTab } from '@kortix/ui/customize/settings/tabs/experimental-tab';
 import { TokensTab } from '@kortix/ui/customize/settings/tabs/tokens-tab';
+
+// Account Hub for Organization settings
+import { AccountHubContent } from '@/features/accounts/hub/account-hub-content';
 
 export type SettingsCategory = 'capabilities' | 'personal' | 'organization';
 
@@ -86,6 +98,20 @@ export type ModelSubTab =
   | 'routing'
   | 'overview'
   | 'logs';
+
+export type OrgSubTab =
+  | 'settings'
+  | 'branding'
+  | 'git'
+  | 'tokens'
+  | 'members'
+  | 'groups'
+  | 'access-projects'
+  | 'roles'
+  | 'identity'
+  | 'audit'
+  | 'billing'
+  | 'transactions';
 
 interface NavItemDef {
   id: string;
@@ -230,27 +256,13 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     icon: DesktopIcon,
   },
 
-  // Organization Settings
+  // Organization Settings (Full Account Hub Mapping)
   {
-    id: 'general',
+    id: 'settings',
     category: 'organization',
     label: 'General',
     description: 'Organization identity, slug & default workspace policies',
     icon: GearSixIcon,
-  },
-  {
-    id: 'members',
-    category: 'organization',
-    label: 'Members & Roles',
-    description: 'Team directory, invitation management & role assignments',
-    icon: UsersIcon,
-  },
-  {
-    id: 'billing',
-    category: 'organization',
-    label: 'Billing & Credits',
-    description: 'Plan tier, credit wallet, automatic refill & invoices',
-    icon: CreditCardIcon,
   },
   {
     id: 'branding',
@@ -260,12 +272,91 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     icon: PaintBrushIcon,
   },
   {
+    id: 'git',
+    category: 'organization',
+    label: 'Git Integration',
+    description: 'Account-wide GitHub connections and managed Git policies',
+    icon: GitBranchIcon,
+  },
+  {
+    id: 'tokens',
+    category: 'organization',
+    label: 'Service API Keys',
+    description: 'Machine identities and automation tokens for CI/CD runners',
+    icon: KeyIcon,
+  },
+  {
+    id: 'members',
+    category: 'organization',
+    label: 'Members & Roles',
+    description: 'Team directory, invitation management & role assignments',
+    icon: UsersIcon,
+  },
+  {
+    id: 'groups',
+    category: 'organization',
+    label: 'User Groups',
+    description: 'Permission pools and group access management',
+    icon: UsersIcon,
+  },
+  {
+    id: 'access-projects',
+    category: 'organization',
+    label: 'Projects Access',
+    description: 'Project grants and access control matrix',
+    icon: FolderOpenIcon,
+  },
+  {
+    id: 'roles',
+    category: 'organization',
+    label: 'Custom Roles',
+    description: 'Enterprise custom roles and granular IAM permissions',
+    icon: ShieldIcon,
+  },
+  {
+    id: 'identity',
+    category: 'organization',
+    label: 'Identity & SSO',
+    description: 'SAML 2.0 Single Sign-On and SCIM directory sync',
+    icon: FingerprintIcon,
+  },
+  {
     id: 'audit',
     category: 'organization',
-    label: 'Audit Logs',
-    description: 'Security audit trail of user and agent actions',
+    label: 'Audit Log',
+    description: 'Security audit trail of user, API, and agent actions',
     icon: ScrollIcon,
   },
+  {
+    id: 'billing',
+    category: 'organization',
+    label: 'Plan & Billing',
+    description: 'Subscription tier, credit wallet and payment methods',
+    icon: CreditCardIcon,
+  },
+  {
+    id: 'transactions',
+    category: 'organization',
+    label: 'Usage & Credits',
+    description: 'Credit consumption ledger and spend breakdown',
+    icon: CoinsIcon,
+  },
+];
+
+const AGENT_SUB_SECTIONS: ReadonlyArray<{
+  id: AgentConfigSectionKey;
+  label: string;
+  icon: typeof FileTextIcon;
+}> = [
+  { id: 'overview', label: 'Overview & Prompt', icon: FileTextIcon },
+  { id: 'model', label: 'Model & Lineup', icon: CpuIcon },
+  { id: 'tools', label: 'Tools & Permissions', icon: WrenchIcon },
+  { id: 'skills', label: 'Skills', icon: BookOpenTextIcon },
+  { id: 'connectors', label: 'Connectors', icon: PlugsConnectedIcon },
+  { id: 'triggers', label: 'Triggers', icon: LightningIcon },
+  { id: 'secrets', label: 'Secrets Vault', icon: KeyIcon },
+  { id: 'people', label: 'People & Access', icon: UsersIcon },
+  { id: 'workspace', label: 'Workspace', icon: CubeIcon },
 ];
 
 export interface UnifiedSettingsPageProps {
@@ -287,6 +378,8 @@ export function UnifiedSettingsPage({
   const queryCategory = searchParams.get('category') as SettingsCategory | null;
   const queryTab = searchParams.get('tab');
   const querySubtab = searchParams.get('subtab') as ModelSubTab | null;
+  const queryAgent = searchParams.get('agent');
+  const querySection = searchParams.get('section') as AgentConfigSectionKey | null;
 
   const [category, setCategory] = useState<SettingsCategory>(
     queryCategory ?? initialCategory,
@@ -294,6 +387,10 @@ export function UnifiedSettingsPage({
   const [activeTab, setActiveTab] = useState<string>(queryTab ?? initialTab);
   const [modelSubTab, setModelSubTab] = useState<ModelSubTab>(
     querySubtab ?? initialModelSubTab,
+  );
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(queryAgent ?? null);
+  const [agentSection, setAgentSection] = useState<AgentConfigSectionKey>(
+    querySection ?? 'overview',
   );
   const [search, setSearch] = useState('');
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
@@ -303,7 +400,9 @@ export function UnifiedSettingsPage({
     if (queryCategory) setCategory(queryCategory);
     if (queryTab) setActiveTab(queryTab);
     if (querySubtab) setModelSubTab(querySubtab);
-  }, [queryCategory, queryTab, querySubtab]);
+    if (queryAgent !== undefined) setSelectedAgent(queryAgent);
+    if (querySection) setAgentSection(querySection);
+  }, [queryCategory, queryTab, querySubtab, queryAgent, querySection]);
 
   // Project Detail Query
   const detail = useQuery({
@@ -313,10 +412,10 @@ export function UnifiedSettingsPage({
     ...contract('config'),
   });
   const project = detail.data?.project;
+  const config = detail.data?.config;
   const projectAccountId = project?.account_id;
   const accountId = useSettingsAccountId(projectAccountId);
   const { data: accountState } = useAccountState({ accountId });
-  const { accounts: orgAccounts, isLoading: orgAccountsLoading } = useAccountMemberships();
 
   // Project Permissions
   const canWriteProject = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_WRITE).allowed === true;
@@ -324,39 +423,44 @@ export function UnifiedSettingsPage({
   // Settings Nav Provider state for capabilities requiring useSettingsNav()
   const settingsNav = useStandaloneCapabilityNav(projectId, activeTab);
 
-  // Filtered Navigation Items
-  const normalizedSearch = search.trim().toLowerCase();
-  const visibleItems = useMemo(() => {
-    if (normalizedSearch) {
-      return NAV_ITEMS.filter(
-        (item) =>
-          item.label.toLowerCase().includes(normalizedSearch) ||
-          item.description.toLowerCase().includes(normalizedSearch) ||
-          item.subitems?.some((sub) => sub.label.toLowerCase().includes(normalizedSearch)),
-      );
-    }
+  // Available nav items for current category
+  const categoryItems = useMemo(() => {
     return NAV_ITEMS.filter((item) => item.category === category);
-  }, [category, normalizedSearch]);
+  }, [category]);
 
-  const handleSelectTab = (item: NavItemDef, subtab?: ModelSubTab) => {
-    setCategory(item.category);
-    setActiveTab(item.id);
+  const handleSelectCategory = (nextCategory: SettingsCategory) => {
+    setCategory(nextCategory);
+    setSelectedAgent(null);
+    if (nextCategory === 'capabilities') {
+      setActiveTab('agents');
+    } else if (nextCategory === 'personal') {
+      setActiveTab('profile');
+    } else if (nextCategory === 'organization') {
+      setActiveTab('settings');
+    }
+  };
+
+  const handleSelectTab = (itemId: string, subtab?: ModelSubTab) => {
+    setActiveTab(itemId);
+    if (itemId !== 'agents') {
+      setSelectedAgent(null);
+    }
     if (subtab) {
       setModelSubTab(subtab);
     }
   };
 
-  const planTier = accountState?.tier?.name ?? 'Free Plan';
+  const planTier = accountState?.tier?.name ?? 'Enterprise';
 
   return (
     <SettingsNavProvider value={settingsNav}>
       <div className="bg-background text-foreground flex h-dvh w-full flex-col overflow-hidden">
         {/* ── Top Bar ── */}
-        <header className="border-border/80 bg-background/95 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur-sm sm:px-8">
+        <header className="border-border/80 bg-background/95 flex h-14 w-full shrink-0 items-center justify-between border-b px-6 backdrop-blur-sm">
           <div className="flex items-center gap-4">
             <Link
               href={`/projects/${projectId}`}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-xs font-medium transition-colors"
+              className="text-foreground/80 hover:text-foreground flex items-center gap-2 text-sm font-medium transition-colors"
             >
               <ArrowLeftIcon className="size-4 shrink-0" />
               <span>Back to Workspace</span>
@@ -367,50 +471,41 @@ export function UnifiedSettingsPage({
           <div className="bg-muted/70 flex h-9 items-center rounded-md p-1">
             <button
               type="button"
-              onClick={() => {
-                setCategory('capabilities');
-                if (category !== 'capabilities') setActiveTab('agents');
-              }}
+              onClick={() => handleSelectCategory('capabilities')}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-sm px-3.5 py-1 text-sm font-medium transition-colors cursor-pointer',
                 category === 'capabilities'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-foreground/70 hover:text-foreground',
               )}
             >
-              <SparkleIcon className="size-3.5" />
+              <SparkleIcon className="size-4" />
               <span>Capabilities</span>
             </button>
             <button
               type="button"
-              onClick={() => {
-                setCategory('personal');
-                if (category !== 'personal') setActiveTab('profile');
-              }}
+              onClick={() => handleSelectCategory('personal')}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-sm px-3.5 py-1 text-sm font-medium transition-colors cursor-pointer',
                 category === 'personal'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-foreground/70 hover:text-foreground',
               )}
             >
-              <UserIcon className="size-3.5" />
+              <UserIcon className="size-4" />
               <span>Personal</span>
             </button>
             <button
               type="button"
-              onClick={() => {
-                setCategory('organization');
-                if (category !== 'organization') setActiveTab('general');
-              }}
+              onClick={() => handleSelectCategory('organization')}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-sm px-3.5 py-1 text-sm font-medium transition-colors cursor-pointer',
                 category === 'organization'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-foreground/70 hover:text-foreground',
               )}
             >
-              <GearSixIcon className="size-3.5" />
+              <GearSixIcon className="size-4" />
               <span>Organization</span>
             </button>
           </div>
@@ -420,218 +515,257 @@ export function UnifiedSettingsPage({
             <Badge variant="secondary" size="xs">
               {planTier}
             </Badge>
-            <span className="text-muted-foreground hidden font-mono text-[11px] sm:inline-block">
-              {project?.name ?? 'Dosco'}
+            <span className="text-foreground font-mono text-xs font-medium hidden sm:inline-block">
+              {project?.name ?? 'Bright Willow'}
             </span>
           </div>
         </header>
 
-        {/* ── Main Layout: Immobile Sidebar Rail + Content Canvas ── */}
-        <div className="mx-auto flex w-full max-w-7xl flex-1 min-h-0 overflow-hidden px-4 sm:px-8">
-          {/* ── Left Rail: Sticky Submenu Navigator ── */}
-          <aside className="border-border/80 hidden h-full w-64 shrink-0 flex-col border-r py-6 pr-4 md:flex">
-            {/* Search Settings Input */}
-            <div className="relative mb-4 flex items-center">
-              <MagnifyingGlassIcon className="text-muted-foreground pointer-events-none absolute left-2.5 size-3.5" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search settings..."
-                className="bg-popover border-border/80 text-foreground placeholder:text-muted-foreground w-full rounded-md border py-1.5 pr-2 pl-7 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
-              />
-            </div>
+        {/* ── Main Layout: Full Bleed Shell (No Clamping) ── */}
+        <div className="flex w-full flex-1 min-h-0 overflow-hidden">
+          {/* ── 1. Leftmost Icon Rail (Compact, Pinned) ── */}
+          <aside className="border-border/80 bg-background hidden h-full w-14 shrink-0 flex-col items-center border-r py-3.5 select-none z-10 gap-1.5 overflow-y-auto md:flex">
+            {categoryItems.map((item) => {
+              const isActive = activeTab === item.id;
+              const Icon = item.icon;
 
-            {/* Scrollable Navigation List */}
-            <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-              {visibleItems.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-xs">
-                  No matching settings found
-                </p>
-              ) : (
-                visibleItems.map((item) => {
-                  const isActive = activeTab === item.id;
-                  const Icon = item.icon;
-                  const hasSubitems = item.subitems && item.subitems.length > 0;
-
-                  return (
-                    <div key={item.id} className="flex flex-col">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectTab(item)}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                          isActive
-                            ? 'bg-muted text-foreground font-semibold'
-                            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                        )}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <Icon className="size-4 shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </div>
-                        {hasSubitems ? (
-                          isActive ? (
-                            <CaretDownIcon className="size-3 shrink-0" />
-                          ) : (
-                            <CaretRightIcon className="text-muted-foreground size-3 shrink-0" />
-                          )
-                        ) : null}
-                      </button>
-
-                      {/* Expandable Submenus (e.g. Models) */}
-                      {hasSubitems && isActive && (
-                        <div className="border-border/60 ml-4 mt-1 flex flex-col gap-0.5 border-l pl-2">
-                          {item.subitems!.map((sub) => {
-                            const isSubActive = modelSubTab === sub.id;
-                            return (
-                              <button
-                                key={sub.id}
-                                type="button"
-                                onClick={() => handleSelectTab(item, sub.id as ModelSubTab)}
-                                className={cn(
-                                  'flex items-center rounded-md px-2 py-1 text-xs transition-colors',
-                                  isSubActive
-                                    ? 'bg-muted/80 text-foreground font-semibold'
-                                    : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                                )}
-                              >
-                                <span>{sub.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+              return (
+                <Hint
+                  key={item.id}
+                  side="right"
+                  align="center"
+                  sideOffset={12}
+                  label={
+                    <div className="space-y-0.5">
+                      <p className="font-semibold text-xs text-foreground">{item.label}</p>
+                      <p className="text-[11px] text-muted-foreground max-w-44 leading-tight">
+                        {item.description}
+                      </p>
                     </div>
-                  );
-                })
-              )}
-            </nav>
-
-            {/* Compact Account Footer */}
-            <div className="border-border/80 bg-muted/20 mt-4 flex items-center justify-between rounded-md border p-2.5">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
-                  <UserIcon className="text-foreground size-3.5" />
-                </div>
-                <div className="min-w-0 truncate">
-                  <div className="text-foreground truncate text-xs font-medium">
-                    {project?.name ?? 'Dosco Workspace'}
-                  </div>
-                  <div className="text-muted-foreground truncate text-[11px] font-mono">
-                    {projectId}
-                  </div>
-                </div>
-              </div>
-              <Badge variant="outline" size="xs">
-                {planTier}
-              </Badge>
-            </div>
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab(item.id)}
+                    aria-label={item.label}
+                    className={cn(
+                      'size-9 rounded-lg flex items-center justify-center transition-all cursor-pointer',
+                      isActive
+                        ? 'bg-muted text-foreground ring-1 ring-border/80 shadow-2xs font-semibold'
+                        : 'text-foreground/70 hover:text-foreground hover:bg-muted/50',
+                    )}
+                  >
+                    <Icon className="size-5 shrink-0" />
+                  </button>
+                </Hint>
+              );
+            })}
           </aside>
 
-          {/* ── Right Canvas: Main Active Setting Pane ── */}
-          <main className="min-w-0 flex-1 h-full overflow-y-auto py-8 pl-8 pr-2">
-            {/* 1. Capabilities Tab Views */}
-            {activeTab === 'agents' && <AgentsPage projectId={projectId} />}
-            {activeTab === 'skills' && <SkillsPage projectId={projectId} />}
+          {/* ── 2. Adjacent Submenu Rail (Generous Room, High-Contrast Typography) ── */}
+          <div className="border-border/80 bg-background/50 hidden h-full w-60 shrink-0 flex-col border-r md:flex overflow-hidden">
+            <div className="p-4 border-b border-border/60 flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground tracking-tight">
+                {selectedAgent && activeTab === 'agents'
+                  ? 'Agent Configuration'
+                  : categoryItems.find((i) => i.id === activeTab)?.label ?? 'Settings'}
+              </span>
+            </div>
 
-            {/* Models: Single-tier view controlled via side rail submenus */}
-            {activeTab === 'models' && (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-2 border-b border-border/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-foreground text-lg font-semibold tracking-tight">
-                      Models & Providers
-                    </h2>
-                    <p className="text-muted-foreground text-xs">
-                      Configure LLM providers, model lineup, gateway routing, and spend limits.
-                    </p>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {/* Special Submenu: Selected Agent */}
+              {activeTab === 'agents' && selectedAgent ? (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAgent(null)}
+                    className="flex items-center gap-1.5 text-xs text-foreground/80 hover:text-foreground font-medium px-2.5 py-1.5 rounded-md hover:bg-muted/60 transition-colors w-full cursor-pointer"
+                  >
+                    <ArrowLeftIcon className="size-3.5 shrink-0" />
+                    <span>Back to all agents</span>
+                  </button>
+
+                  <div className="flex items-center gap-2.5 px-3 py-2 bg-muted/40 rounded-lg border border-border/60">
+                    <AgentMark slug={selectedAgent} />
+                    <div className="min-w-0 flex-1 truncate">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {capitalizeWords(selectedAgent)}
+                      </p>
+                    </div>
                   </div>
-                  <ProjectDefaultPicker projectId={projectId} />
-                </div>
 
-                <LlmSections
-                  projectId={projectId}
-                  tab={modelSubTab}
-                  onTabChange={(nextTab) => setModelSubTab(nextTab as ModelSubTab)}
-                  canWrite={canWriteProject}
-                  enabled={true}
-                  selectedProviderId={selectedProviderId}
-                  onSelectProvider={setSelectedProviderId}
-                  providersVariant="split"
-                />
-              </div>
-            )}
+                  <div className="pt-2 space-y-0.5 border-t border-border/50">
+                    {AGENT_SUB_SECTIONS.map((sec) => {
+                      const isSecActive = agentSection === sec.id;
+                      const SecIcon = sec.icon;
 
-            {activeTab === 'connectors' && <ConnectorsPage projectId={projectId} />}
-            {activeTab === 'triggers' && <TriggersPage projectId={projectId} />}
-            {activeTab === 'secrets' && <SecretsPage projectId={projectId} />}
-            {activeTab === 'git' && <ProjectSettingsPage projectId={projectId} />}
-            {activeTab === 'sandbox' && (
-              <div className="space-y-8">
-                <SandboxTab projectId={projectId} />
-                <SnapshotsTab projectId={projectId} />
-              </div>
-            )}
-            {activeTab === 'feature-flags' && <ExperimentalTab projectId={projectId} />}
+                      return (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          onClick={() => setAgentSection(sec.id)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer',
+                            isSecActive
+                              ? 'bg-muted text-foreground font-semibold shadow-2xs'
+                              : 'text-foreground/80 hover:bg-muted/40 hover:text-foreground',
+                          )}
+                        >
+                          <SecIcon className="size-4 shrink-0 text-foreground" />
+                          <span className="truncate">{sec.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : activeTab === 'models' ? (
+                /* Submenu for Models */
+                <div className="space-y-0.5">
+                  {[
+                    { id: 'providers', label: 'Providers' },
+                    { id: 'models', label: 'Model Lineup' },
+                    { id: 'custom', label: 'Custom Models' },
+                    { id: 'gateway', label: 'Gateway' },
+                    { id: 'routing', label: 'Routing Policies' },
+                    { id: 'overview', label: 'Costs & Budgets' },
+                    { id: 'logs', label: 'Gateway Logs' },
+                  ].map((sub) => {
+                    const isSubActive = modelSubTab === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => setModelSubTab(sub.id as ModelSubTab)}
+                        className={cn(
+                          'flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer',
+                          isSubActive
+                            ? 'bg-muted text-foreground font-semibold shadow-2xs'
+                            : 'text-foreground/80 hover:bg-muted/40 hover:text-foreground',
+                        )}
+                      >
+                        <span className="truncate">{sub.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Default List of Sections in Category */
+                <div className="space-y-0.5">
+                  {categoryItems.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const Icon = item.icon;
 
-            {/* 2. Personal Tab Views */}
-            {activeTab === 'profile' && <ProfileTab />}
-            {activeTab === 'security' && <SecurityTab />}
-            {activeTab === 'appearance' && <AppearanceTab />}
-            {activeTab === 'notifications' && <SessionsTab projectId={projectId} />}
-            {activeTab === 'preferences' && <PreferencesTab />}
-            {activeTab === 'tokens' && <TokensTab accountId={accountId} />}
-            {activeTab === 'mcp' && <McpTab />}
-            {activeTab === 'computer' && <ComputerTab projectId={projectId} />}
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectTab(item.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer',
+                          isActive
+                            ? 'bg-muted text-foreground font-semibold shadow-2xs'
+                            : 'text-foreground/80 hover:bg-muted/40 hover:text-foreground',
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <Icon className="size-4 shrink-0 text-foreground" />
+                          <span className="truncate">{item.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
 
-            {/* 3. Organization Tab Views */}
-            {activeTab === 'general' && <GeneralTab projectId={projectId} />}
-            {activeTab === 'members' && (
-              <div className="space-y-6">
-                <AccountMembershipsSection
-                  accounts={orgAccounts}
-                  isLoading={orgAccountsLoading}
-                  copy={DEFAULT_ACCOUNT_MEMBERSHIPS_COPY}
-                />
-              </div>
-            )}
-            {activeTab === 'billing' && (
-              <div className="space-y-8">
-                <PlanTab accountId={accountId} />
-                <CreditsTab accountId={accountId} />
-              </div>
-            )}
-            {activeTab === 'branding' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-foreground text-sm font-semibold">Enterprise Branding</h3>
-                  <p className="text-muted-foreground text-xs">
-                    Custom themes, brand colors, and workspace white-labeling.
-                  </p>
+          {/* ── 3. Main Content Canvas (Scrollbar at Far Right Edge) ── */}
+          <main className="min-w-0 flex-1 h-full overflow-y-auto bg-background">
+            <div className="max-w-4xl mx-auto py-8 px-6 sm:px-10 pb-32">
+              {/* 1. Capabilities Tab Views */}
+              {activeTab === 'agents' && (
+                selectedAgent ? (
+                  <AgentPage
+                    projectId={projectId}
+                    agentName={selectedAgent}
+                    hideNav={true}
+                    activeSection={agentSection}
+                    onSectionChange={setAgentSection}
+                    onBack={() => setSelectedAgent(null)}
+                  />
+                ) : (
+                  <AgentsPage
+                    projectId={projectId}
+                    onSelectAgent={(name) => setSelectedAgent(name)}
+                  />
+                )
+              )}
+
+              {activeTab === 'skills' && <SkillsPage projectId={projectId} />}
+
+              {/* Models View */}
+              {activeTab === 'models' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-2 border-b border-border/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-foreground text-lg font-semibold tracking-tight">
+                        Models & Providers
+                      </h2>
+                      <p className="text-muted-foreground text-sm">
+                        Configure LLM providers, model lineup, gateway routing, and spend limits.
+                      </p>
+                    </div>
+                    <ProjectDefaultPicker projectId={projectId} />
+                  </div>
+
+                  <LlmSections
+                    projectId={projectId}
+                    tab={modelSubTab}
+                    onTabChange={(nextTab) => setModelSubTab(nextTab as ModelSubTab)}
+                    canWrite={canWriteProject}
+                    enabled={true}
+                    selectedProviderId={selectedProviderId}
+                    onSelectProvider={setSelectedProviderId}
+                    providersVariant="split"
+                  />
                 </div>
-                <div className="bg-popover border-border/80 rounded-md border p-6 text-center">
-                  <p className="text-muted-foreground text-xs">
-                    Available on Platinum and Enterprise subscriptions. Contact support to customize domain and brand assets.
-                  </p>
+              )}
+
+              {activeTab === 'connectors' && <ConnectorsPage projectId={projectId} />}
+              {activeTab === 'triggers' && <TriggersPage projectId={projectId} />}
+              {activeTab === 'secrets' && <SecretsPage projectId={projectId} />}
+              {activeTab === 'git' && category === 'capabilities' && (
+                <ProjectSettingsPage projectId={projectId} />
+              )}
+              {activeTab === 'sandbox' && (
+                <div className="space-y-8">
+                  <SandboxTab projectId={projectId} />
+                  <SnapshotsTab projectId={projectId} />
                 </div>
-              </div>
-            )}
-            {activeTab === 'audit' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-foreground text-sm font-semibold">Security Audit Log</h3>
-                  <p className="text-muted-foreground text-xs">
-                    All administrative operations, logins, secret access, and agent sessions.
-                  </p>
-                </div>
-                <div className="bg-popover border-border/80 rounded-md border p-6 text-center">
-                  <p className="text-muted-foreground text-xs">
-                    Organization audit logs are streamed to your configured SIEM or viewable by account administrators.
-                  </p>
-                </div>
-              </div>
-            )}
+              )}
+              {activeTab === 'feature-flags' && <ExperimentalTab projectId={projectId} />}
+
+              {/* 2. Personal Tab Views */}
+              {activeTab === 'profile' && <ProfileTab />}
+              {activeTab === 'security' && <SecurityTab />}
+              {activeTab === 'appearance' && <AppearanceTab />}
+              {activeTab === 'notifications' && <SessionsTab projectId={projectId} />}
+              {activeTab === 'preferences' && <PreferencesTab />}
+              {activeTab === 'tokens' && category === 'personal' && (
+                <TokensTab accountId={accountId} />
+              )}
+              {activeTab === 'mcp' && <McpTab />}
+              {activeTab === 'computer' && <ComputerTab projectId={projectId} />}
+
+              {/* 3. Organization Tab Views (Full Account Hub Engine) */}
+              {category === 'organization' && (
+                <BillingAccountProvider accountId={accountId}>
+                  <AccountHubSheetProvider>
+                    <AccountHubContent />
+                  </AccountHubSheetProvider>
+                </BillingAccountProvider>
+              )}
+            </div>
           </main>
         </div>
       </div>
