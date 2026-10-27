@@ -230,7 +230,7 @@ export function UnifiedSettingsPage({
             <h3 className="text-foreground mt-3 text-sm font-semibold">
               {project?.name || 'Dosco Tek Workspace'}
             </h3>
-            <p className="text-muted-foreground text-xs">{project?.slug || 'workspace'}</p>
+            <p className="text-muted-foreground text-xs">{project?.project_id || 'workspace'}</p>
             <div className="mt-3">
               <Badge variant="secondary" size="xs">
                 {planTier}
@@ -351,7 +351,7 @@ export function UnifiedSettingsPage({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {AGENT_TRAITS.map((trait) => {
+                    {AGENT_TRAITS.map((trait: AgentTrait) => {
                       const isActive = instructions.includes(trait.snippet);
                       return (
                         <button
@@ -456,7 +456,7 @@ export function UnifiedSettingsPage({
                     </span>
                   )}
                   <Button
-                    variant="primary"
+                    variant="default"
                     size="sm"
                     onClick={handleSavePreferences}
                     className="gap-1.5"

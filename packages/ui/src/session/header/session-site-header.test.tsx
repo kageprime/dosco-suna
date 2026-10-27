@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from '@/i18n/test-source';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(

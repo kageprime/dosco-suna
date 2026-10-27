@@ -67,7 +67,7 @@ export interface AgentTrait {
   snippet: string;
 }
 
-const AGENT_TRAITS: readonly AgentTrait[] = [
+export const AGENT_TRAITS: readonly AgentTrait[] = [
   {
     id: 'concise',
     label: 'Concise & Direct',
@@ -158,9 +158,9 @@ export function AgentStudioView({
   };
 
   // Determine active capabilities from editor state
-  const hasWebBrowsing = Boolean(editor.draft.connectors?.length || editor.oc.mode === 'primary');
-  const hasCodeExecution = editor.draft.permissions !== 'none';
-  const hasDriveAccess = Boolean(editor.draft.drives?.length);
+  const hasWebBrowsing = Boolean(editor.draft.connectors !== 'none' || editor.oc.mode === 'primary');
+  const hasCodeExecution = editor.oc.permission !== 'deny';
+  const hasDriveAccess = Boolean(editor.draft.repository_access !== false);
 
   // Live prompt statistics
   const promptLength = currentPrompt.length;
@@ -387,7 +387,7 @@ export function AgentStudioView({
             <Switch
               checked={hasCodeExecution}
               onCheckedChange={(checked) => {
-                editor.set('permissions', checked ? 'allow' : 'none');
+                editor.setOc('permission', checked ? 'allow' : 'deny');
               }}
             />
           </div>
@@ -407,11 +407,7 @@ export function AgentStudioView({
             <Switch
               checked={hasDriveAccess}
               onCheckedChange={(checked) => {
-                if (checked) {
-                  editor.set('drives', ['default']);
-                } else {
-                  editor.set('drives', []);
-                }
+                editor.set('repository_access', checked);
               }}
             />
           </div>

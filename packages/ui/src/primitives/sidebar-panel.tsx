@@ -39,7 +39,7 @@ function Sidebar({
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right';
   variant?: 'sidebar' | 'floating' | 'inset';
-  collapsible?: 'offcanvas' | 'icon' | 'none';
+  collapsible?: 'offcanvas' | 'icon' | 'none' | 'push';
 }) {
   const { isMobile, state, openMobile, setOpenMobile, peek, peekEnter, peekLeave, instantToggle } =
     useSidebar();
