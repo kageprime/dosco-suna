@@ -1,4 +1,4 @@
-import { UnifiedSettingsPage } from '@kortix/ui/customize';
+import { UnifiedSettingsPage } from '@/features/workspace/settings/unified-settings-page';
 
 /**
  * /projects/[id]/settings — Unified Settings & Customization Hub (T3 Chat Paradigm).

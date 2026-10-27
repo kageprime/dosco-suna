@@ -37,7 +37,12 @@ export function translateUiCatalogText(
 ): string {
   if (value.length === 0) return value;
   const key = translationKeys[value];
-  return key ? tI18nComplete.raw(key as Parameters<UiTranslator['raw']>[0]) : value;
+  if (!key) return value;
+  try {
+    return tI18nComplete.raw(key as Parameters<UiTranslator['raw']>[0]);
+  } catch {
+    return value;
+  }
 }
 
 export function localizeUiCatalog<T>(

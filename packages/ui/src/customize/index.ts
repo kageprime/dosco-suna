@@ -13,3 +13,6 @@ export { CustomizeSidebar } from './shared/customize-sidebar';
 export { SkillsPage } from './skills/skills-page';
 export { TriggersPage } from './triggers/triggers-page';
 export { UnifiedSettingsPage } from './unified-settings/unified-settings-page';
+export { LlmSections, ProjectDefaultPicker, LLM_TABS } from './sections/gateway-view';
+export { useStandaloneCapabilityNav } from './shared/standalone-settings-nav';
+export { SettingsNavProvider } from '../internal/layout/settings-nav-context';

@@ -566,10 +566,8 @@
           "description": "在 Claude、Claude Code、Cursor、Codex 或任何 MCP 客户端中使用 Dosco。只需登录一次，无需安装。"
         },
         "computer": {
-
           "label": "我的电脑",
           "description": "让 Dosco 智能体使用你电脑上的文件、终端和应用。"
-
         }
       }
     },
@@ -1220,8 +1218,6 @@
           "name": "市场",
           "description": "浏览并安装社区和供应商注册表中的技能。来源、更新和团队范围仍在调整。"
         },
-
-
         "meta_agent": {
           "name": "元智能体",
           "description": "添加一个协调智能体，用于管理项目中的专业会话和多步骤工作。"
@@ -1266,13 +1262,10 @@
           "name": "云盘",
           "description": "与会话保持同步的共享文件夹：你自己的云盘、每个智能体一个云盘，以及管理员关联到项目的公司云盘。新会话可在 /drives 下看到它们。"
         },
-
-
         "session_log_restore": {
           "name": "会话日志恢复",
           "description": "当会话的计算机丢失对话时，从保存的会话日志重建该会话。由 Dosco 按项目启用。"
         },
-
         "agent_rooms": {
           "name": "聊天室",
           "description": "命名的聊天室，代理会话和用户可以在其中发帖并在话题中回复。当消息发给某个会话时，该会话会被唤醒。新增聊天室页面、`kortix rooms` 和 `kortix peers`。"
@@ -1292,7 +1285,6 @@
         "email_channel": {
           "name": "电子邮件渠道",
           "description": "为智能体提供一个 Resend 邮箱：收到的邮件会启动并延续会话，智能体从该邮箱阅读、回复和发送邮件。使用你自己的 Resend API 密钥和域名。"
-
         }
       }
     },
@@ -2524,11 +2516,9 @@
           "name": "免费版",
           "note": "从真实的沙盒积分开始。",
           "f1": "每月 500 个积分，无需绑卡",
-
           "f2": "1 个项目",
           "f3": "可自带 API 密钥使用任何高级模型",
           "f4": "连接你的 ChatGPT 订阅"
-
         },
         "credits": {
           "name": "积分版",
@@ -3076,11 +3066,9 @@
       "shared": "有人与你共享了一个会话。",
       "automation_failed": "触发器或提醒开始失败。",
       "automation_recovered": "失败的触发器或提醒恢复正常。",
-
       "capture_device_down": "有一台 Dosco Capture 电脑未在录制。发送给管理 Capture 的人员。",
       "capture_device_recovered": "停止的 Dosco Capture 电脑已重新录制。",
       "message": "有人在聊天室中 @ 提及你，或在你发过言的话题中回复。"
-
     },
     "bell": {
       "label": "通知",
@@ -3415,7 +3403,6 @@
     "greeting": "欢迎，{name}。我是 Dosco。",
     "greetingNoName": "欢迎。我是 Dosco。",
     "intro": "无论是任务、工作流，还是还没想清楚的点子，都可以带给我。我们一起理清楚。",
-
     "canTitle": "你可以用 Dosco 做什么",
     "can": {
       "work": {
@@ -3446,7 +3433,6 @@
     "startHint": "在下方告诉 Dosco 你在做什么，或发送“带我上手 Dosco”开始引导式设置。",
     "placeholder": "告诉 Dosco 您在做什么",
     "kickoff": "带我上手 Dosco"
-
   },
   "announcements": {
     "memories": {
@@ -10180,9 +10166,7 @@
       "text05cc7bb328c6": "git commit -am \"Describe your change\"",
       "text05da7af7e394": "撤销审判失败",
       "text05dcf5ae7043": "输出 SHA-256",
-
       "text888237b5222c": "会话之间从不共享文件系统、进程表或网络命名空间。在 Platinum（Dosco 自有的计算资源，也是参考提供商）上，边界是一台 Cloud Hypervisor microVM。Daytona 仍作为旧版后备保留，我们会告诉您使用的是哪一个。",
-
       "text05e7bb1645cd": "往返流程",
       "text05f82c79bce3": "没有项目匹配“{value0}”。",
       "text05fa2e3b0a10": "页码",
@@ -11887,8 +11871,6 @@
       "text390ae89f8320": "会话 运行 线程 对话 打开",
       "text390d930c483d": "会话是真实机器。智能体安装所需依赖、运行查询，在可读脚本中完成工作并提交。您得到答案，也得到背后的代码。",
       "text391065e4dc23": "已导出",
-
-
       "text391fb7ff81a1": "成本中心",
       "text3923e8556e27": "此更改存在合并冲突",
       "text3926ced4e6c4": "缩放级别",
@@ -11967,8 +11949,6 @@
       "text3ba60eb0a910": "— 用户的 email",
       "text3bac8a95f83a": "其密钥（",
       "text3baf55478483": "删除任务",
-
-
       "text3bba69274a7d": "切换缩略图",
       "text3bc44ac28dcd": "单点登录",
       "text3bc554b5c290": "此项目目前不会自动运行任何内容。你仍可以手动启动触发器，或选择“全部恢复”。",
@@ -14465,9 +14445,8 @@
       "text83536ce31c42": "gmail.send_email",
       "text8353713597b6": "先解决问题",
       "text83622a3d7d8e": "连接以谁的身份运行",
-
+      "text8368ff24d89c": "在 Dosco 自己的 Platinum 计算上，沙盒是 Cloud Hypervisor microVM。还支持 Daytona 和 E2B。提供商是一个部署选择，我们会明确告知您正在使用的是哪一个，而不是混为一谈。",
       "text4752074ca727": "在 Platinum（Dosco 自有的计算资源，也是参考提供商）上，沙盒是一台 Cloud Hypervisor microVM。Daytona 仍作为旧版后备保留，已计划移除。我们会明确告诉您使用的是哪一个，不会混为一谈。",
-
       "text836cd8e8a791": "该代理可以加载到会话中的指令和脚本。单击技能即可阅读。",
       "text837988d39c32": "触发时使用哪个会话。",
       "text838198290fbc": "分配应用：Users → 打开用户 →“Applications”→“+”→ 添加“Dosco”（或将应用分配给某个 Role，以便为该 Role 中的所有人 Provision）。",
@@ -16307,9 +16286,7 @@
       "textb7fdaed41e1a": "复制失败",
       "textb80a37564fbb": "查询",
       "textb81b729b4538": "加入频道，然后提及它。每次提及都会启动一次新的运行，代理会在该线程中回复。",
-
       "textb81c6e280de1": "重置为 Dosco",
-
       "textb82336ed4012": "运行点 3 标题",
       "textb82db800b29f": "原生 OpenCode · 版本化 · 默认拒绝 · 人工合并",
       "textb835b4d2630c": "你已于 4 分钟前批准——部署进行中",
@@ -18207,8 +18184,6 @@
       "textec90ac92e442": "面向数据科学团队的 Dosco",
       "textec91fdd9256c": "可选",
       "textec963ffc911b": "检查中…",
-
-
       "textec9f8a9109ec": "允许本会话使用",
       "texteca0eeacbef7": "在下面 callback 字段中的“Settings”JSON 对象内设置两项：(1)“audience”= Dosco 的 Entity ID；(2) 强制 NameID 使用用户 email——默认是无法关联的 Auth0 user_id（auth0|…）。添加：“audience”: “…/saml/metadata”，“nameIdentifierFormat”: “urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress”，“nameIdentifierProbes”: [“http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress”]。然后向下滚动并点击“Enable”。",
       "texteca47e3afa10": "加密凭据，保存在代码仓库之外。",
@@ -20058,9 +20033,7 @@
       "text146aaf3c71fa": "为已签约、同时通过付费套餐计费的企业版账户保持 SSO、SCIM、RBAC 和审计权限，避免 Stripe 对账将其移除。",
       "text517105fd13ce": "积分用于支付沙盒算力——即使是 BYOK 试用，运行会话也需要钱包余额。免费欢迎额度为 2 美元。",
       "text2f1d17f50af8": "企业版为此账户开通 SAML SSO、SCIM 目录同步、RBAC 和审计访问。计费套餐保持不变。",
-
       "text79c0703d2226": "免费版 0 美元——1 个项目，每月 500 个积分和全部功能，模型使用你自己的密钥或 ChatGPT 订阅。Dosco 托管模型需要付费套餐。付费套餐按积分计：选择每月金额，成员免费且不限数量，一个积分池覆盖整个账户。自托管软件本身免费；你只需支付自己的模型费用和算力费用。",
-
       "text5dffd4db88c5": "此账户的套餐、积分和账单。",
       "text49fd64c206dd": "你的套餐已生效，积分已到账。",
       "textad828837ddd8": "成员 成员 工作区 访问 协作者 人员 队友 名册 谁可以查看 权限 授予 分享",
@@ -20161,9 +20134,7 @@
       "text94ddcfbb2f30": "被拒绝的电话也是一场争论。没有发生的事情和已经发生的事情一样都是记录的一部分。",
       "text89faa819e995": "它永远无法达到创造它的人的影响力。这里没有传承优势可以走上去。",
       "text6a51a65a11f4": "启动会话会剪切一个分支并为其启动一台机器。数据库不会让第二个会话拥有该机器。",
-
       "text08cadd4156a5": "沙箱是一个真正的 Linux 机器，模型可以在上面运行任何东西。因此，其中唯一的凭证是一个 Dosco 代币，其范围仅限于该项目。",
-
       "textc7d878b8738e": "账户操作发生在同一个地方——成员资格、角色、策略、代币、组。",
       "text5b70d52b009e": "第三方 API 看到的是普通的经过身份验证的请求。答案返回给代理。凭证保留在后面。",
       "text7a570559b1e0": "一个人通过被授予的角色来行事，并根据他们正在获取的资源进行评估。",
@@ -20305,7 +20276,6 @@
       "text41b257b886b2": "阅读协议",
       "text08f3c151d323": "咨询定制条款",
       "texta0990a4a86dc": "白标:运行在 Platinum.dev 算力上的你的 AI 产品",
-
       "text6189ab6313de": "Fork Dosco,打上你的品牌,作为你自己的产品出售。许可证免费。唯一的要求是你的算力运行在 Platinum.dev 上。",
       "text7971dd752669": "提醒",
       "textf952fee736ed": "版本历史",
@@ -20385,7 +20355,6 @@
       "text51cfb12fffdd": "已收到入站邮件",
       "text7c0a91e5b3d2": "未分类工具",
       "text9d2b6f0c41ae": "工具与规则"
-
     },
     "publicShareConfirm": {
       "title": "创建公开链接？",
@@ -20529,7 +20498,6 @@
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryConnectorb21e2055": "交付：connector — 仅在服务器端。该值绝不会进入沙箱环境。",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryScopec3e2a686": "交付范围不可用。保存前，请让代理确认该值将在何处使用。",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextEncryptedAtRestc2e34213": "静态时加密。交付遵循上方显示的范围。",
-
     "autoAppPublicSecretIntakeTokenPageJsxTextEnterThec744a068": "在下方输入所需的值。保存前，请检查它的交付范围。该值在静态时加密。",
     "approvalParameters": {
       "to": "收件人",
@@ -20544,7 +20512,6 @@
       "aboutDescription": "关于此描述",
       "senderUnavailable": "无法加载发送账户。请检查发件人一行。",
       "quoted": "“{text}”"
-
     }
   },
   "commandPalette": {
@@ -20770,7 +20737,6 @@
     "defaultProviderHint": "禁用此提供商前，请将其他提供商的模型设为项目默认模型。",
     "credentialsHint": "禁用推理但保留凭据。",
     "providerError": "无法更新提供商访问权限。",
-
     "managedTitle": "Dosco 托管模型",
     "managedDescription": "来自 Platinum Inference 的模型，按其价格加 {fee}% 平台费，从额度中支付。无需 API 密钥。",
     "managedUpgradeHint": "升级以使用 Dosco 托管模型，或连接你自己的提供商。",
@@ -20778,7 +20744,6 @@
     "textOnly": "仅文本",
     "zdrTitle": "零数据保留",
     "zdrDescription": "零数据保留（ZDR）是指模型服务商处理您的文本和图片后，不会在请求结束后保存输入或回复。Dosco 会单独保存您的项目和对话记录。",
-
     "hiddenHint": "已从选择器中隐藏。仍允许直接请求；请通过模型菜单禁用。",
     "hidden": "已从选择器中隐藏",
     "disableModel": "禁用模型",
@@ -21015,10 +20980,8 @@
     "backToConnectors": "返回连接器",
     "installed": "{name} 已安装",
     "yourConnectors": "你的连接器",
-
     "oneClickOnly": "仅一键连接",
     "installedSyncFailed": "{name} 已安装。Dosco 无法加载其工具：{error}",
-
     "newSession": "新建会话",
     "sections": "{name} 的分区",
     "noticeNoAccountTitle": "{name} 没有账户",
@@ -21079,7 +21042,6 @@
     "providerInfoSecretsDirect": "Dosco 在每次调用时附加密钥，智能体永远看不到。",
     "providerInfoLabel": "谁管理此连接",
     "addMcpAppTitle": "连接 {name}",
-
     "addMcpAppDescription": "登录 {name}，并选择谁可以使用。",
     "installTitle": "安装 {name}",
     "installNameLabel": "名称",
@@ -21213,7 +21175,6 @@
     "wayMoreNamed": "{name} 的更多操作",
     "otherWaysLead": "其他方式：",
     "typeFilterDosco": "Dosco"
-
   },
   "connectMcp": {
     "title": "通过 MCP 连接 Dosco",
@@ -21425,10 +21386,8 @@
     "connectAgain": "重新连接",
     "lastSeen": "最后在线 {time}",
     "scopeLine": "只有你能使用它：在你的私人会话中，在每个项目里。",
-
     "capabilitiesTitle": "Dosco 可以使用的内容",
     "capabilitiesHint": "随时开启或关闭任意一项。下一个请求即按此执行。",
-
     "capability": {
       "filesystem": "文件",
       "filesystemDescription": "你的主文件夹",
@@ -21477,11 +21436,9 @@
       "hint": "由无法区分电脑的旧版 Dosco 创建。它们都不在线。连续 30 天没有活动的连接会被 Dosco 自动移除。",
       "removeAll": "全部移除",
       "confirmTitle": "移除所有旧连接？",
-
       "confirmDescription": "Dosco 会将它们及其账户从所有项目中移除。仍在使用其中之一的电脑可以重新连接。"
     },
     "capabilitiesSaved": "访问权限已更新"
-
   },
   "messageFrom": {
     "from": "来自",
@@ -21812,13 +21769,11 @@
       "dictation": "说出来，直接发送",
       "dictationDescription": "口述提示词，不用打字。"
     },
-
     "appStore": "App Store",
     "googlePlay": "Google Play",
     "scanTitle": "扫码获取 App",
     "scanDescription": "用手机相机扫描二维码，即可打开 App Store 或 Google Play。",
     "qrLabel": "Dosco 移动应用二维码"
-
   },
   "capture": {
     "authorize": {

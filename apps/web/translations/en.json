@@ -419,10 +419,8 @@
           "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
         },
         "computer": {
-
           "label": "My computer",
           "description": "Let Dosco agents work with the files, terminal, and applications on your computer."
-
         }
       }
     },
@@ -1042,8 +1040,6 @@
           "name": "Marketplace",
           "description": "Browse and install skills from community and vendor registries. Sources, updates, and team scopes are still changing."
         },
-
-
         "meta_agent": {
           "name": "Meta Agent",
           "description": "Add a coordinator agent that manages specialized sessions and multi-step work across the project."
@@ -1088,13 +1084,10 @@
           "name": "Drive",
           "description": "Shared folders that stay in sync with sessions: your own drive, one per agent, and company drives an admin attaches to the project. New sessions see them under /drives."
         },
-
-
         "session_log_restore": {
           "name": "Session log restore",
           "description": "Rebuilds a session from its saved session log when its computer lost the conversation. Dosco enables it per project."
         },
-
         "agent_rooms": {
           "name": "Rooms",
           "description": "Named chat rooms where agent sessions and people post and reply in threads. A session wakes when a message is addressed to it. Adds the Rooms page, `kortix rooms`, and `kortix peers`."
@@ -1114,7 +1107,6 @@
         "email_channel": {
           "name": "Email channel",
           "description": "Give the agent an email inbox on Resend: inbound mail starts and continues sessions, and the agent reads, replies and sends from the inbox. Bring your own Resend API key and domain."
-
         }
       }
     },
@@ -2527,11 +2519,9 @@
           "name": "Free",
           "note": "Start with real sandbox credits.",
           "f1": "500 credits / month, no card needed",
-
           "f2": "1 project",
           "f3": "Bring your own API key for any premium model",
           "f4": "Connect your ChatGPT subscription"
-
         },
         "credits": {
           "name": "Credits",
@@ -3090,11 +3080,9 @@
       "shared": "Someone shares a session with you.",
       "automation_failed": "A trigger or a reminder starts failing.",
       "automation_recovered": "A failing trigger or reminder works again.",
-
       "capture_device_down": "A Dosco Capture computer is not recording. Sent to people who manage Capture.",
       "capture_device_recovered": "A Dosco Capture computer that stopped records again.",
       "message": "Someone @-mentions you, or replies in a thread you posted in, in a room."
-
     },
     "bell": {
       "label": "Notifications",
@@ -3429,7 +3417,6 @@
     "greeting": "Welcome, {name}. I'm Dosco.",
     "greetingNoName": "Welcome. I'm Dosco.",
     "intro": "Bring me anything: a task, a workflow, or a half-formed idea. We'll figure it out together.",
-
     "canTitle": "What you can do with Dosco",
     "can": {
       "work": {
@@ -3460,7 +3447,6 @@
     "startHint": "Tell Dosco what you’re working on below, or send “Onboard me” for a guided setup.",
     "placeholder": "Tell Dosco what you're working on",
     "kickoff": "Onboard me"
-
   },
   "announcements": {
     "memories": {
@@ -10194,9 +10180,7 @@
       "text05cc7bb328c6": "git commit -am \"Describe your change\"",
       "text05da7af7e394": "Failed to revoke trial",
       "text05dcf5ae7043": "Output SHA-256",
-
       "text888237b5222c": "Sessions never share a filesystem, a process table, or a network namespace. On Platinum, Dosco’s own compute and the reference provider, the boundary is a Cloud Hypervisor microVM. Daytona remains a legacy fallback, and we will tell you which one you are on.",
-
       "text05e7bb1645cd": "The round trip",
       "text05f82c79bce3": "No items match \"{value0}\".",
       "text05fa2e3b0a10": "Page number",
@@ -11901,8 +11885,6 @@
       "text390ae89f8320": "sessions runs threads conversations open",
       "text390d930c483d": "A session is a real machine. The agent installs what it needs, runs the query, does the work in a script you can read, and commits it. You get the answer and the code behind it.",
       "text391065e4dc23": "Exported",
-
-
       "text391fb7ff81a1": "Cost centre",
       "text3923e8556e27": "This change has merge conflicts",
       "text3926ced4e6c4": "Zoom level",
@@ -11981,8 +11963,6 @@
       "text3ba60eb0a910": "— the user's email",
       "text3bac8a95f83a": "Its secret (",
       "text3baf55478483": "Delete task",
-
-
       "text3bba69274a7d": "Toggle thumbnails",
       "text3bc44ac28dcd": "Single sign-on",
       "text3bc554b5c290": "Nothing in this project runs on its own right now. You can still start a trigger by hand, or select Resume all.",
@@ -14479,9 +14459,8 @@
       "text83536ce31c42": "gmail.send_email",
       "text8353713597b6": "Problem first",
       "text83622a3d7d8e": "Who the connection acts as",
-
+      "text8368ff24d89c": "On Dosco’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.",
       "text4752074ca727": "On Platinum, Dosco’s own compute and the reference provider, a sandbox is a Cloud Hypervisor microVM. Daytona remains a legacy fallback, and its removal is scheduled. We will tell you which one you are on rather than blur them together.",
-
       "text836cd8e8a791": "Instructions and scripts this agent can load into a session. Click a skill to read it.",
       "text837988d39c32": "Which session a fire lands in.",
       "text838198290fbc": "Assign the app: Users → open a user → \"Applications\" → \"+\" → add \"Dosco\" (or assign the app to a Role so everyone in that Role is provisioned).",
@@ -16321,9 +16300,7 @@
       "textb7fdaed41e1a": "Failed to copy",
       "textb80a37564fbb": "Query",
       "textb81b729b4538": "to a channel, then mention it. Each mention starts a fresh run and the agent answers in that thread.",
-
       "textb81c6e280de1": "Reset to Dosco",
-
       "textb82336ed4012": "runsPoint3Title",
       "textb82db800b29f": "OpenCode-native · Versioned · Deny by default · Human-merged",
       "textb835b4d2630c": "You approved this 4 minutes ago — deploy in progress",
@@ -18221,8 +18198,6 @@
       "textec90ac92e442": "Dosco for data science teams",
       "textec91fdd9256c": "optional",
       "textec963ffc911b": "Checking…",
-
-
       "textec9f8a9109ec": "Allow for session",
       "texteca0eeacbef7": "In the \"Settings\" JSON object below the callback field, set TWO things: (1) \"audience\" = Dosco’s Entity ID, and (2) force the NameID to the user’s email — it defaults to the opaque Auth0 user_id (auth0|…), which Dosco can’t correlate. Add: \"audience\": \"…/saml/metadata\", \"nameIdentifierFormat\": \"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\", \"nameIdentifierProbes\": [\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\"]. Then scroll down and click \"Enable\".",
       "texteca47e3afa10": "Encrypted credentials kept out of your repository.",
@@ -20072,9 +20047,7 @@
       "text146aaf3c71fa": "Keeps SSO, SCIM, RBAC, and audit entitled for a signed Enterprise account that is also billed through a paid plan, so the Stripe reconciliation cannot strip them.",
       "text517105fd13ce": "Credits fund sandbox compute — even a BYOK trial needs wallet balance to run sessions. The free welcome grant is $2.",
       "text2f1d17f50af8": "Enterprise unlocks SAML SSO, SCIM directory sync, RBAC and audit access for this account. The billed plan is unchanged.",
-
       "text79c0703d2226": "Free is $0 — one project, 500 credits a month and every feature, with your own key or ChatGPT subscription for models. Dosco-managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.",
-
       "text5dffd4db88c5": "Your plan, credits, and billing for this account.",
       "text49fd64c206dd": "Your plan is active. Credits are ready.",
       "textad828837ddd8": "members member workspace access collaborators people teammates roster who can see permissions grant share",
@@ -20175,9 +20148,7 @@
       "text94ddcfbb2f30": "A denied call is a row too. What did not happen is as much a part of the record as what did.",
       "text89faa819e995": "What it never gets is the reach of whoever created it. There is no inheritance edge here to walk up.",
       "text6a51a65a11f4": "Starting a session cuts a branch and boots one machine for it. The database will not let a second session have that machine.",
-
       "text08cadd4156a5": "A sandbox is a real Linux machine the model can run anything on. So the only credential in it is one Dosco token, scoped to the project.",
-
       "textc7d878b8738e": "Account actions land in the same place — membership, roles, policies, tokens, groups.",
       "text5b70d52b009e": "The third-party API sees an ordinary authenticated request. The answer goes back to the agent. The credential stays behind.",
       "text7a570559b1e0": "A person acts through the roles they were granted, evaluated against the resource they are reaching for.",
@@ -20319,7 +20290,6 @@
       "text41b257b886b2": "Read the agreement",
       "text08f3c151d323": "Ask for custom terms",
       "texta0990a4a86dc": "White-label: your AI product on Platinum.dev compute",
-
       "text6189ab6313de": "Fork Dosco, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.",
       "text7971dd752669": "Reminders",
       "textf952fee736ed": "Release history",
@@ -20399,7 +20369,6 @@
       "text51cfb12fffdd": "Received inbound email",
       "text7c0a91e5b3d2": "Unclassified tools",
       "text9d2b6f0c41ae": "Tools & rules"
-
     },
     "publicShareConfirm": {
       "title": "Create a public link?",
@@ -20543,7 +20512,6 @@
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryConnectorb21e2055": "Delivery: connector — server-side only. The value never enters the sandbox environment.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryScopec3e2a686": "Delivery scope is unavailable. Ask the agent to confirm where this value will be used before saving.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextEncryptedAtRestc2e34213": "Encrypted at rest. Delivery follows the scope shown above.",
-
     "autoAppPublicSecretIntakeTokenPageJsxTextEnterThec744a068": "Enter the requested value below. Check its delivery scope before saving. The value is encrypted at rest.",
     "approvalParameters": {
       "to": "To",
@@ -20558,7 +20526,6 @@
       "aboutDescription": "About this description",
       "senderUnavailable": "Couldn't load the sending account. Check the From row.",
       "quoted": "“{text}”"
-
     }
   },
   "commandPalette": {
@@ -20784,7 +20751,6 @@
     "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
     "credentialsHint": "Disable inference without removing credentials.",
     "providerError": "Could not update provider access.",
-
     "managedTitle": "Dosco Managed Models",
     "managedDescription": "Models from Platinum Inference, at its price plus a {fee}% platform fee, paid from credits. No API key needed.",
     "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
@@ -20792,7 +20758,6 @@
     "textOnly": "Text only",
     "zdrTitle": "Zero data retention",
     "zdrDescription": "Zero data retention (ZDR) means the model provider processes your text and images, then does not keep the input or reply after the request. Dosco stores your project and conversation history separately.",
-
     "hiddenHint": "Hidden from the picker. Direct requests are still allowed; use the model menu to disable them.",
     "hidden": "Hidden from picker",
     "disableModel": "Disable model",
@@ -21018,10 +20983,8 @@
     "backToConnectors": "Back to connectors",
     "installed": "{name} is installed",
     "yourConnectors": "Your connectors",
-
     "oneClickOnly": "One-click only",
     "installedSyncFailed": "{name} is installed. Dosco could not load its tools: {error}",
-
     "newSession": "New session",
     "sections": "{name} sections",
     "noticeNoAccountTitle": "{name} has no account",
@@ -21082,7 +21045,6 @@
     "providerInfoSecretsDirect": "Dosco adds the key to each call. Agents never see it.",
     "providerInfoLabel": "Who manages this connection",
     "addMcpAppTitle": "Connect {name}",
-
     "addMcpAppDescription": "Sign in to {name}. Choose who can use it.",
     "installTitle": "Install {name}",
     "installNameLabel": "Name",
@@ -21216,7 +21178,6 @@
     "wayMoreNamed": "More for {name}",
     "otherWaysLead": "Other ways:",
     "typeFilterDosco": "Dosco"
-
   },
   "connectMcp": {
     "title": "Connect Dosco over MCP",
@@ -21428,10 +21389,8 @@
     "connectAgain": "Connect again",
     "lastSeen": "last seen {time}",
     "scopeLine": "Only you can use it, from your private sessions, in every project.",
-
     "capabilitiesTitle": "What Dosco can use",
     "capabilitiesHint": "Turn any of these on or off at any time. The next request follows it.",
-
     "capability": {
       "filesystem": "Files",
       "filesystemDescription": "Your home folder",
@@ -21480,11 +21439,9 @@
       "hint": "Made by an older Dosco version that could not tell computers apart. None of them is online. Dosco removes each one after 30 days without a sign of life.",
       "removeAll": "Remove all",
       "confirmTitle": "Remove all older connections?",
-
       "confirmDescription": "Dosco removes them and their accounts from every project. A computer that still uses one can connect again."
     },
     "capabilitiesSaved": "Access updated"
-
   },
   "messageFrom": {
     "from": "From",
@@ -21815,14 +21772,12 @@
       "dictation": "Say it, send it",
       "dictationDescription": "Dictate a prompt instead of typing it."
     },
-
     "apk": "Download the APK",
     "appStore": "App Store",
     "googlePlay": "Google Play",
     "scanTitle": "Scan to get the app",
     "scanDescription": "Point your phone's camera at the code. It opens the App Store or Google Play.",
     "qrLabel": "QR code for the Dosco mobile app"
-
   },
   "capture": {
     "authorize": {

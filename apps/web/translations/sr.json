@@ -419,10 +419,8 @@
           "description": "Koristite Dosco iz Claude, Claude Code, Cursor, Codex ili bilo kog MCP klijenta. Prijavljujete se jednom. Ništa ne morate da instalirate."
         },
         "computer": {
-
           "label": "Moj računar",
           "description": "Дозволите Dosco агентима да раде са датотекама, терминалом и апликацијама на вашем рачунару."
-
         }
       }
     },
@@ -1220,8 +1218,6 @@
           "name": "Тржиште",
           "description": "Прегледајте и инсталирајте вештине из регистара заједнице и добављача. Извори, ажурирања и тимски опсези се још мењају."
         },
-
-
         "meta_agent": {
           "name": "Мета агент",
           "description": "Додајте координатора који управља специјализованим сесијама и пословима у више корака у оквиру пројекта."
@@ -1266,13 +1262,10 @@
           "name": "Drive",
           "description": "Deljeni folderi koji ostaju usklađeni sa sesijama: tvoj drive, po jedan za svakog agenta i drive-ovi kompanije koje administrator dodeli projektu. Nove sesije ih vide pod /drives."
         },
-
-
         "session_log_restore": {
           "name": "Vraćanje iz loga sesije",
           "description": "Ponovo gradi sesiju iz njenog sačuvanog loga sesije kada je njen računar izgubio razgovor. Dosco ga uključuje po projektu."
         },
-
         "agent_rooms": {
           "name": "Собе",
           "description": "Именоване собе за ћаскање у којима сесије агената и особе објављују поруке и одговарају у нитима. Сесија се буди када јој је порука упућена. Додаје страницу Собе, `kortix rooms` и `kortix peers`."
@@ -1292,7 +1285,6 @@
         "email_channel": {
           "name": "Kanal e-pošte",
           "description": "Dajte agentu poštansko sanduče na Resend-u: dolazna pošta pokreće i nastavlja sesije, a agent čita, odgovara i šalje iz sandučeta. Koristite sopstveni Resend API ključ i domen."
-
         }
       }
     },
@@ -2524,11 +2516,9 @@
           "name": "Free",
           "note": "Почните са стварним sandbox кредитима.",
           "f1": "500 кредита / месец, без картице",
-
           "f2": "1 пројекат",
           "f3": "Користите сопствени API кључ за било који премијум модел",
           "f4": "Повежите своју ChatGPT претплату"
-
         },
         "credits": {
           "name": "Кредити",
@@ -3076,11 +3066,9 @@
       "shared": "Неко дели сесију са вама.",
       "automation_failed": "Окидач или подсетник почиње да не успева.",
       "automation_recovered": "Окидач или подсетник који није успевао поново ради.",
-
       "capture_device_down": "Dosco Capture рачунар не снима. Шаље се људима који управљају Capture-ом.",
       "capture_device_recovered": "Dosco Capture рачунар који је стао поново снима.",
       "message": "Neko vas pomene sa @ ili odgovori u niti u kojoj ste pisali, u sobi."
-
     },
     "bell": {
       "label": "Обавештења",
@@ -3415,7 +3403,6 @@
     "greeting": "Добро дошли, {name}. Ја сам Dosco.",
     "greetingNoName": "Добро дошли. Ја сам Dosco.",
     "intro": "Донеси ми било шта: задатак, ток рада или идеју која још није сасвим јасна. Смислићемо то заједно.",
-
     "canTitle": "Шта можеш да радиш са Dosco-ом",
     "can": {
       "work": {
@@ -3446,7 +3433,6 @@
     "startHint": "Реци Dosco-у испод на чему радиш или пошаљи „Уведи ме у Dosco“ за вођено подешавање.",
     "placeholder": "Реци Dosco-у на чему радиш",
     "kickoff": "Уведи ме у Dosco"
-
   },
   "announcements": {
     "memories": {
@@ -10180,9 +10166,7 @@
       "text05cc7bb328c6": "git commit -am \"Describe your change\"",
       "text05da7af7e394": "Опозив суђења није успео",
       "text05dcf5ae7043": "Излазни SHA-256",
-
       "text888237b5222c": "Сесије никада не деле систем датотека, табелу процеса или мрежни namespace. На Platinum-у, сопственом compute-у компаније Dosco и референтном провајдеру, граница је Cloud Hypervisor microVM. Daytona остаје застарела резервна опција, а рећи ћемо вам који користите.",
-
       "text05e7bb1645cd": "Повратни ток",
       "text05f82c79bce3": "Ниједна ставка не одговара „{value0}“.",
       "text05fa2e3b0a10": "Број странице",
@@ -11887,8 +11871,6 @@
       "text390ae89f8320": "сесије извршавања нити разговори отворено",
       "text390d930c483d": "Сесија је права машина. Агент инсталира шта му треба, покреће упит, обавља посао у скрипти коју можете да прочитате и предаје је. Добијате одговор и код који стоји иза њега.",
       "text391065e4dc23": "Извезено",
-
-
       "text391fb7ff81a1": "Трошковно место",
       "text3923e8556e27": "Ова промена има конфликте при спајању",
       "text3926ced4e6c4": "Ниво увећања",
@@ -11967,8 +11949,6 @@
       "text3ba60eb0a910": "— имејл корисника",
       "text3bac8a95f83a": "Његова тајна (",
       "text3baf55478483": "Обриши задатак",
-
-
       "text3bba69274a7d": "Прикажи/сакриј сличице",
       "text3bc44ac28dcd": "Јединствена пријава",
       "text3bc554b5c290": "У овом пројекту тренутно ништа не ради само од себе. И даље можете ручно покренути окидач или изабрати „Настави све“.",
@@ -14465,9 +14445,8 @@
       "text83536ce31c42": "gmail.send_email",
       "text8353713597b6": "Прво проблем",
       "text83622a3d7d8e": "У чије име веза делује",
-
+      "text8368ff24d89c": "На сопственом Platinum compute-у компаније Dosco, sandbox је Cloud Hypervisor microVM. Daytona и E2B су такође подржани. Провајдер је избор поставке и рећи ћемо вам који користите уместо да их мешамо.",
       "text4752074ca727": "На Platinum-у, сопственом compute-у компаније Dosco и референтном провајдеру, сандбокс је Cloud Hypervisor microVM. Daytona остаје застарела резервна опција, а њено уклањање је заказано. Рећи ћемо вам који користите, уместо да их мешамо.",
-
       "text836cd8e8a791": "Упутства и скрипте које овај агент може учитати у сесију. Кликните на вештину да бисте је прочитали.",
       "text837988d39c32": "Сесија у којој се покреће окидач.",
       "text838198290fbc": "Доделите app: Users → отворите user-а → „Applications“ → „+“ → додајте „Dosco“ (или доделите app Role-у да би сви у тој Role били provision-овани).",
@@ -16307,9 +16286,7 @@
       "textb7fdaed41e1a": "Копирање није успело",
       "textb80a37564fbb": "Упит",
       "textb81b729b4538": "у канал, а затим га помените. Сваки помен покреће ново извршавање, а агент одговара у тој нити.",
-
       "textb81c6e280de1": "Ресетуј на Dosco",
-
       "textb82336ed4012": "наслов тачке покретања 3",
       "textb82db800b29f": "OpenCode-native · Верзионисано · Подразумевано забрањено · Човек спаја",
       "textb835b4d2630c": "Одобрили сте пре 4 минута — deploy је у току",
@@ -18207,8 +18184,6 @@
       "textec90ac92e442": "Dosco за тимове за науку о подацима",
       "textec91fdd9256c": "опционо",
       "textec963ffc911b": "Провера…",
-
-
       "textec9f8a9109ec": "Дозволи за сесију",
       "texteca0eeacbef7": "У JSON објекту „Settings“ испод callback поља подесите ДВЕ ствари: (1) „audience“ = Entity ID за Dosco и (2) приморајте NameID на email корисника — подразумевано је непрозирни Auth0 user_id (auth0|…), који Dosco не може да повеже. Додајте: „audience“: „…/saml/metadata“, „nameIdentifierFormat“: „urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress“, „nameIdentifierProbes“: [„http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress“]. Затим се померите надоле и кликните на „Enable“.",
       "texteca47e3afa10": "Шифровани акредитиви, чувани изван вашег репозиторијума.",
@@ -20058,9 +20033,7 @@
       "text146aaf3c71fa": "Одржава SSO, SCIM, RBAC и ревизију омогућеним за потписани Enterprise налог који се такође наплаћује преко плаћеног плана, како их Stripe усклађивање не би уклонило.",
       "text517105fd13ce": "Кредити финансирају рачунарску снагу sandbox-а — чак и BYOK пробни период захтева стање у новчанику за покретање сесија. Бесплатни уводни износ је 2 $.",
       "text2f1d17f50af8": "Enterprise омогућава SAML SSO, SCIM синхронизацију директоријума, RBAC и приступ ревизији за овај налог. Наплаћени план се не мења.",
-
       "text79c0703d2226": "Free је 0 $ — један пројекат, 500 кредита месечно и све функције, са вашим кључем или ChatGPT претплатом за моделе. Модели којима управља Dosco захтевају плаћени план. Плаћени планови су у кредитима: изаберете месечни износ, чланови су бесплатни и неограничени, а један фонд покрива цео налог. Самостално хостовање софтвера не кошта ништа; уместо тога плаћате сопствени рачун за моделе и рачунарску снагу.",
-
       "text5dffd4db88c5": "План, кредити и обрачун за овај налог.",
       "text49fd64c206dd": "Ваш план је активан. Кредити су спремни.",
       "textad828837ddd8": "чланови члан радни простор приступ сарадници људи колеге списак ко може да види дозволе додели дели",
@@ -20303,7 +20276,6 @@
       "text41b257b886b2": "Прочитајте уговор",
       "text08f3c151d323": "Затражите прилагођене услове",
       "texta0990a4a86dc": "Вајт-лејбл: ваш AI производ на Platinum.dev compute-у",
-
       "text6189ab6313de": "Форкујте Dosco, ставите свој бренд и продајте га као свој производ. Лиценца је бесплатна. Једини услов: ваш compute ради на Platinum.dev-у.",
       "text7971dd752669": "Подсетници",
       "textf952fee736ed": "Историја издања",
@@ -20383,7 +20355,6 @@
       "text51cfb12fffdd": "Primljen dolazni imejl",
       "text7c0a91e5b3d2": "Некласификовани алати",
       "text9d2b6f0c41ae": "Алати и правила"
-
     },
     "publicShareConfirm": {
       "title": "Направити јавни линк?",
@@ -20527,7 +20498,6 @@
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryConnectorb21e2055": "Испорука: connector — само на серверу. Вредност никада не улази у sandbox окружење.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryScopec3e2a686": "Обим испоруке није доступан. Питајте агента где ће се ова вредност користити пре чувања.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextEncryptedAtRestc2e34213": "Шифровано у мировању. Испорука следи обим приказан изнад.",
-
     "autoAppPublicSecretIntakeTokenPageJsxTextEnterThec744a068": "Унесите тражену вредност испод. Проверите њен обим испоруке пре чувања. Вредност је шифрована у мировању.",
     "approvalParameters": {
       "to": "За",
@@ -20542,7 +20512,6 @@
       "aboutDescription": "О овом опису",
       "senderUnavailable": "Налог пошиљаоца није могуће учитати. Проверите ред Од.",
       "quoted": "„{text}“"
-
     }
   },
   "commandPalette": {
@@ -20768,7 +20737,6 @@
     "defaultProviderHint": "Izaberite podrazumevani model drugog provajdera pre nego što onemogućite ovog provajdera.",
     "credentialsHint": "Onemogućite inferenciju bez uklanjanja akreditiva.",
     "providerError": "Nije moguće ažurirati pristup provajderu.",
-
     "managedTitle": "Modeli kojima upravlja Dosco",
     "managedDescription": "Модели из Platinum Inference, по његовој цени плус накнада платформе од {fee}%, плаћа се кредитима. API кључ није потребан.",
     "managedUpgradeHint": "Надоградите да бисте користили Dosco управљане моделе или повежите сопственог добављача.",
@@ -20776,7 +20744,6 @@
     "textOnly": "Само текст",
     "zdrTitle": "Nulto zadržavanje podataka",
     "zdrDescription": "Nulto zadržavanje podataka (ZDR) znači da pružalac modela obrađuje vaš tekst i slike, ali ne čuva ulaz ni odgovor nakon zahteva. Dosco zasebno čuva vaše projekte i razgovore.",
-
     "hiddenHint": "Sakriven iz birača. Direktni zahtevi su i dalje dozvoljeni; onemogućite ih u meniju modela.",
     "hidden": "Sakriven iz birača",
     "disableModel": "Onemogući model",
@@ -21013,10 +20980,8 @@
     "backToConnectors": "Назад на конекторе",
     "installed": "{name} је инсталиран",
     "yourConnectors": "Ваши конектори",
-
     "oneClickOnly": "Samo jednim klikom",
     "installedSyncFailed": "{name} је инсталиран. Dosco није могао да учита алате: {error}",
-
     "newSession": "Нова сесија",
     "sections": "Одељци за {name}",
     "noticeNoAccountTitle": "{name} нема налог",
@@ -21077,7 +21042,6 @@
     "providerInfoSecretsDirect": "Dosco додаје кључ сваком позиву. Агенти га никада не виде.",
     "providerInfoLabel": "Ко управља овом везом",
     "addMcpAppTitle": "Poveži {name}",
-
     "addMcpAppDescription": "Пријавите се на {name}. Изаберите ко може да га користи.",
     "installTitle": "Instaliraj {name}",
     "installNameLabel": "Naziv",
@@ -21211,7 +21175,6 @@
     "wayMoreNamed": "Још за {name}",
     "otherWaysLead": "Други начини:",
     "typeFilterDosco": "Dosco"
-
   },
   "connectMcp": {
     "title": "Povežite Dosco preko MCP-a",
@@ -21423,10 +21386,8 @@
     "connectAgain": "Повежи поново",
     "lastSeen": "последњи пут виђен {time}",
     "scopeLine": "Само ви можете да га користите, из својих приватних сесија, у сваком пројекту.",
-
     "capabilitiesTitle": "Шта Dosco може да користи",
     "capabilitiesHint": "Uključi ili isključi bilo koji u svakom trenutku. Sledeći zahtev to poštuje.",
-
     "capability": {
       "filesystem": "Датотеке",
       "filesystemDescription": "Ваша почетна фасцикла",
@@ -21475,11 +21436,9 @@
       "hint": "Направила их је старија верзија Dosco-а која није разликовала рачунаре. Ниједна није на мрежи. Dosco уклања сваку после 30 дана без знака активности.",
       "removeAll": "Уклони све",
       "confirmTitle": "Уклонити све старије везе?",
-
       "confirmDescription": "Dosco их уклања заједно са налозима из свих пројеката. Рачунар који још користи неку може поново да се повеже."
     },
     "capabilitiesSaved": "Pristup ažuriran"
-
   },
   "messageFrom": {
     "from": "Od",

@@ -566,10 +566,8 @@
           "description": "Claude、Claude Code、Cursor、Codex、または任意の MCP クライアントから Dosco を使えます。サインインは一度だけ。インストールは不要です。"
         },
         "computer": {
-
           "label": "マイコンピューター",
           "description": "Dosco のエージェントが、あなたのコンピューターのファイル、ターミナル、アプリを使えるようにします。"
-
         }
       }
     },
@@ -1220,8 +1218,6 @@
           "name": "マーケットプレイス",
           "description": "コミュニティやベンダーのレジストリからスキルを参照してインストールします。ソース、更新、チーム範囲は調整中です。"
         },
-
-
         "meta_agent": {
           "name": "メタエージェント",
           "description": "専門セッションとプロジェクト内の複数手順の作業を管理するコーディネーターを追加します。"
@@ -1266,13 +1262,10 @@
           "name": "ドライブ",
           "description": "セッションと同期し続ける共有フォルダー：自分のドライブ、エージェントごとのドライブ、管理者がプロジェクトに割り当てた会社のドライブ。新しいセッションでは /drives に表示されます。"
         },
-
-
         "session_log_restore": {
           "name": "セッションログからの復元",
           "description": "セッションのコンピューターが会話を失ったとき、保存されたセッションログからセッションを再構築します。Dosco がプロジェクトごとに有効にします。"
         },
-
         "agent_rooms": {
           "name": "ルーム",
           "description": "エージェントのセッションとユーザーが投稿し、スレッドで返信できる名前付きチャットルーム。メッセージが宛てられたセッションは再開します。ルームページ、`kortix rooms`、`kortix peers` が追加されます。"
@@ -1292,7 +1285,6 @@
         "email_channel": {
           "name": "メールチャネル",
           "description": "エージェントに Resend のメール受信箱を用意します。届いたメールでセッションを開始・継続し、エージェントはその受信箱で読み、返信し、送信します。自分の Resend API キーとドメインを使います。"
-
         }
       }
     },
@@ -2524,11 +2516,9 @@
           "name": "Free",
           "note": "実際のサンドボックスクレジットで始めましょう。",
           "f1": "月 500 クレジット、カード不要",
-
           "f2": "1 プロジェクト",
           "f3": "任意のプレミアムモデルに自分の API キーを利用可能",
           "f4": "ChatGPT のサブスクリプションを接続"
-
         },
         "credits": {
           "name": "クレジット",
@@ -3076,11 +3066,9 @@
       "shared": "誰かがあなたとセッションを共有します。",
       "automation_failed": "トリガーまたはリマインダーが失敗し始めます。",
       "automation_recovered": "失敗していたトリガーまたはリマインダーが再び動作します。",
-
       "capture_device_down": "Dosco Capture のコンピューターが記録していません。Capture の管理者に送られます。",
       "capture_device_recovered": "停止していた Dosco Capture のコンピューターが再び記録しています。",
       "message": "ルームで誰かがあなたを @ でメンションするか、あなたが投稿したスレッドに返信したとき。"
-
     },
     "bell": {
       "label": "通知",
@@ -3415,7 +3403,6 @@
     "greeting": "ようこそ、{name}さん。Dosco です。",
     "greetingNoName": "ようこそ。Dosco です。",
     "intro": "タスクでも、ワークフローでも、まだ形になっていないアイデアでも、何でも聞かせてください。一緒に整理していきましょう。",
-
     "canTitle": "Doscoでできること",
     "can": {
       "work": {
@@ -3446,7 +3433,6 @@
     "startHint": "下で取り組んでいることをDoscoに伝えるか、「Doscoの使い方を案内して」と送るとガイド付きでセットアップできます。",
     "placeholder": "取り組んでいることを Dosco に伝えてください",
     "kickoff": "Doscoの使い方を案内して"
-
   },
   "announcements": {
     "memories": {
@@ -10180,9 +10166,7 @@
       "text05cc7bb328c6": "git commit -am \"Describe your change\"",
       "text05da7af7e394": "トライアルを取り消すことができませんでした",
       "text05dcf5ae7043": "出力SHA-256",
-
       "text888237b5222c": "セッション間でファイルシステム、プロセステーブル、ネットワーク名前空間を共有することはありません。Dosco 独自のコンピュートでありリファレンスプロバイダーである Platinum では、境界は Cloud Hypervisor microVM です。Daytona はレガシーのフォールバックとして残り、どちらを使用しているかをお知らせします。",
-
       "text05e7bb1645cd": "往復の流れ",
       "text05f82c79bce3": "「{value0}」に一致する項目はありません。",
       "text05fa2e3b0a10": "ページ番号",
@@ -11887,8 +11871,6 @@
       "text390ae89f8320": "セッション 実行 スレッド 会話 開く",
       "text390d930c483d": "セッションは実際のマシン上で動作します。エージェントは必要なものをインストールし、クエリを実行し、読めるスクリプトで処理を行い、コミットします。答えと、その裏付けとなるコードを受け取れます。",
       "text391065e4dc23": "エクスポート済み",
-
-
       "text391fb7ff81a1": "コストセンター",
       "text3923e8556e27": "この変更にはマージ競合があります",
       "text3926ced4e6c4": "ズーム倍率",
@@ -11967,8 +11949,6 @@
       "text3ba60eb0a910": "— ユーザーのemail",
       "text3bac8a95f83a": "そのシークレット（",
       "text3baf55478483": "タスクを削除",
-
-
       "text3bba69274a7d": "サムネイルを切り替え",
       "text3bc44ac28dcd": "シングルサインオン",
       "text3bc554b5c290": "現在、このプロジェクトでは何も自動で実行されません。トリガーは手動で開始できます。または「すべて再開」を選択してください。",
@@ -14465,9 +14445,8 @@
       "text83536ce31c42": "gmail.send_email",
       "text8353713597b6": "まず問題から",
       "text83622a3d7d8e": "接続が誰として動作するか",
-
+      "text8368ff24d89c": "Dosco 独自の Platinum コンピュートでは、サンドボックスは Cloud Hypervisor microVM です。Daytona と E2B もサポートされています。プロバイダーはデプロイの選択肢であり、混同せずどちらを利用しているかをお伝えします。",
       "text4752074ca727": "Dosco 独自のコンピュートでありリファレンスプロバイダーである Platinum では、サンドボックスは Cloud Hypervisor microVM です。Daytona はレガシーのフォールバックとして残り、削除が予定されています。どちらを使っているかは、混同せずにお伝えします。",
-
       "text836cd8e8a791": "このエージェントがセッションにロードできる命令とスクリプト。スキルをクリックして読んでください。",
       "text837988d39c32": "実行を割り当てるセッション。",
       "text838198290fbc": "アプリを割り当て：Users → ユーザーを開く →「Applications」→「+」→「Dosco」を追加（またはRoleにアプリを割り当て、そのRoleの全員をプロビジョニング）。",
@@ -16307,9 +16286,7 @@
       "textb7fdaed41e1a": "コピーに失敗しました",
       "textb80a37564fbb": "クエリ",
       "textb81b729b4538": "をチャンネルに招待してメンションしてください。メンションするたびに新しい実行が開始され、エージェントがそのスレッドで回答します。",
-
       "textb81c6e280de1": "Doscoにリセット",
-
       "textb82336ed4012": "実行ポイント3のタイトル",
       "textb82db800b29f": "OpenCodeネイティブ · バージョン管理 · デフォルト拒否 · 人がマージ",
       "textb835b4d2630c": "4分前に承認済み — デプロイ中",
@@ -18207,8 +18184,6 @@
       "textec90ac92e442": "データサイエンスチーム向けDosco",
       "textec91fdd9256c": "任意",
       "textec963ffc911b": "確認中…",
-
-
       "textec9f8a9109ec": "セッション中は許可",
       "texteca0eeacbef7": "callback フィールド下の「Settings」JSON object で 2 つ設定します。(1)「audience」= Dosco の Entity ID、(2) NameID をユーザーの email に強制します。デフォルトは不透明な Auth0 user_id（auth0|…）で、Dosco は照合できません。次を追加します：「audience」:「…/saml/metadata」、「nameIdentifierFormat」:「urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress」、「nameIdentifierProbes」:[「http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress」]。下へスクロールして「Enable」をクリックします。",
       "texteca47e3afa10": "リポジトリの外で保管される暗号化済み認証情報。",
@@ -20058,9 +20033,7 @@
       "text146aaf3c71fa": "契約済みで有料プランでも請求されているエンタープライズアカウントについて、SSO、SCIM、RBAC、監査の権限を維持し、Stripe の突合で外されないようにします。",
       "text517105fd13ce": "クレジットはサンドボックスの計算に使われます。BYOK のトライアルでも、セッションの実行にはウォレット残高が必要です。無料のウェルカム付与は 2 ドルです。",
       "text2f1d17f50af8": "エンタープライズにより、このアカウントで SAML SSO、SCIM ディレクトリ同期、RBAC、監査アクセスが有効になります。請求プランは変わりません。",
-
       "text79c0703d2226": "Free は 0 ドルで、1 プロジェクト、毎月 500 クレジットとすべての機能が付き、モデルは自分のキーまたは ChatGPT のサブスクリプションで利用できます。Dosco のマネージドモデルには有料プランが必要です。有料プランはクレジット制で、月額を選ぶだけです。メンバーは無料で無制限、1 つのプールでアカウント全体をまかないます。ソフトウェアのセルフホストは無料で、代わりにモデル利用料と計算料金をご自身でお支払いいただきます。",
-
       "text5dffd4db88c5": "このアカウントのプラン、クレジット、請求。",
       "text49fd64c206dd": "プランが有効になりました。クレジットをご利用いただけます。",
       "textad828837ddd8": "メンバー メンバー ワークスペース アクセス コラボレーター ユーザー チームメイト 名簿 閲覧者 権限 付与 共有",
@@ -20161,9 +20134,7 @@
       "text94ddcfbb2f30": "拒否された通話も混乱です。何が起こらなかったかは、何が起こったかと同じくらい記録の一部である。",
       "text89faa819e995": "それが決して手に入らないのは、それを作成した人の手に届くことです。ここには、上に進むための継承のエッジはありません。",
       "text6a51a65a11f4": "セッションを開始するとブランチが切断され、そのために 1 台のマシンが起動されます。データベースでは、2 番目のセッションにそのマシンを使用させることはできません。",
-
       "text08cadd4156a5": "サンドボックスは、モデルが何でも実行できる実際の Linux マシンです。したがって、その中の唯一の資格情報は、プロジェクトにスコープされた 1 つの Dosco トークンです。",
-
       "textc7d878b8738e": "アカウントのアクションは、メンバーシップ、ロール、ポリシー、トークン、グループなど、同じ場所に配置されます。",
       "text5b70d52b009e": "サードパーティ API は、通常の認証されたリクエストを認識します。答えはエージェントに返されます。資格情報は残ります。",
       "text7a570559b1e0": "人は、与えられた役割を通じて行動し、求めているリソースに照らして評価されます。",
@@ -20305,7 +20276,6 @@
       "text41b257b886b2": "契約を読む",
       "text08f3c151d323": "個別条件を相談する",
       "texta0990a4a86dc": "ホワイトラベル:Platinum.dev のコンピュートで動く自社 AI プロダクト",
-
       "text6189ab6313de": "Dosco をフォークし、自社ブランドで自社製品として販売できます。ライセンスは無料。唯一の条件は、コンピュートを Platinum.dev で実行することです。",
       "text7971dd752669": "リマインダー",
       "textf952fee736ed": "リリース履歴",
@@ -20385,7 +20355,6 @@
       "text51cfb12fffdd": "受信メールを受け取りました",
       "text7c0a91e5b3d2": "未分類のツール",
       "text9d2b6f0c41ae": "ツールとルール"
-
     },
     "publicShareConfirm": {
       "title": "公開リンクを作成しますか？",
@@ -20529,7 +20498,6 @@
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryConnectorb21e2055": "配信: connector — サーバー側のみ。値がサンドボックス環境に入ることはありません。",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryScopec3e2a686": "配信スコープを取得できません。保存する前に、この値がどこで使われるかエージェントに確認してください。",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextEncryptedAtRestc2e34213": "保存時は暗号化されます。配信は上に表示されたスコープに従います。",
-
     "autoAppPublicSecretIntakeTokenPageJsxTextEnterThec744a068": "要求された値を下に入力してください。保存する前に、その配信スコープを確認してください。値は保存時に暗号化されます。",
     "approvalParameters": {
       "to": "宛先",
@@ -20544,7 +20512,6 @@
       "aboutDescription": "この説明について",
       "senderUnavailable": "送信アカウントを読み込めませんでした。差出人の行を確認してください。",
       "quoted": "「{text}」"
-
     }
   },
   "commandPalette": {
@@ -20770,7 +20737,6 @@
     "defaultProviderHint": "このプロバイダーを無効にする前に、別のプロバイダーのモデルをプロジェクトのデフォルトに設定してください。",
     "credentialsHint": "認証情報を削除せずに推論を無効にします。",
     "providerError": "プロバイダーへのアクセスを更新できませんでした。",
-
     "managedTitle": "Dosco管理モデル",
     "managedDescription": "Platinum Inference のモデルです。その価格に {fee}% のプラットフォーム手数料を加えた額をクレジットで支払います。APIキーは不要です。",
     "managedUpgradeHint": "アップグレードしてDoscoの管理モデルを利用するか、独自のプロバイダーに接続してください。",
@@ -20778,7 +20744,6 @@
     "textOnly": "テキストのみ",
     "zdrTitle": "ゼロデータ保持",
     "zdrDescription": "ゼロデータ保持（ZDR）とは、モデル提供元がテキストや画像を処理した後、リクエストの入力や回答を保存しないことです。Dosco はプロジェクトと会話履歴を別に保存します。",
-
     "hiddenHint": "選択リストでは非表示です。直接リクエストは引き続き許可されます。無効にするにはモデルのメニューを使用してください。",
     "hidden": "選択リストで非表示",
     "disableModel": "モデルを無効にする",
@@ -21015,10 +20980,8 @@
     "backToConnectors": "コネクターに戻る",
     "installed": "{name} をインストールしました",
     "yourConnectors": "あなたのコネクター",
-
     "oneClickOnly": "ワンクリックのみ",
     "installedSyncFailed": "{name} をインストールしました。Dosco はツールを読み込めませんでした: {error}",
-
     "newSession": "新しいセッション",
     "sections": "{name} のセクション",
     "noticeNoAccountTitle": "{name} にアカウントがありません",
@@ -21079,7 +21042,6 @@
     "providerInfoSecretsDirect": "Dosco が各呼び出しにキーを付加します。エージェントには見えません。",
     "providerInfoLabel": "この接続の管理者",
     "addMcpAppTitle": "{name} を接続",
-
     "addMcpAppDescription": "{name} にサインインし、使える人を選びます。",
     "installTitle": "{name} をインストール",
     "installNameLabel": "名前",
@@ -21213,7 +21175,6 @@
     "wayMoreNamed": "{name} のその他",
     "otherWaysLead": "その他の方法：",
     "typeFilterDosco": "Dosco"
-
   },
   "connectMcp": {
     "title": "MCP で Dosco に接続",
@@ -21425,10 +21386,8 @@
     "connectAgain": "もう一度接続",
     "lastSeen": "最終接続 {time}",
     "scopeLine": "あなたのプライベートセッションから、すべてのプロジェクトで、あなただけが使えます。",
-
     "capabilitiesTitle": "Dosco が使えるもの",
     "capabilitiesHint": "いつでもオンまたはオフにできます。次のリクエストから反映されます。",
-
     "capability": {
       "filesystem": "ファイル",
       "filesystemDescription": "ホームフォルダー",
@@ -21477,11 +21436,9 @@
       "hint": "コンピューターを区別できなかった以前のバージョンの Dosco で作成されました。どれもオンラインではありません。応答のない状態が30日続くと、Dosco が自動で削除します。",
       "removeAll": "すべて削除",
       "confirmTitle": "以前の接続をすべて削除しますか？",
-
       "confirmDescription": "Dosco はそれらとそのアカウントをすべてのプロジェクトから削除します。まだ使用しているコンピューターは再接続できます。"
     },
     "capabilitiesSaved": "アクセスを更新しました"
-
   },
   "messageFrom": {
     "from": "送信元",
@@ -21812,13 +21769,11 @@
       "dictation": "話して、送るだけ",
       "dictationDescription": "プロンプトを入力せずに音声で伝えられます。"
     },
-
     "appStore": "App Store",
     "googlePlay": "Google Play",
     "scanTitle": "スキャンしてアプリを入手",
     "scanDescription": "スマートフォンのカメラでコードを読み取ると、App Store または Google Play が開きます。",
     "qrLabel": "Dosco モバイルアプリの QR コード"
-
   },
   "capture": {
     "authorize": {

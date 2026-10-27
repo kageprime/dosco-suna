@@ -566,10 +566,8 @@
           "description": "Use o Dosco no Claude, Claude Code, Cursor, Codex ou qualquer cliente MCP. Você entra uma vez. Nada para instalar."
         },
         "computer": {
-
           "label": "Meu computador",
           "description": "Deixe os agentes do Dosco trabalharem com os arquivos, o terminal e os aplicativos do seu computador."
-
         }
       }
     },
@@ -1220,8 +1218,6 @@
           "name": "Marketplace",
           "description": "Explore e instale habilidades de registros da comunidade e de fornecedores. Fontes, atualizações e escopos de equipe ainda estão mudando."
         },
-
-
         "meta_agent": {
           "name": "Meta-agente",
           "description": "Adicione um coordenador que gerencia sessões especializadas e trabalhos de várias etapas no projeto."
@@ -1266,13 +1262,10 @@
           "name": "Drive",
           "description": "Pastas compartilhadas que ficam sincronizadas com as sessões: o seu próprio drive, um por agente e os drives da empresa que um administrador vincula ao projeto. Novas sessões os veem em /drives."
         },
-
-
         "session_log_restore": {
           "name": "Restauro do registo de sessão",
           "description": "Reconstrói uma sessão a partir do seu registo de sessão guardado quando o seu computador perdeu a conversa. A Dosco ativa-o por projeto."
         },
-
         "agent_rooms": {
           "name": "Salas",
           "description": "Salas de chat com nome onde sessões de agentes e pessoas publicam e respondem em threads. Uma sessão é retomada quando uma mensagem é dirigida a ela. Adiciona a página Salas, `kortix rooms` e `kortix peers`."
@@ -1292,7 +1285,6 @@
         "email_channel": {
           "name": "Canal de e-mail",
           "description": "Dê ao agente uma caixa de entrada no Resend: e-mails recebidos iniciam e continuam sessões, e o agente lê, responde e envia a partir da caixa. Use sua própria chave de API e domínio do Resend."
-
         }
       }
     },
@@ -2524,11 +2516,9 @@
           "name": "Free",
           "note": "Comece com créditos reais de sandbox.",
           "f1": "500 créditos / mês, sem cartão",
-
           "f2": "1 projeto",
           "f3": "Use sua própria chave de API para qualquer modelo premium",
           "f4": "Conecte sua assinatura do ChatGPT"
-
         },
         "credits": {
           "name": "Créditos",
@@ -3076,11 +3066,9 @@
       "shared": "Alguém compartilha uma sessão com você.",
       "automation_failed": "Um trigger ou lembrete começa a falhar.",
       "automation_recovered": "Um trigger ou lembrete que falhava volta a funcionar.",
-
       "capture_device_down": "Um computador do Dosco Capture não está gravando. Enviado a quem gerencia o Capture.",
       "capture_device_recovered": "Um computador do Dosco Capture que parou voltou a gravar.",
       "message": "Alguém menciona você com @, ou responde em um tópico em que você escreveu, em uma sala."
-
     },
     "bell": {
       "label": "Notificações",
@@ -3415,7 +3403,6 @@
     "greeting": "Boas-vindas, {name}. Eu sou o Dosco.",
     "greetingNoName": "Boas-vindas. Eu sou o Dosco.",
     "intro": "Traga qualquer coisa: uma tarefa, um workflow ou uma ideia ainda em formação. Vamos resolver isso juntos.",
-
     "canTitle": "O que você pode fazer com o Dosco",
     "can": {
       "work": {
@@ -3446,7 +3433,6 @@
     "startHint": "Diga ao Dosco abaixo no que você está trabalhando, ou envie “Me guie pelo Dosco” para uma configuração guiada.",
     "placeholder": "Conte ao Dosco no que você está trabalhando",
     "kickoff": "Me guie pelo Dosco"
-
   },
   "announcements": {
     "memories": {
@@ -10180,9 +10166,7 @@
       "text05cc7bb328c6": "git commit -am \"Describe your change\"",
       "text05da7af7e394": "Falha ao revogar o teste",
       "text05dcf5ae7043": "SHA-256 da saída",
-
       "text888237b5222c": "As sessões nunca compartilham um sistema de arquivos, uma tabela de processos ou um namespace de rede. No Platinum, a computação própria da Dosco e o provedor de referência, o limite é uma microVM do Cloud Hypervisor. O Daytona continua como alternativa legada, e diremos em qual você está.",
-
       "text05e7bb1645cd": "A ida e volta",
       "text05f82c79bce3": "Nenhum item corresponde a \"{value0}\".",
       "text05fa2e3b0a10": "Número da página",
@@ -11887,8 +11871,6 @@
       "text390ae89f8320": "sessões execuções threads conversas abrir",
       "text390d930c483d": "Uma sessão é uma máquina real. O agente instala o necessário, executa a consulta, trabalha em um script legível e faz commit. Você recebe a resposta e o código por trás dela.",
       "text391065e4dc23": "Exportado",
-
-
       "text391fb7ff81a1": "Centro de custo",
       "text3923e8556e27": "Esta alteração tem conflitos de mesclagem",
       "text3926ced4e6c4": "Nível de zoom",
@@ -11967,8 +11949,6 @@
       "text3ba60eb0a910": "— o email do usuário",
       "text3bac8a95f83a": "O segredo dele (",
       "text3baf55478483": "Excluir tarefa",
-
-
       "text3bba69274a7d": "Alternar miniaturas",
       "text3bc44ac28dcd": "Login único",
       "text3bc554b5c290": "Nada neste projeto é executado sozinho no momento. Você ainda pode iniciar um gatilho manualmente ou escolher “Retomar tudo”.",
@@ -14465,9 +14445,8 @@
       "text83536ce31c42": "gmail.send_email",
       "text8353713597b6": "Primeiro, o problema",
       "text83622a3d7d8e": "Como a conexão atua",
-
+      "text8368ff24d89c": "Na computação Platinum própria da Dosco, um sandbox é uma microVM do Cloud Hypervisor. Daytona e E2B também são suportados. O provedor é uma escolha de implantação e informaremos em qual você está em vez de confundi-los.",
       "text4752074ca727": "No Platinum, a computação própria da Dosco e o provedor de referência, um sandbox é uma microVM do Cloud Hypervisor. O Daytona continua como alternativa legada, com remoção programada. Diremos em qual você está, sem misturar os dois.",
-
       "text836cd8e8a791": "Instruções e scripts que este agente pode carregar em uma sessão. Clique em uma habilidade para lê-la.",
       "text837988d39c32": "Em qual sessão uma execução será feita.",
       "text838198290fbc": "Atribua o app: Users → abra um usuário → \"Applications\" → \"+\" → adicione \"Dosco\" (ou atribua o app a uma Role para provisionar todos nessa Role).",
@@ -16307,9 +16286,7 @@
       "textb7fdaed41e1a": "Falha ao copiar",
       "textb80a37564fbb": "Consulta",
       "textb81b729b4538": "para um canal e mencione-o. Cada menção inicia uma nova execução, e o agente responde nessa thread.",
-
       "textb81c6e280de1": "Redefinir para o Dosco",
-
       "textb82336ed4012": "título do ponto de execução 3",
       "textb82db800b29f": "Nativo do OpenCode · Versionado · Negado por padrão · Mesclado por humanos",
       "textb835b4d2630c": "Você aprovou isso há 4 minutos — implantação em andamento",
@@ -18207,8 +18184,6 @@
       "textec90ac92e442": "Dosco para equipes de ciência de dados",
       "textec91fdd9256c": "opcional",
       "textec963ffc911b": "Verificando…",
-
-
       "textec9f8a9109ec": "Permitir durante a sessão",
       "texteca0eeacbef7": "No objeto JSON \"Settings\" abaixo do campo de callback, defina DUAS coisas: (1) \"audience\" = Entity ID do Dosco e (2) force o NameID para o email do usuário — o padrão é o Auth0 user_id opaco (auth0|…), que o Dosco não consegue associar. Adicione: \"audience\": \"…/saml/metadata\", \"nameIdentifierFormat\": \"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\", \"nameIdentifierProbes\": [\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\"]. Depois role para baixo e clique em \"Enable\".",
       "texteca47e3afa10": "Credenciais criptografadas, fora do seu repositório.",
@@ -20058,9 +20033,7 @@
       "text146aaf3c71fa": "Mantém SSO, SCIM, RBAC e auditoria habilitados para uma conta Enterprise contratada que também é cobrada por um plano pago, para que a reconciliação do Stripe não os remova.",
       "text517105fd13ce": "Os créditos financiam a computação em sandbox — até um teste BYOK precisa de saldo na carteira para executar sessões. O crédito de boas-vindas gratuito é de US$ 2.",
       "text2f1d17f50af8": "O Enterprise libera SAML SSO, sincronização de diretório SCIM, RBAC e acesso à auditoria para esta conta. O plano cobrado não muda.",
-
       "text79c0703d2226": "O Free custa US$ 0 — um projeto, 500 créditos por mês e todos os recursos, com sua própria chave ou assinatura do ChatGPT para os modelos. Os modelos gerenciados pela Dosco exigem um plano pago. Os planos pagos são em créditos: escolha um valor mensal, os membros são gratuitos e ilimitados, e um único pool cobre a conta inteira. Hospedar o software por conta própria não custa nada; você paga a sua própria conta de modelos e de computação.",
-
       "text5dffd4db88c5": "Seu plano, seus créditos e o faturamento desta conta.",
       "text49fd64c206dd": "Seu plano está ativo. Os créditos estão prontos.",
       "textad828837ddd8": "membros membro acesso ao espaço de trabalho colaboradores pessoas colegas lista quem pode ver permissões conceder compartilhar",
@@ -20161,9 +20134,7 @@
       "text94ddcfbb2f30": "Uma chamada negada também é uma briga. O que não aconteceu faz parte do registro tanto quanto o que aconteceu.",
       "text89faa819e995": "O que nunca consegue é o alcance de quem o criou. Não há vantagem de herança aqui para subir.",
       "text6a51a65a11f4": "Iniciar uma sessão corta um branch e inicializa uma máquina para ele. O banco de dados não permitirá que uma segunda sessão tenha aquela máquina.",
-
       "text08cadd4156a5": "Uma sandbox é uma máquina Linux real na qual o modelo pode executar qualquer coisa. Portanto, a única credencial nele é um token Dosco, com escopo definido para o projeto.",
-
       "textc7d878b8738e": "As ações da conta ficam no mesmo lugar – associação, funções, políticas, tokens, grupos.",
       "text5b70d52b009e": "A API de terceiros vê uma solicitação autenticada comum. A resposta volta para o agente. A credencial fica para trás.",
       "text7a570559b1e0": "Uma pessoa age através dos papéis que lhe foram atribuídos, avaliados em relação aos recursos que procura.",
@@ -20305,7 +20276,6 @@
       "text41b257b886b2": "Ler o acordo",
       "text08f3c151d323": "Solicitar termos personalizados",
       "texta0990a4a86dc": "White-label: seu produto de IA sobre a computação do Platinum.dev",
-
       "text6189ab6313de": "Faça um fork do Dosco, coloque sua marca e venda como seu produto. A licença é gratuita. O único requisito: sua computação roda no Platinum.dev.",
       "text7971dd752669": "Lembretes",
       "textf952fee736ed": "Histórico de versões",
@@ -20385,7 +20355,6 @@
       "text51cfb12fffdd": "E-mail recebido",
       "text7c0a91e5b3d2": "Ferramentas não classificadas",
       "text9d2b6f0c41ae": "Ferramentas e regras"
-
     },
     "publicShareConfirm": {
       "title": "Criar um link público?",
@@ -20529,7 +20498,6 @@
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryConnectorb21e2055": "Entrega: connector — apenas no servidor. O valor nunca entra no ambiente do sandbox.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryScopec3e2a686": "O escopo de entrega não está disponível. Peça ao agente para confirmar onde este valor será usado antes de salvá-lo.",
     "autoComponentsSetupLinksSecretIntakeFormJsxTextEncryptedAtRestc2e34213": "Criptografado em repouso. A entrega segue o escopo mostrado acima.",
-
     "autoAppPublicSecretIntakeTokenPageJsxTextEnterThec744a068": "Insira o valor solicitado abaixo. Verifique o seu escopo de entrega antes de salvá-lo. O valor é criptografado em repouso.",
     "approvalParameters": {
       "to": "Para",
@@ -20544,7 +20512,6 @@
       "aboutDescription": "Sobre esta descrição",
       "senderUnavailable": "Não foi possível carregar a conta de envio. Verifique a linha De.",
       "quoted": "“{text}”"
-
     }
   },
   "commandPalette": {
@@ -20770,7 +20737,6 @@
     "defaultProviderHint": "Escolha um modelo padrão de outro provedor antes de desativar este provedor.",
     "credentialsHint": "Desative a inferência sem remover as credenciais.",
     "providerError": "Não foi possível atualizar o acesso ao provedor.",
-
     "managedTitle": "Modelos gerenciados pela Dosco",
     "managedDescription": "Modelos da Platinum Inference, ao preço dela mais uma taxa de plataforma de {fee}%, pago com créditos. Não é necessária uma chave API.",
     "managedUpgradeHint": "Faça upgrade para usar os modelos gerenciados da Dosco ou conecte seu próprio provedor.",
@@ -20778,7 +20744,6 @@
     "textOnly": "Apenas texto",
     "zdrTitle": "Retenção zero de dados",
     "zdrDescription": "Retenção zero de dados (ZDR) significa que o provedor processa seus textos e imagens, mas não guarda a entrada nem a resposta após a solicitação. A Dosco armazena seus projetos e conversas separadamente.",
-
     "hiddenHint": "Oculto no seletor. Solicitações diretas continuam permitidas; desative-as no menu do modelo.",
     "hidden": "Oculto no seletor",
     "disableModel": "Desativar modelo",
@@ -21015,10 +20980,8 @@
     "backToConnectors": "Voltar aos conectores",
     "installed": "{name} está instalado",
     "yourConnectors": "Seus conectores",
-
     "oneClickOnly": "Só um clique",
     "installedSyncFailed": "{name} está instalado. O Dosco não conseguiu carregar as ferramentas: {error}",
-
     "newSession": "Nova sessão",
     "sections": "Seções de {name}",
     "noticeNoAccountTitle": "{name} não tem nenhuma conta",
@@ -21079,7 +21042,6 @@
     "providerInfoSecretsDirect": "O Dosco adiciona a chave a cada chamada. Os agentes nunca a veem.",
     "providerInfoLabel": "Quem gerencia esta conexão",
     "addMcpAppTitle": "Conectar {name}",
-
     "addMcpAppDescription": "Entre no {name}. Escolha quem pode usá-lo.",
     "installTitle": "Instalar {name}",
     "installNameLabel": "Nome",
@@ -21213,7 +21175,6 @@
     "wayMoreNamed": "Mais para {name}",
     "otherWaysLead": "Outras formas:",
     "typeFilterDosco": "Dosco"
-
   },
   "connectMcp": {
     "title": "Conecte o Dosco via MCP",
@@ -21425,10 +21386,8 @@
     "connectAgain": "Conectar de novo",
     "lastSeen": "visto por último {time}",
     "scopeLine": "Só você pode usá-lo, nas suas sessões privadas, em todos os projetos.",
-
     "capabilitiesTitle": "O que o Dosco pode usar",
     "capabilitiesHint": "Ative ou desative qualquer um a qualquer momento. A próxima solicitação segue a escolha.",
-
     "capability": {
       "filesystem": "Arquivos",
       "filesystemDescription": "Sua pasta pessoal",
@@ -21477,11 +21436,9 @@
       "hint": "Criadas por uma versão antiga do Dosco que não distinguia computadores. Nenhuma está online. O Dosco remove cada uma após 30 dias sem sinal de atividade.",
       "removeAll": "Remover todas",
       "confirmTitle": "Remover todas as conexões antigas?",
-
       "confirmDescription": "O Dosco as remove com suas contas de todos os projetos. Um computador que ainda use uma pode se conectar de novo."
     },
     "capabilitiesSaved": "Acesso atualizado"
-
   },
   "messageFrom": {
     "from": "De",
@@ -21812,13 +21769,11 @@
       "dictation": "Fale e envie",
       "dictationDescription": "Dite um prompt em vez de digitar."
     },
-
     "appStore": "App Store",
     "googlePlay": "Google Play",
     "scanTitle": "Escaneie para baixar o app",
     "scanDescription": "Aponte a câmera do celular para o código. Ele abre a App Store ou o Google Play.",
     "qrLabel": "Código QR do app móvel Dosco"
-
   },
   "capture": {
     "authorize": {
