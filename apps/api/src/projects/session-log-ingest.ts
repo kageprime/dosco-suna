@@ -88,7 +88,7 @@ import {
 import { projectSessions, sessionLogMessages, sessionLogs, sessionLogThreads, sessionTurns } from '@kortix/db';
 import { and, asc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '../shared/db';
-import { uniqueViolationConstraint } from '../shared/postgres-errors';
+import { uniqueViolationConstraint, uniqueViolationDetail } from '../shared/postgres-errors';
 import { logger } from '../lib/logger';
 import { jsonbSafeValue } from './lib/jsonb-safe';
 import { offloadLargeTexts } from './session-log-blobs';
@@ -232,7 +232,7 @@ async function applyBatch(
       // Generation 0 only: a restore (P6.2) writes `pi:` replies itself, into a store built from this log.
       if (!capture && batch.generation === 0) await hideConvertedPiThreads(tx, scope.sessionId, batch.puts);
       await dropProvisionalRows(tx, scope.sessionId, batch.puts);
-      for (const [i, put] of batch.puts.entries()) await applyPut(tx, scope.sessionId, batch.generation, put, records[i]!);
+      await applyPuts(tx, scope.sessionId, batch.generation, batch.puts, records);
       if (!capture) await markDurableTurns(tx, scope.sessionId, batch.puts);
       const acked = [
         ...batch.puts.map((p) => ({ message_id: p.message.message_id, rev: p.rev })),
@@ -396,9 +396,106 @@ async function hideConvertedPiThreads(tx: Tx, sessionId: string, puts: readonly 
     );
 }
 
-// ponytail: one INSERT per put, so a seq collision names its own pair without
-// parsing the error detail. A batch is at most 1 MB gzipped; batch the inserts
-// if a large boot reconcile (P6) makes the round trips show up.
+/**
+ * Batch-insert or update puts inside the caller's transaction in a single statement.
+ * Eliminates N round trips across high-RTT links (transatlantic DB connections).
+ */
+export async function applyPuts(
+  tx: Tx,
+  sessionId: string,
+  generation: number,
+  puts: readonly SessionLogPut[],
+  records: readonly SessionLogPut['message'][],
+): Promise<void> {
+  if (puts.length === 0) return;
+  if (puts.length === 1) {
+    await applyPut(tx, sessionId, generation, puts[0]!, records[0]!);
+    return;
+  }
+
+  // Deduplicate by message_id within the batch: later put in the array wins.
+  // PostgreSQL ON CONFLICT DO UPDATE cannot affect the same row a second time.
+  const putsByMessageId = new Map<string, { put: SessionLogPut; record: SessionLogPut['message'] }>();
+  for (let i = 0; i < puts.length; i++) {
+    putsByMessageId.set(puts[i]!.message.message_id, { put: puts[i]!, record: records[i]! });
+  }
+  const items = [...putsByMessageId.values()];
+
+  const rows = items.map(({ put, record }) => {
+    const m = put.message;
+    const createdAt = Date.parse(m.created_at);
+    return {
+      sessionId,
+      messageId: m.message_id,
+      threadId: m.thread_id,
+      seq: m.seq,
+      role: m.role,
+      kind: m.kind,
+      inContext: m.in_context,
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt) : new Date(),
+      v: m.v,
+      producer: m.producer,
+      generation,
+      rev: put.rev,
+      contentHash: sessionLogContentHash(m),
+      deletedAt: null,
+      record: record as unknown as Record<string, unknown>,
+      toolInputOrder: toolInputOrderOf(record),
+    };
+  });
+
+  try {
+    await tx
+      .insert(sessionLogMessages)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [sessionLogMessages.sessionId, sessionLogMessages.messageId],
+        set: {
+          threadId: sql`excluded.thread_id`,
+          seq: sql`excluded.seq`,
+          role: sql`excluded.role`,
+          kind: sql`excluded.kind`,
+          inContext: sql`excluded.in_context`,
+          createdAt: sql`excluded.created_at`,
+          v: sql`excluded.v`,
+          producer: sql`excluded.producer`,
+          generation: sql`excluded.generation`,
+          rev: sql`excluded.rev`,
+          contentHash: sql`excluded.content_hash`,
+          deletedAt: null,
+          record: sql`excluded.record`,
+          toolInputOrder: sql`excluded.tool_input_order`,
+          updatedAt: sql`now()`,
+        },
+        setWhere: sql`(excluded.generation, excluded.rev) > (${sessionLogMessages.generation}, ${sessionLogMessages.rev})
+          AND (${sessionLogMessages.contentHash} IS DISTINCT FROM excluded.content_hash OR ${sessionLogMessages.deletedAt} IS NOT NULL
+               OR ${sessionLogMessages.rev} < ${SESSION_LOG_CAPTURE_REV_LIMIT} OR ${sessionLogMessages.generation} <> excluded.generation)`,
+      });
+  } catch (err) {
+    if (uniqueViolationConstraint(err) === SEQ_KEY) {
+      const detail = uniqueViolationDetail(err);
+      let conflictingPut: SessionLogPut | undefined;
+      if (detail) {
+        const match = detail.match(/=\([^,]+,\s*([^,]+),\s*([^)]+)\)/);
+        if (match) {
+          const threadId = match[1]?.trim();
+          const seq = Number(match[2]?.trim());
+          conflictingPut = puts.find((p) => p.message.thread_id === threadId && p.message.seq === seq);
+        }
+      }
+      const target = conflictingPut ?? puts[0]!;
+      throw new SeqConflict({
+        error: 'seq_conflict',
+        message_id: target.message.message_id,
+        rev: target.rev,
+        thread_id: target.message.thread_id,
+        seq: target.message.seq,
+      });
+    }
+    throw err;
+  }
+}
+
 /** One put inside the caller's transaction. Also the mirror merge's write (`mergeMirrorIntoLog`, `session-log-capture.ts`). */
 export async function applyPut(tx: Tx, sessionId: string, generation: number, put: SessionLogPut, record: SessionLogPut['message']): Promise<void> {
   const m = put.message;
