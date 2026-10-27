@@ -41,8 +41,6 @@ import { SecretsPage } from '../secrets/secrets-page';
 import { ConnectorsPage } from '../connectors/connectors-page';
 import { ProjectSettingsPage } from '../project-settings/project-settings-page';
 import { GeneralTab } from '../settings/tabs/general-tab';
-import { PreferencesTab } from '../settings/tabs/preferences-tab';
-import { ProfileTab } from '../settings/tabs/profile-tab';
 import { AGENT_TRAITS, type AgentTrait } from '../agents/agent-studio-view';
 
 export type UnifiedTabKey =
@@ -497,7 +495,49 @@ export function UnifiedSettingsPage({
                   Configure editor keybindings, theme settings, and session defaults.
                 </p>
               </div>
-              <PreferencesTab projectId={projectId} />
+              <div className="bg-popover border-border/80 rounded-md border p-6 space-y-6">
+                <div className="space-y-3">
+                  <div className="text-foreground text-xs font-semibold">Appearance Theme</div>
+                  <div className="text-muted-foreground text-xs">
+                    Select your preferred interface color theme across all sessions.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" size="sm" className="gap-1.5">
+                      <SunIcon className="size-3.5" />
+                      <span>Light</span>
+                    </Button>
+                    <Button variant="secondary" size="sm" className="gap-1.5">
+                      <MoonIcon className="size-3.5" />
+                      <span>Dark</span>
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <span>System</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/60 pt-4 space-y-3">
+                  <div className="text-foreground text-xs font-semibold">Global Keybindings</div>
+                  <div className="divide-border/60 divide-y text-xs">
+                    <div className="flex items-center justify-between py-2 text-muted-foreground">
+                      <span>Quick Search & Palette</span>
+                      <span className="text-foreground font-mono">⌘ + K</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 text-muted-foreground">
+                      <span>New Agent Session</span>
+                      <span className="text-foreground font-mono">⌘ + J</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 text-muted-foreground">
+                      <span>Toggle Navigation Sidebar</span>
+                      <span className="text-foreground font-mono">⌘ + B</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 text-muted-foreground">
+                      <span>Execute / Test Agent</span>
+                      <span className="text-foreground font-mono">⌘ + ↵</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>
