@@ -77,7 +77,7 @@ with client.messages.stream(
 
 /** The gateway origin a reader would type: the env-correct one, else prod. */
 export function gatewayBase(gatewayUrl: string | null): string {
-  return gatewayUrl ?? 'https://gateway.kortix.com';
+  return gatewayUrl ?? 'https://gateway.dosco.live';
 }
 
 type QuickTab = 'curl' | 'python' | 'anthropic';
@@ -99,9 +99,9 @@ export function GatewayQuickstartCode({ gatewayUrl }: { gatewayUrl: string | nul
   });
   // The key lives in an env var in curl; the SDKs take a string literal.
   const samples: Record<QuickTab, { code: string; language: string }> = {
-    curl: { code: chatCompletionsCurl(base, '$KORTIX_GATEWAY_KEY', false), language: 'bash' },
-    python: { code: chatCompletionsPython(base, 'kortix_gw_...', false), language: 'python' },
-    anthropic: { code: messagesPython(base, 'kortix_gw_...', false), language: 'python' },
+    curl: { code: chatCompletionsCurl(base, '$DOSCO_GATEWAY_KEY', false), language: 'bash' },
+    python: { code: chatCompletionsPython(base, 'dosco_gw_...', false), language: 'python' },
+    anthropic: { code: messagesPython(base, 'dosco_gw_...', false), language: 'python' },
   };
   const sample = samples[tab];
   const QUICK_TABS = Object.keys(samples) as QuickTab[];
@@ -174,14 +174,14 @@ export function GatewayQuickstartCode({ gatewayUrl }: { gatewayUrl: string | nul
 }
 
 /** First-request samples for the key-reveal dialog (Paper KM01). The key is
- * always read from `KORTIX_GATEWAY_KEY`, never inlined, so no line runs past
+ * always read from `DOSCO_GATEWAY_KEY`, never inlined, so no line runs past
  * the dialog's width and the secret is not pasted into shell history. */
 function firstRequestPython(base: string) {
   return `import os
 from openai import OpenAI
 
 client = OpenAI(
-    api_key=os.environ["KORTIX_GATEWAY_KEY"],
+    api_key=os.environ["DOSCO_GATEWAY_KEY"],
     base_url="${base}/v1",
 )
 
@@ -196,7 +196,7 @@ function firstRequestNode(base: string) {
   return `import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.KORTIX_GATEWAY_KEY,
+  apiKey: process.env.DOSCO_GATEWAY_KEY,
   baseURL: "${base}/v1",
 });
 
@@ -215,7 +215,7 @@ export function firstRequestSamples(
 ): Record<FirstRequestLang, { code: string; language: string }> {
   const base = gatewayBase(gatewayUrl);
   return {
-    curl: { code: chatCompletionsCurl(base, '$KORTIX_GATEWAY_KEY', false), language: 'bash' },
+    curl: { code: chatCompletionsCurl(base, '$DOSCO_GATEWAY_KEY', false), language: 'bash' },
     python: { code: firstRequestPython(base), language: 'python' },
     node: { code: firstRequestNode(base), language: 'javascript' },
   };

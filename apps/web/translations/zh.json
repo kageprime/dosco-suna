@@ -20550,7 +20550,7 @@
     "keyReplaced": "已替换密钥",
     "baseUrlHint": "兼容 OpenAI。以 http:// 或 https:// 开头",
     "optional": "可选",
-    "gatewayNote": "请求经过 Kortix 网关，因此预算和日志均适用。费用由你的端点直接结算，不消耗 Kortix 积分。",
+    "gatewayNote": "请求经过 Dosco 网关，因此预算和日志均适用。费用由你的端点直接结算，不消耗 Dosco 积分。",
     "saveProvider": "保存提供商",
     "saving": "正在保存…",
     "saved": "提供商已保存",
@@ -20572,7 +20572,7 @@
     "deleteFailed": "无法删除提供商",
     "readsImages": "可读取图片",
     "reasoning": "推理",
-    "traitsHint": "端点报告这些信息时，Kortix 会自动读取。端点未报告时请手动开启。",
+    "traitsHint": "端点报告这些信息时，Dosco 会自动读取。端点未报告时请手动开启。",
     "contextWindow": "{tokens} 上下文",
     "contextDefault": "128K 上下文（端点未报告）"
   },
@@ -20724,7 +20724,7 @@
     "shownOnceNote": "仅显示一次。请将其保存在密钥管理器或 .env 文件中。",
     "firstRequest": "发出你的第一个请求",
     "node": "Node",
-    "envHint": "将 <code>KORTIX_GATEWAY_KEY</code> 设置为此密钥。任何 OpenAI 或 Anthropic SDK 都可以使用基础 URL <code>{base}</code>。",
+    "envHint": "将 <code>DOSCO_GATEWAY_KEY</code> 设置为此密钥。任何 OpenAI 或 Anthropic SDK 都可以使用基础 URL <code>{base}</code>。",
     "storedConfirm": "我已保存此密钥"
   },
   "modelAccess": {

@@ -20550,7 +20550,7 @@
     "keyReplaced": "キーを置き換えました",
     "baseUrlHint": "OpenAI 互換。http:// または https:// で始まります",
     "optional": "任意",
-    "gatewayNote": "リクエストは Kortix ゲートウェイを経由するため、予算とログが適用されます。料金はエンドポイントから直接請求され、Kortix クレジットは使用されません。",
+    "gatewayNote": "リクエストは Dosco ゲートウェイを経由するため、予算とログが適用されます。料金はエンドポイントから直接請求され、Dosco クレジットは使用されません。",
     "saveProvider": "プロバイダーを保存",
     "saving": "保存中…",
     "saved": "プロバイダーを保存しました",
@@ -20572,7 +20572,7 @@
     "deleteFailed": "プロバイダーを削除できませんでした",
     "readsImages": "画像を読み取る",
     "reasoning": "推論",
-    "traitsHint": "エンドポイントが報告する場合、Kortix はそこから読み取ります。報告しない場合はオンにしてください。",
+    "traitsHint": "エンドポイントが報告する場合、Dosco はそこから読み取ります。報告しない場合はオンにしてください。",
     "contextWindow": "コンテキスト {tokens}",
     "contextDefault": "コンテキスト 128K（エンドポイントの報告なし）"
   },
@@ -20724,7 +20724,7 @@
     "shownOnceNote": "一度だけ表示されます。シークレットマネージャーまたは .env ファイルに保管してください。",
     "firstRequest": "最初のリクエストを送信",
     "node": "Node",
-    "envHint": "<code>KORTIX_GATEWAY_KEY</code> にこのキーを設定します。OpenAI または Anthropic の SDK はベース URL <code>{base}</code> で動作します。",
+    "envHint": "<code>DOSCO_GATEWAY_KEY</code> にこのキーを設定します。OpenAI または Anthropic の SDK はベース URL <code>{base}</code> で動作します。",
     "storedConfirm": "このキーを保存しました"
   },
   "modelAccess": {

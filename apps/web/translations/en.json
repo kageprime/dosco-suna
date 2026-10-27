@@ -20564,7 +20564,7 @@
     "keyReplaced": "Key replaced",
     "baseUrlHint": "OpenAI-compatible. Starts with http:// or https://",
     "optional": "Optional",
-    "gatewayNote": "Requests go through the Kortix gateway, so budgets and logs apply. Your endpoint bills you directly and no Kortix credits are used.",
+    "gatewayNote": "Requests go through the Dosco gateway, so budgets and logs apply. Your endpoint bills you directly and no Dosco credits are used.",
     "saveProvider": "Save provider",
     "saving": "Saving…",
     "saved": "Provider saved",
@@ -20586,7 +20586,7 @@
     "deleteFailed": "Could not delete the provider",
     "readsImages": "Reads images",
     "reasoning": "Reasoning",
-    "traitsHint": "Kortix reads these from the endpoint when it reports them. Turn them on when it does not.",
+    "traitsHint": "Dosco reads these from the endpoint when it reports them. Turn them on when it does not.",
     "contextWindow": "{tokens} context",
     "contextDefault": "128K context (the endpoint reports none)"
   },
@@ -20738,7 +20738,7 @@
     "shownOnceNote": "Shown only once. Keep it in a secrets manager or a .env file.",
     "firstRequest": "Make your first request",
     "node": "Node",
-    "envHint": "Set <code>KORTIX_GATEWAY_KEY</code> to this key. Any OpenAI or Anthropic SDK works with the base URL <code>{base}</code>.",
+    "envHint": "Set <code>DOSCO_GATEWAY_KEY</code> to this key. Any OpenAI or Anthropic SDK works with the base URL <code>{base}</code>.",
     "storedConfirm": "I've stored this key"
   },
   "modelAccess": {

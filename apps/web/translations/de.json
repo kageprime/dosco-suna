@@ -20550,7 +20550,7 @@
     "keyReplaced": "Schlüssel ersetzt",
     "baseUrlHint": "OpenAI-kompatibel. Beginnt mit http:// oder https://",
     "optional": "Optional",
-    "gatewayNote": "Anfragen laufen über das Kortix-Gateway, daher gelten Budgets und Protokolle. Ihr Endpunkt rechnet direkt mit Ihnen ab, es werden keine Kortix-Credits verbraucht.",
+    "gatewayNote": "Anfragen laufen über das Dosco-Gateway, daher gelten Budgets und Protokolle. Ihr Endpunkt rechnet direkt mit Ihnen ab, es werden keine Dosco-Credits verbraucht.",
     "saveProvider": "Anbieter speichern",
     "saving": "Wird gespeichert…",
     "saved": "Anbieter gespeichert",
@@ -20572,7 +20572,7 @@
     "deleteFailed": "Anbieter konnte nicht gelöscht werden",
     "readsImages": "Liest Bilder",
     "reasoning": "Reasoning",
-    "traitsHint": "Kortix liest diese Angaben vom Endpunkt, wenn er sie meldet. Schalte sie ein, wenn er es nicht tut.",
+    "traitsHint": "Dosco liest diese Angaben vom Endpunkt, wenn er sie meldet. Schalte sie ein, wenn er es nicht tut.",
     "contextWindow": "{tokens} Kontext",
     "contextDefault": "128K Kontext (der Endpunkt meldet keinen)"
   },
@@ -20724,7 +20724,7 @@
     "shownOnceNote": "Wird nur einmal angezeigt. Bewahren Sie ihn in einem Secrets-Manager oder einer .env-Datei auf.",
     "firstRequest": "Erste Anfrage senden",
     "node": "Node",
-    "envHint": "Setzen Sie <code>KORTIX_GATEWAY_KEY</code> auf diesen Schlüssel. Jedes OpenAI- oder Anthropic-SDK funktioniert mit der Basis-URL <code>{base}</code>.",
+    "envHint": "Setzen Sie <code>DOSCO_GATEWAY_KEY</code> auf diesen Schlüssel. Jedes OpenAI- oder Anthropic-SDK funktioniert mit der Basis-URL <code>{base}</code>.",
     "storedConfirm": "Ich habe diesen Schlüssel gespeichert"
   },
   "modelAccess": {

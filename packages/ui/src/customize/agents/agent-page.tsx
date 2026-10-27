@@ -139,7 +139,6 @@ import { UiLink as Link, useUiPathname, useUiRouter, useUiSearchParams } from '.
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { FadedScrollArea } from '../../primitives/faded-scroll-area';
-import { SETTINGS_SIDEBAR_WIDTH_PX } from '../../internal/account-hub/account-settings-shell';
 import { capabilityTabHref } from '../../internal/lib/capability-tab-routes';
 import { useIsMobile } from '../../internal/hooks';
 
@@ -160,7 +159,6 @@ import { connectorPolicySetOptions } from './agent-policy-sets';
 import { AgentPeopleSection } from './agent-people-section';
 import { AgentShareControl } from './agent-share-control';
 import { AgentTriggersSection } from './agent-triggers-section';
-import { AgentStudioView } from './agent-studio-view';
 import { AgentPlaygroundSheet } from '../shared/playground/agent-playground-sheet';
 
 type Agent = ProjectConfigSummary['agents'][number];
@@ -305,98 +303,49 @@ function AgentPageFrame({
   footer?: ReactNode;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
-  const isMobile = useIsMobile();
   const localizedConfig = useLocalizedAgentConfigCatalog();
   const sectionKeys = new Set(sections);
   const items = localizedConfig.sections.filter((s) => sectionKeys.has(s.key));
-  // The Preferences rail's rule: a heading over a lone group labels nothing.
-  const groups = localizedConfig.groups
-    .map((group) => ({
-      group,
-      items: items.filter((s) => s.group === group),
-    }))
-    .filter((g) => g.items.length > 0);
-  const showGroupLabels = groups.length > 1;
-  const trigger = (item: (typeof localizedConfig.sections)[number], horizontal: boolean) => {
+
+  const trigger = (item: (typeof localizedConfig.sections)[number]) => {
     const SectionIcon = SECTION_ICON[item.key];
     return (
       <TabsTrigger
         key={item.key}
         value={item.key}
         asChild
-        size={horizontal ? undefined : 'md'}
-        className={
-          horizontal
-            ? 'w-auto shrink-0 gap-2.5 px-3 py-0.75 whitespace-nowrap'
-            : cn(
-                // The Settings rail's row dialect (`project-settings-page.tsx`).
-                'gap-2 px-2.5 py-1 font-normal transition-none has-[>svg]:px-2.5',
-                'text-foreground data-[state=inactive]:text-foreground hover:bg-hover hover:text-foreground',
-                'data-[state=active]:bg-active data-[state=active]:font-medium',
-                '[&_svg]:text-muted-foreground data-[state=active]:[&_svg]:text-foreground',
-              )
-        }
+        className="w-auto shrink-0 gap-2 px-3 py-1 text-xs whitespace-nowrap"
       >
-        <Link href={sectionHref(item.key)} prefetch>
-          <SectionIcon className="size-4 shrink-0" />
-          <span className={cn(!horizontal && 'truncate')}>{item.label}</span>
+        <Link href={sectionHref(item.key)} prefetch className="flex items-center gap-1.5">
+          <SectionIcon className="size-3.5 shrink-0" />
+          <span>{item.label}</span>
         </Link>
       </TabsTrigger>
     );
   };
 
   return (
-    <div className="relative flex h-full min-h-0 flex-1 flex-col">
+    <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {header ? <div className="border-border/60 shrink-0 border-b px-5 py-3">{header}</div> : null}
-      <div
-        className={cn(
-          'min-h-0 flex-1',
-          isMobile ? 'flex flex-col overflow-hidden' : 'grid overflow-hidden',
-        )}
-        style={isMobile ? undefined : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }}
-      >
-        {isMobile ? (
-          <nav
-            aria-label={tI18nComplete.raw('text7be318295927')}
-            className="border-border/60 flex h-auto shrink-0 items-center border-b"
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <nav
+          aria-label={tI18nComplete.raw('text7be318295927')}
+          className="border-border/60 flex h-auto shrink-0 items-center border-b px-5"
+        >
+          <FadedScrollArea
+            orientation="horizontal"
+            fadeColor="from-background"
+            className="min-w-0 flex-1 py-2"
           >
-            <FadedScrollArea
-              orientation="horizontal"
-              fadeColor="from-background"
-              className="min-w-0 flex-1 py-2"
-            >
-              <Tabs value={section} className="w-fit">
-                <TabsList orientation="horizontal" className="w-fit">
-                  {items.map((item) => trigger(item, true))}
-                </TabsList>
-              </Tabs>
-            </FadedScrollArea>
-          </nav>
-        ) : (
-          <aside className="flex min-h-0 flex-col border-r bg-inherit">
-            <nav
-              aria-label={tI18nComplete.raw('text7be318295927')}
-              className="flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            >
-              <Tabs value={section} orientation="vertical" className="space-y-3">
-                {groups.map((g) => (
-                  <div key={g.group}>
-                    {showGroupLabels ? (
-                      <div className="text-muted-foreground flex h-7 items-center px-2.5 text-xs font-medium">
-                        {g.group}
-                      </div>
-                    ) : null}
-                    <TabsList orientation="vertical" className="w-full">
-                      {g.items.map((item) => trigger(item, false))}
-                    </TabsList>
-                  </div>
-                ))}
-              </Tabs>
-            </nav>
-          </aside>
-        )}
+            <Tabs value={section} className="w-fit">
+              <TabsList orientation="horizontal" className="w-fit">
+                {items.map((item) => trigger(item))}
+              </TabsList>
+            </Tabs>
+          </FadedScrollArea>
+        </nav>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-          <div className="mx-auto w-full max-w-2xl px-4 py-10 pb-32 lg:py-14 lg:pb-32">{pane}</div>
+          <div className="mx-auto w-full max-w-3xl px-4 py-8 pb-32 lg:py-10 lg:pb-32">{pane}</div>
         </main>
       </div>
       {footer}
@@ -419,17 +368,14 @@ function AgentPageSkeleton() {
         <Skeleton className="h-4 w-32 rounded-sm" />
         <Skeleton className="h-8 w-56 rounded-sm" />
       </div>
-      <div
-        className="grid min-h-0 flex-1"
-        style={{ gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }}
-      >
-        <div className="space-y-1.5 border-r px-2 pt-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex gap-2 border-b px-5 py-2">
+          {Array.from({ length: 5 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length placeholder
-            <Skeleton key={i} className="h-8 w-full rounded-sm" />
+            <Skeleton key={i} className="h-8 w-20 rounded-sm" />
           ))}
         </div>
-        <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
+        <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8">
           <Skeleton className="h-11 w-full rounded-md" />
           <Skeleton className="h-72 w-full rounded-md" />
         </div>
@@ -626,8 +572,6 @@ function AgentHeader({
   agent,
   config,
   canWrite,
-  viewMode,
-  onViewModeChange,
   onOpenPlayground,
   children,
 }: {
@@ -635,8 +579,6 @@ function AgentHeader({
   agent: Agent;
   config: ProjectConfigSummary;
   canWrite: boolean;
-  viewMode?: 'studio' | 'engine';
-  onViewModeChange?: (mode: 'studio' | 'engine') => void;
   onOpenPlayground?: () => void;
   children?: ReactNode;
 }) {
@@ -665,35 +607,6 @@ function AgentHeader({
           </h1>
           <AgentChips agent={agent} config={config} size="xs" />
         </nav>
-
-        {viewMode && onViewModeChange ? (
-          <div className="bg-muted p-[2px] rounded-md hidden sm:flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('studio')}
-              className={cn(
-                'px-2.5 py-1 text-xs font-medium rounded-sm transition-colors cursor-pointer',
-                viewMode === 'studio'
-                  ? 'bg-popover text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Studio
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('engine')}
-              className={cn(
-                'px-2.5 py-1 text-xs font-medium rounded-sm transition-colors cursor-pointer',
-                viewMode === 'engine'
-                  ? 'bg-popover text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Engine Bay
-            </button>
-          </div>
-        ) : null}
 
         <AgentActions
           projectId={projectId}
@@ -738,7 +651,6 @@ function EditableAgentPage({
   schemaVersion: number;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
-  const [viewMode, setViewMode] = useState<'studio' | 'engine'>('studio');
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const startSession = useNewProjectSession(projectId);
   const editor = useAgentDraft(initial);
@@ -793,28 +705,15 @@ function EditableAgentPage({
             agent={agent}
             config={config}
             canWrite
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
             onOpenPlayground={() => setPlaygroundOpen(true)}
           />
         </div>
 
-        {viewMode === 'studio' ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <AgentStudioView
-              agentName={agent.name}
-              editor={editor}
-              config={config}
-              onOpenEngine={() => setViewMode('engine')}
-              onOpenPlayground={() => setPlaygroundOpen(true)}
-            />
-          </div>
-        ) : (
-          <AgentPageFrame
-            section={section}
-            sections={sections}
-            sectionHref={sectionHrefFor(pathname)}
-            pane={
+        <AgentPageFrame
+          section={section}
+          sections={sections}
+          sectionHref={sectionHrefFor(pathname)}
+          pane={
               <AgentConfigSections
                 section={section}
                 editor={editor}
@@ -863,7 +762,6 @@ function EditableAgentPage({
               />
             }
           />
-        )}
 
         <SaveBar
           dirty={editor.isDirty}

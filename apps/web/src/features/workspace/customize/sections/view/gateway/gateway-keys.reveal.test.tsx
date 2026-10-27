@@ -12,14 +12,14 @@ const reveal = keys.slice(keys.indexOf('function RevealKeyDialog'));
 
 /** Paper KM01: the show-once reveal with one first-request card. */
 describe('Gateway key reveal — KM01', () => {
-  test('samples read the key from KORTIX_GATEWAY_KEY and never inline it', () => {
+  test('samples read the key from DOSCO_GATEWAY_KEY and never inline it', () => {
     const samples = firstRequestSamples('https://gateway.example.test');
-    expect(samples.curl.code).toContain('Bearer $KORTIX_GATEWAY_KEY');
-    expect(samples.python.code).toContain('os.environ["KORTIX_GATEWAY_KEY"]');
-    expect(samples.node.code).toContain('process.env.KORTIX_GATEWAY_KEY');
+    expect(samples.curl.code).toContain('Bearer $DOSCO_GATEWAY_KEY');
+    expect(samples.python.code).toContain('os.environ["DOSCO_GATEWAY_KEY"]');
+    expect(samples.node.code).toContain('process.env.DOSCO_GATEWAY_KEY');
     for (const sample of Object.values(samples)) {
       expect(sample.code).toContain('https://gateway.example.test/v1');
-      expect(sample.code).not.toContain('kortix_gw_');
+      expect(sample.code).not.toContain('dosco_gw_');
     }
   });
 
@@ -35,8 +35,8 @@ describe('Gateway key reveal — KM01', () => {
     const curlLines = firstRequestSamples(null).curl.code.split('\n').length;
     expect(out).toContain(`<span>${curlLines}</span>`);
     // Markdown-style footnote: the env var and base URL as inline code chips.
-    expect(out).toMatch(/<code[^>]*>KORTIX_GATEWAY_KEY<\/code>/);
-    expect(out).toMatch(/<code[^>]*>https:\/\/gateway\.kortix\.com\/v1<\/code>/);
+    expect(out).toMatch(/<code[^>]*>DOSCO_GATEWAY_KEY<\/code>/);
+    expect(out).toMatch(/<code[^>]*>https:\/\/gateway\.dosco\.live\/v1<\/code>/);
   });
 
   test('the dialog: full key + dark Copy, the shown-once note in an info Alert', () => {

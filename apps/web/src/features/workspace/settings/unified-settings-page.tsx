@@ -350,9 +350,9 @@ export function UnifiedSettingsPage({
 
   return (
     <SettingsNavProvider value={settingsNav}>
-      <div className="bg-background text-foreground flex min-h-screen w-full flex-col">
+      <div className="bg-background text-foreground flex h-dvh w-full flex-col overflow-hidden">
         {/* ── Top Bar ── */}
-        <header className="border-border/80 bg-background/95 sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur-sm sm:px-8">
+        <header className="border-border/80 bg-background/95 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur-sm sm:px-8">
           <div className="flex items-center gap-4">
             <Link
               href={`/projects/${projectId}`}
@@ -426,10 +426,10 @@ export function UnifiedSettingsPage({
           </div>
         </header>
 
-        {/* ── Main Layout: Sticky Sidebar Rail + Content Canvas ── */}
-        <div className="mx-auto flex w-full max-w-7xl flex-1 items-start gap-8 px-4 sm:px-8">
+        {/* ── Main Layout: Immobile Sidebar Rail + Content Canvas ── */}
+        <div className="mx-auto flex w-full max-w-7xl flex-1 min-h-0 overflow-hidden px-4 sm:px-8">
           {/* ── Left Rail: Sticky Submenu Navigator ── */}
-          <aside className="border-border/80 sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r py-6 pr-4 md:flex">
+          <aside className="border-border/80 hidden h-full w-64 shrink-0 flex-col border-r py-6 pr-4 md:flex">
             {/* Search Settings Input */}
             <div className="relative mb-4 flex items-center">
               <MagnifyingGlassIcon className="text-muted-foreground pointer-events-none absolute left-2.5 size-3.5" />
@@ -530,7 +530,7 @@ export function UnifiedSettingsPage({
           </aside>
 
           {/* ── Right Canvas: Main Active Setting Pane ── */}
-          <main className="min-w-0 flex-1 py-8">
+          <main className="min-w-0 flex-1 h-full overflow-y-auto py-8 pl-8 pr-2">
             {/* 1. Capabilities Tab Views */}
             {activeTab === 'agents' && <AgentsPage projectId={projectId} />}
             {activeTab === 'skills' && <SkillsPage projectId={projectId} />}

@@ -20550,7 +20550,7 @@
     "keyReplaced": "Кључ је замењен",
     "baseUrlHint": "Компатибилно са OpenAI. Почиње са http:// или https://",
     "optional": "Опционо",
-    "gatewayNote": "Захтеви иду кроз Kortix мрежни пролаз, па важе буџети и евиденција. Ваш endpoint вам наплаћује директно и не троше се Kortix кредити.",
+    "gatewayNote": "Захтеви иду кроз Dosco мрежни пролаз, па важе буџети и евиденција. Ваш endpoint вам наплаћује директно и не троше се Dosco кредити.",
     "saveProvider": "Сачувај провајдера",
     "saving": "Чување…",
     "saved": "Провајдер је сачуван",
@@ -20572,7 +20572,7 @@
     "deleteFailed": "Провајдер није могао да се обрише",
     "readsImages": "Чита слике",
     "reasoning": "Резоновање",
-    "traitsHint": "Kortix ово чита са крајње тачке када их она пријави. Укључи их када их не пријави.",
+    "traitsHint": "Dosco ово чита са крајње тачке када их она пријави. Укључи их када их не пријави.",
     "contextWindow": "{tokens} контекста",
     "contextDefault": "128K контекста (крајња тачка га не пријављује)"
   },
@@ -20724,7 +20724,7 @@
     "shownOnceNote": "Приказује се само једном. Чувајте га у менаџеру тајни или у .env датотеци.",
     "firstRequest": "Пошаљите први захтев",
     "node": "Node",
-    "envHint": "Подесите <code>KORTIX_GATEWAY_KEY</code> на овај кључ. Сваки OpenAI или Anthropic SDK ради са основним URL-ом <code>{base}</code>.",
+    "envHint": "Подесите <code>DOSCO_GATEWAY_KEY</code> на овај кључ. Сваки OpenAI или Anthropic SDK ради са основним URL-ом <code>{base}</code>.",
     "storedConfirm": "Сачувао/ла сам овај кључ"
   },
   "modelAccess": {

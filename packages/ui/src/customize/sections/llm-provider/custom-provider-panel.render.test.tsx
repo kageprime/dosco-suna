@@ -51,9 +51,9 @@ describe('CustomProviderForm — Paper board CP01', () => {
     expect(out).not.toContain('snippet');
   });
 
-  test('says the requests go through the gateway, without Kortix credits', () => {
-    expect(out).toContain('Requests go through the Kortix gateway');
-    expect(out).toContain('no Kortix credits are used');
+  test('says the requests go through the gateway, without Dosco credits', () => {
+    expect(out).toContain('Requests go through the Dosco gateway');
+    expect(out).toContain('no Dosco credits are used');
   });
 
   test('a legacy key pre-fills the provider id', () => {

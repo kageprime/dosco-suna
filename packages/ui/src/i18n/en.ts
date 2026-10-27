@@ -3940,7 +3940,7 @@ const catalog = {
       "text87d296ec9489": "Caption",
       "text87e6d00bbf53": "Revoke",
       "text87fbe4fb79b1": "Attach file",
-      "text88099e99f545": "Kortix Gateway",
+      "text88099e99f545": "Dosco Gateway",
       "text88111b46da7b": "review changes change requests cr diff pull request merge open pending approve waiting",
       "text881c0bd6449b": "Couldn’t list the other files here.",
       "text88296ab3d666": "Subagents",
@@ -5175,7 +5175,7 @@ const catalog = {
       "texte9bef0b0f3c2": "Keyboard shortcuts",
       "texte9d6212ef873": "Setting up...",
       "texte9ec6c0ad396": "Managed by Kortix",
-      "textea13cd34d9e0": "billed as Kortix credits",
+      "textea13cd34d9e0": "billed as Dosco credits",
       "textea1cf924a71b": "Directory sync setup",
       "textea2100dc89ae": "Logs",
       "textea51081eb280": "Started terminal",
@@ -5973,7 +5973,7 @@ const catalog = {
     "keyReplaced": "Key replaced",
     "baseUrlHint": "OpenAI-compatible. Starts with http:// or https://",
     "optional": "Optional",
-    "gatewayNote": "Requests go through the Kortix gateway, so budgets and logs apply. Your endpoint bills you directly and no Kortix credits are used.",
+    "gatewayNote": "Requests go through the Dosco gateway, so budgets and logs apply. Your endpoint bills you directly and no Dosco credits are used.",
     "saveProvider": "Save provider",
     "saving": "Saving…",
     "saved": "Provider saved",
@@ -5995,7 +5995,7 @@ const catalog = {
     "deleteFailed": "Could not delete the provider",
     "readsImages": "Reads images",
     "reasoning": "Reasoning",
-    "traitsHint": "Kortix reads these from the endpoint when it reports them. Turn them on when it does not.",
+    "traitsHint": "Dosco reads these from the endpoint when it reports them. Turn them on when it does not.",
     "contextWindow": "{tokens} context",
     "contextDefault": "128K context (the endpoint reports none)"
   },
@@ -6086,7 +6086,7 @@ const catalog = {
     "price": "{input} / {output} per 1M",
     "hiddenLine": "Not in the model picker · direct requests still work",
     "blockedLine": "Requests to this model are blocked",
-    "platformFee": "Kortix models: provider price + {fee}% platform fee"
+    "platformFee": "Dosco models: provider price + {fee}% platform fee"
   },
   "gatewayCosts": {
     "mostSpend": "Most spend",
@@ -6147,7 +6147,7 @@ const catalog = {
     "shownOnceNote": "Shown only once. Keep it in a secrets manager or a .env file.",
     "firstRequest": "Make your first request",
     "node": "Node",
-    "envHint": "Set <code>KORTIX_GATEWAY_KEY</code> to this key. Any OpenAI or Anthropic SDK works with the base URL <code>{base}</code>.",
+    "envHint": "Set <code>DOSCO_GATEWAY_KEY</code> to this key. Any OpenAI or Anthropic SDK works with the base URL <code>{base}</code>.",
     "storedConfirm": "I've stored this key"
   },
   "modelAccess": {
@@ -6160,9 +6160,9 @@ const catalog = {
     "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
     "credentialsHint": "Disable inference without removing credentials.",
     "providerError": "Could not update provider access.",
-    "managedTitle": "Kortix Managed Models",
+    "managedTitle": "Dosco Managed Models",
     "managedDescription": "Models from Platinum Inference, at its price plus a {fee}% platform fee, paid from credits. No API key needed.",
-    "managedUpgradeHint": "Upgrade to use Kortix's managed models, or connect your own provider.",
+    "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
     "textImage": "Text + image",
     "textOnly": "Text only",
     "zdrTitle": "Zero data retention",
