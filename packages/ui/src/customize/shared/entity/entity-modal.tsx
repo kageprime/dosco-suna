@@ -450,7 +450,7 @@ export function EntityFilePane({
         <pre
           className={cn(
             'overflow-x-auto p-4',
-            'text-foreground font-mono text-sm leading-[1.65]',
+            'text-foreground font-mono text-sm leading-relaxed',
             '[&_code]:border-none [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-inherit',
             '[&_.shiki]:!bg-transparent [&_span]:border-none [&_span]:!bg-transparent [&_span]:outline-none',
           )}

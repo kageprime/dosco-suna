@@ -31,6 +31,13 @@ import { Input } from '../../primitives/input';
 import { Switch } from '../../primitives/switch';
 import { Textarea } from '../../primitives/textarea';
 import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../primitives/select';
 import { AgentMark } from '../../internal/components/agent-mark';
 import { useAccountState } from '../../internal/billing';
 import { capitalizeWords } from '@kortix/shared';
@@ -93,6 +100,15 @@ export function UnifiedSettingsPage({
   const [hasCodeExecution, setHasCodeExecution] = useState(true);
   const [hasDriveAccess, setHasDriveAccess] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
+
+  // Preferences state (Claude-style appearance, typography & notifications)
+  const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
+  const [interfaceFont, setInterfaceFont] = useState('default');
+  const [responseFont, setResponseFont] = useState('serif');
+  const [transcriptSize, setTranscriptSize] = useState('medium');
+  const [motionSetting, setMotionSetting] = useState('system');
+  const [notifyCompletion, setNotifyCompletion] = useState(true);
+  const [notifyMentions, setNotifyMentions] = useState(true);
 
   // Trait toggle handler
   const toggleTrait = (trait: AgentTrait) => {
@@ -490,34 +506,154 @@ export function UnifiedSettingsPage({
           {activeTab === 'preferences' && (
             <div className="space-y-6">
               <div className="space-y-0.5">
-                <h2 className="text-foreground text-lg font-semibold tracking-tight">Preferences & Shortcuts</h2>
+                <h2 className="text-foreground text-lg font-semibold tracking-tight">Preferences & Appearance</h2>
                 <p className="text-muted-foreground text-xs">
-                  Configure editor keybindings, theme settings, and session defaults.
+                  Customize the interface typography, color theme, and notification delivery.
                 </p>
               </div>
+
               <div className="bg-popover border-border/80 rounded-md border p-6 space-y-6">
-                <div className="space-y-3">
-                  <div className="text-foreground text-xs font-semibold">Appearance Theme</div>
-                  <div className="text-muted-foreground text-xs">
-                    Select your preferred interface color theme across all sessions.
+                {/* ── Appearance Section (Claude-Style) ── */}
+                <div className="space-y-4">
+                  <div className="text-foreground text-sm font-semibold">Appearance</div>
+
+                  {/* Theme Mode */}
+                  <div className="flex items-center justify-between py-1">
+                    <div>
+                      <div className="text-foreground text-xs font-medium">Theme</div>
+                      <div className="text-muted-foreground text-xs">Select your interface display mode</div>
+                    </div>
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-md border border-border/60">
+                      <Button
+                        variant={themeMode === 'system' ? 'secondary' : 'ghost'}
+                        size="xs"
+                        onClick={() => setThemeMode('system')}
+                        className="gap-1.5"
+                      >
+                        <SlidersHorizontalIcon className="size-3" />
+                        <span>System</span>
+                      </Button>
+                      <Button
+                        variant={themeMode === 'light' ? 'secondary' : 'ghost'}
+                        size="xs"
+                        onClick={() => setThemeMode('light')}
+                        className="gap-1.5"
+                      >
+                        <SunIcon className="size-3" />
+                        <span>Light</span>
+                      </Button>
+                      <Button
+                        variant={themeMode === 'dark' ? 'secondary' : 'ghost'}
+                        size="xs"
+                        onClick={() => setThemeMode('dark')}
+                        className="gap-1.5"
+                      >
+                        <MoonIcon className="size-3" />
+                        <span>Dark</span>
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" className="gap-1.5">
-                      <SunIcon className="size-3.5" />
-                      <span>Light</span>
-                    </Button>
-                    <Button variant="secondary" size="sm" className="gap-1.5">
-                      <MoonIcon className="size-3.5" />
-                      <span>Dark</span>
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <span>System</span>
-                    </Button>
+
+                  {/* Interface Font */}
+                  <div className="flex items-center justify-between py-2 border-t border-border/40">
+                    <div>
+                      <div className="text-foreground text-xs font-medium">Interface font</div>
+                      <div className="text-muted-foreground text-xs">Font family for navigation and controls</div>
+                    </div>
+                    <Select value={interfaceFont} onValueChange={setInterfaceFont}>
+                      <SelectTrigger className="w-52 h-8 text-xs">
+                        <SelectValue placeholder="Select interface font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default · Dosco Sans</SelectItem>
+                        <SelectItem value="system">System Sans</SelectItem>
+                        <SelectItem value="mono">JetBrains Mono</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Response Font */}
+                  <div className="flex items-center justify-between py-2 border-t border-border/40">
+                    <div>
+                      <div className="text-foreground text-xs font-medium">Response font</div>
+                      <div className="text-muted-foreground text-xs">Typography for agent responses and chat turns</div>
+                    </div>
+                    <Select value={responseFont} onValueChange={setResponseFont}>
+                      <SelectTrigger className="w-52 h-8 text-xs">
+                        <SelectValue placeholder="Select response font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="serif">Anthropic Serif (Editorial)</SelectItem>
+                        <SelectItem value="sans">Modern Sans</SelectItem>
+                        <SelectItem value="mono">Fira Code (Monospace)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Transcript Text Size */}
+                  <div className="flex items-center justify-between py-2 border-t border-border/40">
+                    <div>
+                      <div className="text-foreground text-xs font-medium">Transcript text size</div>
+                      <div className="text-muted-foreground text-xs">Scale text in conversational transcripts</div>
+                    </div>
+                    <Select value={transcriptSize} onValueChange={setTranscriptSize}>
+                      <SelectTrigger className="w-52 h-8 text-xs">
+                        <SelectValue placeholder="Select text size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="compact">Compact (13px)</SelectItem>
+                        <SelectItem value="medium">Medium (14px)</SelectItem>
+                        <SelectItem value="large">Large (16px)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Motion */}
+                  <div className="flex items-center justify-between py-2 border-t border-border/40">
+                    <div>
+                      <div className="text-foreground text-xs font-medium">Motion</div>
+                      <div className="text-muted-foreground text-xs">UI transitions and animations budget</div>
+                    </div>
+                    <Select value={motionSetting} onValueChange={setMotionSetting}>
+                      <SelectTrigger className="w-52 h-8 text-xs">
+                        <SelectValue placeholder="Select motion setting" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="system">System preference</SelectItem>
+                        <SelectItem value="reduced">Reduced motion</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="border-t border-border/60 pt-4 space-y-3">
-                  <div className="text-foreground text-xs font-semibold">Global Keybindings</div>
+                {/* ── Notifications Section (Claude-Style) ── */}
+                <div className="border-t border-border/60 pt-6 space-y-4">
+                  <div className="text-foreground text-sm font-semibold">Notifications</div>
+
+                  <div className="flex items-center justify-between py-1">
+                    <div className="pr-4">
+                      <div className="text-foreground text-xs font-medium">Response completions</div>
+                      <div className="text-muted-foreground text-xs">
+                        Get notified when an agent has finished a response. Useful for long-running tasks.
+                      </div>
+                    </div>
+                    <Switch checked={notifyCompletion} onCheckedChange={setNotifyCompletion} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-t border-border/40">
+                    <div className="pr-4">
+                      <div className="text-foreground text-xs font-medium">Mentions and replies</div>
+                      <div className="text-muted-foreground text-xs">
+                        Get an email when someone mentions you or replies in a thread you are part of.
+                      </div>
+                    </div>
+                    <Switch checked={notifyMentions} onCheckedChange={setNotifyMentions} />
+                  </div>
+                </div>
+
+                {/* ── Global Keybindings ── */}
+                <div className="border-t border-border/60 pt-6 space-y-3">
+                  <div className="text-foreground text-sm font-semibold">Global Keybindings</div>
                   <div className="divide-border/60 divide-y text-xs">
                     <div className="flex items-center justify-between py-2 text-muted-foreground">
                       <span>Quick Search & Palette</span>
