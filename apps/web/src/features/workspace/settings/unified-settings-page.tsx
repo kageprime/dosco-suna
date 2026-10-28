@@ -42,7 +42,6 @@ import { contract, qk } from '@kortix/sdk/react';
 import { capitalizeWords } from '@kortix/shared';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
-import { Hint } from '@kortix/ui/hint';
 import { cn } from '@kortix/ui';
 import { AgentMark } from '@kortix/ui/internal/components/agent-mark';
 import { useAccountState } from '@kortix/ui/internal/billing/index';
@@ -523,52 +522,17 @@ export function UnifiedSettingsPage({
 
         {/* ── Main Layout: Full Bleed Shell (No Clamping) ── */}
         <div className="flex w-full flex-1 min-h-0 overflow-hidden">
-          {/* ── 1. Leftmost Icon Rail (Compact, Pinned) ── */}
-          <aside className="border-border/80 bg-background hidden h-full w-14 shrink-0 flex-col items-center border-r py-3.5 select-none z-10 gap-1.5 overflow-y-auto md:flex">
-            {categoryItems.map((item) => {
-              const isActive = activeTab === item.id;
-              const Icon = item.icon;
-
-              return (
-                <Hint
-                  key={item.id}
-                  side="right"
-                  align="center"
-                  sideOffset={12}
-                  label={
-                    <div className="space-y-0.5">
-                      <p className="font-semibold text-xs text-foreground">{item.label}</p>
-                      <p className="text-[11px] text-muted-foreground max-w-44 leading-tight">
-                        {item.description}
-                      </p>
-                    </div>
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab(item.id)}
-                    aria-label={item.label}
-                    className={cn(
-                      'size-9 rounded-lg flex items-center justify-center transition-all cursor-pointer',
-                      isActive
-                        ? 'bg-muted text-foreground ring-1 ring-border/80 shadow-2xs font-semibold'
-                        : 'text-foreground/70 hover:text-foreground hover:bg-muted/50',
-                    )}
-                  >
-                    <Icon className="size-5 shrink-0" />
-                  </button>
-                </Hint>
-              );
-            })}
-          </aside>
-
-          {/* ── 2. Adjacent Submenu Rail (Generous Room, High-Contrast Typography) ── */}
-          <div className="border-border/80 bg-background/50 hidden h-full w-60 shrink-0 flex-col border-r md:flex overflow-hidden">
+          {/* ── Settings Sidebar Navigation (Generous Room, High-Contrast Typography) ── */}
+          <aside className="border-border/80 bg-background/50 hidden h-full w-60 shrink-0 flex-col border-r md:flex overflow-hidden">
             <div className="p-4 border-b border-border/60 flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tracking-tight">
                 {selectedAgent && activeTab === 'agents'
                   ? 'Agent Configuration'
-                  : categoryItems.find((i) => i.id === activeTab)?.label ?? 'Settings'}
+                  : category === 'project'
+                    ? 'Project Settings'
+                    : category === 'capabilities'
+                      ? 'Capabilities'
+                      : 'Organization'}
               </span>
             </div>
 
@@ -677,7 +641,7 @@ export function UnifiedSettingsPage({
                 </div>
               )}
             </div>
-          </div>
+          </aside>
 
           {/* ── 3. Main Content Canvas (Scrollbar at Far Right Edge) ── */}
           <main className="min-w-0 flex-1 h-full overflow-y-auto bg-background">
