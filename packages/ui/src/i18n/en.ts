@@ -5569,7 +5569,7 @@ const catalog = {
       "textafc219f2a1e7": "Channel settings",
       "text95112f275fba": "Changes apply to sessions started here after you save.",
       "text255e5c59ef00": "Channel settings saved",
-      "text9116af1ce384": "A conversation is shared, so it can use Kortix models and keys shared with the whole project, not personal keys.",
+      "text9116af1ce384": "A conversation is shared, so it can use models and keys shared with the whole project, not personal keys.",
       "texte83e9ba50357": "Any linked project member can join a session here.",
       "text4540af5229a8": "Only the person who started a session can continue it.",
       "textda4bd8bdfe42": "Other people need the session owner's approval to join.",
@@ -6086,7 +6086,7 @@ const catalog = {
     "price": "{input} / {output} per 1M",
     "hiddenLine": "Not in the model picker · direct requests still work",
     "blockedLine": "Requests to this model are blocked",
-    "platformFee": "Dosco models: provider price + {fee}% platform fee"
+    "platformFee": "Models: provider price + {fee}% platform fee"
   },
   "gatewayCosts": {
     "mostSpend": "Most spend",
@@ -6160,9 +6160,9 @@ const catalog = {
     "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
     "credentialsHint": "Disable inference without removing credentials.",
     "providerError": "Could not update provider access.",
-    "managedTitle": "Dosco Managed Models",
+    "managedTitle": "Managed Models",
     "managedDescription": "Models from Platinum Inference, at its price plus a {fee}% platform fee, paid from credits. No API key needed.",
-    "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
+    "managedUpgradeHint": "Upgrade to use managed models, or connect your own provider.",
     "textImage": "Text + image",
     "textOnly": "Text only",
     "zdrTitle": "Zero data retention",

@@ -71,6 +71,7 @@ import {
   TriggersPage,
   SecretsPage,
   ProjectSettingsPage,
+  GitView,
   LlmSections,
   ProjectDefaultPicker,
   useStandaloneCapabilityNav,
@@ -171,15 +172,15 @@ const NAV_ITEMS: readonly NavItemDef[] = [
   {
     id: 'secrets',
     category: 'capabilities',
-    label: 'Secrets Vault',
-    description: 'Project BYOK API keys, tokens & credentials',
+    label: 'Secrets',
+    description: 'Project API keys, tokens & credentials',
     icon: KeyIcon,
   },
   {
     id: 'git',
     category: 'capabilities',
-    label: 'Git Repository',
-    description: 'Connected Git repository, branches & change request policies',
+    label: 'Git',
+    description: 'Repository configuration, branches, clone URL & collaborators',
     icon: GitBranchIcon,
   },
   {
@@ -395,6 +396,11 @@ export function UnifiedSettingsPage({
 
   const [category, setCategory] = useState<SettingsCategory>(initialResolvedCategory);
   const [activeTab, setActiveTab] = useState<string>(initialResolvedTab);
+  const [previousCapabilitiesTab, setPreviousCapabilitiesTab] = useState<string>(
+    initialResolvedCategory === 'capabilities' && initialResolvedTab !== 'models'
+      ? initialResolvedTab
+      : 'agents',
+  );
   const [modelSubTab, setModelSubTab] = useState<ModelSubTab>(
     querySubtab ?? initialModelSubTab,
   );
@@ -466,6 +472,9 @@ export function UnifiedSettingsPage({
   };
 
   const handleSelectTab = (itemId: string, subtab?: ModelSubTab) => {
+    if (category === 'capabilities' && itemId !== 'models') {
+      setPreviousCapabilitiesTab(itemId);
+    }
     setActiveTab(itemId);
     if (itemId !== 'agents') {
       setSelectedAgent(null);
@@ -567,11 +576,13 @@ export function UnifiedSettingsPage({
               <span className="text-sm font-semibold text-foreground tracking-tight">
                 {selectedAgent && activeTab === 'agents'
                   ? 'Agent Configuration'
-                  : category === 'project'
-                    ? 'Project Settings'
-                    : category === 'capabilities'
-                      ? 'Capabilities'
-                      : 'Organization'}
+                  : activeTab === 'models'
+                    ? 'Models & Routing'
+                    : category === 'project'
+                      ? 'Project Settings'
+                      : category === 'capabilities'
+                        ? 'Capabilities'
+                        : 'Organization'}
               </span>
             </div>
 
@@ -623,33 +634,53 @@ export function UnifiedSettingsPage({
                 </div>
               ) : activeTab === 'models' ? (
                 /* Submenu for Models */
-                <div className="space-y-0.5">
-                  {[
-                    { id: 'providers', label: 'Providers' },
-                    { id: 'models', label: 'Model Lineup' },
-                    { id: 'custom', label: 'Custom Models' },
-                    { id: 'gateway', label: 'Gateway' },
-                    { id: 'routing', label: 'Routing Policies' },
-                    { id: 'overview', label: 'Costs & Budgets' },
-                    { id: 'logs', label: 'Gateway Logs' },
-                  ].map((sub) => {
-                    const isSubActive = modelSubTab === sub.id;
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => setModelSubTab(sub.id as ModelSubTab)}
-                        className={cn(
-                          'flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer',
-                          isSubActive
-                            ? 'bg-muted text-foreground font-semibold shadow-2xs'
-                            : 'text-foreground/80 hover:bg-muted/40 hover:text-foreground',
-                        )}
-                      >
-                        <span className="truncate">{sub.label}</span>
-                      </button>
-                    );
-                  })}
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab(previousCapabilitiesTab || 'agents')}
+                    className="flex items-center gap-1.5 text-xs text-foreground/80 hover:text-foreground font-medium px-2.5 py-1.5 rounded-md hover:bg-muted/60 transition-colors w-full cursor-pointer"
+                  >
+                    <ArrowLeftIcon className="size-3.5 shrink-0" />
+                    <span>Back to capabilities</span>
+                  </button>
+
+                  <div className="flex items-center gap-2.5 px-3 py-2 bg-muted/40 rounded-lg border border-border/60">
+                    <CpuIcon className="size-4 shrink-0 text-foreground" />
+                    <div className="min-w-0 flex-1 truncate">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        Models & Routing
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 space-y-0.5 border-t border-border/50">
+                    {[
+                      { id: 'providers', label: 'Providers' },
+                      { id: 'models', label: 'Model Lineup' },
+                      { id: 'custom', label: 'Custom Models' },
+                      { id: 'gateway', label: 'Gateway' },
+                      { id: 'routing', label: 'Routing Policies' },
+                      { id: 'overview', label: 'Costs & Budgets' },
+                      { id: 'logs', label: 'Gateway Logs' },
+                    ].map((sub) => {
+                      const isSubActive = modelSubTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => setModelSubTab(sub.id as ModelSubTab)}
+                          className={cn(
+                            'flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer',
+                            isSubActive
+                              ? 'bg-muted text-foreground font-semibold shadow-2xs'
+                              : 'text-foreground/80 hover:bg-muted/40 hover:text-foreground',
+                          )}
+                        >
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 /* Default List of Sections in Category */
@@ -738,7 +769,17 @@ export function UnifiedSettingsPage({
               {activeTab === 'triggers' && <TriggersPage projectId={projectId} />}
               {activeTab === 'secrets' && <SecretsPage projectId={projectId} />}
               {activeTab === 'git' && category === 'capabilities' && (
-                <ProjectSettingsPage projectId={projectId} />
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-2 border-b border-border/80 pb-4">
+                    <h2 className="text-foreground text-lg font-semibold tracking-tight">
+                      Git
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      Configure your linked repository, active branches, terminal access, and team collaborators.
+                    </p>
+                  </div>
+                  <GitView projectId={projectId} />
+                </div>
               )}
               {activeTab === 'sandbox' && (
                 <div className="space-y-8">

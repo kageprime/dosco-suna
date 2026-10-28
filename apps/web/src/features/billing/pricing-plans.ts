@@ -40,7 +40,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     note: 'Start with real sandbox credits.',
     features: [
       '500 credits / month, no card needed',
-      'Sandbox compute, Apps and every self-serve feature',
       '1 project',
       'Bring your own API key for any premium model',
       'Connect your ChatGPT subscription',

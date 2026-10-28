@@ -193,7 +193,7 @@
     "runtimeBody": "Sessions run on an open runtime. Bring your own keys — Anthropic, OpenAI, or local — or use Dosco compute. Nothing about the runtime is hidden.",
     "lifecycleDescription": "Scaffold, ship, run, automate, connect, and review — one CLI does it all. The same binary is pre-authenticated inside every sandbox, so agents drive Dosco with the exact commands you use.",
     "scaleDescription": "Every session runs in its own isolated sandbox — real, isolated compute — on its own Git branch off main. Start millions in parallel; nothing collides.",
-    "connectorsDescription": "Dosco connectors put 3,000+ apps — plus any MCP, OpenAPI, GraphQL, or raw HTTP endpoint — behind one Executor interface that your agents call like any other tool.",
+    "connectorsDescription": "Connectors put 3,000+ apps — plus any MCP, OpenAPI, GraphQL, or raw HTTP endpoint — behind one Executor interface that your agents call like any other tool.",
     "codeDescription": "Because everything is code in a repo, the system can read its own blueprint, extend itself, and stay healthy as it grows. It is 100% extensible, controllable, and — nothing is a black box."
   },
   "common": {
@@ -2554,7 +2554,7 @@
         },
         "credit": {
           "question": "What does a credit buy?",
-          "answer": "1 credit is $0.01. Credits pay for the agent computer, billed per second per resource: {vcpuRate} per vCPU-hour, {memoryRate} per GB of RAM per hour, {diskRate} per GB of storage per month. The default {spec} machine uses about {creditsPerHour} credits an hour, so 1 credit is about {minutes} minutes. A stopped computer costs nothing. Credits also pay for Dosco models, at the provider's base price plus a {fee}% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5% of the provider's price is paid from credits. A ChatGPT subscription uses no credits."
+          "answer": "1 credit is $0.01. Credits pay for the agent computer, billed per second per resource: {vcpuRate} per vCPU-hour, {memoryRate} per GB of RAM per hour, {diskRate} per GB of storage per month. The default {spec} machine uses about {creditsPerHour} credits an hour, so 1 credit is about {minutes} minutes. A stopped computer costs nothing. Credits also pay for models, at the provider's base price plus a {fee}% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5% of the provider's price is paid from credits. A ChatGPT subscription uses no credits."
         },
         "amounts": {
           "question": "How much do I pay each month?",
@@ -2570,7 +2570,7 @@
         },
         "models": {
           "question": "Do models use credits?",
-          "answer": "Dosco models do, and your own API keys past $1,000 of model usage a month. Dosco models cost the provider's base price plus a {fee}% platform fee, paid from credits, and the app shows the base prices. With your own API key, model usage goes to your provider: the first $1,000 a month is free, then 5% of the provider's price is paid from credits. A connected ChatGPT subscription uses no credits."
+          "answer": "Models do, and your own API keys past $1,000 of model usage a month. Models cost the provider's base price plus a {fee}% platform fee, paid from credits, and the app shows the base prices. With your own API key, model usage goes to your provider: the first $1,000 a month is free, then 5% of the provider's price is paid from credits. A connected ChatGPT subscription uses no credits."
         },
         "topup": {
           "question": "Can I add credits mid-month?",
@@ -2646,7 +2646,7 @@
         },
         "kortix": {
           "tag": "Paid from credits",
-          "title": "Dosco models",
+          "title": "Models",
           "body": "No key to manage. Each call costs the provider's base price plus a {fee}% platform fee, paid from credits. The app shows base prices."
         },
         "summary": "With your own keys, credits pay for the agent computer and 5% of model usage past $1,000 a month."
@@ -3514,7 +3514,7 @@
       "contactGeneral": "General",
       "contactSecurity": "Security",
       "faqWhatCreditsQuestion": "What are credits, and what do they cost?",
-      "faqWhatCreditsAnswerBefore": "Credits pay for the agent computer and for Dosco models. 1 credit is $0.01, and the default agent computer uses about 11 credits an hour. Dosco models cost the provider's base price plus a 5.5% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5%. A ChatGPT subscription uses no credits. Plans, top-ups and how to make a balance last are in",
+      "faqWhatCreditsAnswerBefore": "Credits pay for the agent computer and for models. 1 credit is $0.01, and the default agent computer uses about 11 credits an hour. Models cost the provider's base price plus a 5.5% platform fee. Your own API key is free for the first $1,000 of model usage a month, then 5%. A ChatGPT subscription uses no credits. Plans, top-ups and how to make a balance last are in",
       "faqWhatCreditsLink": "Credits & usage",
       "faqWhatCreditsAnswerAfter": "."
     }
@@ -4113,7 +4113,7 @@
       "line654JsxAttrHintOrgLevelAdminSharedAgentsViewMultipleSeats": "Org-level admin / shared agents view. Multiple seats, agent permissions, audit log glimpse. Optional: Slack message of Dosco posting a deliverable.",
       "line667JsxTextText07UnderTheHood": "/07 · Under the hood",
       "line670JsxTextBuiltOnARealMachine": "Built on a real machine.",
-      "line673JsxTextEverySunaWorkspaceIsAFullLinuxEnvironment": "Every Dosco workspace is a full Linux environment — bash, filesystem, package managers, browsers, the whole software ecosystem. That's why it can actually finish things.",
+      "line673JsxTextEverySunaWorkspaceIsAFullLinuxEnvironment": "Every workspace is a full Linux environment — bash, filesystem, package managers, browsers, the whole software ecosystem. That's why it can actually finish things.",
       "line702JsxTextText08Faq": "/08 · FAQ",
       "line705JsxTextQuestionsAnswered": "Questions, answered.",
       "line746JsxTextHandOffTheWork": "Hand off the work.",
@@ -6926,7 +6926,7 @@
       "line270JsxTextConnectAProvider": "Connect a provider",
       "line314JsxTextKortixCredits": "Dosco Credits",
       "line316JsxTextYouStartWithAFewFreeCreditsTo": "You start with a few free credits to try things out. Your agent can use these when no provider API key is available.",
-      "line321JsxTextCreditsAreUsedWhenYourAgentRunsOn": "Credits are used when your agent runs on Dosco-managed models instead of your own API keys. Most users connect their own provider and rarely use credits.",
+      "line321JsxTextCreditsAreUsedWhenYourAgentRunsOn": "Credits are used when your agent runs on managed models instead of your own API keys. Most users connect their own provider and rarely use credits.",
       "line366JsxTextCheckingProviders": "Checking providers…",
       "line522JsxTextLoadingModels": "Loading models…",
       "line538JsxTextDefaultModel": "Default Model",
@@ -19191,7 +19191,7 @@
       "textc1e301016c46": "Listed Dosco App agent grants",
       "text1bcdfee8502e": "Listed Dosco App deployments",
       "textf2fdf20c6ed2": "Listed Dosco Apps",
-      "text8ea091baa4a9": "Listed Dosco system skills",
+      "text8ea091baa4a9": "Listed system skills",
       "text5154b812f5aa": "Listed LLM catalog providers",
       "text7d5411a21bfb": "Listed LLM gateway budgets",
       "text01262b375d5a": "Listed LLM gateway errors",
@@ -19456,8 +19456,8 @@
       "text7a84bdb22767": "Viewed Dosco App deployment",
       "text516e80d9f8dc": "Deleted Dosco App deployment",
       "text2d430c4c81a2": "Viewed Dosco App deployment logs",
-      "textea0b84c2ddf0": "Viewed Dosco system skill",
-      "text16faff6ae525": "Viewed Dosco system skill file",
+      "textea0b84c2ddf0": "Viewed system skill",
+      "text16faff6ae525": "Viewed system skill file",
       "text04a6fbab3598": "Viewed LLM catalog",
       "texta6607ddc68cd": "Viewed LLM gateway daily usage",
       "text004399bffcaa": "Viewed LLM gateway request log",
@@ -19662,7 +19662,7 @@
       "textafc219f2a1e7": "Channel settings",
       "text95112f275fba": "Changes apply to sessions started here after you save.",
       "text255e5c59ef00": "Channel settings saved",
-      "text9116af1ce384": "A conversation is shared, so it can use Dosco models and keys shared with the whole project, not personal keys.",
+      "text9116af1ce384": "A conversation is shared, so it can use models and keys shared with the whole project, not personal keys.",
       "texte83e9ba50357": "Any linked project member can join a session here.",
       "text4540af5229a8": "Only the person who started a session can continue it.",
       "textda4bd8bdfe42": "Other people need the session owner's approval to join.",
@@ -20677,7 +20677,7 @@
     "price": "{input} / {output} per 1M",
     "hiddenLine": "Not in the model picker · direct requests still work",
     "blockedLine": "Requests to this model are blocked",
-    "platformFee": "Dosco models: provider price + {fee}% platform fee"
+    "platformFee": "Models: provider price + {fee}% platform fee"
   },
   "gatewayCosts": {
     "mostSpend": "Most spend",
@@ -20751,9 +20751,9 @@
     "defaultProviderHint": "Choose a project default from another provider before disabling this provider.",
     "credentialsHint": "Disable inference without removing credentials.",
     "providerError": "Could not update provider access.",
-    "managedTitle": "Dosco Managed Models",
+    "managedTitle": "Managed Models",
     "managedDescription": "Models from Platinum Inference, at its price plus a {fee}% platform fee, paid from credits. No API key needed.",
-    "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
+    "managedUpgradeHint": "Upgrade to use managed models, or connect your own provider.",
     "textImage": "Text + image",
     "textOnly": "Text only",
     "zdrTitle": "Zero data retention",

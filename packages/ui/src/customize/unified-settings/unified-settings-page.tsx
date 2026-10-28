@@ -77,11 +77,11 @@ export function UnifiedSettingsPage({
     { id: 'skills', label: 'Skills', icon: SparkleIcon },
     { id: 'models', label: 'Models', icon: CpuIcon },
     { id: 'connectors', label: 'Connectors', icon: PlugsConnectedIcon },
-    { id: 'secrets', label: 'Secrets Vault', icon: KeyIcon },
-    { id: 'git', label: 'Git Repository', icon: GitBranchIcon },
+    { id: 'secrets', label: 'Secrets', icon: KeyIcon },
+    { id: 'git', label: 'Git', icon: GitBranchIcon },
     { id: 'sandbox', label: 'Sandbox & Snapshots', icon: CubeIcon },
     { id: 'feature-flags', label: 'Feature Flags', icon: FlaskIcon },
-    { id: 'general', label: 'Workspace General', icon: GearSixIcon },
+    { id: 'general', label: 'General', icon: GearSixIcon },
   ] as const;
 
   return (
