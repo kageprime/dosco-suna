@@ -24,7 +24,7 @@ export function ProjectArtifactsNavItem({ projectId }: { projectId: string }) {
       <span className="shrink-0">
         <CardsThreeIcon />
       </span>
-      {t('artifacts')}
+      <span className="truncate group-data-[collapsible=icon]:hidden">{t('artifacts')}</span>
     </ProjectNavRow>
   );
 }

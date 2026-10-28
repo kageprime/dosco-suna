@@ -91,6 +91,8 @@ interface AppProvidersProps {
   children: React.ReactNode;
   showSidebar?: boolean;
   defaultSidebarOpen?: boolean;
+  sidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
   sidebarContent?: React.ReactNode;
   sidebarSiblings?: React.ReactNode;
   /** Vestigial — see the comment above `AppProviders` on `GlobalUserSettingsModal`'s
@@ -103,6 +105,8 @@ export function AppProviders({
   children,
   showSidebar = true,
   defaultSidebarOpen,
+  sidebarOpen,
+  onSidebarOpenChange,
   sidebarContent,
   sidebarSiblings,
   showGlobalUserSettingsModal = false,
@@ -131,7 +135,11 @@ export function AppProviders({
   if (!showSidebar) return content;
 
   return (
-    <SidebarProvider defaultOpen={defaultSidebarOpen}>
+    <SidebarProvider
+      defaultOpen={defaultSidebarOpen}
+      open={sidebarOpen}
+      onOpenChange={onSidebarOpenChange}
+    >
       <SidebarLeftSlot sidebarContent={sidebarContent} />
       <SidebarInset>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{content}</div>

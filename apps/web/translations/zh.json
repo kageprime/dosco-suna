@@ -21174,7 +21174,8 @@
     "areaDescription": "将应用和渠道连接到智能体，并决定它们可以做什么。",
     "wayMoreNamed": "{name} 的更多操作",
     "otherWaysLead": "其他方式：",
-    "typeFilterDosco": "Dosco"
+    "typeFilterDosco": "Dosco",
+    "typeFilterKortix": "Dosco"
   },
   "connectMcp": {
     "title": "通过 MCP 连接 Dosco",

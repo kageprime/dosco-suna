@@ -69,10 +69,10 @@ export function SidebarAlertRow({
 }) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton type="button" onClick={onClick} className={cn(ROW_CLASS, TONE_TEXT[tone])}>
+      <SidebarMenuButton tooltip={label} type="button" onClick={onClick} className={cn(ROW_CLASS, TONE_TEXT[tone])}>
         {icon}
-        <span className="truncate">{label}</span>
-        {trailing ? <span className="ml-auto shrink-0 text-xs opacity-70">{trailing}</span> : null}
+        <span className="truncate group-data-[collapsible=icon]:hidden">{label}</span>
+        {trailing ? <span className="ml-auto shrink-0 text-xs opacity-70 group-data-[collapsible=icon]:hidden">{trailing}</span> : null}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
@@ -114,6 +114,7 @@ export function SidebarAlert({
               nothing above it to separate from, so the border would be a rule
               floating under a plain sidebar row. */}
           <SidebarMenuButton
+            tooltip={label}
             className={cn(
               ROW_CLASS,
               TONE_TEXT[tone],
@@ -121,8 +122,8 @@ export function SidebarAlert({
             )}
           >
             {icon}
-            <span className="truncate">{label}</span>
-            <CaretDownIcon className="ml-auto size-3.5 shrink-0 opacity-50 transition-transform duration-200 ease-out group-data-[state=open]:rotate-180" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">{label}</span>
+            <CaretDownIcon className="ml-auto size-3.5 shrink-0 opacity-50 transition-transform duration-200 ease-out group-data-[state=open]:rotate-180 group-data-[collapsible=icon]:hidden" />
           </SidebarMenuButton>
         </DisclosureTrigger>
       </Disclosure>

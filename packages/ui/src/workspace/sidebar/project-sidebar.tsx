@@ -33,6 +33,7 @@ import { useTranslations } from '../../i18n';
 import { cn } from '../../internal/lib/utils';
 import { useBillingAccountId } from '../../internal/stores/billing-account-context';
 import {
+  ChatCircleIcon,
   MagnifyingGlassIcon,
   NavigationArrowIcon,
 } from '@phosphor-icons/react';
@@ -50,6 +51,7 @@ export function ProjectSidebar({
   projectId,
   menu,
   onOpenSearch,
+  collapsible = 'offcanvas',
 }: {
   projectId: string;
   /**
@@ -63,6 +65,7 @@ export function ProjectSidebar({
    * shows only the sidebar's own buttons.
    */
   menu?: ReactNode;
+  collapsible?: 'offcanvas' | 'icon' | 'none' | 'push';
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const t = useTranslations('sidebar');
@@ -99,9 +102,9 @@ export function ProjectSidebar({
         <span className="shrink-0">
           <NavigationArrowIcon className="rotate-90" />
         </span>
-        <span>{t('newSession')}</span>
+        <span className="group-data-[collapsible=icon]:hidden">{t('newSession')}</span>
         {!isMobile && (
-          <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100">
+          <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden">
             <Kbd>{modSymbol}</Kbd>
             <Kbd>J</Kbd>
           </KbdGroup>
@@ -136,7 +139,7 @@ export function ProjectSidebar({
   return (
     <>
     <Sidebar
-      collapsible="offcanvas"
+      collapsible={collapsible}
       variant="inset"
       // No background here. This className lands on the sidebar CONTAINER —
       // the square positioning box — while the visible card is the rounded
@@ -145,7 +148,7 @@ export function ProjectSidebar({
       className="[scrollbar-width:'none'] [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden"
     >
       <SidebarHeader
-        className="kx-project-sidebar-header space-y-2"
+        className="kx-project-sidebar-header space-y-2 group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:space-y-0"
         data-peek={peek ? '' : undefined}
       >
         {/* Offcanvas everywhere: the whole panel slides, so the header keeps a
@@ -167,12 +170,16 @@ export function ProjectSidebar({
             control below any more. */}
         <div
           className={cn(
-            'flex w-full items-center gap-1',
+            'flex w-full items-center gap-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
             !peek && 'kx-titlebar-row kx-titlebar-band-height kx-project-sidebar-titlebar',
           )}
         >
-          {menu ? <div className="min-w-0">{menu}</div> : null}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {menu ? (
+            <div className="min-w-0 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+              {menu}
+            </div>
+          ) : null}
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
             {/* The inbox (KRTX-1742), first, while this project has the
                 `notification_center` flag on. The switcher shrinks before any
                 of the three icon buttons, so the row fits the 208px floor. */}
@@ -277,6 +284,7 @@ export function ProjectSidebar({
                   <SidebarMenuButton
                     disabled
                     aria-busy
+                    tooltip={t('newSession')}
                     className="group/menu-button text-sidebar-foreground relative"
                   >
                     {newSessionRowBody}
@@ -284,6 +292,7 @@ export function ProjectSidebar({
                 ) : (
                   <SidebarMenuButton
                     asChild
+                    tooltip={t('newSession')}
                     className="group/menu-button text-sidebar-foreground relative"
                   >
                     <Link href={uiRoutes().project(projectId)} prefetch onClick={handleNewSessionClick}>
@@ -293,6 +302,21 @@ export function ProjectSidebar({
                 )}
               </SidebarMenuItem>
 
+              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t('chats')}
+                  className="group/menu-button text-sidebar-foreground relative"
+                >
+                  <Link href={uiRoutes().project(projectId)} prefetch onClick={handleNewSessionClick}>
+                    <span className="shrink-0">
+                      <ChatCircleIcon />
+                    </span>
+                    <span className="group-data-[collapsible=icon]:hidden">{t('chats')}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Customize, Apps, Files: order and
                   visibility come from "Customize sidebar". They moved up here
                   from the footer (Jay, 2026-10-12) to keep the footer short. */}
@@ -300,7 +324,7 @@ export function ProjectSidebar({
             </SidebarMenu>
           </SidebarGroup>
 
-          <SidebarGroup className="min-h-0 flex-1 flex-col py-0" ref={sessionsGroupRef}>
+          <SidebarGroup className="min-h-0 flex-1 flex-col py-0 group-data-[collapsible=icon]:hidden" ref={sessionsGroupRef}>
             <ProjectSessionList projectId={projectId} />
           </SidebarGroup>
 
@@ -332,6 +356,21 @@ export function ProjectSidebar({
                   this group, and above the nav rows it put a sell between the
                   user and the links they actually use. */}
               <SidebarUpgradeButton accountId={accountId} />
+              {/* Bottom expand toggle visible only in icon mode */}
+              <li className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center pt-1">
+                <Hint side="right" label={t('expandSidebar')}>
+                  <Button
+                    type="button"
+                    aria-label={t('expandSidebar')}
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleSidebar}
+                    className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <PanelLeft className="size-4" />
+                  </Button>
+                </Hint>
+              </li>
             </SidebarMenu>
           </SidebarGroup>
         </div>

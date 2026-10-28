@@ -62,7 +62,7 @@ export function SidebarUpgradeButton({ accountId, className }: SidebarUpgradeBut
   if (!show) return null;
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
       <SidebarMenuButton type="button" variant="primary" className={cn(className)} onClick={handleClick}>
         {t('upgradePlan')}
       </SidebarMenuButton>

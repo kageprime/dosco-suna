@@ -43,7 +43,9 @@ export function ProjectAppsNavItem({ projectId }: { projectId: string }) {
       <span className="shrink-0">
         <AppWindowIcon />
       </span>
-      {tI18nComplete.raw('text89dd748442c1')}
+      <span className="truncate group-data-[collapsible=icon]:hidden">
+        {tI18nComplete.raw('text89dd748442c1')}
+      </span>
     </ProjectNavRow>
   );
 }

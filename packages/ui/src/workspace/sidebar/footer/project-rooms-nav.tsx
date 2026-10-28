@@ -35,9 +35,9 @@ export function ProjectRoomsNavItem({ projectId }: { projectId: string }) {
       <span className="shrink-0">
         <ChatsTeardropIcon />
       </span>
-      {t('rooms')}
+      <span className="truncate group-data-[collapsible=icon]:hidden">{t('rooms')}</span>
       {unread > 0 ? (
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden">
           <CountBadge count={unread} tone="waiting" />
         </span>
       ) : null}

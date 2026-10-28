@@ -29,9 +29,9 @@ export function ProjectGoalsNavItem({ projectId }: { projectId: string }) {
       <span className="shrink-0">
         <TargetIcon />
       </span>
-      {t('goals')}
+      <span className="truncate group-data-[collapsible=icon]:hidden">{t('goals')}</span>
       {needsYou > 0 ? (
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden">
           <CountBadge count={needsYou} tone="waiting" />
         </span>
       ) : null}

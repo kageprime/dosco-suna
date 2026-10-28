@@ -450,7 +450,7 @@ export function ConnectorsPage({ projectId }: { projectId: string }) {
             {kindFilter === 'all'
               ? tPages('typeFilterAll')
               : kindFilter === 'kortix'
-                ? tPages('typeFilterKortix')
+                ? (tPages.has?.('typeFilterDosco') ? tPages('typeFilterDosco') : tPages.has?.('typeFilterKortix') ? tPages('typeFilterKortix') : 'Dosco')
                 : wayKindLabel(kindFilter)}
             <CaretDownIcon className="size-3 shrink-0" />
           </Button>
@@ -470,7 +470,7 @@ export function ConnectorsPage({ projectId }: { projectId: string }) {
                 {value === 'all'
                   ? tPages('typeFilterAll')
                   : value === 'kortix'
-                    ? tPages('typeFilterKortix')
+                    ? (tPages.has?.('typeFilterDosco') ? tPages('typeFilterDosco') : tPages.has?.('typeFilterKortix') ? tPages('typeFilterKortix') : 'Dosco')
                     : wayKindLabel(value)}
               </DropdownMenuRadioItem>
             ))}

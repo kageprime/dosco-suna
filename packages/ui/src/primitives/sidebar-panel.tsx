@@ -43,7 +43,7 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile, peek, peekEnter, peekLeave, instantToggle } =
     useSidebar();
-  const slides = collapsible === 'offcanvas' && side === 'left';
+  const slides = (collapsible === 'offcanvas' || collapsible === 'push') && side === 'left';
   const peekable = slides && state === 'collapsed';
   const peeking = peekable && peek;
 
@@ -136,6 +136,7 @@ function Sidebar({
         className={cn(
           'relative w-(--sidebar-width) bg-transparent',
           'group-data-[collapsible=offcanvas]:w-0',
+          'group-data-[collapsible=push]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
             ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
@@ -197,6 +198,7 @@ function Sidebar({
                 // Above the content headers for the whole collapsed
                 // lifecycle, so the exit slide is never clipped by one.
                 state === 'collapsed' && 'z-40',
+                collapsible === 'push' && state === 'expanded' && 'relative',
                 // The radius is declared on BOTH boxes on purpose. The card
                 // itself is `sidebar-inner`; this outer box only positions and
                 // transforms it — but `className` from the consumer lands

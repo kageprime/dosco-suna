@@ -6,15 +6,20 @@ import { AppPreviewPoolLoader } from '@/features/apps/app-preview-pool-loader';
 import { ArtifactFramePreloader } from '@/features/artifacts/artifact-frame-preloader';
 import { useTranslations } from '@/i18n/use-translations';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect } from 'react';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { TITLEBAR_CONTROL_CLASS } from '@kortix/ui/internal/desktop/titlebar-control';
 import { PersonalOnboardingWelcome } from '@/components/projects/personal-onboarding-welcome';
 import { ProjectPendingScreen } from '@/components/projects/project-pending-screen';
 import { Button } from '@kortix/ui/button';
 import Hint from '@kortix/ui/hint';
-import { SidebarEdgePeek, useSidebar } from '@kortix/ui/sidebar';
+import {
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+  SidebarEdgePeek,
+  useSidebar,
+} from '@kortix/ui/sidebar';
 import { useBrandingScope } from '@kortix/ui/internal/branding/branding-provider';
 import { AppProviders } from '@/features/layout/app-providers';
 import { useAuth } from '@/features/providers/auth-provider';
@@ -81,6 +86,34 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
   const resolvedSidebarOpen = initialSidebarOpen ?? readSidebarOpenCookie();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const isSettingsOrCustomize = Boolean(
+    pathname && /\/projects\/[^/]+\/(settings|customize)/.test(pathname),
+  );
+
+  const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
+  const [normalSidebarOpen, setNormalSidebarOpen] = useState<boolean | undefined>(
+    resolvedSidebarOpen,
+  );
+
+  const activeSidebarOpen = isSettingsOrCustomize
+    ? settingsSidebarOpen
+    : (normalSidebarOpen ?? resolvedSidebarOpen ?? true);
+
+  const handleSidebarOpenChange = useCallback(
+    (open: boolean) => {
+      if (isSettingsOrCustomize) {
+        setSettingsSidebarOpen(open);
+      } else {
+        setNormalSidebarOpen(open);
+        if (typeof document !== 'undefined') {
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        }
+      }
+    },
+    [isSettingsOrCustomize],
+  );
+
   const { user, isLoading: authLoading, bootstrapError } = useAuth();
 
   const { data: projectDetail, error: projectDetailError, isStale: projectDetailStale } = useQuery({
@@ -253,9 +286,12 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
         showSidebar
         showGlobalUserSettingsModal={false}
         defaultSidebarOpen={resolvedSidebarOpen}
+        sidebarOpen={activeSidebarOpen}
+        onSidebarOpenChange={handleSidebarOpenChange}
         sidebarContent={
           <ProjectSidebar
             projectId={projectId}
+            collapsible={isSettingsOrCustomize ? 'icon' : 'offcanvas'}
             menu={<WorkspaceSwitcher projectId={projectId} />}
             onOpenSearch={openCommandPalette}
           />
@@ -294,6 +330,10 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
 
 const ProjectSheelLayout = ({ children }: { children: React.ReactNode }) => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const pathname = usePathname();
+  const isSettingsOrCustomize = Boolean(
+    pathname && /\/projects\/[^/]+\/(settings|customize)/.test(pathname),
+  );
   const { state, isMobile, toggleSidebar, peek, peekEnter, peekLeave } = useSidebar();
   const isExpanded = !isMobile && state === 'expanded';
   // The sidebar hides fully when collapsed (offcanvas everywhere, no icon
@@ -306,7 +346,7 @@ const ProjectSheelLayout = ({ children }: { children: React.ReactNode }) => {
     <div
       className={cn(
         'bg-background relative flex min-h-0 flex-1 flex-col overflow-hidden',
-        isExpanded && 'border-border border-l',
+        (isExpanded || isSettingsOrCustomize) && 'border-border border-l',
       )}
       // The sidebar navigates and the toggle below owns the band's corner, so
       // the window's desktop Back (root layout) steps aside on every project view.

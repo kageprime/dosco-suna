@@ -21174,7 +21174,8 @@
     "areaDescription": "Повежите апликације и канале са агентима и одредите шта смеју да раде.",
     "wayMoreNamed": "Још за {name}",
     "otherWaysLead": "Други начини:",
-    "typeFilterDosco": "Dosco"
+    "typeFilterDosco": "Dosco",
+    "typeFilterKortix": "Dosco"
   },
   "connectMcp": {
     "title": "Povežite Dosco preko MCP-a",

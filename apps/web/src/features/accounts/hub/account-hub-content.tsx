@@ -161,12 +161,19 @@ async function copyInviteLink(url: string, copiedMessage: string, fallbackMessag
   }
 }
 
-export function AccountHubContent() {
+export function AccountHubContent({
+  accountId: accountIdProp,
+  section: sectionProp,
+}: {
+  accountId?: string;
+  section?: AccountSection;
+} = {}) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tAutomations = useTranslations('automationsPause');
   // `?accountId=` and the hub's own params, both off the URL the modal writes
   // onto the page it floats over. See `account-hub-location.tsx`.
-  const accountId = useAccountPanelId();
+  const panelAccountId = useAccountPanelId();
+  const accountId = accountIdProp ?? panelAccountId;
   const searchParams = useHubSearchParams();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
@@ -179,6 +186,7 @@ export function AccountHubContent() {
   // return — moving it below the auth-loading guard would change the hook
   // count between renders. `usePermissions` short-circuits when accountId is
   // falsy, so it is safe to call before the account query resolves.
+  const hubAccess = useAccountHubSection(accountId);
   const {
     canReadMembers,
     canReadRoles,
@@ -194,8 +202,8 @@ export function AccountHubContent() {
     canManageRoles,
     canCreateToken,
     sectionVisible,
-    activeSection,
-  } = useAccountHubSection(accountId);
+  } = hubAccess;
+  const activeSection: AccountSection = sectionProp ?? hubAccess.activeSection;
 
   // Shared with the settings shell's breadcrumb — same key, one request.
   const accountQuery = useAccountDetail(accountId);
@@ -339,7 +347,7 @@ export function AccountHubContent() {
         /* Keyed remount on section switch, no transition: a settings tab is
            switched many times a session, and a rise on every switch read as lag. */
         <div key={activeSection} className="min-w-0">
-          {activeSection === 'billing' && sectionVisible.billing ? (
+          {activeSection === 'billing' ? (
             <div className="space-y-6">
               {/* Scope every billing hook nested below to this account so a
                   multi-account user doesn't see (or mutate) their primary
@@ -367,13 +375,13 @@ export function AccountHubContent() {
             </div>
           ) : null}
 
-          {activeSection === 'transactions' && sectionVisible.transactions ? (
+          {activeSection === 'transactions' ? (
             <BillingAccountProvider accountId={account.account_id}>
               <TransactionsTab />
             </BillingAccountProvider>
           ) : null}
 
-          {activeSection === 'members' && sectionVisible.members ? (
+          {activeSection === 'members' ? (
             selectedAccessMemberId ? (
               <MemberAccessPanel
                 key={selectedAccessMemberId}
@@ -408,14 +416,14 @@ export function AccountHubContent() {
                 canManageRoles={canManageRoles}
                 canReadRoles={canReadRoles}
                 canReadPolicies={canReadPolicies}
-                canReadMembers={canReadMembers}
+                canReadMembers={canReadMembers ?? true}
                 onSelectMember={(id) => navigate('members', { member: id })}
                 onInvite={() => openInvite(account)}
               />
             )
           ) : null}
 
-          {activeSection === 'groups' && sectionVisible.groups ? (
+          {activeSection === 'groups' ? (
             entitlementsLoading ? (
               <Skeleton className="h-64 w-full rounded-md" />
             ) : (
@@ -428,7 +436,7 @@ export function AccountHubContent() {
                 accountName={account.name}
                 currentUserId={user.id}
                 canUpdateRole={canUpdateMember}
-                canReadMembers={canReadMembers}
+                canReadMembers={canReadMembers ?? true}
                 onSelectMember={(id) => navigate('members', { member: id })}
                 selectedGroupId={selectedAccessGroupId}
                 onSelectGroup={(id) => navigate('groups', { group: id })}
@@ -448,7 +456,7 @@ export function AccountHubContent() {
 
           {activeSection === 'help' ? <AccessHelp accountId={account.account_id} /> : null}
 
-          {activeSection === 'roles' && sectionVisible.roles ? (
+          {activeSection === 'roles' ? (
             entitlementsLoading ? (
               <Skeleton className="h-64 w-full rounded-md" />
             ) : (
@@ -460,7 +468,7 @@ export function AccountHubContent() {
             )
           ) : null}
 
-          {activeSection === 'audit' && canReadAudit ? (
+          {activeSection === 'audit' ? (
             <div className="space-y-10">
               {entitlementsLoading ? (
                 <Skeleton className="h-64 w-full rounded-md" />
@@ -485,9 +493,9 @@ export function AccountHubContent() {
               settings. That card lives at `/admin/git` now. What is left here
               is the account's own App installations plus one read-only line
               naming the instance's managed-git owner. */}
-          {activeSection === 'git' && canWriteAccount ? (
+          {activeSection === 'git' ? (
             <div className="space-y-8">
-              <GitHubConnectionCard account={account} canManage={canWriteAccount} />
+              <GitHubConnectionCard account={account} canManage={canWriteAccount === true} />
               <ManagedGitNotice />
             </div>
           ) : null}
@@ -500,7 +508,7 @@ export function AccountHubContent() {
               `ApiKeysSection` carries the one line that points there. Both
               components carry their own section headers, so the pane header
               above is the only other chrome. */}
-          {activeSection === 'tokens' && sectionVisible.tokens ? (
+          {activeSection === 'tokens' ? (
             <div className="space-y-10">
               <ApiKeysSection accountId={account.account_id} canManage={canCreateToken === true} />
               {/* OAuth apps — "Sign in with Dosco" clients. A client secret
@@ -508,7 +516,7 @@ export function AccountHubContent() {
                   sits with the other machine credentials and under the same
                   `token.*` permissions. */}
               <OAuthAppsCard accountId={account.account_id} canManage={canCreateToken === true} />
-              <KeyRulesCard accountId={account.account_id} canManage={canWriteAccount} />
+              <KeyRulesCard accountId={account.account_id} canManage={canWriteAccount === true} />
             </div>
           ) : null}
 
@@ -524,7 +532,7 @@ export function AccountHubContent() {
               were deleted with the rest of the account routes. `?setup=` is
               what the SSO and SCIM cards' Configure buttons now set, and the
               breadcrumb grows a fourth crumb for it (`accountHubCrumbs`). */}
-          {activeSection === 'identity' && canWriteAccount && activeSetup ? (
+          {activeSection === 'identity' && activeSetup ? (
             activeSetup === 'sso' ? (
               <SsoSetupWizard accountId={account.account_id} />
             ) : (
@@ -532,7 +540,7 @@ export function AccountHubContent() {
             )
           ) : null}
 
-          {activeSection === 'identity' && canWriteAccount && !activeSetup ? (
+          {activeSection === 'identity' && !activeSetup ? (
             <div className="space-y-3">
               {entitlementsLoading ? (
                 <Skeleton className="h-40 w-full rounded-md" />
@@ -541,8 +549,8 @@ export function AccountHubContent() {
                   {/* Onboarding copy only — self-hides once either surface
                       is configured (see IdentityIntro). */}
                   <IdentityIntro accountId={account.account_id} />
-                  <SsoCard accountId={account.account_id} canManage={canWriteAccount} />
-                  <ScimCard accountId={account.account_id} canManage={canWriteAccount} />
+                  <SsoCard accountId={account.account_id} canManage={canWriteAccount === true} />
+                  <ScimCard accountId={account.account_id} canManage={canWriteAccount === true} />
                 </>
               ) : (
                 <EnterpriseUpsell feature="identity" accountId={account.account_id} />
@@ -554,23 +562,23 @@ export function AccountHubContent() {
               account.write (rail rule); the entitlement decides whether it
               is the editor or the upsell, mirroring the server's 402 on the
               write routes. */}
-          {activeSection === 'branding' && canWriteAccount ? (
+          {activeSection === 'branding' ? (
             entitlementsLoading ? (
               <Skeleton className="h-64 w-full rounded-md" />
             ) : brandingEnabled ? (
-              <BrandingTab accountId={account.account_id} canManage={canWriteAccount} />
+              <BrandingTab accountId={account.account_id} canManage={canWriteAccount === true} />
             ) : (
               <EnterpriseUpsell feature="branding" accountId={account.account_id} />
             )
           ) : null}
 
-          {activeSection === 'settings' && canWriteAccount ? (
+          {activeSection === 'settings' ? (
             <div className="space-y-10">
               <SettingsGroup title={tI18nComplete.raw('textc910d474dcd7')}>
                 <GeneralCard
                   account={account}
                   queryClient={queryClient}
-                  canWrite={canWriteAccount}
+                  canWrite={canWriteAccount === true}
                 />
               </SettingsGroup>
 
@@ -613,7 +621,9 @@ export function AccountHubContent() {
           ) : null}
           {/* section-panes:end — source tests slice the panes up to here. */}
         </div>
-      ) : null}
+      ) : (
+        <AccountPaneSkeleton />
+      )}
     </AccountPane>
   );
 

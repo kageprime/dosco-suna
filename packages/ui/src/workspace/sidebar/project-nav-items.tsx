@@ -119,7 +119,7 @@ function MoreNavItem({
             <span className="shrink-0">
               <DotsThreeOutlineIcon weight="fill" />
             </span>
-            <span className="truncate">{t('more')}</span>
+            <span className="truncate group-data-[collapsible=icon]:hidden">{t('more')}</span>
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent

@@ -27,18 +27,19 @@ export function PromoNavRow({
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
+        tooltip={label}
         className="text-sidebar-foreground bg-hover group-has-data-[sidebar=menu-action]/menu-item:pr-12"
         disabled={pending}
         aria-busy={pending || undefined}
         onClick={onClick}
       >
         {icon}
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">{label}</span>
       </SidebarMenuButton>
-      <SidebarMenuBadge className="bg-kortix-blue/15 text-foreground mr-1 rounded-sm px-1.5 group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 max-md:hidden">
+      <SidebarMenuBadge className="bg-kortix-blue/15 text-foreground mr-1 rounded-sm px-1.5 group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 group-data-[collapsible=icon]:hidden max-md:hidden">
         {badge}
       </SidebarMenuBadge>
-      <SidebarMenuAction onClick={onDismiss} aria-label={dismissLabel} showOnHover className="mr-1">
+      <SidebarMenuAction onClick={onDismiss} aria-label={dismissLabel} showOnHover className="mr-1 group-data-[collapsible=icon]:hidden">
         <XIcon />
       </SidebarMenuAction>
     </SidebarMenuItem>

@@ -295,9 +295,9 @@ export function ProjectCustomizeNavItem({ projectId }: { projectId: string }) {
       <span className="shrink-0">
         <CustomizeGlyph />
       </span>
-      Settings & Customization
+      <span className="truncate group-data-[collapsible=icon]:hidden">Settings & Customization</span>
       {reviewCount > 0 ? (
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden">
           <CountBadge count={reviewCount} tone="waiting" />
         </span>
       ) : null}

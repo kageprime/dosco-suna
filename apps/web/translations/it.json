@@ -21174,7 +21174,8 @@
     "areaDescription": "Collega app e canali ai tuoi agenti e decidi cosa possono fare.",
     "wayMoreNamed": "Altro per {name}",
     "otherWaysLead": "Altri modi:",
-    "typeFilterDosco": "Dosco"
+    "typeFilterDosco": "Dosco",
+    "typeFilterKortix": "Dosco"
   },
   "connectMcp": {
     "title": "Collega Dosco tramite MCP",

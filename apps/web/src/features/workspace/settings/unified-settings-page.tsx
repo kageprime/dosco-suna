@@ -375,15 +375,26 @@ export function UnifiedSettingsPage({
   const searchParams = useSearchParams();
 
   const queryCategory = searchParams.get('category') as SettingsCategory | null;
-  const queryTab = searchParams.get('tab');
+  const queryAccountTab = searchParams.get('accountTab');
+  const queryTab = searchParams.get('tab') || queryAccountTab;
+  const queryAccountId = searchParams.get('accountId');
   const querySubtab = searchParams.get('subtab') as ModelSubTab | null;
   const queryAgent = searchParams.get('agent');
   const querySection = searchParams.get('section') as AgentConfigSectionKey | null;
 
-  const [category, setCategory] = useState<SettingsCategory>(
-    queryCategory ?? initialCategory,
+  const isOrgTab = Boolean(
+    queryAccountTab ||
+    (queryTab && NAV_ITEMS.some((i) => i.id === queryTab && i.category === 'organization')) ||
+    queryAccountId,
   );
-  const [activeTab, setActiveTab] = useState<string>(queryTab ?? initialTab);
+
+  const initialResolvedCategory: SettingsCategory =
+    queryCategory ?? (isOrgTab ? 'organization' : initialCategory);
+  const initialResolvedTab: string =
+    queryTab ?? (initialResolvedCategory === 'organization' ? 'settings' : initialTab);
+
+  const [category, setCategory] = useState<SettingsCategory>(initialResolvedCategory);
+  const [activeTab, setActiveTab] = useState<string>(initialResolvedTab);
   const [modelSubTab, setModelSubTab] = useState<ModelSubTab>(
     querySubtab ?? initialModelSubTab,
   );
@@ -413,7 +424,8 @@ export function UnifiedSettingsPage({
   const project = detail.data?.project;
   const config = detail.data?.config;
   const projectAccountId = project?.account_id;
-  const accountId = useSettingsAccountId(projectAccountId);
+  const fallbackAccountId = useSettingsAccountId(projectAccountId);
+  const accountId = queryAccountId || fallbackAccountId;
   const { data: accountState } = useAccountState({ accountId });
 
   // Project Permissions
@@ -430,12 +442,26 @@ export function UnifiedSettingsPage({
   const handleSelectCategory = (nextCategory: SettingsCategory) => {
     setCategory(nextCategory);
     setSelectedAgent(null);
+    let targetTab = 'agents';
     if (nextCategory === 'capabilities') {
-      setActiveTab('agents');
+      targetTab = 'agents';
     } else if (nextCategory === 'personal') {
-      setActiveTab('profile');
+      targetTab = 'profile';
     } else if (nextCategory === 'organization') {
-      setActiveTab('settings');
+      targetTab = 'settings';
+    }
+    setActiveTab(targetTab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('category', nextCategory);
+      if (nextCategory === 'organization') {
+        url.searchParams.set('accountTab', targetTab);
+        if (accountId) url.searchParams.set('accountId', accountId);
+      } else {
+        url.searchParams.set('tab', targetTab);
+        url.searchParams.delete('accountTab');
+      }
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     }
   };
 
@@ -446,6 +472,19 @@ export function UnifiedSettingsPage({
     }
     if (subtab) {
       setModelSubTab(subtab);
+    }
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('category', category);
+      if (category === 'organization') {
+        url.searchParams.set('accountTab', itemId);
+        if (accountId) url.searchParams.set('accountId', accountId);
+        url.searchParams.delete('tab');
+      } else {
+        url.searchParams.set('tab', itemId);
+        url.searchParams.delete('accountTab');
+      }
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     }
   };
 
@@ -725,7 +764,10 @@ export function UnifiedSettingsPage({
               {category === 'organization' && (
                 <BillingAccountProvider accountId={accountId}>
                   <AccountHubSheetProvider>
-                    <AccountHubContent />
+                    <AccountHubContent
+                      accountId={accountId}
+                      section={activeTab as any}
+                    />
                   </AccountHubSheetProvider>
                 </BillingAccountProvider>
               )}

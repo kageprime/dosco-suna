@@ -21174,7 +21174,8 @@
     "areaDescription": "アプリとチャネルをエージェントに接続し、できることを決めます。",
     "wayMoreNamed": "{name} のその他",
     "otherWaysLead": "その他の方法：",
-    "typeFilterDosco": "Dosco"
+    "typeFilterDosco": "Dosco",
+    "typeFilterKortix": "Dosco"
   },
   "connectMcp": {
     "title": "MCP で Dosco に接続",
