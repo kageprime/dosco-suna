@@ -13,6 +13,9 @@
  *  - Concurrent callers with the same key share one in-flight promise.
  *  - Rejections are never cached — the entry is dropped so the next caller
  *    retries.
+ *  - In-flight loads and SWR refreshes are bounded by `inflightTimeoutMs`
+ *    (default 15s, under the 25s request deadline) so a hung socket never
+ *    leaves `!hit.settled` wedged for the life of the process.
  *  - `shouldCache` lets callers skip caching specific values. The auth
  *    wrappers use it to never cache *negative* results (null membership /
  *    no role): a just-granted member must see access immediately, while a
@@ -28,13 +31,19 @@
  *    cached read.
  */
 
+import { withTimeout } from './with-timeout';
+
+/** Default cap on an in-flight loader or SWR refresh (under the 25s request deadline). */
+const DEFAULT_INFLIGHT_TIMEOUT_MS = 15_000;
+
 type Entry<T> = {
   value: Promise<T>;
   expiresAt: number;
+  inflightUntil: number;
   /** The initial load settled (resolved). A still-pending value is shared. */
   settled: boolean;
-  /** A stale-while-revalidate refresh is in flight. */
-  refreshing?: boolean;
+  /** In-flight stale-while-revalidate refresh, if any. */
+  refreshing?: Promise<void>;
 };
 
 export type TtlMemo<A extends unknown[], T> = ((...args: A) => Promise<T>) & {
@@ -63,6 +72,10 @@ export function ttlMemo<A extends unknown[], T>(opts: {
    *  keeps serving and the next call retries. Default: false (blocking reload,
    *  the original behavior). */
   staleWhileRevalidate?: boolean;
+  /** Cap on how long an in-flight loader or SWR refresh may stay pending before
+   *  it rejects and is evicted, so a hung socket never wedges a key for the
+   *  life of the process. Default 15s. */
+  inflightTimeoutMs?: number;
   /** Caching is bypassed under `bun test` (NODE_ENV=test) so unit tests
    *  never bleed state across cases; the memo's own tests set this. */
   enableInTests?: boolean;
@@ -70,6 +83,7 @@ export function ttlMemo<A extends unknown[], T>(opts: {
   const { ttlMs, keyFn, loader, shouldCache } = opts;
   const staleWhileRevalidate = opts.staleWhileRevalidate ?? false;
   const maxEntries = opts.maxEntries ?? 10_000;
+  const inflightTimeoutMs = opts.inflightTimeoutMs ?? DEFAULT_INFLIGHT_TIMEOUT_MS;
   const cache = new Map<string, Entry<T>>();
 
   const disabled = ttlMs <= 0 || (process.env.NODE_ENV === 'test' && !opts.enableInTests);
@@ -87,19 +101,23 @@ export function ttlMemo<A extends unknown[], T>(opts: {
   };
 
   const startLoad = (key: string, args: A): Promise<T> => {
+    const now = Date.now();
     const entry: Entry<T> = {
       value: undefined as unknown as Promise<T>,
-      expiresAt: Date.now() + ttlMs,
+      expiresAt: now + ttlMs,
+      inflightUntil: inflightTimeoutMs > 0 ? now + inflightTimeoutMs : Number.POSITIVE_INFINITY,
       settled: false,
     };
-    entry.value = loader(...args).then(
+    entry.value = withTimeout(loader(...args), inflightTimeoutMs, `ttlMemo(${key})`).then(
       (resolved) => {
         entry.settled = true;
-        if (shouldCache && !shouldCache(resolved, ...args)) cache.delete(key);
+        if (shouldCache && !shouldCache(resolved, ...args) && cache.get(key) === entry) {
+          cache.delete(key);
+        }
         return resolved;
       },
       (err) => {
-        cache.delete(key);
+        if (cache.get(key) === entry) cache.delete(key);
         throw err;
       },
     );
@@ -109,27 +127,30 @@ export function ttlMemo<A extends unknown[], T>(opts: {
   };
 
   const refresh = (entry: Entry<T>, key: string, args: A) => {
-    entry.refreshing = true;
+    entry.inflightUntil = inflightTimeoutMs > 0 ? Date.now() + inflightTimeoutMs : Number.POSITIVE_INFINITY;
     // Fire-and-forget: the caller already has the last good value. Freshness
     // restarts at SETTLE, not start, so a refresh slower than the TTL does not
     // leave the entry expired when the fresh value lands. A failure keeps the
     // last good value; the next expired call retries.
-    void loader(...args).then(
+    const p: Promise<void> = withTimeout(loader(...args), inflightTimeoutMs, `ttlMemo(${key})`).then(
       (resolved) => {
-        entry.refreshing = false;
+        if (entry.refreshing === p) entry.refreshing = undefined;
         entry.expiresAt = Date.now() + ttlMs;
         if (shouldCache && !shouldCache(resolved, ...args)) {
-          cache.delete(key);
+          if (cache.get(key) === entry) cache.delete(key);
           return;
         }
         entry.value = Promise.resolve(resolved);
         entry.settled = true;
       },
       () => {
-        entry.refreshing = false;
-        entry.expiresAt = 0;
+        if (entry.refreshing === p) {
+          entry.refreshing = undefined;
+          entry.expiresAt = 0;
+        }
       },
     );
+    entry.refreshing = p;
   };
 
   const fn = (async (...args: A): Promise<T> => {
@@ -138,10 +159,11 @@ export function ttlMemo<A extends unknown[], T>(opts: {
     const key = keyFn(...args);
     const hit = cache.get(key);
     if (hit) {
-      // Fresh within the TTL, or a load is still in flight: share it.
-      if (hit.expiresAt > Date.now() || !hit.settled) return hit.value;
-      if (staleWhileRevalidate) {
-        if (!hit.refreshing) refresh(hit, key, args);
+      const now = Date.now();
+      // Fresh within the TTL, or a load is still in flight within its budget: share it.
+      if (hit.settled ? hit.expiresAt > now : hit.inflightUntil > now) return hit.value;
+      if (hit.settled && staleWhileRevalidate) {
+        if (!hit.refreshing || hit.inflightUntil <= now) refresh(hit, key, args);
         return hit.value;
       }
       cache.delete(key);

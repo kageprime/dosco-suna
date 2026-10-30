@@ -76,6 +76,24 @@ describe('ttlMemo', () => {
     expect(await memo('a')).toBe('ok');
   });
 
+  it('evicts a hung in-flight load after inflightTimeoutMs so later calls recover', async () => {
+    let calls = 0;
+    const memo = ttlMemo({
+      ttlMs: 60_000,
+      inflightTimeoutMs: 25,
+      keyFn: (k: string) => k,
+      loader: (_k: string) => {
+        calls += 1;
+        if (calls === 1) return new Promise<string>(() => {});
+        return Promise.resolve('recovered');
+      },
+      enableInTests: true,
+    });
+    await expect(memo('a')).rejects.toThrow('ttlMemo(a) timed out after 25ms');
+    expect(await memo('a')).toBe('recovered');
+    expect(calls).toBe(2);
+  });
+
   it('skips caching values rejected by shouldCache (negative results)', async () => {
     const c = counter((n) => (n === 1 ? null : 'member'));
     const memo = ttlMemo({
@@ -273,6 +291,35 @@ describe('ttlMemo stale-while-revalidate', () => {
     expect(await memo('a')).toBe(1); // stale served; refresh #3 retries
     await sleep(0); // let refresh #3 settle
     expect(await memo('a')).toBe(3); // fresh now
+    expect(calls).toBe(3);
+  });
+
+  it('unblocks a hung background refresh after inflightTimeoutMs so the next call retries', async () => {
+    let calls = 0;
+    const memo = ttlMemo({
+      ttlMs: 10,
+      inflightTimeoutMs: 25,
+      staleWhileRevalidate: true,
+      keyFn: (k: string) => k,
+      loader: (_k: string) => {
+        calls += 1;
+        if (calls === 2) return new Promise<number>(() => {});
+        return Promise.resolve(calls);
+      },
+      enableInTests: true,
+    });
+    freezeClock();
+
+    expect(await memo('a')).toBe(1);
+    advance(20);
+    expect(await memo('a')).toBe(1); // starts refresh #2, which hangs
+    expect(calls).toBe(2);
+
+    await sleep(35); // refresh #2 times out at 25ms
+    advance(35);
+    expect(await memo('a')).toBe(1); // starts refresh #3
+    await sleep(0);
+    expect(await memo('a')).toBe(3);
     expect(calls).toBe(3);
   });
 
