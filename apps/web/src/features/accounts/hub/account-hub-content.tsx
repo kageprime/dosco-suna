@@ -164,9 +164,11 @@ async function copyInviteLink(url: string, copiedMessage: string, fallbackMessag
 export function AccountHubContent({
   accountId: accountIdProp,
   section: sectionProp,
+  embedded = false,
 }: {
   accountId?: string;
   section?: AccountSection;
+  embedded?: boolean;
 } = {}) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tAutomations = useTranslations('automationsPause');
@@ -323,9 +325,10 @@ export function AccountHubContent({
 
   return (
     <AccountPane
-      back={{ to: hubTarget(null), label: tI18nComplete.raw('text68d8e728a8ad') }}
+      back={embedded ? undefined : { to: hubTarget(null), label: tI18nComplete.raw('text68d8e728a8ad') }}
       title={paneMeta?.title}
       description={paneMeta?.description}
+      embedded={embedded}
       /* A wizard is a full-width surface wherever it renders — it was a
          `width="full"` page of its own before it became a pane. */
       width={activeSetup && activeSection === 'identity' ? 'full' : paneWidth(activeSection)}

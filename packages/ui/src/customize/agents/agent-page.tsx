@@ -80,6 +80,7 @@ import {
   agentConfigSectionKeys,
   agentEditorOptionQueries,
   DEFAULT_AGENT_CONFIG_SECTION,
+  grantSummary,
   isAgentConfigSectionKey,
   registryGrantOptions,
   useAgentDraft,
@@ -791,6 +792,16 @@ function EditableAgentPage({
                     }
                     prompt={editor.oc.prompt ?? ''}
                     onPromptChange={(next) => editor.setOc('prompt', next)}
+                    modelLabel={
+                      editor.oc.model
+                        ? String(editor.oc.model).split('/').pop() ?? String(editor.oc.model)
+                        : 'Project default'
+                    }
+                    modeLabel={formatMode(editor.oc.mode ?? agent.mode ?? 'primary')}
+                    enabled={editor.draft.enabled !== false}
+                    skillsLabel={grantSummary(editor.draft.skills).label}
+                    connectorsLabel={grantSummary(editor.draft.connectors).label}
+                    onJumpSection={onSectionChange}
                   />
                 }
                 triggers={
@@ -874,18 +885,106 @@ function OverviewPane({
   descriptionHelp,
   prompt,
   onPromptChange,
+  modelLabel,
+  modeLabel,
+  enabled,
+  skillsLabel,
+  connectorsLabel,
+  onJumpSection,
 }: {
   description: string;
   onDescriptionChange: (next: string) => void;
   descriptionHelp: string;
   prompt: string;
   onPromptChange: (next: string) => void;
+  modelLabel: string;
+  modeLabel: string;
+  enabled: boolean;
+  skillsLabel: string;
+  connectorsLabel: string;
+  onJumpSection?: (section: AgentConfigSectionKey) => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const tEditor = useI18nTranslations('agentEditor');
+  const snapshotCards: ReadonlyArray<{
+    section: AgentConfigSectionKey;
+    label: string;
+    value: string;
+    subtext: string;
+    icon: Icon;
+    statusDot?: 'active' | 'muted';
+  }> = [
+    {
+      section: 'model',
+      label: 'Model',
+      value: modelLabel,
+      subtext: 'Runtime reasoning engine',
+      icon: CpuIcon,
+    },
+    {
+      section: 'basics',
+      label: 'Mode & Status',
+      value: modeLabel || 'Primary',
+      subtext: enabled ? 'Active in workspace' : 'Disabled',
+      icon: SlidersHorizontalIcon,
+      statusDot: enabled ? 'active' : 'muted',
+    },
+    {
+      section: 'skills',
+      label: 'Skills Grant',
+      value: skillsLabel,
+      subtext: 'Repository skill access',
+      icon: BookOpenTextIcon,
+    },
+    {
+      section: 'connectors',
+      label: 'Connectors Grant',
+      value: connectorsLabel,
+      subtext: 'External tool integrations',
+      icon: PlugsConnectedIcon,
+    },
+  ];
   return (
     <>
       <SettingsSectionHeader title={tEditor('overviewTitle')} className="pb-1" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {snapshotCards.map((card) => {
+          const CardIcon = card.icon;
+          return (
+            <button
+              key={card.section}
+              type="button"
+              onClick={() => onJumpSection?.(card.section)}
+              className={cn(
+                'bg-popover border-border flex flex-col justify-between gap-2 rounded-md border p-3.5 text-left transition-colors',
+                onJumpSection ? 'hover:bg-hover cursor-pointer' : 'cursor-default',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-xs font-medium">{card.label}</span>
+                <CardIcon className="text-muted-foreground size-3.5 shrink-0" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  {card.statusDot ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'size-1.5 shrink-0 rounded-full',
+                        card.statusDot === 'active' ? 'bg-kortix-green' : 'bg-muted-foreground',
+                      )}
+                    />
+                  ) : null}
+                  <span className="text-foreground block truncate font-mono text-xs font-semibold">
+                    {card.value}
+                  </span>
+                </div>
+                <span className="text-muted-foreground block truncate text-xs">{card.subtext}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
       <EditorSection title={tI18nComplete.raw('text526e0087cc3f')} description={descriptionHelp} bare>
         <Textarea
           aria-label={tI18nComplete.raw('text526e0087cc3f')}

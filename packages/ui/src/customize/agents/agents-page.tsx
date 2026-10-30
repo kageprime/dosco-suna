@@ -103,6 +103,7 @@ export function AgentsPage({
   const queryClient = useQueryClient();
 
   const [query, setQuery] = useState('');
+  const [modeFilter, setModeFilter] = useState<'all' | 'primary' | 'subagent'>('all');
   const searchRef = useRef<HTMLInputElement>(null);
   useSlashFocus(searchRef);
 
@@ -159,8 +160,17 @@ export function AgentsPage({
 
   const agents = useMemo(() => toArray(config?.agents), [config]);
 
-  const filtered = useMemo(() => filterAgents(agents, { mode: null, query }), [agents, query]);
+  const queryFiltered = useMemo(() => filterAgents(agents, { mode: null, query }), [agents, query]);
   const defaultAgent = config?.default_agent ?? config?.open_code_default_agent ?? null;
+
+  const allPrimaryCount = useMemo(
+    () => queryFiltered.filter((agent) => agentInMode(agent, 'primary')).length,
+    [queryFiltered],
+  );
+  const allSubagentCount = useMemo(
+    () => queryFiltered.filter((agent) => !agentInMode(agent, 'primary')).length,
+    [queryFiltered],
+  );
 
   // Agents first, subagents second (Marko, 2026-10-17). A project with 2
   // agents and 15 subagents buried the 2 a person starts in one alphabetical
@@ -169,20 +179,26 @@ export function AgentsPage({
   // both ways, so it stays with the agents a person starts.
   const primaryAgents = useMemo(
     () =>
-      filtered
-        .filter((agent) => agentInMode(agent, 'primary'))
-        .sort((a, b) => Number(b.name === defaultAgent) - Number(a.name === defaultAgent)),
-    [filtered, defaultAgent],
+      modeFilter === 'subagent'
+        ? []
+        : queryFiltered
+            .filter((agent) => agentInMode(agent, 'primary'))
+            .sort((a, b) => Number(b.name === defaultAgent) - Number(a.name === defaultAgent)),
+    [queryFiltered, defaultAgent, modeFilter],
   );
   const subagents = useMemo(
-    () => filtered.filter((agent) => !agentInMode(agent, 'primary')),
-    [filtered],
+    () =>
+      modeFilter === 'primary'
+        ? []
+        : queryFiltered.filter((agent) => !agentInMode(agent, 'primary')),
+    [queryFiltered, modeFilter],
   );
+  const visibleCount = primaryAgents.length + subagents.length;
   // `null` = render the grid. Otherwise which "nothing to show" copy applies:
   // genuinely zero agents vs. agents exist but this filter/search hid all of
   // them. Telling the user "No agents yet" in the second case is false and
   // points at the wrong fix (clear the filter, not create an agent).
-  const emptyKind = catalogEmptyKind(agents.length, filtered.length);
+  const emptyKind = catalogEmptyKind(agents.length, visibleCount);
 
   // One control, two labels — same rule as the Skills page. The header has a
   // title beside it and can be terse; the empty state is the whole screen and
@@ -235,6 +251,40 @@ export function AgentsPage({
         </InputGroupSearch>
       }
     >
+      {allPrimaryCount > 0 && allSubagentCount > 0 ? (
+        <div
+          role="group"
+          aria-label="Filter agents by mode"
+          className="bg-muted text-muted-foreground inline-flex h-8 w-fit items-center rounded-md p-0.5"
+        >
+          {(
+            [
+              { id: 'all', label: 'All', count: queryFiltered.length },
+              { id: 'primary', label: 'Primary', count: allPrimaryCount },
+              { id: 'subagent', label: 'Subagents', count: allSubagentCount },
+            ] as const
+          ).map((item) => {
+            const active = modeFilter === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setModeFilter(item.id)}
+                className={cn(
+                  'inline-flex h-full items-center gap-1.5 rounded-sm px-2.5 text-xs font-medium transition-colors cursor-pointer',
+                  active
+                    ? 'bg-background text-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span>{item.label}</span>
+                <span className="text-muted-foreground tabular-nums">{item.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <CatalogGrid
         isLoading={detailQuery.isLoading}
         isError={detailQuery.isError}
@@ -243,7 +293,7 @@ export function AgentsPage({
         isEmpty={emptyKind !== null}
         empty={
           emptyKind === 'no-match' ? (
-            <CatalogNoMatch query={query} />
+            <CatalogNoMatch query={query || modeFilter} />
           ) : (
             <EmptyState
               icon={RobotIcon}
@@ -266,7 +316,7 @@ export function AgentsPage({
           )
         }
       >
-        {primaryAgents.map((agent) => (
+        {(modeFilter === 'subagent' ? subagents : primaryAgents).map((agent) => (
           <AgentCoverCard
             key={agent.path}
             slug={agent.name}
@@ -283,7 +333,10 @@ export function AgentsPage({
           />
         ))}
       </CatalogGrid>
-      {!detailQuery.isLoading && !detailQuery.isError && subagents.length > 0 ? (
+      {!detailQuery.isLoading &&
+      !detailQuery.isError &&
+      modeFilter === 'all' &&
+      subagents.length > 0 ? (
         <section
           aria-labelledby="subagents-heading"
           className={cn('space-y-2', primaryAgents.length > 0 && 'mt-8')}

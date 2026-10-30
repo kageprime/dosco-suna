@@ -314,7 +314,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
 
               {canRename === true && (
                 <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-                  <Link href={capabilityTabHref(projectId, 'config')} prefetch>
+                  <Link href={`/projects/${projectId}/settings?category=capabilities&tab=general`} prefetch>
                     <PencilSimpleIcon />
                     {tUi('text3064d79a295c')}
                   </Link>

@@ -1,15 +1,16 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { CaretRightIcon } from '@phosphor-icons/react';
 
 import { UiLink as Link } from '../../providers/ui-provider';
 import { AgentMarkGlyph, agentMarkVars } from '../../internal/components/agent-mark';
 import { cn } from '../../internal/lib/utils';
 
 /**
- * An Agents-page card led by the agent's pixel-mark cover. The cover gives
- * every agent a face that is the same wherever the agent appears, so a long
- * list is scanned by shape and tone before names are read.
+ * An Agents-page card led by the agent's pixel-mark identity header, body, and
+ * capability spec footer. Gives every agent a distinct visual signature while
+ * surfacing its slug, description, and runtime facts at a glance.
  */
 export function AgentCoverCard({
   slug,
@@ -30,7 +31,7 @@ export function AgentCoverCard({
   description?: string | null;
   badges?: ReactNode;
   meta?: ReactNode;
-  /** A short pill on the cover's top-left corner — "Default". */
+  /** A short pill on the cover's top-right corner — "Default". */
   coverLabel?: string;
 }) {
   const handleClick = (e: React.MouseEvent) => {
@@ -49,31 +50,42 @@ export function AgentCoverCard({
       onFocus={onIntent}
       style={agentMarkVars(slug)}
       className={cn(
-        'group bg-card border-border/60 flex flex-col overflow-hidden rounded-md border text-left cursor-pointer',
-        'hover:border-border transition-[border-color] duration-(--duration-normal) ease-out',
+        'group bg-popover border-border flex flex-col overflow-hidden rounded-md border text-left cursor-pointer',
+        'hover:bg-hover transition-colors duration-(--duration-normal) ease-out',
         'focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none',
       )}
     >
-      <span className="relative flex h-31 items-center justify-center bg-(--mark-tile)">
-        <AgentMarkGlyph slug={slug} size={56} />
-        {coverLabel ? (
-          <span className="bg-background/20 absolute top-2.5 left-2.5 rounded-sm px-2 py-0.5 text-xs font-medium text-(--mark-ink) backdrop-blur-sm">
-            {coverLabel}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1 px-3.5 pt-3 pb-3.5">
+      <span className="border-border relative flex h-20 items-center justify-between border-b bg-(--mark-tile) px-4">
+        <span className="flex items-center gap-3">
+          <AgentMarkGlyph slug={slug} size={42} />
+        </span>
         <span className="flex items-center gap-1.5">
-          <span className="text-foreground truncate text-sm font-medium">{title}</span>
-          {badges}
+          {coverLabel ? (
+            <span className="bg-background/20 rounded-sm px-2 py-0.5 text-xs font-medium text-(--mark-ink) backdrop-blur-sm">
+              {coverLabel}
+            </span>
+          ) : null}
+          <CaretRightIcon
+            aria-hidden
+            className="size-4 text-(--mark-ink) transition-transform duration-(--duration-fast) ease-out group-hover:translate-x-0.5"
+          />
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5 px-4 pt-3.5 pb-3.5">
+        <span className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="text-foreground truncate text-sm font-medium">{title}</span>
+            {badges}
+          </span>
+          <span className="text-muted-foreground shrink-0 font-mono text-xs">@{slug}</span>
         </span>
         {description ? (
-          <span className="text-muted-foreground line-clamp-2 text-xs text-pretty">
+          <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed text-pretty">
             {description}
           </span>
         ) : null}
         {meta ? (
-          <span className="text-muted-foreground mt-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1.5 text-xs">
+          <span className="border-border text-muted-foreground mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t pt-2.5 text-xs">
             {meta}
           </span>
         ) : null}

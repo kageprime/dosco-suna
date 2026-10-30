@@ -14,6 +14,7 @@ import { Button } from '../../../primitives/button';
 import Hint from '../../../primitives/hint';
 import { Switch } from '../../../primitives/switch';
 import { capabilityTabHref } from '../../../internal/lib/capability-tab-routes';
+import { useOptionalSettingsNav } from '../../../internal/layout/settings-nav-context';
 import {
   SandboxTemplateMenu,
   describeSandboxTemplate,
@@ -82,6 +83,19 @@ export function ManageButton({
 }) {
   const tEditor = useI18nTranslations('agentEditor');
   const projectId = useKortixRouteProjectId();
+  const settingsNav = useOptionalSettingsNav();
+  if (tab && settingsNav) {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => settingsNav.navigate(tab)}
+      >
+        {tEditor('manage')}
+      </Button>
+    );
+  }
   const target = projectId
     ? href
       ? href(projectId)

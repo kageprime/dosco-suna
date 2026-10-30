@@ -30,7 +30,7 @@
  * Mounted once, in `app/(app)/layout.tsx`, above every authenticated route.
  */
 
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { lazy, Suspense } from 'react';
 
 import { Modal, ModalContent, ModalTitle } from '@kortix/ui/modal';
@@ -88,9 +88,12 @@ function AccountHubFallback() {
 
 export function AccountHubPanel() {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  // The param IS the state. There is no route that could also be showing the
-  // hub, so there is nothing to reconcile with.
-  const open = useSearchParams().get(ACCOUNT_PANEL_PARAM) !== null;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Stand down on `/projects/[id]/settings` where `UnifiedSettingsPage` hosts
+  // `AccountHubContent` inline inside the centralized Settings & Customization shell.
+  const isUnifiedSettingsRoute = pathname?.includes('/settings') ?? false;
+  const open = !isUnifiedSettingsRoute && searchParams.get(ACCOUNT_PANEL_PARAM) !== null;
 
   return (
     <Modal

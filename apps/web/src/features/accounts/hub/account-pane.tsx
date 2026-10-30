@@ -43,6 +43,7 @@ export interface AccountPaneProps {
   /** One control, right of the title. */
   action?: ReactNode;
   width?: AccountPaneWidth;
+  embedded?: boolean;
   className?: string;
   children?: ReactNode;
 }
@@ -53,12 +54,13 @@ export function AccountPane({
   description,
   action,
   width = 'default',
+  embedded = false,
   className,
   children,
 }: AccountPaneProps) {
   return (
     <div className={cn('flex w-full flex-col', className)}>
-      {back ? (
+      {back && !embedded ? (
         <div className="flex h-12 shrink-0 items-center px-4 md:hidden">
           <Button
             asChild
@@ -75,12 +77,8 @@ export function AccountPane({
       ) : null}
       <div
         className={cn(
-          'px-4 pb-12',
-          // `sm:px-12` on every pane. A fluid table hangs its select gutter
-          // and hover fill `9` steps outside the content edge (`member-table.tsx`);
-          // `px-9` left nothing between that fill and the sidebar border.
-          'sm:px-12',
-          back ? 'md:pt-12' : 'pt-12',
+          embedded ? 'p-0' : 'px-4 pb-12 sm:px-12',
+          !embedded && (back ? 'md:pt-12' : 'pt-12'),
         )}
       >
         {/* A fluid pane is a working table: its toolbar sits close under the title. */}
@@ -88,7 +86,7 @@ export function AccountPane({
           className={cn(
             'mx-auto w-full',
             width === 'fluid' ? 'space-y-5' : 'space-y-10',
-            WIDTH_CLASS[width],
+            embedded ? 'max-w-none' : WIDTH_CLASS[width],
           )}
         >
           {title ? (

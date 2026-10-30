@@ -92,3 +92,7 @@ export function useSettingsNav(): SettingsNav {
   }
   return ctx;
 }
+
+export function useOptionalSettingsNav(): SettingsNav | null {
+  return useContext(SettingsNavContext);
+}

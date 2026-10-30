@@ -17,3 +17,7 @@ export { LlmSections, ProjectDefaultPicker, LLM_TABS } from './sections/gateway-
 export { GitView } from './sections/view/git-view';
 export { useStandaloneCapabilityNav } from './shared/standalone-settings-nav';
 export { SettingsNavProvider } from '../internal/layout/settings-nav-context';
+export type {
+  AgentConfigSectionGroup,
+  AgentConfigSectionKey,
+} from './sections/view/agent-editor';
