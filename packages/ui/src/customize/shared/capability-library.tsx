@@ -316,7 +316,7 @@ export function CapabilityLibrary({
         ) : null}
         {scope !== 'project' ? (
           <section className="space-y-3">
-            <h3 className="text-foreground text-sm font-medium">{t('groups.kortix')}</h3>
+            <h3 className="text-foreground text-sm font-medium">{t('skillsTitle')}</h3>
             {builtin.length > 0 ? (
               <div className={GRID_CLASSNAME}>
                 {builtin.map((row) => (
@@ -417,7 +417,7 @@ export function CapabilityLibrary({
             <TabsList aria-label={t(VIEW_COPY[view].title)}>
               <TabsTrigger value="all">{t('scopeAll')}</TabsTrigger>
               <TabsTrigger value="project">{t('groups.project')}</TabsTrigger>
-              <TabsTrigger value="kortix">{t('groups.kortix')}</TabsTrigger>
+              <TabsTrigger value="kortix">{t('skillsTitle')}</TabsTrigger>
             </TabsList>
           </Tabs>
         )

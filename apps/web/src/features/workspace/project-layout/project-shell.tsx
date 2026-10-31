@@ -88,31 +88,20 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const isSettingsOrCustomize = Boolean(
-    pathname && /\/projects\/[^/]+\/(settings|customize)/.test(pathname),
-  );
-
-  const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
-  const [normalSidebarOpen, setNormalSidebarOpen] = useState<boolean | undefined>(
+  const [sidebarOpen, setSidebarOpen] = useState<boolean | undefined>(
     resolvedSidebarOpen,
   );
 
-  const activeSidebarOpen = isSettingsOrCustomize
-    ? settingsSidebarOpen
-    : (normalSidebarOpen ?? resolvedSidebarOpen ?? true);
+  const activeSidebarOpen = sidebarOpen ?? resolvedSidebarOpen ?? true;
 
   const handleSidebarOpenChange = useCallback(
     (open: boolean) => {
-      if (isSettingsOrCustomize) {
-        setSettingsSidebarOpen(open);
-      } else {
-        setNormalSidebarOpen(open);
-        if (typeof document !== 'undefined') {
-          document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-        }
+      setSidebarOpen(open);
+      if (typeof document !== 'undefined') {
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
       }
     },
-    [isSettingsOrCustomize],
+    [],
   );
 
   const { user, isLoading: authLoading, bootstrapError } = useAuth();
@@ -305,7 +294,7 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
         sidebarContent={
           <ProjectSidebar
             projectId={projectId}
-            collapsible={isSettingsOrCustomize ? 'icon' : 'offcanvas'}
+            collapsible="offcanvas"
             menu={<WorkspaceSwitcher projectId={projectId} />}
             onOpenSearch={openCommandPalette}
           />
@@ -345,9 +334,6 @@ export function ProjectShell({ projectId, initialSidebarOpen, children }: Projec
 const ProjectSheelLayout = ({ children }: { children: React.ReactNode }) => {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const pathname = usePathname();
-  const isSettingsOrCustomize = Boolean(
-    pathname && /\/projects\/[^/]+\/(settings|customize)/.test(pathname),
-  );
   const { state, isMobile, toggleSidebar, peek, peekEnter, peekLeave } = useSidebar();
   const isExpanded = !isMobile && state === 'expanded';
   // The sidebar hides fully when collapsed (offcanvas everywhere, no icon
@@ -360,7 +346,7 @@ const ProjectSheelLayout = ({ children }: { children: React.ReactNode }) => {
     <div
       className={cn(
         'bg-background relative flex min-h-0 flex-1 flex-col overflow-hidden',
-        (isExpanded || isSettingsOrCustomize) && 'border-border border-l',
+        isExpanded && 'border-border border-l',
       )}
       // The sidebar navigates and the toggle below owns the band's corner, so
       // the window's desktop Back (root layout) steps aside on every project view.

@@ -6,6 +6,7 @@ import {
   LightningIcon,
   CpuIcon,
   PlugsConnectedIcon,
+  LaptopIcon,
   ClockAfternoonIcon,
   KeyIcon,
   GearSixIcon,
@@ -149,7 +150,7 @@ export function CustomizeSidebar({
       },
     ];
 
-    // 2. CONNECTIVITY (Connectors, Triggers, Secrets)
+    // 2. CONNECTIVITY (Connectors, Computer, Triggers, Secrets)
     const connectivityItems: NavItem[] = [
       {
         id: 'connectors',
@@ -157,6 +158,13 @@ export function CustomizeSidebar({
         href: capabilityTabHref(projectId, 'connectors'),
         icon: PlugsConnectedIcon,
         isActive: activeTabKey === 'connectors',
+      },
+      {
+        id: 'computer',
+        label: 'Computer',
+        href: `/projects/${projectId}/settings/computer`,
+        icon: LaptopIcon,
+        isActive: pathname.includes('/settings/computer'),
       },
       {
         id: 'triggers',
