@@ -71,6 +71,7 @@ const Hero = () => {
        (67px) at every height. */
     <section
       id="hero"
+      data-hero-band
       className="relative flex min-h-svh flex-col justify-center overflow-hidden pt-32 pb-12 sm:pt-36 sm:pb-16 lg:pt-32 lg:pb-14"
     >
       {/* The flowing gradient behind the fold, full-bleed edge to edge. It was

@@ -604,12 +604,15 @@ const nextConfig = (): NextConfig => ({
         destination: '/auth',
         permanent: false,
       },
-      // The per-release changelog moved to /changelog/releases (2026-10-19);
-      // /changelog is the weekly summary now. Page 1 of the old list is
-      // /changelog itself, which stays valid.
+      // Changelog page removed — redirect /changelog and all nested paths to root.
       {
-        source: '/changelog/page/:page',
-        destination: '/changelog/releases/page/:page',
+        source: '/changelog/:path*',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/changelog',
+        destination: '/',
         permanent: true,
       },
       // Capability tabs moved under /customize/ (2026-09-03). The old

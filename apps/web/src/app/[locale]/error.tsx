@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@kortix/ui/button';
-import { KortixHyperLogo } from '@/components/ui/marketing/kortix-hyper-logo';
+import { BreathingCrest } from '@/components/ui/breathing-crest';
 import {
   isRuntimeNotReadyExhausted,
   recordRuntimeNotReady,
@@ -121,7 +121,7 @@ export default function Error({
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="flex max-w-xl flex-col items-center justify-center space-y-6 text-center">
-        <KortixHyperLogo size={50} />
+        <BreathingCrest size={56} />
 
         <div className="space-y-4">
           <h1 className="text-base-900 text-base sm:text-lg md:text-xl">

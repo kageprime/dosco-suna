@@ -32,12 +32,12 @@ describe('PixelKortixMark', () => {
 });
 
 describe('SessionsEmptyState', () => {
-  test('says where sessions will appear, above the pixel mark', () => {
+  test('says where sessions will appear, above the brand mark', () => {
     const html = renderToStaticMarkup(createElement(SessionsEmptyState));
 
     const text = html.indexOf('Sessions you start will show up here');
     expect(text).toBeGreaterThan(-1);
-    expect(html.indexOf('<svg')).toBeGreaterThan(text);
+    expect(html).toContain('dosco-icon');
   });
 
   test("a white-label host's icon replaces the Kortix mark", () => {

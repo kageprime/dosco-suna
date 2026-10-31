@@ -91,7 +91,6 @@ export const MEGA_MENUS: MegaMenu[] = [
           { label: 'Use cases', href: '/use-cases' },
           { label: 'Case studies', href: '/case-studies' },
           { label: 'Blog', href: '/blog' },
-          { label: 'Changelog', href: '/changelog' },
         ],
       },
       {

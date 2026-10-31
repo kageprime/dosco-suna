@@ -51,8 +51,6 @@ export const STATIC_PUBLIC_ROUTES = [
   '/',
   '/a1o',
   '/careers',
-  '/changelog',
-  '/changelog/releases',
   '/contact',
   '/developers',
   '/docs',
@@ -123,13 +121,6 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     description:
       'Open positions at Dosco — FDE, GTM and MTS. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.',
     htmlPath: '/careers',
-  },
-  {
-    kind: 'marketing',
-    slug: 'changelog',
-    title: 'Changelog',
-    description: 'What shipped in Dosco each week, straight from our production releases.',
-    htmlPath: '/changelog',
   },
   {
     kind: 'marketing',

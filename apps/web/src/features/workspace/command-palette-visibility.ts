@@ -12,7 +12,6 @@ export const LEGACY_PALETTE_HIDDEN = new Set([
   'agent-browser-cmd',
   'internal-browser-cmd',
   'templates',
-  'changelog',
   'credits-explained',
   'secrets-manager',
   'api-keys',

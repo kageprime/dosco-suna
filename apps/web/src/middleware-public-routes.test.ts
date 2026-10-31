@@ -40,9 +40,6 @@ test('every supported public surface accepts an explicit locale prefix', async (
   const routes = [
     '/',
     '/careers',
-    '/changelog',
-    '/changelog/releases',
-    '/changelog/releases/page/2',
     '/contact',
     '/design-system',
     '/developers',

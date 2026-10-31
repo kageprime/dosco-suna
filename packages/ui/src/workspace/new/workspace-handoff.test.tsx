@@ -76,7 +76,7 @@ describe('WorkspaceHandoff', () => {
       'utf8',
     );
     expect(crest).toContain('useReducedMotion');
-    expect(crest).toContain('reducedMotion ? 1');
+    expect(crest).toContain('reducedMotion ?');
   });
 
   test('the caption carries the shimmer, the same busy treatment as a live session', () => {

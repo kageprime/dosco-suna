@@ -968,15 +968,6 @@ export const menuRegistry: MenuItemDef[] = [
     keywords: 'internal browser preview iframe embedded web page',
   },
   {
-    id: 'changelog',
-    label: 'Changelog',
-    icon: ScrollText,
-    group: 'navigation',
-    showIn: ['commandPalette'],
-    kind: 'navigate',
-    href: '/changelog',
-  },
-  {
     id: 'credits-explained',
     label: 'Credits & usage',
     icon: Coins,

@@ -10,7 +10,7 @@ import { cn, faviconUrlForHostname } from '@kortix/ui';
 import { Bubble, BubbleContent } from '@kortix/ui/bubble';
 import { Button } from '@kortix/ui/button';
 import { CopyButton } from '@kortix/ui/markdown/copy-button';
-import { PixelKortixMark } from '@kortix/ui/pixel-kortix-mark';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { Stepper, StepperIndicator, StepperItem, StepperSeparator } from '@kortix/ui/stepper';
 
 /**
@@ -325,7 +325,7 @@ export function ExampleRun({
             </div>
           </div>
           <div className="flex gap-3">
-            <PixelKortixMark aria-hidden className="text-foreground mt-1 size-4 shrink-0" />
+            <KortixLogo aria-hidden size={16} variant="symbol" className="mt-1 shrink-0" />
             <div className={cn('text-foreground min-w-0 text-sm leading-6', proseReset)}>
               {children}
             </div>

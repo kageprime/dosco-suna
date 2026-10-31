@@ -77,9 +77,9 @@ const USE_CASES_ENABLED = process.env.NEXT_PUBLIC_USE_CASES_ENABLED !== 'false';
 const BAR_LINK =
   'text-foreground hover:text-muted-foreground outline-ring flex h-full items-center rounded-sm text-sm transition-colors duration-moderate focus-visible:outline-2';
 
-/** Nav trigger or link: a quiet row that turns into a muted pill while its menu is open. */
+/** Nav trigger or link: high-contrast text with subtle hover pill for clear feedback. */
 const NAV_ITEM =
-  'text-foreground hover:text-muted-foreground outline-ring flex h-8 items-center rounded-md px-3 text-sm transition-colors duration-moderate focus-visible:outline-2';
+  'text-foreground/90 hover:text-foreground hover:bg-foreground/10 active:bg-foreground/15 outline-ring flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors duration-moderate focus-visible:outline-2';
 
 /** Drawer row: one link per line, the full width, 44px tall to tap. */
 const DRAWER_ROW =
@@ -475,7 +475,7 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                   onPointerEnter={closeOnEnter}
                   className="text-foreground outline-ring flex h-16 w-fit shrink-0 items-center rounded-sm focus-visible:outline-2"
                 >
-                  <KortixLogo size={15} variant="logomark" />
+                  <KortixLogo size={26} variant="logomark" />
                 </Link>
               </ContextMenuTrigger>
               {/* Brand menu: copy the theme-matching SVG, download the brandkit, open the design system. */}
@@ -642,7 +642,7 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
               onClick={handleDrawerNavClick('/')}
               className="text-foreground flex h-16 items-center gap-2"
             >
-              <KortixLogo size={15} variant="logomark" />
+              <KortixLogo size={24} variant="logomark" />
               {isPending('/') && <Loading variant="spokes" />}
             </Link>
             <button

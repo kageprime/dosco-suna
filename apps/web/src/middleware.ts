@@ -44,7 +44,6 @@ const MARKETING_ROUTES = [
   '/',
   '/blog',
   '/careers',
-  '/changelog',
   '/contact',
   '/design-system',
   '/developers',
@@ -92,7 +91,6 @@ function isExactMarketingPath(pathname: string): boolean {
 const SELF_HOST_MARKETING_ONLY = [
   '/launch',
   '/careers',
-  '/changelog',
   '/contact',
   '/developers',
   '/enterprise',
@@ -174,7 +172,6 @@ const PUBLIC_ROUTES = [
   '/desktop', // surface page: the desktop app
   '/mobile', // surface page: the mobile app
   '/careers', // Careers page should be public
-  '/changelog', // Public release notes (sourced from GitHub Releases)
   '/install',
   '/install.sh',
   '/mcp', // Public MCP server card (/mcp/server-card) naming the API's MCP server
