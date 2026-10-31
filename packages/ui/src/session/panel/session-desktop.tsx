@@ -36,7 +36,8 @@ import { PanelWidthButton } from '../../files/viewer/viewer-actions';
 import { CloseButton, DetailSidebarToggle } from '../../files/viewer/viewer-chrome';
 import { cn } from '../../lib/utils';
 import { probePreviewPort, type PreviewPortProbe } from '@kortix/sdk';
-import { useHasSessionDesktop } from '@kortix/sdk/react';
+import { useHasSessionDesktop, useProjectSession } from '@kortix/sdk/react';
+import { isMetaCoordinatorSession } from '../actions/session-label';
 import { ArrowSquareOutIcon, MonitorIcon } from '@phosphor-icons/react';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -66,6 +67,10 @@ export function SessionDesktop({
 }) {
   const t = useTranslations('sessionDesktop');
   const isMobile = useIsMobile();
+  const { data: projectSession = null } = useProjectSession(projectId, projectSessionId, {
+    enabled: !!projectId && !!projectSessionId,
+  });
+  const isOrchestrator = projectSession ? isMetaCoordinatorSession(projectSession) : false;
   const { proxyUrl } = useSandboxProxy();
   const src = usePreviewFrameUrl(DESKTOP_URL, proxyUrl(DESKTOP_URL) ?? DESKTOP_URL, {
     projectId,
@@ -85,7 +90,7 @@ export function SessionDesktop({
   // preview cookie arrives with the frame's first load. A stopped desktop
   // answers `unreachable`, and the panel shows it again once it starts.
   useEffect(() => {
-    if (!src || !hasDesktop || !visible) return;
+    if (!src || !visible || (isOrchestrator && !hasDesktop)) return;
     const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const ask = async () => {
@@ -99,7 +104,7 @@ export function SessionDesktop({
       abort.abort();
       clearTimeout(timer);
     };
-  }, [src, hasDesktop, visible, attempt]);
+  }, [src, visible, isOrchestrator, hasDesktop, attempt]);
 
   const takeOver = () => {
     setControl(true);
@@ -138,7 +143,7 @@ export function SessionDesktop({
             control && 'ring-2 ring-primary',
           )}
         >
-          {hasDesktop === false ? (
+          {isOrchestrator && hasDesktop === false ? (
             <DesktopNotice title={t('noDesktop')} hint={t('noDesktopHint')} />
           ) : probe === 'unreachable' ? (
             <DesktopNotice
@@ -153,7 +158,7 @@ export function SessionDesktop({
                 {t('retry')}
               </Button>
             </DesktopNotice>
-          ) : !hasDesktop || !src || !visible ? (
+          ) : !live || !src || !visible ? (
             <div className="flex h-full items-center justify-center">
               <Loading className="size-4" />
             </div>

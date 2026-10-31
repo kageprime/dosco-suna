@@ -6,7 +6,7 @@ import { useSessionListActions } from '../actions/use-session-list-actions';
 import { useLocalizedUiCatalog } from '../../i18n/ui-catalog/use-localized-ui-catalog';
 
 import { Button } from '../../primitives/button';
-import { sessionCanBeStopped } from '../actions/session-label';
+import { isMetaCoordinatorSession, sessionCanBeStopped } from '../actions/session-label';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -139,13 +139,6 @@ export function SessionSiteHeader({
   const { terminalEnabled } = useUiHostConfig();
   // Session computers offer a desktop (streamed via voxl on port 6901).
   const hasDesktop = useHasSessionDesktop() ?? true;
-  const devTools = useMemo(
-    () =>
-      localizedDevTools.filter(
-        (tool) => (tool.view !== 'terminal' || terminalEnabled) && (tool.view !== 'desktop' || hasDesktop),
-      ),
-    [localizedDevTools, terminalEnabled, hasDesktop],
-  );
   const router = useUiRouter();
   const pathname = useUiPathname();
   const queryClient = useQueryClient();
@@ -196,6 +189,16 @@ export function SessionSiteHeader({
   const { data: projectSession = null } = useProjectSession(projectId, projectSessionId, {
     enabled: isProjectSession,
   });
+  const isOrchestrator = projectSession ? isMetaCoordinatorSession(projectSession) : false;
+  const devTools = useMemo(
+    () =>
+      localizedDevTools.filter(
+        (tool) =>
+          (tool.view !== 'terminal' || terminalEnabled) &&
+          (tool.view !== 'desktop' || !isOrchestrator || hasDesktop),
+      ),
+    [localizedDevTools, terminalEnabled, isOrchestrator, hasDesktop],
+  );
   // Two verdicts, deliberately not one flag. `can_manage_sharing` is the
   // owner's right to change who can open the session; `can_manage_lifecycle`
   // is the manager-tier right to stop/restart/reload it. Reading the first for

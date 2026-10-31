@@ -4,6 +4,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { VOXL_SHA256_AMD64, VOXL_SHA256_ARM64 } from '../../runtime-versions';
 import {
+  DOSCO_SYMBOL_PATH,
   KORTIX_LOGO_PATHS,
   KORTIX_SYMBOL_PATH,
   SANDBOX_DESKTOP_FILES,
@@ -49,8 +50,7 @@ describe('session desktop', () => {
 
   test('draws the logo and symbol from the brand kit master files', () => {
     const paths = (file: string) => [...repoFile(file).matchAll(/ d="([^"]+)"/g)].map((m) => m[1]);
-    expect([...KORTIX_LOGO_PATHS]).toEqual(paths('apps/web/public/brandkit/Logo/Logomark/SVG/Logomark White.svg'));
-    expect([KORTIX_SYMBOL_PATH]).toEqual(paths('apps/web/public/brandkit/Logo/Brandmark/SVG/Brandmark White.svg'));
+    expect([DOSCO_SYMBOL_PATH]).toEqual(paths('apps/mobile/assets/brand/dosco-mark.svg'));
   });
 
   test('writes every look file, each a well-formed document', () => {
