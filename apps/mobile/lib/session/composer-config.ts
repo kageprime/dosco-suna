@@ -151,7 +151,9 @@ export function agentDisplayName(name: string | undefined): string {
   // Web's `displayAgentName` (`apps/web/.../agent-display-name.ts`): the
   // backend's default agent id ('kortix', never renamed) renders as the
   // product-surface name Xera. Every other agent renders capitalized raw.
-  return name ? (name === 'worker' || name === 'kortix' || name === 'xera' ? 'Xera' : capitalise(name)) : 'Agent';
+  if (!name) return 'Agent';
+  if (name === 'mykortix' || name === 'meta') return 'Orchestrator';
+  return name === 'worker' || name === 'kortix' || name === 'xera' ? 'Xera' : capitalise(name);
 }
 
 /**

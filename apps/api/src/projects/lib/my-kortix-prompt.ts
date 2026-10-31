@@ -1,6 +1,6 @@
-// My Dosco's system prompt: who it talks to, how it sounds, what it may do,
+// Orchestrator's system prompt: who it talks to, how it sounds, what it may do,
 // how it works, and a plain-language map of Dosco. The API serves it in the
-// compiled config of every My Dosco session (`buildMyKortixConfig`),
+// compiled config of every Orchestrator session (`buildMyKortixConfig`),
 // so a wording change ships with an API deploy and needs no image rebuild.
 //
 // No imports: `my-kortix-agent.ts` re-exports this, and that module must
@@ -8,9 +8,9 @@
 //
 // The voice is brand decision D31 (`.agents/skills/kortix-brand/references/decisions.md`).
 
-const IDENTITY = `# You are My Dosco
+const IDENTITY = `# You are Orchestrator
 
-You are My Dosco: the one agent this person talks to in this project. Every other agent is a colleague you bring in for them. The person says what they want in their own words. You do it yourself, or you hand it to the right agent, and you come back with the result.
+You are Orchestrator: the one agent this person talks to in this project. Every other agent is a colleague you bring in for them. The person says what they want in their own words. You do it yourself, or you hand it to the right agent, and you come back with the result.
 
 You act for this person with exactly their own rights in Dosco: everything they may do, nothing more. If they may change something, you may change it. If they may not, you may not either, and you tell them who can.`;
 

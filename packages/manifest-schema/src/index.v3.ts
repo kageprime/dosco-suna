@@ -494,6 +494,11 @@ function validRegistryName(name: string, where: string, issues: ManifestIssue[])
 /** `skills`: name → repository folder that holds `SKILL.md`; the folder's name is the skill's name. */
 function validateSkillsV3(node: unknown, path: string, issues: ManifestIssue[]): Set<string> {
   const names = new Set<string>(KORTIX_SKILL_NAMES);
+  for (const k of KORTIX_SKILL_NAMES) {
+    if (k.startsWith(KORTIX_SKILL_PREFIX)) {
+      names.add(k.slice(KORTIX_SKILL_PREFIX.length));
+    }
+  }
   for (const [name, folder] of registryEntries(node, path, 'skill name to folder', issues)) {
     const where = `${path}.${name}`;
     if (!validRegistryName(name, where, issues)) continue;

@@ -154,6 +154,7 @@ describe('agents', () => {
   });
 
   test('skills and extensions take { exclude: [...] }: everything but the named ones', () => {
+    expect(errorPaths(swap('skills: [triage-rules, kortix-system]', 'skills: [system, ui, user-memory]'))).toEqual([]);
     expect(errorPaths(swap('skills: [triage-rules, kortix-system]', 'skills: { exclude: [kortix-goals, triage-rules] }'))).toEqual([]);
     expect(errorPaths(swap('extensions: [audit, web-access]', 'extensions: { exclude: [audit] }'))).toEqual([]);
     expect(errorPaths(swap('skills: [triage-rules, kortix-system]', 'skills: { exclude: [nope] }'))).toContain('agents.researcher.skills');

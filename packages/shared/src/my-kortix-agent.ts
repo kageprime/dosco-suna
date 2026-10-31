@@ -9,7 +9,7 @@ export const MY_KORTIX_AGENT_NAME = 'mykortix';
 export const LEGACY_MY_KORTIX_AGENT_NAME = 'meta';
 export const MY_KORTIX_SANDBOX_SLUG = 'mykortix';
 /** My Kortix — the built-in agent's DISPLAY name, the name every UI renders. */
-export const MY_KORTIX_DISPLAY_NAME = 'My Kortix';
+export const MY_KORTIX_DISPLAY_NAME = 'Orchestrator';
 
 /** True for My Kortix under its slug, or the legacy `meta` slug of an older session. */
 /**

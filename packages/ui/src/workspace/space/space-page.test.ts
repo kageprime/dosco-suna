@@ -112,7 +112,7 @@ test('the header shows only the configured items', () => {
   const html = render();
   expect(html).toContain('aria-label="Agents in this space"');
   expect(html).not.toContain('New session');
-  expect(html).not.toContain('Ask My Kortix');
+  expect(html).not.toContain('Ask Orchestrator');
   spaces = [{ name: 'sales', label: 'Sales' }];
   expect(render()).toContain('New session');
 });

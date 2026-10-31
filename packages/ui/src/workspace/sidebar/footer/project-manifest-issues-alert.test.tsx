@@ -64,7 +64,7 @@ describe('ProjectManifestIssuesAlertView', () => {
     expect(html).toContain('Unknown key. Did you mean &quot;model&quot;?');
     expect(html).toContain('Error');
     expect(html).toContain('Warning');
-    expect(html).toContain('Fix with My Kortix');
+    expect(html).toContain('Fix with Orchestrator');
   });
 
   test('warnings only: everything still runs', () => {
@@ -84,7 +84,7 @@ describe('ProjectManifestIssuesAlertView', () => {
   test('with My Kortix turned off the action names no agent', () => {
     const html = render({ health: ISSUES, myKortix: false, defaultOpen: true });
     expect(html).toContain('Fix in a new session');
-    expect(html).not.toContain('Fix with My Kortix');
+    expect(html).not.toContain('Fix with Orchestrator');
   });
 
   test('the action is disabled while the session is created', () => {

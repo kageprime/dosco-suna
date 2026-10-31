@@ -98,6 +98,7 @@ import { type AgentGrant, useAgentGrant } from '../shared/agent-resource-scope';
 import { CapabilityShellEmbedProvider } from '../shared/capability-page-shell';
 import { LeaveGuardProvider, useUnsavedChangesGuard } from '../shared/leave-guard';
 import { AgentPlaygroundSheet } from '../shared/playground/agent-playground-sheet';
+import { skillDisplayName } from '../shared/capability-library';
 import { toArray } from '../shared/utils';
 import { ExtensionsPage, SkillsPage, ToolsPage } from '../skills/skills-page';
 import { ConnectorsPage } from '../connectors/connectors-page';
@@ -796,7 +797,7 @@ function EditableAgentPage({
   );
   const skillsOptions = toArray(config.skills).map((skill) => ({
     id: skill.name,
-    label: skill.name,
+    label: skillDisplayName(skill.name),
     description: skill.description ?? undefined,
   }));
   const policySetOptions = useMemo(

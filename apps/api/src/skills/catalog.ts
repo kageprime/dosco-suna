@@ -153,7 +153,16 @@ export function listManagedSkills(): ManagedSkillSummary[] {
 }
 
 export function getManagedSkill(name: string): ManagedSkill | null {
-  return managedSkills().get(name) ?? null;
+  const map = managedSkills();
+  const direct = map.get(name);
+  if (direct) return direct;
+  const normalized = name.replace(/ /g, '-');
+  return (
+    map.get(normalized) ??
+    map.get(`kortix-${normalized}`) ??
+    map.get(`dosco-${normalized}`) ??
+    null
+  );
 }
 
 /**
@@ -162,7 +171,7 @@ export function getManagedSkill(name: string): ManagedSkill | null {
  * read here to traverse out of.
  */
 export function getManagedSkillFile(name: string, path: string): ManagedSkillFile | null {
-  const skill = managedSkills().get(name);
+  const skill = getManagedSkill(name);
   if (!skill) return null;
   if (path === SKILL_ENTRYPOINT) return { path: SKILL_ENTRYPOINT, content: skill.body };
   return skill.references.find((f) => f.path === path) ?? null;

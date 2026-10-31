@@ -7,7 +7,7 @@
 // `resolveFeatureFlag(metadata, 'meta_agent')` and passed to
 // `resolveBuiltinAgents` below as the fallback.
 //
-// My Dosco is the platform's built-in agent, slug `mykortix` (`meta` until
+// Orchestrator is the platform's built-in agent, slug `mykortix` (`meta` until
 // 2026-10-30: every read still accepts it, `isMyKortixAgentName`). Session
 // rows, token grants, the sandbox slug, image names and the config-release
 // variant all key on it. Users only ever see the display name.
@@ -28,7 +28,7 @@ import { KORTIX_TOOL_NAMES } from '@kortix/manifest-schema';
 import { MY_KORTIX_PROMPT } from './my-kortix-prompt';
 import type { ProjectConfigSummary } from '../git/types';
 
-/** My Dosco's one-line description, the same in the agent list and the compiled config. */
+/** Orchestrator's one-line description, the same in the agent list and the compiled config. */
 export const MY_KORTIX_DESCRIPTION =
   'The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.';
 

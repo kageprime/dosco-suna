@@ -66,6 +66,10 @@ describe('managed skill catalog', () => {
 
   test('unknown skill resolves to null rather than throwing', () => {
     expect(getManagedSkill('does-not-exist')).toBeNull();
+    expect(getManagedSkill('ui')?.name).toBe('kortix-ui');
+    expect(getManagedSkill('teams')?.name).toBe('kortix-teams');
+    expect(getManagedSkill('user-memory')?.name).toBe('kortix-user-memory');
+    expect(getManagedSkill('user memory')?.name).toBe('kortix-user-memory');
     expect(getManagedSkillFile('does-not-exist', 'SKILL.md')).toBeNull();
   });
 

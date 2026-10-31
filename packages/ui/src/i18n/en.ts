@@ -206,7 +206,7 @@ const catalog = {
     "next": "Next",
     "upgrade": "Upgrade",
     "basic": "Basic",
-    "tryFree": "My Kortix"
+    "tryFree": "Orchestrator"
   },
   "newWorkspace": {
     "title": "Create a project",
@@ -763,8 +763,8 @@ const catalog = {
           "description": "Browse and install skills from community and vendor registries. Sources, updates, and team scopes are still changing."
         },
         "meta_agent": {
-          "name": "My Kortix",
-          "description": "My Kortix, the one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions. The project setting is `builtin_agents.my_kortix` in kortix.yaml; this switch applies only when that key is not set."
+          "name": "Orchestrator",
+          "description": "Orchestrator, the one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions. The project setting is `builtin_agents.my_kortix` in kortix.yaml; this switch applies only when that key is not set."
         },
         "warm_sessions": {
           "name": "Warm Sessions",
@@ -1095,7 +1095,7 @@ const catalog = {
     "sessionViewOptions": "Session view options",
     "sectionOptions": "Section options",
     "allSectionsHidden": "All sections are hidden.",
-    "metaCoordinator": "My Kortix",
+    "metaCoordinator": "Orchestrator",
     "files": "Files",
     "retry": "Try again",
     "review": "Review",
@@ -1167,7 +1167,7 @@ const catalog = {
       "warningsOnly": "Everything still runs.",
       "error": "Error",
       "warning": "Warning",
-      "fix": "Fix with My Kortix",
+      "fix": "Fix with Orchestrator",
       "fixInSession": "Fix in a new session"
     },
     "filter": {
@@ -7859,10 +7859,10 @@ const catalog = {
       "startSubagentBlocked": "Subagents are called by other agents, not started directly.",
       "defaultAgent": "Default agent",
       "actsAsYou": "Acts as the person who starts the session",
-      "askToEditAgent": "Ask My Kortix to edit",
+      "askToEditAgent": "Ask Orchestrator to edit",
       "deleteAgent": "Delete {name}",
       "deleteTitle": "Delete {name}?",
-      "deleteBody": "My Kortix opens a change request that removes this agent from kortix.yaml. Nothing changes until you merge it.",
+      "deleteBody": "Orchestrator opens a change request that removes this agent from kortix.yaml. Nothing changes until you merge it.",
       "deletePrompt": "Delete the \"{name}\" agent (its config lives at `{path}`): remove it from kortix.yaml and remove its triggers. Then open a change request so I can review and merge it.",
       "leaveTitle": "Leave with unsaved changes?",
       "leaveBody": "Your changes to {tabs} are not saved.",
@@ -7943,27 +7943,27 @@ const catalog = {
       "write": "Write",
       "preview": "Preview",
       "split": "Split",
-      "askToEdit": "Ask My Kortix to edit",
+      "askToEdit": "Ask Orchestrator to edit",
       "fullScreen": "Full screen",
       "exitFullScreen": "Exit full screen",
       "myKortixPromise": "The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.",
-      "myKortixNoInstructions": "My Kortix is built in, so it has no instructions to edit here. To change how work gets done, change the agents it runs.",
-      "composerLabel": "Ask My Kortix",
-      "composerPlaceholder": "Ask My Kortix to create an agent, or to change what one may do",
+      "myKortixNoInstructions": "Orchestrator is built in, so it has no instructions to edit here. To change how work gets done, change the agents it runs.",
+      "composerLabel": "Ask Orchestrator",
+      "composerPlaceholder": "Ask Orchestrator to create an agent, or to change what one may do",
       "composerNote": "Every change opens as a change request you approve.",
       "chipCreate": "Create an agent that ",
       "chipNarrow": "Narrow an agent to the access its work needs",
       "chipReview": "Which agents can reach secrets?",
       "send": "Send",
       "newAgent": "New agent",
-      "newAgentHelp": "My Kortix writes the agent into kortix.yaml and opens a change request.",
+      "newAgentHelp": "Orchestrator writes the agent into kortix.yaml and opens a change request.",
       "name": "Name",
       "namePlaceholder": "market-scan",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "An agent with this name already exists.",
       "howToStart": "How to start",
-      "startDescribe": "Describe it to My Kortix",
-      "startDescribeHelp": "My Kortix drafts the instructions and grants only the access the work needs.",
+      "startDescribe": "Describe it to Orchestrator",
+      "startDescribeHelp": "Orchestrator drafts the instructions and grants only the access the work needs.",
       "startBlank": "Start blank",
       "startBlankHelp": "No instructions and no access. You fill in every tab.",
       "startDuplicate": "Duplicate an agent",
@@ -7974,7 +7974,7 @@ const catalog = {
       "whatItDoesPlaceholder": "Scans competitor pricing pages every Monday and posts a short summary.",
       "descriptionPlaceholderShort": "One line on what this agent does",
       "createAgent": "Create agent",
-      "agentsLead": "You talk to My Kortix. It runs these agents, each with only the access its work needs.",
+      "agentsLead": "You talk to Orchestrator. It runs these agents, each with only the access its work needs.",
       "agentsLoadError": "Could not load this project's agents.",
       "workAgents": "Work agents",
       "colAgent": "Agent",
@@ -8026,13 +8026,13 @@ const catalog = {
       "hideRules": "Hide rules",
       "addConnector": "Add connector",
       "policySetsNote": "Policy sets come from <file></file>. A connector with no set uses its default actions.",
-      "previewDrafted": "Drafted by My Kortix",
+      "previewDrafted": "Drafted by Orchestrator",
       "previewEmpty": "Empty",
       "previewCopied": "Copied",
       "previewAccessScoped": "Only what the work needs",
       "previewAccessNone": "None",
       "editInstructionsConfirmTitle": "Please confirm",
-      "editInstructionsConfirmBody": "Are you sure you want to edit the instructions? My Kortix starts a new session to make the change.",
+      "editInstructionsConfirmBody": "Are you sure you want to edit the instructions? Orchestrator starts a new session to make the change.",
       "colorHelp": "The agent's color in pickers. Saved in kortix.yaml; the pi runtime does not use it yet.",
       "providerOptions": "Provider options",
       "providerOptionsHelp": "Extra settings for the model provider, as JSON. Saved in kortix.yaml; the pi runtime does not apply them yet.",
@@ -8103,8 +8103,8 @@ const catalog = {
       },
       "project": {
         "title": "Project setting",
-        "label": "My Kortix",
-        "help": "New sessions start with My Kortix. Kortix maintains its prompt and tools. To turn it off, set <code>builtin_agents.my_kortix: false</code> in kortix.yaml."
+        "label": "Orchestrator",
+        "help": "New sessions start with Orchestrator. Kortix maintains its prompt and tools. To turn it off, set <code>builtin_agents.my_kortix: false</code> in kortix.yaml."
       }
     },
     "modelView": {
@@ -8721,7 +8721,7 @@ const catalog = {
       "artifacts": "Artifacts bound to this space will show up here",
       "folder": "This folder is empty",
       "board": "Blocks on this board will show up here",
-      "boardHint": "Ask My Kortix to add a block: a note, an App, a file, an embedded page or another room."
+      "boardHint": "Ask Orchestrator to add a block: a note, an App, a file, an embedded page or another room."
     },
     "doc": "Doc",
     "page": "Page",
@@ -9124,7 +9124,7 @@ const catalog = {
     "members": "{count, plural, one {# person} other {# people}}",
     "needsYou": "need you",
     "newSession": "New session",
-    "askMyKortix": "Ask My Kortix",
+    "askMyKortix": "Ask Orchestrator",
     "askPrompt": "I want to change the {name} space (`spaces.{slug}` in kortix.yaml): its tabs, its header or the agents in it. Ask me what to change.",
     "roomsOff": "Rooms are off for this project",
     "roomsOffHint": "Turn on Rooms in the project settings to talk with people and agents here.",
@@ -9207,7 +9207,7 @@ const catalog = {
     "openTab": "Open in new tab",
     "offline": "The desktop is not running on this computer.",
     "noDesktop": "This computer has no desktop.",
-    "noDesktopHint": "My Kortix runs on a minimal computer. Your agents' sessions have a desktop.",
+    "noDesktopHint": "Orchestrator runs on a minimal computer. Your agents' sessions have a desktop.",
     "start": "Ask Kortix to run",
     "retry": "Retry",
     "takeOver": "Take over",

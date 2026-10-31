@@ -76,6 +76,15 @@ export interface CapabilityAgent {
 }
 
 /**
+ * Strips 'kortix-' / 'dosco-' prefix and formats skill names cleanly for display
+ * (e.g. 'kortix-ui' -> 'ui', 'kortix-user-memory' -> 'user memory', 'kortix-teams' -> 'teams').
+ */
+export function skillDisplayName(id: string): string {
+  const stripped = id.replace(/^(kortix|dosco)-/, '');
+  return stripped.replace(/-/g, ' ');
+}
+
+/**
  * The All · Specific · None select over a capability grant. `{ exclude }`
  * reads as All. Specific keeps every id that is on now, so a built-in row
  * that was on stays on.
@@ -110,7 +119,12 @@ function catalogRows(
   agentMode: boolean,
 ): { project: AccessItem[]; builtin: AccessItem[]; ids: string[] } {
   if (view === 'skills') {
-    const item = (skill: ProjectCapabilities['skills'][number]): AccessItem => ({ id: skill.id, description: skill.description, disabled: !skill.available });
+    const item = (skill: ProjectCapabilities['skills'][number]): AccessItem => ({
+      id: skill.id,
+      title: skillDisplayName(skill.id),
+      description: skill.description,
+      disabled: !skill.available,
+    });
     return {
       project: catalog.skills.filter((s) => s.group === 'project').map(item),
       builtin: catalog.skills.filter((s) => s.group === 'builtin').map(item),
@@ -308,7 +322,7 @@ export function CapabilityLibrary({
                 {builtin.map((row) => (
                   <CatalogCard
                     key={row.id}
-                    title={<span className="font-mono !tracking-normal">{row.id}</span>}
+                    title={<span>{row.title ?? skillDisplayName(row.id)}</span>}
                     description={row.disabled ? t('flagOff') : typeof row.description === 'string' ? row.description : undefined}
                     className={cn(row.disabled && 'opacity-60')}
                     onClick={() => setBuiltinSkill(row.id)}
