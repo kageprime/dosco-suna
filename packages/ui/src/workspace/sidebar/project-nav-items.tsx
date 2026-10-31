@@ -9,13 +9,7 @@ import {
   CustomizeGlyph,
   useCapabilityAccess,
 } from '../../internal/layout/project-settings-nav';
-import { isProjectAdminPath, ProjectCapabilityNav, useOpenNewAgent } from '../../internal/layout/project-capability-nav';
-import { capabilityTabHref } from '../../internal/lib/capability-tab-routes';
-import { PROJECT_ACTIONS } from '../../internal/lib/project-actions';
-import { useProjectCan } from '../../internal/lib/use-project-can';
-import { Button } from '../../primitives/button';
-import { ButtonGroup } from '../../primitives/button-group';
-import Hint from '../../primitives/hint';
+import { isProjectAdminPath } from '../../internal/layout/project-capability-nav';
 import { cn } from '../../lib/utils';
 import {
   DropdownMenu,
@@ -35,7 +29,7 @@ import {
   useSidebarNavStore,
   type SidebarNavEntry,
 } from '../../internal/stores/sidebar-nav-store';
-import { CaretRightIcon, DotsThreeOutlineIcon, ListIcon, PlusIcon } from '@phosphor-icons/react';
+import { DotsThreeOutlineIcon } from '@phosphor-icons/react';
 import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react';
 
@@ -174,87 +168,42 @@ function MoreNavItem({
 }
 
 /**
- * Customize, for the people who may configure the project. Most configuring
- * happens by asking an agent in a session, so this stays one disclosure: the
- * row toggles the project's agents, Review, Models and Settings
- * (`ProjectCapabilityNav`). On hover, its right edge holds
- * + (New agent) and All agents. Open by itself on an agent or Customize page;
- * a click overrides that until you cross between those contexts. Absent when
- * the caller may open no capability page (same gate as the tab bar).
+ * Customize, for the people who may configure the project. Navigates directly
+ * to the centralized Settings & Customization Hub at `/projects/[id]/settings`.
  */
 function CustomizeNavEntry({ projectId }: { projectId: string }) {
   const t = useTranslations('sidebar');
-  const tTabs = useTranslations('agentEditor.tabs');
   const pathname = useUiPathname();
   const access = useCapabilityAccess(projectId);
-  const canCreate = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_AGENT_WRITE).allowed === true;
-  const openNewAgent = useOpenNewAgent();
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
-  // `includes` tolerates the locale prefix the host may not strip.
-  const onCustomizePage = !!pathname && (pathname.includes('/customize') || isProjectAdminPath(pathname));
-  const [override, setOverride] = useState<boolean | null>(null);
-  useEffect(() => setOverride(null), [onCustomizePage]);
-  const open = override ?? onCustomizePage;
 
   if (!access.settled || access.tabs.length === 0) return null;
-  const hasAgents = access.tabs.includes('agent');
-  const close = () => {
-    if (isMobile) setOpenMobile(false);
-  };
+
+  const href = `/projects/${projectId}/settings`;
+  const isActive =
+    !!pathname &&
+    (pathname.includes('/settings') ||
+      pathname.includes('/customize') ||
+      isProjectAdminPath(pathname));
 
   return (
-    <>
-      <SidebarMenuItem className="group/customize">
-        <SidebarMenuButton
-          onClick={() => setOverride(!open)}
-          aria-expanded={open}
-          // The caret is the Sessions header's: 12px (beats the button's
-          // `[&_svg]:size-4!`), shown on hover, turned when open.
-          className="group/menu-button text-sidebar-foreground pr-14 [&>svg:last-child]:size-3!"
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={t('customize')}>
+        <Link
+          href={href}
+          prefetch={false}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false);
+          }}
         >
           <span className="shrink-0">
             <CustomizeGlyph />
           </span>
           <span className="truncate">{t('customize')}</span>
-          <CaretRightIcon
-            aria-hidden
-            className={cn(
-              'text-muted-foreground duration-normal size-3 shrink-0 opacity-0 transition-transform ease-out group-focus-within/customize:opacity-100 group-hover/customize:opacity-100',
-              open && 'rotate-90',
-            )}
-          />
-        </SidebarMenuButton>
-        {hasAgents ? (
-          <ButtonGroup className="absolute top-1/2 right-1 -translate-y-1/2 opacity-100 transition-opacity group-focus-within/customize:opacity-100 group-hover/customize:opacity-100 md:opacity-0">
-            {canCreate && openNewAgent ? (
-              <Hint side="top" label={tTabs('newAgent')}>
-                <Button
-                  variant="secondary"
-                  size="icon-xs"
-                  type="button"
-                  aria-label={tTabs('newAgent')}
-                  onClick={() => {
-                    close();
-                    openNewAgent();
-                  }}
-                >
-                  <PlusIcon className="size-4" />
-                </Button>
-              </Hint>
-            ) : null}
-            <Hint side="top" label={tTabs('allAgents')}>
-              <Button variant="secondary" size="icon-xs" asChild>
-                <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} aria-label={tTabs('allAgents')} onClick={close}>
-                  <ListIcon className="size-4" />
-                </Link>
-              </Button>
-            </Hint>
-          </ButtonGroup>
-        ) : null}
-      </SidebarMenuItem>
-      {open ? <ProjectCapabilityNav projectId={projectId} /> : null}
-    </>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 

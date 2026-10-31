@@ -483,7 +483,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'Organize work in channels. Each new message in a channel or a direct message with an agent starts a thread. Replaces the session list in the sidebar.',
     stability: 'experimental',
-    wip: true,
     available: () => true,
     platformDefault: () => false,
     enforcement: 'routes',
@@ -504,7 +503,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Named chat rooms per goal or topic where agent sessions and people post (`kortix rooms`, `kortix peers`). Every message is stored in its room. A member session gets a message addressed to it (an @-mention, a reply in its thread) between its steps; other room traffic arrives as one batched notice when its turn ends; a thread reply reaches only the thread participants. A stopped session wakes. A member person gets every message as unread and, with the notification center on, a notification for one addressed to them.',
 
     stability: 'experimental',
-    wip: true,
     available: () => true,
     // Off by default again (Marko, 2026-10-27): a project turns it on.
     platformDefault: () => false,
@@ -542,7 +540,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       "Group the sidebar's sessions into named folders that everyone in the project shares, for example one per store or client. Move a session into a group from its menu or by dragging it; reorder and collapse the groups.",
     stability: 'experimental',
-    wip: true,
     available: () => true,
     platformDefault: () => false,
     enforcement: 'routes',
@@ -575,7 +572,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'A lead session starts named teammates that share one task list: each teammate claims a task, works it in its own session and tells the lead when it is done. The lead and the person see every teammate and its tasks. Messages between sessions (`send_message`) work without this flag.',
     stability: 'experimental',
-    wip: true,
     available: () => true,
     platformDefault: () => false,
     enforcement: 'routes',

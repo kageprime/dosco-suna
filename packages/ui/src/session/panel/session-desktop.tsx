@@ -73,8 +73,8 @@ export function SessionDesktop({
   }).url;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [control, setControl] = useState(false);
-  // `undefined` until the session's daemon answers its health probe.
-  const hasDesktop = useHasSessionDesktop();
+  // Defaults to true so the desktop panel probes port 6901 even before daemon health answers.
+  const hasDesktop = useHasSessionDesktop() ?? true;
   // `unreachable` = the proxy answered 502/503/504: nothing listens on 6901.
   const [probe, setProbe] = useState<PreviewPortProbe>('unknown');
   const [attempt, setAttempt] = useState(0);
