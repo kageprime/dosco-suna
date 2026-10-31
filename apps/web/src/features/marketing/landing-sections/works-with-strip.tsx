@@ -151,7 +151,7 @@ export function WorksWithStrip() {
     <section ref={root} id="works-with">
       {/* The visible line sits at the foot of the hero band, right above
           this strip; the strip keeps a heading for assistive tech. */}
-      <h2 className="sr-only">Models and apps Kortix works with</h2>
+      <h2 className="sr-only">Models and apps Dosco works with</h2>
       <div className="kx-rail-fade border-b px-4 lg:px-17">
         <ul className="bg-border grid grid-cols-2 gap-px md:grid-cols-4">
           {WORKS_WITH.slice(0, CELLS).map((logo, i) => (

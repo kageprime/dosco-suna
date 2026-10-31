@@ -76,11 +76,11 @@ function Panel({
  */
 export function ProblemSolution() {
   return (
-    <section id="why-kortix" className="scroll-mt-16 py-24 lg:py-32">
+    <section id="why-dosco" className="scroll-mt-16 py-24 lg:py-32">
       <div className="px-8 lg:px-28">
         <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
           Your know-how is everywhere.
-          <span className="text-muted-foreground block">Kortix keeps it in one repo.</span>
+          <span className="text-muted-foreground block">Dosco keeps it in one repo.</span>
         </h2>
         <p className="text-muted-foreground mt-4 max-w-xl text-base text-pretty">
           Chats, docs and people&apos;s heads become files your agents work from.
@@ -106,7 +106,7 @@ export function ProblemSolution() {
               <Panel
                 kind="with"
                 title="Agents that work from your company."
-                label="With Kortix"
+                label="With Dosco"
                 items={WITH}
               />
             </div>

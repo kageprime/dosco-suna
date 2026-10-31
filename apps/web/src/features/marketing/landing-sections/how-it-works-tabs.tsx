@@ -84,7 +84,7 @@ export function HowItWorksTabs() {
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <div className="px-4 py-12 lg:px-11 lg:py-16 lg:pr-12">
             <h2 className="text-foreground text-xl font-medium tracking-tight text-balance md:text-2xl lg:text-3xl">
-              How Kortix works.
+              How Dosco works.
               <span className="text-muted-foreground block">
                 One repo, every tool, any model, a computer per agent.
               </span>
@@ -92,7 +92,7 @@ export function HowItWorksTabs() {
 
             <div
               role="tablist"
-              aria-label="How Kortix works"
+              aria-label="How Dosco works"
               aria-orientation="vertical"
               onKeyDown={onKeyDown}
               className="mt-12 flex flex-col gap-8"

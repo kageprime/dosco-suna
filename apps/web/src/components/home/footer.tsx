@@ -105,7 +105,7 @@ const Footer = () => {
           <div className="flex flex-col justify-between gap-12 lg:col-span-5">
             <Link
               href="/"
-              aria-label="Kortix home"
+              aria-label="Dosco home"
               className="text-foreground outline-ring w-fit rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <KortixLogo size={22} variant="logomark" />

@@ -144,7 +144,7 @@ function OpenSourceCard({ stars, onNavigate }: { stars?: string | null; onNaviga
     >
       <Github className="size-8 shrink-0" />
       <span className="flex flex-col">
-        <span className="text-lg font-medium">Kortix is open source</span>
+        <span className="text-lg font-medium">Dosco is open source</span>
         <span className="text-background/60 mt-1 flex items-center gap-1.5 text-sm">
           {stars ? (
             <>

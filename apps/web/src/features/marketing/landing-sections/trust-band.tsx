@@ -42,7 +42,7 @@ const CELLS = [
   {
     icon: PlugsIcon,
     k: 'No lock-in',
-    v: 'Any model with your own keys, on Kortix Cloud, your VPC or on-prem.',
+    v: 'Any model with your own keys, on Dosco Cloud, your VPC or on-prem.',
   },
 ];
 
@@ -91,7 +91,7 @@ export function TrustBand() {
                 </div>
               </div>
               <MarketingButton size="md" className="hit-area-y-1 shrink-0" asChild>
-                <Link href="/security">Security at Kortix</Link>
+                <Link href="/security">Security at Dosco</Link>
               </MarketingButton>
             </li>
           </ul>

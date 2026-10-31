@@ -52,7 +52,7 @@ const sourcePILLARS = [
     icon: ShieldCheckIcon,
     name: 'Sovereign and open',
     line: 'Own your data and your infrastructure.',
-    body: 'Kortix is open source. Run it on Kortix Cloud, in your VPC or on your own on-prem network, with any model and your own keys.',
+    body: 'Dosco is open source. Run it on Dosco Cloud, in your VPC or on your own on-prem network, with any model and your own keys.',
     facts: [
       'Open source: read it, fork it, audit it',
       'Self-host in your VPC or on-prem',

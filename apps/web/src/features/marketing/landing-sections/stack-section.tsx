@@ -20,7 +20,7 @@ export function StackSection() {
         />
         {/* The artifact: the starter repo's real paths, as `kortix init` writes them. */}
         <ul
-          aria-label="A new Kortix project"
+          aria-label="A new Dosco project"
           className="border-border text-muted-foreground mt-12 border-y py-6 font-mono text-sm"
         >
           {stack.tree.map((path) => (

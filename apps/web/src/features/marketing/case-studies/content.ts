@@ -49,7 +49,7 @@ export type CaseStudy = {
 
 export const caseStudies: { title: string; titleMuted: string; items: readonly CaseStudy[] } = {
   title: 'Case studies.',
-  titleMuted: 'What runs on Kortix today.',
+  titleMuted: 'What runs on Dosco today.',
   items: [
     {
       id: 'hkai-sci',
@@ -62,12 +62,12 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       category: 'Research',
       org: 'Hong Kong Institute of AI for Science, City University of Hong Kong',
       title: 'SciencePal: a science agent for researchers.',
-      body: 'The institute’s AI research assistant, built from Kortix’s open-source code. It searches large literature databases and cites its sources, and it runs specialist agents for protein design and materials science, from property prediction to experiment design.',
+      body: 'The institute’s AI research assistant, built from Dosco’s open-source code. It searches large literature databases and cites its sources, and it runs specialist agents for protein design and materials science, from property prediction to experiment design.',
       facts: [
         'Literature search with citations',
         'A protein design agent',
         'A materials science agent',
-        'Built from Kortix’s open-source code',
+        'Built from Dosco’s open-source code',
       ],
     },
     {
@@ -76,12 +76,12 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       category: 'Cloud infrastructure',
       org: 'Platinum',
       title: 'An autonomous cloud company.',
-      body: 'Platinum is a sandbox cloud for AI agents, run by agents on Kortix. Engineering agents take Linear issues, build and test the change and open the pull request. QA agents drive the real dashboard, record every flow and report to Slack with the video. People set the direction and approve.',
+      body: 'Platinum is a sandbox cloud for AI agents, run by agents on Dosco. Engineering agents take Linear issues, build and test the change and open the pull request. QA agents drive the real dashboard, record every flow and report to Slack with the video. People set the direction and approve.',
       facts: [
         'Engineering agents ship from Linear issues',
         'QA agents test every flow on video',
         'MicroVM sandboxes that boot in 400 ms',
-        'Every Kortix session runs on Platinum',
+        'Every Dosco session runs on Platinum',
       ],
     },
     {
@@ -90,7 +90,7 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       category: 'Telecommunications',
       org: 'A leading US telecommunications infrastructure company',
       title: 'Fiber network design, run by agents.',
-      body: 'The company runs its engineering and operations on Kortix, self-hosted in its own cloud. Agents design outside-plant fiber routes from GIS data and satellite imagery for an engineer to review, build bills of materials from the GIS layers, track schedule health across projects and keep live dashboards current on a schedule.',
+      body: 'The company runs its engineering and operations on Dosco, self-hosted in its own cloud. Agents design outside-plant fiber routes from GIS data and satellite imagery for an engineer to review, build bills of materials from the GIS layers, track schedule health across projects and keep live dashboards current on a schedule.',
       facts: [
         'Fiber routes designed from GIS and imagery',
         'Bills of materials from GIS layers',
@@ -99,12 +99,12 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       ],
     },
     {
-      id: 'kortix',
+      id: 'dosco',
       mark: 'kortix',
       category: 'Software',
-      org: 'Kortix',
-      title: 'Kortix, run on Kortix.',
-      body: 'Our own company is one Kortix project. An intake agent triages every new issue and hands it to a worker agent, which fixes it on its own machine and opens the pull request. A compliance agency keeps our SOC 2 policies and evidence current. People review, approve and sign.',
+      org: 'Dosco',
+      title: 'Dosco, run on Dosco.',
+      body: 'Our own company is one Dosco project. An intake agent triages every new issue and hands it to a worker agent, which fixes it on its own machine and opens the pull request. A compliance agency keeps our SOC 2 policies and evidence current. People review, approve and sign.',
       facts: [
         'Issues triaged by an intake agent',
         'Up to 16 worker agents at once',
@@ -116,7 +116,7 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       id: 'hedge-fund',
       icon: 'finance',
       category: 'Finance',
-      org: 'Built and run by Kortix',
+      org: 'Built and run by Dosco',
       title: 'An AI-run hedge fund desk.',
       body: 'Our own structured-credit desk, on real public SEC data. Agents pull every new asset-backed deal from EDGAR, extract each figure with its page citation, argue the deal through six analyst lenses, red-team the verdict and draft the memo. A person decides at investment committee.',
       facts: [
@@ -145,10 +145,10 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       logo: { src: '/media/case-studies/writer.svg', alt: 'WRITER', width: 110, height: 35 },
       category: 'Enterprise AI',
       org: 'WRITER',
-      title: 'The enterprise AI platform, built from Kortix’s open-source code.',
-      body: 'WRITER built its core agent platform from Kortix’s open-source code. Enterprises such as Salesforce, Vanguard, KPMG, Dropbox and H&R Block run their marketing, sales and support agents on WRITER.',
+      title: 'The enterprise AI platform, built from Dosco’s open-source code.',
+      body: 'WRITER built its core agent platform from Dosco’s open-source code. Enterprises such as Salesforce, Vanguard, KPMG, Dropbox and H&R Block run their marketing, sales and support agents on WRITER.',
       facts: [
-        'Core platform built from Kortix’s code',
+        'Core platform built from Dosco’s code',
         'Salesforce, Vanguard and KPMG',
         'Dropbox, H&R Block and Boots',
         'Agents for marketing, sales and support',
@@ -160,12 +160,12 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       category: 'Cloud cost',
       org: 'Wring',
       title: 'Autonomous AWS cost optimization.',
-      body: 'Wring cuts its customers’ AWS bills with agents on Kortix. The agents find the AWS credit programs each customer qualifies for, prepare the applications and follow each one through to the decision. The customer approves, the agents do the paperwork.',
+      body: 'Wring cuts its customers’ AWS bills with agents on Dosco. The agents find the AWS credit programs each customer qualifies for, prepare the applications and follow each one through to the decision. The customer approves, the agents do the paperwork.',
       facts: [
         'Credit programs found per customer',
         'Applications prepared by agents',
         'A person approves every submission',
-        'Runs as one Kortix project',
+        'Runs as one Dosco project',
       ],
     },
   ],

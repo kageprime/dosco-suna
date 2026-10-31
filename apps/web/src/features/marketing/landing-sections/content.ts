@@ -73,7 +73,7 @@ export const security = {
   titleMuted: 'You set the limits.',
   description:
     'Every session runs on its own isolated machine, and session work reaches main through a change request.',
-  ctaLabel: 'How Kortix is secured',
+  ctaLabel: 'How Dosco is secured',
   ctaHref: '/security',
   controls: [
     {
@@ -113,13 +113,13 @@ export const security = {
       id: 'hosting',
       title: 'Where it runs',
       description:
-        'Run it on Kortix Cloud, in your VPC, or on your own on-prem network. Self-host is free.',
+        'Run it on Dosco Cloud, in your VPC, or on your own on-prem network. Self-host is free.',
     },
     {
       id: 'compliance',
       title: 'Compliance',
       description:
-        'SOC 2 Type I verified. GDPR is a posture Kortix runs, not a certificate.',
+        'SOC 2 Type I verified. GDPR is a posture Dosco runs, not a certificate.',
     },
   ],
 } as const;
@@ -128,7 +128,7 @@ export const openSourceLine = {
   title: '20,000+ GitHub stars.',
   titleMuted: 'Open source. Read it, fork it, audit it.',
   ctaLabel: 'Read the source',
-  ctaHref: 'https://github.com/kortix-ai/suna',
+  ctaHref: 'https://github.com/kageprime/dosco-suna',
 } as const;
 
 export const faqHeading = {
