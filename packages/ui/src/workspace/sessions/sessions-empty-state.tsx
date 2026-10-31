@@ -1,13 +1,14 @@
 'use client';
 
 import { KortixLogo } from '../../primitives/kortix-logo';
+import { PixelCrestMark } from '../../primitives/pixel-kortix-mark';
 import { useUiBrand } from '../../providers/ui-provider';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../internal/lib/utils';
 
 /**
  * What a project's session list shows before its first session: one line of
- * text over the Dosco mark, or over the host's icon when `useUiBrand()`
+ * text over the pixel Dosco crest, or over the host's icon when `useUiBrand()`
  * sets one (a white-label never shows the Dosco mark). The sidebar list and the sessions page both
  * render it, so the two empty lists always say the same thing.
  *
@@ -33,11 +34,11 @@ export function SessionsEmptyState({ className }: { className?: string }) {
       <p className="text-muted-foreground max-w-48 text-sm text-balance">
         {t('sessionList.empty')}
       </p>
-      <KortixLogo
-        variant="icon"
-        size={44}
-        className={cn('select-none object-contain', branded ? 'opacity-50 grayscale' : 'opacity-70')}
-      />
+      {branded ? (
+        <KortixLogo variant="icon" size={40} className="opacity-50 grayscale" />
+      ) : (
+        <PixelCrestMark className="text-muted-foreground opacity-50" />
+      )}
     </div>
   );
 }

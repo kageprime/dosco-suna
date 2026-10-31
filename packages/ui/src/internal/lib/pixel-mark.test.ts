@@ -22,8 +22,8 @@ describe('pixelMark', () => {
       PIXEL_KORTIX_ROWS.map((row) => row.replace(/[#+]/g, 'x')),
     );
     // Solid cells and dithered curve cells are separate paths.
-    expect(mark.path.startsWith('M0 0h2v1h-2z')).toBe(true);
-    expect(mark.ditherPath.startsWith('M0 2h1v1h-1z')).toBe(true);
+    expect(mark.path.startsWith('M6 0h2v1h-2z')).toBe(true);
+    expect(mark.ditherPath.startsWith('M5 2h1v1h-1z')).toBe(true);
   });
 
   test('every mark is mirrored and passes the gate', () => {

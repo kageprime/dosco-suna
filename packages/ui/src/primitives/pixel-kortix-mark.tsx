@@ -5,21 +5,21 @@ import { useId, type ComponentPropsWithoutRef } from 'react';
 import { cn } from '../lib/utils';
 
 /**
- * The Kortix symbol (`kortix-logo.tsx`, `variant="icon"`) sampled onto a
+ * The Dosco pixel crest: the fiery K symbol sampled onto a
  * 12 × 10 grid. `#` is a cell the symbol fully covers; `+` is a cell on a curve
  * that it only partly covers, drawn as a checker so the curves read as dither.
  */
 export const PIXEL_KORTIX_ROWS = [
-  '##   ##   ##',
-  '##   ##   ##',
-  '+#+  ##  +#+',
-  ' ##+ ## +## ',
-  '  ########  ',
-  '  ########  ',
-  ' ##+ ## +## ',
-  '+#+  ##  +#+',
-  '##   ##   ##',
-  '##   ##   ##',
+  '      ##    ',
+  '      ##    ',
+  '     +#+ ##+',
+  '    #+#+##+ ',
+  '   +#####   ',
+  '   #+###    ',
+  '    ####+   ',
+  '   ##  ##+  ',
+  '  ##   +##+ ',
+  '+#+      ##+',
 ] as const;
 
 /** Cell size and the gap after it, in viewBox units. At the default size one
@@ -78,3 +78,5 @@ export function PixelKortixMark({ className, ...props }: ComponentPropsWithoutRe
     </svg>
   );
 }
+
+export { PixelKortixMark as PixelCrestMark, PixelKortixMark as PixelDoscoMark };
