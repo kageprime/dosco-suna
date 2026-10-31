@@ -10,11 +10,14 @@ import type { ComponentProps, ReactNode } from 'react';
 export function ProjectNavRow({
   active,
   label,
+  className,
   children,
   ...link
 }: ComponentProps<typeof HoverPrefetchLink> & {
   active: boolean;
   label: string;
+  /** Added to the row button's classes. */
+  className?: string;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
@@ -25,13 +28,15 @@ export function ProjectNavRow({
         asChild
         isActive={active}
         tooltip={label}
-        className="group/menu-button text-sidebar-foreground relative group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0"
+        className={cn(
+          'group/menu-button text-sidebar-foreground relative group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0',
+          className,
+        )}
       >
         <HoverPrefetchLink
           {...link}
           className={cn(
             'flex w-full items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
-            link.className,
           )}
           onClick={(event) => {
             link.onClick?.(event);

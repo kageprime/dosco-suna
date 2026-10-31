@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { config } from '../config';
 
 /**
- * Disconnecting an email inbox deletes on Resend what Kortix created (a
+ * Disconnecting an email inbox deletes on Resend what Dosco created (a
  * disconnected inbox must not keep billing) and never an inbox the person
  * attached. Resend's 404 is done; any other failure throws so the route keeps
  * the install.
@@ -64,12 +64,12 @@ function install(over: Partial<{ createdByKortix: boolean; webhookId: string | n
 }
 
 describe('deleteEmailInbox', () => {
-  test('a managed inbox Kortix created is deleted with the managed key; the shared managed webhook stays', async () => {
+  test('a managed inbox Dosco created is deleted with the managed key; the shared managed webhook stays', async () => {
     await deleteEmailInbox(install());
     expect(calls).toEqual([{ method: 'DELETE', path: '/inboxes/inb-1', auth: 'Bearer re_managed' }]);
   });
 
-  test('an own-key inbox Kortix created is deleted with that key, and its webhook when no other inbox uses it', async () => {
+  test('an own-key inbox Dosco created is deleted with that key, and its webhook when no other inbox uses it', async () => {
     ownKey = 're_own';
     accounts = [{ connectionId: 'conn-1', webhookId: 'wh-1' }];
     await deleteEmailInbox(install());

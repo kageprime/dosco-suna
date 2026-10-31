@@ -53,9 +53,12 @@ WORKDIR /repo/apps/kortix-sandbox-agent-server
 ARG KORTIX_AGENT_BUN_TARGET=bun-linux-x64
 
 COPY apps/kortix-sandbox-agent-server/package.json apps/kortix-sandbox-agent-server/bun.lock ./
+COPY patches/undici@8.12.2.patch /repo/patches/undici@8.12.2.patch
 RUN bun install --frozen-lockfile
 
 COPY packages/api-contract /repo/packages/api-contract
+COPY packages/shared/src/peer-message-prompt.ts /repo/packages/shared/src/peer-message-prompt.ts
+COPY packages/shared/src/room-prompt.ts /repo/packages/shared/src/room-prompt.ts
 COPY packages/shared/src/ssrf-guard.ts /repo/packages/shared/src/ssrf-guard.ts
 COPY packages/sdk/src/core/session/wire-message-id.ts /repo/packages/sdk/src/core/session/wire-message-id.ts
 COPY apps/kortix-sandbox-agent-server/ ./
@@ -157,7 +160,9 @@ RUN corepack enable pnpm && \
 RUN rm -rf node_modules/supabase \
            node_modules/@supabase/cli-* \
            node_modules/.pnpm/supabase@* \
-           node_modules/.pnpm/@supabase+cli-*
+           node_modules/.pnpm/@supabase+cli-* \
+           node_modules/@typescript/native-preview* \
+           node_modules/.pnpm/@typescript+native-preview*
 
 # Sources, after the install layer. `.dockerignore` excludes `**/node_modules`,
 # so these COPYs merge over the installed tree without clobbering what pnpm
@@ -221,7 +226,7 @@ COPY --from=sandbox-agent /repo/apps/kortix-sandbox-agent-server/dist/kortix-age
 COPY --from=sandbox-cli /cli/apps/cli/dist/kortix /cli/apps/cli/dist/kortix.version /cli/apps/cli/dist/kortix-connectors-runtime.attestation.json ./apps/cli/dist/
 COPY --from=app-runtime /out/kortix-appd ./apps/kortix-app-runtime/dist/kortix-appd-linux-amd64
 COPY --from=app-runtime /out/caddy ./apps/kortix-app-runtime/dist/caddy-linux-amd64
-COPY apps/sandbox/entrypoint.sh apps/sandbox/opencode-warmup.sh apps/sandbox/MACHINE.md ./apps/sandbox/
+COPY apps/sandbox/entrypoint.sh apps/sandbox/MACHINE.md ./apps/sandbox/
 COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
 # SDK is already in the consolidated packages tree above.
 

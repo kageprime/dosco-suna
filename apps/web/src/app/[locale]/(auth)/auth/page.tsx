@@ -1174,7 +1174,7 @@ function AuthCardForm({
   return (
     <>
       <m.div {...rise(0)}>
-        <StepHeader title={t('welcome')} tagline={t('tagline')} />
+        <StepHeader title={t('welcome')} />
       </m.div>
 
       <m.div {...rise(0.06)}>
@@ -1449,7 +1449,7 @@ function AuthContent() {
   // visual change at all.
   //
   // It used to render `<AuthFrame footerVariant="default">` with the entry
-  // step's own "Welcome to Dosco" / "Your AI Command Center" header. That is
+  // step's own "Welcome to Dosco CompanyOS" / "Your AI Command Center" header. That is
   // the headline a signed-OUT visitor is greeted with, so replaying it the
   // instant a password is accepted read as the form bouncing backwards — and
   // the legal footer it pinned then vanished one navigation later. Three

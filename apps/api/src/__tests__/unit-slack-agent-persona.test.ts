@@ -3,9 +3,9 @@ import { postBlocks, postMessage, startStream } from '../channels/slack-api';
 import { slackPersonaFor } from '../channels/slack/persona';
 
 /**
- * Every message a Kortix agent writes in Slack carries that agent's name as
+ * Every message a Dosco agent writes in Slack carries that agent's name as
  * its author (`username`, `chat:write.customize`), so a thread shows which
- * agent answered instead of "Kortix" for all of them. Kortix's own notices
+ * agent answered instead of "Dosco" for all of them. Dosco's own notices
  * carry none.
  */
 
@@ -49,7 +49,7 @@ describe('Slack agent persona', () => {
     ]);
   });
 
-  test('without chat:write.customize the post is sent once more as Kortix, not lost', async () => {
+  test('without chat:write.customize the post is sent once more as Dosco, not lost', async () => {
     const calls = slack((_call, i) => (i === 0 ? { ok: false, error: 'missing_scope' } : { ok: true, ts: '1.2' }));
     expect(await postMessage('xoxb-test', 'C1', 'hi', '1.0', persona)).toBe('1.2');
     expect(calls).toHaveLength(2);
@@ -63,7 +63,7 @@ describe('Slack agent persona', () => {
     expect(calls).toHaveLength(1);
   });
 
-  test("Kortix's own notice carries no author", async () => {
+  test("Dosco's own notice carries no author", async () => {
     const calls = slack(() => ({ ok: true, ts: '1.3' }));
     await postMessage('xoxb-test', 'C1', 'hi', '1.0');
     expect(calls[0]?.body.username).toBeUndefined();

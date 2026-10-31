@@ -36,13 +36,6 @@ export interface EmailSenderPolicy {
   allowedRegex: string | null;
 }
 
-const DEFAULT_EMAIL_CHANNEL_SENDER_POLICY: EmailSenderPolicy = {
-  mode: 'allow_all',
-  allowedEmails: [],
-  allowedDomains: [],
-  allowedRegex: null,
-};
-
 /** One inbox account of `kortix_email`. */
 export interface EmailInboxAccount {
   connectionId: string;
@@ -55,9 +48,9 @@ export interface EmailInboxAccount {
   ownerType: 'member' | 'project';
   ownerId: string | null;
   isDefault: boolean;
-  /** On Kortix's Resend team (no own key). */
+  /** On Dosco's Resend team (no own key). */
   managed: boolean;
-  /** Kortix created the inbox: removing the account deletes it. Attached: only unlinked. */
+  /** Dosco created the inbox: removing the account deletes it. Attached: only unlinked. */
   createdByKortix: boolean;
   senderPolicy: EmailSenderPolicy;
   /** Concrete agent for inbound mail. Null inherits the project default. */
@@ -519,22 +512,9 @@ export async function updateEmailAccountWebhook(
     .where(eq(connectorConnections.connectionId, account.connectionId));
 }
 
-/** The webhook signing secret that verifies mail for `inboxId`. */
-export async function emailWebhookSecretForInbox(
-  projectId: string,
-  inboxId: string,
-): Promise<string | null> {
-  const account = await loadEmailInboxAccountForInbox(projectId, inboxId);
-  return account ? (await readAccountCredential(account)).webhook_secret : null;
-}
-
-/** The sender policy of the inbox's account (allow-all when it has none). */
-export async function emailSenderPolicyForInbox(
-  projectId: string,
-  inboxId: string,
-): Promise<EmailSenderPolicy> {
-  const account = await loadEmailInboxAccountForInbox(projectId, inboxId);
-  return account?.senderPolicy ?? DEFAULT_EMAIL_CHANNEL_SENDER_POLICY;
+/** The webhook signing secret that verifies the account's mail. */
+export async function emailWebhookSecretForAccount(account: EmailInboxAccount): Promise<string | null> {
+  return (await readAccountCredential(account)).webhook_secret;
 }
 
 /**

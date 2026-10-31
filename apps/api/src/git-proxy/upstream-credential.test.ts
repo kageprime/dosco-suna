@@ -174,7 +174,7 @@ describe('a disconnected repository (KRTX-2955)', () => {
     expect(res.headers.get('content-type')).toContain('text/plain');
     expect(res.headers.get('x-kortix-error-code')).toBe('repository_disconnected');
     const text = await res.text();
-    expect(text).toContain('Kortix GitHub App was uninstalled from acme');
+    expect(text).toContain('Dosco GitHub App was uninstalled from acme');
     expect(text).toContain('Reconnect GitHub');
     expect(upstreamHits).toEqual([]);
   });

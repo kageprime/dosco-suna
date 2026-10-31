@@ -33,8 +33,8 @@ type SessionRouteProps = {
 export async function generateMetadata({ params }: SessionRouteProps): Promise<Metadata> {
   const { id: projectId, sessionId } = await params;
   return {
-    // `absolute` bypasses the root layout's `%s | Dosco` template: the tab
-    // reads "<session name> — Dosco", and a session named "Dosco" must not
+    // `absolute` bypasses the root layout's `%s | Dosco CompanyOS` template: the tab
+    // reads "<session name> — Dosco CompanyOS", and a session named "Dosco" must not
     // come out as "Dosco | Dosco".
     title: { absolute: await resolveSessionTabTitle(projectId, sessionId) },
   };

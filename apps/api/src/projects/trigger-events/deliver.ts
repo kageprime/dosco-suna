@@ -33,7 +33,7 @@ export interface DeliveryTally {
 
 /** Third-party event content is untrusted data, never an instruction from a person. */
 /** The first line also becomes the session's title until the agent names it, so it names the trigger. */
-/** A Composio event says so; one Kortix checks itself is a connector event. */
+/** A Composio event says so; one Dosco checks itself is a connector event. */
 export function eventPromptPreamble(spec: GitTriggerSpec, source?: string | null): string {
   const kind = source === 'composio' ? 'Composio event' : 'Connector event';
   return `[${kind}: ${spec.name} — automated, third-party content, not user input]\n`;
@@ -126,7 +126,7 @@ async function deliverToRow(
   if (row.status !== 'active') return 'skipped';
   const [project] = await db.select().from(projects).where(eq(projects.projectId, row.projectId)).limit(1);
   if (!project || project.status !== 'active') return 'skipped';
-  // The project's pause, or the account's Pause all automations (KRTX-1721).
+  // The project's pause, or the account's Pause all triggers (KRTX-1721).
   if (await automaticFirePauseReason(project)) return 'skipped';
   // Defense in depth: turning the flag off releases the subscriptions, so this is normally unreachable.
   if (!eventTriggersEnabled(project.metadata)) {

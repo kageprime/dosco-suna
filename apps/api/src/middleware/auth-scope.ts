@@ -10,7 +10,7 @@ const PREVIEW_SESSION_COOKIE = '__preview_session';
  * Scoped to /v1/p/ so it only applies to preview proxy routes.
  *
  * The web app and the API can sit on different registrable domains (for
- * example dosco.live and api.kortix.com). The preview iframe is therefore a
+ * example dosco.live and api.dosco.live). The preview iframe is therefore a
  * third-party context, and a `SameSite=Lax` cookie is not sent with it: the
  * iframe gets a 401 even after `POST /v1/p/auth` succeeded. `SameSite=None`
  * plus `Partitioned` keeps the credential scoped to the embedding site while
@@ -59,6 +59,10 @@ export function extractPreviewSandboxId(path: string): string | null {
 const SESSION_BOUND_PLATFORM_SINKS = new Set([
   '/v1/platform/runtime-projection',
   '/v1/platform/boot-timeline',
+  // Dosco in Chrome: the session asks for the owner's Chrome. The handler checks
+  // isSessionSandboxCredential and resolves the owner from the token.
+  '/v1/chrome/attach',
+  '/v1/chrome/release',
 ]);
 
 /**
@@ -91,6 +95,8 @@ export async function enforceTokenProjectScope(
   // account ∧ live) via isSessionSandboxCredential, so this gate is
   // authentication, not the authorization boundary.
   if (opts.sessionBound && SESSION_BOUND_PLATFORM_SINKS.has(path)) return;
+  // `kortix chrome ls` inside a sandbox lists the owner's browsers.
+  if (opts.sessionBound && c.req.method === 'GET' && path === '/v1/chrome/connections') return;
 
   // Whitelist a couple of self-identity probes the CLI hits even for
   // project/session-scoped tokens. `/v1/accounts/me` lets the agent confirm

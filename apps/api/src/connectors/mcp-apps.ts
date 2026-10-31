@@ -27,6 +27,7 @@
  * the marks belong to their owners.
  */
 import type { OAuth2ApplicationInput } from '@kortix/api-contract';
+import { CHANNEL_PLATFORM_IDS, CHANNELS } from '@kortix/shared/channel-descriptors';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 import { composioVisibleToolkits, publicToolkit } from './composio-catalog-search';
@@ -316,22 +317,26 @@ export function composioSurface(item: ConnectorCatalogItem): ConnectorSurfaceVar
  *  (`kortix channels …`, the desktop app or the pairing command), never
  *  through Install, and it is the recommended way to its app (`variantRank`). */
 export const KORTIX_APPS: ReadonlyArray<{
-  app: DoscoApp;
+  app: KortixApp;
   name: string;
   domain: string;
   description: string;
   icon: string | null;
   categories: string[];
 }> = [
-  { app: 'slack', name: 'Slack', domain: 'slack.com', description: 'Message the agent in Slack: mentions, DMs and channels, through the Dosco Slack app.', icon: '/connector-icons/slack.svg', categories: ['communication'] },
-  { app: 'teams', name: 'Microsoft Teams', domain: 'teams.microsoft.com', description: 'Message the agent in Microsoft Teams chats and channels, through the Dosco Teams app.', icon: '/connector-icons/teams.svg', categories: ['communication'] },
-  { app: 'email', name: 'Email', domain: 'email.kortix', description: 'Give the project an inbox: people email the agent and it replies.', icon: '/connector-icons/email.svg', categories: ['communication'] },
-  { app: 'telegram', name: 'Telegram', domain: 'telegram.org', description: 'Message the agent from Telegram through a bot you own.', icon: '/connector-icons/telegram.svg', categories: ['communication'] },
+  ...CHANNEL_PLATFORM_IDS.map((app) => ({
+    app,
+    name: CHANNELS[app].label,
+    domain: CHANNELS[app].catalog.domain,
+    description: CHANNELS[app].catalog.description,
+    icon: `/connector-icons/${app}.svg`,
+    categories: ['communication'],
+  })),
   { app: 'computer', name: 'Computer', domain: 'computer.kortix', description: 'Let agents work with the files, terminal and apps on your own computer, with the access you allow.', icon: '/connector-icons/computer.svg', categories: ['developer-tools'] },
 ];
 
 /** The catalogue id of a Dosco integration: the web opens `native:computer` on its own page. */
-export const kortixAppId = (app: DoscoApp): string => `native:${app}`;
+export const kortixAppId = (app: KortixApp): string => `native:${app}`;
 
 export function kortixCatalogItem(entry: (typeof KORTIX_APPS)[number]): ConnectorCatalogItem {
   return {
@@ -493,7 +498,7 @@ export const kortixMcpCatalog = createConnectorCatalog({
 
 /**
  * Every way to connect one app, best first (`variantRank`), the first marked
- * `recommended`: Kortix's MCP app, the integrations.sh surfaces of every
+ * `recommended`: Dosco's MCP app, the integrations.sh surfaces of every
  * domain its records come from, and its managed toolkit. A surface that is
  * down drops out; the others still list.
  */
@@ -524,7 +529,7 @@ export async function connectorsV2Surfaces(
     .map((variant) =>
       variant.kind === 'mcp' && isOneClickMcpUrl(variant.url) ? { ...variant, oneClick: true } : variant,
     );
-  // One row per endpoint: the registry often lists a Kortix app's server too.
+  // One row per endpoint: the registry often lists a Dosco app's server too.
   const seen = new Set<string>();
   const ways = [...curated, ...registry, ...records.filter((item) => item.kind === 'composio').map(composioSurface)].filter(
     (variant) => {

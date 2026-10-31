@@ -3,7 +3,7 @@ import { config } from '../../config';
 // Platinum is the reference provider; Daytona is a legacy fallback (removal
 // scheduled). E2B support is discontinued: a stored `e2b` row resolves through
 // tryGetProvider() to null.
-export type ProviderName = 'platinum' | 'daytona';
+export type ProviderName = 'platinum' | 'daytona' | 'e2b';
 
 export class WarmRuntimeUnavailableError extends Error {
   constructor(message: string) {
@@ -93,6 +93,13 @@ export interface CreateSandboxOpts {
    * always fails: a box never boots without them.)
    */
   volumesRequired?: boolean;
+  /**
+   * The sandbox template's `residential_proxy` (platform/services/residential-proxy.ts):
+   * the box's web traffic leaves through a residential IP in `country` (any when
+   * absent), except to the `bypass` hosts. Platinum only; a session with it does
+   * not start elsewhere.
+   */
+  residentialProxy?: { bypass: string[]; country?: string };
 }
 
 export function sandboxWorkloadType(opts: CreateSandboxOpts): SandboxWorkloadType {

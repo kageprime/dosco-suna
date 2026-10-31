@@ -1,5 +1,6 @@
 import { revokeAppViewerTokens } from './viewer';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { BINDING_AGENT_RE, SPACE_SLUG_RE } from '@kortix/shared/app-config';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { AppEnv } from '../types';
@@ -12,11 +13,11 @@ import {
   apps,
 } from '@kortix/db';
 import { and, desc, eq, inArray, isNotNull, isNull, max, ne, notInArray, sql } from 'drizzle-orm';
-import { auth, errors, json } from '../openapi';
+import { auth, boundedIssues, errors, json } from '../openapi';
 import { pauseComputeSession } from '../billing/services/compute-metering';
 import { config, type SandboxProviderName } from '../config';
 import { db } from '../shared/db';
-import { inspectDatabaseError } from '../shared/database-errors';
+import { inspectDatabaseError, rethrowDatabaseError } from '../shared/database-errors';
 import {
   AppArtifactStorageRefusedError,
   AppArtifactStorageUnavailableError,
@@ -45,15 +46,14 @@ import { logger } from '../lib/logger';
 import { readAgentsGrantingApp } from './agent-grants';
 import {
   appAccessibleToUser,
-  appsOpenableByUser,
   appAccessSessionUrl,
-  filterAppsVisibleToUser,
   persistAppAccessPolicy,
   serializeAppAccessPolicy,
   validateAppAccessPrincipals,
 } from './access';
 import { authorizedProject, capabilityRefusal, visibleApp } from './route-access';
 import { AppObject, appJson, appsJson } from './serialize';
+import { accessibleApps } from './space-apps';
 import { commitAppFields, commitAppRemoval, manifestFieldsOf } from './app-manifest';
 import { probeFrameable } from './external';
 import { UnknownLinkedAppError, resolveAppLinks, writeAppLinks } from './links';
@@ -106,6 +106,9 @@ const DisplaySchema = z.object({
   listed: z.boolean().optional(),
   preview: z.enum(['live', 'none']).optional(),
   parent: z.string().regex(APP_SLUG, 'an App slug').optional(),
+  // Grouping only, never a grant: the space and the owning agent the App is shown under.
+  space: z.string().regex(SPACE_SLUG_RE, 'a space slug').nullable().optional(),
+  agent: z.string().regex(BINDING_AGENT_RE, 'an agent name').nullable().optional(),
 }).strict();
 /** An external App's site: https only, no credentials in the URL. */
 const ExternalUrlSchema = z.string().url().max(2048).refine((value) => {
@@ -310,10 +313,8 @@ export function registerAppsRoutes(): void {
         .orderBy(desc(apps.createdAt));
       // Only the Apps the caller may see AND open: no card that is listed and
       // then refuses to open. An App left out answers 404 on GET, never 403.
-      const visible = await filterAppsVisibleToUser(rows, loaded.userId);
-      const openable = await appsOpenableByUser(visible, loaded.userId);
-      const accessible = visible.filter((row) => openable.has(row.appId));
-      return c.json({ apps: await appsJson(accessible, loaded.userId, openable) });
+      const accessible = await accessibleApps(rows, loaded.userId);
+      return c.json({ apps: await appsJson(accessible.rows, loaded.userId, accessible.openable) });
     },
   );
 
@@ -423,6 +424,7 @@ export function registerAppsRoutes(): void {
         }, row.slug);
         return c.json({ agents });
       } catch (error) {
+        rethrowDatabaseError(error);
         return c.json({ error: `kortix.yaml could not be read: ${(error as Error).message}` }, 503);
       }
     },
@@ -664,7 +666,7 @@ export function registerAppsRoutes(): void {
     createRoute({
       method: 'patch', path: '/{projectId}/apps/{appId}', tags: ['apps'], summary: 'Update an App', ...auth,
       description:
-        '`external_url` moves an external App to another https URL (409 for an App Dosco runs). `display` replaces where Dosco shows the App (`listed`, `preview`: live | none, `parent`: the App whose detail shows it as a tab); presentation only. `uses` replaces the Apps (by slug) this App uses; each must be a live App of the project the caller can see (400 `app_not_found` otherwise, the same for a missing App and a hidden one). A refused PATCH changes nothing. ',
+        '`external_url` moves an external App to another https URL (409 for an App Dosco runs). `display` replaces where Dosco shows the App (`listed`, `preview`: live | none, `parent`: the App whose detail shows it as a tab, `space` and `agent`: where it is grouped); presentation only, never a grant. `uses` replaces the Apps (by slug) this App uses; each must be a live App of the project the caller can see (400 `app_not_found` otherwise, the same for a missing App and a hidden one). A refused PATCH changes nothing. ',
       request: {
         params: z.object({ projectId: z.string().uuid(), appId: z.string().uuid() }),
         body: { content: { 'application/json': { schema: z.object({
@@ -869,7 +871,7 @@ export function registerAppsRoutes(): void {
       if (source.kind !== 'static') {
         const resolved = resolveDeployConfig(body.config, app, 'port' in source ? source.port : undefined);
         if ('issues' in resolved) {
-          return c.json({ error: 'The release config is invalid', code: 'app_config_invalid', issues: resolved.issues }, 400);
+          return c.json({ error: 'The release config is invalid', code: 'app_config_invalid', ...boundedIssues(resolved.issues) }, 400);
         }
         releaseConfig = resolved.config;
         const [latest] = await db.select({ provider: appDeployments.hostingProvider }).from(appDeployments)
@@ -1161,6 +1163,7 @@ export function registerAppsRoutes(): void {
             }
             const refusal = appLimitResponse(c, error);
             if (refusal) return refusal;
+            rethrowDatabaseError(error);
             return c.json({
               error: 'App start failed',
               detail: error instanceof Error ? error.message : String(error),

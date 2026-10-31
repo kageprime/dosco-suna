@@ -15,7 +15,7 @@
  *   CLI     kortix-{darwin,linux}-{arm64,x64} (no Windows binary)
  */
 
-import type { DesktopOs } from './detect-os';
+import type { DesktopOs } from '@kortix/ui/internal/lib/detect-os';
 
 const REPO = 'kageprime/dosco-suna';
 const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;

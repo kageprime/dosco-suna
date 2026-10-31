@@ -40,6 +40,7 @@ import { watchConnectorCompletion } from './connector-completion-watch';
 import { composioConfigured, composioToolkitLogo } from '../connectors/composio';
 import { connectorConnectedPrompt, notifyConnectorSession } from '../connectors/notify-session';
 import { readJsonObject } from '../shared/http-body';
+import { rethrowDatabaseError } from '../shared/database-errors';
 
 // The connector half of the notification moved to connectors/notify-session.ts so the
 // in-session Connect button's finalize can reuse it. Re-exported: this module is where
@@ -507,7 +508,7 @@ async function resolveConnectorLink(c: Context): Promise<
   if (!connector || !['pipedream', 'composio', 'mcp'].includes(connector.providerType)) {
     return { error: c.json({ error: 'Connector not found' }, 404) };
   }
-  // An MCP connector signs in through Kortix itself; the others need a hosted provider.
+  // An MCP connector signs in through Dosco itself; the others need a hosted provider.
   if (connector.providerType !== 'mcp' && !composioConfigured() && !pipedreamConfigured()) {
     return {
       error: c.json(
@@ -610,6 +611,7 @@ setupLinksPublicApp.openapi(createRoute({
     });
     return c.json({ connect_url: started.connectUrl });
   } catch (err) {
+    rethrowDatabaseError(err);
     return c.json({ error: err instanceof Error ? err.message : 'Failed to start connect' }, 502);
   }
 });
@@ -675,6 +677,7 @@ setupLinksPublicApp.openapi(createRoute({
     connected = result.connected;
     connectedAs = result.connectedAs ?? null;
   } catch (err) {
+    rethrowDatabaseError(err);
     return c.json({ error: err instanceof Error ? err.message : 'Failed to finalize connect' }, 502);
   }
   // Not connected yet is the NORMAL state while the user is still on
@@ -735,6 +738,7 @@ async function finalizeNamedAccount(
     connected = result.connected;
     connectedAs = result.connectedAs ?? null;
   } catch (err) {
+    rethrowDatabaseError(err);
     return c.json({ error: err instanceof Error ? err.message : 'Failed to finalize connect' }, 502);
   }
   if (!connected) return c.json({ connected: false }, 200);

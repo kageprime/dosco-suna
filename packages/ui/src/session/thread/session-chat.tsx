@@ -11,7 +11,6 @@ import { useTranslations } from '../../i18n';
 import { errorMessageOf, isDeliveredButDisconnected } from '../../internal/lib/delivered-but-disconnected';
 import { useQueuedDraftStore, useQueuedDrafts } from '../composer/stores/queued-draft-store';
 import {
-  type SandboxLifecycle,
   type SessionPrompt,
   type SessionPromptDelivery,
   type SessionPromptPart,
@@ -22,7 +21,6 @@ import {
   SESSION_LOG_MINOR,
   SESSION_LOG_SCHEMA,
   listSessionPrompts,
-  projectSessionConnection,
   sessionLogOfV1Rows,
   sessionLogPromptMessage,
   sessionLogRetrying,
@@ -49,7 +47,7 @@ import {
 } from '@phosphor-icons/react';
 import { m } from 'motion/react';
 import { jumpToOutcome } from '../outcomes/jump-to-outcome';
-import { useIsMobile } from '../../hooks/use-mobile';
+import { useIsMobile, useIsPhone } from '../../hooks/use-mobile';
 import {
   useUiLink,
   useUiPathname,
@@ -58,7 +56,9 @@ import {
   useUiSearchParams,
   useUiViewerId,
 } from '../../providers/ui-provider';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { TranscriptRowsContext, type TranscriptRows } from './transcript-rows';
+import { AgentBusyRow, PendingPromptRows } from './thread-boot-rows';
 import { createPortal } from 'react-dom';
 import {
   AUTHOR_RETRY_DELAYS_MS,
@@ -66,6 +66,7 @@ import {
   awaitsAgent,
   missingAuthorKey,
   resolveTranscriptAuthors,
+  rewindableMessageIds,
   showAuthorName,
   stoppedByName,
 } from '../turn/message-author';
@@ -107,7 +108,9 @@ import {
   Composer as SessionChatInput,
 } from '../composer/composer';
 import { ComposerDropZone } from '../composer/composer-drop-zone';
-import { resolveComposerAgent } from '../composer/composer-agent-access';
+import { AgentStrip } from '../agents/agent-strip';
+import { SessionPromptContext } from '../agents/session-prompt';
+import { channelRunnableAgents, resolveComposerAgent, withChannelAgents } from '../composer/composer-agent-access';
 import {
   acknowledgeQuoteRequests,
   type QuoteRequest,
@@ -164,6 +167,7 @@ import type { DraftScope } from '../composer/draft/composer-draft';
 import { usePlanInChat } from './plan-surface';
 import { SessionStartingLoader } from '../status/session-starting-loader';
 import { ToolActivateContext } from '../tool/tool-renderers';
+import { ReadOnlySessionContext } from '../tool/shared/infrastructure-contexts';
 import {
   firstPromptAttachments,
   retainSentAttachmentPreviews,
@@ -206,7 +210,7 @@ import { openTabAndNavigate, useTabStore } from '../../internal/stores/tab-store
 import { projectSessionHref } from '../../internal/lib/navigation/session-href';
 import { type Command, type QuestionRequest, getRetryInfo } from '../../internal/session-types';
 import { useModelPricingLookup } from '../../internal/lib/model-pricing';
-import { isAbortError, latestPromptModel, turnEndNotice } from '@kortix/sdk';
+import { isAbortError, latestPromptModel, SESSION_NOTICE, turnEndNotice } from '@kortix/sdk';
 import {
   failureShownByTurn,
   failureSupersededByTurn,
@@ -240,6 +244,7 @@ import {
   useExecuteRuntimeCommand,
   useProjectConfig,
   useRuntimeAgents,
+  useProjectSpaces,
   useRuntimeBootStalled,
   useRuntimeCommands,
   useRuntimeConfig,
@@ -390,6 +395,8 @@ interface SessionChatProps {
   hideHeader?: boolean;
   /** Read-only mode — hides the chat input bar (used for sub-session modal viewer) */
   readOnly?: boolean;
+  /** The composer's placeholder (a channel thread says "Reply…"). Default: the composer's own. */
+  composerPlaceholder?: string;
   /**
    * Drawn in the composer's slot, in flow, when `readOnly`: a terminal
    * session state (stopped with no computer, lost computer, failed start)
@@ -448,6 +455,15 @@ const DETACHED_SESSION_MESSAGES = { projectId: '', sessionId: '', runtimeSession
 
 const NO_FULL_TEXTS: ReadonlyMap<string, string> = new Map();
 
+/** The composer notice in the host's words (`TranscriptRows.notices`), else the SDK's. */
+function hostNotice(notice: string | null, notices: TranscriptRows['notices']): string | null {
+  if (!notice || !notices) return notice;
+  const key = (Object.keys(SESSION_NOTICE) as (keyof typeof SESSION_NOTICE)[]).find(
+    (candidate) => SESSION_NOTICE[candidate] === notice,
+  );
+  return (key && notices[key]) || notice;
+}
+
 export function SessionChat({
   sessionId,
   projectSessionId,
@@ -457,6 +473,7 @@ export function SessionChat({
   headerLeadingAction,
   hideHeader,
   readOnly,
+  composerPlaceholder,
   inputReplacement,
   initialScrollTop,
   savedHistoryScope,
@@ -465,6 +482,11 @@ export function SessionChat({
   hostQuote,
 }: SessionChatProps) {
   const tHardcodedUi = useTranslations('hardcodedUi');
+  // A channel's thread panel: turns are message rows, full width, end-anchored.
+  const rowsContext = useContext(TranscriptRowsContext);
+  const transcriptRows = rowsContext !== null;
+  const isMobile = useIsMobile();
+  const isPhone = useIsPhone();
   const tQueue = useTranslations('threads');
   const tComposerAttachments = useTranslations('hardcodedUi.composerAttachments');
   const onboardingActive = useOnboardingModeStore((s) => s.active);
@@ -755,7 +777,7 @@ export function SessionChat({
   // chat has no projectId, but runs inside the parent scope's project: its
   // roster is that project's. Only a chat with neither falls back to the
   // runtime's own agent list, which a pi box does not serve (KRTX-2887).
-  const { data: agents } = useRuntimeAgents({
+  const { data: rosterAgents } = useRuntimeAgents({
     directory: session?.directory,
     projectId: projectId ?? (scopeProjectId || undefined),
   });
@@ -852,6 +874,25 @@ export function SessionChat({
   const projectSessionRow = useProjectSession(projectId, projectSessionId ?? undefined, {
     enabled: !!projectId && !!projectSessionId,
   }).data;
+  // A channel thread: whoever posts in the channel runs its agents, granted or
+  // not (the server applies the same rule).
+  const { data: projectSpaces } = useProjectSpaces(projectId, {
+    enabled: !!projectId && !!projectSessionRow?.space_id,
+  });
+  const threadChannelAgents = useMemo(
+    () =>
+      channelRunnableAgents(
+        projectSpaces?.find((space) => space.space_id === projectSessionRow?.space_id),
+        projectConfig?.default_agent ?? projectConfig?.open_code_default_agent,
+      ),
+    [projectSpaces, projectSessionRow?.space_id, projectConfig?.default_agent, projectConfig?.open_code_default_agent],
+  );
+  const agents = useMemo(() => withChannelAgents(rosterAgents, threadChannelAgents), [rosterAgents, threadChannelAgents]);
+  // Edit-and-rewind only on the viewer's own message with nobody else's after it.
+  const rewindable = useMemo(
+    () => rewindableMessageIds(userMessageIds, transcriptAuthors.byMessage, viewerId, projectSessionRow?.created_by),
+    [userMessageIds, transcriptAuthors.byMessage, viewerId, projectSessionRow?.created_by],
+  );
 
   // ---- Unified model/agent/variant state (1:1 port of SolidJS local.tsx) ----
   // The composer opens on the model the session already runs (its pin, or its
@@ -1480,7 +1521,7 @@ export function SessionChat({
       const undoToastId = `queue-undo-${sessionId}-${removed.prompt_id}`;
       undoToast(tHardcodedUi.raw('i18nComplete.text2c6041fda32c'), {
         id: undoToastId,
-        duration: 5000,
+        duration: 5000, // audit:allow a toast lifetime in ms, not motion/react seconds
         undoLabel: tHardcodedUi.raw('i18nComplete.texta737e54996f8'),
         // The SAME `clientMessageId`, so an undo re-creates ONE row and a
             // double-click cannot create two. A FRESH wire id, because
@@ -1569,6 +1610,7 @@ export function SessionChat({
     startAtTop,
   } = useAutoScroll({
     hasContent: messageCount > 0,
+    room: !transcriptRows,
   });
   // Cmd/Ctrl+P prints the WHOLE conversation. The shortcut is intercepted
   // because neither half of what printing needs can be done in CSS: the
@@ -3425,6 +3467,9 @@ export function SessionChat({
           isComposing: e.isComposing,
         })
       ) {
+        // A press something else consumed breaks the run: three Escapes
+        // that each closed a viewer must never add up to a stop.
+        clearEscHint();
         return;
       }
 
@@ -3462,11 +3507,20 @@ export function SessionChat({
       }
     };
 
+    // A click anywhere also breaks the run. Esc, click an image, Esc, click
+    // the next, Esc is three separate intents, not one stop request — and it
+    // covers any layer whose Escape handler forgets to preventDefault.
+    const onPointerDown = () => {
+      if (escDeadlineRef.current) clearEscHint();
+    };
+
     window.addEventListener('keydown', onKeyDownCapture, true);
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('pointerdown', onPointerDown, true);
     return () => {
       window.removeEventListener('keydown', onKeyDownCapture, true);
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('pointerdown', onPointerDown, true);
     };
   }, [isActiveSessionTab, readOnly, isBusy, canStop, handleStop, clearEscHint, escCount]);
 
@@ -3996,22 +4050,8 @@ export function SessionChat({
   // its cause attached instead of a shrug. An actionable cause reports to
   // Sentry; a routine browser tab discard only leaves a breadcrumb.
   useReloadForensics(projectSessionId);
-  // ONE answer for every surface that draws this session's runtime, and the
-  // reason the composer no longer guesses: `unknown` and `connecting` are
-  // waits, and a wait is not a fault. A routine wake says nothing either; only
-  // a parked box with no wake under way earns the asleep notice.
-  const sessionConnection = projectSessionConnection({
-    sandbox: (projectSessionRow?.status as SandboxLifecycle | undefined) ?? null,
-    runtimeReady,
-    unreachable: runtimePhase === 'unreachable' || runtimeUnreachable,
-    stalled: runtimeStalled,
-    activityFresh: working.state === 'working' && working.source === 'stream',
-  });
   const composerReadiness = sessionComposerReadiness({
     runtimeReady,
-    pendingPrompt: allowSendBeforeReady && working.state === 'working',
-    pendingDelivery: working.pendingDelivery,
-    connection: sessionConnection,
     // Only an OPEN TURN the control plane is holding counts here. This tab's
     // optimistic receipt and a stream frame both survive a box that died
     // mid-turn, and a durable inbox row (which the projection also sources to
@@ -4020,13 +4060,6 @@ export function SessionChat({
     serverTurnLive: serverHoldsOpenTurn(working),
     unreachable: runtimePhase === 'unreachable' || runtimeUnreachable,
     stalled: runtimeStalled,
-    // The route's `/start` is bringing the computer up (or has not answered):
-    // the same fact the boot pill above the thread shows.
-    starting:
-      !!sessionState &&
-      (sessionState.stage == null ||
-        sessionState.stage === 'provisioning' ||
-        sessionState.stage === 'starting'),
   });
   // #6509's `promptLikelyDropped` notice is deliberately NOT carried over: it
   // instrumented the deleted prompt-observation stall machinery to warn about
@@ -4151,6 +4184,13 @@ export function SessionChat({
   // the loader exists to avoid). The connection keeps running in the parent
   // ProjectSessionRuntimeConnection, so as soon as the runtime is ready
   // isDataLoading flips and the full shell renders in one shot.
+  // A control outside the composer ("Save as workflow" on a workflow card) sends through the
+  // same path as a typed prompt: a running turn is steered, an idle session starts a turn.
+  const sendSessionPrompt = useCallback(
+    (text: string) => handleSend(text, undefined, undefined, undefined, composerSendDelivery('transcript', isBusyRef.current)),
+    [handleSend],
+  );
+
   if (isDataLoading) {
     // A transcript read that genuinely FAILED (not a waking box — the SDK keeps
     // those on `loading` and retries them itself) gets an explicit retry, not
@@ -4187,11 +4227,14 @@ export function SessionChat({
   }
 
   return (
-    // Outcomes' cache coherence and the shareable `?cr=` link both hinge on
-    // ONE `ProjectFilesProvider`: `useChangeRequests` inside
-    // `SessionOutcomesProvider` and `ChangeRequestDetailDialog` below both read
-    // their project id from this context, which is what keeps them on the same
-    // React Query cache entry (see `outcomes/session-outcomes-provider.tsx`).
+    // A read-only view (the sub-session modal) offers no fix inside a tool card.
+    <ReadOnlySessionContext.Provider value={!!readOnly}>
+    <SessionPromptContext.Provider value={readOnly ? null : sendSessionPrompt}>
+    {/* Outcomes' cache coherence and the shareable `?cr=` link both hinge on
+        ONE `ProjectFilesProvider`: `useChangeRequests` inside
+        `SessionOutcomesProvider` and `ChangeRequestDetailDialog` below both read
+        their project id from this context, which is what keeps them on the same
+        React Query cache entry (see `outcomes/session-outcomes-provider.tsx`). */}
     <ProjectFilesProvider
       value={{ projectId: projectId ?? '', ref: outcomesBaseRef, defaultBranch: outcomesBaseRef }}
     >
@@ -4338,7 +4381,8 @@ export function SessionChat({
                   // message is the auto-scroll spacer's job alone. The `pb-32`
                   // that used to sit here stacked 128px of dead space on top of
                   // it — the "extra inset at the bottom of the session".
-                  className={SESSION_TRANSCRIPT_CLASS}
+                  // Rows run edge to edge: each row owns its gutters and its hover fill.
+                  className={transcriptRows ? 'w-full min-w-0 pt-4' : SESSION_TRANSCRIPT_CLASS}
                 >
                   <div className="flex min-w-0 flex-col">
                     {/* Print only — `print.css` keeps this hidden on screen.
@@ -4440,7 +4484,24 @@ export function SessionChat({
                         only when a turn is already drawing its own. */}
                         {showFirstPromptPreview &&
                           firstPromptSource &&
-                          queuedSyntheticMessages.length === 0 && (
+                          queuedSyntheticMessages.length === 0 &&
+                          rowsContext && (
+                            // A channel thread draws the stand-in as rows, the same
+                            // rows its boot body drew (`ThreadBootRows`).
+                            <PendingPromptRows
+                              text={buildOptimisticPromptTextWithUploads(
+                                firstPromptSource.text,
+                                firstPromptSource.files,
+                              )}
+                              author={rowsContext.owner}
+                              sessionId={sessionId}
+                              busy={turns.length === 0 && (lastTurnWorking || promptInbox.prompts.some(isFirstPromptRow))}
+                            />
+                          )}
+                        {showFirstPromptPreview &&
+                          firstPromptSource &&
+                          queuedSyntheticMessages.length === 0 &&
+                          !rowsContext && (
                             <OptimisticTurn
                               text={buildOptimisticPromptTextWithUploads(
                                 firstPromptSource.text,
@@ -4544,7 +4605,7 @@ export function SessionChat({
                               // (Failed compaction rows need no stacking rule any
                               // more — at most one is visible at a time.)
                               viewportClassName={
-                                turnIndex === 0
+                                turnIndex === 0 || transcriptRows
                                   ? ''
                                   : // A compaction and the work after it continue the turn above.
                                     turn.compaction || turn.continues
@@ -4609,13 +4670,21 @@ export function SessionChat({
                               // An idle send stays in the inbox until delivery,
                               // but nothing runs ahead of it: queued only while
                               // it waits behind a turn (`turnRendersQueued`).
-                              pending={turnRendersQueued({
-                                turnId: turn.id,
-                                resolution: workingTurn,
-                                sessionWorking: lastTurnWorking,
-                                confirmedActive,
-                                inboxPrompt: pendingPrompt,
-                              })}
+                              // The first turn, with no turn working, has
+                              // nothing ahead of it: a session's first prompt is
+                              // starting, not queued, while the computer comes up
+                              // and before the turn layer marks it queued or live.
+                              pending={
+                                turnIndex === 0 && workingTurn.workingTurnId === null && !confirmedActive
+                                  ? pendingPrompt?.state === 'waiting' || pendingPrompt?.state === 'failed'
+                                  : turnRendersQueued({
+                                      turnId: turn.id,
+                                      resolution: workingTurn,
+                                      sessionWorking: lastTurnWorking,
+                                      confirmedActive,
+                                      inboxPrompt: pendingPrompt,
+                                    })
+                              }
                               pendingPrompt={pendingPrompt}
                               onRetryQueued={stableRetryQueued}
                               onRemoveQueued={stableRemoveQueued}
@@ -4644,6 +4713,7 @@ export function SessionChat({
                               onEditSend={stableEditSend}
                               rewindDisabled={
                                 !!readOnly ||
+                                (rewindable !== null && !rewindable.has(turn.id)) ||
                                 !runtimeCanRewind ||
                                 !sessionState ||
                                 isBusy ||
@@ -4717,6 +4787,10 @@ export function SessionChat({
                     {/* Active runtime work can precede its transcript turn. Pending
                         delivery already has a queued status and shows no thinking row. */}
                     {showFallbackBusyRow && fallbackBusyRowTurnId === null && (
+                      rowsContext ? (
+                        // A channel thread waits in the agent's answer row.
+                        <AgentBusyRow sessionId={sessionId} />
+                      ) : (
                         <SessionBusyIndicator
                           sessionId={sessionId}
                           // Matches the stand-in's row spacing under a bubble
@@ -4725,7 +4799,8 @@ export function SessionChat({
                           // the transcript is empty, so no margin there.
                           className={turns.length === 0 ? undefined : 'mt-6'}
                         />
-                      )}
+                      )
+                    )}
                   </div>
                   {/* Spacer — the transcript's anchor space. It is sized from
                       the scroll container so the newest turn
@@ -4762,12 +4837,14 @@ export function SessionChat({
                 </div>
               )}
 
-              {/* Chat Minimap */}
-              <ChatMinimap
-                turns={turns}
-                scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
-                contentRef={contentRef as React.RefObject<HTMLDivElement>}
-              />
+              {/* Chat Minimap. Not in a thread panel: its rail would sit on the rows' avatars. */}
+              {transcriptRows ? null : (
+                <ChatMinimap
+                  turns={turns}
+                  scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
+                  contentRef={contentRef as React.RefObject<HTMLDivElement>}
+                />
+              )}
 
               <div
                 className={cn(
@@ -4825,8 +4902,9 @@ export function SessionChat({
                 // Up from the first row takes the queue back; the placeholder
                 // says so while there is something to take.
                 onArrowUpAtStart={() => queueEdit.takeBack()}
+                // A host placeholder ("Reply…") is static: the rotating tips would replace it.
                 hint={
-                  canTakeBackQueue ? tHardcodedUi.raw('i18nComplete.text03a01dd53ffa') : undefined
+                  canTakeBackQueue ? tHardcodedUi.raw('i18nComplete.text03a01dd53ffa') : composerPlaceholder
                 }
                 // Editing a queued message: the send saves it back into the
                 // queue, so the control says Submit, never Stop.
@@ -4900,17 +4978,35 @@ export function SessionChat({
                 // The shell can now render on a cached transcript alone, i.e. before
                 // the sandbox answers — so sending has to be gated separately from
                 // reading. See sessionComposerReadiness.
-                notice={composerReadiness.notice}
+                notice={hostNotice(composerReadiness.notice, rowsContext?.notices)}
+                // Inside the thread panel's bordered box, as the channel composer.
+                // A phone keeps the row under the card; a 720px desktop window does not.
+                underbarPlacement={transcriptRows && !isPhone ? 'inline' : undefined}
+                // The panel's toolbar is narrow: the agent is its tile, the model keeps its name.
+                agentPickerCompact={transcriptRows && !isPhone}
+                // A thread panel's rows run `px-5`, and the channel composer
+                // beside it sits `pb-4` off the window's bottom edge: the same
+                // margins, so the two boxes line up.
+                parentClassName={transcriptRows ? 'max-w-none px-5 pb-4' : undefined}
                 onNoticeRetry={
                   composerReadiness.notice && composerReadiness.retryable
                     ? requestRuntimeReconnect
                     : undefined
                 }
               />
+              {/* The agents this session started, under the composer (Claude Code's agent
+                  panel). It reads its own lists and never holds the composer. */}
+              <AgentStrip
+                projectId={projectId}
+                sessionId={projectSessionId}
+                className={cn(COMPOSER_SHELL_CLASS, 'pb-3', transcriptRows && 'max-w-none px-5')}
+              />
             </>
           )}
         </SessionBodyRow>
       </ComposerDropZone>
     </ProjectFilesProvider>
+    </SessionPromptContext.Provider>
+    </ReadOnlySessionContext.Provider>
   );
 }

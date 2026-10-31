@@ -314,6 +314,7 @@ export const AGENTS_LANDING_TRANSLATION_KEYS: Readonly<Record<string, string>> =
   'The manifest rejects a behavioral field in the governance block, with an error pointing at the agent’s own .md file.':
     'textec69732f4600',
   'The agentic operating system': 'text1806843c0554',
+  'The open-source CompanyOS': 'text1806843c0554',
   'the runtime your agents think in': 'text16886514658f',
   'The session opens a change request. You read exactly which files are about to join your company, and merge when you are happy. Nothing lands unreviewed.':
     'text2fa77dd466b4',

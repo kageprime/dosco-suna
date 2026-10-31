@@ -23,7 +23,7 @@ test('a session read joining an invalidated refresh observes the newly merged ag
   const git = async (...args: string[]) => (await exec('git', args)).stdout.trim();
   await git('init', '--bare', '--initial-branch=main', remote);
   await git('init', '--initial-branch=main', work);
-  await git('-C', work, '-c', 'user.name=Test', '-c', 'user.email=agent@kortix.ai', 'commit', '--allow-empty', '-m', 'seed');
+  await git('-C', work, '-c', 'user.name=Test', '-c', 'user.email=agent@dosco.live', 'commit', '--allow-empty', '-m', 'seed');
   await git('-C', work, 'push', remote, 'main');
   const project = { projectId: crypto.randomUUID(), repoUrl: remote, defaultBranch: 'main', manifestPath: 'kortix.yaml', gitAuthToken: 'synthetic' };
   const mirror = await refreshMirror(project, true);
@@ -47,7 +47,7 @@ test('a session read joining an invalidated refresh observes the newly merged ag
     await fs.mkdir(join(work, 'agents'));
     await fs.writeFile(join(work, 'agents', 'helper.md'), 'New agent instructions');
     await git('-C', work, 'add', 'agents/helper.md');
-    await git('-C', work, '-c', 'user.name=Test', '-c', 'user.email=agent@kortix.ai', 'commit', '-m', 'add agent');
+    await git('-C', work, '-c', 'user.name=Test', '-c', 'user.email=agent@dosco.live', 'commit', '-m', 'add agent');
     await git('-C', work, 'push', remote, 'main');
     invalidateProjectMirror(project.projectId);
     const session = refreshMirror(project, 'tip-proof', { freshRef: 'main' });

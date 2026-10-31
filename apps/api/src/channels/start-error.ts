@@ -50,10 +50,10 @@ export const TEAMS_START_ERROR_COMMANDS: StartErrorCommands = {
   login: '`/login`',
 };
 
-/** Telegram has no Dosco commands: every fix is in the project's channel settings. */
+/** Plain text: Telegram replies carry no markup. `/status` shows the chat's settings; the project and the login live in Dosco. */
 export const TELEGRAM_START_ERROR_COMMANDS: StartErrorCommands = {
   surface: 'chat',
-  settings: 'Channels → Telegram in the Dosco project',
+  settings: '/status',
   switchProject: 'Channels → Telegram in the Dosco project',
   login: 'Channels → Telegram in the Dosco project',
 };

@@ -26,7 +26,7 @@ import { DRAG_MIME } from '../../tree/components/file-tree-item';
 import { useFilesStore, useFilesStoreApi } from '../../../internal/stores/files-store';
 import type { FileNode } from '../../../internal/files/types';
 import { EmptyState } from '../../../primitives/empty-state';
-import { DriveEmptyArt } from './drive-empty-art';
+import { EmptyArt } from '../../../primitives/empty-art';
 import { ErrorState } from '../../../primitives/error-state';
 import { isSandboxNotReadyError } from '@kortix/sdk';
 import {
@@ -57,6 +57,7 @@ import { useFileExplorerSource } from '../explorer-source';
 import { buildGitStatusMap } from '../hooks';
 import {
   forEachLimit,
+  MAX_UPLOAD_BYTES,
   partitionUploadBatch,
   resolveUploadTarget,
   UPLOAD_CONCURRENCY,
@@ -79,7 +80,7 @@ import { DriveGridView } from './drive-grid-view';
 import { DriveListView } from './drive-list-view';
 import { type DriveUpload, useDriveUploads } from '../store/upload-store';
 import {
-  DRIVE_ACTION_ROW_CLASS,
+  DriveActionRow,
   DriveNewMenu,
   DriveNewMenuItems,
   DrivePathBar,
@@ -199,6 +200,7 @@ export function DriveExplorer({
     ? { ...source.capabilities, write: false, search: false }
     : source.capabilities;
   const canWrite = capabilities.write;
+  const uploadLimit = capabilities.maxUploadBytes === undefined ? MAX_UPLOAD_BYTES : capabilities.maxUploadBytes;
 
   const currentPath = useFilesStore((s) => s.currentPath);
   const navigateToPath = useFilesStore((s) => s.navigateToPath);
@@ -677,7 +679,7 @@ export function DriveExplorer({
    */
   const handleUploadFiles = useCallback(
     async (fileList: FileList | File[], targetDirPath?: string) => {
-      const { accepted, rejected } = partitionUploadBatch(Array.from(fileList));
+      const { accepted, rejected } = partitionUploadBatch(Array.from(fileList), uploadLimit);
 
       for (const { reason } of rejected) errorToast(reason);
       if (accepted.length === 0) return;
@@ -702,7 +704,7 @@ export function DriveExplorer({
         targetDirPath ?? currentPath,
       );
     },
-    [currentPath, isRootPath, pendingNode, startBatch],
+    [currentPath, isRootPath, pendingNode, startBatch, uploadLimit],
   );
 
   /**
@@ -712,7 +714,7 @@ export function DriveExplorer({
    */
   const uploadTree = useCallback(
     async (tree: TreeFile[], base: string) => {
-      const { accepted, rejected } = partitionUploadBatch(tree.map((t) => t.file));
+      const { accepted, rejected } = partitionUploadBatch(tree.map((t) => t.file), uploadLimit);
       for (const { reason } of rejected) errorToast(reason);
       const acceptedSet = new Set(accepted);
       const items = tree.filter((t) => acceptedSet.has(t.file));
@@ -758,7 +760,7 @@ export function DriveExplorer({
         tops.length === 1 ? at(tops[0]!) : root || '/',
       );
     },
-    [currentPath, normalizedCurrentPath, pendingNode, settlePending, mkdirMutation, startBatch, tHardcodedUi],
+    [currentPath, normalizedCurrentPath, pendingNode, settlePending, mkdirMutation, startBatch, tHardcodedUi, uploadLimit],
   );
 
   /** The folder picker (`webkitRelativePath` is `Picked/sub/file.png`). The browser already asked. */
@@ -1320,9 +1322,9 @@ export function DriveExplorer({
       onDragOver={handlePageDragOver}
       onDrop={handlePageDrop}
     >
-      <div className={DRIVE_ACTION_ROW_CLASS}>
-        {leading}
-        {(() => {
+      <DriveActionRow
+        leading={leading}
+        actions={(() => {
           const newMenu = (
             <DriveNewMenu
               compact={embedded}
@@ -1354,14 +1356,14 @@ export function DriveExplorer({
           );
           // One secondary group whether or not the host adds actions.
           return (
-            <ButtonGroup className="ml-auto shrink-0">
+            <>
               {newMenu}
               {viewMenu}
               {trailing}
-            </ButtonGroup>
+            </>
           );
         })()}
-      </div>
+      />
 
       <DrivePathBar as="row" rootLabel={rootLabel} rootIcon={rootIcon} base={pathBase} />
 
@@ -1480,9 +1482,9 @@ export function DriveExplorer({
                   />
                 ))}
 
-              {/* The mirror had nothing, but the branch push is best-effort, so the
-                  files may exist and simply be unreachable. "Empty folder" is the one
-                  thing this cannot state as fact. Same words as the Terminal panel. */}
+              {/* The mirror had nothing, but a read can fail, so the files may
+                  exist and simply be unreachable. "Empty folder" is the one thing
+                  this cannot state as fact. Same words as the Terminal panel. */}
               {isEmpty && parked && (
                 <EmptyState icon={MoonIcon} title={tHardcodedUi.raw('i18nComplete.text3915f5ca49b3')} />
               )}
@@ -1490,7 +1492,7 @@ export function DriveExplorer({
               {isEmpty && !parked && (
                 <EmptyState
                   className="min-h-full"
-                  media={<DriveEmptyArt />}
+                  media={<EmptyArt />}
                   title={tHardcodedUi.raw(
                     'featuresProjectFilesComponentsDriveListView.line396JsxTextThisFolderIsEmpty',
                   )}

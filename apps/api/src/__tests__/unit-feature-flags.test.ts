@@ -171,7 +171,7 @@ describe('resolveFeatureFlag — explicit override wins', () => {
   });
 
   test('connectors_v2 and connectors_api_discover graduated: one catalog for every project, a stored override is inert', () => {
-    // 2026-10-24: the Kortix catalog (MCP apps, integrations.sh, Composio) is the
+    // 2026-10-24: the Dosco catalog (MCP apps, integrations.sh, Composio) is the
     // only connectors path. Projects that stored either key keep the value in
     // metadata; it must not resurface as a key, a catalog row, or a gate.
     for (const key of ['connectors_v2', 'connectors_api_discover']) {
@@ -180,6 +180,16 @@ describe('resolveFeatureFlag — explicit override wins', () => {
       expect(Object.keys(resolveFeatureFlags(metadata))).not.toContain(key);
       expect(buildFeatureFlagCatalog(metadata).map((flag) => flag.key)).not.toContain(key);
     }
+  });
+
+  test('project_channels is an experimental, explicit opt-in flag offered everywhere', () => {
+    expect(findCatalogFlag('project_channels')).toMatchObject({
+      stability: 'experimental',
+      enabled: false,
+      operator_only: false,
+    });
+    expect(resolveFeatureFlag({}, 'project_channels')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { project_channels: true } }, 'project_channels')).toBe(true);
   });
 
   test('session_transcript_history graduated: saved history has no off switch and a stored override is inert', () => {
@@ -304,9 +314,9 @@ describe('buildFeatureFlagCatalog', () => {
  * break (d) and take the operator lever with it.
  */
 describe('catalogHidden', () => {
-  test('only internal-only surfaces are hidden: session_log_restore (the boot restore from the session log) and workspace_volume (stateless sandboxes)', () => {
+  test('only internal-only surfaces are hidden: meta_agent (the legacy fallback of kortix.yaml builtin_agents), session_log_restore (the boot restore from the session log) and workspace_volume (stateless sandboxes)', () => {
     // `apps` graduated (2026-10-14) and `session_log` (2026-10-22): neither is a flag.
-    expect(HIDDEN_KEYS).toEqual(['session_log_restore', 'workspace_volume']);
+    expect(HIDDEN_KEYS).toEqual(['meta_agent', 'session_log_restore', 'workspace_volume']);
   });
 
   test('workspace_volume is a behavioral flag that defaults off and needs Platinum', () => {
@@ -315,10 +325,10 @@ describe('catalogHidden', () => {
     expect(resolveFeatureFlag({}, 'workspace_volume')).toBe(false);
   });
 
-  test('session_log_restore is a behavioral flag that defaults off', () => {
+  test('session_log_restore is a behavioral flag that defaults on', () => {
     const def = REGISTERED_FEATURE_FLAGS.find((f) => f.key === 'session_log_restore');
     expect(def?.enforcement).toBe('behavioral');
-    expect(resolveFeatureFlag({}, 'session_log_restore')).toBe(false);
+    expect(resolveFeatureFlag({}, 'session_log_restore')).toBe(true);
   });
 
   for (const key of HIDDEN_KEYS) {
@@ -386,5 +396,14 @@ describe('featureDisabledBody', () => {
       expect(body.error).toContain(derived ? 'Turn on Volumes' : HIDDEN_KEYS.includes(key) ? 'Contact Dosco' : 'Settings');
       expect(body.error).not.toContain('organization');
     }
+  });
+});
+
+
+describe('artifact comments require Artifacts', () => {
+  test('defaults off and cannot run when Artifacts is off', () => {
+    expect(resolveFeatureFlag({}, 'artifact_comments')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { artifacts: false, artifact_comments: true } }, 'artifact_comments')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { artifacts: true, artifact_comments: true } }, 'artifact_comments')).toBe(Boolean(config.PLATINUM_API_KEY));
   });
 });

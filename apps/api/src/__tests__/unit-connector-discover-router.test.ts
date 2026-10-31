@@ -6,7 +6,7 @@ const ADMIN = { 'x-test-admin': 'user-1' };
 
 function deps(overrides: Partial<ConnectorRouterDeps>): ConnectorRouterDeps {
   return {
-    // Email on: no Kortix app hidden. Discover itself has no flag.
+    // Email on: no Dosco app hidden. Discover itself has no flag.
     featureFlagEnabled: async (_projectId, key) => key === 'email_channel',
     resolvePrincipal: async () => null,
     resolveProjectPrincipal: async () => null,

@@ -89,7 +89,7 @@ export const PLAN_CATALOG: Record<string, PlanRecord> = {
   },
 
   // $5 (500 credits) a month and top-ups, for compute and the user's own
-  // provider keys or ChatGPT subscription. Never the Kortix-managed models:
+  // provider keys or ChatGPT subscription. Never the Dosco-managed models:
   // the gateway refuses them for every account without `managedModels`.
   free: {
     key: 'free',

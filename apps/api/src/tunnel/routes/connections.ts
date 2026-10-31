@@ -3,7 +3,7 @@
  *
  * GET    /connections                      — machines the caller owns (+ owner-less team machines for managers)
  * GET    /connections/:tunnelId            — get one machine
- * PATCH  /connections/:tunnelId            — rename a machine, or change what Kortix may use on it
+ * PATCH  /connections/:tunnelId            — rename a machine, or change what Dosco may use on it
  * DELETE /connections/:tunnelId            — unpair: delete the machine, revoke its computer accounts
  * POST   /connections/:tunnelId/rotate-token — rotate the setup token
  * POST   /connections/:tunnelId/access — change access on the machine (it confirms a widening itself)
@@ -177,7 +177,7 @@ export function createConnectionsRouter() {
       method: 'patch',
       path: '/{tunnelId}',
       tags: ['tunnel'],
-      summary: 'Rename a paired machine, or change what Kortix may use on it',
+      summary: 'Rename a paired machine, or change what Dosco may use on it',
       description:
         'Give `name`, `capabilities`, or both. `capabilities` is the full approved list, a subset of `filesystem`, `shell`, `desktop`. It applies to the next call.',
       security: [{ bearerAuth: [] }],

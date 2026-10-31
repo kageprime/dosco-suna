@@ -10,7 +10,7 @@ import { runtimeModelCatalog } from './models/runtime-catalog';
  * stored in `projects.metadata.custom_llm_providers`, next to `model_access`,
  * and its optional key is the project secret `CUSTOM_<ID>_API_KEY`
  * (consumer `llm_gateway`). The gateway serves its models as `<id>/<model>`
- * like any BYOK provider: no Kortix credits, budgets and logs apply.
+ * like any BYOK provider: no Dosco credits, budgets and logs apply.
  */
 export interface CustomLlmProviderDefinition {
   id: string;

@@ -86,7 +86,7 @@ describe('the Dosco MCP app catalogue', () => {
     const sections = await catalog.sections();
     expect(sections.popular[0]?.id).toBe('kortix:gmail');
     expect(sections.sections.length).toBeGreaterThan(0);
-    // The app's ways, with no network: the Kortix app's own server leads.
+    // The app's ways, with no network: the Dosco app's own server leads.
     const ways = await connectorsV2Surfaces('notion.so', { items: async () => [], surfaces: async () => [] });
     expect(ways).toEqual([
       expect.objectContaining({ kind: 'mcp', recommended: true, oneClick: true, connector: { provider: 'mcp', url: 'https://mcp.notion.com/mcp', transport: 'http' } }),
@@ -100,7 +100,7 @@ describe('the Dosco MCP app catalogue', () => {
     expect(await card('acme')).toMatchObject({ id: 'acme-mcp', kind: 'mcp', oneClick: true });
     // Outlook's MCP server needs setup, so its managed toolkit is the card.
     expect(await card('outlook')).toMatchObject({ id: 'composio:outlook', kind: 'composio', domain: 'outlook.com', oneClick: true });
-    // A Kortix app is the only record for its app, by domain and by name:
+    // A Dosco app is the only record for its app, by domain and by name:
     // Linear's toolkit and Notion's registry entry on notion.com are gone.
     expect((await catalog.list({ q: 'linear' })).items.map((item) => item.id)).toEqual(['kortix:linear']);
     expect((await catalog.list({ q: 'notion' })).items.map((item) => item.id)).toEqual(['kortix:notion']);
@@ -117,10 +117,10 @@ describe('the Dosco MCP app catalogue', () => {
     expect(oneClick).toContain('acme-mcp');
     expect(oneClick).not.toContain('billing-openapi');
     expect(oneClick).not.toContain('outlook-mcp');
-    // Browse order: Kortix's apps, then popular registry apps and managed apps
+    // Browse order: Dosco's apps, then popular registry apps and managed apps
     // taking turns, then the rest.
     const browse = (await catalog.list({ limit: 96 })).items.map((item) => item.id);
-    // Kortix's own block: what it built and its MCP apps.
+    // Dosco's own block: what it built and its MCP apps.
     const firstOther = browse.findIndex((id) => !id.startsWith('kortix:') && !id.startsWith('native:'));
     // Managed apps keep Composio's usage order, whatever their domain's first record.
     expect(browse.slice(firstOther, firstOther + 3)).toEqual(['acme-mcp', 'composio:zeta', 'composio:outlook']);
@@ -143,7 +143,7 @@ describe('the ways to connect one app (catalogue detail)', () => {
     ({ id, kind, name: id, url, docs: null, description: null, transports: [], requiresAuth: true, command: null,
        connector: connector ? { provider: kind === 'graphql' ? 'graphql' : kind === 'openapi' ? 'openapi' : 'mcp', url: url ?? undefined } : null }) as ConnectorSurfaceVariant;
 
-  test('every way of the app, best first: Kortix MCP app, registry API, managed toolkit; the duplicate server once', async () => {
+  test('every way of the app, best first: Dosco MCP app, registry API, managed toolkit; the duplicate server once', async () => {
     const items = async () => [
       { ...record('kortix:stripe', 'mcp', 'Stripe', 'stripe.com', { feeds: ['kortix'], oneClick: true }) },
       record('stripe-openapi', 'openapi', 'Stripe', 'stripe.com'),

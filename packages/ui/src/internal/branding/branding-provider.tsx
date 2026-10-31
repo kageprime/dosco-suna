@@ -237,7 +237,7 @@ function BrandingDocumentEffect({ branding }: { branding: AccountBranding | null
       const current = document.title;
       if (!current.includes('Dosco')) return;
       const next =
-        current === siteMetadata.title ? appName : current.replace(/\bKortix\b/g, appName);
+        current === siteMetadata.title ? appName : current.replace(/\bKortix(?: CompanyOS)?\b/g, appName);
       if (next !== current) document.title = next;
     };
     rewrite();

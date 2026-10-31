@@ -43,7 +43,7 @@ describe('dbConnectorRouterDeps wiring', () => {
     });
   }
 
-  test('Discover reads the one Kortix catalog', () => {
+  test('Discover reads the one Dosco catalog', () => {
     expect(DB_DEPS_SOURCE).toContain('kortixMcpCatalog.list(');
     expect(DB_DEPS_SOURCE).toContain('kortixMcpCatalog.detail(');
   });

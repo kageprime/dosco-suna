@@ -159,14 +159,6 @@ type ComposioAdapter = {
     sessionId: string;
     connectedAccountId: string;
   }): Promise<string | null>;
-  /** A connection on the customer's own app (`composio-own-app.ts`). */
-  connectOwnApp?(input: {
-    connectionId: string;
-    toolkit: string;
-    store: string;
-    clientId: string;
-    clientSecret: string;
-  }): Promise<{ sessionId: string; connectedAccountId: string }>;
 };
 
 export async function loadComposioAdapter(): Promise<ComposioAdapter | null> {
@@ -190,7 +182,7 @@ export type ConnectLinkEligibility =
       ok: true;
       connectorId: string;
       app: string;
-      /** Which provider mints the hosted page behind the link. `mcp`: Kortix's own OAuth sign-in. */
+      /** Which provider mints the hosted page behind the link. `mcp`: Dosco's own OAuth sign-in. */
       providerType: 'pipedream' | 'composio' | 'mcp';
     }
   /** No connector with this slug on the project. The manifest really is missing it. */
@@ -230,7 +222,7 @@ export async function connectLinkEligibility(
   // pastes a raw provider URL into the transcript. The web renderer only turns
   // OUR `/connect/<token>` link into a button, so that fallback lost the button,
   // the modal, and the resume, and left three renderings of one action on screen.
-  // An MCP server signs in through Kortix's own OAuth flow (oauth2-store
+  // An MCP server signs in through Dosco's own OAuth flow (oauth2-store
   // `startConnectionSignIn`): a link works when that sign-in is one click.
   if (row.providerType === 'mcp') {
     const url = (row.config as { url?: unknown } | null)?.url;

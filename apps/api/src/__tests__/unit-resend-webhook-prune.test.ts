@@ -9,7 +9,7 @@ import {
  * A local stack reaches Resend through a quick tunnel whose URL changes on
  * every start, and each start adds a team-wide webhook. Ensuring this stack's
  * webhook also deletes the ones whose tunnel no longer answers, and never a
- * webhook on any other host: dev, staging and prod share Kortix's team.
+ * webhook on any other host: dev, staging and prod share Dosco's team.
  */
 
 const OWN = 'https://own-tunnel.trycloudflare.com/v1/webhooks/email/resend';
@@ -17,7 +17,7 @@ const hooks = [
   { id: 'own', endpoint: OWN, events: ['inbox.email.received'], signing_secret: 'whsec_own' },
   { id: 'dead', endpoint: 'https://dead-tunnel.trycloudflare.com/v1/webhooks/email/resend', events: ['inbox.email.received'] },
   { id: 'alive', endpoint: 'https://alive-tunnel.trycloudflare.com/v1/webhooks/email/resend', events: ['inbox.email.received'] },
-  { id: 'prod', endpoint: 'https://api.kortix.com/v1/webhooks/email/resend', events: ['inbox.email.received'] },
+  { id: 'prod', endpoint: 'https://api.dosco.live/v1/webhooks/email/resend', events: ['inbox.email.received'] },
   { id: 'other-path', endpoint: 'https://x.trycloudflare.com/v1/webhooks/other', events: ['inbox.email.received'] },
 ];
 

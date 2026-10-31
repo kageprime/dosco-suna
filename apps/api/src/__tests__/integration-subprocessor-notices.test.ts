@@ -21,7 +21,7 @@ const OWNER = crypto.randomUUID();
 const ADMIN = crypto.randomUUID();
 const MEMBER = crypto.randomUUID();
 const FREE_OWNER = crypto.randomUUID();
-// A Suna-era account still billed: no Kortix account row, its owner only in basejump.account_user.
+// A Suna-era account still billed: no Dosco account row, its owner only in basejump.account_user.
 const LEGACY_ACCOUNT = crypto.randomUUID();
 const LEGACY_OWNER = crypto.randomUUID();
 // A paid account nobody can be emailed for yet.

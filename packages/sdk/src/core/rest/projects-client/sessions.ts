@@ -7,6 +7,7 @@ import { noteSessionDeleted, noteSessionStopped } from '../../http/session-stopp
 import { isSessionLogPage } from '../../session-log/guard';
 import { loadSessionLogPage, type SessionLogPage, type SessionLogPageQuery } from '../../session-log/source';
 import type { AuditEvent } from './audit';
+import type { SessionAttention, SessionBoardState, SessionInbound } from './multi-agent';
 import { type ConnectorSharing, unwrap } from './shared';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,17 @@ export interface ProjectSessionInitiator {
 export interface ProjectSession {
   /** Conversation model from the durable log; creation pin until one is recorded. Absent on older APIs. */
   model?: string | null;
+  /** The space (channel or DM) the session is filed in; null outside every space. Absent on older APIs. */
+  space_id?: string | null;
+  /** The session group it is filed in (`session_groups`); null in no group. Absent on older APIs. */
+  group_id?: string | null;
+  /** The first 500 characters of the first prompt; stored for sessions created while `project_channels` is on, else null. Absent on older APIs. */
+  first_prompt?: string | null;
+  /**
+   * A channel or DM thread list only (`listProjectSessions({ spaceId })`): the
+   * messages after the first prompt. Null on every other read. Absent on older APIs.
+   */
+  reply_count?: number | null;
   session_id: string;
   account_id: string;
   project_id: string;
@@ -174,6 +186,20 @@ export interface ProjectSession {
    *  agent, an API key or a service account. */
   pinned_at?: string | null;
   archived_at?: string | null;
+  /** Where the session sits on the agent board. Absent on an API before multi-agent. */
+  board_state?: SessionBoardState;
+  /** What the session waits for from its person, or null. Absent on an API before multi-agent. */
+  attention?: SessionAttention;
+  /** The newest turn activity (ISO 8601), or null. Absent on an API before multi-agent. */
+  last_activity_at?: string | null;
+  /** At most 280 characters of the last assistant text, or null. Absent on an API before multi-agent. */
+  result_excerpt?: string | null;
+  /** The name an agent gave this child (`agent({ name })`, metadata `agent_handle`), or null. */
+  agent_handle?: string | null;
+  /** The lead session of a teammate (metadata `team_lead`), or null. */
+  team_lead_session_id?: string | null;
+  /** Who may send this session a message. Absent on an API before multi-agent. */
+  inbound?: SessionInbound;
   created_at: string;
   updated_at: string;
 }
@@ -249,6 +275,11 @@ export interface CreateProjectSessionInput {
   parent_session_id?: string;
   /** Authorized platform session whose saved conversation is copied before boot. */
   fork_from_session_id?: string;
+  /**
+   * The space (channel or DM, `listProjectSpaces`) to file the session in. Needs
+   * the project's `project_channels` flag. Omitted with the flag on: `#general`.
+   */
+  space_id?: string;
   base_ref?: string;
   agent_name?: string;
   /** Slug of the sandbox template to boot from. Defaults to "default". */
@@ -390,6 +421,22 @@ export interface ListProjectSessionsOptions {
    *  deleted, the deleted sessions the caller may restore
    *  (`restoreProjectSession`) inside their window, each with `restore_until`. */
   view?: 'pinned' | 'archived' | 'deleted';
+  /** Only the sessions filed in this space (`ProjectSession.space_id`). Sent as `space_id`. */
+  spaceId?: string;
+  /**
+   * Only the sessions filed in this session group (`ProjectSession.group_id`),
+   * or `'none'` for the sessions in no group. Ignored by the API while the
+   * project's `session_groups` flag is off.
+   */
+  group?: string;
+  /** Only the sessions this person started (a user id; `startedBy: 'me'` for the caller). Sent as `created_by`. */
+  createdBy?: string;
+  /** Only the sessions that run this agent (its slug, `ProjectSession.agent_name`). */
+  agent?: string;
+  /** Only the sessions with activity at or after this ISO 8601 time (`updated_at`). Sent as `updated_after`. */
+  updatedAfter?: string;
+  /** Only the teammates of this lead session (metadata `team_lead`). Sent as `team_lead`. */
+  teamLead?: string;
 }
 
 /** One keyset page of a project's sessions. */
@@ -410,6 +457,12 @@ function projectSessionListQuery(options?: ListProjectSessionsOptions): string {
   if (q) params.set('q', q);
   for (const label of options?.labels ?? []) params.append('label', label);
   if (options?.view) params.set(options.view, 'only');
+  if (options?.spaceId) params.set('space_id', options.spaceId);
+  if (options?.group) params.set('group', options.group);
+  if (options?.createdBy) params.set('created_by', options.createdBy);
+  if (options?.agent) params.set('agent', options.agent);
+  if (options?.updatedAfter) params.set('updated_after', options.updatedAfter);
+  if (options?.teamLead) params.set('team_lead', options.teamLead);
   return params.size > 0 ? `?${params}` : '';
 }
 
@@ -1964,8 +2017,8 @@ export interface SessionConfigState {
    * TRI-STATE, and the distinction is the point.
    *
    * `null` means "could not tell", NEVER "up to date": the sandbox is
-   * unreachable, or the project has no compiled config at all (a v1
-   * `kortix.toml` project). Branch on `=== true` and `=== false`; `!stale`
+   * unreachable, or the project has no compiled config at all. Branch on
+   * `=== true` and `=== false`; `!stale`
    * silently reports an unaskable session as current, which is the exact
    * failure this field exists to prevent.
    */
@@ -2456,5 +2509,56 @@ export async function getSessionModelUsage(
       `/projects/${projectId}/sessions/${sessionId}/model-usage`,
       { showErrors: false },
     ),
+  );
+}
+
+/** The model usage of one session or of a session tree, from the gateway's request record. */
+export interface SessionUsageTotals {
+  /** Every dollar the model requests cost, in USD: `kortix_cost + provider_cost`. */
+  cost: number;
+  /** Debited from the Kortix wallet, in USD. */
+  kortix_cost: number;
+  /** Paid to the account's own provider key, in USD. */
+  provider_cost: number;
+  request_count: number;
+  error_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  cached_tokens: number;
+  cache_write_tokens: number;
+}
+
+/** One session of a `SessionUsage` tree. */
+export interface SessionUsageEntry extends SessionUsageTotals {
+  session_id: string;
+  /** Null for the session the read starts at. */
+  parent_session_id: string | null;
+  /** 0 for the session the read starts at. */
+  depth: number;
+  title: string | null;
+  agent_name: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface SessionUsage {
+  session_id: string;
+  currency: 'USD';
+  /** The sum over `sessions`. */
+  total: SessionUsageTotals;
+  /** The session first, then every session it started that the caller may open, depth-first, oldest child first. */
+  sessions: SessionUsageEntry[];
+  /** Started sessions the caller may not open. Their cost is not in `total`. */
+  hidden_sessions: number;
+  /** True when the read stopped at its limit (10 levels, 500 sessions). */
+  truncated: boolean;
+}
+
+/** What a session and every session it started cost, in USD, from the gateway's
+ *  request record. A sub-agent in the session's sandbox bills under the session
+ *  itself, so its cost is in the session's own entry. */
+export async function getSessionUsage(projectId: string, sessionId: string): Promise<SessionUsage> {
+  return unwrap(
+    await backendApi.get<SessionUsage>(`/projects/${projectId}/sessions/${sessionId}/usage`, { showErrors: false }),
   );
 }

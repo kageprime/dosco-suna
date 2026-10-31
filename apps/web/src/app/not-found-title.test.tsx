@@ -45,7 +45,7 @@ mock.module('next/link', () => ({
 const notFoundModule = await import('@/app/[locale]/not-found');
 
 /** The composed title the boundary's metadata and sync produce. */
-const NOT_FOUND_TITLE = '404 Page not found | Dosco';
+const NOT_FOUND_TITLE = '404 Page not found | Dosco CompanyOS';
 
 const roots: Root[] = [];
 

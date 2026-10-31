@@ -4,12 +4,14 @@
 // for someone's private folder.
 
 import { logger } from '../lib/logger';
+import { recordDriveCommitAuthor } from '../artifacts/events-store';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { featureDisabledBody, requireFeatureFlag } from '../feature-flags/gate';
 import { projectFeatureFlagEnabled } from '../feature-flags/for-project';
 import { combinedAuth } from '../middleware/auth';
+import { callerKortixSessionId } from '../middleware/caller-session';
 import { rejectSandboxTokens } from '../middleware/reject-sandbox-tokens';
 import { auth, errors, json, makeOpenApiApp } from '../openapi';
 import { actorOf } from '../iam/actor';
@@ -22,7 +24,6 @@ import {
   dismissConflict,
   driveConflict,
   isAccountMember,
-  moveFolderGrants,
   principalNames,
   projectAgentServiceAccount,
   shareablePrincipals,
@@ -44,18 +45,25 @@ import {
   grantsCovering,
   pathWithinFolder,
   folderKnownToTree,
+  planFolderMounts,
+  sessionMountCandidates,
   personalFolderOf,
+  NO_PRIVATE_CHANNEL_FOLDERS,
+  PRIVATE_CHANNELS_DIR,
+  type PrivateChannelFolders,
+  privateChannelFolderOf,
 } from './folders';
 import {
   type DriveRow,
   driveStats,
-  type EnforceProgress,
-  enforceDriveMounts,
-  ensurePersonalFolder,
+  driveSubjectFor,
+  driveVolume,
+  privateChannelRows,
+  enforceProjectMounts,
   ensureProjectDrive,
   getDrive,
-  groupIdsOf,
   listFolderGrants,
+  moveDriveFolder,
   openConflictRows,
   readDriveVolume,
   removeFolderGrant,
@@ -65,14 +73,19 @@ import {
   userEmails,
   writeDriveVolume,
 } from './service';
+import { type DriveUpload, openDriveUpload, sealDriveUpload } from './upload-token';
+import { parseVolumeWriteCommit } from './volume-commit';
 import {
   DriveStorageError,
+  commitVolumeUpload,
+  planVolumeUpload,
+  putVolumeUploadBlock,
   listVolumeCommits,
   listVolumeFiles,
-  moveVolumeFile,
   readVolumeFile,
   removeVolumeFile,
   restoreVolume,
+  sandboxMountLimit,
   statVolumeFile,
   writeVolumeFile,
   FILE_CHANGED_MESSAGE,
@@ -80,6 +93,8 @@ import {
 } from './volumes';
 
 export const MAX_DRIVE_UPLOAD_BYTES = 64 * 1024 * 1024;
+/** A block of the block upload, as storage takes it. */
+const UPLOAD_BLOCK_BYTES = 1024 * 1024;
 /** The empty file that holds an otherwise empty folder in place. */
 const FOLDER_MARKER = '.keep';
 
@@ -158,7 +173,7 @@ const DriveVersionSchema = z
   .openapi('DriveVersion');
 
 const DriveParams = z.object({ driveId: z.string() });
-/** Sessions whose mounts a sharing change has not reached yet (see enforceProject). */
+/** Sessions whose mounts a sharing change has not reached yet (see enforceProjectMounts). */
 const PendingSchema = z.object({ pendingSessions: z.number() });
 const PathQuery = z.object({ path: z.string().optional() });
 
@@ -196,12 +211,7 @@ interface Caller {
   personalFolder: string;
 }
 
-/**
- * The person behind the request, as the folder rules see them: a project
- * admin (may change the project) manages every folder but people's own; who
- * may run sessions in the project reaches grants to the whole project; and
- * grants to them or their teams.
- */
+/** The person behind the request on `drive` (`driveSubjectFor`), after the HTTP refusals. */
 async function callerOn(c: DriveContext, drive: DriveRow): Promise<Caller> {
   const userId = callerId(c);
   const projectId = drive.projectId!;
@@ -213,15 +223,7 @@ async function callerOn(c: DriveContext, drive: DriveRow): Promise<Caller> {
     const { error } = featureDisabledBody('drives');
     fail(403, error, 'feature_disabled');
   }
-  const [projectMember, admin, groupIds] = await Promise.all([
-    mayUseProject(c, projectId, 'session'),
-    mayUseProject(c, projectId, 'write'),
-    groupIdsOf(userId, drive.accountId),
-  ]);
-  let grants = await listFolderGrants(drive);
-  const personalFolder = await ensurePersonalFolder(drive, userId, grants);
-  if (!grants.some((g) => g.path === personalFolder)) grants = await listFolderGrants(drive);
-  return { drive, userId, grants, personalFolder, subject: { userId, groupIds, projectMember, admin } };
+  return { drive, ...(await driveSubjectFor(drive, userId, (action) => mayUseProject(c, projectId, action), callerKortixSessionId(c))) };
 }
 
 async function loadDrive(c: DriveContext): Promise<Caller> {
@@ -262,9 +264,23 @@ function sharedWithCaller(caller: Caller): Array<{ path: string; access: FolderA
     .map((path) => ({ path, access: folderAccess(path, caller.grants, caller.subject) }));
 }
 
+/** The project's private channel folders, as the caller's folder rules know them. */
+function privateFolders(caller: Pick<Caller, 'subject'>): PrivateChannelFolders {
+  return caller.subject.privateChannelFolders ?? NO_PRIVATE_CHANNEL_FOLDERS;
+}
+
 /** Folders that hold the tree together: never moved, deleted or renamed. */
 function structural(path: string, caller: Caller): boolean {
-  return path === '/' || path === USERS_DIR || path === COMPANY_DIR || personalFolderOf(path) === path || path === caller.personalFolder;
+  return (
+    path === '/' ||
+    path === USERS_DIR ||
+    path === COMPANY_DIR ||
+    // `/Channels` holds the tree together only while it holds a private channel's folder.
+    (path === PRIVATE_CHANNELS_DIR && privateFolders(caller).size > 0) ||
+    personalFolderOf(path) === path ||
+    privateChannelFolderOf(path, privateFolders(caller)) === path ||
+    path === caller.personalFolder
+  );
 }
 
 function drivePath(raw: string | undefined, opts: { allowRoot: boolean }): string {
@@ -319,29 +335,6 @@ function versionAuthor(commit: VolumeCommit): z.infer<typeof DriveVersionSchema>
   if (commit.author?.kind === 'sandbox' || commit.kind === 'merge' || commit.kind === 'fast') return 'session';
   if (commit.author?.kind === 'api_key' || commit.author?.kind === 'user') return 'drive';
   return 'system';
-}
-
-/** How long a sharing change waits for running sessions before it answers. */
-const ENFORCE_ANSWER_BUDGET_MS = 10_000;
-
-/**
- * Running sessions of the project pick up a sharing change at once, and
- * stopped ones never come back with more. Answers with how many sessions are
- * not in line yet: those are recorded, fenced at the API and retried by the
- * drive worker, so a caller is never told a revocation landed when it did not.
- */
-async function enforceProject(drive: DriveRow): Promise<number> {
-  const progress: EnforceProgress = { total: 0, done: 0, failed: 0 };
-  const run = enforceDriveMounts({ projectId: drive.projectId! }, { progress }).catch((err) => {
-    logger.error('[drives] enforcing folder access failed:', { error: err instanceof Error ? err.message : String(err) });
-    return null;
-  });
-  const finished = await Promise.race([
-    run.then(() => true),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), ENFORCE_ANSWER_BUDGET_MS).unref?.()),
-  ]);
-  if (finished) return progress.failed;
-  return progress.failed + Math.max(0, progress.total - progress.done) || 1;
 }
 
 /** The agents a project declares that start sessions (subagents never own one). Best effort. */
@@ -465,12 +458,17 @@ drivesApp.openapi(
     if (path === '/' && !seen.has(USERS_DIR)) virtual.add(USERS_DIR);
     for (const v of virtual) entries.push({ path: v, name: baseName(v), type: 'dir', size: 0, mtime: 0 });
     const sharedPaths = new Set(grants.filter((g) => g.source !== 'system').map((g) => g.path));
+    // A private channel's folder is named by its id (`/Channels/<space_id>`); it lists under `#<slug>`.
+    const channelNames = entries.some((e) => privateChannelFolderOf(e.path, privateFolders(caller)) === e.path)
+      ? new Map((await privateChannelRows(drive.projectId!)).flatMap((r) => (r.folder && r.slug ? [[r.folder, `#${r.slug}`] as const] : [])))
+      : null;
     return c.json({
       access: folderAccess(path, grants, subject),
       entries: entries
         .filter((e) => folderVisible(e.path, grants, subject))
         .map((e) => ({
           ...e,
+          ...(channelNames?.has(e.path) ? { name: channelNames.get(e.path)! } : {}),
           access: folderAccess(e.path, grants, subject),
           ...(e.type === 'dir' && sharedPaths.has(e.path) ? { shared: true } : {}),
         })),
@@ -558,12 +556,166 @@ drivesApp.openapi(
         writeVolumeFile(volume, path, body, { overwrite: true, ...(ifMatch ? { ifMatch } : {}) }),
       ),
     );
+    await recordDriveCommitAuthor(caller.drive.driveId, written.commit, {
+      userId: caller.userId,
+      sessionId: callerKortixSessionId(c),
+    });
     noteDriveWrite(caller.drive.driveId);
     // The version this write made, as storage answered it: a read afterwards
     // could name a later save's version and let the next save clobber it.
     const version = ifMatch && written.version ? `"${bareVersion(written.version)}"` : null;
     if (version) c.header('etag', version);
     return c.json({ path: written.path, size: written.size, ...(version ? { version } : {}) });
+  },
+);
+
+// The block upload, for files of any size (the PUT above takes at most 64
+// MiB): plan names the file and the sha256 of each 1 MiB block, storage
+// answers which blocks it lacks, only those are sent, and the commit lands
+// the whole file at once. The upload id is sealed to the caller, the drive
+// and the path (drives/upload-token.ts); write access at the path is checked
+// again at every block and at the commit.
+
+const UploadParams = z.object({ driveId: z.string(), uploadId: z.string() });
+
+/** Storage forgot the upload: it lapsed (16 min without a block), was committed, or was cancelled. */
+async function withUploadStorage<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await withStorage(fn);
+  } catch (err) {
+    if (err instanceof HTTPException && err.status === 404) fail(404, 'The upload expired. Start it again.', 'upload_not_found');
+    throw err;
+  }
+}
+
+/** The upload the caller planned on this drive, with write access at its path checked now. */
+async function callerUpload(c: DriveContext): Promise<{ caller: Caller; upload: DriveUpload }> {
+  const caller = await loadDrive(c);
+  const upload = openDriveUpload(c.req.param('uploadId') ?? '', { driveId: caller.drive.driveId, userId: caller.userId });
+  if (!upload) fail(404, 'Upload not found', 'upload_not_found');
+  need(caller, upload.path, 'write');
+  return { caller, upload };
+}
+
+// POST /v1/drives/:driveId/files/upload
+drivesApp.openapi(
+  createRoute({
+    method: 'post',
+    path: '/{driveId}/files/upload',
+    tags: ['drives'],
+    summary: 'Start a block upload',
+    description:
+      '`blocks` is the lowercase sha256 of each 1 MiB block of the file, in order (the last may be short). Answers the upload id and the blocks storage lacks: send each with `PUT …/files/upload/{uploadId}/blocks/{sha}`, then commit. Replaces an existing file at the path. With `If-Match`, a file changed since is refused with 409 `file_changed`, here and at the commit. An upload without a block for 16 minutes expires.',
+    ...auth,
+    request: {
+      params: DriveParams,
+      body: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: z.object({
+              path: z.string(),
+              size: z.number().int().positive(),
+              blocks: z.array(z.string().regex(/^[0-9a-f]{64}$/)),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: json(z.object({ uploadId: z.string(), missing: z.array(z.string()), expiresAt: z.string().nullable() }), 'Planned'),
+      ...errors(400, 401, 403, 404, 409, 503),
+    },
+  }),
+  async (c) => {
+    const caller = await loadDrive(c);
+    const { path: rawPath, size, blocks } = c.req.valid('json') as { path: string; size: number; blocks: string[] };
+    const path = drivePath(rawPath, { allowRoot: false });
+    if (parentOf(path) === '/' || parentOf(path) === USERS_DIR) fail(400, 'Put files in a folder');
+    need(caller, path, 'write');
+    if (blocks.length !== Math.ceil(size / UPLOAD_BLOCK_BYTES)) fail(400, `A file of ${size} bytes has ${Math.ceil(size / UPLOAD_BLOCK_BYTES)} blocks`);
+    const ifMatch = c.req.header('if-match');
+    if (ifMatch) {
+      const current = await withStorage(() => currentFileVersion(caller.drive, path));
+      if (!current || !sameVersion(current, ifMatch)) fail(409, FILE_CHANGED_MESSAGE, 'file_changed');
+    }
+    const plan = (await withStorage(() =>
+      writeDriveVolume(caller.drive, (volume) => planVolumeUpload(volume, { files: [{ path, size, blocks }], overwrite: true })),
+    )) as { upload_id?: unknown; missing?: unknown; expires_at?: unknown };
+    if (typeof plan.upload_id !== 'string' || !plan.upload_id) fail(503, 'Drive storage is unavailable, try again shortly', 'drive_storage_unavailable');
+    const uploadId = sealDriveUpload({
+      uploadId: plan.upload_id,
+      driveId: caller.drive.driveId,
+      userId: caller.userId,
+      path,
+      size,
+      ...(ifMatch ? { ifMatch } : {}),
+    });
+    return c.json({
+      uploadId,
+      missing: Array.isArray(plan.missing) ? plan.missing.filter((m): m is string => typeof m === 'string') : [],
+      expiresAt: typeof plan.expires_at === 'string' ? plan.expires_at : null,
+    });
+  },
+);
+
+// PUT /v1/drives/:driveId/files/upload/:uploadId/blocks/:sha
+drivesApp.openapi(
+  createRoute({
+    method: 'put',
+    path: '/{driveId}/files/upload/{uploadId}/blocks/{sha}',
+    tags: ['drives'],
+    summary: 'Send one block of a block upload',
+    description: 'Raw request body, at most 1 MiB; its sha256 must equal `sha`. Safe to send again.',
+    ...auth,
+    request: { params: UploadParams.extend({ sha: z.string() }) },
+    responses: { 204: { description: 'Stored' }, ...errors(400, 401, 403, 404, 413, 503) },
+  }),
+  async (c) => {
+    const { caller, upload } = await callerUpload(c);
+    const sha = c.req.param('sha') ?? '';
+    if (!/^[0-9a-f]{64}$/.test(sha)) fail(400, 'A block is named by its lowercase sha256');
+    const declared = Number(c.req.header('content-length') ?? NaN);
+    if (Number.isFinite(declared) && declared > UPLOAD_BLOCK_BYTES) fail(413, 'A block is at most 1 MiB');
+    const body = new Uint8Array(await c.req.arrayBuffer());
+    if (body.byteLength > UPLOAD_BLOCK_BYTES) fail(413, 'A block is at most 1 MiB');
+    await withUploadStorage(() => putVolumeUploadBlock(driveVolume(caller.drive), upload.uploadId, sha, body));
+    return c.body(null, 204);
+  },
+);
+
+// POST /v1/drives/:driveId/files/upload/:uploadId/commit
+drivesApp.openapi(
+  createRoute({
+    method: 'post',
+    path: '/{driveId}/files/upload/{uploadId}/commit',
+    tags: ['drives'],
+    summary: 'Commit a block upload',
+    description: 'Lands the whole file at once, once every block storage lacked was sent. Safe to send again: a commit that landed answers the same.',
+    ...auth,
+    request: { params: UploadParams },
+    responses: {
+      200: json(z.object({ path: z.string(), size: z.number() }), 'Uploaded'),
+      ...errors(400, 401, 403, 404, 409, 503),
+    },
+  }),
+  async (c) => {
+    const { caller, upload } = await callerUpload(c);
+    // ponytail: storage's commit takes no If-Match, so the check and the commit
+    // are two steps; a save landing between them is overwritten. Add it when storage does.
+    if (upload.ifMatch) {
+      const current = await withStorage(() => currentFileVersion(caller.drive, upload.path));
+      if (!current || !sameVersion(current, upload.ifMatch)) fail(409, FILE_CHANGED_MESSAGE, 'file_changed');
+    }
+    const committed = await withUploadStorage(() =>
+      writeDriveVolume(caller.drive, (volume) => commitVolumeUpload(volume, upload.uploadId)),
+    );
+    await recordDriveCommitAuthor(caller.drive.driveId, parseVolumeWriteCommit(committed), {
+      userId: caller.userId,
+      sessionId: callerKortixSessionId(c),
+    });
+    noteDriveWrite(caller.drive.driveId);
+    return c.json({ path: upload.path, size: upload.size });
   },
 );
 
@@ -631,8 +783,7 @@ drivesApp.openapi(
     }
     // Moving a shared folder changes who can reach it: only someone who may change its sharing.
     if (caller.grants.some((g) => g.source !== 'system' && pathWithinFolder(g.path, from))) need(caller, from, 'manage');
-    await withStorage(() => readDriveVolume(caller.drive, (volume) => moveVolumeFile(volume, from, to), notFound));
-    const pendingSessions = (await moveFolderGrants(caller.drive, from, to)) ? await enforceProject(caller.drive) : 0;
+    const pendingSessions = await withStorage(() => moveDriveFolder(caller.drive, from, to, notFound));
     noteDriveWrite(caller.drive.driveId);
     return c.json({ from, to, ...(pendingSessions ? { pendingSessions } : {}) });
   },
@@ -676,7 +827,7 @@ drivesApp.openapi(
       ),
     );
     for (const g of shared) await removeFolderGrant(caller.drive, g.grantId!);
-    const pendingSessions = shared.length ? await enforceProject(caller.drive) : 0;
+    const pendingSessions = shared.length ? await enforceProjectMounts(caller.drive) : 0;
     noteDriveWrite(caller.drive.driveId);
     if (pendingSessions) return c.json({ pendingSessions }, 202);
     return c.body(null, 204);
@@ -720,12 +871,12 @@ drivesApp.openapi(
     const caller = await loadDrive(c);
     const path = drivePath(c.req.query('path'), { allowRoot: true });
     const access = path === '/' ? folderAccess('/', caller.grants, caller.subject) : need(caller, path, 'read');
-    const covering = grantsCovering(path, caller.grants);
+    const covering = grantsCovering(path, caller.grants, privateFolders(caller));
     const labels = await grantLabels(caller.drive, covering);
     return c.json({
       path,
       access,
-      grantable: grantableFolder(path),
+      grantable: grantableFolder(path, privateFolders(caller)),
       grants: covering.map((g) => ({
         grantId: g.grantId!,
         path: g.path,
@@ -769,7 +920,7 @@ drivesApp.openapi(
     const caller = await loadDrive(c);
     const body = c.req.valid('json') as z.infer<typeof ShareBody>;
     const path = drivePath(body.path, { allowRoot: false });
-    if (!grantableFolder(path)) fail(400, 'Share a folder inside Files');
+    if (!grantableFolder(path, privateFolders(caller))) fail(400, 'Share a folder inside Files');
     need(caller, path, 'manage');
     const { drive } = caller;
     let principalId: string;
@@ -799,7 +950,7 @@ drivesApp.openapi(
       level: body.level,
       grantedBy: caller.userId,
     });
-    const pendingSessions = await enforceProject(drive);
+    const pendingSessions = await enforceProjectMounts(drive);
     return c.json({ grantId, ...(pendingSessions ? { pendingSessions } : {}) });
   },
 );
@@ -830,13 +981,105 @@ drivesApp.openapi(
     }
     need(caller, grant.path, 'manage');
     await removeFolderGrant(caller.drive, grantId);
-    const pendingSessions = await enforceProject(caller.drive);
+    const pendingSessions = await enforceProjectMounts(caller.drive);
     // 202: the grant is gone, but a running session still mounts the folder
     // until its detach lands (retried by the drive worker, refused at the API meanwhile).
     if (pendingSessions) return c.json({ pendingSessions }, 202);
     return c.body(null, 204);
   },
 );
+
+// GET /v1/drives/:driveId/agents/:agentName/mounts
+const AgentMountSchema = z.object({
+  /** The Files folder, e.g. `/Company/Reports`. */
+  path: z.string(),
+  /** Where a session sees it, e.g. `/drives/Company/Reports`. */
+  mountPath: z.string(),
+  readOnly: z.boolean(),
+  /** `agent`: shared with this agent. `project`: shared with everyone in the project. */
+  via: z.enum(['agent', 'project']),
+  /** The agent's own grant on this folder, to change or remove; absent when it comes through the project. */
+  grantId: z.string().optional(),
+  level: LevelSchema,
+});
+
+const MountPlanSchema = z.object({ mounts: z.array(AgentMountSchema), skipped: z.array(z.string()), slots: z.number() });
+
+/** The folders a new session mounts through an agent (when named) and through the project, planned as a boot plans them. */
+async function mountPlan(c: DriveContext, agentName: string | null) {
+  const caller = await loadDrive(c);
+  need(caller, '/', 'read');
+  const { drive } = caller;
+  const [grants, agentId, slots] = await Promise.all([
+    listFolderGrants(drive),
+    agentName ? projectAgentServiceAccount(drive.projectId!, agentName) : Promise.resolve(null),
+    sandboxMountLimit(),
+  ]);
+  const candidates = sessionMountCandidates(grants, {
+    agentId,
+    owner: null,
+    groupIds: new Set(),
+    own: null,
+    channelFolder: null,
+    privateChannelFolders: privateFolders(caller),
+  });
+  const plan = planFolderMounts(candidates, slots, privateFolders(caller));
+  const ownGrant = (path: string) =>
+    agentId ? grants.find((g) => g.principalType === 'agent' && g.principalId === agentId && g.path === path) : undefined;
+  const projectGrant = (path: string) =>
+    grants.find((g) => g.principalType === 'project' && g.path === path && g.source !== 'system');
+  return {
+    mounts: plan.mounts.map((m) => {
+      const viaAgent = candidates.some((x) => x.path === m.path && x.priority === 0);
+      const grant = agentName ? ownGrant(m.path) : projectGrant(m.path);
+      const level = candidates
+        .filter((x) => x.path === m.path)
+        .reduce<FolderLevel>((acc, x) => (RANK_OF[x.level] > RANK_OF[acc] ? x.level : acc), 'read');
+      return {
+        path: m.path,
+        mountPath: m.mountPath,
+        readOnly: m.readOnly,
+        via: viaAgent ? ('agent' as const) : ('project' as const),
+        ...(grant?.grantId ? { grantId: grant.grantId } : {}),
+        level,
+      };
+    }),
+    skipped: plan.skipped,
+    slots,
+  };
+}
+
+drivesApp.openapi(
+  createRoute({
+    method: 'get',
+    path: '/{driveId}/mounts',
+    tags: ['drives'],
+    summary: 'The folders every session mounts',
+    description:
+      "The Files folders every new session of the project mounts: the ones shared with everyone in the project, where each appears and read-only or not. `grantId` is the project grant to change or remove (absent for the ones Dosco made, such as Company). An agent adds its own folders (`/agents/{agentName}/mounts`); a person's own folders join the sessions they start.",
+    ...auth,
+    request: { params: DriveParams },
+    responses: { 200: json(MountPlanSchema, 'Project mounts'), ...errors(401, 404) },
+  }),
+  async (c) => c.json(await mountPlan(c, null)),
+);
+
+drivesApp.openapi(
+  createRoute({
+    method: 'get',
+    path: '/{driveId}/agents/{agentName}/mounts',
+    tags: ['drives'],
+    summary: 'The folders an agent mounts',
+    description:
+      "The Files folders a new session of this agent mounts, where, and read-only or not: the folders shared with the agent and with everyone in the project, planned the way a session boots (a folder inside a mounted one at the same level or less is not mounted twice). A person's own folder and folders shared with them join a session they start and are not listed. `skipped` names folders past the sandbox's mount slots.",
+    ...auth,
+    request: { params: DriveParams.extend({ agentName: z.string().min(1).max(128) }) },
+    responses: { 200: json(MountPlanSchema, 'Agent mounts'), ...errors(401, 404) },
+  }),
+  async (c) => c.json(await mountPlan(c, c.req.param('agentName') ?? '')),
+);
+
+const RANK_OF: Record<FolderLevel, number> = { read: 1, write: 2, manage: 3 };
 
 // GET /v1/drives/:driveId/principals
 drivesApp.openapi(
@@ -934,6 +1177,42 @@ drivesApp.openapi(
   },
 );
 
+/**
+ * The restore floor compares a storage commit's time (Platinum's clock) with a
+ * channel's `updated_at` (the API's clock), and a conversion's folder move
+ * commits just before `updated_at` is written. A version within this margin
+ * after the floor is refused too, so a storage clock up to 10 minutes ahead
+ * cannot let the last pre-conversion version through.
+ * ponytail: a wall-clock margin; record the conversion's commit id if versions
+ * right after a channel change must be restorable.
+ */
+const RESTORE_CLOCK_MARGIN_MS = 10 * 60_000;
+
+/**
+ * A restore is one whole-volume version: it rewrites every private channel's
+ * folder and can bring a converted channel's files back into `/Company`.
+ * While the project has a private channel, only an admin who is a member of
+ * every one may restore (403), and only to a version newer than each private
+ * channel's last change (its creation, conversion or rename: 409
+ * `restore_crosses_private_channel`).
+ */
+async function refuseRestoreAcrossPrivateChannels(caller: Caller, versionId: string, versionNotFound: () => never): Promise<void> {
+  const channels = await privateChannelRows(caller.drive.projectId!);
+  if (channels.length === 0) return;
+  const folders = new Set(channels.flatMap((ch) => (ch.folder ? [ch.folder] : [])));
+  const visible = new Set(caller.grants.map((g) => privateChannelFolderOf(g.path, folders)).filter(Boolean));
+  if (channels.some((ch) => ch.folder && !visible.has(ch.folder))) {
+    fail(403, 'Restoring Files would rewrite a private channel you are not in. Ask a member of every private channel.', 'restore_crosses_private_channel');
+  }
+  const commits = await withStorage(() => readDriveVolume(caller.drive, (volume) => listVolumeCommits(volume), () => []));
+  const target = commits.find((commit) => commit.id === versionId);
+  if (!target) versionNotFound();
+  const newest = Math.max(...channels.map((ch) => ch.updatedAt.getTime()));
+  if (Date.parse(target!.created_at) < newest + RESTORE_CLOCK_MARGIN_MS) {
+    fail(409, 'This version is older than a private channel’s last change: restoring it could bring that channel’s files back where others can read them.', 'restore_crosses_private_channel');
+  }
+}
+
 // GET /v1/drives/:driveId/versions
 drivesApp.openapi(
   createRoute({
@@ -972,13 +1251,15 @@ drivesApp.openapi(
     path: '/{driveId}/restore',
     tags: ['drives'],
     summary: 'Restore the project’s Files to a version',
-    description: 'Project admins only. Adds a new version whose files equal the chosen one. Later versions stay in the history.',
+    description:
+      'Project admins only. Adds a new version whose files equal the chosen one. Later versions stay in the history. ' +
+      'With a private channel in the project: an admin outside one gets 403 and a version older than a private channel’s last change gets 409, both `restore_crosses_private_channel`.',
     ...auth,
     request: {
       params: DriveParams,
       body: { required: true, content: { 'application/json': { schema: z.object({ versionId: z.string().min(1) }) } } },
     },
-    responses: { 204: { description: 'Restored' }, ...errors(400, 401, 403, 404, 503) },
+    responses: { 204: { description: 'Restored' }, ...errors(400, 401, 403, 404, 409, 503) },
   }),
   async (c) => {
     const caller = await loadDrive(c);
@@ -986,6 +1267,7 @@ drivesApp.openapi(
     const { versionId } = c.req.valid('json') as { versionId: string };
     if (versionId === 'head' || !/^[A-Za-z0-9_-]{1,128}$/.test(versionId)) fail(400, 'Invalid version');
     const versionNotFound = (): never => fail(404, 'Version not found');
+    await refuseRestoreAcrossPrivateChannels(caller, versionId, versionNotFound);
     try {
       await readDriveVolume(caller.drive, (volume) => restoreVolume(volume, versionId), versionNotFound);
     } catch (err) {

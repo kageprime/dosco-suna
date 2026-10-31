@@ -24,8 +24,9 @@ kortix apps deploy --image nginx:1.27-alpine --slug nginx \
   --command '["nginx","-g","daemon off;"]' --port 80
 ```
 
-`dockerfile` and `oci_image` require `--command` and `--port`. A server App
-supports one public HTTP port, HTTP streaming, SSE, and WebSockets.
+`dockerfile` and `oci_image` require `--command`, and `--port` unless the App
+is worker-only (`processes`, no service). Each HTTP service (the primary port
+and every named service, below) supports HTTP streaming, SSE, and WebSockets.
 
 ## Lifecycle
 
@@ -56,7 +57,7 @@ pay (event `app_stopped_unfunded`). The run mode decides what bills:
 
 The CLI prints a line such as `Runs 24/7 on 1 vCPU / 2 GB`; tell the user the
 run mode, never a price. To use less compute, use `--on-demand` or a smaller
-machine (`--memory-gb 1`).
+machine (`kortix apps set <slug> --memory-gb 1`, applied at the next deploy).
 
 ```bash
 kortix apps deploy apps/api --slug api --type dockerfile --on-demand \
@@ -67,10 +68,6 @@ Change the mode later without a redeploy:
 `kortix apps set <slug> --on-demand|--always-on`. Keep-alive applies the change within 5 minutes. `kortix apps set` writes
 `always_on` to the App's `kortix.yaml` block; editing `always_on` or
 `idle_timeout_seconds` in `kortix.yaml` applies on the next sync, with no deploy.
-
-On the legacy Daytona fallback (self-host), an always-on App can be unreachable for up to
-5 minutes when the provider stops its VM. On Kortix Cloud the VM is
-persistent.
 
 `stop` suspends compute immediately, and keep-alive leaves it stopped. The
 next authorized request, a trigger or scheduled run that calls the App, or

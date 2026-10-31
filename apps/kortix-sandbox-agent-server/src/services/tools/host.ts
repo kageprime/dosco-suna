@@ -1,18 +1,23 @@
 /**
  * The tool host: the Kortix tools and the project's tools (kortix.yaml
- * `tools`), loaded when a runtime starts and run the same way on every
- * harness. pi runs them in this process. OpenCode reaches them through
- * `POST /kortix/tools/:name`, called by the bridge plugin its adapter writes.
+ * `tools`), loaded when a runtime starts. pi runs them in this process.
  */
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import type { CompiledAgentSet } from '@kortix/api-contract/runtime-relay'
 import { AGENT_ENV_FILE } from '@kortix/api-contract/sandbox-layout'
-import { resolveKortixRuntimeStateDirectory } from '@/lib/config/runtime-state-dir'
 import { logger } from '@/lib/log/logger'
+import imageGen from './kortix/image_gen'
 import imageSearch from './kortix/image_search'
+import kortixAccess from './platform/kortix_access'
+import kortixAgents from './platform/kortix_agents'
+import kortixConnectors from './platform/kortix_connectors'
+import kortixPeople from './platform/kortix_people'
+import kortixSchedules from './platform/kortix_schedules'
+import kortixSessions from './platform/kortix_sessions'
+import kortixUsage from './platform/kortix_usage'
 import memory from './kortix/memory'
 import scrapeWebpage from './kortix/scrape_webpage'
 import show from './kortix/show'
@@ -30,9 +35,27 @@ export type { KortixTool, ToolContext } from './tool'
 export const KORTIX_TOOLS: Readonly<Record<string, KortixTool>> = {
   web_search: webSearch,
   image_search: imageSearch,
+  image_gen: imageGen,
   scrape_webpage: scrapeWebpage,
   memory,
   show,
+}
+
+/**
+ * The My Kortix platform tools: typed fronts for the in-sandbox `kortix` CLI
+ * (`platform/platform.ts`). They share that helper, so they are not ejectable,
+ * and they load only when the compiled config names them in `kortix_tools`
+ * (the platform's My Kortix config does): a project that lists no `tools`
+ * key, which loads every Kortix tool above, never gets these.
+ */
+export const PLATFORM_TOOLS: Readonly<Record<string, KortixTool>> = {
+  kortix_agents: kortixAgents,
+  kortix_sessions: kortixSessions,
+  kortix_schedules: kortixSchedules,
+  kortix_connectors: kortixConnectors,
+  kortix_people: kortixPeople,
+  kortix_access: kortixAccess,
+  kortix_usage: kortixUsage,
 }
 
 export interface HostedTool extends KortixTool {
@@ -64,7 +87,8 @@ export async function loadTools(
   compiled: Pick<CompiledAgentSet, 'project_tools' | 'kortix_tools'> | null | undefined,
 ): Promise<ToolLoad> {
   const kortix = Object.entries(KORTIX_TOOLS).filter(([name]) => !compiled?.kortix_tools || compiled.kortix_tools.includes(name))
-  const tools = new Map<string, HostedTool>(kortix.map(([name, tool]) => [name, { ...tool, name, source: 'kortix' }]))
+  const platform = Object.entries(PLATFORM_TOOLS).filter(([name]) => compiled?.kortix_tools?.includes(name))
+  const tools = new Map<string, HostedTool>([...kortix, ...platform].map(([name, tool]) => [name, { ...tool, name, source: 'kortix' }]))
   const failed: ToolLoad['failed'] = []
   for (const [name, path] of Object.entries(compiled?.project_tools ?? {})) {
     const tool = await importTool(root, path)
@@ -129,7 +153,7 @@ export async function runTool(tool: KortixTool & { name: string }, args: Record<
   return bounded(tool.name, toolText(await tool.execute(args ?? {}, context)))
 }
 
-/** OpenCode cuts a tool output past 50 KB or 2000 lines; stay under both, with room for the note. */
+/** A tool output past 49 KB or 1990 lines goes to a file; the model reads its head and the path. */
 const MAX_BYTES = 49 * 1024
 const MAX_LINES = 1990
 
@@ -149,35 +173,4 @@ function bounded(name: string, text: string): string {
   writeFileSync(file, text, { mode: 0o600, flag: 'wx' })
   const head = Buffer.from(lines.slice(0, MAX_LINES).join('\n')).subarray(0, MAX_BYTES).toString('utf8')
   return `${head}\n\n[Output truncated: ${bytes} bytes, ${lines.length} lines. The whole output is in ${file}; read it in parts or search it.]`
-}
-
-/**
- * The credential an out-of-process harness presents to `POST /kortix/tools/:name`.
- * Created once per box and kept in the runtime state dir, so a daemon restart
- * that keeps the harness process keeps its key valid. A box whose state dir
- * cannot be written keeps a key for the life of this process.
- */
-let processKey: string | null = null
-
-/** @deprecated OpenCode only. OpenCode is sunset: no new code. See harness/README.md "OpenCode sunset". */
-export function toolBridgeKey(env: Record<string, string | undefined> = process.env): string {
-  const file = join(resolveKortixRuntimeStateDirectory(env), 'tool-bridge.key')
-  const read = () => {
-    try {
-      return readFileSync(file, 'utf8').trim()
-    } catch {
-      return ''
-    }
-  }
-  const existing = read()
-  if (existing) return existing
-  const key = randomBytes(32).toString('hex')
-  try {
-    mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
-    // `wx`: a concurrent first call that wrote its key first wins.
-    writeFileSync(file, key, { mode: 0o600, flag: 'wx' })
-    return key
-  } catch {
-    return read() || (processKey ??= key)
-  }
 }

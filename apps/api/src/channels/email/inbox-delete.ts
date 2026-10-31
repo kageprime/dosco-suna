@@ -2,8 +2,8 @@ import { type EmailInboxAccount, emailOwnKeyForAccount, listEmailInboxAccounts }
 import { ResendEmailApiError, deleteResendInbox, deleteResendWebhook, resolveEmailApiKey } from '../resend-email-api';
 
 /**
- * Remove on Resend what Kortix created for one inbox account: the inbox when
- * Kortix made it (managed, or with the account's own key), and the own-key
+ * Remove on Resend what Dosco created for one inbox account: the inbox when
+ * Dosco made it (managed, or with the account's own key), and the own-key
  * team's webhook once no other inbox of this project uses it. An inbox the
  * person attached by id is only unlinked, never deleted. The managed team's
  * webhook is shared by every managed inbox on this API, so it stays. Resend's

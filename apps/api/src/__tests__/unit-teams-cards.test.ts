@@ -400,7 +400,7 @@ describe('agent-built cards cannot post back to Dosco', () => {
 });
 
 describe('the agent line', () => {
-  // Teams fixes the bot name per app, so every reply card says which Kortix
+  // Teams fixes the bot name per app, so every reply card says which Dosco
   // agent answered on its first line.
   const firstText = (c: Record<string, unknown>) => (c.body as Array<{ text?: string }>)[0]?.text;
 

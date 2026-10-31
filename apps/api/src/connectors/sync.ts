@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   connectorConnections,
   connectorActions,
@@ -22,7 +23,7 @@ import {
  */
 import { and, eq, inArray, isNotNull, notExists, or, sql } from 'drizzle-orm';
 import { getImpersonationContext } from '../shared/impersonation';
-import { parse as parseToml } from 'smol-toml';
+import { parse as parseYaml } from 'yaml';
 import { hasEmailInboxes, loadSlackInstall, purgeLegacyEmailState } from '../channels/install-store';
 import { assertAllowedEndpointUrl, assertAllowedSourceAddress } from '../marketplace/catalog';
 import { safeEgressFetch, UnsafeEgressError } from '../shared/ssrf-guard';
@@ -43,7 +44,7 @@ import {
   getProjectSecretValueForConsumer,
 } from '../projects/secrets';
 import { SecretUndecryptableError } from '../secrets/undecryptable';
-import { type GitTriggerSpec, extractTriggers, readManifest } from '../projects/triggers';
+import { type GitTriggerSpec, extractTriggers, readManifest, runtimeManifest } from '../projects/triggers';
 import { syncDeclaredApps } from '../apps/app-manifest';
 import { reconcileProjectTriggerRuntime } from '../projects/trigger-runtime-catalog';
 import { reconcileEventSubscriptions } from '../projects/surface';
@@ -51,7 +52,7 @@ import { db } from '../shared/db';
 import { isUniqueViolation } from '../shared/postgres-errors';
 import { ensureChannelConnectorDeclared, removeChannelConnectorDeclared } from './channel-manifest';
 import { synthesizeChannelConnectors } from './channel-materialize';
-import { channelApiBase, channelCatalog, channelDefaultSlug } from './channels';
+import { channelApiBase, channelCatalog } from './channels';
 import {
   COMPUTER_CONNECTOR_NAME,
   COMPUTER_SLUG,
@@ -108,11 +109,30 @@ export function shouldReuseConnectorCatalog(input: {
     !input.force &&
     input.hasExisting &&
     input.existingStatus !== 'error' &&
-    input.provider !== 'channel' &&
-    input.provider !== 'computer' &&
     (input.provider !== 'mcp' || input.mcpHasActions) &&
     input.manifestMatches
   );
+}
+
+/** The catalog a channel or computer connector gets from code, never from the network. */
+function builtCatalog(spec: ConnectorSpec): { actions: NormalizedAction[]; server: string | null } | null {
+  // Server = the platform API base.
+  if (spec.provider === 'channel') return { actions: channelCatalog(spec.platform ?? ''), server: channelApiBase(spec.platform ?? '') };
+  // The tunnel RPC method set. The connector config binds the machine at materialization.
+  if (spec.provider === 'computer') return { actions: computerCatalog(), server: null };
+  return null;
+}
+
+/**
+ * The `manifest_hash` a connector row stores. For a catalog built from code it
+ * covers that catalog too, so a release that changes it re-materializes the
+ * row, and an unchanged one is reused instead of deleted and re-inserted on
+ * every sweep pass (51,732 computer action rows per ~45 min on prod, 2026-10-30).
+ */
+function storedManifestHash(spec: ConnectorSpec): string {
+  const built = builtCatalog(spec);
+  const hash = manifestHashForConnector(spec);
+  return built ? createHash('sha256').update(hash).update(JSON.stringify(built)).digest('hex') : hash;
 }
 
 export async function rematerializeCatalogAfterCredentialUpdate(
@@ -436,6 +456,9 @@ export interface SyncOptions {
    *  syncs that one. The rest of the reconcile (removals, triggers, Apps)
    *  still runs: it reads the database, not the network. */
   onlySlugs?: ReadonlySet<string>;
+  /** The periodic sweep: reuse the last manifest read while the default
+   *  branch has not moved (see `readManifest`). */
+  reuseManifestAtTip?: boolean;
 }
 
 /** Connectors whose catalogs load at once: a project with many MCP servers
@@ -501,7 +524,7 @@ async function syncProjectConnectorsFenced(
   let manifest: Awaited<ReturnType<typeof readManifest>> = null;
   try {
     manifest = await withTimeout(
-      readManifest(gitProject),
+      readManifest(gitProject, { reuseAtTip: opts.reuseManifestAtTip }),
       connectorManifestTimeoutMs(),
       `read manifest ${projectId}`,
     );
@@ -519,7 +542,9 @@ async function syncProjectConnectorsFenced(
   let declaredSpecs: ConnectorSpec[] = [];
   let triggerSpecs: GitTriggerSpec[] | null = null;
   if (manifest) {
-    const triggers = extractTriggers(manifest);
+    // The triggers a running project applies: one with a validation error is
+    // kept, off (`runtimeManifest`), so its runtime row and grants survive.
+    const triggers = extractTriggers(runtimeManifest(manifest));
     triggerSpecs = triggers.specs;
     await reconcileProjectTriggerRuntime(projectId, triggers.specs);
     errors.push(...triggers.errors.map((e) => ({ slug: e.slug, error: e.error })));
@@ -646,25 +671,17 @@ async function syncProjectConnectorsFenced(
       // unchanged (hash match) and it last materialized cleanly, skip the
       // network catalog fetch. The DB row's cheap fields (name/enabled/
       // policies) are still reconciled inside upsertConnector. `force` (manual
-      // sync) always re-fetches; error rows always retry.
-      //
-      // EXCEPT for channel connectors, which are never skipped. Their catalog is
-      // not fetched at all — `resolveCatalog` builds it locally from
-      // `channelCatalog(platform)`, i.e. from OUR OWN CODE — so there is no
-      // network cost to save, and `manifestHashForConnector` deliberately hashes
-      // only the spec (provider/platform/auth/...), which a code-side action
-      // change does not touch. Skipping therefore froze every existing channel
-      // connector's action list at whatever shipped the day it materialized:
-      // the same was true of any Slack/Teams/email action ever added.
-      // Re-resolving locally on every sync is free and keeps deployed projects
-      // honest.
+      // sync) always re-fetches; error rows always retry. A channel or computer
+      // catalog is built from our own code, and its stored hash covers that
+      // catalog (`storedManifestHash`): a release that adds a Slack, Teams,
+      // email or computer action re-materializes every such connector once.
       const catalogUnchanged = shouldReuseConnectorCatalog({
         force: opts.force === true,
         hasExisting: !!ex,
         existingStatus: ex?.status ?? null,
         provider: spec.provider,
         mcpHasActions: ex ? connectorsWithActions.has(ex.connectorId) : false,
-        manifestMatches: ex?.manifestHash === manifestHashForConnector(spec),
+        manifestMatches: ex?.manifestHash === storedManifestHash(spec),
       });
       let catalogCredential: string | null = null;
       let memberPublished = false;
@@ -887,7 +904,7 @@ async function upsertConnector(
   existingId: string | null,
   fence: ConnectorSyncFence | null = null,
 ): Promise<void> {
-  const manifestHash = manifestHashForConnector(spec);
+  const manifestHash = storedManifestHash(spec);
   const { status, lastError } = catalogPersistenceState(spec.enabled, catalog);
   // New connector definitions never carry a secret reference. An existing
   // authSecret is an explicit control-plane binding and must survive sync.
@@ -1428,18 +1445,9 @@ export async function resolveCatalog(
         });
         return { actions: normalizeComposio(tools, spec.app), server: null };
       }
-      case 'channel': {
-        // Fixed, local catalog — no network fetch. Server = the platform API base.
-        return {
-          actions: channelCatalog(spec.platform ?? ''),
-          server: channelApiBase(spec.platform ?? ''),
-        };
-      }
-      case 'computer': {
-        // Fixed, local catalog (the tunnel RPC method set) — no network, no
-        // server. The connector config binds the machine at materialization.
-        return { actions: computerCatalog(), server: null };
-      }
+      case 'channel':
+      case 'computer':
+        return builtCatalog(spec)!;
       default:
         return { actions: [], server: null };
     }
@@ -1638,7 +1646,7 @@ async function loadHttpRoutes(
       throw err;
     }
   }
-  const parsed = /\.toml$/i.test(spec) ? (parseToml(raw) as any) : JSON.parse(raw);
+  const parsed = /\.ya?ml$/i.test(spec) ? parseYaml(raw) : JSON.parse(raw);
   const routes = Array.isArray(parsed?.routes) ? parsed.routes : [];
   return routes as HttpRouteSpec[];
 }

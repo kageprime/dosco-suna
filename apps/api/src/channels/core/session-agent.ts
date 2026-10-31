@@ -3,7 +3,7 @@ import { projectSessions } from '@kortix/db';
 import { db } from '../../shared/db';
 
 /**
- * The Kortix agent a session runs, as channel replies name it. Every channel
+ * The Dosco agent a session runs, as channel replies name it. Every channel
  * session stores the agent it launched with (the channel's pick, else the
  * project default). Null before the session exists or for a blank name.
  */

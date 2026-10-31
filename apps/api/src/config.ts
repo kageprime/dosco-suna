@@ -202,6 +202,10 @@ export const envSchema = z.object({
   // Global background-worker switch. API-only and migration-shadow deployments
   // keep request handling active while disabling every recurring write loop.
   KORTIX_WORKERS_ENABLED: optBoolTrue,
+  // True runs the durable job queue even when KORTIX_WORKERS_ENABLED is false.
+  // The deterministic test stack sets it: held connector calls and Capture
+  // ingest run only as queued jobs.
+  KORTIX_JOB_WORKER_ENABLED: optBoolFalse,
   // Kill switch for the scheduled account-deletion sweep. True skips every
   // scheduled run; immediate deletion is unaffected. Default off (sweep runs).
   ACCOUNT_DELETION_SWEEP_PAUSED: optBoolFalse,
@@ -274,9 +278,6 @@ export const envSchema = z.object({
   // disables title generation entirely — nothing else writes `metadata.name`,
   // so sessions then stay untitled and clients fall back to their display chain.
   SESSION_TITLE_GENERATION_ENABLED: optBoolTrue,
-  // Generative UI kill switch. On by default; false => no session is taught the genui catalog,
-  // whatever the project flag says. Blocks already in transcripts still render.
-  GENUI_ENABLED: optBoolTrue,
   // Operator switch for the session-log journal ingest (`POST …/sessions/:s/log/journal`).
   // On by default. Off answers 503: each daemon keeps its unacknowledged changes and
   // retries with backoff, so turning it back on loses nothing the boxes still hold.
@@ -284,15 +285,16 @@ export const envSchema = z.object({
   // Operator switch for the session-log restore (`POST …/sessions/:s/log/restore`, P6.1).
   // On by default. Off answers 503 and claims nothing: the box boots without a restore.
   SESSION_LOG_RESTORE_ENABLED: optBoolTrue,
-  // Default of the project flag `session_log_restore` for a project with no stored value. Off by
-  // default; dev turns it on in its deploy overrides (deploy-dev.yml). A project's stored value wins.
-  // Rollback: set it to "false" in the overrides. Removing the key keeps the running task's value.
-  SESSION_LOG_RESTORE_DEFAULT_ENABLED: optBoolFalse,
+  // Default of the project flag `session_log_restore` for a project with no stored value. On by
+  // default (2026-10-28). A project's stored value wins. Rollback: set it to "false" in the
+  // deployment's env (ECS overrides); removing the key keeps the running task's value.
+  SESSION_LOG_RESTORE_DEFAULT_ENABLED: optBoolTrue,
   // The largest restore the API answers (`POST …/log/restore`), in bytes: the live messages' stored
   // JSON lengths plus 2/5 of the session's live blob bytes (full texts, attachments; ~15x in the daemon,
   // 30 MB of images: +455 MB; `SESSION_LOG_BLOB_WEIGHT`). So 24 MiB allows 24 MiB of records or 60 MiB
-  // of blobs (~125 screenshots of 500 kB). Above it the claim still happens and the answer is 413 without messages:
-  // the box boots with the D3 note alone. A pi restore peaks at about 38x the log in the daemon's
+  // of blobs (~125 screenshots of 500 kB). Above it the claim still happens and the answer is 413 with the part
+  // that fits (`kept`): what the model sees, else the newest turns, else no message and the D3 note alone
+  // (`sessionLogRestorePlan`). A pi restore peaks at about 38x the log in the daemon's
   // memory (a 38.5 MB log: +1.45 GB on a 4 GB box) and about 9x in the API (+330 MB). 24 MiB keeps the
   // daemon peak under 1 GB and is 1.6x the p99.9 session (15 MB; p99 3.7 MB).
   SESSION_LOG_RESTORE_MAX_BYTES: optInt(24 * 1024 * 1024),
@@ -303,21 +305,6 @@ export const envSchema = z.object({
   // rows 30 days after a delete, 80 days after a subscription end (inert until decision D6b), their files 7 days later.
   // On by default. Off stops the worker's tick; nothing it has not yet purged is touched.
   SESSION_LOG_PURGE_ENABLED: optBoolTrue,
-  // The backfill of old sessions (P3.1, `projects/session-log-backfill.ts`): each session with
-  // history only in the v1 mirror gets its v2 log. `write` (default since P8.2: no read serves the
-  // mirror, so a self-hosted upgrade converts its own history) writes the logs (it also needs
-  // SESSION_LOG_INGEST_ENABLED). `dry` converts in memory, writes nothing, and logs counts per
-  // tick and per pass. `off` runs nothing. Leader only. The pass resumes across leaders
-  // (`kortix.session_log_backfill_state`). A dry pass runs once per build (KORTIX_COMMIT): a new
-  // build runs it again; on the same build, `DELETE FROM kortix.session_log_backfill_state`.
-  // A mirror over the capture's size cap (~SESSION_LOG_RESTORE_MAX_BYTES of JSON) converts in a
-  // Worker thread, only while the process has room for it (SESSION_LOG_BACKFILL_MEMORY_MB).
-  SESSION_LOG_BACKFILL: z.enum(['off', 'dry', 'write']).optional().default('write'),
-  // The API task's memory in MiB (prod and dev ECS tasks: 4096). The backfill starts a conversion
-  // thread only while RSS plus its estimate stays under 75 % of this, or of cgroup memory.max when lower.
-  SESSION_LOG_BACKFILL_MEMORY_MB: optInt(4096),
-  // The source commit the image was built from (Dockerfile ARG, kept across the prod retag). 'unknown' locally.
-  KORTIX_COMMIT: optStrDefault('unknown'),
   // Serve the public OpenAPI spec (/v1/openapi.json) + Scalar docs UI (/v1/docs).
   // On by default — the base API surface is meant to be discoverable. Internal
   // routers (/v1/admin, /v1/ops) are ALWAYS stripped from the spec regardless
@@ -455,10 +442,10 @@ export const envSchema = z.object({
   // The managed team key is RESEND_API_KEY (also the transactional sender).
   RESEND_API_URL: optUrl('https://api.resend.com'),
   // Domain for inboxes made with the managed key (verified and receiving on
-  // Kortix's Resend team). Unset: no managed inbox can be created.
+  // Dosco's Resend team). Unset: no managed inbox can be created.
   RESEND_MANAGED_DOMAIN: optStr,
   // Operator switch for managed inboxes on RESEND_MANAGED_DOMAIN. Each one
-  // costs Kortix a paid Resend inbox, so a project cannot turn this on: off,
+  // costs Dosco a paid Resend inbox, so a project cannot turn this on: off,
   // every connect needs the project's own Resend key.
   RESEND_MANAGED_EMAIL_ENABLED: optBoolFalse,
 
@@ -492,7 +479,7 @@ export const envSchema = z.object({
   TEAMS_APP_NAME: optStrDefault('Dosco'),
 
   // ── LLM Providers (optional — only needed in cloud mode) ─────────────────
-  // Kortix Platinum inference: the one upstream of every Kortix-managed model
+  // Dosco Platinum inference: the one upstream of every Dosco-managed model
   // (`managedCandidates`). The key is a pt_live_ key with `inference:write`.
   PLATINUM_INFERENCE_URL: optUrl('https://api.platinum.dev/v1/inference'),
   PLATINUM_INFERENCE_API_KEY: optStr,
@@ -512,6 +499,12 @@ export const envSchema = z.object({
   // (descriptors.ts) — both are gated on this and read no managed credentials
   // when off.
   KORTIX_MANAGED_PROVIDER_ENABLED: optBoolUnset,
+  // Private channels (`project_spaces.visibility = 'private'`). Off: creating
+  // or converting one answers 409. Turn it on only once every deployed API
+  // build enforces private channels: an older build shows a private channel to
+  // every project member. The rollout checklist:
+  // .agents/skills/kortix-release/references/private-channels-rollout.md.
+  KORTIX_PRIVATE_CHANNELS_ENABLED: optBoolFalse,
   // Empty = the in-API gateway at `${KORTIX_URL}/v1/llm`. Set to a standalone
   // gateway's public base (…/v1/llm) to route every sandbox model call there.
   LLM_GATEWAY_BASE_URL: optStr,
@@ -584,6 +577,10 @@ export const envSchema = z.object({
   // project's `workspace_volume` flag says. A session that already has one keeps
   // it (platform/services/workspace-volume.ts).
   KORTIX_WORKSPACE_VOLUMES: optStr,
+  // The `us_region` default for a project that has made no choice: true puts
+  // its new Files and sessions in KORTIX_PLATINUM_US_REGION. Off by default;
+  // dev sets it (deploy-dev.yml). Inert while KORTIX_PLATINUM_US_REGION is unset.
+  KORTIX_PLATINUM_US_REGION_DEFAULT: optBoolFalse,
   // The fresh-session Git fast path: KORTIX_SESSION_FRESH, the base-tip +
   // scaffold-delta hint (inline or remote bundle), and the OpenCode config-dir
   // hint that lets the daemon spawn OpenCode before the checkout. Default ON;
@@ -746,6 +743,7 @@ export const envSchema = z.object({
   E2B_API_KEY: optStr,
   E2B_DOMAIN: optStrDefault('e2b.app'),
   E2B_TEMPLATE: optStr,
+  E2B_WEBHOOK_SECRET: optStr,
 
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // Public API base URL, without a route suffix. Auto-derived from PORT in local mode.
@@ -823,6 +821,21 @@ export const envSchema = z.object({
   // Optional: required only when importing a public Postman workspace URL.
   // Exported collection JSON and Postman-managed Git repositories need no key.
   POSTMAN_API_KEY: optStr,
+
+  // ── Dosco in Chrome ─────────────────────────────────────────────────────
+  // Master switch until launch: on in local and dev only. Off, /v1/chrome/* and
+  // the extension's control socket answer 404 and the `chrome` project flag is
+  // unavailable (feature-flags/registry.ts).
+  KORTIX_CHROME_ENABLED: optBoolFalse,
+
+  // ── Residential proxy ────────────────────────────────────────────────────
+  // Operator switch, off by default. Turn it on in an environment only after
+  // that environment's Platinum serves `network.residential_proxy`: an older
+  // Platinum drops the field and the box keeps its data-center address. Off, a
+  // sandbox template's `residential_proxy` fails its session closed and the
+  // billing worker does not run (platform/services/residential-proxy.ts,
+  // workers/residential-proxy-billing-worker.ts). Dev sets it in deploy-dev.yml.
+  KORTIX_PLATINUM_RESIDENTIAL_PROXY: optBoolFalse,
 
   // ── Tunnel (optional, all have sane defaults) ────────────────────────────
   TUNNEL_SIGNING_SECRET: optStr,
@@ -926,6 +939,14 @@ export const envSchema = z.object({
     .optional()
     .default('true')
     .transform((v) => !['0', 'false'].includes(v.trim().toLowerCase())),
+  // Kill switch for running a held connector call on approve. On by default;
+  // `0`, `false` or `off` writes no new held row, so a new gate asks the agent
+  // to repeat the call. Rows already held or queued still run, expire and wipe.
+  KORTIX_APPROVAL_RUNS_HELD_CALL: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((v) => !['0', 'false', 'off'].includes(v.trim().toLowerCase())),
   // Local-only HTTP capture. The deterministic test profile points this at
   // Supabase Mailpit. Deployed environments leave it unset.
   MAILPIT_API_URL: optStr,
@@ -1309,6 +1330,7 @@ export const config = {
   KORTIX_APPS_DEFAULT_ALWAYS_ON: env.KORTIX_APPS_DEFAULT_ALWAYS_ON,
   KORTIX_APPS_WORKER_ENABLED: env.KORTIX_APPS_WORKER_ENABLED,
   KORTIX_WORKERS_ENABLED: env.KORTIX_WORKERS_ENABLED,
+  KORTIX_JOB_WORKER_ENABLED: env.KORTIX_JOB_WORKER_ENABLED,
   ACCOUNT_DELETION_SWEEP_PAUSED: env.ACCOUNT_DELETION_SWEEP_PAUSED,
   KORTIX_SANDBOX_EGRESS_PIN_ENFORCED: env.KORTIX_SANDBOX_EGRESS_PIN_ENFORCED,
   KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS: env.KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS.split(',')
@@ -1323,16 +1345,12 @@ export const config = {
   KORTIX_RELAY_HEADERS_TIMEOUT_MS: env.KORTIX_RELAY_HEADERS_TIMEOUT_MS,
   KORTIX_RELAY_UPSTREAM_IDLE_TIMEOUT_MS: env.KORTIX_RELAY_UPSTREAM_IDLE_TIMEOUT_MS,
   SESSION_TITLE_GENERATION_ENABLED: env.SESSION_TITLE_GENERATION_ENABLED,
-  GENUI_ENABLED: env.GENUI_ENABLED,
   SESSION_LOG_INGEST_ENABLED: env.SESSION_LOG_INGEST_ENABLED,
   SESSION_LOG_RESTORE_ENABLED: env.SESSION_LOG_RESTORE_ENABLED,
   SESSION_LOG_RESTORE_DEFAULT_ENABLED: env.SESSION_LOG_RESTORE_DEFAULT_ENABLED,
   SESSION_LOG_RESTORE_MAX_BYTES: env.SESSION_LOG_RESTORE_MAX_BYTES,
   SESSION_LOG_BLOB_READ_MS: env.SESSION_LOG_BLOB_READ_MS,
   SESSION_LOG_PURGE_ENABLED: env.SESSION_LOG_PURGE_ENABLED,
-  SESSION_LOG_BACKFILL: env.SESSION_LOG_BACKFILL,
-  SESSION_LOG_BACKFILL_MEMORY_MB: env.SESSION_LOG_BACKFILL_MEMORY_MB,
-  KORTIX_COMMIT: env.KORTIX_COMMIT,
   OPENAPI_PUBLIC_DOCS: env.OPENAPI_PUBLIC_DOCS,
   MOBILE_MIN_VERSION: env.MOBILE_MIN_VERSION.trim(),
   MOBILE_STORE_URL_IOS: env.MOBILE_STORE_URL_IOS,
@@ -1429,6 +1447,7 @@ export const config = {
   // blob misses the var; self-host stays off). Explicit value always wins.
   KORTIX_MANAGED_PROVIDER_ENABLED:
     env.KORTIX_MANAGED_PROVIDER_ENABLED ?? env.KORTIX_BILLING_INTERNAL_ENABLED,
+  KORTIX_PRIVATE_CHANNELS_ENABLED: env.KORTIX_PRIVATE_CHANNELS_ENABLED,
   LLM_GATEWAY_BASE_URL: env.LLM_GATEWAY_BASE_URL,
   LLM_GATEWAY_DEFAULT_MODEL: env.LLM_GATEWAY_DEFAULT_MODEL,
   LLM_GATEWAY_VISION_MODEL: env.LLM_GATEWAY_VISION_MODEL,
@@ -1463,6 +1482,7 @@ export const config = {
   KORTIX_DRIVES_SESSION_MOUNT: env.KORTIX_DRIVES_SESSION_MOUNT,
   KORTIX_DRIVES_SYNC: env.KORTIX_DRIVES_SYNC,
   KORTIX_WORKSPACE_VOLUMES: env.KORTIX_WORKSPACE_VOLUMES,
+  KORTIX_PLATINUM_US_REGION_DEFAULT: env.KORTIX_PLATINUM_US_REGION_DEFAULT,
   KORTIX_PROJECT_SNAPSHOT_MODE: env.KORTIX_PROJECT_SNAPSHOT_MODE,
   KORTIX_PROJECT_SNAPSHOT_S3_BUCKET: env.KORTIX_PROJECT_SNAPSHOT_S3_BUCKET,
   KORTIX_PROJECT_SNAPSHOT_S3_REGION: env.KORTIX_PROJECT_SNAPSHOT_S3_REGION,
@@ -1589,6 +1609,8 @@ export const config = {
 
   // ─── Tunnel (Reverse-Tunnel to Local Machine) ──────────────────────────────
   TUNNEL_SIGNING_SECRET: env.TUNNEL_SIGNING_SECRET,
+  KORTIX_CHROME_ENABLED: env.KORTIX_CHROME_ENABLED,
+  KORTIX_PLATINUM_RESIDENTIAL_PROXY: env.KORTIX_PLATINUM_RESIDENTIAL_PROXY,
   TUNNEL_ENABLED: env.TUNNEL_ENABLED,
   TUNNEL_HEARTBEAT_INTERVAL_MS: env.TUNNEL_HEARTBEAT_INTERVAL_MS,
   TUNNEL_HEARTBEAT_MAX_MISSED: env.TUNNEL_HEARTBEAT_MAX_MISSED,
@@ -1638,6 +1660,7 @@ export const config = {
   EXPO_ACCESS_TOKEN: env.EXPO_ACCESS_TOKEN,
   EXPO_PUSH_ENABLED: env.EXPO_PUSH_ENABLED ?? !env.KORTIX_INSTANCE_ID,
   PUSH_NOTIFICATIONS_ENABLED: env.PUSH_NOTIFICATIONS_ENABLED,
+  KORTIX_APPROVAL_RUNS_HELD_CALL: env.KORTIX_APPROVAL_RUNS_HELD_CALL,
   MAILPIT_API_URL: env.MAILPIT_API_URL,
   MAILTRAP_API_TOKEN: env.MAILTRAP_API_TOKEN,
   MAILTRAP_FROM_EMAIL: env.MAILTRAP_FROM_EMAIL,

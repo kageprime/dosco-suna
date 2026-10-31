@@ -291,7 +291,7 @@ export function approvalPreviewReviewable(summary: unknown): boolean {
   if (!isPlainRecord(summary)) return false;
   const preview = summary.args_preview;
   if (isPlainRecord(preview) && Object.keys(preview).length > 0) return true;
-  // Content Kortix read from the provider (approval-enrichers.ts) is
+  // Content Dosco read from the provider (approval-enrichers.ts) is
   // reviewable on its own.
   const resolved = summary.resolved_preview;
   if (isPlainRecord(resolved) && Object.keys(resolved).length > 0) return true;

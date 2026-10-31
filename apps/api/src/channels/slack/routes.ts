@@ -205,7 +205,7 @@ export function registerSlackWebhookRoutes(): void {
           await publishHomeForUser(teamId, envelope.event.user);
           return;
         }
-        // Opening the Kortix DM (AI-Assistant pane) → greet with the project picker.
+        // Opening the Dosco DM (AI-Assistant pane) → greet with the project picker.
         // The channel/thread live on event.assistant_thread, NOT the top-level event,
         // so resolveOauthProject can't see it — handle it before that branch.
         if (envelope.event?.type === 'assistant_thread_started') {

@@ -81,7 +81,9 @@ mock.module('../sandbox-proxy/backend', () => ({
   },
 }));
 
+const realGit = await import('../projects/git');
 mock.module('../projects/git', () => ({
+  ...realGit,
   grepRepoFiles: async () => [],
   searchRepoFileNames: async () => [],
   archiveRepoSubtree: async () => undefined,
@@ -89,7 +91,6 @@ mock.module('../projects/git', () => ({
     branchDeletes.push(branchName);
     return true;
   },
-  createRemoteSessionBranch: async () => undefined,
   listRepoFiles: async () => [],
   loadProjectConfig: async () => ({}),
   readRepoFile: async () => '',

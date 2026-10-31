@@ -39,7 +39,7 @@ export function toOpencodeModelRef(model: string): string {
   return `${KORTIX_PREFIX}${toWireModel(model)}`;
 }
 
-/** A bare wire id is a Kortix managed model: BYOK and codex refs always carry a `provider/`. */
+/** A bare wire id is a Dosco managed model: BYOK and codex refs always carry a `provider/`. */
 function isManagedRef(ref: string): boolean {
   return !toWireModel(ref).includes('/');
 }

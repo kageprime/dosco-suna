@@ -328,7 +328,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     await connect();
     await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a')]);
     expect((await store.get(PROJECT_ID, 'a'))?.externalId).toBe('ti_EXAMPLE_NEW_MESSAGE_{}');
-    // The connector moves to Kortix: provider mcp.
+    // The connector moves to Dosco: provider mcp.
     setEventSourceForTest('mcp', {
       ...fake,
       id: 'mcp',
@@ -351,7 +351,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
         .where(eq(connectors.connectorId, CONNECTOR_ID));
       calls.length = 0;
       await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a')]);
-      // Composio drops its own instance; the Kortix source never sees the Composio id.
+      // Composio drops its own instance; the Dosco source never sees the Composio id.
       expect(calls).toContain('unsubscribe:ti_EXAMPLE_NEW_MESSAGE_{}');
       expect(calls.some((call) => call.startsWith('mcp:unsubscribe'))).toBe(false);
       expect((await store.get(PROJECT_ID, 'a'))?.provider).toBe('mcp');
@@ -603,7 +603,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       expect(fires).toHaveLength(0);
     });
 
-    // KRTX-1721: Pause all automations stops app events in every project of the account.
+    // KRTX-1721: Pause all triggers stops app events in every project of the account.
     test('an account whose automations are paused skips the delivery; resuming fires it', async () => {
       await armed();
       await testDb().update(accounts).set({ automationsPausedAt: new Date() }).where(eq(accounts.accountId, ACCOUNT_ID));
@@ -749,7 +749,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
         ],
       });
       // Composio apps list only where the project has a connector ("other" has none);
-      // Kortix's own `mcp` source lists its catalog apps too.
+      // Dosco's own `mcp` source lists its catalog apps too.
       const entry = async () =>
         (await listEventApps(PROJECT_ID, ACCOUNT_ID)).filter((a) => a.provider === 'composio').map((a) => [a.app, a.connector, a.connected]);
       expect(await entry()).toEqual([['example', 'inbox', false]]);

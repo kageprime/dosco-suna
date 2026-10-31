@@ -1,4 +1,4 @@
-/** Move a Pipedream or Composio connector to its Kortix MCP app. The service: connectors/connector-move.ts. */
+/** Move a Pipedream or Composio connector to its Dosco MCP app. The service: connectors/connector-move.ts. */
 import { createRoute, z } from '@hono/zod-openapi';
 import { listConnectorMoves, moveConnector } from '../../connectors/connector-move';
 import { PROJECT_ACTIONS } from '../../iam';
@@ -16,7 +16,7 @@ const ConnectorMoveSchema = z.object({
   to: z
     .object({ slug: z.string(), name: z.string(), icon: z.string().nullable() })
     .nullable()
-    .openapi({ description: 'The Kortix app it moves to. Null: no Kortix connection for this app on this deployment yet.' }),
+    .openapi({ description: 'The Dosco app it moves to. Null: no Dosco connection for this app on this deployment yet.' }),
   connection_id: z.string().nullable().openapi({ description: 'The account a started move signs in on.' }),
   signed_in: z.boolean().openapi({ description: 'The move signed in; only the switch is left.' }),
   accounts: z.number().int().openapi({ description: 'Accounts on the connector. All but the moved one sign in again.' }),
@@ -41,7 +41,7 @@ export function registerConnectorMoveRoutes(): void {
       ...auth,
       method: 'get',
       path: '/{projectId}/connector-moves',
-      summary: 'List Pipedream and Composio connectors and the Kortix app each moves to',
+      summary: 'List Pipedream and Composio connectors and the Dosco app each moves to',
       request: { params: z.object({ projectId: z.string() }) },
       responses: {
         200: json(z.object({ moves: z.array(ConnectorMoveSchema) }), 'Pipedream and Composio connectors'),
@@ -62,7 +62,7 @@ export function registerConnectorMoveRoutes(): void {
       ...auth,
       method: 'post',
       path: '/{projectId}/connectors/{slug}/move',
-      summary: 'Move a Pipedream or Composio connector to its Kortix app',
+      summary: 'Move a Pipedream or Composio connector to its Dosco app',
       description:
         'Starts a move: marks an account and returns it with `status: sign_in`. Sign in on that account with the OAuth2 routes; the connector switches to `provider: mcp` when the sign-in completes, and keeps its slug. Calling again after the sign-in finishes a move whose switch failed.',
       request: {

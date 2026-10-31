@@ -456,7 +456,7 @@ export async function resolvePublicShare(token: string) {
  * The published text of one assistant response (`resource_type = 'response'`).
  * Built server-side from the session log (`projects/lib/response-snapshot.ts`),
  * never from client-sent text: a client body would let anyone publish
- * arbitrary text under a Kortix URL.
+ * arbitrary text under a Dosco URL.
  */
 export interface ResponseSnapshot {
   title: string;

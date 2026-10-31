@@ -181,7 +181,7 @@ export function CustomizeSidebar({
       href: projectSettingsSectionHref(projectId, sec.key),
       icon: sec.icon,
       isActive: isSettingsActive && activeSectionKey === sec.key,
-      attention: sec.key === 'upgrades' && upgradeAttention,
+      attention: (sec.key as string) === 'upgrades' && upgradeAttention,
     }));
 
     // 4. ACCESS & REVIEW

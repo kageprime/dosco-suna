@@ -25,6 +25,7 @@ import { buildFeatureFlagCatalog, resolveFeatureFlags } from '../../feature-flag
 // The request reader `requestAuditContext` lives in `middleware/request-audit.ts`.
 // Re-exported here so every importer and mock keeps working.
 export { requestAuditContext } from '../../middleware/request-audit';
+import { CHANNEL_ACCESS_PLATFORMS } from '../../shared/channel-access-platforms';
 import { normalizeJsonObject } from '../../shared/json';
 import { db } from '../../shared/db';
 import type { listSandboxTemplates, listSnapshotBuilds } from '../../snapshots/builder';
@@ -95,6 +96,11 @@ export const LIST_OMITTED_SESSION_METADATA_KEYS = [
   'session_start_timeline',
   'audit_v2',
   'remote_branch',
+  // A channel thread's top message: the list already serves it as the
+  // top-level `first_prompt` field, so the metadata copy is a duplicate.
+  'first_prompt',
+  // Served as the top-level `result_excerpt` (lib/session-board.ts).
+  'result_excerpt',
 ] as const;
 
 function trimSessionMetadataForList(
@@ -116,6 +122,8 @@ export function serializeSession(
     grants?: SecretGrant[];
     /** Model selected by the durable conversation log, not the creation pin. */
     conversationModel?: string | null;
+    /** `reply_count`: set by a channel or DM thread list only. */
+    replyCount?: number | null;
     /** The viewing user, to compute is_owner / can_manage_*. */
     viewerId?: string;
     /** Viewer can manage the project (account owner/admin, or a project manager). */
@@ -227,6 +235,10 @@ export function serializeSession(
     visibility: row.visibility,
     origin: row.origin,
     parent_session_id: row.parentSessionId ?? null,
+    space_id: row.spaceId ?? null,
+    group_id: row.groupId ?? null,
+    first_prompt: canAccess && typeof row.metadata?.first_prompt === 'string' ? row.metadata.first_prompt : null,
+    reply_count: canAccess ? (ctx?.replyCount ?? null) : null,
     initiator: row.initiatorType
       ? {
           type: row.initiatorType,
@@ -332,15 +344,17 @@ export function serializeProject(
     // and SDKs from before then read false as the removed native model mode.
     // `session_log` graduated on 2026-10-22 and stays `true` too: older SDKs, CLIs
     // and mobile builds read false as "serve the v1 transcript". `pi_harness`
-    // graduated on 2026-10-23: every new session runs pi. `connectors_v2` and
-    // `connectors_api_discover` graduated on 2026-10-24: older SDKs and hosts
-    // read false as "show the legacy catalog".
+    // graduated on 2026-10-23: every new session runs pi. `genui` graduated on
+    // 2026-10-24: older web, SDK and mobile clients render blocks only while it is true.
+    // `connectors_v2` and `connectors_api_discover` graduated on 2026-10-24: older SDKs and
+    // hosts read false as "show the legacy catalog".
     experimental: {
       ...resolveFeatureFlags(row.metadata),
       apps: true,
       llm_gateway: true,
       session_log: true,
       pi_harness: true,
+      genui: true,
       connectors_v2: true,
       connectors_api_discover: true,
     },
@@ -366,10 +380,10 @@ export function serializeProject(
 
       const provider = pin as SandboxProviderName;
       return config.isProviderEnabled(provider) ? provider : null;
-    })(),
+    })() as Project['default_sandbox_provider'],
     available_sandbox_providers: config.ALLOWED_SANDBOX_PROVIDERS.filter(
       (p) => config.isProviderEnabled(p) && !isDeprecatedProvider(p),
-    ),
+    ) as Project['available_sandbox_providers'],
     // Per-project default reasoning effort (Settings → General). Re-validated
     // on read so a value written before the validator existed, or written
     // directly to the DB, can never reach the UI unchecked (same mechanism as
@@ -382,7 +396,10 @@ export function serializeProject(
 
 export function publicProjectMetadata(metadata: unknown): Record<string, unknown> {
   if (!metadata || typeof metadata !== 'object') return {};
-  const source = metadata as Record<string, unknown>;
+  // Channel allowed user ids and access requests are personal data: only the
+  // channel access routes serve them.
+  const source = { ...(metadata as Record<string, unknown>) };
+  for (const platform of CHANNEL_ACCESS_PLATFORMS) delete source[platform];
   if (!source.git || typeof source.git !== 'object') return source;
   const git = source.git as Record<string, unknown>;
   if (!Object.hasOwn(git, 'fast_boot')) return source;
@@ -882,6 +899,7 @@ export function serializeTemplate(t: Awaited<ReturnType<typeof listSandboxTempla
     daytona_state: t.daytonaState,
     provider_state: t.providerState,
     ready: t.ready,
+    residential_proxy: t.residentialProxy,
     ...(t.providerCoverage ? { provider_coverage: t.providerCoverage } : {}),
   };
 }

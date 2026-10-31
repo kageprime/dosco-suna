@@ -1,5 +1,5 @@
 // The two artifact types. An artifact is a path in the project's Files volume:
-//   doc   a Markdown file (`report.md`, or `index.md` in a folder). Kortix
+//   doc   a Markdown file (`report.md`, or `index.md` in a folder). Dosco
 //         renders it with one stylesheet (`@kortix/shared/artifact-doc`) and
 //         people edit it in the app's doc editor
 //   html  an HTML page (`page.html`, or `index.html` in a folder with its
@@ -65,9 +65,9 @@ export const ARTIFACT_TYPES = [
   {
     type: 'doc' as const,
     name: 'Doc',
-    description: 'A document to read and edit: a spec, report, memo or plan. A Markdown file in Files; people edit it in place in Kortix.',
+    description: 'A document to read and edit: a spec, report, memo or plan. A Markdown file in Files; people edit it in place in Dosco.',
     format: [
-      'A Markdown file (GitHub flavored). Start with one `# Title`. Kortix renders and styles it; add no HTML layout, CSS or scripts.',
+      'A Markdown file (GitHub flavored). Start with one `# Title`. Dosco renders and styles it; add no HTML layout, CSS or scripts.',
       'Supported: headings, paragraphs, bold, italic, strikethrough, inline code, links, bulleted, numbered and task lists (`- [ ]`), blockquotes, code blocks, tables, horizontal rules, ```mermaid diagrams, images (`![alt](media/chart.png)` next to index.md, or an absolute URL) and videos (`<video src="media/demo.mp4" controls></video>`).',
       'Need layout, charts or interaction? Make an html artifact instead.',
     ].join('\n'),
@@ -79,7 +79,7 @@ export const ARTIFACT_TYPES = [
     description: 'Any page or bundle: a slide deck, a dashboard, a design mockup, a tool or an app.',
     format: [
       'A folder with index.html and its assets (scripts, styles, images, data, referenced by relative path). Publishing one .html file makes that folder for you. Served exactly as written: write the doctype, the viewport meta and the <title> yourself.',
-      'The page runs sandboxed: no cookies, storage may throw (wrap it in try/catch), no access to Kortix. Load libraries from a CDN (cdnjs, jsdelivr, unpkg) at a pinned version when they do real work.',
+      'The page runs sandboxed: no cookies, storage may throw (wrap it in try/catch), no access to Dosco. Load libraries from a CDN (cdnjs, jsdelivr, unpkg) at a pinned version when they do real work.',
       'Make it work from 400px wide to a large screen with no sideways scroll, and in light and dark: every color a token on :root, redefined under prefers-color-scheme: dark.',
       'The design method (treatment, token plan, charts, copy, naming) is in the kortix-artifacts skill, references/design.md.',
     ].join('\n'),
@@ -87,7 +87,7 @@ export const ARTIFACT_TYPES = [
   },
 ];
 
-/** A Markdown doc as the page Kortix serves: GFM, task lists, the doc stylesheet; `print` opens the print dialog. */
+/** A Markdown doc as the page Dosco serves: GFM, task lists, the doc stylesheet; `print` opens the print dialog. */
 export function renderDoc(markdown: string, opts: { print: boolean }): string {
   const body = (marked.parse(markdown, { gfm: true, async: false }) as string)
     // A loose list (blank lines between items) puts the box inside a <p>: keep the <p> as the item's text.

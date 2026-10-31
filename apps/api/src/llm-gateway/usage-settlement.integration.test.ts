@@ -243,7 +243,7 @@ withDb('gateway usage settlement is idempotent per request', () => {
     expect(await ledger()).toEqual([]);
   });
 
-  // A Kortix hold taken at admission (/admit, or the legacy billing gate) can
+  // A Dosco hold taken at admission (/admit, or the legacy billing gate) can
   // end on a customer's own key: a held route-memory fallback, or a dispatch
   // fallback. What it owes then is the BYOK fee, not finalCost (0). The hold
   // reconciles against the fee, so the wallet moves by the fee once and the
@@ -310,6 +310,25 @@ withDb('gateway usage settlement is idempotent per request', () => {
     expect(await usageRows(a)).toHaveLength(1);
     expect(await usageRows(b)).toHaveLength(1);
     expect(await ledger()).toHaveLength(2);
+  });
+
+  // The usage event names the image operation: the usage row and the debit's
+  // audit record carry the images route from the first write.
+  test('an image settlement names the images route on its usage row and its debit; chat keeps the chat route', async () => {
+    const image = requestId('image');
+    const chat = requestId('chat');
+    await recordGatewayUsage(event(image, { streaming: false, operation: 'images.edits' }));
+    await recordGatewayUsage(event(chat));
+    const routes = async (id: string) => {
+      const [row] = await db
+        .select({ eventId: usageEvents.eventId, route: usageEvents.route })
+        .from(usageEvents)
+        .where(eq(usageEvents.requestId, id));
+      const debit = (await ledger()).find((entry) => entry.idempotencyKey === `llm:${row!.eventId}`);
+      return { usage: row!.route, debit: (debit?.metadata as { route?: string } | null)?.route };
+    };
+    expect(await routes(image)).toEqual({ usage: '/v1/llm/images/edits', debit: '/v1/llm/images/edits' });
+    expect(await routes(chat)).toEqual({ usage: '/v1/llm/chat/completions', debit: '/v1/llm/chat/completions' });
   });
 
   test('an estimated settlement is marked on its row', async () => {

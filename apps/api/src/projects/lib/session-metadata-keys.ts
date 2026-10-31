@@ -13,6 +13,7 @@
  * and both routes refuse a request that names one (`400`). Add the key here in
  * the same change that adds the server reader.
  */
+import { SUBAGENT_NOTIFY_PARENT_KEY } from '@kortix/api-contract/runtime-relay';
 import { WARM_SESSION_LOCATION_KEY } from './warm-sessions';
 
 export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
@@ -44,12 +45,17 @@ export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
   'source',
   'trigger_kind',
   'trigger_slug',
+  // Shown as a channel thread's author (`trigger-fire.ts`).
+  'trigger_name',
   'trigger_source',
   'trigger_type',
   'trigger_session_key',
   // Titles (`projects/session-title-generate.ts`). Renames use `body.name`.
   'name',
   'title_source',
+  // A channel thread's top message (`session-create.ts`): the creator's first
+  // prompt, shown to every member of the channel.
+  'first_prompt',
   // The initial turn's harness context, server-read by the initial-turn claim.
   'initial_context',
   // Agents as principals (spec 2026-09-22 §2.3): the mint reads these to decide
@@ -58,6 +64,9 @@ export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
   // but still not the client's to write.
   'spawned_by_session',
   'on_behalf_of_cleared_at',
+  // The session a failed reminder's successor replaces (`trigger-fire.ts`).
+  // Telegram write confinement follows it (connectors/channel-write-scope.ts).
+  'reminder_successor_of',
   // Lost-session recovery (KRTX-2419): its boxes restore
   // from the session log at boot (`recover-lost-session.ts`).
   'lostRecoveredAt',
@@ -102,11 +111,17 @@ export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
  *
  * - `unattended`: the server answers the session's blocking questions at once
  *   (`channels/question-release.ts`), removing the owner's confirmation step.
+ * - `notify_parent`: each finished turn is delivered into the parent session
+ *   (`projects/subagent-notice.ts`, a background subagent).
  */
-export const OWNER_MANAGED_SESSION_METADATA_KEYS = ['unattended'] as const;
+export const OWNER_MANAGED_SESSION_METADATA_KEYS = ['unattended', SUBAGENT_NOTIFY_PARENT_KEY] as const;
 
 export const PATCH_SERVER_MANAGED_SESSION_METADATA_KEYS = [
   ...SERVER_MANAGED_SESSION_METADATA_KEYS,
+  // Agent teams: the lead is fixed when the lead creates the teammate
+  // (`teamCreateMetadataError`); a later PATCH would let a session join
+  // another session's team.
+  'team_lead',
   'workspace_mode',
   'repository_access',
   'repository_generation',

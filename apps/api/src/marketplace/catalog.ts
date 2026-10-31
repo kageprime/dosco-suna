@@ -23,7 +23,7 @@ import {
   getStarterFiles,
   isKortixManagedSkillName,
 } from "@kortix/starter";
-import { AGENTS_DIR, agentFileCandidates, SKILLS_DIR } from "@kortix/manifest-schema";
+import { AGENTS_DIR, SKILLS_DIR } from "@kortix/manifest-schema";
 import { parse as parseYaml } from "yaml";
 import {
   buildRegistry,
@@ -119,23 +119,10 @@ export interface CatalogItemDetail extends CatalogItem {
   template?: Record<string, unknown>;
 }
 
-/** Parse a project item's `kortix.yaml` (+ each agent's own `.md` frontmatter)
- *  to surface its agents and triggers in the detail view, the same way its
- *  skills are surfaced from `registryDependencies`. Best-effort: any parse
- *  failure just yields empty lists. */
-/** Parse a markdown file's `--- … ---` YAML frontmatter with the real YAML
- *  parser, so multi-line / folded block scalars resolve correctly. */
-function frontmatterOf(raw: string | undefined): Record<string, unknown> {
-  if (!raw?.startsWith("---")) return {};
-  const end = raw.indexOf("\n---", 3);
-  if (end === -1) return {};
-  try {
-    return (parseYaml(raw.slice(3, end)) ?? {}) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
+/** Parse a project item's `kortix.yaml` to surface its agents and triggers in
+ *  the detail view, the same way its skills are surfaced from
+ *  `registryDependencies`. Best-effort: any parse failure just yields empty
+ *  lists. */
 function projectAgentsAndTriggers(
   files: Array<{ path: string; target?: string; content?: string }>,
 ): { agents: ProjectAgent[]; triggers: ProjectTrigger[] } {
@@ -152,15 +139,9 @@ function projectAgentsAndTriggers(
 
   const agentNames = m.agents && typeof m.agents === "object" ? Object.keys(m.agents) : [];
   const agents: ProjectAgent[] = agentNames.map((name) => {
-    const candidates = agentFileCandidates(manifest, name);
-    const md = candidates
-      .map((candidate) => files.find((f) => pathOf(f) === candidate))
-      .find((file) => file !== undefined);
-    // Parse the agent's own `.md` frontmatter with the YAML parser (not a
-    // line-based one) so folded block scalars (`description: >-`) resolve to the
-    // real text, and collapse it to a single line for the card.
-    const fm = frontmatterOf(md?.content);
-    const desc = typeof fm.description === "string" ? fm.description.replace(/\s+/g, " ").trim() : null;
+    // The block's `description`, collapsed to a single line for the card.
+    const block = (m.agents?.[name] ?? {}) as { description?: unknown };
+    const desc = typeof block.description === "string" ? block.description.replace(/\s+/g, " ").trim() : null;
     return { name, title: name, description: desc || null };
   });
 
@@ -1947,18 +1928,11 @@ function filterCatalogItems(
 }
 
 /** Maximum `limit` the `/marketplace/items` route accepts, once a caller opts
- *  into pagination. Bounds the payload/memory a single request can demand
- *  while leaving headroom above `MARKETPLACE_EXPLORE_LANDING_LIMIT` (120, in
- *  the web's `marketplace-public.ts`) so that SSR fetch is actually honored
- *  instead of silently truncated by this clamp. */
+ *  into pagination; a larger value answers 400. Bounds the payload/memory a
+ *  single request can demand while leaving headroom above
+ *  `MARKETPLACE_EXPLORE_LANDING_LIMIT` (120, in the web's
+ *  `marketplace-public.ts`). */
 export const MARKETPLACE_ITEMS_MAX_LIMIT = 200;
-
-/** Clamps a parsed `limit` query value into `[1, MARKETPLACE_ITEMS_MAX_LIMIT]`.
- *  Extracted from the route handler so the clamp boundary is unit-testable
- *  without spinning up an HTTP server or a catalog with 200+ real items. */
-export function clampMarketplaceItemsLimit(parsedLimit: number): number {
-  return Math.min(Math.max(parsedLimit, 1), MARKETPLACE_ITEMS_MAX_LIMIT);
-}
 
 /** Pure filter + optional slice — the sliceable core of `listCatalogItemsPage`,
  *  factored out so it can be unit-tested against an injected `CatalogItem[]`

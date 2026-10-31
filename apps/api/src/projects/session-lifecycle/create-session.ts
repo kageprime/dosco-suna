@@ -4,9 +4,9 @@
  */
 
 import { isRepositoryDisconnectedError, repositoryDisconnectedBody } from '../../shared/repository-health';
-import { projectSessions, projects, serviceAccounts } from '@kortix/db';
+import { projectSessions, projects, serviceAccounts, sessionLifecycleCommands } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
-import { adoptChatThreads, bindChatThread } from '../../channels/core/threads';
+import { adoptChatThreads, bindChatThread, releaseCreateClaims } from '../../channels/core/threads';
 import { logger } from '../../lib/logger';
 import { mayRequeueFailedCreate } from './requeue-policy';
 import { db } from '../../shared/db';
@@ -36,6 +36,29 @@ import type {
 } from './types';
 import { deliverThroughQueue } from './follow-up-delivery';
 import { drainSessionLifecycleQueue } from './drain';
+
+/**
+ * The status of the `create_session` command under this key in this project, or
+ * null when none exists. Keys are global and a client may choose one, so the
+ * project scopes the answer to this project's own create.
+ */
+export async function createCommandStatus(
+  idempotencyKey: string,
+  projectId: string,
+): Promise<SessionLifecycleCommandRow['status'] | null> {
+  const [row] = await db
+    .select({ status: sessionLifecycleCommands.status })
+    .from(sessionLifecycleCommands)
+    .where(
+      and(
+        eq(sessionLifecycleCommands.idempotencyKey, idempotencyKey),
+        eq(sessionLifecycleCommands.projectId, projectId),
+        eq(sessionLifecycleCommands.commandType, 'create_session'),
+      ),
+    )
+    .limit(1);
+  return row?.status ?? null;
+}
 
 export async function createSession(
   command: CreateSessionCommand,
@@ -328,6 +351,8 @@ export async function executeQueuedCreate(
   return executeCreateSession({
     attachmentSourceCommandId: row.commandId,
     createCommandId: row.commandId,
+    idempotencyKey: row.idempotencyKey,
+    artifactId: row.artifactId ?? undefined,
     source: row.source as CreateSessionCommand['source'],
     project,
     userId,
@@ -365,13 +390,32 @@ async function executeCreateSession(
     source: command.source,
     ...(command.metadata ?? {}),
   };
+  let parentActor = command.parentActor;
+  let callerSessionId = command.callerSessionId;
+  let body = command.body;
+  if (command.source === 'system:artifact-comment') {
+    const { ArtifactCommentAuthorityError, revalidateArtifactCommentCreate } = await import('../../artifacts/comment-authority');
+    try {
+      const current = await revalidateArtifactCommentCreate(command);
+      parentActor = current.actor;
+      callerSessionId = current.callerSessionId;
+      const { rebuildArtifactCommentCreatePrompt } = await import('../../artifacts/comment-delivery');
+      const reference = command.metadata!.artifactCommentDelivery as { job_id: string; target_key: string };
+      body = { ...body, initial_prompt: undefined, initialPrompt: undefined,
+        pending_prompt: { text: await rebuildArtifactCommentCreatePrompt(reference.job_id, reference.target_key), agent: command.body.agent_name } };
+    } catch (error) {
+      if (!(error instanceof ArtifactCommentAuthorityError)) throw error;
+      return { status: 'failed', retryable: false, error: { status: error.status, body: { error: error.message, code: error.code } } };
+    }
+  }
   const result = await createProjectSession({
     attachmentSourceCommandId: command.attachmentSourceCommandId,
     createCommandId: command.createCommandId,
+    artifactId: command.artifactId,
     project: command.project,
     userId: command.userId,
     requestingPrincipalType: command.requestingPrincipalType,
-    body: command.body,
+    body,
     metadata,
     extraEnvVars: command.extraEnvVars,
     request: command.request,
@@ -379,8 +423,8 @@ async function executeCreateSession(
     authType: command.authType,
     apiKeyType: command.apiKeyType,
     inSession: command.inSession,
-    callerSessionId: command.callerSessionId,
-    parentActor: command.parentActor,
+    callerSessionId,
+    parentActor,
     mayManageSystemConnections: command.mayManageSystemConnections,
   });
 
@@ -428,6 +472,8 @@ export async function applyPostCreateActions(input: {
           threadId: action.threadId,
           sessionId: input.sessionId,
         });
+        // Later messages find the thread now; the claim is spent.
+        await releaseCreateClaims([action]);
       } else if (action.type === 'deliver_prompt') {
         // One initial prompt per session: a retried create dedupes on the key.
         const outcome = await deliverThroughQueue({
@@ -436,6 +482,8 @@ export async function applyPostCreateActions(input: {
           sessionId: input.sessionId,
           text: action.text,
           userId: action.userId ?? undefined,
+          ...(action.parts ? { parts: action.parts } : {}),
+          ...(action.overrides ? { overrides: action.overrides } : {}),
         });
         if (outcome !== 'delivered' && outcome !== 'queued') {
           return { ok: false, error: `initial prompt delivery ${outcome}` };

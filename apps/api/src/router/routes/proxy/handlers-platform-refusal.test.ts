@@ -4,10 +4,10 @@ import { runWithContext } from '../../../lib/request-context';
 
 // KRTX-3022: a session's web search answered `432 {"detail":{"error":"This
 // request exceeds your plan's set usage limit. Please upgrade your plan or
-// contact support@tavily.com"}}`. The plan was Kortix's: every session searches
-// through this proxy with the Kortix-owned key. The user was told to upgrade a
+// contact support@tavily.com"}}`. The plan was Dosco's: every session searches
+// through this proxy with the Dosco-owned key. The user was told to upgrade a
 // plan they do not have, and nothing was logged, so the outage was silent.
-// A provider's refusal of the Kortix key now answers as Kortix, and logs.
+// A provider's refusal of the Dosco key now answers as Dosco, and logs.
 
 const errorLines: Array<{ message: string; context: Record<string, unknown> | undefined }> = [];
 const refunds: string[] = [];
@@ -81,8 +81,8 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe("a provider refusing Kortix's own key (KRTX-3022)", () => {
-  test("a plan limit on Kortix's key answers 503 as Kortix: not the caller's account, nothing to change", async () => {
+describe("a provider refusing Dosco's own key (KRTX-3022)", () => {
+  test("a plan limit on Dosco's key answers 503 as Dosco: not the caller's account, nothing to change", async () => {
     upstream(432, TAVILY_PLAN_LIMIT);
 
     const response = await call();
@@ -120,7 +120,7 @@ describe("a provider refusing Kortix's own key (KRTX-3022)", () => {
     expect(limited.headers.get('retry-after')).toBe('30');
   });
 
-  test('a refused key (401) says the provider is not accepting Kortix right now', async () => {
+  test('a refused key (401) says the provider is not accepting Dosco right now', async () => {
     upstream(401, '{"detail":{"error":"Unauthorized: missing or invalid API key."}}');
 
     const response = await call();

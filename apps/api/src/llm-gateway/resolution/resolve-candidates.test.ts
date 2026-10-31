@@ -240,14 +240,15 @@ describe('resolveCandidates — selected account key pool', () => {
     expect(candidates.map((candidate) => candidate.apiKey)).toEqual(['key-a', 'key-b']);
   });
 
-  // The key exists; the agent may not use it. Its own code, so a client never
-  // offers "connect a key" for a fix that lives in the agent's secret grant.
-  test('a narrowed agent grant blocks the pool at use time', async () => {
+  // A model key is a project secret the gateway uses. The agent's secret grant
+  // governs only what reaches its sandbox, so a narrowed grant does not block it.
+  test('a narrowed agent grant still reaches the pool', async () => {
     catalogUpstream = { baseUrl: 'https://api.anthropic.com/v1', envVar: 'ANTHROPIC_API_KEY', kind: 'anthropic' };
     pooledEnabled = true;
     pooledSecrets = { configured: true, coolingDown: false, secrets: [{ secretId: 'id-a', label: 'A', value: 'key-a' }] };
-    await expect(resolveCandidates(principal({ sessionId: 'session-1', agentGrant: { env: [] } }),
-      'anthropic/claude-sonnet-4.6')).rejects.toMatchObject({ code: 'agent_grant_excludes' });
+    const candidates = await resolveCandidates(principal({ sessionId: 'session-1', agentGrant: { env: [] } }),
+      'anthropic/claude-sonnet-4.6');
+    expect(candidates.map((candidate) => candidate.apiKey)).toEqual(['key-a']);
   });
 
   // A key this API cannot decrypt is unusable, not a server error.
@@ -617,13 +618,13 @@ describe('resolveCandidates — managed model tier gating', () => {
       'an account with no plan is told to upgrade',
       'none',
       '"glm-5.3-flash" requires a paid plan.',
-      'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
+      'Your plan includes no Dosco-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
     ],
     [
       'a Free account is told to upgrade',
       'free',
       '"glm-5.3-flash" requires a paid plan.',
-      'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
+      'Your plan includes no Dosco-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
     ],
     [
       'a paid plan without managed models is told to bring a key',
@@ -812,22 +813,12 @@ describe('resolveCandidates — codex + unknown provider', () => {
     expect(resolveCodexCredential).not.toHaveBeenCalled();
   });
 
-  test('a narrowed agent grant blocks a selected ChatGPT pool with its own code', async () => {
-    pooledEnabled = true;
-    pooledSecrets = { configured: true, coolingDown: false, secrets: [
-      { secretId: 'account-a', label: 'Personal', value: JSON.stringify({ openai: { access: 'oauth-a' } }) },
-    ] };
-    await expect(resolveCandidates(principal({ sessionId: 'session-1', agentGrant: { env: ['GITHUB_TOKEN'] } }),
-      'codex/gpt-6.1-sol')).rejects.toMatchObject({ code: 'agent_grant_excludes' });
-    expect(resolveCodexAccountCredential).not.toHaveBeenCalled();
-  });
-
-  test('a narrowed agent grant blocks the personal ChatGPT default with its own code', async () => {
+  test('a narrowed agent grant still reaches the personal ChatGPT default', async () => {
     pooledEnabled = true;
     defaultCodexSecret = { secretId: 'mine', label: 'My account', value: JSON.stringify({ openai: { access: 'mine-token' } }) };
-    await expect(resolveCandidates(principal({ sessionId: 'session-1', agentGrant: { env: [] } }),
-      'codex/gpt-6.1-sol')).rejects.toMatchObject({ code: 'agent_grant_excludes' });
-    expect(resolveCodexAccountCredential).not.toHaveBeenCalled();
+    const candidates = await resolveCandidates(principal({ sessionId: 'session-1', agentGrant: { env: [] } }),
+      'codex/gpt-6.1-sol');
+    expect(candidates.map((candidate) => candidate.apiKey)).toEqual(['mine-token']);
   });
 
   test('an agent grant that names CODEX_AUTH_JSON reaches the personal ChatGPT default', async () => {
@@ -1109,26 +1100,19 @@ describe('resolveCandidates — codex, unconfigured session, project-shared Chat
       .rejects.toMatchObject({ code: 'provider_pool_rate_limited', retryAfterSeconds: 9 });
   });
 
-  test('an agent whose secret grant omits CODEX_AUTH_JSON never uses a shared account', async () => {
+  test('an agent whose secret grant omits CODEX_AUTH_JSON still uses a shared account', async () => {
     pooledEnabled = true;
     sharedSecrets = { coolingDown: false, secrets: [account('team', 'team-token')] };
     const actor = principal({ sessionId: 's', personalUserId: null, agentGrant: { env: ['OTHER'] } });
-    await expect(resolveCandidates(actor, 'codex/gpt-6')).rejects.toMatchObject({
-      code: 'agent_grant_excludes', message: 'The running agent cannot use ChatGPT connections.',
-    });
-    expect(resolveCodexAccountCredential).not.toHaveBeenCalled();
-    // The legacy project connection it could use before this change still serves it.
-    codexCredential = { access: 'legacy-token' };
-    expect((await resolveCandidates(actor, 'codex/gpt-6')).map((c) => c.apiKey)).toEqual(['legacy-token']);
+    await expect(resolveCandidates(actor, 'codex/gpt-6')).resolves.toBeDefined();
+    expect(resolveCodexAccountCredential).toHaveBeenCalled();
   });
 
-  test('an agent without the grant gets the grant refusal, not a cooldown, when every shared account cools down', async () => {
+  test('an agent without CODEX_AUTH_JSON in its grant gets the cooldown when every shared account cools down', async () => {
     pooledEnabled = true;
     sharedSecrets = { coolingDown: true, retryAfterSeconds: 9, secrets: [] };
     const actor = principal({ sessionId: 's', personalUserId: null, agentGrant: { env: ['OTHER'] } });
-    await expect(resolveCandidates(actor, 'codex/gpt-6')).rejects.toMatchObject({
-      code: 'agent_grant_excludes', message: 'The running agent cannot use ChatGPT connections.',
-    });
+    await expect(resolveCandidates(actor, 'codex/gpt-6')).rejects.toMatchObject({ code: 'provider_pool_rate_limited' });
   });
 
   // Claude Code and other external clients reach the gateway with a project
@@ -1173,7 +1157,7 @@ describe('Free plan recovery guidance', () => {
     await expect(resolveCandidates(principal({ freeModelsOnly: true }), 'glm-5.3-flash'))
       .rejects.toMatchObject({
         code: 'plan_upgrade_required',
-        suggestion: 'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
+        suggestion: 'Your plan includes no Dosco-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.',
       });
   });
 });

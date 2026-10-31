@@ -53,6 +53,7 @@ import { actsAsFullIdentity } from '../accounts/core/tokens';
 import { actorOf } from '../iam/actor';
 import { resolveAccountId } from '../shared/resolve-account';
 import { bearerToken } from '../shared/bearer-token';
+import { hasOnlyExtensionRedirect, KORTIX_EXTENSION_REDIRECT_URI } from './extension-client';
 
 // ─── Rate Limiter (per client_id) ───────────────────────────────────────────
 
@@ -236,6 +237,18 @@ async function createAuthorizationRequest(
   return requestId;
 }
 
+function pendingAuthorizationRequest(row: typeof oauthAuthorizationRequests.$inferSelect): PendingAuthorizationRequest {
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    redirectUri: row.redirectUri,
+    scopes: (row.scopes as string[] | null) ?? [],
+    state: row.state ?? '',
+    codeChallenge: row.codeChallenge,
+    codeChallengeMethod: row.codeChallengeMethod,
+  };
+}
+
 async function getAuthorizationRequest(
   requestId: string,
 ): Promise<PendingAuthorizationRequest | null> {
@@ -250,15 +263,7 @@ async function getAuthorizationRequest(
     )
     .limit(1);
   if (!row || row.expiresAt < new Date()) return null;
-  return {
-    id: row.id,
-    clientId: row.clientId,
-    redirectUri: row.redirectUri,
-    scopes: (row.scopes as string[] | null) ?? [],
-    state: row.state ?? '',
-    codeChallenge: row.codeChallenge,
-    codeChallengeMethod: row.codeChallengeMethod,
-  };
+  return pendingAuthorizationRequest(row);
 }
 
 /** Atomic consume: the row flips once, so a replayed decision is a 400. */
@@ -276,15 +281,7 @@ async function consumeAuthorizationRequest(
     )
     .returning();
   if (!row || row.expiresAt < new Date()) return null;
-  return {
-    id: row.id,
-    clientId: row.clientId,
-    redirectUri: row.redirectUri,
-    scopes: (row.scopes as string[] | null) ?? [],
-    state: row.state ?? '',
-    codeChallenge: row.codeChallenge,
-    codeChallengeMethod: row.codeChallengeMethod,
-  };
+  return pendingAuthorizationRequest(row);
 }
 
 /** Housekeeping: drop expired or consumed requests older than the TTL, at most `limit` per run. */
@@ -717,11 +714,15 @@ oauthApp.openapi(
 /** Stored on a self-registered client; nothing else marks one. */
 export const SELF_REGISTERED_DESCRIPTION = 'Self-registered (RFC 7591 dynamic client registration)';
 
-function isSelfRegistered(client: ClientRow): boolean {
-  return client.accountId === null && client.description === SELF_REGISTERED_DESCRIPTION;
+export { KORTIX_EXTENSION_REDIRECT_URI };
+
+export function isSelfRegistered(client: Pick<ClientRow, 'accountId' | 'description' | 'redirectUris'>): boolean {
+  const kortixExtension = hasOnlyExtensionRedirect(client.redirectUris);
+  return client.accountId === null && client.description === SELF_REGISTERED_DESCRIPTION && !kortixExtension;
 }
 
 function redirectTarget(redirectUri: string): string {
+  if (redirectUri === KORTIX_EXTENSION_REDIRECT_URI) return 'Dosco in Chrome';
   const url = parseRedirectUri(redirectUri);
   if (!url) return redirectUri;
   return url.protocol === 'http:' || url.protocol === 'https:' ? url.host : url.protocol;

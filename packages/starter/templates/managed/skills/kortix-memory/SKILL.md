@@ -1,6 +1,6 @@
 ---
 name: kortix-memory
-description: How to read, write, and curate project memory in `memory/` — the project brain. Load this skill whenever you (or the harness-reflector agent) need to add, update, or reorganize what this project knows about itself. Defines the rubric for what belongs in memory, the file structure, and the change-request flow for landing memory edits on `main`.
+description: How to read, write, and curate project memory in `memory/` — the project brain. Load this skill whenever you (or a scheduled memory curator) need to add, update, or reorganize what this project knows about itself. Defines the rubric for what belongs in memory, the file structure, and the change-request flow for landing memory edits on `main`.
 ---
 
 <skill name="kortix-memory">
@@ -11,13 +11,9 @@ folder of curated markdown files describing what this project is,
 which connections it uses, the conventions the team works by, and
 the decisions worth not re-litigating.
 
-Projects created before 2026-09 keep the brain at `.kortix/memory/`
-and agents at `.kortix/opencode/agents/`. Both layouts work. Use the
-folder your project has: if `memory/` exists, use it; if only
-`.kortix/memory/` exists, use that. The project's `memory` tool accepts
-paths under its own folder only, and its error message names that
-folder. This skill shows `memory/`; in a legacy project, read it as
-`.kortix/memory/`.
+The `memory` tool accepts paths under `memory/` only. A project that
+keeps its brain somewhere else (an older layout, `.kortix/memory/`) has
+no folder the tool reaches: read and edit those files with the file tools.
 
 `MEMORY.md` is the **index**. Memory is **not** auto-injected into the
 prompt — the **memory protocol** is: at the start of a task, `view`
@@ -26,15 +22,20 @@ prior context, then `view` the sub-files (`overview.md`,
 `connections.md`, etc.) the index points at when they're relevant.
 Record anything durable as you go — your context window may reset at
 any time, so what isn't written to `memory/` is lost.
-A project whose `kortix.yaml` `tools:` does not list `memory` has no `memory` tool: read and edit the files under `memory/` with the file tools, and `memory: kortix:memory` under `tools:` brings the tool back.
+An agent has the `memory` tool unless its `agents.<name>.tools` grant in
+`kortix.yaml` leaves it out. Without it, read and edit the files under
+`memory/` with the file tools; adding `memory` to that grant brings the
+tool back. Memory edits land only from an agent with
+`workspace: { project_repository: true }`: without it the session has no
+checkout to commit or push.
 
 Memory is **continuously CRUD'd**:
 
-- Regular sessions add or update memory whenever they discover
-  something durable worth keeping.
-- The `harness-reflector` agent (`agents/harness-reflector.md`)
-  runs on a cron, surveys recent activity, and curates the folder as the
-  memory pass of the `kortix-harness-refinement` protocol.
+- Agents curate memory as they work. They add a durable fact when they
+  find it, update a stale file, and delete a wrong one.
+- A new project has no scheduled curator. A project may add one: an agent
+  that a cron trigger runs, which surveys recent activity and curates the
+  folder (see `<curator>` below).
 - Both consult this skill for the rubric.
 
 Memory is **team-shared**: it lives in the repo, every session sees the
@@ -48,8 +49,7 @@ Load this skill when you:
 - Discover a project convention, connection detail, decision, or
   workaround that should outlast this session
 - Notice the project brain is out of date or contradicts current code
-- Are the `harness-reflector` agent running the memory pass of your
-  scheduled reflection run
+- Are a scheduled curator agent running its memory pass
 - Want to know if something is worth writing down (use the rubric below)
 - Need to add, rename, split, or delete a memory file
 - Want to know how memory edits reach `main`
@@ -59,6 +59,8 @@ memory is about durable knowledge, not session state.
 </when-to-load>
 
 <file-layout>
+A new project has `memory/MEMORY.md` only. The usual sub-files:
+
 ```
 memory/
 ├── MEMORY.md           Index. `view` this first. One line per sub-file.
@@ -169,7 +171,7 @@ Session branches die when sessions end. Memory edits reach `main`
 only via a Kortix change request — same path as any code change:
 
 ```sh
-git add -A -- $(ls -d memory .kortix/memory 2>/dev/null)
+git add -A -- memory
 git commit -m "memory: <one-line summary of what changed>"
 git push origin HEAD
 kortix cr open \
@@ -181,29 +183,27 @@ The user reviews and merges. Don't merge your own CR.
 
 </writing>
 
-<reflector>
+<curator>
 
-Scheduled memory curation is the fourth pass of the `harness-reflector`
-agent (`agents/harness-reflector.md`) — the
-continual-harness loop. On that pass it:
+A new project has no scheduled memory curator. To add one, add an agent
+(for example `agents/memory-curator.md`) and a cron trigger in
+`kortix.yaml` that runs it. The `kortix-harness-refinement` skill
+describes the full reflection protocol; memory curation is one of its
+passes. On each run the curator:
 
 1. Loads this skill.
 2. Surveys recent project activity (git log since last run, recent
    merged CRs, session digests via `kortix sessions digest`).
 3. Decides what's worth keeping per the **rubric** above.
 4. CRUDs `memory/` accordingly.
-5. Folds the memory edits into its single `harness: …` CR.
+5. Opens one `memory: …` CR with the edits. It does not merge it.
 6. Leaves memory untouched when nothing is worth changing.
 
-To change *what gets remembered*, edit the **rubric** section of this
-skill's project copy. The reflector reads it fresh every run, so a
-merged CR to this file takes effect on the next reflection.
+Kortix manages this skill: an edit to it is replaced on the next update.
+To change *what gets remembered*, write the project's own rules into the
+curator's prompt. A merged CR takes effect on the next run.
 
-To change *when the reflector runs*, edit the `triggers:` entry
-named `harness-reflector` in `kortix.yaml`. The cron sweep picks up
-changes within a few seconds of the CR merging.
-
-</reflector>
+</curator>
 
 <gotchas>
 
@@ -219,8 +219,8 @@ changes within a few seconds of the CR merging.
   catch yourself writing a script to generate a memory file, that
   content probably belongs in code, not memory.
 - **Memory edits must go through CR.** Direct pushes to `main` bypass
-  the user-review contract — the same rule as code. The reflector
-  agent enforces this by always ending with `kortix cr open`.
+  the user-review contract — the same rule as code. Every memory edit
+  ends with `kortix cr open`.
 - **Don't put secrets in memory.** Memory is read into context and
   committed to the repo. Secrets, tokens, API keys, and PII belong in
   the Kortix Secrets Manager, surfaced as env vars at runtime — not in

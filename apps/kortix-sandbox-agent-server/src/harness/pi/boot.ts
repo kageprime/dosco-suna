@@ -49,7 +49,7 @@ import type { PiConfig } from './config'
 import type { PiRuntimeHooks } from './runtime'
 import { createPiHarnessService, type PiHarnessService } from './service'
 import { createPiSessionLogPort } from './session-log'
-import { startSessionLogJournal } from '../shared/session-log-journal'
+import { JOURNAL_MID_TURN_MS, startSessionLogJournal } from '../shared/session-log-journal'
 import { reconcileSessionLog, type SessionLogBoot } from '../shared/session-log-boot'
 import { readPiSnapshot } from './session-log-restore'
 
@@ -82,7 +82,7 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
 
   // The tool audit trail (shared/audit-relay.ts): every frame the runtime
   // publishes, sanitized and spooled until apps/api accepts it. A spool that
-  // cannot load marks the runtime unhealthy, exactly as it does on OpenCode.
+  // cannot load marks the runtime unhealthy.
   let auditRelay: AuditRelay | null = null
   try {
     auditRelay = createRuntimeAuditRelay(
@@ -237,7 +237,7 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
   // The reconcile floor: every 60 s the box re-checks its release and its
   // runtime assets, so no failure is permanent. pi has no model catalog to converge.
   configureRuntimeTruth({
-    reconcileAssets: () => scheduleRuntimeAssetsReconcile(cfg),
+    reconcileAssets: scheduleRuntimeAssetsReconcile,
     readConfigRelease: () => harness.releases.report(),
     reconcileConfigRelease: async () => {
       await harness.releases.converge(harness.runtime()).catch((err) => {
@@ -260,8 +260,9 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
 
   // ── The session log (P2.5, P6.4) ────────────────────────────────────────
   // Before the first turn, so its turn end flushes it, at the generation and
-  // with the cursors the boot reconcile returned.
-  if (logBoot && startSessionLogJournal(createPiSessionLogPort(() => harness.runtime()?.sessionLogSnapshot() ?? null), logBoot)) {
+  // with the cursors the boot reconcile returned. pi's export is safe mid-turn
+  // (an open reply is `streaming`), so a box that dies mid-turn loses at most 5 s.
+  if (logBoot && startSessionLogJournal(createPiSessionLogPort(() => harness.runtime()?.sessionLogSnapshot() ?? null), { ...logBoot, midTurnMs: JOURNAL_MID_TURN_MS })) {
     logger.info('[session-log] journal started', { harness: 'pi', generation: logBoot.generation, restored: logBoot.cursors.length > 0, dumpDir: process.env.KORTIX_SESSION_LOG_DUMP_DIR?.trim() || null })
   }
 
@@ -273,14 +274,12 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
     try {
       // ponytail: pi's admission takes plain text only, so the harness context
       // still rides inside the prompt here; the transcript shows the caller's
-      // words plus the contract tail until pi grows a synthetic-part carrier
-      // (OpenCode already delivers it as a model-only part).
+      // words plus the contract tail until pi grows a synthetic-part carrier.
       const text = claim.context ? `${claim.prompt}\n\n${claim.context}` : claim.prompt
       const admitted = runtime.admit({ messageID: claim.messageId, text, files: [] })
       bootMark('initial-prompt-delivered')
-      // Published AFTER admission, like OpenCode's publish-after-prompt: the
-      // control plane must never promote a `delivering` record for a turn the
-      // runtime has not accepted.
+      // Published AFTER admission: the control plane must never promote a
+      // `delivering` record for a turn the runtime has not accepted.
       bootState.initialRuntimeSessionId = runtime.rootId
       void relayTurnAccepted(runtime.rootId, admitted.messageId, claim.turnToken)
         .then(() => bootMark('initial-turn-accepted'))
@@ -302,7 +301,7 @@ export async function runPi(context: HarnessBootContext & { cfg: PiConfig; bootS
     run()
   }
   scheduleRuntimeProjectionPush('boot')
-  scheduleRuntimeAssetsReconcile(cfg)
+  scheduleRuntimeAssetsReconcile()
 }
 
 /**

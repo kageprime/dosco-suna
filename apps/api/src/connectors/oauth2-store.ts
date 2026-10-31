@@ -18,6 +18,7 @@ import { decryptNamedProjectSecret, decryptProjectSecret, encryptProjectSecret }
 import { SecretUndecryptableError } from '../secrets/undecryptable';
 import { db } from '../shared/db';
 import { isUniqueViolation } from '../shared/postgres-errors';
+import { isUuid } from '../shared/validate';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 import { connectionIsEffectiveProjectDefault, upsertConnectionCredential } from './credentials';
@@ -39,7 +40,6 @@ import { validateAuthorizationIssuer } from './oauth2-issuer';
 import { oauthCompletionRematerializeInput } from './oauth2-rematerialize';
 import { kortixClientApplication } from './mcp-apps';
 import { registerOAuth2Client } from './oauth2-registration';
-import { allowedReturnUri } from './return-uri';
 import {
   type ProtectedResourceProvider,
   discoverProtectedResourceOAuth2,
@@ -110,7 +110,7 @@ async function rematerializeAfterOAuthCompletion(connectionId: string): Promise<
       .where(eq(connectorConnections.connectionId, connectionId))
       .limit(1);
     if (!row) return;
-    // A sign-in on a Pipedream or Composio connector is a move to Kortix: switch it now.
+    // A sign-in on a Pipedream or Composio connector is a move to Dosco: switch it now.
     if (row.providerType === 'pipedream' || row.providerType === 'composio') {
       const { finishMarkedMove } = await import('./connector-move');
       await finishMarkedMove(connectionId);
@@ -282,7 +282,7 @@ export async function discoverConnectionOAuth2Resource(
   );
 }
 
-/** A connection that moves its Pipedream or Composio connector to Kortix signs
+/** A connection that moves its Pipedream or Composio connector to Dosco signs
  *  in to the catalogue app's MCP server (connectors/connector-move.ts). */
 async function connectionMoveTargetUrl(row: { providerType: string; connectionId: string }): Promise<string | null> {
   if (row.providerType !== 'pipedream' && row.providerType !== 'composio') return null;
@@ -376,11 +376,25 @@ export async function registerConnectionOAuth2Client(
   return application;
 }
 
+/** A return page the OAuth callback may send the browser to: the web app, or the
+ *  mobile app's `kortix:` scheme. Anything else ends on the API's own "Connected" page. */
+function signInReturnUri(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const uri = new URL(value);
+    if (uri.protocol === 'kortix:') return uri.href;
+    const allowed = new Set([new URL(config.FRONTEND_URL).origin, 'https://dosco.live', 'https://dev.dosco.live', 'https://staging.dosco.live']);
+    return allowed.has(uri.origin) ? uri.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Start a one-click sign-in for a connection server-side: discover the MCP
- * authorization chain, register Kortix as a client (or take Kortix's own
+ * authorization chain, register Dosco as a client (or take Dosco's own
  * client), start Authorization Code + PKCE. The provider URL to open, or null
- * when the server needs no sign-in or none Kortix can run in one click. The
+ * when the server needs no sign-in or none Dosco can run in one click. The
  * same steps as the web's `startDiscoveredSignIn`, for a caller with no
  * browser of its own: an agent's connect link, a setup link.
  */
@@ -425,8 +439,8 @@ export async function startConnectionSignIn(input: {
     initiatedBy: input.initiatedBy,
     callbackUrl,
     ...(discovery.scopes.length ? { scopes: discovery.scopes } : {}),
-    successRedirectUri: allowedReturnUri(input.redirects?.success),
-    errorRedirectUri: allowedReturnUri(input.redirects?.error),
+    successRedirectUri: signInReturnUri(input.redirects?.success),
+    errorRedirectUri: signInReturnUri(input.redirects?.error),
   });
   return started.authorizationUrl;
 }
@@ -616,6 +630,8 @@ export async function pollDeviceAuthorizationSession(input: {
   sessionId: string;
   initiatedBy: string;
 }) {
+  // A malformed id is an unknown session; at the uuid column it would be a 22P02.
+  if (!isUuid(input.sessionId)) throw new Error('OAuth2 device session not found');
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${input.sessionId}::text, 0))`,

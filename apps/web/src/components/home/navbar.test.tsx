@@ -1,10 +1,7 @@
 /**
- * Characterization for the marketing `Navbar` around the dead symbols this
- * branch deletes: the unused compaction constants, the unused drawer-menu
- * state and `DRAWER_SOCIALS`. The live behaviors stay: the bar's surface, the
- * drawer lock and the anchor navigation. The scroll state itself is live — the
- * dark-hero bar reads it — and the last test pins that, so a future cleanup
- * cannot delete it again.
+ * The marketing `Navbar`: the bar (brand, mega-menu triggers, plain links,
+ * GitHub stars, the auth CTA), the mega menu's open and close contract, and
+ * the mobile drawer (scroll lock, pending navigation, tap targets).
  */
 import { afterEach, expect, mock, test } from 'bun:test';
 import React, { act } from 'react';
@@ -38,6 +35,8 @@ globals.location = win.location;
 globals.history = win.history;
 globals.requestAnimationFrame = (cb: () => void) => setTimeout(cb, 0);
 globals.cancelAnimationFrame = (id: number) => clearTimeout(id);
+// The mega menu measures its open panel (#11092).
+globals.ResizeObserver = win.ResizeObserver;
 
 let authUser: { id: string } | null = null;
 let pathname = '/';
@@ -129,14 +128,12 @@ async function commitNavigation(next: string) {
 
 const header = () => container!.querySelector('header');
 
-test('the bar renders the brand and the desktop nav without a docs link', async () => {
+test('the bar renders the brand, the desktop nav and a GitHub stars chip', async () => {
   await mountNavbar();
   const html = container!.innerHTML;
   expect(header()).not.toBeNull();
   // The desktop navigation renders every top-level site link.
   expect(html).toContain('href="/pricing"');
-  // Docs lives in the footer only; it is not a top-bar destination.
-  expect(html).not.toContain('href="/docs"');
 });
 
 test('the mobile drawer locks body scroll while open and unlocks on close', async () => {
@@ -204,6 +201,20 @@ test('a tap on the row of the page already committed closes the drawer at once',
   });
   // No navigation is in flight: the drawer must not hang on a commit that
   // never comes.
+  expect(container!.querySelector('.bg-background.fixed.inset-0')).toBeNull();
+  expect(win.document.body.style.overflow).toBe('');
+});
+
+test('an off-site drawer row closes the drawer at once', async () => {
+  await openDrawer();
+  const row = container!.querySelector<HTMLAnchorElement>(
+    '.bg-background.fixed.inset-0 a[href="https://x.com/kortix"]',
+  );
+  expect(row).not.toBeNull();
+  await act(async () => {
+    lib.click(row!);
+  });
+  // The row opens a new tab; this page never commits, so the drawer closes.
   expect(container!.querySelector('.bg-background.fixed.inset-0')).toBeNull();
   expect(win.document.body.style.overflow).toBe('');
 });
@@ -280,9 +291,92 @@ test('mobile tap targets: the brand links span the 64px bar and the menu toggles
 test('mobile tap targets: the Get started CTA extends its hit area to the 44px floor without growing the filled button', async () => {
   // The CTA is a filled button — growing its box would change what the
   // visitor sees, so its tap target extends through the shared hit-area
-  // pseudo-element instead (29px box + 3*spacing each side ≈ 51px).
+  // pseudo-element instead (36px box + 3*spacing each side ≈ 58px).
   await mountNavbar();
-  const cta = header()!.querySelector<HTMLAnchorElement>('a[href="/auth"]');
-  expect(cta).not.toBeNull();
+  const cta = [...header()!.querySelectorAll<HTMLAnchorElement>('a[href="/auth"]')].find(
+    (a) => a.textContent === 'componentsHomeNavbar.line312JsxTextGetStarted',
+  );
+  expect(cta).toBeDefined();
   expect(cta!.className).toContain('hit-area-y-3');
+});
+
+/** The desktop trigger for one mega menu. */
+const trigger = (id: string) =>
+  container!.querySelector<HTMLButtonElement>(`button[aria-controls="mega-${id}"]`)!;
+const panel = (id: string) => container!.querySelector<HTMLElement>(`#mega-${id}`)!;
+
+test('a mega-menu trigger click opens its panel, a second click closes it', async () => {
+  await mountNavbar();
+  expect(trigger('product').getAttribute('aria-expanded')).toBe('false');
+  expect(panel('product').hasAttribute('inert')).toBe(true);
+  await act(async () => {
+    lib.click(trigger('product'));
+  });
+  expect(trigger('product').getAttribute('aria-expanded')).toBe('true');
+  expect(panel('product').hasAttribute('inert')).toBe(false);
+  // Switching menus swaps the open panel in place.
+  await act(async () => {
+    lib.click(trigger('resources'));
+  });
+  expect(trigger('product').getAttribute('aria-expanded')).toBe('false');
+  expect(panel('resources').hasAttribute('inert')).toBe(false);
+  await act(async () => {
+    lib.click(trigger('resources'));
+  });
+  expect(trigger('resources').getAttribute('aria-expanded')).toBe('false');
+});
+
+test('Escape closes the open mega menu and returns focus to its trigger', async () => {
+  await mountNavbar();
+  await act(async () => {
+    lib.click(trigger('resources'));
+  });
+  expect(trigger('resources').getAttribute('aria-expanded')).toBe('true');
+  await act(async () => {
+    trigger('resources').dispatchEvent(
+      new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }) as unknown as Event,
+    );
+  });
+  expect(trigger('resources').getAttribute('aria-expanded')).toBe('false');
+  expect(win.document.activeElement).toBe(trigger('resources') as unknown as typeof win.document.activeElement);
+});
+
+test('every mega-menu link points at a route, and a panel link click closes the menu', async () => {
+  await mountNavbar();
+  await act(async () => {
+    lib.click(trigger('product'));
+  });
+  const links = [...panel('product').querySelectorAll<HTMLAnchorElement>('a[href]')];
+  expect(links.map((a) => a.getAttribute('href'))).toContain('/security');
+  await act(async () => {
+    lib.click(links[0]!);
+  });
+  expect(trigger('product').getAttribute('aria-expanded')).toBe('false');
+});
+
+test('the drawer docs row stays a plain anchor: the tap marks it pending and leaves the document load to the browser', async () => {
+  await openDrawer();
+  const drawer = () => container!.querySelector('.bg-background.fixed.inset-0');
+  const row = drawer()!.querySelector<HTMLAnchorElement>('a[href="/docs/guide"]');
+  expect(row).not.toBeNull();
+  // `/docs` is the static Astro build under `public/docs` (KRTX-1592): the row
+  // renders a plain anchor — no soft-link marker, no new-tab target, nothing
+  // to hand to the router.
+  expect(row!.getAttribute('data-next-link')).toBeNull();
+  expect(row!.getAttribute('target')).toBeNull();
+  let click: Event | undefined;
+  await act(async () => {
+    click = lib.click(row!);
+  });
+  if (!click) throw new Error('the tap dispatched no click event');
+  // The handler must not hijack the tap: the anchor's default document load is
+  // what serves the docs site. A `preventDefault` here would either strand the
+  // reader (no soft nav exists into a static file) or force a doomed `RSC: 1`
+  // round trip before the same reload.
+  expect(click.defaultPrevented).toBe(false);
+  // The row still shows the pending spinner while the document loads; the
+  // reload itself is what closes the drawer.
+  expect(drawer()).not.toBeNull();
+  expect(drawer()!.innerHTML).toContain('animate-spinner');
+  expect(win.document.body.style.overflow).toBe('hidden');
 });

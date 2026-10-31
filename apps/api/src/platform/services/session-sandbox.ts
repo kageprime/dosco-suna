@@ -14,7 +14,7 @@
 
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { projectSessions, sessionSandboxes } from '@kortix/db';
-import { isMetaAgentName, META_SANDBOX_SLUG } from '@kortix/shared';
+import { isMyKortixAgentName, isMyKortixSandboxSlug, MY_KORTIX_SANDBOX_SLUG } from '@kortix/shared';
 import type { SessionDriveMounts } from '../../drives/service';
 import { db } from '../../shared/db';
 import {
@@ -48,13 +48,14 @@ import {
 } from './sandbox-init-state';
 import {
   ensureSandboxImage,
-  ensureMetaSandboxImage,
+  ensureMyKortixSandboxImage,
   deleteSandboxImage,
   resolveTemplate,
   DEFAULT_SANDBOX_SLUG,
   type EnsureSandboxImageResult,
   type SandboxImageSpec,
 } from '../../snapshots/builder';
+import { templateResidentialProxy } from '../../snapshots/templates';
 import { config } from '../../config';
 import { providerFallbackSetting } from './runtime-settings';
 import { selectProvider } from './provider-balancer';
@@ -69,7 +70,7 @@ import { grantWarmPoolLifetime } from '../../projects/sandbox-deadline';
 import { instanceStampMetadata } from '../../projects/instance-scope';
 import { withTimeout, configuredTimeoutMs } from '../../shared/with-timeout';
 import { classifySandboxProvisioningFailure } from './sandbox-provisioning-error';
-import { platformMetaAgentGrant } from '../../projects/lib/platform-meta-agent';
+import { myKortixAgentGrant } from '../../projects/lib/my-kortix-agent';
 import { resolveSessionOnBehalfOf } from '../../projects/lib/on-behalf-of';
 import { agentPrincipalModeFor } from '../../iam/agent-principal';
 import { resolveSessionNetworkBoundary } from '../../projects/lib/network-secret-boundary';
@@ -77,7 +78,8 @@ import {
   type PreparedInitialSandboxTurn,
   initialSandboxTurnMetadata,
 } from '../../projects/session-turn-ledger';
-import { resolveSessionSandboxRegion } from './sandbox-region';
+import { resolveSessionPlacement } from './sandbox-region';
+import { resolveSessionResidentialProxy } from './residential-proxy';
 import type { WorkspaceVolume } from './workspace-volume';
 import { logger } from '../../lib/logger';
 
@@ -178,12 +180,12 @@ export async function mintSessionToken(opts: {
   agentName: string;
   gitProject: GitBackedProject;
 }): Promise<string> {
-  const platformMetaAgent = isMetaAgentName(opts.agentName);
+  const platformMetaAgent = isMyKortixAgentName(opts.agentName);
   // The reserved coordinator uses a platform-owned full project grant. It acts
   // as the launching user and never resolves through a project-declared agent
   // or standing service account.
   const [agentGrant, serviceAccountId] = platformMetaAgent
-    ? [platformMetaAgentGrant(), null]
+    ? [myKortixAgentGrant(), null]
     : await Promise.all([
         // Resolve the per-session grant AND the agent's standing-identity
         // service account in parallel. Grant resolution must throw on failure.
@@ -351,12 +353,14 @@ interface SessionProvisionState {
   // Provider failover (one-shot, on init): set true once we've handed off to a
   // second provider, so a session never bounces between providers forever.
   fallbackAttempted: boolean;
+  /** The template asks for a residential IP: Platinum only, no failover. */
+  residentialProxyRequested: boolean;
   imageInfo: {
     snapshotName: string;
     slug: string;
     contentHash: string;
     isDefault: boolean;
-    runtimeProfile?: 'standard' | 'meta';
+    runtimeProfile?: 'standard' | 'mykortix';
     spec?: SandboxImageSpec;
   } | null;
   activeRouting: ActiveRouting | null;
@@ -518,9 +522,11 @@ export async function provisionSessionSandbox(opts: {
   beforeActive?: (externalId: string) => Promise<void>;
 }): Promise<ProvisionSessionSandboxResult> {
   const { sandboxId, accountId, projectId, userId, serverType } = opts;
-  // An explicit caller location wins; otherwise the project's `us_region`
-  // flag decides (sandbox-region.ts). Only Platinum reads it.
-  const location = opts.location ?? resolveSessionSandboxRegion(opts.projectMetadata);
+  // An explicit caller location wins; otherwise where the project's Files
+  // live, else its `us_region` flag (sandbox-region.ts). Only Platinum reads it.
+  const placement = opts.location !== undefined
+    ? { location: opts.location, required: false }
+    : await resolveSessionPlacement(projectId, opts.projectMetadata);
   const providerWasExplicitlySelected = opts.providerLocked ?? opts.provider !== undefined;
   // Resolution order:
   //   1. Explicit per-request `opts.provider` (set by callers that need a
@@ -541,6 +547,7 @@ export async function provisionSessionSandbox(opts: {
     bgExternalId: null,
     healedStaleSnapshot: false,
     fallbackAttempted: false,
+    residentialProxyRequested: false,
     imageInfo: null,
     activeRouting: null,
     idBootDisabled: false,
@@ -562,7 +569,7 @@ export async function provisionSessionSandbox(opts: {
     return opts.resolveGitProject();
   };
   const drivesRequirePlatinum =
-    slug !== META_SANDBOX_SLUG &&
+    !isMyKortixSandboxSlug(slug) &&
     (await import('../../drives/service')
       .then((m) => m.sessionDrivesEnabled(projectId))
       .catch(() => false));
@@ -572,8 +579,8 @@ export async function provisionSessionSandbox(opts: {
     gitProject: GitBackedProject,
     targetProvider: string,
   ): Promise<EnsureSandboxImageResult> =>
-    slug === META_SANDBOX_SLUG
-      ? ensureMetaSandboxImage({ source: 'session-start', provider: targetProvider })
+    isMyKortixSandboxSlug(slug)
+      ? ensureMyKortixSandboxImage({ source: 'session-start', provider: targetProvider, projectId })
       : ensureSandboxImage(gitProject, {
           slug,
           accountId,
@@ -697,10 +704,11 @@ export async function provisionSessionSandbox(opts: {
     // only at the specific "this is a genuinely new attempt" transitions.
     sandboxId: sandbox.sandboxId,
     serverType,
-    location,
-    // A warm (speculative) box never leaves its project's region: the warm
-    // marker of projects/sandbox-deadline-policy.ts isWarmPoolBox.
-    locationRequired: sandbox.metadata?.warm === true,
+    location: placement.location,
+    // A box that mounts the project's Files never leaves their region: the
+    // home region could not mount them. Nor does a warm (speculative) box:
+    // the warm marker of projects/sandbox-deadline-policy.ts isWarmPoolBox.
+    locationRequired: placement.required || sandbox.metadata?.warm === true,
     envVars: {
       ...extraEnvVars,
       // One sandbox, one session-scoped Dosco credential. Provider, connector,
@@ -837,17 +845,43 @@ async function prepareAttemptVolumes(ctx: SessionProvisionContext, state: Sessio
     state.workspaceVolume = await (early ?? resolveWorkspaceVolume(sandbox.sandboxId));
     if (state.workspaceVolume) ctx.tl.mark('workspace-volume');
   }
-  if (state.workspaceVolume && (providerName !== 'platinum' || slug === META_SANDBOX_SLUG)) {
+  if (state.workspaceVolume && (providerName !== 'platinum' || isMyKortixSandboxSlug(slug))) {
     // A box anywhere else would boot without the session's files.
     throw new Error('[workspace] This session’s files are on a Platinum volume, and this box would not mount it, so the session did not start.');
   }
-  if (providerName !== 'platinum' || slug === META_SANDBOX_SLUG) {
+  if (providerName !== 'platinum' || isMyKortixSandboxSlug(slug)) {
     providerCreateInput.volumes = undefined;
     return;
+  }
+  if (state.driveMountsResolved && state.driveMounts?.mounts.length) {
+    // A retry reuses the plan; a region move may have moved the Files since.
+    const { driveMountPlanCurrent } = await import('../../drives/service');
+    if (!(await driveMountPlanCurrent(state.driveMounts))) state.driveMountsResolved = false;
   }
   if (!state.driveMountsResolved) {
     state.driveMounts = await planDrives();
     state.driveMountsResolved = true;
+  }
+  // A box mounts the project's Files only in their region. The placement read
+  // that region when provisioning started; a region move may have finished
+  // since. A box nothing else pins follows the Files. A box pinned by its
+  // session's /workspace volume in another region (a session older than the
+  // move) boots without the Files: no box mounts volumes of two regions, and
+  // the session's own files win. Never a create the provider would refuse.
+  const filesRegion = state.driveMounts?.mounts.length ? state.driveMounts.region : undefined;
+  if (state.driveMounts && filesRegion !== undefined) {
+    if (state.workspaceVolume && (state.workspaceVolume.location ?? null) !== filesRegion) {
+      logger.warn('[drives] the session’s /workspace volume and the project’s files live in different regions; the box boots without the files', {
+        sandboxId: sandbox.sandboxId,
+        workspaceRegion: state.workspaceVolume.location ?? 'home',
+        filesRegion: filesRegion ?? 'home',
+      });
+      const { withoutDriveMounts } = await import('../../drives/service');
+      state.driveMounts = withoutDriveMounts(state.driveMounts, 'region');
+    } else if (!state.workspaceVolume && (providerCreateInput.location ?? null) !== filesRegion) {
+      providerCreateInput.location = filesRegion ?? undefined;
+      providerCreateInput.locationRequired = filesRegion !== null;
+    }
   }
   providerCreateInput.volumes = state.driveMounts?.volumes;
   if (state.workspaceVolume) applyWorkspaceVolume(providerCreateInput, state.workspaceVolume);
@@ -867,11 +901,13 @@ async function recordAttemptBoot(ctx: SessionProvisionContext, state: SessionPro
     driveMounts && (providerCreateInput.volumes || (providerName !== 'platinum' && drivesSyncAllowed))
       ? driveMounts.mounts
       : [];
-  // And the drives that did not fit, which the chip and the agent's notes name.
+  // And the folders it does not mount (past its mount slots, or Files in
+  // another region or moving), which the chip and the agent's notes name.
+  const unmounted = driveMounts?.skipped.some((d) => d.reason) ? driveMounts.skipped : [];
   const driveAdmission =
     mountedDrives.length && driveMounts
       ? { driveMountsSkipped: driveMounts.skipped, driveMountSlots: driveMounts.slots }
-      : { driveMountsSkipped: [] };
+      : { driveMountsSkipped: providerName === 'platinum' ? unmounted : [] };
   // A synced box: its daemon copies the drives in and keeps them in sync.
   const driveSyncMeta = providerName !== 'platinum' && mountedDrives.length ? { driveSync: true } : {};
   return {
@@ -1263,6 +1299,15 @@ async function runProvisionAttempt(
 ): Promise<'done' | 'retry'> {
   const { opts, sandbox, tl } = ctx;
   const branch = opts.baseRef || opts.gitProject.defaultBranch;
+  // The template's `residential_proxy` (residential-proxy.ts), read before the
+  // image so a deployment that cannot serve it fails fast. Fails closed: it
+  // throws instead of booting on the sandbox's own address, and once asked,
+  // the session never fails over to another provider.
+  const residentialProxyRequest = await templateResidentialProxy(opts.projectId, ctx.slug);
+  if (residentialProxyRequest) state.residentialProxyRequested = true;
+  const residentialProxy = await resolveSessionResidentialProxy(residentialProxyRequest, state.providerName);
+  if (residentialProxy) ctx.providerCreateInput.residentialProxy = residentialProxy;
+  else delete ctx.providerCreateInput.residentialProxy;
   // Resolved for its VALIDATION only: it re-reads the agent grant and
   // throws on a policy no session could serve, which is what turns a broken
   // secret config into `invalid-secret-boundary-policy` instead of a
@@ -1357,7 +1402,12 @@ async function failOverToNextProvider(
   // sync on, any provider can carry the drives.)
   const next = nextFailoverProvider({
     // A session whose /workspace is a Platinum volume runs on Platinum only.
-    providerLocked: providerWasExplicitlySelected || (drivesRequirePlatinum && !drivesSyncAllowed) || !!state.workspaceVolume,
+    // So does a session whose web traffic leaves through a residential IP.
+    providerLocked:
+      providerWasExplicitlySelected ||
+      (drivesRequirePlatinum && !drivesSyncAllowed) ||
+      !!state.workspaceVolume ||
+      state.residentialProxyRequested,
     fallbackAttempted: state.fallbackAttempted,
     fallbackEnabled: providerFallbackSetting().enabled,
     current: providerName,
@@ -1500,10 +1550,10 @@ async function failSessionSandboxProvisioning(
   } catch (markErr) {
     console.error(`[session-sandbox] Failed to mark sandbox ${sandbox.sandboxId} as error:`, markErr);
   }
-  // Tell the originating channel (Slack) so the live thread shows the friendly
-  // reason now instead of a stranded ⏳ until the 30-min GC. Fire-and-forget;
-  // a no-op for non-channel sessions.
-  notifySessionProvisioningFailed(sandbox.sandboxId, userMessage);
+  // Tell the originating channel (Slack, Teams, Telegram) so it shows the
+  // friendly reason now instead of a stranded ⏳ until the 30-min GC.
+  // Fire-and-forget; a no-op for non-channel sessions.
+  notifySessionProvisioningFailed(sandbox.sandboxId, userMessage, { transient: failureTransient });
   const errTl = tl.summary();
   recordProviderEvent({
     provider: providerName, kind: 'provision', outcome: 'error',

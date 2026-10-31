@@ -23,6 +23,7 @@ const CUSTOMER_COMPUTE_RATE_CARD: ProviderComputeRateCard = {
 const PROVIDER_COMPUTE_RATE_CARDS: Record<ProviderName, ProviderComputeRateCard> = {
   platinum: CUSTOMER_COMPUTE_RATE_CARD,
   daytona: CUSTOMER_COMPUTE_RATE_CARD,
+  e2b: CUSTOMER_COMPUTE_RATE_CARD,
 };
 
 /** A legacy `e2b` compute window (E2B support is discontinued) closes at the same rate. */

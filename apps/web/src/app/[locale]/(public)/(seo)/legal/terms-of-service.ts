@@ -1,17 +1,22 @@
 /**
- * The Dosco Terms of Service, Version 2026-07-14, as published.
+ * The Dosco Terms of Service, as published.
  *
  * English only, like the privacy policy: a legal text has one authoritative
  * version. Edit the text here, keep its Markdown shape (`##` sections,
- * paragraphs, `-` bullets, `1.` numbered lists, `**bold**`), and bump the
- * version and dates below together. `legal/page.tsx` renders it.
+ * paragraphs, `-` bullets, `1.` numbered lists, `**bold**`), and move the
+ * version and dates in `@kortix/shared/terms` with any material change: that
+ * module also drives the 30-day notice email. `legal/page.tsx` renders it.
  */
+import { formatSubprocessorDate } from '@kortix/shared/subprocessors';
+import { TERMS_EFFECTIVE as EFFECTIVE_DAY, TERMS_PREVIOUS_VERSION, TERMS_VERSION } from '@kortix/shared/terms';
 
-export const TERMS_VERSION = '2026-07-14';
-export const TERMS_LAST_UPDATED = 'July 14, 2026';
-export const TERMS_EFFECTIVE = 'July 14, 2026';
+export { TERMS_VERSION };
+export const TERMS_LAST_UPDATED = formatSubprocessorDate(TERMS_VERSION);
+export const TERMS_EFFECTIVE = formatSubprocessorDate(EFFECTIVE_DAY);
 
-export const TERMS_OF_SERVICE = `These Terms of Service (the "Terms") are a legal agreement between Altmatter Systems LTD, a company registered in Nigeria with its registered office in Abuja ("Dosco," "we," "us," or "our"), and the person or organization accepting these Terms ("Customer," "you," or "your"). They govern access to and use of the Services.
+export const TERMS_OF_SERVICE = `**Version ${TERMS_VERSION}, effective ${TERMS_EFFECTIVE}.** It replaces version ${TERMS_PREVIOUS_VERSION}. The only change is the "Marks and publicity" paragraph in Section 10: Dosco may list any customer, on any plan including free plans, by the name and logo of its organization, and the customer can opt out at any time. Until ${TERMS_EFFECTIVE}, version ${TERMS_PREVIOUS_VERSION} applies, and under it neither party uses the other's name or logo without prior written permission.
+
+These Terms of Service (the "Terms") are a legal agreement between Altmatter Systems LTD, a company registered in Nigeria with its registered office in Abuja ("Dosco," "we," "us," or "our"), and the person or organization accepting these Terms ("Customer," "you," or "your"). They govern access to and use of the Services.
 
 If you use the Services for an organization, you accept these Terms for that organization and represent that you have authority to bind it. If you do not have that authority, or do not agree to these Terms, do not use the Services.
 
@@ -179,9 +184,9 @@ Dosco may investigate suspected violations and may remove or restrict affected c
 
 **Open source.** The Services may include or interoperate with open-source or source-available software. Components distributed under a separate license are governed solely by that license to the extent it conflicts with the Agreement. Public availability of source code does not grant rights beyond the applicable license, and a cloud subscription does not expand rights under a repository license.
 
-**Marks and publicity.** Neither party may use the other's name, logo, or marks except with prior written permission or as needed to identify the parties in a non-public business record. Customer-specific Agent configurations, skills, prompts, and workflow code are Customer Deliverables only when expressly identified as such in an Order.
+**Marks and publicity.** This paragraph applies to every Customer and every Account, on any plan, including free plans and trials. Dosco may identify Customer as a Dosco user or customer by the name and logo of Customer or of the organization for which Customer or its Users use the Services, including an organization identified by the email domain of a User's Account. Dosco may do so in customer lists on Dosco websites, in sales, investor, and marketing materials, and in similar references, following any reasonable trademark guidelines Customer provides. Dosco will not publish the name of an individual person under this paragraph, will not imply that Customer endorses Dosco, and will not publish quotes, case studies, or statements about Customer's use of the Services without Customer's prior written approval. Customer may withdraw this permission at any time by writing to legal@dosco.live. Dosco will then remove Customer's name and logo from Dosco websites within 30 days and will not use them in materials created after that. An Order may exclude this permission. Except as stated in this paragraph, neither party may use the other's name, logo, or marks without prior written permission, other than as needed to identify the parties in a non-public business record. Customer-specific Agent configurations, skills, prompts, and workflow code are Customer Deliverables only when expressly identified as such in an Order.
 
-**Takedown notices.** Dosco respects intellectual property rights. Notices of claimed infringement should be sent to hello@altmatter.space with sufficient information to identify the work, allegedly infringing material, contact information, and the basis for the claim. Dosco may remove or restrict material and may terminate repeat infringers.
+**Takedown notices.** Dosco respects intellectual property rights. Notices of claimed infringement should be sent to legal@dosco.live with sufficient information to identify the work, allegedly infringing material, contact information, and the basis for the claim. Dosco may remove or restrict material and may terminate repeat infringers.
 
 
 ## 11. Warranties and Disclaimers
@@ -252,7 +257,7 @@ For self-serve Services, Dosco may update these Terms by posting a revised versi
 
 **Jury trial waiver.** TO THE EXTENT PERMITTED BY LAW, EACH PARTY KNOWINGLY AND IRREVOCABLY WAIVES ANY RIGHT TO A JURY TRIAL IN A PROCEEDING ARISING OUT OF OR RELATING TO THE AGREEMENT.
 
-**Notices.** Legal notices must be in writing. Notices to Dosco must be sent to hello@altmatter.space and, for notices of breach, indemnity, or legal process, by nationally recognized overnight courier to: Altmatter Systems LTD, Abuja, Nigeria. Notices to Customer may be sent to the legal or administrative email or address in the Account or Order. Email notice is effective on confirmed transmission without bounce-back; courier notice is effective on delivery. Routine operational notices may be provided in the Services.
+**Notices.** Legal notices must be in writing. Notices to Dosco must be sent to legal@dosco.live and, for notices of breach, indemnity, or legal process, by nationally recognized overnight courier to: Altmatter Systems LTD, 701 Tillery Street, Unit 12-2521, Austin, Texas 78702, United States. Notices to Customer may be sent to the legal or administrative email or address in the Account or Order. Email notice is effective on confirmed transmission without bounce-back; courier notice is effective on delivery. Routine operational notices may be provided in the Services.
 
 **Entire agreement.** The Agreement is the entire agreement about its subject and supersedes prior or contemporaneous proposals, statements, and agreements about that subject. Customer acknowledges it is not relying on future functionality, roadmaps, sales statements, or other terms not in the Agreement. An Order may incorporate an attachment by reference.
 
@@ -271,13 +276,13 @@ For self-serve Services, Dosco may update these Terms by posting a revised versi
 
 ## 18. Contact
 
-- **Questions about the Services:** support@dosco.live
+- **Questions about the Services:** info@dosco.live
 
-- **Legal notices and intellectual property reports:** hello@altmatter.space
+- **Legal notices and intellectual property reports:** legal@dosco.live
 
 - **Security reports:** security@dosco.live
 
-- **Mail:** Altmatter Systems LTD, Abuja, Nigeria
+- **Mail:** Altmatter Systems LTD, 701 Tillery Street, Unit 12-2521, Austin, Texas 78702, United States
 
 **Common Paper attribution.** Portions of these Terms are adapted from the Common Paper Cloud Service Agreement Standard Terms Version 2.1, the Common Paper Terms of Service based on that standard, and the Common Paper Professional Services Agreement Standard Terms Version 1.1, each made available under the Creative Commons Attribution 4.0 International License. The source standards are available at Common Paper's Cloud Service Agreement and Common Paper's Professional Services Agreement. Common Paper has not endorsed Dosco or these modified Terms.
 `;

@@ -56,7 +56,7 @@ describe('Discover integrations.sh catalogue', () => {
     expect(first.items.map((item) => item.id)).toEqual(['openapi/1forge-com']);
     expect(first.nextCursor).toBe('1');
     expect(first.hasMore).toBe(true);
-    // `cli/example` is not listed: Kortix cannot install a CLI as a connector.
+    // `cli/example` is not listed: Dosco cannot install a CLI as a connector.
     expect(first.total).toBe(2);
 
     const search = await catalog.list({ q: 'productivity', limit: 10 });

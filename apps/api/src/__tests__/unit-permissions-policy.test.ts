@@ -46,7 +46,7 @@ test('the installed HTTP chain budgets malformed auth requests before route vali
       method: 'POST',
       // A real caller carries the edge's forwarding header; without one there
       // is no address to budget (see public-edge-rate-limit.ts).
-      headers: { Origin: 'https://kortix.com', 'X-Forwarded-For': '203.0.113.9' },
+      headers: { Origin: 'https://dosco.live', 'X-Forwarded-For': '203.0.113.9' },
     });
     expect(response.status).toBe(400);
     expect(response.headers.get('X-RateLimit-Remaining')).toBe(String(29 - i));

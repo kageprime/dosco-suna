@@ -241,55 +241,6 @@ export async function proxyRunningApp(
   return respondFromUpstream(request, loaded, runtime, upstream, coldStart || recoveredProvider);
 }
 
-async function fetchWithRecovery(
-  fetchUpstream: () => Promise<Response>,
-  recoverProviderRuntime: (force: boolean) => Promise<void>,
-  startingResponse: () => Promise<Response>,
-  provider: () => SandboxProviderName,
-  replayableRequest: boolean,
-  coldStart: boolean,
-): Promise<{ upstream: Response; recoveredProvider: boolean; starting?: never } | { starting: Response; upstream?: never; recoveredProvider?: never }> {
-  let upstream: Response;
-  let recoveredProvider = false;
-  try {
-    upstream = await fetchUpstream();
-  } catch {
-    try {
-      await recoverProviderRuntime(false);
-      recoveredProvider = true;
-      if (!replayableRequest) return { starting: await startingResponse() };
-      upstream = await fetchUpstream();
-    } catch {
-      return { starting: await startingResponse() };
-    }
-  }
-
-  // 400 is Daytona's shape for a runtime it can no longer reach.
-  if (upstream.status === 400) {
-    const body = await upstream.clone().text().catch(() => '');
-    if (appProviderStoppedResponse(provider(), upstream.status, body)) {
-      await upstream.body?.cancel().catch(() => {});
-      if (coldStart) return { starting: await startingResponse() };
-      try {
-        await recoverProviderRuntime(true);
-        recoveredProvider = true;
-        if (!replayableRequest) return { starting: await startingResponse() };
-        upstream = await fetchUpstream();
-      } catch {
-        return { starting: await startingResponse() };
-      }
-      if (upstream.status === 400 || upstream.status >= 502) {
-        const retryBody = await upstream.clone().text().catch(() => '');
-        if (appProviderStoppedResponse(provider(), upstream.status, retryBody)) {
-          await upstream.body?.cancel().catch(() => {});
-          return { starting: await startingResponse() };
-        }
-      }
-    }
-  }
-
-  return { upstream, recoveredProvider };
-}
 async function respondFromUpstream(
   request: Request,
   loaded: LoadedApp,

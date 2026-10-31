@@ -29,6 +29,7 @@ import { ConnectionViewSchema, serializeConnection } from '../lib/connection-vie
 import { actorOf } from '../../iam/actor';
 import { requireUserCredential } from '../../tunnel/routes/auth';
 import { assignRole } from '../../iam/assignments';
+import { isProjectSessionPrincipal } from '../../iam/agent-scope';
 import {
   startComposioConnect,
   finalizeComposioConnect,
@@ -36,6 +37,7 @@ import {
   finalizePipedreamConnect,
   parseRedirects,
 } from '../lib/connection-hosted-connect';
+import { rethrowDatabaseError } from '../../shared/database-errors';
 
 const ShareConnectionInput = z
   .object({
@@ -142,6 +144,18 @@ export function registerConnectionActionsRoutes(): void {
       },
     }),
     async (c: any) => {
+      // Who may use an account is a person's decision (iam/assignments.ts
+      // `assertWriterMayAssign`). Checked on the request, so a session that
+      // borrows its launcher's authority (meta, a project with no agents) is refused too.
+      if (isProjectSessionPrincipal(c)) {
+        return c.json(
+          {
+            error: 'An agent cannot change who can use a connector account. A person changes it in Customize → Connectors.',
+            code: 'agent_session_forbidden',
+          },
+          403,
+        );
+      }
       const projectId = c.req.param('projectId');
       const connectionId = c.req.param('connectionId');
       const parsed = ShareConnectionInput.safeParse(await readJsonObject(c));
@@ -387,6 +401,7 @@ export function registerConnectionActionsRoutes(): void {
               });
             }
           } catch (error) {
+            rethrowDatabaseError(error);
             return c.json(
               { error: (error as Error).message || 'credential validation failed' },
               400,
@@ -530,7 +545,7 @@ export function registerConnectionActionsRoutes(): void {
             409,
           );
         }
-        // An MCP server signs in through Kortix's own OAuth flow, with no hosted
+        // An MCP server signs in through Dosco's own OAuth flow, with no hosted
         // provider: the link is the provider's consent page.
         if (connection.providerType === 'mcp') {
           if (operation === 'connect') {

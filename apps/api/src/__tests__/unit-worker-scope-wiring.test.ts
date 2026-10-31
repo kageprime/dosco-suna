@@ -67,8 +67,8 @@ const WORKERS: Record<string, string> = {
   'drive-mount-revocations': 'workers/drive-worker.ts',
   'notification-digest': 'workers/notification-worker.ts',
   'session-log-purge': 'workers/session-log-purge-worker.ts',
-  'session-log-backfill': 'workers/session-log-backfill-worker.ts',
   'gateway-spend-backfill': 'workers/gateway-spend-backfill-worker.ts',
+  'residential-proxy-billing': 'workers/residential-proxy-billing-worker.ts',
 };
 
 /** Files with a `setInterval` that is not a background job over tenant state. */
@@ -83,6 +83,7 @@ const NOT_WORKERS: Record<string, string> = {
     'renews the lock of one claimed command while its drain lane or inline create runs',
   'router/config/model-pricing.ts': 'refreshes the in-memory model pricing',
   'sandbox-proxy/ws-proxy.ts': 'keepalive ping on one open preview WebSocket',
+  'shared/stream-access-recheck.ts': 're-checks access for one open session stream; runs inside that stream',
   'workers/access-control-cache-worker.ts': 'refreshes the in-memory access-control cache',
   'workers/app-deployment-worker.ts': 'timer that calls triggerAppDeploymentWorker, which wraps itself',
   'workers/event-loop-lag-worker.ts': 'measures event-loop lag',
@@ -122,8 +123,8 @@ const STARTS: Record<string, string> = {
   startNotificationWorker: 'notification-digest',
   startSessionLogPurgeWorker: 'session-log-purge',
   startSessionModelFallbackWorker: 'session-model-fallback',
-  startSessionLogBackfillWorker: 'session-log-backfill',
   startGatewaySpendBackfillWorker: 'gateway-spend-backfill',
+  startResidentialProxyBillingWorker: 'residential-proxy-billing',
   startTeamsBotTokenRefresh: 'not a worker: in-memory Teams bot token',
   startEventLoopLagSampler: 'not a worker: measures this process event-loop lag',
   startSessionLifecycleWorker: 'session-lifecycle',

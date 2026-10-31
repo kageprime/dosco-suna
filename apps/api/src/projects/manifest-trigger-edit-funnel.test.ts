@@ -34,7 +34,7 @@ const { removeTriggerFromManifest, upsertTriggerInManifest } = await import(
   './lib/trigger-manifest'
 );
 
-const COMMENTED_MANIFEST = `# Kortix manifest — the comments carry the reasons behind each grant.
+const COMMENTED_MANIFEST = `# Dosco manifest — the comments carry the reasons behind each grant.
 kortix_version: 3
 
 project:
@@ -84,9 +84,11 @@ describe('trigger edit funnel: real read (loadManifestForEdit) → comment-prese
     })();
 
     const committed = manifestWrites(result, 'kortix.yaml').files[0]?.content ?? '';
-    expect(committed).toContain('# Kortix manifest — the comments carry the reasons');
+    expect(committed).toContain('# Dosco manifest — the comments carry the reasons');
     expect(committed).toContain('# Runs the deploy audit at night.');
     expect(committed).toContain('enabled: false');
+    // A Dosco write drops the obsolete `kortix_version` line.
+    expect(committed).not.toContain('kortix_version');
     expect(committed.split('\n').filter((l) => l.trimStart().startsWith('#')).length).toBe(
       COMMENTED_MANIFEST.split('\n').filter((l) => l.trimStart().startsWith('#')).length,
     );
@@ -102,7 +104,8 @@ describe('trigger edit funnel: real read (loadManifestForEdit) → comment-prese
 
     expect(committed).toContain('triggers: []');
     expect(committed).not.toContain('nightly-audit');
-    expect(committed).toContain('# Kortix manifest — the comments carry the reasons');
+    expect(committed).not.toContain('kortix_version');
+    expect(committed).toContain('# Dosco manifest — the comments carry the reasons');
     // The committed text must still parse (bun's yaml parse throws on garbage).
     const { parse: parseYaml } = await import('yaml');
     expect((parseYaml(committed) as { triggers: unknown[] }).triggers).toEqual([]);

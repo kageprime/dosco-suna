@@ -181,9 +181,9 @@ describe('classifyPart — exhaustive part model', () => {
     const output = JSON.stringify({
       query: 'kortix ai',
       success: true,
-      answer: 'Kortix is an open-source AI Operating System.',
+      answer: 'Kortix CompanyOS is an open-source operating system for a company.',
       results: [
-        { title: 'Kortix', url: 'https://kortix.ai', snippet: 'The open-source AI Operating System.' },
+        { title: 'Kortix', url: 'https://kortix.ai', snippet: 'The open-source CompanyOS.' },
       ],
     });
     const part = {
@@ -641,6 +641,9 @@ describe('toolInfo registry', () => {
     expect(toolInfo('grep')).toEqual({ label: 'Search Code', category: 'search' });
     expect(toolInfo('webfetch')).toEqual({ label: 'Fetch Page', category: 'web' });
     expect(toolInfo('task')).toEqual({ label: 'Delegate to Agent', category: 'task' });
+    // pi's subagent tool; `task` is its deprecated alias.
+    expect(toolInfo('agent')).toEqual(toolInfo('task'));
+    expect(toolInfo('workflow')).toEqual({ label: 'Run Workflow', category: 'task' });
     expect(toolInfo('todowrite')).toEqual({ label: 'Plan Tasks', category: 'task' });
     expect(toolInfo('question')).toEqual({ label: 'Ask Question', category: 'task' });
   });

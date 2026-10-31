@@ -5,7 +5,7 @@ import { ANDROID_APK_URL } from '@kortix/ui/internal/lib/mobile-store-urls';
 import {
   detectPlatform,
   normalizePlatform,
-} from '@/features/marketing/download/detect-os';
+} from '@kortix/ui/internal/lib/detect-os';
 
 /**
  * Download redirector — hand-writable URLs that go in emails, docs, chats.

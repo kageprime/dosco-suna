@@ -17,6 +17,7 @@ import {
   WarmProjectSessionResultSchema,
 } from '@kortix/api-contract';
 import { flow } from '../core/flow';
+import { waitFor } from '../core/poll';
 import { createDatabaseSession, fundDatabaseAccount } from '../fixtures/database-project';
 import { seedSessionTranscript } from '../fixtures/session-transcript';
 import { openFlowDb, seedTurnSession } from '../fixtures/turn-end';
@@ -1031,6 +1032,8 @@ flow(
       'GET /v1/projects/:projectId/sessions/:sessionId/question',
       'POST /v1/projects/:projectId/sessions/:sessionId/attachments',
       'GET /v1/projects/:projectId/sessions/:sessionId/attachments/:attachmentId',
+      'POST /v1/accounts/tokens',
+      'POST /v1/projects/:projectId/sessions/:sessionId/log/journal',
     ],
   },
   async (ctx) => {
@@ -1040,6 +1043,8 @@ flow(
     await team.grantProjectRole(project.id, member.userId!, 'member');
     // An account admin manages every project: may restore what others deleted.
     const admin = await team.addMember('admin');
+    // The owner's PAT mints the credential that journals each session's saved transcript.
+    const journalBearer = (await ctx.client.as(ctx.P.OWNER).post('/v1/accounts/tokens', { name: 'SESS-51 seed' })).status(201).json<{ secret_key: string }>().secret_key;
     const newSession = async () => {
       // Shared with the project: the member can open it, but only its owner
       // or a project manager may delete or restore it.
@@ -1050,7 +1055,7 @@ flow(
         visibility: 'project',
       });
       ctx.track('session', id, { projectId: project.id });
-      await seedSessionTranscript(ctx.env, { projectId: project.id, accountId: team.id, sessionId: id });
+      await seedSessionTranscript(ctx.env, { projectId: project.id, accountId: team.id, sessionId: id, bearer: journalBearer });
       return id;
     };
     const sessionId = await newSession();
@@ -1113,13 +1118,13 @@ flow(
       // refusal of the sibling reads.
       const journal = await owner.post('/v1/accounts/tokens', { name: 'SESS-51 journal credential' });
       journal.status(201);
-      // The sandbox row exists (the seed above); the journal adds only its log.
+      // The sandbox row exists (the seed above); the journal writes its log again.
       await seedSessionTranscript(ctx.env, {
         projectId: project.id,
         accountId: team.id,
         sessionId,
         ensureSandbox: false,
-        log: { bearer: journal.json<{ secret_key: string }>().secret_key },
+        bearer: journal.json<{ secret_key: string }>().secret_key,
       });
       (await owner.post(
         '/v1/projects/:projectId/turn-question',
@@ -1458,6 +1463,7 @@ flow(
       'PUT /v1/projects/:projectId/sessions/:sessionId/archive',
       'GET /v1/projects/:projectId/sessions',
       'GET /v1/projects/:projectId/sessions/:sessionId',
+      'PATCH /v1/projects/:projectId/sessions/:sessionId',
       'GET /v1/projects/:projectId/sessions/:sessionId/open-bundle',
       'DELETE /v1/projects/:projectId/sessions/:sessionId',
       'POST /v1/accounts/tokens',
@@ -1595,6 +1601,33 @@ flow(
       (await archive(s4, true)).status(404);
     });
 
+    await ctx.step('a list read right after a pin or archive, with the ETag from before it, is a fresh 200, never a 304 from before the write', async () => {
+      const s5 = await seed();
+      const revalidate = async (query: Record<string, string>, etag: string) =>
+        owner.get('/v1/projects/:projectId/sessions', { params: { projectId: project.id }, query, headers: { 'If-None-Match': etag } });
+      const etagOf = async (query: Record<string, string>) =>
+        (await owner.get('/v1/projects/:projectId/sessions', { params: { projectId: project.id }, query })).status(200).header('etag')!;
+      // Within the poll memo's 2 s window: the memo still holds the ETag from before the write.
+      const pinnedEtag = await etagOf({ pinned: 'only' });
+      await state(pin(s5, true), {});
+      const pinned = (await revalidate({ pinned: 'only' }, pinnedEtag)).status(200).json<Row[]>();
+      if (!pinned.some((row) => row.session_id === s5)) throw new Error('the pinned list after the pin misses the session');
+      const archivedEtag = await etagOf({ archived: 'only' });
+      await state(archive(s5, true), {});
+      const archived = (await revalidate({ archived: 'only' }, archivedEtag)).status(200).json<Row[]>();
+      if (!archived.some((row) => row.session_id === s5)) throw new Error('the archived list after the archive misses the session');
+      // A rename and a delete change the list the same way.
+      const s6 = await seed();
+      const listEtag = await etagOf({});
+      (await owner.patch('/v1/projects/:projectId/sessions/:sessionId', { name: 'Renamed for the memo check' }, { params: params(s6) })).status(200);
+      const renamed = (await revalidate({}, listEtag)).status(200).json<Array<Row & { name?: string }>>();
+      if (renamed.find((row) => row.session_id === s6)?.name !== 'Renamed for the memo check') throw new Error('the list after the rename shows the old name');
+      const beforeDelete = await etagOf({});
+      (await owner.del('/v1/projects/:projectId/sessions/:sessionId', { params: params(s6) })).status(200);
+      const afterDelete = (await revalidate({}, beforeDelete)).status(200).json<Row[]>();
+      if (afterDelete.some((row) => row.session_id === s6)) throw new Error('the list after the delete still holds the session');
+    });
+
     const db = await openFlowDb(ctx.env);
     try {
       const turn = await seedTurnSession(ctx, db, { projectId: project.id, accountId: team.id, creator: ctx.P.OWNER });
@@ -1646,8 +1679,8 @@ flow(
     await team.grantProjectRole(project.id, member.userId!, 'member');
     const owner = ctx.client.as(ctx.P.OWNER);
     const ownerToken = (await owner.post('/v1/accounts/tokens', { name: 'SESS-55 journal' })).status(201).json<{ secret_key: string }>().secret_key;
-    /** A session whose computer the provider lost. `transcript`: none, the v1 mirror, or the session log. */
-    const lostSession = async (transcript: 'none' | 'mirror' | 'log', confirmed = true) => {
+    /** A session whose computer the provider lost. `transcript`: none, or the session log. */
+    const lostSession = async (transcript: 'none' | 'log', confirmed = true) => {
       const id = await createDatabaseSession(ctx.env, {
         projectId: project.id,
         accountId: team.id,
@@ -1667,7 +1700,7 @@ flow(
             projectId: project.id,
             accountId: team.id,
             sessionId: id,
-            ...(transcript === 'log' ? { log: { bearer: ownerToken } } : {}),
+            bearer: ownerToken,
           });
         }
         await db.query(
@@ -1731,17 +1764,6 @@ flow(
       (await recover(fromLog)).status(409).body().has('$.code', 'session_not_lost');
     });
 
-    await ctx.step('a lost session with only the v1 mirror → 200; the mirror becomes its session log and still reads', async () => {
-      const fromMirror = await lostSession('mirror');
-      if ((await rows(fromMirror)).logMessages !== 0) throw new Error('the mirror session already has a log');
-      (await recover(fromMirror)).status(200);
-      const after = await rows(fromMirror);
-      if (after.logMessages !== 2 || after.sandbox?.external_id !== null || !after.recovered) {
-        throw new Error(`mirror recover: ${JSON.stringify({ logMessages: after.logMessages, sandbox: after.sandbox, recovered: after.recovered })}`);
-      }
-      if ((await transcriptMessages(fromMirror)) !== 2) throw new Error('the transcript lost messages');
-    });
-
     await ctx.step('a lost session with no saved conversation → 409 session_transcript_missing, nothing changes', async () => {
       const bare = await lostSession('none');
       (await recover(bare)).status(409).body().has('$.code', 'session_transcript_missing');
@@ -1752,7 +1774,7 @@ flow(
     });
 
     await ctx.step('a lost box the provider has not confirmed removed → 409 session_sandbox_removal_pending, nothing changes', async () => {
-      const pending = await lostSession('mirror', false);
+      const pending = await lostSession('log', false);
       (await recover(pending)).status(409).body().has('$.code', 'session_sandbox_removal_pending');
       const after = await rows(pending);
       if (after.sandbox?.external_id !== pending || after.sandbox.metadata.runtimeIdentityState !== 'unavailable' || after.recovered) {
@@ -1764,7 +1786,7 @@ flow(
     await ctx.step('a session that is only stopped → 409 session_not_lost; a member who did not start it → 403', async () => {
       const stopped = await createDatabaseSession(ctx.env, { projectId: project.id, accountId: team.id, userId: ctx.P.OWNER.userId!, visibility: 'project' });
       ctx.track('session', stopped, { projectId: project.id });
-      await seedSessionTranscript(ctx.env, { projectId: project.id, accountId: team.id, sessionId: stopped });
+      await seedSessionTranscript(ctx.env, { projectId: project.id, accountId: team.id, sessionId: stopped, bearer: ownerToken });
       (await recover(stopped)).status(409).body().has('$.code', 'session_not_lost');
       const lost = await lostSession('log');
       (await recover(lost, ctx.client.as(member))).status(403);
@@ -3847,3 +3869,16 @@ flow(
     }
   },
 );
+
+flow('SESS-61', {
+  domain: 'sessions',
+  routes: ['PATCH /v1/projects/:projectId', 'POST /v1/projects/:projectId/sessions'],
+}, async (ctx) => {
+  const project = await ctx.fixtures.project({ managedGit: true });
+  const owner = ctx.client.as(ctx.P.OWNER);
+  await ctx.step('a configured default branch with no commit refuses session creation without a server error', async () => {
+    (await owner.patch('/v1/projects/:projectId', { default_branch: 'missing-default' }, { params: { projectId: project.id } })).status(200);
+    const response = await owner.post('/v1/projects/:projectId/sessions', { initial_prompt: 'noop' }, { params: { projectId: project.id } });
+    response.status(409).body().has('$.code', 'git_ref_not_found').has('$.status', 409);
+  });
+});

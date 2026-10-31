@@ -15,7 +15,7 @@ import {
   waysFromParams,
 } from './connector-routes';
 
-const BASE = '/projects/p1/customize/connectors';
+const BASE = '/projects/p1/admin/connectors';
 
 const discoverEntry = {
   source: 'discover',
@@ -82,7 +82,7 @@ describe('connectorHref', () => {
     ).toBe(`${BASE}/connected/resend-abc123?tab=tools&connect=c-1`);
   });
   test('path segments are encoded', () => {
-    expect(connectorHref('p 1', 'a/b')).toBe('/projects/p%201/customize/connectors/connected/a%2Fb');
+    expect(connectorHref('p 1', 'a/b')).toBe('/projects/p%201/admin/connectors/connected/a%2Fb');
   });
 });
 
@@ -110,7 +110,7 @@ describe('legacyDetailRedirect', () => {
 // only in component state, so browser Back showed the full catalogue again.
 describe('the catalogue search in the URL', () => {
   test('reads the trimmed query from ?q=', () => {
-    expect(connectorSearchFromParams(new URLSearchParams('q=Shopify'))).toBe('Shopify');
+    expect(connectorSearchFromParams(new URLSearchParams('q=Notion'))).toBe('Notion');
     expect(connectorSearchFromParams(new URLSearchParams('scope=channels&q=%20slack%20'))).toBe('slack');
     expect(connectorSearchFromParams(new URLSearchParams('scope=channels'))).toBe('');
     expect(connectorSearchFromParams(null)).toBe('');
@@ -118,8 +118,8 @@ describe('the catalogue search in the URL', () => {
 
   test('writes a non-empty query and drops an empty one, keeping the other params', () => {
     const params = new URLSearchParams('scope=channels');
-    withConnectorSearch(params, ' Shopify ');
-    expect(params.toString()).toBe('scope=channels&q=Shopify');
+    withConnectorSearch(params, ' Notion ');
+    expect(params.toString()).toBe('scope=channels&q=Notion');
     withConnectorSearch(params, '   ');
     expect(params.toString()).toBe('scope=channels');
   });

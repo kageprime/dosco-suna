@@ -1,8 +1,10 @@
 import type { TriggerList } from '@kortix/api-contract';
-import { apps, connectorConnections, connectors, projectTriggerRuntime } from '@kortix/db';
-import { type TriggerFilter, cronIntervalError, formatDurationSeconds, normalizeTriggerEntry, parseTriggerFilter } from '@kortix/manifest-schema';
+import { hiddenSpaceIds } from '../../shared/space-access';
+import { apps, connectorConnections, connectors, projectSpaces, projectTriggerRuntime } from '@kortix/db';
+import { type TriggerFilter, cronIntervalError, formatDurationSeconds, normalizeTriggerEntry, parseChangeRequestFilter, parseTriggerFilter } from '@kortix/manifest-schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { config } from '../../config';
+import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
 import * as store from '../trigger-events/store';
 import { EVENT_TRIGGERS_OFF_MESSAGE, eventTriggersOffForProject } from '../trigger-events/flag';
@@ -11,7 +13,7 @@ import { MCP_SOURCE_ID, connectorEventApp } from '../trigger-events/mcp-source';
 import { streamSchedules } from '../trigger-events/poll-store';
 import { ensureProjectTriggerRuntime } from '../trigger-runtime-catalog';
 import { nextTriggerScheduleSlot, validateTriggerCron, validateTriggerTimezone } from '../trigger-schedule';
-import { GIT_TRIGGER_SESSION_MODES, type GitTriggerEventFields, type GitTriggerSessionMode, type GitTriggerSpec, type GitTriggerType, type LoadedTriggers, MANIFEST_FILENAME, type ParsedManifest, defaultTriggerSessionMode, eventOnlyKeyError, extractTriggers, parseMaxLateness, parseOverlap, parseRunCaps, parseAppField, parseEventFields, parseEvery, parseTargetField, readManifest, triggerSpecToTomlEntry, MONITOR_REMOVED } from '../triggers';
+import { GIT_TRIGGER_SESSION_MODES, type GitTriggerEventFields, type GitTriggerSessionMode, type GitTriggerSpec, type GitTriggerType, type LoadedTriggers, MANIFEST_FILENAME, type ParsedManifest, defaultTriggerSessionMode, eventOnlyKeyError, extractTriggers, parseMaxLateness, parseOverlap, parseRunCaps, parseAppField, parseEventFields, parseEvery, parseTargetField, readManifest, triggerSpecToFlatEntry, MONITOR_REMOVED } from '../triggers';
 import { PRIVATE_TRIGGER_SESSION_ACCESS, loadTriggerSessionAccessMap } from '../trigger-session-access';
 import { withProjectGitAuth } from './git';
 import { type ProjectRow, deriveKortixApiRoot, normalizeBoolean, normalizeString } from './serializers';
@@ -42,7 +44,14 @@ export async function validateAppTriggerTarget(projectId: string, app: string): 
 export async function loadTriggersForResponse(
   projectId: string,
   project: ProjectRow,
+  /**
+   * The caller (`bound`: `callerKortixSessionId`): another member's DM and a
+   * private channel the caller is not in read as no space. Absent: every DM
+   * and every private channel does.
+   */
+  viewer?: { userId: string; bound: string | null },
 ): Promise<TriggerList> {
+  const viewerUserId = viewer?.userId;
   const gitProject = await withProjectGitAuth(project);
   let manifest: ParsedManifest | null = null;
   let loaded: LoadedTriggers;
@@ -89,6 +98,35 @@ export async function loadTriggersForResponse(
     [...subscriptionBySlug.values()].flatMap((r) => (r.provider === MCP_SOURCE_ID && r.externalId ? [r.externalId] : [])),
   );
   const runtimeBySlug = new Map(runtimeRows.map((row) => [row.slug, row]));
+  const channels = resolveFeatureFlag(project.metadata, 'project_channels');
+  // A channel, or the caller's own DM: a DM's existence is never disclosed to anyone else.
+  const spaceIds = [...new Set(runtimeRows.flatMap((row) => (row.spaceId ? [row.spaceId] : [])))];
+  const hidden = channels && spaceIds.length && viewer ? await hiddenSpaceIds(projectId, viewer.userId, viewer.bound) : null;
+  const listedSpaces = new Set(
+    channels && spaceIds.length
+      ? (
+          await db
+            .select({
+              spaceId: projectSpaces.spaceId,
+              kind: projectSpaces.kind,
+              dmUserId: projectSpaces.dmUserId,
+              visibility: projectSpaces.visibility,
+            })
+            .from(projectSpaces)
+            .where(inArray(projectSpaces.spaceId, spaceIds))
+        )
+          .filter((space) =>
+            space.kind === 'channel'
+              ? space.visibility === 'public' || (hidden !== null && !hidden.has(space.spaceId))
+              : Boolean(viewerUserId && space.dmUserId === viewerUserId),
+          )
+          .map((space) => space.spaceId)
+      : [],
+  );
+  const listedSpaceId = (slug: string) => {
+    const spaceId = runtimeBySlug.get(slug)?.spaceId;
+    return spaceId && listedSpaces.has(spaceId) ? spaceId : null;
+  };
   const sessionAccessBySlug =
     specs.length === 0 ? new Map() : await loadTriggerSessionAccessMap(projectId);
 
@@ -134,13 +172,16 @@ export async function loadTriggersForResponse(
       session_mode: spec.sessionMode,
       session_id: spec.pinnedSessionId,
       session_key: spec.sessionKey,
-      filter: spec.filter,
+      // A change_request trigger's branch reads back as `filter.base`, as kortix.yaml writes it.
+      filter: spec.type === 'change_request' && spec.changeRequest?.base ? { ...spec.filter, base: spec.changeRequest.base } : spec.filter,
       // Run caps (KRTX-1721); null = unset (the hourly default, 60, applies).
       max_runs_per_hour: spec.maxRunsPerHour ?? null,
       max_runs_per_day: spec.maxRunsPerDay ?? null,
       // Overlap (KRTX-1721); null = unset (`skip` for cron, `allow` otherwise).
       overlap: spec.overlap ?? null,
       session_access: sessionAccessBySlug.get(spec.slug) ?? PRIVATE_TRIGGER_SESSION_ACCESS,
+      // The channel or DM its runs post to; omitted while `project_channels` is off.
+      ...(channels ? { space_id: listedSpaceId(spec.slug) } : {}),
       last_fired_at: runtimeBySlug.get(spec.slug)?.lastFiredAt?.toISOString() ?? null,
       last_status: runtimeBySlug.get(spec.slug)?.lastStatus ?? null,
       last_error: runtimeBySlug.get(spec.slug)?.lastError ?? null,
@@ -160,7 +201,7 @@ export async function loadTriggersForResponse(
     // true, the platform won't auto-run any of them (cron sweep skips, webhooks
     // ignored), regardless of each trigger's own `enabled`.
     triggers_paused: triggersPausedForProject(project.metadata),
-    // The account's Pause all automations (KRTX-1721): true stops these triggers too.
+    // The account's Pause all triggers (KRTX-1721): true stops these triggers too.
     account_automations_paused: (await readAccountAutomationPause(project.accountId)) !== null,
     errors,
   };
@@ -251,6 +292,8 @@ export interface TriggerDraft {
   event?: GitTriggerEventFields | null;
   /** For type=app only — the slug of the App whose events fire the trigger. */
   app?: string | null;
+  /** For type=change_request only — the branch a merge must land on (GitTriggerSpec.changeRequest). */
+  changeRequest?: GitTriggerSpec['changeRequest'];
   /** A fire calls this App instead of running an agent (GitTriggerSpec.target). */
   target?: GitTriggerSpec['target'];
   /** For type=cron only — a fixed period instead of a cron expression (GitTriggerSpec.everySeconds). */
@@ -284,11 +327,11 @@ export function parseTriggerDraft(
 
   const typeRaw = normalizeString(body.type);
   const type: GitTriggerType | null =
-    typeRaw === 'webhook' || typeRaw === 'cron' || typeRaw === 'event' || typeRaw === 'app'
+    typeRaw === 'webhook' || typeRaw === 'cron' || typeRaw === 'event' || typeRaw === 'app' || typeRaw === 'change_request'
       ? typeRaw
       : null;
   if (typeRaw === 'monitor') return { error: MONITOR_REMOVED };
-  if (!type) return { error: 'type must be "cron", "webhook", "event", or "app"' };
+  if (!type) return { error: 'type must be "cron", "webhook", "event", "app", or "change_request"' };
   if (type !== 'event') {
     const bad = eventOnlyKeyError(body, 'event_config', type);
     if (bad) return { error: bad };
@@ -314,7 +357,8 @@ export function parseTriggerDraft(
   const session = parseDraftSession(body, type);
   if ('error' in session) return session;
   const { sessionMode, pinnedSessionId, sessionKey } = session;
-  const parsedFilter = parseTriggerFilter(body.filter);
+  // A change_request trigger reads `filter.base` as the merge's target branch.
+  const parsedFilter = type === 'change_request' ? parseChangeRequestFilter(body.filter) : parseTriggerFilter(body.filter);
   if ('error' in parsedFilter) return parsedFilter;
   const { filter } = parsedFilter;
 
@@ -332,7 +376,9 @@ export function parseTriggerDraft(
         ? parseAppDraft(body, common)
         : type === 'cron'
           ? parseCronDraft(body, common)
-          : parseWebhookDraft(body, common);
+          : type === 'change_request'
+            ? { ...common, type, cron: null, runAt: null, timezone: 'UTC', secretEnv: null, changeRequest: { crId: null, base: 'base' in parsedFilter ? (parsedFilter.base as string | null) : null } }
+            : parseWebhookDraft(body, common);
   if ('error' in draft) return draft;
   return { ...draft, ...(type === 'cron' ? lateness : {}), ...caps, ...overlap, ...parsedTarget };
 }
@@ -499,7 +545,7 @@ export function specToBody(spec: GitTriggerSpec): Record<string, unknown> {
     session_mode: spec.sessionMode,
     session_id: spec.pinnedSessionId,
     session_key: spec.sessionKey,
-    filter: spec.filter,
+    filter: spec.type === 'change_request' && spec.changeRequest?.base ? { ...spec.filter, base: spec.changeRequest.base } : spec.filter,
     // Event keys only for an event trigger: a non-event body must not carry them.
     ...(spec.event
       ? { connector: spec.event.connector, event_account: spec.event.account ?? null, event_source: spec.event.source ?? null, event: spec.event.type, event_config: spec.event.config }
@@ -527,8 +573,7 @@ export function draftToSpec(
 ): GitTriggerSpec {
   return {
     slug: draft.slug,
-    // Use the ACTUAL manifest path so a YAML project's trigger spec reports
-    // `kortix.yaml#triggers.<slug>`, not a hardcoded `kortix.toml#…`.
+    // Use the ACTUAL manifest path (`kortix.yml`, a custom path).
     path: `${manifestPath}#triggers.${draft.slug}`,
     name: draft.name,
     type: draft.type,
@@ -546,6 +591,7 @@ export function draftToSpec(
     ...(draft.overlap ? { overlap: draft.overlap } : {}),
     event: draft.event,
     ...(draft.type === 'app' ? { app: draft.app ?? null } : {}),
+    ...(draft.changeRequest ? { changeRequest: draft.changeRequest } : {}),
     ...(draft.target ? { target: draft.target } : {}),
     ...(draft.everySeconds ? { everySeconds: draft.everySeconds } : {}),
     sessionMode: draft.sessionMode,

@@ -2,7 +2,7 @@
  * Resend, the email channel's provider: inboxes on a verified domain, their
  * threads, replies, receiving domains and the `inbox.email.received` webhook.
  *
- * One Resend team can hold many inboxes. The managed team is Kortix's
+ * One Resend team can hold many inboxes. The managed team is Dosco's
  * (`RESEND_API_KEY`); a project can bring its own team's key instead.
  */
 import { config } from '../config';
@@ -30,7 +30,7 @@ function baseUrl(): string {
   return config.RESEND_API_URL.replace(/\/+$/, '');
 }
 
-/** The project's own key, else Kortix's managed team key. */
+/** The project's own key, else Dosco's managed team key. */
 export function resolveEmailApiKey(projectKey?: string | null): string | null {
   return projectKey || config.RESEND_API_KEY || null;
 }
@@ -55,6 +55,7 @@ async function resendRequest<T>(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RESEND_REQUEST_TIMEOUT_MS);
   let res: Response;
+  let text: string;
   try {
     res = await fetch(`${baseUrl()}${path}`, {
       method: init.method ?? 'GET',
@@ -65,6 +66,8 @@ async function resendRequest<T>(
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: controller.signal,
     });
+    // Inside the timeout: a body that never finishes must not hold the caller.
+    text = await res.text();
   } catch (err) {
     const timedOut = controller.signal.aborted;
     throw new ResendEmailApiError({
@@ -76,7 +79,6 @@ async function resendRequest<T>(
   } finally {
     clearTimeout(timeout);
   }
-  const text = await res.text();
   let data: any = null;
   if (text) {
     try {
@@ -228,7 +230,7 @@ async function tunnelAnswers(origin: string): Promise<boolean> {
  * every start, and each start adds its own team-wide webhook; the old ones
  * point at nothing. Only such tunnel hooks on the email path, other than
  * `ownEndpoint`, whose API does not answer are dead. Any other host is never
- * touched: dev, staging and prod share Kortix's Resend team.
+ * touched: dev, staging and prod share Dosco's Resend team.
  */
 export function deadTunnelWebhookCandidates(hooks: ResendWebhookRow[], ownEndpoint: string): ResendWebhookRow[] {
   return hooks.filter((hook) => {

@@ -77,7 +77,7 @@ export function enterpriseStateOf(row: BillingRow | null | undefined): Enterpris
 }
 
 /**
- * THE managed-models invariant: Kortix-managed inference is sold, never given
+ * THE managed-models invariant: Dosco-managed inference is sold, never given
  * away. Only a paid billing plan or a licensed Enterprise contract carries it.
  * Free and No Plan never do, whatever the catalog, an override or the
  * Enterprise demo says (2026-10-19: Free ran managed models on its included

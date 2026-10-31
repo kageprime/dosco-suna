@@ -634,10 +634,9 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
   const overlay = resolveSessionOverlay({ ...surface, shellShowsFirstPrompt });
   // WHICH overlay is settled above; this decides whether it may COVER the chat.
   //
-  // It may not, once there is a transcript under it. The server-side transcript
-  // mirror (`GET …/transcript?shape=sync`, hydrated by the SDK with
-  // `source: 'cache'`) means a hibernated session paints its history on the
-  // first frame, so a full-screen "Connecting…" would now be hiding a readable
+  // It may not, once there is a transcript under it. The stored session log
+  // (`GET …/log`, read by the SDK) means a hibernated session paints its
+  // history on the first frame, so a full-screen "Connecting…" would now be hiding a readable
   // conversation for the length of the wake — 5-240 s, the exact complaint.
   // Boot status becomes a compact banner above the thread instead.
   const bootPresentation = resolveBootPresentation({ overlay, hasTranscript });
@@ -1073,7 +1072,7 @@ function ProjectSessionView({ projectId, sessionId }: { projectId: string; sessi
         // A deliberate stop with a readable transcript is not a dead end. The
         // conversation stays, the composer stays live (a sent message wakes the
         // box and is delivered — `deliver` carries the wake intent), and the
-        // composer's own notice says the computer is asleep. A human who left
+        // composer says nothing about sleep. A human who left
         // and came back re-opens the box themselves (`useSession` releases the
         // stop hold on the next presence return), so no explicit Restart
         // button is needed here — a `notice` would only freeze the composer
@@ -1409,9 +1408,10 @@ function HeaderlessSessionSurface({ children }: { children: ReactNode }) {
 }
 
 /**
- * A session with nothing saved to read yet: its frame (header and composer
- * outline) while the computer wakes in the background. The frame speaks only
- * when the wake needs attention (`SessionStartingLoader`).
+ * A session with nothing saved to read yet: its frame (header, skeleton rows,
+ * composer outline) while the computer wakes in the background. The frame
+ * speaks only when the wake needs attention (`SessionStartingLoader`), in a
+ * card above the rows.
  */
 function SessionBootSurface({
   stage,

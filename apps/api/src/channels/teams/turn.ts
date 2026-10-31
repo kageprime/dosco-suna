@@ -526,7 +526,7 @@ export async function finalizeTurn(
       ? sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId)
       : undefined;
   const ref = refOf(handle);
-  // Which Kortix agent answered: the first line of every card below.
+  // Which Dosco agent answered: the first line of every card below.
   const agent = await sessionAgentName(handle.sessionId).catch(() => null);
 
   // Did the answer reach the conversation? `updateCard` and `sendCard` report

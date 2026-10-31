@@ -81,9 +81,9 @@ Report which account ran when it could matter: read the result's `account`.
 
 ```sh
 $ kortix connectors accounts gmail
-  LABEL                 OWNER    DEFAULT  CONNECTION ID
-  personal@example.com  private  no       11111111-…
-  work@example.com      private  no       22222222-…
+  LABEL                 CONNECTED AS          OWNER    DEFAULT  CONNECTION ID
+  personal@example.com  personal@example.com  private  no       11111111-…
+  work@example.com      work@example.com      private  no       22222222-…
 ```
 
 Asked "check my gmail" here, ask which mailbox. Told "the work one", call
@@ -109,26 +109,20 @@ every write whose args are only ids (`send_draft`: who it goes to, the
 subject, the body; a delete: what goes). The approver sees it next to the
 args.
 
-A held call returns `approval_url`: share it, then stop the turn. The
-decision, and any message with it, arrives as your next prompt. A deny with
-a message is an instruction. In a Slack or Teams session Kortix posts the
+A held call returns `approval_url`: share it, then stop the turn. Approve
+runs the call once, as you, and your next prompt carries the result. Do not
+repeat the call: a repeat while it waits returns the same `execution_id`. A
+deny, and any message with it, also arrives as your next prompt. A deny with
+a message is an instruction. `kortix review show call:<execution_id>` shows
+the decision and `detail.run` (the run state and a redacted result).
+
+Read `approval_instructions` every time. When the response has no
+`runs_on_approval` (an older or unscoped token), approval alone does not run
+the call: when the prompt says approved, repeat the exact same call (same
+arguments and `--account`) within 15 minutes, and that call runs once. In a Slack or Teams session Kortix posts the
 approval card in the thread (`approval_instructions` says so): do not repost
 the link.
 </approvals>
-
-<connector-events>
-## Start an agent when something happens in a connected app
-
-To run an agent on a new email, a pull request or an issue, use a connector
-event trigger: `on: { event: <TYPE>, connector: <slug> }` (flat `type: event`).
-It is a beta behind the project flag `event_triggers` (**Composio event
-triggers**), off by default: ask the user to run
-`kortix projects features enable event_triggers`. Sources: `composio`, and
-`mcp` (Kortix checks the connected app itself). The prompt starts with
-`[Composio event: …]` or `[Connector event: …]`. These are not App events:
-an App event is one a Kortix App posts. Recipes: kortix-system →
-`references/scheduling.md` → Composio event triggers.
-</connector-events>
 
 <adding-connectors>
 Search the catalog first:
@@ -195,7 +189,9 @@ catalog and the web have nothing, stop, explain the gap, and ask the human.
 A rule set is a named rule list on one profile (`connectors[].policy_sets`).
 Give an agent one with `agents.<name>.policy_sets: { <slug>: <set> }`. A
 caller with no set (a person's token, a script, a trigger poll) gets the base
-rules. A pi subagent runs under the root session agent's set.
+rules. A subagent in your session (`agent` tool, `session: "same"`) runs
+under your set; a named subagent in its own session runs under its own
+agent's set.
 
 ```yaml
 connectors:
@@ -210,6 +206,7 @@ connectors:
             action: block
 agents:
   support:
+    tools: all
     connectors: [gmail]
     policy_sets:
       gmail: read_only

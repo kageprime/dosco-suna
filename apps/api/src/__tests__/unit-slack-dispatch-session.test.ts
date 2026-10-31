@@ -34,6 +34,8 @@ function fakeSessionRow(sessionId: string): ProjectSessionRow {
     parentSessionId: null,
     initiatorType: null,
     initiatorId: null,
+    spaceId: null,
+    groupId: null,
     secretsAllowlist: null,
     requiredConnectors: null,
     connectorBindingsInheritUnbound: false,
@@ -80,7 +82,6 @@ let unavailableModel: string | undefined;
 let accessibleAgents = true;
 let startResult: { status: 'created' | 'queued'; sessionId?: string; reason?: string; error?: { status: 409 | 503; body: { code: string } } } | null = null;
 mock.module('../channels/model-access', () => ({
-  agentGrantEnvFor: () => async () => null,
   projectChannelModelScope: async () => null,
   planChannelSessionStart: async () => ({ model: null, unavailableModel }),
   planChannelFollowUp: async (input: Record<string, unknown>) => {
@@ -102,7 +103,9 @@ let deliverCalls = 0;
 // ─── lifecycle seam: spy on createSession (the "second session") ─────────────
 let createSessionCalls = 0;
 let createSessionInputs: any[] = [];
+const realSessionLifecycle = await import('../projects/session-lifecycle');
 mock.module('../projects/session-lifecycle', () => ({
+  ...realSessionLifecycle,
   deliverThroughQueue: async () => {
     deliverCalls++;
     return deliverOutcome;

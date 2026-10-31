@@ -11,15 +11,36 @@
 //          when `public` (the content server)
 //   edit   who may write the path in Files (the folder rules of the drive)
 //   share  the creator, or project.artifact.manage (public: project.artifact.public)
-import { artifacts } from '@kortix/db';
-import { and, desc, eq, sql } from 'drizzle-orm';
+//
+// A private channel's folder (`/Channels/<space_id>`, `<space_id>` a private
+// channel of the project) follows the one Drive rule
+// (`onlyVisiblePrivateGrants`): only the channel's members, and only its own
+// threads' tokens, reach its files. Any other root under `/Channels` is an
+// ordinary folder. An artifact rooted there is viewed only
+// by them, whatever its sharing, and is never `project` or `public`.
+import { artifactComments, artifactCommentThreads, artifacts, projectSessions } from '@kortix/db';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { config } from '../config';
 import { signStableChannelState } from '../channels/core/signed-state';
 import { db } from '../shared/db';
+import { qualifiedColumn } from '../shared/sql-qualified-column';
 import { normalizeDrivePath } from '../drives/access';
-import { folderAccess, folderAccessAtLeast, type FolderLevel } from '../drives/folders';
-import { ensurePersonalFolder, ensureProjectDrive, getDrive, listFolderGrants, readDriveVolume, writeDriveVolume, type DriveRow } from '../drives/service';
+import { folderAccess, folderAccessAtLeast, pathWithinFolder, PRIVATE_CHANNELS_DIR, privateChannelFolderOf, type FolderLevel } from '../drives/folders';
 import {
+  driveVolume,
+  ensurePersonalFolder,
+  ensureProjectDrive,
+  getDrive,
+  listFolderGrants,
+  onlyVisiblePrivateGrants,
+  projectPrivateChannelFolders,
+  readDriveVolume,
+  readOnlyOutside,
+  writeDriveVolume,
+  type DriveRow,
+} from '../drives/service';
+import {
+  type DriveVolume,
   DriveStorageError,
   listVolumeCommits,
   listVolumeFiles,
@@ -29,6 +50,8 @@ import {
   writeVolumeFiles,
 } from '../drives/volumes';
 import { ARTIFACT_TYPE_KEYS, docTitle, htmlTitle, typeOfEntry, type ArtifactType } from './formats';
+import { recordArtifactEvent, recordDriveCommitAuthor } from './events-store';
+import type { VolumeWriteCommit } from '../drives/volumes';
 
 export const ARTIFACTS_FLAG = 'artifacts' as const;
 export const ARTIFACT_VISIBILITIES = ['private', 'project', 'public'] as const;
@@ -59,7 +82,7 @@ export function artifactViewUrl(artifactId: string, commit: string | null): stri
   return `${apiBase()}/v1/artifacts/s/${signStableChannelState('artifact-view', { a: artifactId, c: commit }, exp)}/`;
 }
 
-/** The public URL of the raw page (no Kortix chrome). */
+/** The public URL of the raw page (no Dosco chrome). */
 export function artifactPublicContentUrl(artifactId: string): string {
   return `${apiBase()}/v1/artifacts/p/${artifactId}/`;
 }
@@ -86,7 +109,7 @@ export function contentTypeFor(path: string): string {
 }
 
 export function isTextType(contentType: string): boolean {
-  return /^text\/|json|xml|svg|javascript/.test(contentType);
+  return /^(text\/|application\/(json|xml|javascript)\b|image\/svg\+xml)/.test(contentType);
 }
 
 /** A file path inside an artifact folder: relative, no `.`/`..`/empty segment. Null when it cannot be one. */
@@ -122,6 +145,26 @@ export interface Author {
   sessionId: string | null;
 }
 
+/**
+ * Where an artifact is grouped: a space slug and/or an owning agent. Grouping
+ * only: nothing derives access from it. Null clears a field.
+ */
+export interface Binding {
+  space?: string | null;
+  agent?: string | null;
+}
+
+/** The agent of the publishing session, when the body names none: grouping happens without manual tagging. */
+async function bindingAtCreate(author: Author, input: Binding): Promise<{ space: string | null; agent: string | null }> {
+  let agent = input.agent;
+  if (agent === undefined && author.sessionId) {
+    const [session] = await db.select({ agentName: projectSessions.agentName }).from(projectSessions)
+      .where(eq(projectSessions.sessionId, author.sessionId)).limit(1);
+    agent = session?.agentName ?? null;
+  }
+  return { space: input.space ?? null, agent: agent ?? null };
+}
+
 /** Who asks, as the Files folder rules see them. ponytail: group grants are not resolved here; add groupIds if teams share artifact folders. */
 export interface Viewer {
   userId: string;
@@ -129,11 +172,48 @@ export interface Viewer {
   projectWrite: boolean;
   /** project.artifact.manage: may change how any artifact they can view is shared. */
   manageAny: boolean;
+  /**
+   * The private channel folders the caller may see (`privateChannelFoldersFor`,
+   * with the caller's session binding): a token reaches only its own thread's channel.
+   */
+  privateFolders: ReadonlySet<string>;
+  /** Every private channel folder of the project (`privateChannelFoldersFor`): only these paths are reserved. */
+  allPrivateFolders: ReadonlySet<string>;
+  /**
+   * The caller is a private channel's thread (`sessionPrivateChannelFolder`):
+   * it writes only this folder, and publishes there. Null otherwise.
+   */
+  channelFolder: string | null;
 }
 
 async function accessAt(drive: DriveRow, path: string, viewer: Viewer, level: FolderLevel): Promise<boolean> {
-  const access = folderAccess(path, await listFolderGrants(drive), { userId: viewer.userId, projectMember: true, admin: viewer.projectWrite });
+  let grants = onlyVisiblePrivateGrants(await listFolderGrants(drive), { all: viewer.allPrivateFolders, visible: viewer.privateFolders });
+  if (viewer.channelFolder) grants = readOnlyOutside(grants, viewer.channelFolder);
+  const access = folderAccess(path, grants, {
+    userId: viewer.userId,
+    projectMember: true,
+    admin: viewer.projectWrite && !viewer.channelFolder,
+    privateChannelFolders: viewer.allPrivateFolders,
+  });
   return folderAccessAtLeast(access, level);
+}
+
+/** The private channel folder `root` is in, or null. Reads the project's private channels only for a root under `/Channels`. */
+async function privateFolderOfRoot(projectId: string, root: string): Promise<string | null> {
+  if (root === PRIVATE_CHANNELS_DIR || !pathWithinFolder(root, PRIVATE_CHANNELS_DIR)) return null;
+  return privateChannelFolderOf(root, await projectPrivateChannelFolders(projectId));
+}
+
+/** The private channel folder an artifact lives in, or null. */
+export function artifactPrivateFolder(row: Pick<ArtifactRow, 'root' | 'projectId'>): Promise<string | null> {
+  return privateFolderOfRoot(row.projectId, row.root);
+}
+
+/** A private channel's file never leaves the channel as an artifact: 403 for `project` or `public` there. `folder`: the private channel folder of the artifact, or null. */
+function refuseWiderThanChannel(folder: string | null, visibility: ArtifactVisibility | undefined): void {
+  if (visibility && visibility !== 'private' && folder) {
+    throw new ArtifactError(403, 'An artifact in a private channel stays private to the channel’s members', 'private_channel');
+  }
 }
 
 function decodeFile(path: string, file: FileInput): Uint8Array<ArrayBuffer> {
@@ -168,7 +248,7 @@ function slugify(value: string): string {
   return value.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'untitled';
 }
 
-async function exists(volume: string, path: string): Promise<boolean> {
+async function exists(volume: DriveVolume, path: string): Promise<boolean> {
   try {
     await statVolumeFile(volume, path);
     return true;
@@ -181,13 +261,17 @@ async function exists(volume: string, path: string): Promise<boolean> {
 /**
  * Publish new files as an artifact in the author's own folder in Files: a
  * folder `/Users/<them>/Artifacts/<slug>/` with `index.md` or `index.html`
- * and everything beside it (a doc's images and videos land there too).
+ * and everything beside it (a doc's images and videos land there too). From a
+ * private channel's thread (`channelFolder`) it lands in that channel's
+ * `Artifacts/` folder instead, and stays private to the channel.
  */
 export async function publishNew(
   scope: { accountId: string; projectId: string },
   author: Author,
-  input: { title?: string; description?: string | null; visibility?: ArtifactVisibility; files: Record<string, FileInput> },
+  input: { title?: string; description?: string | null; visibility?: ArtifactVisibility; files: Record<string, FileInput> } & Binding,
+  channelFolder: string | null = null,
 ): Promise<ArtifactRow> {
+  if (channelFolder) refuseWiderThanChannel(channelFolder, input.visibility);
   const files = encodeFiles(input.files);
   const entry = ENTRIES.find((e) => files.some((f) => f.rel === e));
   if (!entry) throw new ArtifactError(400, 'An artifact needs an index.md (a doc) or an index.html (a page)', 'missing_entry');
@@ -195,22 +279,28 @@ export async function publishNew(
   const entryText = new TextDecoder().decode(files.find((f) => f.rel === entry)!.bytes);
   const title = input.title?.trim() || titleOf(type, entryText) || 'Untitled';
   const drive = await ensureProjectDrive(scope.accountId, scope.projectId);
-  const home = await ensurePersonalFolder(drive, author.userId);
-  const root = await writeDriveVolume(drive, async (volume) => {
+  const home = channelFolder ?? (await ensurePersonalFolder(drive, author.userId));
+  const written = await writeDriveVolume(drive, async (volume) => {
     const base = join(join(home, 'Artifacts'), slugify(title));
     let candidate = base;
     for (let n = 2; await exists(volume, candidate); n++) candidate = `${base}-${n}`;
     // One commit: the whole folder lands at once, as one version in the history.
-    await writeVolumeFiles(volume, files.map((f) => ({ path: join(candidate, f.rel), bytes: f.bytes })), { overwrite: false });
-    return candidate;
+    const commit = await writeVolumeFiles(volume, files.map((f) => ({ path: join(candidate, f.rel), bytes: f.bytes })), { overwrite: false });
+    return { root: candidate, commit };
   });
-  const [row] = await db.insert(artifacts).values({
-    projectId: scope.projectId, accountId: scope.accountId, driveId: drive.driveId,
-    root, entry, folder: true, title, type,
-    description: input.description ?? null, visibility: input.visibility ?? 'private',
-    createdByUserId: author.userId, createdBySessionId: author.sessionId,
-  }).returning();
-  return row!;
+  const binding = await bindingAtCreate(author, input);
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(artifacts).values({
+      projectId: scope.projectId, accountId: scope.accountId, driveId: drive.driveId,
+      root: written.root, entry, folder: true, title, type,
+      description: input.description ?? null, visibility: input.visibility ?? 'private',
+      createdByUserId: author.userId, createdBySessionId: author.sessionId,
+      ...binding,
+    }).returning();
+    await recordDriveCommitAuthor(drive.driveId, written.commit, author, tx);
+    await recordArtifactEvent(tx, row!, author, 'published', { title, type });
+    return row!;
+  });
 }
 
 /**
@@ -221,7 +311,7 @@ export async function share(
   scope: { accountId: string; projectId: string },
   author: Author,
   viewer: Viewer,
-  input: { path: string; title?: string; description?: string | null; visibility?: ArtifactVisibility },
+  input: { path: string; title?: string; description?: string | null; visibility?: ArtifactVisibility } & Binding,
 ): Promise<ArtifactRow> {
   const path = normalizeDrivePath(input.path);
   if (!path || path === '/') throw new ArtifactError(400, 'Name a file or a folder in Files', 'invalid_path');
@@ -245,17 +335,25 @@ export async function share(
     throw new ArtifactError(400, `An artifact is a folder. Share the folder that holds ${name} (with an index.md or index.html), or publish the file to make one`, 'share_folder');
   }, () => null);
   if (!target) throw new ArtifactError(404, 'File or folder not found', 'not_found');
+  if (input.visibility && input.visibility !== 'private') {
+    refuseWiderThanChannel(await privateFolderOfRoot(scope.projectId, target.root), input.visibility);
+  }
   const type = typeOfEntry(target.entry)!;
-  const text = await (await readVolumeFile(drive.platinumVolumeName, join(target.root, target.entry))).text();
-  const [row] = await db.insert(artifacts).values({
-    projectId: scope.projectId, accountId: scope.accountId, driveId: drive.driveId,
-    root: target.root, entry: target.entry, folder: target.folder, type,
-    title: input.title?.trim() || titleOf(type, text) || target.entry,
-    description: input.description ?? null, visibility: input.visibility ?? 'private',
-    createdByUserId: author.userId, createdBySessionId: author.sessionId,
-  }).onConflictDoNothing().returning();
-  if (!row) throw new ArtifactError(409, 'This path is already an artifact', 'already_shared');
-  return row;
+  const text = await (await readVolumeFile(driveVolume(drive), join(target.root, target.entry))).text();
+  const binding = await bindingAtCreate(author, input);
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(artifacts).values({
+      projectId: scope.projectId, accountId: scope.accountId, driveId: drive.driveId,
+      root: target.root, entry: target.entry, folder: target.folder, type,
+      title: input.title?.trim() || titleOf(type, text) || target.entry,
+      description: input.description ?? null, visibility: input.visibility ?? 'private',
+      createdByUserId: author.userId, createdBySessionId: author.sessionId,
+      ...binding,
+    }).onConflictDoNothing().returning();
+    if (!row) throw new ArtifactError(409, 'This path is already an artifact', 'already_shared');
+    await recordArtifactEvent(tx, row, author, 'published', { title: row.title, type });
+    return row;
+  });
 }
 
 async function driveOf(row: ArtifactRow): Promise<DriveRow> {
@@ -270,9 +368,9 @@ export async function mayWrite(row: ArtifactRow, viewer: Viewer): Promise<boolea
 }
 
 /** The entry file's current version (its ETag): what `base_version` names. Null when the file is gone. */
-export async function entryVersion(row: ArtifactRow): Promise<string | null> {
+export async function entryVersion(row: ArtifactRow, at?: string): Promise<string | null> {
   const drive = await driveOf(row);
-  return readDriveVolume(drive, async (volume) => (await statVolumeFile(volume, entryPath(row))).version, () => null)
+  return readDriveVolume(drive, async (volume) => (await statVolumeFile(volume, entryPath(row), at)).version, () => null)
     .catch((err) => {
       if (err instanceof DriveStorageError && err.status === 404) return null;
       throw err;
@@ -288,17 +386,24 @@ export async function entryVersion(row: ArtifactRow): Promise<string | null> {
 export async function publishChanges(
   row: ArtifactRow,
   input: { title?: string; description?: string | null; files: Record<string, FileInput>; base_version?: string },
+  author: Author,
+  restoredFrom?: string,
 ): Promise<ArtifactRow> {
   const drive = await driveOf(row);
   const files = encodeFiles(input.files).map((f) => ({ ...f, rel: row.folder ? f.rel : f.rel === 'index.md' || f.rel === 'index.html' ? row.entry : f.rel }));
   if (!row.folder && files.some((f) => f.rel !== row.entry)) throw new ArtifactError(400, `This artifact is one file: publish only ${row.entry}`, 'single_file');
+  const commits: VolumeWriteCommit[] = [];
   try {
     await writeDriveVolume(drive, async (volume) => {
       // A conditional save writes its entry alone (If-Match), after the assets
       // it may point at; anything else lands in one commit.
       const conditional = input.base_version ? files.find((f) => f.rel === row.entry) : undefined;
-      await writeVolumeFiles(volume, files.filter((f) => f !== conditional).map((f) => ({ path: join(row.root, f.rel), bytes: f.bytes })), { overwrite: true });
-      if (conditional) await writeVolumeFile(volume, join(row.root, conditional.rel), conditional.bytes, { overwrite: true, ifMatch: input.base_version });
+      const batch = await writeVolumeFiles(volume, files.filter((f) => f !== conditional).map((f) => ({ path: join(row.root, f.rel), bytes: f.bytes })), { overwrite: true });
+      if (batch) commits.push(batch);
+      if (conditional) {
+        const written = await writeVolumeFile(volume, join(row.root, conditional.rel), conditional.bytes, { overwrite: true, ifMatch: input.base_version });
+        if (written.commit) commits.push(written.commit);
+      }
     });
   } catch (err) {
     if (err instanceof DriveStorageError && err.code === 'file_changed') {
@@ -310,14 +415,21 @@ export async function publishChanges(
   // an artifact still named like a starter follows its first heading.
   // ponytail: a fixed list of starter names; a `named` flag if more creation paths appear.
   const entry = files.find((f) => f.rel === row.entry);
-  const derived = entry && UNNAMED.has(row.title) ? titleOf(row.type as ArtifactType, new TextDecoder().decode(entry.bytes)) : null;
-  const title = input.title?.trim() || derived;
-  const [updated] = await db.update(artifacts).set({
-    updatedAt: new Date(),
-    ...(title ? { title } : {}),
-    ...(input.description !== undefined ? { description: input.description } : {}),
-  }).where(eq(artifacts.artifactId, row.artifactId)).returning();
-  return updated!;
+  const derived = entry ? titleOf(row.type as ArtifactType, new TextDecoder().decode(entry.bytes)) : null;
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(artifacts).where(eq(artifacts.artifactId, row.artifactId)).for('update');
+    if (!current) throw new ArtifactError(404, 'Artifact not found', 'not_found');
+    const title = input.title?.trim() || (UNNAMED.has(current.title) ? derived : null);
+    const [updated] = await tx.update(artifacts).set({
+      updatedAt: new Date(),
+      ...(title ? { title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+    }).where(eq(artifacts.artifactId, row.artifactId)).returning();
+    for (const commit of commits) await recordDriveCommitAuthor(drive.driveId, commit, author, tx);
+    if (updated!.title !== current.title) await recordArtifactEvent(tx, current, author, 'renamed', { from: current.title, to: updated!.title });
+    if (restoredFrom) await recordArtifactEvent(tx, current, author, 'restored', { version: restoredFrom });
+    return updated!;
+  });
 }
 
 export interface ArtifactVersion {
@@ -360,14 +472,14 @@ export async function listVersions(row: ArtifactRow): Promise<ArtifactVersion[]>
 }
 
 /** Bring an old version back: its entry file (and, for a folder, every file it had) written again, as a new save. */
-export async function restoreVersion(row: ArtifactRow, commit: string): Promise<ArtifactRow> {
+export async function restoreVersion(row: ArtifactRow, commit: string, author: Author): Promise<ArtifactRow> {
   const files: Record<string, FileInput> = {};
   for (const f of await listFiles(row, commit)) {
     const bytes = new Uint8Array(await (await readArtifactFile(row, f.path, commit)).arrayBuffer());
     files[f.path] = { content_base64: Buffer.from(bytes).toString('base64') };
   }
   if (!Object.keys(files).length) throw new ArtifactError(404, 'Version not found', 'version_not_found');
-  return publishChanges(row, { files });
+  return publishChanges(row, { files }, author, commit);
 }
 
 /** The artifact's files, now or at a commit: a folder's tree, or the single file. */
@@ -390,7 +502,7 @@ export async function listFiles(row: ArtifactRow, at?: string): Promise<Array<{ 
 export async function readArtifactFile(row: ArtifactRow, rel: string, at?: string | null, range?: string): Promise<Response> {
   if (!row.folder && rel !== row.entry) throw new DriveStorageError(404, 'File not found');
   const drive = await driveOf(row);
-  return readVolumeFile(drive.platinumVolumeName, join(row.root, rel), range, at ?? undefined);
+  return readVolumeFile(driveVolume(drive), join(row.root, rel), range, at ?? undefined);
 }
 
 export async function getArtifact(projectId: string, artifactId: string): Promise<ArtifactRow | null> {
@@ -407,10 +519,31 @@ export async function getArtifactById(artifactId: string): Promise<ArtifactRow |
 
 export type ListScope = 'all' | 'mine' | 'shared' | 'pinned';
 
-/** The artifacts of a project that `userId` may view, newest change first. */
-export async function listArtifacts(projectId: string, userId: string, opts: { scope: ListScope; type?: string; q?: string; limit: number }) {
+/** The artifacts of a project the viewer may view (`canView`), newest change first. */
+export async function listArtifacts(
+  projectId: string,
+  viewer: Pick<Viewer, 'userId' | 'privateFolders' | 'allPrivateFolders'>,
+  opts: { scope: ListScope; type?: string; q?: string; limit: number; space?: string; agents?: string[]; unbound?: boolean },
+) {
+  const userId = viewer.userId;
   const visible = sql`(${artifacts.visibility} <> 'private' or ${artifacts.createdByUserId} = ${userId} or ${userId}::uuid = any(${artifacts.sharedWithUserIds}))`;
-  const filters = [eq(artifacts.projectId, projectId), visible];
+  // A private channel's artifacts only for its members (the twin of canView):
+  // none rooted in a private channel folder the viewer may not see.
+  const hidden = [...viewer.allPrivateFolders].filter((folder) => !viewer.privateFolders.has(folder));
+  // Qualified: inside the subquery a bare `root` must bind to the outer artifacts row.
+  const root = qualifiedColumn(artifacts.root);
+  const inChannel = sql`not exists (select 1 from unnest(${`{${hidden.join(',')}}`}::text[]) f where ${root} = f or ${root} like f || '/%')`;
+  const filters = [eq(artifacts.projectId, projectId), visible, inChannel];
+  // A space: rows bound to it, plus rows with no space owned by one of its
+  // agents (the caller passes them, so the server needs no manifest).
+  if (opts.space) {
+    filters.push(opts.agents?.length
+      ? or(eq(artifacts.space, opts.space), and(isNull(artifacts.space), inArray(artifacts.agent, opts.agents)))!
+      : eq(artifacts.space, opts.space));
+  } else if (opts.agents?.length) {
+    filters.push(inArray(artifacts.agent, opts.agents));
+  }
+  if (opts.unbound) filters.push(isNull(artifacts.space), isNull(artifacts.agent));
   if (opts.scope === 'mine') filters.push(eq(artifacts.createdByUserId, userId));
   if (opts.scope === 'shared') filters.push(sql`${artifacts.createdByUserId} <> ${userId}`);
   if (opts.scope === 'pinned') filters.push(sql`${userId}::uuid = any(${artifacts.pinnedByUserIds})`);
@@ -419,27 +552,53 @@ export async function listArtifacts(projectId: string, userId: string, opts: { s
   return db.select().from(artifacts).where(and(...filters)).orderBy(desc(artifacts.updatedAt)).limit(opts.limit);
 }
 
-export function canView(row: ArtifactRow, userId: string): boolean {
-  return row.visibility !== 'private' || row.createdByUserId === userId || row.sharedWithUserIds.includes(userId);
+/** Who sees an artifact: its sharing, and for one in a private channel, only that channel's members. */
+export function canView(row: ArtifactRow, viewer: Pick<Viewer, 'userId' | 'privateFolders' | 'allPrivateFolders'>): boolean {
+  const folder = privateChannelFolderOf(row.root, viewer.allPrivateFolders);
+  if (folder && !viewer.privateFolders.has(folder)) return false;
+  return row.visibility !== 'private' || row.createdByUserId === viewer.userId || row.sharedWithUserIds.includes(viewer.userId);
 }
 
 /** May change how the artifact is shared, rename it or remove it from Artifacts. */
 export function canManage(row: ArtifactRow, viewer: Viewer): boolean {
-  return row.createdByUserId === viewer.userId || (viewer.manageAny && canView(row, viewer.userId));
+  return canView(row, viewer) && (row.createdByUserId === viewer.userId || viewer.manageAny);
 }
 
 export async function updateArtifactMeta(
   row: ArtifactRow,
-  patch: { title?: string; description?: string | null; visibility?: ArtifactVisibility; shared_with_user_ids?: string[] },
+  patch: { title?: string; description?: string | null; visibility?: ArtifactVisibility; shared_with_user_ids?: string[] } & Binding,
+  author: Author,
 ): Promise<ArtifactRow> {
-  const [updated] = await db.update(artifacts).set({
+  if (patch.visibility && patch.visibility !== 'private') refuseWiderThanChannel(await artifactPrivateFolder(row), patch.visibility);
+  const meta = {
     ...(patch.title?.trim() ? { title: patch.title.trim() } : {}),
     ...(patch.description !== undefined ? { description: patch.description } : {}),
     ...(patch.visibility ? { visibility: patch.visibility } : {}),
     ...(patch.shared_with_user_ids ? { sharedWithUserIds: [...new Set(patch.shared_with_user_ids)] } : {}),
-    updatedAt: new Date(),
-  }).where(eq(artifacts.artifactId, row.artifactId)).returning();
-  return updated!;
+  };
+  const binding = {
+    ...(patch.space !== undefined ? { space: patch.space } : {}),
+    ...(patch.agent !== undefined ? { agent: patch.agent } : {}),
+  };
+  // A binding is grouping only: moving an artifact to a space does not make
+  // it "updated" (the gallery sorts by updated_at). An empty patch still
+  // writes updatedAt, so the statement always sets a column.
+  const touched = Object.keys(meta).length > 0 || Object.keys(binding).length === 0;
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(artifacts).where(eq(artifacts.artifactId, row.artifactId)).for('update');
+    if (!current) throw new ArtifactError(404, 'Artifact not found', 'not_found');
+    const [updated] = await tx.update(artifacts).set({
+      ...binding,
+      ...meta,
+      ...(touched ? { updatedAt: new Date() } : {}),
+    }).where(eq(artifacts.artifactId, row.artifactId)).returning();
+    if (updated!.title !== current.title) await recordArtifactEvent(tx, current, author, 'renamed', { from: current.title, to: updated!.title });
+    if (updated!.visibility !== current.visibility) await recordArtifactEvent(tx, current, author, 'visibility_changed', { from: current.visibility, to: updated!.visibility });
+    if ([...updated!.sharedWithUserIds].sort().join() !== [...current.sharedWithUserIds].sort().join()) {
+      await recordArtifactEvent(tx, current, author, 'shared_with_changed', { from: current.sharedWithUserIds, to: updated!.sharedWithUserIds });
+    }
+    return updated!;
+  });
 }
 
 export async function setPinned(row: ArtifactRow, userId: string, pinned: boolean): Promise<ArtifactRow> {
@@ -453,7 +612,20 @@ export async function setPinned(row: ArtifactRow, userId: string, pinned: boolea
 
 /** Stop sharing: the artifact leaves Artifacts and every link stops working. Its files stay in Files. */
 export async function unshare(row: ArtifactRow): Promise<void> {
-  await db.delete(artifacts).where(eq(artifacts.artifactId, row.artifactId));
+  const keys = await db.transaction(async tx => {
+    const [locked] = await tx.select({ id: artifacts.artifactId }).from(artifacts)
+      .where(and(eq(artifacts.artifactId, row.artifactId), eq(artifacts.accountId, row.accountId))).for('update');
+    if (!locked) return [];
+    const screenshots = await tx.select({ key: artifactComments.screenshotKey }).from(artifactComments)
+      .innerJoin(artifactCommentThreads, eq(artifactCommentThreads.threadId, artifactComments.threadId))
+      .where(eq(artifactCommentThreads.artifactId, row.artifactId));
+    await tx.delete(artifacts).where(eq(artifacts.artifactId, row.artifactId));
+    return screenshots.flatMap(image => image.key ? [image.key] : []);
+  });
+  if (keys.length) {
+    const { cleanupArtifactCommentScreenshotKeys } = await import('./comment-screenshot-objects');
+    await cleanupArtifactCommentScreenshotKeys(keys);
+  }
 }
 
 export function isArtifactType(value: string): value is ArtifactType {

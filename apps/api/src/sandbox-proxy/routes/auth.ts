@@ -70,7 +70,7 @@ getAuthToken.openapi(
     // Chrome rejecting the cookie when Domain=localhost is treated as a public suffix.
     //
     // The web app and the API can sit on different registrable domains (for
-    // example dosco.live and api.kortix.com). A `SameSite=Lax` cookie is then
+    // example dosco.live and api.dosco.live). A `SameSite=Lax` cookie is then
     // omitted from the preview iframe's third-party request, so the exchange
     // succeeds and the next request still answers 401. `SameSite=None` keeps
     // it on cross-site requests; `Partitioned` scopes it to the embedding site

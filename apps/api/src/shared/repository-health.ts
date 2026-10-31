@@ -1,8 +1,8 @@
 /**
- * One root-cause state for "Kortix can no longer reach this project's GitHub
+ * One root-cause state for "Dosco can no longer reach this project's GitHub
  * repository" (KRTX-2955).
  *
- * When a GitHub org uninstalls the Kortix App, suspends it, or drops the repo
+ * When a GitHub org uninstalls the Dosco App, suspends it, or drops the repo
  * from its repository selection, every installation-token mint for the project
  * fails. Before this module each surface reported its own symptom: a manifest
  * read became `unknown_reason: unreadable`, a session start became "machine
@@ -31,7 +31,7 @@ const REASONS: ReadonlySet<string> = new Set<RepositoryDisconnectedReason>([
 /**
  * While disconnected, GitHub is asked again at most once per interval per
  * project. A fix on GitHub's side (reinstall, re-grant) is therefore seen
- * within 5 minutes; reconnecting through Kortix clears the state at once.
+ * within 5 minutes; reconnecting through Dosco clears the state at once.
  */
 export const PROBE_INTERVAL_MS = 5 * 60_000;
 
@@ -94,11 +94,11 @@ export function repositoryDisconnectedMessage(reason: RepositoryDisconnectedReas
   const owner = repository.split('/')[0] || repository;
   switch (reason) {
     case 'app_uninstalled':
-      return `Kortix cannot reach ${repository}: the Kortix GitHub App was uninstalled from ${owner}. A GitHub owner of ${owner} must reinstall it: Project settings → Git → Reconnect GitHub.`;
+      return `Dosco cannot reach ${repository}: the Dosco GitHub App was uninstalled from ${owner}. A GitHub owner of ${owner} must reinstall it: Project settings → Git → Reconnect GitHub.`;
     case 'app_suspended':
-      return `Kortix cannot reach ${repository}: the Kortix GitHub App is suspended on ${owner}. A GitHub owner of ${owner} must unsuspend it in GitHub → Settings → GitHub Apps.`;
+      return `Dosco cannot reach ${repository}: the Dosco GitHub App is suspended on ${owner}. A GitHub owner of ${owner} must unsuspend it in GitHub → Settings → GitHub Apps.`;
     case 'repo_not_accessible':
-      return `Kortix cannot reach ${repository}: the repository was deleted, renamed, or removed from the Kortix GitHub App. A GitHub owner of ${owner} must add it again under GitHub → Settings → GitHub Apps → Kortix → Repository access, or reconnect it in Project settings → Git.`;
+      return `Dosco cannot reach ${repository}: the repository was deleted, renamed, or removed from the Dosco GitHub App. A GitHub owner of ${owner} must add it again under GitHub → Settings → GitHub Apps → Dosco → Repository access, or reconnect it in Project settings → Git.`;
   }
 }
 

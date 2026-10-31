@@ -1,6 +1,5 @@
 /**
- * `connectors` list parsing for the project manifest (`kortix.yaml`; a legacy
- * v1 project may instead declare `[[connectors]]` in `kortix.toml`).
+ * `connectors` list parsing for the project manifest (`kortix.yaml`).
  *
  * A connector is one named external system the connector gateway can call — Pipedream,
  * MCP, OpenAPI, Postman, GraphQL, or raw HTTP. The manifest holds the *definition*
@@ -33,9 +32,10 @@
  *
  * Parser mirrors `projects/agents.ts` + `projects/triggers.ts`: never throws on
  * a bad entry, collects them in `errors` so the UI can render them next to the
- * good ones. CRUD round-trips this same file (connectorSpecToTomlEntry).
+ * good ones. CRUD round-trips this same file.
  */
 import { createHash } from 'node:crypto';
+import { type ChannelPlatformId, channelConnectorSlug } from '@kortix/shared/channel-descriptors';
 import {
   CHANNEL_PLATFORMS,
   CONNECTOR_AUTHORIZATION_STRATEGIES,
@@ -48,12 +48,10 @@ import {
   POLICY_SETS_UNSUPPORTED_PROVIDERS,
   parseConnectorHeaders,
   policySetNameError,
-} from '@kortix/manifest-schema';
-import {
   type PolicyArgCondition,
   areValidConditions,
-  normalizeConditions,
-} from '../connectors/policy';
+} from '@kortix/manifest-schema';
+import { normalizeConditions } from '../connectors/policy';
 import { isValidSecretName } from './secrets';
 import { MANIFEST_FILENAME, type ParsedManifest } from './triggers';
 
@@ -85,7 +83,7 @@ export type ConnectorAuthorizationStrategy = (typeof CONNECTOR_AUTHORIZATION_STR
  */
 export { RESERVED_SLUG_PROVIDERS };
 /** The reserved slug the built-in Slack channel materializes under. */
-export const SLACK_RESERVED_SLUG = 'kortix_slack';
+export const SLACK_RESERVED_SLUG = channelConnectorSlug('slack');
 export const RESERVED_CONNECTOR_SLUGS = new Set<string>([
   'slack',
   'email',
@@ -93,7 +91,7 @@ export const RESERVED_CONNECTOR_SLUGS = new Set<string>([
 ]);
 
 /** Chat platforms a `channel` connector can target. */
-export type ChannelPlatform = 'slack' | 'teams' | 'email' | 'telegram';
+export type ChannelPlatform = ChannelPlatformId;
 
 type ConnectorAuthType =
   | 'bearer'
@@ -252,10 +250,7 @@ export function extractConnectors(manifest: ParsedManifest): LoadedConnectors {
         {
           slug: '(top-level)',
           path: filename,
-          error:
-            manifest.format === 'yaml'
-              ? '`connectors` must be a list — write it as a YAML `connectors:` list, not a map or scalar.'
-              : '`connectors` must be an array of tables — use [[connectors]], not [connectors]',
+          error: '`connectors` must be a list — write it as a YAML `connectors:` list, not a map or scalar.',
         },
       ],
     };

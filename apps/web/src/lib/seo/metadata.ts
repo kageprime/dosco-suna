@@ -118,10 +118,10 @@ export async function requestLocale(): Promise<Locale> {
   return locales.includes(locale as Locale) ? (locale as Locale) : defaultLocale;
 }
 
-// Metadata for the locale-routed marketing pages (/, /legal, /support and the
-// articles under it): per-locale canonical plus a full hreflang set in the
-// <head>. MARKETING_ROUTES in middleware.ts matches by prefix, so anything
-// under /support is locale-routed without a further entry there.
+// Metadata for the locale-routed marketing pages (/, /legal, /pricing, …):
+// per-locale canonical plus a full hreflang set in the <head>.
+// MARKETING_ROUTES in middleware.ts matches by prefix, so anything under a
+// listed route is locale-routed without a further entry there.
 export async function localizedMarketingMetadata(pathname: string): Promise<Metadata> {
   const tI18nComplete = await getTranslations('hardcodedUi.i18nComplete');
   const sourceRecord = getMarketingRecord(pathname);
@@ -134,7 +134,7 @@ export async function localizedMarketingMetadata(pathname: string): Promise<Meta
   return {
     ...base,
     // The homepage title is the full brand line; running it through the root
-    // `%s | Dosco` template would double the brand. `absolute` also keeps the
+    // `%s | Dosco CompanyOS` template would double the brand. `absolute` also keeps the
     // rendered title distinct from the root-layout default — a resolved title
     // identical to the parent default is dropped from the streamed metadata,
     // leaving the page with no <title> in the served HTML.

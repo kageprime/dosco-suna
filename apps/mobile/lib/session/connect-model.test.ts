@@ -8,19 +8,19 @@ import {
 describe('projectModelsWebUrl', () => {
   test('builds the project customize/models URL', () => {
     expect(projectModelsWebUrl('https://dosco.live', 'proj-1')).toBe(
-      'https://dosco.live/projects/proj-1/customize/models',
+      'https://dosco.live/projects/proj-1/admin/models',
     );
   });
 
   test('trims a trailing slash off the frontend URL', () => {
     expect(projectModelsWebUrl('https://dosco.live/', 'proj-1')).toBe(
-      'https://dosco.live/projects/proj-1/customize/models',
+      'https://dosco.live/projects/proj-1/admin/models',
     );
   });
 
   test('encodes the project id', () => {
     expect(projectModelsWebUrl('https://dosco.live', 'proj 1/étage')).toBe(
-      'https://dosco.live/projects/proj%201%2F%C3%A9tage/customize/models',
+      'https://dosco.live/projects/proj%201%2F%C3%A9tage/admin/models',
     );
   });
 });
@@ -28,7 +28,7 @@ describe('projectModelsWebUrl', () => {
 describe('projectModelsWebUrl with a return URL', () => {
   test('adds return_to, URL-encoded', () => {
     expect(projectModelsWebUrl('https://dosco.live', 'proj-1', PROVIDER_CONNECTED_URI)).toBe(
-      'https://dosco.live/projects/proj-1/customize/models?return_to=dosco%3A%2F%2Fproviders%2Fconnected',
+      'https://dosco.live/projects/proj-1/admin/models?return_to=kortix%3A%2F%2Fproviders%2Fconnected',
     );
   });
 });

@@ -55,7 +55,6 @@ export async function notifySales(input: {
       subject: `[Dosco sales] ${title}`,
       category: `enterprise-${input.signal}`,
       html: renderEmail({
-        kicker: 'Sales',
         title,
         body: lines.map((line) => `<p style="${S.p}">${escapeHtml(line)}</p>`).join(''),
       }),

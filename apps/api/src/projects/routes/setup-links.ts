@@ -188,7 +188,7 @@ export function registerSetupLinksRoutes(): void {
 
       const eligibility = await connectLinkEligibility(projectId, slug);
       // Provider-neutral: a setup link is a hosted authorization page. Composio and
-      // Pipedream host theirs; an MCP connector's is Kortix's own OAuth sign-in and
+      // Pipedream host theirs; an MCP connector's is Dosco's own OAuth sign-in and
       // needs neither. Gating on Pipedream alone is what sent a Composio connector
       // down the fallback path where the agent pastes a raw provider URL into chat.
       if (

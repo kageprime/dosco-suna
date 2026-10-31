@@ -45,7 +45,7 @@ function pushBranch(repoUrl: string, name: string, file: string): void {
   const work = mkdtempSync(join(tmpdir(), `kortix-cr-merge-by-number-`));
   seededDirs.push(work);
   const git = (cwd: string, ...args: string[]) =>
-    execFileSync('git', ['-c', 'user.name=Kortix Test', '-c', 'user.email=test@kortix.invalid', ...args], {
+    execFileSync('git', ['-c', 'user.name=Dosco Test', '-c', 'user.email=test@kortix.invalid', ...args], {
       cwd,
       stdio: 'pipe',
     });

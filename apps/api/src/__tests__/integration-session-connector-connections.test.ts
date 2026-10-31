@@ -1254,7 +1254,7 @@ describe('session connector isolation', () => {
       })),
     );
     // The agent's own call, as the gateway makes it: a governed agent acting
-    // for nobody (an email sender is no Kortix identity).
+    // for nobody (an email sender is no Dosco identity).
     const resolve = (sessionId: string) =>
       resolveSessionConnectorConnection({
         accountId: ACCOUNT_A,

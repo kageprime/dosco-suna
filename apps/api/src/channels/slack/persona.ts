@@ -5,7 +5,7 @@ import { ensureSlackBotId } from '../install-store';
 /** Slack caps a message author name at 80 characters. */
 const MAX_USERNAME = 80;
 
-/** The Slack author for messages a Kortix agent writes; none for a blank name. */
+/** The Slack author for messages a Dosco agent writes; none for a blank name. */
 export function slackPersonaFor(agentName: string | null | undefined): SlackPersona | null {
   const name = agentName?.trim();
   return name ? { username: name.slice(0, MAX_USERNAME) } : null;
@@ -13,11 +13,11 @@ export function slackPersonaFor(agentName: string | null | undefined): SlackPers
 
 /**
  * The session's agent as the author of its Slack messages. None before a
- * session exists, so a pre-launch refusal reads "Kortix".
+ * session exists, so a pre-launch refusal reads "Dosco".
  *
  * None either until the install's bot id is known: a post under another name
  * comes back with no `event.user`, and `isOwnBotEvent` then recognizes it by
- * that bot id. Without it the post goes out as plain "Kortix" so the self-loop
+ * that bot id. Without it the post goes out as plain "Dosco" so the self-loop
  * guard can never miss our own message.
  */
 export async function slackAgentPersona(turn: {

@@ -1,0 +1,162 @@
+import { describe, expect, test } from 'bun:test';
+import { canonicalAgentName, isMyKortixAgentName } from '@kortix/shared';
+import { KORTIX_PLATFORM_TOOL_NAMES } from '@kortix/api-contract/kortix-tool-card';
+import { KORTIX_TOOL_NAMES } from '@kortix/manifest-schema';
+
+import {
+  addMyKortixAgent,
+  buildMyKortixConfig,
+  builtinAgentConfigView,
+  declaredBuiltinAgents,
+  enabledBuiltinAgentKey,
+  MY_KORTIX_DESCRIPTION,
+  MY_KORTIX_PROMPT,
+  myKortixAgentGrant,
+  resolveBuiltinAgents,
+  resolveMyKortixSandbox,
+} from '../projects/lib/my-kortix-agent';
+import { grantFromLoadedAgents } from '../projects/agents';
+import { resolveFeatureFlag } from '../feature-flags/registry';
+import { manifestHealthWithout } from '../projects/lib/manifest-health';
+
+describe('My Dosco agent', () => {
+  test('adds one reserved meta agent and replaces a project collision', () => {
+    const config = addMyKortixAgent({
+      agents: [
+        {
+          name: 'mykortix',
+          path: '/project/AGENTS.md',
+          source: 'opencode',
+          description: 'project override',
+          mode: 'primary',
+        },
+      ],
+      commands: [],
+      skills: [],
+      is_kortix_repo: true,
+      signals: {},
+      manifest_raw: null,
+      manifest: {},
+      manifest_health: manifestHealthWithout('missing'),
+      env: { required: [], optional: [] },
+      open_code_raw: null,
+      default_agent: null,
+      open_code_default_agent: null,
+      agent_discovery: 'opencode',
+    });
+
+    expect(config.agents.filter((agent) => agent.name === 'mykortix')).toHaveLength(1);
+    expect(config.agents[0]).toMatchObject({
+      name: 'mykortix',
+      path: '',
+      // Platform-owned: hosts render it read-only and never open the editor.
+      platform: true,
+      scope: {
+        env: [],
+        connectors: [],
+        kortix_permissions: 'all',
+      },
+    });
+    expect(config.open_code_default_agent).toBe('mykortix');
+    expect(config.default_agent).toBe('mykortix');
+  });
+
+  test('defines My Dosco with the platform prompt and every Dosco and platform tool', () => {
+    const config = JSON.parse(buildMyKortixConfig());
+    expect(config.agent).toEqual({
+      mykortix: { description: MY_KORTIX_DESCRIPTION, mode: 'primary', prompt: MY_KORTIX_PROMPT },
+    });
+    expect(config.kortix_tools).toEqual([...KORTIX_TOOL_NAMES, ...KORTIX_PLATFORM_TOOL_NAMES]);
+    // The guide ships in the prompt now: the meta image carries no AGENTS.md to point at.
+    expect(MY_KORTIX_PROMPT).not.toContain('/workspace/AGENTS.md');
+    expect(MY_KORTIX_DESCRIPTION).toBe(
+      'The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.',
+    );
+  });
+
+  test('forces the meta sandbox and rejects an explicit alternate sandbox', () => {
+    expect(resolveMyKortixSandbox(undefined)).toBe('mykortix');
+    expect(resolveMyKortixSandbox('mykortix')).toBe('mykortix');
+    expect(() => resolveMyKortixSandbox('node22')).toThrow('META_SANDBOX_LOCKED');
+  });
+
+  test('grants the coordinator every project action without secrets or connectors', () => {
+    expect(myKortixAgentGrant()).toEqual({
+      agent: 'mykortix',
+      permissions: 'all',
+      connectors: [],
+      env: [],
+    });
+  });
+
+  test('builtin_agents: the manifest boolean wins, else the legacy switch, else on', () => {
+    expect(declaredBuiltinAgents({})).toEqual({});
+    expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
+    expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: 'no' } })).toEqual({});
+    expect(declaredBuiltinAgents({ builtin_agents: ['my_kortix'] })).toEqual({});
+    // absent → legacy switch (default on)
+    expect(resolveBuiltinAgents({}, true)).toEqual({ my_kortix: true });
+    expect(resolveBuiltinAgents({}, false)).toEqual({ my_kortix: false });
+    // present → the manifest decides, whatever the legacy switch says
+    expect(resolveBuiltinAgents({ my_kortix: false }, true)).toEqual({ my_kortix: false });
+    expect(resolveBuiltinAgents({ my_kortix: true }, false)).toEqual({ my_kortix: true });
+  });
+
+  test('`meta` is a built-in only while My Dosco is on', () => {
+    expect(enabledBuiltinAgentKey('mykortix', { my_kortix: true })).toBe('my_kortix');
+    expect(enabledBuiltinAgentKey('mykortix', { my_kortix: false })).toBeNull();
+    expect(enabledBuiltinAgentKey('kortix', { my_kortix: true })).toBeNull();
+    expect(builtinAgentConfigView('my_kortix', 'kortix')).toMatchObject({
+      agent: 'mykortix',
+      schema_version: 3,
+      builtin: 'my_kortix',
+      editable: false,
+      block: null,
+      default_agent: 'kortix',
+    });
+  });
+
+  test('a kortix.yaml that turns My Dosco off strips a meta session to no project action', () => {
+    const governed = { specs: [], errors: [], defaultAgent: 'kortix' };
+    expect(grantFromLoadedAgents('mykortix', governed)).toEqual(myKortixAgentGrant());
+    expect(grantFromLoadedAgents('mykortix', { ...governed, builtinAgents: { my_kortix: true } })).toEqual(
+      myKortixAgentGrant(),
+    );
+    expect(grantFromLoadedAgents('mykortix', { ...governed, builtinAgents: { my_kortix: false } })).toEqual({
+      agent: 'mykortix',
+      permissions: [],
+      connectors: [],
+      env: [],
+    });
+  });
+
+  // Read through the canonical registry helper at every call site — the module
+  // above must stay free of runtime imports, see its header comment.
+  test('is gated on the meta_agent feature flag, default on', () => {
+    // Default-on (Marko, 2026-10-24): the meta agent is the default cloud
+    // orchestrator for every project. Only an explicit project opt-out hides it.
+    expect(resolveFeatureFlag(null, 'meta_agent')).toBe(true);
+    expect(resolveFeatureFlag({}, 'meta_agent')).toBe(true);
+    expect(resolveFeatureFlag({ experimental: {} }, 'meta_agent')).toBe(true);
+    expect(resolveFeatureFlag({ experimental: { meta_agent: false } }, 'meta_agent')).toBe(false);
+    expect(resolveFeatureFlag({ experimental: { meta_agent: true } }, 'meta_agent')).toBe(true);
+  });
+});
+
+describe('the slug before the rename (`meta`)', () => {
+  // Sessions, tokens and boxes from before 2026-10-30 carry `meta`: every read accepts it, nothing writes it.
+  test('is still My Dosco, and resolves to the new slug and sandbox', () => {
+    expect(isMyKortixAgentName('meta')).toBe(true);
+    expect(isMyKortixAgentName('mykortix')).toBe(true);
+    expect(isMyKortixAgentName('worker')).toBe(false);
+    expect(canonicalAgentName('meta')).toBe('mykortix');
+    expect(enabledBuiltinAgentKey('meta', { my_kortix: true })).toBe('my_kortix');
+    expect(resolveMyKortixSandbox('meta')).toBe('mykortix');
+    expect(myKortixAgentGrant().agent).toBe('mykortix');
+  });
+
+  test('a project agent named `meta` is replaced by My Dosco, like one named `mykortix`', () => {
+    const config = addMyKortixAgent({ default_agent: 'worker', agents: [{ name: 'meta' }, { name: 'worker' }] } as never);
+    expect(config.agents.map((agent) => agent.name)).toEqual(['mykortix', 'worker']);
+  });
+});

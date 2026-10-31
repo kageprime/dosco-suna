@@ -27,7 +27,6 @@ function state(overrides: Partial<AppKeyState> = {}): AppKeyState {
     route: 'session',
     overlay: null,
     quitArmed: false,
-    attaching: false,
     ...overrides,
   };
 }
@@ -82,11 +81,6 @@ describe('help is global only when nothing is typing', () => {
         kind: 'quit',
       });
     }
-  });
-
-  test('attach mode stays opaque — Ctrl+C there belongs to opencode', () => {
-    expect(globalKeyAction(key('c', { ctrl: true }), state({ attaching: true }))).toBeNull();
-    expect(globalKeyAction(key('q', { ctrl: true }), state({ attaching: true }))).toBeNull();
   });
 });
 
@@ -168,14 +162,13 @@ describe('routes and navigation', () => {
     });
   });
 
-  test('Ctrl+P, Ctrl+N, Ctrl+H and Alt+O are global', () => {
+  test('Ctrl+P, Ctrl+N and Ctrl+H are global', () => {
     expect(globalKeyAction(key('p', { ctrl: true }), state())).toEqual({
       kind: 'overlay',
       overlay: 'switcher',
     });
     expect(globalKeyAction(key('n', { ctrl: true }), state())).toEqual({ kind: 'new-session' });
     expect(globalKeyAction(key('h', { ctrl: true }), state())).toEqual({ kind: 'switch-host' });
-    expect(globalKeyAction(key('o', { meta: true }), state())).toEqual({ kind: 'attach' });
   });
 
   test('Ctrl+N still works while the composer is focused: it is not a bare key', () => {
@@ -204,14 +197,6 @@ describe('Esc', () => {
 
   test('in the sidebar it is the sidebar’s: cancel the filter or the confirm', () => {
     expect(globalKeyAction(key('escape'), state({ focus: 'sidebar' }))).toBeNull();
-  });
-});
-
-describe('attach mode suspends the keyboard', () => {
-  test('nothing is dispatched while opencode owns the terminal', () => {
-    for (const event of [key('?'), key('escape'), key('c', { ctrl: true }), key('tab')]) {
-      expect(globalKeyAction(event, state({ attaching: true }))).toBeNull();
-    }
   });
 });
 

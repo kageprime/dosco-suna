@@ -34,19 +34,19 @@ describe('projectCustomizeWebUrl', () => {
 describe('projectConnectorsWebUrl', () => {
   test('builds the customize connectors url', () => {
     expect(projectConnectorsWebUrl('https://dosco.live', 'proj-1')).toBe(
-      'https://dosco.live/projects/proj-1/customize/connectors'
+      'https://dosco.live/projects/proj-1/admin/connectors'
     );
   });
 
   test('strips a trailing slash and encodes the project id', () => {
     expect(projectConnectorsWebUrl('https://dosco.live/', 'proj 1/2')).toBe(
-      'https://dosco.live/projects/proj%201%2F2/customize/connectors'
+      'https://dosco.live/projects/proj%201%2F2/admin/connectors'
     );
   });
 
   test('adds return_to, encoded, when given', () => {
     expect(projectConnectorsWebUrl('https://dosco.live', 'proj-1', CONNECTORS_DONE_URI)).toBe(
-      'https://dosco.live/projects/proj-1/customize/connectors?return_to=dosco%3A%2F%2Fconnectors%2Fdone'
+      'https://dosco.live/projects/proj-1/admin/connectors?return_to=kortix%3A%2F%2Fconnectors%2Fdone'
     );
   });
 });

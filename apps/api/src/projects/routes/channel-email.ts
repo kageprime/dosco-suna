@@ -44,6 +44,8 @@ import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { reconcileChannelConnectors } from '../../connectors/sync';
 import { PROJECT_ACTIONS } from '../../iam';
 import { auth, errors, json } from '../../openapi';
+import { readJsonObject } from '../../shared/http-body';
+import { normalizeJsonObject } from '../../shared/json';
 import { loadProjectAgents } from '../agents';
 import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { AnyObject, projectsApp } from '../lib/app';
@@ -112,7 +114,7 @@ export function registerChannelEmailRoutes(): void {
       if ('response' in target) return target.response as never;
       let body: Record<string, unknown>;
       try {
-        body = ((await c.req.json()) ?? {}) as Record<string, unknown>;
+        body = normalizeJsonObject(await c.req.json());
       } catch {
         return c.json({ error: 'Invalid JSON body' }, 400);
       }
@@ -142,7 +144,7 @@ export function registerChannelEmailRoutes(): void {
       method: 'delete',
       path: '/{projectId}/channels/email/inboxes/{connectionId}',
       tags: ['channels'],
-      summary: 'Remove an email inbox; deletes it on Resend when Kortix created it',
+      summary: 'Remove an email inbox; deletes it on Resend when Dosco created it',
       ...auth,
       request: { params: z.object({ projectId: z.string(), connectionId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(403, 404, 502, 504) },
@@ -198,7 +200,7 @@ export function registerChannelEmailRoutes(): void {
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       // `enabled` stays on the wire for older clients: the channel graduated
       // from the `agentmail_email` flag (2026-10-24) and is on for every project.
-      // A managed inbox needs the operator switch, Kortix's Resend team AND
+      // A managed inbox needs the operator switch, Dosco's Resend team AND
       // its receiving domain. Bring-your-own key works whenever the channel is on.
       const managed = managedDomain();
       return c.json({
@@ -471,7 +473,7 @@ async function manageableInbox(
   return { loaded, account };
 }
 
-/** Delete on Resend what Kortix made, then revoke the account. A Resend failure keeps it. */
+/** Delete on Resend what Dosco made, then revoke the account. A Resend failure keeps it. */
 async function removeEmailInbox(c: Context<AppEnv>, account: EmailInboxAccount): Promise<Response | null> {
   try {
     await deleteEmailInbox(account);
@@ -558,14 +560,14 @@ async function addEmailInbox(
   }
 
   const ownKey = body.api_key?.trim() || null;
-  // Managed inboxes cost Kortix; only the operator switch offers them.
+  // Managed inboxes cost Dosco; only the operator switch offers them.
   if (!ownKey && !managedDomain()) return { response: c.json(keyRequiredBody(), 400) };
   const apiKey = ownKey ?? resolveEmailApiKey(null);
   if (!apiKey) return { response: c.json(keyRequiredBody(), 400) };
 
   const agent = await checkAgent(loaded, body.agent_name ?? body.agentName);
   if ('response' in agent) return { response: c.json(agent.response.body, agent.response.status) };
-  const displayName = (body.display_name ?? body.displayName ?? loaded.row.name ?? 'Kortix Agent').trim();
+  const displayName = (body.display_name ?? body.displayName ?? loaded.row.name ?? 'Dosco Agent').trim();
   let senderPolicy: EmailSenderPolicy;
   try {
     senderPolicy = parseSenderPolicyBody(body.sender_policy);
@@ -603,7 +605,7 @@ async function addEmailInbox(
   } else {
     const requestedDomain =
       typeof body.domain === 'string' && body.domain.trim() ? body.domain.trim().toLowerCase() : null;
-    // The managed key is Kortix's Resend team: its inboxes live on the managed
+    // The managed key is Dosco's Resend team: its inboxes live on the managed
     // domain only, never on another domain that team happens to hold.
     if (!ownKey) {
       const managed = managedDomain()!;
@@ -718,7 +720,7 @@ function keyRequiredBody(lead = 'Connect your own Resend API key.') {
 
 /**
  * The managed team's inbox domain, or null when this server offers no managed
- * inbox: the operator switch `RESEND_MANAGED_EMAIL_ENABLED`, Kortix's
+ * inbox: the operator switch `RESEND_MANAGED_EMAIL_ENABLED`, Dosco's
  * `RESEND_API_KEY` and `RESEND_MANAGED_DOMAIN` are all needed.
  */
 function managedDomain(): string | null {
@@ -783,12 +785,7 @@ async function emailDomainsGate(
   if (!emailChannelOn(loaded.row.metadata)) {
     return { response: c.json(featureDisabledBody('email_channel'), 403) } as const;
   }
-  let body: Record<string, unknown>;
-  try {
-    body = ((await c.req.json()) ?? {}) as Record<string, unknown>;
-  } catch {
-    body = {};
-  }
+  const body = await readJsonObject(c);
   const apiKey = typeof body.api_key === 'string' && body.api_key.trim() ? body.api_key.trim() : null;
   if (options.ownKeyRequired && !apiKey) {
     return { response: c.json(keyRequiredBody('Custom domains need your own Resend API key.'), 400) } as const;

@@ -21,6 +21,8 @@ import type { UiTranslator } from '@/i18n/translator';
 export const hero = {
   title: 'The cloud platform where AI agents get work done.',
   sub: 'Spin up agents that code, operate and ship — supervised from one place.',
+  ctaPrimary: 'Get started',
+  ctaSecondary: 'Request demo',
   trust: 'Any model, your keys · Managed cloud · Built by AltMatter',
 } as const;
 
@@ -46,6 +48,7 @@ export const cta = {
   // `features/billing/pricing-plans.ts` (credits, any monthly amount from $20)
   // — an earlier price here was wrong by 2x.
   sub: 'Start with one job and grow from there.',
+  subtitle: 'Start today, in our cloud or yours.',
   trust: 'SSO, RBAC & audit · Any model, your keys · No lock-in',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',

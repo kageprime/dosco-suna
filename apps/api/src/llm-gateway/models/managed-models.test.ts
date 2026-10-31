@@ -134,7 +134,7 @@ describe('the managed lineup with OpenRouter as provider', () => {
   test('loads DEFAULT_OPENROUTER_MANAGED_MODELS when OPENROUTER_API_KEY is set and PLATINUM is unset', async () => {
     const origPlatinum = config.PLATINUM_INFERENCE_API_KEY;
     const origOpenRouter = config.OPENROUTER_API_KEY;
-    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.PLATINUM_INFERENCE_API_KEY = '';
     config.OPENROUTER_API_KEY = 'sk-or-test';
     try {
       expect(await loadManagedLineup()).toBe(true);

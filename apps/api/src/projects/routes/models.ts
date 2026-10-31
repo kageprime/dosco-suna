@@ -31,9 +31,12 @@ import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { projectsApp } from '../lib/app';
 import { requestPersonalOwner } from '../lib/personal-resources';
 import { agentNotDeclaredError } from '../agents';
+import { projectBuiltinAgents } from '../lib/builtin-agents';
+import { builtinAgentWriteRefusal, enabledBuiltinAgentKey } from '../lib/my-kortix-agent';
 import { readAgentBlockV2 } from '../lib/agent-config-v2';
 import { loadManifestForEdit } from '../lib/triggers';
 import type { ProjectRow } from '../lib/serializers';
+import { rethrowDatabaseError } from '../../shared/database-errors';
 
 // Explicit inference controls are separate from legacy picker visibility.
 const modelAccessChangeBody = z.object({
@@ -468,6 +471,7 @@ export function registerModelsRoutes(): void {
         try {
           manifest = await loadManifestForEdit(writer.row);
         } catch (e) {
+          rethrowDatabaseError(e);
           return c.json(
             { error: (e as Error).message || 'failed to read manifest', code: 'manifest_read' },
             400,
@@ -477,6 +481,8 @@ export function registerModelsRoutes(): void {
         if (!read.ok) {
           return c.json({ error: read.error, code: 'manifest_malformed' }, 400);
         }
+        const builtinKey = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw, writer.row.metadata));
+        if (builtinKey) return c.json(builtinAgentWriteRefusal(builtinKey), 409);
         const notDeclared = agentNotDeclaredError(manifest, agentName!);
         if (notDeclared) return c.json(notDeclared, 409);
       }

@@ -11,6 +11,7 @@ import type {
   SessionListState,
   SessionManagedCatalogState,
   SessionModelUsage,
+  SessionUsage,
   SessionParticipants,
   SessionPrompt,
   SessionPublicShare,
@@ -47,6 +48,7 @@ import {
   getSessionTranscriptSync,
   getSessionTurn,
   getSessionModelUsage,
+  getSessionUsage,
   getSessionWatch,
   holdSessionPrompts,
   listProjectSessions,
@@ -499,6 +501,42 @@ test('createProjectSession forwards initial_context beside initial_prompt', asyn
     initial_prompt: 'Reply with the single word pong',
     initial_context: '--- session contract ---',
   });
+});
+
+test('createProjectSession files the session into a space and reads space_id and first_prompt back', async () => {
+  nextResponse = {
+    status: 201,
+    body: { session_id: 'NEW-SP', space_id: 'SPACE-1', first_prompt: 'Draft the launch post' },
+  };
+  const session = await createProjectSession('P1', { space_id: 'SPACE-1', initial_prompt: 'Draft the launch post' });
+  expect(last().body).toEqual({ space_id: 'SPACE-1', initial_prompt: 'Draft the launch post' });
+  expect(session.space_id).toBe('SPACE-1');
+  expect(session.first_prompt).toBe('Draft the launch post');
+});
+
+test('listProjectSessions sends spaceId as the space_id query parameter', async () => {
+  nextResponse = { status: 200, body: [] };
+  await listProjectSessions('P1', { spaceId: 'SPACE-1', parent: 'root' });
+  const url = new URL(last().url);
+  expect(url.searchParams.get('space_id')).toBe('SPACE-1');
+  expect(url.searchParams.get('parent')).toBe('root');
+});
+
+test('listProjectSessions sends createdBy, agent and updatedAfter as created_by, agent and updated_after', async () => {
+  nextResponse = { status: 200, body: [] };
+  await listProjectSessions('P1', {
+    spaceId: 'SPACE-1',
+    createdBy: 'USER-1',
+    agent: 'researcher',
+    updatedAfter: '2026-10-18T00:00:00.000Z',
+  });
+  const url = new URL(last().url);
+  expect(url.searchParams.get('created_by')).toBe('USER-1');
+  expect(url.searchParams.get('agent')).toBe('researcher');
+  expect(url.searchParams.get('updated_after')).toBe('2026-10-18T00:00:00.000Z');
+  await listProjectSessions('P1', { spaceId: 'SPACE-1' });
+  const plain = new URL(last().url);
+  expect(['created_by', 'agent', 'updated_after'].map((k) => plain.searchParams.has(k))).toEqual([false, false, false]);
 });
 
 test('createProjectSession defaults the body to {} when no input is given', async () => {
@@ -1976,6 +2014,27 @@ test('getSessionModelUsage reads the model that answered, the billed cost and ea
   nextResponse = { status: 200, body };
   expect(await getSessionModelUsage('P1', 'S1')).toEqual(body);
   expect(new URL(last().url).pathname).toBe('/projects/P1/sessions/S1/model-usage');
+  expect(last().method).toBe('GET');
+});
+
+test('getSessionUsage reads the USD cost of a session and of every session it started', async () => {
+  const totals = {
+    cost: 0.5, kortix_cost: 0.2, provider_cost: 0.3, request_count: 3, error_count: 1,
+    input_tokens: 100, output_tokens: 10, cached_tokens: 50, cache_write_tokens: 0,
+  };
+  const body: SessionUsage = {
+    session_id: 'S1',
+    currency: 'USD',
+    total: totals,
+    sessions: [
+      { ...totals, session_id: 'S1', parent_session_id: null, depth: 0, title: 'Coordinator', agent_name: null, status: 'running', created_at: '2026-10-30T20:00:00.000Z' },
+    ],
+    hidden_sessions: 0,
+    truncated: false,
+  };
+  nextResponse = { status: 200, body };
+  expect(await getSessionUsage('P1', 'S1')).toEqual(body);
+  expect(new URL(last().url).pathname).toBe('/projects/P1/sessions/S1/usage');
   expect(last().method).toBe('GET');
 });
 

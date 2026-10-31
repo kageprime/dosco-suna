@@ -1,5 +1,5 @@
 
-import { projectSessions, projects } from '@kortix/db';
+import { projectSessions, projectSpaces, projects } from '@kortix/db';
 import { COMPILED_AGENT_CONFIG_ENV, fitsInEnvString } from '@kortix/api-contract/compiled-agent-config-env';
 import { and, eq } from 'drizzle-orm';
 
@@ -30,6 +30,7 @@ import { sandboxFrontendBaseUrl } from '../../platform/sandbox-frontend-url';
 import { db } from '../../shared/db';
 import { configReleaseEnvForSession } from '../../config-releases/publish';
 import { logger } from '../../lib/logger';
+import { ProvisionTimeline } from '../../platform/services/provision-timeline';
 
 
 
@@ -52,7 +53,7 @@ export { proxyGitUrl };
 
 
 
-import { sessionChannelEnvFromMetadata } from './session-channel-env';
+import { sessionChannelEnvFromMetadata, sessionSpaceEnv } from './session-channel-env';
 
 
 
@@ -65,20 +66,36 @@ import { buildFeatureFlagSandboxEnv } from './feature-flag-env';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { recordedWorkspaceVolume } from '../../platform/services/workspace-volume';
 import { buildSessionRuntimeEnv } from './session-runtime-env';
-import { buildPlatformMetaOpenCodeConfig } from './platform-meta-agent';
+import { buildMyKortixConfig } from './my-kortix-agent';
 
 import { resolveSessionPersonalOwner } from './personal-resources';
 
 
-/** Re-derive persisted channel env so every cold reprovision restores it. */
+/**
+ * Re-derive persisted channel env so every cold reprovision restores it, and
+ * the channel or DM the session is a thread of (`project_channels` on).
+ */
 async function buildSessionChannelEnv(sessionId: string): Promise<Record<string, string>> {
   try {
     const [row] = await db
-      .select({ metadata: projectSessions.metadata })
+      .select({
+        metadata: projectSessions.metadata,
+        projectMetadata: projects.metadata,
+        spaceId: projectSpaces.spaceId,
+        kind: projectSpaces.kind,
+        slug: projectSpaces.slug,
+        dmAgentName: projectSpaces.dmAgentName,
+      })
       .from(projectSessions)
+      .leftJoin(projects, eq(projects.projectId, projectSessions.projectId))
+      .leftJoin(projectSpaces, eq(projectSpaces.spaceId, projectSessions.spaceId))
       .where(eq(projectSessions.sessionId, sessionId))
       .limit(1);
-    return sessionChannelEnvFromMetadata(row?.metadata);
+    const space =
+      row?.spaceId && row.kind && resolveFeatureFlag(row.projectMetadata, 'project_channels')
+        ? { spaceId: row.spaceId, kind: row.kind, slug: row.slug, dmAgentName: row.dmAgentName }
+        : null;
+    return { ...sessionChannelEnvFromMetadata(row?.metadata), ...sessionSpaceEnv(space) };
   } catch (err) {
     console.warn('[session-env] failed to restore channel binding', {
       sessionId,
@@ -141,15 +158,13 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
 }> {
   let agentGrantEnv: string[] | 'all' | undefined;
 
-  // v2-only: compile the manifest's `agents:` map into an OpenCode-native
-  // config the sandbox receives sealed (see compile-agent-config.ts). `null`
-  // for a v1 project (no `kortix_version: 2`) or any read/parse failure — no
-  // KORTIX_COMPILED_AGENT_CONFIG key is emitted below in that case, so a v1
-  // project's sandbox env is byte-for-byte unaffected by this. Gated on the
+  // Compile kortix.yaml into the agent config the sandbox receives sealed (see
+  // compile-agent-config.ts). `null` for a project with no manifest file — no
+  // KORTIX_COMPILED_AGENT_CONFIG key is emitted below in that case. Gated on the
   // same `defaultBranch` presence as the `agents:` grant resolution below
   // (both need git context; optional call sites that omit it get neither).
   let compiledAgentConfig: string | null = input.platformMetaAgent
-    ? buildPlatformMetaOpenCodeConfig()
+    ? buildMyKortixConfig()
     : null;
   // The agent's pi packages and codemode, read off the SAME fetch that
   // compiles the agent config, so they cost no extra git round trip.
@@ -167,19 +182,16 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
       manifestPackages = manifestPiPackages(raw, input.agentName);
       manifestCodemode = manifestPiCodemode(raw, input.agentName);
     };
+    // `'tip-proof'`: the base ref was at the remote's tip within the refresh
+    // interval, proven by this process or adopted from another
+    // (projects/git/mirror.ts). The plain TTL read fetched all of a large
+    // repo's branches whenever this process had not fetched for 60 s: p50
+    // 742 ms, p90 4.7 s on prod for this step (2026-10-30).
+    const read = { onManifest, forceRefresh: 'tip-proof' as const };
     compiledAgentConfig =
       !(input.repositoryAccess ?? true)
-        ? await resolveSelectedAgentConfigForSession(
-            gitProject,
-            input.agentName,
-            input.baseRef,
-            { onManifest },
-          )
-          : await resolveCompiledAgentConfigForSession(
-              gitProject,
-              input.baseRef,
-              { onManifest },
-            );
+        ? await resolveSelectedAgentConfigForSession(gitProject, input.agentName, input.baseRef, read)
+        : await resolveCompiledAgentConfigForSession(gitProject, input.baseRef, read);
 
     // Per-agent secret scoping: an agent declared in `agents:` with a `secrets`
     // allowlist receives ONLY those IDENTIFIERS — so a narrowly-scoped agent
@@ -200,6 +212,7 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
       defaultBranch: input.defaultBranch,
       manifestPath: input.manifestPath,
       sessionAgent: input.agentName,
+      forceRefresh: 'tip-proof',
     });
   }
   return { agentGrantEnv, compiledAgentConfig, manifestPackages, manifestCodemode };
@@ -310,14 +323,19 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
   // value to the sandbox. Every OTHER secret is project-wide (secret
   // sharing was retired — authorization is centralized on the running agent's
   // `secrets` grant, applied below by identifier).
+  // One `[provision-timeline] session-env` line per build: create, restart and open all wait on it.
+  const tl = new ProvisionTimeline(input.sessionId, 'session-env');
   const { agentGrantEnv, compiledAgentConfig, manifestPackages, manifestCodemode } =
     await resolveSessionAgentConfig(input);
+  tl.mark('agent-config');
   const sessionLogRestore = await resolveSessionLogRestore(input);
+  tl.mark('log-restore');
   // The prebuilt bundle of the project's pi packages (one S3 HEAD + presign; none without npm packages).
   const piPackagesBundle =
     manifestPackages.length > 0
       ? await piPackageBundleForSession(manifestPackages, { projectId: input.projectId, sessionId: input.sessionId })
       : null;
+  tl.mark('pi-packages');
 
   // Per-session secret policy, read by sessionId inside the builder so all three
   // call sites (create, restart, open/ensure) are covered — no caller can
@@ -360,6 +378,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     accountId: input.accountId,
     legacyUserId: sessionPolicyRow?.createdBy ?? input.userId,
   });
+  tl.mark('policy-owner');
 
   // A session's stored model pin outlives any single boot — the runtime
   // managed lineup can rotate past it while the session sits open. Re-point
@@ -380,12 +399,14 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     });
   }
 
+  tl.mark('model-repoint');
   const runtimeSecrets = await loadSessionRuntimeSecrets(
     input,
     secretsPrincipalUserId,
     grantEnvForSession,
     agentGrantEnv,
   );
+  tl.mark('secrets');
   // Restore the session's channel binding on EVERY (re)provision. A session
   // created from a chat channel (e.g. Slack) persists its binding in
   // metadata.slack; the in-box relay gates turn-end/answer on SLACK_THREAD_TS /
@@ -411,6 +432,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
           return null;
         })
       : null;
+  tl.mark('config-release');
   if (compiledAgentConfig && !fitsInEnvString(COMPILED_AGENT_CONFIG_ENV, compiledAgentConfig)) {
     // Sizes only. An image whose kortixd predates the gzip form boots without
     // this config, so the line is how to find sessions that need a newer image.
@@ -423,6 +445,8 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
   const channelEnv = await buildSessionChannelEnv(input.sessionId);
   const sessionContextEnv = await buildSessionRuntimeContextEnv(input.sessionId);
   const featureFlagEnv = await buildFeatureFlagSandboxEnv(input.projectId);
+  tl.mark('channel-context-flags');
+  tl.log();
   return {
     ...runtimeSecrets.env,
     ...channelEnv,

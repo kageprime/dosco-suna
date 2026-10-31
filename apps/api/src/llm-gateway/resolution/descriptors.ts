@@ -150,7 +150,7 @@ export function livePricing(
 }
 
 /**
- * A managed model's one upstream: Kortix Platinum inference. Platinum owns the
+ * A managed model's one upstream: Dosco Platinum inference. Platinum owns the
  * model's upstream chain, failover and privacy terms, and reports its price as
  * `usage.cost`, which the gateway bills; `pricing` applies only without it.
  */

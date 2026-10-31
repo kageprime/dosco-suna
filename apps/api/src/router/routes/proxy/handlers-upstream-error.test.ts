@@ -146,7 +146,7 @@ describe('proxy upstream error diagnostics (KRTX-2073)', () => {
   });
 
   test("an upstream 4xx about the caller's request stays silent and still passes through", async () => {
-    // A refusal of Kortix's own key (401/402/429/432/433) is not passed through:
+    // A refusal of Dosco's own key (401/402/429/432/433) is not passed through:
     // see handlers-platform-refusal.test.ts.
     globalThis.fetch = (async () =>
       upstreamError(400, '{"error":"Invalid url"}')) as unknown as typeof fetch;

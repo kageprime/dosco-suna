@@ -1,5 +1,5 @@
 /**
- * One-off App runs (`runAfter` / `runAt`): an App asks Kortix to call it later.
+ * One-off App runs (`runAfter` / `runAt`): an App asks Dosco to call it later.
  *
  * A run is a `project_trigger_runtime` row like a session reminder: never in
  * kortix.yaml, slug `apprun.<hex>` (a manifest slug has no `.`, so the catalog

@@ -361,11 +361,11 @@ export async function assertLlmBillingActive(
 ): Promise<{ holdUsd?: number } | void> {
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(accountId))) {
     // The second managed-models gate, independent of model resolution: a
-    // Kortix-billed request (only managed models bill credits) from an
+    // Dosco-billed request (only managed models bill credits) from an
     // account without the entitlement is refused here even if resolution let
     // it through.
     if (opts?.creditsRequest) {
-      throw new BillingGateError('plan_upgrade_required', 0, 'Kortix-managed models require a paid plan.', accountId);
+      throw new BillingGateError('plan_upgrade_required', 0, 'Dosco-managed models require a paid plan.', accountId);
     }
     return;
   }
@@ -450,6 +450,14 @@ async function byokFeeFor(event: UsageEvent): Promise<number> {
   }
 }
 
+/** The public route of each image operation; any other event is a chat completion. */
+const IMAGE_ROUTES = new Map<unknown, string>([
+  ['images.generations', '/v1/llm/images/generations'],
+  ['images.edits', '/v1/llm/images/edits'],
+]);
+
+const routeOf = (event: UsageEvent) => IMAGE_ROUTES.get(event.operation) ?? '/v1/llm/chat/completions';
+
 export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   // The request is over: its cost is in the logged spend (or it cost nothing),
   // so its in-flight budget reservation must stop counting.
@@ -469,7 +477,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
         sessionId: event.sessionId ?? null,
         provider: event.provider,
         model: event.model,
-        route: '/v1/llm/chat/completions',
+        route: routeOf(event),
         inputTokens: event.promptTokens,
         outputTokens: event.completionTokens,
         cachedTokens: event.cachedTokens,
@@ -498,7 +506,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
 
   if (!config.KORTIX_BILLING_INTERNAL_ENABLED) return;
 
-  // What this request owes Kortix: the BYOK fee on the customer's own key,
+  // What this request owes Dosco: the BYOK fee on the customer's own key,
   // the real cost otherwise. A hold taken at admission can end on an own key
   // (a held route-memory fallback, a dispatch fallback), so the hold
   // reconciles against what is owed, never against finalCost alone.
@@ -556,7 +564,7 @@ async function settleLlmUsage(
           ...(event.upstreamCost != null ? { upstreamCostUsd: event.upstreamCost } : {}),
           ...(markup != null ? { markup } : {}),
           ...(event.actorUserId ? { actorUserId: event.actorUserId } : {}),
-          route: '/v1/llm/chat/completions',
+          route: routeOf(event),
         }
       : undefined,
   });
@@ -687,5 +695,17 @@ export async function persistGatewayTrace(trace: GatewayTrace): Promise<void> {
   if (fallback) void switchSessionToFallback(fallback);
   // Non-blocking: never let telemetry delay the caller or affect the trace write.
   emitGatewayGenAiSpan(trace);
+  const timing = trace.metadata?.timing as Record<string, unknown> | undefined;
+  if (trace.ok && typeof timing?.upstream_response_ms === 'number') {
+    // Charted in Better Stack: the gateway and model share of time to first token.
+    logger.info(`[gateway-timing] ${trace.provider}/${trace.resolvedModel || trace.requestedModel}`, {
+      provider: trace.provider,
+      model: trace.resolvedModel || trace.requestedModel,
+      streaming: trace.streaming,
+      prep_ms: timing.prep_ms,
+      upstream_response_ms: timing.upstream_response_ms,
+      latency_ms: trace.latencyMs,
+    });
+  }
   await settleWarnBudgets(trace);
 }

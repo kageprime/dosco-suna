@@ -26,6 +26,8 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'textb57f2c70525f',
   'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco AI Operating System.':
     'text3661bf7ae497',
+  'Field notes on building, running, and governing AI agents that do real work — from the team building Dosco CompanyOS.':
+    'text3661bf7ae497',
   'Get the Dosco Android APK, or use Dosco in the browser.': 'textd587acccbf63',
   'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.':
     'textbe229f0684bc',
@@ -52,6 +54,8 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'text1327d65dc73c',
   'Open positions at Dosco — Marketing / Content, Sales, FDE / Services, Product / Eng, Product / R&D. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.':
     'text0f4827ef74ea',
+  'Open positions at Dosco — FDE, GTM and MTS. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.':
+    'text0f4827ef74ea',
   'Reach Dosco support by email or Discord, read the answers to the questions people ask most, and find the account deletion steps.':
     'text5b4afe177d99',
   'Request a tailored Dosco walkthrough for cloud, VPC, or on-prem deployment.':
@@ -65,7 +69,7 @@ export const PUBLIC_METADATA_TRANSLATION_KEYS: Readonly<Record<string, string>> 
     'textad70f35eaccc',
   'Field notes on building, running, and governing AI agents that do real work — from the team building Dosco.':
     'text66b6392a2418',
-  'What shipped in Kortix each week, straight from our production releases.':
+  'What shipped in Dosco each week, straight from our production releases.':
     'text19e6841a618f',
   "Contact sales and book a demo": 'text228359b08506',
   "About": 'text4efca0d10c5f',

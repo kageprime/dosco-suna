@@ -47,7 +47,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getProjectDetail } from '@kortix/sdk';
 import { contract, qk, useFeatureFlag } from '@kortix/sdk/react';
-import { capitalizeWords, isMetaAgentName, META_AGENT_DISPLAY_NAME } from '@kortix/shared';
+import { capitalizeWords } from '@kortix/shared';
 import { Badge } from '@kortix/ui/badge';
 import { CountBadge } from '@kortix/ui/count-badge';
 import {
@@ -65,7 +65,7 @@ import {
 } from '@kortix/ui/input-group';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { cn } from '@kortix/ui';
-import { AgentMark } from '@kortix/ui/internal/components/agent-mark';
+import { AgentMark, agentDisplayName } from '@kortix/ui/internal/components/agent-mark';
 import { useAccountState } from '@kortix/ui/internal/billing/index';
 import type { SettingsNav } from '@kortix/ui/internal/layout/settings-nav-context';
 import { PROJECT_ACTIONS, useProjectCan } from '@kortix/ui/workspace';
@@ -845,9 +845,7 @@ export function UnifiedSettingsPage({
                           <AgentMark slug={selectedAgent} />
                           <span className="min-w-0 flex-1">
                             <span className="text-foreground block truncate text-xs font-semibold">
-                              {isMetaAgentName(selectedAgent)
-                                ? META_AGENT_DISPLAY_NAME
-                                : capitalizeWords(selectedAgent)}
+                              {agentDisplayName(selectedAgent) || capitalizeWords(selectedAgent)}
                             </span>
                             <span className="text-muted-foreground block truncate font-mono text-xs">
                               {selectedAgent}
@@ -869,9 +867,7 @@ export function UnifiedSettingsPage({
                             <span className="flex min-w-0 items-center gap-2">
                               <AgentMark slug={ag.name} />
                               <span className="truncate text-xs font-medium">
-                                {isMetaAgentName(ag.name)
-                                  ? META_AGENT_DISPLAY_NAME
-                                  : capitalizeWords(ag.name)}
+                                {agentDisplayName(ag.name) || capitalizeWords(ag.name)}
                               </span>
                             </span>
                             {isSelected ? <CheckIcon className="size-3.5 shrink-0" /> : null}

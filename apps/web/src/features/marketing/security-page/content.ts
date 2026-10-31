@@ -381,6 +381,7 @@ export const audit = {
 export const posture = {
   eyebrow: 'Deployment & posture',
   title: 'Run it under controls you can audit.',
+  titleMuted: 'Cloud, your VPC or on-prem.',
   sub: 'The same product ships as managed cloud, with an isolated machine for every session. And because every run is audited, you do not have to take our word for it.',
   deployments: [
     {

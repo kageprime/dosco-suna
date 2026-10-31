@@ -174,7 +174,7 @@ describe('managed models: one Platinum inference candidate', () => {
   const [deepseek, glm] = TEST_MANAGED_LINEUP;
 
 
-  test('every managed model resolves to Platinum, billed in Kortix credits at its catalog price', () => {
+  test('every managed model resolves to Platinum, billed in Dosco credits at its catalog price', () => {
     for (const model of [deepseek!, glm!]) {
       expect(managedCandidates(model)).toEqual([{
         provider: 'platinum',

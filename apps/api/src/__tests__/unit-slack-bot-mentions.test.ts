@@ -23,7 +23,7 @@ import { join } from 'node:path';
 // site so the fix cannot be silently unwired.
 //
 // Loop safety. Only OUR messages can loop. A plain post comes back with our bot
-// user id as event.user. A post under a Kortix agent's name (slack/persona.ts)
+// user id as event.user. A post under a Dosco agent's name (slack/persona.ts)
 // comes back with no user, so isOwnBotEvent also matches our stored bot id, and
 // persona.ts names a post only once that id is known. The last tests pin both.
 

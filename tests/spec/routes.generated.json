@@ -1,6 +1,6 @@
 {
   "generatedAt": "static",
-  "count": 931,
+  "count": 1007,
   "routes": [
     {
       "method": "GET",
@@ -1232,6 +1232,30 @@
     },
     {
       "method": "POST",
+      "path": "/v1/chrome/attach"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/chrome/connections"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/chrome/connections/:id"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/chrome/connections/:id"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chrome/panel-session"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chrome/release"
+    },
+    {
+      "method": "POST",
       "path": "/v1/cli/device/decide"
     },
     {
@@ -1245,14 +1269,6 @@
     {
       "method": "GET",
       "path": "/v1/clients/mobile"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/connectors/app-form/:token"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/connectors/app-form/:token"
     },
     {
       "method": "POST",
@@ -1468,6 +1484,10 @@
     },
     {
       "method": "GET",
+      "path": "/v1/drives/:driveId/agents/:agentName/mounts"
+    },
+    {
+      "method": "GET",
       "path": "/v1/drives/:driveId/conflicts"
     },
     {
@@ -1497,6 +1517,22 @@
     {
       "method": "POST",
       "path": "/v1/drives/:driveId/files/move"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/drives/:driveId/files/upload"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/drives/:driveId/files/upload/:uploadId/blocks/:sha"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/drives/:driveId/files/upload/:uploadId/commit"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/drives/:driveId/mounts"
     },
     {
       "method": "GET",
@@ -1888,6 +1924,10 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/agents/:agentName/capabilities"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/agents/:agentName/config"
     },
     {
@@ -2068,6 +2108,10 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/artifact-comment-threads/:threadId"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/artifacts"
     },
     {
@@ -2089,6 +2133,46 @@
     {
       "method": "PUT",
       "path": "/v1/projects/:projectId/artifacts/:artifactId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/activity"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/:commentId/screenshot"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/:threadId"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/:threadId/:commentId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/:threadId/:commentId"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/:threadId/replies"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/context"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/artifacts/:artifactId/comments/send"
     },
     {
       "method": "GET",
@@ -2141,6 +2225,10 @@
     {
       "method": "GET",
       "path": "/v1/projects/:projectId/branches"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/capabilities"
     },
     {
       "method": "GET",
@@ -2323,8 +2411,20 @@
       "path": "/v1/projects/:projectId/channels/telegram"
     },
     {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/channels/telegram/access-requests/:user_id"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/channels/telegram/allowed-users"
+    },
+    {
       "method": "PUT",
       "path": "/v1/projects/:projectId/channels/telegram/allowed-users"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/channels/telegram/allowed-users/:user_id"
     },
     {
       "method": "POST",
@@ -2333,6 +2433,14 @@
     {
       "method": "GET",
       "path": "/v1/projects/:projectId/channels/telegram/installation"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/channels/telegram/users"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/channels/telegram/users/:user_id/photo"
     },
     {
       "method": "GET",
@@ -2652,6 +2760,10 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/link-preview"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/llm-catalog"
     },
     {
@@ -2665,6 +2777,42 @@
     {
       "method": "POST",
       "path": "/v1/projects/:projectId/marketplace/install-session"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/memory/layers/:layerKey"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/memory/layers/:layerKey/notes"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/memory/layers/:layerKey/pages"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/memory/layers/:layerKey/pages"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/memory/pages/:pageId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/memory/pages/:pageId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/memory/pages/:pageId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/memory/pages/:pageId/history"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/memory/search"
     },
     {
       "method": "GET",
@@ -2713,6 +2861,14 @@
     {
       "method": "PATCH",
       "path": "/v1/projects/:projectId/onboarding"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/onboarding/channels"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/onboarding/channels/marks"
     },
     {
       "method": "GET",
@@ -2888,6 +3044,26 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/session-groups"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/session-groups"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/session-groups/:groupId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/session-groups/:groupId"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/projects/:projectId/session-groups/order"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/sessions"
     },
     {
@@ -2991,8 +3167,16 @@
       "path": "/v1/projects/:projectId/sessions/:sessionId/events"
     },
     {
+      "method": "PUT",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/group"
+    },
+    {
       "method": "POST",
       "path": "/v1/projects/:projectId/sessions/:sessionId/idle-notice"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/inbound"
     },
     {
       "method": "GET",
@@ -3024,6 +3208,10 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/memory-usage"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/sessions/:sessionId/message-authors"
     },
     {
@@ -3041,6 +3229,22 @@
     {
       "method": "GET",
       "path": "/v1/projects/:projectId/sessions/:sessionId/participants"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/peer-messages"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/peer-messages"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/peer-messages/:messageId/approve"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/peer-messages/:messageId/deny"
     },
     {
       "method": "PUT",
@@ -3109,6 +3313,10 @@
     {
       "method": "POST",
       "path": "/v1/projects/:projectId/sessions/:sessionId/question"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/reachable"
     },
     {
       "method": "POST",
@@ -3192,6 +3400,26 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/tasks"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/tasks"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/tasks/:seq"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/tasks/:seq"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/tasks/:seq"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/sessions/:sessionId/transcript"
     },
     {
@@ -3209,6 +3437,10 @@
     {
       "method": "PUT",
       "path": "/v1/projects/:projectId/sessions/:sessionId/turns/:turnId/share"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/sessions/:sessionId/usage"
     },
     {
       "method": "GET",
@@ -3245,6 +3477,62 @@
     {
       "method": "POST",
       "path": "/v1/projects/:projectId/snapshots/rebuild"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/spaces"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/spaces"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/spaces/:spaceId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/apps"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/join"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/links"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/links"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/links/:linkId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/links/:linkId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/members"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/members"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/spaces/:spaceId/members/:userId"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/spaces/dm"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:projectId/spaces/private"
     },
     {
       "method": "POST",
@@ -3288,11 +3576,31 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:projectId/triggers/all"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:projectId/triggers/event-apps"
     },
     {
       "method": "GET",
       "path": "/v1/projects/:projectId/triggers/event-types"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/triggers/runtime"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:projectId/triggers/runtime/:id"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:projectId/triggers/runtime/:id"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:projectId/triggers/runtime/:id/run"
     },
     {
       "method": "POST",
@@ -3673,10 +3981,6 @@
     {
       "method": "POST",
       "path": "/v1/webhooks/sandbox/daytona"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/webhooks/sandbox/platinum"
     },
     {
       "method": "POST",

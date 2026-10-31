@@ -15,8 +15,11 @@ import { unwrap } from './shared';
  * `'monitor'` is deprecated: the monitor box was removed, and the API answers
  * 400 to a new monitor trigger. An App with a schedule or a `type: app`
  * trigger replaces it. The member stays until the next major.
+ *
+ * `'change_request'` fires when a change request of the project merges; its
+ * `filter.base` names the branch (any branch when absent).
  */
-export type ProjectTriggerType = 'cron' | 'webhook' | 'monitor' | 'event' | 'app';
+export type ProjectTriggerType = 'cron' | 'webhook' | 'monitor' | 'event' | 'app' | 'change_request';
 
 /**
  * @deprecated The monitor box was removed; the API sends `null`. Removed in the next major.
@@ -185,6 +188,12 @@ export interface ProjectTrigger {
   filter: Record<string, TriggerFilterValue> | null;
   /** Access policy applied to every session this trigger creates. */
   session_access: TriggerSessionAccess;
+  /**
+   * The channel or DM (`ProjectSpace.space_id`) its runs post to as threads;
+   * null = none, the run lands in `#general`. Present only while the project's
+   * `project_channels` flag is on; older servers omit it.
+   */
+  space_id?: string | null;
   last_fired_at: string | null;
   /**
    * The trigger's most recent outcome: `queued` (a prompt waits for its
@@ -227,7 +236,7 @@ export interface ProjectTriggerListing {
    */
   triggers_paused?: boolean;
   /**
-   * The account's Pause all automations (`PATCH /accounts/:id/automations`):
+   * The account's Pause all triggers (`PATCH /accounts/:id/automations`):
    * true stops every automatic fire in every project of the account, this one
    * included. Manual `fire` still works. Older servers omit it.
    */
@@ -304,8 +313,18 @@ export interface CreateProjectTriggerInput {
   session_key?: string | null;
   /** Payload paths mapped to the condition each must meet for the trigger to fire. See {@link ProjectTrigger.filter}. */
   filter?: Record<string, TriggerFilterValue> | null;
-  /** Defaults to private. This is account-local runtime state, not manifest config. */
+  /** Defaults to private, or project when `space_id` is a channel. This is account-local runtime state, not manifest config. */
   session_access?: TriggerSessionAccess;
+  /**
+   * The channel or DM its runs post to as threads (`project_channels` flag;
+   * ignored while it is off). A DM must be the caller's own (else 403
+   * `space_forbidden`) and the trigger must run the DM's agent (else 400
+   * `agent_mismatch`). A DM run is shared with the DM's member whatever
+   * `session_access` says; like every trigger run, trigger managers and account
+   * owners and admins can also open it. An unknown or archived space rejects
+   * with 404 `space_not_found`. A change applies to later runs only.
+   */
+  space_id?: string | null;
 }
 
 export interface UpdateProjectTriggerInput {
@@ -356,8 +375,10 @@ export interface UpdateProjectTriggerInput {
   session_key?: string | null;
   /** Replaces the whole filter. null or {} clears it. */
   filter?: Record<string, TriggerFilterValue> | null;
-  /** Replaces the policy and updates prior sessions created by this trigger. */
+  /** Replaces the policy and updates prior sessions created by this trigger, except those in a DM. */
   session_access?: TriggerSessionAccess;
+  /** See {@link CreateProjectTriggerInput.space_id}. null clears it; a move into a channel without `session_access` makes its later threads project-visible. Another member's DM trigger accepts only `space_id` and `enabled` (else 403). */
+  space_id?: string | null;
 }
 
 export async function listProjectTriggers(projectId: string) {
@@ -402,8 +423,8 @@ export async function deleteProjectTrigger(projectId: string, slug: string) {
 }
 
 /**
- * The account's Pause all automations: `paused` stops every automatic fire in
- * every project of the account — schedules, reminders, webhooks, app events and
+ * The account's Pause all triggers: `paused` stops every automatic fire in
+ * every project of the account — schedules, loops (reminders), webhooks, app events and
  * monitors. A manual fire still runs.
  */
 export interface AccountAutomationsStatus {
@@ -419,7 +440,7 @@ export async function getAccountAutomations(accountId: string) {
   return unwrap(await backendApi.get<AccountAutomationsStatus>(`/accounts/${accountId}/automations`));
 }
 
-/** Pause or resume every automation of the account. Needs account.write (owners and admins by default). */
+/** Pause or resume every trigger of the account. Needs account.write (owners and admins by default). */
 export async function setAccountAutomationsPaused(accountId: string, paused: boolean) {
   return unwrap(
     await backendApi.patch<AccountAutomationsStatus>(`/accounts/${accountId}/automations`, { paused }, { showErrors: false }),
@@ -478,7 +499,7 @@ export interface ProjectTriggerDryRunResult {
 }
 
 /** What fired a run. */
-export type ProjectTriggerRunSource = 'cron' | 'webhook' | 'manual' | 'monitor' | 'reminder' | 'event' | 'app';
+export type ProjectTriggerRunSource = 'cron' | 'webhook' | 'manual' | 'monitor' | 'reminder' | 'event' | 'app' | 'change_request';
 
 /**
  * A run's fire outcome. `fired` = a session was started or prompted;

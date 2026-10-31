@@ -66,7 +66,7 @@ export function registerCustomProvidersRoutes(): void {
     const { providers, secretNames } = await listProjectCustomProviders(projectId);
     const configured = new Set(providers.map((provider) => customProviderSecretName(provider.id)));
     // A key saved by the old Custom form (an opencode.jsonc snippet) has no
-    // endpoint in Kortix yet: listed so the owner can add one.
+    // endpoint in Dosco yet: listed so the owner can add one.
     const legacy = secretNames.filter((name) => !configured.has(name)).flatMap((name) => {
       const id = customProviderIdFromSecret(name);
       return id ? [{ id, name: id, base_url: null, models: [], secret_name: name, has_key: true, configured: false }] : [];
@@ -102,7 +102,7 @@ export function registerCustomProvidersRoutes(): void {
     } catch (error) {
       if (!(error instanceof UnsafeEgressError)) throw error;
       return c.json({
-        error: 'The base URL must be a public address the Kortix gateway can reach.',
+        error: 'The base URL must be a public address the Dosco gateway can reach.',
         code: 'unsafe_base_url',
       }, 400);
     }

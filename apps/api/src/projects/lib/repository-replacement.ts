@@ -40,7 +40,7 @@ export async function replaceProjectRepository(input: {
         throw new Error('GitHub installation does not own this repository');
       }
       if (installation.permissions?.contents !== 'write') {
-        throw new Error(`The Kortix GitHub App on ${parsed.owner} lacks Contents: Read and write — an owner must accept that permission so sessions can push branches.`);
+        throw new Error(`The Dosco GitHub App on ${parsed.owner} lacks Contents: Read and write — an owner must accept that permission so sessions can push branches.`);
       }
       token = (await createInstallationToken(input.installationId, [parsed.repo])).token;
     } catch (error) {

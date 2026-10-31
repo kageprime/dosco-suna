@@ -1,5 +1,19 @@
 // Generated from the final user-visible i18n audit. Keys are SHA-256(message)[0:12].
 export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  "trigger": 'text683259feabbf',
+  "New trigger": 'texta38f4ea67a30',
+  "Search triggers": 'textcf789cba73dc',
+  "No triggers yet": 'text362ec1f12075',
+  "Start agents or wake sessions on a schedule or an event.": 'text8fbb8c347fc0',
+  "Create a trigger and your agent runs on its own, no prompt needed.": 'texte9acea9f91da',
+  "Have an agent run when a change request merges.": 'text0e8f0fa67e67',
+  "change request trigger": 'text20c14db54300',
+  "New change request trigger": 'textb0d2b95916ce',
+  "Search change request triggers": 'textd025f8dc1334',
+  "No change request triggers yet": 'text1bc4d0bc8d03',
+  "Create one to have an agent run when a change request merges.": 'text3c11a07619e0',
+  "Change request merged": 'text5ffd973e20ed',
+  "Branch": 'text52656e8104ee',
   "Connector events": 'text0ba357fa63f8',
   "Connector event": 'textca395c4d19b2',
   "connector event": 'text6064256ee716',
@@ -11,7 +25,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   "New App event": 'text064694999e1f',
   "Search App events": 'text1934aa0740bb',
   "No App events yet": 'text25db7e5609e5',
-  "An App starts agents by emitting events. Add a trigger with on: { event, app } in kortix.yaml.": 'text9f8f92588517',
+  "Create one to have an agent run when one of your Apps sends an event.": 'textd85b56df2c94',
   Drive: 'text6312b4b9baf1',
   Drives: 'text729fe0e7b138',
   '{label} has finished.': 'text27d628c8b427',
@@ -227,10 +241,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Everything an owner can do except deleting the account or transferring ownership. Also Manager on every project.':
     'textc8ef36aed650',
   Expired: 'text424a2551d356',
-  'Converts the v1 kortix.toml into the governance-first kortix.yaml, refreshes platform-managed skills to the latest marketplace baseline, and opens a change request for review.':
-    'textc3d1545dd522',
   Extensions: 'textfe3436af86b4',
-  'Migrate manifest to v2 (kortix.yaml)': 'textd85a383e851d',
   Failed: 'text031a8f0f659d',
   Favicon: 'text4295528943df',
   'Fetching deals updated ≤ 7d': 'text5bae674104b6',
@@ -308,6 +319,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Loading your workspace': 'text22cd35468c29',
   Logo: 'textd707dc2f1936',
   Logs: 'textea2100dc89ae',
+  Loops: 'textc08f99e3947d',
   Machine: 'text8f1cc42d7c1c',
   macOS: 'textaed6b7aa2a05',
   Manager: 'text8b2085f74dfa',
@@ -423,7 +435,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Requests are checked against the saved secret <name>.': 'textc6fbb4b00507',
   'research/': 'text2f80158a9d89',
   'Reserving your computer': 'texta7d795204fda',
-  Reminders: 'text7971dd752669',
   Review: 'textaff0766a5290',
   Revoked: 'textf6f738d04392',
   Routing: 'textbcba696f3eb1',
@@ -563,8 +574,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'your-company/': 'text7a9f6daee641',
   '. The session keeps its id; the sandbox is rebuilt.': 'text09a3bb2aced6',
   '· grant no longer matches an agent': 'textc795f93da2e5',
-  "(kortix_version 2) to edit this agent's instructions, model, tool permissions and access here.":
-    'text479d92cbfaa1',
   ') stops running and is removed.': 'text3109205d1fc7',
   '@ already has access to this repo': 'texta9ab51e18b56',
   '⌘S': 'text8cd003e6301b',
@@ -832,7 +841,6 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Try a different term.': 'textce18e358bf01',
   'Try adjusting the filters or clearing the search.': 'text0713dbee5126',
   'Unsaved changes.': 'textefa5855ff509',
-  Upgrades: 'texte02a5941602a',
   'Use the agent&apos;s usual model': 'text6960ac83d152',
   'Use your own Git client': 'textd29222de0472',
   'Uses the selected agent, project, or platform default.': 'text4eb861e5d86e',
@@ -871,7 +879,7 @@ export const REMAINING_UI_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Its own machine. Every session boots an isolated Linux cloud computer with your repo and your tools already on it, on its own git branch — the session id, the sandbox id and the branch name are one and the same string. The agent can install, run and break anything inside it; only what it commits survives, because the machine is destroyed with everything on it.':
     'text97bbd1c3b346',
   'What stops it doing something I did not want?': 'textc145665dd580',
-  'You set allow, ask or block per action, and a rule can match on a glob, a regular expression, or the arguments of the call itself. Be aware that nothing is switched on for you: a project with no policy declared runs every action, so this is a thing you configure rather than a thing you inherit. Session work reaches main through a change request, and merge is default-deny for an agent — an admin has to grant it in kortix.yaml, and that grant is itself an edit somebody else has to merge.':
+  'You set allow, ask or block per action, and a rule can match on a glob, a regular expression, or the arguments of the call itself. Be aware that nothing is switched on for you: a project with no policy declared runs every action, so this is a thing you configure rather than a thing you inherit. Session work reaches main through a change request, and merge is default-deny for an agent unless an admin grants it.':
     'texta9fe46474f33',
   'Can I see everything an agent did?': 'text3a8d0e57770e',
   'It is all recorded, on every plan. Recording is never gated — actions, approvals and the session transcript are captured whatever you pay. Reading, exporting and streaming that audit trail out to your own SIEM is an Enterprise entitlement, so on the lower plans the record exists but the export does not.':

@@ -87,7 +87,7 @@ describe('E2B template adapter', () => {
       snapshotName: 'kortix-meta-dev-abc',
       slug: 'meta',
       userDockerfile: '# platform meta runtime',
-      runtimeProfile: 'meta',
+      runtimeProfile: 'mykortix',
       spec: {},
     });
 

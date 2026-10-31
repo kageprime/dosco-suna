@@ -42,7 +42,7 @@ describe('approval card action ids', () => {
 });
 
 describe('buildApprovalCardBlocks', () => {
-  test('shows the content Kortix loaded from the provider, or warns when it could not', () => {
+  test('shows the content Dosco loaded from the provider, or warns when it could not', () => {
     const loaded = text(
       buildApprovalCardBlocks({ ...card, resolvedPreview: { to: 'buyer@example.test', body: 'Hello' } }),
     );

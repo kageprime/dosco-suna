@@ -1,7 +1,7 @@
 /**
  * A trigger whose target is an App (`target: { app, path }`): wake the App and
  * send the fire's payload straight to a serving machine, the path a public
- * request takes after the access gate. Only Kortix reaches a machine there, so
+ * request takes after the access gate. Only Dosco reaches a machine there, so
  * a private App receives the call too.
  */
 import { apps } from '@kortix/db';

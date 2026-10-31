@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 // THE managed-models invariant (resolve-billing.ts `paysForManagedModels`):
-// Kortix-managed models are sold, never given. Only a paid billing plan or a
+// Dosco-managed models are sold, never given. Only a paid billing plan or a
 // licensed Enterprise contract carries them. 2026-10-19: Free ran managed
 // models on its included credits through three exemptions at once.
 //

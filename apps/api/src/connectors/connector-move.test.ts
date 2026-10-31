@@ -22,7 +22,7 @@ describe('mcpAppForMovedApp', () => {
     expect(mcpAppForMovedApp('mcp', 'linear')).toBeNull();
   });
 
-  test('an app with no Kortix equivalent, or a non-string, maps to nothing', () => {
+  test('an app with no Dosco equivalent, or a non-string, maps to nothing', () => {
     expect(mcpAppForMovedApp('pipedream', 'jira_data_center')).toBeNull();
     expect(mcpAppForMovedApp('pipedream', 'slack_bot')).toBeNull();
     expect(mcpAppForMovedApp('pipedream', undefined)).toBeNull();
@@ -59,7 +59,7 @@ describe('kortixEventForComposioTrigger', () => {
     expect(kortixEventForComposioTrigger('GMAIL_NEW_GMAIL_MESSAGE', {})).toEqual({ type: 'gmail.message.received', config: { interval: 1 } });
   });
 
-  test('Gmail labels other than the inbox have no Kortix equivalent', () => {
+  test('Gmail labels other than the inbox have no Dosco equivalent', () => {
     expect(kortixEventForComposioTrigger('GMAIL_NEW_GMAIL_MESSAGE', { labelIds: ['Label_12'] })).toBeNull();
   });
 
@@ -92,14 +92,14 @@ describe('rewriteComposioTriggers', () => {
     expect(entries[2]!.event).toBe('GITHUB_PULL_REQUEST_EVENT');
   });
 
-  test('a trigger with no Kortix event, or one declared outside kortix.yaml, refuses the write', () => {
+  test('a trigger with no Dosco event, or one declared outside kortix.yaml, refuses the write', () => {
     const unmapped = [{ slug: 'sent', type: 'event', connector: 'gmail', event: 'GMAIL_EMAIL_SENT_TRIGGER' }];
     expect(rewriteComposioTriggers(manifest(unmapped), 'gmail', [])).toContain('sent: GMAIL_EMAIL_SENT_TRIGGER');
     const missing = [{ slug: 'gone', type: 'GMAIL_NEW_GMAIL_MESSAGE', config: {} }];
     expect(rewriteComposioTriggers(manifest([]), 'gmail', missing)).toContain('could not find in kortix.yaml (gone)');
   });
 
-  test('a trigger already on a Kortix event is accepted, so a stopped switch can finish', () => {
+  test('a trigger already on a Dosco event is accepted, so a stopped switch can finish', () => {
     const done = [{ slug: 'mail', type: ' event ', connector: 'gmail ', event: 'gmail.message.received', config: { interval: 5 } }];
     expect(rewriteComposioTriggers(manifest(done), 'gmail', [{ slug: 'mail', type: 'gmail.message.received', config: {} }])).toBeNull();
     expect(done[0]!.event).toBe('gmail.message.received');

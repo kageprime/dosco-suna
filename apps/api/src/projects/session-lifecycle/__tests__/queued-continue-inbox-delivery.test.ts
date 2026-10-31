@@ -72,6 +72,8 @@ let quickQueueControlRequests: Array<{ url: string; method: string; body: Record
 /** When set, the daemon never answers the interrupt arm — the wedged-box case. */
 let quickQueueArmFails = false;
 let capturedKeys: string[] = [];
+/** The source each prompt POST asked the proxy to record on its turn. */
+let capturedSources: Array<string | undefined> = [];
 const seenKeys = new Set<string>();
 let succeededCalls: Array<{ commandId: string; result: unknown }> = [];
 // A delivered row that carries a wire id no longer closes — it stays OPEN as
@@ -90,22 +92,8 @@ let openDelayBySession: Record<string, Promise<void> | undefined> = {};
 let events: string[] = [];
 let runtimeWrites: Array<{ targetPath: string; filename: string; mime: string }> = [];
 let runtimeWriteError: Error | null = null;
-let legacyPendingFirst: {
-  commandId: string;
-  deliveredMessageIds: string[];
-  parts: Array<Record<string, unknown>>;
-} | null = null;
-let legacyRuntimeMessages: Record<string, Record<string, unknown>> = {};
-let legacyMessageReads: Array<{ method: string; path: string; query: string }> = [];
-let legacyPartUpdates: Array<{
-  method: string;
-  path: string;
-  query: string;
-  body: Record<string, unknown>;
-}> = [];
-let legacyRepairMarks = 0;
-let legacyRepairMarkerFailuresRemaining = 0;
-let legacyPendingLoads = 0;
+/** Every landing-proof read of one message, by id. */
+let landingReads: string[] = [];
 let promptFailuresRemaining = 0;
 let promptDeduplicationsRemaining = 0;
 let promptResponsePlan: Array<'failed' | 'deduplicated' | 'permanent-refusal'> = [];
@@ -199,11 +187,15 @@ mock.module('../../../shared/db', () => ({
   },
 }));
 
+const realSessionTitleGenerate = await import('../../session-title-generate');
 mock.module('../../session-title-generate', () => ({
+  ...realSessionTitleGenerate,
   generateSessionTitleFromFirstPrompt: async () => {},
 }));
 
+const realSessionOpen = await import('../../session-open');
 mock.module('../../session-open', () => ({
+  ...realSessionOpen,
   openSession: async (input: { sessionId: string }) => {
     events.push(`open:${input.sessionId}`);
     const delay = openDelayBySession[input.sessionId];
@@ -226,35 +218,11 @@ mock.module('../../../sandbox-proxy/forward', () => ({
     query: string,
     _headers: Headers,
     body?: ArrayBuffer,
+    _origin?: string,
+    _redirectPrefix?: string,
+    _publicOrigin?: string,
+    opts?: { promptSource?: string },
   ) => {
-    const messageMatch = /\/message\/([^/]+)$/.exec(path);
-    if (method === 'GET' && messageMatch) {
-      legacyMessageReads.push({ method, path, query });
-      const requestedId = decodeURIComponent(messageMatch[1]!);
-      const message = legacyRuntimeMessages[requestedId];
-      if (message) return Response.json(message);
-      // The delivery's LANDING PROOF reads back the id it just posted
-      // (`prompt-landing-proof.ts`). A real runtime holds any message it
-      // accepted, so the harness answers for every id this session actually
-      // posted; only ids never posted 404, which is what lets a test assert a
-      // silently-dropped delivery.
-      const posted = capturedBodies.some((sent) => sent.messageID === requestedId);
-      const dropped =
-        runtimeDropsFirstDelivery && requestedId === (capturedBodies[0]?.messageID as string);
-      if (posted && !dropped) {
-        return Response.json({ info: { id: requestedId }, parts: [] });
-      }
-      return new Response(null, { status: 404 });
-    }
-    if (method === 'PATCH' && path.includes('/part/')) {
-      legacyPartUpdates.push({
-        method,
-        path,
-        query,
-        body: JSON.parse(new TextDecoder().decode(body)),
-      });
-      return Response.json({ ok: true });
-    }
     activePosts += 1;
     maxActivePosts = Math.max(maxActivePosts, activePosts);
     try {
@@ -269,6 +237,7 @@ mock.module('../../../sandbox-proxy/forward', () => ({
         return Response.json({ status: 'duplicate', deduplicated: true });
       }
       capturedBodies.push(JSON.parse(new TextDecoder().decode(body)));
+      capturedSources.push(opts?.promptSource);
       // The claim outlives only a delivery the daemon ACCEPTED: a 5xx is
       // provable non-delivery and the real proxy releases it, so a retry under
       // the same key after a 500 is forwarded again, not deduped.
@@ -303,7 +272,9 @@ mock.module('../../../sandbox-proxy/forward', () => ({
   },
 }));
 
+const realSessions = await import('../../lib/sessions');
 mock.module('../../lib/sessions', () => ({
+  ...realSessions,
   createProjectSession: async () => {
     throw new Error('not expected');
   },
@@ -320,24 +291,6 @@ mock.module('../store', () => ({
     promotionCalls.push(sessionId);
     onPromotion?.();
     return promotionResults.length > 0 ? (promotionResults.shift() ?? null) : promotionResult;
-  },
-  loadLegacyPendingFirstPrompt: async () => {
-    legacyPendingLoads += 1;
-    return legacyPendingFirst;
-  },
-  markLegacyInlineAttachmentsRepaired: async () => {
-    legacyRepairMarks += 1;
-    events.push('legacy-marker');
-    if (legacyRepairMarkerFailuresRemaining > 0) {
-      legacyRepairMarkerFailuresRemaining -= 1;
-      throw new Error('marker write failed');
-    }
-    if (sessionRow) {
-      sessionRow.metadata = {
-        ...((sessionRow.metadata as Record<string, unknown> | null) ?? {}),
-        legacy_inline_attachments_repaired_at: '2026-09-02T00:00:00.000Z',
-      };
-    }
   },
   requeueUnlandedPrompt: async ({ commandId }: { commandId: string }, reason: string) => {
     unlandedRequeues.push({ commandId, reason });
@@ -412,20 +365,24 @@ mock.module('../../opencode-mapping', () => ({
   sandboxOpencodeEndpoint: async () => ({ url: 'https://sandbox.test', headers: {} }),
 }));
 
-// The wake path converges the box before every delivery (continue-session.ts
-// `continueSession`): it reads the service key and ingress and calls
-// `syncSandboxEnvForPrompt`. The order of that sync is proven in
-// continue-session-runtime-env.test.ts; this file records whether it ran.
+// The proxy converges the box before every delivery. The wake path pushes an
+// `opencodeEnv` override itself (deliver.ts): it reads the service key and
+// ingress and calls `syncSandboxEnvForPrompt`; this file records whether it ran.
 let serviceKeyAvailable = true;
 let envSyncCalls = 0;
+const ENV_OVERRIDE = { KORTIX_TEST_OVERRIDE: '1' };
 mock.module('../../../platform/service-key', () => ({
   serviceKeyForExternalId: async () => (serviceKeyAvailable ? 'svc-key-1' : null),
 }));
+const realBackend = await import('../../../sandbox-proxy/backend');
 mock.module('../../../sandbox-proxy/backend', () => ({
+  ...realBackend,
   resolveSandboxIngress: async () => ({ url: 'https://daemon.test', headers: {} }),
   invalidateSandbox: () => {},
 }));
+const realSandboxEnvSync = await import('../../lib/sandbox-env-sync');
 mock.module('../../lib/sandbox-env-sync', () => ({
+  ...realSandboxEnvSync,
   syncSandboxEnvForPrompt: async () => {
     envSyncCalls += 1;
   },
@@ -569,6 +526,7 @@ beforeEach(() => {
   quickQueueControlRequests = [];
   quickQueueArmFails = false;
   capturedKeys = [];
+  capturedSources = [];
   seenKeys.clear();
   succeededCalls = [];
   forwardedCalls = [];
@@ -581,13 +539,7 @@ beforeEach(() => {
   events = [];
   runtimeWrites = [];
   runtimeWriteError = null;
-  legacyPendingFirst = null;
-  legacyRuntimeMessages = {};
-  legacyMessageReads = [];
-  legacyPartUpdates = [];
-  legacyRepairMarks = 0;
-  legacyRepairMarkerFailuresRemaining = 0;
-  legacyPendingLoads = 0;
+  landingReads = [];
   promptFailuresRemaining = 0;
   promptDeduplicationsRemaining = 0;
   promptResponsePlan = [];
@@ -615,12 +567,24 @@ beforeEach(() => {
       if (quickQueueArmFails) return new Response(null, { status: 503 });
       return Response.json({ armed: true }, { status: 202 });
     }
-    // The staged-revert guard reads the session row; the re-mint and the
-    // answered check read the message list.
-    if (href.includes('/message')) {
-      return new Response(JSON.stringify(transcript), { status: 200 });
+    // The delivery's LANDING PROOF reads back the id it just posted
+    // (`prompt-landing-proof.ts`). A real runtime holds any message it
+    // accepted, so the harness answers for every id this session actually
+    // posted; only ids never posted 404, which is what lets a test assert a
+    // silently-dropped delivery.
+    const one = /\/kortix\/runtime\/messages\/[^/?]+\/([^/?]+)$/.exec(href);
+    if (one) {
+      const requestedId = decodeURIComponent(one[1]!);
+      landingReads.push(requestedId);
+      const posted = capturedBodies.some((sent) => sent.message_id === requestedId);
+      const dropped = runtimeDropsFirstDelivery && requestedId === (capturedBodies[0]?.message_id as string);
+      return posted && !dropped
+        ? Response.json({ info: { id: requestedId }, parts: [] })
+        : Response.json({ error: 'message not found' }, { status: 404 });
     }
-    return new Response(JSON.stringify({ id: OC_SESSION_ID }), { status: 200 });
+    // The re-mint and the answered check read the message list.
+    if (href.includes('/kortix/runtime/messages/')) return Response.json({ messages: transcript, has_more: false });
+    return Response.json({ id: OC_SESSION_ID });
   }) as typeof fetch;
 });
 
@@ -630,6 +594,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
       { delivery: 'delivered', setup: () => {}, result: 'succeeded', write: 'succeeded', reason: null, retryable: null },
       { delivery: 'unreachable', setup: () => { sessionRow!.status = 'failed'; }, result: 'queued', write: 'parked', reason: "the session's machine could not be reached", retryable: null },
       { delivery: 'not-landed', setup: () => { runtimeDropsFirstDelivery = true; }, result: 'queued', write: 'requeued', reason: 'prompt accepted by the runtime but never became a message', retryable: null },
+      // An override the box cannot be given (no service key) waits for the next attempt.
       { delivery: 'pending', setup: () => { serviceKeyAvailable = false; }, result: 'queued', write: 'failed', reason: 'the session was not ready in time', retryable: true },
       { delivery: 'no-session', setup: () => { sessionRow = null; }, result: 'failed', write: 'failed', reason: 'that session no longer exists', retryable: false },
       { delivery: 'failed', setup: () => { promptResponsePlan = ['permanent-refusal']; }, result: 'failed', write: 'failed', reason: 'The runtime rejected this prompt.', retryable: false },
@@ -639,6 +604,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
       expect(await executeQueuedContinue(baseRow({ payload: {
         text: scenario.delivery === 'not-landed' ? OVER_EDGE_TEXT : 'say hi',
         ...(scenario.delivery === 'not-landed' ? { wireMessageId: SUBMITTED_WIRE_ID } : {}),
+        ...(scenario.delivery === 'pending' ? { opencodeEnv: ENV_OVERRIDE } : {}),
       } }))).toBe(scenario.result);
       expect({
         succeeded: succeededCalls.length,
@@ -661,22 +627,32 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
       seenKeys.clear();
     }
   });
+  test("the prompt POST asks the proxy to record the row's source on the turn it starts", async () => {
+    expect(await executeQueuedContinue(baseRow({ source: 'trigger:reminder' }))).toBe('succeeded');
+    expect(capturedSources).toEqual(['trigger:reminder']);
+  });
   // A conversation with people opens with the asking agent's message: it joins
   // the transcript and starts no turn — the people answer it.
   test('a prompt stamped noReply goes out noReply and records it', async () => {
     const row = baseRow();
     (row.payload as Record<string, unknown>).noReply = true;
     expect(await executeQueuedContinue(row)).toBe('succeeded');
-    expect(capturedBodies[0]!.noReply).toBe(true);
+    expect(capturedBodies[0]!.no_reply).toBe(true);
     expect(forwardedCalls[0]!.noReply).toBe(true);
   });
-  // A box whose env cannot be converged would run the prompt against a stale
-  // gateway URL, stale secrets and a stale model catalog. It waits instead.
-  test('a box whose service key cannot be read is not delivered blind — the prompt stays queued', async () => {
+  // The proxy never sees an `opencodeEnv` override, so a box that cannot be
+  // given it would run the prompt without it. It waits instead.
+  test('an env override onto a box whose service key cannot be read is not delivered blind — the prompt stays queued', async () => {
     serviceKeyAvailable = false;
-    expect(await executeQueuedContinue(baseRow())).toBe('queued');
+    expect(await executeQueuedContinue(baseRow({ payload: { text: 'say hi', opencodeEnv: ENV_OVERRIDE } }))).toBe('queued');
     expect(envSyncCalls).toBe(0);
     expect(capturedBodies).toHaveLength(0);
+  });
+
+  test('an ordinary prompt onto a woken box leaves the env push to the proxy', async () => {
+    expect(await executeQueuedContinue(baseRow())).toBe('succeeded');
+    expect(envSyncCalls).toBe(0);
+    expect(capturedBodies).toHaveLength(1);
   });
 
   test('a direct follow-up (a question answer, a channel reply) goes into a live turn instead of waiting behind it', async () => {
@@ -788,12 +764,12 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
       wireMessageId: SUBMITTED_WIRE_ID,
     };
     expect(await continueSession({ ...command, noReply: true }, 'cmd-nr')).toBe('delivered');
-    expect(capturedBodies[0].noReply).toBe(true);
+    expect(capturedBodies[0].no_reply).toBe(true);
 
     capturedBodies = [];
     expect(await continueSession(command, 'cmd-plain')).toBe('delivered');
     expect(capturedBodies).toHaveLength(1);
-    expect('noReply' in capturedBodies[0]).toBe(false);
+    expect('no_reply' in capturedBodies[0]).toBe(false);
   });
 
   test('every staged file is also kept in the private store', async () => {
@@ -910,373 +886,11 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
 
     expect(outcome).toBe('queued');
     expect(capturedBodies).toEqual([]);
-    expect(legacyRepairMarks).toBe(0);
     expect(failedCalls).toEqual([
       {
         commandId: 'cmd-1',
         message: expect.stringContaining('bundle.zip'),
         options: expect.objectContaining({ retryable: true }),
-      },
-    ]);
-  });
-
-  test('repairs the legacy first message once before a later prompt retries delivery', async () => {
-    sessionRow!.metadata = {
-      pending_prompt: { attachment_names: ['bundle.zip'] },
-    };
-    legacyPendingFirst = {
-      commandId: 'command-first',
-      deliveredMessageIds: ['msg-first'],
-      parts: [
-        { type: 'text', text: 'Inspect this.' },
-        {
-          type: 'file',
-          mime: 'application/zip',
-          filename: 'bundle.zip',
-          url: 'data:application/zip;base64,UEsDBA==',
-        },
-      ],
-    };
-    legacyRuntimeMessages['msg-first'] = {
-      info: { id: 'msg-first', role: 'user' },
-      parts: [
-        { id: 'part-text', type: 'text', text: 'Inspect this.' },
-        {
-          id: 'part-zip',
-          type: 'file',
-          mime: 'application/zip',
-          filename: 'bundle.zip',
-          url: 'data:application/zip;base64,UEsDBA==',
-        },
-      ],
-    };
-    promptFailuresRemaining = 1;
-
-    const outcome = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-later',
-        idempotencyKey: 'prompt:sess-inbox-delivery-1:q_later',
-      }),
-    );
-
-    expect(outcome).toBe('succeeded');
-    expect(capturedBodies).toHaveLength(2);
-    expect(legacyRepairMarks).toBe(1);
-    // The REPAIR's own read, isolated from the landing proof's read-back of
-    // each freshly posted id: what this asserts is that the repair inspects
-    // the legacy first message exactly once across a retried delivery.
-    expect(legacyMessageReads.filter((read) => read.path.endsWith('/msg-first'))).toEqual([
-      {
-        method: 'GET',
-        path: '/session/oc-1/message/msg-first',
-        query: '?directory=%2Fworkspace',
-      },
-    ]);
-    expect(legacyPartUpdates).toEqual([
-      {
-        method: 'PATCH',
-        path: '/session/oc-1/message/msg-first/part/part-zip',
-        query: '?directory=%2Fworkspace',
-        body: {
-          id: 'part-zip',
-          sessionID: 'oc-1',
-          messageID: 'msg-first',
-          type: 'text',
-          text: expect.stringContaining('filename="bundle.zip"'),
-        },
-      },
-    ]);
-    expect(runtimeWrites.map(({ targetPath }) => targetPath)).toContain(
-      '/workspace/uploads/.kortix-inbox/legacy-command-first/1-bundle.zip',
-    );
-  });
-
-  test('a newly materialized pending-first prompt marks canonical history before a later prompt', async () => {
-    sessionRow!.metadata = {
-      pending_prompt: { attachment_names: ['README.md'] },
-    };
-    const stagedParts = [
-      { type: 'text' as const, text: 'Inspect this.' },
-      {
-        type: 'file' as const,
-        mime: 'text/markdown',
-        filename: 'README.md',
-        url: 'data:text/markdown;base64,IyBSZWFkbWU=',
-      },
-    ];
-
-    const first = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-first',
-        idempotencyKey: `prompt:${SESSION_ID}:pending-first`,
-        payload: {
-          text: 'Inspect this.',
-          clientMessageId: 'q_first',
-          wireMessageId: SUBMITTED_WIRE_ID,
-          parts: stagedParts,
-        },
-      }),
-    );
-    const canonicalParts = capturedBodies[0].parts as Array<Record<string, unknown>>;
-    legacyPendingFirst = {
-      commandId: 'command-first',
-      deliveredMessageIds: ['msg-first'],
-      parts: stagedParts,
-    };
-    legacyRuntimeMessages['msg-first'] = {
-      info: { id: 'msg-first', role: 'user' },
-      parts: [
-        { id: 'part-text', type: 'text', text: 'Inspect this.' },
-        { id: 'part-markdown', ...canonicalParts[1] },
-      ],
-    };
-
-    const later = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-later',
-        idempotencyKey: `prompt:${SESSION_ID}:q_later`,
-      }),
-    );
-
-    expect([first, later]).toEqual(['succeeded', 'succeeded']);
-    expect(capturedBodies).toHaveLength(2);
-    expect(canonicalParts[1]).toEqual({
-      type: 'text',
-      text: expect.stringContaining(
-        '/workspace/uploads/.kortix-inbox/command-first/1-README.md',
-      ),
-    });
-    expect(legacyPartUpdates).toEqual([]);
-    expect(legacyPendingLoads).toBe(0);
-    expect(legacyRepairMarks).toBe(1);
-  });
-
-  test('an answered canonical pending-first retry is recovered from its transcript before a later prompt', async () => {
-    sessionRow!.metadata = {
-      pending_prompt: { attachment_names: ['README.md'] },
-    };
-    const firstPayload = {
-      text: 'Inspect this.',
-      clientMessageId: 'q_first',
-      wireMessageId: SUBMITTED_WIRE_ID,
-      parts: [
-        { type: 'text' as const, text: 'Inspect this.' },
-        {
-          type: 'file' as const,
-          mime: 'text/markdown',
-          filename: 'README.md',
-          url: 'data:text/markdown;base64,IyBSZWFkbWU=',
-        },
-      ],
-    };
-    legacyRepairMarkerFailuresRemaining = 1;
-
-    const first = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-first',
-        idempotencyKey: `prompt:${SESSION_ID}:pending-first`,
-        payload: firstPayload,
-      }),
-    );
-
-    expect(first).toBe('queued');
-    expect(capturedBodies).toHaveLength(1);
-    expect(legacyRepairMarks).toBe(1);
-    expect(sessionRow!.metadata).not.toHaveProperty(
-      'legacy_inline_attachments_repaired_at',
-    );
-    const writesAfterFirst = runtimeWrites.slice();
-    const canonicalParts = capturedBodies[0].parts as Array<Record<string, unknown>>;
-    legacyPendingFirst = {
-      commandId: 'command-first',
-      deliveredMessageIds: [SUBMITTED_WIRE_ID],
-      parts: firstPayload.parts,
-    };
-    legacyRuntimeMessages[SUBMITTED_WIRE_ID] = {
-      info: { id: SUBMITTED_WIRE_ID, role: 'user' },
-      parts: [
-        { id: 'part-text', type: 'text', text: 'Inspect this.' },
-        { id: 'part-markdown', ...canonicalParts[1] },
-      ],
-    };
-
-    transcript = [
-      { info: { id: SUBMITTED_WIRE_ID, role: 'user' } },
-      {
-        info: {
-          id: NEWER_TRANSCRIPT_ID,
-          role: 'assistant',
-          parentID: SUBMITTED_WIRE_ID,
-          time: { completed: NOW_MS - 30_000 },
-        },
-      },
-    ];
-    const retry = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-first',
-        idempotencyKey: `prompt:${SESSION_ID}:pending-first`,
-        payload: {
-          ...firstPayload,
-          remintOnDelivery: true,
-        },
-      }),
-    );
-
-    expect(retry).toBe('succeeded');
-    expect(capturedBodies).toHaveLength(1);
-    expect(legacyRepairMarks).toBe(1);
-    expect(succeededCalls).toEqual([
-      {
-        commandId: 'command-first',
-        result: { status: 'skipped', reason: 'already_answered' },
-      },
-    ]);
-
-    const later = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-later',
-        idempotencyKey: `prompt:${SESSION_ID}:q_later`,
-      }),
-    );
-
-    expect(later).toBe('succeeded');
-    expect(capturedBodies).toHaveLength(2);
-    expect(legacyRepairMarks).toBe(2);
-    expect(sessionRow!.metadata).toHaveProperty(
-      'legacy_inline_attachments_repaired_at',
-    );
-    expect(runtimeWrites).toEqual(writesAfterFirst);
-    expect(legacyPartUpdates).toEqual([]);
-  });
-
-  test('an ambiguously accepted canonical pending-first prompt is recovered from its transcript', async () => {
-    sessionRow!.metadata = {
-      pending_prompt: { attachment_names: ['README.md'] },
-    };
-    const stagedParts = [
-      { type: 'text' as const, text: 'Inspect this.' },
-      {
-        type: 'file' as const,
-        mime: 'text/markdown',
-        filename: 'README.md',
-        url: 'data:text/markdown;base64,IyBSZWFkbWU=',
-      },
-    ];
-    // The runtime accepted the first POST but the proxy returned a 500. Its
-    // retry hits the same proxy claim and receives only deduplication proof.
-    promptResponsePlan = ['failed', 'deduplicated'];
-
-    const first = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-first',
-        idempotencyKey: `prompt:${SESSION_ID}:pending-first`,
-        payload: {
-          text: 'Inspect this.',
-          clientMessageId: 'q_first',
-          wireMessageId: SUBMITTED_WIRE_ID,
-          parts: stagedParts,
-        },
-      }),
-    );
-    const writesAfterFirst = runtimeWrites.slice();
-    const canonicalParts = capturedBodies[0].parts as Array<Record<string, unknown>>;
-    legacyPendingFirst = {
-      commandId: 'command-first',
-      deliveredMessageIds: [SUBMITTED_WIRE_ID],
-      parts: stagedParts,
-    };
-    legacyRuntimeMessages[SUBMITTED_WIRE_ID] = {
-      info: { id: SUBMITTED_WIRE_ID, role: 'user' },
-      parts: [
-        { id: 'part-text', type: 'text', text: 'Inspect this.' },
-        { id: 'part-markdown', ...canonicalParts[1] },
-      ],
-    };
-
-    const later = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-later',
-        idempotencyKey: `prompt:${SESSION_ID}:q_later`,
-      }),
-    );
-
-    expect([first, later]).toEqual(['succeeded', 'succeeded']);
-    expect(capturedBodies).toHaveLength(3);
-    expect(legacyRepairMarks).toBe(1);
-    expect(legacyPartUpdates).toEqual([]);
-    expect(runtimeWrites).toEqual(writesAfterFirst);
-    expect(sessionRow!.metadata).toHaveProperty(
-      'legacy_inline_attachments_repaired_at',
-    );
-  });
-
-  test('a deduplicated legacy pending-first retry does not suppress later repair', async () => {
-    sessionRow!.metadata = {
-      pending_prompt: { attachment_names: ['bundle.zip'] },
-    };
-    const legacyParts = [
-      { type: 'text' as const, text: 'Inspect this.' },
-      {
-        type: 'file' as const,
-        mime: 'application/zip',
-        filename: 'bundle.zip',
-        url: 'data:application/zip;base64,UEsDBA==',
-      },
-    ];
-    legacyPendingFirst = {
-      commandId: 'command-first',
-      deliveredMessageIds: [SUBMITTED_WIRE_ID],
-      parts: legacyParts,
-    };
-    legacyRuntimeMessages[SUBMITTED_WIRE_ID] = {
-      info: { id: SUBMITTED_WIRE_ID, role: 'user' },
-      parts: [
-        { id: 'part-text', type: 'text', text: 'Inspect this.' },
-        {
-          id: 'part-zip',
-          type: 'file',
-          mime: 'application/zip',
-          filename: 'bundle.zip',
-          url: 'data:application/zip;base64,UEsDBA==',
-        },
-      ],
-    };
-    promptDeduplicationsRemaining = 1;
-
-    const legacyRetry = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-first',
-        idempotencyKey: `prompt:${SESSION_ID}:pending-first`,
-        payload: {
-          text: 'Inspect this.',
-          clientMessageId: 'q_first',
-          wireMessageId: SUBMITTED_WIRE_ID,
-          deliveryAttempt: 1,
-          parts: legacyParts,
-        },
-      }),
-    );
-    const later = await executeQueuedContinue(
-      baseRow({
-        commandId: 'command-later',
-        idempotencyKey: `prompt:${SESSION_ID}:q_later`,
-      }),
-    );
-
-    expect([legacyRetry, later]).toEqual(['succeeded', 'succeeded']);
-    expect(legacyRepairMarks).toBe(1);
-    expect(legacyPartUpdates).toEqual([
-      {
-        method: 'PATCH',
-        path: `/session/${OC_SESSION_ID}/message/${SUBMITTED_WIRE_ID}/part/part-zip`,
-        query: '?directory=%2Fworkspace',
-        body: {
-          id: 'part-zip',
-          sessionID: OC_SESSION_ID,
-          messageID: SUBMITTED_WIRE_ID,
-          type: 'text',
-          text: expect.stringContaining('filename="bundle.zip"'),
-        },
       },
     ]);
   });
@@ -1362,7 +976,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
 
     expect(outcome).toBe('succeeded');
     expect(capturedKeys).toEqual(['cmd-1']);
-    expect(legacyMessageReads.filter((read) => read.path.endsWith(`/message/${SUBMITTED_WIRE_ID}`))).toEqual([]);
+    expect(landingReads).toEqual([]);
   });
 
   test('an ATTACHMENT-ONLY prompt is delivered, not dead-lettered', async () => {
@@ -1405,7 +1019,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
 
     expect(outcome).toBe('succeeded');
     expect(capturedBodies).toHaveLength(1);
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(sent).not.toBe(SUBMITTED_WIRE_ID);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(NEWER_TRANSCRIPT_ID)!);
     // Persisted BEFORE the POST, so a crash between mint and delivery reuses
@@ -1433,7 +1047,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(NEWER_TRANSCRIPT_ID)!);
   });
 
@@ -1467,7 +1081,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(sent).not.toBe(bravoTyped);
     expect(sent > alphaPosted).toBe(true);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(alphaPosted)!);
@@ -1481,7 +1095,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    expect(capturedBodies[0].messageID).toBe(bravoTyped);
+    expect(capturedBodies[0].message_id).toBe(bravoTyped);
   });
 
   test('a re-mint whose transcript read FAILED still sorts above OpenCode’s own clock', async () => {
@@ -1501,7 +1115,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     // An id OpenCode minted 60s ago, the way OpenCode mints one: a raw
     // `Date.now()` scaled into the id clock, with no backdate.
     const openCodeId =
@@ -1593,7 +1207,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     transcript = [];
     const outcome = await executeQueuedContinue(baseRow());
     expect(outcome).toBe('succeeded');
-    expect(capturedBodies[0].messageID).toBe(SUBMITTED_WIRE_ID);
+    expect(capturedBodies[0].message_id).toBe(SUBMITTED_WIRE_ID);
   });
 
   test('a prompt submitted into a LIVE TURN waits — then goes out re-minted when the turn ends', async () => {
@@ -1640,7 +1254,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
 
     expect(outcome).toBe('succeeded');
     expect(capturedBodies).toHaveLength(1);
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(sent).not.toBe(SUBMITTED_WIRE_ID);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(NEWER_TRANSCRIPT_ID)!);
     expect(forwardedCalls).toEqual([
@@ -1672,7 +1286,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(wireIdTime(sent)!).toBeGreaterThan(firstDelivered);
   });
 
@@ -1692,7 +1306,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(sent).not.toBe(CLI_HIGH_BITS_ID);
     expect(isWireIdAheadOf(sent, NOW_MS)).toBe(false);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(OPENCODE_MINTED_ID)!);
@@ -1707,7 +1321,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     );
 
     expect(outcome).toBe('succeeded');
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(isWireIdAheadOf(sent, NOW_MS)).toBe(false);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(OPENCODE_MINTED_ID)!);
   });
@@ -1726,7 +1340,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
     };
     const outcome = await executeQueuedContinue(baseRow());
     expect(outcome).toBe('succeeded');
-    expect(capturedBodies[0].messageID).toBe(SUBMITTED_WIRE_ID);
+    expect(capturedBodies[0].message_id).toBe(SUBMITTED_WIRE_ID);
   });
 
   test('a redelivery whose prompt is still UNANSWERED goes out under a fresh id', async () => {
@@ -1738,7 +1352,7 @@ describe('executeQueuedContinue — what actually goes on the wire', () => {
 
     expect(outcome).toBe('succeeded');
     expect(capturedBodies).toHaveLength(1);
-    const sent = capturedBodies[0].messageID as string;
+    const sent = capturedBodies[0].message_id as string;
     expect(sent).not.toBe(SUBMITTED_WIRE_ID);
     expect(wireIdTime(sent)!).toBeGreaterThan(wireIdTime(SUBMITTED_WIRE_ID)!);
   });
@@ -1871,7 +1485,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     // ONE drain sends ONE prompt. The other two are put back — the delivery
     // path no longer chains them, because a chained row lands inside the turn
     // the first prompt just started and gets merged into its step.
-    expect(capturedBodies.map((body) => body.messageID)).toEqual([wireA]);
+    expect(capturedBodies.map((body) => body.message_id)).toEqual([wireA]);
     expect(promotionCalls).toEqual([]);
 
     // B and C go out on the turn-end relay's targeted drain, one per turn —
@@ -1881,7 +1495,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
 
     // CANONICAL SEND ORDER, one post at a time: the client sent A, B, C and the
     // database handed them over C, B, A.
-    expect(capturedBodies.map((body) => body.messageID)).toEqual([wireA, wireB, wireC]);
+    expect(capturedBodies.map((body) => body.message_id)).toEqual([wireA, wireB, wireC]);
     expect(maxActivePosts).toBe(1);
     expect(claimInputs.map((input) => input.idempotencyKey ?? null)).toEqual([
       null,
@@ -1890,7 +1504,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     ]);
     // A queue that no Stop released keeps one prompt per turn: nothing on the
     // wire asks OpenCode to hold its reply.
-    expect(capturedBodies.every((body) => !('noReply' in body))).toBe(true);
+    expect(capturedBodies.every((body) => !('no_reply' in body))).toBe(true);
     expect(forwardedCalls.every((call) => !('noReply' in call))).toBe(true);
   });
 
@@ -1904,7 +1518,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
   const releasedRow = (
     name: 'a' | 'b' | 'c' | 'd',
     clientSentAtMs: number,
-    extra: { releasedBatchId?: string; result?: Record<string, unknown> } = {},
+    extra: { releasedBatchId?: string; result?: Record<string, unknown>; opencodeEnv?: Record<string, string> } = {},
   ) =>
     baseRow({
       commandId: `cmd-${name}`,
@@ -1920,6 +1534,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
         // No `remintOnDelivery`: a batch row re-mints at delivery because it
         // is a batch row (`placeQueuedContinue`), even the send that never waited.
         ...(extra.releasedBatchId ? { releasedBatchId: extra.releasedBatchId } : {}),
+        ...(extra.opencodeEnv ? { opencodeEnv: extra.opencodeEnv } : {}),
       },
     });
   /** What a row looks like when the chain's wake claims it after the lane put
@@ -1955,8 +1570,8 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
       'PROMPT-B',
       'PROMPT-C',
     ]);
-    expect(capturedBodies.map((body) => body.noReply ?? null)).toEqual([true, true, null]);
-    expect('noReply' in capturedBodies[2]).toBe(false);
+    expect(capturedBodies.map((body) => body.no_reply ?? null)).toEqual([true, true, null]);
+    expect('no_reply' in capturedBodies[2]).toBe(false);
     expect(maxActivePosts).toBe(1);
     // A and B close as delivered-without-a-turn; C is the turn.
     expect(forwardedCalls.map((call) => [call.commandId, call.noReply ?? null])).toEqual([
@@ -1968,7 +1583,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     expect(promotionCalls).toEqual([SESSION_ID, SESSION_ID]);
     // OpenCode orders a session's messages by id, so ascending ids ARE the
     // transcript order.
-    const ids = capturedBodies.map((body) => body.messageID as string);
+    const ids = capturedBodies.map((body) => body.message_id as string);
     expect(new Set(ids).size).toBe(3);
     expect([...ids].sort()).toEqual(ids);
   });
@@ -2007,7 +1622,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     const boxTranscript = () => [
       { info: { id: 'msg_other', role: 'user' } },
       { info: { id: stoppedTurnAnswer, role: 'assistant', parentID: 'msg_other' } },
-      ...capturedBodies.map((body) => ({ info: { id: body.messageID as string, role: 'user' } })),
+      ...capturedBodies.map((body) => ({ info: { id: body.message_id as string, role: 'user' } })),
     ];
     transcript = boxTranscript();
     onPromotion = () => {
@@ -2022,9 +1637,9 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
       'PROMPT-B',
       'PROMPT-C',
     ]);
-    expect(capturedBodies.map((body) => body.noReply ?? null)).toEqual([true, true, null]);
-    expect(capturedBodies.every((body) => (body.messageID as string) > stoppedTurnAnswer)).toBe(true);
-    const ids = capturedBodies.map((body) => body.messageID as string);
+    expect(capturedBodies.map((body) => body.no_reply ?? null)).toEqual([true, true, null]);
+    expect(capturedBodies.every((body) => (body.message_id as string) > stoppedTurnAnswer)).toBe(true);
+    const ids = capturedBodies.map((body) => body.message_id as string);
     expect(new Set(ids).size).toBe(3);
     expect([...ids].sort()).toEqual(ids);
   });
@@ -2046,8 +1661,8 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
       'PROMPT-A',
       'PROMPT-B',
     ]);
-    expect(capturedBodies[0].noReply).toBe(true);
-    expect('noReply' in capturedBodies[1]).toBe(false);
+    expect(capturedBodies[0].no_reply).toBe(true);
+    expect('no_reply' in capturedBodies[1]).toBe(false);
     expect(promotionCalls).toEqual([SESSION_ID]);
   });
 
@@ -2064,7 +1679,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     await Bun.sleep(50);
 
     expect(capturedBodies).toHaveLength(1);
-    expect(capturedBodies[0].noReply).toBe(true);
+    expect(capturedBodies[0].no_reply).toBe(true);
     expect(forwardedCalls).toEqual([expect.objectContaining({ commandId: 'cmd-b', noReply: true })]);
     expect(promotionCalls).toEqual([SESSION_ID]);
   });
@@ -2082,7 +1697,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
 
     expect(capturedBodies).toHaveLength(1);
     expect((capturedBodies[0].parts as Array<{ text: string }>)[0].text).toBe('PROMPT-A');
-    expect('noReply' in capturedBodies[0]).toBe(false);
+    expect('no_reply' in capturedBodies[0]).toBe(false);
     expect(requeues.map(({ commandId, reason }) => ({ commandId, reason }))).toEqual([
       { commandId: 'cmd-d', reason: 'older_prompt_pending' },
     ]);
@@ -2096,7 +1711,8 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     targetedClaims.set('queue-c', [c]);
     siblingSweeps = [[a, b], [releasedRow('c', NOW_MS - 7 * 60_000, { releasedBatchId: 'b1', ...waited })]];
     promotionResults = ['queue-b'];
-    targetedClaims.set('queue-b', [releasedRow('b', NOW_MS - 8 * 60_000, { releasedBatchId: 'b1', ...waited })]);
+    // B carries an env override, which the wake path must push itself.
+    targetedClaims.set('queue-b', [releasedRow('b', NOW_MS - 8 * 60_000, { releasedBatchId: 'b1', opencodeEnv: ENV_OVERRIDE, ...waited })]);
     releasedPending = [a, b, c];
     // The box stops answering between A and B: B's delivery ends retryable.
     onPromotion = () => {
@@ -2108,7 +1724,7 @@ describe('drainSessionLifecycleQueue — one lane per session', () => {
     await Bun.sleep(100);
 
     expect(capturedBodies).toHaveLength(1);
-    expect(capturedBodies[0].noReply).toBe(true);
+    expect(capturedBodies[0].no_reply).toBe(true);
     expect(failedCalls).toEqual([
       expect.objectContaining({ commandId: 'cmd-b', options: expect.objectContaining({ retryable: true }) }),
     ]);

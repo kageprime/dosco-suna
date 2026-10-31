@@ -94,7 +94,7 @@ beforeAll(async () => {
   execFileSync('git', ['clone', '-q', remote, work], { cwd: root });
   writeFileSync(join(work, 'kortix.yaml'), MANIFEST);
   execFileSync('git', ['add', '-A'], { cwd: work });
-  execFileSync('git', ['-c', 'user.name=Kortix Test', '-c', 'user.email=test@kortix.test', 'commit', '-q', '-m', 'sets'], { cwd: work });
+  execFileSync('git', ['-c', 'user.name=Dosco Test', '-c', 'user.email=test@kortix.test', 'commit', '-q', '-m', 'sets'], { cwd: work });
   execFileSync('git', ['push', '-q', 'origin', 'main'], { cwd: work });
   await db.insert(projects).values({ projectId: PROJECT, accountId: ACCOUNT, name: 'policy-sets', repoUrl: remote });
 });

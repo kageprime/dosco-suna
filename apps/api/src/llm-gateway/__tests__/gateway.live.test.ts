@@ -8,7 +8,7 @@ import type { GatewayHooks, UpstreamDescriptor, UsageEvent } from '@kortix/llm-g
 // (dotenvx supplies PLATINUM_INFERENCE_API_KEY and, optionally,
 // PLATINUM_INFERENCE_URL). It spends real, small credits on Platinum inference
 // through the same @kortix/llm-gateway pipeline that runs in-API and in the
-// standalone pod. The client sees only Kortix.
+// standalone pod. The client sees only Dosco.
 const RUN_LIVE = !!process.env.PLATINUM_INFERENCE_API_KEY && process.env.RUN_LIVE_LLM_TESTS === '1';
 const describeLive = RUN_LIVE ? describe : describe.skip;
 
@@ -75,7 +75,7 @@ describeLive('Dosco-managed models — LIVE Platinum inference (RUN_LIVE_LLM_TES
       expect(recorded[0].finalCost).toBeGreaterThan(recorded[0].upstreamCost);
     }, 120_000);
 
-    test(`${model.id}: a streamed turn carries only Kortix identity and records usage`, async () => {
+    test(`${model.id}: a streamed turn carries only Dosco identity and records usage`, async () => {
       const { gateway, recorded } = await managedGateway();
       const res = await gateway.chatCompletions({
         authorization: 'Bearer live',

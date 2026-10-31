@@ -1,3 +1,4 @@
+import type { ChannelPlatformId } from '@kortix/shared/channel-descriptors';
 import { appNameKey } from './connect-direct-twins';
 import {
   groupIntoSections,
@@ -58,8 +59,8 @@ const OFFICIAL_SURFACE_ENRICHMENTS: Record<string, ConnectorSurfaceVariant[]> = 
   ],
 };
 
-/** `composio`: a managed Composio toolkit (Kortix catalogue only). */
-/** `kortix`: an integration Kortix built itself (Slack, Teams, Email, Telegram,
+/** `composio`: a managed Composio toolkit (Dosco catalogue only). */
+/** `kortix`: an integration Dosco built itself (Slack, Teams, Email, Telegram,
  *  Computer). It is set up on its own page, not installed as a connector. */
 export type ConnectorCatalogKind = 'openapi' | 'mcp' | 'graphql' | 'composio' | 'kortix';
 
@@ -91,14 +92,14 @@ export interface ConnectorCatalogItem {
   /** The index's curated, OAuth-signed-in servers rank first. */
   oauth?: boolean;
   /** Connects with nothing to set up: a public or self-registering MCP server
-   *  (`one-click-mcp.json`), a Kortix catalogue app, or a managed toolkit. */
+   *  (`one-click-mcp.json`), a Dosco catalogue app, or a managed toolkit. */
   oneClick?: boolean;
   /** The toolkit a `composio` record installs. */
   composio?: ComposioCatalogCard;
-  /** The Kortix integration a `kortix` record sets up. */
+  /** The Dosco integration a `kortix` record sets up. */
   kortix?: { app: KortixApp };
   /** The integrations.sh domain of a record filed under a
-   *  Kortix app's domain (Notion is notion.so here, notion.com there). */
+   *  Dosco app's domain (Notion is notion.so here, notion.com there). */
   registryDomain?: string;
 }
 
@@ -134,7 +135,7 @@ export interface ConnectorSurfaceVariant {
   recommended?: boolean;
   /** The toolkit a `composio` variant installs. */
   composio?: ComposioCatalogCard;
-  /** The Kortix integration a `kortix` variant sets up. */
+  /** The Dosco integration a `kortix` variant sets up. */
   kortix?: { app: KortixApp };
 }
 
@@ -144,13 +145,13 @@ export function canonicalCatalogId(id: string): string {
   return id.startsWith('channel:') ? `native:${id.slice('channel:'.length)}` : id;
 }
 
-/** What Kortix built itself: four channels people message the agent in, and the computer it works on. */
-export type KortixApp = 'slack' | 'teams' | 'email' | 'telegram' | 'computer';
+/** What Dosco built itself: four channels people message the agent in, and the computer it works on. */
+export type KortixApp = ChannelPlatformId | 'computer';
 
 /** A way to connect, best first: a one-click MCP server, the managed toolkit,
- *  any MCP server, the APIs; a surface Kortix cannot install comes last. */
+ *  any MCP server, the APIs; a surface Dosco cannot install comes last. */
 export function variantRank(variant: ConnectorSurfaceVariant): number {
-  // Kortix's own integration leads: no third party in between.
+  // Dosco's own integration leads: no third party in between.
   if (variant.kind === 'kortix') return -1;
   if (variant.kind === 'composio') return 1;
   if (!variant.connector) return 10;
@@ -192,7 +193,7 @@ function normalizeItem(value: unknown): ConnectorCatalogItem | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   const kind = raw.kind;
-  // A CLI record is not a connector: Kortix cannot install it, so it is not listed.
+  // A CLI record is not a connector: Dosco cannot install it, so it is not listed.
   if (kind !== 'openapi' && kind !== 'mcp' && kind !== 'graphql') return null;
   const id = nullableString(raw.id);
   const slug = nullableString(raw.slug);

@@ -1,8 +1,8 @@
 /**
  * Project resource registry + per-resource list filtering.
  *
- * Agents and skills are file-based (kortix.yaml `agents:` / .opencode/agent/*.md
- * and .opencode/skills/<slug>/SKILL.md), so their stable identity is:
+ * Agents and skills are declared in kortix.yaml (`agents:`, `skills:` → a
+ * folder holding SKILL.md), so their stable identity is:
  *   - agent  → its `name` (also what service_accounts.agent_name keys on);
  *   - skill  → its directory `slug` (derived from the SKILL.md path), which is
  *     stable even when the display name changes.
@@ -15,15 +15,14 @@ import type { ProjectConfigSummary } from '../git/types';
 import { filterAccessibleObjects, hasAnyResourceGrants } from '../../iam';
 import { actorForToken } from '../../iam/actor';
 import { loadProjectConfig, listRepoFiles } from '../git';
-import { refreshMirror } from '../git/mirror';
+import { canonicalTreePath, refreshMirror } from '../git/mirror';
 import { withProjectGitAuth } from './git';
 import { ttlMemo } from '../../shared/ttl-memo';
 
 /**
- * Load a project's config WITH its repo file list. File-based agents/skills
- * (`.opencode/agent/*.md`, `skills/<slug>/`) are discovered by scanning the
- * files passed to loadProjectConfig — calling it with `[]` finds NONE. Every
- * resource path (the grant picker, the visibility denier) must go through this.
+ * Load a project's config WITH its repo file list: a registered skill's
+ * description is read only when its SKILL.md is in that list. Every resource
+ * path (the grant picker, the visibility denier) must go through this.
  */
 export async function loadConfigWithFiles(
   row: Parameters<typeof withProjectGitAuth>[0] & { defaultBranch: string },
@@ -94,7 +93,7 @@ export interface ProjectResources {
   skills: ProjectResourceItem[];
 }
 
-// `skills/<slug>/SKILL.md` at the root, or under the legacy `.kortix/opencode/`.
+// `skills/<slug>/SKILL.md`, anywhere in the repository.
 const SKILL_SLUG_RE = /(?:^|\/)skills\/(.+?)\/SKILL\.md$/;
 
 /** Stable slug for a skill from its SKILL.md path; falls back to null. */
@@ -177,8 +176,13 @@ export async function filterConfigResourcesForUser(
 // surface (file content/list/search + the Slack picker) filters consistently —
 // the red-team's root-cause fix for route-by-route forgetting.
 
-function trimPath(p: string): string {
-  return p.replace(/^\.?\//, '');
+// The same canonical form the git reads use, so `.//x`, `x/` and `a//x` match `x`.
+const trimPath = canonicalTreePath;
+
+/** An agent's own prompt file. A declared agent with none is `kortix.yaml#agents.<name>`. */
+function agentFile(path: string | null | undefined): string | null {
+  const file = path ? trimPath(path) : '';
+  return file.endsWith('.md') && !file.includes('#') ? file : null;
 }
 
 export interface ResourceDenier {
@@ -216,11 +220,12 @@ export function buildResourceDenier(
   okAgent: Set<string>,
   okSkill: Set<string>,
 ): ResourceDenier | null {
-  // Denied agents → block their exact file (opencode agents are single .md
-  // files; a kortix.yaml agent has no separate file, only the shared manifest).
+  // Denied agents → block their own prompt file (`prompt_file`). One without a
+  // file only has its block in the shared manifest, which stays readable.
   const deniedExact = new Set<string>();
   for (const a of config.agents ?? []) {
-    if (!okAgent.has(a.name) && a.source === 'opencode' && a.path) deniedExact.add(trimPath(a.path));
+    const file = okAgent.has(a.name) ? null : agentFile(a.path);
+    if (file) deniedExact.add(file);
   }
   // Denied skills → block the whole skill directory (SKILL.md + references/…).
   const deniedPrefixes: string[] = [];

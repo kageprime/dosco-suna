@@ -23,7 +23,7 @@ describe('install from the catalogue', () => {
     expect(catalogInstallDraft(detail, { way: 'stripe-api', slug: 'stripe_api' }).draft).toMatchObject({ slug: 'stripe_api', provider: 'openapi', spec: 'https://example.test/spec.json', auth: { type: 'bearer', in: 'header' } });
   });
 
-  test('a way Kortix cannot install, or no such way, is refused with the reason', () => {
+  test('a way Dosco cannot install, or no such way, is refused with the reason', () => {
     expect(() => catalogInstallDraft(detail, { way: 'stripe-http' })).toThrow(CatalogInstallError);
     expect(() => catalogInstallDraft(detail, { way: 'nope' })).toThrow('"nope" is not a way to connect Stripe');
     expect(() => catalogInstallDraft(detail, { name: '!!!' })).toThrow('a letter or a digit');
@@ -46,11 +46,11 @@ describe('install from the catalogue', () => {
     expect(specOperations(null)).toEqual([]);
   });
 
-  test('a Kortix integration is set up on its page: install says how, even when another way exists', () => {
+  test('a Dosco integration is set up on its page: install says how, even when another way exists', () => {
     const slack: ConnectorCatalogDetail = {
       item: { ...detail.item, id: 'native:slack', kind: 'kortix', slug: 'slack', name: 'Slack', domain: 'slack.com' },
       variants: [
-        { id: 'native:slack', kind: 'kortix', name: 'Kortix Slack', url: null, docs: null, description: null, transports: [], requiresAuth: true, command: null, connector: null, oneClick: true, recommended: true, kortix: { app: 'slack' } },
+        { id: 'native:slack', kind: 'kortix', name: 'Dosco Slack', url: null, docs: null, description: null, transports: [], requiresAuth: true, command: null, connector: null, oneClick: true, recommended: true, kortix: { app: 'slack' } },
         { id: 'slack-mcp', kind: 'mcp', name: 'Slack MCP', url: 'https://mcp.slack.com/mcp', docs: null, description: null, transports: [], requiresAuth: true, command: null, connector: { provider: 'mcp', url: 'https://mcp.slack.com/mcp' } },
       ],
     };
@@ -62,7 +62,7 @@ describe('install from the catalogue', () => {
     const computer: ConnectorCatalogDetail = {
       item: { ...detail.item, id: 'native:computer', kind: 'kortix', slug: 'computer', name: 'Computer', domain: 'computer.kortix' },
       variants: [
-        { id: 'native:computer', kind: 'kortix', name: 'Kortix Computer', url: null, docs: null, description: null, transports: [], requiresAuth: true, command: null, connector: null, oneClick: true, recommended: true, kortix: { app: 'computer' } },
+        { id: 'native:computer', kind: 'kortix', name: 'Dosco Agent', url: null, docs: null, description: null, transports: [], requiresAuth: true, command: null, connector: null, oneClick: true, recommended: true, kortix: { app: 'computer' } },
       ],
     };
     expect(() => catalogInstallDraft(computer)).toThrow('npx --yes @kortix/agent-tunnel@latest connect');

@@ -5,7 +5,7 @@
  * is the glue to Postgres + the credential store + Pipedream.
  */
 import { connectorConnections, connectors, projectSessions, projects } from '@kortix/db';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
 import { config } from '../config';
 import { bindIntegrationPrincipal } from '../shared/audit-scope';
@@ -96,7 +96,6 @@ import {
   mergeRequestingSession,
   readRequestingSessionId,
 } from './db-deps-connect';
-import { appFormInfo, submitAppForm } from './composio-app-form';
 import { makeDbGatewayDeps } from './db-deps-gateway';
 import {
   resolveAdmin,
@@ -235,7 +234,6 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
         return { connected: r.connected, accountId: r.accountId };
       }
     : undefined,
-  appForm: { info: appFormInfo, submit: submitAppForm },
   pipedreamWebhook: pipedreamConfigured()
     ? async (extUserId, sig) => {
         const rejected = { ok: false, connected: false } as const;
@@ -539,7 +537,7 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
       if (!mcp.needsSignIn) {
         return { provider: 'mcp', app: mcpAppForUrl(mcp.url)?.slug ?? slug, connected: true, isNoAuth: true };
       }
-      // Kortix runs the sign-in itself: the link is the provider's consent page,
+      // Dosco runs the sign-in itself: the link is the provider's consent page,
       // and the OAuth callback stores the token on the connection.
       if (!userId) return null;
       const connectionId =
@@ -785,7 +783,7 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
     for (const key of ['provider', 'url', 'transport', 'endpoint', 'spec', 'baseUrl', 'name'] as const) {
       if (typeof draft[key] === 'string' && draft[key]) query.set(key === 'baseUrl' ? 'base_url' : key, draft[key] as string);
     }
-    return `${(config.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/projects/${projectId}/customize/connectors?${query}`;
+    return `${(config.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/projects/${projectId}/admin/connectors?${query}`;
   },
   listConnectorIdentities: async (projectId) =>
     (
@@ -793,6 +791,8 @@ export const dbConnectorRouterDeps: ConnectorRouterDeps = {
         .select({ slug: connectors.slug, provider: connectors.providerType, config: connectors.config })
         .from(connectors)
         .where(eq(connectors.projectId, projectId))
+        // The oldest profile of a way is the one an install answers as `existing`.
+        .orderBy(asc(connectors.createdAt), asc(connectors.slug))
     ).map((row) => ({ slug: row.slug, identity: connectorIdentity({ provider: row.provider, ...(row.config as Record<string, string>) }) })),
   discoverConnectorTools: (variant) => catalogTools(variant),
   getDiscoverConnector: (id) => kortixMcpCatalog.detail(id),

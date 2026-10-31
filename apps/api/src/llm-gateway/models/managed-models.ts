@@ -3,8 +3,8 @@ import { config } from '../../config';
 import { logger } from '../../lib/logger';
 
 /**
- * A Kortix managed model: one model Platinum Inference offers, paid from
- * Kortix credits. Platinum's `GET /v1/inference/models` is the only source;
+ * A Dosco managed model: one model Platinum Inference offers, paid from
+ * Dosco credits. Platinum's `GET /v1/inference/models` is the only source;
  * nothing here lists or prices a model.
  */
 export interface ManagedModel {

@@ -27,7 +27,7 @@ function submit(client = '192.0.2.1', prefix = '198.51.100.1') {
   return accessControlApp.request('/request-access', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': `${prefix}, ${client}, 192.0.2.254` },
-    body: JSON.stringify({ email: 'agent@kortix.ai', company: 'Synthetic', useCase: 'Testing' }),
+    body: JSON.stringify({ email: 'agent@dosco.live', company: 'Synthetic', useCase: 'Testing' }),
   });
 }
 
@@ -35,7 +35,7 @@ test('a normal unauthenticated submission succeeds and preserves its fields', as
   const response = await submit();
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ success: true, message: 'Access request submitted' });
-  expect(submissions).toEqual([{ email: 'agent@kortix.ai', company: 'Synthetic', useCase: 'Testing' }]);
+  expect(submissions).toEqual([{ email: 'agent@dosco.live', company: 'Synthetic', useCase: 'Testing' }]);
 });
 
 test('a burst stops at 60 writes, ignores forged prefixes, and refills after a minute', async () => {
@@ -44,7 +44,8 @@ test('a burst stops at 60 writes, ignores forged prefixes, and refills after a m
   expect(denied.status).toBe(429);
   expect(denied.headers.get('X-RateLimit-Limit')).toBe('60');
   expect(denied.headers.get('X-RateLimit-Remaining')).toBe('0');
-  expect(denied.headers.get('Retry-After')).toBe('60');
+  // 60 per minute returns a token every second (KRTX-3408).
+  expect(denied.headers.get('Retry-After')).toBe('1');
   expect(await denied.json()).toMatchObject({ error: 'rate_limit_exceeded' });
   expect(submissions).toHaveLength(60);
   expect((await submit('192.0.2.2')).status).toBe(200);

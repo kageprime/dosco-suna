@@ -76,18 +76,28 @@ import { registerSessionLogRoutes } from './routes/session-log';
 import { registerSessionRuntimeRoutes } from './routes/session-runtime';
 import { registerSessionPresenceRoutes } from './routes/session-presence';
 import { registerSessionWatchRoutes } from './routes/session-watch';
+import { registerSessionListFreshnessMiddleware } from './routes/session-list-freshness';
+import { registerSessionGroupsRoutes } from './routes/session-groups';
 import { registerSessionListStateRoutes } from './routes/session-list-state';
 import { registerSessionParticipantsRoutes } from './routes/session-participants';
 import { registerSessionPromptsRoutes } from './routes/session-prompts';
 import { registerRoomsRoutes } from './routes/rooms';
+import { registerPeerMessagesRoutes } from './routes/peer-messages';
+import { registerTeamTasksRoutes } from './routes/team-tasks';
 import { registerArtifactRoutes } from './routes/artifacts';
+import { registerArtifactCommentRoutes } from './routes/artifact-comments';
+import { registerLinkPreviewRoutes } from './routes/link-preview';
 import { registerSessionRemindersRoutes } from './routes/session-reminders';
+import { registerRuntimeTriggersRoutes } from './routes/runtime-triggers';
+import { registerProjectSpacesRoutes } from './routes/project-spaces';
+import { registerProjectMemoryRoutes } from './routes/project-memory';
 import { registerChangeRequestsRoutes } from './routes/change-requests';
 import { registerPromptAttachmentsRoutes } from './routes/prompt-attachments';
 import { registerChangeRequestActionsRoutes } from './routes/change-request-actions';
 import { registerMarketplaceInstallSessionRoutes } from './routes/marketplace-install-session';
 import { registerReviewItemsRoutes } from './routes/review-items';
 import { registerAgentScopeRoutes } from './routes/agent-scope';
+import { registerAgentCapabilitiesRoutes } from './routes/agent-capabilities';
 import { registerAgentConfigRoutes } from './routes/agent-config';
 import { registerProjectSkillsRoutes } from './routes/project-skills';
 import { registerGatewayRoutes } from './routes/gateway';
@@ -105,6 +115,8 @@ export function registerAllProjectRoutes(): void {
   // route order. registerProjectsRoutes() registers the global `/*` auth
   // middleware first (its first statement), then the remaining route groups.
   registerProjectsRoutes();
+  // Before every session route: a successful session write forgets the list's memoized pages.
+  registerSessionListFreshnessMiddleware();
   registerTriggerWebhooksRoutes();
   registerEventIngressRoutes();
   registerProjectGitRoutes();
@@ -166,11 +178,19 @@ export function registerAllProjectRoutes(): void {
   registerSessionPresenceRoutes();
   registerSessionWatchRoutes();
   registerSessionListStateRoutes();
+  registerSessionGroupsRoutes();
   registerSessionParticipantsRoutes();
   registerSessionPromptsRoutes();
   registerRoomsRoutes();
+  registerPeerMessagesRoutes();
+  registerTeamTasksRoutes();
   registerArtifactRoutes();
+  registerArtifactCommentRoutes();
+  registerLinkPreviewRoutes();
   registerSessionRemindersRoutes();
+  registerRuntimeTriggersRoutes();
+  registerProjectSpacesRoutes();
+  registerProjectMemoryRoutes();
   registerChangeRequestsRoutes();
   registerPromptAttachmentsRoutes();
   registerChangeRequestActionsRoutes();
@@ -178,6 +198,7 @@ export function registerAllProjectRoutes(): void {
   registerReviewItemsRoutes();
   registerAgentScopeRoutes();
   registerAgentConfigRoutes();
+  registerAgentCapabilitiesRoutes();
   registerProjectSkillsRoutes();
   registerGatewayRoutes();
   registerChannelBindingsRoutes();

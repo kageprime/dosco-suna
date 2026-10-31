@@ -126,9 +126,9 @@ export async function getFileInfo(token: string, fileId: string): Promise<SlackA
 }
 
 /**
- * The Kortix agent a message comes from, shown as its author in Slack
+ * The Dosco agent a message comes from, shown as its author in Slack
  * (`chat:write.customize`). Only a message's creating call takes it; a later
- * `chat.update` keeps it. Kortix's own notices carry none and read "Kortix".
+ * `chat.update` keeps it. Dosco's own notices carry none and read "Dosco".
  */
 export interface SlackPersona {
   username: string;
@@ -137,7 +137,7 @@ export interface SlackPersona {
 /**
  * A creating call with a persona. An install without `chat:write.customize`
  * (an older own app) answers `missing_scope`; the refused post created
- * nothing, so it is sent once more as plain "Kortix" rather than lost.
+ * nothing, so it is sent once more as plain "Dosco" rather than lost.
  */
 async function createWithPersona(
   token: string,

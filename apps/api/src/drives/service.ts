@@ -11,11 +11,19 @@
 // subdirectory mount of the one volume, so the box sees nothing outside the
 // folders it was given (a mount cannot hide part of itself from a box whose
 // agent can become root).
+//
+// The volume lives in one Platinum region (`platinum_volume_region`, chosen
+// from the project's `us_region` when the row is inserted), and every box of
+// the project runs there (platform/services/sandbox-region.ts
+// resolveSessionPlacement): a box mounts only a volume of its own region.
 
 import { logger } from '../lib/logger';
-import { accountMembers, driveConflicts, driveMountRevocations, drives, iamRoles, projectSessions, roleAssignments, serviceAccounts, sessionSandboxes } from '@kortix/db';
-import { and, asc, count, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { accountMembers, driveConflicts, driveMountRevocations, drives, iamRoles, projectSessions, projectSpaceLinks, projectSpaceMembers, projectSpaces, projects, roleAssignments, serviceAccounts, sessionSandboxes } from '@kortix/db';
+import { spaceDriveFolders } from '@kortix/shared';
+import { privateChannelAccess } from '../shared/space-access';
+import { and, asc, count, desc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { projectFeatureFlagEnabled } from '../feature-flags/for-project';
+import { resolveSessionSandboxRegion } from '../platform/services/sandbox-region';
 import { SYSTEM_ACTOR, assignRole, revokeAssignment } from '../iam/assignments';
 import { resolvePrincipal } from '../iam/authorize';
 import { config } from '../config';
@@ -29,19 +37,25 @@ import {
   type FolderAccess,
   type FolderGrant,
   type FolderLevel,
-  type FolderMountCandidate,
   type FolderPrincipalType,
   type FolderSubject,
   type PlannedFolderMount,
   MEMORY_DIR_NAME,
+  type PrivateChannelFolders,
   USERS_DIR,
   folderAccess,
-  grantReaches,
   pathWithinFolder,
   personalFolderName,
   planFolderMounts,
+  privateChannelFolderOf,
+  sessionMountCandidates,
+  SPACE_NOTES_LINKS,
+  type SpaceNotesLink,
+  spaceNotesLines,
 } from './folders';
 import {
+  DRIVE_MOVING_MESSAGE,
+  type DriveVolume,
   DriveStorageError,
   attachSandboxVolume,
   detachSandboxVolume,
@@ -49,6 +63,7 @@ import {
   execInSandbox,
   getDriveVolume,
   isMissingVolume,
+  moveVolumeFile,
   openDriveVolume,
   sandboxMountLimit,
   sandboxMountPaths,
@@ -58,6 +73,7 @@ import {
   type VolumeInfo,
 } from './volumes';
 import { isDriveSyncBox } from './sync';
+import { moveFolderGrants } from './queries';
 
 export type DriveRow = typeof drives.$inferSelect;
 
@@ -142,10 +158,20 @@ export async function openConflictCounts(driveIds: string[]): Promise<Map<string
   return out;
 }
 
+/** The drive's volume as every storage call addresses it: by name, in its region, fenced while it moves. */
+export function driveVolume(drive: Pick<DriveRow, 'platinumVolumeName' | 'platinumVolumeRegion' | 'platinumVolumeMove'>): DriveVolume {
+  const move = drive.platinumVolumeMove;
+  return {
+    name: drive.platinumVolumeName,
+    region: drive.platinumVolumeRegion ?? null,
+    ...(move && !move.finished_at ? { moving: true } : {}),
+  };
+}
+
 /** Volume stats, best effort: a slow or failed lookup reads as null. */
 export async function driveStats(drive: DriveRow): Promise<VolumeInfo | null> {
   if (!driveStorageAvailable() || !drive.platinumVolumeId) return null;
-  return getDriveVolume(drive.platinumVolumeName, AbortSignal.timeout(3_000)).catch(() => null);
+  return getDriveVolume(driveVolume(drive), AbortSignal.timeout(3_000)).catch(() => null);
 }
 
 export async function getDrive(driveId: string): Promise<DriveRow | null> {
@@ -153,7 +179,7 @@ export async function getDrive(driveId: string): Promise<DriveRow | null> {
   return row ?? null;
 }
 
-async function findProjectDrive(projectId: string): Promise<DriveRow | null> {
+export async function findProjectDrive(projectId: string): Promise<DriveRow | null> {
   const [row] = await db
     .select()
     .from(drives)
@@ -164,12 +190,15 @@ async function findProjectDrive(projectId: string): Promise<DriveRow | null> {
 
 /**
  * The project's drive, created on first use with its one default grant:
- * everyone who works in the project may write `/Company`.
+ * everyone who works in the project may write `/Company`. Its volume lives
+ * where the project's sessions run now (the `us_region` flag), for good: a
+ * later flag change moves the sessions to the drive, never the drive.
  */
 export async function ensureProjectDrive(accountId: string, projectId: string): Promise<DriveRow> {
   const existing = await findProjectDrive(projectId);
   if (existing) return existing;
   const driveId = crypto.randomUUID();
+  const [project] = await db.select({ metadata: projects.metadata }).from(projects).where(eq(projects.projectId, projectId)).limit(1);
   const [created] = await db
     .insert(drives)
     .values({
@@ -179,6 +208,7 @@ export async function ensureProjectDrive(accountId: string, projectId: string): 
       kind: 'project',
       name: PROJECT_DRIVE_NAME,
       platinumVolumeName: driveVolumeName(driveId),
+      platinumVolumeRegion: resolveSessionSandboxRegion(project?.metadata ?? null) ?? null,
     })
     .onConflictDoNothing()
     .returning();
@@ -196,36 +226,42 @@ export async function ensureProjectDrive(accountId: string, projectId: string): 
     grantedBy: null,
     source: 'system',
   });
+  // Private channels made before the drive: their members' grants.
+  await syncPrivateChannelGrants(created);
   return created;
 }
 
 /**
- * Open (create when missing) the drive's volume and return the name every
- * storage call uses. The first open lays out the folders everyone expects.
+ * Open (create when missing) the drive's volume in its region and return the
+ * volume every storage call uses. The first open lays out the folders
+ * everyone expects.
  */
-export async function openVolumeFor(drive: DriveRow, signal?: AbortSignal): Promise<string> {
-  const vol = await openDriveVolume(drive.platinumVolumeName, signal);
+export async function openVolumeFor(drive: DriveRow, signal?: AbortSignal): Promise<DriveVolume> {
+  const volume = driveVolume(drive);
+  const vol = await openDriveVolume(volume, signal);
   if (drive.platinumVolumeId !== vol.id) {
     const first = !drive.platinumVolumeId;
+    // Only while the row still names this volume: a row read before a region
+    // move swapped it must not put an old volume's id on the moved row.
     await db
       .update(drives)
       .set({ platinumVolumeId: vol.id, updatedAt: new Date() })
-      .where(eq(drives.driveId, drive.driveId));
+      .where(and(eq(drives.driveId, drive.driveId), eq(drives.platinumVolumeName, volume.name)));
     drive.platinumVolumeId = vol.id;
     if (first && drive.kind === 'project') {
-      await writeVolumeFile(drive.platinumVolumeName, `${COMPANY_MEMORY_DIR}/.keep`, new Uint8Array(), {
+      await writeVolumeFile(volume, `${COMPANY_MEMORY_DIR}/.keep`, new Uint8Array(), {
         overwrite: false,
       }).catch(() => undefined);
     }
   }
-  return drive.platinumVolumeName;
+  return volume;
 }
 
 /** A read: a drive with no volume yet (or none on this storage account) answers `empty`. */
-export async function readDriveVolume<T>(drive: DriveRow, op: (volume: string) => Promise<T>, empty: () => T): Promise<T> {
+export async function readDriveVolume<T>(drive: DriveRow, op: (volume: DriveVolume) => Promise<T>, empty: () => T): Promise<T> {
   if (!drive.platinumVolumeId) return empty();
   try {
-    return await op(drive.platinumVolumeName);
+    return await op(driveVolume(drive));
   } catch (err) {
     if (isMissingVolume(err)) return empty();
     throw err;
@@ -233,10 +269,10 @@ export async function readDriveVolume<T>(drive: DriveRow, op: (volume: string) =
 }
 
 /** A write: creates the volume on first use, and again if storage lost it. */
-export async function writeDriveVolume<T>(drive: DriveRow, op: (volume: string) => Promise<T>): Promise<T> {
+export async function writeDriveVolume<T>(drive: DriveRow, op: (volume: DriveVolume) => Promise<T>): Promise<T> {
   if (!drive.platinumVolumeId) return op(await openVolumeFor(drive));
   try {
-    return await op(drive.platinumVolumeName);
+    return await op(driveVolume(drive));
   } catch (err) {
     if (!isMissingVolume(err)) throw err;
     return op(await openVolumeFor(drive));
@@ -388,6 +424,174 @@ export async function ensurePersonalFolder(drive: DriveRow, userId: string, gran
   });
 }
 
+/** A person as the folder rules see them on one drive. */
+export interface DriveCaller {
+  userId: string;
+  subject: FolderSubject;
+  grants: FolderGrant[];
+  personalFolder: string;
+}
+
+/**
+ * The person behind a request, as the folder rules see them: a project
+ * admin (`may('write')`) manages every folder but people's own; who may run
+ * sessions in the project (`may('session')`) reaches grants to the whole
+ * project; and grants to them or their teams. Makes their own folder when
+ * they have none. The Drive routes and the memory routes share it.
+ */
+export async function driveSubjectFor(
+  drive: DriveRow,
+  userId: string,
+  may: (action: 'session' | 'write') => Promise<boolean>,
+  /** The session-bound credential's session (`callerKortixSessionId`), null for a person. */
+  bound: string | null = null,
+): Promise<DriveCaller> {
+  const [projectMember, admin, groupIds] = await Promise.all([may('session'), may('write'), groupIdsOf(userId, drive.accountId)]);
+  let grants = await listFolderGrants(drive);
+  const personalFolder = await ensurePersonalFolder(drive, userId, grants);
+  if (!grants.some((g) => g.path === personalFolder)) grants = await listFolderGrants(drive);
+  // Membership is the key to a private channel's folder; its grant
+  // (`syncPrivateChannelGrants`) only mirrors it. A grant whose channel the
+  // caller may not see (left, removed, a session token of another thread)
+  // counts for nothing, even before it is gone. Only the folders of the
+  // project's private channels are reserved: any other path under `/Channels`
+  // is an ordinary folder.
+  const folders = await privateChannelFoldersFor(drive.projectId!, userId, bound);
+  grants = onlyVisiblePrivateGrants(grants, folders);
+  const privateChannelFolders = folders.all;
+  // A private channel's thread writes only its channel's folder (the twin of
+  // `sessionMountCandidates`): its person's write elsewhere, admin included, is read here.
+  const channelFolder = bound ? await sessionPrivateChannelFolder(bound) : null;
+  if (channelFolder) {
+    return {
+      userId,
+      grants: readOnlyOutside(grants, channelFolder),
+      personalFolder,
+      subject: { userId, groupIds, projectMember, admin: false, privateChannelFolders },
+    };
+  }
+  return { userId, grants, personalFolder, subject: { userId, groupIds, projectMember, admin, privateChannelFolders } };
+}
+
+/** Every grant outside `channelFolder` at most `read`: what a private channel's thread may do with its person's access. */
+export function readOnlyOutside(grants: FolderGrant[], channelFolder: string): FolderGrant[] {
+  return grants.map((g) => (pathWithinFolder(g.path, channelFolder) || g.level === 'read' ? g : { ...g, level: 'read' as const }));
+}
+
+/** The project's private channel folders (`all`), and of them the ones the caller may see (`visible`). */
+export interface PrivateChannelFolderAccess {
+  all: PrivateChannelFolders;
+  visible: ReadonlySet<string>;
+}
+
+/**
+ * The one rule for a private channel's folder, for every reader of folder
+ * grants (Drive routes, memory, artifacts): a grant in a private channel's
+ * folder counts only when the folder is in `visible`
+ * ({@link privateChannelFoldersFor}). A grant anywhere else, other paths under
+ * `/Channels` included, is untouched.
+ */
+export function onlyVisiblePrivateGrants(grants: FolderGrant[], folders: PrivateChannelFolderAccess): FolderGrant[] {
+  if (folders.all.size === 0) return grants;
+  return grants.filter((g) => {
+    const folder = privateChannelFolderOf(g.path, folders.all);
+    return !folder || folders.visible.has(folder);
+  });
+}
+
+/** `/Channels/<space_id>` of a private channel. */
+function privateFolderOfSpace(spaceId: string): string | null {
+  return spaceDriveFolders('channel', '', null, spaceId)?.files ?? null;
+}
+
+/**
+ * The project's private channel folders, and the ones the caller may see
+ * (`canSeeSpace`): a person's channels, or only its own thread's channel for a
+ * session-bound credential (`bound`). One read, memoized with `hiddenSpaceIds`.
+ */
+export async function privateChannelFoldersFor(projectId: string, userId: string, bound: string | null): Promise<PrivateChannelFolderAccess> {
+  const { all, hidden } = await privateChannelAccess(projectId, userId, bound);
+  const allFolders = new Set<string>();
+  const visible = new Set<string>();
+  for (const spaceId of all) {
+    const folder = privateFolderOfSpace(spaceId);
+    if (!folder) continue;
+    allFolders.add(folder);
+    if (!hidden.has(spaceId)) visible.add(folder);
+  }
+  return { all: allFolders, visible };
+}
+
+/** The project's private channel folders, read now (no memo): for mounts and grant sync. */
+export async function projectPrivateChannelFolders(projectId: string): Promise<Set<string>> {
+  return new Set((await privateChannelRows(projectId)).flatMap((row) => (row.folder ? [row.folder] : [])));
+}
+
+/** The project's private channels (archived included) with their folder (`/Channels/<space_id>`) and slug. */
+export async function privateChannelRows(
+  projectId: string,
+): Promise<Array<{ spaceId: string; slug: string | null; updatedAt: Date; folder: string | null }>> {
+  const rows = await db
+    .select({ spaceId: projectSpaces.spaceId, slug: projectSpaces.slug, updatedAt: projectSpaces.updatedAt })
+    .from(projectSpaces)
+    .where(and(eq(projectSpaces.projectId, projectId), eq(projectSpaces.kind, 'channel'), eq(projectSpaces.visibility, 'private')));
+  return rows.map((row) => ({ ...row, folder: privateFolderOfSpace(row.spaceId) }));
+}
+
+/**
+ * Bring the grants inside the project's private channel folders in line with
+ * membership: one Dosco `write` grant per member on each channel's folder,
+ * and no other grant anywhere inside one (a grant that moved in with a
+ * converted folder goes too). A grant elsewhere under `/Channels` (a folder a
+ * person made) is never touched. Returns how many grants went: the caller
+ * enforces mounts when any did.
+ */
+export async function syncPrivateChannelGrants(drive: DriveRow): Promise<number> {
+  if (!drive.projectId) return 0;
+  const channels = await privateChannelRows(drive.projectId);
+  const members = channels.length
+    ? await db
+        .select({ spaceId: projectSpaceMembers.spaceId, userId: projectSpaceMembers.userId })
+        .from(projectSpaceMembers)
+        .where(inArray(projectSpaceMembers.spaceId, channels.map((c) => c.spaceId)))
+    : [];
+  const folderOf = new Map(channels.map((c) => [c.spaceId, c.folder]));
+  const want = new Set(members.flatMap((m) => (folderOf.get(m.spaceId) ? [`${folderOf.get(m.spaceId)}|${m.userId}`] : [])));
+  const channelFolders = new Set(channels.flatMap((c) => (c.folder ? [c.folder] : [])));
+  const have = (await listFolderGrants(drive)).filter((g) => privateChannelFolderOf(g.path, channelFolders));
+  let removed = 0;
+  const kept = new Set<string>();
+  for (const g of have) {
+    const key = `${g.path}|${g.principalId}`;
+    if (g.principalType === 'user' && g.level === 'write' && g.source === 'system' && want.has(key)) {
+      kept.add(key);
+      continue;
+    }
+    if (g.grantId) {
+      await removeFolderGrant(drive, g.grantId);
+      removed += 1;
+    }
+  }
+  for (const key of want) {
+    if (kept.has(key)) continue;
+    const [path, userId] = key.split('|') as [string, string];
+    await setFolderGrant({ drive, path, principal: { type: 'user', id: userId }, level: 'write', grantedBy: null, source: 'system' });
+  }
+  return removed;
+}
+
+/** The private channel folder of the session's channel (`/Channels/<space_id>`); null for a session in any other space or none. */
+export async function sessionPrivateChannelFolder(sessionId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ spaceId: projectSpaces.spaceId, kind: projectSpaces.kind, visibility: projectSpaces.visibility })
+    .from(projectSessions)
+    .innerJoin(projectSpaces, eq(projectSpaces.spaceId, projectSessions.spaceId))
+    .where(eq(projectSessions.sessionId, sessionId))
+    .limit(1);
+  if (row?.kind !== 'channel' || row.visibility !== 'private') return null;
+  return privateFolderOfSpace(row.spaceId);
+}
+
 /** The agent's service account, when it has one (a grant to an agent made it). */
 export async function agentServiceAccountId(accountId: string, projectId: string, agentName: string): Promise<string | null> {
   const [row] = await db
@@ -429,8 +633,14 @@ export interface RecordedDriveMount {
 
 export interface SkippedDrive {
   driveId: string;
-  /** The folder that did not fit. */
+  /** The folder that is not mounted. */
   name: string;
+  /**
+   * Why: absent = it did not fit in the sandbox's mount slots; `region` = the
+   * files live in another region than the sandbox; `moving` = the files were
+   * moving to another region when the sandbox booted.
+   */
+  reason?: 'region' | 'moving';
 }
 
 export interface SessionDriveMounts {
@@ -439,6 +649,31 @@ export interface SessionDriveMounts {
   mounts: RecordedDriveMount[];
   slots: number;
   skipped: SkippedDrive[];
+  /** The region of the drive's volume (null = home): a sandbox mounts it only there. */
+  region: string | null;
+}
+
+/**
+ * Whether a plan made earlier still mounts the drive's current volume. A
+ * region move may have fenced the drive, or pointed it at a new volume, since:
+ * a box created from the old plan would then write where nobody reads.
+ */
+export async function driveMountPlanCurrent(plan: SessionDriveMounts): Promise<boolean> {
+  const driveId = plan.mounts[0]?.driveId;
+  const planned = Object.values(plan.volumes)[0]?.volume;
+  if (!driveId || !planned) return true;
+  const drive = await getDrive(driveId);
+  return !!drive && drive.platinumVolumeName === planned && !driveVolume(drive).moving;
+}
+
+/** The same plan with no folder mounted: each planned folder is skipped for `reason`. */
+export function withoutDriveMounts(plan: SessionDriveMounts, reason: 'region' | 'moving'): SessionDriveMounts {
+  return {
+    ...plan,
+    volumes: {},
+    mounts: [],
+    skipped: [...plan.mounts.map((m) => ({ driveId: m.driveId, name: m.subdir, reason })), ...plan.skipped],
+  };
 }
 
 export const DRIVE_MOUNTS_METADATA_KEY = 'driveMounts';
@@ -571,25 +806,17 @@ export async function planSessionDrives(input: {
     await ensurePersonalFolder(drive, owner, grants);
     grants = await listFolderGrants(drive);
   }
-  const agentId = await agentServiceAccountId(accountId, projectId, agentName);
-  const groupIds = owner ? await groupIdsOf(owner, accountId) : new Set<string>();
+  const [agentId, groupIds, channelFolder, privateChannelFolders] = await Promise.all([
+    agentServiceAccountId(accountId, projectId, agentName),
+    owner ? groupIdsOf(owner, accountId) : Promise.resolve(new Set<string>()),
+    sessionPrivateChannelFolder(sessionId),
+    projectPrivateChannelFolders(projectId),
+  ]);
   const own = owner ? personalFolderFor(grants, owner) : null;
-
-  const candidates: FolderMountCandidate[] = [];
-  for (const g of grants) {
-    const viaAgent = grantReaches(g, { agentId });
-    const viaProject = grantReaches(g, { projectMember: true });
-    const viaPerson = !!owner && grantReaches(g, { userId: owner, groupIds });
-    if (!viaAgent && !viaProject && !viaPerson) continue;
-    candidates.push({
-      path: g.path,
-      level: g.level,
-      priority: viaAgent ? 0 : viaProject ? 1 : 2,
-      desktop: g.path === own,
-      viaPerson: !viaAgent && !viaProject,
-    });
-  }
-  const plan = planFolderMounts(candidates, input.slots ?? (await sandboxMountLimit()));
+  // A private channel's folder mounts only in that channel's threads (and
+  // their subagents, which inherit the channel), never through a member's grant.
+  const candidates = sessionMountCandidates(grants, { agentId, owner, groupIds, own, channelFolder, privateChannelFolders });
+  const plan = planFolderMounts(candidates, input.slots ?? (await sandboxMountLimit()), privateChannelFolders);
   return { drive, mounts: plan.mounts, skipped: plan.skipped };
 }
 
@@ -627,12 +854,20 @@ export async function sessionVolumeMounts(input: {
   if (!(await sessionDrivesEnabled(input.projectId))) return undefined;
   const slots = Math.max(0, (await sandboxMountLimit()) - (input.reservedSlots ?? 0));
   const plan = await planSessionDrives({ ...input, slots });
+  const region = plan.drive.platinumVolumeRegion ?? null;
   const skipped = plan.skipped.map((path) => ({ driveId: plan.drive.driveId, name: path }));
   if (skipped.length) {
     logger.warn(`[drives] session ${input.sessionId}: ${skipped.length} folder(s) past the ${slots} mount slots left out`);
   }
-  if (!plan.mounts.length) return skipped.length ? { volumes: {}, mounts: [], skipped, slots } : undefined;
-  let volume: string | null = null;
+  if (!plan.mounts.length) return skipped.length ? { volumes: {}, mounts: [], skipped, slots, region } : undefined;
+  const planned: SessionDriveMounts = { volumes: {}, mounts: plan.mounts.map((p) => toRecorded(plan.drive, p)), skipped, slots, region };
+  // A region move is copying the files: a box that mounted the old volume now
+  // would write where nobody reads after the move. It boots without them.
+  if (driveVolume(plan.drive).moving) {
+    logger.info(`[drives] session ${input.sessionId}: the project's files are moving regions; the box boots without them`);
+    return withoutDriveMounts(planned, 'moving');
+  }
+  let volume: DriveVolume | null = null;
   let lastErr: unknown;
   // Three tries over ~10 s ride out a storage blip; then the boot fails, loudly.
   for (let attempt = 1; attempt <= 3 && !volume; attempt++) {
@@ -654,12 +889,10 @@ export async function sessionVolumeMounts(input: {
       [PROJECT_DRIVE_NAME],
     );
   }
-  const out: SessionDriveMounts = { volumes: {}, mounts: [], skipped, slots };
   for (const p of plan.mounts) {
-    out.volumes[p.mountPath] = { volume, ...(p.readOnly ? { read_only: true } : {}), subdir: p.path, share: 'node' };
-    out.mounts.push(toRecorded(plan.drive, p));
+    planned.volumes[p.mountPath] = { volume: volume.name, ...(p.readOnly ? { read_only: true } : {}), subdir: p.path, share: 'node' };
   }
-  return out;
+  return planned;
 }
 
 /** Files mount in this project's sessions: storage configured, the operator override not set, the project's Volumes flag on. */
@@ -712,6 +945,16 @@ async function writeRecordedMounts(sandboxId: string, mounts: RecordedDriveMount
     .where(eq(sessionSandboxes.sandboxId, sandboxId));
 }
 
+async function writeSkippedMounts(sandboxId: string, skipped: SkippedDrive[]): Promise<void> {
+  await db
+    .update(sessionSandboxes)
+    .set({
+      metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) || ${JSON.stringify({ [DRIVE_SKIPPED_METADATA_KEY]: skipped })}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessionSandboxes.sandboxId, sandboxId));
+}
+
 export interface SessionDriveView extends RecordedDriveMount {
   /** The folder's name, for people. */
   name: string;
@@ -735,7 +978,7 @@ export async function readSessionDriveMounts(sessionId: string): Promise<Session
   }));
 }
 
-/** Folders the session's current sandbox should have but did not fit at its boot, and the message for them. */
+/** Folders the session's current sandbox should have but does not mount, and the message for them. */
 export async function readSkippedSessionDrives(
   sessionId: string,
 ): Promise<{ skipped: SkippedDrive[]; message: string | null }> {
@@ -748,6 +991,12 @@ export async function readSkippedSessionDrives(
   const mounted = new Set(recordedDriveMounts(md).map((m) => m.subdir));
   const skipped = recorded.filter((d) => !mounted.has(d.name));
   if (!skipped.length) return { skipped, message: null };
+  if (skipped.some((d) => d.reason === 'region')) {
+    return { skipped, message: 'This session runs in another region than the project’s files, so its folders are not mounted. A new session mounts them.' };
+  }
+  if (skipped.some((d) => d.reason === 'moving')) {
+    return { skipped, message: 'The project’s files were moving to another region when this session started, so its folders are not mounted. A new session mounts them.' };
+  }
   const slots = Number(md?.[DRIVE_SLOTS_METADATA_KEY]);
   return {
     skipped,
@@ -849,7 +1098,7 @@ const subdirOf = (subdir: string | undefined) => (subdir ?? '/').replace(/\/+$/,
  * resumed from memory keeps the mounts its kernel had after Platinum ended
  * them at the stop) is unmounted in the guest. Then the attach runs again.
  */
-async function attachDriveMount(externalId: string, m: RecordedDriveMount, volume: string): Promise<void> {
+async function attachDriveMount(externalId: string, m: RecordedDriveMount, volume: DriveVolume): Promise<void> {
   const input = { volume, readOnly: m.readOnly, subdir: m.subdir };
   try {
     await attachSandboxVolume(externalId, m.mountPath, input);
@@ -860,7 +1109,7 @@ async function attachDriveMount(externalId: string, m: RecordedDriveMount, volum
   const mounts = await sandboxVolumeMounts(externalId);
   if (!mounts) throw new DriveStorageError(503, 'Drive storage is unavailable, try again shortly', 'drive_storage_unavailable');
   const held = mounts.find((x) => x.mountPath === m.mountPath);
-  if (held && held.volume === volume && held.readOnly === m.readOnly && subdirOf(held.subdir) === subdirOf(m.subdir)) return;
+  if (held && held.volume === volume.name && held.readOnly === m.readOnly && subdirOf(held.subdir) === subdirOf(m.subdir)) return;
   if (held) {
     logger.warn(`[drives] ${externalId}: replacing the mount at ${m.mountPath} (${held.volume}:${held.subdir})`);
     await detachSandboxVolume(externalId, m.mountPath);
@@ -904,11 +1153,39 @@ async function applyDriveToRunningSandbox(input: {
     await writeRecordedMounts(box.sandboxId, [...others, ...kept]);
   }
   if (fresh.length) {
-    const volume = await openVolumeFor(plan.drive, AbortSignal.timeout(OPEN_TIMEOUT_MS));
-    for (const m of placeNew(plan.drive, fresh, [...others, ...kept])) {
-      await attachDriveMount(box.externalId, m, volume);
-      kept = [...kept, m];
-      await writeRecordedMounts(box.sandboxId, [...others, ...kept]);
+    const placed = placeNew(plan.drive, fresh, [...others, ...kept]);
+    // A box mounts only a volume of its own region, and none while a region
+    // move copies it. A box that booted before the drive moved keeps running
+    // without the new folders; its next box mounts them. Recorded, not
+    // retried: retrying cannot change where the box runs.
+    const unreachable = async (reason: 'region' | 'moving') => {
+      logger.info(`[drives] session ${input.sessionId}: ${placed.length} folder(s) not attached (${reason})`);
+      await writeSkippedMounts(box.sandboxId, placed.map((m) => ({ driveId: m.driveId, name: m.subdir, reason })));
+    };
+    const boxRegion = (box.metadata as Record<string, unknown> | null)?.platinumRegion;
+    const filesRegion = plan.drive.platinumVolumeRegion;
+    if (driveVolume(plan.drive).moving) {
+      await unreachable('moving');
+    } else if (filesRegion && typeof boxRegion === 'string' && boxRegion !== filesRegion) {
+      await unreachable('region');
+    } else {
+      const volume = await openVolumeFor(plan.drive, AbortSignal.timeout(OPEN_TIMEOUT_MS));
+      for (const m of placed) {
+        try {
+          await attachDriveMount(box.externalId, m, volume);
+        } catch (err) {
+          // The box's control plane names the volume's region, or, before its
+          // volume directory learned of a new volume, does not find it at all:
+          // the volume was just opened in its own region, so both mean the box
+          // runs elsewhere.
+          const code = err instanceof DriveStorageError ? err.code : undefined;
+          if (code !== 'volume_in_other_region' && code !== 'volume_not_found' && code !== 'drive_moving') throw err;
+          await unreachable(code === 'drive_moving' ? 'moving' : 'region');
+          break;
+        }
+        kept = [...kept, m];
+        await writeRecordedMounts(box.sandboxId, [...others, ...kept]);
+      }
     }
   }
   // Awaited: the ownership pass inside makes a newly writable mount writable
@@ -960,6 +1237,40 @@ export async function reconcileSessionDrives(sessionId: string): Promise<void> {
   }
 }
 
+/** How long a sharing change waits for running sessions before it answers. */
+const ENFORCE_ANSWER_BUDGET_MS = 10_000;
+
+/**
+ * Running sessions of the project pick up a sharing change at once, and
+ * stopped ones never come back with more. Answers with how many sessions are
+ * not in line yet: those are recorded, fenced at the API and retried by the
+ * drive worker, so a caller is never told a revocation landed when it did not.
+ */
+export async function enforceProjectMounts(drive: DriveRow): Promise<number> {
+  const progress: EnforceProgress = { total: 0, done: 0, failed: 0 };
+  const run = enforceDriveMounts({ projectId: drive.projectId! }, { progress }).catch((err) => {
+    logger.error('[drives] enforcing folder access failed:', { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  });
+  const finished = await Promise.race([
+    run.then(() => true),
+    new Promise<false>((resolve) => setTimeout(() => resolve(false), ENFORCE_ANSWER_BUDGET_MS).unref?.()),
+  ]);
+  if (finished) return progress.failed;
+  return progress.failed + Math.max(0, progress.total - progress.done) || 1;
+}
+
+/**
+ * Move a folder or file and the sharing on it (the Drive move route and a
+ * channel rename). Running sessions pick up a moved share at once. `missing`
+ * answers a drive with no storage yet. Returns the sessions not in line yet
+ * (see {@link enforceProjectMounts}).
+ */
+export async function moveDriveFolder(drive: DriveRow, from: string, to: string, missing: () => void): Promise<number> {
+  await readDriveVolume(drive, (volume) => moveVolumeFile(volume, from, to), missing);
+  return (await moveFolderGrants(drive, from, to)) ? enforceProjectMounts(drive) : 0;
+}
+
 // ─── The notes file agents read ────────────────────────────────────────────
 
 /** Where a session's agent reads which folders it has and what needs attention. */
@@ -969,6 +1280,9 @@ export function renderDriveNotes(
   mounts: SessionDriveView[],
   conflicts: Array<{ mountPath: string; path: string }>,
   skippedMessage?: string | null,
+  spaceLines: readonly string[] = [],
+  /** A private channel's thread: every fact stays in the channel's folder, never Company or the user's folder. */
+  opts: { privateChannel?: boolean } = {},
 ): string {
   const lines = [
     '# Files in this session',
@@ -984,13 +1298,20 @@ export function renderDriveNotes(
     '',
   ];
   const me = mounts.find((m) => m.role === 'me');
-  if (me) {
+  if (me && opts.privateChannel) {
+    lines.push(
+      `${me.mountPath} is the user’s own folder (also at ~/Desktop), read-only in this thread: this thread is in a private channel.`,
+      '',
+    );
+  } else if (me) {
+    const team = `what the whole team should know goes in Company/${MEMORY_DIR_NAME}/ when that folder is mounted.`;
     lines.push(
       `${me.mountPath} is the user’s own folder (also at ~/Desktop). Save files you make for the user there.`,
-      `Keep what you learn about the user in ${me.mountPath}/${MEMORY_DIR_NAME}/ (load the kortix-user-memory skill); what the whole team should know goes in Company/${MEMORY_DIR_NAME}/ when that folder is mounted.`,
+      `Keep what you learn about the user in ${me.mountPath}/${MEMORY_DIR_NAME}/ (load the kortix-user-memory skill); ${team}`,
       '',
     );
   }
+  lines.push(...spaceLines);
   lines.push(
     'A folder that is not listed here is not available to this session. Ask the user to share it with you in Files.',
     '',
@@ -1030,7 +1351,41 @@ export async function sessionDriveNotes(sessionId: string): Promise<{ mounts: Se
     return [{ mountPath: m.mountPath, path: rel }];
   });
   const { message: skippedMessage } = await readSkippedSessionDrives(sessionId);
-  return { mounts, text: renderDriveNotes(mounts, conflicts, skippedMessage) };
+  const space = await sessionNotesSpace(sessionId);
+  const privateChannel = space?.kind === 'channel' && space.visibility === 'private';
+  return { mounts, text: renderDriveNotes(mounts, conflicts, skippedMessage, space ? spaceNotesLines(space, mounts) : [], { privateChannel }) };
+}
+
+/** The channel or DM a session is a thread of (a channel with its newest pinned links), with `project_channels` on; else null. */
+async function sessionNotesSpace(
+  sessionId: string,
+): Promise<{ kind: 'channel' | 'dm'; name: string; links: SpaceNotesLink[]; visibility: 'public' | 'private'; spaceId: string } | null> {
+  const [row] = await db
+    .select({
+      projectId: projectSessions.projectId,
+      spaceId: projectSpaces.spaceId,
+      kind: projectSpaces.kind,
+      visibility: projectSpaces.visibility,
+      slug: projectSpaces.slug,
+      agent: projectSpaces.dmAgentName,
+    })
+    .from(projectSessions)
+    .innerJoin(projectSpaces, eq(projectSpaces.spaceId, projectSessions.spaceId))
+    .where(eq(projectSessions.sessionId, sessionId))
+    .limit(1);
+  const name = row?.kind === 'channel' ? row.slug : row?.agent;
+  if (!row || !name || !(await projectFeatureFlagEnabled(row.projectId, 'project_channels'))) return null;
+  const links =
+    row.kind === 'channel'
+      ? await db
+          .select({ url: projectSpaceLinks.url, title: projectSpaceLinks.title })
+          .from(projectSpaceLinks)
+          // Only pinned links reach the agents; a link shared in a thread waits for a member to pin it.
+          .where(and(eq(projectSpaceLinks.spaceId, row.spaceId), eq(projectSpaceLinks.pinned, true)))
+          .orderBy(desc(sql`coalesce(${projectSpaceLinks.pinnedAt}, ${projectSpaceLinks.createdAt})`))
+          .limit(SPACE_NOTES_LINKS)
+      : [];
+  return { kind: row.kind, name, links, visibility: row.visibility, spaceId: row.spaceId };
 }
 
 /**

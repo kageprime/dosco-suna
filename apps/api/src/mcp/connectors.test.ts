@@ -218,7 +218,7 @@ describe('connector apps come from the one catalogue', () => {
     expect(calls.filter((c) => c.path.endsWith('/discover/connectors')).at(-1)?.query).toMatchObject({ oneClick: '1', kind: 'mcp,composio', category: 'productivity' });
   });
 
-  test('add_connector installs the recommended way through the catalogue, a bare slug being a Kortix app', async () => {
+  test('add_connector installs the recommended way through the catalogue, a bare slug being a Dosco app', async () => {
     const calls: Array<{ method: string; path: string; body?: unknown }> = [];
     const result = (await runConnectorTool('add_connector', { project_id: 'proj-1', app: 'linear' }, v2Host(calls))) as { content: Array<{ text: string }> };
     expect(calls.find((c) => c.path.endsWith('/discover/install'))?.body).toEqual({ id: 'kortix:linear', way: undefined, name: undefined, slug: undefined, as_new_profile: undefined });

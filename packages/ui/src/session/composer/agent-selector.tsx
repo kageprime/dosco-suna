@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
 import {
   CommandGroup,
@@ -18,11 +17,22 @@ import { useUiHostConfig } from '../../providers/ui-provider';
 import { cn } from '../../lib/utils';
 import { TRIGGER_CARET_CLASS, triggerVariants } from '../../primitives/trigger-variants';
 import type { Agent } from '@kortix/sdk/react';
-import { capitalizeWords, isMetaAgentName, META_AGENT_DISPLAY_NAME } from '@kortix/shared';
+import { capitalizeWords, isMyKortixAgentName, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react';
 import { AgentMark } from '../../internal/components/agent-mark';
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { composerSelectableAgents } from './composer-agent-access';
+
+/**
+ * A place's own agents, listed first in the picker under `label` (a
+ * channel's `#name`); every other agent follows under `restLabel`. Set by a
+ * channel's composer (`space-view.tsx`). No provider: one plain list.
+ */
+export const FeaturedAgentsContext = createContext<{
+  label: string;
+  restLabel: string;
+  names: readonly string[];
+} | null>(null);
 
 /**
  * Agents on screen before the popover grows a search field.
@@ -48,7 +58,7 @@ function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
-  return isMetaAgentName(name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(name);
+  return isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name);
 }
 
 export function AgentSelector({
@@ -60,8 +70,11 @@ export function AgentSelector({
   unavailableHint,
   open: controlledOpen,
   onOpenChange,
+  compact = false,
   appearance = 'chip',
 }: {
+  /** The trigger shows the agent's tile alone, no caret; the name is its tooltip. */
+  compact?: boolean;
   agents: Agent[];
   selectedAgent: string | null;
   onSelect: (agentName: string | null) => void;
@@ -103,7 +116,7 @@ export function AgentSelector({
   );
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
   const label = (name: string) =>
-    agentLabels?.[name] ?? (isMetaAgentName(name) ? META_AGENT_DISPLAY_NAME : capitalizeWords(name));
+    agentLabels?.[name] ?? (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name));
 
   // A `flash` state, a `prevAgentRef` feeding it, two effects and a 400ms
   // timer used to live here. Nothing ever READ `flash` — it was written on
@@ -126,12 +139,22 @@ export function AgentSelector({
   }, [primaryAgents, search, agentLabels]);
 
   const filteredMeta = useMemo(
-    () => filteredPrimary.filter((a) => isMetaAgentName(a.name)),
+    () => filteredPrimary.filter((a) => isMyKortixAgentName(a.name)),
     [filteredPrimary],
   );
   const filteredProject = useMemo(
-    () => filteredPrimary.filter((a) => !isMetaAgentName(a.name)),
+    () => filteredPrimary.filter((a) => !isMyKortixAgentName(a.name)),
     [filteredPrimary],
+  );
+  // The place's agents, in its order, then every other agent.
+  const featured = useContext(FeaturedAgentsContext);
+  const filteredFeatured = useMemo(
+    () =>
+      (featured?.names ?? []).flatMap((name) => {
+        const agent = filteredPrimary.find((a) => a.name === name);
+        return agent ? [agent] : [];
+      }),
+    [featured, filteredPrimary],
   );
 
   // Keyed off the FULL list, never the filtered one: deriving it from
@@ -168,16 +191,11 @@ export function AgentSelector({
   );
 
   /**
-   * One agent: name, its type, its description, and a check when it is the
-   * one in use.
+   * One agent: its mark, name and description (My Kortix: what picking it
+   * does), and a check when it is the one in use.
    *
-   * The type is a `Badge` on the row rather than a `CommandGroup` heading.
-   * Headings only earn their place when there is more than one section to
-   * tell apart, and there usually is not — most projects have no meta agents
-   * at all, so the list rendered a lone "Agents" label over a single group,
-   * captioning something that needed no caption. A badge says the same thing
-   * where it is actually useful (on the row that differs) and disappears
-   * entirely when every agent is the same kind.
+   * No type badge and no group heading: My Kortix sorts first, a separator
+   * follows it, and its own line says what it does.
    *
    * Selection is shown ONCE, by the check plus the tinted row. It used to be
    * said three times — check, tinted row, AND a heavier font weight on the
@@ -204,25 +222,20 @@ export function AgentSelector({
             scanned by face before names are read. The tile matches the text
             block edge to edge: name (20px) plus description (16px) = 36px,
             or the name line alone. */}
-        {agent.description ? (
+        {agent.description || meta ? (
           <AgentMark slug={agent.name} size={28} tile={36} />
         ) : (
           <AgentMark slug={agent.name} size={14} />
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="text-foreground truncate text-sm font-medium">
-              {label(agent.name)}
-            </span>
-            {meta && (
-              <Badge variant="outline" size="xs" className="shrink-0 font-normal">
-                {tHardcodedUi.raw('i18nComplete.textc78ffe195710')}
-              </Badge>
-            )}
-          </div>
-          {agent.description && (
-            <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
-          )}
+          <span className="text-foreground block truncate text-sm font-medium">{label(agent.name)}</span>
+          {/* My Kortix says what picking it does; an agent shows its own
+              description, two lines at most, never cut mid-word on one. */}
+          {meta ? (
+            <p className="text-muted-foreground text-xs">{t('myKortixRoutes')}</p>
+          ) : agent.description ? (
+            <p className="text-muted-foreground line-clamp-2 text-xs text-pretty">{agent.description}</p>
+          ) : null}
         </div>
         {isSelected && (
           // `mt-0.5` optically centres the 16px check against the first line
@@ -295,30 +308,48 @@ export function AgentSelector({
     );
   }
 
+  const trigger = (
+    <CommandPopoverTrigger>
+      {field ? (
+        fieldTrigger(true, { 'aria-label': t('selectAgent') })
+      ) : (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label={compact ? `${t('selectAgent')}: ${displayName}` : t('selectAgent')}
+        className={cn('text-muted-foreground rounded-lg hit-area-y-3', compact && 'px-1.5')}
+      >
+        {compact ? (
+          // The mark alone: the name is the tooltip and the menu's checked row.
+          // A placeholder name has no mark, so it shows as text.
+          triggerMark ?? <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
+        ) : (
+          <>
+            {triggerMark}
+            <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
+            <CaretDownIcon
+              className={cn(
+                'size-3 transition-transform duration-moderate ease-out',
+                open && 'rotate-180',
+              )}
+            />
+          </>
+        )}
+      </Button>
+      )}
+    </CommandPopoverTrigger>
+  );
+
   return (
     <CommandPopover open={open} onOpenChange={setOpen}>
-      <CommandPopoverTrigger>
-        {field ? (
-          fieldTrigger(true, { 'aria-label': t('selectAgent') })
-        ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('selectAgent')}
-          className="text-foreground/70 rounded-lg hit-area-y-3"
-        >
-          {triggerMark}
-          <span className={cn('max-w-[100px] truncate', triggerLabelClassName)}>{displayName}</span>
-          <CaretDownIcon
-            className={cn(
-              'size-3 transition-transform duration-200 ease-out',
-              open && 'rotate-180',
-            )}
-          />
-        </Button>
-        )}
-      </CommandPopoverTrigger>
+      {compact ? (
+        <Hint side="top" label={displayName}>
+          {trigger}
+        </Hint>
+      ) : (
+        trigger
+      )}
 
       {/* `min(...)`, not a hard `300px`: on a 320px viewport a fixed 300px
           popover plus the trigger's own inset pushed the panel off-screen.
@@ -327,7 +358,7 @@ export function AgentSelector({
         side="top"
         align="start"
         sideOffset={8}
-        className="w-[min(300px,calc(100vw-1.5rem))]"
+        className="w-[min(340px,calc(100vw-1.5rem))]"
       >
         {/*
           A search field over four agents is a control that costs a row of
@@ -371,7 +402,29 @@ export function AgentSelector({
             Meta agents are ordered first, so the grouping still reads without
             being announced.
           */}
-          {filteredPrimary.length > 0 && (
+          {filteredFeatured.length > 0 && featured ? (
+            // Two groups, so each earns its heading: the place's agents, then the rest.
+            <>
+              <CommandGroup
+                forceMount
+                heading={featured.label}
+                className="[&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-px"
+              >
+                {filteredFeatured.map((agent) => renderAgentItem(agent, isMyKortixAgentName(agent.name)))}
+              </CommandGroup>
+              {filteredPrimary.length > filteredFeatured.length && (
+                <CommandGroup
+                  forceMount
+                  heading={featured.restLabel}
+                  className="[&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-px"
+                >
+                  {filteredPrimary
+                    .filter((agent) => !filteredFeatured.includes(agent))
+                    .map((agent) => renderAgentItem(agent, isMyKortixAgentName(agent.name)))}
+                </CommandGroup>
+              )}
+            </>
+          ) : filteredPrimary.length > 0 && (
             // `gap-px` between rows: a selected row and a hovered row next to it
             // otherwise draw one merged grey block.
             <CommandGroup
@@ -388,7 +441,7 @@ export function AgentSelector({
 
           {/* No results */}
           {filteredPrimary.length === 0 && search.trim() && (
-            <div className="text-muted-foreground/50 py-8 text-center text-xs">
+            <div className="text-muted-foreground py-8 text-center text-xs">
               {tHardcodedUi.raw(
                 'componentsSessionSessionChatInput.line273JsxTextNoAgentsMatchLdquo',
               )}

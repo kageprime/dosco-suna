@@ -1,12 +1,12 @@
 /**
- * Move a Pipedream or Composio connector to the Kortix MCP app for the same
+ * Move a Pipedream or Composio connector to the Dosco MCP app for the same
  * service.
  *
- * Kortix retires Pipedream and Composio. Their OAuth grants belong to their own
+ * Dosco retires Pipedream and Composio. Their OAuth grants belong to their own
  * clients, so each owner signs in once more. A move keeps the connector's slug
  * and connection rows, so agent grants, session bindings and other kortix.yaml
  * references do not change. Its Composio event triggers are rewritten to the
- * Kortix events that replace them, in the same kortix.yaml commit.
+ * Dosco events that replace them, in the same kortix.yaml commit.
  *
  *   1. `moveConnector` marks one connection (`metadata.move_to`, sealed with the
  *      project's key, so the account's owner cannot forge it). The old provider
@@ -37,7 +37,7 @@ import { type CrudResult, type EditableManifest, upsertConnectorInManifest } fro
 import { MCP_APPS, type McpApp, mcpAppAvailable, mcpAppForUrl, mcpAppIcon } from './mcp-apps';
 
 /**
- * The old provider's app slug → the Kortix catalogue app. Read from each
+ * The old provider's app slug → the Dosco catalogue app. Read from each
  * provider's live app list on 2026-10-19 (Pipedream `/v1/apps`, Composio
  * `/api/v3/toolkits`). Not mapped: data-center and bot editions
  * (`jira_data_center`, `slack_bot`, `slackbot`), database logins
@@ -166,7 +166,7 @@ export function moveTargetApp(providerType: string, config: Record<string, unkno
   return mcpAppForMovedApp(providerType, config?.app);
 }
 
-/** Kortix's own `interval` presets, in minutes (trigger-events/mcp-events.ts). */
+/** Dosco's own `interval` presets, in minutes (trigger-events/mcp-events.ts). */
 const INTERVAL_PRESETS = [1, 5, 15, 30, 60, 360, 1440] as const;
 
 /** Composio checks every minute when a trigger names no interval. */
@@ -178,17 +178,17 @@ function intervalPreset(value: unknown): number {
   return INTERVAL_PRESETS.find((preset) => preset >= minutes) ?? 1440;
 }
 
-/** Kortix's Drive folder id rule (trigger-events/mcp-events.ts `DRIVE_FOLDER_ID`). */
+/** Dosco's Drive folder id rule (trigger-events/mcp-events.ts `DRIVE_FOLDER_ID`). */
 const DRIVE_FOLDER_ID = /^[A-Za-z0-9_-]{10,}$/;
 
-/** A Kortix event type (`gmail.message.received`, `new_item.<tool>`), not a Composio one. */
+/** A Dosco event type (`gmail.message.received`, `new_item.<tool>`), not a Composio one. */
 const KORTIX_EVENT_TYPE = /^[a-z][a-z0-9_]*\.[a-z0-9_.]+$/;
 
 /**
- * The Kortix event that replaces a Composio trigger type, with its config.
- * Null: no Kortix event replaces it yet, or its config has no Kortix equivalent
- * (Gmail labels other than the inbox, a Drive folder id Kortix refuses).
- * Composio `interval` is minutes (1 when unset); it rounds up to the next Kortix
+ * The Dosco event that replaces a Composio trigger type, with its config.
+ * Null: no Dosco event replaces it yet, or its config has no Dosco equivalent
+ * (Gmail labels other than the inbox, a Drive folder id Dosco refuses).
+ * Composio `interval` is minutes (1 when unset); it rounds up to the next Dosco
  * preset, and down to 1440 above that.
  */
 export function kortixEventForComposioTrigger(
@@ -212,12 +212,12 @@ export function kortixEventForComposioTrigger(
         labels === null ||
         labels === 'INBOX' ||
         (Array.isArray(labels) && labels.length === 1 && labels[0] === 'INBOX');
-      // Kortix searches the inbox only when the query is empty: keep it inbox-only.
+      // Dosco searches the inbox only when the query is empty: keep it inbox-only.
       const query = text('query');
       return inboxOnly ? out('gmail.message.received', { query: query ? `in:inbox (${query})` : null }) : null;
     }
     case 'GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER':
-      // Composio has no window; Kortix sees events starting within lookahead_days.
+      // Composio has no window; Dosco sees events starting within lookahead_days.
       return out('google_calendar.event.created', { calendar_id: text('calendarId'), lookahead_days: 365 });
     case 'GOOGLEDRIVE_FILE_CREATED_TRIGGER': {
       const folder = text('folder_id');
@@ -291,7 +291,7 @@ export async function moveTargetUrlForConnection(connectionId: string): Promise<
 
 /**
  * Tool rules that name the old provider's tools: a connector rule other than
- * `*`, or a project rule on `<slug>.<tool>`. The Kortix app names its tools
+ * `*`, or a project rule on `<slug>.<tool>`. The Dosco app names its tools
  * differently, so after a move a `block` rule would match nothing.
  */
 async function oldToolRules(projectId: string, connectorId: string, slug: string): Promise<string[]> {
@@ -318,7 +318,7 @@ async function oldToolRules(projectId: string, connectorId: string, slug: string
 }
 
 function toolRulesRefusal(slug: string, provider: string, rules: string[]): string {
-  return `${slug} has tool rules for ${providerName(provider)} tool names (${rules.join(', ')}). The Kortix app names its tools differently, so those rules would stop matching. Remove them, move, then add rules for the new tool names.`;
+  return `${slug} has tool rules for ${providerName(provider)} tool names (${rules.join(', ')}). The Dosco app names its tools differently, so those rules would stop matching. Remove them, move, then add rules for the new tool names.`;
 }
 
 function providerName(provider: string): string {
@@ -345,7 +345,7 @@ async function connectorEventTriggers(projectId: string, connectorSlug: string):
   });
 }
 
-/** Composio triggers no Kortix event replaces: they would stop firing after a move. */
+/** Composio triggers no Dosco event replaces: they would stop firing after a move. */
 function unmappedTriggers(triggers: EventTriggerRef[]): EventTriggerRef[] {
   return triggers.filter(
     (trigger) => !KORTIX_EVENT_TYPE.test(trigger.type) && !kortixEventForComposioTrigger(trigger.type, trigger.config),
@@ -353,11 +353,11 @@ function unmappedTriggers(triggers: EventTriggerRef[]): EventTriggerRef[] {
 }
 
 function triggersRefusal(slug: string, triggers: EventTriggerRef[]): string {
-  return `${slug} has Composio event triggers that no Kortix event replaces yet (${triggers.map((t) => `${t.slug}: ${t.type}`).join(', ')}). Delete or change them, then move.`;
+  return `${slug} has Composio event triggers that no Dosco event replaces yet (${triggers.map((t) => `${t.slug}: ${t.type}`).join(', ')}). Delete or change them, then move.`;
 }
 
 /**
- * Rewrite the connector's Composio event triggers in kortix.yaml to the Kortix
+ * Rewrite the connector's Composio event triggers in kortix.yaml to the Dosco
  * events that replace them. An error when one is missing from kortix.yaml (an
  * imported file declares it) or has no replacement.
  */
@@ -372,7 +372,7 @@ export function rewriteComposioTriggers(
   for (const entry of entries) {
     if (trim(entry?.type) !== 'event' || trim(entry.connector) !== connectorSlug || typeof entry.event !== 'string') continue;
     const type = entry.event.trim();
-    // Already a Kortix event (a switch that is being finished again): nothing to rewrite.
+    // Already a Dosco event (a switch that is being finished again): nothing to rewrite.
     if (KORTIX_EVENT_TYPE.test(type)) {
       rewritten.add(String(entry.slug));
       continue;
@@ -399,7 +399,7 @@ export interface ConnectorMove {
   provider: MovableProvider;
   /** The connector's app on that provider. */
   app: string | null;
-  /** The Kortix app it moves to. Null: Kortix has no connection for this app on this deployment yet. */
+  /** The Dosco app it moves to. Null: Dosco has no connection for this app on this deployment yet. */
   to: { slug: string; name: string; icon: string | null } | null;
   /** The connection a move signs in on, once a move started. */
   connection_id: string | null;
@@ -409,7 +409,7 @@ export interface ConnectorMove {
   accounts: number;
 }
 
-/** Every Pipedream and Composio connector of the project, with the Kortix app it can move to. */
+/** Every Pipedream and Composio connector of the project, with the Dosco app it can move to. */
 export async function listConnectorMoves(projectId: string): Promise<ConnectorMove[]> {
   const rows = await db
     .select({
@@ -510,7 +510,7 @@ export async function moveConnector(input: {
     return {
       ok: false,
       status: 409,
-      error: `Kortix has no connection for ${String(app ?? input.slug)} on this deployment yet. The connector keeps working through ${providerName(connector.providerType)}.`,
+      error: `Dosco has no connection for ${String(app ?? input.slug)} on this deployment yet. The connector keeps working through ${providerName(connector.providerType)}.`,
     };
   }
   const blocker = await moveBlocker(input.projectId, connector.connectorId, input.slug, connector.providerType);
@@ -592,8 +592,8 @@ async function clearOldProviderBindings(connectorId: string, options: { leftover
 }
 
 /**
- * Switch a connector to its Kortix app once its marked connection holds a
- * Kortix sign-in. Null when the connection is not a signed-in move. Called
+ * Switch a connector to its Dosco app once its marked connection holds a
+ * Dosco sign-in. Null when the connection is not a signed-in move. Called
  * after every OAuth sign-in on a Pipedream or Composio connector, and by a
  * retried `moveConnector`.
  */

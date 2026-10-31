@@ -13,7 +13,7 @@ export function resolutionErrorBody(err: GatewayResolutionError) {
 }
 
 /**
- * The wallet admission for a Kortix-billed request the gateway already
+ * The wallet admission for a Dosco-billed request the gateway already
  * resolved (`simple-handler.ts` gates admitCharge on billingMode), so the
  * wallet floor applies to every account here. An active verdict DEBITS the
  * admission hold; the caller must return `holdUsd` to the gateway.
@@ -35,7 +35,7 @@ export async function billingVerdict(accountId: string) {
 
 /**
  * /authorize + /resolve-route + /resolve-upstream for the routed model +
- * /billing when that model is Kortix-billed, in one call. Each answer has the
+ * /billing when that model is Dosco-billed, in one call. Each answer has the
  * shape of its own route. A step that fails unexpectedly is left out, and the
  * gateway calls its own route for it, so error handling stays the same. The
  * billing step runs last, so no step after the debit can fail.
@@ -82,6 +82,10 @@ async function admit(token: unknown, input: unknown) {
     route = await resolveGatewayRoute(principal, routeInput);
     step('route');
   } catch (err) {
+    // A refused image route is the request's answer, not a failed step.
+    if (err instanceof GatewayResolutionError) {
+      return done({ admission, route: null, candidates: [], resolutionError: resolutionErrorBody(err) });
+    }
     logger.warn('[gateway-internal] admit: route left to the gateway', { error: err instanceof Error ? err.message : String(err) });
     return done({ admission });
   }

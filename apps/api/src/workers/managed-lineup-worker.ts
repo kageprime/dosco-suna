@@ -1,4 +1,4 @@
-// Kortix managed models = what Platinum Inference offers. Read before the first
+// Dosco managed models = what Platinum Inference offers. Read before the first
 // request, then refreshed on every replica (an in-memory cache, not a job).
 import { loadManagedLineup } from '../llm-gateway/models/managed-models';
 

@@ -201,7 +201,7 @@ describe('repository disconnected state', () => {
       .from(projectTriggerExecutions)
       .where(eq(projectTriggerExecutions.projectId, projectId));
     expect(execution?.status).toBe('skipped');
-    expect(execution?.lastError).toStartWith('repository_disconnected: Kortix cannot reach acme-disconnect/scheduled');
+    expect(execution?.lastError).toStartWith('repository_disconnected: Dosco cannot reach acme-disconnect/scheduled');
     expect(execution?.sessionId).toBeNull();
   });
 });

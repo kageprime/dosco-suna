@@ -12,11 +12,11 @@ import { safeEgressFetch } from '../shared/ssrf-guard';
 type Fetch = (url: string) => Promise<Response>;
 
 /**
- * Read one attachment. Kortix's own storage (the signed URL the claim minted)
+ * Read one attachment. Dosco's own storage (the signed URL the claim minted)
  * is fetched directly; any other URL a caller supplied goes through the
  * egress guard, so a draft cannot be used to read an internal address.
  */
-export const fetchAttachmentBytes: Fetch = (url) => {
+const fetchAttachmentBytes: Fetch = (url) => {
   const own = [config.SUPABASE_PUBLIC_URL, config.SUPABASE_URL]
     .filter((origin): origin is string => Boolean(origin))
     .some((origin) => url.startsWith(origin.replace(/\/+$/, '') + '/'));
@@ -24,7 +24,7 @@ export const fetchAttachmentBytes: Fetch = (url) => {
 };
 
 /** Resend's limit on a draft's attachment bytes. */
-export const RESEND_DRAFT_ATTACHMENT_LIMIT_BYTES = 25 * 1024 * 1024;
+const RESEND_DRAFT_ATTACHMENT_LIMIT_BYTES = 25 * 1024 * 1024;
 
 export async function toResendEmailArgs(
   actionPath: string,

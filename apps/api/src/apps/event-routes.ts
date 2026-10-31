@@ -28,7 +28,7 @@ const AppEvent = z.object({
 const RunRequest = z.object({
   run_after: z.union([z.string(), z.number()]).optional().openapi({ description: 'Delay: a duration such as 30s, 10m, 2h, 7d, or seconds. Send this or run_at.' }),
   run_at: z.string().optional().openapi({ description: 'ISO-8601 instant, at most 366 days ahead. Send this or run_after.' }),
-  path: z.string().optional().openapi({ description: 'Path Kortix calls on the App. Default /.' }),
+  path: z.string().optional().openapi({ description: 'Path Dosco calls on the App. Default /.' }),
   method: z.enum(['POST', 'GET']).optional().openapi({ description: 'Default POST.' }),
   payload: z.record(z.string(), z.any()).optional().openapi({ description: 'JSON body of a POST call, at most 64 KiB.' }),
 });
@@ -75,9 +75,9 @@ export function registerAppEventRoutes(): void {
 
   appEventsApp.openapi(
     createRoute({
-      method: 'post', path: '/{projectId}/apps/{appId}/runs', tags: ['apps'], summary: 'Ask Kortix to call the App later',
+      method: 'post', path: '/{projectId}/apps/{appId}/runs', tags: ['apps'], summary: 'Ask Dosco to call the App later',
       description:
-        'Kortix calls `method path` on this App once, after `run_after` or at `run_at`, waking it first. The call goes through ' +
+        'Dosco calls `method path` on this App once, after `run_after` or at `run_at`, waking it first. The call goes through ' +
         'the trigger engine: a failed call (no answer, 429 or 5xx) is retried. At most 1000 pending runs per App. Authenticate with `$KORTIX_APP_TOKEN`.',
       ...auth,
       request: { params: z.object({ projectId: z.string().uuid(), appId: z.string().uuid() }), body: { content: { 'application/json': { schema: RunRequest } } } },

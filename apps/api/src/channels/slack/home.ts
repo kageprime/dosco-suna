@@ -75,11 +75,11 @@ function buildHomeView(input: { projects: HomeProjectRow[]; recent: HomeRecentRo
   blocks.push({
     type: 'image',
     image_url: heroUrl,
-    alt_text: 'Dosco — the open-source AI Operating System',
+    alt_text: 'Dosco CompanyOS – the open-source operating system for your company',
   });
   blocks.push({
     type: 'header',
-    text: { type: 'plain_text', text: 'Welcome to Dosco', emoji: true },
+    text: { type: 'plain_text', text: 'Welcome to Dosco CompanyOS', emoji: true },
   });
   blocks.push({
     type: 'section',

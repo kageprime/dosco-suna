@@ -1,5 +1,5 @@
 /**
- * One root-cause state for "Kortix can no longer reach this project's GitHub
+ * One root-cause state for "Dosco can no longer reach this project's GitHub
  * repository" (KRTX-2955). The classifier reads the GitHub answer to the
  * installation-token mint; the state machine decides when to probe again.
  */
