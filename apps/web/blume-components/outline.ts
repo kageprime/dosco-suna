@@ -44,29 +44,4 @@ export const OUTLINE = [
       { label: 'Billing', href: '/guide/#billing' },
     ],
   },
-  {
-    label: 'Developers',
-    items: [
-      { label: 'Quickstart', href: '/developers/#quickstart' },
-      { label: 'Git', href: '/developers/#git' },
-      { label: 'kortix.yaml reference', href: '/developers/#kortixyaml-reference' },
-      { label: 'CLI', href: '/developers/#cli' },
-      { label: 'REST API', href: '/developers/#rest-api' },
-      { label: 'Apps reference', href: '/developers/#apps-reference' },
-      { label: 'Self-hosting', href: '/developers/#self-hosting' },
-    ],
-  },
-  {
-    label: 'SDK',
-    items: [
-      { label: 'SDK', href: '/developers/#sdk' },
-      { label: 'Authentication', href: '/developers/#sdk-authentication' },
-      { label: 'Sessions from code', href: '/developers/#sessions-from-code' },
-      { label: 'Projects from code', href: '/developers/#projects-from-code' },
-      { label: 'React', href: '/developers/#react' },
-      { label: 'Generative UI', href: '/developers/#generative-ui' },
-      { label: 'Kortix UI', href: '/developers/#kortix-ui' },
-      { label: 'SDK reference', href: '/developers/#sdk-reference' },
-    ],
-  },
 ];

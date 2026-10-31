@@ -1,21 +1,21 @@
 ---
-title: Kortix in Chrome
-description: Add the Kortix extension to Chrome so a session can open pages, read them and click, with your logins, while you watch and can stop it.
+title: Dosco in Chrome
+description: Add the Dosco extension to Chrome so a session can open pages, read them and click, with your logins, while you watch and can stop it.
 noindex: true
 hidden: true
 ai:
   exclude: true
 ---
 
-{/* Not launched: the API serves Kortix in Chrome only where KORTIX_CHROME_ENABLED is on (dev). `noindex` keeps this page out of search, the sitemap, llms.txt and the Markdown copies; the app links to it where the feature is on. Remove it at launch. */}
+{/* Not launched: the API serves Dosco in Chrome only where KORTIX_CHROME_ENABLED is on (dev). `noindex` keeps this page out of search, the sitemap, llms.txt and the Markdown copies; the app links to it where the feature is on. Remove it at launch. */}
 
-Kortix in Chrome is a Chrome extension that connects your own browser to Kortix. You add the extension to Chrome and sign in once. After that, any of your sessions can drive that browser, including the sites you are already signed in to. This page is for members who connect a browser, decide what agents may reach, and stop an agent that uses it.
+Dosco in Chrome is a Chrome extension that connects your own browser to Dosco. You add the extension to Chrome and sign in once. After that, any of your sessions can drive that browser, including the sites you are already signed in to. This page is for members who connect a browser, decide what agents may reach, and stop an agent that uses it.
 
-The extension is not a sandbox browser and not [a computer](/docs/guide#computers). The pages open in your real browser, as you. It works in Chrome, Edge, Brave and Arc on a computer. Safari, Firefox, the Kortix desktop app and phones cannot run the extension.
+The extension is not a sandbox browser and not [a computer](/docs/guide#computers). The pages open in your real browser, as you. It works in Chrome, Edge, Brave and Arc on a computer. Safari, Firefox, the Dosco desktop app and phones cannot run the extension.
 
 ## How to install
 
-The Chrome Web Store listing is not public yet. Until it is, load the extension from the Kortix repository:
+The Chrome Web Store listing is not public yet. Until it is, load the unpacked extension:
 
 1. Build it: run `bun run build` in `apps/chrome-extension`. The build writes `apps/chrome-extension/dist`.
 2. In Chrome, Edge, Brave or Arc, open `chrome://extensions` and turn on **Developer mode**.
@@ -25,18 +25,18 @@ When the listing is public, **Add to Chrome** replaces these steps.
 
 ## Connect the browser
 
-1. Open **Settings → Kortix in Chrome**, or select **Kortix in Chrome** in the sidebar. The dialog **Add Kortix to Chrome** shows three steps.
-2. **Add the extension.** The step turns green when the page finds the extension. If it does not, reload the Kortix page.
-3. **Sign in.** Select **Connect**. Chrome opens a Kortix tab: check the **Kortix server**, then select **Connect to Kortix**. The tab goes to the Kortix sign-in page. Select **Allow**.
+1. Open **Settings → Dosco in Chrome**, or select **Dosco in Chrome** in the sidebar. The dialog **Add Dosco to Chrome** shows three steps.
+2. **Add the extension.** The step turns green when the page finds the extension. If it does not, reload the Dosco page.
+3. **Sign in.** Select **Connect**. Chrome opens a Dosco tab: check the **Dosco server**, then select **Connect to Dosco**. The tab goes to the Dosco sign-in page. Select **Allow**.
 4. **Connected.** The tab comes back, and you name the browser and choose its access. The browser appears with an online dot. Select **Done**.
 
-The extension stays signed in. In a browser that cannot run the extension, the dialog tells you to open Kortix in Chrome, Edge, Brave or Arc, and offers **Copy link**.
+The extension stays signed in. In a browser that cannot run the extension, the dialog tells you to open Dosco in Chrome, Edge, Brave or Arc, and offers **Copy link**.
 
-A browser belongs to you. Each browser you connect appears under **Settings → Kortix in Chrome**, and only your own sessions can use it. To add a second browser or Chrome profile, select **Add another browser**, then open Kortix in that browser and connect it there.
+A browser belongs to you. Each browser you connect appears under **Settings → Dosco in Chrome**, and only your own sessions can use it. To add a second browser or Chrome profile, select **Add another browser**, then open Dosco in that browser and connect it there.
 
 ## Manage your browsers
 
-**Settings → Kortix in Chrome** lists every browser you connected under **Connected browsers**. Each row shows the name, the profile and extension version, whether the browser is online, and how many sessions use it now. Two browsers with the same default name show the profile or a number after it.
+**Settings → Dosco in Chrome** lists every browser you connected under **Connected browsers**. Each row shows the name, the profile and extension version, whether the browser is online, and how many sessions use it now. Two browsers with the same default name show the profile or a number after it.
 
 | Setting | Values | Effect |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ A session never resizes or closes your browser. The extension uses the Chrome de
 
 You always see when a session uses your browser:
 
-- Each session gets one tab group named **Kortix · &lt;session title&gt;**.
+- Each session gets one tab group named **Dosco · &lt;session title&gt;**.
 - Every tab in the group shows a glow, the agent's cursor, and a control bar.
 - The cursor glides to each place the agent clicks or types, and the click or the text lands only when it arrives. Its label says **Typing…** or **Scrolling…** while the agent types or scrolls.
 - **Take over** pauses the agent on that tab, so you can use it yourself. The agent's input commands fail until you resume it.
@@ -77,18 +77,18 @@ After you press **Stop** or **Deny**, that session cannot attach again unless it
 
 ## Chat from the side panel
 
-Select the Kortix icon in the toolbar, or press `Alt+K`, to open the side panel. It opens on a new chat every time:
+Select the Dosco icon in the toolbar, or press `Alt+K`, to open the side panel. It opens on a new chat every time:
 
 1. Pick the project at the top. The panel remembers your choice.
 2. The tab you look at rides along as a chip, and the chip follows you when you switch tabs. Select **×** on the chip to leave the tab out, or **+ Tab** to add more tabs, for example to compare two pages. Select **Screenshot** to also send an image of what the tab shows, for charts and pictures that page text misses. A model that cannot read images keeps the message in the box and says so.
 3. Type your message, or select a page action: **Summarize this page**, **Extract the tables**, **Compare with another tab** or **Draft an email about this**.
-4. Choose how Kortix uses the tab, then send:
-   - **Read** (the default) sends the text of each tab in the chips as a Markdown file with the message. Kortix reads a tab only when you send.
-   - **Act** puts the tab in the session's **Kortix** tab group, so the agent can click and type there. The usual consent, glow and **Stop** apply.
+4. Choose how Dosco uses the tab, then send:
+   - **Read** (the default) sends the text of each tab in the chips as a Markdown file with the message. Dosco reads a tab only when you send.
+   - **Act** puts the tab in the session's **Dosco** tab group, so the agent can click and type there. The usual consent, glow and **Stop** apply.
 
 The session opens in the panel and appears in your project like any other session.
 
-To ask about part of a page, select the text, right-click, and choose **Ask Kortix about this selection**. The panel opens with the text as a quote. Kortix gets only the quote, the page title and the address. Select **+ Whole page** to send the page text too. **Ask Kortix about this page** opens a new chat with that tab.
+To ask about part of a page, select the text, right-click, and choose **Ask Dosco about this selection**. The panel opens with the text as a quote. Dosco gets only the quote, the page title and the address. Select **+ Whole page** to send the page text too. **Ask Dosco about this page** opens a new chat with that tab.
 
 Chrome lets no extension read its own pages or the Chrome Web Store. Their chips are greyed out and are not sent.
 
@@ -113,7 +113,7 @@ agent-browser --cdp 9333 snapshot -i
 agent-browser --cdp 9333 click @e3
 ```
 
-Ask the agent in plain words, for example "Use my browser to check the invoices in my billing dashboard." The agent runs `kortix chrome use` itself. If you have no connected browser, the command fails and links to **Settings → Kortix in Chrome**.
+Ask the agent in plain words, for example "Use my browser to check the invoices in my billing dashboard." The agent runs `kortix chrome use` itself. If you have no connected browser, the command fails and links to **Settings → Dosco in Chrome**.
 
 ### Files and dialogs
 
@@ -125,11 +125,11 @@ Ask the agent in plain words, for example "Use my browser to check the invoices 
 
 | Message | Meaning | Fix |
 | --- | --- | --- |
-| `chrome_not_connected` | You have no connected browser. | Connect one in **Settings → Kortix in Chrome**. |
+| `chrome_not_connected` | You have no connected browser. | Connect one in **Settings → Dosco in Chrome**. |
 | `chrome_offline` | The browser is connected but did not answer in the last 75 seconds. Chrome may be closed or asleep. | Open Chrome and check that the extension is signed in. |
 | `chrome_access_off` | **Access** for this browser is **Off**. | Set **Access** to **Without asking** or **Ask first**. |
 | `chrome_denied` | You selected **Deny** or **Stop** for this session. | Run `kortix chrome use --ask` to get a fresh prompt. |
 | `chrome_consent_timeout` | Nobody answered the prompt in Chrome within 90 seconds. | Run `kortix chrome use --ask` and answer in Chrome. |
 | `chrome_not_found` | No connected browser has that name. | Run `kortix chrome ls` and pass a listed name. |
 
-If the dialog does not show the extension as added, finish in the Kortix tab Chrome opened, or reload the Kortix page. If you leave the sign-in page without **Allow**, select **Connect to Kortix** again. A server that does not offer the Chrome extension yet is named on the Kortix tab before any sign-in.
+If the dialog does not show the extension as added, finish in the Dosco tab Chrome opened, or reload the Dosco page. If you leave the sign-in page without **Allow**, select **Connect to Dosco** again. A server that does not offer the Chrome extension yet is named on the Dosco tab before any sign-in.

@@ -104,6 +104,15 @@ and actual Merit/Skill. It's hard, because you have to not only be very smart bu
 also crazy driven to push like a motherfucker and want to feel every edge and
 corner to make sure the output is good.
 
+## Brand & Naming Rules: Dosco / Dosco Tek
+
+- **No brand prefixes on product surfaces.** Write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS".
+- **Company and platform identity:** Dosco or Dosco Tek. Tagline: **"Dosco Tek is the harness that powers companies that run agents."**
+- **Not open source:** Dosco is a proprietary managed product. Do not describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase.
+- **Built-in system agent is Orchestrator:** (Internal slug `mykortix`). Do not write "My Kortix" in customer-facing copy or documentation.
+- **Default workspace agent is Xera:** (Internal slug `xera`, `@xera`, `xera@dosco.live`). Do not write "kortix" as an agent name.
+- **Repository manifest is `kortix.yaml`:** Retain the technical filename for project manifests.
+
 ## Skills live in `.agents/skills/`
 
 Every repo skill is a directory in `.agents/skills/<name>/`. `.claude/skills/<name>` is a

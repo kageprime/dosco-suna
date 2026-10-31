@@ -1,26 +1,25 @@
 ---
 title: Guide
-description: "A plain-language guide to Kortix CompanyOS: every part of it, how it works and how to set it up."
+description: "A plain-language guide to CompanyOS: every part of it, how it works and how to set it up."
 ---
 
-Kortix is an open-source CompanyOS. It is two things:
+Dosco is the CompanyOS. It is two things:
 
-1. **A backend framework and server for agents.** Your agents, their skills and their access are code in one git repo. Kortix runs them.
-2. **A workspace and command center for people.** Your team starts work, reviews and approves what agents do, and manages the agents from the Kortix apps.
+1. **A backend for agents.** Your agents, their skills and their access are code in one git repo. Dosco runs them.
+2. **A workspace and command center for people.** Your team starts work, reviews and approves what agents do, and manages the agents from the Dosco apps.
 
-This page covers every part of Kortix, in the order you meet it.
+This page covers every part of Dosco, in the order you meet it.
 
 ## A backend for agents
 
-- **A project is a git repo.** Kortix hosts the repo for you, or you connect your own on GitHub.
-- **`kortix.yaml` declares the project.** It lists the agents and the skills, tools, connectors and triggers they use. See [kortix.yaml reference](/docs/developers#kortixyaml-reference).
+- **A project is a git repo.** Dosco hosts the repo for you, or you connect your own on GitHub.
+- **`kortix.yaml` declares the project.** It lists the agents and the skills, tools, connectors and triggers they use.
 - **Every session runs on its own isolated cloud computer.** A session never touches your laptop or another session. See [Computers](/docs/guide#computers).
 - **Triggers run agents 24/7.** A schedule, a webhook or an App event starts a session, with nobody at the keyboard. See [Triggers](/docs/guide#triggers).
-- **Developers build on the same backend.** The [REST API](/docs/developers#rest-api), the [CLI](/docs/developers#cli), [`@kortix/sdk`](/docs/developers#sdk) and [`@kortix/ui`](/docs/developers#kortix-ui) reach every project and session.
 
 ## A workspace for people
 
-- **People start work where they already are.** Use the web app, the desktop app or the mobile app. Or mention the Kortix bot in Slack, Microsoft Teams or Telegram, or send it an email. See [Everywhere](/docs/guide#everywhere) and [Channels](/docs/guide#channels).
+- **People start work where they already are.** Use the web app, the desktop app or the mobile app. Or mention the bot in Slack, Microsoft Teams or Telegram, or send it an email. See [Everywhere](/docs/guide#everywhere) and [Channels](/docs/guide#channels).
 - **People review and approve.** A change an agent makes to the project waits on the **Review** page until a person merges it. A connector rule set to **Ask** holds the action until a person approves it.
 - **People manage the agents.** **Customize** holds agents, skills, connectors, triggers, models and secrets. **Drive** holds shared folders. **Apps** lists what agents built and deployed.
 - **People control access.** You decide who can open each project, which agents each person may run, and who sees each session. See [Teams](/docs/guide#teams).
@@ -56,23 +55,23 @@ When an agent changes the project itself, for example a skill or its memory, it 
 | Apps | Sites, services and backends that agents build and deploy from a project. | [Apps](/docs/guide#apps) |
 | Channels | Start work from Slack, Microsoft Teams, Telegram or email. | [Channels](/docs/guide#channels) |
 | Models | The AI models your agents run on, including your own provider keys. | [Models](/docs/guide#models) |
-| Everywhere | Web, desktop, mobile and the other places you use Kortix. | [Everywhere](/docs/guide#everywhere) |
+| Everywhere | Web, desktop, mobile and the other places you use Dosco. | [Everywhere](/docs/guide#everywhere) |
 | Teams | Accounts, members, roles and who may run which agent. | [Teams](/docs/guide#teams) |
 
 ## Get started
 
-<video src="/media/guide/get-started.mp4" aria-label="Getting started in Kortix: open a project and its first chat" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/get-started.mp4" aria-label="Getting started in Dosco: open a project and its first chat" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Create a project, run a session, connect a tool and invite your team. All of it happens in the web app.
 
 ### What you need
 
-- A Kortix sign-in on [kortix.com](https://kortix.com).
-- Nothing else. Kortix can host your project's repo for you, so you need no GitHub account.
+- A Dosco sign-in on [dosco.live](https://dosco.live).
+- Nothing else. Dosco can host your project's repo for you, so you need no GitHub account.
 
 ### Create your first project
 
-A project is one git repo. It holds your agents, skills, memory and connector settings. A new account has no projects, and Kortix never creates one for you.
+A project is one git repo. It holds your agents, skills, memory and connector settings. A new account has no projects, and Dosco never creates one for you.
 
 <Steps>
 <Step title="Open Create a project">
@@ -82,10 +81,10 @@ On the projects page, select **Create a new project**. From inside a project, op
 Type a **Project name**. With more than one account, pick the **Account** too.
 </Step>
 <Step title="Choose where the repo lives">
-Under **Git account**, choose **Kortix managed** for the simplest start. Kortix creates and manages a private repo for you. If your company uses GitHub, pick your GitHub account instead.
+Under **Git account**, choose **Managed** for the simplest start. Dosco creates and manages a private repo for you. If your company uses GitHub, pick your GitHub account instead.
 </Step>
 <Step title="Create it">
-Click **Create project**. Your project starts with a built-in agent called `kortix` and a set of ready-made skills.
+Click **Create project**. Your project starts with a default agent called `Xera` and a set of ready-made skills.
 </Step>
 </Steps>
 
@@ -106,11 +105,11 @@ The side panel shows the agent's plan and outputs. If the agent changed files in
 </Step>
 </Steps>
 
-On the Free plan, a session needs a model you connect: your own provider key or a ChatGPT subscription. The Credits plan and Enterprise also run on Kortix-managed models. See [Models](/docs/guide#models).
+On the Free plan, a session needs a model you connect: your own provider key or a ChatGPT subscription. The Credits plan and Enterprise also run on managed models. See [Models](/docs/guide#models).
 
 ### Connect your first tool
 
-Agents get more useful when they can reach the apps your team uses. Connectors give them governed access. Credentials stay on the Kortix server and never enter the agent's computer.
+Agents get more useful when they can reach the apps your team uses. Connectors give them governed access. Credentials stay on the server and never enter the agent's computer.
 
 <Steps>
 <Step title="Open Connectors">
@@ -149,7 +148,7 @@ Roles and groups are on the [Teams](/docs/guide#teams) page.
 | Where | What is there |
 | --- | --- |
 | **New session** | Starts a session with an agent. |
-| **Customize** | **My Kortix**, your **Agents**, **Review**, **Members**, **Models** and **Settings**. Settings opens **Project admin**: the project's libraries (**Connectors**, **Secrets**, **Skills**, **Tools**, **Extensions**, **Drives**, **Triggers**, **Models**, **Repo**) and its settings. |
+| **Customize** | **Orchestrator**, your **Agents**, **Review**, **Members**, **Models** and **Settings**. Settings opens **Project admin**: the project's libraries (**Connectors**, **Secrets**, **Skills**, **Tools**, **Extensions**, **Drives**, **Triggers**, **Models**, **Repo**) and its settings. |
 | **Drive** | Shared folders: **My files**, **Company**, and **All files** for admins. |
 | **Apps** | The project's Apps. |
 | **Sessions** | Your sessions. |
@@ -158,14 +157,14 @@ Roles and groups are on the [Teams](/docs/guide#teams) page.
 
 ### Desktop and mobile apps
 
-- **Desktop.** Download it from [kortix.com/download](https://kortix.com/download) for macOS, Windows or Linux. It is the web app in a native window, and it updates itself. Press `Cmd+Shift+Space` (or `Ctrl+Shift+Space`) in any app to open **Quick Entry** and start a session.
+- **Desktop.** Download it from [dosco.live/download](https://dosco.live/download) for macOS, Windows or Linux. It is the web app in a native window, and it updates itself. Press `Cmd+Shift+Space` (or `Ctrl+Shift+Space`) in any app to open **Quick Entry** and start a session.
 - **Mobile.** Get it from the App Store or Google Play. Start and follow sessions, attach photos, dictate a message and accept invites. Your phone gets a notification when your session finishes, fails or asks you something.
 
 More on each surface is on the [Everywhere](/docs/guide#everywhere) page.
 
 ## Agents
 
-<video src="/media/guide/agents.mp4" aria-label="Agents in Kortix: the agent list, an agent's instructions, adding an agent" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/agents.mp4" aria-label="Agents in Dosco: the agent list, an agent's instructions, adding an agent" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 An agent is an assistant with a job description. It has instructions that say what it does, a model it thinks with, and permissions that decide what it may touch. Every session runs one agent.
 
@@ -174,36 +173,36 @@ An agent is an assistant with a job description. It has instructions that say wh
 An agent has two halves:
 
 - **Behavior.** Its instructions, its model, and its rules for which tools it may use freely, use after asking, or never use.
-- **Access.** The connectors, secrets, skills, Apps, Kortix permissions and project repository it may use.
+- **Access.** The connectors, secrets, skills, Apps, platform permissions and project repository it may use.
 
 Access is deny-by-default. An agent gets no connector, secret, skill, App or project repository until you grant it.
 
 ### The built-in agent
 
-You talk to **My Kortix**, the built-in agent. It routes each task to the project agent made for it and runs it with your permissions.
+You talk to **Orchestrator**, the built-in agent. It routes each task to the project agent made for it and runs it with your permissions.
 
-- **It has your rights, no more.** In this project, My Kortix can do what your role lets you do: create and change agents, connectors, schedules and people. When your role does not allow something, it says so and names the people who can grant it.
+- **It has your rights, no more.** In this project, Orchestrator can do what your role lets you do: create and change agents, connectors, schedules and people. When your role does not allow something, it says so and names the people who can grant it.
 - **It asks first** before an action that affects other people (an invitation, a role change), deletes something, or gives an agent more access. It shows what changes, before and after.
-- **It hands off the work.** Writing, research, code and anything with a connected app goes to the agent made for it, in its own session. Open that session from the card in the chat. For a job with several steps, My Kortix runs a workflow and shows each agent's progress in one card.
+- **It hands off the work.** Writing, research, code and anything with a connected app goes to the agent made for it, in its own session. Open that session from the card in the chat. For a job with several steps, Orchestrator runs a workflow and shows each agent's progress in one card.
 - **Each action is a card** in the chat: what it did, what changed, and a link to the page where you see it.
-- **Account settings stay with you.** Billing, the account's members and other projects are outside My Kortix's reach. It tells you where to click.
+- **Account settings stay with you.** Billing, the account's members and other projects are outside Orchestrator's reach. It tells you where to click.
 
-My Kortix runs the work it hands off in the background. Each task runs in its own session, listed under your conversation in the sidebar, and My Kortix stays free to talk with you. When a background task finishes, a **Worker complete** or **Worker failed** card appears in your conversation and My Kortix tells you the result. Select the card to open that session. See [Several agents at once](#several-agents-at-once).
+Orchestrator runs the work it hands off in the background. Each task runs in its own session, listed under your conversation in the sidebar, and Orchestrator stays free to talk with you. When a background task finishes, a **Worker complete** or **Worker failed** card appears in your conversation and Orchestrator tells you the result. Select the card to open that session. See [Several agents at once](#several-agents-at-once).
 
-Every new project starts with one agent called `worker`, the general-purpose agent My Kortix routes work to. It is the default agent: a session that names no other agent runs it. It has access to all connectors, secrets, skills and Kortix permissions in the project. You can edit its instructions to fit your company. A project created before this keeps its `kortix` agent.
+Every new project starts with one agent called `xera`, the general-purpose agent Orchestrator routes work to. It is the default agent: a session that names no other agent runs it. It has access to all connectors, secrets, skills and platform permissions in the project. You can edit its instructions to fit your company.
 
 ### Several agents at once
 
-My Kortix runs your work while you keep talking to it. Ask for three things in a row, and three agents work on them at the same time.
+Orchestrator runs your work while you keep talking to it. Ask for three things in a row, and three agents work on them at the same time.
 
-- **You never wait.** My Kortix answers at once: "⏳ I've handed that to the post writer. I'll tell you when it's done." Ask it anything else meanwhile.
-- **Results come to you.** When an agent finishes, My Kortix tells you the outcome in a line or two, with a link to the work.
+- **You never wait.** Orchestrator answers at once: "⏳ I've handed that to the post writer. I'll tell you when it's done." Ask it anything else meanwhile.
+- **Results come to you.** When an agent finishes, Orchestrator tells you the outcome in a line or two, with a link to the work.
 - **Ask how it's going.** "How's the post writer doing?" gets the current state, without waiting for the end.
 - **Change course.** "Tell the post writer to keep it under 500 words" sends that agent a message. "Stop the research" stops it.
-- **Follow up with the same agent.** "Ask the post writer to add a summary too" goes to the agent that wrote the post, in its own session, with everything it already knows. My Kortix starts a new agent only for separate work at the same time.
+- **Follow up with the same agent.** "Ask the post writer to add a summary too" goes to the agent that wrote the post, in its own session, with everything it already knows. Orchestrator starts a new agent only for separate work at the same time.
 - **Talk to another session.** "Tell the session working on the pricing page that the copy is approved" sends that session a message. Type `@` to pick the session by name. "Tell me when it's done" gets you one notice when that session finishes.
 - **Messages from other sessions** show as one line, **Message from @reviewer**. A message from another session never approves anything for you. To decide each message yourself, set the session to **Hold messages**: each one waits for your **Approve** or **Deny** for 5 minutes. **Refuse messages** turns them all away.
-- **Workflows.** For a big job, such as checking every page of a site, My Kortix runs a workflow: a plan that runs many agents at once. You approve it first. Its card shows each agent's progress, and has **Pause**, **Restart**, **Stop** and **Save**. Write `ultracode` in your message to ask for a workflow. A workflow with more than 25 agents shows **Large workflow**. One workflow runs at most 50 agents, 8 at a time, for at most 2 hours.
+- **Workflows.** For a big job, such as checking every page of a site, Orchestrator runs a workflow: a plan that runs many agents at once. You approve it first. Its card shows each agent's progress, and has **Pause**, **Restart**, **Stop** and **Save**. Write `ultracode` in your message to ask for a workflow. A workflow with more than 25 agents shows **Large workflow**. One workflow runs at most 50 agents, 8 at a time, for at most 2 hours.
 - **Teams.** A team is a group of agents that share one to-do list and talk to each other. Ask for one: "Start a team of three: one researches, one writes, one checks the facts." The team leader splits the work into items, each teammate takes the next free item, and the leader puts the answers together for you. Each teammate runs one of your agents. Its role, such as "fact checker", applies to that teammate's session only: no agent is created or changed, and the team is not saved. It lives in the conversation that started it. Teams are experimental and off by default: turn on **Agent teams** in **Customize** → **Settings** → **Feature flags**.
 - **See everything at once.** The board view of the session list groups every session by state: working, needs you, idle, done, failed and stopped. A session that needs you shows what it waits for: a question or an approval.
 
@@ -220,7 +219,7 @@ Select **Customize** in the sidebar, then **Agents** → **New**.
 Open the agent and edit its **Basics** and **Model**. The instructions say what the agent does, how, and what it must never do.
 </Step>
 <Step title="Give it access">
-Under **Access**, turn on what the job needs: **Skills**, **Connectors**, **Secrets**, **Apps** and **Kortix permissions**. If the agent works on the project's files, also turn on **Project repository access** on its **Workspace** page.
+Under **Access**, turn on what the job needs: **Skills**, **Connectors**, **Secrets**, **Apps** and **Platform permissions**. If the agent works on the project's files, also turn on **Project repository access** on its **Workspace** page.
 </Step>
 <Step title="Assign it to people">
 On the agent's **People** page, choose who may run it.
@@ -237,15 +236,15 @@ A change to an agent takes effect when it lands in the project. New sessions sta
 | **Secrets** | Encrypted credentials, such as an API key. |
 | **Skills** | The playbooks the agent may load. |
 | **Apps** | The project's Apps whose access is restricted or private. |
-| **Kortix permissions** | Actions in Kortix itself, such as starting sessions or merging changes. |
+| **Platform permissions** | Actions in Dosco itself, such as starting sessions or merging changes. |
 | **Project repository access** | A copy of the project's repository in `/workspace` on the session's computer, on the session's own branch. In `kortix.yaml`, this is `workspace.project_repository: true`. The agents a new project starts with have it. |
-| **Tools** | Built-in abilities such as web search, image search, image generation, reading web pages and project memory. See [Kortix tools](/docs/developers#kortix-tools). |
+| **Tools** | Built-in abilities such as web search, image search, image generation, reading web pages and project memory. |
 
-**An agent acts as itself, not as you.** Kortix gives each agent its own identity in each project. The agent does the same thing whoever runs it. Your own role does not lend it extra power.
+**An agent acts as itself, not as you.** Dosco gives each agent its own identity in each project. The agent does the same thing whoever runs it. Your own role does not lend it extra power.
 
 **Your personal accounts stay personal.** A personal connector account, personal secret or your own computer reaches a session only when the session is private and runs on your behalf. A shared session or a scheduled run reaches none of them.
 
-The **What this agent can do** panel on the agent's **Kortix permissions** page shows exactly what the agent may do.
+The **What this agent can do** panel on the agent's **Platform permissions** page shows exactly what the agent may do.
 
 ### How an agent asks before risky actions
 
@@ -262,18 +261,18 @@ Approvals also come from connectors. A connector rule can hold an action, such a
 Changes to the project itself go through review too. When an agent changes a skill, its memory or another agent, it opens a change request. A person reviews it on the **Review** page and selects **Ship it** to merge it.
 
 <Callout type="warning">
-The built-in `kortix` agent is allowed to merge its own change requests. Its standing instructions tell it to stop after it opens one, so a person merges. To require a person every time, remove the merge permission from the agent's **Kortix permissions**.
+The default `xera` agent is allowed to merge its own change requests. Its standing instructions tell it to stop after it opens one, so a person merges. To require a person every time, remove the merge permission from the agent's **Platform permissions**.
 </Callout>
 
 ### When kortix.yaml has a problem
 
-`kortix.yaml` can have a mistake, such as a misspelled key or a skill that is not registered. The project then shows a banner with the problems. Select **Fix with My Kortix**: My Kortix fixes the file and opens a change request for you to review. The agent of every session also gets the list, so you can ask any agent to fix it.
+`kortix.yaml` can have a mistake, such as a misspelled key or a skill that is not registered. The project then shows a banner with the problems. Select **Fix with Orchestrator**: Orchestrator fixes the file and opens a change request for you to review. The agent of every session also gets the list, so you can ask any agent to fix it.
 
-The project keeps running while the file has a mistake. Kortix turns off only the broken part, such as one agent or one trigger, and never gives an agent more access than the file grants. When the mistake is in a part the whole project depends on, only My Kortix runs until the file is fixed. The rules are in the [kortix.yaml reference](/docs/developers#when-kortixyaml-has-a-problem).
+The project keeps running while the file has a mistake. Dosco turns off only the broken part, such as one agent or one trigger, and never gives an agent more access than the file grants. When the mistake is in a part the whole project depends on, only Orchestrator runs until the file is fixed.
 
 ## Skills
 
-<video src="/media/guide/skills.mp4" aria-label="Skills in Kortix: the skill list and one skill opened" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/skills.mp4" aria-label="Skills in Dosco: the skill list and one skill opened" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 A skill is a Markdown file that tells an agent how to do one task, step by step. An agent loads a skill only when the task matches the skill's description.
 
@@ -288,9 +287,9 @@ A skill is a Markdown file that tells an agent how to do one task, step by step.
 
 A new project includes ready-made skills for common work: documents, spreadsheets, PDFs, presentations, websites, web apps, browsing the web and converting documents to Markdown.
 
-Kortix also adds a set of system skills to every project. They teach agents how to use Kortix itself, for example its memory, connectors and Apps. You cannot change or remove these. An agent loads them only when it has access to them, like any other skill.
+Dosco also adds a set of system skills to every project. They teach agents how to use the platform, for example its memory, connectors and Apps. You cannot change or remove these. An agent loads them only when it has access to them, like any other skill.
 
-More skills are in the [marketplace](https://kortix.com/marketplace). Installing one starts a session that adds the skill to your project and opens a change request for you to review.
+More skills are in the [marketplace](https://dosco.live/marketplace). Installing one starts a session that adds the skill to your project and opens a change request for you to review.
 
 ### Add a skill
 
@@ -302,7 +301,7 @@ Select **Customize** in the sidebar, then **Skills** → **New**.
 **Create in chat** starts a session where an agent writes the skill with you. Describe the task and how your team does it. **Create with a form** lets you write it yourself.
 </Step>
 <Step title="Give agents access">
-Open **Customize** → **Agents** → the agent → **Skills**, and turn on the new skill. The built-in `kortix` agent may load every skill.
+Open **Customize** → **Agents** → the agent → **Skills**, and turn on the new skill. The default `xera` agent may load every skill.
 </Step>
 <Step title="Try it">
 Start a session and ask for the task. The agent loads the skill when the task matches its description.
@@ -330,19 +329,19 @@ Once merged, new sessions use the improved skill. Running sessions pick it up as
 </Step>
 </Steps>
 
-A project may add a reflection agent: an agent that a schedule runs to review recent sessions and improve skills, instructions, tools and memory through one change request it never merges. A new project has none. The `kortix-harness-refinement` skill is its protocol.
+A project may add a reflection agent: an agent that a schedule runs to review recent sessions and improve skills, instructions, tools and memory through one change request it never merges. A new project has none.
 
 ## Apps
 
-<video src="/media/guide/apps.mp4" aria-label="Apps in Kortix: the Apps page and adding an App" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/apps.mp4" aria-label="Apps: the Apps page and adding an App" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-An App is a website, an internal tool or a backend that your project hosts on Kortix. Each App has one stable URL, a setting for who may open it, and numbered releases. Kortix signs people in before your App runs. An agent builds and deploys an App from a session.
+An App is a website, an internal tool or a backend that your project hosts. Each App has one stable URL, a setting for who may open it, and numbered releases. Dosco signs people in before your App runs. An agent builds and deploys an App from a session.
 
 ### How it works
 
 Every App you may open is listed at **Apps** in the project sidebar. The page shows each App's live state, a preview and its access controls. An App's detail lists its releases.
 
-You create and deploy Apps from an agent session, the command line or code. For most people, that means you describe the App to an agent. The agent builds it on its [cloud computer](/docs/guide#computers) and deploys it.
+You create and deploy Apps from an agent session. For most people, that means you describe the App to an agent. The agent builds it on its [cloud computer](/docs/guide#computers) and deploys it.
 
 #### Who can open an App
 
@@ -360,14 +359,14 @@ Project managers, account owners and account admins can open every App in the pr
 
 A server App runs in one of two modes:
 
-- **Always on.** It runs around the clock, and Kortix restarts it when it stops. Use it for live updates, background work and databases.
+- **Always on.** It runs around the clock, and the platform restarts it when it stops. Use it for live updates, background work and databases.
 - **On demand.** It stops after a quiet period. The next visitor or trigger wakes it. A stopped on-demand App uses no compute.
 
 A new App is always on. A static App has nothing to run, so neither mode applies.
 
 #### Releases and rollback
 
-Each deploy creates a new numbered release. A release never changes. If a new release fails its checks, visitors keep the previous one. A rollback creates a new release from an older one. An App's stored data stays when you roll back, because a rollback changes code and settings, never the data. Kortix also takes a daily snapshot of an App's stored data.
+Each deploy creates a new numbered release. A release never changes. If a new release fails its checks, visitors keep the previous one. A rollback creates a new release from an older one. An App's stored data stays when you roll back, because a rollback changes code and settings, never the data. A daily snapshot of an App's stored data is also taken.
 
 ### Set it up
 
@@ -379,7 +378,7 @@ Start a session and say what you need: who uses it, what it shows, and what data
 The agent builds the App on its cloud computer and deploys it. A new App is private: only you can open it.
 </Step>
 <Step title="Open it and check it">
-Open the App from **Apps** in the project sidebar, in a browser where you are signed in to Kortix.
+Open the App from **Apps** in the project sidebar, in a browser where you are signed in to Dosco.
 </Step>
 <Step title="Share it">
 Set who may open it, for example the whole project or a group. Then send people the link.
@@ -390,7 +389,7 @@ To add a tool that runs somewhere else, select **Add app** on the Apps page and 
 
 ## Drive
 
-<video src="/media/guide/drive.mp4" aria-label="Drive in Kortix: My files, the Company folder and the New menu" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/drive.mp4" aria-label="Drive: My files, the Company folder and the New menu" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Drive is the project's shared folders, for people and agents. Sessions open the folders they may use, so the files an agent writes land where your team looks. What the company knows lives here too, as Markdown files in Memory folders.
 
@@ -401,7 +400,7 @@ Drive is the project's shared folders, for people and agents. Sessions open the 
 - **Shared folders.** Any folder can be shared with people, groups and agents.
 - **What a session sees.** A new session opens the folders that its agent, or the whole project, has access to. In a private session that you started, it also opens your own folder and every folder shared with you or your groups.
 - **Where to manage them.** Open **Drive** in the sidebar: **My files** (only you), **Company** (everyone) and, for admins, **All files**.
-- **Large files.** Drive takes a file of any size, up to the project's storage limit: in the web app, with `kortix drive put <local> <path>`, and through the API. A file over 64 MiB goes up in 1 MiB blocks, and only the blocks Drive does not have yet travel. The file appears when its last block lands.
+- **Large files.** Drive takes a file of any size, up to the project's storage limit: in the web app and through the API. A file over 64 MiB goes up in 1 MiB blocks, and only the blocks Drive does not have yet travel. The file appears when its last block lands.
 
 Drive is on by default. It is experimental. Its folders are stored on Platinum, where sessions run.
 
@@ -415,9 +414,9 @@ Memory is Markdown files in Drive: facts about the company, its people, its conv
 | `Memory` in your own folder | Only you. Each agent keeps its notes in its own subfolder. |
 | `Memory` in a channel's folder | The channel's members. Only when the **Channels** feature is on. |
 
-Agents read and write Memory files through the folders their session opens. Kortix does not paste memory into every prompt: a built-in skill tells each agent to read memory at the start of a task.
+Agents read and write Memory files through the folders their session opens. Memory is not pasted into every prompt: a built-in skill tells each agent to read memory at the start of a task.
 
-**My Kortix remembers you.** Tell My Kortix "remember that I like short replies", or correct how it works, and it saves one short page about it. Say "forget that I work on the launch", and it deletes the page. It says what it did in one line: "💡 Noted: you like replies short." My Kortix reads these pages at the start of every chat in this project. They live in your own folder, under `Memory/mykortix`, and only you see them. Ask "what do you remember about me?" to see them. This needs Files.
+**Orchestrator remembers you.** Tell Orchestrator "remember that I like short replies", or correct how it works, and it saves one short page about it. Say "forget that I work on the launch", and it deletes the page. It says what it did in one line: "💡 Noted: you like replies short." Orchestrator reads these pages at the start of every chat in this project. They live in your own folder, under `Memory/orchestrator`, and only you see them. Ask "what do you remember about me?" to see them. This needs Files.
 
 The project repository can hold memory too: a `memory/` folder with `MEMORY.md` as its index. Agents edit it with their file tools, and every edit lands through a change request. The reflection agent that ships with every project tidies it when you turn on its daily schedule.
 
@@ -438,15 +437,15 @@ Two more places hold a session's files:
 | Place | What it holds |
 | --- | --- |
 | Your project's repository | What the agent committed. Open it from **Customize** → **Repo**. |
-| Session attachments | Files people attached, and copies of files the agent showed you. Kortix saves them at the end of every turn, so you can download them while the session sleeps. |
+| Session attachments | Files people attached, and copies of files the agent showed you. Dosco saves them at the end of every turn, so you can download them while the session sleeps. |
 
-When you delete a session, Kortix keeps its conversation and its stored files for 30 days, so you can restore it. Read more in [Agents](/docs/guide#agents) and [Computers](/docs/guide#computers).
+When you delete a session, Dosco keeps its conversation and its stored files for 30 days, so you can restore it. Read more in [Agents](/docs/guide#agents) and [Computers](/docs/guide#computers).
 
 ## Connectors
 
-<video src="/media/guide/connectors.mp4" aria-label="Connectors in Kortix: the catalog and the approval rules" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/connectors.mp4" aria-label="Connectors: the catalog and the approval rules" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-A connector gives agents access to one outside app, such as Gmail, Linear, Notion or Stripe. Kortix stores the login, picks the account, applies your rules and records every call. The login never enters the agent's computer.
+A connector gives agents access to one outside app, such as Gmail, Linear, Notion or Stripe. Dosco stores the login, picks the account, applies your rules and records every call. The login never enters the agent's computer.
 
 ### How it works
 
@@ -454,7 +453,7 @@ Three ideas answer three questions:
 
 | Idea | Question it answers | Example |
 | --- | --- | --- |
-| **Connector** | How does Kortix reach the app? | Linear, through its own server |
+| **Connector** | How does the app connect? | Linear, through its own server |
 | **Account** | Who does a call run as? | The team inbox, or your own inbox |
 | **Rule set** | What may this agent do? | Read only, for the support agent |
 
@@ -509,20 +508,20 @@ Open **Review** → **Needs you**, follow the approval link, or use the approval
 The page shows what the app will receive, with private values hidden.
 </Step>
 <Step title="Decide">
-Choose **Approve** or **Deny**, with an optional note to the agent. Approve runs the action once, as the agent that asked, and Kortix resumes the agent with the result.
+Choose **Approve** or **Deny**, with an optional note to the agent. Approve runs the action once, as the agent that asked, and Dosco resumes the agent with the result.
 </Step>
 </Steps>
 
 - An approval covers one exact action. A changed detail needs a new approval.
-- An approval runs the action once. The agent does not send it again. Kortix checks the project's rules again when it runs the action, and a **Block** rule still wins.
+- An approval runs the action once. The agent does not send it again. Dosco checks the project's rules again when it runs the action, and a **Block** rule still wins.
 - A script that signs in with a project token gets the same: Approve runs its call, and the script reads the outcome. A script with any other token must send the same call again within 15 minutes after approval.
 - A held action expires when nobody decides within 24 hours, unless your project sets another time.
 - A project manager, or the person who started the session, decides.
 - There is no "approve everything for this session". An action that must run unattended needs an **Allow** rule.
 
-### Use Kortix from Claude, ChatGPT or Cursor
+### Use Dosco from Claude, ChatGPT or Cursor
 
-Kortix also works in the other direction. Your AI tool can start sessions, read results and call your connectors through Kortix. It acts as you, with your permissions. You install nothing.
+Dosco also works in the other direction. Your AI tool can start sessions, read results and call your connectors through Dosco. It acts as you, with your permissions. You install nothing.
 
 <Steps>
 <Step title="Copy the address">
@@ -532,7 +531,7 @@ In the web app, open the project menu (top left) and select **Connect MCP**. The
 In Claude, open **Settings** → **Connectors** → **Add custom connector** and paste the address. ChatGPT needs developer mode and **OAuth** sign-in. In Cursor, select **Add** on the Cursor row.
 </Step>
 <Step title="Sign in">
-Your browser opens the Kortix consent screen. Approve the app only when you connected it yourself.
+Your browser opens the Dosco consent screen. Approve the app only when you connected it yourself.
 </Step>
 </Steps>
 
@@ -543,14 +542,14 @@ To remove access, open **Settings** → **Personal access keys** → **Connected
 {/* The section was "Automations" until 2026-10-28; published links name #automations. */}
 <a id="automations" />
 
-<video src="/media/guide/automations.mp4" aria-label="Triggers in Kortix: creating a daily scheduled trigger" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/automations.mp4" aria-label="Triggers: creating a daily scheduled trigger" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 A trigger starts agent work with nobody at the keyboard. It has two parts: a **source**, what fires it, and a **target**, what a fire does.
 
 | Source | Fires when | Good for |
 | --- | --- | --- |
 | **Schedule** | A time arrives, or a fixed period passes (`cron`, `every`, `at`, `in`). | Daily reports, weekly reviews, regular checks. |
-| **App event** | One of your own Kortix Apps reports something. | Sources that fit none of the others. See [Apps](/docs/guide#apps). |
+| **App event** | One of your own Apps reports something. | Sources that fit none of the others. See [Apps](/docs/guide#apps). |
 | **Connector event** | Something happens in a connected app. Beta: turn on **Connector events** under **Project admin → Feature flags**. | New issues, new messages, new orders. |
 | **Webhook** | Another system sends a signed request to the trigger's address. | Form tools, payment systems, code hosts. |
 | **Change request merged** | A change request of the project merges, into one branch or any. | Release notes, a check after a deploy. |
@@ -567,11 +566,11 @@ Any source works with either target. A trigger lives in one of two places:
 
 <a id="the-kinds-of-trigger" />
 
-To react to something outside Kortix, use a webhook when the other system can send one. Otherwise, use a schedule that checks it.
+To react to something outside Dosco, use a webhook when the other system can send one. Otherwise, use a schedule that checks it.
 
 ### What happens when a trigger fires
 
-1. Kortix fills in your instruction with the details of the event, such as fields from the webhook's request.
+1. Dosco fills in your instruction with the details of the event, such as fields from the webhook's request.
 2. It starts a new session by default, with your chosen agent and model, on its own computer.
 3. The agent does the work, using the connectors it may use.
 4. The **Triggers** page shows the trigger's last run and its status. The session appears in your lists.
@@ -608,17 +607,15 @@ triggers:
   - slug: verify-prod
     type: change_request
     filter: { base: main }   # optional: only merges into main
-    agent: kortix
+    agent: xera
     prompt: "Change request #{{ change_request.number }} merged into {{ change_request.base_ref }}. Verify prod."
 ```
-
-To create one at runtime, use the CLI: `kortix triggers add "<prompt>"` with a source flag (`--runtime --every 1h`, `--on webhook --secret-env NAME`, `--on cr-merged --cr <id>`) and a target (`--session <id>`, the default inside a session, or `--agent <name>`). `kortix triggers ls` lists both kinds; `pause`, `resume`, `run` and `rm` take a runtime id (`trigger.<hex>`) or a `kortix.yaml` slug.
 
 <a id="reminders" />
 
 ### Loops
 
-A loop is a trigger that wakes the session that created it. It does not start a new session. It sends a message into one session that already exists, later, once or on repeat. For example: "in 24 hours, check whether the vendor replied." The session wakes with its full history and continues. A session can also be woken by a webhook, an event or a merged change request: `kortix triggers add "…" --on cr-merged --cr <id>`. Loops are on by default (flag key `reminders`). **Project admin → Triggers** lists them under **Created at runtime**, and the session shows the triggers that wake it. `kortix loop`, `kortix loops`, `kortix remind` and `kortix reminders` still work with the same flags.
+A loop is a trigger that wakes the session that created it. It does not start a new session. It sends a message into one session that already exists, later, once or on repeat. For example: "in 24 hours, check whether the vendor replied." The session wakes with its full history and continues. Loops are on by default (flag key `reminders`). **Project admin → Triggers** lists them under **Created at runtime**, and the session shows the triggers that wake it.
 
 ### Keeping triggers under control
 
@@ -629,7 +626,7 @@ A loop is a trigger that wakes the session that created it. It does not start a 
 
 ## Computers
 
-<video src="/media/guide/computers.mp4" aria-label="Computers in Kortix: connecting your own computer" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/computers.mp4" aria-label="Computers: connecting your own computer" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
 Every session runs on its own isolated cloud computer with the project's files, a terminal, a browser, Python, Node.js and document tools. You can also connect your own computer. The machine itself decides what agents may do on it.
 
@@ -637,7 +634,7 @@ Every session runs on its own isolated cloud computer with the project's files, 
 
 <Steps>
 <Step title="You start a session">
-Kortix gives the session its own branch of your project and boots a cloud computer for it. An agent with **Project repository access** gets a copy of the repository in `/workspace`. The agents a new project starts with have it.
+Dosco gives the session its own branch of your project and boots a cloud computer for it. An agent with **Project repository access** gets a copy of the repository in `/workspace`. The agents a new project starts with have it.
 </Step>
 <Step title="The agent works on its computer">
 The agent reads your project, runs commands, browses and writes files. It saves its work to the session's own branch.
@@ -646,7 +643,7 @@ The agent reads your project, runs commands, browses and writes files. It saves 
 When the agent changes the project, it opens a change request. A person reviews it and merges it.
 </Step>
 <Step title="The computer sleeps when idle">
-About 15 to 20 minutes after the last turn, Kortix stops the computer. It keeps `/workspace`, the branch and the conversation. A new message wakes it.
+About 15 to 20 minutes after the last turn, Dosco stops the computer. It keeps `/workspace`, the branch and the conversation. A new message wakes it.
 </Step>
 </Steps>
 
@@ -658,15 +655,15 @@ A stopped computer costs nothing while it sleeps. A preview request or a new pro
 - `/drives` (Drive) holds your files and the company's files, shared across sessions and kept until deleted.
 - Anything else (home directory, `/tmp`, installed packages) can be gone when the session reopens. Put tools in a sandbox template.
 
-A sandbox template sets what is installed on the cloud computer and how large it is. Set it once for the whole project in **Customize** → **Settings** → **Sandbox templates**. The details are in the [kortix.yaml reference](/docs/developers#kortixyaml-reference).
+A sandbox template sets what is installed on the cloud computer and how large it is. Set it once for the whole project in **Customize** → **Settings** → **Sandbox templates**.
 
 #### Previews
 
-Any website or tool that the agent starts on its computer is reachable from outside it. The session page's preview panel offers common ports, such as **App preview** and **Frontend preview**, plus any other port. A preview asks you to sign in to Kortix first. To show it to someone outside Kortix, the session owner creates a public link.
+Any website or tool that the agent starts on its computer is reachable from outside it. The session page's preview panel offers common ports, such as **App preview** and **Frontend preview**, plus any other port. A preview asks you to sign in to Dosco first. To show it to someone outside Dosco, the session owner creates a public link.
 
 #### Desktop
 
-Every session of your project's agents runs on a computer with a desktop. Select the **Desktop** button in the session header to watch it live. My Kortix runs on a minimal computer without one, so its sessions show no **Desktop** button: it hands browsing to your agents' sessions. The desktop has one browser, and you share it with the agent: you see each page it visits, and the browser on the dock opens that same window with the same tabs and logins. Kortix has control by default. Select **Take over** to click and type yourself, for example to sign in to a site for the agent, or to use the terminal or the file manager on the dock. Select **Return control** to hand it back. The desktop resizes to fit the panel.
+Every session of your project's agents runs on a computer with a desktop. Select the **Desktop** button in the session header to watch it live. Orchestrator runs on a minimal computer without one, so its sessions show no **Desktop** button: it hands browsing to your agents' sessions. The desktop has one browser, and you share it with the agent: you see each page it visits, and the browser on the dock opens that same window with the same tabs and logins. Dosco has control by default. Select **Take over** to click and type yourself, for example to sign in to a site for the agent, or to use the terminal or the file manager on the dock. Select **Return control** to hand it back. The desktop resizes to fit the panel.
 
 A session on a custom sandbox template gets the desktop when the template's base image is Ubuntu 24.04.
 
@@ -683,10 +680,9 @@ sandbox:
 ```
 
 - Traffic through the residential address is billed per GB from your credits. It shows as **Residential proxy** in the credit history.
-- Kortix's own services and common package registries connect directly. That traffic is not billed as proxy traffic.
+- Platform services and common package registries connect directly. That traffic is not billed as proxy traffic.
 - UDP is blocked while it is on, so QUIC and WebRTC cannot reveal the computer's own address. Browsers and tools fall back to TCP.
 - Sessions start only where your deployment offers a residential IP. Elsewhere they do not start; they never use the computer's own address instead.
-- `{ country: us }` instead of `true` picks the country of the address. The details are in the [kortix.yaml reference](/docs/developers#residential-ip).
 
 #### When you delete a session
 
@@ -710,7 +706,7 @@ Your computer is private by default. Only you use it, from your private sessions
 
 <Steps>
 <Step title="Start the connection">
-In the Kortix desktop app, select **Connect this computer** in the sidebar. A browser window opens the approval page.
+In the desktop app, select **Connect this computer** in the sidebar. A browser window opens the approval page.
 </Step>
 <Step title="Check the code and name the computer">
 Check that the code on the page matches the code on the computer. Give the computer a name, for example "Work laptop".
@@ -719,7 +715,7 @@ Check that the code on the page matches the code on the computer. Give the compu
 Keep **Only you**, or choose **Also share with** the current project.
 </Step>
 <Step title="Choose the capabilities and approve">
-Select **Filesystem**, **Shell**, **Computer Use**, or a mix. On macOS, select **Allow all** when asked, and give Kortix the permissions macOS requests.
+Select **Filesystem**, **Shell**, **Computer Use**, or a mix. On macOS, select **Allow all** when asked, and give the permissions macOS requests.
 </Step>
 </Steps>
 
@@ -741,29 +737,28 @@ Open **Project admin → Connectors → Computers → Accounts** and select **Sh
 
 ## Models
 
-<video src="/media/guide/models.mp4" aria-label="Models in Kortix: providers, a custom endpoint and costs" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
+<video src="/media/guide/models.mp4" aria-label="Models: providers, a custom endpoint and costs" controls muted playsInline preload="metadata" style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)' }} />
 
-A model is the AI an agent runs on. Use Kortix-managed models, your own provider keys, or a ChatGPT subscription. Set a project default, a model per agent, or a model for one session. Every model request goes through the Kortix LLM gateway, which applies budgets, access rules and cost reports.
+A model is the AI an agent runs on. Use managed models, your own provider keys, or a ChatGPT subscription. Set a project default, a model per agent, or a model for one session. Every model request goes through the LLM gateway, which applies budgets, access rules and cost reports.
 
 ### How it works
 
-#### Kortix-managed models
+#### Managed models
 
-Kortix-managed models need no key. They are the models Platinum Inference offers. The model picker lists them under **Kortix**, with each model's context size and image support.
+Managed models need no key. They are the models Platinum Inference offers. The model picker lists them under **Managed**, with each model's context size and image support.
 
 - Managed models need the Credits plan or Enterprise. They are not available on Free.
 - Managed requests use credits from your account's wallet. See [Billing](/docs/guide#billing).
 - Managed models run only through inference providers with zero data retention.
 - The managed lineup has no OpenAI or Anthropic models. Use your own key or a ChatGPT subscription for those.
-- A self-hosted Kortix has no managed models. Connect your own providers there.
 
 #### Your own keys and subscriptions
 
-When a request runs on your own key or subscription, your provider bills it. Every plan, Free included, can use your own key or a ChatGPT subscription. For any Kortix fee on your own keys, see [Plans & credits](/docs/guide#billing).
+When a request runs on your own key or subscription, your provider bills it. Every plan, Free included, can use your own key or a ChatGPT subscription. For any platform fee on your own keys, see [Plans & credits](/docs/guide#billing).
 
 A provider key belongs to the whole project.
 
-**A ChatGPT subscription also generates images.** With a connected ChatGPT account, the `image_gen` tool can use `gpt-image-2` on your plan. ChatGPT sets its own image limit, separate from the plan's chat limit. Reaching the image limit does not pause the account for chat. An OpenAI, Google, xAI or OpenRouter key also generates images. Kortix-managed models do not generate images yet. See [Generate images](/docs/developers#generate-images).
+**A ChatGPT subscription also generates images.** With a connected ChatGPT account, the `image_gen` tool can use `gpt-image-2` on your plan. ChatGPT sets its own image limit, separate from the plan's chat limit. Reaching the image limit does not pause the account for chat. An OpenAI, Google, xAI or OpenRouter key also generates images. Managed models do not generate images yet.
 
 #### Which model a session uses
 
@@ -798,7 +793,7 @@ Account owners, admins and project managers get an email at 80% and at 100% of a
 
 #### Charges and estimated usage value
 
-**Costs** shows what Kortix charged. It also shows **LLM estimated usage value (not a bill)**: what the same requests would cost at the provider's list price. The estimate is never added to charges or budgets.
+**Costs** shows what was charged. It also shows **LLM estimated usage value (not a bill)**: what the same requests would cost at the provider's list price. The estimate is never added to charges or budgets.
 
 - A ChatGPT subscription request has no charge, but it can have an estimate.
 - Only requests to `gpt-6.1-sol`, on an OpenAI key or a ChatGPT subscription, get an estimate. **Costs** counts the priced and unpriced requests.
@@ -806,13 +801,13 @@ Account owners, admins and project managers get an email at 80% and at 100% of a
 
 #### Fallback models
 
-Open **Project admin → Models → Routing** to list up to 8 models that the gateway tries in order when a model fails. When a fallback model answers, the composer shows **Running on** and its name. A request on your own key moves to a Kortix-billed model only when your own fallback list names that model.
+Open **Project admin → Models → Routing** to list up to 8 models that the gateway tries in order when a model fails. When a fallback model answers, the composer shows **Running on** and its name. A request on your own key moves to a platform-billed model only when your own fallback list names that model.
 
-The fallback list also takes over when the requested model is unknown or retired. Every successful gateway answer names the model you asked for (`x-kortix-requested-model`) and the model that answered (`x-kortix-model`). When they differ, a fallback model answered.
+The fallback list also takes over when the requested model is unknown or retired. Every successful gateway answer names the model you asked for (`x-dosco-requested-model`) and the model that answered (`x-dosco-model`). When they differ, a fallback model answered.
 
 ## Outcomes
 
-An outcome in Kortix is a **Goal**: what you want plus a definition of done. The agent assigned to it works it, wake after wake, until a separate verifier session confirms it is done.
+An outcome in Dosco is a **Goal**: what you want plus a definition of done. The agent assigned to it works it, wake after wake, until a separate verifier session confirms it is done.
 
 Three things work together:
 
@@ -888,7 +883,7 @@ Do not delete the owner session of an open goal. If you delete it, the goal stop
 
 ## Channels
 
-Channels connect a project to Slack, Microsoft Teams and Telegram. Mention the bot with a task, and the agent replies in the same thread. In Slack and Teams, each person links their Kortix account once, so Kortix knows who asked and checks that this person may run the agent.
+Channels connect a project to Slack, Microsoft Teams and Telegram. Mention the bot with a task, and the agent replies in the same thread. In Slack and Teams, each person links their Dosco account once, so Dosco knows who asked and checks that this person may run the agent.
 
 ### How it works
 
@@ -901,11 +896,11 @@ Channels connect a project to Slack, Microsoft Teams and Telegram. Mention the b
 
 #### Each person is their own account
 
-A Slack or Teams message carries no Kortix login. So each person links their Kortix account once, with `/kortix login` in Slack or `/login` in Teams. Only you see the link. It works once and expires after 10 minutes.
+A Slack or Teams message carries no login. Each person links their Dosco account once, with `/login` in Slack or Teams. Only you see the link. It works once and expires after 10 minutes.
 
 After that:
 
-- Kortix checks that the sender is a project member who may start sessions.
+- Dosco checks that the sender is a project member who may start sessions.
 - The agent acts with its own permissions, not with the sender's role.
 - Your private connector accounts reach only your private chat with the bot, never a shared channel.
 - A person who is not in the project gets a card to request access. The account owners and admins receive the request.
@@ -922,11 +917,11 @@ Each channel has a join policy. It decides who may join a session that started t
 
 #### Approvals in the thread
 
-When an agent asks for a decision, the card shows the title, a summary, a risk note and buttons, such as **Approve** and **Deny**. Every card also has **View in Kortix**. When an agent wants to use a connected tool that needs approval, the card shows what it will do. A project manager, or the person who started the session, selects **Approve** or **Deny**.
+When an agent asks for a decision, the card shows the title, a summary, a risk note and buttons, such as **Approve** and **Deny**. Every card also has **View in Dosco**. When an agent wants to use a connected tool that needs approval, the card shows what it will do. A project manager, or the person who started the session, selects **Approve** or **Deny**.
 
 #### Questions in the thread
 
-When the agent asks a question, Kortix posts it with one button per option. In Teams, several questions or a multi-select question arrive as one form. You can also reply with your own answer.
+When the agent asks a question, Dosco posts it with one button per option. In Teams, several questions or a multi-select question arrive as one form. You can also reply with your own answer.
 
 - Every click and every form submit reaches the agent, also when several people answer.
 - The message then shows the answer and who gave it, in place of the buttons.
@@ -937,13 +932,13 @@ When the agent asks a question, Kortix posts it with one button per option. In T
 
 <Steps>
 <Step title="Connect Slack or Teams">
-Open **Project admin → Connectors** and select the **Channels** scope. Select **Add to Slack**, or connect **Microsoft Teams**. For Teams, a tenant admin grants consent once, and the Kortix app appears in your organization's Teams catalog.
+Open **Project admin → Connectors** and select the **Channels** scope. Select **Add to Slack**, or connect **Microsoft Teams**. For Teams, a tenant admin grants consent once, and the Dosco app appears in your organization's Teams catalog.
 </Step>
 <Step title="Add the bot">
-Invite the bot to a Slack channel, or add the Kortix app to a Teams chat or channel. A direct message with the bot needs no invite.
+Invite the bot to a Slack channel, or add the Dosco app to a Teams chat or channel. A direct message with the bot needs no invite.
 </Step>
 <Step title="Link your account">
-Send `/kortix login` in Slack or `/login` in Teams, open the link, and sign in. You do this once per Slack workspace or Teams tenant.
+Send `/login` in Slack or Teams, open the link, and sign in. You do this once per Slack workspace or Teams tenant.
 </Step>
 <Step title="Mention the bot with a task">
 The agent replies in the thread, with live progress.
@@ -963,7 +958,7 @@ People message a Telegram bot, and the agent answers in the chat.
 In Telegram, message **@BotFather**, send `/newbot`, and copy the token it gives you.
 </Step>
 <Step title="Connect it">
-Open **Project admin → Connectors**, select the **Channels** scope, and select **Connect** on Telegram. Paste the **Bot token** and the **Allowed Telegram user ids**. Kortix keeps the token on the server.
+Open **Project admin → Connectors**, select the **Channels** scope, and select **Connect** on Telegram. Paste the **Bot token** and the **Allowed Telegram user ids**. Dosco keeps the token on the server.
 </Step>
 <Step title="Message the bot">
 A message from an allowed user starts a session. Anyone else gets a reply that shows their user ID. When they write to the bot in a private chat, they also appear under **Allowed users → Wants access**. A project manager allows them with one click or dismisses the request. You can still add a user by ID.
@@ -971,33 +966,33 @@ A message from an allowed user starts a session. Anyone else gets a reply that s
 </Steps>
 
 - **One chat is one session.** In a forum group, each topic is its own session. After `/new`, your next message starts a new session.
-- **Messages arrive in the order you send them.** Kortix hands one chat's messages and taps to the agent one at a time, in Telegram's order. A tap on a button waits for the messages you sent before it. A message that fails holds the next ones for one retry, usually 10 to 30 seconds; then they go on without it.
-- **Photos, files, voice notes and videos reach the agent.** Kortix downloads up to 8 MB of files per message into the session's workspace. In the session, the message shows each photo and file above its text, as a file you attach in Kortix shows. The agent sees a photo when the project has a model that reads images. A larger file does not arrive, and the agent tells you. No speech-to-text tool is preinstalled, so a voice note takes the agent about a minute: it installs one to transcribe the recording. Each photo of an album arrives as its own message, and a sticker arrives as its emoji.
-- **Commands run in Kortix, not in the agent.** `/help` (also `/start`) lists them. `/status` shows the chat's project, agent, model and session. `/stop` stops the agent's run. `/new` stops the run and starts a new conversation. `/model` lists the models, and `/model <id>` switches the chat to one. `/agent` lists the agents, and `/agent <name>` switches the chat to one. `/model default` and `/agent default` go back to the project default.
+- **Messages arrive in the order you send them.** Dosco hands one chat's messages and taps to the agent one at a time, in Telegram's order. A tap on a button waits for the messages you sent before it. A message that fails holds the next ones for one retry, usually 10 to 30 seconds; then they go on without it.
+- **Photos, files, voice notes and videos reach the agent.** Dosco downloads up to 8 MB of files per message into the session's workspace. In the session, the message shows each photo and file above its text, as a file you attach in Dosco shows. The agent sees a photo when the project has a model that reads images. A larger file does not arrive, and the agent tells you. No speech-to-text tool is preinstalled, so a voice note takes the agent about a minute: it installs one to transcribe the recording. Each photo of an album arrives as its own message, and a sticker arrives as its emoji.
+- **Commands run in Dosco, not in the agent.** `/help` (also `/start`) lists them. `/status` shows the chat's project, agent, model and session. `/stop` stops the agent's run. `/new` stops the run and starts a new conversation. `/model` lists the models, and `/model <id>` switches the chat to one. `/agent` lists the agents, and `/agent <name>` switches the chat to one. `/model default` and `/agent default` go back to the project default.
 - **Commands open menus.** `/model` and `/agent` without an argument list the choices as buttons, 8 per page, after **Project default** on the first page, with **More ›** and **‹ Back**. `/help` and `/status` add buttons that run a command, such as **New conversation**, **Stop** and **Change model**. A tap changes the menu message to the result.
-- **A menu works once.** A pick, **Stop** or **New conversation** takes the menu's buttons off. Only a menu Kortix sent takes taps. A tap on a used menu, on one whose option or session is gone, on a copy forwarded into another chat, or on a menu older than 30 days answers "This menu is out of date": send the command again.
-- **Kortix keeps 11 verbs:** `new`, `reset`, `stop`, `cancel`, `status`, `model`, `models`, `agent`, `agents`, `help` and `start`. Every other message goes to the agent, also one that starts with `/`, and a command for another bot, such as `/status@other_bot`.
+- **A menu works once.** A pick, **Stop** or **New conversation** takes the menu's buttons off. Only a menu Dosco sent takes taps. A tap on a used menu, on one whose option or session is gone, on a copy forwarded into another chat, or on a menu older than 30 days answers "This menu is out of date": send the command again.
+- **Dosco keeps 11 verbs:** `new`, `reset`, `stop`, `cancel`, `status`, `model`, `models`, `agent`, `agents`, `help` and `start`. Every other message goes to the agent, also one that starts with `/`, and a command for another bot, such as `/status@other_bot`.
 - **Any allowed user can run every command.** In a group, every member sees the reply, also members who are not allowed. A reply can show the project name, model ids and a link to the session; the link opens only for people with access to the project.
-- **`/stop` and `/new` stop the current run of the chat's session only when this chat started it.** Kortix records where each run's message came from. A run started anywhere else (the web, the API, an automation, Kortix itself) keeps going, and the reply links to it. This chat's run also keeps going while a message from outside the chat waits behind it. A message this chat sent before `/stop` can still run after it.
+- **`/stop` and `/new` stop the current run of the chat's session only when this chat started it.** Dosco records where each run's message came from. A run started anywhere else (the web, the API, an automation, Dosco itself) keeps going, and the reply links to it. This chat's run also keeps going while a message from outside the chat waits behind it. A message this chat sent before `/stop` can still run after it.
 - **`/model` and `/agent` apply to the whole chat.** The topics of a forum group share one model and one agent. A chat uses only models and provider keys the whole project shares, never one person's key or ChatGPT subscription. Messages you send after the reply use the new model. A new agent applies to the next session: send `/new`.
-- **A command in a photo's caption runs the command.** Kortix does not send the photo or file to the agent: send it again without the command.
-- **`/new` while the chat's session still starts** does not stop that session: it still answers your earlier message here. While Kortix is still creating it, it can also take your next message. The reply says so; send `/new` again.
-- **Kortix adds its commands to the bot's menu.** Connecting the bot puts them first and keeps every entry you set in @BotFather. When an entry of yours has the same name, or the menu would pass Telegram's 100 commands, Kortix leaves its own entry out. Disconnecting the bot, or connecting another bot in its place, removes only the entries Kortix added.
-- **Questions come with buttons.** When the agent asks one question with up to 6 options, Kortix posts one button per option. Several questions, a multi-select question or a longer list arrive as a numbered list. Tap a button, or reply with your own answer.
-- **A question follows the connector's rules.** Kortix posts it only where the agent may send a Telegram message without approval. Otherwise the agent asks in its own words, and that message waits for approval or is refused.
-- **A chat's agent writes only in that chat.** A session that a chat started, or that a chat continues, sends, edits and deletes messages only in that chat and its topics, and quotes only messages from there. So does every session it starts, and the session that takes over its failed reminder. A session from the web or an automation can send to any chat of the bot. A connector call takes only the arguments its action lists; Kortix refuses any other.
+- **A command in a photo's caption runs the command.** Dosco does not send the photo or file to the agent: send it again without the command.
+- **`/new` while the chat's session still starts** does not stop that session: it still answers your earlier message here. While Dosco is still creating it, it can also take your next message. The reply says so; send `/new` again.
+- **Dosco adds its commands to the bot's menu.** Connecting the bot puts them first and keeps every entry you set in @BotFather. When an entry of yours has the same name, or the menu would pass Telegram's 100 commands, Dosco leaves its own entry out. Disconnecting the bot, or connecting another bot in its place, removes only the entries Dosco added.
+- **Questions come with buttons.** When the agent asks one question with up to 6 options, Dosco posts one button per option. Several questions, a multi-select question or a longer list arrive as a numbered list. Tap a button, or reply with your own answer.
+- **A question follows the connector's rules.** Dosco posts it only where the agent may send a Telegram message without approval. Otherwise the agent asks in its own words, and that message waits for approval or is refused.
+- **A chat's agent writes only in that chat.** A session that a chat started, or that a chat continues, sends, edits and deletes messages only in that chat and its topics, and quotes only messages from there. So does every session it starts, and the session that takes over its failed reminder. A session from the web or an automation can send to any chat of the bot. A connector call takes only the arguments its action lists; Dosco refuses any other.
 - **Telegram has no account link.** The allowed-user list decides who may talk to the bot. Only an allowed user's tap counts.
-- **An access request keeps only who asked:** the user ID, the username, the name and when they last wrote, never the message. Kortix keeps the newest 20 requests for 30 days. Disconnecting the bot deletes them.
-- **Deleting the project disconnects the bot.** The bot answers no one: Kortix deletes its token, and removes its webhook unless that webhook now points at another project.
+- **An access request keeps only who asked:** the user ID, the username, the name and when they last wrote, never the message. Dosco keeps the newest 20 requests for 30 days. Disconnecting the bot deletes them.
+- **Deleting the project disconnects the bot.** The bot answers no one: Dosco deletes its token, and removes its webhook unless that webhook now points at another project.
 - **In a group, the bot reads only commands, replies to it and mentions.** To let it read every message, send `/setprivacy` to @BotFather, or make the bot a group admin.
 
 ## Everywhere
 
-Kortix runs in the web app, the desktop app, the mobile app, the terminal and other AI tools through MCP. All of them read the same projects and sessions.
+Dosco runs in the web app, the desktop app, the mobile app and other AI tools through MCP. All of them read the same projects and sessions.
 
 ### The web app
 
-The web app is the main place to work. It runs at [kortix.com](https://kortix.com). After you sign in, it opens the project you had open last.
+The web app is the main place to work. It runs at [dosco.live](https://dosco.live). After you sign in, it opens the project you had open last.
 
 - **New session** opens the project home with an empty message box.
 - **Customize** holds every project setting: agents, skills, connectors, triggers, models and secrets.
@@ -1009,9 +1004,9 @@ In a session, you pick the agent and the model for the next turn. You can attach
 
 ### The desktop app
 
-The desktop app is the web app in a native window. It runs on macOS, Windows and Linux. Get it at [kortix.com/download](https://kortix.com/download).
+The desktop app is the web app in a native window. It runs on macOS, Windows and Linux. Get it at [dosco.live/download](https://dosco.live/download).
 
-- **Quick Entry.** Press `Cmd+Shift+Space` on a Mac, or `Ctrl+Shift+Space` on Windows and Linux, in any app. A prompt bar opens. Type a task and press Enter. Kortix starts a new session with it.
+- **Quick Entry.** Press `Cmd+Shift+Space` on a Mac, or `Ctrl+Shift+Space` on Windows and Linux, in any app. A prompt bar opens. Type a task and press Enter. Dosco starts a new session with it.
 - **Screenshots.** On macOS, the camera button in Quick Entry takes a screenshot and attaches it.
 - **Updates.** The app updates itself. When an update is ready, you choose **Restart now** or **Later**.
 - **Your computer.** With a connected computer, the app stays in the menu bar or tray when you close the last window. See [Computers](/docs/guide#computers).
@@ -1028,21 +1023,9 @@ With it you can:
 - browse the project's files;
 - get a notification when your session finishes, fails or asks you something.
 
-### The terminal
-
-The `kortix` command line does from a terminal what the web app does. It creates and clones projects, runs sessions, reviews change requests, and configures agents, connectors and secrets. It runs on macOS and Linux. On Windows, use WSL.
-
-```sh
-curl -fsSL https://kortix.com/install | bash
-```
-
-Then run `kortix login`. Your browser opens, and you approve the sign-in there.
-
-The TUI is a full Kortix client inside your terminal. Start it with `kortix tui`. It shows your accounts, projects and sessions, a shell in the session's machine, and the files, review and settings screens. It is experimental, so its screens and keys can change between releases.
-
 ### Other AI tools (MCP)
 
-The Kortix MCP server lets another AI tool use Kortix. You install nothing. Add the URL `https://api.kortix.com/v1/mcp` to the tool and sign in.
+The Dosco MCP server lets your other AI tools connect to Dosco. Add the URL `https://api.dosco.live/v1/mcp` to your MCP client and sign in.
 
 From there, the tool can:
 
@@ -1061,7 +1044,7 @@ The tool acts as you, with your permissions. It reaches every account and projec
     The dialog has a copy or install action for Claude, Claude Code, Cursor, Codex and any other MCP client.
   </Step>
   <Step title="Sign in">
-    On the first call, your browser opens the Kortix consent screen. Approve it only when you connect the tool yourself.
+    On the first call, your browser opens the Dosco consent screen. Approve it only when you connect the tool yourself.
   </Step>
 </Steps>
 
@@ -1073,7 +1056,7 @@ An account holds projects and the people in them. You decide who can open each p
 
 ### How it works
 
-- **Account.** Your company's home in Kortix. It holds projects, members and settings. One login can belong to several accounts.
+- **Account.** Your company's home in Dosco. It holds projects, members and settings. One login can belong to several accounts.
 - **Project.** A workspace with its own agents, skills, connectors and files. Each project is one git repository.
 - **Account role.** Each person has one: owner, admin or member.
 - **Project role.** Each person has a role in each project they work in: manager or member.
@@ -1100,10 +1083,10 @@ Members are unlimited and cost nothing extra. See [Billing](/docs/guide#billing)
 
 <Steps>
   <Step title="Create a team account first">
-    The account Kortix creates when you sign up is personal. It cannot use single sign-on, and a project cannot move to another account later. Open the project menu, select **Switch Project**, then **Create an account…**. Create your team's projects there.
+    The account Dosco creates when you sign up is personal. It cannot use single sign-on, and a project cannot move to another account later. Open the project menu, select **Switch Project**, then **Create an account…**. Create your team's projects there.
   </Step>
   <Step title="Invite your teammates">
-    Open **Account settings** → **Members** and select **Invite**. Type their email addresses and pick a role. A person with a Kortix login joins at once. Everyone else gets an email invite that stays valid for 14 days.
+    Open **Account settings** → **Members** and select **Invite**. Type their email addresses and pick a role. A person with a Dosco login joins at once. Everyone else gets an email invite that stays valid for 14 days.
   </Step>
   <Step title="Give them a project">
     Open **Account settings** → **Projects**, pick the project, and select **Grant access**. Pick **Manager** or **Member**. You can also set a date when the access ends.
@@ -1125,7 +1108,7 @@ Creating groups and adding people to them is an Enterprise feature. If your comp
 
 A member sees only themselves in the member list. They do not see other members or groups. Owners and admins see everyone. In a project, people still appear where their work shows, for example as the owner of a session.
 
-A person who opens a project they cannot read sees **Request access**. Kortix tells the project's managers, who approve or reject it.
+A person who opens a project they cannot read sees **Request access**. Dosco tells the project's managers, who approve or reject it.
 
 ### Share a session
 
@@ -1143,7 +1126,7 @@ You can also create a **Public link**. It shows the conversation, read-only, to 
 
 ### How agents' work reaches the company repository
 
-Your company's agents, skills and settings live in one shared repository. Kortix keeps it safe from unreviewed changes:
+Your company's agents, skills and settings live in one shared repository. Dosco keeps it safe from unreviewed changes:
 
 1. Each session works on its own branch, a private copy of the repository.
 2. When the agent finishes, it opens a change request. A change request asks to merge that branch into the shared one.
@@ -1151,11 +1134,11 @@ Your company's agents, skills and settings live in one shared repository. Kortix
 4. A person reads the changes and approves, closes, or asks for changes.
 5. A note that asks for changes goes back to the agent as a new message.
 
-An agent can merge its own change request only with the merge permission. The built-in `kortix` agent has it; see [Agents](/docs/guide#agents). A merge that changes agents or triggers also needs the matching permission.
+An agent can merge its own change request only with the merge permission. The default `xera` agent has it; see [Agents](/docs/guide#agents). A merge that changes agents or triggers also needs the matching permission.
 
 ## Security
 
-Each session runs on its own isolated machine. Secrets and connector credentials are stored encrypted. Every agent has its own permissions. An audit log records every action. Single sign-on, directory sync and self-hosting are available.
+Each session runs on its own isolated machine. Secrets and connector credentials are stored encrypted. Every agent has its own permissions. An audit log records every action. Single sign-on, directory sync and dedicated VPC deployments are available.
 
 ### How it works
 
@@ -1171,7 +1154,7 @@ A session runs with the agent's permissions, not the permissions of the person w
 
 #### Secrets: you choose who uses them
 
-A secret is a password, API key or token that a session needs. Kortix encrypts every value. No page, command or API ever shows a stored value again.
+A secret is a password, API key or token that a session needs. Dosco encrypts every value. No page, command or API ever shows a stored value again.
 
 Each secret has an audience:
 
@@ -1184,20 +1167,20 @@ Each secret has an audience:
 You also choose how a secret reaches the machine:
 
 - **Environment variable.** The machine gets the real value. Code in the session can read it.
-- **Enforced.** The machine gets a stand-in that is worth nothing on its own. Kortix swaps in the real value outside the machine, only on requests to the web addresses you list.
+- **Enforced.** The machine gets a stand-in that is worth nothing on its own. Dosco swaps in the real value outside the machine, only on requests to the web addresses you list.
 - **Disabled.** The value stays on file and reaches no session.
 
 <Callout type="warning">
 A secret delivered as an environment variable is a real value inside the session. Use the enforced option for web API keys when code does not need the real value.
 </Callout>
 
-#### Connector credentials stay with Kortix
+#### Connector credentials stay with Dosco
 
-When you connect an app such as Gmail or Linear, Kortix stores the credential. The credential never enters the session's machine. For each call, Kortix picks the account, applies your rules, makes the call and records it.
+When you connect an app such as Gmail or Linear, Dosco stores the credential. The credential never enters the session's machine. For each call, Dosco picks the account, applies your rules, makes the call and records it.
 
 Your rules decide what each agent may do with each app. An action can **Allow**, **Ask** for a person's approval, or **Block**. Approvals wait on the **Review** page.
 
-Kortix also refuses connector requests to private or internal addresses.
+Dosco also refuses connector requests to private or internal addresses.
 
 ### Audit log
 
@@ -1221,20 +1204,15 @@ Each person can see and sign out their own devices under **Settings → Security
 
 With single sign-on (SAML), your team signs in through your company's identity provider. Turn on **Enforce SSO for this domain**, and other ways to sign in for that domain stop working.
 
-Directory sync (SCIM) lets your identity provider add, update and remove members and groups in Kortix. When someone leaves your company, they lose access in Kortix too. Set up single sign-on first.
+Directory sync (SCIM) lets your identity provider add, update and remove members and groups in Dosco. When someone leaves your company, they lose access in Dosco too. Set up single sign-on first.
 
-Both are Enterprise features. Set them up under **Account settings** → **Identity**. They need a team account, not the personal account Kortix creates at sign-up.
+Both are Enterprise features. Set them up under **Account settings** → **Identity**. They need a team account, not the personal account Dosco creates at sign-up.
 
-### Run Kortix on your own infrastructure
+### Dedicated and VPC deployments
 
-You can run the full Kortix platform on a server you control. This is called self-hosting. The web app, the API and the database run on your server. A command-line tool installs, updates and checks it.
+Enterprise customers can run Dosco in a dedicated cloud environment or virtual private cloud (VPC). The web application, API, and isolated agent runtimes are provisioned exclusively for your organization with dedicated networking, single-tenant data isolation, and custom security controls.
 
-Two things to know:
-
-- Sessions still run on cloud sandboxes from Platinum. They are not on your server.
-- Your server must be reachable from the internet, so those sandboxes can call back.
-
-A self-hosted instance has billing off by default. A Kortix Enterprise license turns on the Enterprise features for every account on it.
+Dedicated deployments include enterprise SSO/SCIM integration, custom audit log streaming, and SLA guarantees. Contact [support@dosco.live](mailto:support@dosco.live) for dedicated architecture options.
 
 ### Set it up
 
@@ -1255,20 +1233,20 @@ A self-hosted instance has billing off by default. A Kortix Enterprise license t
 
 ## Billing
 
-Kortix bills an account through credits. Credits sit in one wallet for the whole account, and every project spends from it. Members are free and unlimited.
+Dosco bills an account through credits. Credits sit in one wallet for the whole account, and every project spends from it. Members are free and unlimited.
 
 To see your balance, open the project menu → **Switch Project** → **Account settings** → **Billing** → **Plan**.
 
 ### Plans
 
-An account is on one of two plans: Free or Credits. See [kortix.com/pricing](https://kortix.com/pricing) for what each plan costs and grants.
+An account is on one of two plans: Free or Credits. See [dosco.live/pricing](https://dosco.live/pricing) for what each plan costs and grants.
 
 | | Free | Credits |
 | --- | --- | --- |
 | Billed | No charge | A monthly amount you choose |
 | Credits | 500 credits every month | 100 credits per dollar of your monthly amount, every billing cycle |
 | Members | Unlimited | Unlimited, no per-member charge |
-| Kortix-managed models | None | All |
+| Managed models | None | All |
 | Buy credits | Yes | Yes |
 | Auto top-up | No | Yes |
 | Projects | 1 | 200 |
@@ -1279,16 +1257,16 @@ An account is on one of two plans: Free or Credits. See [kortix.com/pricing](htt
 
 #### Enterprise
 
-Enterprise is not a plan. It turns on extra features on either plan: single sign-on, directory sync, groups and custom roles, the audit log, and branding. With an Enterprise license, an account has no project limit. To get one, select **Talk to sales** in the app, or email [support@kortix.com](mailto:support@kortix.com). See [Security](/docs/guide#security).
+Enterprise is not a plan. It turns on extra features on either plan: single sign-on, directory sync, groups and custom roles, the audit log, and branding. With an Enterprise license, an account has no project limit. To get one, select **Talk to sales** in the app, or email [support@dosco.live](mailto:support@dosco.live). See [Security](/docs/guide#security).
 
 ### What uses credits
 
 | What | How it is counted |
 | --- | --- |
-| Kortix-managed models | The tokens each request uses, at the provider's base price plus a 5.5% platform fee. |
+| Managed models | The tokens each request uses, at the provider's base price plus a 5.5% platform fee. |
 | Models on your own key | Nothing for the first $1,000 of usage a month. After that, 5% of each request's list price. A ChatGPT subscription is never charged. With an Enterprise license, there is no fee. |
 | Session machines | The size the machine reserves, for the seconds it runs. App machines count too. |
-| Web tools | Each web search, image search or web scraping request that goes through Kortix. |
+| Web tools | Each web search, image search or web scraping request that goes through Dosco. |
 | Residential proxy | The data a session sends and receives through a residential IP address, per GB. Only for sandbox templates that ask for it. See [Residential IP address](/docs/guide#residential-ip-address). |
 
 A stopped or sleeping machine costs nothing. The default machine costs about $0.11 an hour, about 11 credits.
@@ -1302,7 +1280,7 @@ The wallet holds two kinds of credits:
 | Expiring | Your plan's grant | On Credits, unused credits roll over for one month, then expire. On Free, each monthly grant replaces what is left. |
 | Non-expiring | Top-ups, bonuses, refunds and promotions | Never |
 
-Kortix spends expiring credits first. Work that already finished is always recorded, even if the balance goes below zero. A new run needs a positive balance.
+Dosco spends expiring credits first. Work that already finished is always recorded, even if the balance goes below zero. A new run needs a positive balance.
 
 ### Add credits
 
@@ -1317,7 +1295,7 @@ Every plan can buy credits. Purchased credits never expire. A top-up of $50 or m
   </Step>
 </Steps>
 
-A card payment adds credits at once. A bank debit can take several business days. If an auto top-up charge fails for good, Kortix turns auto top-up off and emails every owner and admin the reason.
+A card payment adds credits at once. A bank debit can take several business days. If an auto top-up charge fails for good, Dosco turns auto top-up off and emails every owner and admin the reason.
 
 ### Change your plan
 
@@ -1341,5 +1319,5 @@ To continue, add credits or update the payment method. On Free, you can also sub
 | Where | What it shows |
 | --- | --- |
 | **Billing → Plan** | Plan, wallet, spend this period, auto top-up |
-| **Billing → Usage** | Kortix charges and the credit history |
+| **Billing → Usage** | Usage charges and the credit history |
 | **Project admin → Models → Costs** in a project | Model spend and budgets for that project |

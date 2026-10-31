@@ -9,7 +9,7 @@ const sidebar = OUTLINE;
 export default defineConfig({
   title: 'Dosco',
   description:
-    'Dosco is the agentic operating system — agents, skills, memory and connectors in one managed workspace.',
+    'Dosco Tek is the harness that powers companies that run agents — agents, skills, memory and connectors in one managed workspace.',
 
   // Content stays where it has always been. src/lib/seo/public-content.ts
   // reads these same files off disk for /llms.txt, /markdown/docs/*.md and
@@ -111,26 +111,10 @@ export default defineConfig({
   },
 
   navigation: {
-    // GitHub link in the header, after the search.
-    repo: true,
-    // Header tabs render immediately after the logo, before the spacer that
-    // pushes search and the repo link right (Header.astro) — so this is the
-    // extreme-left cluster. `path` is what scopes the sidebar and marks the
-    // active tab; `href` overrides where a tab actually sends the reader, which
-    // is how a tab can point off-site.
+    // Hide GitHub repo link: Dosco is a proprietary managed platform.
+    repo: false,
     tabs: [
       { label: 'Guide', path: '/guide' },
-      { label: 'Developers', path: '/developers' },
-      {
-        // The URL sits in `path`, not `href`. Blume validates every tab whose
-        // path starts with "/" against the page tree and warns when nothing
-        // matches — `/api-reference` is not a page here, so it warned on every
-        // build. nav-diagnostics skips non-"/" paths outright, which is the
-        // supported way to point a tab off-site. `href` would be redundant:
-        // Header.astro renders `tab.href ?? tab.path`.
-        label: 'API reference',
-        path: 'https://dosco-05dd0b153705.herokuapp.com/v1/docs',
-      },
     ],
     sidebar: { items: sidebar },
   },

@@ -113,10 +113,10 @@ This page lists every action the [audit log](/docs/accounts#audit-log) records: 
 
 ## How actions are named
 
-Every audit row carries an \`action\` of the form \`domain.resource.verb\`, for example \`gateway.key.revoke\`. A request's row carries the action of its route. The web app and \`kortix audit ls\` show the title next to the action.
+Every audit row carries an \`action\` of the form \`domain.resource.verb\`, for example \`gateway.key.revoke\`. A request's row carries the action of its route. The web app and audit log show the title next to the action.
 
-- Filter by prefix: \`?action=gateway.\` on the audit API, or \`kortix audit ls --action gateway.\` (also on \`export\` and \`project\`).
-- Stream by prefix: \`kortix audit webhooks add --action-prefix gateway.\` delivers only the actions that start with \`gateway.\`.
+- Filter by prefix: \`?action=gateway.\` on the audit API (also on \`export\` and \`project\`).
+- Stream by prefix: delivering only the actions that start with \`gateway.\`.
 - \`metadata.http\` keeps the route template of the request, for example \`DELETE /v1/projects/:projectId/gateway/keys/:keyId\`. The raw path is never recorded, because a path segment can be a link token, such as a setup or approval link.
 - A request that matched no route records ${code(UNMATCHED_ROUTE_LABEL.action)}.
 - A row with two or more actions, such as \`secret.strategy.update\` or \`secret.strategy.changed\`, lists the route's action first. The others are events the handler records in place of the request row: only on a real change (\`secret.strategy.changed\`), or one per outcome (\`connector.approval.approved\` or \`connector.approval.denied\`). A recorded event is the request's only row.
@@ -139,7 +139,7 @@ ${events.join('\n')}
 
 ## Dosco operator actions
 
-Platform admins and Dosco services record these: the platform admin console (\`admin.\`), the LLM gateway's internal calls (\`gateway.internal.\`), billing jobs, payment-provider webhooks and credit deductions. An \`admin.\` row in your account's log means a platform admin acted on your account: Dosco staff on Dosco Cloud, or your instance's platform admin when you self-host.
+Platform admins and Dosco services record these: the platform admin console (\`admin.\`), the LLM gateway's internal calls (\`gateway.internal.\`), billing jobs, payment-provider webhooks and credit deductions. An \`admin.\` row in your account's log means a platform admin acted on your account: Dosco staff on Cloud, or your organization's platform admin in dedicated deployments.
 
 ${[...TABLE_HEAD, ...operator.map(row)].join('\n')}
 `;

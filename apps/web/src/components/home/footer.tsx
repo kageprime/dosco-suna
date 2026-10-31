@@ -26,7 +26,6 @@ const FOOTER_SECTIONS: FooterSection[] = [
     title: 'Product',
     links: [
       { label: 'Security', href: '/security' },
-      { label: 'Self-hosted', href: '/self-hosted' },
       { label: 'Enterprise', href: '/enterprise' },
       { label: 'Compliance', href: '/compliance' },
       { label: 'Pricing', href: '/pricing' },
@@ -35,12 +34,10 @@ const FOOTER_SECTIONS: FooterSection[] = [
     ],
   },
   {
-    title: 'Developers',
+    title: 'Resources',
     links: [
-      // /docs/reference/cli 404s — there is no reference/ directory. The page
-      // is content/docs/cli.mdx, routed at /docs/cli.
       { label: 'Guide', href: '/docs/guide' },
-      { label: 'CLI', href: '/docs/cli' },
+      { label: 'Documentation', href: '/docs' },
       { label: 'Marketplace', href: '/marketplace' },
     ],
   },

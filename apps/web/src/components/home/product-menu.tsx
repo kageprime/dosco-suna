@@ -3,8 +3,7 @@
 import Link from '@/components/site-link';
 import { MARKETING_CONTAINER } from '@/features/marketing/kit/section';
 import { cn } from '@kortix/ui';
-import { Github } from '@kortix/ui/internal/icons/github';
-import { ArrowUpRightIcon, StarIcon } from '@phosphor-icons/react';
+import { ArrowUpRightIcon } from '@phosphor-icons/react';
 import { type KeyboardEvent, type Ref } from 'react';
 
 export type MegaMenuLink = { label: string; href: string; external?: boolean };
@@ -125,40 +124,25 @@ type MegaMenuPanelProps = {
   stars?: string | null;
 };
 
-const REPO = 'kortix-ai/suna';
-const REPO_URL = `https://github.com/${REPO}`;
-
 /**
- * The open-source tile in the Resources panel's free fourth column: an
- * inverted block with the GitHub mark on top, and the claim, the live star
- * count with the repo, and the way in at the bottom. The whole tile is one link.
+ * Feature tile in the Resources panel's fourth column.
  */
-function OpenSourceCard({ stars, onNavigate }: { stars?: string | null; onNavigate: () => void }) {
+function PlatformCard({ onNavigate }: { onNavigate: () => void }) {
   return (
     <Link
-      href={REPO_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+      href="/docs"
       onClick={onNavigate}
-      className="group/repo bg-foreground text-background outline-ring flex flex-col justify-between gap-8 rounded-lg p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="group/platform bg-foreground text-background outline-ring flex flex-col justify-between gap-8 rounded-lg p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
     >
-      <Github className="size-8 shrink-0" />
       <span className="flex flex-col">
-        <span className="text-lg font-medium">Dosco is open source</span>
-        <span className="text-background/60 mt-1 flex items-center gap-1.5 text-sm">
-          {stars ? (
-            <>
-              <StarIcon weight="fill" className="size-3.5 shrink-0" />
-              <span className="tabular-nums">{stars}</span>
-              <span aria-hidden>·</span>
-            </>
-          ) : null}
-          {REPO}
+        <span className="text-lg font-medium">Dosco Tek</span>
+        <span className="text-background/80 mt-1 text-sm">
+          The harness that powers companies that run agents.
         </span>
-        <span className="group-hover/repo:text-ring mt-4 inline-flex items-center gap-1.5 text-sm transition-colors duration-moderate">
-          View on GitHub
-          <ArrowUpRightIcon className="size-3.5 opacity-0 transition-opacity duration-moderate group-hover/repo:opacity-100 group-focus-visible/repo:opacity-100" />
-        </span>
+      </span>
+      <span className="group-hover/platform:text-ring inline-flex items-center gap-1.5 text-sm transition-colors duration-moderate">
+        Explore Documentation
+        <ArrowUpRightIcon className="size-3.5 opacity-0 transition-opacity duration-moderate group-hover/platform:opacity-100 group-focus-visible/platform:opacity-100" />
       </span>
     </Link>
   );
@@ -208,7 +192,7 @@ export function MegaMenuPanel({ menu, open, ref, onNavigate, onKeyDown, stars }:
             </ul>
           </div>
         ))}
-        
+        {menu.id === 'resources' && <PlatformCard onNavigate={onNavigate} />}
       </div>
     </div>
   );

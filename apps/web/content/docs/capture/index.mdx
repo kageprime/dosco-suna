@@ -3,7 +3,7 @@ title: Capture
 description: Record each member's screen, input actions and audio 24/7 into a searchable timeline that belongs to the Dosco account.
 ---
 
-Dosco Capture records a member's own computer 24/7:
+Capture records a member's own computer 24/7:
 
 - the screen: video, the app, the window title, the URL and the on-screen text;
 - input actions (clicks, typing) with a screenshot of each;
@@ -27,18 +27,17 @@ it is off:
 - a device cannot sign in or get storage credentials;
 - Dosco indexes nothing new.
 
-Everything about Dosco Capture lives under `/capture` in Dosco. Open
-**Dosco Capture** (command palette, or `/capture`), then **Settings**
-(owners and admins), and turn on **Dosco Capture** for the organization. The
+Everything about Capture lives under `/capture` in Dosco. Open
+**Capture** (command palette, or `/capture`), then **Settings**
+(owners and admins), and turn on **Capture** for the organization. The
 same page holds the organization's rules: what computers record, how long
 Dosco keeps it, an account-wide pause and an optional notice.
 
 From the API: `PATCH /v1/accounts/<account_id>/capture` with `{"enabled": true}`.
-From TypeScript: `kortix.capture.account(accountId).workspace.setEnabled(true)`.
 
-## Install Dosco Capture
+## Install Capture
 
-Dosco Capture is its own app, installed apart from the Dosco app. It runs in
+Capture is its own app, installed apart from the Dosco app. It runs in
 the background on Windows, macOS and Linux, shows an icon in the notification
 area (the menu bar on macOS), and records into one Dosco account. A computer
 connects in one of two ways:
@@ -52,15 +51,12 @@ Download the installer for the computer: [Windows](/download/capture/windows)
 (`.msi`), [macOS](/download/capture/macos) (`.pkg`) or
 [Linux](/download/capture/linux) (`.deb`).
 
-The installers are attached to every Dosco release, under the same version.
-Each one is also on the
-[releases page](https://github.com/kortix-ai/suna/releases/latest) with its
-checksums in `CAPTURE-SHA256SUMS`. Install a newer installer over the old one to
-update; the configuration stays.
+The installers are attached to every release, under the same version.
+Install a newer installer over the old one to update; the configuration stays.
 
 To sign in with Dosco:
 
-1. Install Dosco Capture and open it from the Dosco Capture icon.
+1. Install Capture and open it from the Capture icon.
 2. Choose **Sign in with Dosco…**. The browser opens `/capture/authorize`
    with a code. Check that the code matches, then choose the account. Only
    accounts with Capture on are listed.
@@ -173,15 +169,15 @@ A device records every connected display, the active one (the display with
 the focused window) first. Each display is its own recorded item; the
 timeline names the display of every item and frame.
 
-## Dosco Capture API
+## Capture API
 
 Everything Capture records is readable with a Dosco API key, from a script, a
 notebook, a BI tool or an agent.
 
 **Auth.** Create a key in Dosco (Settings → API keys) or with
-`POST /v1/accounts/tokens`. Send it as `Authorization: Bearer kortix_pat_…`.
+`POST /v1/accounts/tokens`. Send it as `Authorization: Bearer <token>`.
 
-**Base URL.** `https://<your Dosco API>/v1/accounts/<account_id>/capture`.
+**Base URL.** `https://api.dosco.live/v1/accounts/<account_id>/capture`.
 `GET /v1/accounts` lists your accounts.
 
 **Scoping.** Every route reads your own data by default. With
@@ -219,23 +215,14 @@ read.
 Example:
 
 ```bash
-curl -s -H "Authorization: Bearer $KORTIX_API_KEY" \
-  "https://<your Dosco API>/v1/accounts/$ACCOUNT/capture/search?q=invoice&limit=5"
+curl -s -H "Authorization: Bearer $DOSCO_API_KEY" \
+  "https://api.dosco.live/v1/accounts/$ACCOUNT/capture/search?q=invoice&limit=5"
 ```
-
-The TypeScript SDK wraps the same routes: `kortix.capture.account(accountId)`
-(see [SDK reference > `kortix.capture`](/docs/developers#kortixcapture)).
 
 ## Agents in a session
 
 An agent in a member's private session reads that member's timeline through
 `/v1/capture/me/search`, `/v1/capture/me/timeline` and
-`/v1/capture/me/frames/<frame_id>`, or with `kortix capture search`,
-`timeline` and `frame`. It reads only that person, in the session's account. A
+`/v1/capture/me/frames/<frame_id>`. It reads only that person, in the session's account. A
 trigger run or a shared session acts for no person and gets `403`
 `capture_no_human`.
-
-## Build on it
-
-See [SDK reference > `kortix.capture`](/docs/developers#kortixcapture) for the client
-surface and the React hooks.

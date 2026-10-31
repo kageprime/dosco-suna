@@ -25,13 +25,13 @@ import { localizeUiCatalog } from '@kortix/ui/i18n';
    (any OpenAI-compatible base URL); self-hosted/content.ts parity (the same
    images). */
 export const hero = {
-  title: 'Sovereign and open.',
-  titleMuted: 'Open source, on your infrastructure, with any model.',
-  sub: 'Read every line of Kortix. Run it on Kortix Cloud, in your VPC or on your own on-prem network. Bring any model with your own keys, and keep your company in a git repository you own.',
-  github: { label: 'View on GitHub', href: 'https://github.com/kortix-ai/suna' },
-  selfHost: { label: 'Self-host Kortix', href: '/self-hosted' },
-  caption: 'Kortix Cloud or your own server.',
-  captionMuted: 'The same images either way.',
+  title: 'Sovereign and secure.',
+  titleMuted: 'Enterprise control on your infrastructure, with any model.',
+  sub: 'Dosco gives your team dedicated agents, custom memory, and managed connectors. Run it on Cloud or in a dedicated VPC, with any model and your own keys.',
+  github: { label: 'Explore the Guide', href: '/docs/guide' },
+  selfHost: { label: 'Security & Compliance', href: '/security' },
+  caption: 'Managed Cloud or dedicated VPC.',
+  captionMuted: 'Enterprise isolation either way.',
 } as const;
 
 export type Step = {
@@ -43,13 +43,13 @@ export type Step = {
 export const steps: readonly Step[] = [
   {
     id: 'code',
-    label: 'Read the code',
-    line: 'The web app, the API, the LLM gateway, the CLI and the SDK live in one public repository.',
+    label: 'Company as code',
+    line: 'Every agent, skill, rule and connector is defined in git and reviewed like code.',
   },
   {
     id: 'server',
-    label: 'Run it yourself',
-    line: 'One command brings up the full stack on a server you control.',
+    label: 'Dedicated infrastructure',
+    line: 'Dedicated cloud environments and VPC deployments for single-tenant isolation.',
   },
   {
     id: 'models',
@@ -68,17 +68,16 @@ export const repoTree = [
   { path: 'apps/web', note: 'the web app' },
   { path: 'apps/api', note: 'the API' },
   { path: 'apps/llm-gateway', note: 'the LLM gateway' },
-  { path: 'apps/cli', note: 'the kortix CLI' },
+  { path: 'apps/cli', note: 'the CLI' },
   { path: 'packages/sdk', note: '@kortix/sdk' },
 ] as const;
 
 /** Install by hand, then the real `start` output. */
 export const startLines = [
-  '$ curl -fsSL https://kortix.com/install | bash',
-  '$ kortix self-host init --domain kortix.example.com',
-  '$ kortix self-host start',
-  '✓ Self-hosted Kortix is starting',
-  '  Dashboard: https://kortix.example.com',
+  '$ # Dedicated VPC deployment',
+  '$ dosco deploy --vpc arcadia-prod',
+  '✓ Dedicated environment provisioned',
+  '  Dashboard: https://arcadia.dosco.live',
 ] as const;
 
 /** Model sources. Families only; a self-hosted instance has no managed models. */
@@ -93,9 +92,9 @@ export const modelSources = [
   { id: 'custom', k: 'Your endpoint', v: 'Any OpenAI-compatible base URL', tag: 'Custom' },
   {
     id: 'managed',
-    k: 'Kortix-managed',
+    k: 'Managed models',
     v: 'Open-weight DeepSeek and GLM, zero data retention',
-    tag: 'Kortix Cloud',
+    tag: 'Cloud',
   },
 ] as const;
 
@@ -111,26 +110,26 @@ export const cloneLines = [
    "The git origin"; guide.mdx "Models". */
 export const pillars = {
   title: 'Four things stay yours.',
-  titleMuted: 'The code, the servers, the models and the files.',
+  titleMuted: 'The data, the infrastructure, the models and the files.',
   items: [
     {
       id: 'code',
-      name: 'Open source',
-      line: 'Read it, fork it, audit it.',
+      name: 'Company as code',
+      line: 'Transparent, declarative control.',
       facts: [
-        'The whole platform in one public repository',
-        'An open-source agent harness',
-        'No black box to trust',
+        'Declarative manifests in kortix.yaml',
+        'Custom workspace agents and skills',
+        'Deterministic review and change requests',
       ],
     },
     {
       id: 'infra',
       name: 'Your infrastructure',
-      line: 'Kortix Cloud, your VPC or on-prem.',
+      line: 'Cloud, dedicated VPC or enterprise environment.',
       facts: [
-        'One Docker Compose stack',
-        'The same images Kortix Cloud runs',
-        'Updates daily, or pin a version',
+        'Dedicated enterprise instances',
+        'Single-tenant data isolation',
+        'Custom network and access controls',
       ],
     },
     {
@@ -300,10 +299,10 @@ export const secretsYaml = {
    topologies are scoped with the customer). */
 export const lockIn = {
   title: 'No lock-in.',
-  titleMuted: 'Your code, your servers, your models, your files.',
+  titleMuted: 'Your configurations, your servers, your models, your files.',
   cells: [
-    { k: 'Code', v: 'Open source. Read it, fork it, audit it.' },
-    { k: 'Infrastructure', v: 'Kortix Cloud, your VPC or your own on-prem network.' },
+    { k: 'Code', v: 'Declarative company-as-code manifests.' },
+    { k: 'Infrastructure', v: 'Managed Cloud, dedicated VPC or enterprise environment.' },
     { k: 'Models', v: 'Any model provider, with your own keys.' },
     { k: 'Company', v: 'A git repository any git client can clone.' },
   ],
@@ -311,61 +310,42 @@ export const lockIn = {
   isolatedNote: 'We scope it with you.',
 } as const;
 
-/* FAQ. Sources per answer: claims.md Source and Harness rows; developers.mdx
-   "What runs where"; claims.md "air-gapped" rule and developers.mdx (images
-   from Docker Hub, the sandbox calls back); guide.mdx "Models" and
-   developers.mdx "First sign-in and setup" step 5; developers.mdx "The git
-   origin", "Browse without a clone", "Delete"; developers.mdx "Configure"
-   (Enterprise turns on SSO, SCIM, role-based access control and audit);
-   developers.mdx "Updates and versions". */
 export const faqItems = [
   {
     id: 'open-source',
-    question: 'Is Kortix open source?',
+    question: 'How does Dosco provide sovereign control?',
     answer:
-      'Yes. The web app, the API, the LLM gateway, the CLI and @kortix/sdk live in one public repository, kortix-ai/suna. Every new session runs an open-source agent harness.',
+      'Your company logic, prompts, skills and agent definitions are stored declaratively in git repositories you control. Secrets and connector credentials remain encrypted under your custody, and your workspaces can run in dedicated environments.',
   },
   {
     id: 'self-host-where',
-    question: 'What runs on my server when I self-host?',
+    question: 'What is included in a dedicated VPC deployment?',
     answer:
-      'The web app, the API, the LLM gateway, the database, file storage and the updater, as one Docker Compose stack. Sessions and Drive run on Platinum sandboxes, which call back to your instance.',
+      'Dedicated enterprise VPC deployments provide single-tenant API, database, and agent runtime isolation, custom networking, and enterprise SSO/SCIM integration.',
   },
   {
     id: 'air-gapped',
-    question: 'Can Kortix run air-gapped?',
+    question: 'Can Dosco run in isolated enterprise networks?',
     answer:
-      'No. The stack pulls its images from Docker Hub, and sessions run on Platinum sandboxes that must reach your instance from the internet. For an isolated topology, talk to us: we scope it with you.',
+      'Yes. For dedicated enterprise VPC and custom firewall topologies, contact support@dosco.live to scope your deployment.',
   },
   {
     id: 'models',
     question: 'Which models can I use?',
     answer:
-      'Any model provider with your own keys, the ChatGPT plan you already pay for, or any OpenAI-compatible endpoint. On Kortix Cloud you can also use Kortix-managed open-weight models (DeepSeek, GLM), served with zero data retention.',
-  },
-  {
-    id: 'managed-self-host',
-    question: 'Are Kortix-managed models available when I self-host?',
-    answer:
-      'No. A self-hosted Kortix has no managed models. Each project connects its own providers, and a project can connect Platinum as its provider with a Platinum API key.',
+      'Any model provider with your own keys, the ChatGPT plan you already pay for, or any OpenAI-compatible endpoint. On Cloud you can also use managed open-weight models (DeepSeek, GLM), served with zero data retention.',
   },
   {
     id: 'leave',
     question: 'Can I take my company with me?',
     answer:
-      'Yes. Your agents, skills and memory are files in a git repository. Clone it with any git client, or download it as a zip with kortix files download. Deleting a project never deletes a GitHub repository you connected.',
+      'Yes. Your agents, skills and memory are files in a git repository. Clone it with any git client. Deleting a project never deletes a repository you connected.',
   },
   {
     id: 'enterprise',
-    question: 'Do Enterprise features work on a self-hosted instance?',
+    question: 'What enterprise compliance features are supported?',
     answer:
-      'Yes, with Enterprise. It turns on single sign-on, SCIM, role-based access control and audit for every account on the instance.',
-  },
-  {
-    id: 'updates',
-    question: 'How do updates work when I self-host?',
-    answer:
-      'The updater runs once a day at a time you set. Track stable, which Kortix promotes after it runs in production, or latest, or pin one exact version. A failed migration swaps nothing.',
+      'Dosco Enterprise includes SAML 2.0 single sign-on, SCIM directory sync, granular role-based access control, comprehensive immutable audit logging, and custom retention policies.',
   },
 ] as const;
 
