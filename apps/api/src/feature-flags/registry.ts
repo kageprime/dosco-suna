@@ -112,6 +112,7 @@
  */
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
+import { driveStorageAvailable } from '../drives/volumes';
 import type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
 
 export type { FeatureFlagKey, FeatureFlagStability } from '@kortix/api-contract';
@@ -356,8 +357,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'Shared Files for this project.',
     stability: 'experimental',
-    // Every volume is a Platinum volume.
-    available: () => Boolean(config.PLATINUM_API_KEY),
+    available: () => driveStorageAvailable(),
     // On by default (founder, 2026-10-24): every project gets Files — a private
     // folder per person (`/drives/me`, where the agent keeps user memory) and
     // the shared `/Company` folder (`Company/Memory`). Onboarding writes both.
@@ -373,9 +373,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'The project\'s shared folders, in sync with sessions: everyone has their own private folder (their session desktop), and any folder can be shared with people, teams and agents. New sessions see the folders they may use under /drives.',
     stability: 'experimental',
-    // Every drive is a Platinum volume; without Platinum there is nothing to
-    // store files in.
-    available: () => Boolean(config.PLATINUM_API_KEY),
+    available: () => driveStorageAvailable(),
     // Follows the project's `volumes` flag; not a toggle of its own.
     platformDefault: () => false,
     derivedFrom: 'volumes',
@@ -394,8 +392,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'Give an agent an objective and it owns the outcome until an independent check confirms it, for days or weeks: it plans, works, waits, chases people for what only they can give, and keeps its state in a Goals folder in Files. Needs Volumes and Loops on (flag key `reminders`).',
     stability: 'beta',
-    // A goal keeps its state in Files, and every drive is a Platinum volume.
-    available: () => Boolean(config.PLATINUM_API_KEY),
+    available: () => driveStorageAvailable(),
     // Off by default; a project turns it on (Marko, 2026-10-28). Not marked
     // work in progress: Goals is being finished as a usable v1.
     platformDefault: () => false,
@@ -415,10 +412,8 @@ const FLAGS: readonly FeatureFlagDef[] = [
     description:
       'Share docs (Markdown) and HTML pages from Files: a gallery per project, a doc editor, versions from the Files history, PDF export for docs, and share links that are private, for the project, for chosen people, or public.',
     stability: 'beta',
-    // Artifacts are paths in Files, a Platinum volume. Default-on wherever
-    // Platinum is configured (Marko, 2026-10-24) — matches the `available` gate.
-    available: () => Boolean(config.PLATINUM_API_KEY),
-    platformDefault: () => Boolean(config.PLATINUM_API_KEY),
+    available: () => driveStorageAvailable(),
+    platformDefault: () => driveStorageAvailable(),
     enforcement: 'routes',
     iamActions: ['project.artifact.read', 'project.artifact.write', 'project.artifact.manage', 'project.artifact.public'],
     enforcementNote:
@@ -432,7 +427,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     name: 'Artifact comments',
     description: 'Discuss docs and pages in threads with people and agents. Requires Artifacts.',
     stability: 'experimental',
-    available: () => Boolean(config.PLATINUM_API_KEY),
+    available: () => driveStorageAvailable(),
     platformDefault: () => false,
     enforcement: 'routes',
     iamActions: ['project.artifact.comment'],

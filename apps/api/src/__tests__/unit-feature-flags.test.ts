@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { FEATURE_FLAG_KEYS } from '@kortix/api-contract';
 
 import { config } from '../config';
+import { driveStorageAvailable } from '../drives/volumes';
 import { FEATURE_DISABLED_CODE, featureDisabledBody } from '../feature-flags/gate';
 import {
   REGISTERED_FEATURE_FLAGS,
@@ -404,6 +405,6 @@ describe('artifact comments require Artifacts', () => {
   test('defaults off and cannot run when Artifacts is off', () => {
     expect(resolveFeatureFlag({}, 'artifact_comments')).toBe(false);
     expect(resolveFeatureFlag({ experimental: { artifacts: false, artifact_comments: true } }, 'artifact_comments')).toBe(false);
-    expect(resolveFeatureFlag({ experimental: { artifacts: true, artifact_comments: true } }, 'artifact_comments')).toBe(Boolean(config.PLATINUM_API_KEY));
+    expect(resolveFeatureFlag({ experimental: { artifacts: true, artifact_comments: true } }, 'artifact_comments')).toBe(driveStorageAvailable());
   });
 });

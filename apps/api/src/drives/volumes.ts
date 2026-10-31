@@ -9,6 +9,8 @@ import { db } from '../shared/db';
 import { isPlatinumConfigured, platinumFetch, platinumRegionControlPlane } from '../shared/platinum';
 import { DEFAULT_SANDBOX_MOUNT_LIMIT } from './access';
 import { parseVolumeWriteCommit, type VolumeWriteCommit } from './volume-commit';
+import { getSupabase } from '../shared/supabase';
+import { config } from '../config';
 
 export { parseVolumeWriteCommit, type VolumeWriteCommit } from './volume-commit';
 
@@ -25,7 +27,75 @@ export class DriveStorageError extends Error {
 }
 
 export function driveStorageAvailable(): boolean {
-  return isPlatinumConfigured();
+  return isPlatinumConfigured() || Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+const DRIVES_BUCKET = 'drives';
+let drivesBucketChecked = false;
+
+async function getDrivesStorage() {
+  const supabase = getSupabase();
+  if (!drivesBucketChecked) {
+    await supabase.storage.createBucket(DRIVES_BUCKET, { public: false }).catch(() => null);
+    drivesBucketChecked = true;
+  }
+  return supabase.storage.from(DRIVES_BUCKET);
+}
+
+function volumeStorageKey(volume: DriveVolume, path: string): string {
+  const norm = path.startsWith('/') ? path : `/${path}`;
+  return `${volume.name}${norm}`.replace(/^\/+/, '');
+}
+
+interface PendingUpload {
+  volume: DriveVolume;
+  plan: { files: Array<{ path: string; size: number; blocks: string[] }>; overwrite: boolean };
+  blocks: Map<string, Uint8Array<ArrayBuffer>>;
+  createdAt: number;
+}
+const pendingUploads = new Map<string, PendingUpload>();
+
+async function listSupabaseFiles(
+  volume: DriveVolume,
+  folderPath: string,
+  recursive: boolean,
+): Promise<VolumeEntry[]> {
+  const bucket = await getDrivesStorage();
+  const results: VolumeEntry[] = [];
+  const startPath = folderPath === '/' ? '' : (folderPath.startsWith('/') ? folderPath : `/${folderPath}`);
+  const queue = [startPath];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const prefix = (current ? `${volume.name}${current}` : volume.name).replace(/^\/+/, '').replace(/\/+$/, '');
+    const { data, error } = await bucket.list(prefix, { limit: 1000 });
+    if (error || !data) continue;
+
+    for (const item of data) {
+      const itemPath = `${current}/${item.name}`;
+      if (item.id === null) {
+        // Directory
+        results.push({
+          path: itemPath,
+          type: 'dir',
+          size: 0,
+          mtime: 0,
+        });
+        if (recursive) {
+          queue.push(itemPath);
+        }
+      } else {
+        // File
+        results.push({
+          path: itemPath,
+          type: 'file',
+          size: Number(item.metadata?.size ?? 0),
+          mtime: Date.parse(item.updated_at ?? item.created_at ?? '') || 0,
+        });
+      }
+    }
+  }
+  return results;
 }
 
 const FILE_TIMEOUT_MS = 5 * 60_000;
@@ -173,6 +243,15 @@ export function isMissingVolume(err: unknown): boolean {
  * response never makes a second volume.
  */
 export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
+  if (!isPlatinumConfigured()) {
+    await getDrivesStorage();
+    return {
+      id: volume.name,
+      logical_bytes: 0,
+      file_count: 0,
+      last_commit_at: new Date().toISOString(),
+    };
+  }
   try {
     const info = await callJson<VolumeInfo & { region?: string }>(volume, v(volume), {
       method: 'PUT',
@@ -195,10 +274,27 @@ export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal)
 }
 
 export async function getDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
+  if (!isPlatinumConfigured()) {
+    return {
+      id: volume.name,
+      logical_bytes: 0,
+      file_count: 0,
+      last_commit_at: new Date().toISOString(),
+    };
+  }
   return callJson<VolumeInfo>(volume, v(volume), signal ? { signal } : {});
 }
 
 export async function deleteDriveVolume(volume: DriveVolume): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    const entries = await listSupabaseFiles(volume, '/', true);
+    const keys = entries.filter((e) => e.type === 'file').map((e) => volumeStorageKey(volume, e.path));
+    if (keys.length > 0) {
+      const bucket = await getDrivesStorage();
+      await bucket.remove(keys);
+    }
+    return;
+  }
   await call(volume, `${v(volume)}?missing_ok=true`, { method: 'DELETE' });
 }
 
@@ -216,6 +312,9 @@ export async function listVolumeFiles(
   signal?: AbortSignal,
   at?: string,
 ): Promise<VolumeEntry[]> {
+  if (!isPlatinumConfigured()) {
+    return listSupabaseFiles(volume, path, recursive);
+  }
   const q = new URLSearchParams({ path, recursive: String(recursive), limit: '10000', ...(at ? { at } : {}) });
   const r = await callJson<{ entries: VolumeEntry[] }>(volume, `${v(volume)}/files?${q}`, signal ? { signal } : {});
   return r.entries ?? [];
@@ -223,6 +322,57 @@ export async function listVolumeFiles(
 
 /** A file's bytes; `at` reads it as it was at that commit. */
 export async function readVolumeFile(volume: DriveVolume, path: string, range?: string, at?: string): Promise<Response> {
+  if (!isPlatinumConfigured()) {
+    const key = volumeStorageKey(volume, path);
+    const bucket = await getDrivesStorage();
+    const { data, error } = await bucket.download(key);
+    if (error || !data) {
+      throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
+    }
+    const arrayBuffer = await data.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const total = bytes.byteLength;
+
+    if (range && range.startsWith('bytes=')) {
+      const parts = range.slice(6).split('-');
+      const startStr = parts[0];
+      const endStr = parts[1];
+      let start = startStr ? parseInt(startStr, 10) : 0;
+      let end = endStr ? parseInt(endStr, 10) : total - 1;
+      if (isNaN(start)) {
+        start = Math.max(0, total - (parseInt(endStr, 10) || 0));
+        end = total - 1;
+      }
+      if (start >= total || start > end) {
+        return new Response(null, {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${total}` },
+        });
+      }
+      end = Math.min(end, total - 1);
+      const sliced = bytes.subarray(start, end + 1);
+      return new Response(sliced, {
+        status: 206,
+        headers: {
+          'Content-Type': data.type || 'application/octet-stream',
+          'Content-Length': String(sliced.byteLength),
+          'Content-Range': `bytes ${start}-${end}/${total}`,
+          'Accept-Ranges': 'bytes',
+          ETag: `"${total}-${data.size}"`,
+        },
+      });
+    }
+
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        'Content-Type': data.type || 'application/octet-stream',
+        'Content-Length': String(total),
+        'Accept-Ranges': 'bytes',
+        ETag: `"${total}"`,
+      },
+    });
+  }
   const q = new URLSearchParams({ path, ...(at ? { at } : {}) });
   return call(volume, `${v(volume)}/files/content?${q}`, {
     signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
@@ -236,6 +386,37 @@ export async function writeVolumeFile(
   body: Uint8Array<ArrayBuffer>,
   opts: { overwrite: boolean; ifMatch?: string },
 ): Promise<{ path: string; size: number; version?: string; commit?: VolumeWriteCommit }> {
+  if (!isPlatinumConfigured()) {
+    const key = volumeStorageKey(volume, path);
+    const bucket = await getDrivesStorage();
+    if (!opts.overwrite) {
+      const folder = key.slice(0, key.lastIndexOf('/'));
+      const name = key.slice(key.lastIndexOf('/') + 1);
+      const { data: existing } = await bucket.list(folder, { search: name });
+      if (existing && existing.some((e) => e.name === name)) {
+        throw new DriveStorageError(409, 'A file or folder with that name already exists', 'file_exists');
+      }
+    }
+    const { error } = await bucket.upload(key, body, {
+      upsert: opts.overwrite,
+      contentType: 'application/octet-stream',
+    });
+    if (error) {
+      logger.warn('[drives] Supabase upload failed:', { error: String(error) });
+      throw new DriveStorageError(503, 'Drive storage write failed', 'storage_error');
+    }
+    const version = String(Date.now());
+    const commit: VolumeWriteCommit = {
+      commit_id: crypto.randomUUID().replace(/-/g, ''),
+      outcome: 'fast',
+    };
+    return {
+      path,
+      size: body.byteLength,
+      version,
+      commit,
+    };
+  }
   const q = new URLSearchParams({ path, overwrite: String(opts.overwrite) });
   const r = await callJson<{ path: string; size: number; version?: string }>(volume, `${v(volume)}/files/content?${q}`, {
     method: 'PUT',
@@ -255,6 +436,13 @@ export async function listVolumeFilesPage(
   path: string,
   opts: { recursive: boolean; cursor?: string; signal?: AbortSignal },
 ): Promise<{ entries: VolumeEntry[]; next_cursor: string | null }> {
+  if (!isPlatinumConfigured()) {
+    const all = await listSupabaseFiles(volume, path, opts.recursive);
+    const startIndex = opts.cursor ? parseInt(opts.cursor, 10) || 0 : 0;
+    const page = all.slice(startIndex, startIndex + 5000);
+    const nextCursor = startIndex + 5000 < all.length ? String(startIndex + 5000) : null;
+    return { entries: page, next_cursor: nextCursor };
+  }
   const q = new URLSearchParams({ path, recursive: String(opts.recursive), limit: '5000' });
   if (opts.cursor) q.set('cursor', opts.cursor);
   const r = await callJson<{ entries: VolumeEntry[]; next_cursor?: string | null }>(volume, `${v(volume)}/files?${q}`,
@@ -271,6 +459,34 @@ export interface VolumeFileStat extends VolumeEntry {
 
 /** A file's metadata; `at` stats it as it was at that commit. */
 export async function statVolumeFile(volume: DriveVolume, path: string, at?: string): Promise<VolumeFileStat> {
+  if (!isPlatinumConfigured()) {
+    if (path === '/' || path === '') {
+      return {
+        path: '/',
+        type: 'dir',
+        size: 0,
+        mtime: Date.now(),
+        version: null,
+      };
+    }
+    const key = volumeStorageKey(volume, path);
+    const folder = key.slice(0, key.lastIndexOf('/'));
+    const name = key.slice(key.lastIndexOf('/') + 1);
+    const bucket = await getDrivesStorage();
+    const { data } = await bucket.list(folder, { search: name });
+    const match = data?.find((e) => e.name === name);
+    if (!match) {
+      throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
+    }
+    const isDir = match.id === null;
+    return {
+      path,
+      type: isDir ? 'dir' : 'file',
+      size: Number(match.metadata?.size ?? 0),
+      mtime: Date.parse(match.updated_at ?? match.created_at ?? '') || Date.now(),
+      version: match.version ?? String(Date.now()),
+    };
+  }
   const q = new URLSearchParams({ path, ...(at ? { at } : {}) });
   const r = await callJson<VolumeFileStat>(volume, `${v(volume)}/files/stat?${q}`, { signal: AbortSignal.timeout(30_000) });
   return {
@@ -288,6 +504,18 @@ export async function statVolumeFile(volume: DriveVolume, path: string, at?: str
  * store answers which 1 MiB blocks it lacks), send only those, commit.
  */
 export async function planVolumeUpload(volume: DriveVolume, plan: unknown): Promise<unknown> {
+  if (!isPlatinumConfigured()) {
+    const uploadId = crypto.randomUUID();
+    const typedPlan = plan as { files: Array<{ path: string; size: number; blocks: string[] }>; overwrite: boolean };
+    pendingUploads.set(uploadId, {
+      volume,
+      plan: typedPlan,
+      blocks: new Map(),
+      createdAt: Date.now(),
+    });
+    const missing = (typedPlan.files ?? []).flatMap((f) => f.blocks ?? []);
+    return { upload_id: uploadId, missing };
+  }
   return callJson<unknown>(volume, `${v(volume)}/files/upload`, {
     method: 'POST',
     body: JSON.stringify(plan),
@@ -296,6 +524,12 @@ export async function planVolumeUpload(volume: DriveVolume, plan: unknown): Prom
 }
 
 export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string, sha: string, body: Uint8Array<ArrayBuffer>): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    const pending = pendingUploads.get(uploadId);
+    if (!pending) throw new DriveStorageError(404, 'Upload plan not found', 'upload_not_found');
+    pending.blocks.set(sha, body);
+    return;
+  }
   await call(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/blocks/${encodeURIComponent(sha)}`, {
     method: 'PUT',
     body,
@@ -305,6 +539,29 @@ export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string
 }
 
 export async function commitVolumeUpload(volume: DriveVolume, uploadId: string): Promise<unknown> {
+  if (!isPlatinumConfigured()) {
+    const pending = pendingUploads.get(uploadId);
+    if (!pending) throw new DriveStorageError(404, 'Upload plan not found', 'upload_not_found');
+    pendingUploads.delete(uploadId);
+
+    const writtenFiles: Array<{ path: string; size: number; version: string }> = [];
+    for (const f of pending.plan.files) {
+      const parts = f.blocks.map((sha) => pending.blocks.get(sha)).filter((b): b is Uint8Array<ArrayBuffer> => Boolean(b));
+      const totalLen = parts.reduce((acc, p) => acc + p.byteLength, 0);
+      const combined = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const p of parts) {
+        combined.set(p, offset);
+        offset += p.byteLength;
+      }
+      const res = await writeVolumeFile(volume, f.path, combined, { overwrite: pending.plan.overwrite });
+      writtenFiles.push({ path: f.path, size: combined.byteLength, version: res.version ?? String(Date.now()) });
+    }
+    return {
+      commit_id: crypto.randomUUID().replace(/-/g, ''),
+      outcome: 'fast',
+    };
+  }
   return callJson<unknown>(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/commit`, {
     method: 'POST',
     signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
@@ -325,6 +582,15 @@ export async function writeVolumeFiles(
   opts: { overwrite: boolean },
 ): Promise<VolumeWriteCommit | undefined> {
   if (!files.length) return;
+  if (!isPlatinumConfigured()) {
+    for (const f of files) {
+      await writeVolumeFile(volume, f.path, f.bytes, opts);
+    }
+    return {
+      commit_id: crypto.randomUUID().replace(/-/g, ''),
+      outcome: 'fast',
+    };
+  }
   const blocks = new Map<string, Uint8Array<ArrayBuffer>>();
   const planned = files.map((f) => {
     const shas: string[] = [];
@@ -345,6 +611,27 @@ export async function writeVolumeFiles(
 }
 
 export async function moveVolumeFile(volume: DriveVolume, src: string, dst: string): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    const fromKey = volumeStorageKey(volume, src);
+    const toKey = volumeStorageKey(volume, dst);
+    const bucket = await getDrivesStorage();
+    const { error } = await bucket.move(fromKey, toKey);
+    if (error) {
+      // If src is directory, move all entries under it
+      const entries = await listSupabaseFiles(volume, src, true);
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          if (entry.type === 'file') {
+            const rel = entry.path.slice(src.length);
+            await bucket.move(volumeStorageKey(volume, entry.path), volumeStorageKey(volume, `${dst}${rel}`));
+          }
+        }
+      } else {
+        throw new DriveStorageError(503, 'Failed to move file', 'move_failed');
+      }
+    }
+    return;
+  }
   await call(volume, `${v(volume)}/files/move`, {
     method: 'POST',
     body: JSON.stringify({ src, dst, overwrite: false }),
@@ -353,6 +640,19 @@ export async function moveVolumeFile(volume: DriveVolume, src: string, dst: stri
 }
 
 export async function removeVolumeFile(volume: DriveVolume, path: string, recursive: boolean): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    const bucket = await getDrivesStorage();
+    const key = volumeStorageKey(volume, path);
+    if (recursive) {
+      const entries = await listSupabaseFiles(volume, path, true);
+      const keys = entries.filter((e) => e.type === 'file').map((e) => volumeStorageKey(volume, e.path));
+      keys.push(key);
+      await bucket.remove(keys);
+    } else {
+      await bucket.remove([key]);
+    }
+    return;
+  }
   const q = new URLSearchParams({ path, recursive: String(recursive) });
   await call(volume, `${v(volume)}/files?${q}`, { method: 'DELETE', signal: AbortSignal.timeout(FILE_TIMEOUT_MS) });
 }
@@ -370,12 +670,23 @@ export interface VolumeCommit {
 }
 
 export async function listVolumeCommits(volume: DriveVolume, limit = 100, opts: { includeSide?: boolean; before?: string } = {}): Promise<VolumeCommit[]> {
+  if (!isPlatinumConfigured()) {
+    return [];
+  }
   const query = new URLSearchParams({ limit: String(limit), ...(opts.includeSide ? { include_side: 'true' } : {}), ...(opts.before ? { before: opts.before } : {}) });
   const r = await callJson<{ commits: VolumeCommit[] }>(volume, `${v(volume)}/commits?${query}`);
   return r.commits ?? [];
 }
 
 export async function getVolumeCommit(volume: DriveVolume, commitId: string): Promise<VolumeCommit> {
+  if (!isPlatinumConfigured()) {
+    return {
+      id: commitId,
+      kind: 'init',
+      author: { kind: 'system', id: null },
+      created_at: new Date().toISOString(),
+    };
+  }
   return callJson<VolumeCommit>(volume, `${v(volume)}/commits/${encodeURIComponent(commitId)}`);
 }
 
@@ -385,6 +696,9 @@ export async function getVolumeCommit(volume: DriveVolume, commitId: string): Pr
  * storage holds a write. `probe=false` reads it from Platinum's database.
  */
 export async function volumeHealth(volume: DriveVolume): Promise<{ status: string; reason: string | null }> {
+  if (!isPlatinumConfigured()) {
+    return { status: 'ok', reason: null };
+  }
   const r = await callJson<{ status?: string; reason?: string | null }>(volume, `${v(volume)}/health?probe=false`, { signal: AbortSignal.timeout(15_000) });
   return { status: r.status ?? 'unknown', reason: r.reason ?? null };
 }
@@ -408,6 +722,9 @@ export async function listVolumeMounts(volume: DriveVolume): Promise<VolumeMount
 }
 
 export async function restoreVolume(volume: DriveVolume, to: string): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    return;
+  }
   await call(volume, `${v(volume)}/restore`, { method: 'POST', body: JSON.stringify({ to }) });
 }
 

@@ -56,7 +56,7 @@ describe('feature-flag key lists — contract ↔ SDK ↔ API registry', () => {
     // `PATCH /projects/:id/features`, but is listed only while it is on.
     const hidden = REGISTERED_FEATURE_FLAGS.filter((flag) => flag.catalogHidden === true);
     const unlistedKeys: string[] = hidden
-      .filter((flag) => !resolveFeatureFlag({}, flag.key))
+      .filter((flag) => flag.derivedFrom || !resolveFeatureFlag({}, flag.key))
       .map((flag) => flag.key as string);
     expect(catalogKeys).toEqual(sdkKeys.filter((key) => !unlistedKeys.includes(key)));
     // And a hidden flag is still a real, registered, SDK-known key.
