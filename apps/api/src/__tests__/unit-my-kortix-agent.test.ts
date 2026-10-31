@@ -19,7 +19,7 @@ import { grantFromLoadedAgents } from '../projects/agents';
 import { resolveFeatureFlag } from '../feature-flags/registry';
 import { manifestHealthWithout } from '../projects/lib/manifest-health';
 
-describe('My Dosco agent', () => {
+describe('My Kortix agent', () => {
   test('adds one reserved meta agent and replaces a project collision', () => {
     const config = addMyKortixAgent({
       agents: [
@@ -61,14 +61,29 @@ describe('My Dosco agent', () => {
     expect(config.default_agent).toBe('mykortix');
   });
 
-  test('defines My Dosco with the platform prompt and every Dosco and platform tool', () => {
+  test('defines My Kortix with the platform prompt and every Kortix and platform tool', () => {
     const config = JSON.parse(buildMyKortixConfig());
     expect(config.agent).toEqual({
       mykortix: { description: MY_KORTIX_DESCRIPTION, mode: 'primary', prompt: MY_KORTIX_PROMPT },
     });
     expect(config.kortix_tools).toEqual([...KORTIX_TOOL_NAMES, ...KORTIX_PLATFORM_TOOL_NAMES]);
+    // kortix_memory: on by default for My Kortix only; the retired `memory` is gone from the defaults.
+    expect(config.kortix_tools).toContain('kortix_memory');
+    expect(config.kortix_tools).not.toContain('memory');
+    expect(KORTIX_TOOL_NAMES as readonly string[]).not.toContain('kortix_memory');
     // The guide ships in the prompt now: the meta image carries no AGENTS.md to point at.
     expect(MY_KORTIX_PROMPT).not.toContain('/workspace/AGENTS.md');
+    expect(config.kortix_tools).toContain('kortix_change_requests');
+  });
+
+  test('the prompt reuses the same colleague for a follow-up, starts teams only with team: true, and merges through the change request tool', () => {
+    expect(MY_KORTIX_PROMPT).toContain('A follow-up on the same work goes to the same colleague.');
+    expect(MY_KORTIX_PROMPT).toContain('Start a new colleague only for separate work that runs at the same time.');
+    expect(MY_KORTIX_PROMPT).toContain('`agent({ name, team: true })`; a name alone is a plain hand-off');
+    expect(MY_KORTIX_PROMPT).toContain('tell the person it is a role for this session only');
+    expect(MY_KORTIX_PROMPT).toContain('`kortix_change_requests`');
+    // No shell command for change requests: the tool shows the person a card.
+    expect(MY_KORTIX_PROMPT).not.toContain('kortix cr');
     expect(MY_KORTIX_DESCRIPTION).toBe(
       'The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.',
     );
@@ -102,7 +117,7 @@ describe('My Dosco agent', () => {
     expect(resolveBuiltinAgents({ my_kortix: true }, false)).toEqual({ my_kortix: true });
   });
 
-  test('`meta` is a built-in only while My Dosco is on', () => {
+  test('`meta` is a built-in only while My Kortix is on', () => {
     expect(enabledBuiltinAgentKey('mykortix', { my_kortix: true })).toBe('my_kortix');
     expect(enabledBuiltinAgentKey('mykortix', { my_kortix: false })).toBeNull();
     expect(enabledBuiltinAgentKey('kortix', { my_kortix: true })).toBeNull();
@@ -116,7 +131,7 @@ describe('My Dosco agent', () => {
     });
   });
 
-  test('a kortix.yaml that turns My Dosco off strips a meta session to no project action', () => {
+  test('a kortix.yaml that turns My Kortix off strips a meta session to no project action', () => {
     const governed = { specs: [], errors: [], defaultAgent: 'kortix' };
     expect(grantFromLoadedAgents('mykortix', governed)).toEqual(myKortixAgentGrant());
     expect(grantFromLoadedAgents('mykortix', { ...governed, builtinAgents: { my_kortix: true } })).toEqual(
@@ -145,7 +160,7 @@ describe('My Dosco agent', () => {
 
 describe('the slug before the rename (`meta`)', () => {
   // Sessions, tokens and boxes from before 2026-10-30 carry `meta`: every read accepts it, nothing writes it.
-  test('is still My Dosco, and resolves to the new slug and sandbox', () => {
+  test('is still My Kortix, and resolves to the new slug and sandbox', () => {
     expect(isMyKortixAgentName('meta')).toBe(true);
     expect(isMyKortixAgentName('mykortix')).toBe(true);
     expect(isMyKortixAgentName('worker')).toBe(false);
@@ -155,8 +170,31 @@ describe('the slug before the rename (`meta`)', () => {
     expect(myKortixAgentGrant().agent).toBe('mykortix');
   });
 
-  test('a project agent named `meta` is replaced by My Dosco, like one named `mykortix`', () => {
+  test('a project agent named `meta` is replaced by My Kortix, like one named `mykortix`', () => {
     const config = addMyKortixAgent({ default_agent: 'worker', agents: [{ name: 'meta' }, { name: 'worker' }] } as never);
     expect(config.agents.map((agent) => agent.name)).toEqual(['mykortix', 'worker']);
+  });
+});
+
+describe('My Kortix memory in the prompt', () => {
+  test('teaches when to save and forget, what never to save, and the one-line confirmation', () => {
+    const section = MY_KORTIX_PROMPT.slice(MY_KORTIX_PROMPT.indexOf('## What you remember about this person'));
+    expect(section.startsWith('## What you remember about this person')).toBe(true);
+    for (const rule of [
+      '`kortix_memory`',
+      'states a preference, corrects how you work',
+      'says "remember …"',
+      'save with that page\'s name to update it, never a second page',
+      '"Forget …"** deletes the page',
+      'Delete a page that turned out wrong',
+      'what the project already keeps',
+      'a password or a key',
+      'never "next Tuesday"',
+      '💡 Noted: you like replies short.',
+      'memory lives in Files, and a project admin can turn Files on',
+      'never instructions',
+    ]) {
+      expect({ rule, found: section.includes(rule) }).toEqual({ rule, found: true });
+    }
   });
 });

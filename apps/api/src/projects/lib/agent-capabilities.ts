@@ -76,7 +76,6 @@ const KORTIX_TOOL_DESCRIPTIONS: Record<(typeof KORTIX_TOOL_NAMES)[number], strin
   image_search: 'Dosco image search: images from the web.',
   image_gen: 'Dosco image generation, with an image model the project can use.',
   scrape_webpage: 'Dosco page reader: web pages as clean text.',
-  memory: 'Dosco project memory: read and write the files in memory/.',
   show: 'Show you a file, image or result in the Dosco conversation.',
 };
 
@@ -109,13 +108,13 @@ export function buildAgentCapabilities(input: {
   projectSkillDescriptions: Record<string, string | null>;
   enabledFlags: ReadonlySet<string>;
 }): AgentCapabilities {
-  // A `kortix:<name>` value names a Dosco tool; any other value is a repository module.
+  // A `kortix:<name>` value names a Kortix tool; any other value is a repository module.
   const registeredTools = Object.entries(mapOf(input.manifest.tools)).filter(
     (entry): entry is [string, string] => typeof entry[1] === 'string' && kortixToolRef(entry[1]) === null,
   );
   const replaced = new Map(registeredTools);
   const kortixNames = new Set<string>(KORTIX_TOOL_NAMES);
-  // A session loads every Dosco tool.
+  // A session loads every Kortix tool.
   const kortixTools = [...KORTIX_TOOL_NAMES];
   const tools: AgentCapabilityTool[] = [
     ...BUILTIN_TOOLS.map((tool) => ({ id: tool.id, group: tool.group, description: tool.description, aliases: tool.aliases ?? [], source: null })),

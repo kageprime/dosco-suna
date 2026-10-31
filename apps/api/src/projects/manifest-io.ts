@@ -7,6 +7,7 @@ import {
   manifestCandidatePaths,
   parseManifestText,
   renderManifest,
+  rewriteManifestText,
   serializeManifestObject,
   splitManifestByOrigin,
   usableManifest,
@@ -48,7 +49,7 @@ async function readManifestAtRemoteTip(project: GitBackedProject, candidates: st
 
 /**
  * Read + parse the project's manifest. Returns null if no manifest file is
- * present (so the caller can treat the repo as "not a Dosco project yet").
+ * present (so the caller can treat the repo as "not a Kortix project yet").
  * Throws on a YAML syntax error so the caller can surface it — we don't
  * silently swallow a malformed manifest.
  *
@@ -220,7 +221,7 @@ export function manifestIssueSummary(issues: readonly ManifestIssue[], file: str
 }
 
 /**
- * The errors `after` has that `before` does not (path + message). A Dosco
+ * The errors `after` has that `before` does not (path + message). A Kortix
  * write is refused only for these: a file that already carries an error stays
  * editable, and no edit may add one. `after` is checked as it is written,
  * without `kortix_version`: a retired-format file is refused until its body
@@ -251,6 +252,11 @@ export function serializeManifest(manifest: ParsedManifest): string {
     const source = fixManifestText(manifest.source).text;
     const spliced = spliceTriggerEntriesIntoYaml(out, source);
     if (spliced !== null) return spliced;
+  }
+  // Any other edit is written into the file's own text: comments and untouched lines keep their bytes.
+  if (typeof manifest.source === 'string') {
+    const rewritten = rewriteManifestText(manifest.source, out);
+    if (rewritten !== null) return rewritten;
   }
   return serializeManifestObject(out);
 }
@@ -503,7 +509,9 @@ export function manifestWrites(manifest: ParsedManifest, fallbackPath?: string):
     files.push({ path: rootPath, content: rootContent(root.raw) });
   }
   for (const file of changedImports) {
-    files.push({ path: file.path, content: serializeManifestObject(file.raw) });
+    const text = manifest.imports.files.find((source) => source.path === file.path)?.text;
+    const rewritten = typeof text === 'string' ? rewriteManifestText(text, file.raw) : null;
+    files.push({ path: file.path, content: rewritten ?? serializeManifestObject(file.raw) });
   }
   files.push(...healed);
   const alsoExpect = imported.flatMap((file) =>
