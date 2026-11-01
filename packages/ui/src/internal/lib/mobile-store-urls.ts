@@ -16,4 +16,4 @@ export const GOOGLE_PLAY_URL =
  * this constant.
  */
 export const ANDROID_APK_URL =
-  'https://expo.dev/artifacts/eas/-mbTSXE4nynNHqohTJ-Jwyn6iFbB1EpRLifkf_a-T00.apk';
+  'https://expo.dev/artifacts/eas/ajvY3akjt-QJtxw7yh7G4RkciX6b0wwz_MTaVujN4SI.apk';
