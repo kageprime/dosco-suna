@@ -1140,7 +1140,7 @@ export function ProjectDetailPage({
                         }}
                       >
                         {contextSaving ? (
-                          <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+                          <KortixLoader size="small" />
                         ) : (
                           <RNText
                             style={{
@@ -2283,7 +2283,7 @@ export function ProjectDetailPage({
                   opacity: canSubmit ? 1 : 0.55,
                 }}>
                 {isBusy ? (
-                  <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />
+                  <KortixLoader size="small" />
                 ) : autoRun ? (
                   <Play
                     size={14}

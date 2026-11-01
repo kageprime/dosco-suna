@@ -44,6 +44,10 @@ interface KortixLoaderProps {
    * Additional style for the container
    */
   style?: ViewStyle;
+  /**
+   * @deprecated The Dosco crest loader is theme-invariant; forceTheme is ignored.
+   */
+  forceTheme?: 'light' | 'dark' | string;
 }
 
 const SIZE_MAP = {

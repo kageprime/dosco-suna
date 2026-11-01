@@ -213,7 +213,7 @@ export function ScheduleCreateSheet({
 
       <View style={{ padding: 16, paddingBottom: insets.bottom + 16, borderTopWidth: 1, borderTopColor: withAlpha(fg, 0.08) }}>
         <Button size="lg" onPress={handleSave} disabled={!canSave} className="rounded-full">
-          {create.isPending && <KortixLoader size="small" forceTheme={isDark ? 'light' : 'dark'} />}
+          {create.isPending && <KortixLoader size="small" />}
           <Text>Create schedule</Text>
         </Button>
       </View>
