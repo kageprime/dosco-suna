@@ -199,3 +199,5 @@ apps/capture/target/
 # Python bytecode (starter skill scripts write it during tests)
 __pycache__/
 *.pyc
+
+WORKING-TREES.md
