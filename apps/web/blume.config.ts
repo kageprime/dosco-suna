@@ -48,8 +48,8 @@ export default defineConfig({
     // prints the site title beside the image unless `text` is "", and the
     // wordmark is already in the file.
     image: {
-      light: '/brand/dosco-icon-dark.png',
-      dark: '/brand/dosco-icon-light.png',
+      light: '/brand/dosco-icon-light.png',
+      dark: '/brand/dosco-icon-dark.png',
       alt: 'Dosco',
     },
     text: '',

@@ -90,7 +90,7 @@ export function KortixLogo({
   // Dosco fallback art (stamped by dosco-brand patch-logo.py): upstream drew
   // its own mark inline here. We render transparent Dosco PNGs instead,
   // swapped per color scheme exactly like the org-branding images above.
-  const fallbackAlt = branding?.app_name ?? 'Dosco';
+  const fallbackAlt = branding?.app_name ?? 'Dosco Tek';
 
   if (variant === 'icon') {
     const imgStyle = { width: `${size}px`, height: `${size}px`, ...style };
@@ -99,7 +99,7 @@ export function KortixLogo({
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/dosco-icon-dark.png"
+          src="/brand/dosco-icon-light.png"
           alt={fallbackAlt}
           draggable={false}
           className={cn('shrink-0 select-none object-contain dark:hidden', className)}
@@ -108,7 +108,7 @@ export function KortixLogo({
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/dosco-icon-light.png"
+          src="/brand/dosco-icon-dark.png"
           alt={fallbackAlt}
           draggable={false}
           className={cn('hidden shrink-0 select-none object-contain dark:block', className)}
@@ -128,18 +128,20 @@ export function KortixLogo({
   const imgProps = props as ComponentPropsWithoutRef<'img'>;
   return (
     <>
+      {/* Light theme: black/charcoal text on light background */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/dosco-wordmark-dark.png"
+        src="/brand/dosco-wordmark-light.png"
         alt={fallbackAlt}
         draggable={false}
         className={cn('shrink-0 select-none object-contain dark:hidden', className)}
         style={imgStyle}
         {...imgProps}
       />
+      {/* Dark theme (including dark hero section): white/silver text on dark background */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/dosco-wordmark-light.png"
+        src="/brand/dosco-wordmark-dark.png"
         alt={fallbackAlt}
         draggable={false}
         className={cn('hidden shrink-0 select-none object-contain dark:block', className)}
