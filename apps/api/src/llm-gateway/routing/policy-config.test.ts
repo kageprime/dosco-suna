@@ -93,4 +93,11 @@ describe('gateway fallback policy configuration', () => {
     expect(policies.filter((p) => p.models.includes('a'))).toEqual(operator);
     expect(policies.find((p) => p.models.includes('b'))?.fallbackModels).toEqual(['a']);
   });
+
+  test('deduplicates servedIds so duplicate model entries do not generate duplicate policies', () => {
+    const policies = effectiveFallbackPolicies([], ['a', 'b', 'a', 'b']);
+    expect(policies.filter((p) => p.models.includes('a'))).toHaveLength(1);
+    expect(policies.filter((p) => p.models.includes('b'))).toHaveLength(1);
+    expect(policies.find((p) => p.models.includes('a'))?.fallbackModels).toEqual(['b']);
+  });
 });

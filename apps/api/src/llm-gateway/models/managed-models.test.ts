@@ -14,6 +14,7 @@ import {
   resolvePlatformDefaultModelId,
   __setManagedLineupForTest,
 } from './managed-models';
+import { servedManagedModels, servedFreeManagedModels } from './served-managed-models';
 
 const answer = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status });
 
@@ -145,6 +146,12 @@ describe('the managed lineup with OpenRouter as provider', () => {
       expect(isKnownManagedModelId('deepseek/deepseek-v4.1-flash')).toBe(true);
       expect(canonicalManagedModelId('deepseek/deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash');
       expect(canonicalManagedModelId('openrouter/free')).toBe('openrouter-free');
+
+      const served = servedManagedModels();
+      const servedIds = served.map((m) => m.id);
+      expect(new Set(servedIds).size).toBe(servedIds.length);
+      expect(servedIds).toContain('deepseek-v4.1-flash');
+      expect(servedIds).toContain('openrouter-free');
     } finally {
       config.PLATINUM_INFERENCE_API_KEY = origPlatinum;
       config.OPENROUTER_API_KEY = origOpenRouter;

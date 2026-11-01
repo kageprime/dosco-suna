@@ -10,17 +10,29 @@ import { platformDefaultFreeModelId } from './free-models';
 
 export { platformDefaultFreeModelId };
 
+function deduplicateModels(models: readonly ManagedModel[]): readonly ManagedModel[] {
+  const seen = new Set<string>();
+  const deduped: ManagedModel[] = [];
+  for (const model of models) {
+    if (!seen.has(model.id)) {
+      seen.add(model.id);
+      deduped.push(model);
+    }
+  }
+  return deduped;
+}
+
 /**
  * The managed lineup this deployment can serve now: Platinum's list, plus
  * Dosco's free managed models when their transports are available.
  */
 export function servedManagedModels(): readonly ManagedModel[] {
-  return [...managedLineup(), ...FREE_MANAGED_MODELS].filter(managedTransportAvailable);
+  return deduplicateModels([...managedLineup(), ...FREE_MANAGED_MODELS].filter(managedTransportAvailable));
 }
 
 /** The designated free models served on this deployment. */
 export function servedFreeManagedModels(): readonly ManagedModel[] {
-  return FREE_MANAGED_MODELS.filter(managedTransportAvailable);
+  return deduplicateModels(FREE_MANAGED_MODELS.filter(managedTransportAvailable));
 }
 
 /**

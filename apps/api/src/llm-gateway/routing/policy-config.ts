@@ -41,14 +41,15 @@ export function effectiveFallbackPolicies(
   operator: readonly ModelFallbackPolicy[],
   servedIds: readonly string[],
 ): ModelFallbackPolicy[] {
+  const uniqueServedIds = [...new Set(servedIds)];
   const owned = new Set(operator.flatMap((policy) => policy.models));
-  const derived: ModelFallbackPolicy[] = servedIds.length > 1
-    ? servedIds.filter((id) => !owned.has(id)).map((id) => ({
-      id: `managed-${id}`, models: [id], fallbackModels: servedIds.filter((other) => other !== id), fallbackOn: 'transient' as const,
+  const derived: ModelFallbackPolicy[] = uniqueServedIds.length > 1
+    ? uniqueServedIds.filter((id) => !owned.has(id)).map((id) => ({
+      id: `managed-${id}`, models: [id], fallbackModels: uniqueServedIds.filter((other) => other !== id), fallbackOn: 'transient' as const,
     }))
     : [];
-  if (servedIds.length && !owned.has(CODEX_DEFAULT_MODEL)) {
-    derived.push({ id: 'codex-default-degrade', models: [CODEX_DEFAULT_MODEL], fallbackModels: [...servedIds], fallbackOn: 'any-error' });
+  if (uniqueServedIds.length && !owned.has(CODEX_DEFAULT_MODEL)) {
+    derived.push({ id: 'codex-default-degrade', models: [CODEX_DEFAULT_MODEL], fallbackModels: [...uniqueServedIds], fallbackOn: 'any-error' });
   }
   return [...operator, ...derived];
 }
