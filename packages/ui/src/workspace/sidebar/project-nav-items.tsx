@@ -9,7 +9,7 @@ import {
   CustomizeGlyph,
   useCapabilityAccess,
 } from '../../internal/layout/project-settings-nav';
-import { isProjectAdminPath } from '../../internal/layout/project-capability-nav';
+import { isProjectAdminPath, ProjectCapabilityNav } from '../../internal/layout/project-capability-nav';
 import { cn } from '../../lib/utils';
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../primitives/dropdown-menu';
-import { SidebarMenuButton, SidebarMenuItem, useSidebar } from '../../primitives/sidebar';
+import { SidebarMenuAction, SidebarMenuButton, SidebarMenuItem, useSidebar } from '../../primitives/sidebar';
 import { SidebarGlyph } from '../../icons/sidebar-toggle';
 import { useNavRowMeta } from './nav-row-meta';
 import { useIsMobile } from '../../internal/hooks';
@@ -29,7 +29,7 @@ import {
   useSidebarNavStore,
   type SidebarNavEntry,
 } from '../../internal/stores/sidebar-nav-store';
-import { DotsThreeOutlineIcon } from '@phosphor-icons/react';
+import { CaretRightIcon, DotsThreeOutlineIcon } from '@phosphor-icons/react';
 import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react';
 
@@ -169,7 +169,8 @@ function MoreNavItem({
 
 /**
  * Customize, for the people who may configure the project. Navigates directly
- * to the centralized Settings & Customization Hub at `/projects/[id]/settings`.
+ * to the centralized Settings & Customization Hub at `/projects/[id]/settings`,
+ * and allows expanding/collapsing the sub menu on mobile and desktop.
  */
 function CustomizeNavEntry({ projectId }: { projectId: string }) {
   const t = useTranslations('sidebar');
@@ -178,32 +179,60 @@ function CustomizeNavEntry({ projectId }: { projectId: string }) {
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
 
-  if (!access.settled || access.tabs.length === 0) return null;
-
-  const href = `/projects/${projectId}/settings`;
-  const isActive =
+  const onCustomizePage =
     !!pathname &&
     (pathname.includes('/settings') ||
       pathname.includes('/customize') ||
       isProjectAdminPath(pathname));
 
+  const [open, setOpen] = useState(onCustomizePage);
+
+  useEffect(() => {
+    if (onCustomizePage) {
+      setOpen(true);
+    }
+  }, [onCustomizePage]);
+
+  if (!access.settled || access.tabs.length === 0) return null;
+
+  const href = `/projects/${projectId}/settings`;
+  const isActive = onCustomizePage;
+
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip={t('customize')}>
-        <Link
-          href={href}
-          prefetch={false}
-          onClick={() => {
-            if (isMobile) setOpenMobile(false);
+    <>
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild isActive={isActive} tooltip={t('customize')}>
+          <Link
+            href={href}
+            prefetch={false}
+            onClick={() => {
+              if (isMobile) setOpenMobile(false);
+            }}
+          >
+            <span className="shrink-0">
+              <CustomizeGlyph />
+            </span>
+            <span className="truncate">{t('customize')}</span>
+          </Link>
+        </SidebarMenuButton>
+        <SidebarMenuAction
+          aria-label={open ? 'Collapse Customize submenu' : 'Expand Customize submenu'}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((prev) => !prev);
           }}
+          className={cn(
+            'transition-transform duration-200 cursor-pointer',
+            open && 'rotate-90',
+          )}
         >
-          <span className="shrink-0">
-            <CustomizeGlyph />
-          </span>
-          <span className="truncate">{t('customize')}</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+          <CaretRightIcon className="size-3.5" />
+        </SidebarMenuAction>
+      </SidebarMenuItem>
+      {open ? <ProjectCapabilityNav projectId={projectId} /> : null}
+    </>
   );
 }
 

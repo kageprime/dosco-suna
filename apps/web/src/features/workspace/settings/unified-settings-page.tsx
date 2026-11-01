@@ -34,6 +34,7 @@ import {
   MagnifyingGlassIcon,
   CaretRightIcon,
   CaretUpDownIcon,
+  CaretDownIcon,
   SlidersHorizontalIcon,
   TimerIcon,
   TreeStructureIcon,
@@ -64,6 +65,7 @@ import {
   InputGroupSearchInput,
 } from '@kortix/ui/input-group';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@kortix/ui/sheet';
 import { cn } from '@kortix/ui';
 import { AgentMark, agentDisplayName } from '@kortix/ui/internal/components/agent-mark';
 import { useAccountState } from '@kortix/ui/internal/billing/index';
@@ -490,6 +492,7 @@ export function UnifiedSettingsPage({
   );
   const [railFilter, setRailFilter] = useState('');
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   // Sync state from query parameters if URL changes externally (e.g. HubLink drill-downs)
   useEffect(() => {
@@ -761,18 +764,288 @@ export function UnifiedSettingsPage({
 
   const planTier = accountState?.tier?.name ?? 'Enterprise';
 
+  const currentSubmenuLabel = useMemo(() => {
+    if (category === 'capabilities') {
+      if (activeTab === 'agents') {
+        if (selectedAgent) {
+          const currentSection = AGENT_SECTION_ITEMS.find((s) => s.id === agentSection);
+          const name = agentDisplayName(selectedAgent) || capitalizeWords(selectedAgent);
+          return `${name} · ${currentSection?.label ?? 'Overview'}`;
+        }
+        return 'Agents';
+      }
+      if (activeTab === 'models') {
+        const currentSub = MODEL_SUB_ITEMS.find((s) => s.id === modelSubTab);
+        return `Models · ${currentSub?.label ?? 'Overview'}`;
+      }
+    }
+    const currentItem = NAV_ITEMS.find(
+      (item) => item.id === activeTab && item.category === category,
+    );
+    return currentItem?.label ?? capitalizeWords(activeTab);
+  }, [category, activeTab, selectedAgent, agentSection, modelSubTab]);
+
+  const renderRailContent = (onItemSelect?: () => void) => {
+    if (category === 'capabilities' && activeTab === 'agents' && selectedAgent) {
+      return (
+        <>
+          <div className="border-border space-y-2.5 border-b p-3">
+            <button
+              type="button"
+              onClick={() => {
+                handleSelectAgent(null);
+                onItemSelect?.();
+              }}
+              className="text-muted-foreground hover:text-foreground hover:bg-hover flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <ArrowLeftIcon className="size-3.5 shrink-0" />
+              <span>Back to all agents</span>
+            </button>
+
+            {/* Quick Agent Switcher Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="bg-popover border-border hover:bg-hover flex w-full items-center justify-between gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors cursor-pointer"
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <AgentMark slug={selectedAgent} />
+                    <span className="min-w-0 flex-1">
+                      <span className="text-foreground block truncate text-xs font-semibold">
+                        {agentDisplayName(selectedAgent) || capitalizeWords(selectedAgent)}
+                      </span>
+                      <span className="text-muted-foreground block truncate font-mono text-xs">
+                        {selectedAgent}
+                      </span>
+                    </span>
+                  </span>
+                  <CaretUpDownIcon className="text-muted-foreground size-3.5 shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {agentsList.map((ag) => {
+                  const isSelected = ag.name === selectedAgent;
+                  return (
+                    <DropdownMenuItem
+                      key={ag.name}
+                      onSelect={() => {
+                        handleSelectAgent(ag.name, agentSection);
+                        onItemSelect?.();
+                      }}
+                      className="flex items-center justify-between gap-2 cursor-pointer"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <AgentMark slug={ag.name} />
+                        <span className="truncate text-xs font-medium">
+                          {agentDisplayName(ag.name) || capitalizeWords(ag.name)}
+                        </span>
+                      </span>
+                      {isSelected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <nav
+            aria-label="Agent configuration sections"
+            className="flex-1 space-y-4 overflow-y-auto px-2.5 py-3"
+          >
+            {groupedAgentSections.map(([groupName, items]) => (
+              <div key={groupName} className="space-y-0.5">
+                <div className="text-muted-foreground px-2.5 py-1 text-xs font-medium">
+                  {groupName}
+                </div>
+                {items.map((sec) => {
+                  const isSecActive = agentSection === sec.id;
+                  const SecIcon = sec.icon;
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectAgentSection(sec.id);
+                        onItemSelect?.();
+                      }}
+                      className={cn(
+                        'flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
+                        isSecActive
+                          ? 'bg-active text-foreground font-semibold'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                      )}
+                    >
+                      <SecIcon
+                        className={cn(
+                          'size-4 shrink-0',
+                          isSecActive ? 'text-foreground' : 'text-muted-foreground',
+                        )}
+                      />
+                      <span className="truncate">{sec.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </>
+      );
+    }
+
+    if (category === 'capabilities' && activeTab === 'models') {
+      return (
+        <>
+          <div className="border-border space-y-2.5 border-b p-3">
+            <button
+              type="button"
+              onClick={() => {
+                handleSelectTab(previousCapabilitiesTab || 'agents');
+                onItemSelect?.();
+              }}
+              className="text-muted-foreground hover:text-foreground hover:bg-hover flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <ArrowLeftIcon className="size-3.5 shrink-0" />
+              <span>Back to capabilities</span>
+            </button>
+
+            <div className="bg-popover border-border flex items-center gap-2.5 rounded-md border px-3 py-2">
+              <CpuIcon className="text-foreground size-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-foreground truncate text-xs font-semibold">
+                  Models & Routing
+                </p>
+                <p className="text-muted-foreground truncate text-xs">
+                  Providers, lineup & gateway
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <nav
+            aria-label="Models sections"
+            className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3"
+          >
+            {MODEL_SUB_ITEMS.map((sub) => {
+              const isSubActive = modelSubTab === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => {
+                    setModelSubTab(sub.id);
+                    syncUrl('capabilities', 'models', { subtab: sub.id });
+                    onItemSelect?.();
+                  }}
+                  className={cn(
+                    'flex h-8 w-full items-center rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
+                    isSubActive
+                      ? 'bg-active text-foreground font-semibold'
+                      : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                  )}
+                >
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div className="border-border border-b p-2.5">
+          <InputGroupSearch>
+            <InputGroupSearchIcon>
+              <MagnifyingGlassIcon />
+            </InputGroupSearchIcon>
+            <InputGroupSearchInput
+              placeholder="Jump to setting…"
+              value={railFilter}
+              onChange={(e) => setRailFilter(e.target.value)}
+              variant="popover"
+              size="sm"
+            />
+            <InputGroupSearchClear onClick={() => setRailFilter('')} />
+          </InputGroupSearch>
+        </div>
+
+        <nav
+          aria-label="Settings navigation"
+          className="flex-1 space-y-5 overflow-y-auto px-2.5 py-3"
+        >
+          {groupedCategoryItems.length === 0 ? (
+            <p className="text-muted-foreground px-2.5 py-4 text-center text-xs">
+              No matching settings
+            </p>
+          ) : (
+            groupedCategoryItems.map(([groupTitle, items]) => (
+              <div key={groupTitle} className="space-y-0.5">
+                <div className="text-muted-foreground px-2.5 py-1 text-xs font-medium">
+                  {groupTitle}
+                </div>
+                {items.map((item) => {
+                  const isActive =
+                    activeTab === item.id && item.category === category;
+                  const Icon = item.icon;
+                  const count = itemCountFor(item.id, item.category);
+
+                  return (
+                    <button
+                      key={`${item.category}-${item.id}`}
+                      type="button"
+                      onClick={() => {
+                        setRailFilter('');
+                        handleSelectTab(item.id, {
+                          categoryOverride: item.category,
+                        });
+                        onItemSelect?.();
+                      }}
+                      className={cn(
+                        'flex h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
+                        isActive
+                          ? 'bg-active text-foreground font-semibold'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Icon
+                          className={cn(
+                            'size-4 shrink-0',
+                            isActive ? 'text-foreground' : 'text-muted-foreground',
+                          )}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      {count !== undefined ? (
+                        <CountBadge count={count} />
+                      ) : item.drilldown ? (
+                        <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </nav>
+      </>
+    );
+  };
+
   return (
     <SettingsNavProvider value={settingsNav}>
       <div className="bg-background text-foreground flex h-dvh w-full flex-col overflow-hidden">
         {/* ── Top Bar ── */}
-        <header className="border-border bg-background flex h-13 w-full shrink-0 items-center justify-between gap-4 border-b px-5">
+        <header className="border-border bg-background flex h-13 w-full shrink-0 items-center justify-between gap-2 border-b px-3 sm:gap-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href={`/projects/${projectId}`}
               className="text-muted-foreground hover:text-foreground flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium transition-colors"
             >
               <ArrowLeftIcon className="size-3.5 shrink-0" />
-              <span>Workspace</span>
+              <span className="hidden sm:inline">Workspace</span>
             </Link>
             <span aria-hidden className="bg-border h-4 w-px shrink-0" />
             <div className="flex min-w-0 items-center gap-2">
@@ -794,15 +1067,15 @@ export function UnifiedSettingsPage({
             onValueChange={(next) => handleSelectCategory(next as SettingsCategory)}
           >
             <TabsList aria-label="Settings categories">
-              <TabsTrigger value="capabilities" className="gap-1.5 text-xs">
+              <TabsTrigger value="capabilities" className="gap-1 sm:gap-1.5 px-2 sm:px-3 text-xs">
                 <SparkleIcon className="size-3.5" />
                 <span>Capabilities</span>
               </TabsTrigger>
-              <TabsTrigger value="personal" className="gap-1.5 text-xs">
+              <TabsTrigger value="personal" className="gap-1 sm:gap-1.5 px-2 sm:px-3 text-xs">
                 <UserIcon className="size-3.5" />
                 <span>Personal</span>
               </TabsTrigger>
-              <TabsTrigger value="organization" className="gap-1.5 text-xs">
+              <TabsTrigger value="organization" className="gap-1 sm:gap-1.5 px-2 sm:px-3 text-xs">
                 <GearSixIcon className="size-3.5" />
                 <span>Organization</span>
               </TabsTrigger>
@@ -810,244 +1083,85 @@ export function UnifiedSettingsPage({
           </Tabs>
 
           {/* Account / Plan Status */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden sm:flex shrink-0 items-center gap-2">
             <Badge variant="secondary" size="xs">
               {capitalizeWords(planTier)}
             </Badge>
           </div>
         </header>
 
+        {/* ── Mobile Submenu Bar (md:hidden) ── */}
+        <div className="border-border bg-pane flex h-10 w-full shrink-0 items-center justify-between border-b px-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileRailOpen(true)}
+            className="bg-background hover:bg-hover border-border text-foreground flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium shadow-2xs transition-colors cursor-pointer"
+            aria-label="Open customize submenu"
+          >
+            <SlidersHorizontalIcon className="text-muted-foreground size-3.5 shrink-0" />
+            <span className="truncate max-w-[190px]">{currentSubmenuLabel}</span>
+            <CaretDownIcon className="text-muted-foreground size-3 shrink-0" />
+          </button>
+
+          {category === 'capabilities' && activeTab === 'agents' && selectedAgent ? (
+            <button
+              type="button"
+              onClick={() => handleSelectAgent(null)}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <ArrowLeftIcon className="size-3.5 shrink-0" />
+              <span>All agents</span>
+            </button>
+          ) : category === 'capabilities' && activeTab === 'models' ? (
+            <button
+              type="button"
+              onClick={() => handleSelectTab(previousCapabilitiesTab || 'agents')}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <ArrowLeftIcon className="size-3.5 shrink-0" />
+              <span>Capabilities</span>
+            </button>
+          ) : null}
+        </div>
+
+        {/* ── Mobile Submenu Sheet ── */}
+        <Sheet open={mobileRailOpen} onOpenChange={setMobileRailOpen}>
+          <SheetContent side="left" className="bg-pane w-72 p-0 flex flex-col h-full border-r" showCloseButton={true}>
+            <SheetHeader className="border-border border-b px-3 py-2.5">
+              <SheetTitle className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                Customize & Settings
+              </SheetTitle>
+            </SheetHeader>
+            <div className="border-border border-b p-2">
+              <Tabs
+                value={category}
+                onValueChange={(next) => handleSelectCategory(next as SettingsCategory)}
+                className="w-full"
+              >
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="capabilities" className="text-xs px-1">
+                    Capabilities
+                  </TabsTrigger>
+                  <TabsTrigger value="personal" className="text-xs px-1">
+                    Personal
+                  </TabsTrigger>
+                  <TabsTrigger value="organization" className="text-xs px-1">
+                    Organization
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              {renderRailContent(() => setMobileRailOpen(false))}
+            </div>
+          </SheetContent>
+        </Sheet>
+
         {/* ── Main Layout: Full Bleed Shell ── */}
         <div className="flex min-h-0 w-full flex-1 overflow-hidden">
           {/* ── Secondary Settings Rail (bg-pane) ── */}
           <aside className="border-border bg-pane hidden h-full w-64 shrink-0 flex-col border-r md:flex overflow-hidden">
-            {/* Submenu Mode 1: Selected Agent Configuration */}
-            {category === 'capabilities' && activeTab === 'agents' && selectedAgent ? (
-              <>
-                <div className="border-border space-y-2.5 border-b p-3">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectAgent(null)}
-                    className="text-muted-foreground hover:text-foreground hover:bg-hover flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer"
-                  >
-                    <ArrowLeftIcon className="size-3.5 shrink-0" />
-                    <span>Back to all agents</span>
-                  </button>
-
-                  {/* Quick Agent Switcher Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="bg-popover border-border hover:bg-hover flex w-full items-center justify-between gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors cursor-pointer"
-                      >
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <AgentMark slug={selectedAgent} />
-                          <span className="min-w-0 flex-1">
-                            <span className="text-foreground block truncate text-xs font-semibold">
-                              {agentDisplayName(selectedAgent) || capitalizeWords(selectedAgent)}
-                            </span>
-                            <span className="text-muted-foreground block truncate font-mono text-xs">
-                              {selectedAgent}
-                            </span>
-                          </span>
-                        </span>
-                        <CaretUpDownIcon className="text-muted-foreground size-3.5 shrink-0" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      {agentsList.map((ag) => {
-                        const isSelected = ag.name === selectedAgent;
-                        return (
-                          <DropdownMenuItem
-                            key={ag.name}
-                            onSelect={() => handleSelectAgent(ag.name, agentSection)}
-                            className="flex items-center justify-between gap-2 cursor-pointer"
-                          >
-                            <span className="flex min-w-0 items-center gap-2">
-                              <AgentMark slug={ag.name} />
-                              <span className="truncate text-xs font-medium">
-                                {agentDisplayName(ag.name) || capitalizeWords(ag.name)}
-                              </span>
-                            </span>
-                            {isSelected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <nav
-                  aria-label="Agent configuration sections"
-                  className="flex-1 space-y-4 overflow-y-auto px-2.5 py-3"
-                >
-                  {groupedAgentSections.map(([groupName, items]) => (
-                    <div key={groupName} className="space-y-0.5">
-                      <div className="text-muted-foreground px-2.5 py-1 text-xs font-medium">
-                        {groupName}
-                      </div>
-                      {items.map((sec) => {
-                        const isSecActive = agentSection === sec.id;
-                        const SecIcon = sec.icon;
-                        return (
-                          <button
-                            key={sec.id}
-                            type="button"
-                            onClick={() => handleSelectAgentSection(sec.id)}
-                            className={cn(
-                              'flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
-                              isSecActive
-                                ? 'bg-active text-foreground font-semibold'
-                                : 'text-muted-foreground hover:bg-hover hover:text-foreground',
-                            )}
-                          >
-                            <SecIcon
-                              className={cn(
-                                'size-4 shrink-0',
-                                isSecActive ? 'text-foreground' : 'text-muted-foreground',
-                              )}
-                            />
-                            <span className="truncate">{sec.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </nav>
-              </>
-            ) : category === 'capabilities' && activeTab === 'models' ? (
-              /* Submenu Mode 2: Models & Routing */
-              <>
-                <div className="border-border space-y-2.5 border-b p-3">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab(previousCapabilitiesTab || 'agents')}
-                    className="text-muted-foreground hover:text-foreground hover:bg-hover flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer"
-                  >
-                    <ArrowLeftIcon className="size-3.5 shrink-0" />
-                    <span>Back to capabilities</span>
-                  </button>
-
-                  <div className="bg-popover border-border flex items-center gap-2.5 rounded-md border px-3 py-2">
-                    <CpuIcon className="text-foreground size-4 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-foreground truncate text-xs font-semibold">
-                        Models & Routing
-                      </p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        Providers, lineup & gateway
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <nav
-                  aria-label="Models sections"
-                  className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3"
-                >
-                  {MODEL_SUB_ITEMS.map((sub) => {
-                    const isSubActive = modelSubTab === sub.id;
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => {
-                          setModelSubTab(sub.id);
-                          syncUrl('capabilities', 'models', { subtab: sub.id });
-                        }}
-                        className={cn(
-                          'flex h-8 w-full items-center rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
-                          isSubActive
-                            ? 'bg-active text-foreground font-semibold'
-                            : 'text-muted-foreground hover:bg-hover hover:text-foreground',
-                        )}
-                      >
-                        <span className="truncate">{sub.label}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </>
-            ) : (
-              /* Default Grouped Category Navigation + Quick Filter */
-              <>
-                <div className="border-border border-b p-2.5">
-                  <InputGroupSearch>
-                    <InputGroupSearchIcon>
-                      <MagnifyingGlassIcon />
-                    </InputGroupSearchIcon>
-                    <InputGroupSearchInput
-                      placeholder="Jump to setting…"
-                      value={railFilter}
-                      onChange={(e) => setRailFilter(e.target.value)}
-                      variant="popover"
-                      size="sm"
-                    />
-                    <InputGroupSearchClear onClick={() => setRailFilter('')} />
-                  </InputGroupSearch>
-                </div>
-
-                <nav
-                  aria-label="Settings navigation"
-                  className="flex-1 space-y-5 overflow-y-auto px-2.5 py-3"
-                >
-                  {groupedCategoryItems.length === 0 ? (
-                    <p className="text-muted-foreground px-2.5 py-4 text-center text-xs">
-                      No matching settings
-                    </p>
-                  ) : (
-                    groupedCategoryItems.map(([groupTitle, items]) => (
-                      <div key={groupTitle} className="space-y-0.5">
-                        <div className="text-muted-foreground px-2.5 py-1 text-xs font-medium">
-                          {groupTitle}
-                        </div>
-                        {items.map((item) => {
-                          const isActive =
-                            activeTab === item.id && item.category === category;
-                          const Icon = item.icon;
-                          const count = itemCountFor(item.id, item.category);
-
-                          return (
-                            <button
-                              key={`${item.category}-${item.id}`}
-                              type="button"
-                              onClick={() => {
-                                setRailFilter('');
-                                handleSelectTab(item.id, {
-                                  categoryOverride: item.category,
-                                });
-                              }}
-                              className={cn(
-                                'flex h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 text-xs font-medium transition-colors cursor-pointer',
-                                isActive
-                                  ? 'bg-active text-foreground font-semibold'
-                                  : 'text-muted-foreground hover:bg-hover hover:text-foreground',
-                              )}
-                            >
-                              <span className="flex min-w-0 items-center gap-2.5">
-                                <Icon
-                                  className={cn(
-                                    'size-4 shrink-0',
-                                    isActive ? 'text-foreground' : 'text-muted-foreground',
-                                  )}
-                                />
-                                <span className="truncate">{item.label}</span>
-                              </span>
-                              {count !== undefined ? (
-                                <CountBadge count={count} />
-                              ) : item.drilldown ? (
-                                <CaretRightIcon className="text-muted-foreground size-3.5 shrink-0" />
-                              ) : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))
-                  )}
-                </nav>
-              </>
-            )}
+            {renderRailContent()}
           </aside>
 
           {/* ── Main Content Canvas ── */}
