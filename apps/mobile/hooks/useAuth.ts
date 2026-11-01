@@ -14,6 +14,7 @@ import {
   grantWebRegistrationHandoff,
 } from '@/lib/auth/callback-state';
 import { readCallbackTokens } from '@/lib/auth/callback-tokens';
+import { oauthQueryParams, prefersEphemeralAuthSession } from '@/lib/auth/oauth-browser';
 import { mfaChallengeRequired, verifiedTotpFactor } from '@/lib/auth/mfa';
 import { admitMobileOAuthSession } from '@/lib/auth/mobile-admission';
 import { parsePersistedSession, sessionForNullAuthResult } from '@/lib/auth/persisted-session';
@@ -599,6 +600,7 @@ export function useAuth() {
               options: {
                 redirectTo,
                 skipBrowserRedirect: true,
+                queryParams: oauthQueryParams(provider),
               },
             });
 
@@ -762,7 +764,7 @@ export function useAuth() {
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo, {
-          preferEphemeralSession: true,
+          preferEphemeralSession: prefersEphemeralAuthSession(provider),
           showInRecents: true,
         });
 
