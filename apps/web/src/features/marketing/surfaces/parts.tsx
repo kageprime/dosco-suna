@@ -120,7 +120,7 @@ export const FIX_STEPS: ChatCard = {
   stop: true,
 };
 
-export const ASK_LINE = '@Kortix webhooks keep failing since the deploy. Find out why and fix it.';
+export const ASK_LINE = '@xera webhooks keep failing since the deploy. Find out why and fix it.';
 export const FOUND_LINE =
   'Found it: every non-2xx response retried, so a 404 used all five attempts. A 4xx now stops, and the billing tests pass: 3 pass, 0 fail.';
 
@@ -141,14 +141,14 @@ export const TEAMS_CR: ChatCard = {
 
 export const SLACK_THREAD: readonly ChatMessage[] = [
   { from: 'you', name: 'Member 1', time: '9:14', text: ASK_LINE },
-  { from: 'kortix', name: 'Kortix', time: '9:14', text: '', card: FIX_STEPS },
-  { from: 'kortix', name: 'Kortix', time: '9:19', text: FOUND_LINE, card: SLACK_CR },
+  { from: 'kortix', name: 'Dosco', time: '9:14', text: '', card: FIX_STEPS },
+  { from: 'kortix', name: 'Dosco', time: '9:19', text: FOUND_LINE, card: SLACK_CR },
 ];
 
 export const TEAMS_THREAD: readonly ChatMessage[] = [
   { from: 'you', name: 'Member 1', time: '9:14', text: ASK_LINE },
-  { from: 'kortix', name: 'Kortix', time: '9:14', text: '', card: FIX_STEPS },
-  { from: 'kortix', name: 'Kortix', time: '9:19', text: FOUND_LINE, card: TEAMS_CR },
+  { from: 'kortix', name: 'Dosco', time: '9:14', text: '', card: FIX_STEPS },
+  { from: 'kortix', name: 'Dosco', time: '9:19', text: FOUND_LINE, card: TEAMS_CR },
 ];
 
 export function localizeMarketingContent(tMarketing: import('@/i18n/translator').UiTranslator) {

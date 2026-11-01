@@ -8,6 +8,7 @@ import { afterEach, beforeAll, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import '@/stores/in-memory-async-storage';
 import { useGenuiStore } from '@/stores/genui-store';
 
 type HostProps = React.PropsWithChildren<Record<string, unknown>>;

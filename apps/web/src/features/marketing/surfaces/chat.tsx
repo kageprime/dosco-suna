@@ -205,7 +205,7 @@ export function SlackWindow({ messages }: { messages: readonly ChatMessage[] }) 
                 <span className="bg-foreground text-background flex size-4 items-center justify-center rounded-xs">
                   <KortixLogo size={9} variant="symbol" />
                 </span>
-                Kortix
+                Dosco
               </SidebarRow>
             </ul>
           </div>

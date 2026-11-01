@@ -56,7 +56,7 @@ const SIZE_MAP = {
 // trimmed full-resolution crest). `size` / `customSize` name the mark's
 // WIDTH; the height follows the baked crest's aspect (dosco-crest-ratio.txt).
 const CREST_SOURCE = require('@/assets/brand/dosco-crest-loader.png');
-const CREST_ASPECT = 1.6276;
+const CREST_ASPECT = 1.0;
 
 const PULSE_MS = 950;
 

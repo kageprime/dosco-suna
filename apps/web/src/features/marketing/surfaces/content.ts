@@ -97,9 +97,9 @@ export const SURFACE_ORDER: readonly { id: SurfaceId; href: string; name: string
 const DESKTOP: SurfaceContent = {
   id: 'desktop',
   hero: {
-    title: 'Kortix on your desktop.',
+    title: 'Dosco on your desktop.',
     titleMuted: 'For macOS, Windows and Linux.',
-    sub: 'The Kortix app in its own window. Hand an agent a task from any app with one shortcut, and see at a glance when its work is done.',
+    sub: 'The Dosco app in its own window. Hand an agent a task from any app with one shortcut, and see at a glance when its work is done.',
     actions: [
       { label: 'Download for macOS', href: '/download/macos', primary: true, icon: 'apple' },
       { label: 'Windows', href: '/download/windows', icon: 'windows' },
@@ -148,7 +148,7 @@ const DESKTOP: SurfaceContent = {
         title: 'Hand off a task from any app',
         description: 'Quick Entry: one shortcut, one prompt.',
         body: [
-          'Press ⌘⇧Space in any app. Type the task and press Enter: Kortix starts a new session in the project you have open.',
+          'Press ⌘⇧Space in any app. Type the task and press Enter: Dosco starts a new session in the project you have open.',
           'The picker sends it to one of your 5 most recent sessions instead. Attach up to 10 files of 20 MB each, or a screenshot on macOS.',
         ],
       },
@@ -186,7 +186,7 @@ const DESKTOP: SurfaceContent = {
       id: 'desktop-where-agents-run',
       question: 'Do agents run on my computer?',
       answer:
-        'No. Every session runs on its own cloud computer. The desktop app is the Kortix web app in a native window. An agent uses your computer only after you connect it, and only for what you allowed.',
+        'No. Every session runs on its own cloud computer. The desktop app is the Dosco web app in a native window. An agent uses your computer only after you connect it, and only for what you allowed.',
     },
     {
       id: 'desktop-systems',
@@ -201,10 +201,10 @@ const DESKTOP: SurfaceContent = {
         'Yes. The Quick Entry Shortcut menu offers ⌘⇧Space, ⌥Space and ⌥⇧Space on a Mac, and the same keys with Ctrl and Alt on Windows and Linux.',
     },
     {
-      id: 'desktop-self-hosted',
-      question: 'Does it work with a self-hosted Kortix?',
+      id: 'desktop-cloud',
+      question: 'Do I need to manage servers or infrastructure?',
       answer:
-        'Yes. On first launch, choose Kortix Cloud or your own instance. Change it later with Change Kortix Instance… in the menu.',
+        'No. Every agent runs on a managed cloud computer in Cloud. You only need the desktop app to supervise, interact, or optionally connect your local machine.',
     },
   ],
 };
@@ -212,7 +212,7 @@ const DESKTOP: SurfaceContent = {
 const MOBILE: SurfaceContent = {
   id: 'mobile',
   hero: {
-    title: 'Kortix on your phone.',
+    title: 'Dosco on your phone.',
     titleMuted: 'Start, follow and approve work from anywhere.',
     sub: 'The native app for iPhone, iPad and Android. Start a session, watch it work, and answer an agent the moment it asks.',
     actions: [
@@ -313,9 +313,10 @@ const MOBILE: SurfaceContent = {
       answer: 'Yes. Accept or decline an invite to a project in the app, then browse the project’s files.',
     },
     {
-      id: 'mobile-self-hosted',
-      question: 'Does it work with a self-hosted Kortix?',
-      answer: 'Yes. Add your own instance in Settings, then sign in to it.',
+      id: 'mobile-security',
+      question: 'How does the mobile app connect to my workspace?',
+      answer:
+        'The app securely connects to your Dosco account over TLS, streaming session updates, permissions and reviews directly from your cloud workspace.',
     },
   ],
 };
@@ -323,11 +324,11 @@ const MOBILE: SurfaceContent = {
 const CLI: SurfaceContent = {
   id: 'cli',
   hero: {
-    title: 'Kortix from your terminal.',
+    title: 'Dosco from your terminal.',
     titleMuted: 'One binary for you, your scripts and your agents.',
-    sub: 'The kortix command does from a shell what the web app does. It creates projects, runs sessions, reviews change requests, and configures agents, connectors and secrets.',
+    sub: 'The command-line interface does from a shell what the web app does. It creates projects, runs sessions, reviews change requests, and configures agents, connectors and secrets.',
     install: true,
-    actions: [{ label: 'Read the CLI docs', href: '/docs/developers#cli' }],
+    actions: [{ label: 'Read the CLI guide', href: '/docs' }],
     note: 'macOS and Linux, x86_64 and arm64 · On Windows, use WSL',
     caption: 'From a prompt to a merged change, in four commands.',
     captionMuted: 'Every command also runs inside an agent’s session.',
@@ -356,9 +357,9 @@ const CLI: SurfaceContent = {
       },
       {
         icon: HardDrivesIcon,
-        name: 'For your own servers',
-        line: 'Self-host with one command.',
-        body: '`kortix self-host start` pulls the images and starts the stack.',
+        name: 'For CI/CD pipelines',
+        line: 'Automate agent workflows.',
+        body: 'Run headlessly in your CI pipelines with personal access tokens.',
       },
     ],
   },
@@ -403,12 +404,12 @@ const CLI: SurfaceContent = {
         ],
       },
       {
-        id: 'self-host',
-        title: 'Run Kortix yourself',
-        description: 'self-host and hosts.',
+        id: 'connectors',
+        title: 'Connectors and secrets',
+        description: 'connectors and secrets.',
         body: [
-          '`kortix self-host start` pulls the Docker images and starts the stack. `status`, `logs` and `update` manage it.',
-          '`kortix hosts use` switches the CLI between Kortix Cloud and your own instance.',
+          '`kortix connectors ls` lists active workspace integrations and tools.',
+          '`kortix secrets set` securely provisions credentials for your agents.',
         ],
       },
     ],
@@ -443,14 +444,14 @@ const CLI: SurfaceContent = {
 const SLACK: SurfaceContent = {
   id: 'slack',
   hero: {
-    title: 'Kortix in Slack.',
+    title: 'Dosco in Slack.',
     titleMuted: 'Mention it in a thread. The work comes back there.',
     sub: 'Each Slack thread is a session. An agent works on its own cloud computer, posts its progress in the thread, and sends its changes back as a card to approve.',
     actions: [
       { label: 'Connect Slack', href: '/auth', primary: true, icon: 'slack' },
-      { label: 'Read the setup guide', href: '/docs/guide#channels' },
+      { label: 'Read the setup guide', href: '/docs' },
     ],
-    note: 'Add Kortix to Slack, invite the bot, mention it with a task.',
+    note: 'Add Dosco to Slack, invite the bot, mention it with a task.',
     caption: 'One thread, one session.',
     captionMuted: 'Reply in the thread to steer it.',
   },
@@ -480,12 +481,12 @@ const SLACK: SurfaceContent = {
         icon: IdentificationBadgeIcon,
         name: 'Each person signs in once',
         line: 'With `/kortix login`.',
-        body: 'Kortix checks that the sender may start sessions in the project.',
+        body: 'Dosco checks that the sender may start sessions in the project.',
       },
     ],
   },
   how: {
-    title: 'How Kortix works in Slack.',
+    title: 'How Dosco works in Slack.',
     titleMuted: 'From a mention to an approved change.',
     tabs: [
       {
@@ -503,7 +504,7 @@ const SLACK: SurfaceContent = {
         description: 'Live steps, with Stop.',
         body: [
           'The agent works on its own cloud computer and updates one message in the thread with its steps.',
-          'Stop ends the run. The reply links to the full session in Kortix.',
+          'Stop ends the run. The reply links to the full session in Dosco.',
         ],
       },
       {
@@ -521,7 +522,7 @@ const SLACK: SurfaceContent = {
         description: 'With `/kortix login`.',
         body: [
           'Send `/kortix login` and open the link. Only you see it, it works once, and it expires after 10 minutes.',
-          'Kortix then checks that each sender is a project member who may start sessions. The agent acts with its own permissions, not the sender’s role.',
+          'Dosco then checks that each sender is a project member who may start sessions. The agent acts with its own permissions, not the sender’s role.',
         ],
       },
       {
@@ -538,7 +539,7 @@ const SLACK: SurfaceContent = {
   faq: [
     {
       id: 'slack-reads',
-      question: 'Does Kortix read every message in a channel?',
+      question: 'Does Dosco read every message in a channel?',
       answer:
         'No. In a channel, only a mention reaches the agent, and only in channels the bot was invited to. In a direct message with the bot, every message does.',
     },
@@ -546,7 +547,7 @@ const SLACK: SurfaceContent = {
       id: 'slack-permissions',
       question: 'Does the agent act with my permissions?',
       answer:
-        'No. Kortix checks that you are a project member who may start sessions. The agent then acts with its own permissions, not with your role.',
+        'No. Dosco checks that you are a project member who may start sessions. The agent then acts with its own permissions, not with your role.',
     },
     {
       id: 'slack-projects',
@@ -556,9 +557,9 @@ const SLACK: SurfaceContent = {
     },
     {
       id: 'slack-own-app',
-      question: 'Can we use our own Slack app, or a self-hosted Kortix?',
+      question: 'Can we use our own Slack app?',
       answer:
-        'Yes. kortix channels manifest prints the app manifest. Create the app from it at api.slack.com/apps, then connect it with its tokens.',
+        'Yes. `kortix channels manifest` prints the app manifest. Create the app from it at api.slack.com/apps, then connect it with its tokens.',
     },
   ],
 };
@@ -566,12 +567,12 @@ const SLACK: SurfaceContent = {
 const TEAMS: SurfaceContent = {
   id: 'teams',
   hero: {
-    title: 'Kortix in Microsoft Teams.',
+    title: 'Dosco in Microsoft Teams.',
     titleMuted: 'In chats, group chats and channels.',
-    sub: 'Mention Kortix with a task. An agent works on its own cloud computer, shows its steps in one live card, and sends its changes back as a card to approve.',
+    sub: 'Mention Dosco with a task. An agent works on its own cloud computer, shows its steps in one live card, and sends its changes back as a card to approve.',
     actions: [
       { label: 'Connect Teams', href: '/auth', primary: true, icon: 'teams' },
-      { label: 'Read the setup guide', href: '/docs/guide#channels' },
+      { label: 'Read the setup guide', href: '/docs' },
     ],
     note: 'A tenant admin grants consent once. Then anyone in your organization can add the app.',
     caption: 'One channel post, one session.',
@@ -579,7 +580,7 @@ const TEAMS: SurfaceContent = {
   },
   pillars: {
     title: 'Agents where your organization already talks.',
-    titleMuted: 'Four things Kortix does in Teams.',
+    titleMuted: 'Four things Dosco does in Teams.',
     items: [
       {
         icon: UsersThreeIcon,
@@ -608,7 +609,7 @@ const TEAMS: SurfaceContent = {
     ],
   },
   how: {
-    title: 'How Kortix works in Teams.',
+    title: 'How Dosco works in Teams.',
     titleMuted: 'From one consent to an approved change.',
     tabs: [
       {
@@ -626,7 +627,7 @@ const TEAMS: SurfaceContent = {
         description: 'One live card.',
         body: [
           'The agent works on its own cloud computer and updates one card with its steps, then posts the reply.',
-          'Type `/stop` to end the run. Open in Kortix, in a message’s ⋯ menu, opens its session.',
+          'Type `/stop` to end the run. Open in Dosco, in a message’s ⋯ menu, opens its session.',
         ],
       },
       {
@@ -652,8 +653,8 @@ const TEAMS: SurfaceContent = {
         title: 'One consent, then everyone',
         description: 'An admin once, then each person once.',
         body: [
-          'A tenant admin grants consent once, and Kortix publishes the app to your organization’s Teams catalog.',
-          'Each person sends `/login` once, so Kortix knows who asked.',
+          'A tenant admin grants consent once, and Dosco publishes the app to your organization’s Teams catalog.',
+          'Each person sends `/login` once, so Dosco knows who asked.',
         ],
       },
     ],
@@ -663,13 +664,13 @@ const TEAMS: SurfaceContent = {
       id: 'teams-admin',
       question: 'Do we need a Teams admin?',
       answer:
-        'Yes, once. A tenant admin grants consent, and Kortix publishes the app to your organization’s catalog. After that, anyone can add it.',
+        'Yes, once. A tenant admin grants consent, and Dosco publishes the app to your organization’s catalog. After that, anyone can add it.',
     },
     {
       id: 'teams-permissions',
       question: 'Does the agent act with my permissions?',
       answer:
-        'No. Kortix checks that you are a project member who may start sessions. The agent then acts with its own permissions, not with your role.',
+        'No. Dosco checks that you are a project member who may start sessions. The agent then acts with its own permissions, not with your role.',
     },
     {
       id: 'teams-own-bot',
@@ -679,7 +680,7 @@ const TEAMS: SurfaceContent = {
     {
       id: 'teams-gaps',
       question: 'Does it support reactions or message search?',
-      answer: 'No. Long replies are cut in Teams and link to the full session in Kortix.',
+      answer: 'No. Long replies are cut in Teams and link to the full session in Dosco.',
     },
   ],
 };

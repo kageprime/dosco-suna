@@ -16,9 +16,9 @@ import { DesktopShot, TerminalFrame } from './frames';
 
 /** The App Store listing frames (640x1385), in store order. */
 const STORE_SHOTS = [
-  { n: 1, alt: 'Kortix in your pocket: a session that turns reading notes into one small first step.' },
+  { n: 1, alt: 'Dosco in your pocket: a session that turns reading notes into one small first step.' },
   { n: 2, alt: 'Start with one task: tell your agent what you want to get done.' },
-  { n: 3, alt: 'Choose your model: open-source models and providers.' },
+  { n: 3, alt: 'Choose your model: frontier AI models and providers.' },
   { n: 4, alt: 'Connect your tools: connect an app such as Notion when your agent needs it.' },
   { n: 5, alt: 'Preview what is built: open a live app preview inside your session.' },
   { n: 6, alt: 'Your projects, one place: the session list with its status dots.' },
@@ -63,7 +63,7 @@ function CliStage() {
       <TerminalFrame
         title="~/arcadia"
         lines={[
-          { kind: 'cmd', text: 'curl -fsSL https://kortix.com/install | bash' },
+          { kind: 'cmd', text: 'curl -fsSL https://dosco.live/install | bash' },
           { kind: 'cmd', text: 'kortix login' },
           { kind: 'note', text: 'your browser opens; approve the sign-in there' },
           { kind: 'gap' },

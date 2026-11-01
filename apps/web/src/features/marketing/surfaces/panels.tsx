@@ -240,15 +240,13 @@ const CLI_PANELS: Record<string, () => ReactNode> = {
       ]}
     />
   ),
-  'self-host': () => (
+  connectors: () => (
     <Term
       lines={[
-        { kind: 'cmd', text: 'kortix self-host start --domain kortix.arcadia.example' },
-        { kind: 'cmd', text: 'kortix self-host status' },
+        { kind: 'cmd', text: 'kortix connectors ls' },
         { kind: 'gap' },
-        { kind: 'cmd', text: 'kortix hosts use selfhost' },
-        { kind: 'note', text: 'every command now talks to your instance' },
-        { kind: 'cmd', text: 'kortix hosts use cloud' },
+        { kind: 'cmd', text: 'kortix secrets set GITHUB_TOKEN --secret' },
+        { kind: 'note', text: 'encrypted and scoped to the workspace' },
       ]}
     />
   ),
@@ -265,7 +263,7 @@ const sourceSLACK_CONNECTOR: ChatCard = {
     { label: 'Approve', primary: true },
     { label: 'Deny' },
     { label: 'Reply…' },
-    { label: 'Open in Kortix' },
+    { label: 'Open in Dosco' },
   ],
 };
 
@@ -281,7 +279,7 @@ const SLACK_PANELS: Record<string, () => ReactNode> = {
               from: 'you',
               name: 'Member 1',
               time: '9:14',
-              text: '@Kortix list yesterday’s failed webhooks by customer.',
+              text: '@xera list yesterday’s failed webhooks by customer.',
             },
             {
               from: 'you',
@@ -340,7 +338,7 @@ const SLACK_PANELS: Record<string, () => ReactNode> = {
           <Message
             message={{
               from: 'kortix',
-              name: 'Kortix',
+              name: 'Dosco',
               time: '9:14',
               text: tMarketing('text12f56545b0a4'),
               ephemeral: true,
@@ -366,7 +364,7 @@ const SLACK_PANELS: Record<string, () => ReactNode> = {
         <dl className="divide-y">
           {[
             ['Project', 'Arcadia'],
-            ['Agent', 'kortix'],
+            ['Agent', 'xera'],
             ['Model', tMarketing('text946410b30cd8')],
           ].map(([k, v]) => (
             <div key={k} className="flex items-center justify-between gap-3 px-4 py-3">

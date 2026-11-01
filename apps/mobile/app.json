@@ -64,7 +64,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#F0F0E9"
+        "backgroundColor": "#0c0c0c"
       },
       "package": "com.dosco.application",
       "intentFilters": [
@@ -138,7 +138,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash.png",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "resizeMode": "contain",
           "imageWidth": 200
         }

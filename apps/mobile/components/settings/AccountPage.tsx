@@ -401,7 +401,7 @@ function AppVersionFooter() {
     <View
       className="flex-row items-center justify-center gap-2 py-8"
       accessible
-      accessibilityLabel={version ? `Kortix version ${version}` : 'Kortix'}>
+      accessibilityLabel={version ? `Dosco version ${version}` : 'Dosco'}>
       <KortixLogo variant="logomark" size={14} color={colorScheme === 'dark' ? 'dark' : 'light'} className="opacity-50" />
       {version ? <Text variant="muted">v{version}</Text> : null}
     </View>
