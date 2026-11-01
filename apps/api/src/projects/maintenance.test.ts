@@ -195,6 +195,11 @@ describe('maintenance sweeps run with bounded concurrency', () => {
     ).rejects.toThrow('sweep 2 failed');
     expect(ran.sort()).toEqual([1, 2, 3, 4, 5]);
   });
+
+  test('a sweep that exceeds the timeout bound rejects without blocking indefinitely', async () => {
+    const hangingSweep = () => new Promise<never>(() => {});
+    await expect(runSweepsBounded([hangingSweep], 1, 20)).rejects.toThrow('Maintenance sweep exceeded timeout');
+  });
 });
 
 // Regression coverage for the 2026-07-02 incident: an unbounded Daytona SDK

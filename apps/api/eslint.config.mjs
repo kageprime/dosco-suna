@@ -42,7 +42,7 @@ export function layerOf(abs) {
   const rel = relative(SRC, abs).split(sep).join('/').replace(/\.ts$/, '');
   if (rel.startsWith('..')) return null;
   if (/^(lib|shared)\//.test(rel) || rel === 'config' || rel === 'types') return 0;
-  if (['index', 'app', 'bootstrap', 'http-middleware'].includes(rel)) return 3;
+  if (['index', 'app', 'bootstrap', 'http-middleware', 'worker'].includes(rel)) return 3;
   if (/(^|\/)routes(\/|$)|(^|\/)(router|[^/]*-routes)$|^[^/]+\/index$/.test(rel)) return 2;
   return 1;
 }

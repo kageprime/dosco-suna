@@ -331,7 +331,8 @@ RUN rm -rf \
 
 # Restore the Heroku launcher (the runner stage below overwrites apps/api from deps).
 COPY apps/api/start.sh ./apps/api/start.sh
-RUN chmod +x ./apps/api/start.sh
+COPY apps/api/start-worker.sh ./apps/api/start-worker.sh
+RUN chmod +x ./apps/api/start.sh ./apps/api/start-worker.sh
 
 WORKDIR /app/${SERVICE}
 

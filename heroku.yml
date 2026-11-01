@@ -1,7 +1,9 @@
 build:
   docker:
     web: Dockerfile.heroku
+    worker: Dockerfile.heroku
   config:
     SERVICE: apps/api
 run:
   web: /app/apps/api/start.sh
+  worker: /app/apps/api/start-worker.sh

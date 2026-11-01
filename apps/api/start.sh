@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
+# Disable background workers on web dynos to protect HTTP request latency and prevent connection pool starvation.
+if [ -n "$DYNO" ] && [ -z "$KORTIX_WORKERS_ENABLED" ]; then
+  case "$DYNO" in
+    web.*)
+      export KORTIX_WORKERS_ENABLED="false"
+      ;;
+  esac
+fi
+
 GATEWAY_PORT="${LLM_GATEWAY_PROXY_PORT:-8090}"
 API_PORT="${PORT:-8008}"
 

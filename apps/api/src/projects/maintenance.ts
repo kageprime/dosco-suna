@@ -89,7 +89,7 @@ export function maintenanceIntervalMs(): number {
 // held for longer than any real cycle plausibly takes, a tick force-breaks it
 // (loudly) instead of leaving the loop dead for good.
 function stallThresholdMs(): number {
-  return positiveInt(process.env.KORTIX_PROJECT_MAINTENANCE_STALL_MS, maintenanceIntervalMs() * 3);
+  return positiveInt(process.env.KORTIX_PROJECT_MAINTENANCE_STALL_MS, 2 * 60 * 1000);
 }
 
 /** Pure decision, exported for direct unit testing. */
@@ -292,10 +292,20 @@ export async function sweepExpiredSessionBranches(now = new Date()): Promise<{
 export async function runSweepsBounded<const T extends readonly (() => Promise<unknown>)[]>(
   sweeps: T,
   limit = SWEEP_CONCURRENCY,
+  timeoutMs = 30_000,
 ): Promise<{ -readonly [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
   const settled = await mapWithConcurrency(sweeps, limit, async (sweep) => {
     try {
-      return { value: await sweep() };
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Maintenance sweep exceeded timeout')), timeoutMs);
+      });
+      try {
+        const value = await Promise.race([sweep(), timeoutPromise]);
+        return { value };
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
     } catch (error) {
       return { error };
     }
