@@ -23,6 +23,7 @@ import { opencodeInferenceBaseUrl, parseOpencodeLogin, resolveOpencodeLogin } fr
 import { capabilitiesForModel } from '../models/catalog-models';
 import { type CustomLlmProviderDefinition, customProviderDescriptor, customProviderSecretName } from '../custom-providers';
 import { isRefusedCodexModelId } from '../models/codex-models';
+import { isFreeManagedModel } from '../models/free-models';
 import {
   canonicalManagedModelId,
   getRuntimeManagedModel,
@@ -407,13 +408,16 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
     'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
   // THE managed-model gate. No model, default or fallback is exempt: an
   // account without the entitlement (the Free plan) never reaches a managed
-  // model on Dosco credits.
-  if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
-    `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
+  // model on Dosco credits. Designated free models are exempt (0 credit cost).
+  if (principal.freeModelsOnly && !isFreeManagedModel(effectiveModel)) {
+    throw new GatewayResolutionError('plan_upgrade_required',
+      `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
+  }
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
-    const tier = await getCachedAccountTier(principal.accountId);
-    throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
-
+    if (!isFreeManagedModel(effectiveModel)) {
+      const tier = await getCachedAccountTier(principal.accountId);
+      throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
+    }
   }
   // Platinum keys its upstream prompt caches by this id: the conversation.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;

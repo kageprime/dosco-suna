@@ -600,6 +600,20 @@ describe('resolveCandidates — managed model tier gating', () => {
     expect(getAccountTier).not.toHaveBeenCalled();
   });
 
+  test('freeModelsOnly principal resolves free managed models without upgrade error', async () => {
+    runtimeManagedModel = {
+      id: 'deepseek-v4.1-flash-free',
+      upstreamModelId: 'deepseek/deepseek-v4.1-flash-free',
+      pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+    } as any;
+    const candidates = await resolveCandidates(
+      principal({ freeModelsOnly: true }),
+      'deepseek-v4.1-flash-free',
+    );
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates[0]?.resolvedModel).toBe('deepseek-v4.1-flash-free');
+  });
+
   test('a free-tier account is refused the platform default too', async () => {
     config.LLM_GATEWAY_DEFAULT_MODEL = 'deepseek-v4.1-flash';
     runtimeManagedModel = { id: 'deepseek-v4.1-flash' };

@@ -29,6 +29,7 @@ import { eq } from 'drizzle-orm';
 import { accountMayUseManagedModels } from '../../billing/services/entitlements';
 import { logger } from '../../lib/logger';
 import { platformDefaultModelId } from '../../llm-gateway/models/served-managed-models';
+import { platformDefaultFreeModelId } from '../../llm-gateway/models/free-models';
 import { resolveEffectiveModel } from '../../llm-gateway/resolution/default-model';
 import {
   createCommandStatus,
@@ -545,7 +546,7 @@ async function startModel(plan: ChannelSessionPlan, userId: string): Promise<str
     mirroredDefaultAgent: modelPin((plan.project.metadata as Record<string, unknown> | null)?.default_agent),
   });
   const resolved = await resolveEffectiveModel({ userId, accountId, projectId, agentName, explicit: null, freeModelsOnly }).catch(() => null);
-  return resolved?.model ?? (freeModelsOnly ? null : platformDefaultModelId() || null);
+  return resolved?.model ?? (freeModelsOnly ? platformDefaultFreeModelId() : platformDefaultModelId() || null);
 }
 
 /** Each file as a `data:` part, or a note that says why it is missing. Throws to retry when a platform does not answer. */

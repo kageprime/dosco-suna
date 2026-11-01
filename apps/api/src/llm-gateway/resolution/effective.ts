@@ -1,4 +1,5 @@
 import { canonicalManagedModelId } from '../models/managed-models';
+import { isFreeManagedModel } from '../models/free-models';
 
 // One definition of how a default model/agent is chosen across scopes. Keeping
 // the precedence here means Slack, the web picker, and the gateway agree.
@@ -73,11 +74,11 @@ export function chooseEffectiveModel(params: {
   }
   if (!candidate) return { model: null, source: 'platform' };
 
-  // An account without the managed-models entitlement never gets a managed
-  // model. The chosen candidate is dropped rather than falling through to a
-
-  // broader layer (see choose-default-model.test).
-  if (params.freeModelsOnly && isManagedRef(candidate)) return { model: null, source: 'platform' };
+  // An account without the managed-models entitlement never gets a paid managed
+  // model. Designated free models are preserved.
+  if (params.freeModelsOnly && isManagedRef(candidate) && !isFreeManagedModel(candidate)) {
+    return { model: null, source: 'platform' };
+  }
   return { model: candidate, source };
 }
 

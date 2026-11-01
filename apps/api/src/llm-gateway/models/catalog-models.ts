@@ -9,6 +9,7 @@ import {
 import { resolveCatalogUpstream } from './provider-registry';
 import { runtimeModelCatalog } from './runtime-catalog';
 import { getRuntimeManagedModel, managedLineupRevision, type ManagedModel } from './managed-models';
+import { isFreeManagedModel } from './free-models';
 import { servedManagedModels } from './served-managed-models';
 
 // The real upstream provider id for the ChatGPT-subscription lineup served
@@ -292,11 +293,13 @@ let cachedRevision = -1;
 let cachedManagedRevision = -1;
 let cachedManaged: Record<string, GatewayModel> = {};
 let cachedByokAndCodex: Record<string, GatewayModel> = {};
+let cachedFreeManagedAndByok: Record<string, GatewayModel> = {};
 let cachedFullCatalog: Record<string, GatewayModel> = {};
 
 function refreshedCatalogs(): {
   managed: Record<string, GatewayModel>;
   byokAndCodex: Record<string, GatewayModel>;
+  freeManagedAndByok: Record<string, GatewayModel>;
   full: Record<string, GatewayModel>;
 } {
   const revision = runtimeModelCatalog.status().revision;
@@ -310,17 +313,27 @@ function refreshedCatalogs(): {
   }
   if (managedRevision !== cachedManagedRevision) cachedManaged = managedModels();
   if (revision !== cachedRevision || managedRevision !== cachedManagedRevision) {
+    const freeManaged: Record<string, GatewayModel> = {};
+    for (const [id, m] of Object.entries(cachedManaged)) {
+      if (isFreeManagedModel(id)) freeManaged[id] = m;
+    }
+    cachedFreeManagedAndByok = { ...freeManaged, ...cachedByokAndCodex };
     cachedFullCatalog = { ...cachedManaged, ...cachedByokAndCodex };
     cachedRevision = revision;
     cachedManagedRevision = managedRevision;
   }
-  return { managed: cachedManaged, byokAndCodex: cachedByokAndCodex, full: cachedFullCatalog };
+  return {
+    managed: cachedManaged,
+    byokAndCodex: cachedByokAndCodex,
+    freeManagedAndByok: cachedFreeManagedAndByok,
+    full: cachedFullCatalog,
+  };
 }
 
 // `projectId` gates BYOK/codex visibility (anonymous callers see managed only).
 
 // `freeManagedOnly` (an account without the managed-models entitlement, e.g.
-// the Free plan) gets no Dosco-managed model at all: only its own connected
+// the Free plan) gets only Dosco's free managed models plus its own connected
 // provider keys and ChatGPT subscription.
 
 export function gatewayModelCatalog(
@@ -328,6 +341,6 @@ export function gatewayModelCatalog(
   opts?: { freeManagedOnly?: boolean },
 ): Record<string, GatewayModel> {
   const catalogs = refreshedCatalogs();
-  if (opts?.freeManagedOnly) return projectId ? catalogs.byokAndCodex : EMPTY_CATALOG;
+  if (opts?.freeManagedOnly) return projectId ? catalogs.freeManagedAndByok : EMPTY_CATALOG;
   return projectId ? catalogs.full : catalogs.managed;
 }

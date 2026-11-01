@@ -1,16 +1,26 @@
 import { config } from '../../config';
 import { managedTransportAvailable } from '../resolution/descriptors';
-import { managedLineup, resolvePlatformDefaultModelId, type ManagedModel } from './managed-models';
+import {
+  FREE_MANAGED_MODELS,
+  managedLineup,
+  resolvePlatformDefaultModelId,
+  type ManagedModel,
+} from './managed-models';
+import { platformDefaultFreeModelId } from './free-models';
+
+export { platformDefaultFreeModelId };
 
 /**
- * The managed lineup this deployment can serve now: Platinum's list, when the
- * Platinum key is present. Read live: the lineup refreshes in the background.
- *
- * Kept apart from `managed-models.ts` so the lineup never imports the
- * resolution layer (`descriptors.ts` imports `ManagedModel` from it).
+ * The managed lineup this deployment can serve now: Platinum's list, plus
+ * Dosco's free managed models when their transports are available.
  */
 export function servedManagedModels(): readonly ManagedModel[] {
-  return managedLineup().filter(managedTransportAvailable);
+  return [...managedLineup(), ...FREE_MANAGED_MODELS].filter(managedTransportAvailable);
+}
+
+/** The designated free models served on this deployment. */
+export function servedFreeManagedModels(): readonly ManagedModel[] {
+  return FREE_MANAGED_MODELS.filter(managedTransportAvailable);
 }
 
 /**

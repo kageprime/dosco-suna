@@ -27,6 +27,7 @@ import { db } from '../shared/db';
 import { resolveFeatureFlag } from '../feature-flags/registry';
 import { servableProjectCatalog } from '../llm-gateway/models/servable-catalog';
 import { platformDefaultModelId } from '../llm-gateway/models/served-managed-models';
+import { platformDefaultFreeModelId } from '../llm-gateway/models/free-models';
 import { runtimeModelCatalog } from '../llm-gateway/models/runtime-catalog';
 import { isModelServableForAccount, resolveEffectiveModel } from '../llm-gateway/resolution/default-model';
 import { toWireModel } from '../llm-gateway/resolution/effective';
@@ -332,7 +333,7 @@ export async function planChannelSessionStart(input: {
       resolveEffectiveModel({ ...common, personalUserId: scope.personalUserId }),
     ]).catch(() => [null, null] as const);
     if (asCreator && shared && asCreator.model !== shared.model) {
-      base = shared.model ?? (scope.freeManagedOnly ? null : platformDefaultModelId());
+      base = shared.model ?? (scope.freeManagedOnly ? platformDefaultFreeModelId() : platformDefaultModelId());
     }
   }
   const keys = base ? await channelKeySelection(scope, base) : null;

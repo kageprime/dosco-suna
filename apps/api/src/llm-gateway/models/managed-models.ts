@@ -1,6 +1,17 @@
 import type { CatalogReasoningOption } from '@kortix/llm-catalog';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
+import {
+  FREE_MANAGED_MODELS,
+  isFreeManagedModel,
+  getFreeManagedModel,
+} from './free-models';
+
+export {
+  FREE_MANAGED_MODELS,
+  isFreeManagedModel,
+  getFreeManagedModel,
+};
 
 /**
  * A Dosco managed model: one model Platinum Inference offers, paid from
@@ -87,11 +98,11 @@ export function managedLineupRevision(): number {
 }
 
 export function getRuntimeManagedModel(id: string): ManagedModel | undefined {
-  return byId.get(id);
+  return byId.get(id) ?? getFreeManagedModel(id);
 }
 
 export function isRuntimeManagedModelId(id: string): boolean {
-  return byId.has(id);
+  return byId.has(id) || isFreeManagedModel(id);
 }
 
 export function __setManagedLineupForTest(models: readonly ManagedModel[]): void {
@@ -248,9 +259,9 @@ export function canonicalManagedModelId(id: string): string {
   return RETIRED_MANAGED_MODEL_IDS.has(id) ? (lineup[0]?.id ?? id) : id;
 }
 
-/** In the current lineup, or a retired id stored sessions may still carry. */
+/** In the current lineup, a designated free model, or a retired id stored sessions may still carry. */
 export function isKnownManagedModelId(id: string): boolean {
-  return byId.has(id) || RETIRED_MANAGED_MODEL_IDS.has(id) || id in OPENROUTER_ALIASES;
+  return byId.has(id) || isFreeManagedModel(id) || RETIRED_MANAGED_MODEL_IDS.has(id) || id in OPENROUTER_ALIASES;
 }
 
 /** Explicitly retired — distinct from merely "not currently servable". */

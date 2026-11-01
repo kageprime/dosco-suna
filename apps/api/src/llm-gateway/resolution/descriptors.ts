@@ -8,6 +8,7 @@ import {
   type CodexCredential,
 } from '../credentials/codex';
 import type { ManagedModel } from '../models/managed-models';
+import { isFreeManagedModel } from '../models/free-models';
 import { isAwsRegion } from './aws-region';
 
 export { isAwsRegion };
@@ -159,6 +160,52 @@ export function managedCandidates(managed: ManagedModel): UpstreamDescriptor[] {
   // KORTIX_MANAGED_PROVIDER_ENABLED off (loadManagedLineup); guard here too so
   // no managed credential is read if a future caller reaches this directly.
   if (!config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
+
+  // Designated free managed models: route with 0 cost and no credit deduction
+  if (isFreeManagedModel(managed.id)) {
+    if (config.PLATINUM_INFERENCE_API_KEY) {
+      const platinumTarget =
+        managed.id === 'deepseek-v4.1-flash-free' || managed.id === 'deepseek-v4-flash-free'
+          ? 'deepseek-v4.1-flash'
+          : managed.id === 'glm-5.3-flash-free'
+            ? 'glm-5.3-flash'
+            : managed.upstreamModelId?.includes('/')
+              ? managed.upstreamModelId.split('/')[1]
+              : managed.id;
+
+      if (platinumTarget === 'deepseek-v4.1-flash' || platinumTarget === 'glm-5.3-flash') {
+        return [{
+          provider: 'platinum',
+          kind: 'openai-compat',
+          baseUrl: config.PLATINUM_INFERENCE_URL,
+          apiKey: config.PLATINUM_INFERENCE_API_KEY,
+          billingMode: 'none',
+          markup: 0,
+          resolvedModel: platinumTarget,
+          pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+          publicProvider: 'kortix',
+        }];
+      }
+    }
+
+    if (config.OPENROUTER_API_KEY) {
+      return [{
+        provider: 'openrouter',
+        kind: 'openai-compat',
+        baseUrl: config.OPENROUTER_URL ?? 'https://openrouter.ai/api/v1',
+        apiKey: config.OPENROUTER_API_KEY,
+        billingMode: 'none',
+        markup: 0,
+        resolvedModel: managed.upstreamModelId ?? managed.id,
+        pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+        publicProvider: 'kortix',
+        headers: {
+          'HTTP-Referer': 'https://dosco.live',
+          'X-Title': 'Dosco AI',
+        },
+      }];
+    }
+  }
 
   if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
     return [{

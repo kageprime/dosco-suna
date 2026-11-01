@@ -241,10 +241,12 @@ describe('served catalog field passthrough', () => {
 describe('gatewayModelCatalog — free-tier visibility', () => {
   const freeFull = gatewayModelCatalog('proj', { freeManagedOnly: true });
 
-  // Managed ids are bare; every BYOK and codex id carries a provider prefix.
-  // Free tier sees no managed model, the platform default included.
-  test('free tier sees no managed model', () => {
-    expect(Object.keys(freeFull).filter((id) => !id.includes('/'))).toEqual([]);
+  // Free tier sees only designated free managed models; paid managed models stay hidden.
+  test('free tier sees only designated free managed models', () => {
+    const bareIds = Object.keys(freeFull).filter((id) => !id.includes('/'));
+    expect(bareIds).toContain('deepseek-v4.1-flash-free');
+    expect(bareIds).not.toContain('deepseek-v4.1-flash');
+    expect(bareIds).not.toContain('glm-5.3-flash');
   });
 
   test('free tier still sees BYOK catalog models (own connected keys work)', () => {

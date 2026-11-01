@@ -13,6 +13,7 @@ import { unavailableCatalog } from '../../llm-gateway/models/picker-catalog';
 import { servableProjectCatalog } from '../../llm-gateway/models/servable-catalog';
 import { runtimeModelCatalog } from '../../llm-gateway/models/runtime-catalog';
 import { platformDefaultModelId } from '../../llm-gateway/models/served-managed-models';
+import { platformDefaultFreeModelId } from '../../llm-gateway/models/free-models';
 import {
   invalidateAccountModelDefaults,
   isModelServableForAccount,
@@ -89,7 +90,7 @@ async function modelAccessDefault(userId: string, accountId: string, projectId: 
   if (configured) return toWireModel(configured);
   const freeModelsOnly = !(await accountMayUseManagedModels(accountId));
   const resolved = await resolveEffectiveModel({ userId, accountId, projectId, freeModelsOnly, personalUserId });
-  return resolved.model ?? (freeModelsOnly ? undefined : platformDefaultModelId());
+  return resolved.model ?? (freeModelsOnly ? platformDefaultFreeModelId() : platformDefaultModelId());
 }
 
 export function registerModelsRoutes(): void {

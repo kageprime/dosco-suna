@@ -1,7 +1,7 @@
 import type { ModelRouteInput, ModelRoutePlan, AuthedPrincipal } from '@kortix/llm-gateway';
 import { config } from '../../config';
 import { catalogModelForWireModel, gatewayModelCatalog } from '../models/catalog-models';
-import { platformDefaultModelId, platformVisionModelId, servedManagedModels } from '../models/served-managed-models';
+import { platformDefaultModelId, platformVisionModelId, servedManagedModels, servedFreeManagedModels } from '../models/served-managed-models';
 import { effectiveFallbackPolicies } from './policy-config';
 import { createGatewayRouteResolver } from './resolve-route';
 import { planImageRoute, reachableImageModels } from './image-models';
@@ -20,7 +20,7 @@ const routingCatalog = () => gatewayModelCatalog('gateway-routing');
  * value is read and no provider is called.
  */
 async function principalImageModels(principal: AuthedPrincipal): Promise<string[]> {
-  const managedModels = principal.freeModelsOnly ? [] : servedManagedModels().map((model) => model.id);
+  const managedModels = principal.freeModelsOnly ? servedFreeManagedModels().map((model) => model.id) : servedManagedModels().map((model) => model.id);
   const { projectId } = principal;
   if (!projectId) {
     return reachableImageModels({ secretNames: new Set(), access: { disabledProviders: [], disabledModels: [] }, managedModels });

@@ -17,6 +17,7 @@ import {
 } from './effective';
 import { resolveCandidates } from './resolve-candidates';
 import { runtimeModelCatalog } from '../models/runtime-catalog';
+import { platformDefaultFreeModelId } from '../models/free-models';
 
 // Resolves the account/agent/project-configured default model for a gateway
 // principal, once at authentication (in withResolvedTier). The result is attached
@@ -171,7 +172,7 @@ export async function resolveDefaultModelForPrincipal(
   // Spec 2026-09-22 §2.3: personal overrides of the on-behalf-of human only.
   const personalUserId = (principal.personalUserId === undefined ? principal.userId : principal.personalUserId) ?? undefined;
   const platform = async () =>
-    principal.freeModelsOnly ? ((await ownModelDefault(probe, principal.projectId, personalUserId)) ?? undefined) : undefined;
+    principal.freeModelsOnly ? ((await ownModelDefault(probe, principal.projectId, personalUserId)) ?? platformDefaultFreeModelId()) : undefined;
   // Fast path: nothing configured for this account/project → the platform default
   // applies (no session read needed).
   if (!defaults.account && !hasAgentDefaults && !projectDefault) return platform();
@@ -340,7 +341,7 @@ export async function resolveEffectiveModel(params: {
   );
   if (!kept) {
     const own = params.freeModelsOnly
-      ? await ownModelDefault(probe, params.projectId, (params.personalUserId === undefined ? params.userId : params.personalUserId) ?? undefined)
+      ? ((await ownModelDefault(probe, params.projectId, (params.personalUserId === undefined ? params.userId : params.personalUserId) ?? undefined)) ?? platformDefaultFreeModelId())
       : null;
     return { model: own, source: 'platform' };
   }

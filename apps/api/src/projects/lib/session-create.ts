@@ -1,5 +1,6 @@
 import { copySessionLog, withForkAttachmentCleanup } from '../session-log-fork';
 import { platformDefaultModelId } from '../../llm-gateway/models/served-managed-models';
+import { platformDefaultFreeModelId } from '../../llm-gateway/models/free-models';
 import { randomUUID } from 'node:crypto';
 import { SESSION_INITIAL_CONTEXT_MAX_CHARS, SessionCreateInputSchema } from '@kortix/api-contract';
 import { projectSessionConnectorBindings, projectSessionGrants, projectSessionRuntimeContexts, projectSessions, sessionLifecycleCommands, sessionProviderSecretPools } from '@kortix/db';
@@ -742,9 +743,8 @@ async function resolveSessionModel(params: {
         freeModelsOnly,
         providerSecretPools,
       });
-      // An account without managed models gets no platform default: it runs
-      // its own connected model (already in `resolved`) or none.
-      const concreteModel = resolved.model ?? (freeModelsOnly ? null : platformDefaultModelId() || null);
+      // An account without paid managed models falls back to the platform free default.
+      const concreteModel = resolved.model ?? (freeModelsOnly ? platformDefaultFreeModelId() : platformDefaultModelId() || null);
       if (concreteModel) {
         opencodeModel = toOpencodeModelRef(concreteModel);
         opencodeModelSource = resolved.model ? resolved.source : 'platform';

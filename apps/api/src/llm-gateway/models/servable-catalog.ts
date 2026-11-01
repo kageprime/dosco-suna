@@ -9,6 +9,7 @@ import { toWireModel } from '../resolution/effective';
 import { gatewayModelCatalog } from './catalog-models';
 import { projectPickerCatalog, type UnavailableModelMark } from './picker-catalog';
 import { platformDefaultModelId } from './served-managed-models';
+import { platformDefaultFreeModelId } from './free-models';
 import { projectFeatureFlagEnabled } from '../../feature-flags/for-project';
 import { listGrantedGatewaySecretNames } from '../../secrets/account-resource';
 import { customProviderCatalog } from '../custom-providers';
@@ -78,8 +79,8 @@ export async function servableProjectCatalog(input: {
   const pooledNames = pooledEnabled && principalUserId
     ? await listGrantedGatewaySecretNames(accountId, projectId, principalUserId, personalUserId).catch(() => [] as string[])
     : [];
-  // An account without managed models has no platform default.
-  const platformDefault = freeManagedOnly ? undefined : platformDefaultModelId();
+  // An account without paid managed models falls back to the platform free default.
+  const platformDefault = freeManagedOnly ? platformDefaultFreeModelId() : platformDefaultModelId();
   const effectiveDefault = toWireModel(
     defaults.projects[projectId] ?? defaults.account ?? platformDefault ?? '',
   );
