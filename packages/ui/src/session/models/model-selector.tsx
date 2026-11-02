@@ -164,7 +164,12 @@ function ModelRow({
   const unavailable = model.available === false;
   const isFree = shouldShowFreeTag(model);
   const isSubscription = isSubscriptionModel(model);
-  const sourceBadge = modelSourceBadge(model);
+  const sourceBadge =
+    groupProviderID === 'kortix' ||
+    groupProviderID === 'openrouter' ||
+    groupProviderID === 'opencode'
+      ? null
+      : modelSourceBadge(model);
   // Display name only — `model.modelName` still carries " (ChatGPT)" for search
   // and for the aria labels below, where there is no group heading to lean on.
   const { lead, trail } = splitModelLabel(pickerModelName(model));

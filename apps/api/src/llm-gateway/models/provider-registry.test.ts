@@ -98,6 +98,14 @@ describe('runtime catalog provider resolution', () => {
     });
   });
 
+  test('resolves OpenCode to its zen endpoint with OPENCODE_API_KEY', () => {
+    expect(resolveCatalogUpstream('opencode')).toMatchObject({
+      kind: 'openai-compat',
+      envVar: 'OPENCODE_API_KEY',
+      baseUrl: 'https://opencode.ai/zen/v1',
+    });
+  });
+
   // Bedrock is a STANDALONE BYOK provider (not the cloud-only managed/credits
   // path): the bearer-token API key secret, resolved here so the normal BYOK
   // flow can build a kind:'bedrock' descriptor from a project's own key.

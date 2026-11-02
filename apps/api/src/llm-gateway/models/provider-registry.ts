@@ -69,6 +69,17 @@ export function resolveCatalogUpstream(
     };
   }
 
+  // OpenCode Zen API keys authenticate on https://opencode.ai/zen/v1
+  // (whereas Console OAuth logins authenticate on https://opencode.ai/inference via resolveCandidates).
+  if (providerId === 'opencode') {
+    return {
+      kind: 'openai-compat',
+      envVar: 'OPENCODE_API_KEY',
+      baseUrl: 'https://opencode.ai/zen/v1',
+      npm: provider.npm ?? undefined,
+    };
+  }
+
   const override = modelId ? provider.models.find((model) => model.id === modelId)?.provider : undefined;
   const npm = override?.npm ?? provider.npm ?? undefined;
   let kind = providerKindForNpm(npm);

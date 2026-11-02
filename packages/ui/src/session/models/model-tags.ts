@@ -76,13 +76,7 @@ export function modelSourceBadge(
     upstream === 'openrouter' ||
     p === 'openrouter' ||
     id.startsWith('openrouter/') ||
-    name.includes('openrouter') ||
-    id.startsWith('deepseek') ||
-    id.startsWith('qwen') ||
-    id.startsWith('gemini') ||
-    id.startsWith('north-mini') ||
-    id.startsWith('nemotron') ||
-    id.startsWith('mimo')
+    name.includes('openrouter')
   ) {
     return 'OpenRouter';
   }

@@ -116,9 +116,12 @@ describe('gatewayModelCatalog — served catalog', () => {
     });
   });
 
-  test('native OpenCode Zen free models are not served by the gateway catalog', () => {
-    for (const id of ['deepseek-v4-flash-free', 'mimo-v2.5-free', 'big-pickle']) {
-      expect(full[`opencode/${id}`], `opencode/${id}`).toBeUndefined();
+  test('native OpenCode Zen free models are served under opencode provider in the catalog', () => {
+    for (const id of ['deepseek-v4-flash-free', 'big-pickle']) {
+      expect(full[`opencode/${id}`]).toMatchObject({
+        provider: 'opencode',
+        provider_name: 'OpenCode',
+      });
     }
   });
 

@@ -221,7 +221,6 @@ export function gatewayModelsAll(
 ): Record<string, GatewayModel> {
   const out: Record<string, GatewayModel> = {};
   for (const provider of catalog.providers) {
-    if (provider.id === 'opencode') continue;
     if (!resolveCatalogUpstream(provider.id)) continue;
     for (const model of provider.models) {
       // BYOK models ARE catalog entries — capabilities come straight from models.dev.

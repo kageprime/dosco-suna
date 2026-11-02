@@ -59,12 +59,16 @@ describe('modelSourceBadge', () => {
     expect(modelSourceBadge({ modelID: 'glm-4', modelName: 'GLM', provider: 'opencode-go' })).toBe('OpenCode');
   });
 
-  test('identifies OpenRouter models by provider, prefix, or managed slug', () => {
+  test('identifies OpenRouter models by provider, prefix, or name', () => {
     expect(modelSourceBadge({ modelID: 'openrouter/free', modelName: 'Auto' })).toBe('OpenRouter');
-    expect(modelSourceBadge({ modelID: 'deepseek-v4.1-flash', modelName: 'DeepSeek V4.1 Flash' })).toBe('OpenRouter');
-    expect(modelSourceBadge({ modelID: 'deepseek-v4.1-flash-free', modelName: 'DeepSeek V4.1 Flash Free' })).toBe('OpenRouter');
-    expect(modelSourceBadge({ modelID: 'qwen3-coder', modelName: 'Qwen 3 Coder' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'openrouter/deepseek-chat', modelName: 'DeepSeek Chat' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'openrouter-free', modelName: 'OpenRouter Free' })).toBe('OpenRouter');
     expect(modelSourceBadge({ modelID: 'some-model', modelName: 'Model', provider: 'openrouter' })).toBe('OpenRouter');
+  });
+
+  test('does not mislabel platform managed models as OpenRouter', () => {
+    expect(modelSourceBadge({ modelID: 'deepseek-v4.1-flash', modelName: 'DeepSeek V4.1 Flash' })).toBeNull();
+    expect(modelSourceBadge({ modelID: 'qwen3-coder', modelName: 'Qwen 3 Coder' })).toBeNull();
   });
 
   test('returns null for standard BYOK providers without OpenCode/OpenRouter routing', () => {
