@@ -416,7 +416,7 @@
 				);
 				INFOPLIST_FILE = Kortix/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
-				KORTIX_DISPLAY_NAME = "Kortix (dev)";
+				KORTIX_DISPLAY_NAME = "Dosco (dev)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -450,7 +450,7 @@
 				DEVELOPMENT_TEAM = T8G9J33433;
 				INFOPLIST_FILE = Kortix/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
-				KORTIX_DISPLAY_NAME = Kortix;
+				KORTIX_DISPLAY_NAME = Dosco;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

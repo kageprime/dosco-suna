@@ -244,7 +244,7 @@ describe('gatewayModelCatalog — free-tier visibility', () => {
   // Free tier sees only designated free managed models; paid managed models stay hidden.
   test('free tier sees only designated free managed models', () => {
     const bareIds = Object.keys(freeFull).filter((id) => !id.includes('/'));
-    expect(bareIds).toContain('deepseek-v4.1-flash-free');
+    expect(bareIds).toContain('openrouter-free');
     expect(bareIds).not.toContain('deepseek-v4.1-flash');
     expect(bareIds).not.toContain('glm-5.3-flash');
   });

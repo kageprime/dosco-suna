@@ -228,6 +228,34 @@ describe('managed models: one Platinum inference candidate', () => {
       config.OPENROUTER_API_KEY = undefined;
     }
   });
+  test('resolves openrouter-free to openrouter/free on OpenRouter with zero pricing', async () => {
+    const { getFreeManagedModel } = await import('../models/free-models');
+    const freeRouter = getFreeManagedModel('openrouter-free');
+    expect(freeRouter).toBeDefined();
+
+    config.PLATINUM_INFERENCE_API_KEY = undefined;
+    config.OPENROUTER_API_KEY = 'sk-or-test-free';
+    try {
+      expect(managedCandidates(freeRouter!)).toEqual([{
+        provider: 'openrouter',
+        kind: 'openai-compat',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'sk-or-test-free',
+        billingMode: 'none',
+        markup: 0,
+        resolvedModel: 'openrouter/free',
+        pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+        publicProvider: 'kortix',
+        headers: {
+          'HTTP-Referer': 'https://dosco.live',
+          'X-Title': 'Dosco AI',
+        },
+      }]);
+    } finally {
+      config.PLATINUM_INFERENCE_API_KEY = 'pt_live_test';
+      config.OPENROUTER_API_KEY = undefined;
+    }
+  });
 });
 
 describe('bedrockByokBaseUrl', () => {

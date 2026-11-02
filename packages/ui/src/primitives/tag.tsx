@@ -12,6 +12,7 @@ const tagVariants = cva(
         free: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
         latest: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
         custom: 'bg-muted text-muted-foreground',
+        outline: 'border border-border/80 text-muted-foreground bg-transparent',
         new: 'bg-primary/10 text-primary',
         warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
       },

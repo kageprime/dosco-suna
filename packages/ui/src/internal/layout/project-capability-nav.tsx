@@ -4,8 +4,8 @@ import { adminPath } from '../../lib/routes';
 
 import { useProjectConfig } from '@kortix/sdk/react';
 
-import { CpuIcon, GearSixIcon, ListIcon, TrayIcon } from '@phosphor-icons/react';
-import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
+import { CaretRightIcon, CpuIcon, GearSixIcon, ListIcon, RobotIcon, TrayIcon } from '@phosphor-icons/react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { useTranslations as useI18nTranslations } from '../../i18n';
 import { AgentMark, agentDisplayName } from '../components/agent-mark';
@@ -120,47 +120,104 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const hasModels = access.tabs.includes('models');
   const onModels = !!pathname && /\/admin\/models(\/|$)/.test(pathname);
   const hasSettings = access.tabs.includes('config');
+  const onAgents =
+    !!pathname &&
+    (pathname.includes('/customize/agents') ||
+      agents.some((agent) => {
+        const href = agentHref(projectId, agent.name);
+        return pathname === href || pathname.startsWith(`${href}/`);
+      }));
+
+  const [agentsOpen, setAgentsOpen] = useState(onAgents);
+
+  useEffect(() => {
+    if (onAgents) setAgentsOpen(true);
+  }, [onAgents]);
+
   const close = () => {
     if (isMobile) setOpenMobile(false);
   };
 
-  if (agents.length === 0 && !showReview && !hasModels && !hasSettings) return null;
+  const hasAgents = allAgents.length > 0;
+  if (!hasAgents && !showReview && !hasModels && !hasSettings) return null;
 
   // `mr-0 pr-0`: the rows reach the sidebar's right edge like the rows above;
   // the left indent and guide line stay.
   return (
     <SidebarMenuSub className="mr-0 pr-0">
-      {agents.map((agent) => {
-        const href = agentHref(projectId, agent.name);
-        const active = !!pathname && (pathname === href || pathname.startsWith(`${href}/`));
-        return (
-          <SidebarMenuSubItem key={agent.name}>
-            <SidebarMenuSubButton asChild isActive={active}>
-              <Link href={href} prefetch={false} onClick={close}>
+      {hasAgents ? (
+        <>
+          <SidebarMenuSubItem>
+            <SidebarMenuSubButton asChild isActive={onAgents && !agents.some((a) => pathname === agentHref(projectId, a.name))}>
+              <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
                 <RowGlyph>
-                  <AgentMark slug={agent.name} size={14} />
+                  <RobotIcon className="size-3.5" />
                 </RowGlyph>
-                <span className={cn('truncate', agent.hidden && 'text-muted-foreground')}>
-                  {agentDisplayName(agent.name)}
+                <span className="truncate">{tTabs('agents') || 'Agents'}</span>
+                <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums pr-5">
+                  {allAgents.length}
                 </span>
               </Link>
             </SidebarMenuSubButton>
+            <button
+              type="button"
+              aria-label={agentsOpen ? 'Collapse agents' : 'Expand agents'}
+              aria-expanded={agentsOpen}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setAgentsOpen((prev) => !prev);
+              }}
+              className="text-muted-foreground hover:text-sidebar-foreground absolute right-1.5 top-1/2 -translate-y-1/2 p-1 cursor-pointer transition-transform"
+            >
+              <CaretRightIcon
+                className={cn('size-3 transition-transform duration-200', agentsOpen && 'rotate-90')}
+              />
+            </button>
           </SidebarMenuSubItem>
-        );
-      })}
-      {moreAgents ? (
-        <SidebarMenuSubItem>
-          <SidebarMenuSubButton asChild isActive={!!pathname && pathname.endsWith('/customize/agents')}>
-            <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
-              <RowGlyph>
-                <ListIcon className="size-3.5" />
-              </RowGlyph>
-              <span className="truncate">{tTabs('allAgents')}</span>
-              <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">{allAgents.length}</span>
-            </Link>
-          </SidebarMenuSubButton>
-        </SidebarMenuSubItem>
+
+          {agentsOpen ? (
+            <SidebarMenuSub className="mr-0 pr-0 my-0.5">
+              {agents.map((agent) => {
+                const href = agentHref(projectId, agent.name);
+                const active = !!pathname && (pathname === href || pathname.startsWith(`${href}/`));
+                return (
+                  <SidebarMenuSubItem key={agent.name}>
+                    <SidebarMenuSubButton asChild isActive={active}>
+                      <Link href={href} prefetch={false} onClick={close}>
+                        <RowGlyph>
+                          <AgentMark slug={agent.name} size={14} />
+                        </RowGlyph>
+                        <span className={cn('truncate', agent.hidden && 'text-muted-foreground')}>
+                          {agentDisplayName(agent.name)}
+                        </span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                );
+              })}
+              {moreAgents ? (
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild isActive={!!pathname && pathname.endsWith('/customize/agents')}>
+                    <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
+                      <RowGlyph>
+                        <ListIcon className="size-3.5" />
+                      </RowGlyph>
+                      <span className="truncate">{tTabs('allAgents')}</span>
+                      <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">{allAgents.length}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ) : null}
+            </SidebarMenuSub>
+          ) : null}
+        </>
       ) : null}
+
+      {hasAgents && (showReview || hasModels || hasSettings) ? (
+        <div className="my-1 border-t border-sidebar-border/50" />
+      ) : null}
+
       {showReview ? (
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild isActive={onReview}>

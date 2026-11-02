@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isSubscriptionModel, pickerModelName, shouldShowFreeTag } from './model-tags';
+import { isSubscriptionModel, modelSourceBadge, pickerModelName, shouldShowFreeTag } from './model-tags';
 
 const model = (modelID: string, modelName: string, provider?: string) =>
   ({ modelID, modelName, provider, free: false }) as never;
@@ -49,6 +49,27 @@ describe('pickerModelName', () => {
 describe('shouldShowFreeTag is unchanged', () => {
   test('still keys off the free flag', () => {
     expect(shouldShowFreeTag({ free: true, modelID: 'a', modelName: 'b' })).toBe(true);
+  });
+});
+
+describe('modelSourceBadge', () => {
+  test('identifies OpenCode models by provider, prefix, or id', () => {
+    expect(modelSourceBadge({ modelID: 'opencode/claude-3-5', modelName: 'Claude' })).toBe('OpenCode');
+    expect(modelSourceBadge({ modelID: 'big-pickle', modelName: 'Big Pickle' })).toBe('OpenCode');
+    expect(modelSourceBadge({ modelID: 'glm-4', modelName: 'GLM', provider: 'opencode-go' })).toBe('OpenCode');
+  });
+
+  test('identifies OpenRouter models by provider, prefix, or managed slug', () => {
+    expect(modelSourceBadge({ modelID: 'openrouter/free', modelName: 'Auto' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'deepseek-v4.1-flash', modelName: 'DeepSeek V4.1 Flash' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'deepseek-v4.1-flash-free', modelName: 'DeepSeek V4.1 Flash Free' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'qwen3-coder', modelName: 'Qwen 3 Coder' })).toBe('OpenRouter');
+    expect(modelSourceBadge({ modelID: 'some-model', modelName: 'Model', provider: 'openrouter' })).toBe('OpenRouter');
+  });
+
+  test('returns null for standard BYOK providers without OpenCode/OpenRouter routing', () => {
+    expect(modelSourceBadge({ modelID: 'anthropic/claude-3-5-sonnet', modelName: 'Claude 3.5 Sonnet', provider: 'anthropic' })).toBeNull();
+    expect(modelSourceBadge({ modelID: 'openai/gpt-5.5', modelName: 'GPT-5.5', provider: 'openai' })).toBeNull();
   });
 });
 

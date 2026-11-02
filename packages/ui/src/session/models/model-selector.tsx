@@ -53,7 +53,7 @@ import {
   splitModelLabel,
 } from './model-grouping';
 import { modelInDefaultView } from '@kortix/sdk';
-import { isSubscriptionModel, pickerModelName, shouldShowFreeTag } from './model-tags';
+import { isSubscriptionModel, modelSourceBadge, pickerModelName, shouldShowFreeTag } from './model-tags';
 import { useModelConnectionGate } from './use-model-connection-gate';
 
 // Re-export for consumers
@@ -164,6 +164,7 @@ function ModelRow({
   const unavailable = model.available === false;
   const isFree = shouldShowFreeTag(model);
   const isSubscription = isSubscriptionModel(model);
+  const sourceBadge = modelSourceBadge(model);
   // Display name only — `model.modelName` still carries " (ChatGPT)" for search
   // and for the aria labels below, where there is no group heading to lean on.
   const { lead, trail } = splitModelLabel(pickerModelName(model));
@@ -222,11 +223,16 @@ function ModelRow({
       */}
       {unavailable ? (
         <Tag>{connectLabel}</Tag>
-      ) : isFree ? (
-        <Tag variant="free">{t('free')}</Tag>
-      ) : isSubscription && showSubscriptionTag ? (
-        <Tag>{t('included')}</Tag>
-      ) : null}
+      ) : (
+        <span className="flex items-center gap-1.5 shrink-0">
+          {sourceBadge ? <Tag variant="outline">{sourceBadge}</Tag> : null}
+          {isFree ? (
+            <Tag variant="free">{t('free')}</Tag>
+          ) : isSubscription && showSubscriptionTag ? (
+            <Tag>{t('included')}</Tag>
+          ) : null}
+        </span>
+      )}
 
       {/*
         ONE trailing slot, always the same 24px wide, so swapping what sits in
@@ -764,6 +770,7 @@ export function ModelSelector({
                       groupProviderID: section.id,
                       hasSearch: searching,
                       containsSelected: !!selectedInSection,
+                      totalGroups: sections.length,
                       toggled: toggledGroups,
                     });
                     // Records the flip of what is on screen, so collapsing a

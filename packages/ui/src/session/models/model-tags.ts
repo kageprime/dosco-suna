@@ -42,3 +42,50 @@ export function pickerModelName(
   // quadratically on a long space run (CodeQL js/polynomial-redos).
   return model.modelName.replace(/\(ChatGPT\)\s*$/, '').trim() || model.modelName;
 }
+
+/**
+ * Detects whether a model is served via OpenCode or OpenRouter to provide
+ * clear visual differentiation in the model selector.
+ */
+export function modelSourceBadge(
+  model: Pick<FlatModel, 'modelID' | 'modelName'> & {
+    provider?: string | null;
+    providerID?: string | null;
+    upstreamProvider?: string | null;
+    upstream_provider?: string | null;
+  },
+): 'OpenCode' | 'OpenRouter' | null {
+  const p = (model.provider || model.providerID || '').toLowerCase();
+  const id = (model.modelID || '').toLowerCase();
+  const name = (model.modelName || '').toLowerCase();
+  const upstream = (model.upstreamProvider || model.upstream_provider || '').toLowerCase();
+
+  if (
+    upstream === 'opencode' ||
+    p === 'opencode' ||
+    p === 'opencode-go' ||
+    id.startsWith('opencode/') ||
+    id.startsWith('opencode-go/') ||
+    id === 'big-pickle' ||
+    name.includes('opencode')
+  ) {
+    return 'OpenCode';
+  }
+
+  if (
+    upstream === 'openrouter' ||
+    p === 'openrouter' ||
+    id.startsWith('openrouter/') ||
+    name.includes('openrouter') ||
+    id.startsWith('deepseek') ||
+    id.startsWith('qwen') ||
+    id.startsWith('gemini') ||
+    id.startsWith('north-mini') ||
+    id.startsWith('nemotron') ||
+    id.startsWith('mimo')
+  ) {
+    return 'OpenRouter';
+  }
+
+  return null;
+}

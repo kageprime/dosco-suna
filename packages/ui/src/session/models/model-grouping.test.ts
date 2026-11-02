@@ -222,8 +222,13 @@ describe('isPickerGroupOpen', () => {
     toggled: new Map<string, boolean>(),
   };
 
-  test('a secondary group is collapsed by default', () => {
-    expect(isPickerGroupOpen(base)).toBe(false);
+  test('a secondary group is collapsed by default when total groups exceed 3', () => {
+    expect(isPickerGroupOpen({ ...base, totalGroups: 4 })).toBe(false);
+  });
+
+  test('all groups start open when total groups are 3 or fewer', () => {
+    expect(isPickerGroupOpen({ ...base, totalGroups: 2 })).toBe(true);
+    expect(isPickerGroupOpen({ ...base, totalGroups: 3 })).toBe(true);
   });
 
   test('the first group — the managed set — starts open', () => {

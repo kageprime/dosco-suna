@@ -161,33 +161,8 @@ export function managedCandidates(managed: ManagedModel): UpstreamDescriptor[] {
   // no managed credential is read if a future caller reaches this directly.
   if (!config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
 
-  // Designated free managed models: route with 0 cost and no credit deduction
+  // Designated free managed models: route with 0 cost and no credit deduction via OpenRouter Free
   if (isFreeManagedModel(managed.id)) {
-    if (config.PLATINUM_INFERENCE_API_KEY) {
-      const platinumTarget =
-        managed.id === 'deepseek-v4.1-flash-free' || managed.id === 'deepseek-v4-flash-free'
-          ? 'deepseek-v4.1-flash'
-          : managed.id === 'glm-5.3-flash-free'
-            ? 'glm-5.3-flash'
-            : managed.upstreamModelId?.includes('/')
-              ? managed.upstreamModelId.split('/')[1]
-              : managed.id;
-
-      if (platinumTarget === 'deepseek-v4.1-flash' || platinumTarget === 'glm-5.3-flash') {
-        return [{
-          provider: 'platinum',
-          kind: 'openai-compat',
-          baseUrl: config.PLATINUM_INFERENCE_URL,
-          apiKey: config.PLATINUM_INFERENCE_API_KEY,
-          billingMode: 'none',
-          markup: 0,
-          resolvedModel: platinumTarget,
-          pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-          publicProvider: 'kortix',
-        }];
-      }
-    }
-
     if (config.OPENROUTER_API_KEY) {
       return [{
         provider: 'openrouter',
@@ -196,7 +171,7 @@ export function managedCandidates(managed: ManagedModel): UpstreamDescriptor[] {
         apiKey: config.OPENROUTER_API_KEY,
         billingMode: 'none',
         markup: 0,
-        resolvedModel: managed.upstreamModelId ?? managed.id,
+        resolvedModel: managed.upstreamModelId ?? 'openrouter/free',
         pricing: { inputPerMillion: 0, outputPerMillion: 0 },
         publicProvider: 'kortix',
         headers: {

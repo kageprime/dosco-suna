@@ -115,12 +115,14 @@ export function isPickerGroupOpen(input: {
   groupProviderID: string;
   hasSearch: boolean;
   containsSelected: boolean;
+  totalGroups?: number;
   /** Open (true) or collapsed (false) by the user; absent = not toggled. */
   toggled: ReadonlyMap<string, boolean>;
 }): boolean {
   if (input.hasSearch) return true;
   const toggled = input.toggled.get(input.groupProviderID);
   if (toggled !== undefined) return toggled;
+  if (input.totalGroups !== undefined && input.totalGroups <= 3) return true;
   return input.groupIndex === 0 || input.containsSelected;
 }
 

@@ -64,6 +64,7 @@ export const PICKER_PROVIDER_ORDER = [
   'opencode',
   'anthropic',
   'openai',
+  'agentrouter',
   'github-copilot',
   'google',
   'openrouter',
@@ -72,10 +73,11 @@ export const PICKER_PROVIDER_ORDER = [
 
 /** Group titles. A copy of the @kortix/llm-catalog `PROVIDER_LABELS` entries a picker can meet; pinned by the same test. */
 export const PICKER_PROVIDER_LABELS: Record<string, string> = {
-  kortix: 'Kortix',
+  kortix: 'Dosco',
   opencode: 'OpenCode Zen',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
+  agentrouter: 'AgentRouter',
   codex: 'ChatGPT subscription',
   'github-copilot': 'GitHub Copilot',
   google: 'Google',

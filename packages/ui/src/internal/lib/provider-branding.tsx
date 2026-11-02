@@ -46,6 +46,7 @@ export const PROVIDER_NOTES: Record<string, string> = {
 const PROVIDER_ICON_MAP: Record<string, { icon: string; fallback: string }> = {
   anthropic: { icon: 'anthropic', fallback: 'AN' },
   openai: { icon: 'openai', fallback: 'OA' },
+  agentrouter: { icon: 'agentrouter', fallback: 'AR' },
   codex: { icon: 'openai', fallback: 'GPT' },
   opencode: { icon: 'opencode', fallback: 'OC' },
   'opencode-go': { icon: 'opencode', fallback: 'OC' },

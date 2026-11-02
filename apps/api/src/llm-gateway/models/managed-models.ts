@@ -234,18 +234,32 @@ const RETIRED_MANAGED_MODEL_IDS = new Set([
   'morph-glm53-744b', 'morph-dsv4flash', 'morph-kimik3',
   'morph-kimik3-fast', 'morph-dsv41flash',
   'deepseek-v4-flash-0731', 'kimi-k3-fast',
+  'deepseek-v4.1-flash-free',
+  'deepseek-v4-flash-free',
+  'mimo-v2.5-free',
+  'big-pickle',
+  'north-mini-code',
+  'nemotron-super-vl',
   // 2026-10-19: Kimi K3 left the managed lineup; its sessions move to the default.
   'kimi-k3',
 ]);
 
 const OPENROUTER_ALIASES: Record<string, string> = {
   'deepseek/deepseek-v4.1-flash': 'deepseek-v4.1-flash',
+  'deepseek-v4.1-flash-free': 'openrouter-free',
+  'deepseek-v4-flash-free': 'openrouter-free',
+  'mimo-v2.5-free': 'openrouter-free',
+  'big-pickle': 'openrouter-free',
+  'north-mini-code': 'openrouter-free',
+  'nemotron-super-vl': 'openrouter-free',
   'qwen/qwen3-coder-30b-a3b-instruct': 'qwen3-coder',
   'qwen/qwen3.7-flash': 'qwen3.7-flash',
   'google/gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
   'openrouter/free': 'openrouter-free',
-  'cohere/north-mini-code:free': 'north-mini-code',
-  'nvidia/nemotron-3.5-super-vl:free': 'nemotron-super-vl',
+  'cohere/north-mini-code:free': 'openrouter-free',
+  'nvidia/nemotron-3.5-super-vl:free': 'openrouter-free',
+  'mimo/mimo-v2.5-free': 'openrouter-free',
+  'opencode/big-pickle': 'openrouter-free',
 };
 
 /**
