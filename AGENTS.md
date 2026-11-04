@@ -109,9 +109,65 @@ corner to make sure the output is good.
 - **No brand prefixes on product surfaces.** Write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS".
 - **Company and platform identity:** Dosco or Dosco Tek. Tagline: **"Dosco Tek is the harness that powers companies that run agents."**
 - **Not open source:** Dosco is a proprietary managed product. Do not describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase.
-- **Built-in system agent is Orchestrator:** (Internal slug `mykortix`). Do not write "My Kortix" in customer-facing copy or documentation.
+- **Built-in system agent is Orchestrator ("The Orc"):** (Internal slug `mykortix`). Do not write "My Kortix" in customer-facing copy or documentation.
 - **Default workspace agent is Xera:** (Internal slug `xera`, `@xera`, `xera@dosco.live`). Do not write "kortix" as an agent name.
 - **Repository manifest is `kortix.yaml`:** Retain the technical filename for project manifests.
+
+## Dosco Sovereign Architecture: Protected Surfaces Against Upstream Divergence
+
+Dosco is not a downstream fork intended for convergence with upstream Kortix (`kortix-ai/CompanyOS`). Dosco is an independent, proprietary managed platform with its own production infrastructure.
+
+Upstream Kortix has coupled core platform operations to **Platinum** (proprietary Cloud Hypervisor microVMs, Platinum Volumes, Platinum inference, and regional microVM clusters), and regularly deprecates or removes alternative providers. **Dosco does not use Platinum as a required dependency.**
+
+Every agent working in this repository MUST strictly protect and never delete or disable the following sovereign surfaces during edits, refactors, or upstream merges:
+
+### 1. Sandbox Execution: E2B Provider
+- **Production requirement**: Dosco runs in production on a Heroku container stack where Docker-in-Docker is unavailable. **E2B is Dosco's live cloud sandbox provider.**
+- **Never delete or deprecate**:
+  - `apps/api/src/platform/providers/e2b.ts` and `apps/api/src/platform/providers/e2b-domain.ts`
+  - `apps/api/src/snapshots/providers/e2b.ts` and `e2b-build-conflict.ts`
+- **Configuration & Types**:
+  - `KNOWN_PROVIDERS` and `SandboxProviderName` in `apps/api/src/config.ts` must ALWAYS include `'e2b'`.
+  - `apps/api/src/platform/providers/contract.ts` `ProviderName` must include `'e2b'`.
+  - `apps/api/src/config.ts` must declare and validate `E2B_API_KEY`, `E2B_DOMAIN`, `E2B_TEMPLATE`, and `E2B_WEBHOOK_SECRET`.
+  - Server boot validation in `validateEnv()` must NEVER require Platinum credentials when `ALLOWED_SANDBOX_PROVIDERS` is set to `e2b`.
+
+### 2. Drive & Volume Storage: Decoupled Provider Pattern
+- **Production requirement**: Dosco stores files and persistent workspace drives using **Supabase Storage** (or S3-compatible object stores), not Platinum Volumes.
+- **Provider architecture**:
+  - Core interface lives in `apps/api/src/drives/storage/provider.ts` (`DriveStorageProvider`).
+  - Active implementations: `SupabaseDriveStorage` (`apps/api/src/drives/storage/supabase-storage.ts`) and `PlatinumDriveStorage` (`platinum-storage.ts`).
+  - Storage availability helper: `driveStorageAvailable()` in `apps/api/src/drives/volumes.ts` checks both Platinum and Supabase Storage credentials (`config.SUPABASE_URL` && `config.SUPABASE_SERVICE_ROLE_KEY`).
+- **Never lock to Platinum**:
+  - Upstream frequently hardcodes `if (!isPlatinumConfigured())` checks on drive operations.
+  - Project serializers (`apps/api/src/projects/lib/serializers.ts`), feature flags (`feature-flag-env.ts`), memory turns (`turn-start.ts`), and volume routes MUST use `driveStorageAvailable()`, NEVER `isPlatinumConfigured()`.
+
+### 3. LLM Gateway & Inference: OpenRouter & BYOK
+- **Production requirement**: Dosco powers managed agent models through **OpenRouter** and designated zero-cost models, not Platinum Inference.
+- **Protected catalogs**:
+  - `apps/api/src/llm-gateway/models/free-models.ts` (`openrouter-free` / `openrouter/free`).
+  - `apps/api/src/llm-gateway/models/managed-models.ts` (`DEFAULT_OPENROUTER_MANAGED_MODELS`).
+  - `apps/api/src/llm-gateway/resolution/descriptors.ts` candidate routing must preserve OpenRouter execution when `PLATINUM_INFERENCE_API_KEY` is not configured.
+
+### 4. Deployment Pipeline: Heroku Container & Vercel Frontend
+- **API Runtime (`apps/api`)**:
+  - Built via root `Dockerfile.heroku` and deployed to Heroku container dynos (`web.1` Standard-2X, `worker.1` Standard-1X).
+  - Heroku Common Runtime limits images to $\le 40$ layers. Keep the final runner stage of `Dockerfile.heroku` at or below **32 instructions**.
+  - `SANDBOX_AGENT_BUN_VERSION=1.4.3` is required to parse Bun lockfile version 3.
+  - Deploy branch is `heroku-clean`, deployed to `https://git.heroku.com/dosco.git main`.
+- **Frontend (`apps/web`)**:
+  - Deployed to Vercel project `dosco` (`dosco.live` / `dosco-virid.vercel.app`).
+  - Root directory is `apps/web`.
+
+### 5. Mandatory Upstream Merge Guard
+When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/suna`):
+1. **Never merge upstream directly into `heroku-clean`**. Always merge into an isolated sync branch first.
+2. **Review diff against protected surfaces**:
+   - Verify `e2b.ts` and E2B references were not deleted or stripped.
+   - Verify `driveStorageAvailable()` was not replaced with `isPlatinumConfigured()`.
+   - Verify `Dockerfile.heroku` was not overwritten.
+   - Verify Dosco brand rules and "The Orc" naming were preserved.
+3. **Mandatory gate**: Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts` before committing any upstream sync. If it fails, fix the regression immediately.
 
 ## Skills live in `.agents/skills/`
 
