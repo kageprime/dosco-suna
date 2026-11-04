@@ -45,7 +45,7 @@ import { normalizeProjectGlyph } from './project-glyph';
 import { normalizeProjectIcon } from './project-icon';
 import { probeProjectSecret } from '../secrets/envelope';
 import { isDeprecatedProvider } from '../../platform/providers/deprecated';
-import { isPlatinumConfigured } from '../../shared/platinum';
+import { driveStorageAvailable } from '../../drives/volumes';
 
 export const CODEX_AUTH_JSON_SECRET_NAME = 'CODEX_AUTH_JSON';
 
@@ -367,8 +367,8 @@ export function serializeProject(
       connectors_api_discover: true,
       meta_agent: true,
       warm_sessions: false,
-      volumes: isPlatinumConfigured(),
-      drives: isPlatinumConfigured(),
+      volumes: driveStorageAvailable(),
+      drives: driveStorageAvailable(),
     },
     experimental_features: buildFeatureFlagCatalog(row.metadata),
     // Per-project sandbox-provider override (Customize → Settings). `default_sandbox_provider`

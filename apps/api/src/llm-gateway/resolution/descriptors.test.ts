@@ -228,7 +228,7 @@ describe('managed models: one Platinum inference candidate', () => {
         apiKey: 'sk-or-test-managed',
         billingMode: 'none',
         markup: 0,
-        resolvedModel: deepseek!.id,
+        resolvedModel: 'deepseek-v4.1-flash',
         pricing: deepseek!.pricing,
         publicProvider: 'kortix',
         headers: {

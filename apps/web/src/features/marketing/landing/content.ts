@@ -19,11 +19,11 @@ import type { UiTranslator } from '@/i18n/translator';
  * (features/marketing/hero.tsx); every other page has its own content module.
  */
 export const hero = {
-  title: 'The cloud platform where AI agents get work done.',
-  sub: 'Spin up agents that code, operate and ship — supervised from one place.',
+  title: 'The production harness for autonomous agent teams.',
+  sub: 'Give AI agents persistent workstations, real cloud computers, and access to company tools. Hand them an outcome — they execute and deliver work for human review.',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',
-  trust: 'Any model, your keys · Managed cloud · Built by AltMatter',
+  trust: 'Any model, your keys · Isolated cloud sandboxes · Governed review',
 } as const;
 
 /** The eyebrow renders as a row with the two competitor marks, so its parts
@@ -31,7 +31,7 @@ export const hero = {
  *  20,000+ GitHub stars — cite that number if the claim is ever challenged.
  *  Never add "better"; extensibility belongs in the sub, as a fact. */
 export const heroEyebrow = {
-  lead: 'The agentic OS that replaces',
+  lead: 'The model-agnostic harness replacing',
   rivals: [
     { id: 'cowork', icon: 'Claude', label: 'Claude Cowork' },
     { id: 'chatgpt-work', icon: 'OpenAI', label: 'ChatGPT Work' },
@@ -41,15 +41,15 @@ export const heroEyebrow = {
 /** Closing CTA. Same block the page has always ended with. */
 export const cta = {
   badge: 'Get started',
-  title: 'Run your whole company from one repo you own.',
+  title: 'Empower your company with agents that deliver finished work.',
   // ONE IDEA ONLY. This line is the invitation, nothing else. Pricing, hosting
   // and channels each pulled the reader somewhere different and belong on their
   // own pages. If a price ever comes back here it must match
   // `features/billing/pricing-plans.ts` (credits, any monthly amount from $20)
   // — an earlier price here was wrong by 2x.
   sub: 'Start with one job and grow from there.',
-  subtitle: 'Start today, in our cloud or yours.',
-  trust: 'SSO, RBAC & audit · Any model, your keys · No lock-in',
+  subtitle: 'Start today with real cloud compute and persistent drives.',
+  trust: 'SSO, RBAC & audit · Any model, your keys · No seat tax',
   ctaPrimary: 'Get started',
   ctaSecondary: 'Request demo',
 } as const;

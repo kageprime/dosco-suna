@@ -1,6 +1,6 @@
 # Positioning
 
-What Kortix is, who it is for, what it is against, and which line to use on which surface. Read this
+What Dosco Tek is, who it is for, what it is against, and which line to use on which surface. Read this
 before you write any headline, meta description, store listing, README line, or pitch. For the
 words inside the lines, read `voice-and-tone.md`. For what you may claim, read `claims.md`.
 
@@ -10,58 +10,58 @@ Rule format: **Rule.** — *Why:* — *Where:* — *When silent:*.
 
 | Layer | Line | Use for |
 | --- | --- | --- |
-| Category | CompanyOS (full name: Kortix CompanyOS) | What Kortix is. The default noun everywhere. |
-| Tagline | The open-source CompanyOS | Page titles, hero, README, CLI banner, GitHub About. The default lead. Never directly under a heading that already says "Kortix CompanyOS" (D30). |
-| Comparative | The leading open-source alternative to Claude Cowork and ChatGPT Work | Search, social, launch, GitHub. Anchors against the known category. |
-| Manifesto line | A company is going to be a git repository | The deep thesis. Manifesto, founder voice, vision talks. Never a page title. |
-| Mission | Take a company from human to AGI, and let it keep every byte of itself on the way there. | Founder voice, about, hiring. Never a category. |
-| Promise | Hand it an outcome, AI agents run it 24/7 | What Kortix does for a company, beside what it is (D18, D29). The Outcomes section header, pitches. Not the home hero subhead since D35. Never a page title. |
-| Positioning line | The cloud-native agent harness for companies | What Kortix is underneath (D35). Home hero subhead, README tagline, docs index, Guide and Developers intros. The name stays CompanyOS; this line defines it. |
+| Category | CompanyOS | What the platform is. The default noun on surfaces. |
+| Tagline | Dosco Tek is the harness that powers companies that run agents. | Page titles, hero, README, CLI banner. The default lead. |
+| Comparative | The model-agnostic alternative to Claude Cowork and ChatGPT Work | Search, social, launch, marketing. Anchors against the known category without model lock-in. |
+| Promise | Hand it an outcome, AI agents run it 24/7 | What Dosco does for a company: the Outcomes header, pitches. Never a page title. |
+| Positioning line | The production harness for autonomous agent teams | Home hero subhead, README tagline, docs index, Developers intros. |
 
-**Rule.** Use "CompanyOS" as the category and "The open-source CompanyOS" as the tagline. — *Why:* D28 (2026-10-29, founder) renames the category from "AI Operating System" to CompanyOS; D10 (2026-10-04) set the operating-system idea. An operating system is the layer everything else runs on: agents, skills, memory, connectors, computers, channels and triggers. The phrase names that layer, and it scales from one person to a company. — *Where:* app | marketing | mobile | deck | email | CLI | GitHub. — *When silent:* use the tagline in titles and the category noun in sentences.
+**Rule.** Use "CompanyOS" as the category and "Dosco Tek is the harness that powers companies that run agents" as the tagline. — *Why:* Dosco Tek powers companies running agents by providing real persistent workstations (Drives + cloud sandboxes), multi-app connectors, and governed change requests. — *Where:* app | marketing | mobile | deck | email | CLI. — *When silent:* use the tagline in titles and the category noun in sentences.
 
-**Rule.** Write the product name as "Kortix CompanyOS" and the category as "CompanyOS": one word, capital C and capital OS. Spell "Kortix CompanyOS" first on a page, then "CompanyOS" may follow. A label, a nav item, a chip or a headline with no room may use "CompanyOS" alone. — *Why:* D28. One concept, two lengths, no third. — *Where:* every surface. — *When silent:* the full name. Never write "AI Operating System", "AI OS", "AIOS", "Company OS", "Company-OS" or "the OS" alone.
+**Rule.** No brand prefixes on product surfaces. Write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS". Company identity is Dosco or Dosco Tek. — *Why:* Brand consistency across UI surfaces. — *Where:* every surface.
 
-**Rule.** Use "command center" only as a descriptor inside a sentence. Never use it as the category, the page title, the meta line, or the tagline. — *Why:* D1, D10. The live site once shipped "AI command center" as the title, meta description, manifest name, Slack app, auth tagline and the starter `kortix-system` skill. It competes with the category line. The manifesto uses it as a descriptor ("call it a CompanyOS"), and that use stays. — *Where:* marketing | app | email | CLI. — *When silent:* write "CompanyOS". If the sentence still needs a descriptor, write "a place to run it from".
+**Rule.** Dosco is a proprietary managed platform. Never describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase. — *Why:* Dosco is a managed commercial product. — *Where:* every surface.
 
-**Rule.** Do not write these retired lines: "Autonomous Company Operating System", "open AGI platform", "self-driving companies", "AI Worker", "Super AI Worker", "AI command center" (as category), "genius colleague". — *Why:* D1, D10. "Autonomous Company Operating System" stays retired: the word "Autonomous" claims autonomy that a change request gate contradicts. "Operating System" itself is the category now. Each other line either claims a category Kortix does not hold, implies autonomy that a change request gate contradicts, or is legacy Suna copy. — *Where:* every surface, including store listings, permission prompts, email footers and blog posts. — *When silent:* find the closest line in the table above. If none fits, flag it and ask. Do not invent a new category line.
+**Rule.** Built-in system agent is Orchestrator (nickname: "The Orc", internal slug `mykortix`). Default workspace agent is Xera (`xera`, `@xera`, `xera@dosco.live`). Never write "kortix" or "My Kortix" as customer-facing agent names. — *Why:* Canonical agent identity. — *Where:* every surface.
 
-**Rule.** Keep "CompanyOS" capitalized as a proper category name. Keep "open-source" hyphenated before a noun and "open source" two words as a noun. — *Why:* One spelling per term. The README and hero use this form. — *Where:* every surface. — *When silent:* "the open-source CompanyOS" (adjective); "Kortix is open source" (noun).
+**Rule.** Position for a dual audience:
+1. **Technical Teams (Engineering & DevOps)**: Cloud sandboxes with root/bash access, automated bug triage, error log sweeps, headless browser testing, and git change requests.
+2. **General Business Operations**: Autonomous cross-tool loops (lead enrichment, financial ledger reconciliation, document verification, weekly ops reporting) across Slack, Google Workspace, Linear, Notion, and Apollo. — *Why:* The platform serves both developers automating software cycles and business operators running recurring workflows. — *Where:* marketing | solutions | deck.
 
-**Rule.** Do not name a license in public copy. Write "open source" and stop. — *Why:* The license is a legal detail that changes the claim. Public copy states the fact a reader can verify: they can read, fork and audit the code. — *Where:* marketing | deck | social | email | docs | store listing. — *When silent:* "open source", "code you can read, fork, and audit", "self-host for free". Never add a license badge.
+**Rule.** Use "command center" only as a descriptor inside a sentence. Never use it as the category, the page title, the meta line, or the tagline. — *Where:* marketing | app | email | CLI. — *When silent:* write "CompanyOS".
 
-**Rule.** Say what Kortix does for a company with the Promise line: "Hand it an outcome, AI agents run it 24/7", and its mechanism, the outcome loop (you state the outcome, an agent owns and plans it, agents do the work on their own computers at any hour, a separate agent verifies it and changes land through a change request, the agents learn). The loop is built from shipped parts (triggers, sessions, change requests, memory): present it as working today, with no early-access label (founder, 2026-10-27). — *Why:* D18 (2026-10-27, founder). The sovereign category line says what Kortix is; buyers also need what it does for them. — *Where:* marketing | deck | social | sales. — *When silent:* "agents" and "AI-native operating system for your company". Never "AI workers", "AI employees", "self-driving company" or "autonomous company": those are retired or imply no human gate, and every loop has approval rules a person sets.
+**Rule.** Do not write these retired lines: "The open-source CompanyOS", "open AGI platform", "self-driving companies", "AI Worker", "Super AI Worker", "AI command center" (as category), "genius colleague", "self-host for free". — *Why:* Retired positioning. — *Where:* every surface.
 
 ### What-is, in one sentence
 
-Kortix is the open-source CompanyOS: your agents, their skills, your company memory, and every connector in one git repo you own, with the agents working on real cloud computers.
+Dosco Tek is the harness that powers companies that run agents: persistent workstations, cloud computers, company connectors, and memory, delivering finished work through change requests you review.
 
 ### The three lengths
 
-**Rule.** Pick one of three approved lengths. Do not write a fourth. — *Why:* The lengths keep meta text, README and press consistent. The Short line is exactly 128 characters (counted 2026-10-04). — *Where:* marketing | docs | store listing | CLI package descriptions. — *When silent:* choose by the character limit of the field.
+**Rule.** Pick one of three approved lengths. Do not write a fourth. — *Why:* The lengths keep meta text, README and press consistent.
 
-- **Short (128 characters, GitHub About, meta description, manifest description, package descriptions):** Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.
-- **Standard (about 30 words, README subtitle, landing subhead, store subtitle):** Kortix is an open-source CompanyOS — your agents, skills, company memory, and connectors in one git repo you own. Any model, your keys, self-hosted or managed cloud.
-- **Long (about 70 words, press, docs, about, store description lead):** Agents that deliver finished work are now a product category. Every version of it runs inside a model lab, on that lab's model, with your company's brain on their side of the wall. Kortix is the one you own: an open-source CompanyOS where your agents, skills, memory, and connectors live in one git repo, and the agents work on real cloud computers, landing work through a change request a human approves.
+- **Short (128 characters, meta description, manifest description, package descriptions):** Dosco Tek: the production harness for autonomous agent teams. Persistent workstations, real cloud computers, governed review.
+- **Standard (about 30 words, README subtitle, landing subhead, store subtitle):** Dosco Tek is the harness that powers companies that run agents — persistent cloud workstations, company connectors, and governed change requests across technical and business operations.
+- **Long (about 70 words, press, docs, about, store description lead):** Agents that deliver finished work are now a product category. Most run inside a single model lab, locked to that lab's model, with no persistent disk across tasks. Dosco Tek is the harness that powers companies that run agents: persistent Drives, isolated cloud sandboxes, multi-model choice, and company tool connectors, landing finished work through change requests a human reviews.
 
 ### Which line goes on which surface
 
 | Surface | Line | Note |
 | --- | --- | --- |
-| Page `<title>` and `og:title` (home) | Tagline: "Kortix CompanyOS – the open-source operating system for your company" | Brand name once. |
-| Page `<title>` (subpage) | "Pricing" (the template adds "| Kortix") | Do not repeat "Kortix" in the page's own title. Today titles read "Kortix pricing \| Kortix". |
+| Page `<title>` and `og:title` (home) | Tagline: "Dosco – The harness that powers companies that run agents" | Brand name once. |
+| Page `<title>` (subpage) | "Pricing" (the template adds "| Dosco") | Do not repeat "Dosco" in the page's own title. |
 | Meta description (home, manifest, Slack app short text) | Short | 128 characters. |
 | Meta description (subpage) | One sentence: the mechanism or the offer. 155 characters or fewer. | Not "Current plans and included features." |
-| PWA manifest `name` | "Kortix" | `description` = Short. |
-| README, GitHub About | Tagline (README) and Short (About) | Already correct. |
-| CLI banner and `--help` | Tagline | Already correct. |
-| Auth screen subtitle | None | The heading "Welcome to Kortix CompanyOS" stands alone (D30). A branded self-host instance shows its own product name there. |
-| Transactional email footer | "Kortix CompanyOS – the open-source operating system for your company" | Shipped since 2026-10-01 (`BRAND_FOOTER`). |
+| PWA manifest `name` | "Dosco" | `description` = Short. |
+| README, GitHub About | Tagline (README) and Short (About) | Aligned. |
+| CLI banner and `--help` | Tagline | Aligned. |
+| Auth screen subtitle | None | The heading "Welcome to Dosco" stands alone. |
+| Transactional email footer | "Dosco – The harness that powers companies that run agents" | Brand footer. |
 | Slack and Teams app description | Standard, then one sentence on the channel | "Start a session from any Slack thread." |
-| Package descriptions (root, CLI, SDK) | Short (root, CLI); "the Kortix API" (SDK) | Not "agent platform". |
-| App Store and Play Store listing | Standard, the message house pillars, the three work modes | Commit the store text to the repo (open issue). |
-| Docs landing | Meta description: Short. Body lead: Standard | Docs title is "Overview" or "Kortix docs", never "Kortix - Kortix". |
-| About page: hero and meta description, `llms.txt` About entry | Mission, word for word (section 3) | The one place the mission is a description. Do not repeat the tagline there (Q41). |
+| Package descriptions (root, CLI, SDK) | Short (root, CLI); "the Dosco API" (SDK) | Clear descriptor. |
+| App Store and Play Store listing | Standard, the message house pillars, the three work modes | Store text. |
+| Docs landing | Meta description: Short. Body lead: Standard | Docs title is "Overview" or "Dosco docs". |
+| About page: hero and meta description, `llms.txt` About entry | Mission, word for word (section 3) | The one place the mission is a description. |
 
 **Rule.** Write each page's meta description as one sentence that names the mechanism or the offer, in 155 characters or fewer. — *Why:* The live home description is 277 characters. `/pricing` and `/enterprise` carry generic lines. A reader and a search crawler both need the concrete thing. — *Where:* marketing | docs. — *When silent:* "{Who} can {do what} with {mechanism}." Example: "Free to start, credits from $20 a month for teams, custom for Enterprise. Any model, your keys."
 

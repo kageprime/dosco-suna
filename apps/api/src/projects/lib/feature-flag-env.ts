@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { resolveFeatureFlags } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
-import { isPlatinumConfigured } from '../../shared/platinum';
+import { driveStorageAvailable } from '../../drives/volumes';
 
 /**
  * Read by kortixd (lib/config/feature-flags.ts) and the CLI (feature-flags.ts): the project's
@@ -30,7 +30,7 @@ export function featureFlagsEnvValue(metadata: unknown): string {
   const flags = Object.entries(resolveFeatureFlags(metadata))
     .filter(([, on]) => on)
     .map(([key]) => key);
-  return [...flags, ...LEGACY_IMAGE_FLAGS, ...(isPlatinumConfigured() ? DRIVE_FLAGS : [])].sort().join(',');
+  return [...flags, ...LEGACY_IMAGE_FLAGS, ...(driveStorageAvailable() ? DRIVE_FLAGS : [])].sort().join(',');
 }
 
 export async function buildFeatureFlagSandboxEnv(projectId: string): Promise<Record<string, string>> {

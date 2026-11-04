@@ -44,7 +44,7 @@ import { MEMORY_TURN_SYSTEM_MAX_CHARS } from '@kortix/api-contract';
 import { isMemoryTurnRoute, memoryChannelsOn, withMemoryTurn, withoutClientSystem } from '../../memory/turn-body';
 import { isMyKortixAgentName } from '@kortix/shared';
 import { logger } from '../../lib/logger';
-import { isPlatinumConfigured } from '../../shared/platinum';
+import { driveStorageAvailable } from '../../drives/volumes';
 import { missingClaudeSubscription, sessionModelPin } from '../../projects/surface';
 import type { ForwardRequest, ForwardState } from './context';
 
@@ -376,7 +376,7 @@ async function addMemoryTurnLayers(req: ForwardRequest, state: ForwardState): Pr
   try {
     // My Kortix: the prompter's own memory index (kortix_memory), every turn, with Files on.
     if (isMyKortixAgentName(req.record.agentName)) {
-      if (!isPlatinumConfigured()) return;
+      if (!driveStorageAvailable()) return;
       const { myKortixMemoryTurn } = await import('../../memory/my-memory');
       const turn = await myKortixMemoryTurn(req.record.projectId, sessionId, req.userId);
       if (turn) state.requestBody = withMemoryTurn(state.requestBody, turn);

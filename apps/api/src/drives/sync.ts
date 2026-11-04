@@ -7,6 +7,8 @@
 // was given, as recorded on its sandbox row.
 
 import { config } from '../config';
+import { isPlatinumConfigured } from '../shared/platinum';
+import { driveStorageAvailable } from './volumes';
 import type { RecordedDriveMount } from './service';
 
 /** The box env var that turns the daemon's drive sync on. */
@@ -22,7 +24,9 @@ export const DRIVE_SYNC_METADATA_KEY = 'driveSync';
  */
 export function driveSyncEnabled(): boolean {
   const raw = (config.KORTIX_DRIVES_SYNC ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'on' || raw === 'true' || raw === 'yes';
+  if (raw === '0' || raw === 'off' || raw === 'false' || raw === 'no') return false;
+  if (raw === '1' || raw === 'on' || raw === 'true' || raw === 'yes') return true;
+  return !isPlatinumConfigured() && driveStorageAvailable();
 }
 
 export function isDriveSyncBox(row: { provider: string; metadata: unknown } | null | undefined): boolean {

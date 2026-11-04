@@ -9,77 +9,42 @@ import { db } from '../shared/db';
 import { isPlatinumConfigured, platinumFetch, platinumRegionControlPlane } from '../shared/platinum';
 import { DEFAULT_SANDBOX_MOUNT_LIMIT } from './access';
 import { parseVolumeWriteCommit, type VolumeWriteCommit } from './volume-commit';
-import { getSupabase } from '../shared/supabase';
 import { config } from '../config';
+import {
+  type DriveStorageStatus,
+  type DriveLimitDetail,
+  DriveStorageError,
+  legacyDriveStatus,
+  GIB,
+  formatBytes,
+  type DriveVolume,
+  type VolumeInfo,
+  type VolumeEntry,
+  type VolumeFileStat,
+  type VolumeCommit,
+  type VolumeMount,
+  type PlatinumMountLimits,
+  type SandboxVolumeMount,
+} from './storage/contract';
+import { supabaseDriveStorage } from './storage/supabase';
 
 export { parseVolumeWriteCommit, type VolumeWriteCommit } from './volume-commit';
-
-/** The statuses a storage failure answers with. */
-export type DriveStorageStatus = 400 | 403 | 404 | 409 | 413 | 422 | 429 | 503;
-
-/**
- * The numbers of a limit refusal, as every refusal of a limit carries them
- * (Platinum's shape, drives/limits.ts the same): which limit, its value, what
- * is used and what the request asked for. A number nobody knows is left out.
- */
-export interface DriveLimitDetail {
-  limit: string;
-  max?: number;
-  used?: number;
-  requested?: number;
-  /** The folder a folder-mount refusal is about. */
-  path?: string;
-}
-
-/** A storage failure the drive routes turn into a response. `message` is user-facing. */
-export class DriveStorageError extends Error {
-  constructor(
-    readonly status: DriveStorageStatus,
-    message: string,
-    readonly code?: string,
-    /** A limit refusal's numbers, sent in the response body beside `code`. */
-    readonly detail?: DriveLimitDetail,
-    /** For a 429: seconds before the same request may be sent again (`Retry-After`). */
-    readonly retryAfterSeconds?: number,
-  ) {
-    super(message);
-    this.name = 'DriveStorageError';
-  }
-}
-
-/**
- * The status a route that predates the limit refusals answers (artifacts,
- * memory): the statuses it always had. A limit refusal reads as it did before
- * them: storage full 409, too large 413, busy 503.
- */
-export function legacyDriveStatus(err: DriveStorageError): 400 | 404 | 409 | 413 | 503 {
-  switch (err.status) {
-    case 403:
-      return 409;
-    case 422:
-      return 413;
-    case 429:
-      return 503;
-    default:
-      return err.status;
-  }
-}
-
-const GIB = 1024 ** 3;
-
-/** `10 GB`, `512 MB`, `3.4 KB`: binary units, one decimal under 10. Server messages only; the apps format their own. */
-export function formatBytes(bytes: number): string {
-  const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
-  let value = Math.max(0, bytes);
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  if (unit === 0) return `${Math.round(value)} bytes`;
-  const shown = value < 10 ? Math.round(value * 10) / 10 : Math.round(value);
-  return `${shown} ${units[unit]}`;
-}
+export {
+  type DriveStorageStatus,
+  type DriveLimitDetail,
+  DriveStorageError,
+  legacyDriveStatus,
+  GIB,
+  formatBytes,
+  type DriveVolume,
+  type VolumeInfo,
+  type VolumeEntry,
+  type VolumeFileStat,
+  type VolumeCommit,
+  type VolumeMount,
+  type PlatinumMountLimits,
+  type SandboxVolumeMount,
+};
 
 /** Platinum's refusal body: `{error, code, limit?, max?, used?, requested?, path?, bytes?, max_bytes?}`. */
 interface PlatinumRefusal {
@@ -169,74 +134,6 @@ export function driveStorageAvailable(): boolean {
   return isPlatinumConfigured() || Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-const DRIVES_BUCKET = 'drives';
-let drivesBucketChecked = false;
-
-async function getDrivesStorage() {
-  const supabase = getSupabase();
-  if (!drivesBucketChecked) {
-    await supabase.storage.createBucket(DRIVES_BUCKET, { public: false }).catch(() => null);
-    drivesBucketChecked = true;
-  }
-  return supabase.storage.from(DRIVES_BUCKET);
-}
-
-function volumeStorageKey(volume: DriveVolume, path: string): string {
-  const norm = path.startsWith('/') ? path : `/${path}`;
-  return `${volume.name}${norm}`.replace(/^\/+/, '');
-}
-
-interface PendingUpload {
-  volume: DriveVolume;
-  plan: { files: Array<{ path: string; size: number; blocks: string[] }>; overwrite: boolean };
-  blocks: Map<string, Uint8Array<ArrayBuffer>>;
-  createdAt: number;
-}
-const pendingUploads = new Map<string, PendingUpload>();
-
-async function listSupabaseFiles(
-  volume: DriveVolume,
-  folderPath: string,
-  recursive: boolean,
-): Promise<VolumeEntry[]> {
-  const bucket = await getDrivesStorage();
-  const results: VolumeEntry[] = [];
-  const startPath = folderPath === '/' ? '' : (folderPath.startsWith('/') ? folderPath : `/${folderPath}`);
-  const queue = [startPath];
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    const prefix = (current ? `${volume.name}${current}` : volume.name).replace(/^\/+/, '').replace(/\/+$/, '');
-    const { data, error } = await bucket.list(prefix, { limit: 1000 });
-    if (error || !data) continue;
-
-    for (const item of data) {
-      const itemPath = `${current}/${item.name}`;
-      if (item.id === null) {
-        // Directory
-        results.push({
-          path: itemPath,
-          type: 'dir',
-          size: 0,
-          mtime: 0,
-        });
-        if (recursive) {
-          queue.push(itemPath);
-        }
-      } else {
-        // File
-        results.push({
-          path: itemPath,
-          type: 'file',
-          size: Number(item.metadata?.size ?? 0),
-          mtime: Date.parse(item.updated_at ?? item.created_at ?? '') || 0,
-        });
-      }
-    }
-  }
-  return results;
-}
-
 const FILE_TIMEOUT_MS = 5 * 60_000;
 /** Re-sends of a write Platinum refused with 429 transfer_limit_exceeded. */
 const TRANSFER_RETRIES = 3;
@@ -244,25 +141,6 @@ const TRANSFER_RETRIES = 3;
 export const FILE_CHANGED_MESSAGE = 'This file changed since you opened it. Reload it to see the latest version, then save again.';
 
 export const DRIVE_MOVING_MESSAGE = 'These files are moving to another region. Try again in a minute.';
-
-/**
- * A drive's volume as every storage call addresses it. Platinum volumes
- * belong to the control plane that created them: the global origin answers
- * `409 volume_in_other_region` for a volume of another region, for reads and
- * opens alike. So every call goes to the volume's own region.
- */
-export interface DriveVolume {
-  name: string;
-  /** The Platinum region it lives in; null = the home region (PLATINUM_API_URL). */
-  region: string | null;
-  /** A region move is copying it (drives/region-move.ts): every write is refused. */
-  moving?: boolean;
-  /**
-   * An operator's volume outside a drive row's life: a move's target, the
-   * purge, the deletion queue. Its writes skip the write fence.
-   */
-  unfenced?: true;
-}
 
 /**
  * The write fence, checked when a write is sent, not when the caller read the
@@ -393,21 +271,15 @@ async function callJson<T>(volume: DriveVolume | null, path: string, init: Reque
 
 const v = (volume: DriveVolume) => `/v1/volumes/${encodeURIComponent(volume.name)}`;
 
-export interface VolumeInfo {
-  id: string;
-  logical_bytes: number;
-  file_count: number;
-  last_commit_at: string | null;
-  head_commit_id?: string | null;
-  size_limit_bytes?: number | null;
-}
-
 /**
  * What one folder holds, summed the way a folder mount sums it
  * (`GET /v1/volumes/:v/files/usage?path=`, #2422; Platinum caches it per
  * commit). Null on a Platinum without the route or for a missing folder.
  */
 export async function volumeFolderUsage(volume: DriveVolume, path: string): Promise<{ bytes: number; complete: boolean } | null> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.volumeFolderUsage(volume, path);
+  }
   try {
     const r = await callJson<{ bytes?: number; complete?: boolean }>(volume, `${v(volume)}/files/usage?${new URLSearchParams({ path })}`, {
       signal: AbortSignal.timeout(10_000),
@@ -430,13 +302,7 @@ export function isMissingVolume(err: unknown): boolean {
  */
 export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
   if (!isPlatinumConfigured()) {
-    await getDrivesStorage();
-    return {
-      id: volume.name,
-      logical_bytes: 0,
-      file_count: 0,
-      last_commit_at: new Date().toISOString(),
-    };
+    return supabaseDriveStorage.openVolume(volume, signal);
   }
   try {
     const info = await callJson<VolumeInfo & { region?: string }>(volume, v(volume), {
@@ -461,34 +327,16 @@ export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal)
 
 export async function getDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
   if (!isPlatinumConfigured()) {
-    return {
-      id: volume.name,
-      logical_bytes: 0,
-      file_count: 0,
-      last_commit_at: new Date().toISOString(),
-    };
+    return supabaseDriveStorage.getVolume(volume, signal);
   }
   return callJson<VolumeInfo>(volume, v(volume), signal ? { signal } : {});
 }
 
 export async function deleteDriveVolume(volume: DriveVolume): Promise<void> {
   if (!isPlatinumConfigured()) {
-    const entries = await listSupabaseFiles(volume, '/', true);
-    const keys = entries.filter((e) => e.type === 'file').map((e) => volumeStorageKey(volume, e.path));
-    if (keys.length > 0) {
-      const bucket = await getDrivesStorage();
-      await bucket.remove(keys);
-    }
-    return;
+    return supabaseDriveStorage.deleteVolume(volume);
   }
   await call(volume, `${v(volume)}?missing_ok=true`, { method: 'DELETE' });
-}
-
-export interface VolumeEntry {
-  path: string;
-  type: 'file' | 'dir' | 'symlink';
-  size: number;
-  mtime: number;
 }
 
 export async function listVolumeFiles(
@@ -499,7 +347,7 @@ export async function listVolumeFiles(
   at?: string,
 ): Promise<VolumeEntry[]> {
   if (!isPlatinumConfigured()) {
-    return listSupabaseFiles(volume, path, recursive);
+    return supabaseDriveStorage.listVolumeFiles(volume, path, recursive, signal, at);
   }
   const q = new URLSearchParams({ path, recursive: String(recursive), limit: '10000', ...(at ? { at } : {}) });
   const r = await callJson<{ entries: VolumeEntry[] }>(volume, `${v(volume)}/files?${q}`, signal ? { signal } : {});
@@ -509,55 +357,7 @@ export async function listVolumeFiles(
 /** A file's bytes; `at` reads it as it was at that commit. */
 export async function readVolumeFile(volume: DriveVolume, path: string, range?: string, at?: string): Promise<Response> {
   if (!isPlatinumConfigured()) {
-    const key = volumeStorageKey(volume, path);
-    const bucket = await getDrivesStorage();
-    const { data, error } = await bucket.download(key);
-    if (error || !data) {
-      throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
-    }
-    const arrayBuffer = await data.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const total = bytes.byteLength;
-
-    if (range && range.startsWith('bytes=')) {
-      const parts = range.slice(6).split('-');
-      const startStr = parts[0];
-      const endStr = parts[1];
-      let start = startStr ? parseInt(startStr, 10) : 0;
-      let end = endStr ? parseInt(endStr, 10) : total - 1;
-      if (isNaN(start)) {
-        start = Math.max(0, total - (parseInt(endStr, 10) || 0));
-        end = total - 1;
-      }
-      if (start >= total || start > end) {
-        return new Response(null, {
-          status: 416,
-          headers: { 'Content-Range': `bytes */${total}` },
-        });
-      }
-      end = Math.min(end, total - 1);
-      const sliced = bytes.subarray(start, end + 1);
-      return new Response(sliced, {
-        status: 206,
-        headers: {
-          'Content-Type': data.type || 'application/octet-stream',
-          'Content-Length': String(sliced.byteLength),
-          'Content-Range': `bytes ${start}-${end}/${total}`,
-          'Accept-Ranges': 'bytes',
-          ETag: `"${total}-${data.size}"`,
-        },
-      });
-    }
-
-    return new Response(bytes, {
-      status: 200,
-      headers: {
-        'Content-Type': data.type || 'application/octet-stream',
-        'Content-Length': String(total),
-        'Accept-Ranges': 'bytes',
-        ETag: `"${total}"`,
-      },
-    });
+    return supabaseDriveStorage.readVolumeFile(volume, path, range, at);
   }
   const q = new URLSearchParams({ path, ...(at ? { at } : {}) });
   return call(volume, `${v(volume)}/files/content?${q}`, {
@@ -573,35 +373,7 @@ export async function writeVolumeFile(
   opts: { overwrite: boolean; ifMatch?: string },
 ): Promise<{ path: string; size: number; version?: string; commit?: VolumeWriteCommit }> {
   if (!isPlatinumConfigured()) {
-    const key = volumeStorageKey(volume, path);
-    const bucket = await getDrivesStorage();
-    if (!opts.overwrite) {
-      const folder = key.slice(0, key.lastIndexOf('/'));
-      const name = key.slice(key.lastIndexOf('/') + 1);
-      const { data: existing } = await bucket.list(folder, { search: name });
-      if (existing && existing.some((e) => e.name === name)) {
-        throw new DriveStorageError(409, 'A file or folder with that name already exists', 'file_exists');
-      }
-    }
-    const { error } = await bucket.upload(key, body, {
-      upsert: opts.overwrite,
-      contentType: 'application/octet-stream',
-    });
-    if (error) {
-      logger.warn('[drives] Supabase upload failed:', { error: String(error) });
-      throw new DriveStorageError(503, 'Drive storage write failed', 'storage_error');
-    }
-    const version = String(Date.now());
-    const commit: VolumeWriteCommit = {
-      commit_id: crypto.randomUUID().replace(/-/g, ''),
-      outcome: 'fast',
-    };
-    return {
-      path,
-      size: body.byteLength,
-      version,
-      commit,
-    };
+    return supabaseDriveStorage.writeVolumeFile(volume, path, body, opts);
   }
   const q = new URLSearchParams({ path, overwrite: String(opts.overwrite) });
   const r = await callJson<{ path: string; size: number; version?: string }>(volume, `${v(volume)}/files/content?${q}`, {
@@ -623,11 +395,7 @@ export async function listVolumeFilesPage(
   opts: { recursive: boolean; cursor?: string; signal?: AbortSignal; at?: string },
 ): Promise<{ entries: VolumeEntry[]; next_cursor: string | null }> {
   if (!isPlatinumConfigured()) {
-    const all = await listSupabaseFiles(volume, path, opts.recursive);
-    const startIndex = opts.cursor ? parseInt(opts.cursor, 10) || 0 : 0;
-    const page = all.slice(startIndex, startIndex + 5000);
-    const nextCursor = startIndex + 5000 < all.length ? String(startIndex + 5000) : null;
-    return { entries: page, next_cursor: nextCursor };
+    return supabaseDriveStorage.listVolumeFilesPage(volume, path, opts);
   }
   const q = new URLSearchParams({ path, recursive: String(opts.recursive), limit: '5000' });
   if (opts.cursor) q.set('cursor', opts.cursor);
@@ -638,41 +406,10 @@ export async function listVolumeFilesPage(
   return { entries: r.entries ?? [], next_cursor: r.next_cursor ?? null };
 }
 
-export interface VolumeFileStat extends VolumeEntry {
-  version: string | null;
-  /** The file's permission bits, when storage reports them. */
-  mode?: number;
-}
-
 /** A file's metadata; `at` stats it as it was at that commit. */
 export async function statVolumeFile(volume: DriveVolume, path: string, at?: string): Promise<VolumeFileStat> {
   if (!isPlatinumConfigured()) {
-    if (path === '/' || path === '') {
-      return {
-        path: '/',
-        type: 'dir',
-        size: 0,
-        mtime: Date.now(),
-        version: null,
-      };
-    }
-    const key = volumeStorageKey(volume, path);
-    const folder = key.slice(0, key.lastIndexOf('/'));
-    const name = key.slice(key.lastIndexOf('/') + 1);
-    const bucket = await getDrivesStorage();
-    const { data } = await bucket.list(folder, { search: name });
-    const match = data?.find((e) => e.name === name);
-    if (!match) {
-      throw new DriveStorageError(404, 'File or folder not found', 'file_not_found');
-    }
-    const isDir = match.id === null;
-    return {
-      path,
-      type: isDir ? 'dir' : 'file',
-      size: Number(match.metadata?.size ?? 0),
-      mtime: Date.parse(match.updated_at ?? match.created_at ?? '') || Date.now(),
-      version: match.version ?? String(Date.now()),
-    };
+    return supabaseDriveStorage.statVolumeFile(volume, path, at);
   }
   const q = new URLSearchParams({ path, ...(at ? { at } : {}) });
   const r = await callJson<VolumeFileStat>(volume, `${v(volume)}/files/stat?${q}`, { signal: AbortSignal.timeout(30_000) });
@@ -692,16 +429,7 @@ export async function statVolumeFile(volume: DriveVolume, path: string, at?: str
  */
 export async function planVolumeUpload(volume: DriveVolume, plan: unknown): Promise<unknown> {
   if (!isPlatinumConfigured()) {
-    const uploadId = crypto.randomUUID();
-    const typedPlan = plan as { files: Array<{ path: string; size: number; blocks: string[] }>; overwrite: boolean };
-    pendingUploads.set(uploadId, {
-      volume,
-      plan: typedPlan,
-      blocks: new Map(),
-      createdAt: Date.now(),
-    });
-    const missing = (typedPlan.files ?? []).flatMap((f) => f.blocks ?? []);
-    return { upload_id: uploadId, missing };
+    return supabaseDriveStorage.planVolumeUpload(volume, plan);
   }
   return callJson<unknown>(volume, `${v(volume)}/files/upload`, {
     method: 'POST',
@@ -712,10 +440,7 @@ export async function planVolumeUpload(volume: DriveVolume, plan: unknown): Prom
 
 export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string, sha: string, body: Uint8Array<ArrayBuffer>): Promise<void> {
   if (!isPlatinumConfigured()) {
-    const pending = pendingUploads.get(uploadId);
-    if (!pending) throw new DriveStorageError(404, 'Upload plan not found', 'upload_not_found');
-    pending.blocks.set(sha, body);
-    return;
+    return supabaseDriveStorage.putVolumeUploadBlock(volume, uploadId, sha, body);
   }
   await call(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/blocks/${encodeURIComponent(sha)}`, {
     method: 'PUT',
@@ -727,27 +452,7 @@ export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string
 
 export async function commitVolumeUpload(volume: DriveVolume, uploadId: string): Promise<unknown> {
   if (!isPlatinumConfigured()) {
-    const pending = pendingUploads.get(uploadId);
-    if (!pending) throw new DriveStorageError(404, 'Upload plan not found', 'upload_not_found');
-    pendingUploads.delete(uploadId);
-
-    const writtenFiles: Array<{ path: string; size: number; version: string }> = [];
-    for (const f of pending.plan.files) {
-      const parts = f.blocks.map((sha) => pending.blocks.get(sha)).filter((b): b is Uint8Array<ArrayBuffer> => Boolean(b));
-      const totalLen = parts.reduce((acc, p) => acc + p.byteLength, 0);
-      const combined = new Uint8Array(totalLen);
-      let offset = 0;
-      for (const p of parts) {
-        combined.set(p, offset);
-        offset += p.byteLength;
-      }
-      const res = await writeVolumeFile(volume, f.path, combined, { overwrite: pending.plan.overwrite });
-      writtenFiles.push({ path: f.path, size: combined.byteLength, version: res.version ?? String(Date.now()) });
-    }
-    return {
-      commit_id: crypto.randomUUID().replace(/-/g, ''),
-      outcome: 'fast',
-    };
+    return supabaseDriveStorage.commitVolumeUpload(volume, uploadId);
   }
   return callJson<unknown>(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/commit`, {
     method: 'POST',
@@ -770,13 +475,7 @@ export async function writeVolumeFiles(
 ): Promise<VolumeWriteCommit | undefined> {
   if (!files.length) return;
   if (!isPlatinumConfigured()) {
-    for (const f of files) {
-      await writeVolumeFile(volume, f.path, f.bytes, opts);
-    }
-    return {
-      commit_id: crypto.randomUUID().replace(/-/g, ''),
-      outcome: 'fast',
-    };
+    return supabaseDriveStorage.writeVolumeFiles(volume, files, opts);
   }
   const blocks = new Map<string, Uint8Array<ArrayBuffer>>();
   const planned = files.map((f) => {
@@ -799,25 +498,7 @@ export async function writeVolumeFiles(
 
 export async function moveVolumeFile(volume: DriveVolume, src: string, dst: string): Promise<void> {
   if (!isPlatinumConfigured()) {
-    const fromKey = volumeStorageKey(volume, src);
-    const toKey = volumeStorageKey(volume, dst);
-    const bucket = await getDrivesStorage();
-    const { error } = await bucket.move(fromKey, toKey);
-    if (error) {
-      // If src is directory, move all entries under it
-      const entries = await listSupabaseFiles(volume, src, true);
-      if (entries.length > 0) {
-        for (const entry of entries) {
-          if (entry.type === 'file') {
-            const rel = entry.path.slice(src.length);
-            await bucket.move(volumeStorageKey(volume, entry.path), volumeStorageKey(volume, `${dst}${rel}`));
-          }
-        }
-      } else {
-        throw new DriveStorageError(503, 'Failed to move file', 'move_failed');
-      }
-    }
-    return;
+    return supabaseDriveStorage.moveVolumeFile(volume, src, dst);
   }
   await call(volume, `${v(volume)}/files/move`, {
     method: 'POST',
@@ -828,37 +509,15 @@ export async function moveVolumeFile(volume: DriveVolume, src: string, dst: stri
 
 export async function removeVolumeFile(volume: DriveVolume, path: string, recursive: boolean): Promise<void> {
   if (!isPlatinumConfigured()) {
-    const bucket = await getDrivesStorage();
-    const key = volumeStorageKey(volume, path);
-    if (recursive) {
-      const entries = await listSupabaseFiles(volume, path, true);
-      const keys = entries.filter((e) => e.type === 'file').map((e) => volumeStorageKey(volume, e.path));
-      keys.push(key);
-      await bucket.remove(keys);
-    } else {
-      await bucket.remove([key]);
-    }
-    return;
+    return supabaseDriveStorage.removeVolumeFile(volume, path, recursive);
   }
   const q = new URLSearchParams({ path, recursive: String(recursive) });
   await call(volume, `${v(volume)}/files?${q}`, { method: 'DELETE', signal: AbortSignal.timeout(FILE_TIMEOUT_MS) });
 }
 
-export interface VolumeCommit {
-  id: string;
-  kind: string;
-  author: { kind: string; id: string | null };
-  created_at: string;
-  on_head?: boolean;
-  parent_id?: string | null;
-  base_id?: string | null;
-  merged_from?: string[];
-  stats?: { changed_paths?: number; deleted_paths?: number };
-}
-
 export async function listVolumeCommits(volume: DriveVolume, limit = 100, opts: { includeSide?: boolean; before?: string } = {}): Promise<VolumeCommit[]> {
   if (!isPlatinumConfigured()) {
-    return [];
+    return supabaseDriveStorage.listVolumeCommits(volume, limit, opts);
   }
   const query = new URLSearchParams({ limit: String(limit), ...(opts.includeSide ? { include_side: 'true' } : {}), ...(opts.before ? { before: opts.before } : {}) });
   const r = await callJson<{ commits: VolumeCommit[] }>(volume, `${v(volume)}/commits?${query}`);
@@ -867,12 +526,7 @@ export async function listVolumeCommits(volume: DriveVolume, limit = 100, opts: 
 
 export async function getVolumeCommit(volume: DriveVolume, commitId: string): Promise<VolumeCommit> {
   if (!isPlatinumConfigured()) {
-    return {
-      id: commitId,
-      kind: 'init',
-      author: { kind: 'system', id: null },
-      created_at: new Date().toISOString(),
-    };
+    return supabaseDriveStorage.getVolumeCommit(volume, commitId);
   }
   return callJson<VolumeCommit>(volume, `${v(volume)}/commits/${encodeURIComponent(commitId)}`);
 }
@@ -884,22 +538,17 @@ export async function getVolumeCommit(volume: DriveVolume, commitId: string): Pr
  */
 export async function volumeHealth(volume: DriveVolume): Promise<{ status: string; reason: string | null }> {
   if (!isPlatinumConfigured()) {
-    return { status: 'ok', reason: null };
+    return supabaseDriveStorage.volumeHealth(volume);
   }
   const r = await callJson<{ status?: string; reason?: string | null }>(volume, `${v(volume)}/health?probe=false`, { signal: AbortSignal.timeout(15_000) });
   return { status: r.status ?? 'unknown', reason: r.reason ?? null };
 }
 
-/** One mount of a volume on a sandbox, running or stopped. */
-export interface VolumeMount {
-  sandboxId: string;
-  mountPath: string;
-  /** Platinum's mount state: `mounted`/`pulling`/`pending`/`unmounting`/`unflushed` on a live guest, `parked` on a stopped one. */
-  state: string;
-}
-
 /** Every mount of the volume that has not ended, on any sandbox (`GET /v1/volumes/:v/mounts`). */
 export async function listVolumeMounts(volume: DriveVolume): Promise<VolumeMount[]> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.listVolumeMounts(volume);
+  }
   const r = await callJson<{ mounts?: Array<Record<string, unknown>> }>(volume, `${v(volume)}/mounts`, { signal: AbortSignal.timeout(15_000) });
   return (r.mounts ?? []).map((m) => ({
     sandboxId: String(m.sandbox_id ?? ''),
@@ -910,29 +559,9 @@ export async function listVolumeMounts(volume: DriveVolume): Promise<VolumeMount
 
 export async function restoreVolume(volume: DriveVolume, to: string): Promise<void> {
   if (!isPlatinumConfigured()) {
-    return;
+    return supabaseDriveStorage.restoreVolume(volume, to);
   }
   await call(volume, `${v(volume)}/restore`, { method: 'POST', body: JSON.stringify({ to }) });
-}
-
-/** Platinum's `GET /v1/volumes/limits`, the fields Kortix reads. Every field is optional: an older Platinum sends fewer. */
-export interface PlatinumMountLimits {
-  /** Private mounts per sandbox: each is a disk in the VM. */
-  max_mounts_per_sandbox?: number;
-  /** Mounts of any share per sandbox. Absent from a Platinum older than node-share counting. */
-  max_total_mounts_per_sandbox?: number;
-  /** Node share is on for this org: share "node" mounts take no disk. */
-  node_share?: boolean;
-  /** One volume's size: what one project's Files can hold at most. */
-  max_bytes_per_volume?: number;
-  /** The folder-mount cap (`sub_path`); `subdir_max_bytes` is its older name. */
-  sub_path_max_bytes?: number;
-  subdir_max_bytes?: number;
-  /** The largest one file (#2422). */
-  max_file_bytes?: number;
-  /** What the whole org stores, and may store. */
-  max_stored_bytes?: number | null;
-  used_stored_bytes?: number;
 }
 
 // replica-local: Platinum's org limits change only by an operator, so a stale copy for 10 minutes is harmless. `at` = when it expires.
@@ -946,6 +575,9 @@ let platinumLimitsRead: Promise<PlatinumMountLimits> | null = null;
 
 /** Platinum's limits for Kortix's org, cached 10 minutes. `{}` when they cannot be read (for 30 s). */
 export async function platinumVolumeLimits(): Promise<PlatinumMountLimits> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.volumeLimits();
+  }
   if (platinumLimitsCache && Date.now() < platinumLimitsCache.at) return platinumLimitsCache.value;
   platinumLimitsRead ??= callJson<PlatinumMountLimits>(null, '/v1/volumes/limits', { signal: AbortSignal.timeout(5_000) })
     .then((value) => {
@@ -979,18 +611,11 @@ export async function sandboxMountLimit(): Promise<number> {
   return mountSlotsFrom(await platinumVolumeLimits());
 }
 
-/** One volume mount Platinum holds for a sandbox. */
-export interface SandboxVolumeMount {
-  mountPath: string;
-  /** The volume's name (what a drive attaches by), or its id when Platinum gave no name. */
-  volume: string;
-  readOnly: boolean;
-  /** The folder of the volume mounted, `/` for all of it. */
-  subdir: string;
-}
-
 /** The volume mounts a sandbox has now, or null when Platinum cannot say. */
 export async function sandboxVolumeMounts(externalId: string): Promise<SandboxVolumeMount[] | null> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.sandboxVolumeMounts(externalId);
+  }
   try {
     const body = await callJson<{ volume_mounts?: Array<Record<string, unknown>> | Record<string, unknown> }>(
       null,
@@ -1033,6 +658,9 @@ export async function attachSandboxVolume(
   mountPath: string,
   input: { volume: DriveVolume; readOnly: boolean; subdir?: string },
 ): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.attachSandboxVolume(externalId, mountPath, input);
+  }
   // A box writes through its mount: the same fence as any write.
   await assertDriveWritable(input.volume);
   try {
@@ -1073,6 +701,9 @@ export async function attachSandboxVolume(
  * changes first. A mount that is already gone counts as detached.
  */
 export async function detachSandboxVolume(externalId: string, mountPath: string): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.detachSandboxVolume(externalId, mountPath);
+  }
   try {
     await call(null, sandboxMount(externalId, mountPath), {
       method: 'DELETE',
@@ -1092,6 +723,9 @@ const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
  * the mounts its kernel had, after Platinum ended them at the stop).
  */
 export async function unmountInGuest(externalId: string, mountPath: string): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.unmountInGuest(externalId, mountPath);
+  }
   const q = shellQuote(mountPath);
   await execInSandbox(externalId, `if mountpoint -q ${q}; then umount ${q} 2>/dev/null || umount -l ${q}; fi`);
 }
@@ -1101,6 +735,9 @@ export async function unmountInGuest(externalId: string, mountPath: string): Pro
  * the runtime user, which has passwordless sudo). Throws on any failure.
  */
 export async function execInSandbox(externalId: string, script: string, timeoutMs = 20_000): Promise<void> {
+  if (!isPlatinumConfigured()) {
+    return supabaseDriveStorage.execInSandbox(externalId, script, timeoutMs);
+  }
   let res: Response;
   try {
     res = await call(null, `/v1/sandboxes/${encodeURIComponent(externalId)}/exec`, {
