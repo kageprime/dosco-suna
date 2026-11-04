@@ -14607,7 +14607,7 @@
       "text7ec0261b8e8a": "Upgrade",
       "text7eca5e05f915": "Downloaded {value0}",
       "text7ecd596d8c70": "Merge is a capability of its own, refused to every agent unless an admin grants it. That grant lives in kortix.yaml — so an agent cannot widen its own reach without a change request someone else approves.",
-      "text7ecec93ed268": "Kortix home",
+      "text7ecec93ed268": "Dosco home",
       "text7ed62f13532a": "Session event",
       "text7ed6733a3900": "Delete {value0} {value1}?",
       "text7ed6e98ab599": "Failed to update policy",

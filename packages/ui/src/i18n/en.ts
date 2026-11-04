@@ -4055,7 +4055,7 @@ const catalog = {
       "text7e8cd2056da7": "Title",
       "text7e9c22af3df2": "Update failed: {value0}",
       "text7eca5e05f915": "Downloaded {value0}",
-      "text7ecec93ed268": "Kortix home",
+      "text7ecec93ed268": "Dosco home",
       "text7ed62f13532a": "Session event",
       "text7ed6733a3900": "Delete {value0} {value1}?",
       "text7eebc3924618": "Marketplace — Clone a ready-made Kortix project",

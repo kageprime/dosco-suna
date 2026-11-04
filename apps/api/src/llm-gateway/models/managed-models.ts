@@ -249,9 +249,14 @@ export async function loadManagedLineup(fetchImpl: FetchLike = fetch): Promise<b
     return true;
   }
   if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
-    setLineup(DEFAULT_OPENROUTER_MANAGED_MODELS);
+    const models = config.KORTIX_MANAGED_FREE_TIER_ENABLED
+      ? DEFAULT_OPENROUTER_MANAGED_MODELS
+      : DEFAULT_OPENROUTER_MANAGED_MODELS.filter(
+          (m) => m.pricing.inputPerMillion > 0 || m.pricing.outputPerMillion > 0,
+        );
+    setLineup(models);
     logger.info('[managed-lineup] loaded OpenRouter managed models', {
-      models: DEFAULT_OPENROUTER_MANAGED_MODELS.map((m) => m.id),
+      models: models.map((m) => m.id),
     });
     return true;
   }

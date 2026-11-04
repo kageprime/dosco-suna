@@ -62,13 +62,13 @@ export function KortixLogo({
         : { height: `${size}px`, width: 'auto', maxWidth: `${size * 8}px`, ...style };
     const imgProps = props as ComponentPropsWithoutRef<'img'>;
     return (
-      <>
+      <span className={cn('inline-flex shrink-0 items-center justify-center', className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={lightSrc}
           alt={alt}
           draggable={false}
-          className={cn('shrink-0 object-contain select-none', darkSrc && 'dark:hidden', className)}
+          className={cn('shrink-0 object-contain select-none', darkSrc && 'dark:hidden')}
           style={imgStyle}
           {...imgProps}
         />
@@ -78,12 +78,12 @@ export function KortixLogo({
             src={darkSrc}
             alt={alt}
             draggable={false}
-            className={cn('hidden shrink-0 object-contain select-none dark:block', className)}
+            className="hidden shrink-0 object-contain select-none dark:block"
             style={imgStyle}
             {...imgProps}
           />
         ) : null}
-      </>
+      </span>
     );
   }
 
@@ -96,13 +96,13 @@ export function KortixLogo({
     const imgStyle = { width: `${size}px`, height: `${size}px`, ...style };
     const imgProps = props as ComponentPropsWithoutRef<'img'>;
     return (
-      <>
+      <span className={cn('inline-flex shrink-0 items-center justify-center', className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/dosco-icon-light.png"
           alt={fallbackAlt}
           draggable={false}
-          className={cn('shrink-0 select-none object-contain dark:hidden', className)}
+          className="shrink-0 select-none object-contain dark:hidden"
           style={imgStyle}
           {...imgProps}
         />
@@ -111,11 +111,11 @@ export function KortixLogo({
           src="/brand/dosco-icon-dark.png"
           alt={fallbackAlt}
           draggable={false}
-          className={cn('hidden shrink-0 select-none object-contain dark:block', className)}
+          className="hidden shrink-0 select-none object-contain dark:block"
           style={imgStyle}
           {...imgProps}
         />
-      </>
+      </span>
     );
   }
 
@@ -127,14 +127,14 @@ export function KortixLogo({
   };
   const imgProps = props as ComponentPropsWithoutRef<'img'>;
   return (
-    <>
+    <span className={cn('inline-flex shrink-0 items-center justify-center', className)}>
       {/* Light theme: black/charcoal text on light background */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/brand/dosco-wordmark-light.png"
         alt={fallbackAlt}
         draggable={false}
-        className={cn('shrink-0 select-none object-contain dark:hidden', className)}
+        className="shrink-0 select-none object-contain dark:hidden"
         style={imgStyle}
         {...imgProps}
       />
@@ -144,11 +144,11 @@ export function KortixLogo({
         src="/brand/dosco-wordmark-dark.png"
         alt={fallbackAlt}
         draggable={false}
-        className={cn('hidden shrink-0 select-none object-contain dark:block', className)}
+        className="hidden shrink-0 select-none object-contain dark:block"
         style={imgStyle}
         {...imgProps}
       />
-    </>
+    </span>
   );
 }
 

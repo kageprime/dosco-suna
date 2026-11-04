@@ -24,14 +24,16 @@ function deduplicateModels(models: readonly ManagedModel[]): readonly ManagedMod
 
 /**
  * The managed lineup this deployment can serve now: Platinum's list, plus
- * Dosco's free managed models when their transports are available.
+ * Dosco's free managed models when free tier is enabled and their transports are available.
  */
 export function servedManagedModels(): readonly ManagedModel[] {
-  return deduplicateModels([...managedLineup(), ...FREE_MANAGED_MODELS].filter(managedTransportAvailable));
+  const freeModels = config.KORTIX_MANAGED_FREE_TIER_ENABLED ? FREE_MANAGED_MODELS : [];
+  return deduplicateModels([...managedLineup(), ...freeModels].filter(managedTransportAvailable));
 }
 
 /** The designated free models served on this deployment. */
 export function servedFreeManagedModels(): readonly ManagedModel[] {
+  if (!config.KORTIX_MANAGED_FREE_TIER_ENABLED) return [];
   return deduplicateModels(FREE_MANAGED_MODELS.filter(managedTransportAvailable));
 }
 

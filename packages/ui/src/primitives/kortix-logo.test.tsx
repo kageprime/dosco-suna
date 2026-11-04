@@ -30,4 +30,22 @@ describe('KortixLogo', () => {
 
     expect(html).toContain('alt="Dosco Tek"');
   });
+
+  test('does not leak external responsive display classes onto child theme images', () => {
+    const html = renderToStaticMarkup(<KortixLogo variant="icon" size={24} className="hidden md:block" />);
+
+    // Outer wrapper receives responsive classes
+    expect(html).toMatch(/<span[^>]*class="[^"]*hidden md:block/);
+
+    // Inner images must retain their strict dark-toggle classes and not have md:block
+    const lightImg = html.match(/<img[^>]*src="\/brand\/dosco-icon-light\.png"[^>]*>/)?.[0] ?? '';
+    const darkImg = html.match(/<img[^>]*src="\/brand\/dosco-icon-dark\.png"[^>]*>/)?.[0] ?? '';
+
+    expect(lightImg).toContain('dark:hidden');
+    expect(lightImg).not.toContain('md:block');
+
+    expect(darkImg).toContain('hidden');
+    expect(darkImg).toContain('dark:block');
+    expect(darkImg).not.toContain('md:block');
+  });
 });

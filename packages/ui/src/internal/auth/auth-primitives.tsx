@@ -106,7 +106,9 @@ export function StepHeader({
       {mark ? (
         <div className={markOnMobile ? undefined : 'hidden md:block'}>{mark}</div>
       ) : (
-        <KortixLogo variant="icon" size={22} className="text-foreground hidden md:block" />
+        <div className={markOnMobile ? undefined : 'hidden md:block'}>
+          <KortixLogo variant="icon" size={24} className="text-foreground" />
+        </div>
       )}
       <h1
         className={cn(
