@@ -23,8 +23,7 @@ import { ProjectComputerNavItem } from './footer/project-computer-nav';
 import { ProjectManifestIssuesAlert } from './footer/project-manifest-issues-alert';
 import { ProjectSandboxAlert } from './footer/project-sandbox-alert';
 import { ProjectRepositoryDisconnectedAlert } from '../repository-disconnected';
-import { CustomizeSidebarModal } from './customize-sidebar-modal';
-import { NewAgentModalProvider } from '../../internal/layout/project-capability-nav';
+import { NewAgentModalProvider } from './new-agent-modal-provider';
 import { ProjectMemoryNavItem } from './footer/project-memory-nav';
 import { ProjectNavItems } from './project-nav-items';
 import { ProjectSessionList } from './project-session-list';
@@ -39,6 +38,7 @@ import { useFeatureFlag } from '@kortix/sdk/react';
 import { AppsModal } from '../../internal/apps-and-extensions/apps-modal';
 import { useAppsModalStore } from '../../internal/stores/apps-modal-store';
 import { ProjectChromeNavItem } from './footer/project-chrome-nav';
+import { CHROME_UI_ENABLED } from '../../internal/chrome/use-chrome-offered';
 import {
   ChatCircleIcon,
   MagnifyingGlassIcon,
@@ -88,7 +88,8 @@ export function ProjectSidebar({
   const accountId = useBillingAccountId();
   // Channels replace New session and the session list (fail-closed: off until the project answers).
   const channels = useFeatureFlag(projectId, 'project_channels').enabled;
-  const chrome = useFeatureFlag(projectId, 'chrome').enabled;
+  // The project flag and the web app's master switch (`CHROME_UI_ENABLED`) must both be on.
+  const chrome = useFeatureFlag(projectId, 'chrome').enabled && CHROME_UI_ENABLED;
 
   // Open the project composer without creating a durable session.
   const newSession = useNewProjectSession(projectId);
@@ -412,7 +413,6 @@ export function ProjectSidebar({
       onOpenMcp={() => setConnectMcpOpen(true)}
     />
     <ConnectMcpModal open={connectMcpOpen} onOpenChange={setConnectMcpOpen} />
-    <CustomizeSidebarModal projectId={projectId} />
     </NewAgentModalProvider>
   );
 }

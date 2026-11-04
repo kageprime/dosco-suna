@@ -22,6 +22,7 @@ import { validateAgentPolicySetRefs } from './policy-sets';
 import {
   AGENT_MODES_V2,
   CODEMODE_VALUES,
+  CONTEXT_VALUES,
   EXTENSION_HARNESSES,
   HARNESS_TOOL_NAMES,
   KORTIX_SKILL_NAMES,
@@ -77,6 +78,7 @@ import { BUILTIN_AGENT_KEYS, BUILTIN_AGENTS, LEGACY_MY_KORTIX_AGENT_NAME, type B
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type CodemodeV3 = (typeof CODEMODE_VALUES)[number];
+export type ContextV3 = (typeof CONTEXT_VALUES)[number];
 
 /** `agents.<name>.tools`: `all` (default), `none`, a list, or `{ exclude: [...] }`. */
 export type AgentToolsV3 = 'all' | 'none' | string[] | { exclude: string[] };
@@ -144,6 +146,8 @@ export interface AgentBlockV3 {
   enabled?: boolean;
   /** pi's codemode tool. The session agent defaults to `on`; a subagent has none unless its own agent sets this. */
   codemode?: CodemodeV3;
+  /** What a full context does. Omitted: `record`, a fresh context that searches the session's full record. `summary`: pi's own compaction. */
+  context?: ContextV3;
   tools?: AgentToolsV3;
   skills?: ExcludableGrantSetV3;
   subagents?: GrantSetV2;
@@ -237,7 +241,7 @@ export interface ManifestV3 {
   approvals?: { ttl?: string };
   /** Spaces (channels): slug → label, description, header and tabs. */
   spaces?: Record<string, SpaceV3>;
-  /** Built-in agents the platform injects, keyed by built-in (`my_kortix`). Absent = on; `false` removes it from the project. */
+  /** Built-in agents the platform injects, keyed by built-in (`my_kortix`). `true` adds it to the project; absent or `false` = off. */
   builtin_agents?: Partial<Record<BuiltinAgentKey, boolean>>;
   agents: Record<string, AgentBlockV3>;
 }
@@ -298,6 +302,7 @@ export const AGENT_BLOCK_KEYS_V3 = [
   'prompt_file',
   'enabled',
   'codemode',
+  'context',
   'tools',
   'skills',
   'subagents',
@@ -377,7 +382,7 @@ export function validateManifestBody(parsed: Record<string, unknown>, issues: Ma
   };
   const agents = validateAgentsV3(parsed.agents, 'agents', registry, issues);
   validateBuiltinAgentsV3(parsed.builtin_agents, 'builtin_agents', agents, issues);
-  validateDefaultAgentV3(parsed.default_agent, 'default_agent', agents, issues);
+  validateDefaultAgentV3(parsed.default_agent, 'default_agent', agents, myKortixDeclaredOn(parsed.builtin_agents), issues);
   validateTriggerAgentRefsV2(parsed.triggers, 'triggers', [...agents.keys()], issues);
   validateAgentPolicySetRefs(parsed.agents, parsed.connectors, 'agents', issues);
 }
@@ -713,6 +718,9 @@ function validateAgentBlockV3(
   if (entry.codemode !== undefined && !(CODEMODE_VALUES as readonly unknown[]).includes(entry.codemode)) {
     issues.push({ path: `${where}.codemode`, message: `must be one of: ${CODEMODE_VALUES.join(', ')}.`, severity: 'error' });
   }
+  if (entry.context !== undefined && !(CONTEXT_VALUES as readonly unknown[]).includes(entry.context)) {
+    issues.push({ path: `${where}.context`, message: `must be one of: ${CONTEXT_VALUES.join(', ')}.`, severity: 'error' });
+  }
   if (entry.sandbox !== undefined && !(typeof entry.sandbox === 'string' && SLUG_RE.test(entry.sandbox.trim()))) {
     issues.push({ path: `${where}.sandbox`, message: 'must be a sandbox template slug.', severity: 'error' });
   }
@@ -812,7 +820,8 @@ function validateNetworkEgressV3(value: unknown, where: string, issues: Manifest
 }
 
 /**
- * `builtin_agents`: built-in key → on/off. Absent or `true` = on. A built-in's
+ * `builtin_agents`: built-in key → on/off. `true` = on. Absent or `false` = off,
+ * like an agent the file does not declare. A built-in's
  * slug (`mykortix` for My Kortix, and its old `meta`) is reserved whatever the switch says: the
  * platform keys that slug's grant, prompt and sandbox, so a declared block
  * would never run as written.
@@ -836,19 +845,27 @@ function validateBuiltinAgentsV3(node: unknown, path: string, agents: AgentScanV
     // My Kortix's slug before the rename stays reserved: every read still treats it as My Kortix.
     for (const agent of key === 'my_kortix' ? [slug, LEGACY_MY_KORTIX_AGENT_NAME] : [slug]) {
       if (agents.has(agent)) {
-        issues.push({ path: `agents.${agent}`, message: `"${agent}" is reserved for ${displayName}, the built-in agent. Rename this agent. To turn ${displayName} off, set \`${path}.${key}: false\`.`, severity: 'error' });
+        issues.push({ path: `agents.${agent}`, message: `"${agent}" is reserved for ${displayName}, the built-in agent. Rename this agent. To turn ${displayName} on, set \`${path}.${key}: true\`.`, severity: 'error' });
       }
     }
   }
 }
 
-function validateDefaultAgentV3(node: unknown, path: string, agents: AgentScanV3, issues: ManifestIssue[]): void {
-  // Omitted: a session or trigger that names no agent runs My Kortix.
+/** Does `builtin_agents` turn My Kortix on (`my_kortix: true`)? */
+function myKortixDeclaredOn(node: unknown): boolean {
+  return isTable(node) && node.my_kortix === true;
+}
+
+function validateDefaultAgentV3(node: unknown, path: string, agents: AgentScanV3, myKortixOn: boolean, issues: ManifestIssue[]): void {
+  // Omitted: a session or trigger that names no agent runs My Kortix when it is on.
   if (node === undefined || node === null) return;
   const name = typeof node === 'string' ? node.trim() : '';
   const scan = agents.get(name);
   if (!name) {
-    issues.push({ path, message: '`default_agent` must be the name of a declared primary agent. Omit it to run My Kortix.', severity: 'error' });
+    issues.push({ path, message: '`default_agent` must be the name of a declared primary agent, or `mykortix`.', severity: 'error' });
+  } else if (name === BUILTIN_AGENTS.my_kortix.agent) {
+    // My Kortix is a default like any agent, once the file turns it on.
+    if (!myKortixOn) issues.push({ path, message: `"${name}" is My Kortix, the built-in agent. Set \`builtin_agents.my_kortix: true\` to make it the default.`, severity: 'error' });
   } else if (!scan) {
     issues.push({ path, message: `"${name}" is not a declared agent.`, severity: 'error' });
   } else if (!scan.enabled) {

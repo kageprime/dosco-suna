@@ -17,13 +17,27 @@ hydrateEnvironmentSecret();
  */
 export const SANDBOX_VERSION = process.env.SANDBOX_VERSION || 'unknown';
 
+/**
+ * The environment of a child process: this process's environment plus
+ * `extra`. A child process is the one reader of the raw environment outside
+ * this file.
+ */
+export function childProcessEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return { ...process.env, ...extra };
+}
+
+// No git process the API starts may download a missing object on its own
+// (projects/git/object-store.ts): it would run without credentials, one object
+// per round trip, with no size bound. Every child inherits this.
+process.env.GIT_NO_LAZY_FETCH = '1';
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 // Platinum is the reference provider. Daytona is a legacy fallback: its
 // removal is scheduled, existing Daytona sessions keep working for now, and it
 // gets no new features and no support guarantee. E2B support is discontinued;
 // the DB enum keeps `e2b` only so legacy rows stay readable.
-export type SandboxProviderName = 'platinum' | 'daytona' | 'e2b';
+export type SandboxProviderName = 'platinum' | 'daytona';
 type InternalKortixEnv = 'dev' | 'staging' | 'prod' | 'preview';
 
 // ─── Zod Helpers ────────────────────────────────────────────────────────────
@@ -102,7 +116,6 @@ const optFallbackPolicies = z
 //   - CONDITIONAL: required when a related feature is enabled
 //   - OPTIONAL:    graceful degradation or sane default if missing
 
-/** Exported for the config-completeness regression test (unit-config-object.test.ts). */
 export const envSchema = z.object({
   // ── Core (required) ──────────────────────────────────────────────────────
   PORT: optInt(8008),
@@ -121,7 +134,7 @@ export const envSchema = z.object({
   // Public origin for CLIENT-facing Supabase Storage URLs. On a self-host box
   // SUPABASE_URL is an internal Docker hostname (http://supabase-kong:8000) that
   // no browser/CLI/remote-sandbox can resolve; this is the box's public origin
-  // (e.g. https://sampleco.dosco.live) used to rewrite signed URLs on the way
+  // (e.g. https://sampleco.kortix.cloud) used to rewrite signed URLs on the way
   // out (see toPublicStorageUrl). Optional: unset on managed cloud, where
   // SUPABASE_URL is already public and no rewrite is needed.
   SUPABASE_PUBLIC_URL: z
@@ -184,11 +197,28 @@ export const envSchema = z.object({
   // whose DNS does not fit that shape. A deployment with neither keeps previews
   // on the path proxy. See sandbox-proxy/preview-hosts.ts.
   KORTIX_PREVIEW_BASE_DOMAIN: optStr,
+  // Self-host alias domains (KORTIX_DOMAIN_ALIASES, derived by the CLI): extra
+  // Apps / preview base domains this deployment also serves, comma-separated.
+  // Hosts under them resolve exactly like hosts under the primary base, so
+  // links handed out before a domain move keep working. URLs this API hands
+  // out always use the primary base. See apps/hostnames.ts and
+  // sandbox-proxy/preview-hosts.ts.
+  KORTIX_APPS_BASE_DOMAIN_ALIASES: optStr,
+  // Self-host: extra domains this instance serves in full (web app, API, Apps,
+  // previews), comma-separated. See shared/domain-aliases.ts.
+  KORTIX_DOMAIN_ALIASES: optStr,
+  KORTIX_PREVIEW_BASE_DOMAIN_ALIASES: optStr,
   // Master switch: turns on real billing (Stripe + credit ledger), makes
   // KORTIX_URL fatal-required, mounts the proxy-auth gate, hides /v1/setup.
   // Set to true on managed/cloud deployments; leave false for self-host + dev.
   KORTIX_BILLING_INTERNAL_ENABLED: optBoolFalse,
-  // Dosco Apps: a `static` App is served by the API from content-addressed
+  // Stopped and archived computers' disk (billing/services/box-disk-charges.ts):
+  // metered and recorded always; charged in credits only when true. Off until
+  // the owner decides (2026-11-02: 35,420 stopped boxes in prod, p99 63 per
+  // account, Platinum never deletes archived boxes). Turning it on charges the
+  // days still open (up to 3 days back), never earlier ones.
+  KORTIX_BOX_DISK_CHARGE_ENABLED: optBoolFalse,
+  // Kortix Apps: a `static` App is served by the API from content-addressed
   // storage, with no runtime. `false` builds it into a sandbox, as before.
   KORTIX_APPS_STATIC_HOSTING: optBoolTrue,
   // Ready deployments an App keeps besides its active one (rollback targets).
@@ -197,11 +227,28 @@ export const envSchema = z.object({
   // New server Apps run 24/7 unless the request says otherwise. Existing Apps
   // keep their own setting. Static Apps have no runtime and ignore it.
   KORTIX_APPS_DEFAULT_ALWAYS_ON: optBoolTrue,
+  // The unmodified Claude Code binary the Claude subscription login runs
+  // (`claude setup-token`). The API image installs the pinned version on PATH.
+  CLAUDE_CODE_PATH: z.string().trim().optional().default('claude'),
   // 'false' stops the Apps deployment worker; 'static' drives only static deployments.
   KORTIX_APPS_WORKER_ENABLED: optStr,
   // Global background-worker switch. API-only and migration-shadow deployments
   // keep request handling active while disabling every recurring write loop.
   KORTIX_WORKERS_ENABLED: optBoolTrue,
+  // Which part of the API this `src/index.ts` process runs. `all` (default):
+  // HTTP plus the scheduled jobs, which run on whichever `all` process holds
+  // the leader lease. Self-host, local dev, previews and the test stack run
+  // one `all` process. `web`: HTTP only; the process never joins the leader
+  // election. Production web servers run `web` next to the worker service
+  // (`src/worker.ts`), which runs the scheduled jobs. ecs-deploy.sh sets it
+  // per service, never in the shared secret blob.
+  KORTIX_PROCESS_ROLE: z.enum(['all', 'web']).optional().default('all'),
+  // '0' keeps the bundled model pricing / gateway model catalog and never
+  // fetches the live ones. The local test stack sets both.
+  KORTIX_MODEL_PRICING_LIVE_ENABLED: optStr,
+  KORTIX_MODEL_CATALOG_LIVE_ENABLED: optStr,
+  // /health/live answers 503 above this event-loop lag.
+  HEALTH_MAX_EVENT_LOOP_LAG_MS: optInt(5000),
   // True runs the durable job queue even when KORTIX_WORKERS_ENABLED is false.
   // The deterministic test stack sets it: held connector calls and Capture
   // ingest run only as queued jobs.
@@ -271,7 +318,7 @@ export const envSchema = z.object({
   KORTIX_RELAY_HEADERS_TIMEOUT_MS: optInt(30_000),
   // IDLE on the upstream response socket — never a total duration. 0 = off.
   KORTIX_RELAY_UPSTREAM_IDLE_TIMEOUT_MS: optInt(600_000),
-  // Dosco-owned session titles: the moment a session's first prompt text is
+  // Kortix-owned session titles: the moment a session's first prompt text is
   // known server-side (at create when it carries one, else on the first HTTP
   // prompt), generate the title ourselves via the internal LLM gateway instead
   // of relying on the harness summarizer. On by default; the kill-switch
@@ -325,7 +372,7 @@ export const envSchema = z.object({
   MOBILE_STORE_URL_IOS: optUrl(''),
   MOBILE_STORE_URL_ANDROID: optUrl(''),
   // Self-host enterprise license: when the operator has purchased/holds a
-  // Dosco Enterprise license, this bypasses the sales-assigned `enterprise`
+  // Kortix Enterprise license, this bypasses the sales-assigned `enterprise`
   // tier check and unlocks every enterprise entitlement (SSO, SCIM, RBAC,
   // audit access) regardless of the account's billing tier — see
   // getAccountEntitlements()/accountHasEntitlement() in
@@ -365,7 +412,7 @@ export const envSchema = z.object({
   // `defaultManagedProviderId()` — a deployed bundle that still names it
   // provisions on github and logs a warning. Existing code.storage repos keep
   // resolving through their own connection row. The GitHub backend creates repos under
-  // MANAGED_GIT_GITHUB_OWNER (a Dosco-owned org) via the Dosco App
+  // MANAGED_GIT_GITHUB_OWNER (a Kortix-owned org) via the Kortix App
   // installed there (MANAGED_GIT_GITHUB_INSTALL_ID). Reuses KORTIX_GITHUB_APP_*
   // for the App JWT. Each backend's isConfigured() checks its own vars, so
   // leaving these blank keeps the managed-git path inert.
@@ -432,7 +479,7 @@ export const envSchema = z.object({
   // Optional banner image rendered at the top of the App Home tab. Must be a
   // public HTTPS URL Slack can fetch (no auth). Recommended 1600×400 PNG.
   SLACK_HOME_HERO_URL: optStr,
-  // Per-Slack-user identity. Default-on: each sender must link their own Dosco
+  // Per-Slack-user identity. Default-on: each sender must link their own Kortix
   // account via `/kortix login` and the agent runs AS them; unlinked senders
   // are blocked. Set explicitly to "false" only for legacy fallback where
   // Slack messages should run as the bound project owner.
@@ -442,24 +489,50 @@ export const envSchema = z.object({
   // The managed team key is RESEND_API_KEY (also the transactional sender).
   RESEND_API_URL: optUrl('https://api.resend.com'),
   // Domain for inboxes made with the managed key (verified and receiving on
-  // Dosco's Resend team). Unset: no managed inbox can be created.
+  // Kortix's Resend team). Unset: no managed inbox can be created.
   RESEND_MANAGED_DOMAIN: optStr,
   // Operator switch for managed inboxes on RESEND_MANAGED_DOMAIN. Each one
-  // costs Dosco a paid Resend inbox, so a project cannot turn this on: off,
+  // costs Kortix a paid Resend inbox, so a project cannot turn this on: off,
   // every connect needs the project's own Resend key.
   RESEND_MANAGED_EMAIL_ENABLED: optBoolFalse,
 
   // ── Channels — Telegram Bot API. Overridable for tests. ──
   TELEGRAM_API_URL: optUrl('https://api.telegram.org'),
 
-  // ── MCP apps — Dosco-owned OAuth clients ───────────────
+  // ── Channels — the Kortix Discord application (optional) ──────────────────
+  // One application for every project, like the Kortix Slack app: projects
+  // install it in a server with "Add to Discord". Unset: Discord is off.
+  // From the Developer Portal: General Information → Application ID and
+  // Public Key; OAuth2 → Client Secret; Bot → Token.
+  DISCORD_APPLICATION_ID: optStr,
+  DISCORD_PUBLIC_KEY: optStr,
+  DISCORD_CLIENT_SECRET: optStr,
+  DISCORD_BOT_TOKEN: optStr,
+  // The privileged Message Content intent, switched on for the application in
+  // the Developer Portal (Bot → Privileged Gateway Intents). On: every message in
+  // a thread a Kortix session holds reaches the agent. Off (default, like Slack):
+  // only a message that mentions the app, and every direct message.
+  DISCORD_MESSAGE_CONTENT: optBoolFalse,
+  // The OAuth2 redirect URI registered in the Developer Portal. Unset:
+  // `${KORTIX_URL}/v1/webhooks/discord/oauth/callback`.
+  DISCORD_REDIRECT_URI: optStr,
+  // The REST API base and the Gateway URL. Overridable for tests.
+  DISCORD_API_URL: optUrl('https://discord.com/api/v10'),
+  DISCORD_CDN_URL: optUrl('https://cdn.discordapp.com'),
+  DISCORD_GATEWAY_URL: z
+    .string()
+    .optional()
+    .default('wss://gateway.discord.gg')
+    .refine((v) => /^wss?:\/\//.test(v), { message: 'Must be a ws(s):// URL' }),
+
+  // ── MCP apps — Kortix-owned OAuth clients ───────────────
   // JSON: {"google":{"client_id":"…","client_secret":"…"},"github":{…}}. One
   // client per vendor whose MCP server has no dynamic client registration
   // (connectors/mcp-apps.ts). An app whose client is absent is not listed.
   KORTIX_OAUTH_CLIENTS: optStr,
 
   // ── Channels — Microsoft Teams adapter (optional) ────────────────────────
-  // One Dosco-owned multi-tenant Azure AD bot app. The same app id/password
+  // One Kortix-owned multi-tenant Azure AD bot app. The same app id/password
   // serve every tenant; the per-conversation tenant id arrives on each inbound
   // activity. Outbound auth is a short-lived AAD token minted per scope at call
   // time (channels/teams-auth.ts) — there is no static bot token to store.
@@ -476,10 +549,10 @@ export const envSchema = z.object({
   TEAMS_REQUIRE_USER_IDENTITY: optBoolTrue,
   // Whether the Teams channel is offered is NOT an operator env var — it is the
   // per-project `teams` feature flag (feature-flags/registry.ts).
-  TEAMS_APP_NAME: optStrDefault('Dosco'),
+  TEAMS_APP_NAME: optStrDefault('Kortix'),
 
   // ── LLM Providers (optional — only needed in cloud mode) ─────────────────
-  // Dosco Platinum inference: the one upstream of every Dosco-managed model
+  // Kortix Platinum inference: the one upstream of every Kortix-managed model
   // (`managedCandidates`). The key is a pt_live_ key with `inference:write`.
   PLATINUM_INFERENCE_URL: optUrl('https://api.platinum.dev/v1/inference'),
   PLATINUM_INFERENCE_API_KEY: optStr,
@@ -487,11 +560,11 @@ export const envSchema = z.object({
   OPENROUTER_API_KEY: optStr,
   KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolTrue,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
-  // deployment. The lineup is served by Platinum inference on Dosco's key.
-  // Dosco bills each request as platform credits.
+  // deployment. The lineup is served by Platinum inference on Kortix's key.
+  // Kortix bills each request as platform credits.
   // A self-host still runs the gateway for its own
   // BYOK routing (every sandbox model call goes through `/v1/llm`), it just
-  // must never see or route to Dosco's shared credentials. When unset it
+  // must never see or route to Kortix's shared credentials. When unset it
   // follows KORTIX_BILLING_INTERNAL_ENABLED (derived below): billing on =
   // managed cloud where the managed lineup is the product; billing off =
   // self-host where it must stay dark. An explicit true/false always wins.
@@ -525,7 +598,7 @@ export const envSchema = z.object({
   LLM_GATEWAY_PROXY_PORT: optInt(0),
   // Where the /v1/llm-gateway/* reverse-proxy forwards. Defaults to
   // 127.0.0.1:LLM_GATEWAY_PROXY_PORT (local, gateway same host). In K8s set to
-  // the in-cluster gateway service, e.g. http://llm-gateway:8090, so the
+  // the in-cluster gateway service, e.g. http://kortix-gateway:8090, so the
   // gateway stays internal and sandboxes reach it via the API's public origin.
   LLM_GATEWAY_PROXY_TARGET: optStr,
   OPENAI_API_KEY: optStr,
@@ -602,6 +675,10 @@ export const envSchema = z.object({
     .enum(['git', 'prefer-s3', 'require-s3'])
     .optional()
     .default('git'),
+  // What the API keeps of each project repository (projects/git/object-store.ts).
+  // `partial`: commits, then trees and files only when a read names them.
+  // `full`: the whole-history clone of before 2026-11-02 (the kill switch).
+  KORTIX_GIT_OBJECT_STORE: z.enum(['partial', 'full']).optional().default('partial'),
   KORTIX_PROJECT_SNAPSHOT_S3_BUCKET: optStr,
   KORTIX_PROJECT_SNAPSHOT_S3_REGION: optStr,
   KORTIX_PROJECT_SNAPSHOT_S3_ENDPOINT: optUrl(''),
@@ -612,6 +689,18 @@ export const envSchema = z.object({
    */
   KORTIX_PROJECT_SNAPSHOT_S3_PUBLIC_ENDPOINT: optUrl(''),
   KORTIX_PROJECT_SNAPSHOT_S3_FORCE_PATH_STYLE: optBoolFalse,
+  /**
+   * Self-host's bundled store (MinIO) starts empty, so the API creates the
+   * bucket and its expiry rule (`ensureProjectSnapshotBucket`). AWS:
+   * Terraform owns both (infra/terraform/modules/project-snapshots-bucket).
+   */
+  KORTIX_PROJECT_SNAPSHOT_S3_CREATE_BUCKET: optBoolFalse,
+  /**
+   * The store's in-network origin for the `/<bucket>/*` passthrough on the API
+   * origin (self-host without a domain; object-store/bucket-proxy.ts). Domain
+   * mode leaves it unset: Caddy serves the prefix.
+   */
+  KORTIX_PROJECT_SNAPSHOT_S3_PROXY_TARGET: optUrl(''),
   // S3 Transfer Acceleration for the SANDBOX downloads only: presigned URLs
   // target <bucket>.s3-accelerate.amazonaws.com, so a box's connection ends at
   // the nearest AWS edge and the distance to the bucket rides AWS's backbone.
@@ -674,8 +763,8 @@ export const envSchema = z.object({
   // route streams the bytes when that host is loopback or private.
   KORTIX_CONFIG_ARCHIVE_PUBLIC_URL: optUrl(''),
 
-  // ── Dosco Capture (optional) ───────────────────────────────────────────
-  // Devices write the Dosco Capture format to this bucket under
+  // ── Kortix Capture (optional) ───────────────────────────────────────────
+  // Devices write the Kortix Capture format to this bucket under
   // `orgs/<account_id>/<device_id>/`. The API reads it
   // (ingestion), writes `policy.json`, and signs short-lived media URLs.
   //   dev/staging/prod: the Terraform bucket, credentials from the ECS task role.
@@ -713,7 +802,7 @@ export const envSchema = z.object({
   KORTIX_CAPTURE_ALERT_AFTER_MINUTES: optInt(30),
   /** The update manifest that names the newest published Capture version. Empty: no version check. */
   KORTIX_CAPTURE_UPDATE_MANIFEST_URL: optUrl(
-    'https://github.com/kortix-ai/suna/releases/latest/download/capture-update.json',
+    'https://github.com/kortix-ai/CompanyOS/releases/latest/download/capture-update.json',
   ),
 
   // ── Platinum — Sandbox provisioning (conditional: required if platinum provider enabled) ──
@@ -734,16 +823,6 @@ export const envSchema = z.object({
   PLATINUM_TARGET: z.enum(['local', 'prod']).optional().default('prod'),
   PLATINUM_API_URL_LOCAL: optStr,
   PLATINUM_API_KEY_LOCAL: optStr,
-
-  // ── E2B — sandbox provisioning (conditional: required if enabled) ────────
-  // E2B_DOMAIN is the base E2B domain without a protocol. The default uses
-  // E2B Cloud. A self-hosted deployment uses its own base domain.
-  // E2B_TEMPLATE is an optional ready fallback template. Project-specific
-  // templates built by the shared snapshot system take precedence.
-  E2B_API_KEY: optStr,
-  E2B_DOMAIN: optStrDefault('e2b.app'),
-  E2B_TEMPLATE: optStr,
-  E2B_WEBHOOK_SECRET: optStr,
 
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // Public API base URL, without a route suffix. Auto-derived from PORT in local mode.
@@ -822,7 +901,7 @@ export const envSchema = z.object({
   // Exported collection JSON and Postman-managed Git repositories need no key.
   POSTMAN_API_KEY: optStr,
 
-  // ── Dosco in Chrome ─────────────────────────────────────────────────────
+  // ── Kortix in Chrome ─────────────────────────────────────────────────────
   // Master switch until launch: on in local and dev only. Off, /v1/chrome/* and
   // the extension's control socket answer 404 and the `chrome` project flag is
   // unavailable (feature-flags/registry.ts).
@@ -834,7 +913,7 @@ export const envSchema = z.object({
   // Platinum drops the field and the box keeps its data-center address. Off, a
   // sandbox template's `residential_proxy` fails its session closed and the
   // billing worker does not run (platform/services/residential-proxy.ts,
-  // workers/residential-proxy-billing-worker.ts). Dev sets it in deploy-dev.yml.
+  // worker/jobs/residential-proxy-billing.ts). Dev sets it in deploy-dev.yml.
   KORTIX_PLATINUM_RESIDENTIAL_PROXY: optBoolFalse,
 
   // ── Tunnel (optional, all have sane defaults) ────────────────────────────
@@ -859,6 +938,9 @@ export const envSchema = z.object({
   // Per-credential bound on the LLM gateway mount (/v1/llm and its
   // /v1/llm-gateway alias). Defence-in-depth at the boundary, not a quota:
   // 600/min is ~10/s per credential, far above any real inference pattern.
+  // The standalone gateway reads the same setting and applies the same limit
+  // (apps/llm-gateway/src/token-rate-limit.ts), so sandboxes that call it
+  // directly (LLM_GATEWAY_BASE_URL) are bound too.
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: optInt(600),
   KORTIX_PROXY_REQS_PER_MIN: optInt(600),
   // Proxies in front of the API that APPEND to X-Forwarded-For. The client is
@@ -867,13 +949,13 @@ export const envSchema = z.object({
   // replaces an untrusted header with one entry, which the rule also reads
   // correctly. See shared/client-ip.ts.
   KORTIX_TRUSTED_PROXY_HOPS: optInt(2),
-  // Per client IP: Dosco bearer tokens that need a fresh hash (not seen by
+  // Per client IP: Kortix bearer tokens that need a fresh hash (not seen by
   // this process recently). A token already validated here is not counted.
   KORTIX_UNKNOWN_TOKEN_ATTEMPTS_PER_MIN: optInt(300),
   KORTIX_TRIGGER_MAX_PROVISIONING_SESSIONS_PER_PROJECT: optInt(3),
   KORTIX_TRIGGER_SCHEDULER_ENABLED: optBoolTrue,
   KORTIX_TRIGGER_SCHEDULER_INTERVAL_MS: optInt(1_000),
-  // Kill switch of Dosco-polled app events (source `mcp`). Off: no check runs; streams and
+  // Kill switch of Kortix-polled app events (source `mcp`). Off: no check runs; streams and
   // triggers stay, and checks resume when it is on again.
   KORTIX_EVENT_POLLS_ENABLED: optBoolTrue,
 
@@ -898,7 +980,7 @@ export const envSchema = z.object({
   AUTH_EMAIL_HOOK_SECRET: optStr,
 
   // ── Transactional email: pre-EMAIL_URL variables (still supported) ────────
-  // Deployed Dosco runs on these today. They are used whenever EMAIL_URL is
+  // Deployed Kortix runs on these today. They are used whenever EMAIL_URL is
   // unset; setting EMAIL_URL overrides all of them.
   // `smtp` is last but present by default: an existing self-host that
   // configured SMTP_* for GoTrue before EMAIL_URL shipped starts sending
@@ -951,17 +1033,17 @@ export const envSchema = z.object({
   // Supabase Mailpit. Deployed environments leave it unset.
   MAILPIT_API_URL: optStr,
   MAILTRAP_API_TOKEN: optStr,
-  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@dosco.live'),
-  MAILTRAP_FROM_NAME: optStrDefault('Dosco'),
-  // Where Dosco sales hears about leads: "book a demo", "Talk to sales", the
+  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@kortix.com'),
+  MAILTRAP_FROM_NAME: optStrDefault('Kortix'),
+  // Where Kortix sales hears about leads: "book a demo", "Talk to sales", the
   // Enterprise demo turned on, billing ops copies. Comma-separated list; every
   // address gets every email. Unset → the sales inboxes on prod only: dev,
   // staging, local and self-host test accounts must never email sales.
   DEMO_LEAD_NOTIFY_EMAIL: z.string().optional(),
-  // Sender for those notifications. dosco.live (not the global MAILTRAP_FROM_
-  // EMAIL on dosco.live) so the send is DKIM-aligned with the dosco.live
-  // recipient inboxes — the dosco.live sender was landing in spam.
-  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@dosco.live'),
+  // Sender for those notifications. kortix.ai (not the global MAILTRAP_FROM_
+  // EMAIL on kortix.com) so the send is DKIM-aligned with the kortix.ai
+  // recipient inboxes — the kortix.com sender was landing in spam.
+  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@kortix.ai'),
 
   // ── Mailtrap contact sync (signup → automation lists) ─────────────────────
   // The email automations themselves live in Mailtrap's Automations UI; the
@@ -976,7 +1058,8 @@ export const envSchema = z.object({
   // ── Signup webhook (signup → sales factory) ─────────────────────────────
   // Every genuinely new account POSTs one `account.signup` event here, signed
   // `X-Kortix-Signature: sha256=<HMAC-SHA256 of the raw body>` with the secret.
-  // Inert unless both are set (accounts/signup-webhook.ts).
+  // Inert unless both are set (accounts/sales-outbox.ts).
+  SALES_RECONCILIATION_TOKEN: optStr,
   SIGNUP_WEBHOOK_URL: optStr,
   SIGNUP_WEBHOOK_SECRET: optStr,
 
@@ -997,7 +1080,7 @@ type EnvIssue = { var: string; message: string; level: 'error' | 'warn' };
 // ALLOWED_SANDBOX_PROVIDERS — adding a new provider is a one-place change
 // here plus a case in `getProvider()` in platform/providers/index.ts.
 // `e2b` is not listed: E2B support is discontinued, so the entry is ignored.
-export const KNOWN_PROVIDERS: readonly SandboxProviderName[] = ['platinum', 'daytona', 'e2b'] as const;
+export const KNOWN_PROVIDERS: readonly SandboxProviderName[] = ['platinum', 'daytona'] as const;
 
 /**
  * Parse comma-separated provider list (e.g. "platinum,daytona"). `fallback` is
@@ -1095,15 +1178,15 @@ function validateEnv(): z.infer<typeof envSchema> {
       });
   }
 
-  // ── Conditional: Billing enabled → need at least one payment provider ──
-  // Stripe and Paystack are alternatives. Every checkout route takes
-  // `provider: 'stripe' | 'paystack'`, defaulting to Paystack. Billing boots
-  // when EITHER provider is complete, and a Paystack-only deployment never dies
-  // on missing Stripe keys.
+  // ── Conditional: Billing enabled → need Stripe keys ────────────────────
   const billingWillBeEnabled =
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === 'true' ||
     (raw as any).KORTIX_BILLING_INTERNAL_ENABLED === true;
   if (billingWillBeEnabled) {
+    // Stripe and Paystack are alternatives. Every checkout route takes
+    // `provider: 'stripe' | 'paystack'`, defaulting to Paystack. Billing boots
+    // when EITHER provider is complete, and a Paystack-only deployment never dies
+    // on missing Stripe keys (commit: fix(billing): allow Paystack-only boot).
     const stripeReady = Boolean(raw.STRIPE_SECRET_KEY && raw.STRIPE_WEBHOOK_SECRET);
     const paystackReady = Boolean(raw.PAYSTACK_SECRET_KEY);
     if (!stripeReady && !paystackReady) {
@@ -1115,18 +1198,20 @@ function validateEnv(): z.infer<typeof envSchema> {
       });
     } else {
       if (!stripeReady) {
-        if (!raw.STRIPE_SECRET_KEY)
+        if (!raw.STRIPE_SECRET_KEY) {
           issues.push({
             var: 'STRIPE_SECRET_KEY',
             message: 'Not set — Stripe checkout/portal paths return 400; Paystack paths are unaffected',
             level: 'warn',
           });
-        if (!raw.STRIPE_WEBHOOK_SECRET)
+        }
+        if (!raw.STRIPE_WEBHOOK_SECRET) {
           issues.push({
             var: 'STRIPE_WEBHOOK_SECRET',
             message: 'Not set — Stripe webhooks are rejected; Paystack webhooks are unaffected',
             level: 'warn',
           });
+        }
       }
       if (!paystackReady) {
         issues.push({
@@ -1323,13 +1408,22 @@ export const config = {
   // blank value must not turn into an instance called "".
   KORTIX_INSTANCE_ID: env.KORTIX_INSTANCE_ID || undefined,
   KORTIX_PREVIEW_BASE_DOMAIN: env.KORTIX_PREVIEW_BASE_DOMAIN,
+  KORTIX_APPS_BASE_DOMAIN_ALIASES: env.KORTIX_APPS_BASE_DOMAIN_ALIASES,
+  KORTIX_DOMAIN_ALIASES: env.KORTIX_DOMAIN_ALIASES,
+  KORTIX_PREVIEW_BASE_DOMAIN_ALIASES: env.KORTIX_PREVIEW_BASE_DOMAIN_ALIASES,
   // Single master switch — see schema docstring above.
   KORTIX_BILLING_INTERNAL_ENABLED: env.KORTIX_BILLING_INTERNAL_ENABLED,
+  KORTIX_BOX_DISK_CHARGE_ENABLED: env.KORTIX_BOX_DISK_CHARGE_ENABLED,
   KORTIX_APPS_STATIC_HOSTING: env.KORTIX_APPS_STATIC_HOSTING,
   KORTIX_APPS_RETAINED_DEPLOYMENTS: Math.max(1, env.KORTIX_APPS_RETAINED_DEPLOYMENTS),
   KORTIX_APPS_DEFAULT_ALWAYS_ON: env.KORTIX_APPS_DEFAULT_ALWAYS_ON,
+  CLAUDE_CODE_PATH: env.CLAUDE_CODE_PATH || 'claude',
   KORTIX_APPS_WORKER_ENABLED: env.KORTIX_APPS_WORKER_ENABLED,
   KORTIX_WORKERS_ENABLED: env.KORTIX_WORKERS_ENABLED,
+  KORTIX_PROCESS_ROLE: env.KORTIX_PROCESS_ROLE,
+  KORTIX_MODEL_PRICING_LIVE_ENABLED: env.KORTIX_MODEL_PRICING_LIVE_ENABLED,
+  KORTIX_MODEL_CATALOG_LIVE_ENABLED: env.KORTIX_MODEL_CATALOG_LIVE_ENABLED,
+  HEALTH_MAX_EVENT_LOOP_LAG_MS: env.HEALTH_MAX_EVENT_LOOP_LAG_MS,
   KORTIX_JOB_WORKER_ENABLED: env.KORTIX_JOB_WORKER_ENABLED,
   ACCOUNT_DELETION_SWEEP_PAUSED: env.ACCOUNT_DELETION_SWEEP_PAUSED,
   KORTIX_SANDBOX_EGRESS_PIN_ENFORCED: env.KORTIX_SANDBOX_EGRESS_PIN_ENFORCED,
@@ -1427,6 +1521,15 @@ export const config = {
   RESEND_MANAGED_DOMAIN: env.RESEND_MANAGED_DOMAIN,
   RESEND_MANAGED_EMAIL_ENABLED: env.RESEND_MANAGED_EMAIL_ENABLED,
   TELEGRAM_API_URL: env.TELEGRAM_API_URL,
+  DISCORD_APPLICATION_ID: env.DISCORD_APPLICATION_ID,
+  DISCORD_PUBLIC_KEY: env.DISCORD_PUBLIC_KEY,
+  DISCORD_CLIENT_SECRET: env.DISCORD_CLIENT_SECRET,
+  DISCORD_BOT_TOKEN: env.DISCORD_BOT_TOKEN,
+  DISCORD_MESSAGE_CONTENT: env.DISCORD_MESSAGE_CONTENT,
+  DISCORD_REDIRECT_URI: env.DISCORD_REDIRECT_URI,
+  DISCORD_API_URL: env.DISCORD_API_URL,
+  DISCORD_CDN_URL: env.DISCORD_CDN_URL,
+  DISCORD_GATEWAY_URL: env.DISCORD_GATEWAY_URL,
   KORTIX_OAUTH_CLIENTS: env.KORTIX_OAUTH_CLIENTS,
 
   // ─── Channels (Microsoft Teams) ───────────────────────────────────────────
@@ -1484,11 +1587,14 @@ export const config = {
   KORTIX_WORKSPACE_VOLUMES: env.KORTIX_WORKSPACE_VOLUMES,
   KORTIX_PLATINUM_US_REGION_DEFAULT: env.KORTIX_PLATINUM_US_REGION_DEFAULT,
   KORTIX_PROJECT_SNAPSHOT_MODE: env.KORTIX_PROJECT_SNAPSHOT_MODE,
+  KORTIX_GIT_OBJECT_STORE: env.KORTIX_GIT_OBJECT_STORE,
   KORTIX_PROJECT_SNAPSHOT_S3_BUCKET: env.KORTIX_PROJECT_SNAPSHOT_S3_BUCKET,
   KORTIX_PROJECT_SNAPSHOT_S3_REGION: env.KORTIX_PROJECT_SNAPSHOT_S3_REGION,
   KORTIX_PROJECT_SNAPSHOT_S3_ENDPOINT: env.KORTIX_PROJECT_SNAPSHOT_S3_ENDPOINT,
   KORTIX_PROJECT_SNAPSHOT_S3_PUBLIC_ENDPOINT: env.KORTIX_PROJECT_SNAPSHOT_S3_PUBLIC_ENDPOINT,
   KORTIX_PROJECT_SNAPSHOT_S3_FORCE_PATH_STYLE: env.KORTIX_PROJECT_SNAPSHOT_S3_FORCE_PATH_STYLE,
+  KORTIX_PROJECT_SNAPSHOT_S3_CREATE_BUCKET: env.KORTIX_PROJECT_SNAPSHOT_S3_CREATE_BUCKET,
+  KORTIX_PROJECT_SNAPSHOT_S3_PROXY_TARGET: env.KORTIX_PROJECT_SNAPSHOT_S3_PROXY_TARGET,
   KORTIX_PROJECT_SNAPSHOT_S3_ACCELERATE: env.KORTIX_PROJECT_SNAPSHOT_S3_ACCELERATE,
   KORTIX_PROJECT_SNAPSHOT_S3_PREFIX: env.KORTIX_PROJECT_SNAPSHOT_S3_PREFIX,
   KORTIX_PROJECT_SNAPSHOT_S3_ACCESS_KEY_ID: env.KORTIX_PROJECT_SNAPSHOT_S3_ACCESS_KEY_ID,
@@ -1541,10 +1647,6 @@ export const config = {
     env.PLATINUM_TARGET === 'local' ? env.PLATINUM_API_URL_LOCAL : env.PLATINUM_API_URL,
   PLATINUM_TEMPLATE: env.PLATINUM_TEMPLATE,
   PLATINUM_WEBHOOK_SECRET: env.PLATINUM_WEBHOOK_SECRET,
-  E2B_API_KEY: env.E2B_API_KEY,
-  E2B_DOMAIN: env.E2B_DOMAIN,
-  E2B_TEMPLATE: env.E2B_TEMPLATE,
-  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ARTIFACT_CONTENT_URL: env.ARTIFACT_CONTENT_URL.replace(/\/+$/, ''),
@@ -1667,7 +1769,7 @@ export const config = {
   MAILTRAP_FROM_NAME: env.MAILTRAP_FROM_NAME,
   DEMO_LEAD_NOTIFY_EMAIL:
     env.DEMO_LEAD_NOTIFY_EMAIL ??
-    (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@dosco.live,hey@dosco.live' : ''),
+    (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@kortix.ai,hey@kortix.ai' : ''),
   DEMO_LEAD_FROM_EMAIL: env.DEMO_LEAD_FROM_EMAIL,
 
   // ─── Mailtrap contact sync (signup → automation lists) ────────────────────
@@ -1676,6 +1778,7 @@ export const config = {
   MAILTRAP_BUSINESS_SIGNUPS_LIST_ID: env.MAILTRAP_BUSINESS_SIGNUPS_LIST_ID,
 
   // ─── Signup webhook (signup → sales factory) ──────────────────────────────
+  SALES_RECONCILIATION_TOKEN: env.SALES_RECONCILIATION_TOKEN,
   SIGNUP_WEBHOOK_URL: env.SIGNUP_WEBHOOK_URL,
   SIGNUP_WEBHOOK_SECRET: env.SIGNUP_WEBHOOK_SECRET,
 
@@ -1692,8 +1795,6 @@ export const config = {
         return !!this.DAYTONA_API_KEY;
       case 'platinum':
         return !!this.PLATINUM_API_KEY;
-      case 'e2b':
-        return !!this.E2B_API_KEY;
       default: {
         const exhaustive: never = name;
         return exhaustive;

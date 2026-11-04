@@ -10,6 +10,9 @@
  * line reads what the configuration grants (KRTX-3025), never the agent's
  * prose. A space filter appears when the project splits into spaces.
  *
+ * The page is the Customize libraries' shell (`CapabilityPageShell`), the
+ * same title, search and centered column as Skills and Connectors.
+ *
  * New agent opens `CreateAgentModal`; `?new=1` opens it too (the sidebar's
  * New agent row links here).
  *
@@ -63,7 +66,7 @@ import { toArray } from '../shared/utils';
 import { AgentAccessText } from './agent-access-text';
 import { AgentCoverCard } from './agent-cover-card';
 import { agentInMode, filterAgents } from './agent-filter';
-import { AgentTabBody, CustomizeHeader } from './agent-page-chrome';
+import { CapabilityPageShell } from '../shared/capability-page-shell';
 import { CreateAgentModal } from './create-agent-modal';
 import { AgentPinButton } from './agent-pin-button';
 
@@ -294,13 +297,27 @@ export function AgentsPage({
     );
   })();
 
-  const search = (ref?: typeof searchRef) => (
+  // The Customize libraries' page shell (Skills, Connectors): the title and
+  // one line under it, search and actions on the right, then the card grid in
+  // a centered `max-w-5xl` column (2026-11-03: the earlier Agents page is back).
+  return (
+    <>
+      <CapabilityPageShell
+        title={tI18nComplete.raw('text279b44d2ab4b')}
+        description={tI18nComplete.raw('text636453e23d69')}
+        action={
+          <>
+            {config ? <DefaultAgentSelector projectId={projectId} config={config} canWrite={canWrite} /> : null}
+            {newButton}
+          </>
+        }
+        search={
     <InputGroupSearch>
       <InputGroupSearchIcon>
         <MagnifyingGlassIcon />
       </InputGroupSearchIcon>
       <InputGroupSearchInput
-        ref={ref}
+              ref={searchRef}
         aria-label={tI18nComplete.raw('text212fd04a1d20')}
         placeholder={tI18nComplete.raw('text212fd04a1d20')}
         value={query}
@@ -310,32 +327,10 @@ export function AgentsPage({
       />
       {query ? <InputGroupSearchClear onClick={() => setQuery('')} /> : null}
     </InputGroupSearch>
-  );
-
-  // The same header as the agent page, My Kortix and Review (`CustomizeHeader`),
-  // so the title never jumps between them. Search sits in it from `md`; below
-  // that it is the first row of the list.
-  return (
-    <>
-      <div className="flex h-full min-h-0 flex-1 flex-col">
-        <CustomizeHeader
-          title={tI18nComplete.raw('text279b44d2ab4b')}
-          rule
-          actions={
-            <>
-              <div className="hidden w-64 md:block">{search(searchRef)}</div>
-              {config ? <DefaultAgentSelector projectId={projectId} config={config} canWrite={canWrite} /> : null}
-              {newButton}
-            </>
           }
-        />
-        {/* A centered column: three cards across at most, never the whole window.
-            Equal top and bottom inset: this page has no save bar to clear. */}
-        <AgentTabBody className="mx-auto max-w-6xl space-y-5 pb-5">
-          <div className="md:hidden">{search()}</div>
+      >
           {body}
-        </AgentTabBody>
-      </div>
+      </CapabilityPageShell>
       {canWrite ? (
         <CreateAgentModal open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} config={config} />
       ) : null}

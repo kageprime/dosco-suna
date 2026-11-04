@@ -779,6 +779,8 @@ mock.module('../shared/db', () => ({
     // matching the auth admin mock above.
     execute: async (query: unknown) =>
       authUsersRows(query, () => ({ email: 'contract@example.test' })) ?? [],
+    // These sessions have neither unanswered questions nor pending approvals.
+    selectDistinct: () => ({ from: () => ({ where: async () => [] }) }),
     selectDistinctOn: () => ({ from: () => ({ where: () => ({ orderBy: async () => [] }) }) }),
     select: (fields?: Record<string, unknown>) => ({
       from: (table: unknown) => {
@@ -1274,18 +1276,8 @@ describe('project session runtime guards', () => {
 
   beforeEach(() => resetState());
 
-  // The platform coordinator is a per-project experimental opt-in. Every other
-  // test in this file runs with the flag OFF and asserts the pre-meta default
-  // behavior byte-for-byte.
-  function enableMetaAgent() {
-    projectRow.metadata = {
-      ...(projectRow.metadata as Record<string, unknown>),
-      experimental: { meta_agent: true },
-    };
-  }
-
-  test('creates an omitted-agent session with the meta REST runtime', async () => {
-    enableMetaAgent();
+  test('creates an omitted-agent session with the meta REST runtime when kortix.yaml turns My Kortix on', async () => {
+    manifestYaml = 'builtin_agents:\n  my_kortix: true\nagents:\n  worker: { tools: all, workspace: { project_repository: true } }\n';
     const app = createApp();
     const response = await app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
       method: 'POST',
@@ -1397,7 +1389,6 @@ describe('project session runtime guards', () => {
     }
   });
   test('a meta session with an omitted agent spawns the project default, not another meta', async () => {
-    enableMetaAgent();
     sessionRow = { ...sessionRow!, agentName: 'mykortix' };
     const app = createApp();
     const response = await app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
@@ -1485,6 +1476,38 @@ describe('project session runtime guards', () => {
     expect(created.visibility).toBe('private');
     expect(created.metadata?.spawned_by_session).toBeUndefined();
     expect(created.initiator).toMatchObject({ type: 'member' });
+  });
+
+  test('kortix.* runtime_context keys come only from a session creating its own child; a person, an API key, a service account or a project token gets 400 and no session', async () => {
+    const app = createApp();
+    const create = (runtimeContext: Record<string, unknown>, token?: string) =>
+      app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ provider: 'platinum', base_ref: 'main', runtime_context: runtimeContext }),
+      });
+    // A declared workflow runner (it would run the script it names) and a declared child depth (no run approval).
+    const declared = { 'kortix.workflow.run_id': 'run-forged-0000001', 'kortix.workflow.handoff_sha256': 'a'.repeat(64), 'kortix.subagent.depth': 1, customer_id: 'c-42' };
+    for (const token of [undefined, PROJECT_SA_TOKEN, PROJECT_RUNTIME_PAT, PROJECT_SANDBOX_TOKEN]) {
+      const refused = await create(declared, token);
+      expect(refused.status).toBe(400);
+      const body = await refused.json();
+      expect(body.code).toBe('INVALID_SESSION_RUNTIME_CONTEXT');
+      expect(body.error).toContain('kortix.subagent.depth, kortix.workflow.handoff_sha256, kortix.workflow.run_id');
+    }
+    expect(lastSessionInsertValues).toBeNull();
+    expect(runtimeContextRows).toEqual([]);
+
+    // A customer's own keys stay theirs.
+    const own = await create({ customer_id: 'c-42' }, PROJECT_SA_TOKEN);
+    expect(own.status).toBe(201);
+    expect(runtimeContextRows[0]?.context).toEqual({ customer_id: 'c-42' });
+
+    // A box's session token creating its child: the child is the box's spawn, and its marks are kept.
+    const child = await create(declared, SESSION_BOUND_PAT);
+    expect(child.status).toBe(201);
+    expect((await child.json()).metadata?.spawned_by_session).toBe(SESSION_ID);
+    expect(runtimeContextRows[0]?.context).toEqual(declared);
   });
 
   test('a bound session ignores a body-selected parent', async () => {
@@ -2837,29 +2860,6 @@ describe('project session runtime guards', () => {
       status: 'stopped',
       metadata: { preservedExternalId: 'box-accepted-start-then-removed' },
     });
-  });
-
-  // The warm create runs `createProjectSession` with an empty body: no prompt,
-  // so no title source. The first real prompt titles the session later.
-  test('a warm session is created without a prompt or a title source', async () => {
-    projectRow.metadata = { ...projectRow.metadata, experimental: { warm_sessions: true } };
-    const app = createApp();
-    sessionRow = null;
-
-    const res = await app.request(`/v1/projects/${PROJECT_ID}/sessions/warm`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ reused: false });
-    const metadata = lastSessionInsertValues?.metadata as Record<string, unknown>;
-    expect(metadata.warm).toBe(true);
-    for (const key of ['initial_prompt', 'pending_prompt', 'title_source', 'name']) {
-      expect(metadata).not.toHaveProperty(key);
-    }
-    expect(lifecycleCommandInserts).toEqual([]);
   });
 
   test('e2e: only explicit sandbox secrets are injected as plaintext env vars', async () => {

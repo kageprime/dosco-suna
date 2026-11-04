@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { AgentSpawnTool } from './agent-spawn-tool';
 import { KortixActionTool } from './kortix-action-tool';
-import { MULTI_AGENT_TOOLS, kortixCardTool, parseKortixToolResult } from './kortix-tool-card';
+import { MULTI_AGENT_TOOLS, kortixCardTool } from './kortix-tool-card';
 import { isTeamTaskCall } from './multi-agent-tools';
 import { TaskListTool } from './task-list-tool';
 
@@ -123,12 +123,6 @@ describe('registration', () => {
     expect(kortixCardTool('kortix_agents')).toBe('kortix_agents');
     expect(kortixCardTool('bash')).toBeUndefined();
   });
-
-  test('a result without `tool` takes the call name', () => {
-    const raw = JSON.stringify({ ok: true, card: { title: '2 agents', status: 'done' } });
-    expect(parseKortixToolResult(raw)).toBeNull();
-    expect(parseKortixToolResult(raw, 'list_agents')?.tool).toBe('list_agents');
-  });
 });
 
 describe('send_message', () => {
@@ -185,6 +179,27 @@ describe('list_agents', () => {
     expect(text).toContain('Can’t receive messages');
     expect(text).not.toContain('@lead');
     expect(text).not.toContain('card row that the body replaces');
+  });
+
+  // A dev session's list showed "Build Marko Kraemer website (@general su…" beside
+  // an uppercase badge, over the raw JSON result folded under "Show details".
+  test('shows a spawned agent by its task alone, and no raw result under the rows', () => {
+    const result = {
+      ok: true,
+      tool: 'list_agents',
+      action: 'mine',
+      card: { title: '1 session you can reach', subtitle: 'This session is lead-5902b848. 1 working.', status: 'done' },
+      data: {
+        self: AGENT('lead', 'self', 'working'),
+        agents: [AGENT('site', 'child', 'working', { title: 'Build the site (@general subagent)', agent_name: 'kortix' })],
+      },
+    };
+    const text = textOf(drawn('list_agents', done('list_agents', result), { open: true }));
+    expect(text).toContain('@site');
+    expect(text).toContain('Build the site · Helper');
+    expect(text).not.toContain('subagent)');
+    expect(text).not.toContain('Show details');
+    expect(text).not.toContain('This session is lead-5902b848');
   });
 
   test('running says it checks the other agents', () => {

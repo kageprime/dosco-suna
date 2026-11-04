@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="/home/ubuntu/dosco-brand/assets/_dosco-logo.svg" alt="火dosco" width="160" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/brandkit/Logo/Logomark/SVG/Logomark%20White.svg">
+  <img src="apps/web/public/brandkit/Logo/Logomark/SVG/Logomark%20Black.svg" alt="火 Dosco" width="200" />
+</picture>
 
 # 火 Dosco — the Dosco Agent Network
 
@@ -8,16 +11,16 @@
 
 **The flexible agent that becomes any role at 100% capacity — the perfect coworker for your team.**
 
-[![GitHub stars](https://img.shields.io/github/stars/kortix-ai/suna?style=flat&color=111111&label=Stars)](https://github.com/kortix-ai/suna/stargazers)
-[![Release](https://img.shields.io/github/v/release/kortix-ai/suna?style=flat&color=111111&label=Release)](https://github.com/kortix-ai/suna/releases/latest)
-[![Docs](https://img.shields.io/badge/Docs-dosco.com%2Fdocs-111111.svg)](https://kortix.com/docs)
+[![GitHub stars](https://img.shields.io/github/stars/kortix-ai/CompanyOS?style=flat&color=111111&label=Stars)](https://github.com/kortix-ai/CompanyOS/stargazers)
+[![Release](https://img.shields.io/github/v/release/kortix-ai/CompanyOS?style=flat&color=111111&label=Release)](https://github.com/kortix-ai/CompanyOS/releases/latest)
+[![Docs](https://img.shields.io/badge/Docs-dosco.live%2Fdocs-111111.svg)](https://dosco.live/docs)
 [![Dosco Network](https://img.shields.io/badge/Dosco-Network-111111.svg)](#contributing)
 
-[Website](https://kortix.com) · [Documentation](https://kortix.com/docs) · [Cloud](https://kortix.com) · [Manifesto](MANIFESTO.md)
+[Website](https://dosco.live) · [Documentation](https://dosco.live/docs) · [Cloud](https://dosco.live) · [Manifesto](MANIFESTO.md)
 
 <br />
 
-<img src="apps/web/public/media/showcase/kortix-showcase.gif" alt="Ask a project for real work, connect 3,000+ apps, manage agents, skills and schedules, then watch an agent research on a cloud computer and return a finished pitch deck" width="900" />
+<img src="apps/web/public/media/landing/hero-ui.png" alt="Dosco UI" width="960" />
 
 </div>
 
@@ -38,45 +41,20 @@ Any model, your own API keys, your own infrastructure or our managed cloud.
 
 ---
 
-## How it compares
-
-| | Claude Cowork | ChatGPT Work | **Dosco** |
-| --- | --- | --- | --- |
-| **Source** | Closed | Closed | **Yours — versioned, diffable, and owned outright** |
-| **Models** | Anthropic only | GPT-5.6 only | **Any provider, your own API keys** |
-| **Where it runs** | Anthropic's cloud, or Bedrock / Google Cloud / Microsoft Foundry — no self-host | OpenAI's cloud, no self-host | **Our cloud, your VPC, or your own on-prem network** |
-| **Your configuration** | In their product | In their product | **Files in a git repo you own** |
-| **Access** | Paid plans (Pro, Max, Team, Enterprise) | Paid plans, usage-metered | **Self-host free · managed cloud $40/seat/mo + usage** |
-
-Competitor rows reflect publicly documented behavior as of July 2026.
-
----
-
 ## Quickstart
 
-Three commands. Build your company like a codebase, then bring it live.
+Run Dosco in five seconds:
 
 ```bash
-# 1 · Install the CLI
-curl -fsSL https://kortix.com/install | bash
+# 1. Install the CLI
+curl -fsSL https://dosco.live/install | bash
 
-# 2 · Scaffold a project — creates kortix.yaml + your agents, skills and runtime config
-kortix init
-
-# 3 · Ship it — pushes your repo and brings the whole thing live in the cloud
-kortix ship
+# 2. Start your first session
+kortix
 ```
 
-That's the loop. From here:
-
-```bash
-kortix sessions new --prompt "Summarize this week's commits and open a change request"
-kortix cr ls          # review what an agent proposes — merge to keep it
-kortix chat           # talk to a session's agent from your terminal
-```
-
-Prefer zero setup? Sign up at **[kortix.com](https://kortix.com)**, create a project, and start a
-session — nothing to install. Full command surface: **[CLI reference](https://kortix.com/docs/cli)**.
+The CLI launches the interactive terminal agent (`pi`), signs in with your browser, and opens your
+first session — nothing to install. Full command surface: **[CLI reference](https://dosco.live/docs/cli)**.
 
 ---
 
@@ -89,7 +67,7 @@ definition of the machines it all runs on. **Versioned. Diffable. Owned outright
 ```
 project  (git repo + kortix.yaml)
    └─ session ──> cloud computer: an isolated sandbox on a branch named after the session
-                     └─ the OpenCode agent works
+                     └─ the agent works
                            └─ change request ──> you review & merge ──> main
 ```
 
@@ -108,7 +86,7 @@ You can `grep` your entire company.
 
 | | |
 | --- | --- |
-| **Agents** | OpenCode agents with a scoped reach into tools — markdown at the baseline, with the whole OpenCode lifecycle open to you. One per role or task, installable in a click, able to rewrite themselves. |
+| **Agents** | Agents with a scoped reach into tools — markdown at the baseline, with the whole lifecycle open to you. One per role or task, installable in a click, able to rewrite themselves. |
 | **Skills** | Reusable know-how that encodes how your company does a job. Written once, shared into every session. |
 | **Memory** | A living company brain — plain files today, a system that compounds what it learns over time. |
 | **Connectors** | 3,000+ apps in a click — plus MCP, OpenAPI, GraphQL and raw HTTP. Credentials are brokered server-side through one scoped token and never enter the machine. |
@@ -139,57 +117,13 @@ network. Start a production-style local instance from Docker images, then switch
 Cloud and your own hosts:
 
 ```bash
+curl -fsSL https://dosco.live/install | bash
 kortix self-host start
 kortix hosts use selfhost  # ↔  kortix hosts use cloud
 ```
 
-The first interactive setup asks only for the integration credentials that unlock managed git,
-GitHub access, and Pipedream connectors — ports, local URLs, keys and Docker Compose defaults are
-generated for you. Note that `self-host start` pulls its images from Docker Hub, so this is a
-self-hosted install rather than a disconnected one.
-
-Managed hosting is **[Dosco Cloud](https://kortix.com)**.
-
 ---
 
-## Enterprise & security
+## License
 
-Built to survive a security review, not slip past one: one isolated machine per session · members,
-groups & roles that match your org · per-resource permissions for people **and** agents ·
-connector credentials brokered server-side, so the raw key never reaches the sandbox · a secrets
-manager, encrypted at rest and injected at runtime · a full audit trail · merge that is deny-by-default
-for an agent · approval gates you switch on for the actions that matter · your own VPC or on-prem
-network.
-
-Sessions run on Platinum, the reference sandbox provider, where each session is its own microVM.
-Daytona remains only as a legacy fallback, and its removal is scheduled.
-
----
-
-## Contributing
-
-```bash
-pnpm install
-pnpm dev            # web + API (scripts/dev-local.sh)
-pnpm dev:web        # web app only
-pnpm dev:api        # API only
-pnpm dev:sandbox    # build the local sandbox image
-pnpm build          # build all packages
-pnpm nuke           # tear down the local Docker environment
-```
-
-Apps live under `apps/` (`web`, `api`, `cli`, `desktop-electron`, `mobile`, `sandbox`);
-documentation source is in `apps/web/content/docs`. The whole platform ships under one version
-(root `VERSION`) — API, frontend, CLI and desktop release together as `vX.Y.Z`.
-
-Local secrets, test lanes, and the PR gate: **[CONTRIBUTING.md](CONTRIBUTING.md)**. Issues and
-pull requests are welcome.
-
----
-
-<div align="center">
-<br />
-<strong>We're building the thing that takes a company from human to AGI — and lets it keep every byte of itself on the way there.</strong>
-<br /><br />
-<a href="https://kortix.com">kortix.com</a>
-</div>
+Dosco is proprietary software developed by Dosco Tek. See [WHITE-LABEL-LICENSE.md](WHITE-LABEL-LICENSE.md).

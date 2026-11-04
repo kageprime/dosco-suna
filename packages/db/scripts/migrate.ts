@@ -36,7 +36,6 @@ import {
   migrationLedgerRepairConnectorName,
   repairMigrationLedger,
 } from './migration-ledger-repair';
-import { repairLocalWarmSessionIndex } from './local-warm-session-index-repair';
 import { withMigrationRetry } from './migration-retry';
 import { materializeMigrationRuntimeDirectory } from './migration-runtime-overrides';
 import { assertBootstrapTargetAllowed, RUNNER_TRANSACTION_MODE, migrationBootstrapsPrerequisites, migrationCheckOrder } from './migration-target';
@@ -293,12 +292,6 @@ async function main() {
         return;
       case 'local-up': {
         await autoBaselineIfNeeded(base, databaseUrl);
-        const warmIndexRepair = await repairLocalWarmSessionIndex(databaseUrl);
-        if (warmIndexRepair.repaired) {
-          console.warn(
-            `[migrate] repaired local warm-session index; discarded ${warmIndexRepair.discardedDuplicates} duplicate row(s).`,
-          );
-        }
         if (await repairLocalAuditV2Ledger(databaseUrl, MIGRATIONS_DIR)) {
           console.warn('[migrate] recorded the complete untracked local audit-v2 schema.');
         }

@@ -1,6 +1,7 @@
 // Project sessions — session CRUD, sharing, public shares, preview candidates.
 
 import { type ApiClientOptions, ApiError, backendApi } from '../../http/api-client';
+import { retiredEndpointError } from '../../http/api/errors';
 import { markSessionFresh } from '../../http/fresh-sessions';
 import { currentSavedCopyStore } from '../../session-sync/saved-copy-store';
 import { noteSessionDeleted, noteSessionStopped } from '../../http/session-stopped';
@@ -342,6 +343,7 @@ export interface CreateProjectSessionInput {
   secrets?: string[];
 }
 
+/** @deprecated Warm sessions were removed. Removed in the next major. */
 export interface WarmProjectSessionWorkspaceRefresh {
   status: 'skipped' | 'unchanged' | 'updated' | 'failed';
   before_sha?: string | null;
@@ -349,12 +351,14 @@ export interface WarmProjectSessionWorkspaceRefresh {
   error?: string;
 }
 
+/** @deprecated Warm sessions were removed. Removed in the next major. */
 export interface WarmProjectSessionResult {
   session: ProjectSession;
   reused: boolean;
   workspace_refresh: WarmProjectSessionWorkspaceRefresh;
 }
 
+/** @deprecated Warm sessions were removed. Removed in the next major. */
 export interface ClaimWarmProjectSessionInput {
   session_id: string;
   agent_name?: string;
@@ -863,63 +867,35 @@ export async function createProjectSession(projectId: string, input?: CreateProj
   return session;
 }
 
+/** @deprecated Warm sessions were removed. Removed in the next major. */
 export interface EnsureWarmProjectSessionOptions {
-  /**
-   * The id of a warm session this call must NOT reuse — typically the one the
-   * caller just took for a send. The server's reuse lookup skips it even
-   * though its `metadata.warm` marker is still set (it only drops when the
-   * first prompt reaches the preview proxy, seconds after take), so a
-   * replenish fired in that window creates a FRESH session instead of handing
-   * the just-taken one straight back.
-   */
   excludeSessionId?: string;
 }
 
+const WARM_SESSIONS_REMOVED = 'Warm sessions were removed: create the session with createProjectSession().';
+
 /**
- * Pre-create the session a present user is about to start.
- *
- * Speculative by contract: the caller ignores every failure and falls through to
- * `createProjectSession`, which re-evaluates every gate and surfaces the real
- * error. `showErrors: false` keeps the recoverable `409 WARM_SESSION_UNAVAILABLE`
- * — a project whose repo cannot be read, say — out of the global error sink, where it became a toast on an ordinary
- * project page view.
+ * @deprecated Warm sessions were removed (2026-11-03): the API answers 410.
+ * Always rejects with `ENDPOINT_RETIRED` and sends no request. Create the
+ * session with `createProjectSession`. Removed in the next major.
  */
 export async function ensureWarmProjectSession(
-  projectId: string,
-  options?: EnsureWarmProjectSessionOptions,
-) {
-  const body = options?.excludeSessionId ? { exclude_session_id: options.excludeSessionId } : {};
-  const result = unwrap(
-    await backendApi.post<WarmProjectSessionResult>(`/projects/${projectId}/sessions/warm`, body, {
-      showErrors: false,
-    }),
-  );
-  // A REUSED session is, by definition, not fresh: it is the same session a
-  // previous take (or a previous tab) already consumed, possibly with turns
-  // already in flight. Marking it fresh painted the resumed session as an
-  // instant typeable EMPTY shell, hiding exactly the mis-delivery this whole
-  // exclusion mechanism exists to prevent.
-  if (!result.reused) markSessionFresh(result.session.session_id);
-  return result;
+  _projectId: string,
+  _options?: EnsureWarmProjectSessionOptions,
+): Promise<WarmProjectSessionResult> {
+  throw retiredEndpointError('ensureWarmProjectSession', WARM_SESSIONS_REMOVED);
 }
 
 /**
- * @deprecated A warm session is an ordinary session. Navigate to
- * `ensureWarmProjectSession`'s `session.session_id` and prompt it — the first
- * prompt makes it visible on its own. This call remains only so consumers
- * pinned to an older shape keep working; it will be removed in the next major.
+ * @deprecated Warm sessions were removed (2026-11-03): the API answers 410.
+ * Always rejects with `ENDPOINT_RETIRED` and sends no request. Create the
+ * session with `createProjectSession`. Removed in the next major.
  */
 export async function claimWarmProjectSession(
-  projectId: string,
-  input: ClaimWarmProjectSessionInput,
-) {
-  const session = unwrap(
-    await backendApi.post<ProjectSession>(`/projects/${projectId}/sessions/warm/claim`, input, {
-      showErrors: false,
-    }),
-  );
-  markSessionFresh(session.session_id);
-  return session;
+  _projectId: string,
+  _input: ClaimWarmProjectSessionInput,
+): Promise<ProjectSession> {
+  throw retiredEndpointError('claimWarmProjectSession', WARM_SESSIONS_REMOVED);
 }
 
 export async function getProjectSession(
@@ -1585,6 +1561,8 @@ export interface SessionPrompt {
   /** Posted without a turn: no agent answers it, so show no "thinking"
    *  state. Absent from servers older than this field. */
   no_reply?: boolean;
+  /** Harness context (an auto-recovery continuation), not a person's prompt. Absent from an older API. */
+  synthetic?: boolean;
   /** The member who sent it. The prompt runs as this member, so only they
    *  edit, send now or retry it (`sessionPromptActions`). Null for a prompt
    *  with no recorded sender; absent from servers older than this field. */
@@ -1670,6 +1648,23 @@ export async function createSessionPrompt(
   );
 }
 
+/**
+ * A prompt the runtime accepted that the session log does not hold yet, or the session's
+ * `initial_prompt`: it left the inbox at delivery and is in the log once the box journals it.
+ * `message_id` is the id the log will hold it under. `prompt_id` is null for an
+ * `initial_prompt`. Listed by `GET …/prompts` `sent` and the `kortix.control.queue` frame.
+ */
+export interface SessionSentPrompt {
+  message_id: string;
+  /** The id the prompt was sent under (the host's optimistic message), when it differs. Absent from an older API. */
+  wire_message_id?: string | null;
+  prompt_id: string | null;
+  text: string;
+  attachments: Array<{ filename: string; mime: string }>;
+  author_user_id: string | null;
+  created_at: string;
+}
+
 /** Every prompt this session still owes the user, oldest first. Delivered
  *  prompts are omitted — they are in the transcript. `observed_at` is the
  *  SERVER's clock captured BEFORE the read: the ordering stamp this snapshot
@@ -1677,9 +1672,9 @@ export async function createSessionPrompt(
 export async function listSessionPrompts(
   projectId: string,
   sessionId: string,
-): Promise<{ prompts: SessionPrompt[]; observed_at?: string }> {
+): Promise<{ prompts: SessionPrompt[]; sent?: SessionSentPrompt[]; observed_at?: string }> {
   return unwrap(
-    await backendApi.get<{ prompts: SessionPrompt[]; observed_at?: string }>(
+    await backendApi.get<{ prompts: SessionPrompt[]; sent?: SessionSentPrompt[]; observed_at?: string }>(
       `/projects/${projectId}/sessions/${sessionId}/prompts`,
       // A background poll: a failed tick must not toast every second.
       { showErrors: false },

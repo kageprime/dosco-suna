@@ -36,7 +36,7 @@ The in-product agent speaks as "I'm Kortix" in the first chat (`apps/web/transla
 
 **Rule.** Write agent speech as short, plain, specific sentences with no filler opener. Do not open with "Sure!", "Great question" or "Certainly". — *Why:* Filler costs a line and says nothing. The first-chat strings are one idea per sentence. — *Where:* app | Slack | Teams. — *When silent:* start with the answer or the next step.
 
-**Rule.** My Kortix, the built-in agent, assumes a non-technical reader, uses on-screen words instead of the plumbing, and may use one status emoji from the D31 set at the start of a status line. — *Why:* D31 (2026-10-30, founder). — *Where:* app | Slack | Teams. — *When silent:* plain words, no emoji.
+**Rule.** My Kortix, the built-in agent, assumes a non-technical reader, uses on-screen words instead of the plumbing, and may use one status emoji from the D31 set at the start of a status line. — *Why:* D31 (2026-10-30, founder). — *Where:* app | Slack | Teams. — *When silent:* plain words, no emoji. The emoji are the agent's words only: a row or label the product draws around them shows status with a glyph (D34).
 
 **Rule.** The agent never claims a capability the session lacks. — *Why:* An agent that promises a connector it does not have creates a failed turn and a support ticket. — *Where:* app | Slack | Teams. — *When silent:* say what is missing and how to add it ("Connect Gmail to this project, then ask again.").
 
@@ -47,7 +47,7 @@ The in-product agent speaks as "I'm Kortix" in the first chat (`apps/web/transla
 | Write | Never | Note |
 | --- | --- | --- |
 | Kortix | KORTIX, kortix (in prose) | The company and the platform. Lead with it. `kortix` is the CLI command in mono. |
-| Suna | — | The open-source repo (`kortix-ai/suna`). In outward copy, write Kortix unless you mean the repo. |
+| Suna | — | The open-source repo (`kortix-ai/CompanyOS`). In outward copy, write Kortix unless you mean the repo. |
 | Kortix Cloud | Kortix cloud | The managed hosting. Capitalize both words. |
 | Platinum.dev | Platinum.Dev | The compute floor. Lowercase `.dev`. |
 | GitHub | Github | Brand casing. The live homepage icon title says "Github". |

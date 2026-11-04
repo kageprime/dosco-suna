@@ -26,6 +26,7 @@ import { ParticipantAvatar } from '../ParticipantAvatar';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
 import { SlackIcon } from '@/components/icons/slack-icon';
 import { TeamsIcon } from '@/components/icons/teams-icon';
+import { DiscordIcon } from '@/components/icons/discord-icon';
 import { TelegramIcon } from '@/components/icons/telegram-icon';
 import {
   AlarmIcon,
@@ -43,7 +44,7 @@ import type { Command } from '@/lib/session/runtime-data';
 import type { SessionLogTurn } from '@kortix/sdk';
 import { recordTimeMs } from '@/lib/session/turn-meta';
 import { type ChannelPlatform, channelPromptTail, isChannelFileLabel, parseChannelMessage } from '@kortix/shared';
-import { parseReminderPrompt, parseRoomDigest, parseRoomPrompt, parseTriggerEvent, type ChannelMessageInfo } from '@kortix/shared';
+import { parsePeerMessagePrompt, parseReminderPrompt, parseRoomDigest, parseRoomPrompt, parseTriggerEvent, type ChannelMessageInfo } from '@kortix/shared';
 import { KortixLogo } from '@/components/kortix/KortixLogo';
 import { SourcePill } from './source-pill';
 import { CopyContentButton, KortixBottomSheetModal } from '@/components/kortix/sheet';
@@ -130,12 +131,14 @@ const CHANNEL_LABEL_COLOR: Record<ChannelPlatform, string | undefined> = {
   Teams: '#5B5FC7', // hex-allowlist: Microsoft Teams purple #5B5FC7, web CHANNEL_BRAND_COLOR.Teams
   Telegram: TELEGRAM_BRAND_COLOR,
   Email: undefined,
+  Discord: '#5865F2', // hex-allowlist: Discord blurple #5865F2, web CHANNEL_BRAND_COLOR.Discord
 };
 const CHANNEL_LABEL: Record<ChannelPlatform, string> = {
   Slack: 'Slack',
   Teams: 'Microsoft Teams',
   Telegram: 'Telegram',
   Email: 'Email',
+  Discord: 'Discord',
 };
 
 /** `className` colors only the glyphs with no brand: Email's envelope, and the neutral chat glyph of a platform this build does not know. */
@@ -143,6 +146,7 @@ function ChannelMark({ platform, size, className }: { platform: ChannelPlatform;
   if (platform === 'Teams') return <TeamsIcon size={size} />;
   if (platform === 'Slack') return <SlackIcon size={size} />;
   if (platform === 'Telegram') return <TelegramIcon size={size} />;
+  if (platform === 'Discord') return <DiscordIcon size={size} />;
   return <Icon as={platform === 'Email' ? EnvelopeIcon : ChatCircleIcon} size={size} className={className} />;
 }
 
@@ -380,6 +384,17 @@ function UserMessageImpl({
   const roomInfo = useMemo(() => parseRoomPrompt(rawText), [rawText]);
   // Room traffic batched into one turn: `[room dev · #a–#b · N new messages]`.
   const roomDigestInfo = useMemo(() => parseRoomDigest(rawText), [rawText]);
+  // A message from another Kortix session (`send_message`): `[message from reviewer · session 3f2a1b9c · #m_1]`.
+  // The API delivers it as harness context (`synthetic`), which `rawText` leaves out, so it is read from
+  // every text block (web `useTurnUserContent`).
+  const peerInfo = useMemo(() => {
+    for (const block of message.blocks) {
+      if (block.type !== 'text') continue;
+      const info = parsePeerMessagePrompt(block.text);
+      if (info) return info;
+    }
+    return undefined;
+  }, [message.blocks]);
 
   // Queued dim: `duration-slow transition-opacity` + `opacity-50`.
   const dim = useSharedValue(queueState ? 0.5 : 1);
@@ -506,6 +521,27 @@ function UserMessageImpl({
       />,
       roomInfo.text ? <Text style={BUBBLE_TEXT_STYLE}>{roomInfo.text}</Text> : null,
       roomInfo.text,
+    );
+  }
+
+  if (peerInfo) {
+    const logoColor = isDark ? 'dark' : 'light';
+    return platformMessage(
+      <SourcePill
+        mark={<KortixLogo size={12} color={logoColor} />}
+        sheetMark={<KortixLogo size={22} color={logoColor} />}
+        source="Kortix"
+        sender={peerInfo.from}
+        title={peerInfo.summary || `Message from ${peerInfo.from}`}
+        subtitle={`Kortix session · sent by ${peerInfo.from}`}
+        rows={[
+          { label: 'Agent', value: peerInfo.from },
+          { label: 'Session', value: peerInfo.fromShortId },
+          { label: 'Message', value: `#${peerInfo.messageId}` },
+        ]}
+      />,
+      peerInfo.text ? <Text style={BUBBLE_TEXT_STYLE}>{peerInfo.text}</Text> : null,
+      peerInfo.text,
     );
   }
 

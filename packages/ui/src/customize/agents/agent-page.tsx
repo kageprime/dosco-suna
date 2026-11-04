@@ -6,22 +6,26 @@ import { adminPath } from '../../lib/routes';
 /**
  * /projects/[id]/customize/agents/[name]: one agent, as a page with a rail.
  *
- * Customize is agent-first. My Dosco is the one agent a person talks to; every
+ * Customize is agent-first. My Kortix is the one agent a person talks to; every
  * other agent is a work product with only the access its work needs. So the
  * page is the agent: one identity header, one rail, and room to edit.
  *
- *   ┌ ▣ researcher                         [Share] [Start session] [⋯] ┐
- *   │   ● Enabled · Space: workspace · People start it                 │
- *   ├ Overview      ┬ the row, full width                              ┤
- *   │ Triggers      │                                                  │
- *   │ Access: Connectors None · Secrets All · Skills All · Tools …     │
- *   │ Runtime: Model · Workspace                                       │
+ *   ┌ Agents › ▣ Researcher  Default         [Share] [Start session] [⋯] ┐
+ *   ├ General      ┬ the row's content, one centered column              ┤
+ *   │  Overview    │                                                     │
+ *   │  Basics      │                                                     │
+ *   │  People      │                                                     │
+ *   │  Triggers    │                                                     │
+ *   │ Access       │                                                     │
+ *   │  Skills …    │                                                     │
+ *   │ Runtime      │                                                     │
+ *   │  Model …     │                                                     │
  *   └────────────────── [ ● Unsaved changes  Skills  Discard  Save ⌘S ]
  *
  * The URL names the tab and its view (`agent-tabs.ts`); every old
- * `?section=` link still resolves. The rail lists every view as its own row
- * (2026-10-28: Access and Runtime are group labels, not a second level), each
- * with its grant state. A view renders the full resource screen in agent
+ * `?section=` link still resolves. The rail (2026-11-03, the Settings-style
+ * rail is back) lists every view as its own row under three group labels:
+ * General, Access, Runtime. People opens the Share dialog. A view renders the full resource screen in agent
  * scope (one component, two variants), embedded without its own title
  * (`CapabilityShellEmbedProvider`).
  *
@@ -35,7 +39,7 @@ import { adminPath } from '../../lib/routes';
  *    route, which commits it to the project repo.
  *  - **Read-only**: a v1 project or a caller without write. The same tabs and
  *    the same Overview, with values in place of controls and a lock banner.
- * My Dosco (a platform agent) has no page here: the project home starts it,
+ * My Kortix (a platform agent) has no page here: the project home starts it,
  * and its route reads as not found.
  *
  * The page is keyed on the agent name by its route, so switching agents
@@ -51,17 +55,14 @@ import {
   readProjectFile,
 } from '@kortix/sdk';
 import { contract, qk, useFeatureFlag, useProjectAccountId, useUnifiedTriggers } from '@kortix/sdk/react';
-import { DotsThreeIcon, LockSimpleIcon, PlayIcon, SparkleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react';
+import { DotsThreeIcon, LockSimpleIcon, PlayIcon, StarIcon, TrashIcon } from '@phosphor-icons/react';
+import { Badge } from '../../primitives/badge';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useLocale, useTranslations as useI18nTranslations } from '../../i18n';
 import { AgentMark, agentDisplayName } from '../../internal/components/agent-mark';
-import {
-  useAgentConfig,
-  useUpdateAgentConfig,
-  useProjectCapabilities,
-} from '../../internal/hooks/projects/use-agent-config';
+import { useAgentConfig, useUpdateAgentConfig } from '../../internal/hooks/projects/use-agent-config';
 import { useNewProjectSession } from '../../internal/hooks/projects/use-new-project-session';
 import { agentHref, capabilityTabHref } from '../../internal/lib/capability-tab-routes';
 import { PROJECT_ACTIONS } from '../../internal/lib/project-actions';
@@ -97,8 +98,6 @@ import { ToolsSection } from '../sections/view/permission-editor';
 import { type AgentGrant, useAgentGrant } from '../shared/agent-resource-scope';
 import { CapabilityShellEmbedProvider } from '../shared/capability-page-shell';
 import { LeaveGuardProvider, useUnsavedChangesGuard } from '../shared/leave-guard';
-import { AgentPlaygroundSheet } from '../shared/playground/agent-playground-sheet';
-import { skillDisplayName } from '../shared/capability-library';
 import { toArray } from '../shared/utils';
 import { ExtensionsPage, SkillsPage, ToolsPage } from '../skills/skills-page';
 import { ConnectorsPage } from '../connectors/connectors-page';
@@ -109,23 +108,20 @@ import { AgentAuthorityCard } from './agent-authority-card';
 import { AgentModel, AgentScope } from './agent-detail-aside';
 import { AgentDrivesSection } from './agent-drives-section';
 import { pruneRequiredConnectors } from './connectors-required';
-import { useGrantLabel } from './agent-access-text';
-import { AgentOverview, grantExcluded, grantOf, type OverviewFacts } from './agent-overview';
+import { AgentOverview, type OverviewFacts } from './agent-overview';
 import {
-  AgentIdentityHeader,
+  AgentBreadcrumbHeader,
   AgentPageSkeleton,
-  AgentStatePage,
-  AgentTabBar,
+  AgentRail,
+  type AgentRailGroup,
   type AgentRailItem,
-  type AgentTabGroup,
+  AgentStatePage,
   AgentTabBody,
-  type HeaderFact,
   LeaveDialog,
   SaveBar,
 } from './agent-page-chrome';
 import { AgentModelView } from './agent-model-view';
 import { AgentApprovalRules } from './agent-approval-rules';
-import { AgentSectionRail, railGroupOf } from './agent-section-rail';
 import { AgentPinButton } from './agent-pin-button';
 import { AgentShareControl } from './agent-share-control';
 import {
@@ -157,18 +153,10 @@ export function AgentPage({
   projectId,
   agentName,
   renderApps,
-  hideNav,
-  activeSection,
-  onSectionChange,
-  onBack,
 }: {
   projectId: string;
   agentName: string;
   renderApps?: RenderAgentApps;
-  hideNav?: boolean;
-  activeSection?: AgentConfigSectionKey;
-  onSectionChange?: (section: AgentConfigSectionKey) => void;
-  onBack?: () => void;
 }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -182,7 +170,7 @@ export function AgentPage({
     ...contract('config'),
   });
   const config = detailQuery.data?.config ?? null;
-  // A platform agent (My Dosco) has nothing to edit here: not found.
+  // A platform agent (My Kortix) has nothing to edit here: not found.
   const agent = toArray(config?.agents).find((a) => a.name === agentName && !a.platform) ?? null;
 
   // Every read starts on the first render, in parallel: the skeleton lasts as
@@ -219,7 +207,7 @@ export function AgentPage({
   }
 
   if (!agent) {
-    // Only agents this page opens: a platform agent (My Dosco) is not found here either.
+    // Only agents this page opens: a platform agent (My Kortix) is not found here either.
     const suggestion = closestAgentName(
       agentName,
       toArray(config.agents)
@@ -289,10 +277,6 @@ export function AgentPage({
       config={config}
       initial={configQuery.data?.block ?? {}}
       renderApps={renderApps}
-      hideNav={hideNav}
-      activeSection={activeSection}
-      onSectionChange={onSectionChange}
-      onBack={onBack}
     />
   ) : (
     <ReadOnlyAgentPage
@@ -301,10 +285,6 @@ export function AgentPage({
       config={config}
       block={configQuery.data?.block ?? blockFromScope(agent)}
       canWrite={canWrite}
-      hideNav={hideNav}
-      activeSection={activeSection}
-      onSectionChange={onSectionChange}
-      onBack={onBack}
     />
   );
 }
@@ -346,18 +326,16 @@ function blockFromScope(agent: Agent): AgentConfigBlock {
 
 // ─── Shared hooks ────────────────────────────────────────────────────────────
 
-function useAgentLocation(
-  tabs: readonly AgentTab[],
-  views: readonly AgentConfigSectionKey[],
-  activeSection?: AgentConfigSectionKey,
-): AgentLocation {
+/** Whether the caller may share the agent: the rail's People row needs it. */
+function useCanManageMembers(projectId: string): boolean {
+  const accountId = useProjectAccountId(projectId);
+  return useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE, { accountId }).allowed === true;
+}
+
+function useAgentLocation(tabs: readonly AgentTab[], views: readonly AgentConfigSectionKey[]): AgentLocation {
   const params = useUiSearchParams();
   return resolveAgentLocation(
-    {
-      tab: activeSection ? null : params.get('tab'),
-      view: activeSection ? null : params.get('view'),
-      section: activeSection ?? params.get('section'),
-    },
+    { tab: params.get('tab'), view: params.get('view'), section: params.get('section') },
     tabs,
     views,
   );
@@ -419,30 +397,35 @@ function useOverviewFacts(
   };
 }
 
-/** The header's meta line: status, space (only with spaces on), who starts it, default. */
-function useHeaderFacts(
-  projectId: string,
-  agent: Agent,
-  config: ProjectConfigSummary,
-  block: AgentConfigBlock,
-  editable: boolean,
-): HeaderFact[] {
+/**
+ * The breadcrumb's badges beside the name: only states worth flagging.
+ * Default, Off, and how it starts when a person cannot start it alone.
+ */
+function HeaderBadges({ agent, config, block }: { agent: Agent; config: ProjectConfigSummary; block: AgentConfigBlock }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tPage = useI18nTranslations('agentEditor.page');
   const enabled = block.enabled !== false;
-  // Editable pages pass the draft: read it alone, so Project-wide reads as
-  // Project-wide before the save. A reader's block already carries the space.
-  const space = (editable ? block.space : (block.space ?? agent.space)) || null;
   const mode = (block.behavior?.mode ?? agent.mode ?? 'primary').toLowerCase();
   const isDefault = (config.default_agent ?? config.open_code_default_agent) === agent.name;
-  // Spaces are Work in progress (`project_channels`): off, no Space fact.
-  const spacesOn = useSpacesEnabled(projectId);
-  return [
-    { label: enabled ? t('enabled') : t('off'), tone: enabled ? 'success' : 'neutral' },
-    ...(spacesOn ? [{ label: space ? t('spaceValue', { space }) : t('projectWide') }] : []),
-    { label: mode === 'subagent' ? t('startSubagent') : mode === 'all' ? t('startBoth') : t('startPrimary') },
-    ...(isDefault ? [{ label: tPage('default') }] : []),
-  ];
+  return (
+    <>
+      {isDefault ? (
+        <Badge variant="secondary" size="xs">
+          {tPage('default')}
+        </Badge>
+      ) : null}
+      {mode === 'subagent' ? (
+        <Badge variant="muted" size="xs">
+          {t('startSubagent')}
+        </Badge>
+      ) : null}
+      {!enabled ? (
+        <Badge variant="muted" size="xs">
+          {t('off')}
+        </Badge>
+      ) : null}
+    </>
+  );
 }
 
 interface ShareState {
@@ -458,9 +441,6 @@ function useShareDialog(openedByLink: boolean): ShareState {
   const pathname = useUiPathname();
   const router = useUiRouter();
   const [open, setOpenState] = useState(openedByLink);
-  useEffect(() => {
-    if (openedByLink) setOpenState(true);
-  }, [openedByLink]);
   const setOpen = useCallback(
     (next: boolean) => {
       setOpenState(next);
@@ -493,64 +473,69 @@ function useSaveShortcut(dirty: boolean, onSave: () => void) {
 }
 
 /**
- * The rail's rows, one flat list in the order of `agents.<name>` in
- * kortix.yaml: Overview, Model, every grant (`countOf` gives its state),
- * Workspace, then Triggers and Drives, which live outside the block. Model and
- * Workspace show their value, or "Project default" when the block sets none.
+ * The rail's rows. Overview, Basics, People and Triggers are General; every
+ * grant is Access; Model, Tools and Workspace are Runtime. Each row carries
+ * the URL of its tab and view (`agent-tabs.ts`), so a row is a link a person
+ * can be sent to. People opens the Share dialog, and only for a caller who
+ * may manage members (`onPeople`).
  */
-function useRailItems(
+function useRailGroups(
   pathname: string,
   views: readonly AgentConfigSectionKey[],
   counts: { triggerCount?: number },
-  countOf?: (view: AgentConfigSectionKey) => string | null,
-  values: { model?: string; workspace?: string } = {},
-): AgentRailItem[] {
+  onPeople?: () => void,
+): AgentRailGroup[] {
   const t = useI18nTranslations('agentEditor.tabs');
-  const tPage = useI18nTranslations('agentEditor.page');
+  const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const catalog = useLocalizedAgentConfigCatalog();
-  const labelOf = (key: AgentConfigSectionKey) => catalog.sections.find((s) => s.key === key)?.label ?? key;
-  const viewRow = (view: AgentConfigSectionKey, count?: string): AgentRailItem[] =>
-    views.includes(view) ? [{ key: view, label: labelOf(view), href: sectionLocationHref(pathname, view), count }] : [];
-  const grants = ACCESS_VIEWS.filter((view) => view !== 'drives').flatMap((view) => viewRow(view, countOf?.(view) ?? undefined));
+  const labelOf = (key: AgentConfigSectionKey) =>
+    key === 'subagents'
+      ? tI18nComplete.raw('agentsListSubagentsTitle')
+      : (catalog.sections.find((s) => s.key === key)?.label ?? key);
+  const viewRows = (keys: readonly AgentConfigSectionKey[]): AgentRailItem[] =>
+    keys
+      .filter((key) => views.includes(key))
+      .map((key) => ({ key, label: labelOf(key), href: sectionLocationHref(pathname, key) }));
+  const [general, access, runtime] = catalog.groups;
   return [
-    { key: 'overview', label: t('tabOverview'), href: agentLocationHref(pathname, 'overview') },
-    ...viewRow('model', values.model ?? tPage('projectDefault')),
-    ...grants,
-    ...viewRow('workspace', values.workspace ?? tPage('projectDefault')),
     {
-      key: 'triggers',
-      label: t('tabTriggers'),
-      href: agentLocationHref(pathname, 'triggers'),
-      count: counts.triggerCount || undefined,
+      key: 'general',
+      label: general,
+      items: [
+        { key: 'overview', label: t('tabOverview'), href: agentLocationHref(pathname, 'overview') },
+        { key: 'basics', label: labelOf('basics'), href: agentLocationHref(pathname, 'basics') },
+        ...(onPeople ? [{ key: 'people' as const, label: labelOf('people'), href: pathname, onSelect: onPeople }] : []),
+        {
+          key: 'triggers',
+          label: t('tabTriggers'),
+          href: agentLocationHref(pathname, 'triggers'),
+          count: counts.triggerCount || undefined,
+        },
+      ],
     },
-    ...viewRow('drives'),
+    { key: 'access', label: access, items: viewRows(RAIL_ACCESS) },
+    { key: 'runtime', label: runtime, items: viewRows(['model', 'tools', 'workspace']) },
   ];
 }
 
-/**
- * The rail rows as the page's top tabs: Overview, Model, Capabilities (the
- * grants of what the agent can do), Access (what it can reach), Workspace,
- * Triggers. A tab with several views shows them as pills.
- */
-function useTabGroups(items: AgentRailItem[]): AgentTabGroup[] {
-  const t = useI18nTranslations('agentEditor.tabs');
-  const pick = (keys: readonly string[]) => keys.flatMap((key) => items.filter((item) => item.key === key));
-  const one = (key: string) => ({ key, label: items.find((item) => item.key === key)?.label ?? key, items: pick([key]) });
-  return [
-    one('overview'),
-    one('model'),
-    { key: 'capabilities', label: t('tabCapabilities'), items: pick(['tools', 'skills', 'subagents', 'commands', 'extensions']) },
-    { key: 'access', label: t('tabAccess'), items: pick(['connectors', 'secrets', 'apps', 'actions', 'drives']) },
-    one('workspace'),
-    one('triggers'),
-  ];
-}
+/** The Access rows in rail order. Tools sits under Runtime on the rail. */
+const RAIL_ACCESS = [
+  'skills',
+  'subagents',
+  'commands',
+  'extensions',
+  'connectors',
+  'secrets',
+  'apps',
+  'actions',
+  'drives',
+] as const satisfies readonly AgentConfigSectionKey[];
 
-/** The tabs over the one scroller. */
-function TabLayout({ tabs, children }: { tabs: ReactNode; children: ReactNode }) {
+/** The rail beside the one scroller. */
+function RailLayout({ rail, children }: { rail: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {tabs}
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      {rail}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
@@ -572,7 +557,6 @@ function AgentActions({
   config,
   canWrite,
   share,
-  onOpenPlayground,
 }: {
   projectId: string;
   agent: Agent;
@@ -580,7 +564,6 @@ function AgentActions({
   canWrite: boolean;
   /** The Share dialog, owned by the page so the Overview can open it too. */
   share: ShareState;
-  onOpenPlayground?: () => void;
 }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -624,17 +607,6 @@ function AgentActions({
     <>
       <AgentPinButton projectId={projectId} agent={agent.name} />
       <AgentShareControl projectId={projectId} agentName={agent.name} open={share.open} onOpenChange={share.setOpen} />
-      {onOpenPlayground ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onOpenPlayground}
-          className="gap-1.5 shadow-xs"
-        >
-          <SparkleIcon weight="fill" className="text-kortix-blue size-3.5" />
-          <span>Test</span>
-        </Button>
-      ) : null}
       {startBlocked ? (
         <Hint label={startBlocked}>
           <span className="inline-flex">{start}</span>
@@ -670,7 +642,7 @@ function AgentActions({
         </DropdownMenu>
       ) : null}
 
-      {/* Both open a new chat with My Dosco, which proposes the change as a
+      {/* Both open a new chat with My Kortix, which proposes the change as a
           change request. A new chat is a bigger step than a menu row, so ask. */}
       <ConfirmDialog
         open={confirm !== null}
@@ -757,29 +729,18 @@ function EditableAgentPage({
   config,
   initial,
   renderApps,
-  hideNav,
-  activeSection,
-  onSectionChange,
-  onBack,
 }: {
   projectId: string;
   agent: Agent;
   config: ProjectConfigSummary;
   initial: AgentConfigBlock;
   renderApps?: RenderAgentApps;
-  hideNav?: boolean;
-  activeSection?: AgentConfigSectionKey;
-  onSectionChange?: (section: AgentConfigSectionKey) => void;
-  onBack?: () => void;
 }) {
   const tCapabilities = useI18nTranslations('agentCapabilities');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const locale = useLocale();
-  const [playgroundOpen, setPlaygroundOpen] = useState(false);
-  const startSession = useNewProjectSession(projectId);
   const editor = useAgentDraft(initial);
   const options = useAgentEditorOptions(projectId);
-  const capabilities = useProjectCapabilities(projectId);
   const update = useUpdateAgentConfig(projectId, agent.name);
   const configure = useConfigureThread(projectId);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -789,7 +750,7 @@ function EditableAgentPage({
     () => AGENT_CONFIG_SECTIONS.map((s) => s.key).filter((k) => drivesOn || k !== 'drives'),
     [drivesOn],
   );
-  const location = useAgentLocation(AGENT_TABS, views, activeSection);
+  const location = useAgentLocation(AGENT_TABS, views);
   const share = useShareDialog(location.open === 'share');
   const registryOptions = useMemo(
     () => registryGrantOptions({ manifest_raw: config.manifest_raw, agents: toArray(config.agents) }, agent.name),
@@ -797,7 +758,7 @@ function EditableAgentPage({
   );
   const skillsOptions = toArray(config.skills).map((skill) => ({
     id: skill.name,
-    label: skillDisplayName(skill.name),
+    label: skill.name,
     description: skill.description ?? undefined,
   }));
   const policySetOptions = useMemo(
@@ -821,7 +782,6 @@ function EditableAgentPage({
   const appsGrant = useAgentGrant(draft.apps, (v) => set('apps', v));
 
   const facts = useOverviewFacts(projectId, agent.name, config, draft);
-  const headerFacts = useHeaderFacts(projectId, agent, config, draft, true);
   const spacesOn = useSpacesEnabled(projectId);
 
   const onSave = useCallback(async (): Promise<boolean> => {
@@ -843,22 +803,9 @@ function EditableAgentPage({
   const leaveGuard = useUnsavedChangesGuard(editor.isDirty, pathname);
   useSaveShortcut(editor.isDirty, saveNow);
 
-  const grantLabel = useGrantLabel();
-  // A tool's aliases go off with it (`agent` takes `task`): the tab counts tools, not names.
-  const toolAliases = new Set((capabilities.data?.tools ?? []).flatMap((tool) => tool.aliases));
-  const countOf = (view: AgentConfigSectionKey) => {
-    if (view === 'drives') return null;
-    const value = grantOf(draft, view);
-    const excluded = grantExcluded(value);
-    return view === 'tools' && excluded.length > 0
-      ? grantLabel({ exclude: excluded.filter((id) => !toolAliases.has(id)) })
-      : grantLabel(value);
-  };
-  const railItems = useRailItems(pathname, views, facts, countOf, {
-    model: modelName(editor.oc.model),
-    workspace: draft.sandbox,
-  });
-  const tabGroups = useTabGroups(railItems);
+  const canManageMembers = useCanManageMembers(projectId);
+  const railGroups = useRailGroups(pathname, views, facts, canManageMembers ? () => share.setOpen(true) : undefined);
+  const railItems = railGroups.flatMap((group) => group.items);
   const dirtyItems = useMemo(() => changedItems(editor.draft, editor.baseline), [editor.draft, editor.baseline]);
   const changed = new Intl.ListFormat(locale, { type: 'conjunction' }).format(
     dirtyItems.map((key) => railItems.find((item) => item.key === key)?.label ?? key),
@@ -886,6 +833,21 @@ function EditableAgentPage({
   const body = (() => {
     const view = location.view;
     switch (location.tab) {
+      case 'basics':
+        return (
+          <AgentTabBody>
+            <AgentOverview
+              part="basics"
+              agent={agent}
+              config={config}
+              block={draft}
+              prompt={editor.oc.prompt ?? ''}
+              editor={editor}
+              sourcePath={sourcePath}
+              showSpace={spacesOn}
+            />
+          </AgentTabBody>
+        );
       case 'overview':
         return (
           <AgentTabBody>
@@ -899,7 +861,6 @@ function EditableAgentPage({
               showSpace={spacesOn}
               onAskMyKortix={() => configure.start(editConfigPrompt('agent', agent.name, agent.path))}
               focusInstructions={location.open === 'instructions'}
-              onJumpSection={onSectionChange}
             />
           </AgentTabBody>
         );
@@ -1000,12 +961,11 @@ function EditableAgentPage({
     // they ask the same question as a link click.
     <LeaveGuardProvider value={leaveGuard.confirmLeave}>
       <div className="relative flex h-full min-h-0 flex-1 flex-col">
-        <AgentIdentityHeader
+        <AgentBreadcrumbHeader
+          listHref={capabilityTabHref(projectId, 'agent')}
           slug={agent.name}
           title={name}
-          facts={headerFacts}
-          onBack={onBack}
-          rule={hideNav}
+          badges={<HeaderBadges agent={agent} config={config} block={draft} />}
           actions={
             <AgentActions
               projectId={projectId}
@@ -1013,19 +973,12 @@ function EditableAgentPage({
               config={config}
               canWrite
               share={share}
-              onOpenPlayground={() => setPlaygroundOpen(true)}
             />
           }
         />
-        {hideNav ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">{body}</div>
-        ) : (
-          <TabLayout tabs={<AgentTabBar groups={tabGroups} active={railKeyOf(location)} dirty={dirtyItems} />}>
-            <AgentSectionRail group={railGroupOf(tabGroups, railKeyOf(location))} active={railKeyOf(location)} dirty={dirtyItems}>
-              {body}
-            </AgentSectionRail>
-          </TabLayout>
-        )}
+        <RailLayout rail={<AgentRail groups={railGroups} active={railKeyOf(location)} dirty={dirtyItems} />}>
+          {body}
+        </RailLayout>
         <SaveBar
           dirty={editor.isDirty}
           pending={update.isPending}
@@ -1056,14 +1009,6 @@ function EditableAgentPage({
             if (await onSave()) leaveGuard.leave();
           }}
         />
-        <AgentPlaygroundSheet
-          open={playgroundOpen}
-          onOpenChange={setPlaygroundOpen}
-          agentName={agent.name}
-          prompt={editor.oc.prompt ?? ''}
-          description={editor.oc.description ?? ''}
-          onStartSession={() => startSession({ create: { agent_name: agent.name } })}
-        />
       </div>
     </LeaveGuardProvider>
   );
@@ -1080,21 +1025,13 @@ function ReadOnlyAgentPage({
   config,
   block,
   canWrite,
-  hideNav,
-  activeSection,
-  onSectionChange,
-  onBack,
 }: {
   projectId: string;
   agent: Agent;
   config: ProjectConfigSummary;
   block: AgentConfigBlock;
-  /** A writer on a read-only answer keeps Make default and Ask My Dosco to edit. */
+  /** A writer on a read-only answer keeps Make default and Ask My Kortix to edit. */
   canWrite: boolean;
-  hideNav?: boolean;
-  activeSection?: AgentConfigSectionKey;
-  onSectionChange?: (section: AgentConfigSectionKey) => void;
-  onBack?: () => void;
 }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -1109,18 +1046,18 @@ function ReadOnlyAgentPage({
     enabled: block.behavior?.prompt === undefined,
   });
   const prompt = block.behavior?.prompt ?? (fileQuery.data ? stripFrontmatter(fileQuery.data.content) : null);
-  const location = useAgentLocation(AGENT_TABS, READ_ONLY_VIEWS, activeSection);
+  const views = useMemo(() => {
+    const own = ACCESS_VIEWS.filter((v) => v === 'skills' || v === 'connectors' || v === 'secrets' || v === 'apps' || v === 'actions');
+    return [...own, 'model'] as AgentConfigSectionKey[];
+  }, []);
+  const location = useAgentLocation(AGENT_TABS, READ_ONLY_VIEWS);
   const share = useShareDialog(location.open === 'share');
   const facts = useOverviewFacts(projectId, agent.name, config, block);
-  const headerFacts = useHeaderFacts(projectId, agent, config, block, false);
   const spacesOn = useSpacesEnabled(projectId);
-  const railItems = useRailItems(pathname, READ_ONLY_VIEWS, facts, undefined, {
-    model: modelName(block.behavior?.model),
-    workspace: block.sandbox,
-  });
-  const tabGroups = useTabGroups(railItems);
+  const canManageMembers = useCanManageMembers(projectId);
+  const railGroups = useRailGroups(pathname, READ_ONLY_VIEWS, facts, canManageMembers ? () => share.setOpen(true) : undefined);
   const name = agentDisplayName(agent.name);
-  // A reader has a page for Dosco permissions and Model only. Every other
+  // A reader has a page for Kortix permissions and Model only. Every other
   // Access row shows its grant by name on the Overview and links nowhere.
   const banner = (
     <InfoBanner tone="neutral" icon={LockSimpleIcon} title={t('readOnlyTitle')}>
@@ -1130,6 +1067,21 @@ function ReadOnlyAgentPage({
 
   const body = (() => {
     switch (location.tab) {
+      case 'basics':
+        return (
+          <AgentTabBody className="space-y-6">
+            {banner}
+            <AgentOverview
+              part="basics"
+              agent={agent}
+              config={config}
+              block={block}
+              prompt={prompt}
+              sourcePath={sourcePath}
+              showSpace={spacesOn}
+            />
+          </AgentTabBody>
+        );
       case 'overview':
         return (
           <AgentTabBody className="space-y-6">
@@ -1141,7 +1093,6 @@ function ReadOnlyAgentPage({
               prompt={prompt}
               sourcePath={sourcePath}
               showSpace={spacesOn}
-              onJumpSection={onSectionChange}
             />
           </AgentTabBody>
         );
@@ -1186,12 +1137,11 @@ function ReadOnlyAgentPage({
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col">
-      <AgentIdentityHeader
+      <AgentBreadcrumbHeader
+        listHref={capabilityTabHref(projectId, 'agent')}
         slug={agent.name}
         title={name}
-        facts={headerFacts}
-        onBack={onBack}
-        rule={hideNav}
+        badges={<HeaderBadges agent={agent} config={config} block={block} />}
         actions={
           <AgentActions
             projectId={projectId}
@@ -1202,15 +1152,9 @@ function ReadOnlyAgentPage({
           />
         }
       />
-      {hideNav ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{body}</div>
-      ) : (
-        <TabLayout tabs={<AgentTabBar groups={tabGroups} active={railKeyOf(location)} />}>
-          <AgentSectionRail group={railGroupOf(tabGroups, railKeyOf(location))} active={railKeyOf(location)}>
-            {body}
-          </AgentSectionRail>
-        </TabLayout>
-      )}
+      <RailLayout rail={<AgentRail groups={railGroups} active={railKeyOf(location)} />}>
+        {body}
+      </RailLayout>
     </div>
   );
 }
@@ -1220,15 +1164,11 @@ function stripFrontmatter(content: string): string {
   return content.replace(/^---\n[\s\S]*?\n---\n?/, '');
 }
 
-/** Whether a Dosco permissions grant lets the agent open project Apps. */
+/** Whether a Kortix permissions grant lets the agent open project Apps. */
 function grantsAppRead(grant: AgentGrantSetV2 | null | undefined): boolean {
   return grant === 'all' || (Array.isArray(grant) && grant.includes('project.app.read'));
 }
 
-/** The Model row's value: the model id after its provider (`kortix/kimi-k2` → `kimi-k2`). */
-function modelName(model: string | undefined): string | undefined {
-  return model ? model.slice(model.lastIndexOf('/') + 1) : undefined;
-}
 
 /**
  * `connectors_required` (kortix.yaml), when the block sets it: read-only,

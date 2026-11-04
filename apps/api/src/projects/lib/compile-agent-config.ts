@@ -393,9 +393,9 @@ function compileAgent(
  *
  * The compiled JSON already exists at every point that matters (boot, push,
  * recompile), so hashing it costs nothing and needs no new storage. Content, not
- * a commit sha: `refreshWarmSessionWorkspace` advances a box's commit while
- * deliberately skipping the restart, so a sandbox can report the newest commit
- * while running config compiled days earlier. Two commits that do not touch any
+ * a commit sha: a box's commit can advance without a restart, so a sandbox can
+ * report the newest commit while running config compiled days earlier. Two
+ * commits that do not touch any
  * agent also produce the same config, and calling that "stale" would send people
  * reloading for nothing.
  *
@@ -434,6 +434,12 @@ export function manifestPiPackages(raw: unknown, agentName?: string | null): unk
 /** A pi source in pi's settings shape: a repository path gets the `./` pi reads as "repo-local". */
 function piSettingsSource(source: string): string {
   return source.startsWith('npm:') ? source : `./${source}`;
+}
+
+/** The agent's `context`; null when it sets none (the daemon's default, `record`). */
+export function manifestPiContext(raw: unknown, agentName?: string | null): 'record' | 'summary' | null {
+  if (!raw || typeof raw !== 'object') return null;
+  return manifestAgentBlock(raw as Record<string, unknown>, agentName)?.context ?? null;
 }
 
 /** The agent's `codemode`; null when it sets none (the daemon's default, `on`). */

@@ -1,4 +1,5 @@
 /** A project's repository contents: files, archive, search, history, branches, commits, and diffs. */
+import { isManifestSyntaxError, manifestCandidatePaths, parseManifestText } from '@kortix/manifest-schema';
 import { createHash } from 'node:crypto';
 import { canonicalTreePath, normalizeTreePath } from '../git/mirror';
 import { callerKortixSessionId } from '../../middleware/caller-session';
@@ -24,11 +25,13 @@ import {
 // From the leaf, not the barrel: suites that stub '../git' by listing its
 // exports would otherwise lose these names and fail at import.
 import { remoteBranchExists, BRANCH_LIST_MAX_LIMIT, filterBranchesForResponse, isSessionBranchName } from '../git/branches';
+import { CommitDiffTooLargeError } from '../git/commits';
 import {
   DIRECTORY_PAGE_LIMIT,
   DIRECTORY_PAGE_MAX_LIMIT,
   decodeDirectoryCursor,
   encodeDirectoryCursor,
+  isRepoContentTooLargeError,
   listRepoDirectory,
 } from '../git/files';
 import { createRoute, z } from '@hono/zod-openapi';
@@ -86,6 +89,19 @@ const DirectoryListingSchema = z
   })
   .openapi('ProjectDirectoryListing');
 
+/** Why `content` may not be saved as the manifest at `path`, or null (not the manifest, or valid YAML). */
+function manifestSyntaxErrorOf(path: string, content: string, manifestPath: string | null): string | null {
+  if (!manifestCandidatePaths(manifestPath).includes(path)) return null;
+  try {
+    parseManifestText(content);
+    return null;
+  } catch (err) {
+    if (!isManifestSyntaxError(err)) return null;
+    const at = err.line ? `${path}:${err.line}${err.column ? `:${err.column}` : ''}` : path;
+    return `${at} is not valid YAML (${err.message}). Fix it and save again.`;
+  }
+}
+
 export function registerProjectFilesRoutes(): void {
   projectsApp.openapi(
     createRoute({
@@ -128,6 +144,10 @@ export function registerProjectFilesRoutes(): void {
         actingTokenId: c.get('iamTokenId'), row: loaded.row,
       });
       if (denier?.isDenied(path)) return c.json({ error: 'File not found' }, 404);
+      // The push gate's rule for an edit made here: the default branch never
+      // gets a kortix.yaml that is not YAML (the git proxy checks pushes).
+      const syntaxError = body.ref === loaded.row.defaultBranch ? manifestSyntaxErrorOf(path, body.content, loaded.row.manifestPath) : null;
+      if (syntaxError) return c.json({ error: syntaxError, code: 'manifest_invalid' }, 409);
       try {
         const gitProject = await withProjectGitAuth(loaded.row);
         if (!(await remoteBranchExists(gitProject, body.ref))) return c.json({ error: 'Branch not found' }, 404);
@@ -314,6 +334,7 @@ export function registerProjectFilesRoutes(): void {
       });
     } catch (error) {
       rethrowDatabaseError(error);
+      if (isRepoContentTooLargeError(error)) return c.json({ error: error.message }, 413);
       const message = error instanceof Error ? error.message : 'Failed to archive directory';
       return c.json({ error: message }, 400);
     }
@@ -440,6 +461,7 @@ export function registerProjectFilesRoutes(): void {
       return c.json({ path, ref, content: bytes.toString('utf8'), revision });
     } catch (error) {
       if (isGitRefNotFoundError(error)) return c.json({ error: 'ref not found' }, 404);
+      if (isRepoContentTooLargeError(error)) return c.json({ error: error.message }, 413);
       // `readRepoFile` converts a `git show` "path does not exist" failure into a
       // typed `RepoFileNotFoundError` (message: `file not found in repository at
       // '<ref>:<path>'`), which the `isMissingGitPathError` regex below does NOT
@@ -513,6 +535,7 @@ export function registerProjectFilesRoutes(): void {
       });
     } catch (error) {
       if (isGitRefNotFoundError(error)) return c.json({ error: 'ref not found' }, 404);
+      if (isRepoContentTooLargeError(error)) return c.json({ error: error.message }, 413);
       if (isRepoFileNotFoundError(error) || isMissingGitPathError(error)) {
         return c.json({ error: 'File not found' }, 404);
       }
@@ -767,6 +790,7 @@ export function registerProjectFilesRoutes(): void {
       return c.json({ path: path ?? null, ...diff });
     } catch (error) {
       rethrowDatabaseError(error);
+      if (error instanceof CommitDiffTooLargeError) return c.json({ error: error.message }, 413);
       const message = error instanceof Error ? error.message : 'Failed to load diff';
       return c.json({ error: message }, 400);
     }

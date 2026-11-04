@@ -11,7 +11,7 @@ import { chatIdentityStub } from './helpers/chat-identity-stub';
  * card underneath.
  *
  * A channel or group chat is different: everyone there sees the live card.
- * Until 2026-10-01 an unlinked sender's card turned into "Connect your Dosco
+ * Until 2026-10-01 an unlinked sender's card turned into "Connect your Kortix
  * account" in front of the whole conversation. There the card goes out only
  * once the sender may run, and a refusal goes to the sender alone.
  */
@@ -80,8 +80,10 @@ mock.module('../shared/db', () => ({
   },
 }));
 
-const testConfig = { TEAMS_REQUIRE_USER_IDENTITY: true, FRONTEND_URL: 'https://dev.dosco.live' };
+const testConfig = { TEAMS_REQUIRE_USER_IDENTITY: true, FRONTEND_URL: 'https://dev.kortix.com' };
+const realConfig = await import('../config');
 mock.module('../config', () => ({
+  ...realConfig,
   SANDBOX_VERSION: 'test',
   config: testConfig,
   KNOWN_PROVIDERS: ['platinum', 'daytona'],
@@ -401,12 +403,12 @@ describe('createOrJoinTeamsConversationSession — in a channel or group chat th
 
   test('the join policy refuses the sender: no card for everyone, and only they read why', async () => {
     existingThread = [{ sessionId: 'sess-existing', createdBy: 'owner-1', metadata: { teams: { conversation_policy: 'owner_only' } } }];
-    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
     await start();
     expect(calls).not.toContain('startTurn');
     expect(notices).toEqual([]);
     expect(privateReplies.map((r) => r.recipient)).toEqual(['29:abc']);
-    expect(privateText()).toContain('This Dosco session is owner-only.');
+    expect(privateText()).toContain('This Kortix session is owner-only.');
     expect(continued).toHaveLength(0);
   });
 
@@ -434,7 +436,7 @@ describe('createOrJoinTeamsConversationSession — in a channel or group chat th
 describe('mention markup never reaches the session', () => {
   const mentioned = {
     ...activity,
-    text: '<at>Dosco Dev</at>summarize the README in two sentences',
+    text: '<at>Kortix Dev</at>summarize the README in two sentences',
   };
 
   test('the session title source and the agent prompt carry the words, not <at> tags', async () => {
@@ -446,7 +448,7 @@ describe('mention markup never reaches the session', () => {
   });
 
   test('a follow-up prompt is stripped the same way', () => {
-    const prompt = session.renderFollowUpPrompt({ ...mentioned, text: '<at>Dosco Dev</at> now count the lines' });
+    const prompt = session.renderFollowUpPrompt({ ...mentioned, text: '<at>Kortix Dev</at> now count the lines' });
     expect(prompt).not.toContain('<at>');
     expect(prompt).toContain('\nnow count the lines\n');
   });
@@ -550,9 +552,9 @@ describe('join policy on a follow-up', () => {
   });
 
   test('not allowed: only the requester is told, nothing is delivered, the session is untouched', async () => {
-    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
     await createOrJoinTeamsConversationSession({ projectId: PROJECT_ID, tenantId: TENANT_ID, conversationId: CONVERSATION_ID, activity });
-    expect(JSON.stringify(privateReplies)).toContain('This Dosco session is owner-only.');
+    expect(JSON.stringify(privateReplies)).toContain('This Kortix session is owner-only.');
     expect(calls).not.toContain('startTurn');
     expect(continued).toHaveLength(0);
     expect(saved).toHaveLength(0);
@@ -560,10 +562,10 @@ describe('join policy on a follow-up', () => {
   });
 
   test('in a 1:1 chat a refusal replaces the requester\'s own live card', async () => {
-    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
     const personal = { ...activity, conversation: { ...activity.conversation, conversationType: 'personal' } };
     await createOrJoinTeamsConversationSession({ projectId: PROJECT_ID, tenantId: TENANT_ID, conversationId: CONVERSATION_ID, activity: personal });
-    expect(notices).toEqual(['This Dosco session is owner-only.']);
+    expect(notices).toEqual(['This Kortix session is owner-only.']);
     expect(privateReplies).toEqual([]);
   });
 
@@ -571,7 +573,7 @@ describe('join policy on a follow-up', () => {
     // A manager who is not a participant approved from the card: the
     // decision was authorized, so the owner-only policy must not strand the
     // agent waiting for it.
-    participantVerdict = { allowed: false, notice: 'This Dosco session is owner-only.' };
+    participantVerdict = { allowed: false, notice: 'This Kortix session is owner-only.' };
     await createOrJoinTeamsConversationSession({
       projectId: PROJECT_ID,
       tenantId: TENANT_ID,

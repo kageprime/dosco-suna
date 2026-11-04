@@ -22,7 +22,7 @@ for real use) running Linux, and a domain you control.
 2. **Run the bootstrap command** on the box (as root, or a user with sudo):
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/kortix-ai/suna/dev/scripts/kortix-selfhost-up.sh \
+   curl -fsSL https://raw.githubusercontent.com/kortix-ai/CompanyOS/dev/scripts/kortix-selfhost-up.sh \
      | bash -s -- --domain kortix.example.com --email ops@example.com
    ```
 
@@ -233,6 +233,36 @@ nothing more. The API image must be a release that includes the store
 passthrough and bucket creation. Until the compose file is re-rendered,
 devices get `503 capture_credentials_unavailable` and keep recording locally.
 
+### Project snapshots: the same store makes new sessions start fast
+
+The same `capture-store` holds a second bucket, `kortix-project-snapshots`.
+After each push or merge to a project's base branch, the API builds one archive
+of that commit and stores it there. A new session downloads that one archive
+instead of cloning the repository over Git, and its agents and skills come from
+the same archive. A repository over the 32 MiB config archive limit gets this
+too. Without it, such a repository cloned twice over Git on every new session.
+
+- **Same origin.** A sandbox downloads a presigned URL on the API origin,
+  `https://api.<your domain>/kortix-project-snapshots/…`. Caddy routes the
+  prefix to the store in domain mode; the API forwards it otherwise. The store
+  checks every signature.
+- **Data.** The API creates the bucket with a 30-day expiry rule. Each archive
+  is about the size of the repository's files, compressed. An expired archive
+  is built again on the next session that needs it.
+- **Failure.** Any download or verification failure falls back to Git, so a
+  session never fails because of a snapshot.
+- **Turn it off.** `kortix self-host env set KORTIX_PROJECT_SNAPSHOT_MODE=git`
+  sends the checkout back to Git. The config still uses an archive when one
+  exists, verified file by file against the commit.
+- **External Capture store.** `KORTIX_CAPTURE_STORE=external` removes the
+  on-box MinIO, so it also removes the snapshot wiring. Snapshots are then off
+  unless you set `KORTIX_PROJECT_SNAPSHOT_*` in `.env` for a store of your own.
+- **Upgrading.** `kortix self-host update` with a CLI that knows the bucket
+  adds the wiring, recreates `kortix-api` once, and reloads Caddy when the
+  Caddyfile changed.
+- **Check it.** `curl -s https://api.<your domain>/kortix-project-snapshots/`
+  answers MinIO's S3 XML error (`AccessDenied`), never the API's JSON `404`.
+
 ## 4. Day-2 operations
 
 All of these run on the box itself (SSH, or `aws ssm start-session --target
@@ -261,6 +291,24 @@ kortix self-host uninstall         # stop + permanently delete this instance's d
    handles "volume has an existing filesystem" on boot, so it mounts as-is and
    `kortix self-host` reconciles against the restored state.
 4. `kortix self-host start` to bring the stack back up.
+
+**Scheduled jobs.** The API runs its scheduled jobs (cron triggers, project
+maintenance, retention, billing rotations and the rest) in the same
+`kortix-api` container that serves requests. You do not configure anything
+for this. If you run the API image on your own orchestration with more than
+one API process, you can move the jobs into their own process, which is what
+Kortix Cloud does:
+
+- web processes: the image's default command (`bun run src/index.ts`) with
+  `KORTIX_PROCESS_ROLE=web`. They serve requests and never run a scheduled job.
+- one worker process: the same image and the same environment, with the
+  command `bun run src/worker.ts` and no `KORTIX_PROCESS_ROLE`. It needs no
+  inbound traffic; its health check is `GET /health/ready` on `PORT`.
+
+Start the worker before you set `web` on the API processes, and keep at least
+one worker or one process without the `web` role running. With no such
+process, no scheduled job runs. The `kortix self-host` install runs one
+container and does not support this split.
 
 ## 5. Run a specific version or your own build
 

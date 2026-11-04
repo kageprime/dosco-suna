@@ -94,6 +94,8 @@ let standardImageDeleteCalls: Array<{ slug?: string; provider?: string }> = [];
 let accountTokenCreateCalls: Array<Record<string, unknown>> = [];
 let serviceAccountCreateCalls: Array<Record<string, unknown>> = [];
 let networkBoundaryBindings: Array<Record<string, unknown>> = [];
+/** Resolves the boundary check; a test swaps it to hold or fail the check. */
+let networkBoundaryCheck: () => Promise<void> = async () => {};
 let providerSyncCalls: Array<{ externalId: string; bindings: Array<Record<string, unknown>> }> = [];
 let activeRouting: {
   activeProvider: string | null;
@@ -287,20 +289,25 @@ mock.module('./provider-balancer', () => ({
   selectProvider: async () => 'platinum',
 }));
 
+const ensureSandboxImageMock = async (_gitProject: unknown, opts: Record<string, unknown>) => {
+  imageRequests.push(opts);
+  const queued = imageResolutionQueue.shift();
+  if (queued) return queued;
+  return {
+    snapshotName: 'snap-test-1',
+    slug: 'default',
+    contentHash: 'hash-1',
+    isDefault: true,
+    built: false,
+  };
+};
+
 mock.module('../../snapshots/builder', () => ({
   DEFAULT_SANDBOX_SLUG: 'default',
-  ensureSandboxImage: async (_gitProject: unknown, opts: Record<string, unknown>) => {
-    imageRequests.push(opts);
-    const queued = imageResolutionQueue.shift();
-    if (queued) return queued;
-    return {
-      snapshotName: 'snap-test-1',
-      slug: 'default',
-      contentHash: 'hash-1',
-      isDefault: true,
-      built: false,
-    };
-  },
+  ensureSandboxImage: ensureSandboxImageMock,
+  // Session starts resolve through the budgeted entry point; the budget is
+  // covered in snapshots/builder-session-image.test.ts.
+  ensureSessionImage: ensureSandboxImageMock,
   ensureMyKortixSandboxImage: async (opts: Record<string, unknown>) => {
     imageRequests.push(opts);
     return {
@@ -370,7 +377,10 @@ mock.module('../../projects/triggers', () => ({
 }));
 
 mock.module('../../projects/lib/network-secret-boundary', () => ({
-  resolveSessionNetworkBoundary: async () => networkBoundaryBindings,
+  resolveSessionNetworkBoundary: async () => {
+    await networkBoundaryCheck();
+    return networkBoundaryBindings;
+  },
 }));
 
 mock.module('../../projects/agents', () => ({
@@ -428,6 +438,7 @@ beforeEach(() => {
   accountTokenCreateCalls = [];
   serviceAccountCreateCalls = [];
   networkBoundaryBindings = [];
+  networkBoundaryCheck = async () => {};
   providerSyncCalls = [];
   activeRouting = null;
   agentGrantError = null;
@@ -446,6 +457,39 @@ function baseOpts() {
     metadata: {},
   };
 }
+
+describe('provisionSessionSandbox — the secret boundary check', () => {
+  test('the provider create does not wait for the check; the box goes active only after it', async () => {
+    let releaseCheck!: () => void;
+    networkBoundaryCheck = () => new Promise<void>((resolve) => { releaseCheck = resolve; });
+    const provisioned = provisionSessionSandbox(baseOpts());
+    // The create runs while the check is still open.
+    for (let i = 0; i < 100 && providerCreateOpts.length === 0; i++) await Bun.sleep(5);
+    expect(providerCreateOpts).toHaveLength(1);
+    expect(updateCalls.some((c) => c.table === projectSessions && c.updates.status === 'running')).toBe(false);
+    releaseCheck();
+    await provisioned;
+  });
+
+  test('a policy the check refuses still fails the provision, and the box created beside it is removed', async () => {
+    networkBoundaryCheck = async () => {
+      throw new Error('secret boundary policy cannot be served');
+    };
+    const removed = waitFor((resolve) => {
+      onRemoved = resolve;
+    });
+    await provisionSessionSandbox(baseOpts());
+    await removed;
+
+    expect(providerCreateOpts).toHaveLength(1);
+    expect(removedIds).toEqual([EXTERNAL_ID]);
+    // The failure write lands right after the removal.
+    const failed = () => updateCalls.some((c) => c.table === sessionSandboxes && c.updates.status === 'error');
+    for (let i = 0; i < 100 && !failed(); i++) await Bun.sleep(5);
+    expect(failed()).toBe(true);
+    expect(updateCalls.some((c) => c.table === projectSessions && c.updates.status === 'running')).toBe(false);
+  });
+});
 
 describe('provisionSessionSandbox — mid-provision delete race', () => {
   test('refuses to mint a session token when the agent grant cannot be resolved', async () => {
@@ -625,8 +669,10 @@ describe('provisionSessionSandbox — mid-provision delete race', () => {
     }
   });
 
-  test('a warm (speculative) box asks the provider to keep its region; any other box may fall back', async () => {
-    for (const [metadata, required] of [[{ warm: true }, true], [undefined, false]] as const) {
+  // Only the session's placement decides it. A leftover `warm` marker from the
+  // removed warm sessions (2026-11-03) no longer pins a box to its region.
+  test('a box without a required placement may fall back, whatever its metadata says', async () => {
+    for (const [metadata, required] of [[{ warm: true }, false], [undefined, false]] as const) {
       providerCreateOpts = [];
       const opened = waitFor((resolve) => {
         onComputeOpened = resolve;

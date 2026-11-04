@@ -2,7 +2,7 @@
  * Reconcile a live session token's agent grant with the current manifest.
  *
  * `account_tokens.agent_grant` starts from the session's create-time agent.
- * The connector and Dosco-CLI gates (`agentMayUseConnector`,
+ * The connector and Kortix-CLI gates (`agentMayUseConnector`,
  * `agentMayPerform`) read that row at call time. The row must therefore follow
  * both in-session agent switches and same-agent manifest edits:
  *
@@ -43,7 +43,6 @@
 import { type AgentGrant, accountTokens, readStoredAgentGrant, projectSessions, projects } from '@kortix/db';
 import { isMyKortixAgentName } from '@kortix/shared';
 import { and, eq, isNull } from 'drizzle-orm';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
 import { DEFAULT_AGENT_SENTINEL, grantFromLoadedAgents, isLaunchableAgentName, loadProjectAgents, type LoadedAgents } from '../agents';
 import { type MirrorRefresh, existingProjectMirrorPath, runGitCapture } from '../git/mirror';
@@ -53,7 +52,6 @@ import {
   resolveSessionAgentGrant,
   withGrantProvenance,
 } from './secret-grant';
-import { resolveBuiltinAgents } from './my-kortix-agent';
 
 /** The re-mint could not be written. The caller must FAIL the prompt: letting it
  *  through would run the new agent against the previous agent's grant, which is
@@ -62,7 +60,7 @@ export class SessionGrantRemintError extends Error {
   constructor(
     readonly sessionId: string,
     cause: unknown,
-    /** `builtin_agent_disabled`: the prompt runs My Dosco in a project that turned it off. */
+    /** `builtin_agent_disabled`: the prompt runs My Kortix in a project that turned it off. */
     readonly code?: 'builtin_agent_disabled',
   ) {
     super(
@@ -250,9 +248,12 @@ async function loadStoredSessionGrant(sessionId: string): Promise<AgentGrant | n
 }
 
 /**
- * Does this project run My Dosco? kortix.yaml `builtin_agents.my_kortix`
- * first, then the legacy `meta_agent` switch, as session create resolves it.
- * A failed read answers `true`: the grant re-mint fails closed on its own.
+ * Does this project run My Kortix? kortix.yaml `builtin_agents.my_kortix: true`,
+ * as session create resolves it; anything the file says or lacks is off.
+ * A file that cannot be read or parsed is no answer and answers `true`: a
+ * running session is not refused on a git failure, and the grant re-mint keeps
+ * its last known good grant or fails closed on its own. A new session reads
+ * such a file as off (session create).
  */
 async function myKortixEnabled(projectId: string): Promise<boolean> {
   try {
@@ -261,12 +262,11 @@ async function myKortixEnabled(projectId: string): Promise<boolean> {
         repoUrl: projects.repoUrl,
         defaultBranch: projects.defaultBranch,
         manifestPath: projects.manifestPath,
-        metadata: projects.metadata,
       })
       .from(projects)
       .where(eq(projects.projectId, projectId))
       .limit(1);
-    if (!project) return true;
+    if (!project) return false;
     const loaded = project.defaultBranch
       ? await loadProjectAgents(
           {
@@ -275,10 +275,10 @@ async function myKortixEnabled(projectId: string): Promise<boolean> {
             defaultBranch: project.defaultBranch,
             manifestPath: project.manifestPath,
           },
-          { forceRefresh: 'tip-proof' },
+          { forceRefresh: 'tip-proof', rethrowReadErrors: true },
         )
       : null;
-    return resolveBuiltinAgents(loaded?.builtinAgents ?? {}, resolveFeatureFlag(project.metadata, 'meta_agent')).my_kortix;
+    return loaded?.builtinAgents?.my_kortix === true;
   } catch {
     return true;
   }
@@ -466,7 +466,7 @@ export async function remintGrantForAgentSwitch(
   // Synchronous for the same-agent case too — every ordinary turn. This ran in
   // the background for one release (the manifest read is a git fetch of the
   // project mirror, ~0.8s on the path of every prompt) and the security review
-  // was right to refuse it: generic Dosco CLI/API authorization reads
+  // was right to refuse it: generic Kortix CLI/API authorization reads
   // `account_tokens.agent_grant` straight from the token row (`middleware/
   // auth.ts` → `requireScope`), so a `kortix.yaml` that NARROWED the running
   // agent's `permissions` in the previous turn was still enforced with the old,
@@ -476,14 +476,14 @@ export async function remintGrantForAgentSwitch(
   //
   // `'tip-proof'`, not `true`: the read ran `git ls-remote` (~600 ms) on every
   // prompt to learn that the manifest had not moved. A manifest change made
-  // through Dosco drops the proof in every API process, so the case above
+  // through Kortix drops the proof in every API process, so the case above
   // still reads the new manifest before the turn (see `MirrorRefresh`). The
   // tie-break read stays strict: it exists to contradict the first one.
   const resolve = (forceRefresh: MirrorRefresh) =>
     resolveCurrentGrant({ ...input, runningAgent, forceRefresh });
   const runningRead = resolve('tip-proof');
   runningRead.catch(() => undefined);
-  // A `meta` prompt in a project that turned My Dosco off is refused, not only
+  // A `meta` prompt in a project that turned My Kortix off is refused, not only
   // narrowed: the grant below still drops to read-only, then the prompt fails.
   const myKortixRead = isMyKortixAgentName(runningAgent) ? myKortixEnabled(input.projectId) : null;
   const stored = await storedRead;
@@ -492,7 +492,7 @@ export async function remintGrantForAgentSwitch(
   if (myKortixRead && !(await myKortixRead)) {
     throw new SessionGrantRemintError(
       input.sessionId,
-      new Error('My Dosco is off in this project. Start a session with a project agent.'),
+      new Error('My Kortix is off in this project. Start a session with a project agent.'),
       'builtin_agent_disabled',
     );
   }
@@ -503,7 +503,7 @@ export async function remintGrantForAgentSwitch(
  * Resolve the grant represented by an existing session token from the current
  * project manifest.
  *
- * Connector and Dosco CLI requests can occur after the session changes
+ * Connector and Kortix CLI requests can occur after the session changes
  * `kortix.yaml` in the same turn. The prompt hook cannot observe that later
  * mutation. Gateway authorization therefore calls this function before it
  * evaluates the stored grant.

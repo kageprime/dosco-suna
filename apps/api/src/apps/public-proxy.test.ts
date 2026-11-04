@@ -1,11 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 process.env.INTERNAL_KORTIX_ENV = 'dev';
-process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.dosco.live';
+process.env.KORTIX_APPS_BASE_DOMAIN = 'apps.kortix.com';
 process.env.KORTIX_APPS_ALLOW_LOCAL_EDGE = 'true';
-// The E2B cluster these tests model canonicalizes onto its own base domain:
-// port-ingress hosts and bare sandbox hosts are siblings of one suffix.
-process.env.E2B_DOMAIN = 'e2b.app';
 
 const {
   appPublicUnavailableResponse,
@@ -23,119 +20,8 @@ const {
 } = await import('./public-proxy');
 const { createAppAccessToken } = await import('./access');
 const { config } = await import('../config');
-const { followProviderIngressRedirects } = await import('../sandbox-proxy/provider-redirect-follow');
 
 describe('Apps public edge', () => {
-  test('follows a provider canonical-host redirect server-side', async () => {
-    // The loop incident: an app whose middleware bounced EVERY path onto its
-    // upstream host. The rewritten Location for that app was itself canonical
-    // — rewrite + app = an endless browser bounce. Following the chain here
-    // keeps the browser on the App host for the entire dance (v67).
-    const hops: string[] = [];
-    const followed = await followProviderIngressRedirects(
-      new Response(null, { status: 308, headers: { location: 'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard' } }),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
-      async (target) => {
-        hops.push(target);
-        return new Response('dashboard', { status: 200 });
-      },
-      { provider: 'e2b', method: 'GET' },
-    );
-    expect(followed?.status).toBe(200);
-    expect(await followed?.text()).toBe('dashboard');
-    expect(hops).toEqual(['https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard']);
-  });
-
-  test('only the provider owns the follow rule', async () => {
-    const bounce = (location: string) =>
-      new Response(null, { status: 302, headers: { location } });
-    // An external Location is the browser's business (OAuth providers, CDNs).
-    const external = await followProviderIngressRedirects(
-      bounce('https://idp.example/oauth?client=1'),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
-      async () => {
-        throw new Error('an external redirect must never be fetched server-side');
-      },
-      { provider: 'e2b', method: 'GET' },
-    );
-    expect(external?.headers.get('location')).toBe('https://idp.example/oauth?client=1');
-
-    // Other providers answer auth redirects through their own recovery path.
-    const daytona = await followProviderIngressRedirects(
-      bounce('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/dashboard'),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
-      async () => {
-        throw new Error('a non-E2B provider must never be followed');
-      },
-      { provider: 'daytona', method: 'GET' },
-    );
-    expect(daytona?.status).toBe(302);
-
-    // A relative Location stays on whatever host answered it.
-    const relative = await followProviderIngressRedirects(
-      bounce('/login?next=/x'),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
-      async () => {
-        throw new Error('a same-origin Location must never be fetched server-side');
-      },
-      { provider: 'e2b', method: 'GET' },
-    );
-    expect(relative?.headers.get('location')).toBe('/login?next=/x');
-  });
-
-  test('a write redirect is never followed', async () => {
-    const followed = await followProviderIngressRedirects(
-      new Response(null, { status: 303, headers: { location: 'https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session' } }),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/save',
-      async () => {
-        throw new Error('a write must never be re-sent');
-      },
-      { provider: 'e2b', method: 'POST' },
-    );
-    expect(followed?.status).toBe(303);
-    expect(followed?.headers.get('location')).toBe('https://x7k2m9q4z6c1v0b8n5j3.e2b.app/session');
-  });
-
-  test('a redirect storm between the two hosts caps and fails visibly', async () => {
-    const alternates = ['https://x7k2m9q4z6c1v0b8n5j3.e2b.app/', 'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/'];
-    let dialed = 0;
-    const followed = await followProviderIngressRedirects(
-      new Response(null, { status: 308, headers: { location: alternates[0] } }),
-      'https://3000-x7k2m9q4z6c1v0b8n5j3.e2b.app/',
-      async () => {
-        dialed += 1;
-        return new Response(null, { status: 308, headers: { location: alternates[dialed % alternates.length] } });
-      },
-      { provider: 'e2b', method: 'GET' },
-    );
-    expect(followed).toBeNull(); // the caller answers 502 sandbox_redirect_loop
-    expect(dialed).toBe(3);
-  });
-
-  test('recognises a dead E2B runtime, which is a 502 and not a throw', () => {
-    // The outage this pins. An App ran fine after every deploy and then served
-    // `{"message":"The sandbox is running but port is not open","port":8080}`
-    // for hours, with desired_state `running` and a `ready` deployment, until a
-    // human rolled back to force a new runtime.
-    //
-    // Nothing recovered it because recovery only fired on a THROWN fetch or a
-    // Daytona 400 — and a provider edge that can still see the sandbox answers
-    // with an ordinary 502 instead. The runtime was gone; the response was not
-    // an error the App produced.
-    const dead = '{"sandboxId":"is3w07miuo2i3gz63g2su","message":"The sandbox is running but port is not open","port":8080,"code":502}';
-    expect(appProviderStoppedResponse('e2b', 502, dead)).toBe(true);
-    expect(appProviderStoppedResponse('e2b', 503, 'connection refused')).toBe(true);
-    expect(appProviderStoppedResponse('e2b', 504, 'sandbox not found')).toBe(true);
-
-    // An App's OWN 502 must still reach the reader. Recovering there would hide
-    // a broken upstream behind an endless "starting" page.
-    expect(appProviderStoppedResponse('e2b', 502, '{"error":"Upstream request failed"}')).toBe(false);
-    expect(appProviderStoppedResponse('e2b', 500, dead)).toBe(false);
-    expect(appProviderStoppedResponse('e2b', 200, dead)).toBe(false);
-
-    // Daytona's shape is unchanged.
-  });
-
   test('recognises a dead Daytona runtime by its 400 shape', () => {
     expect(appProviderStoppedResponse('daytona', 400, 'no IP address found')).toBe(true);
     expect(appProviderStoppedResponse('daytona', 502, 'port is not open')).toBe(false);
@@ -153,11 +39,11 @@ describe('Apps public edge', () => {
     updatedAt: new Date('2026-08-16T19:00:00.000Z'),
   };
   const apiRequest = (headers: Record<string, string> = {}) =>
-    new Request('https://dev-project-cccccccccccccccc.apps.dosco.live/api/things', { headers });
+    new Request('https://dev-project-cccccccccccccccc.apps.kortix.com/api/things', { headers });
 
-  test('a bearer that is not a Dosco credential still gets the challenge', async () => {
+  test('a bearer that is not a Kortix credential still gets the challenge', async () => {
     // The header must not become a way to be SOMEBODY. Anything that is not a
-    // recognised Dosco credential resolves to no identity, and no identity is
+    // recognised Kortix credential resolves to no identity, and no identity is
     // refused exactly as before — this path adds a way to PRESENT an identity,
     // never a way to skip one.
     const cases: Record<string, string>[] = [
@@ -165,13 +51,13 @@ describe('Apps public edge', () => {
       { authorization: 'Bearer not-a-kortix-token' },
       { authorization: 'Bearer ' },
       { authorization: 'Basic a29ydGl4OnNlY3JldA==' },
-      // The App's own write key is not a Dosco credential either.
+      // The App's own write key is not a Kortix credential either.
       { authorization: 'Bearer e09d1f2a3b4c5d6e7f8090a1b2c3d4e5' },
     ];
     for (const headers of cases) {
       const denied = await authorizeAppRequest(
         apiRequest(headers),
-        new URL('https://dev-project-cccccccccccccccc.apps.dosco.live/api/things'),
+        new URL('https://dev-project-cccccccccccccccc.apps.kortix.com/api/things'),
         projectApp,
         async () => true,
       );
@@ -195,7 +81,7 @@ describe('Apps public edge', () => {
     const withCookie = (allowed: boolean) =>
       authorizeAppRequest(
         apiRequest({ cookie: `__Host-kortix_app_access=${cookieToken}` }),
-        new URL('https://dev-project-cccccccccccccccc.apps.dosco.live/api/things'),
+        new URL('https://dev-project-cccccccccccccccc.apps.kortix.com/api/things'),
         projectApp,
         async () => allowed,
       );
@@ -203,13 +89,13 @@ describe('Apps public edge', () => {
     expect((await withCookie(false))?.status).toBe(401);
   });
 
-  test('password mode is not openable with a Dosco credential', async () => {
+  test('password mode is not openable with a Kortix credential', async () => {
     // There the secret IS the password. A project member holding a PAT must
     // still enter it, or "password-protected" would mean something else to
     // every teammate than it does to the person who set it.
     const denied = await authorizeAppRequest(
       apiRequest({ authorization: 'Bearer kortix_pat_whatever' }),
-      new URL('https://dev-project-cccccccccccccccc.apps.dosco.live/api/things'),
+      new URL('https://dev-project-cccccccccccccccc.apps.kortix.com/api/things'),
       { ...projectApp, accessMode: 'password', accessPasswordHash: 'argon2id$fake' },
       async () => true,
     );
@@ -217,7 +103,7 @@ describe('Apps public edge', () => {
   });
 
   test('public Apps bypass browser authentication', async () => {
-    const request = new Request('https://dev-public-aaaaaaaaaaaaaaaa.apps.dosco.live/asset.js');
+    const request = new Request('https://dev-public-aaaaaaaaaaaaaaaa.apps.kortix.com/asset.js');
     const response = await authorizeAppRequest(request, new URL(request.url), {
       appId: '11111111-1111-4111-8111-111111111111',
       accountId: '99999999-9999-4999-8999-999999999999',
@@ -233,7 +119,7 @@ describe('Apps public edge', () => {
     expect(response).toBeNull();
   });
 
-  test('requires Dosco access by default and exchanges a scoped link into a host-only cookie', async () => {
+  test('requires Kortix access by default and exchanges a scoped link into a host-only cookie', async () => {
     const app = {
       appId: '11111111-1111-4111-8111-111111111111',
       accountId: '99999999-9999-4999-8999-999999999999',
@@ -246,14 +132,14 @@ describe('Apps public edge', () => {
       updatedAt: new Date('2026-08-07T19:00:00.000Z'),
     };
     const denied = await authorizeAppRequest(
-      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
         headers: { accept: 'text/html' },
       }),
-      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/'),
+      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/'),
       app,
     );
     expect(denied?.status).toBe(401);
-    expect(await denied?.text()).toContain('Continue with Dosco');
+    expect(await denied?.text()).toContain('Continue with Kortix');
 
     const token = createAppAccessToken({
       appId: app.appId,
@@ -262,7 +148,7 @@ describe('Apps public edge', () => {
       revision: app.accessRevision,
       expiresAt: new Date(Date.now() + 60_000),
     });
-    const url = new URL(`https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/path?__kortix_access=${token}`);
+    const url = new URL(`https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/path?__kortix_access=${token}`);
     const exchanged = await authorizeAppRequest(new Request(url), url, app, async () => true);
     expect(exchanged?.status).toBe(303);
     expect(exchanged?.headers.get('location')).toBe('/path');
@@ -271,20 +157,20 @@ describe('Apps public edge', () => {
 
     const cookie = exchanged!.headers.get('set-cookie')!.split(';', 1)[0]!;
     const asset = await authorizeAppRequest(
-      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/assets/app.js', {
+      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/assets/app.js', {
         headers: { cookie },
       }),
-      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/assets/app.js'),
+      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/assets/app.js'),
       { ...app, updatedAt: new Date('2026-08-07T19:01:00.000Z') },
       async () => true,
     );
     expect(asset).toBeNull();
 
     const revoked = await authorizeAppRequest(
-      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/assets/app.js', {
+      new Request('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/assets/app.js', {
         headers: { cookie },
       }),
-      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.dosco.live/assets/app.js'),
+      new URL('https://dev-private-aaaaaaaaaaaaaaaa.apps.kortix.com/assets/app.js'),
       { ...app, accessRevision: 8 },
       async () => true,
     );
@@ -326,7 +212,7 @@ describe('Apps public edge', () => {
 
   test('preserves the requested deep path through the password form', async () => {
     const request = new Request(
-      'https://dev-password-aaaaaaaaaaaaaaaa.apps.dosco.live/reports/weekly?team=core',
+      'https://dev-password-aaaaaaaaaaaaaaaa.apps.kortix.com/reports/weekly?team=core',
       { headers: { accept: 'text/html' } },
     );
     const response = await authorizeAppRequest(request, new URL(request.url), {
@@ -349,7 +235,7 @@ describe('Apps public edge', () => {
 
   test('verifies an App password and never stores it in the browser cookie', async () => {
     const password = 'correct-horse-battery-staple';
-    const request = new Request('https://dev-password-aaaaaaaaaaaaaaaa.apps.dosco.live/_kortix/access/password', {
+    const request = new Request('https://dev-password-aaaaaaaaaaaaaaaa.apps.kortix.com/_kortix/access/password', {
       method: 'POST',
       headers: { accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ password, return_to: '/dashboard' }),
@@ -372,7 +258,7 @@ describe('Apps public edge', () => {
 
   test('rejects an incorrect App password without setting a cookie', async () => {
     const password = 'correct-horse-battery-staple';
-    const request = new Request('https://dev-password-aaaaaaaaaaaaaaaa.apps.dosco.live/_kortix/access/password', {
+    const request = new Request('https://dev-password-aaaaaaaaaaaaaaaa.apps.kortix.com/_kortix/access/password', {
       method: 'POST',
       headers: { accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ password: 'incorrect-password', return_to: '/reports' }),
@@ -395,7 +281,7 @@ describe('Apps public edge', () => {
     expect(html).toContain('The password is incorrect.');
     expect(html).toContain('name="return_to" value="/reports"');
   });
-  test('revalidates a running row after its Dosco idle deadline passes', () => {
+  test('revalidates a running row after its Kortix idle deadline passes', () => {
     const now = new Date('2026-08-07T10:30:00.000Z');
     expect(appRuntimeNeedsWake({
       status: 'running',
@@ -422,21 +308,21 @@ describe('Apps public edge', () => {
     // sets up) nothing verifies a signature, so trusting the header would let
     // anyone who can reach the public API origin name any App and be proxied
     // into it, past that App's access policy. Only the real Host header counts.
-    const spoofed = 'dev-victim-bbbbbbbbbbbbbbbb.apps.dosco.live';
-    const request = new Request('https://api.dosco.live/secret', {
+    const spoofed = 'dev-victim-bbbbbbbbbbbbbbbb.apps.kortix.com';
+    const request = new Request('https://api.kortix.com/secret', {
       headers: { 'x-kortix-app-host': spoofed },
     });
     const url = new URL(request.url);
 
     process.env.KORTIX_APPS_ALLOW_DIRECT_EDGE = 'true';
     try {
-      // api.dosco.live is not an App hostname, so the request is not an App
+      // api.kortix.com is not an App hostname, so the request is not an App
       // request at all — it falls through to the ordinary API.
       expect(resolveAppRequest(request, url)).toBeNull();
 
       // A real App hostname still resolves, from the Host header alone.
       const direct = new Request(`https://${spoofed}/`, {
-        headers: { 'x-kortix-app-host': 'dev-other-cccccccccccccccc.apps.dosco.live' },
+        headers: { 'x-kortix-app-host': 'dev-other-cccccccccccccccc.apps.kortix.com' },
       });
       expect(resolveAppRequest(direct, new URL(direct.url))).toEqual({
         routeKey: 'bbbbbbbbbbbbbbbb',
@@ -462,16 +348,16 @@ describe('Apps public edge', () => {
     expect(resolveAppHost('aaaaaaaaaaaaaaaa.apps.localhost')).toEqual({
       routeKey: 'aaaaaaaaaaaaaaaa', local: true, service: 'http',
     });
-    expect(resolveAppHost('dev-hello-world-aaaaaaaaaaaaaaaa.apps.dosco.live')).toEqual({
+    expect(resolveAppHost('dev-hello-world-aaaaaaaaaaaaaaaa.apps.kortix.com')).toEqual({
       routeKey: 'aaaaaaaaaaaaaaaa', local: false, service: 'http',
     });
-    expect(resolveAppHost('prod-hello-aaaaaaaaaaaaaaaa.apps.dosco.live')).toBeNull();
+    expect(resolveAppHost('prod-hello-aaaaaaaaaaaaaaaa.apps.kortix.com')).toBeNull();
     expect(resolveAppHost('anything.example.com')).toBeNull();
   });
 
   test('accepts a valid edge signature and rejects header or path substitution', () => {
     const timestamp = String(Date.now());
-    const host = 'dev-hello-aaaaaaaaaaaaaaaa.apps.dosco.live';
+    const host = 'dev-hello-aaaaaaaaaaaaaaaa.apps.kortix.com';
     const secret = 'edge-secret-at-least-sixteen';
     process.env.KORTIX_APPS_EDGE_SECRET = secret;
     const signature = appEdgeSignature(timestamp, host, 'POST', '/api/items?q=1', secret);
@@ -489,11 +375,11 @@ describe('Apps public edge', () => {
 
   test('resolves and verifies the signed public host after the Worker forwards to the API host', () => {
     const timestamp = String(Date.now());
-    const publicHost = 'dev-hello-aaaaaaaaaaaaaaaa.apps.dosco.live';
+    const publicHost = 'dev-hello-aaaaaaaaaaaaaaaa.apps.kortix.com';
     const secret = 'edge-secret-at-least-sixteen';
     process.env.KORTIX_APPS_EDGE_SECRET = secret;
     const signature = appEdgeSignature(timestamp, publicHost, 'GET', '/assets/app.js?q=1', secret);
-    const request = new Request('https://dev-api.dosco.live/assets/app.js?q=1', {
+    const request = new Request('https://dev-api.kortix.com/assets/app.js?q=1', {
       headers: {
         'x-kortix-app-host': publicHost,
         'x-kortix-app-timestamp': timestamp,
@@ -519,7 +405,7 @@ describe('Apps public edge', () => {
   test('an unsigned claim of a local App host is not an App request', () => {
     // Pentest H-3: the local carve-out skips the edge signature, so a claimed
     // `*.apps.localhost` sent to the public API routed into App dispatch unsigned.
-    const request = new Request('https://api.dosco.live/', {
+    const request = new Request('https://api.kortix.com/', {
       headers: { 'x-kortix-app-host': 'aaaaaaaaaaaaaaaa.apps.localhost' },
     });
     expect(resolveAppRequest(request, new URL(request.url))).toBeNull();
@@ -530,7 +416,7 @@ describe('Apps public edge', () => {
     const previousLocal = process.env.KORTIX_APPS_LOCAL;
     try {
       delete process.env.KORTIX_APPS_LOCAL;
-      (config as { KORTIX_URL: string }).KORTIX_URL = 'https://api.dosco.live';
+      (config as { KORTIX_URL: string }).KORTIX_URL = 'https://api.kortix.com';
       const request = new Request('http://aaaaaaaaaaaaaaaa.apps.localhost/');
       expect(verifyAppEdgeRequest(request, new URL(request.url), true)).toBe(false);
     } finally {
@@ -545,10 +431,10 @@ describe('Apps public edge', () => {
   });
 
   test('forces identity encoding because Bun fetch transparently decompresses upstream bodies', () => {
-    const request = new Request('https://dev-app-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+    const request = new Request('https://dev-app-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
       headers: { 'accept-encoding': 'gzip, br, zstd' },
     });
-    const headers = appUpstreamHeaders(request, {}, 'dev-app-aaaaaaaaaaaaaaaa.apps.dosco.live');
+    const headers = appUpstreamHeaders(request, {}, 'dev-app-aaaaaaaaaaaaaaaa.apps.kortix.com');
 
     expect(headers.get('accept-encoding')).toBe('identity');
   });
@@ -567,7 +453,7 @@ describe('Apps public edge', () => {
 
   test('renders an auto-refreshing boot page instead of unavailable JSON for browser requests', async () => {
     const response = appPublicUnavailableResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
         headers: { accept: 'text/html' },
       }),
       { name: 'Storefront' },
@@ -584,7 +470,7 @@ describe('Apps public edge', () => {
   });
 
   test('converts only a cold-wake ingress 502 into the branded starting response', async () => {
-    const request = new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+    const request = new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
       headers: { accept: 'text/html' },
     });
 
@@ -617,7 +503,7 @@ describe('Apps public edge', () => {
     expect(appProviderStoppedResponse('daytona', 502, 'no IP address found')).toBe(false);
   });
 
-  test('allows Apps to render inside Dosco while preserving the rest of the upstream CSP', () => {
+  test('allows Apps to render inside Kortix while preserving the rest of the upstream CSP', () => {
     const headers = new Headers({
       'x-frame-options': 'DENY',
       'content-security-policy': "default-src 'self'; frame-ancestors 'none'; script-src 'self'",
@@ -628,7 +514,7 @@ describe('Apps public edge', () => {
 
     expect(result.get('x-frame-options')).toBeNull();
     expect(result.get('content-security-policy')).toBe(
-      "default-src 'self'; script-src 'self'; frame-ancestors 'self' https://dosco.live https://*.dosco.live http://localhost:* http://127.0.0.1:*",
+      "default-src 'self'; script-src 'self'; frame-ancestors 'self' https://kortix.com https://*.kortix.com http://localhost:* http://127.0.0.1:*",
     );
     expect(result.get('content-security-policy-report-only')).toBe("img-src 'self'");
   });
@@ -642,7 +528,7 @@ describe('Apps public edge', () => {
     }));
 
     expect(result.get('content-security-policy')).toBe(
-      "img-src 'self'; frame-ancestors 'self' https://dosco.live https://*.dosco.live http://localhost:* http://127.0.0.1:*",
+      "img-src 'self'; frame-ancestors 'self' https://kortix.com https://*.kortix.com http://localhost:* http://127.0.0.1:*",
     );
   });
 
@@ -660,17 +546,17 @@ describe('Apps public edge', () => {
   test('allows a self-host frontend origin to frame its own App previews', () => {
     const original = config.FRONTEND_URL;
     try {
-      config.FRONTEND_URL = 'https://sampleco.dosco.live';
+      config.FRONTEND_URL = 'https://sampleco.kortix.cloud';
       const result = appPublicResponseHeaders(
         new Headers({ 'content-security-policy': "default-src 'self'; frame-ancestors 'none'" }),
       );
       const csp = result.get('content-security-policy') || '';
       // The operator's own frontend origin — and a wildcard for its domain — must
       // appear, or the dashboard preview iframe is blocked on self-host.
-      expect(csp).toContain('https://sampleco.dosco.live');
-      expect(csp).toContain('https://*.dosco.live');
+      expect(csp).toContain('https://sampleco.kortix.cloud');
+      expect(csp).toContain('https://*.kortix.cloud');
       // Managed cloud + localhost stay allowed too.
-      expect(csp).toContain('https://dosco.live');
+      expect(csp).toContain('https://kortix.com');
       expect(csp).toContain('http://localhost:*');
       // Upstream frame-ancestors is stripped, ours wins.
       expect(csp).not.toContain("frame-ancestors 'none'");
@@ -685,7 +571,7 @@ describe('Apps public edge', () => {
       config.FRONTEND_URL = 'http://localhost:3000';
       const result = appPublicResponseHeaders(new Headers());
       expect(result.get('content-security-policy')).toBe(
-        "frame-ancestors 'self' https://dosco.live https://*.dosco.live http://localhost:* http://127.0.0.1:*",
+        "frame-ancestors 'self' https://kortix.com https://*.kortix.com http://localhost:* http://127.0.0.1:*",
       );
     } finally {
       config.FRONTEND_URL = original;
@@ -694,7 +580,7 @@ describe('Apps public edge', () => {
 
   test('renders a branded, auto-refreshing browser page while an App is building', async () => {
     const response = appPublicStatusResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
         headers: { accept: 'text/html' },
       }),
       { name: 'Storefront' },
@@ -713,7 +599,7 @@ describe('Apps public edge', () => {
   test('describes a sleeping App as a machine that wakes, never as serverless', async () => {
     for (const status of ['provisioning', 'starting'] as const) {
       const html = await appPublicStatusResponse(
-        new Request('https://x.apps.dosco.live/', { headers: { accept: 'text/html' } }),
+        new Request('https://x.apps.kortix.com/', { headers: { accept: 'text/html' } }),
         { name: 'Storefront' },
         { status },
       ).text();
@@ -738,7 +624,7 @@ describe('Apps public edge', () => {
 
     for (const [status, heading, httpStatus, refreshes] of cases) {
       const response = appPublicStatusResponse(
-        new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+        new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
           headers: { accept: 'text/html' },
         }),
         { name: 'Storefront' },
@@ -756,7 +642,7 @@ describe('Apps public edge', () => {
 
   test('returns machine-readable state to non-browser callers', async () => {
     const response = appPublicStatusResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/'),
+      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/'),
       { name: 'Storefront' },
       { status: 'checking' },
     );
@@ -771,7 +657,7 @@ describe('Apps public edge', () => {
 
   test('shows a stable failed state without auto-refreshing forever', async () => {
     const response = appPublicStatusResponse(
-      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.dosco.live/', {
+      new Request('https://dev-store-aaaaaaaaaaaaaaaa.apps.kortix.com/', {
         headers: { 'sec-fetch-dest': 'document' },
       }),
       { name: 'Storefront' },

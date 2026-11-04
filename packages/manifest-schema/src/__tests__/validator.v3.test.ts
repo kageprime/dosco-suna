@@ -179,6 +179,11 @@ describe('agents', () => {
     expect(errorPaths(swap('codemode: on', 'codemode: maybe'))).toContain('agents.assistant.codemode');
   });
 
+  test('context is record or summary', () => {
+    expect(errorPaths(swap('codemode: on', 'codemode: on\n    context: summary'))).toEqual([]);
+    expect(errorPaths(swap('codemode: on', 'codemode: on\n    context: forget'))).toContain('agents.assistant.context');
+  });
+
   test('connectors_required stays a subset of connectors', () => {
     expect(errorPaths(swap('    connectors: all\n', '    connectors: [a]\n    connectors_required: [b]\n'))).toContain('agents.assistant.connectors_required');
   });
@@ -222,6 +227,14 @@ describe('builtin_agents (My Kortix switch)', () => {
     expect(check(declared).errors[0]?.message).toContain('reserved for My Kortix');
     expect(errorPaths(declared.replace('agents:', 'builtin_agents:\n  my_kortix: false\nagents:'))).toEqual(['agents.meta']);
     expect(errorPaths(declared.replace('agents:', 'builtin_agents:\n  my_kortix: true\nagents:'))).toEqual(['agents.meta']);
+  });
+
+  test('`default_agent: mykortix` is valid only when builtin_agents turns My Kortix on', () => {
+    const withDefault = (builtin: string) => `default_agent: mykortix\n${builtin}agents:\n  worker:\n    prompt: hi\n`;
+    expect(errorPaths(withDefault('builtin_agents:\n  my_kortix: true\n'))).toEqual([]);
+    expect(errorPaths(withDefault(''))).toEqual(['default_agent']);
+    expect(errorPaths(withDefault('builtin_agents:\n  my_kortix: false\n'))).toEqual(['default_agent']);
+    expect(check(withDefault('')).errors[0]?.message).toContain('builtin_agents.my_kortix: true');
   });
 });
 

@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   foreignKey,
   index,
@@ -22,6 +23,20 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const kortixSchema = pgSchema('kortix');
+
+// Immutable payload, mutable delivery receipt. Producers enqueue in their own transaction.
+export const salesEventOutbox = kortixSchema.table('sales_event_outbox', {
+  eventId: text('event_id').primaryKey(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  attempts: integer('attempts').default(0).notNull(),
+  availableAt: timestamp('available_at', { withTimezone: true }).defaultNow().notNull(),
+  leaseToken: uuid('lease_token'),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  deadLetterAt: timestamp('dead_letter_at', { withTimezone: true }),
+  lastError: text('last_error'),
+}, (table) => [index('sales_event_outbox_due_idx').on(table.availableAt)
+  .where(sql`${table.deliveredAt} IS NULL AND ${table.deadLetterAt} IS NULL`)]);
 
 export const usedRefreshTokens = kortixSchema.table('used_refresh_tokens', {
   tokenHash: text('token_hash').primaryKey(),
@@ -699,6 +714,40 @@ export const configReleaseHeads = kortixSchema.table(
   },
   (table) => [primaryKey({ columns: [table.projectId, table.ref] })],
 );
+
+/**
+ * The project config summary of one ref at one commit: what `GET
+ * /projects/:id/detail` serves (agents, skills, commands, manifest health,
+ * the file paths). Built once when the ref moves, so a page view runs no git.
+ * Per-user filtering and the Kortix managed skills are applied at read time,
+ * never stored. A row whose `format` is not the API's current one is ignored
+ * and rebuilt. One row per `(project, ref)`.
+ */
+export const projectConfigSummaries = kortixSchema.table(
+  'project_config_summaries',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.projectId, { onDelete: 'cascade' }),
+    ref: varchar('ref', { length: 255 }).notNull(),
+    /** The commit every file of the summary was read at. */
+    sourceCommit: varchar('source_commit', { length: 64 }).notNull(),
+    /** `CONFIG_SUMMARY_FORMAT` of the API that built it. */
+    format: integer('format').notNull(),
+    /** The project's `manifest_path` the summary was built with. A row of another path is not served. */
+    manifestPath: text('manifest_path').notNull().default(''),
+    /** The repository-derived `ProjectConfigSummary`, before the Kortix managed skills. */
+    config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+    /** File paths at `source_commit`; the first 50,000 when `files_complete` is false. */
+    files: jsonb('files').$type<string[]>().notNull(),
+    fileCount: integer('file_count').notNull(),
+    filesComplete: boolean('files_complete').notNull(),
+    /** When the build read the ref's tip. An older build never overwrites a newer one. */
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }).notNull(),
+    builtAt: timestamp('built_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.ref] })],
+).enableRLS();
 
 /**
  * The last time any API process asked a base ref's upstream for its tip, and
@@ -1485,8 +1534,8 @@ export const projectSessions = kortixSchema.table(
     ),
     // NOTE: `idx_project_sessions_one_available_warm` (one `available` warm
     // session per project+creator) USED to be declared here. It arbitrated a
-    // create race that no longer exists: a warm session is now an ordinary
-    // session and a duplicate costs one extra box. Dropped by
+    // create race that no longer exists (warm sessions were removed on
+    // 2026-11-03). Dropped by
     // migrations/20260813203000000_drop_one_available_warm_index.concurrent.ts.
     // NOTE: three more indexes exist, built CONCURRENTLY and listed in
     // scripts/schema-contract-sql-only.ts:
@@ -4824,6 +4873,12 @@ export const sessionPendingQuestions = kortixSchema.table(
     /** Null while the question is still open — the index keys on this. */
     answeredAt: timestamp('answered_at', { withTimezone: true, mode: 'string' }),
     answers: jsonb(),
+    /**
+     * A chat's answers so far while it shows the questions one at a time
+     * (`QuestionSteps`, api channels/core/questions.ts). Null: nothing picked.
+     * Written only by compare-and-set on its previous value.
+     */
+    chatSteps: jsonb('chat_steps'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),
@@ -8206,6 +8261,10 @@ export const drives = kortixSchema.table('drives', {
   platinumVolumeMove: jsonb('platinum_volume_move').$type<DriveVolumeMoveRecord>(),
   /** The volume head the conflict scanner last read; null until the first scan. */
   conflictScanHead: text('conflict_scan_head'),
+  /** The volume head the search index holds every file of; null until the first full pass (drives/search-index). */
+  indexHead: text('index_head'),
+  /** When the indexer last compared the volume head with `index_head`; null = due now. */
+  indexCheckedAt: timestamp('index_checked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -8221,6 +8280,113 @@ export const drives = kortixSchema.table('drives', {
     .on(table.projectId)
     .where(sql`${table.kind} = 'project'`),
   check('drives_kind', sql`${table.kind} in ('personal', 'agent', 'company', 'project')`),
+]);
+
+/**
+ * A project admin opened a folder in another person's own folder
+ * (`/Users/<name>`): one row per (drive, own folder, admin, UTC day). The
+ * owner reads it ("Opened by admins"); each open also leaves an audit event
+ * (`drive.folder.admin_access`). Only the API reads it (RLS on, no policy).
+ */
+export const driveFolderAdminReads = kortixSchema.table(
+  'drive_folder_admin_reads',
+  {
+    driveId: uuid('drive_id')
+      .notNull()
+      .references(() => drives.driveId, { onDelete: 'cascade' }),
+    /** The person's own folder, `/Users/<name>`. */
+    folder: text('folder').notNull(),
+    adminUserId: uuid('admin_user_id').notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+    firstAt: timestamp('first_at', { withTimezone: true }).defaultNow().notNull(),
+    lastAt: timestamp('last_at', { withTimezone: true }).defaultNow().notNull(),
+    opens: integer('opens').default(1).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.driveId, table.folder, table.adminUserId, table.day] })],
+);
+
+// Storage Platinum bills Kortix for, one row per (control plane, meter,
+// resource, UTC day): what was metered, who owns it, and what Kortix charged.
+// Volumes, scratch disks and Worker storage come from Platinum's meter
+// (apps/api/src/billing/services/storage-charges.ts); the disk of a stopped or
+// archived box is metered by Kortix with Platinum's rule
+// (apps/api/src/billing/services/box-disk-charges.ts). A row with no account is
+// Kortix's own cost: a volume no Kortix account owns (another deployment's, a
+// deleted owner's, one Platinum no longer lists). The account and project are
+// set null when they are deleted, so the cost stays recorded as unattributed.
+export const storageCharges = kortixSchema.table('storage_charges', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  /** The Platinum control plane: 'home', or the region key of a regional one. */
+  feed: text('feed').notNull(),
+  /**
+   * Platinum's resource_kind ('volume', 'volume_snapshot', 'scratch',
+   * 'worker_storage'), or a box disk: 'box_disk' (a stopped box) or
+   * 'box_disk_archived' (an archived box).
+   */
+  resourceKind: text('resource_kind').notNull(),
+  /** Platinum's resource_id: a volume id (vol_…), or a box id (sbx_…) for a scratch disk or a box disk. */
+  resourceId: text('resource_id').notNull(),
+  usageDay: date('usage_day', { mode: 'string' }).notNull(),
+  accountId: uuid('account_id').references(() => accounts.accountId, { onDelete: 'set null' }),
+  projectId: uuid('project_id').references(() => projects.projectId, { onDelete: 'set null' }),
+  sessionId: text('session_id'),
+  driveId: uuid('drive_id'),
+  volumeName: text('volume_name'),
+  /** Why no account pays: 'not_kortix', 'volume_gone', 'owner_gone', 'unsupported_kind'. Null when attributed. */
+  unattributedReason: text('unattributed_reason'),
+  /** The storageBilling entitlement was off when this row last charged: nothing was taken. */
+  waived: boolean('waived').default(false).notNull(),
+  /** What was metered for the day so far: the larger of Platinum's receipt and the sum of its events. */
+  gibHours: numeric('gib_hours', { precision: 24, scale: 10 }).default('0').notNull(),
+  platinumMicros: bigint('platinum_micros', { mode: 'number' }).default(0).notNull(),
+  /** The sum of the `volume.storage` events applied to this row (GET /v1/billing/events). */
+  eventGibHours: numeric('event_gib_hours', { precision: 24, scale: 10 }).default('0').notNull(),
+  /** The ids of those events: each one is applied once. */
+  eventIds: text('event_ids').array().default(sql`'{}'::text[]`).notNull(),
+  /** A box disk row: the instant its GiB-hours are metered through. Null on every other row. */
+  meteredThrough: timestamp('metered_through', { withTimezone: true, mode: 'string' }),
+  /** What Kortix charged for the day so far: one ledger row per charge_seq. */
+  chargedGibHours: numeric('charged_gib_hours', { precision: 24, scale: 10 }).default('0').notNull(),
+  chargedUsd: numeric('charged_usd', { precision: 20, scale: 10 }).default('0').notNull(),
+  chargeSeq: integer('charge_seq').default(0).notNull(),
+  /** A charge written before its wallet call: replayed with the same key until it lands. */
+  pendingGibHours: numeric('pending_gib_hours', { precision: 24, scale: 10 }),
+  pendingUsd: numeric('pending_usd', { precision: 20, scale: 10 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('storage_charges_resource_day').on(table.feed, table.resourceKind, table.resourceId, table.usageDay),
+  index('idx_storage_charges_account_day').on(table.accountId, table.usageDay),
+  index('idx_storage_charges_project_day').on(table.projectId, table.usageDay),
+  check(
+    'storage_charges_kind',
+    sql`${table.resourceKind} in ('volume', 'volume_snapshot', 'scratch', 'worker_storage', 'box_disk', 'box_disk_archived')`,
+  ),
+  check(
+    'storage_charges_reason',
+    sql`${table.unattributedReason} is null or ${table.unattributedReason} in ('not_kortix', 'volume_gone', 'owner_gone', 'unsupported_kind')`,
+  ),
+]);
+
+// Kortix's own compute cost for Platinum boxes this deployment does not own
+// (no session, App or monitor row names them): what Platinum charged per
+// (control plane, box, UTC day, meter), summed from its billing feed
+// (apps/api/src/billing/services/orphan-box-costs.ts). Nothing here is ever
+// charged to a customer.
+export const providerOrphanBoxCosts = kortixSchema.table('provider_orphan_box_costs', {
+  feed: text('feed').notNull(),
+  sandboxId: text('sandbox_id').notNull(),
+  usageDay: date('usage_day', { mode: 'string' }).notNull(),
+  /** `<event_type>/<size_class>`, e.g. 'sandbox.uptime/cpu'. */
+  meter: text('meter').notNull(),
+  quantity: numeric('quantity', { precision: 24, scale: 6 }).default('0').notNull(),
+  amountMicros: bigint('amount_micros', { mode: 'number' }).default(0).notNull(),
+  events: integer('events').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.feed, table.sandboxId, table.usageDay, table.meter] }),
+  index('idx_provider_orphan_box_costs_day').on(table.usageDay),
 ]);
 
 // Where a drive mounts, beyond its owner's own sessions. One row per subject:
@@ -8281,6 +8447,43 @@ export const driveConflicts = kortixSchema.table('drive_conflicts', {
     .on(table.driveId)
     .where(sql`${table.resolvedAt} is null and ${table.dismissedAt} is null`),
 ]);
+
+/** A Postgres `tsvector`, read and written only by SQL (`drive_index_entries.search`). */
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
+
+/**
+ * The search index of a project's Files: one row per file or folder of the
+ * drive's volume at `drives.index_head` (drives/search-index). `body` is the
+ * extracted text of a text-like file, cut at 256 KiB (`INDEX_BODY_BYTES`);
+ * every other file has a name row only. `search` weights the name A, the path
+ * C and the body D, over the 'simple' configuration with every run of
+ * non-alphanumeric characters read as a space. Who may read a row is decided
+ * per request by the folder rules (drives/folders.ts), never stored here.
+ */
+export const driveIndexEntries = kortixSchema.table('drive_index_entries', {
+  driveId: uuid('drive_id')
+    .notNull()
+    .references(() => drives.driveId, { onDelete: 'cascade' }),
+  path: text('path').notNull(),
+  kind: text('kind').notNull(),
+  size: bigint('size', { mode: 'number' }).default(0).notNull(),
+  mtime: timestamp('mtime', { withTimezone: true }),
+  /** sha256 of the bytes read for `body`; null for a name-only row. */
+  contentHash: text('content_hash'),
+  name: text('name').notNull(),
+  body: text('body').default('').notNull(),
+  search: tsvector('search').generatedAlwaysAs(
+    sql`setweight(to_tsvector('simple'::regconfig, regexp_replace(name, '[^[:alnum:]]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple'::regconfig, regexp_replace(path, '[^[:alnum:]]+', ' ', 'g')), 'C') || setweight(to_tsvector('simple'::regconfig, regexp_replace(body, '[^[:alnum:]]+', ' ', 'g')), 'D')`,
+  ),
+  indexedAt: timestamp('indexed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.driveId, table.path] }),
+  index('idx_drive_index_entries_search').using('gin', table.search),
+  // `path=` scopes a search to a folder with a LIKE prefix, which the
+  // primary key (default collation) cannot serve.
+  index('idx_drive_index_entries_path_prefix').on(table.driveId, sql`${table.path} text_pattern_ops`),
+  check('drive_index_entries_kind', sql`${table.kind} in ('file', 'dir')`),
+]).enableRLS();
 
 // Platinum volumes whose owner row is gone (a drive, a session's state
 // volume), queued for deletion. A trigger fills it on every delete path,
@@ -8883,4 +9086,60 @@ export const sessionSandboxIdentities = kortixSchema.table('session_sandbox_iden
   foreignKey({ name: 'session_sandbox_identities_account_fk', columns: [table.accountId], foreignColumns: [accounts.accountId] }).onDelete('cascade'),
   foreignKey({ name: 'session_sandbox_identities_project_fk', columns: [table.projectId], foreignColumns: [projects.projectId] }).onDelete('cascade'),
   index('idx_session_sandbox_identities_project').on(table.projectId),
+]).enableRLS();
+
+/**
+ * A member's Claude subscription login, one per (account, user). The value is
+ * the long-lived token `claude setup-token` prints, encrypted with the account
+ * key. The API decrypts it only to deliver it to Claude Code in that same
+ * user's sessions (`KORTIX_CLAUDE_OAUTH_TOKEN`). The LLM gateway, the secret
+ * listings and the sandbox env sync never read this table.
+ */
+export const claudeSubscriptionLogins = kortixSchema.table('claude_subscription_logins', {
+  accountId: uuid('account_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  valueEnc: text('value_enc').notNull(),
+  /** `setup_token` (the login ran in Kortix) or `pasted` (the member pasted a token). */
+  source: text('source').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.accountId, table.userId] }),
+  foreignKey({ name: 'claude_subscription_logins_member_fk', columns: [table.userId, table.accountId], foreignColumns: [accountMemberships.userId, accountMemberships.accountId] }).onDelete('cascade'),
+  check('claude_subscription_logins_source_check', sql`${table.source} in ('setup_token', 'pasted')`),
+]).enableRLS();
+
+/**
+ * One `claude setup-token` run. The replica that started it owns the process
+ * and polls this row: a complete call on any replica writes the pasted code
+ * here, and the owner feeds it to the process and records the outcome.
+ */
+export const claudeSubscriptionLoginFlows = kortixSchema.table('claude_subscription_login_flows', {
+  flowId: uuid('flow_id').defaultRandom().primaryKey(),
+  accountId: uuid('account_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  status: text('status').notNull().default('starting'),
+  authorizeUrl: text('authorize_url'),
+  /** The pasted code, encrypted; cleared when the owner reads it. */
+  codeEnc: text('code_enc'),
+  error: text('error'),
+  /** The project the sign-in adds a Claude account to. Null on a flow from before named accounts. */
+  projectId: uuid('project_id'),
+  /** The new account's label; null when the flow reconnects `resource_id`. */
+  resourceLabel: text('resource_label'),
+  /** The new account's id, minted at start so a repeated completion writes one row; or the account a reconnect refreshes. */
+  resourceId: uuid('resource_id'),
+  /** True when the flow refreshes the login of the existing account `resource_id`. */
+  reconnect: boolean('reconnect').notNull().default(false),
+  /** Who may use the new account (`{mode:'private'|'project'|'members', …}`); null = private. */
+  sharing: jsonb('sharing'),
+  /** The owner's last poll: a complete call fails fast when the owner stopped. */
+  ownerSeenAt: timestamp('owner_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  foreignKey({ name: 'claude_subscription_login_flows_member_fk', columns: [table.userId, table.accountId], foreignColumns: [accountMemberships.userId, accountMemberships.accountId] }).onDelete('cascade'),
+  index('idx_claude_subscription_login_flows_member').on(table.accountId, table.userId),
+  check('claude_subscription_login_flows_status_check', sql`${table.status} in ('starting', 'awaiting_code', 'exchanging', 'connected', 'failed')`),
 ]).enableRLS();

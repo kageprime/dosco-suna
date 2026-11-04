@@ -1,5 +1,6 @@
 import { canonicalManagedModelId } from '../models/managed-models';
 import { isFreeManagedModel } from '../models/free-models';
+import { isClaudeAgentModelRef } from './claude-agent';
 
 // One definition of how a default model/agent is chosen across scopes. Keeping
 // the precedence here means Slack, the web picker, and the gateway agree.
@@ -37,6 +38,9 @@ export function toWireModel(ref: string): string {
  * the API instead of parsing the pin.
  */
 export function toOpencodeModelRef(model: string): string {
+  // A Claude subscription model is not a gateway model: the box reads its
+  // provider from the ref itself (`claude-agent/<id>`).
+  if (isClaudeAgentModelRef(model)) return model.trim();
   return `${KORTIX_PREFIX}${toWireModel(model)}`;
 }
 

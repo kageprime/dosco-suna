@@ -54,7 +54,6 @@ const catalog = {
     "oauthExpired": "Authorization timed out. Try again.",
     "oauthPrivateDescription": "Use your ChatGPT Plus or Pro plan in this project. New accounts are private to you until you share them.",
     "chatGptSubscription": "ChatGPT subscription",
-    "useYourChatGpt": "Use your ChatGPT subscription",
     "manageChatGptAccounts": "Manage ChatGPT accounts",
     "connect": "Connect",
     "connectChatGpt": "Connect ChatGPT",
@@ -89,7 +88,7 @@ const catalog = {
     "deleteError": "Secret could not be deleted",
     "accessError": "Access could not be changed",
     "sharedTitle": "Provider connections",
-    "sharedDescription": "Add API keys and ChatGPT accounts. New ones are private to you until you share them. Choose which ones each session uses.",
+    "sharedDescription": "Add API keys, ChatGPT accounts and Claude accounts. New ones are private to you until you share them. Choose which ones each session uses.",
     "legacyProjectKey": "Existing project key · Used when this session has no key selection",
     "keyCount": "{count, plural, one {# key} other {# keys}}",
     "providerKeysFor": "{provider} API keys",
@@ -156,7 +155,19 @@ const catalog = {
     "opencodeGoConnect": "Connect OpenCode Go",
     "opencodeGoReconnect": "Reconnect OpenCode Go",
     "opencodeGoDisconnect": "Disconnect OpenCode Go",
-    "opencodeGoFailed": "Failed to connect OpenCode Go"
+    "opencodeGoFailed": "Failed to connect OpenCode Go",
+    "claudeAccounts": "Claude accounts",
+    "noClaudeAccounts": "No Claude accounts yet",
+    "connectClaude": "Sign in with Claude",
+    "claudeOauthPrivateDescription": "Use your Claude Pro or Max plan for Claude models in this project. New accounts are private to you until you share them.",
+    "claudeOauthCreationDescription": "Sign in with your Claude Pro or Max account. Kortix stores the login encrypted and never shows it.",
+    "claudeDefaultAccountLabel": "Claude · {name}",
+    "claudeAccountConnected": "Claude account connected",
+    "claudeAccountReconnected": "Claude account reconnected",
+    "claudeConnectFailed": "The Claude sign-in did not finish. Try again.",
+    "claudeReconnectDescription": "Sign in with Claude again. The account keeps its name, access, and session selections.",
+    "claudeAccountLabelPlaceholder": "e.g. My Claude account",
+    "claudeDeleteAccountConfirmTitle": "Delete this Claude account for everyone?"
   },
   "secrets": {
     "undecryptable": {
@@ -766,10 +777,6 @@ const catalog = {
           "name": "Orchestrator",
           "description": "Orchestrator, the one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions. The project setting is `builtin_agents.my_kortix` in kortix.yaml; this switch applies only when that key is not set."
         },
-        "warm_sessions": {
-          "name": "Warm Sessions",
-          "description": "Keep one sandbox ready for instant session starts. The idle sandbox uses compute."
-        },
         "secrets_egress": {
           "name": "Network-Enforced Secrets",
           "description": "Control which tools and destinations can receive project secrets."
@@ -793,14 +800,6 @@ const catalog = {
         "event_triggers": {
           "name": "Composio event triggers",
           "description": "Start an agent when something happens in a connected app: a new email, a pull request, a calendar event. Events come from Composio. Kortix also checks your connected apps itself."
-        },
-        "volumes": {
-          "name": "Volumes",
-          "description": "Shared Files for this project."
-        },
-        "drives": {
-          "name": "Drive",
-          "description": "Shared folders that stay in sync with sessions: your own drive, one per agent, and company drives an admin attaches to the project. New sessions see them under /drives."
         },
         "session_log_restore": {
           "name": "Session log restore",
@@ -845,6 +844,10 @@ const catalog = {
         "agent_teams": {
           "name": "Agent teams",
           "description": "A lead session starts named teammates that share one task list. Each teammate takes a task, works on it in its own session and tells the lead when it is done. You see every teammate and its tasks under the lead's composer. Messages between sessions work without this flag."
+        },
+        "voice_call": {
+          "name": "Voice calls",
+          "description": "Call the session's agent from the session page and talk it through. It hears you, answers in a voice, sees a screen you share, and works in the same session, so the conversation stays in the chat."
         }
       },
       "channelsSwitch": {
@@ -896,6 +899,7 @@ const catalog = {
       "addCredits": "Add credits",
       "spentThisPeriod": "Spent this period",
       "compute": "Compute",
+      "storage": "Storage",
       "total": "Total",
       "history": "History",
       "historyDescription": "What every session cost, and every credit added or spent.",
@@ -1202,6 +1206,7 @@ const catalog = {
         "chat": "Chat",
         "slack": "Slack",
         "telegram": "Telegram",
+        "discord": "Discord",
         "teams": "Teams",
         "email": "Email",
         "scheduled": "Scheduled",
@@ -1327,20 +1332,8 @@ const catalog = {
     },
     "drive": "Drive",
     "repo": "Repo",
-    "customizeSidebar": "Customize sidebar",
     "searchApps": "Search apps",
     "appsNoMatches": "No matches",
-    "customizeSidebarDescription": "Drag rows between the two groups.",
-    "resetSidebar": "Reset to default",
-    "reorderItem": "Reorder {name}",
-    "reorderHint": "Drag to reorder. Or press the up and down arrow keys; moving past More hides the row from the sidebar.",
-    "reorderAnnouncement": "{name}: {group}, position {position} of {total}",
-    "more": "More",
-    "inSidebar": "Sidebar",
-    "underMore": "More",
-    "sidebarEmpty": "Drag a row here to show it in the sidebar.",
-    "moreEmpty": "Drag a row here to move it under More.",
-    "moreCaption": "Rows under More open from the More menu, below the nav.",
     "spaces": {
       "channels": "Channels",
       "directMessages": "Direct messages",
@@ -1394,6 +1387,17 @@ const catalog = {
       "label": "Restart session",
       "pending": "Restarting…",
       "ownerOnly": "Only the session owner or a project manager can restart this session."
+    },
+    "image": {
+      "title": "Preparing the sandbox image",
+      "states": {
+        "resolving": "Choosing the image for this session.",
+        "serving_last_ready": "Starting from the last ready image. The new one builds in the background.",
+        "waiting_for_build": "The first image for this project is building. The session starts when it is ready.",
+        "building": "Building the first image for this project. This happens once and takes a few minutes.",
+        "copying_to_region": "Copying the image to this session's region.",
+        "waiting_for_provider": "The image is finishing. The session starts when it is ready."
+      }
     }
   },
   "sessionDelete": {
@@ -1666,7 +1670,7 @@ const catalog = {
       "sending": "Sending..."
     },
     "unified": {
-      "welcome": "Welcome to Kortix CompanyOS",
+      "welcome": "Welcome to {name}",
       "email": "Email",
       "emailPlaceholder": "Your email address",
       "password": "Password",
@@ -4282,6 +4286,7 @@ const catalog = {
       "textedac6130dac7": "Commit a SKILL.md to the repo without a chat session.",
       "textfc73e9ad2dae": "Replied in Slack",
       "text8faf56a14a8d": "Replied in Telegram",
+      "text3416de570ab5": "Replied in Discord",
       "text8ccfe10f2f2d": "Publish to your Teams catalog",
       "text36f6474748b3": "Publishing the app to your Teams catalog…",
       "text45b9df5730ac": "Waiting for a Teams admin to approve the app",
@@ -4518,7 +4523,7 @@ const catalog = {
       "texta5e68dfbff0b": "#d63a37",
       "texta619e901f9c0": "Failed to paste: {value0}",
       "texta63fb2eebd02": "Every tool runs without asking. Only the rules below can stop one.",
-      "texta64b1e9803b3": "GitHub stars on kortix-ai/suna",
+      "texta64b1e9803b3": "GitHub stars on kortix-ai/CompanyOS",
       "texta67b04cd5c49": "Worker",
       "texta680491a9229": "Last activity: {value0}",
       "texta6879661926e": "Downloading {value0}…",
@@ -6463,7 +6468,7 @@ const catalog = {
     "createProjectInstead": "Create a new project instead"
   },
   "projectSelector": {
-    "welcome": "Welcome to Kortix CompanyOS",
+    "welcome": "Welcome to {name}",
     "welcomeBack": "Welcome back",
     "descriptionNew": "Create your first project, or join one your team shared.",
     "descriptionReturning": "Open a project, or create a new one.",
@@ -6747,6 +6752,23 @@ const catalog = {
     "channelAccessAllowAria": "Allow {name}",
     "channelAccessRemoveTitle": "Remove {name}?",
     "telegramRemoveDescription": "{name} can no longer talk to the bot. To allow them again, add their user ID or allow their next request.",
+    "discordHeroTitle": "Bring your agent to Discord",
+    "discordHeroLede": "Add the Kortix app to your server. Mention it in a channel and the agent answers in a thread. People can also message it directly.",
+    "discordUnavailable": "Discord is not set up on this Kortix deployment.",
+    "discordPitch": "Chat with your agent in your Discord server.",
+    "discordAddToDiscord": "Add to Discord",
+    "discordConnectedLede": "Mention @Kortix in a channel, or message it directly. It answers the people you allow.",
+    "discordOpen": "Open Discord",
+    "discordDisconnected": "Discord disconnected",
+    "discordUsersDescription": "Only these people can talk to the bot. When someone else mentions or messages it, they show up here.",
+    "discordUsersEmptyDescription": "Ask someone to mention or message the bot, then allow their request or add their user ID.",
+    "discordUsersLoadError": "Could not load the Discord users.",
+    "discordAddByIdHint": "The bot replies to anyone it does not know with their user ID.",
+    "discordAddByIdInvalid": "A Discord user ID is a number of 17 to 20 digits, such as 123456789012345678.",
+    "discordRemoveDescription": "{name} can no longer talk to the bot. To allow them again, add their user ID or allow their next request.",
+    "mockDiscordThread": "launch",
+    "mockDiscordAsk": "Did the deploy finish?",
+    "mockDiscordReply": "Yes, 4 minutes ago. All checks are green and the site is live.",
     "otherWaysToConnect": "Other ways to connect",
     "computerHeroTitle": "Bring your agent to your computer",
     "computerConnectedTitle": "{count, plural, one {Your computer is connected} other {# computers are connected}}",
@@ -7438,6 +7460,8 @@ const catalog = {
     "agentFullWriteDescription": "In the sessions you start, this agent can change any file in your drive, not only its From agents folder.",
     "agentCardDrive": "{size} drive",
     "sessionSkippedDrives": "{count, plural, one {# drive did not fit in this session} other {# drives did not fit in this session}}: {names}. Take a drive out to make room, then restart the session.",
+    "sessionSkippedUnavailable": "{count, plural, one {# folder is not mounted yet} other {# folders are not mounted yet}}: {names}. The session runs without {count, plural, one {it} other {them}} and mounts {count, plural, one {it} other {them}} as soon as storage can.",
+    "sessionSkippedTooLarge": "{count, plural, one {# folder is too large to mount in a session} other {# folders are too large to mount in a session}}: {names}. The session runs without {count, plural, one {it} other {them}}. Move large files out, or share a smaller folder.",
     "shareFolder": "Share",
     "shareTitle": "Share {name}",
     "shareDescription": "People, teams and agents you add get this folder and everything in it. A session sees a folder when its agent, its project or the person who started it has access.",
@@ -7452,59 +7476,92 @@ const catalog = {
       "write": "Can edit",
       "manage": "Can share"
     },
-    "addAccess": "Add a person, team or agent",
+    "addAccess": "Add an agent",
     "notGrantable": "This folder holds the tree together and can't be shared. Share a folder inside it.",
-    "viewOnlyAccess": "Only people who can share this folder can change who has access.",
-    "noGrants": "Nobody has been given access here yet. Project managers can open every folder except people's own.",
+    "viewOnlyAccess": "Only project managers can change which agents get this folder.",
+    "noGrants": "Nobody has been given access here yet. Project admins can open every folder.",
     "myFolder": "My folder",
-    "myFolderHint": "Your own folder: private until you share it, and your desktop in your sessions",
+    "myFolderHint": "Your own folder: only you and the project's admins can open it, and it is your desktop in your sessions",
     "sharedWithMeHint": "Folders other people shared with you",
     "sessionNoFolders": "No folders are mounted in this session.",
-    "folderAccessDescription": "Choose who can open this folder and everything in it. A session gets the folder when its agent, its project or the person who started it has access.",
+    "folderAccessDescription": "Choose which agents get this folder. Every session of a picked agent mounts it, and everyone who may use that agent can open it.",
     "whoCanAccess": "Who can access",
     "whoCanAccessFolder": "Who can access {name}",
-    "accessPanelDescription": "People, teams and agents with access get this folder and everything in it.",
-    "accessPanelRoot": "Open a folder to choose who can access it. Company is shared with everyone in the project; each person's own folder is private until they share it.",
+    "accessPanelDescription": "Agents with access get this folder and everything in it, and so does everyone who may use them.",
+    "accessPanelRoot": "Open a folder to choose which agents get it. Each person's own folder opens for them and the project's admins.",
     "audienceEveryoneDescription": "Everyone who works in this project, and every session in it.",
     "audienceAdmins": "Admins only",
     "audienceAdminsShort": "Project managers can open and share it",
-    "audienceAdminsDescription": "Project managers can open and share it. No session gets it until you share it.",
+    "audienceAdminsDescription": "Project managers can open it. No agent gets it until you add one.",
     "audienceOnlyYou": "Only you",
     "audienceOnlyOwner": "Only {name}",
-    "audienceOwnerDescription": "A person's own folder stays private until they share it. Admins can't open it either.",
-    "audienceSpecific": "Specific people, teams or agents",
-    "audienceSpecificDescription": "Only the people, teams and agents you pick, plus project managers. An agent gets the folder in every one of its sessions.",
+    "audienceOwnerDescription": "A person's own folder opens for them and the project's admins. Each time an admin opens it, its owner can see that.",
+    "audienceSpecific": "Specific agents",
+    "audienceSpecificDescription": "Every session of the agents you pick mounts it. Everyone who may use one of them can open it, plus project managers.",
     "inheritedEveryoneNote": "Everyone in this project already has access through {path}. Change it there to narrow it.",
     "everyoneCan": "Everyone in this project",
     "alsoNamed": "Also give access to",
-    "peopleWithAccess": "People, teams and agents",
+    "peopleWithAccess": "Agents",
     "agentMountsMeta": "Every session of this agent",
     "teamMeta": "Team",
     "levelFor": "Access for {name}",
     "inheritedTitle": "Has access from a folder above",
     "resultEveryone": "Everyone in this project can open this folder.",
     "resultAdmins": "Only project managers can open this folder.",
-    "resultSpecific": "{count, plural, one {Only project managers and the one you picked can open this folder.} other {Only project managers and the # you picked can open this folder.}}",
+    "resultSpecific": "{count, plural, one {Project managers and everyone who may use the agent you picked can open this folder.} other {Project managers and everyone who may use the # agents you picked can open this folder.}}",
     "you": "You",
     "manageFolderAccess": "Manage access",
     "viewFolderAccess": "See access",
     "myDrive": "My files",
     "allFiles": "All files",
+    "drivesSection": "Drives",
     "volumeHint": "A separate volume. Sessions mount each one on its own under /drives.",
     "teamFolders": "Team folders",
     "adminSection": "Admin",
-    "newTeamFolder": "New team folder",
+    "newTeamFolder": "New folder",
     "audienceQuestion": "Who can open it?",
     "badgeEveryone": "Everyone",
     "badgePeople": "{count, plural, one {# person} other {# people}}",
-    "privateNote": "Only you can open My files, not even admins. Share a folder to give someone access.",
     "noTeamFolders": "No team folders yet.",
     "sessionFilesName": "Files",
     "sessionFilesHint": "Folders it can open",
     "sessionFilesDescription": "The Drive folders this session mounts, and where the agent sees them. Share a folder in Drive to add it; stop sharing to take it away.",
     "readWrite": "Read & write",
     "folderHint": "A folder inside {name}",
-    "driveLabel": "Drive"
+    "driveLabel": "Drive",
+    "storageLabel": "Storage",
+    "storageOfLimit": "{used} of {limit}",
+    "storageUsed": "{used} used",
+    "storageNearFull": "Almost full. Delete files you no longer need to keep uploading.",
+    "storageFull": "Full. New uploads are refused until files are deleted.",
+    "storageAccountLine": "All projects: {used} of {limit}",
+    "folderNearMountLimit": "{folder} holds {size}. A session cannot mount a folder larger than {limit}.",
+    "folderOverMountLimit": "{folder} holds {size}, more than the {limit} a session can mount. Sessions run without it.",
+    "uploadRefusedProjectFull": "{name} needs {needed}. This project's Files use {used} of {limit}.",
+    "uploadRefusedAccountFull": "{name} needs {needed}. Your account's Files use {used} of {limit} across all projects.",
+    "uploadRefusedFileTooLarge": "{name} is {size}. One file can be at most {limit}.",
+    "uploadRefusedFolderMount": "{name} would take {folder} past {limit}, the largest folder a session can mount.",
+    "uploadRefusedBusy": "File storage is busy. Retry {name} in a moment.",
+    "uploadRefusedStorageFull": "File storage is full right now. Retry {name} later.",
+    "accountStorageTitle": "Files storage",
+    "accountStorageDescription": "What each project's Files hold. Your plan allows {project} per project and {account} across all projects.",
+    "accountStorageEmpty": "No project holds files yet.",
+    "accountStorageIncomplete": "Some projects could not be measured right now.",
+    "folderInfo": {
+      "audienceYouAndAdmins": "You and project admins",
+      "audienceAgentUsers": "Everyone who may use {agent}",
+      "audienceOwnerAndAdmins": "Owner and admins",
+      "boxPathHint": "Where sessions see this folder. Click to copy.",
+      "pathCopied": "Copied",
+      "projectAdmins": "Project admins",
+      "adminsOpenRecorded": "Can open it. You see each time they do.",
+      "openedByAdmins": "Opened by admins",
+      "noAdminOpens": "No admin has opened this folder."
+    },
+    "folderTree": "Folders",
+    "treeYou": "{name} (You)",
+    "treeExpand": "Open {name}",
+    "treeCollapse": "Close {name}"
   },
   "genui": {
     "showData": "Show data",
@@ -7584,8 +7641,8 @@ const catalog = {
     "listPlaceholder": "value 1, value 2"
   },
   "triggerAutoPause": {
-    "title": "Paused itself at its run limit",
-    "description": "It ran at its hourly run limit for 2 hours in a row, so it stopped starting runs. Find what keeps firing it, then resume it."
+    "title": "Paused automatically",
+    "description": "It stopped starting runs for the reason below. Fix the cause, then resume it."
   },
   "featureGate": {
     "enable": "Enable {name}",
@@ -8053,7 +8110,9 @@ const catalog = {
       "models": "Models",
       "tabCapabilities": "Capabilities",
       "pinToSidebar": "Pin to sidebar",
-      "unpinFromSidebar": "Unpin from sidebar"
+      "unpinFromSidebar": "Unpin from sidebar",
+      "spaceHelp": "The space this agent works in: a slug like engineering or sales. Empty: Project-wide.",
+      "spacePlaceholder": "e.g. engineering"
     },
     "myKortix": {
       "allowed": "Allowed",
@@ -8112,7 +8171,7 @@ const catalog = {
       "project": {
         "title": "Project setting",
         "label": "Orchestrator",
-        "help": "New sessions start with Orchestrator. Kortix maintains its prompt and tools. To turn it off, set <code>builtin_agents.my_kortix: false</code> in kortix.yaml."
+        "help": "Orchestrator is on in this project. Dosco maintains its prompt and tools. To turn it off, delete <code>builtin_agents.my_kortix</code> from kortix.yaml or set it to false."
       }
     },
     "modelView": {
@@ -8321,7 +8380,7 @@ const catalog = {
       "edit": "Edit",
       "delete": "Delete",
       "deleteTitle": "Delete comment?",
-      "deleteDescription": "This comment will be permanently removed.",
+      "deleteDescription": "Its text is removed for everyone, and “Comment deleted” stays in its place. This cannot be undone.",
       "commentDeleted": "Comment deleted",
       "threadDeleted": "This thread was deleted.",
       "resolve": "Resolve",
@@ -8332,9 +8391,6 @@ const catalog = {
       "quoteLabel": "Selected passage",
       "waitingForPerson": "Waiting for a person",
       "deliveryFailed": "Could not send feedback to the agent.",
-      "sendToAgent": "Send to agent ({count})",
-      "sendExisting": "This Artifact’s session",
-      "sendNew": "A new {agent} session",
       "sendFailed": "Could not send these comments. Try again.",
       "retrySend": "Retry send ({count})",
       "discardSend": "Discard and use latest comments",
@@ -8347,8 +8403,9 @@ const catalog = {
       "contextLoadError": "Could not load comment permissions.",
       "activityLoadError": "Could not load activity.",
       "retry": "Try again",
+      "sendAgainTo": "Send again to {agent}",
       "noComments": "No open comments",
-      "noCommentsHint": "Select a passage or leave feedback below.",
+      "noCommentsHint": "Select a passage to comment on it, or start a new comment.",
       "noResolved": "No resolved comments",
       "noResolvedHint": "Resolved threads appear here.",
       "noAllComments": "No comments yet",
@@ -8365,7 +8422,7 @@ const catalog = {
       "preparingSelection": "Preparing selected passage…",
       "selectionCaptureFailed": "Could not prepare the selected passage. Discard it to leave a whole-Artifact comment.",
       "commentSelection": "Comment",
-      "selectionTooLong": "Select a shorter passage to comment.",
+      "selectionTooLong": "This passage is too long to comment on. Select {max} characters or fewer.",
       "selectionUnavailable": "This passage cannot be anchored. Select another passage.",
       "snapshotChanged": "The document changed. Reload it before commenting.",
       "commentSaveFailed": "Could not save the document. Try again before commenting.",
@@ -8384,7 +8441,7 @@ const catalog = {
         "sent_to_agent": "sent feedback to an agent"
       },
       "person": "Person",
-      "deleteRootDescription": "This comment will be permanently removed. The thread will become read-only.",
+      "deleteRootDescription": "Its text is removed for everyone, and the thread becomes read-only. This cannot be undone.",
       "showPanel": "Show comments",
       "hidePanel": "Hide comments",
       "panelTitle": "Comments and activity",
@@ -8406,7 +8463,29 @@ const catalog = {
       "screenshotReadFailed": "Could not load the screenshot.",
       "screenshotMissing": "Screenshot unavailable. The drawing is saved.",
       "screenshotCaptureFailed": "Could not capture a screenshot. Your comment will include the drawing without an image.",
-      "sendScreenshotLimit": "This batch exceeds 20 screenshots or 12 MiB per encoded request. Send fewer image attachments or use a text-only model."
+      "sendScreenshotLimit": "Could not send these comments. Their screenshots exceed the limit for one request. Send fewer threads with drawings.",
+      "agentsUnavailable": "Could not load agents.",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "moreReplies": "{count, plural, one {# more reply} other {# more replies}}",
+      "resolvedBy": "Resolved by {name}",
+      "agent": "Agent",
+      "threadResolved": "Thread resolved",
+      "undo": "Undo",
+      "agentPending": "Sending to agent…",
+      "agentSent": "Sent to agent",
+      "openSession": "Open session",
+      "notDelivered": "Not delivered",
+      "sendThreads": "{count, plural, one {Send # open thread to {agent}} other {Send # open threads to {agent}}}",
+      "chooseAgent": "Choose agent",
+      "sentToAgent": "Comments sent to {agent}",
+      "newCommentFrom": "New comment from {name}",
+      "newComments": "{count, plural, one {# new comment} other {# new comments}}",
+      "filterLabel": "Thread status",
+      "pagePinLabel": "Comment {number}",
+      "showPanelCount": "Show comments, {count} open",
+      "hidePanelCount": "Hide comments, {count} open",
+      "commentSelectionHint": "Comment on the selection"
     },
     "insertMedia": "Image or video…",
     "diagram": "Diagram",
@@ -9048,10 +9127,8 @@ const catalog = {
       "memoryNoteChannel": "What agents in {place} remember. Agents read this at the start of every thread.",
       "memoryNoteDm": "What {agent} remembers from this DM. It reads this at the start of every thread.",
       "off": {
-        "title": "Turn on Drive",
-        "description": "Files and memory for {place} live in Drive. Turn on Volumes in Feature flags to use them.",
-        "descriptionMember": "Files and memory for {place} live in Drive. Ask a project admin to turn it on.",
-        "action": "Open feature flags"
+        "title": "No Drive here",
+        "description": "Files and memory for {place} live in the Drive. This Kortix stores no Drive: it needs Platinum."
       }
     },
     "onboarding": {
@@ -9120,7 +9197,9 @@ const catalog = {
       },
       "board": {
         "label": "Room and a board",
-        "description": "A board for the brief and the links, then Goals."
+        "description": "A board for the brief and the links, then Goals.",
+        "brief": "Brief",
+        "text": "What this space is for, and how to help."
       }
     },
     "leave": "Leave {name}",
@@ -9145,7 +9224,14 @@ const catalog = {
     },
     "filter": "Filter by space",
     "all": "All",
-    "projectWide": "Project-wide"
+    "projectWide": "Project-wide",
+    "blocks": {
+      "noContent": "No content yet.",
+      "noUrl": "No URL yet.",
+      "noApp": "No app selected yet.",
+      "noFile": "No file yet.",
+      "loadingApp": "Loading app…"
+    }
   },
   "imageGen": {
     "generating": "Generating image",
@@ -9223,6 +9309,27 @@ const catalog = {
     "agentControl": "Kortix has control",
     "returnControl": "Return control",
     "escape": "Esc"
+  },
+  "voiceCall": {
+    "title": "Voice call",
+    "start": "Start a voice call",
+    "end": "End call",
+    "connecting": "Connecting…",
+    "listening": "Listening",
+    "speaking": "Speaking",
+    "reconnecting": "Reconnecting…",
+    "you": "You",
+    "mute": "Mute microphone",
+    "unmute": "Unmute microphone",
+    "noMicrophone": "No microphone access. Allow the microphone for this site and call again.",
+    "shareScreen": "Share screen",
+    "stopSharing": "Stop sharing screen",
+    "ended": "Call ended",
+    "failed": "Could not start the call",
+    "lost": "Could not reconnect the call",
+    "unavailable": "This session's sandbox started before voice calls were turned on. Calls work from its next start.",
+    "callAgain": "Call again",
+    "close": "Close"
   },
   "agentCapabilities": {
     "skillsTitle": "Skills",
@@ -9502,7 +9609,9 @@ const catalog = {
         "move": "move",
         "peek": "preview",
         "open": "open",
-        "stop": "stop"
+        "stop": "stop",
+        "space": "Space",
+        "enter": "Enter"
       },
       "group": {
         "pinned": "Pinned",
@@ -9530,6 +9639,34 @@ const catalog = {
       "hint": "Runs as a workflow of agents",
       "dismiss": "{key} to send it as a normal prompt"
     }
+  },
+  "claudeSubscription": {
+    "title": "Use your Claude subscription",
+    "description": "Claude models run through Claude Code on your own Claude Pro or Max plan. Only your sessions use your plan.",
+    "starting": "Opening Claude…",
+    "approveDescription": "Sign in with the Claude account that has your plan, approve the request, and copy the code Claude shows you.",
+    "codeLabel": "Code from claude.com",
+    "connect": "Connect Claude",
+    "connecting": "Connecting…",
+    "connectedTitle": "Your Claude subscription is connected",
+    "connected": "Claude subscription connected",
+    "disconnect": "Disconnect Claude",
+    "disconnected": "Claude subscription disconnected",
+    "startError": "Could not start the Claude sign-in. Try again.",
+    "codeError": "Could not connect Claude with that code. Sign in again and paste the new code.",
+    "connectClaude": "Connect Claude",
+    "reconnectClaude": "Reconnect Claude"
+  },
+  "contextReset": {
+    "pill": "Fresh context · full history kept",
+    "pillRunning": "Freeing up context…",
+    "detail": "The context reached {tokens} tokens, so the agent continued in a fresh one. Nothing was summarized: it searches the full history ({entries} entries) when it needs a detail.",
+    "detailManual": "You started a fresh context at {tokens} tokens. Nothing was summarized: the agent searches the full history ({entries} entries) when it needs a detail.",
+    "showDetail": "Show details",
+    "hideDetail": "Hide details",
+    "dialogTitle": "Start a fresh context?",
+    "dialogDescription": "The agent continues in a fresh context and searches the full history when it needs a detail. Nothing is summarized, and the conversation stays here as it is.",
+    "dialogAction": "Start a fresh context"
   }
 };
 

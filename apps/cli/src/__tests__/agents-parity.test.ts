@@ -327,7 +327,7 @@ describe('kortix agents — default, scope, config', () => {
     expect(scope.stdout).toContain('My Kortix');
     expect(scope.stdout).toContain('secrets              none');
     expect(scope.stdout).toContain('connectors           none');
-    expect(scope.stdout).toContain('builtin_agents: { my_kortix: false }');
+    expect(scope.stdout).toContain('builtin_agents.my_kortix');
     expect(scope.stdout).not.toContain('all (default)');
     expect(scope.stdout).not.toContain('Change it');
 
@@ -613,15 +613,15 @@ describe('kortix agents — default, scope, config', () => {
     const parsed = JSON.parse(r.stdout) as {
       platformDefault: string;
       agentDefaults: Record<string, string>;
-      agents: Array<{ name: string; path: string; model: string | null }>;
+      agents: Array<{ name: string; path: string; model: string | null; description?: string; enabled?: boolean }>;
     };
     // Additive: the pre-existing model-defaults fields survive.
     expect(parsed.platformDefault).toBe('glm-5.3-flash');
     expect(parsed.agentDefaults).toEqual({ reviewer: 'glm-5.3-flash' });
     expect(parsed.agents).toEqual([
       { name: 'default', path: '.kortix/opencode/agents/default.md', model: null },
-      { name: 'reviewer', path: '.kortix/opencode/agents/reviewer.md', model: 'glm-5.3-flash' },
-      { name: 'watcher', path: '.kortix/opencode/agents/watcher.md', model: 'claude-sonnet-4' },
+      { name: 'reviewer', path: '.kortix/opencode/agents/reviewer.md', model: 'glm-5.3-flash', description: 'Reviews diffs' },
+      { name: 'watcher', path: '.kortix/opencode/agents/watcher.md', model: 'claude-sonnet-4', enabled: false },
     ]);
 
     // Plain renders the pin over the frontmatter model, with the pin marker.

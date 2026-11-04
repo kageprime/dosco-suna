@@ -60,7 +60,7 @@ export type CommandReply = (
 const PAGE_SIZE = 8;
 /** A used menu outlives a double tap, the job's retries and a failed edit; after this, a surviving button runs again. */
 const PRESS_CLAIM_TTL_MS = 24 * 60 * 60_000;
-/** A menu Dosco sent takes presses this long; after it, its buttons are out of date. */
+/** A menu Kortix sent takes presses this long; after it, its buttons are out of date. */
 const MENU_TTL_MS = 30 * 24 * 60 * 60_000;
 const OUT_OF_DATE = 'This menu is out of date. Send the command again for a new one.';
 
@@ -81,12 +81,14 @@ export interface CommandContext {
   /** The chat's settings row key. Telegram: the chat, so forum topics share it. */
   settings: SettingsChannel;
   /**
-   * Stored on the settings row; the Dosco Channels page names the row by it. `lookupName`: asked
+   * Stored on the settings row; the Kortix Channels page names the row by it. `lookupName`: asked
    * once, when a command creates the row and `name` is null (a stored press keeps no names).
    */
   label: { name: string | null; type: string | null; lookupName?: () => Promise<string | null> };
   /** `ChannelMessage.keys.createClaim` of this conversation. */
   createClaim: string;
+  /** A chat another project holds stays with it: a setting here is refused (Discord, where `/connect` moves a channel). */
+  keepsOtherProjects?: boolean;
   /** Present: the platform shows the agent's questions, and /new clears their buttons. */
   questions?: QuestionPort;
   /** The kind of a file the command's message carried ('photo'); the command does not send it. */
@@ -105,7 +107,7 @@ export async function runChannelCommand(ctx: CommandContext, command: ParsedComm
       command: command.name,
       error: error instanceof Error ? error.name : 'unknown',
     });
-    reply = notice(`Dosco could not run /${command.name} just now. Send it again in a minute.`);
+    reply = notice(`Kortix could not run /${command.name} just now. Send it again in a minute.`);
   }
   if (ctx.droppedFile) reply = { ...reply, note: `Your ${ctx.droppedFile} was not sent to the agent. Send it again without the command.` };
   await render(reply);
@@ -171,7 +173,7 @@ export async function runCommandPress(ctx: CommandContext, data: string, render:
       error: error instanceof Error ? error.name : 'unknown',
     });
     if (claim) await releaseThreadCreate(key, claim).catch(() => undefined);
-    await settle('Dosco could not do that just now. Try again in a minute.');
+    await settle('Kortix could not do that just now. Try again in a minute.');
   }
 }
 
@@ -199,9 +201,16 @@ async function pickedValue(ctx: CommandContext, name: 'model' | 'agent', ref: st
 
 const notice = (text: string, url?: string): CommandReply => ({ kind: 'notice', text, ...(url ? { url } : {}) });
 
-const NOT_CONNECTED = 'This bot is no longer connected to this Dosco project.';
+const NOT_CONNECTED = 'This bot is no longer connected to this Kortix project.';
+const HELD_ELSEWHERE = 'This channel uses another Kortix project. Use /connect to move it to this one first.';
+
+/** The chat's settings row in the project, else the notice that says why there is none. */
+async function bindForSetting(ctx: CommandContext, projectId: string): Promise<CommandReply | null> {
+  const bound = await ensureChatBinding(ctx.settings, projectId, ctx.label, { keepsOtherProjects: ctx.keepsOtherProjects });
+  return bound === 'bound' ? null : notice(bound === 'held' ? HELD_ELSEWHERE : NOT_CONNECTED);
+}
 /** A create holds the chat: the session it binds was planned before the choice changed. */
-const CREATING = "Dosco is still creating this chat's session, which keeps its own";
+const CREATING = "Kortix is still creating this chat's session, which keeps its own";
 /** A queued session has no sandbox yet: its turn cannot run, or be stopped. */
 const STARTING = new Set(['queued', 'branching', 'provisioning']);
 
@@ -273,7 +282,7 @@ const PICKERS: Record<'model' | 'agent', (ctx: CommandContext, page: number) => 
       chatSelection(ctx.settings, ctx.project.projectId),
       sharedChatScope(ctx.project).then(listChannelModels),
     ]);
-    if (!models.length) return notice('No model is available to this chat. A project admin can share a provider key with the whole project in Dosco.');
+    if (!models.length) return notice('No model is available to this chat. A project admin can share a provider key with the whole project in Kortix.');
     const current = selection?.opencodeModel ?? pinOf(session);
     const labels = new Map<string, number>();
     for (const m of models) labels.set(m.label, (labels.get(m.label) ?? 0) + 1);
@@ -319,7 +328,7 @@ async function modelRow(ctx: CommandContext, session: ChatThreadSession | null, 
     runs = await chatTurnModel(ctx.settings, { sessionId: session.sessionId, projectId: ctx.project.projectId });
   } else {
     const start = await chatSessionStart(ctx.settings, ctx.project);
-    if (start.unavailableModel) return `${named} — not available any more, so Dosco does not send this chat's messages. Send /model to pick another.`;
+    if (start.unavailableModel) return `${named} — not available any more, so Kortix does not send this chat's messages. Send /model to pick another.`;
     runs = start.model ?? null;
   }
   if (!runs) return `${named} — not available here, and no other model replaces it. Send /model to pick another.`;
@@ -333,7 +342,7 @@ type TurnStop = 'none' | 'starting' | 'elsewhere' | 'stopped' | 'unreachable';
 /**
  * Stop the chat session's running turn, only when every live turn records this platform as its
  * prompt's source (`readRunningTurn`): one live turn is the run, the others wait behind it or
- * outlived theirs. A turn the web, a trigger or Dosco itself (`system:*`) started is not the
+ * outlived theirs. A turn the web, a trigger or Kortix itself (`system:*`) started is not the
  * chat's, and neither is one that records no source: a web slash command, a prompt sent to the
  * runtime directly, a turn recorded before turns named their source.
  */
@@ -349,7 +358,7 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
   async help(ctx) {
     return {
       kind: 'help',
-      intro: `Dosco project ${ctx.project.name}. The agent answers in this chat.`,
+      intro: `Kortix project ${ctx.project.name}. The agent answers in this chat.`,
       commands: CHANNEL_COMMANDS.map((c) => ({ usage: c.usage, description: c.description })),
       footer: 'Every other message goes to the agent, also one that starts with /.',
       actions: [
@@ -378,7 +387,7 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
         : sessionAgent;
     return {
       kind: 'panel',
-      title: 'This chat in Dosco',
+      title: 'This chat in Kortix',
       rows: [
         { label: 'Project', value: ctx.project.name },
         { label: 'Agent', value: agent },
@@ -388,7 +397,7 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
           value: session
             ? describeSession(session, { none: '', turnRunning: running !== null })
             : held
-              ? "• starting: Dosco is creating this chat's session"
+              ? "• starting: Kortix is creating this chat's session"
               : 'none yet: your next message starts one',
         },
       ],
@@ -409,13 +418,13 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
       case 'none':
         return notice('Nothing is running in this chat.');
       case 'starting':
-        return notice("Dosco is still starting this chat's session. Send /stop again once the agent is working.");
+        return notice("Kortix is still starting this chat's session. Send /stop again once the agent is working.");
       case 'elsewhere':
-        return notice('This run was started outside this chat, so only Dosco can stop it:', sessionUrl(ctx, session!.sessionId));
+        return notice('This run was started outside this chat, so only Kortix can stop it:', sessionUrl(ctx, session!.sessionId));
       case 'stopped':
         return notice('Stopped. The agent is no longer working on this.');
       case 'unreachable':
-        return notice("Dosco could not reach this chat's session to stop the run. Send /stop again in a minute, or /new to start over.");
+        return notice("Kortix could not reach this chat's session to stop the run. Send /stop again in a minute, or /new to start over.");
     }
   },
 
@@ -431,11 +440,11 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
       stop === 'stopped' && "Stopped the agent's run.",
       racing ? 'Started a new conversation.' : 'Started a new conversation. Your next message goes to a new session.',
       stop === 'starting' && 'The previous session is still starting, and it will still answer your earlier message here.',
-      stop === 'unreachable' && 'Dosco could not reach the previous session to stop its run, so it may still post here.',
+      stop === 'unreachable' && 'Kortix could not reach the previous session to stop its run, so it may still post here.',
       stop === 'elsewhere' && 'The previous session is still running a task started outside this chat, and it may post here.',
-      racing && 'Dosco was still starting a session for this chat. That session may take your next message; if it does, send /new again.',
+      racing && 'Kortix was still starting a session for this chat. That session may take your next message; if it does, send /new again.',
       arg && 'The text after /new was not sent. Send it as your next message.',
-      session && 'The previous session stays in Dosco:',
+      session && 'The previous session stays in Kortix:',
     ].filter(Boolean).join(' ');
     return notice(text, session ? sessionUrl(ctx, session.sessionId) : undefined);
   },
@@ -461,7 +470,8 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
     if (!verdict.ok) {
       return notice(`${modelName(arg)} is not available in this chat. Only models and keys the whole project shares work here. Send /model to see them.`);
     }
-    if (!(await ensureChatBinding(ctx.settings, projectId, ctx.label))) return notice(NOT_CONNECTED);
+    const unbound = await bindForSetting(ctx, projectId);
+    if (unbound) return unbound;
     // No row to write: a disconnect dropped it after the check.
     if (!(await setChannelModel(ctx.settings, verdict.model))) return notice(NOT_CONNECTED);
     if (session) await applyChannelSessionKeys({ sessionId: session.sessionId, keys: verdict.keys, replace: true });
@@ -486,7 +496,8 @@ const RUN: Record<ChannelCommandName, (ctx: CommandContext, arg: string) => Prom
     }
     // The list a stranger in a group may pick from: never a name a grant restricts, and never one a failed read let through.
     if (/\s/.test(arg) || !(await chatAgents(projectId)).some((a) => a.name === arg)) return refusal;
-    if (!(await ensureChatBinding(ctx.settings, projectId, ctx.label))) return notice(NOT_CONNECTED);
+    const unbound = await bindForSetting(ctx, projectId);
+    if (unbound) return unbound;
     const set = await setChannelAgent(ctx.settings, arg);
     if (!set.ok) return set.reason === 'unknown_agent' ? refusal : notice(NOT_CONNECTED);
     const session = await chatSession(ctx);

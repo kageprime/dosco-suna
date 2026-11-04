@@ -1,3 +1,4 @@
+import { isClaudeAgentModelRef } from './claude-agent';
 import { getProjectGatewayResolution, type getProjectModelAccess } from '../../repositories/project-model-access';
 import {
   resolveDefaultCodexAccountSecret,
@@ -28,6 +29,7 @@ import {
   canonicalManagedModelId,
   getRuntimeManagedModel,
   isKnownManagedModelId,
+  isManagedAudioModelId,
   managedLineup,
   isRetiredManagedModelId,
 } from '../models/managed-models';
@@ -397,10 +399,12 @@ async function resolveCustomCandidates(context: Context, provider: CustomLlmProv
  * getRuntimeManagedModel() matches only when KORTIX_MANAGED_PROVIDER_ENABLED is
  * on, so a self-host falls through to "model not available on this deployment".
  * An empty result (no transport credential configured) falls through the same way.
+ * A managed audio model (the gateway's `/audio/*` routes) takes the same gates.
  */
 async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveModel: string,
   access: Awaited<ReturnType<typeof getProjectModelAccess>>): Promise<UpstreamDescriptor[]> {
-  const managed = getRuntimeManagedModel(effectiveModel);
+  const managed = getRuntimeManagedModel(effectiveModel)
+    ?? (isManagedAudioModelId(effectiveModel) ? { id: effectiveModel } : undefined);
   if (!managed || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
 
@@ -539,6 +543,15 @@ export async function resolveCandidates(
     );
   }
 
+  // Only a daemon from before Claude subscription models sends one here: a current
+  // one runs them through Claude Code in the box. A new session boots the current image.
+  if (isClaudeAgentModelRef(effectiveModel)) {
+    throw new GatewayResolutionError(
+      'model_not_found',
+      `"${effectiveModel}" runs through Claude Code, and this session's computer runs an older Kortix runtime.`,
+      'Start a new session to use Claude models, or pick another model here.',
+    );
+  }
   throw new GatewayResolutionError(
     'model_not_found',
     `"${effectiveModel}" is not a recognized model.`,

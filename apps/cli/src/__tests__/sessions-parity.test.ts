@@ -53,6 +53,8 @@ let tmp: string;
 let server: ReturnType<typeof Bun.serve> | null = null;
 let seen: Seen[] = [];
 let compactStatus = 'running';
+/** Extra `GET /kortix/health` capabilities of the main box (a pi box with the context record lists `session.context_record`). */
+let extraCapabilities: string[] = [];
 let compactStartFailure = false;
 let compactBusy = false;
 let sessionReadStatus = 200;
@@ -264,13 +266,6 @@ function startServer(): string {
       if (method === 'POST' && path === `${session}/stop`) {
         return Response.json({ ok: true, session_id: SESSION, status: 'stopped' });
       }
-      if (method === 'POST' && path === `${project}/sessions/warm`) {
-        return Response.json({
-          session: sessionRow(SESSION_B),
-          reused: false,
-          workspace_refresh: { status: 'updated' },
-        });
-      }
       if (method === 'PUT' && path === `${session}/sharing`) {
         return Response.json({ ...sessionRow(), sharing: (body as { mode: string }) ?? null });
       }
@@ -420,7 +415,7 @@ function startServer(): string {
         return Response.json({
           status: 'ok',
           runtimeReady: true,
-          capabilities: ['file.import', ...BOX_CAPABILITIES],
+          capabilities: ['file.import', ...BOX_CAPABILITIES, ...extraCapabilities],
         });
       }
       if (method === 'GET' && path === `${daemon}/file`) {
@@ -555,6 +550,7 @@ beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
   seen = [];
   compactStatus = 'running';
+  extraCapabilities = [];
   compactStartFailure = false;
   compactBusy = false;
   sessionReadStatus = 200;
@@ -592,7 +588,6 @@ describe('kortix sessions — help', () => {
     for (const fragment of [
       'stop <session-id>',
       'start <session-id>',
-      'warm',
       'model <session-id> <model-id>',
       'compact <session-id>',
       'queue <session-id>',
@@ -661,19 +656,6 @@ describe('kortix sessions stop / start / warm', () => {
     const r = await runCli(['sessions', 'start', ...P], config);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('Pass a session id');
-  });
-
-  test('warm POSTs /sessions/warm with the exclusion', async () => {
-    const r = await runCli(['sessions', 'warm', '--exclude', SESSION, '--json', ...P], config);
-    expect(r.code).toBe(0);
-    expect(calls('POST', `/v1/projects/${PROJECT}/sessions/warm`)).toEqual([
-      {
-        method: 'POST',
-        path: `/v1/projects/${PROJECT}/sessions/warm`,
-        body: { exclude_session_id: SESSION },
-      },
-    ]);
-    expect(JSON.parse(r.stdout).reused).toBe(false);
   });
 });
 
@@ -1009,6 +991,23 @@ describe('kortix sessions compact', () => {
       proc.kill();
       reader.releaseLock();
     }
+  });
+
+  test('a runtime with the context record starts a fresh context: the output says nothing was summarized, and --json names the mode', async () => {
+    extraCapabilities = ['session.context_record'];
+    const r = await runCli(['sessions', 'compact', SESSION, ...P], config);
+    expect(r.code).toBe(0);
+    expect(r.stderr).toContain('Checking session and starting a fresh context');
+    expect(r.stdout).toContain('Started a fresh context for');
+    expect(r.stdout).toContain('nothing was summarized');
+    expect(calls('POST', COMPACT)).toHaveLength(1);
+    const json = await runCli(['sessions', 'compact', SESSION, '--json', ...P], config);
+    expect(JSON.parse(json.stdout)).toMatchObject({ compacted: true, mode: 'record' });
+  });
+
+  test('a runtime without the context record names the summary mode in --json', async () => {
+    const r = await runCli(['sessions', 'compact', SESSION, '--json', ...P], config);
+    expect(JSON.parse(r.stdout)).toMatchObject({ compacted: true, mode: 'summary' });
   });
 
   test('wakes a stopped session before compacting with its persisted model', async () => {

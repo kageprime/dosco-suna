@@ -8,15 +8,17 @@ import {
   buildMyKortixConfig,
   builtinAgentConfigView,
   declaredBuiltinAgents,
+  disabledMyKortixAgentGrant,
   enabledBuiltinAgentKey,
   MY_KORTIX_DESCRIPTION,
   MY_KORTIX_PROMPT,
   myKortixAgentGrant,
+  projectBuiltinAgents,
   resolveBuiltinAgents,
   resolveMyKortixSandbox,
 } from '../projects/lib/my-kortix-agent';
 import { grantFromLoadedAgents } from '../projects/agents';
-import { resolveFeatureFlag } from '../feature-flags/registry';
+import { isFeatureFlagKey } from '../feature-flags/registry';
 import { manifestHealthWithout } from '../projects/lib/manifest-health';
 
 describe('My Kortix agent', () => {
@@ -89,6 +91,39 @@ describe('My Kortix agent', () => {
     );
   });
 
+  // The follow-through rule names the kortixd `kortix_schedules` actions: a renamed action
+  // there leaves My Kortix calling one that does not exist.
+  test('the prompt sets a check-in after every wait, with the kortix_schedules actions', () => {
+    const section = MY_KORTIX_PROMPT.slice(
+      MY_KORTIX_PROMPT.indexOf('## Follow through: never wait blind'),
+      MY_KORTIX_PROMPT.indexOf('## What you remember about this person'),
+    );
+    expect(section.length).toBeGreaterThan(0);
+    for (const name of ['`kortix_schedules`', '`follow_up`', '`wake_on`', '`cr_merged`', '`connector_event`', '`webhook`', '`app_event`', '`events`', '`create`']) {
+      expect(section).toContain(name);
+    }
+    expect(section).toContain('set up the check-in before you end the turn');
+    expect(section).toContain('Delete every loop and wake-up the moment the work is done');
+    expect(MY_KORTIX_PROMPT).toContain('Never guess how Kortix works');
+    // Long jobs: one pattern over hand-offs, workflows, wake-ups, state and clean-up.
+    expect(section).toContain('## Long jobs: plan, delegate, set wake-ups, keep state, close out');
+    for (const name of ['`agent`', '`workflow`', '`kortix-goals`', '`task_stop`']) expect(section).toContain(name);
+  });
+
+  // The section names the kortixd `agent` inline spec, the workflow `agent()` options and the
+  // kortix_agents `models` action: a rename there leaves My Kortix calling what does not exist.
+  test('the prompt shapes colleagues on the fly: inline spec, workflow options, models, narrow tools, new tools through a change request', () => {
+    const start = MY_KORTIX_PROMPT.indexOf('## Custom colleagues on the fly');
+    expect(start).toBeGreaterThan(MY_KORTIX_PROMPT.indexOf('## How you work'));
+    const section = MY_KORTIX_PROMPT.slice(start, MY_KORTIX_PROMPT.indexOf('## Follow through: never wait blind'));
+    for (const name of ['`subagent_type`', '`agent: { instructions, model, tools, description }`', '`agent(prompt, { agent, instructions, model, tools, schema })`', 'kortix_agents `models`', '`edit`', '`write`']) {
+      expect(section).toContain(name);
+    }
+    expect(section).toContain('A colleague never gets a tool or an extension you lack.');
+    expect(section).toContain('opens a change request for the person to approve');
+    expect(section).not.toMatch(/\$|price|cost/i);
+  });
+
   test('forces the meta sandbox and rejects an explicit alternate sandbox', () => {
     expect(resolveMyKortixSandbox(undefined)).toBe('mykortix');
     expect(resolveMyKortixSandbox('mykortix')).toBe('mykortix');
@@ -104,17 +139,31 @@ describe('My Kortix agent', () => {
     });
   });
 
-  test('builtin_agents: the manifest boolean wins, else the legacy switch, else on', () => {
+  test('builtin_agents: on only when the manifest sets true, else off', () => {
     expect(declaredBuiltinAgents({})).toEqual({});
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: 'no' } })).toEqual({});
     expect(declaredBuiltinAgents({ builtin_agents: ['my_kortix'] })).toEqual({});
-    // absent → legacy switch (default on)
-    expect(resolveBuiltinAgents({}, true)).toEqual({ my_kortix: true });
-    expect(resolveBuiltinAgents({}, false)).toEqual({ my_kortix: false });
-    // present → the manifest decides, whatever the legacy switch says
-    expect(resolveBuiltinAgents({ my_kortix: false }, true)).toEqual({ my_kortix: false });
-    expect(resolveBuiltinAgents({ my_kortix: true }, false)).toEqual({ my_kortix: true });
+    expect(resolveBuiltinAgents({})).toEqual({ my_kortix: false });
+    expect(resolveBuiltinAgents({ my_kortix: false })).toEqual({ my_kortix: false });
+    expect(resolveBuiltinAgents({ my_kortix: true })).toEqual({ my_kortix: true });
+    const valid = { project: { name: 'p' }, default_agent: 'worker', agents: { worker: { mode: 'primary', tools: 'all' } } };
+    expect(projectBuiltinAgents(valid)).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: true } })).toEqual({ my_kortix: true });
+    expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: 'yes' } })).toEqual({ my_kortix: false });
+    // No exception for a missing, empty or broken file: only the file's own `true` turns it on.
+    expect(projectBuiltinAgents(null)).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({})).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({ ...valid, sandbox: 42 })).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({ ...valid, sandbox: 42, builtin_agents: { my_kortix: true } })).toEqual({ my_kortix: true });
+  });
+
+  test('a project that runs My Kortix keeps its own default agent', () => {
+    const config = { default_agent: 'worker', open_code_default_agent: 'worker', agents: [] } as unknown as Parameters<typeof addMyKortixAgent>[0];
+    expect(addMyKortixAgent(config).default_agent).toBe('worker');
+    expect(addMyKortixAgent({ ...config, default_agent: null }).default_agent).toBe('mykortix');
+    expect(addMyKortixAgent(config).agents[0]?.name).toBe('mykortix');
   });
 
   test('`meta` is a built-in only while My Kortix is on', () => {
@@ -131,9 +180,9 @@ describe('My Kortix agent', () => {
     });
   });
 
-  test('a kortix.yaml that turns My Kortix off strips a meta session to no project action', () => {
+  test('a kortix.yaml that does not turn My Kortix on strips a meta session to no project action', () => {
     const governed = { specs: [], errors: [], defaultAgent: 'kortix' };
-    expect(grantFromLoadedAgents('mykortix', governed)).toEqual(myKortixAgentGrant());
+    expect(grantFromLoadedAgents('mykortix', governed)).toEqual(disabledMyKortixAgentGrant());
     expect(grantFromLoadedAgents('mykortix', { ...governed, builtinAgents: { my_kortix: true } })).toEqual(
       myKortixAgentGrant(),
     );
@@ -145,16 +194,10 @@ describe('My Kortix agent', () => {
     });
   });
 
-  // Read through the canonical registry helper at every call site — the module
-  // above must stay free of runtime imports, see its header comment.
-  test('is gated on the meta_agent feature flag, default on', () => {
-    // Default-on (Marko, 2026-10-24): the meta agent is the default cloud
-    // orchestrator for every project. Only an explicit project opt-out hides it.
-    expect(resolveFeatureFlag(null, 'meta_agent')).toBe(true);
-    expect(resolveFeatureFlag({}, 'meta_agent')).toBe(true);
-    expect(resolveFeatureFlag({ experimental: {} }, 'meta_agent')).toBe(true);
-    expect(resolveFeatureFlag({ experimental: { meta_agent: false } }, 'meta_agent')).toBe(false);
-    expect(resolveFeatureFlag({ experimental: { meta_agent: true } }, 'meta_agent')).toBe(true);
+  // The `meta_agent` flag was removed on 2026-11-02: projects that saved
+  // Settings while it defaulted off stored `false` and lost My Kortix.
+  test('is no feature flag: kortix.yaml builtin_agents is the only switch', () => {
+    expect(isFeatureFlagKey('meta_agent')).toBe(false);
   });
 });
 

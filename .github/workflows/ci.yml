@@ -84,6 +84,7 @@ jobs:
               # Bundled into the daemon (KORTIXD_SHARED_SOURCES).
               - 'packages/api-contract/src/**'
               - 'packages/sdk/src/core/session/wire-message-id.ts'
+              - 'packages/voice/src/**'
             sandbox_image:
               - '.github/workflows/ci.yml'
               - 'apps/sandbox/Dockerfile'
@@ -219,10 +220,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # The daemon's bun.lock is written by the Bun the image installs it with
+      # (engines.bun, #11398). A newer Bun rewrites the lockfile, and
+      # `--frozen-lockfile` below refuses it.
+      - name: Read the daemon Bun version
+        id: daemon-bun
+        run: echo "version=$(jq -r .engines.bun apps/kortix-sandbox-agent-server/package.json)" >> "$GITHUB_OUTPUT"
+
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: latest
+          bun-version: ${{ steps.daemon-bun.outputs.version }}
 
       # The import-boundary lint runs under Node: ESLint's config validation
       # crashes under the Bun runtime (apps/kortix-sandbox-agent-server/ARCHITECTURE.md).

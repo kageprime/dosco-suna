@@ -24,6 +24,7 @@ import { Cron } from 'croner';
 import { normalizeTriggerList } from './trigger-shape';
 import { Document, isMap, LineCounter, parseDocument } from 'yaml';
 import { type AppliedFix, applyDeprecations, DEPRECATIONS } from './deprecations';
+import { MANIFEST_SYNTAX_ISSUE_PATH, yamlErrorSummary } from './format';
 import { legacyFormatMessage, legacyFormatOf } from './legacy';
 import { areValidConditions, isValidMatcher, MAX_CONDITIONS_PER_POLICY } from './policy-rules';
 import { parseConnectorHeaders } from './connector-headers';
@@ -70,8 +71,30 @@ export const CRON_MIN_INTERVAL_SECONDS = 60;
 /** Fires sampled for the shortest gap: enough for an irregular list such as `0,1 0 * * * *`. */
 const CRON_INTERVAL_SAMPLE = 32;
 
-/** Why `cron` fires more than once a minute, or null. `cron` must parse. */
+/** Answers of `cronIntervalError`, by timezone and cron. Bounded: cleared when full. */
+const cronIntervalAnswers = new Map<string, string | null>();
+const CRON_INTERVAL_ANSWERS_MAX = 1_000;
+
+/**
+ * Why `cron` fires more than once a minute, or null. `cron` must parse.
+ *
+ * Memoized by (timezone, cron). Sampling 32 fires costs about 3 ms per cron,
+ * and every manifest read validates every trigger: a project with 32 cron
+ * triggers paid about 90 ms per connector call after #11236 (prod v0.14.13).
+ * The answer depends only on the cron and the timezone: a DST change moves
+ * fires by an hour, never under a minute.
+ */
 export function cronIntervalError(cron: string, timezone = 'UTC'): string | null {
+  const key = `${timezone}\u0000${cron}`;
+  const known = cronIntervalAnswers.get(key);
+  if (known !== undefined) return known;
+  const answer = sampleCronInterval(cron, timezone);
+  if (cronIntervalAnswers.size >= CRON_INTERVAL_ANSWERS_MAX) cronIntervalAnswers.clear();
+  cronIntervalAnswers.set(key, answer);
+  return answer;
+}
+
+function sampleCronInterval(cron: string, timezone: string): string | null {
   const runs = new Cron(cron, { paused: true, timezone }).nextRuns(CRON_INTERVAL_SAMPLE);
   for (let i = 1; i < runs.length; i++) {
     if (runs[i]!.getTime() - runs[i - 1]!.getTime() < CRON_MIN_INTERVAL_SECONDS * 1000) {
@@ -95,6 +118,10 @@ export {
 
 export {
   MANIFEST_FILENAME,
+  MANIFEST_SYNTAX_ISSUE_PATH,
+  ManifestSyntaxError,
+  isManifestSyntaxError,
+  yamlErrorSummary,
   manifestCandidatePaths,
   parseManifestText,
   serializeManifestObject,
@@ -235,6 +262,7 @@ export {
   V2_RUNTIME_VALUES,
   WORKSPACE_MODES_V2,
   CODEMODE_VALUES,
+  CONTEXT_VALUES,
   EXTENSION_HARNESSES,
   KORTIX_SKILL_NAMES,
   KORTIX_SKILL_PREFIX,
@@ -340,8 +368,8 @@ const RESET_KEYS = new Set(['project', 'default_agent', 'runtime']);
  * template with an error is dropped. Each of these only takes access away.
  * `project`, `default_agent` and `runtime` fall back to their defaults. An
  * error anywhere else (`sandbox`, `env`, `approvals`, `policy`, `imports`, a
- * retired format, …) returns `{}`: the project runs its built-in agents only,
- * so My Kortix can still start and fix the file. Pure: `raw` is not changed.
+ * retired format, …) returns `{}`: the project runs only the built-in agents
+ * the file turns on, so My Kortix (`builtin_agents.my_kortix: true`) can fix it. Pure: `raw` is not changed.
  */
 export function usableManifest(raw: Record<string, unknown> | null, issues: readonly ManifestIssue[]): Record<string, unknown> {
   // A legacy file is usable only once converted (`convertLegacyManifest`); unconverted it means nothing here.
@@ -398,7 +426,7 @@ export function validateManifest(input: string | Record<string, unknown>): Manif
     const error = doc.errors[0];
     if (error) {
       const pos = error.linePos?.[0];
-      issues.push({ path: '<yaml>', message: `Syntax error: ${error.message}`, severity: 'error', line: pos?.line, column: pos?.col });
+      issues.push({ path: MANIFEST_SYNTAX_ISSUE_PATH, message: `Syntax error: ${yamlErrorSummary(error.message)}.`, severity: 'error', line: pos?.line, column: pos?.col });
       return { valid: false, parsed: null, issues };
     }
   } else {

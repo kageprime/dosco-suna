@@ -1178,10 +1178,6 @@ export function UnifiedSettingsPage({
                   <AgentPage
                     projectId={projectId}
                     agentName={selectedAgent}
-                    hideNav={true}
-                    activeSection={agentSection}
-                    onSectionChange={handleSelectAgentSection}
-                    onBack={() => handleSelectAgent(null)}
                   />
                 ) : (
                   <AgentsPage

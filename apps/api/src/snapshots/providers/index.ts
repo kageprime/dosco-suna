@@ -11,7 +11,6 @@
  */
 
 import { daytonaProvider } from './daytona';
-import { e2bProvider } from './e2b';
 import { platinumProvider } from './platinum';
 
 interface SandboxResourceSpec {
@@ -100,7 +99,7 @@ export interface SandboxProviderAdapter {
 
   /**
    * Build the snapshot. The caller has already composed the layered Dockerfile
-   * (user Dockerfile + Dosco runtime). Returns when the snapshot is `active`,
+   * (user Dockerfile + Kortix runtime). Returns when the snapshot is `active`,
    * throws on terminal failure. May return the exact external template id the
    * build produced (Platinum); providers with no external-id concept return void.
    */
@@ -160,7 +159,6 @@ export interface SandboxProviderAdapter {
 const ADAPTERS = new Map<string, SandboxProviderAdapter>();
 ADAPTERS.set(daytonaProvider.id, daytonaProvider);
 ADAPTERS.set(platinumProvider.id, platinumProvider);
-ADAPTERS.set(e2bProvider.id, e2bProvider);
 
 export function getSandboxProvider(id: string): SandboxProviderAdapter {
   const adapter = ADAPTERS.get(id);

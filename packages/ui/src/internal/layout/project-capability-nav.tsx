@@ -23,39 +23,17 @@ import { activeCapabilityTab, agentHref, capabilityTabHref } from '../lib/capabi
 import { useReviewSessionSummary } from '../hooks/use-review-session-summary';
 import { usePinnedAgents } from '../stores/pinned-agents-store';
 import { useCapabilityAccess } from './project-settings-nav';
-import { CreateAgentModal } from '../../customize/agents/create-agent-modal';
 
 /** Customize lists this many agents when none is pinned; All agents holds the rest. */
 const SIDEBAR_AGENT_LIMIT = 5;
 
 type Agent = NonNullable<ReturnType<typeof useProjectConfig>>['agents'][number];
 
-const NewAgentContext = createContext<(() => void) | null>(null);
+export const NewAgentContext = createContext<(() => void) | null>(null);
 
 /** Opens the New agent modal mounted beside the sidebar; null outside `NewAgentModalProvider`. */
 export function useOpenNewAgent(): (() => void) | null {
   return useContext(NewAgentContext);
-}
-
-/**
- * The sidebar's New agent opens the create modal in place, with no
- * navigation. The modal is mounted here, beside `<Sidebar>`, never inside it:
- * on mobile the sidebar is a sheet that unmounts its content when it closes,
- * and New agent closes it, so a modal inside it shut the moment it opened.
- * `null` until the first click, so the modal and its hooks mount only when used.
- */
-export function NewAgentModalProvider({ projectId, children }: { projectId: string; children: ReactNode }) {
-  const config = useProjectConfig(projectId);
-  const [open, setOpen] = useState<boolean | null>(null);
-  const openModal = useCallback(() => setOpen(true), []);
-  return (
-    <NewAgentContext.Provider value={openModal}>
-      {children}
-      {open !== null ? (
-        <CreateAgentModal open={open} onOpenChange={setOpen} projectId={projectId} config={config ?? null} />
-      ) : null}
-    </NewAgentContext.Provider>
-  );
 }
 
 /** Every agent by display name, hidden agents last. */

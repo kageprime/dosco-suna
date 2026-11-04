@@ -2,7 +2,7 @@
  * `kortix goals` — what a person wants plus a definition of done, worked by an
  * assigned agent until an independent verifier session confirms it.
  *
- * A goal is a folder in Files, `Goals/<slug>/` in the company folder by
+ * A goal is a folder in Files, `Goals/<slug>/` in the user's own folder by
  * default (the `kortix-goals` skill): `GOAL.md` (front matter = definition and
  * state, `@kortix/sdk` parseGoalFile/formatGoalFile), `log.md` (append-only),
  * `evidence/`. The folder is the source of truth; sessions are replaceable.
@@ -18,7 +18,7 @@
  *   an owner session (harness/shared/on-idle-hook.ts) and it repairs what it
  *   can by itself: the heartbeat, the cap, a closed goal's heartbeat.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, constants, fstatSync, openSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { formatGoalFile, parseGoalFile, type ProjectGoalDocument, type ProjectGoalStatus } from '@kortix/sdk';
@@ -42,7 +42,7 @@ Lifecycle: draft → active ⇄ waiting_on_user; active → verifying (verify) �
 done (verifier PASS) or back to active (verifier FAIL); any → stopped.
 
 Subcommands:
-  new "<goal>"        Create Goals/<slug>/ in the company folder, make this
+  new "<goal>"        Create Goals/<slug>/ in your own folder, make this
                       session its owner, mark it unattended and arm the
                       heartbeat. State: draft.
   transition <to> --reason "<why>" [<folder>]
@@ -73,7 +73,8 @@ Subcommands:
 Options:
   --slug <slug>       new: the folder name (default: from the goal).
   --folder <dir>      new: put Goals/<slug>/ under this folder of /drives
-                      instead of /drives/company. Sharing stays Files sharing.
+                      instead of /drives/me (for example this agent's Drive,
+                      /drives/<agent>, which everyone who uses it sees).
   --user <user_id>    new: the assigned user (default: this session's creator).
   --agent <name>      new: the assigned agent (default: $KORTIX_AGENT_NAME);
                       bind: the agent the goal is grouped under.
@@ -253,8 +254,12 @@ const readReport = (folder: string) => {
 
 function appendLog(folder: string, line: string): void {
   const path = join(folder, 'log.md');
-  const current = existsSync(path) ? readFileSync(path, 'utf8') : '# Log\n';
-  writeFileSync(path, `${current.trimEnd()}\n${line}\n`);
+  const fd = openSync(path, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+  try {
+    appendFileSync(fd, `${fstatSync(fd).size === 0 ? '# Log\n' : ''}${line}\n`);
+  } finally {
+    closeSync(fd);
+  }
 }
 
 export function slugify(text: string): string {
@@ -327,7 +332,7 @@ interface Flags {
 }
 
 function parseFlags(rest: string[]): Flags {
-  // --shared meant "in the company folder": that is the default now.
+  // --shared meant "in the company folder", which no longer exists: ignored.
   takeFlagBool(rest, ['--shared']);
   return {
     slug: takeFlagValue(rest, ['--slug']),
@@ -362,7 +367,7 @@ export async function runGoals(argv: string[]): Promise<number> {
   if (flags.agent !== undefined && !AGENT_NAME.test(flags.agent)) return fail(`--agent "${flags.agent}" is not an agent name.`);
   if (!sub || !SUBCOMMANDS.includes(sub)) return fail(`Unknown subcommand "${sub ?? ''}". Run \`kortix goals --help\`.`);
   if (sub !== 'new' && !existsSync(drivesRoot())) {
-    return fail('Files is not mounted here (no /drives). Run kortix goals inside a session of a project with Volumes on.');
+    return fail('Files is not mounted here (no /drives). Run kortix goals inside a session on Platinum, where the Drive mounts.');
   }
   if (sub === 'ls' || sub === 'list') return listGoals(flags.json);
   if (sub === 'status') return goalStatus(rest[0], flags.json);
@@ -418,7 +423,7 @@ async function newGoal(ctx: Ctx, objective: string, flags: Flags): Promise<numbe
     return fail(`Goals need these project features on: ${off.join(', ')}. Turn them on with ${off.map((f) => `kortix projects features enable ${f}`).join(' && ')} (a project admin), then run this again.`);
   }
   if (!existsSync(drivesRoot())) return fail('Files is not mounted in this session yet. Volumes is on: start a new session, then run this again.');
-  const parent = flags.folder ?? join(drivesRoot(), 'company');
+  const parent = flags.folder ?? join(drivesRoot(), 'me');
   if (!parent.startsWith(`${drivesRoot()}/`) || !existsSync(parent)) return fail(`${parent} is not a mounted folder under ${drivesRoot()}; see /drives/README.md.`);
   const slug = flags.slug ?? slugify(objective);
   const folder = join(parent, 'Goals', slug);

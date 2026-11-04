@@ -3,7 +3,7 @@ import { config } from '../../config';
 // Platinum is the reference provider; Daytona is a legacy fallback (removal
 // scheduled). E2B support is discontinued: a stored `e2b` row resolves through
 // tryGetProvider() to null.
-export type ProviderName = 'platinum' | 'daytona' | 'e2b';
+export type ProviderName = 'platinum' | 'daytona';
 
 export class WarmRuntimeUnavailableError extends Error {
   constructor(message: string) {
@@ -44,7 +44,7 @@ export interface CreateSandboxOpts {
   /**
    * True ⇒ the box runs in `location` or not at all. False/absent ⇒ Platinum
    * boots it in its home region when `location` cannot hold the image and no
-   * copy is running (platinum.ts). Set for warm (speculative) session boxes.
+   * copy is running (platinum.ts). Set for a box that mounts the project's Files.
    */
   locationRequired?: boolean;
   /**
@@ -64,6 +64,11 @@ export interface CreateSandboxOpts {
   sandboxId?: string;
   /** Monotonic across restarts; stable on retries of the same create attempt. */
   createAttempt?: number;
+  /**
+   * Internal to the Platinum provider: until when a create keeps waiting out
+   * a volume that still saves the last box's writes (`409 volume_flushing`).
+   */
+  volumeFlushDeadline?: number;
   /**
    * Runtime contract hosted by the provider object. Missing means `session`
    * for backward compatibility with every existing caller.
@@ -93,6 +98,16 @@ export interface CreateSandboxOpts {
    * always fails: a box never boots without them.)
    */
   volumesRequired?: boolean;
+  /**
+   * Mount paths in `volumes` the box may boot without: the session's Files
+   * folders. Platinum is asked to hold them (`required: false`) rather than
+   * refuse the create; an older Platinum that refuses a create over one boots
+   * once more without them. Either way the result's
+   * `metadata.droppedVolumes` names them, for the session to attach to the
+   * running box later. Every other volume is required: a create refused over
+   * it fails.
+   */
+  optionalVolumes?: string[];
   /**
    * The sandbox template's `residential_proxy` (platform/services/residential-proxy.ts):
    * the box's web traffic leaves through a residential IP in `country` (any when
@@ -129,6 +144,18 @@ export interface ProvisionResult {
   metadata: Record<string, unknown>;
 }
 
+/** An optional volume a box booted without, and Platinum's refusal of it (`metadata.droppedVolumes`). */
+export interface DroppedVolume {
+  mountPath: string;
+  status: number | null;
+  code: string | null;
+  /** Platinum's own words, at most 300 characters. */
+  reason: string;
+  /** For `sub_path_too_large`: what the folder holds, and the folder-mount cap. */
+  bytes?: number;
+  maxBytes?: number;
+}
+
 export type { SandboxStatus } from './status';
 import type { SandboxStatus } from './status';
 export type InPlaceRecoveryStatus = 'running' | 'recovering' | 'unavailable';
@@ -139,7 +166,7 @@ export interface ResolvedEndpoint {
 }
 
 export interface SandboxIngressRequest {
-  /** Port named by the caller-facing Dosco proxy URL. */
+  /** Port named by the caller-facing Kortix proxy URL. */
   port: number;
   path?: string;
   transport?: 'http' | 'websocket';
@@ -188,47 +215,6 @@ export interface ProvisioningStatus {
   errorMessage?: string;
 }
 
-/**
- * Which dimensions of an App machine specification a provider can actually
- * enforce. Dosco bills an App from the specification it recorded, so a
- * dimension the provider cannot honor must not reach the meter: E2B's
- * Template.build accepts cpuCount and memoryMB and has no disk parameter
- * (e2b 2.37.0), so an App on E2B was being charged for disk nobody allocated.
- */
-export interface AppMachineSupport {
-  cpu: boolean;
-  memoryGb: boolean;
-  diskGb: boolean;
-}
-
-export const FULL_APP_MACHINE_SUPPORT: AppMachineSupport = {
-  cpu: true,
-  memoryGb: true,
-  diskGb: true,
-};
-
-export interface AppMachine {
-  cpuCores: number;
-  memoryGb: number;
-  diskGb: number;
-}
-
-/**
- * The machine a provider will really allocate, which is what billing must use.
- * A dimension the provider cannot set bills as zero rather than as the number
- * the customer typed. Absent support means the provider honors everything.
- */
-export function effectiveAppMachine(
-  provider: { appMachineSupport?: AppMachineSupport },
-  requested: AppMachine,
-): AppMachine {
-  const support = provider.appMachineSupport ?? FULL_APP_MACHINE_SUPPORT;
-  return {
-    cpuCores: support.cpu ? requested.cpuCores : 0,
-    memoryGb: support.memoryGb ? requested.memoryGb : 0,
-    diskGb: support.diskGb ? requested.diskGb : 0,
-  };
-}
 
 /** Result of a provider-level command run inside a sandbox VM/container. */
 export interface SandboxExecResult {
@@ -262,11 +248,9 @@ export interface SandboxProvider {
    * default cache. Use zero when the provider owns a shorter credential cache.
    */
   readonly ingressCacheTtlMs?: number;
-  /** Absent means the provider enforces the whole App machine specification. */
-  readonly appMachineSupport?: AppMachineSupport;
   create(opts: CreateSandboxOpts): Promise<ProvisionResult>;
   /**
-   * Ensure the Dosco App supervisor is running after create or resume.
+   * Ensure the Kortix App supervisor is running after create or resume.
    * Providers that honor the image ENTRYPOINT implement this as a no-op.
    * Providers that replace ENTRYPOINT must start `/kortix/bin/kortix-appd`
    * through their native process API. The operation must be idempotent.
@@ -290,14 +274,14 @@ export interface SandboxProvider {
   ): Promise<ProvisionResult>;
   start(externalId: string, opts?: SandboxStartOptions): Promise<void>;
   /**
-   * Renew the provider-native lifecycle deadline for a sandbox that Dosco has
+   * Renew the provider-native lifecycle deadline for a sandbox that Kortix has
    * already confirmed is running and whose `session_sandboxes.deadline_at` is
    * still live.
    *
    * This operation is mandatory for every provider. It must be idempotent,
    * bounded, and must not wake a stopped sandbox. The provider implementation
    * owns its native mechanism: absolute timeout renewal, idle-timer activity,
-   * or an equivalent control-plane operation. Only the Dosco reaper calls it;
+   * or an equivalent control-plane operation. Only the Kortix reaper calls it;
    * an in-sandbox process cannot renew its own lifecycle.
    */
   renewLifecycle(externalId: string): Promise<void>;
@@ -334,14 +318,6 @@ export interface SandboxProvider {
     externalId: string,
     request: SandboxIngressRequest,
   ): Promise<ResolvedSandboxIngress>;
-  /**
-   * Drop the provider-owned cached ingress credential for a sandbox after the
-   * provider edge refuses it. E2B rotates its traffic token on every
-   * pause-resume; the provider handle is the credential source, so the proxy
-   * must ask the provider to drop it before re-resolving. Providers without a
-   * provider-owned credential cache omit this hook.
-   */
-  invalidateIngress?(externalId: string): void;
   ensureRunning(externalId: string): Promise<void>;
   getProvisioningStatus(sandboxId: string): Promise<ProvisioningStatus | null>;
   /**

@@ -53,6 +53,7 @@
  */
 import type { ReviewItemsQuery } from '../core/rest/projects-client/review';
 import type { ProjectMemoryPageListOptions, ProjectMemorySearchInput } from '../core/rest/projects-client/memory';
+import type { ProjectSearchInput } from '../core/rest/projects-client/project-search';
 import type { ListProjectSessionsOptions } from '../core/rest/projects-client/sessions';
 
 type SessionListFilters = Pick<
@@ -258,6 +259,10 @@ export const qk = {
     versions: (driveId: string) => [...qk.drives.drive(driveId), 'versions'] as const,
     grants: (driveId: string) => [...qk.drives.drive(driveId), 'grants'] as const,
     conflicts: (driveId: string) => [...qk.drives.drive(driveId), 'conflicts'] as const,
+    /** What the drive holds against its limits. Under the drive, so a write's invalidation refreshes it. */
+    usage: (driveId: string) => [...qk.drives.drive(driveId), 'usage'] as const,
+    /** An account's Files per project. */
+    accountUsage: (accountId: string | null | undefined) => [...qk.drives.scope(), 'account-usage', accountId ?? 'primary'] as const,
     session: (projectId: string, sessionId: string) =>
       [...qk.drives.scope(), 'session', projectId, sessionId] as const,
   },
@@ -617,6 +622,8 @@ export const qk = {
     memoryHistory: (id: string, pageId: string) => [...qk.project.memoryPage(id, pageId), 'history'] as const,
     /** `searchProjectMemory` — one query (`q` trimmed). Under `memory`, so a write refreshes the hits. */
     memorySearch: (id: string, input: ProjectMemorySearchInput) => [...qk.project.memory(id), 'search', input] as const,
+    /** `searchProject` — one query over the project's Files (`q` trimmed). */
+    search: (id: string, input: ProjectSearchInput) => [...qk.project.scope(id), 'search', input] as const,
     /**
      * `getSessionMemoryUsage` — one thread's "Used memory". Outside `memory` on
      * purpose: the record is fixed at the thread's first turn, so no write refreshes it.

@@ -20,6 +20,7 @@ import { ignoredAgentSettings } from '@kortix/api-contract/runtime-relay';
 import { projects } from '@kortix/db';
 import {
   type ManifestIssue,
+  isManifestSyntaxError,
   SLUG_RE,
   SPACE_SLUG_RE,
 } from '@kortix/manifest-schema';
@@ -29,8 +30,7 @@ import { auth, boundedIssues, errors, json } from '../../openapi';
 import { db } from '../../shared/db';
 import { resolveTemplateBySlug } from '../../snapshots/templates';
 import { extractAgents, agentNotDeclaredError, grantsByAgent } from '../agents';
-import { projectBuiltinAgents } from '../lib/builtin-agents';
-import { builtinAgentConfigView, builtinAgentWriteRefusal, enabledBuiltinAgentKey } from '../lib/my-kortix-agent';
+import { builtinAgentConfigView, builtinAgentWriteRefusal, enabledBuiltinAgentKey, projectBuiltinAgents } from '../lib/my-kortix-agent';
 import { assertNoGrantEscalation, changedPolicySet } from '../../iam/agent-grant-ceiling';
 import { isRepoFileNotFoundError, readRepoFile } from '../git';
 import { GitFileRevisionConflictError, commitMultipleFilesToBranch } from '../git/branches';
@@ -110,6 +110,8 @@ const AgentBlockSchema = z
     commands: GrantSetSchema.optional(),
     extensions: ExcludableGrantSetSchema.optional(),
     codemode: z.enum(['on', 'only', 'off']).optional(),
+    // What a full context does: `record` (default) resets onto the searchable record; `summary` compacts.
+    context: z.enum(['record', 'summary']).optional(),
     // Deprecated request alias of kortix_permissions. The handler normalizes it
     // (normalizeKortixPermissionAliases) before serialization.
     kortix_cli: GrantSetSchema.optional(),
@@ -186,7 +188,7 @@ export function registerAgentConfigRoutes(): void {
       summary: 'Get an agent\'s configuration',
       ...auth,
       request: { params: z.object({ projectId: z.string(), agentName: z.string() }) },
-      responses: { 200: json(z.any(), 'The agent config block'), ...errors(400, 403, 404) },
+      responses: { 200: json(z.any(), 'The agent config block'), ...errors(400, 403, 404, 409) },
     }),
     async (c: any) => {
       const projectId = c.req.param('projectId');
@@ -208,6 +210,13 @@ export function registerAgentConfigRoutes(): void {
         manifest = await loadManifestForEdit(gitProject);
       } catch (e) {
         rethrowDatabaseError(e);
+        if (isManifestSyntaxError(e)) {
+          // Repair mode: My Kortix runs while kortix.yaml is not YAML, and its
+          // config is platform-owned. Every other agent names the error.
+          const builtinKey = enabledBuiltinAgentKey(agentName, { my_kortix: true });
+          if (builtinKey) return c.json(builtinAgentConfigView(builtinKey, null));
+          return c.json({ error: `kortix.yaml is not valid YAML (${e.message}). Only My Kortix runs until it is fixed.`, code: 'manifest_invalid' }, 409);
+        }
         return c.json(
           { error: (e as Error).message || 'failed to read manifest', code: 'manifest_read' },
           400,
@@ -220,7 +229,7 @@ export function registerAgentConfigRoutes(): void {
       // A built-in agent the project runs (My Dosco, slug `mykortix`) is listed by
       // /detail but declared nowhere in kortix.yaml. Its config is
       // platform-owned: answer the read-only view, never the roster 404.
-      const builtinKey = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw, loaded.row.metadata));
+      const builtinKey = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw));
       if (builtinKey) return c.json(builtinAgentConfigView(builtinKey, read.defaultAgent));
 
       // A name the manifest does not declare is a 404, not an empty success:
@@ -320,9 +329,9 @@ export function registerAgentConfigRoutes(): void {
 
       manifest.raw = applied.raw;
       const manifestPath = manifest.path || loaded.row.manifestPath || MANIFEST_FILENAME;
+      const writes = manifestWrites(manifest, manifestPath);
       try {
         const gitProject = await withProjectGitAuth(loaded.row);
-        const writes = manifestWrites(manifest, manifestPath);
         await commitMultipleFilesToBranch(gitProject, {
           files: writes.files,
           deletes: writes.deletes,
@@ -444,7 +453,7 @@ export function registerAgentConfigRoutes(): void {
 
       // A built-in agent's configuration is platform-owned: a write here would
       // only add an `agents.meta` block that the platform ignores.
-      const builtinKey = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw, loaded.row.metadata));
+      const builtinKey = enabledBuiltinAgentKey(agentName, projectBuiltinAgents(manifest.raw));
       if (builtinKey) return c.json(builtinAgentWriteRefusal(builtinKey), 409);
 
       if (typeof governanceBlock.sandbox === 'string') {

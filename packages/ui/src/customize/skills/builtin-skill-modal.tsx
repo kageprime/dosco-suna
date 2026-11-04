@@ -14,7 +14,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { EntityDetailModal, type EntityFileSource } from '../shared/entity/entity-modal';
-import { skillDisplayName } from '../shared/capability-library';
 
 export function BuiltinSkillModal({
   projectId,
@@ -54,7 +53,7 @@ export function BuiltinSkillModal({
   return (
     <EntityDetailModal
       projectId={projectId}
-      entity={name ? { name: skillDisplayName(name), path: `${name}/SKILL.md`, description } : null}
+      entity={name ? { name, path: `${name}/SKILL.md`, description } : null}
       kind="skill"
       open={!!name}
       source={source}

@@ -4,16 +4,13 @@ import { markComputeSessionAlive } from '../billing/services/compute-metering';
 import { type SandboxProviderName } from '../config';
 import { db } from '../shared/db';
 import { ingressTargetUrl } from '../platform/providers/ingress-url';
-import { invalidateProviderIngress } from '../sandbox-proxy/backend';
-import { followProviderIngressRedirects } from '../sandbox-proxy/provider-redirect-follow';
 import { AppAccountUnfundedError, AppLimitError } from './limits';
 import { AppHostingProvider } from './hosting';
 import { enqueueCurrentAppRuntime } from './deployment-worker';
 import { authorizeAppRequest, authorizeServiceRequest, resolveAppViewerUserId, bindAppViewerSession, appViewerEndpointResponse,
   appTokenResponse, appViewerContextHeader } from './public-proxy-access';
 import { resolveAppRequest, verifyAppEdgeRequest } from './public-proxy-edge';
-import { appPublicStatusResponse, publicDeploymentStatus, appPublicUnavailableResponse, appColdStartUpstreamResponse } from './public-proxy-status';
-import { fetchWithRecovery } from './public-proxy-recovery';
+import { appPublicStatusResponse, publicDeploymentStatus, appPublicUnavailableResponse, appProviderStoppedResponse, appColdStartUpstreamResponse } from './public-proxy-status';
 import { loadPublicAppState, loadPublicApp, ensureAppRuntimeRunning, appRuntimeNeedsWake, releaseServes } from './public-proxy-runtime';
 import { appUpstreamHeaders, appPublicResponseHeaders } from './public-proxy-headers';
 import { serveStaticDeployment } from './static-site';
@@ -100,7 +97,7 @@ async function routeAppPublicRequest(
   const gateApp = { ...state.app, agentPrincipal: state.agentPrincipal };
   const accessResponse = await authorizeServiceRequest(request, url, gateApp, state.service?.access ?? 'app');
   if (accessResponse) return accessResponse;
-  // An external App's Dosco host is a stable link to its site.
+  // An external App's Kortix host is a stable link to its site.
   if (state.app.externalUrl) return Response.redirect(state.app.externalUrl, 302);
   const sessionViewer = resolveAppViewerUserId(request, url, gateApp);
   if (sessionViewer) bindAppViewerSession(sessionViewer);
@@ -187,35 +184,14 @@ export async function proxyRunningApp(
   const replayableRequest = request.method === 'GET' || request.method === 'HEAD';
   const fetchUpstream = async () => {
     const ingress = await hosting.ingress(runtime.provider as SandboxProviderName, runtime.externalId, 'http', servicePort);
-    const headers = appUpstreamHeaders(request, ingress.headers, publicHost, viewer);
-    // One upstream fetch, triggered by hand so the E2B canonical-host
-    // redirects are followed SERVER-side instead of handed to the browser:
-    // the browser cannot carry the token header through a redirect, and the
-    // rewrite-to-public-host attempt looped (see provider-redirect-follow).
-    const dial = (targetUrl: string) => fetch(targetUrl, {
+    const upstreamUrl = ingressTargetUrl(ingress, `${url.pathname}${url.search}`);
+    return fetch(upstreamUrl, {
       method: request.method,
-      headers,
+      headers: appUpstreamHeaders(request, ingress.headers, publicHost, viewer),
       body: replayableRequest ? undefined : request.body,
       redirect: 'manual',
       duplex: 'half',
     } as RequestInit);
-    const firstUrl = ingressTargetUrl(ingress, `${url.pathname}${url.search}`);
-    const followed = await followProviderIngressRedirects(
-      await dial(firstUrl),
-      firstUrl,
-      dial,
-      { provider: runtime.provider as SandboxProviderName, method: request.method },
-    );
-    // The chain never settled: two hosts answering each other with redirects.
-    // The write path never gets here (writes are never followed), so a GET
-    // that spins produces a visible 502 instead of an endless bounce.
-    if (!followed) {
-      return Response.json(
-        { error: 'This App kept redirecting into its provider host', code: 'sandbox_redirect_loop' },
-        { status: 502 },
-      );
-    }
-    return followed;
   };
   const recoverProviderRuntime = async (forceProviderStart: boolean) => {
     runtime = await ensureAppRuntimeRunning({
@@ -235,10 +211,60 @@ export async function proxyRunningApp(
 
   const { upstream, recoveredProvider, starting } = await fetchWithRecovery(
     fetchUpstream, recoverProviderRuntime, startingResponse, () => runtime.provider as SandboxProviderName,
-    () => invalidateProviderIngress(runtime.provider, runtime.externalId), replayableRequest, coldStart,
+    replayableRequest, coldStart,
   );
   if (starting) return starting;
   return respondFromUpstream(request, loaded, runtime, upstream, coldStart || recoveredProvider);
+}
+
+async function fetchWithRecovery(
+  fetchUpstream: () => Promise<Response>,
+  recoverProviderRuntime: (force: boolean) => Promise<void>,
+  startingResponse: () => Promise<Response>,
+  provider: () => SandboxProviderName,
+  replayableRequest: boolean,
+  coldStart: boolean,
+): Promise<{ upstream: Response; recoveredProvider: boolean; starting?: never } | { starting: Response; upstream?: never; recoveredProvider?: never }> {
+  let upstream: Response;
+  let recoveredProvider = false;
+  try {
+    upstream = await fetchUpstream();
+  } catch {
+    try {
+      await recoverProviderRuntime(false);
+      recoveredProvider = true;
+      if (!replayableRequest) return { starting: await startingResponse() };
+      upstream = await fetchUpstream();
+    } catch {
+      return { starting: await startingResponse() };
+    }
+  }
+
+  // 400 is Daytona's shape for a runtime it can no longer reach.
+  if (upstream.status === 400) {
+    const body = await upstream.clone().text().catch(() => '');
+    if (appProviderStoppedResponse(provider(), upstream.status, body)) {
+      await upstream.body?.cancel().catch(() => {});
+      if (coldStart) return { starting: await startingResponse() };
+      try {
+        await recoverProviderRuntime(true);
+        recoveredProvider = true;
+        if (!replayableRequest) return { starting: await startingResponse() };
+        upstream = await fetchUpstream();
+      } catch {
+        return { starting: await startingResponse() };
+      }
+      if (upstream.status === 400 || upstream.status >= 502) {
+        const retryBody = await upstream.clone().text().catch(() => '');
+        if (appProviderStoppedResponse(provider(), upstream.status, retryBody)) {
+          await upstream.body?.cancel().catch(() => {});
+          return { starting: await startingResponse() };
+        }
+      }
+    }
+  }
+
+  return { upstream, recoveredProvider };
 }
 
 async function respondFromUpstream(

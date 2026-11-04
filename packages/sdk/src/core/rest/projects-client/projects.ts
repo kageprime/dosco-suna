@@ -1,4 +1,4 @@
-// Projects — project CRUD, detail, feature flags, warm pool, onboarding.
+// Projects — project CRUD, detail, feature flags, onboarding.
 
 import type { CatalogModel } from '@kortix/llm-catalog';
 import type { ManifestIssue } from './change-request-recovery';
@@ -63,12 +63,14 @@ export type FeatureFlagKey =
   | 'llm_gateway'
   /** @deprecated Graduated — Review Center is on for every project. Removed in the next major. */
   | 'review_center'
+  /** @deprecated Graduated — My Kortix follows kortix.yaml `builtin_agents.my_kortix` alone. The API sends `true` for every project. Removed in the next major. */
   | 'meta_agent'
   /** @deprecated Graduated — Apps is on for every project. Removed in the next major. */
   | 'apps'
   /** @deprecated Withdrawn — the monitor box was removed; an App with a schedule or a `type: app` trigger replaces it. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'monitors'
   | 'reminders'
+  /** @deprecated Withdrawn — warm sessions were removed; a session boots on its own. The API sends `false` for every project. Removed in the next major. */
   | 'warm_sessions'
   | 'secrets_egress'
   /** @deprecated Withdrawn — the pi worker split left the product; pi runs in the session sandbox. The API no longer lists, resolves, or accepts it. Removed in the next major. */
@@ -87,9 +89,11 @@ export type FeatureFlagKey =
   | 'us_region'
   | 'event_triggers'
   | 'notification_center'
+  /** @deprecated Graduated 2026-11-02 — every project has a Drive. The API sends `true` wherever the platform stores a Drive (Platinum). Removed in the next major. */
   | 'volumes'
   /** @deprecated Withdrawn — stateless sessions left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'stateless_sessions'
+  /** @deprecated Graduated 2026-11-02 with `volumes` — every project has a Drive. The API sends `true` wherever the platform stores a Drive (Platinum), so `useFeatureFlag(id, 'drives')` reads Drive availability. Removed in the next major. */
   | 'drives'
   /** @deprecated Withdrawn with `stateless_sessions`. The API no longer lists or resolves it. Removed in the next major. */
   | 'ephemeral_sandboxes'
@@ -100,6 +104,8 @@ export type FeatureFlagKey =
   | 'connectors_v2'
   | 'project_channels'
   | 'agent_rooms'
+  /** Shared Drives: an admin makes a Drive and adds agents to it. Off by default: people have only My files. */
+  | 'shared_drives'
   | 'goals'
   | 'workspace_volume'
   | 'artifacts'
@@ -112,10 +118,12 @@ export type FeatureFlagKey =
   | 'chrome'
   /** Agent teams: a lead session with named teammates and a shared task list. Experimental, off by default. */
   | 'agent_teams'
+  /** Voice calls: talk with the session's agent from the session page, with screen share. Off by default. */
+  | 'voice_call'
   /** @deprecated Withdrawn — agents messaging people left the product. The API no longer lists, resolves, or accepts it. Removed in the next major. */
   | 'human_messaging';
 
-/** The keys of {@link FeatureFlagKey} that are no flag: the API never sends them, or (`llm_gateway`, `session_log`, `pi_harness`, `genui`) sends a constant `true`. */
+/** The keys of {@link FeatureFlagKey} that are no flag: the API never sends them, or (`llm_gateway`, `session_log`, `pi_harness`, `genui`, `meta_agent`) sends a constant `true`, or (`volumes`, `drives`) sends whether the platform stores a Drive. */
 type GraduatedFeatureFlagKey =
   | 'agent_tunnel'
   | 'teams'
@@ -135,7 +143,11 @@ type GraduatedFeatureFlagKey =
   | 'agentmail_email'
   | 'monitors'
   | 'connectors_v2'
-  | 'connectors_api_discover';
+  | 'connectors_api_discover'
+  | 'meta_agent'
+  | 'warm_sessions'
+  | 'volumes'
+  | 'drives';
 /** The keys `KortixProject.experimental` carries on every response. */
 type ServedFeatureFlagKey = Exclude<FeatureFlagKey, GraduatedFeatureFlagKey>;
 
@@ -146,19 +158,16 @@ type ServedFeatureFlagKey = Exclude<FeatureFlagKey, GraduatedFeatureFlagKey>;
  */
 export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'marketplace',
-  'meta_agent',
   'reminders',
-  'warm_sessions',
   'secrets_egress',
   'pooled_provider_secrets',
   'us_region',
   'event_triggers',
   'notification_center',
-  'volumes',
-  'drives',
   'session_log_restore',
   'project_channels',
   'agent_rooms',
+  'shared_drives',
   'goals',
   'workspace_volume',
   'artifacts',
@@ -167,6 +176,7 @@ export const FEATURE_FLAG_KEYS: readonly FeatureFlagKey[] = [
   'session_groups',
   'chrome',
   'agent_teams',
+  'voice_call',
 ] as const;
 
 /**
@@ -284,7 +294,7 @@ export interface ProjectConfigSummary {
   /** @deprecated Use `default_agent`. */
   open_code_default_agent: string | null;
   /** Which built-in agents the project runs (`builtin_agents` in kortix.yaml;
-   *  absent there = on). `my_kortix` is My Kortix, the agent named `mykortix`.
+   *  `true` = on, absent = off). `my_kortix` is My Kortix, the agent named `mykortix`.
    *  Absent from an older API. */
   builtin_agents?: { my_kortix: boolean };
   agent_discovery: 'opencode' | 'declarative';
@@ -405,8 +415,33 @@ export interface GatewayCatalogModel {
   enabled?: boolean;
 }
 
+/**
+ * The Claude subscription models `/model-picker` lists apart from the gateway's
+ * (`claude-agent/<id>`): they run through Claude Code on the caller's own Claude
+ * plan. `connected` is whether the caller signed in to Claude.
+ */
+export interface ClaudeSubscriptionPickerGroup {
+  providerId: string;
+  name: string;
+  connected: boolean;
+  models: Array<{
+    /** `claude-agent/<id>`. */
+    id: string;
+    name: string;
+    description: string;
+    limit: { context: number; output: number };
+    efforts: string[];
+    requires: 'claude_subscription';
+    connected: boolean;
+    /** The project's on/off switch for the model (Models tab). Absent from an older API: on. */
+    enabled?: boolean;
+  }>;
+}
+
 export interface ProjectLlmCatalogResponse {
   models: Record<string, GatewayCatalogModel>;
+  /** Absent from an API without Claude subscription models. */
+  claudeSubscription?: ClaudeSubscriptionPickerGroup;
   /** Kortix's platform fee on managed model usage, in percent of each model's `cost`. */
   platformFeePercent?: number;
   /**

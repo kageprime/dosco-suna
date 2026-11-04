@@ -5,6 +5,37 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Deprecated (warm sessions removed)
+- Warm sessions were removed from the platform. The API answers `410 ENDPOINT_RETIRED` to
+  `POST /projects/:id/sessions/warm` and `/warm/claim`, and sends `experimental.warm_sessions: false`
+  for every project.
+- `ensureWarmProjectSession` and `claimWarmProjectSession` (and the facade's
+  `sessions.ensureWarm` / `sessions.claimWarm`) now reject with `ENDPOINT_RETIRED` and send no
+  request. Create the session with `createProjectSession`.
+- `createWarmSessionPool` returns a pool that never holds a session and never calls its client:
+  `take` returns `null` and `prime` returns `false`, so a host always runs its ordinary create.
+- `'warm_sessions'` stays in the `FeatureFlagKey` union, marked `@deprecated`, and leaves
+  `FEATURE_FLAG_KEYS`. The warm-pool types stay, marked `@deprecated`. No exported name is
+  removed; all of them go in the next major.
+- The session-title refresh no longer waits for an in-flight `/start` before it refetches the
+  session lists.
+
+### Added (volume storage billing)
+- `ProjectCostRow.storage_cost` / `storage_gib_hours`, `CostSummaryTotals.storage_cost` /
+  `storage_gib_hours`, `CostSeriesPoint.storage_cost`: volume storage (Files folders and session
+  /workspace volumes) charged in the window, included in `total_cost`. Optional: absent from an
+  older API.
+- `usage_this_period.storage_usd` on the account state. Optional.
+- `ADMIN_OVERRIDE_KEYS` and `ADMIN_ENTITLEMENT_OVERRIDE_KEYS` add `'storageBilling'`: switch storage
+  charges off (or on) for one account. Additive.
+
+### Changed (session notifications)
+- `onNotify`: `question` and `permission` events carry `projectId` when the SDK knows the session's
+  project, and `task-complete` and `session-error` now carry it from the live stream too. Additive.
+- `useSessionStreamConnected` answers `false` on a `channels=control` connection, which serves the
+  queue only. The polls that stand down on it read again there, and a turn-end watch announces the
+  end of a turn from `GET …/turn`.
+
 ### Added (built-in skills)
 - `getBuiltinSkill(name)` and the `BuiltinSkill` / `BuiltinSkillReference` types: one skill Kortix
   ships (`GET /v1/skills/:name`), with its description, the full SKILL.md body, the feature flag

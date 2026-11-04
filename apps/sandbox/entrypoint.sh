@@ -35,26 +35,37 @@ export PATH
 DESKTOP_PORT=6901
 DESKTOP_PID=/tmp/kortix-desktop.pid
 DESKTOP_LOG=/tmp/kortix-desktop.log
+# The desktop's session bus, at a fixed address the agent's shell gets too,
+# so apps the agent opens on the desktop join the desktop's session.
+DESKTOP_BUS=unix:path=/tmp/kortix-desktop-xdg/bus
 desktop() {
   # agent-browser keeps its daemon socket in $XDG_RUNTIME_DIR when that is
   # set. Pin it to the agent's default, ~/.agent-browser, or the dock would
   # reach a second daemon and a second browser.
   export DISPLAY="${DISPLAY:-:1}" XDG_RUNTIME_DIR="/tmp/kortix-desktop-xdg" \
+    DBUS_SESSION_BUS_ADDRESS="${DESKTOP_BUS}" \
     AGENT_BROWSER_SOCKET_DIR="${AGENT_BROWSER_SOCKET_DIR:-${HOME}/.agent-browser}"
   case "${1:-status}" in
     run)
       echo $$ > "${DESKTOP_PID}"
       mkdir -p -m 700 "${XDG_RUNTIME_DIR}"
+      rm -f "${XDG_RUNTIME_DIR}/bus"
+      dbus-daemon --session --address="${DBUS_SESSION_BUS_ADDRESS}" --fork --nopidfile
       # The start size is the most voxl can grow to; it shrinks the desktop to
       # each viewer's window (--enable-resize).
       Xvfb "${DISPLAY}" -screen 0 2560x1600x24 -shmem -nolisten tcp &
       for _ in $(seq 1 50); do xset q >/dev/null 2>&1 && break; sleep 0.1; done
       xset s off -dpms s noblank || true
+      # The display is up: a headed browser can open on it now. The session
+      # around it (sound, XFCE, the stream) costs ~1.4 CPU-seconds to start;
+      # the boot asks it to wait so that cost misses the daemon's boot and the
+      # session's first turn on 2 vCPUs (dev 2026-11-03). `start` by hand: no wait.
+      sleep "${KORTIX_DESKTOP_SESSION_DELAY_S:-0}" 2>/dev/null || true
       # No sound card: voxl streams the monitor of a null sink named `output`.
       pulseaudio --start --exit-idle-time=-1 \
         && pactl load-module module-null-sink sink_name=output >/dev/null \
         && pactl set-default-sink output || true
-      dbus-launch --exit-with-session startxfce4 &
+      startxfce4 &
       # ponytail: voxl restarts on exit; Xvfb or XFCE dying needs `kortix-desktop stop && kortix-desktop start`.
       while :; do
         voxl --port="${DESKTOP_PORT}" --enable-resize=true --files-root="${HOME}" || true
@@ -345,7 +356,11 @@ DEADLINE_S=120
 STABLE_REQUIRED=2
 # A /workspace volume is mounted before the guest runs (Platinum reports the box
 # running only after the guest mount), so the overlay race does not apply.
-if [ "${KORTIX_WORKSPACE_VOLUME:-}" = "1" ]; then STABLE_REQUIRED=1; fi
+# Nor does it on any Platinum guest (pt-init writes /etc/pt-env before the image
+# runs): /workspace is a directory on the box's own ext4 root, not a Daytona
+# overlay, and the second probe was a flat 250 ms before every daemon start
+# (measured on a session box 2026-11-02: entrypoint at 470 ms, daemon at 780 ms).
+if [ "${KORTIX_WORKSPACE_VOLUME:-}" = "1" ] || [ -f /etc/pt-env ]; then STABLE_REQUIRED=1; fi
 INTERVAL_S=0.25
 
 start=$(date +%s)
@@ -551,9 +566,9 @@ fi
 # browser instead of launching a second one (`kortix-desktop browser`). That
 # browser fills the screen and opens no start tab of its own.
 if [ -e /usr/local/bin/kortix-desktop ]; then
-  export DISPLAY=:1 AGENT_BROWSER_HEADED=true \
+  export DISPLAY=:1 AGENT_BROWSER_HEADED=true DBUS_SESSION_BUS_ADDRESS="${DESKTOP_BUS}" \
     AGENT_BROWSER_ARGS="${AGENT_BROWSER_ARGS:+${AGENT_BROWSER_ARGS},}--start-maximized,--no-startup-window"
-  ( /usr/local/bin/kortix-desktop start || true ) 9>&- >&2 &
+  ( KORTIX_DESKTOP_SESSION_DELAY_S=2 /usr/local/bin/kortix-desktop start || true ) 9>&- >&2 &
 fi
 
 echo "[entrypoint] daemon takeover (cwd=/, workspace=${WORKSPACE})" >&2

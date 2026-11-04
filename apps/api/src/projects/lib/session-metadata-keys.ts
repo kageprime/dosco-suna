@@ -14,7 +14,6 @@
  * the same change that adds the server reader.
  */
 import { SUBAGENT_NOTIFY_PARENT_KEY } from '@kortix/api-contract/runtime-relay';
-import { WARM_SESSION_LOCATION_KEY } from './warm-sessions';
 
 export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
   // Soft delete (`deleteSession`).
@@ -53,6 +52,7 @@ export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
   // Titles (`projects/session-title-generate.ts`). Renames use `body.name`.
   'name',
   'title_source',
+  'title_fallback_attempts',
   // A channel thread's top message (`session-create.ts`): the creator's first
   // prompt, shown to every member of the channel.
   'first_prompt',
@@ -77,14 +77,12 @@ export const SERVER_MANAGED_SESSION_METADATA_KEYS = [
   // restart copy into the sandbox (`legacy-migration-rehydrate.ts`).
   'legacy_migration',
   // Channel origin. Reply targets and the channel runtime env
-  // (`session-channel-env.ts`, the Slack/Teams/email/Telegram relays).
+  // (`session-channel-env.ts`, the Slack/Teams/email/Telegram/Discord relays).
   'slack',
   'teams',
   'email',
   'telegram',
-  // Warm-session marker and trusted provisioning intent (`lib/warm-sessions.ts`).
-  'warm',
-  WARM_SESSION_LOCATION_KEY,
+  'discord',
   // Activity-ordered session list (`session-list.ts` `orderByActivity`). The
   // server stamps conversation activity; a client value would let it fake a
   // sidebar position.

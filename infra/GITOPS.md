@@ -60,6 +60,13 @@ Each permanent environment stores one JSON environment document in AWS Secrets
 Manager. `infra/scripts/ecs-deploy.sh` injects the document through
 `KORTIX_ENV_JSON`. The frontend uses a separate `kortix-<env>-web-env` secret.
 
+`KORTIX_PROCESS_ROLE` is never in that document. `ecs-deploy.sh` sets it on
+every API roll: `web` (the API runs no scheduled job) only when the
+`<prefix>-worker` service runs a revision `ecs-deploy.sh` registered, on the
+same image, with a HEALTHY task, else `all`. The worker copies the API task's
+environment at its own roll, without the role, and records the source in
+`KORTIX_WORKER_ENV_FROM`. `infra/terraform/modules/ecs-api/README.md` has the worker contract.
+
 Dev and staging use the same `WEB_PROTECTION_USERNAME` and
 `WEB_PROTECTION_PASSWORD` values. The password value is never committed in
 plaintext. It lives in dotenvx-encrypted environment files, GitHub Actions
@@ -107,12 +114,8 @@ A regional create can be refused with `409 template_not_resident`. Only
 Platinum retries it on the next regional create after a 2-min cooldown) or
 `absent` (that control plane cannot copy), the box boots in the home region.
 The box row records `metadata.regionFallback` (`requested`, `state`, `at`), and
-the API logs `[platinum] region fallback: …` with the reason. A warm session box
-never falls back; it fails fast.
-
-Warm-session adoption requires provider-reported placement matching the
-project's current placement (its Files' region, else its flag). Server-owned placement intent only deduplicates in-flight warming;
-it is not proof that a sandbox is ready or in the requested region.
+the API logs `[platinum] region fallback: …` with the reason. A box that
+mounts the project's Files never falls back; it fails fast.
 
 ### Dev release gate: the default image exists before the roll
 
@@ -148,13 +151,16 @@ waits for the copy. Kortix staging and production workflows are unchanged.
 
 `rollback-prod.yml` validates that each requested release image exists. It then
 registers new task-definition revisions and rolls the selected ECS services.
+It rolls the API with `--process-role all` and never rolls the scheduled-job
+worker: once the API rollout is stable, `ecs-deploy.sh` scales the worker to 0.
+The next normal release rolls the worker again and switches the API to `web`.
 The workflow does not reverse database migrations. Forward-only migrations must
 remain compatible with the selected application version.
 
 Run the workflow with:
 
 ```bash
-gh workflow run rollback-prod.yml --repo kortix-ai/suna --ref dev \
+gh workflow run rollback-prod.yml --repo kortix-ai/CompanyOS --ref dev \
   -f version=vX.Y.Z \
   -f reason="<incident>" \
   -f confirm="ROLLBACK PROD"

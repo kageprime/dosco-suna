@@ -116,7 +116,6 @@ import { track } from '@/lib/track';
 import { useProjectFeatureFlags } from '@kortix/ui/internal/lib/use-project-feature-flags';
 import { cn, uiRoutes } from '@kortix/ui';
 import { DEFAULT_WALLPAPER_ID } from '@kortix/ui/theme';
-import { openCustomizeSidebar } from '@kortix/ui/internal/stores/sidebar-nav-store';
 import { hubTarget, openAccountPanel } from '@kortix/ui/internal/stores/account-panel-store';
 import { useChatSendStore } from '@kortix/ui/internal/stores/chat-send-store';
 import { firstChatHref, useFirstChatPending } from '@kortix/ui/internal/stores/first-chat-store';
@@ -718,7 +717,7 @@ function ChangeRequestsPage({
  * **Why toggling here rather than linking there.** Every other flag surface
  * costs three navigations to answer "is Voice on for this workspace?". The
  * flags are also the one settings list whose ROWS are what people search for
- * ("warm sessions", "us_region" out of a changelog) — a single row pointing
+ * ("event triggers", "us_region" out of a changelog) — a single row pointing
  * at a page they then have to search again is the defect this whole change
  * exists to remove. Selecting a row when the permission probe denies (or is
  * still in flight) navigates to the section instead of failing silently.
@@ -785,7 +784,7 @@ function FeatureFlagsPage({
     if (!q) return withPending;
     // Matches `key` as well as `name`/`description`, for the same reason
     // `filterFeatures` in experimental-tab.tsx does: flags get turned on from
-    // docs and changelogs that name the raw key (`warm_sessions`).
+    // docs and changelogs that name the raw key (`us_region`).
     return withPending.filter(
       (f) =>
         f.name.toLowerCase().includes(q) ||
@@ -1905,11 +1904,6 @@ export function CommandPalette() {
     close();
   }, [sidebarCtx, close]);
 
-  const handleCustomizeSidebar = useCallback(() => {
-    close();
-    openCustomizeSidebar();
-  }, [close]);
-
   const handleTogglePanelMode = useCallback(() => {
     close();
     const nextMode = panelMode === 'easy' ? 'advanced' : 'easy';
@@ -2240,7 +2234,6 @@ export function CommandPalette() {
       // the action branch runs — same arrangement as `conversationDensity`.
       reviewChanges: handleReviewChanges,
       toggleSidebar: handleToggleSidebar,
-      customizeSidebar: handleCustomizeSidebar,
       togglePanelMode: handleTogglePanelMode,
       // Fallback only: SUBMENU_PAGE_BY_ID intercepts `activity-density`
       // before the action branch runs. If that map entry is ever removed, the
@@ -2265,7 +2258,6 @@ export function CommandPalette() {
       handleOpenProjectMembers,
       handleReviewChanges,
       handleToggleSidebar,
-      handleCustomizeSidebar,
       handleTogglePanelMode,
       goToPage,
       handleOpenSessionTerminal,

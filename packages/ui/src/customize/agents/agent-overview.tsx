@@ -4,8 +4,9 @@
  * The agent page's Overview tab: the agent at a glance.
  *
  * One centered column, in reading order: the description, then the
- * instructions (edited in place as a formatted document), then Properties
- * (the switches a person flips most) and Source (where the agent is saved).
+ * instructions (edited in place as a formatted document). The rail's Basics
+ * row (`part="basics"`) shows Properties (the switches a person flips most)
+ * and Source (where the agent is saved).
  * What it may touch, its model, workspace and triggers are tabs, and who may
  * use it is the header's Share: the Overview repeats none of them. The
  * description and the instructions write the page's draft in place; there is
@@ -54,15 +55,15 @@ import {
   SelectValue,
 } from '../../primitives/select';
 import { StatusDot } from '../../primitives/status';
+import { SettingsSectionHeader } from '../../primitives/settings-section-header';
 import { Switch } from '../../primitives/switch';
 import { AGENT_MODE_LABEL, AGENT_MODES } from '../sections/view/agent-editor-catalog';
 import { EditorSection, EditorSectionStyleProvider, SettingRow } from '../sections/view/agent-editor-primitives';
 import {
   type AgentConfigSectionKey,
   type AgentDraft,
-  grantSummary,
+  useLocalizedAgentConfigCatalog,
 } from '../sections/view/agent-editor';
-import { formatMode } from '../shared/utils';
 import { AgentInstructions } from './agent-instructions';
 
 type Agent = ProjectConfigSummary['agents'][number];
@@ -542,7 +543,7 @@ export function AgentOverview({
   onAskMyKortix,
   focusInstructions = false,
   showSpace = false,
-  onJumpSection,
+  part = 'about',
 }: {
   agent: Agent;
   config: ProjectConfigSummary;
@@ -557,102 +558,37 @@ export function AgentOverview({
   focusInstructions?: boolean;
   /** Show the Space row. Spaces are Work in progress: pass `useSpacesEnabled(projectId)`. */
   showSpace?: boolean;
-  onJumpSection?: (section: AgentConfigSectionKey) => void;
+  /** The rail row: Overview (description and instructions) or Basics (properties and source). */
+  part?: 'about' | 'basics';
 }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tPage = useI18nTranslations('agentEditor.page');
+  const catalog = useLocalizedAgentConfigCatalog();
+  if (part === 'basics') {
+    return (
+      <EditorSectionStyleProvider value="panel">
+        <div className="mx-auto w-full max-w-3xl space-y-8">
+          <SettingsSectionHeader title={catalog.sections.find((s) => s.key === 'basics')?.label ?? 'Basics'} className="pb-1" />
+          <OverviewSettings
+            agent={agent}
+            config={config}
+            block={block}
+            editor={editor}
+            showSpace={showSpace}
+            sourcePath={sourcePath}
+          />
+        </div>
+      </EditorSectionStyleProvider>
+    );
+  }
   // Editable: the draft alone, so clearing the description shows it cleared.
   const description = (editor ? editor.oc.description : (block.behavior?.description ?? agent.description)) ?? '';
-  const modelValue = editor ? editor.oc.model : (block.behavior?.model ?? agent.model);
-  const modelLabel = modelValue
-    ? String(modelValue).split('/').pop() ?? String(modelValue)
-    : tPage('projectDefault');
-  const modeLabel = formatMode((editor ? editor.oc.mode : block.behavior?.mode) ?? agent.mode ?? 'primary');
-  const enabled = block.enabled !== false;
-  const skillsLabel = grantSummary(block.skills).label;
-  const connectorsLabel = grantSummary(block.connectors).label;
-  const snapshotCards: ReadonlyArray<{
-    section: AgentConfigSectionKey;
-    label: string;
-    value: string;
-    subtext: string;
-    icon: Icon;
-    statusDot?: 'active' | 'muted';
-  }> = [
-    {
-      section: 'model',
-      label: 'Model',
-      value: modelLabel,
-      subtext: 'Runtime reasoning engine',
-      icon: CpuIcon,
-    },
-    {
-      section: 'basics',
-      label: 'Mode & Status',
-      value: modeLabel || 'Primary',
-      subtext: enabled ? 'Active in workspace' : 'Disabled',
-      icon: SlidersHorizontalIcon,
-      statusDot: enabled ? 'active' : 'muted',
-    },
-    {
-      section: 'skills',
-      label: 'Skills Grant',
-      value: skillsLabel,
-      subtext: 'Repository skill access',
-      icon: BookOpenTextIcon,
-    },
-    {
-      section: 'connectors',
-      label: 'Connectors Grant',
-      value: connectorsLabel,
-      subtext: 'External tool integrations',
-      icon: PlugsConnectedIcon,
-    },
-  ];
   return (
     // One centered column, the Settings page's shape: the description and the
     // instructions, then the settings below them.
     <EditorSectionStyleProvider value="panel">
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <EditorSection title={t('tabOverview')} lead bare>
-          <div className="grid grid-cols-2 gap-3 pb-2 sm:grid-cols-4">
-            {snapshotCards.map((card) => {
-              const CardIcon = card.icon;
-              return (
-                <button
-                  key={card.section}
-                  type="button"
-                  onClick={() => onJumpSection?.(card.section)}
-                  className={cn(
-                    'bg-popover border-border flex flex-col justify-between gap-2 rounded-md border p-3.5 text-left transition-colors',
-                    onJumpSection ? 'hover:bg-hover cursor-pointer' : 'cursor-default',
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-muted-foreground text-xs font-medium">{card.label}</span>
-                    <CardIcon className="text-muted-foreground size-3.5 shrink-0" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      {card.statusDot ? (
-                        <span
-                          aria-hidden
-                          className={cn(
-                            'size-1.5 shrink-0 rounded-full',
-                            card.statusDot === 'active' ? 'bg-kortix-green' : 'bg-muted-foreground',
-                          )}
-                        />
-                      ) : null}
-                      <span className="text-foreground block truncate font-mono text-xs font-semibold">
-                        {card.value}
-                      </span>
-                    </div>
-                    <span className="text-muted-foreground block truncate text-xs">{card.subtext}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
           <div className="space-y-2">
             <h3 className="text-foreground text-sm font-medium">{tPage('description')}</h3>
             <AboutDescription
@@ -667,14 +603,6 @@ export function AgentOverview({
           onChange={editor ? (next) => editor.setOc('prompt', next) : undefined}
           onAskMyKortix={onAskMyKortix}
           autoFocus={focusInstructions}
-        />
-        <OverviewSettings
-          agent={agent}
-          config={config}
-          block={block}
-          editor={editor}
-          showSpace={showSpace}
-          sourcePath={sourcePath}
         />
       </div>
     </EditorSectionStyleProvider>

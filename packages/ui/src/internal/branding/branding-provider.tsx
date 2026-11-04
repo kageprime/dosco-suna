@@ -20,7 +20,8 @@
  * SVG for the org marks, and `BrandingDocumentEffect` (below) swaps the tab
  * icon and title once the account resolves. Before that — and on every
  * unauthenticated surface — the app is Dosco, by design: there is no account
- * to be branded as until someone signs in.
+ * to be branded as until someone signs in. On self-hosted deployments, the provider
+ * serves `instanceBranding` (`GET /v1/access/branding`).
  */
 
 import { type AccountBranding } from '@kortix/sdk';
@@ -78,7 +79,14 @@ export function useBrandingScope(accountId: string | null | undefined): void {
   }, [accountId]);
 }
 
-export function BrandingProvider({ children }: { children: React.ReactNode }) {
+export function BrandingProvider({
+  children,
+  instanceBranding = null,
+}: {
+  children: React.ReactNode;
+  /** The instance's branding: the fallback when no account branding applies. */
+  instanceBranding?: AccountBranding | null;
+}) {
   const selectedAccountId = useCurrentAccountStore((s) => s.selectedAccountId);
   const { scopedAccountId } = useBrandingScopeState();
 
@@ -87,10 +95,9 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 
   const branding = useMemo<AccountBranding | null>(() => {
     const accounts = accountsQuery.data;
-    if (!accounts?.length) return null;
-    const activeId = scopedAccountId ?? selectedAccountId ?? accounts[0]?.account_id ?? null;
-    const active = accounts.find((a) => a.account_id === activeId) ?? null;
-    const b = active?.branding ?? null;
+    const activeId = scopedAccountId ?? selectedAccountId ?? accounts?.[0]?.account_id ?? null;
+    const active = accounts?.find((a) => a.account_id === activeId) ?? null;
+    const b = active?.branding ?? instanceBranding;
     if (!b) return null;
     // Normalize once so consumers can rely on every slot being present.
     return {
@@ -102,7 +109,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       icon_dark_url: b.icon_dark_url ?? null,
       favicon_dark_url: b.favicon_dark_url ?? null,
     };
-  }, [accountsQuery.data, scopedAccountId, selectedAccountId]);
+  }, [accountsQuery.data, scopedAccountId, selectedAccountId, instanceBranding]);
 
   return (
     <BrandingContext.Provider value={branding}>
@@ -118,6 +125,14 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
  */
 export function useBranding(): AccountBranding | null {
   return useContext(BrandingContext);
+}
+
+/**
+ * The product name to show in copy ("Welcome to {name}"): the branded name,
+ * else "Kortix CompanyOS". A branding with a logo but no name keeps Kortix.
+ */
+export function useBrandName(): string {
+  return useBranding()?.app_name ?? siteMetadata.name;
 }
 
 // ─── Document effect: favicon + title ───────────────────────────────────────

@@ -4,10 +4,10 @@
   "description": "Kortix UI: the shared React component library for apps/web, Kortix Apps and SDK hosts. Tailwind v4 classes, themed by CSS variables.",
   "type": "module",
   "license": "Elastic-2.0",
-  "homepage": "https://github.com/kortix-ai/suna/tree/dev/packages/ui",
+  "homepage": "https://github.com/kortix-ai/CompanyOS/tree/dev/packages/ui",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kortix-ai/suna.git",
+    "url": "git+https://github.com/kortix-ai/CompanyOS.git",
     "directory": "packages/ui"
   },
   "keywords": [
@@ -269,7 +269,6 @@
     "./internal/hooks/projects/use-new-project-session": "./src/internal/hooks/projects/use-new-project-session.ts",
     "./internal/hooks/projects/use-project-can-run": "./src/internal/hooks/projects/use-project-can-run.ts",
     "./internal/hooks/projects/use-restart-project-session": "./src/internal/hooks/projects/use-restart-project-session.ts",
-    "./internal/hooks/projects/use-warm-project-session": "./src/internal/hooks/projects/use-warm-project-session.ts",
     "./internal/hooks/use-auto-scroll": "./src/internal/hooks/use-auto-scroll.ts",
     "./internal/hooks/use-channel-bindings": "./src/internal/hooks/use-channel-bindings.ts",
     "./internal/hooks/use-copy": "./src/internal/hooks/use-copy.ts",
@@ -277,6 +276,7 @@
     "./internal/hooks/use-notification-center": "./src/internal/hooks/use-notification-center.ts",
     "./internal/hooks/use-slash-focus": "./src/internal/hooks/use-slash-focus.ts",
     "./internal/icons/claude": "./src/internal/icons/claude.tsx",
+    "./internal/icons/discord": "./src/internal/icons/discord.tsx",
     "./internal/icons/download": "./src/internal/icons/download.tsx",
     "./internal/icons/edge": "./src/internal/icons/edge.tsx",
     "./internal/icons/github": "./src/internal/icons/github.tsx",
@@ -364,7 +364,6 @@
     "./internal/stores/session-browser-store": "./src/internal/stores/session-browser-store.ts",
     "./internal/stores/session-switch-store": "./src/internal/stores/session-switch-store.ts",
     "./internal/stores/settings-panel-store": "./src/internal/stores/settings-panel-store.ts",
-    "./internal/stores/sidebar-nav-store": "./src/internal/stores/sidebar-nav-store.ts",
     "./internal/stores/sound-store": "./src/internal/stores/sound-store.ts",
     "./internal/stores/subscription-store": "./src/internal/stores/subscription-store.tsx",
     "./internal/stores/tab-store": "./src/internal/stores/tab-store.ts",
@@ -1535,10 +1534,6 @@
         "types": "./dist/internal/hooks/projects/use-restart-project-session.d.ts",
         "import": "./dist/internal/hooks/projects/use-restart-project-session.js"
       },
-      "./internal/hooks/projects/use-warm-project-session": {
-        "types": "./dist/internal/hooks/projects/use-warm-project-session.d.ts",
-        "import": "./dist/internal/hooks/projects/use-warm-project-session.js"
-      },
       "./internal/hooks/use-auto-scroll": {
         "types": "./dist/internal/hooks/use-auto-scroll.d.ts",
         "import": "./dist/internal/hooks/use-auto-scroll.js"
@@ -1566,6 +1561,10 @@
       "./internal/icons/claude": {
         "types": "./dist/internal/icons/claude.d.ts",
         "import": "./dist/internal/icons/claude.js"
+      },
+      "./internal/icons/discord": {
+        "types": "./dist/internal/icons/discord.d.ts",
+        "import": "./dist/internal/icons/discord.js"
       },
       "./internal/icons/download": {
         "types": "./dist/internal/icons/download.d.ts",
@@ -1914,10 +1913,6 @@
       "./internal/stores/settings-panel-store": {
         "types": "./dist/internal/stores/settings-panel-store.d.ts",
         "import": "./dist/internal/stores/settings-panel-store.js"
-      },
-      "./internal/stores/sidebar-nav-store": {
-        "types": "./dist/internal/stores/sidebar-nav-store.d.ts",
-        "import": "./dist/internal/stores/sidebar-nav-store.js"
       },
       "./internal/stores/sound-store": {
         "types": "./dist/internal/stores/sound-store.d.ts",

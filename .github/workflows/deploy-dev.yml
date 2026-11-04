@@ -533,7 +533,9 @@ jobs:
         && needs.migrate-db.result == 'success'
         && (needs.terraform-dev-api.result == 'success' || needs.terraform-dev-api.result == 'skipped') }}
     runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
-    timeout-minutes: 35
+    # Release gate (25 min cap) + worker roll (17 min cap) + API roll (15 min
+    # wait budget in ecs-deploy.sh) + overhead.
+    timeout-minutes: 60
     permissions:
       id-token: write # OIDC → ECS deploy role
       contents: read
@@ -685,6 +687,21 @@ jobs:
           docker run --rm --pull always --platform linux/amd64 \
             --name "$container" --env-file "$work/container.env" \
             "$API_IMAGE" bun scripts/prepare-platform-default-image.ts
+      # The worker (kortix-dev-use2-worker) runs every scheduled job. It rolls
+      # BEFORE the API, with this job's KORTIX_ECS_ENV_OVERRIDES and the API's
+      # running environment, and always waits until the old worker stopped.
+      # The API roll below sets KORTIX_PROCESS_ROLE=web only when this worker
+      # runs the same image and is HEALTHY; otherwise `all`, and the API runs
+      # the jobs. A failed worker roll therefore never blocks the API: the job
+      # stays green and the next step annotates the run.
+      - name: Roll the dev worker service onto the freshly-built image
+        id: worker
+        continue-on-error: true
+        timeout-minutes: 17
+        run: bash infra/scripts/ecs-deploy.sh dev-use2 "${{ needs.build-api.outputs.image }}" --service worker --version "${{ needs.detect-changes.outputs.version }}"
+      - name: Report a failed worker roll
+        if: steps.worker.outcome == 'failure'
+        run: echo "::error title=Worker deploy::the dev worker did not roll onto ${{ needs.build-api.outputs.image }}. The API rolls with KORTIX_PROCESS_ROLE=all and runs the scheduled jobs; read the step 'Roll the dev worker service onto the freshly-built image'."
       # --version stamps KORTIX_VERSION into the task-def so /v1/health reports
       # the computed dev version even if the image's baked string ever diverges
       # (retags, rebuilds) — same parity rule as staging/prod.
@@ -1071,18 +1088,18 @@ jobs:
           push: true
           cache-from: type=registry,ref=kortix/kortix-frontend:dev-buildcache
           cache-to: type=registry,ref=kortix/kortix-frontend:dev-buildcache,mode=max
+          # :dev-<sha8> is pushed by this build, like the API's. A retag that
+          # read :dev-latest back from Docker Hub 5 s after the push got the
+          # previous run's image (2026-11-03: dev-68fd3646 served 01:19 build
+          # output of d34d3283, and verify timed out on the commit).
           tags: |
             kortix/kortix-frontend:dev-latest
-      - name: Retag :dev-latest → :dev-<sha8>
+            kortix/kortix-frontend:dev-${{ needs.detect-changes.outputs.sha8 }}
+      - name: Name the pushed image
         id: tag
         run: |
           set -euo pipefail
-          SHA8="${GITHUB_SHA::8}"
-          docker buildx imagetools create \
-            --tag "kortix/kortix-frontend:dev-${SHA8}" \
-            "kortix/kortix-frontend:dev-latest"
-          echo "image=kortix/kortix-frontend:dev-${SHA8}" >> "$GITHUB_OUTPUT"
-          echo "Pushed kortix/kortix-frontend:dev-${SHA8} + :dev-latest"
+          echo "image=kortix/kortix-frontend:dev-${{ needs.detect-changes.outputs.sha8 }}" >> "$GITHUB_OUTPUT"
 
   deploy-web-ecs:
     name: Deploy frontend to dev (ECS Fargate)

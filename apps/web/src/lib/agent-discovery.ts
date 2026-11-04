@@ -202,7 +202,7 @@ export const MCP_SERVER_CARD = {
   description: 'Run Dosco as yourself: projects, sessions, sandbox files, connectors, and the full kortix CLI.',
   websiteUrl: KORTIX_WEB_ORIGIN,
   repository: {
-    url: '?',
+    url: 'https://github.com/kortix-ai/CompanyOS',
     source: 'github',
   },
   remotes: [

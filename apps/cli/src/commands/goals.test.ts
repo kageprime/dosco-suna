@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { formatGoalFile, parseGoalFile, type ProjectGoalDocument } from '@kortix/sdk';
@@ -199,8 +199,9 @@ async function cli(fake: Fake, root: string, sessionId: string, args: string[]) 
 test('the real CLI runs a goal end to end: new, active, verify, a FAIL back to active, verify again, PASS → done', async () => {
   const fake = fakeApi();
   const root = mkdtempSync(join(tmpdir(), 'goals-e2e-'));
-  mkdirSync(join(root, 'drives', 'company'), { recursive: true });
-  const folder = join(root, 'drives', 'company', 'Goals', 'eu-billing');
+  // A new goal lands in the user's own folder (/drives/me): nothing is shared with the whole project.
+  mkdirSync(join(root, 'drives', 'me'), { recursive: true });
+  const folder = join(root, 'drives', 'me', 'Goals', 'eu-billing');
   const read = () => parseGoalFile(readFileSync(join(folder, 'GOAL.md'), 'utf8'))!;
   const write = (doc: ProjectGoalDocument) => writeFileSync(join(folder, 'GOAL.md'), formatGoalFile(doc));
   try {
@@ -271,6 +272,8 @@ test('check --enforce re-arms a missing heartbeat, counts wakes and, at the cap,
     expect(fake.reminders).toHaveLength(1);
     expect(read()).toMatchObject({ reminder_id: fake.reminders[0]!.id, wake_count: 1 });
 
+    // Force a heartbeat before tomorrow even when now + 4h crosses midnight.
+    for (const reminder of fake.reminders) reminder.next_fire_at = '2000-01-01T00:00:00.000Z';
     await cli(fake, root, 'owner', ['check', '--enforce', '--quiet']);
     expect(read().wake_count).toBe(2);
     expect(fake.reminders).toHaveLength(1);
@@ -352,4 +355,24 @@ test('ls and status read GOAL.md, and a legacy goal.json folder still lists', ()
   const st = run(['status', 'eu-billing']);
   expect(st.exitCode).toBe(0);
   expect(st.stdout.toString()).toContain('Which VAT id do we invoice from?');
+});
+
+
+test('a goal transition refuses a symlinked log without changing its target', async () => {
+  const fake = fakeApi();
+  const root = mkdtempSync(join(tmpdir(), 'goals-log-security-'));
+  const folder = join(root, 'drives', 'company', 'Goals', 'synthetic');
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(join(folder, 'GOAL.md'), formatGoalFile(base));
+  const target = join(root, 'protected.md');
+  writeFileSync(target, 'unchanged');
+  symlinkSync(target, join(folder, 'log.md'));
+  try {
+    const result = await cli(fake, root, 'owner', ['transition', 'waiting_on_user', '--reason', 'synthetic question', folder]);
+    expect(result.code).not.toBe(0);
+    expect(readFileSync(target, 'utf8')).toBe('unchanged');
+  } finally {
+    fake.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
 });

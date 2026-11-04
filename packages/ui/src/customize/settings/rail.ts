@@ -124,8 +124,8 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         tab: 'mcp',
         label: 'MCP',
         description:
-          'Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
-        docsHref: '/docs/connect/mcp',
+          'Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
+        docsHref: '/docs/guide#other-ai-tools-mcp',
         icon: Mcp,
       },
       {
@@ -140,7 +140,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // stated in `translations/en.json` under `settings.rail.items.` — the
         // palette serves the catalog, these tests search the literal, and the
         // two copies must move together.
-        description: 'Let agents work with the files, terminal, and applications on your computer.',
+        description: 'Let Kortix agents work with the files, terminal, and applications on your computer.',
         icon: Laptop,
       },
     ],
@@ -172,11 +172,11 @@ export const RETIRED_RAIL_ITEMS: readonly RailItem[] = [
     label: 'Sandbox templates',
     // Sandbox templates AND Snapshots — a snapshot is the build history of
     // a sandbox template, not a separate concept, so one row shows the
-    // template's recipe and the record of each time Dosco built a
+    // template's recipe and the record of each time Kortix built a
     // machine from it.
     description:
-      'The recipe for the machine a session runs on, and the record of every time Dosco prepared one.',
-    docsHref: '/docs/work/runtime',
+      'The recipe for the machine a session runs on, and the record of every time Kortix prepared one.',
+    docsHref: '/docs/developers#sandbox-templates',
     icon: Container,
   },
   {

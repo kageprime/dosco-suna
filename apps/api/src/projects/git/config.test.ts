@@ -76,7 +76,7 @@ beforeEach(async () => {
   seedPath = join(testRoot, 'seed');
   await git(['init', '--bare', remotePath]);
   await git(['init', '--initial-branch=main', seedPath]);
-  await git(['config', 'user.name', 'Dosco Test'], seedPath);
+  await git(['config', 'user.name', 'Kortix Test'], seedPath);
   await git(['config', 'user.email', 'test@kortix.invalid'], seedPath);
   await git(['remote', 'add', 'origin', remotePath], seedPath);
   await push(SEED, 'seed the synthetic project');
@@ -267,7 +267,7 @@ description: "Runs deploys: say \\"go\\""
 });
 
 describe('loadProjectConfig: kortix.yaml is the only source', () => {
-  test('agents come from the YAML blocks, skills from the registry plus the Dosco skills, commands from the registry', async () => {
+  test('agents come from the YAML blocks, skills from the registry plus the Kortix skills, commands from the registry', async () => {
     await push(
       {
         'kortix.yaml': `default_agent: lead
@@ -411,7 +411,7 @@ describe('a legacy format still works', () => {
     const { files, deletes } = manifestWrites(manifest);
     expect(files.map((file) => file.path)).toEqual(['kortix.yaml', 'agents/lead.md']);
     expect(deletes).toEqual(['harnesses/opencode/opencode.jsonc']);
-    expect(files[0]!.content).toStartWith('# yaml-language-server: $schema=https://dosco.live/schema/kortix.schema.json\n');
+    expect(files[0]!.content).toStartWith('# yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json\n');
     expect(files[0]!.content).not.toContain('kortix_version');
     expect(validateManifest(files[0]!.content).issues).toEqual([]);
     expect(files[1]!.content).toBe('You lead.\n');
@@ -429,7 +429,7 @@ describe('a legacy format still works', () => {
     expect(writes.deletes).toEqual(expect.arrayContaining(['kortix.toml']));
   });
 
-  test('kortix.toml with a syntax error: one error, the project runs My Dosco only', async () => {
+  test('kortix.toml with a syntax error: one error, and no agent runs', async () => {
     await replaceWith({ 'kortix.toml': 'kortix_version = 1\n[project\n' });
     const config = await loadProjectConfig(project);
     expect(config.manifest_health.errors).toBe(1);

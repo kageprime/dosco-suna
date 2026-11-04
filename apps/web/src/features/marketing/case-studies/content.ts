@@ -45,6 +45,7 @@ export type CaseStudy = {
   title: string;
   body: string;
   facts: readonly string[];
+  hidden?: boolean;
 };
 
 export const caseStudies: { title: string; titleMuted: string; items: readonly CaseStudy[] } = {

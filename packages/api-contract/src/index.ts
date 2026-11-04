@@ -54,19 +54,16 @@ export type OkResponse = z.infer<typeof OkResponseSchema>;
  */
 export const FeatureFlagMapSchema = z.object({
   marketplace: z.boolean(),
-  meta_agent: z.boolean(),
   reminders: z.boolean(),
-  warm_sessions: z.boolean(),
   secrets_egress: z.boolean(),
   pooled_provider_secrets: z.boolean(),
   us_region: z.boolean(),
   event_triggers: z.boolean(),
   notification_center: z.boolean(),
-  volumes: z.boolean(),
-  drives: z.boolean(),
   session_log_restore: z.boolean(),
   project_channels: z.boolean(),
   agent_rooms: z.boolean(),
+  shared_drives: z.boolean(),
   goals: z.boolean(),
   workspace_volume: z.boolean(),
   artifacts: z.boolean(),
@@ -75,6 +72,7 @@ export const FeatureFlagMapSchema = z.object({
   session_groups: z.boolean(),
   chrome: z.boolean(),
   agent_teams: z.boolean(),
+  voice_call: z.boolean(),
 });
 export type FeatureFlagMap = z.infer<typeof FeatureFlagMapSchema>;
 
@@ -203,6 +201,14 @@ export const ProjectSchema = z.object({
     connectors_v2: z.literal(true).optional(),
     /** Not a flag (integrations.sh is part of the one catalog); always `true` for older SDK and hosts. */
     connectors_api_discover: z.literal(true).optional(),
+    /** Not a flag since 2026-11-02 (My Kortix follows kortix.yaml `builtin_agents.my_kortix` alone); always `true` for older SDK and hosts. */
+    meta_agent: z.literal(true).optional(),
+    /** Not a flag since 2026-11-03 (warm sessions were removed); always `false` for older SDK, web and mobile clients, which pre-create a session only while it is true. */
+    warm_sessions: z.literal(false).optional(),
+    /** Not a flag since 2026-11-02 (every project has a Drive); `true` wherever the platform stores a Drive (Platinum), for older SDK, CLI and hosts. */
+    volumes: z.boolean().optional(),
+    /** Not a flag since 2026-11-02 (every project has a Drive); `true` wherever the platform stores a Drive (Platinum), for older SDK, CLI and hosts. */
+    drives: z.boolean().optional(),
   }),
   experimental_features: z.array(FeatureFlagViewSchema),
   /** Per-project provider pin, surfaced only while still usable. */
@@ -1269,37 +1275,7 @@ export const SessionDeleteResultSchema = z.object({
 });
 export type SessionDeleteResult = z.infer<typeof SessionDeleteResultSchema>;
 
-export const WarmProjectSessionWorkspaceRefreshSchema = z.object({
-  status: z.enum(['skipped', 'unchanged', 'updated', 'failed']),
-  before_sha: z.string().nullable().optional(),
-  after_sha: z.string().nullable().optional(),
-  error: z.string().optional(),
-});
-export type WarmProjectSessionWorkspaceRefresh = z.infer<
-  typeof WarmProjectSessionWorkspaceRefreshSchema
->;
 
-export const WarmProjectSessionResultSchema = z.object({
-  session: ProjectSessionSchema,
-  reused: z.boolean(),
-  workspace_refresh: WarmProjectSessionWorkspaceRefreshSchema,
-});
-export type WarmProjectSessionResult = z.infer<typeof WarmProjectSessionResultSchema>;
-
-export const ClaimWarmProjectSessionInputSchema = z
-  .object({
-    session_id: z
-      .string()
-      .regex(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-        'session_id must be an RFC 4122 v4 UUID',
-      ),
-    agent_name: z.string().min(1).optional(),
-    sandbox_slug: z.string().min(1).optional(),
-    pending_prompt: PendingSessionPromptSchema.optional(),
-  })
-  .strict();
-export type ClaimWarmProjectSessionInput = z.infer<typeof ClaimWarmProjectSessionInputSchema>;
 
 /**
  * A project space: a channel (product word "Channel") or the caller's DM with
@@ -1776,6 +1752,43 @@ export const SessionStartObservationSchema = z
   .strict();
 export type SessionStartObservation = z.infer<typeof SessionStartObservationSchema>;
 
+/**
+ * Where a provisioning session is in getting its sandbox image. A session
+ * waits on its image only in the states below, and each one says so, so a
+ * client never shows a long bare "provisioning".
+ *
+ * - `resolving`: the server is choosing the image (seconds).
+ * - `serving_last_ready`: the wanted image is not ready; the session boots the
+ *   last ready image of its template (`image`) and the new one builds behind it.
+ * - `waiting_for_build`: no image of this template was ever ready; the session
+ *   waits for a build another request started.
+ * - `building`: no image of this template was ever ready; this request builds it.
+ * - `copying_to_region`: the image is ready and being copied to the session's region.
+ * - `waiting_for_provider`: the provider refused the create while it finishes
+ *   the image (building or replicating); the server retries.
+ */
+export const SESSION_START_IMAGE_STATES = [
+  'resolving',
+  'serving_last_ready',
+  'waiting_for_build',
+  'building',
+  'copying_to_region',
+  'waiting_for_provider',
+] as const;
+export const SessionStartImageStateSchema = z.enum(SESSION_START_IMAGE_STATES);
+export type SessionStartImageState = z.infer<typeof SessionStartImageStateSchema>;
+
+export const SessionStartImageStepSchema = z
+  .object({
+    state: SessionStartImageStateSchema,
+    /** The image this step is about, when known (a provider snapshot name). */
+    image: z.string().nullable(),
+    /** When this step began. */
+    since: z.string(),
+  })
+  .strict();
+export type SessionStartImageStep = z.infer<typeof SessionStartImageStepSchema>;
+
 export const SessionStartBootSchema = z
   .object({
     phase: SessionStartBootPhaseSchema,
@@ -1783,6 +1796,12 @@ export const SessionStartBootSchema = z
     since: z.string().nullable(),
     /** Is a provider operation running for this session right now? */
     actively_starting: z.boolean(),
+    /**
+     * The image step. Present only while `phase` is `provisioning`: null
+     * until provisioning reaches the image, then the step it waits on.
+     * Absent in every other phase, and from an API older than this field.
+     */
+    image: SessionStartImageStepSchema.nullable().optional(),
   })
   .strict();
 export type SessionStartBoot = z.infer<typeof SessionStartBootSchema>;
@@ -1964,9 +1983,10 @@ export const TriggerSchema = z.object({
   /** Why it paused, e.g. `auto-paused: ran at max_runs_per_hour 60 for 2 hours in a row`. */
   auto_paused_reason: z.string().nullable().optional(),
   /**
-   * Fresh session mode only (KRTX-1721): `skip` holds a fire while the
-   * trigger's previous run is still active. Null when unset: `skip` for a
-   * cron trigger, `allow` otherwise. Absent on older servers.
+   * (KRTX-1721) `skip` holds a fire while the trigger's previous run is still
+   * active; in reuse, pinned and keyed mode, while its previous prompt still
+   * waits in the session queue. Null when unset: `skip` for a cron trigger,
+   * `allow` otherwise. Absent on older servers.
    */
   overlap: z.enum(['skip', 'allow']).nullable().optional(),
   /** Account-local policy for sessions this trigger creates. */
@@ -2276,6 +2296,8 @@ export const SessionPromptSchema = z.object({
   attachments: z.array(z.object({ filename: z.string(), mime: z.string() })),
   /** Posted without a turn: no agent answers it. */
   no_reply: z.boolean(),
+  /** Harness context (an auto-recovery continuation), not a person's prompt: a transcript never draws it as a user message. */
+  synthetic: z.boolean().optional(),
   /** The member who sent it. The prompt runs as this member, so only they
    *  edit, send now or retry it; they or a session manager remove it. Null
    *  for a prompt with no recorded sender. Absent from older servers. */
@@ -2286,8 +2308,29 @@ export const SessionPromptSchema = z.object({
 export type SessionPrompt = z.infer<typeof SessionPromptSchema>;
 
 /** `GET .../prompts`. `observed_at` is the server clock BEFORE the read. */
+/**
+ * A prompt the runtime accepted that the session log does not hold yet, or the session's
+ * `initial_prompt`. It left the inbox (`prompts`) at delivery; the log holds it once the box
+ * journals it (pi: every 5 s while a turn runs). Until then this is the only durable record
+ * a client can draw it from. `message_id` is the id the log will hold it under.
+ */
+export const SessionSentPromptSchema = z.object({
+  message_id: z.string(),
+  /** The id the prompt was sent under (a client's optimistic message) when the server re-minted it; else null. */
+  wire_message_id: z.string().nullable(),
+  /** The inbox row; null for the `initial_prompt` of a session create. */
+  prompt_id: z.string().nullable(),
+  text: z.string(),
+  attachments: z.array(z.object({ filename: z.string(), mime: z.string() })),
+  author_user_id: z.string().nullable(),
+  created_at: z.string(),
+});
+export type SessionSentPrompt = z.infer<typeof SessionSentPromptSchema>;
+
 export const SessionPromptListSchema = z.object({
   prompts: z.array(SessionPromptSchema),
+  /** Accepted prompts the session log does not hold yet, oldest first. An older API omits it. */
+  sent: z.array(SessionSentPromptSchema).optional(),
   observed_at: z.string(),
 });
 export type SessionPromptList = z.infer<typeof SessionPromptListSchema>;

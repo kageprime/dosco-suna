@@ -10,7 +10,7 @@ import { TooltipProvider } from '../../primitives/tooltip';
 import { IntlTestProvider } from '../../test-utils/intl';
 import '../tool/tools/register';
 import { SessionTurn } from '../thread/transcript';
-import { firstLine, parseSubagentNotice } from './subagent-notice';
+import { parseSubagentNotice } from './subagent-notice';
 import { SubagentNoticeRow } from './subagent-notice-row';
 
 // Synthetic values only. The notice is the text `subagentNoticeText` in
@@ -65,68 +65,42 @@ function render(node: ReactNode) {
 const textOf = (html: string) =>
   html.replace(/<[^>]*>/g, '').replaceAll('&#x27;', "'").replaceAll('&quot;', '"').replaceAll('&amp;', '&');
 
-describe('parseSubagentNotice', () => {
-  test('reads the child, its status, its name and its result', () => {
-    expect(parseSubagentNotice(noticeText('completed', REPORT))).toEqual({
-      kind: 'subagent',
-      handle: null,
-      ownedTasks: null,
-      sessionId: CHILD,
-      status: 'completed',
-      agent: 'writer',
-      title: 'Draft the launch post',
-      result: REPORT,
-      excerpt: 'Draft ready',
-    });
-  });
-
-  test('a failed or stopped child carries its error as the result', () => {
-    expect(parseSubagentNotice(noticeText('failed', '', 'The model ran out of room.'))).toMatchObject({
-      status: 'failed',
-      result: 'The model ran out of room.',
-      excerpt: 'The model ran out of room.',
-    });
-    expect(parseSubagentNotice(noticeText('stopped', '', 'The subagent was stopped.'))?.status).toBe('stopped');
-  });
-
-  test('any other prompt, a session report included, is not a notice', () => {
-    expect(parseSubagentNotice('Draft the launch post')).toBeNull();
-    expect(parseSubagentNotice(noticeText('completed', REPORT).replace('A background subagent you started has finished.', 'Hi.'))).toBeNull();
-    expect(parseSubagentNotice(null)).toBeNull();
-  });
-
-  test('the excerpt is the first line with words, without Markdown marks', () => {
-    expect(firstLine('\n\n- **Done:** 3 files\nmore')).toBe('Done: 3 files');
-  });
-});
-
 describe('SubagentNoticeRow', () => {
-  test('a finished child is one compact row: ✅, its name, the first line of its result', () => {
+  // The row is product chrome: it draws its state with the glyph every tool row
+  // uses, never an emoji. Emoji status labels belong to the agent's own words
+  // (brand D31), and the reply under the row often starts with one.
+  test('a finished child is one tool row: a check mark, its name, the first line of its result', () => {
     const html = render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('completed', REPORT))!} />);
     const text = textOf(html);
     expect(html).toContain('data-testid="subagent-notice"');
     expect(html).toContain('data-notice-status="completed"');
-    expect(text).toContain('✅');
+    expect(html).toContain('data-notice-mark="completed"');
+    expect(text).not.toContain('✅');
     expect(text).toContain('Draft the launch post finished');
     expect(text).toContain('Draft ready');
     // Closed: the rest of the report stays folded.
     expect(text).not.toContain('600 words');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('aria-label="Open session"');
+    expect(text).toContain('View');
   });
 
-  test('a failed child says it did not finish, with a warning label, never a done mark', () => {
-    const text = textOf(render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('failed', '', 'The model ran out of room.'))!} />));
-    expect(text).toContain('⚠️');
-    expect(text).toContain('Draft the launch post didn’t finish');
-    expect(text).not.toContain('✅');
+  test('a first line that only says it is done adds nothing to "finished" and is left out', () => {
+    const text = textOf(render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('completed', 'Done.\nWrote poem.md.'))!} />));
+    expect(text).toContain('Draft the launch post finished');
+    expect(text).not.toContain('Done.');
   });
 
-  test('a stopped child takes no emoji', () => {
-    const text = textOf(render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('stopped', '', 'The subagent was stopped.'))!} />));
-    expect(text).toContain('Draft the launch post was stopped');
-    expect(text).not.toContain('✅');
-    expect(text).not.toContain('⚠️');
+  test('a failed child says it did not finish, with the warning mark, never a done mark', () => {
+    const html = render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('failed', '', 'The model ran out of room.'))!} />);
+    expect(html).toContain('data-notice-mark="failed"');
+    expect(textOf(html)).toContain('Draft the launch post didn’t finish');
+    expect(textOf(html)).not.toContain('⚠️');
+  });
+
+  test('a stopped child takes the neutral stop mark', () => {
+    const html = render(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('stopped', '', 'The subagent was stopped.'))!} />);
+    expect(html).toContain('data-notice-mark="stopped"');
+    expect(textOf(html)).toContain('Draft the launch post was stopped');
   });
 
   test('the row opens in place to the whole result', async () => {
@@ -140,7 +114,7 @@ describe('SubagentNoticeRow', () => {
     await act(async () => {
       tree = create(wrap(<SubagentNoticeRow notice={parseSubagentNotice(noticeText('completed', REPORT))!} />));
     });
-    const disclosure = () => tree!.root.findAll((node) => node.type === 'button' && node.props['aria-expanded'] !== undefined)[0]!;
+    const disclosure = () => tree!.root.findAll((node) => typeof node.type === 'string' && node.props['aria-expanded'] !== undefined)[0]!;
     await act(async () => disclosure().props.onClick());
     expect(disclosure().props['aria-expanded']).toBe(true);
     expect(JSON.stringify(tree!.toJSON())).toContain('600 words');

@@ -6,6 +6,7 @@ import { getSandboxProvider, type SandboxProviderAdapter } from './providers';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 import { buildRuntimeArtifactFingerprint } from './runtime-fingerprint';
+import { DEFAULT_CPU, DEFAULT_DISK_GB, DEFAULT_MEMORY_GB } from './build-context';
 import { recentlyBuiltStrict } from './builder-log';
 import type { EnsureSandboxImageResult, SnapshotBuildSource, SandboxImageSpec } from './builder';
 import type { ProviderState } from './providers';
@@ -23,19 +24,28 @@ export class SnapshotBuildError extends Error {
   }
 }
 
-export const MY_KORTIX_RUNTIME_SPEC: SandboxImageSpec = Object.freeze({ cpu: 1, memoryGb: 2, diskGb: 8 });
+/**
+ * My Kortix's machine: the default session machine. Its image is the platform
+ * default's computer, desktop and browser included (my-kortix-dockerfile.ts),
+ * which needs the same room: ~7.4 GB of image, ~380 MB RAM for the desktop.
+ */
+export const MY_KORTIX_RUNTIME_SPEC: SandboxImageSpec = Object.freeze({
+  cpu: DEFAULT_CPU,
+  memoryGb: DEFAULT_MEMORY_GB,
+  diskGb: DEFAULT_DISK_GB,
+});
 
 const myKortixImageBuilds = new Map<string, Promise<EnsureSandboxImageResult>>();
 let metaRuntimeFingerprint: Promise<string> | null = null;
 
-function currentMetaRuntimeFingerprint(): Promise<string> {
-  if (metaRuntimeFingerprint) return metaRuntimeFingerprint;
-  const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
-  metaRuntimeFingerprint = buildRuntimeArtifactFingerprint({
-    sandboxVersion: 'meta-v4',
-    artifacts: [
+/** Every input of the My Kortix image, under the repository root `root`. */
+export function metaRuntimeArtifacts(root: string) {
+  return [
       { label: 'agent', path: resolve(root, 'apps/kortix-sandbox-agent-server/src') },
       { label: 'agent-package', path: resolve(root, 'apps/kortix-sandbox-agent-server/package.json') },
+    // The daemon's compile flags (`--bytecode`) change the binary with no
+    // source change; without this a flag change kept the old image.
+    { label: 'agent-build', path: resolve(root, 'apps/kortix-sandbox-agent-server/scripts/build.sh') },
       { label: 'api-contract', path: resolve(root, 'packages/api-contract/src') },
       { label: 'cli', path: resolve(root, 'apps/cli/src') },
       { label: 'cli-package', path: resolve(root, 'apps/cli/package.json') },
@@ -54,7 +64,15 @@ function currentMetaRuntimeFingerprint(): Promise<string> {
       // The managed skills baked into the image live under templates/, not
       // src/ — without this a SKILL.md edit never re-fingerprints the image.
       { label: 'starter-templates', path: resolve(root, 'packages/starter/templates') },
-    ],
+  ];
+}
+
+function currentMetaRuntimeFingerprint(): Promise<string> {
+  if (metaRuntimeFingerprint) return metaRuntimeFingerprint;
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  metaRuntimeFingerprint = buildRuntimeArtifactFingerprint({
+    sandboxVersion: 'meta-v5',
+    artifacts: metaRuntimeArtifacts(root),
   });
   return metaRuntimeFingerprint;
 }

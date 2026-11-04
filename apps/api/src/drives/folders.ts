@@ -7,10 +7,11 @@
 //
 // Some folders are special:
 // - `/Users/<name>` is one person's folder. Grants above it never reach into
-//   it, and project admins have no implicit access to it: it is private until
-//   its owner shares it.
+//   it, and only its owner and the project's admins may open it until its
+//   owner shares it. An admin reaches it as a person, never through a session
+//   (`adminPeople`), and every such open is recorded for the owner to see.
 // - `/Channels/<space_id>`, where `<space_id>` is a private channel of the
-//   project, is that channel's folder, protected the same way. Dosco gives
+//   project, is that channel's folder, protected the same way. Kortix gives
 //   each channel member one `write` grant; nobody holds `manage`, so nothing in
 //   it is shared on. Only the channel's own threads mount it
 //   (`sessionMountCandidates`), never a member's other sessions. The caller
@@ -19,6 +20,11 @@
 //   is an ordinary folder, as it is in a project with no private channel.
 // - `/` and `/Users` hold the tree together and cannot be granted, nor can
 //   `/Channels` while it holds a private channel's folder.
+//
+// Nothing is shared with the whole project. With the `shared_drives` flag on,
+// an admin makes a shared Drive (a folder) and adds agents to it: every
+// session of those agents mounts it, and everyone who may use one of them
+// reaches it (`FolderSubject.agentIds`). Off, people have only their own folder.
 
 import { PRIVATE_CHANNELS_DIR, spaceDriveFolders } from '@kortix/shared';
 
@@ -43,20 +49,18 @@ export function maxFolderAccess(a: FolderAccess, b: FolderAccess): FolderAccess 
 }
 
 export const USERS_DIR = '/Users';
-export const COMPANY_DIR = '/Company';
-/** The memory folder inside a person's folder and inside the shared Company folder. */
+/** The memory folder inside a person's folder. */
 export const MEMORY_DIR_NAME = 'Memory';
-export const COMPANY_MEMORY_DIR = `${COMPANY_DIR}/${MEMORY_DIR_NAME}`;
 
 /** Where a person's own folder mounts in their sessions (with `~/Desktop` linked to it). */
 export const DESKTOP_MOUNT_PATH = '/drives/me';
 export const DRIVES_ROOT = '/drives';
-
 /**
- * Who a grant names: a person, a team (account group), an agent (its service
- * account) or everyone who works in the project.
+ * Who a grant names: an agent (its service account), or a person or team.
+ * People and teams get only Kortix's own grants (their folder, a private
+ * channel's, an Agent Drive's); a grant anyone makes names an agent.
  */
-export type FolderPrincipalType = 'user' | 'group' | 'agent' | 'project';
+export type FolderPrincipalType = 'user' | 'group' | 'agent';
 
 export interface FolderGrant {
   grantId?: string;
@@ -64,7 +68,7 @@ export interface FolderGrant {
   level: FolderLevel;
   principalType: FolderPrincipalType;
   principalId: string;
-  /** `system` grants are the ones Dosco made (a person's own folder, the Company default). */
+  /** `system` grants are the ones Kortix made (a person's own folder, a private channel's). */
   source?: string;
 }
 
@@ -74,10 +78,20 @@ export interface FolderSubject {
   groupIds?: ReadonlySet<string>;
   /** The agent's service account id. */
   agentId?: string | null;
-  /** Reaches grants to the whole project (people who may work in it, and its sessions). */
-  projectMember?: boolean;
-  /** Project admin: manage everywhere except in people's own folders and private channels' folders. */
+  /**
+   * The service accounts of the agents a person may use (or a session's own
+   * agent), with `shared_drives` on: a shared Drive added to one of those
+   * agents reaches them too. Access to a Drive follows access to its agents.
+   */
+  agentIds?: ReadonlySet<string>;
+  /** Project admin: manage everywhere except in private channels' folders, and in people's own folders only with `adminPeople`. */
   admin?: boolean;
+  /**
+   * The admin is a person, not a session (2026-11-02, Marko: admins get full
+   * access): their admin reach covers people's own folders too. A session of
+   * an admin never has it, so no agent inherits another person's folder.
+   */
+  adminPeople?: boolean;
   /** The project's private channel folders; absent means none. */
   privateChannelFolders?: PrivateChannelFolders;
 }
@@ -90,12 +104,12 @@ export function pathWithinFolder(path: string, folder: string): boolean {
 
 /**
  * A folder the tree holds before anything was written to it: `/Users`,
- * `/Company`, a granted folder (a new person's own folder exists only as their
+ * a granted folder (a new shared Drive) (a new person's own folder exists only as their
  * grant until a session or an upload writes into it), or a folder on the way
  * to one. Listing it answers empty instead of "not found".
  */
 export function folderKnownToTree(path: string, grants: readonly Pick<FolderGrant, 'path'>[]): boolean {
-  if (path === '/' || path === USERS_DIR || path === COMPANY_DIR) return true;
+  if (path === '/' || path === USERS_DIR) return true;
   return grants.some((g) => pathWithinFolder(g.path, path));
 }
 
@@ -127,16 +141,28 @@ function protectedFolderOf(path: string, channels: PrivateChannelFolders): strin
 }
 
 /**
- * Project admins manage every folder except people's own and private
- * channels', and `/Channels` itself while it holds one (a non-member never
+ * Project admins manage every folder except private channels' and, unless
+ * `people` (an admin person, not a session), people's own; and not
+ * `/Channels` itself while it holds a private channel (a non-member never
  * learns that a private channel exists from an empty `/Channels`).
  */
-function adminReaches(path: string, channels: PrivateChannelFolders): boolean {
+function adminReaches(path: string, channels: PrivateChannelFolders, people = false): boolean {
   if (channels.size > 0 && path === PRIVATE_CHANNELS_DIR) return false;
-  return !personalFolderOf(path) && !privateChannelFolderOf(path, channels);
+  return (people || !personalFolderOf(path)) && !privateChannelFolderOf(path, channels);
 }
 
-/** A folder a grant may name: not the root, not `/Users` itself, nothing that is or holds a private channel's folder (Dosco grants those). */
+/**
+ * The person's own folder (`/Users/<name>`) that `subject` reaches at `path`
+ * only as an admin person: the open the owner sees. Null when a grant of
+ * their own reaches it, or it is no one's own folder.
+ */
+export function adminOnlyPersonalFolder(path: string, grants: readonly FolderGrant[], subject: FolderSubject): string | null {
+  const folder = personalFolderOf(path);
+  if (!folder || !subject.admin || !subject.adminPeople) return null;
+  return folderVisible(path, grants, { ...subject, adminPeople: false }) ? null : folder;
+}
+
+/** A folder a grant may name: not the root, not `/Users` itself, nothing that is or holds a private channel's folder (Kortix grants those). */
 export function grantableFolder(path: string, channels: PrivateChannelFolders): boolean {
   return path !== '/' && path !== USERS_DIR && !touchesPrivateChannel(path, channels);
 }
@@ -148,9 +174,7 @@ export function grantReaches(grant: FolderGrant, subject: FolderSubject): boolea
     case 'group':
       return !!subject.groupIds?.has(grant.principalId);
     case 'agent':
-      return !!subject.agentId && grant.principalId === subject.agentId;
-    case 'project':
-      return !!subject.projectMember;
+      return (!!subject.agentId && grant.principalId === subject.agentId) || !!subject.agentIds?.has(grant.principalId);
   }
 }
 
@@ -164,7 +188,7 @@ function grantCovers(grantPath: string, path: string, channels: PrivateChannelFo
 /** What `subject` may do at `path`. */
 export function folderAccess(path: string, grants: readonly FolderGrant[], subject: FolderSubject): FolderAccess {
   const channels = subject.privateChannelFolders ?? NO_PRIVATE_CHANNEL_FOLDERS;
-  let best: FolderAccess = subject.admin && adminReaches(path, channels) ? 'manage' : 'none';
+  let best: FolderAccess = subject.admin && adminReaches(path, channels, subject.adminPeople) ? 'manage' : 'none';
   for (const g of grants) {
     if (best === 'manage') break;
     if (grantCovers(g.path, path, channels) && grantReaches(g, subject)) best = maxFolderAccess(best, g.level);
@@ -179,7 +203,7 @@ export function folderAccess(path: string, grants: readonly FolderGrant[], subje
  */
 export function folderVisible(path: string, grants: readonly FolderGrant[], subject: FolderSubject): boolean {
   if (folderAccess(path, grants, subject) !== 'none') return true;
-  if (subject.admin && adminReaches(path, subject.privateChannelFolders ?? NO_PRIVATE_CHANNEL_FOLDERS)) return true;
+  if (subject.admin && adminReaches(path, subject.privateChannelFolders ?? NO_PRIVATE_CHANNEL_FOLDERS, subject.adminPeople)) return true;
   return grants.some((g) => g.path !== path && pathWithinFolder(g.path, path) && grantReaches(g, subject));
 }
 
@@ -195,11 +219,11 @@ export function grantsCovering(path: string, grants: readonly FolderGrant[], cha
 export interface FolderMountCandidate {
   path: string;
   level: FolderLevel;
-  /** Lower mounts first when not all fit: the person's own folder, agent, project, people. */
+  /** Lower mounts first when not all fit: the person's own folder, folders granted to the agent (0), the person's own grants (2). */
   priority: number;
   /** The session owner's own folder. */
   desktop?: boolean;
-  /** The mount reaches the session through its person (their folder or a share with them), not its agent or project. */
+  /** The mount reaches the session through its person (their folder or a share with them), not its agent. */
   viaPerson?: boolean;
 }
 
@@ -310,8 +334,9 @@ export function planFolderMounts(
 
 /**
  * The folders a session may mount, before {@link planFolderMounts} picks
- * them: each grant that reaches the session's agent, the project, or (in the
- * person's own session, `owner`) its person and their teams. A grant on or
+ * them: each grant that reaches its agent (a shared Drive an admin added it
+ * to), and (in the person's own session, `owner`) the grants Kortix made for
+ * its person (their own folder). A grant on or
  * inside a private channel's folder never counts, a member's included, nor
  * one on a folder that holds one (`/Channels` then: its mount would show
  * them): a private channel's folder reaches only its own threads, as
@@ -333,21 +358,21 @@ export function sessionMountCandidates(
   },
 ): FolderMountCandidate[] {
   const candidates: FolderMountCandidate[] = [];
+  // A private channel's thread writes only its channel's folder: everything
+  // else (a shared Drive, the person's own folder) is read-only there, so the
+  // thread cannot copy the channel's content where others read it.
+  const level = (l: FolderLevel): FolderLevel => (who.channelFolder ? 'read' : l);
   for (const g of grants) {
     if (touchesPrivateChannel(g.path, who.privateChannelFolders)) continue;
     const viaAgent = grantReaches(g, { agentId: who.agentId });
-    const viaProject = grantReaches(g, { projectMember: true });
     const viaPerson = !!who.owner && grantReaches(g, { userId: who.owner, groupIds: who.groupIds });
-    if (!viaAgent && !viaProject && !viaPerson) continue;
+    if (!viaAgent && !viaPerson) continue;
     candidates.push({
       path: g.path,
-      // A private channel's thread writes only its channel's folder: everything
-      // else (Company, the person's own folder) is read-only there, so the
-      // thread cannot copy the channel's content where others read it.
-      level: who.channelFolder ? 'read' : g.level,
-      priority: viaAgent ? 0 : viaProject ? 1 : 2,
+      level: level(g.level),
+      priority: viaAgent ? 0 : 2,
       desktop: g.path === who.own,
-      viaPerson: !viaAgent && !viaProject,
+      viaPerson: !viaAgent,
     });
   }
   if (who.channelFolder) candidates.push({ path: who.channelFolder, level: 'write', priority: 0 });
@@ -418,7 +443,7 @@ export function spaceNotesLines(
     '',
     ...(space.visibility === 'private'
       ? [
-          `#${name} is a private channel: only its members see its threads, files and memory. Save what you learn here, team facts included, in this channel’s memory folder, never in Company/Memory or another channel. Company/ and every other folder are read-only in this thread.`,
+          `#${name} is a private channel: only its members see its threads, files and memory. Save what you learn here, team facts included, in this channel’s memory folder, never in another channel or another folder. Every other folder is read-only in this thread.`,
           '',
         ]
       : []),

@@ -10,7 +10,7 @@ import { actorOf } from '../../middleware/actor';
 import { callerKortixSessionId } from '../../middleware/caller-session';
 import { requireFeatureFlag } from '../../feature-flags/gate';
 import { privateChannelFoldersFor, sessionPrivateChannelFolder } from '../../drives/service';
-import { DriveStorageError } from '../../drives/volumes';
+import { DriveStorageError, legacyDriveStatus } from '../../drives/volumes';
 import { ArtifactError, canView, getArtifact, mayWrite, type Viewer } from '../../artifacts/service';
 import { readArtifactCommentContext } from '../../artifacts/comment-context';
 import { ARTIFACT_COMMENT_SEND_LIMIT } from '../../artifacts/comment-routing-context';
@@ -96,7 +96,8 @@ async function authorizeComments(c: Context, projectId: string, target: string |
 function failure(c: Context, error: unknown) {
   if (error instanceof ArtifactError || error instanceof ArtifactCommentError || error instanceof ArtifactCommentDeliveryError || error instanceof ArtifactActivityQueryError || error instanceof DriveStorageError || error instanceof ArtifactCommentScreenshotError) {
     if (error instanceof ArtifactCommentError && error.status === 429) c.header('Retry-After', String(error.retryAfterSeconds));
-    return c.json({ error: error.message, code: error.code, ...(error instanceof ArtifactCommentScreenshotError && error.limits ? { limits: error.limits } : {}) }, error.status);
+    const status = error instanceof DriveStorageError ? legacyDriveStatus(error) : error.status;
+    return c.json({ error: error.message, code: error.code, ...(error instanceof DriveStorageError ? (error.detail ?? {}) : {}), ...(error instanceof ArtifactCommentScreenshotError && error.limits ? { limits: error.limits } : {}) }, status);
   }
   if (error instanceof Error && error.name === 'ArtifactCommentAuthorityError') return c.json({ error: 'You cannot send Artifact comments to that agent', code: 'artifact_comment_agent_forbidden' }, 403);
   throw error;
@@ -164,6 +165,7 @@ export function registerArtifactCommentRoutes(): void {
       can_comment: z.boolean(), can_moderate: z.boolean(), comment_count: z.number().int(),
       people: z.array(z.object({ user_id: z.string(), name: z.string(), avatar_url: nullableId, token: z.string() })),
       agents: z.array(z.object({ agent_name: z.string(), name: z.string(), session_id: nullableId, token: z.string() })),
+      agents_unavailable: z.boolean().openapi({ description: 'True when the agent manifest could not be read: `agents` is empty and `send_target` is null, while people can still comment.' }),
       send_target: z.object({ kind: z.enum(['session', 'new']), session_id: nullableId, agent_name: z.string() }).nullable(),
       send_thread_ids: z.array(z.string()).max(ARTIFACT_COMMENT_SEND_LIMIT), send_thread_count: z.number().int().nonnegative(), version: z.object({ commit_id: nullableId, entry_version: nullableId }),
     }), 'The current or historical comment context'), ...responses },

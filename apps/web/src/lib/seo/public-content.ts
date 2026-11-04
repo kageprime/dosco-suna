@@ -373,6 +373,7 @@ const MDX_BLOCK_TAGS = new Set([
   'Callout',
   'Card',
   'ExampleRun',
+  'Expandable',
   'Fact',
   'Step',
   'Tab',
@@ -486,9 +487,9 @@ function renderMdxTagLine(line: string, stack: MdxRenderContext[]): string | nul
     stack.push({ tag });
     return attrs.title ? `### ${attrs.title}` : null;
   }
-  // A tab or an accordion item shows one of several panels. Markdown shows
-  // every panel in order, each under its label.
-  if (tag === 'Tab' || tag === 'AccordionItem') {
+  // A tab, an accordion item or an expandable shows one panel at a time.
+  // Markdown shows every panel in order, each under its label.
+  if (tag === 'Tab' || tag === 'AccordionItem' || tag === 'Expandable') {
     stack.push({ tag });
     return attrs.title ? `**${attrs.title}**` : null;
   }
@@ -669,7 +670,7 @@ function renderMarketingMarkdown(record: PublicContentRecord): string {
     `- [Documentation](${CANONICAL_ORIGIN}/docs)`,
     `- [Blog](${CANONICAL_ORIGIN}/blog)`,
     `- [Use cases](${CANONICAL_ORIGIN}/use-cases)`,
-    `- [GitHub](?)`,
+    `- [GitHub](https://github.com/kortix-ai/CompanyOS)`,
   ];
 
   if (record.slug === 'pricing' || record.slug === 'enterprise') {

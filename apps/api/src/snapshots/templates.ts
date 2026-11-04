@@ -485,7 +485,13 @@ export async function resolveUserDockerfile(
 ): Promise<{ dockerfile: string; commit: string | null }> {
   if (template.isShared) return { dockerfile: PLATFORM_DEFAULT_USER_DOCKERFILE, commit: null };
   if (template.dockerfilePath) {
-    const commitSha = await resolveCommitSha(project, project.defaultBranch);
+    // `'tip-proof'`, as the env build beside it (session-sandbox-env-build.ts):
+    // the plain read fetched every branch of the repository whenever this
+    // process had not done a full fetch for 60 s, and a tip proof never counts
+    // as one. So a project with its own Dockerfile paid a full fetch on nearly
+    // every new session, in front of the provider create. One branch at most
+    // now, and the proof the env build shares makes it none.
+    const commitSha = await resolveCommitSha(project, project.defaultBranch, 'tip-proof');
     const bytes = await readRepoFile(project, template.dockerfilePath, commitSha);
     const normalized = normalizeUserDockerfileForSnapshot(bytes);
     if (!normalized.trim()) {
@@ -669,8 +675,6 @@ export async function recordTemplateFailed(
 
 function synthesizedDefault(): ResolvedTemplate {
   const tpl = buildDefaultSandboxTemplate();
-  const defaultProvider = config.getDefaultProvider();
-  const fallbackSnapshot = defaultProvider === 'e2b' && config.E2B_TEMPLATE ? config.E2B_TEMPLATE : null;
   return {
     templateId: null,
     projectId: null,
@@ -678,7 +682,7 @@ function synthesizedDefault(): ResolvedTemplate {
     name: tpl.name ?? 'Default',
     isShared: true,
     source: 'platform',
-    provider: defaultProvider,
+    provider: config.getDefaultProvider(),
     image: null,
     dockerfilePath: null,
     entrypoint: null,
@@ -687,14 +691,12 @@ function synthesizedDefault(): ResolvedTemplate {
     diskGb: DEFAULT_DISK_GB,
     containerRuntime: false,
     residentialProxy: null,
-    providerState: fallbackSnapshot ? 'active' : 'missing',
-    providerSnapshotName: fallbackSnapshot,
+    providerState: 'missing',
+    providerSnapshotName: null,
     contentHash: null,
     builtFromCommit: null,
     swapKey: null,
-    lastReady: fallbackSnapshot
-      ? { [defaultProvider]: { snapshotName: fallbackSnapshot, contentHash: 'fallback' } }
-      : {},
+    lastReady: {},
   };
 }
 

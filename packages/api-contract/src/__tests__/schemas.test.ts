@@ -47,8 +47,6 @@ import {
   TriggerListSchema,
   TriggerSchema,
   UpdateConnectionCredentialInputSchema,
-  WarmProjectSessionResultSchema,
-  ClaimWarmProjectSessionInputSchema,
 } from '../index';
 
 const NOW = '2026-07-01T12:00:00.000Z';
@@ -141,7 +139,6 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
     dashboard_url: 'https://kortix.com/projects/11111111-2222-4333-8444-555555555555',
     experimental: {
       marketplace: false,
-      meta_agent: false,
       monitors: false,
       reminders: false,
       warm_sessions: false,
@@ -155,6 +152,7 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       session_log_restore: false,
       project_channels: false,
       agent_rooms: false,
+      shared_drives: false,
       goals: false,
       workspace_volume: false,
       artifacts: false,
@@ -163,6 +161,7 @@ function projectFixture(overrides: Record<string, unknown> = {}) {
       session_groups: false,
       chrome: false,
       agent_teams: false,
+      voice_call: false,
     },
     experimental_features: [],
     default_sandbox_provider: null,
@@ -342,7 +341,7 @@ describe('ProjectSchema', () => {
   });
 
   test('rejects an experimental map missing a registered key', () => {
-    const { meta_agent: _dropped, ...partial } = projectFixture().experimental as Record<
+    const { reminders: _dropped, ...partial } = projectFixture().experimental as Record<
       string,
       boolean
     >;
@@ -368,6 +367,14 @@ describe('ProjectSchema', () => {
     const experimental = projectFixture().experimental as Record<string, boolean>;
     expect(ProjectSchema.parse(projectFixture({ experimental: { ...experimental, pi_harness: true } })).experimental.pi_harness).toBe(true);
     expect(() => ProjectSchema.parse(projectFixture({ experimental: { ...experimental, pi_harness: false } }))).toThrow();
+  });
+
+  test('experimental carries the removed meta_agent key only as a constant true', () => {
+    // Wire compat: the API still sends `meta_agent: true`; My Kortix follows kortix.yaml `builtin_agents` alone.
+    const experimental = projectFixture().experimental as Record<string, boolean>;
+    expect(FEATURE_FLAG_KEYS as readonly string[]).not.toContain('meta_agent');
+    expect(ProjectSchema.parse(projectFixture({ experimental: { ...experimental, meta_agent: true } })).experimental.meta_agent).toBe(true);
+    expect(() => ProjectSchema.parse(projectFixture({ experimental: { ...experimental, meta_agent: false } }))).toThrow();
   });
 
   test('experimental carries the graduated genui key only as a constant true', () => {
@@ -495,38 +502,6 @@ describe('session group contracts', () => {
   });
 });
 
-describe('warm project session schemas', () => {
-  test('accepts the ensure response with workspace refresh state', () => {
-    expect(
-      WarmProjectSessionResultSchema.parse({
-        session: sessionFixture(),
-        reused: true,
-        workspace_refresh: {
-          status: 'updated',
-          before_sha: 'abc123',
-          after_sha: 'def456',
-        },
-      }),
-    ).toMatchObject({
-      reused: true,
-      workspace_refresh: { status: 'updated' },
-    });
-  });
-
-  test('requires an RFC 4122 v4 session_id for claims', () => {
-    expect(
-      ClaimWarmProjectSessionInputSchema.safeParse({
-        session_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
-        agent_name: 'default',
-        sandbox_slug: 'default',
-      }).success,
-    ).toBe(true);
-    expect(ClaimWarmProjectSessionInputSchema.safeParse({ session_id: 'not-a-uuid' }).success).toBe(
-      false,
-    );
-  });
-});
-
 describe('SessionStartResultSchema', () => {
   test('accepts the provisioning payload without sandbox or runtime_url', () => {
     const parsed = SessionStartResultSchema.strict().parse({
@@ -582,7 +557,7 @@ describe('SessionStartResultSchema', () => {
 });
 
 describe('pending session prompt contract', () => {
-  test('accepts a durable prompt draft on normal create and warm claim', () => {
+  test('accepts a durable prompt draft on create', () => {
     const pendingPrompt = {
       text: 'Map the flood risk for this parcel.',
       agent: 'kortix',
@@ -593,12 +568,6 @@ describe('pending session prompt contract', () => {
 
     expect(
       SessionCreateInputSchema.strict().parse({ pending_prompt: pendingPrompt }).pending_prompt,
-    ).toEqual(pendingPrompt);
-    expect(
-      ClaimWarmProjectSessionInputSchema.strict().parse({
-        session_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
-        pending_prompt: pendingPrompt,
-      }).pending_prompt,
     ).toEqual(pendingPrompt);
   });
 
@@ -891,19 +860,16 @@ describe('envelopes', () => {
     // (TypeScript 7) sorts differently from tsc 5; the runtime order is the contract.
     expect(FEATURE_FLAG_KEYS as readonly string[]).toEqual([
       'marketplace',
-      'meta_agent',
       'reminders',
-      'warm_sessions',
       'secrets_egress',
       'pooled_provider_secrets',
       'us_region',
       'event_triggers',
       'notification_center',
-      'volumes',
-      'drives',
       'session_log_restore',
       'project_channels',
       'agent_rooms',
+      'shared_drives',
       'goals',
       'workspace_volume',
       'artifacts',
@@ -912,6 +878,7 @@ describe('envelopes', () => {
       'session_groups',
       'chrome',
       'agent_teams',
+      'voice_call',
     ]);
   });
 

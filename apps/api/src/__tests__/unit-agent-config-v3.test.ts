@@ -194,6 +194,22 @@ describe('applyAgentConfigV3', () => {
     expect(next.extensions).toBeUndefined();
   });
 
+  test('context: summary is written, record (the default) removes the key, and an omitted one is kept', () => {
+    const off = applyAgentConfigV3(manifest(), 'support', { governance: { context: 'summary' } });
+    expect(off.ok).toBe(true);
+    if (!off.ok) return;
+    expect(block(off.raw, 'support').context).toBe('summary');
+
+    const reparsed = parseManifestString(serializeManifest({ ...manifest(), raw: off.raw }), 'kortix.yaml');
+    const kept = applyAgentConfigV3(reparsed, 'support', { governance: {} });
+    if (!kept.ok) throw new Error(kept.error);
+    expect(block(kept.raw, 'support').context).toBe('summary');
+
+    const on = applyAgentConfigV3(reparsed, 'support', { governance: { context: 'record' } });
+    if (!on.ok) throw new Error(on.error);
+    expect(block(on.raw, 'support')).not.toHaveProperty('context');
+  });
+
   test('an omitted repository choice is written explicitly as the v3 default, false', () => {
     const applied = applyAgentConfigV3(manifest(), 'researcher', { governance: { skills: 'all' } });
 
@@ -287,8 +303,11 @@ describe('the shipped v3 starter compiles', () => {
 
     expect(compiled.schema).toBe(3);
     expect(compiled.manifest_issues?.filter((issue) => issue.severity === 'error') ?? []).toEqual([]);
-    expect(compiled.default_agent).toBe(raw.default_agent as string);
-    expect(compiled.agent[raw.default_agent as string]!.prompt?.trim()).toBeTruthy();
+    // The starter's default is My Kortix, which is built in: the compiled set
+    // holds only declared agents, and session create adds My Kortix.
+    expect(raw.default_agent).toBe('mykortix');
+    expect(compiled.default_agent).toBeUndefined();
+    expect(compiled.agent.worker!.prompt?.trim()).toBeTruthy();
     expect(compiled.extensions ?? {}).toEqual({});
     for (const builtin of ['build', 'plan', 'general', 'explore']) expect(compiled.agent[builtin]).toEqual({ disable: true });
     expect(Object.keys(compiled.skills ?? {})).toContain('pdf');

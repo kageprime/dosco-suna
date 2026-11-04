@@ -2,12 +2,9 @@
 // coordinator's grant from here, and `projects/git/config.ts` imports that —
 // which `e2e-project-session-branch-git` loads in a `bun --eval` subprocess and
 // parses stdout from. Pulling `feature-flags/registry` (and through it the
-// config module, which banners on stdout) into that chain breaks it. The
-// legacy per-project switch is read at each call site with the canonical
-// `resolveFeatureFlag(metadata, 'meta_agent')` and passed to
-// `resolveBuiltinAgents` below as the fallback.
+// config module, which banners on stdout) into that chain breaks it.
 //
-// Orchestrator is the platform's built-in agent, slug `mykortix` (`meta` until
+// My Kortix is the platform's built-in agent, slug `mykortix` (`meta` until
 // 2026-10-30: every read still accepts it, `isMyKortixAgentName`). Session
 // rows, token grants, the sandbox slug, image names and the config-release
 // variant all key on it. Users only ever see the display name.
@@ -28,7 +25,7 @@ import { KORTIX_TOOL_NAMES } from '@kortix/manifest-schema';
 import { MY_KORTIX_PROMPT } from './my-kortix-prompt';
 import type { ProjectConfigSummary } from '../git/types';
 
-/** Orchestrator's one-line description, the same in the agent list and the compiled config. */
+/** My Kortix's one-line description, the same in the agent list and the compiled config. */
 export const MY_KORTIX_DESCRIPTION =
   'The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.';
 
@@ -50,15 +47,21 @@ export function declaredBuiltinAgents(
 }
 
 /**
- * Which built-in agents this project runs. Per key: the manifest's boolean
- * (the repository is the source of truth), else the legacy per-project
- * `meta_agent` switch the caller resolved, else on.
+ * Which built-in agents this project runs. Per key: on only when the manifest
+ * sets it to `true` (the repository is the source of truth). Anything else is
+ * off: absent, `false`, a non-boolean, a missing or broken file.
  */
 export function resolveBuiltinAgents(
   declared: Partial<Record<BuiltinAgentKey, boolean>>,
-  legacyMetaAgent: boolean,
 ): Record<BuiltinAgentKey, boolean> {
-  return { my_kortix: declared.my_kortix ?? legacyMetaAgent };
+  return { my_kortix: declared.my_kortix === true };
+}
+
+/** {@link resolveBuiltinAgents} for a raw kortix.yaml manifest: what every API surface reads. */
+export function projectBuiltinAgents(
+  manifest: Record<string, unknown> | null | undefined,
+): Record<BuiltinAgentKey, boolean> {
+  return resolveBuiltinAgents(declaredBuiltinAgents(manifest));
 }
 
 /**
@@ -97,16 +100,21 @@ export function builtinAgentConfigView(key: BuiltinAgentKey, defaultAgent: strin
 /** The refusal for a write that targets a built-in agent's configuration. */
 export function builtinAgentWriteRefusal(key: BuiltinAgentKey) {
   return {
-    error: `${BUILTIN_AGENTS[key].displayName} is built in: Dosco maintains its prompt, tools and model. To remove it from this project, set \`builtin_agents: { ${key}: false }\` in kortix.yaml.`,
+    error: `${BUILTIN_AGENTS[key].displayName} is built in: Kortix maintains its prompt, tools and model. To remove it from this project, delete \`builtin_agents.${key}\` from kortix.yaml or set it to false.`,
     code: 'builtin_agent_managed' as const,
   };
 }
 
+/**
+ * The config of a project that runs My Kortix: My Kortix listed first.
+ * `default_agent` stays the manifest's; with none, My Kortix is the default.
+ */
 export function addMyKortixAgent(config: ProjectConfigSummary): ProjectConfigSummary {
+  const defaultAgent = config.default_agent ?? MY_KORTIX_AGENT_NAME;
   return {
     ...config,
-    default_agent: MY_KORTIX_AGENT_NAME,
-    open_code_default_agent: MY_KORTIX_AGENT_NAME,
+    default_agent: defaultAgent,
+    open_code_default_agent: defaultAgent,
     agents: [
       {
         name: MY_KORTIX_AGENT_NAME,
@@ -134,7 +142,7 @@ export function addMyKortixAgent(config: ProjectConfigSummary): ProjectConfigSum
 export { MY_KORTIX_PROMPT } from './my-kortix-prompt';
 
 /**
- * The tools My Dosco loads beyond the harness built-ins: every Dosco tool
+ * The tools My Kortix loads beyond the harness built-ins: every Kortix tool
  * plus the platform tools (`apps/kortix-sandbox-agent-server/src/services/tools/platform/`),
  * which load only when a compiled config names them here.
  */
@@ -170,9 +178,9 @@ export function myKortixAgentGrant(): AgentGrant {
 }
 
 /**
- * The grant of a `meta` session in a project whose kortix.yaml turned My Dosco
+ * The grant of a `meta` session in a project whose kortix.yaml turned My Kortix
  * off: no project action beyond reading it. The per-prompt re-mint writes it
- * onto a session that started while My Dosco was on.
+ * onto a session that started while My Kortix was on.
  */
 export function disabledMyKortixAgentGrant(): AgentGrant {
   return { agent: MY_KORTIX_AGENT_NAME, permissions: [], connectors: [], env: [] };

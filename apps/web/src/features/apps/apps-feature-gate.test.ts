@@ -86,6 +86,8 @@ for (const [name, experimental] of [
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     client = queryClient;
     queryClient.setQueryData(qk.project.detail(projectId), { project: { project_id: projectId, experimental } });
+    // Flags come from the bare project row (`useFeatureFlag`).
+    queryClient.setQueryData(qk.project.summary(projectId), { project_id: projectId, experimental });
     queryClient.setQueryData(qk.project.apps(projectId), []);
     const host = win.document.createElement('div');
     win.document.body.append(host);
@@ -117,17 +119,17 @@ test('Apps sits with Customize in the sidebar, not in the bottom alert group', (
     uiSourcePath('workspace/sidebar/project-sidebar.tsx'),
     'utf8',
   );
-  const navStore = readFileSync(uiSourcePath('internal/stores/sidebar-nav-store.ts'), 'utf8');
+  const navItems = readFileSync(uiSourcePath('workspace/sidebar/project-nav-items.tsx'), 'utf8');
 
   // It is a project surface you configure and operate, so it belongs with the
   // Customize row in the top nav group — not among the bottom-anchored alerts,
-  // which shift as late-arriving billing and sandbox state lands. The rows are
-  // customizable now; this pins the default order and the group they render in:
-  // Customize, then Files/Drive (#10258), then Apps.
-  const defaults = navStore.slice(navStore.indexOf('SIDEBAR_NAV_DEFAULTS'));
-  const customizeAt = defaults.indexOf("id: 'customize'");
-  const appsAt = defaults.indexOf("id: 'apps'");
-  const filesAt = defaults.indexOf("id: 'files'");
+  // which shift as late-arriving billing and sandbox state lands. This pins the
+  // order and the group they render in: Customize, then Files/Drive (#10258),
+  // then Apps.
+  const rows = navItems.slice(navItems.indexOf('NAV_ROWS'));
+  const customizeAt = rows.indexOf("'customize'");
+  const appsAt = rows.indexOf("'apps'");
+  const filesAt = rows.indexOf("'files'");
   expect(customizeAt).toBeGreaterThan(-1);
   expect(filesAt).toBeGreaterThan(customizeAt);
   expect(appsAt).toBeGreaterThan(filesAt);

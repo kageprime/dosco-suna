@@ -174,8 +174,8 @@ export function localizeFeatureFlag<T extends FeatureFlagView>(
  *
  * Matches `key` as well as `name` and `description`, and the key is the one
  * that earns its place: flags get turned on from docs, changelogs and support
- * threads that name the raw key (`warm_sessions`), not the display name ("Warm
- * sessions"). A search reading only `name` would miss the exact term the reader
+ * threads that name the raw key (`us_region`), not the display name ("US
+ * Region"). A search reading only `name` would miss the exact term the reader
  * was handed.
  *
  * A blank or whitespace-only query returns the input unchanged — same array,
@@ -501,7 +501,6 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
     if (key === 'project_channels') setChannelsTarget(next);
     else apply(key, next);
   };
-  const drive = rawFeatures.find((f) => f.key === 'drives');
 
   return (
     <>
@@ -510,12 +509,10 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
         onOpenChange={(open) => !open && setChannelsTarget(null)}
         turningOn={channelsTarget === true}
         projectName={project?.name ?? ''}
-        driveOff={!!drive && !drive.enabled && drive.operator_only !== true}
-        onConfirm={(alsoDrive) => {
+        onConfirm={() => {
           const target = channelsTarget === true;
           setChannelsTarget(null);
           apply('project_channels', target);
-          if (alsoDrive) apply('drives', true);
         }}
       />
       <ExperimentalTabView

@@ -14,48 +14,18 @@
  *    `KORTIX_TOOL_NAMES`, and the manifest's `tools:` registry. The model reads
  *    each tool module's own long description; the one-line text here is for
  *    people.
- *  - skills: the Dosco skill files (`skills/catalog.ts`, SKILL.md frontmatter
+ *  - skills: the Kortix skill files (`skills/catalog.ts`, SKILL.md frontmatter
  *    `description` and `metadata.kortix-feature-flag`) and the `skills:`
  *    registry.
  *  - extensions: the platform extensions `harness/pi/runtime.ts` loads, and
  *    the `extensions:` registry.
  */
 
+import type { PlatformExtensionId } from '@kortix/api-contract/runtime-relay';
 import { KORTIX_SKILL_NAMES, KORTIX_TOOL_NAMES, kortixToolRef } from '@kortix/manifest-schema';
 
-export type AgentCapabilityToolGroup = 'workspace' | 'interaction' | 'kortix' | 'project';
-
-export interface AgentCapabilityTool {
-  id: string;
-  group: AgentCapabilityToolGroup;
-  description: string | null;
-  aliases: string[];
-  source: string | null;
-}
-
-export interface AgentCapabilitySkill {
-  id: string;
-  group: 'builtin' | 'project';
-  description: string | null;
-  feature_flag: string | null;
-  available: boolean;
-}
-
-export interface AgentCapabilityExtension {
-  id: string;
-  group: 'platform' | 'project';
-  description: string | null;
-  required: boolean;
-  controlled_by: string | null;
-}
-
-export interface AgentCapabilities {
-  agent: string;
-  schema_version: number;
-  tools: AgentCapabilityTool[];
-  skills: AgentCapabilitySkill[];
-  extensions: AgentCapabilityExtension[];
-}
+import type { AgentCapabilityToolGroup, AgentCapabilityTool, AgentCapabilitySkill, AgentCapabilityExtension, AgentCapabilities } from '@kortix/sdk';
+export type { AgentCapabilityToolGroup, AgentCapabilityTool, AgentCapabilitySkill, AgentCapabilityExtension, AgentCapabilities } from '@kortix/sdk';
 
 /** The built-in tools, in the order the agent page lists them. */
 const BUILTIN_TOOLS: ReadonlyArray<{ id: string; group: AgentCapabilityToolGroup; description: string; aliases?: string[] }> = [
@@ -65,28 +35,42 @@ const BUILTIN_TOOLS: ReadonlyArray<{ id: string; group: AgentCapabilityToolGroup
   { id: 'edit', group: 'workspace', description: 'Change part of a file.' },
   { id: 'glob', group: 'workspace', description: 'Find files by name pattern.' },
   { id: 'grep', group: 'workspace', description: 'Search inside files.' },
-  { id: 'codemode', group: 'workspace', description: 'Dosco codemode: write one script that calls the other tools.' },
-  { id: 'question', group: 'interaction', description: 'Ask you a question in the Dosco chat and wait for the answer.' },
-  { id: 'agent', group: 'interaction', description: 'Start a Dosco subagent session and get its result.', aliases: ['task'] },
+  { id: 'codemode', group: 'workspace', description: 'Kortix codemode: write one script that calls the other tools.' },
+  { id: 'question', group: 'interaction', description: 'Ask you a question in the Kortix chat and wait for the answer.' },
+  { id: 'agent', group: 'interaction', description: 'Start a Kortix subagent session and get its result.', aliases: ['task'] },
+  { id: 'workflow', group: 'interaction', description: 'Run a script that starts many Kortix subagents in the background.' },
+  { id: 'send_message', group: 'interaction', description: 'Send a message to another session of this project.' },
+  { id: 'list_agents', group: 'interaction', description: 'List the sessions this session can reach.' },
+  { id: 'task_create', group: 'interaction', description: "Add a task to an agent team's shared list (flag agent_teams).", aliases: ['task_list', 'task_get', 'task_update'] },
 ];
 
-/** One line per Dosco tool (`apps/kortix-sandbox-agent-server/src/services/tools/kortix/`). */
+/** One line per Kortix tool (`apps/kortix-sandbox-agent-server/src/services/tools/kortix/`). */
 const KORTIX_TOOL_DESCRIPTIONS: Record<(typeof KORTIX_TOOL_NAMES)[number], string> = {
-  web_search: 'Dosco web search: current information from the web.',
-  image_search: 'Dosco image search: images from the web.',
-  image_gen: 'Dosco image generation, with an image model the project can use.',
-  scrape_webpage: 'Dosco page reader: web pages as clean text.',
-  show: 'Show you a file, image or result in the Dosco conversation.',
+  web_search: 'Kortix web search: current information from the web.',
+  image_search: 'Kortix image search: images from the web.',
+  image_gen: 'Kortix image generation, with an image model the project can use.',
+  scrape_webpage: 'Kortix page reader: web pages as clean text.',
+  show: 'Show you a file, image or result in the Kortix conversation.',
 };
 
-/** The extensions the pi runtime loads for every agent (`harness/pi/runtime.ts`). */
+/** The extensions the pi runtime loads for every agent (`harness/pi/runtime.ts`), in `PLATFORM_EXTENSION_IDS`. */
 const PLATFORM_EXTENSIONS: readonly AgentCapabilityExtension[] = [
   { id: 'kortix-nested-calls', group: 'platform', required: true, controlled_by: null, description: "Applies this agent's permission rules to the tool calls a script makes." },
   { id: 'kortix-presentation', group: 'platform', required: true, controlled_by: null, description: 'Shows what the show tool presents as its own part of the conversation.' },
   { id: 'kortix-turn', group: 'platform', required: true, controlled_by: null, description: "Tells the agent today's date and the turn's system text on every turn." },
+  {
+    id: 'kortix-context-record',
+    group: 'platform',
+    required: false,
+    controlled_by: 'context',
+    description: 'When the context fills, the agent continues in a fresh context and searches the full record of the session. Nothing is summarized.',
+  },
   { id: 'kortix-subagents', group: 'platform', required: false, controlled_by: 'agent', description: 'Adds the agent tool, which starts subagents.' },
+  { id: 'kortix-workflow', group: 'platform', required: false, controlled_by: 'workflow', description: 'Adds the workflow tool, which runs many subagents in the background.' },
+  { id: 'kortix-messaging', group: 'platform', required: false, controlled_by: 'send_message', description: 'Adds send_message and list_agents, which reach other sessions of this project.' },
+  { id: 'kortix-team-tasks', group: 'platform', required: false, controlled_by: 'task_create', description: "Adds an agent team's shared task list (flag agent_teams)." },
   { id: 'codemode', group: 'platform', required: false, controlled_by: 'codemode', description: 'Adds the codemode tool.' },
-];
+] satisfies ReadonlyArray<AgentCapabilityExtension & { id: PlatformExtensionId }>;
 
 function mapOf(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};

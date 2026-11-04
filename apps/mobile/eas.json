@@ -80,7 +80,9 @@
         "ascAppId": "6754448524"
       },
       "android": {
-        "track": "internal"
+        "applicationId": "com.kortix.application",
+        "track": "production",
+        "releaseStatus": "completed"
       }
     }
   }

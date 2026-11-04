@@ -607,6 +607,11 @@ placeholder rows on `loading` and its boot screen only on `none`.
 `useSession().conversationEmpty` is true when the saved copy proves the conversation empty
 (a complete read of the runtime found no messages), no turn ended since, and nothing is open
 or queued. A host renders the composer then, not a boot screen.
+`useSession().bootImage` is the sandbox image step of a provisioning box (`/start`'s
+`boot.image`, a `SessionStartImageStep`): `state` is `resolving`, `serving_last_ready`,
+`waiting_for_build`, `building`, `copying_to_region` or `waiting_for_provider`, with
+`image` and `since`. A boot screen names that step. It is `null` outside the `provisioning`
+phase, once ready, and against an API that does not send it.
 
 A host that registers a saved-copy store (`setSavedCopyStore(createSavedCopyStore({ storage,
 userId }))`) gets the kept copy painted before the first frame; the server's copy reconciles
@@ -673,8 +678,8 @@ const threads = await artifact.comments.list(artifactId, { status: 'all' });
 const activity = await artifact.activity(artifactId, { limit: 50 });
 ```
 
-Text anchors carry `version`, `quote`, `prefix`, and `suffix`. `quote`,
-`prefix`, and `suffix` each accept up to 32 UTF-16 code units. Point and region anchors carry a CSS selector,
+Text anchors carry `version`, `quote`, `prefix`, and `suffix`.
+`quote` accepts up to 500 UTF-16 code units, and `prefix` and `suffix` up to 32 each. Point and region anchors carry a CSS selector,
 element-relative fractions, viewport width, and scroll position.
 
 The root exports `listArtifactComments`, `createArtifactComment`,
@@ -706,15 +711,24 @@ Agent and session mentions can include their literal `token` for display without
 
 `useArtifactComments(projectId, artifactId, { status?, enabled? })` returns the
 thread query and `create`, `reply`, `setStatus`, `edit`, `remove`, and `send` writes.
-Each successful write refetches mounted Comments and Activity queries.
+Writes are optimistic: `create`, `reply`, `setStatus`, `edit` and `remove`
+change every loaded thread list at once, and a failed write undoes only its own
+change. A thread or comment that the server has not confirmed yet carries
+`optimistic: true`; a new one also has an `optimistic-` id, an empty author
+(`user_id: ''`) and every `can_*` action false. Hosts render it as pending.
+Mounted Comments and Activity queries refetch after the last concurrent write.
 `useArtifactActivity(projectId, artifactId, { limit?, cursor?, enabled? })`
 returns one activity page. Both hooks poll every 10 seconds while mounted and
-visible. A missing project or Artifact id disables reads.
+visible. A missing project or Artifact id disables reads. Comment reads never
+retry a 4xx and retry another 5xx once.
 
 `getArtifactCommentContext(projectId, artifactId, { version?, agent? })` returns
 the current action permissions, literal mention insertion tokens, eligible
 `send_thread_ids` (at most 100), the total eligible `send_thread_count`, and
-the proposed session or new-session target. Hosts show the bounded batch
+the proposed session or new-session target. When the project's agent manifest
+cannot be read, the context still answers: `agents` is empty, `send_target` is
+null and `agents_unavailable` is true. People keep commenting; an explicit
+`@agent.` mention is refused until the manifest reads again. Hosts show the bounded batch
 and total when more threads remain. A successful Send refreshes the next batch.
 Hosts use
 that response to label Send before it runs. They do not infer the target from
@@ -1225,6 +1239,40 @@ only the HTTP error message, `getRetryMessage(status)` still returns the full
 gateway composite. That message includes the request ID and each candidate's
 provider, resolved model, HTTP status, code, and bounded message.
 
+### Files storage limits
+
+A project's Files and an account's Files have limits: what one project
+holds, what all the account's projects hold together, the largest one file,
+and the largest folder a session mounts. The plan sets them; the storage
+behind Kortix has its own below them. Read them before an upload, and read a
+refusal as one typed value:
+
+```ts
+import { getDriveUsage, getAccountStorageUsage, uploadDriveFile, driveLimitRefusal } from "@kortix/sdk";
+
+const usage = await getDriveUsage(driveId);
+// usage.usedBytes, usage.limits.{projectBytes, accountBytes, fileBytes, folderMountBytes, mountsPerSession}
+// usage.folders: each folder sessions mount, state "ok" | "near_limit" | "over_limit"
+const account = await getAccountStorageUsage(accountId); // per project; needs billing.read
+
+try {
+  await uploadDriveFile(driveId, "/Company/report.pdf", file);
+} catch (err) {
+  const refusal = driveLimitRefusal(err); // null when it is not a limit
+  if (refusal?.code === "storage_limit_exceeded") {
+    // refusal.limit: "project_bytes" | "account_bytes"; refusal.max, .used, .requested in bytes
+  }
+}
+```
+
+`DRIVE_LIMIT_CODES` lists every code: `storage_limit_exceeded` (403),
+`file_too_large` and `payload_too_large` (413), `sub_path_too_large` (422, a
+write that takes a folder sessions mount past the folder-mount cap),
+`transfer_limit_exceeded` (429, storage is busy: `uploadDriveFile` sends a
+refused block again by itself) and `quota_exceeded` (403, the storage behind
+Kortix is at capacity). React: `useDriveUsage(driveId)` and
+`useAccountStorageUsage(accountId)` from `@kortix/sdk/react`.
+
 ## Entry points
 
 **There are nine stable entries, plus one internal.** Everything framework-free
@@ -1298,12 +1346,14 @@ interface KortixPlatformConfig {
 
 `onNotify` receives the session events a host shows as notifications:
 `task-complete` (`sessionTitle`), `session-error` (`errorTitle`), `question`
-(`questionText`) and `permission` (`toolName`), each with `sessionId`.
+(`questionText`) and `permission` (`toolName`), each with `sessionId`, and with
+`projectId` when the SDK knows the session's project. A host uses that
+`projectId`, not its current route: the route may already show another project.
 `useSession` raises them from its event stream. When its view unmounts with a
-turn still running, a watch follows the turn on the session's control stream
-(`kortix.control.turn`; `GET …/turn` while the stream is down) and raises
-`task-complete` or `session-error` itself, with `projectId`; `task-complete`
-also carries `watchedSinceMs`, the watch's start in `Date.now()`. Mounting the
+turn still running, a watch reads `GET …/turn` until the turn ends and raises
+`task-complete` or `session-error` itself. A browser throttles the timers of a
+hidden window, so the end can arrive late there. `task-complete` also carries
+`watchedSinceMs`, the watch's start in `Date.now()`. Mounting the
 view again ends the watch. Without `onNotify`, no watch runs. See
 `src/core/session/turn-end-watch.ts`.
 

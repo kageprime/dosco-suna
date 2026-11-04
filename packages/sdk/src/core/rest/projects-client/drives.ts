@@ -12,6 +12,13 @@ import { stripTrailingSlashes } from '../../../platform/strings';
 
 export type FolderLevel = 'read' | 'write' | 'manage';
 export type FolderAccess = 'none' | FolderLevel;
+/**
+ * Who a folder grant names. A grant anyone makes names an `agent` (a shared
+ * Drive added to it, with `shared_drives` on): a person reaches it through an
+ * agent they may use. `user` and `group` are only Kortix's own grants (a
+ * person's folder, a private channel's members). `project` is never returned
+ * or accepted since 2026-11-03 (kept so existing code compiles).
+ */
 export type FolderPrincipalType = 'user' | 'group' | 'agent' | 'project';
 
 export interface Drive {
@@ -33,8 +40,138 @@ export interface Drive {
   personalFolder: string | null;
   /** "(conflict ...)" copies in folders the caller can see that nobody resolved or dismissed yet. */
   openConflicts?: number;
-  /** Folders other people shared with the caller, outside their own folder. */
+  /** The shared Drives the caller reaches through an agent they may use; empty while `shared_drives` is off. */
   sharedWithMe?: Array<{ path: string; access: FolderAccess }>;
+  /** The project's `shared_drives` flag: off, Drive is My files only. Absent from an API older than 2026-11-03. */
+  sharedDrives?: boolean;
+}
+
+/**
+ * The limits a project's Files answer to (`GET /drives/:driveId/usage`).
+ * `null` = no Kortix limit (a self-hosted install without billing); the
+ * storage behind it still has its own.
+ */
+export interface DriveLimits {
+  /** What this project's Files may hold. */
+  projectBytes: number | null;
+  /** What all the account's projects' Files may hold together. */
+  accountBytes: number | null;
+  /** The largest one file. */
+  fileBytes: number;
+  /** One raw upload request; {@link uploadDriveFile} sends a larger file in blocks. */
+  requestBytes: number;
+  /** The largest folder a session mounts. A larger folder stays out of sessions. */
+  folderMountBytes: number;
+  /** Folders one session mounts at most. */
+  mountsPerSession: number;
+}
+
+/** A folder sessions mount, against {@link DriveLimits.folderMountBytes}. */
+export interface DriveFolderUsage {
+  path: string;
+  bytes: number;
+  /** False when storage stopped before the end of the folder: `bytes` is then a floor. */
+  complete: boolean;
+  /** `near_limit` from 80 % of the folder-mount cap; `over_limit` past it: sessions cannot mount it. */
+  state: 'ok' | 'near_limit' | 'over_limit';
+}
+
+/** What a project's Files hold, against their limits. */
+export interface DriveUsage {
+  driveId: string;
+  projectId: string;
+  /** Null when storage could not say. */
+  usedBytes: number | null;
+  fileCount: number | null;
+  limits: DriveLimits;
+  /** The account's Files across its projects, when the account has a limit. */
+  account: { usedBytes: number; limitBytes: number; complete: boolean } | null;
+  /** The folders the caller can see that sessions mount. */
+  folders: DriveFolderUsage[];
+}
+
+/** One project's Files in {@link AccountStorageUsage}. */
+export interface AccountStorageProject {
+  projectId: string;
+  name: string;
+  driveId: string;
+  /** Null when storage could not say. */
+  usedBytes: number | null;
+  fileCount: number | null;
+}
+
+/** What an account's Files hold, per project, against the plan's limits. */
+export interface AccountStorageUsage {
+  accountId: string;
+  usedBytes: number;
+  /** False when storage could not say what some project holds. */
+  complete: boolean;
+  limits: DriveLimits;
+  /** Largest first. */
+  projects: AccountStorageProject[];
+}
+
+/**
+ * The `code` of every refusal of a Files limit. Each comes with the limit it
+ * names and its numbers ({@link DriveLimitRefusal}):
+ * - `storage_limit_exceeded` (403): the project's or the account's Files are full.
+ * - `file_too_large` (413): one file over {@link DriveLimits.fileBytes}.
+ * - `payload_too_large` (413): one request body over its cap.
+ * - `sub_path_too_large` (422): a write that takes a folder sessions mount past the folder-mount cap.
+ * - `transfer_limit_exceeded` (429): storage is busy; send again after `Retry-After`.
+ * - `quota_exceeded` (403): the storage behind Kortix is at capacity.
+ */
+export const DRIVE_LIMIT_CODES = [
+  'storage_limit_exceeded',
+  'file_too_large',
+  'payload_too_large',
+  'sub_path_too_large',
+  'transfer_limit_exceeded',
+  'quota_exceeded',
+] as const;
+
+export type DriveLimitCode = (typeof DRIVE_LIMIT_CODES)[number];
+
+/** A refused Files write, read off its error: which limit, and the numbers the server sent. */
+export interface DriveLimitRefusal {
+  code: DriveLimitCode;
+  status?: number;
+  /** The limit: `project_bytes`, `account_bytes`, `file_bytes`, `request_bytes`, `sub_path_bytes`, `volume_bytes`, `transfer_bytes`. */
+  limit?: string;
+  max?: number;
+  used?: number;
+  requested?: number;
+  /** The folder a `sub_path_too_large` is about. */
+  path?: string;
+  /** The server's sentence for people. */
+  message: string;
+}
+
+const LIMIT_CODES: ReadonlySet<string> = new Set(DRIVE_LIMIT_CODES);
+
+/**
+ * The limit refusal an error carries, or `null` when it is not one. Reads the
+ * `code` off an {@link ApiError} (or any error with one) and the numbers off
+ * its response body. A number the server did not send is left out.
+ */
+export function driveLimitRefusal(error: unknown): DriveLimitRefusal | null {
+  if (!error || typeof error !== 'object') return null;
+  const code = (error as { code?: unknown }).code;
+  if (typeof code !== 'string' || !LIMIT_CODES.has(code)) return null;
+  const e = error as { status?: unknown; message?: unknown; details?: unknown; data?: unknown };
+  const raw = e.details ?? e.data;
+  const body = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const num = (key: string) => (typeof body[key] === 'number' && Number.isFinite(body[key]) ? { [key]: body[key] as number } : {});
+  return {
+    code: code as DriveLimitCode,
+    ...(typeof e.status === 'number' ? { status: e.status } : {}),
+    ...(typeof body.limit === 'string' ? { limit: body.limit } : {}),
+    ...(typeof body.path === 'string' ? { path: body.path } : {}),
+    ...num('max'),
+    ...num('used'),
+    ...num('requested'),
+    message: typeof e.message === 'string' ? e.message : '',
+  };
 }
 
 export interface DriveEntry {
@@ -82,14 +219,14 @@ export interface FolderAccessView {
 
 /** One folder a new session of an agent mounts (`listAgentMounts`). */
 export interface AgentMount {
-  /** The Files folder, e.g. `/Company/Reports`. */
+  /** The Files folder, e.g. `/Sales`. */
   path: string;
-  /** Where a session sees it, e.g. `/drives/Company/Reports`. */
+  /** Where a session sees it, e.g. `/drives/sales`. */
   mountPath: string;
   readOnly: boolean;
-  /** `agent`: shared with the agent. `project`: shared with everyone in the project. */
+  /** `agent`: a shared Drive added to the agent. `project`: only from an API older than 2026-11-03. */
   via: 'agent' | 'project';
-  /** The agent's own grant on the folder, to change or remove. Absent when it comes through the project. */
+  /** The agent's grant on the folder, to change or remove. */
   grantId?: string;
   level: FolderLevel;
 }
@@ -134,8 +271,22 @@ export interface SessionDrives {
   drives: SessionDrive[];
   /** The session is its owner's own (private, started by them): their folder mounts in it. */
   personal: boolean;
-  /** Folders the session should have that did not fit in its sandbox's mount slots. */
-  skipped?: Array<{ driveId: string; name: string }>;
+  /**
+   * Folders the session should have that its sandbox does not mount. `reason`:
+   * absent = past its mount slots; `region` / `moving` = the files live, or
+   * were moving, elsewhere; `unavailable` = storage refused the mount when the
+   * sandbox started, and it mounts as soon as storage can; `too_large` = the
+   * folder is larger than a folder mount allows. `detail` is storage's reason.
+   */
+  skipped?: Array<{
+    driveId: string;
+    name: string;
+    reason?: 'region' | 'moving' | 'unavailable' | 'too_large';
+    detail?: string;
+    /** For `too_large`: what the folder holds, and the largest folder a session mounts. */
+    bytes?: number;
+    maxBytes?: number;
+  }>;
   /** What to tell people about `skipped`, or null when every folder fit. */
   skippedMessage?: string | null;
 }
@@ -166,6 +317,39 @@ export async function getFolderAccess(driveId: string, path: string): Promise<Fo
   );
 }
 
+/** One project admin's opens of a person's own folder on one UTC day. */
+export interface DriveAdminRead {
+  adminUserId: string;
+  /** The admin's name or email, as the folder's sharing shows people. */
+  label: string;
+  /** `YYYY-MM-DD`, UTC. */
+  day: string;
+  firstAt: string;
+  lastAt: string;
+  opens: number;
+}
+
+/** Who opened a person's own folder as a project admin: `folder` is null for a path in no one's own folder. */
+export interface DriveAdminReads {
+  folder: string | null;
+  reads: DriveAdminRead[];
+}
+
+/**
+ * The project admins who opened the person's own folder that holds `path`
+ * (`/Users/<name>`), per day, over the last 90 days, newest first. Project
+ * admins may open every person's own folder; each open is recorded. Only the
+ * folder's owner and the project's admins may read it.
+ */
+export async function getDriveAdminReads(driveId: string, path: string): Promise<DriveAdminReads> {
+  return unwrap(
+    await backendApi.get<DriveAdminReads>(`${drivePath(driveId)}/admin-reads?${new URLSearchParams({ path })}`, {
+      showErrors: false,
+    }),
+    'Failed to load admin opens',
+  );
+}
+
 /**
  * The Files folders a new session of an agent mounts, where, and read-only
  * or not: the folders shared with the agent and with everyone in the
@@ -180,9 +364,8 @@ export async function listAgentMounts(driveId: string, agentName: string): Promi
 }
 
 /**
- * The Files folders every new session of the project mounts: the ones shared
- * with everyone in the project. `grantId` is the project grant to change or
- * remove; the folders Kortix made (Company) carry none.
+ * @deprecated Always empty since 2026-11-03: nothing mounts in every session
+ * of the project. Read an agent's plan with {@link listAgentMounts}.
  */
 export async function listProjectMounts(driveId: string): Promise<AgentMountPlan> {
   return unwrap(await backendApi.get<AgentMountPlan>(`${drivePath(driveId)}/mounts`), 'Failed to load mounts');
@@ -483,6 +666,8 @@ async function uploadWithProgress(
           status: xhr.status,
           code: parsed?.code,
           url,
+          // The body, as `fetch` errors carry it: a limit refusal's numbers (driveLimitRefusal).
+          ...(parsed ? { details: parsed } : {}),
         }),
       );
     };
@@ -541,6 +726,20 @@ export async function restoreDriveVersion(driveId: string, versionId: string): P
 
 const sessionDrivesPath = (projectId: string, sessionId: string) =>
   `/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/drives`;
+
+/** What the project's Files hold, their limits, and each folder sessions mount against the folder-mount cap. */
+export async function getDriveUsage(driveId: string): Promise<DriveUsage> {
+  return unwrap(await backendApi.get<DriveUsage>(`${drivePath(driveId)}/usage`, { showErrors: false }), 'Failed to load storage');
+}
+
+/**
+ * What an account's Files hold, per project, against the plan's limits. Needs
+ * `billing.read` on the account; without `accountId`, the caller's own.
+ */
+export async function getAccountStorageUsage(accountId?: string): Promise<AccountStorageUsage> {
+  const query = accountId ? `?${new URLSearchParams({ account_id: accountId })}` : '';
+  return unwrap(await backendApi.get<AccountStorageUsage>(`/drives/usage${query}`, { showErrors: false }), 'Failed to load storage');
+}
 
 /** The folders the session's current sandbox mounts, and where. */
 export async function listSessionDrives(projectId: string, sessionId: string): Promise<SessionDrive[]> {

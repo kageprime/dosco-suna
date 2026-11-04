@@ -13,7 +13,6 @@
  * (`/v1/git/<project>.git`) with an OWNER PAT, the way `kortix ship` pushes.
  */
 import { subscribe } from '../fixtures/billing';
-import { setFeatureAsOperator } from '../fixtures/feature-flags';
 import { flow, harnessFlow } from '../core/flow';
 import { sleep, waitFor } from '../core/poll';
 import type { CreatedProject, FlowContext, Harness, TeamFixture } from '../core/types';
@@ -127,13 +126,6 @@ interface Fixture {
   openRepo(projectId: string): Promise<ProjectRepo>;
   /** `GET .../sessions/:sessionId/config` as the project owner. */
   configState(sessionId: string): Promise<{ status: number; body: any }>;
-  /**
-   * The legacy `meta_agent` switch, through the operator write path (the flag
-   * is catalogHidden). `true` opts in, `false` opts out, `null` clears the
-   * override and returns the project to the platform default, ON
-   * (`apps/api/src/feature-flags/registry.ts`).
-   */
-  setFeature(enabled: boolean | null, feature: 'meta_agent'): Promise<void>;
   /**
    * Write a `config_releases` value straight into the project's stored flag
    * overrides, as a project that chose one before config releases graduated
@@ -420,10 +412,6 @@ async function setup(ctx: FlowContext): Promise<Fixture> {
     },
     commit(files, message) {
       return commitTo(repo, files, message);
-    },
-    async setFeature(enabled, feature) {
-      // `meta_agent` is operator-only (catalogHidden): kortix.yaml `builtin_agents` is the project switch.
-      await setFeatureAsOperator(ctx, project.id, feature, enabled);
     },
     async storeRetiredConfigReleasesFlag(enabled) {
       await db.query(
@@ -2241,11 +2229,10 @@ flow(
         await subscribe(ctx.env, ctx.client.as(ctx.P.OWNER), fixture.team.id);
       });
 
-      await ctx.step('the project opts into `meta_agent`, and its config holds a tool with a dependency', async () => {
-        await fixture.setFeature(true, 'meta_agent');
+      await ctx.step('the project runs My Kortix as its default agent (builtin_agents.my_kortix: true, default_agent: mykortix), and its config holds a tool with a dependency', async () => {
         await fixture.commit(
           {
-            'kortix.yaml': MANIFEST.replace('agents:\n', 'tools:\n  needs_dep: tools/needs_dep.ts\nagents:\n'),
+            'kortix.yaml': MANIFEST.replace('default_agent: kortix\n', 'default_agent: mykortix\n').replace('agents:\n', 'builtin_agents:\n  my_kortix: true\ntools:\n  needs_dep: tools/needs_dep.ts\nagents:\n'),
             'tools/needs_dep.ts': DEPENDENT_TOOL('one'),
           },
           'a tool that imports a dependency',
@@ -2378,15 +2365,43 @@ flow(
         if (r.status !== 413) throw new Error(`expected 413, got ${r.status}`);
       });
 
-      await ctx.step('back under the cap, v2 and v3 assign the same release, and both carry the archive', async () => {
-        await commitTo(fixture.repo, {}, 'back under the cap', ['data']);
+      await ctx.step('a new tip that keeps the oversized blobs preserves v2 fallback and a distinct v3 release', async () => {
+        const memoTip = await fixture.commit({ 'notes.md': 'The large file remains.\n' }, 'keep oversized data');
         const v2r = await fixture.descriptor(own.secret, own.sessionId);
         const v3r = await fixture.descriptor(own.secret, own.sessionId, V3);
         if (v2r.status !== 200 || v3r.status !== 200) throw new Error(`statuses ${v2r.status}/${v3r.status}`);
-        if (!HEX64.test(v2r.body.release_id ?? '') || v2r.body.release_id !== v3r.body.release_id) {
-          throw new Error(`v2 ${v2r.body.release_id} and v3 ${v3r.body.release_id} disagree`);
+        if (v2r.body.release_id !== null || v2r.body.files !== null || v2r.body.archive !== null) {
+          throw new Error('v2 assigned a release while the oversized blobs remain');
         }
-        if (!v2r.body.archive || !v3r.body.archive) throw new Error('a release under the cap has no archive');
+        if (!v2r.body.reason?.includes('exceeds the 33554432-byte config archive limit')) {
+          throw new Error(`v2 reason ${v2r.body.reason}`);
+        }
+        const memo: Descriptor = v3r.body;
+        if (memo.source_commit !== memoTip || memo.release_id !== (await releaseIdOf(memo)) || memo.release_id === v3.release_id) {
+          throw new Error('v3 did not assign the changed oversized tree its own release');
+        }
+        if (memo.archive !== null || memo.reason !== null) throw new Error('v3 did not preserve the archive fallback');
+        if (!memo.files?.some(([path]) => path === 'data/large.bin')) throw new Error('v3 lost the oversized file');
+      });
+
+      await ctx.step('dropping oversized blobs restores both descriptors and the smaller tree archive immediately', async () => {
+        const smallTip = await commitTo(fixture.repo, {}, 'back under the cap', ['data']);
+        const v2r = await fixture.descriptor(own.secret, own.sessionId);
+        const v3r = await fixture.descriptor(own.secret, own.sessionId, V3);
+        if (v2r.status !== 200 || v3r.status !== 200) throw new Error(`statuses ${v2r.status}/${v3r.status}`);
+        const small: Descriptor = v3r.body;
+        if (small.source_commit !== smallTip || !HEX40.test(small.config_tree_id ?? '') ||
+            small.release_id !== (await releaseIdOf(small)) || small.release_id === v3.release_id ||
+            small.release_id !== v2r.body.release_id) {
+          throw new Error('v2 and v3 did not assign the smaller tree its distinct release');
+        }
+        if (!v2r.body.archive || !small.archive || small.reason !== null) throw new Error('the smaller tree has no archive');
+        if (!small.files?.some(([path]) => path === 'agents/kortix.md') || small.files.some(([path]) => path.startsWith('data/'))) {
+          throw new Error('v3 does not list the smaller tree');
+        }
+        if (!small.config_tree_id) throw new Error('the smaller tree has no tree ID');
+        const archive = await fixture.download(own.secret, small.config_tree_id);
+        if (archive.status !== 200 || archive.bytes.byteLength === 0) throw new Error(`explicit small-tree archive: ${archive.status}`);
       });
     } finally {
       await fixture.cleanup();

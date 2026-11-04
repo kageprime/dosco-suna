@@ -12,9 +12,10 @@
  *   anything else   → the core: a follow-up into the chat's session, or a new
  *                     project-visible session bound to the chat; the message's own
  *                     file (photo, document, audio, voice, video) goes with it
- *   a button press  → a command button (`kc:`) on a menu Dosco sent runs its command
+ *   a button press  → a command button (`kc:`) on a menu Kortix sent runs its command
  *                     over the pressed message (core/commands.ts `runCommandPress`); a
- *                     question button answers the agent's question (core/questions.ts)
+ *                     question button answers the agent's question (core/questions.ts),
+ *                     one question at a time; so does a message typed while one shows
  *
  * The agent answers through the `kortix_telegram` connector (connectors/channels.ts);
  * the bot token never enters the sandbox.
@@ -33,15 +34,18 @@ import { gateSender, refusedPressText } from '../core/channel-access';
 import { CHANNEL_COMMANDS, parseChannelCommand } from '../core/command-list';
 import { type CommandPress, isCommandPressData, pressData } from '../core/command-press';
 import { type CommandReply, rememberCommandMenu, runChannelCommand, runCommandPress } from '../core/commands';
-import { type ChannelNotice, type ChannelPort, type ChannelTarget, routeChannelMessage } from '../core/conversation';
+import { type ChannelMessage, type ChannelNotice, type ChannelPort, type ChannelTarget, routeChannelMessage } from '../core/conversation';
 import { chatSessionStart, chatTurnModel } from '../core/model-choice';
 import { connectorReply } from '../core/prompt';
 import {
+  answerQuestionInChat,
   clearQuestionButtons,
   handleQuestionTap,
   type QuestionFooter,
   type QuestionMessage,
   type QuestionPort,
+  type QuestionTapReply,
+  questionPicksSoFar,
 } from '../core/questions';
 import { registerSessionPort } from '../core/session-notice';
 import type { SettingsChannel } from '../core/settings';
@@ -79,7 +83,7 @@ export interface TelegramMessage {
   media_group_id?: string;
 }
 
-/** Each kind of file, in the order read: Dosco's word for it (also the session-view label) and the type Telegram leaves out. */
+/** Each kind of file, in the order read: Kortix's word for it (also the session-view label) and the type Telegram leaves out. */
 const TELEGRAM_FILE_KINDS = [
   { kind: 'photo', noun: 'photo', mime: 'image/jpeg' },
   { kind: 'document', noun: 'document', mime: 'application/octet-stream' },
@@ -127,7 +131,7 @@ function telegramText(message: TelegramMessage): string {
 export interface TelegramCallbackQuery {
   id: string;
   from: { id: number; username?: string };
-  /** The message with the button. Absent for an inline-mode message, which Dosco never sends. */
+  /** The message with the button. Absent for an inline-mode message, which Kortix never sends. */
   message?: Pick<TelegramMessage, 'message_id' | 'chat' | 'message_thread_id' | 'is_topic_message'>;
   data?: string;
 }
@@ -206,7 +210,7 @@ export function telegramPressEvent(projectId: string, botId: string, update: Tel
   };
 }
 
-/** One tap per option up to this many (Teams parity, teams/cards.ts); more is a numbered list. */
+/** Option buttons on one page (Teams parity, teams/cards.ts); more options turn pages. */
 const MAX_BUTTONS = CHANNELS.telegram.buttons.max;
 /** 3900: of the 4096 characters a message holds, the footer gets 190, the blank line 2, and 4 stay spare. */
 const QUESTION_BODY_MAX = CHANNELS.telegram.messageChars - 196;
@@ -219,12 +223,19 @@ function clip(text: string, max: number): string {
   return /[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut;
 }
 
-/** Questions as chat text: each question with its numbered options, then the footer. */
-export function telegramQuestionText(questions: RuntimeQuestion[], footer: string): string {
+/**
+ * Questions as chat text: each question with its numbered options, then the
+ * footer. `step`: one question of several, under "Question <at> of <count>".
+ */
+export function telegramQuestionText(questions: RuntimeQuestion[], footer: string, step?: QuestionMessage['step']): string {
+  const title = (q: RuntimeQuestion, i: number) =>
+    step
+      ? `Question ${step.at} of ${step.count}${q.header ? ` · ${q.header}` : ''}\n${q.question}`
+      : `${questions.length > 1 ? `${i + 1}) ` : ''}${q.header ? `${q.header}: ` : ''}${q.question}`;
   const body = questions
     .map((q, i) =>
       [
-        `${questions.length > 1 ? `${i + 1}) ` : ''}${q.header ? `${q.header}: ` : ''}${q.question}${q.multiple ? ' (pick one or more)' : ''}`,
+        `${title(q, i)}${q.multiple ? ' (pick one or more)' : ''}`,
         ...q.options.map((o, j) => `${j + 1}. ${o.label}${o.description ? ` — ${o.description}` : ''}`),
       ].join('\n'),
     )
@@ -233,12 +244,18 @@ export function telegramQuestionText(questions: RuntimeQuestion[], footer: strin
 }
 
 /** A question message's last line; a tap's toast uses the same words. */
-function questionFooter(footer: QuestionFooter): string {
+function questionFooter(footer: QuestionFooter | QuestionTapReply): string {
   switch (footer.kind) {
     case 'ask':
       return footer.buttons
         ? 'Tap an option, or reply to this message with your own answer.'
         : `Reply to this message with your answer${footer.numbered ? ', each question by its number' : ''}.`;
+    case 'step':
+      return `${footer.many ? 'Tap each option you want, then Done' : 'Tap an option'}${footer.typed ? ', or type your own answer' : ''}.`;
+    case 'already_answered':
+      return 'This question was already answered.';
+    case 'none_ticked':
+      return 'Tap at least one option first.';
     case 'answered':
       return `Answered: ${footer.label}`;
     case 'answered_in_chat':
@@ -251,9 +268,18 @@ function questionFooter(footer: QuestionFooter): string {
 }
 
 const questionMessageText = (m: QuestionMessage) =>
-  m.questions.length ? telegramQuestionText(m.questions, questionFooter(m.footer)) : questionFooter(m.footer);
+  m.questions.length ? telegramQuestionText(m.questions, questionFooter(m.footer), m.step) : questionFooter(m.footer);
 
-const inlineKeyboard = (m: QuestionMessage) => (m.buttons ?? []).map((b) => [{ text: clip(b.label, 60), callback_data: b.data }]);
+/** One option a row, ✓ on a ticked one; then the page turns; then Done. */
+function inlineKeyboard(m: QuestionMessage): InlineButton[][] {
+  const button = (text: string, data: string): InlineButton => ({ text: clip(text, 60), callback_data: data });
+  const turn = [...(m.back ? [button('‹ Back', m.back)] : []), ...(m.more ? [button('More ›', m.more)] : [])];
+  return [
+    ...(m.buttons ?? []).map((b) => [button(`${b.ticked ? '✓ ' : ''}${b.label}`, b.data)]),
+    ...(turn.length ? [turn] : []),
+    ...(m.done ? [[button('Done ›', m.done)]] : []),
+  ];
+}
 
 /** The question as the agent would send it with `send_message`. */
 function questionBody(target: ChannelTarget, m: QuestionMessage): Record<string, unknown> {
@@ -284,15 +310,16 @@ async function botToken(projectId: string): Promise<string> {
 
 /**
  * The agent's questions (core/questions.ts), posted as the agent would post
- * them with `send_message`. A bot that cannot take presses gets a numbered list
- * to reply to. A message ref is the Telegram message id.
+ * them with `send_message`. A bot connected before buttons is subscribed to
+ * presses first, once, as before its first menu; one that cannot be gets a
+ * numbered list to reply to. A message ref is the Telegram message id.
  */
 const telegramQuestions: QuestionPort = {
   maxButtons: MAX_BUTTONS,
   agentCall: (target, m) => ({ slug: TELEGRAM_CHANNEL_CONNECTOR_SLUG, actionPath: 'send_message', args: questionBody(target, m) }),
   async tapsReady(target) {
     const token = await loadTelegramBotToken(target.projectId);
-    return !!token && subscribeToButtons(token, target.projectId);
+    return !!token && ensureTelegramButtons(token, target.projectId, target.workspaceId);
   },
   async send(target, m) {
     const sent = await telegramCall<{ message_id: number }>(await botToken(target.projectId), 'sendMessage', questionBody(target, m));
@@ -304,7 +331,11 @@ const telegramQuestions: QuestionPort = {
     const token = await botToken(target.projectId);
     await (m
       ? telegramCall(token, 'editMessageText', { ...message, text: questionMessageText(m), reply_markup: { inline_keyboard: inlineKeyboard(m) } })
-      : telegramCall(token, 'editMessageReplyMarkup', { ...message, reply_markup: { inline_keyboard: [] } }));
+      : telegramCall(token, 'editMessageReplyMarkup', { ...message, reply_markup: { inline_keyboard: [] } })
+    ).catch((error) => {
+      // A redraw of what the message already shows (a tap on an answered step).
+      if (!String(error).includes('message is not modified')) throw error;
+    });
   },
   async answerTap(tap, reply) {
     const token = await loadTelegramBotToken(tap.target.projectId).catch(() => null);
@@ -315,14 +346,14 @@ const telegramQuestions: QuestionPort = {
 
 /** Plain-text next step per `classifyTurnError` title (slack/errors.ts). Another title ('Run failed') gets the fallback. */
 const RUN_ERROR_ADVICE: Partial<Record<string, string>> = {
-  'Out of credits': 'A workspace admin can top up credits in Dosco. Then send your message again.',
-  'Usage limit reached': 'Wait, then send your message again. A project admin can also pick another model in Dosco.',
+  'Out of credits': 'A workspace admin can top up credits in Kortix. Then send your message again.',
+  'Usage limit reached': 'Wait, then send your message again. A project admin can also pick another model in Kortix.',
   'Response too long': 'Ask the agent to continue, or narrow the request.',
   'Conversation too long': 'Send /new to start a new conversation.',
-  'Agent unavailable': 'Send /agent to pick another agent, then /new and your message again. A project admin can also fix the agent in Dosco.',
+  'Agent unavailable': 'Send /agent to pick another agent, then /new and your message again. A project admin can also fix the agent in Kortix.',
   'Model unavailable': 'Send /model to pick another model, then send your message again.',
-  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Dosco. Then send your message again.',
-  'Provider rejected the request': 'A workspace admin can check the model provider settings in Dosco. Then send your message again.',
+  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Kortix. Then send your message again.',
+  'Provider rejected the request': 'A workspace admin can check the model provider settings in Kortix. Then send your message again.',
   'Provider unavailable': 'Send your message again to retry.',
   'Request blocked': 'Rephrase the request, then send it again.',
 };
@@ -374,33 +405,33 @@ async function subscribeToButtons(token: string, projectId: string): Promise<boo
 export function telegramNotice(target: ChannelTarget, notice: ChannelNotice): string | null {
   switch (notice.kind) {
     case 'create_pending':
-      return 'Dosco is still starting a session for this chat. The agent replies here when it is ready.';
+      return 'Kortix is still starting a session for this chat. The agent replies here when it is ready.';
     case 'create_in_flight':
-      return 'Dosco is still starting a session for this chat. Send your message again in a minute.';
+      return 'Kortix is still starting a session for this chat. Send your message again in a minute.';
     case 'create_failed':
       return startErrorMessage(notice.error.status, notice.error.body, TELEGRAM_START_ERROR_COMMANDS);
     case 'follow_up_failed':
-      return "This chat's Dosco session cannot take new messages. Send /new to start a new conversation, then send your message again.";
+      return "This chat's Kortix session cannot take new messages. Send /new to start a new conversation, then send your message again.";
     case 'run_failed': {
       const { title, aborted } = classifyTurnError(notice.error);
       // A stop is not a failure; the push skips it too (notifications/session-push.ts).
       if (aborted) return null;
       // The title comes from a closed set: the provider's own message never reaches the chat.
       return [
-        `Dosco could not finish this run: ${title}.`,
+        `Kortix could not finish this run: ${title}.`,
         RUN_ERROR_ADVICE[title] ?? RUN_ERROR_FALLBACK_ADVICE,
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
     }
     case 'start_retrying':
       return [
-        `Dosco could not start this chat's session yet. ${notice.reason}`,
-        'Dosco tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
+        `Kortix could not start this chat's session yet. ${notice.reason}`,
+        'Kortix tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
       ].join('\n');
     case 'start_failed':
       return [
-        `Dosco could not start this chat's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
-        'Send /new, then send your message again. If it fails again, a project admin can check the session in Dosco.',
+        `Kortix could not start this chat's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
+        'Send /new, then send your message again. If it fails again, a project admin can check the session in Kortix.',
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
   }
@@ -467,7 +498,14 @@ export async function handleTelegramEvent(
     );
     return;
   }
-  await clearQuestionButtons(telegramQuestions, target, 'answered_in_chat');
+  // A question shown one at a time takes a typed answer; a message with a file is never one.
+  if (!file && (await answerQuestionInChat(telegramPort, target, { id: `message:${event.id}`, text }, answerFollowUp(event, install.botId, message, message.from), run))) {
+    return;
+  }
+  // The message carries the answers given so far on a question it ends. Read
+  // before it routes and cleared after, so a retry carries them again.
+  const picks = await questionPicksSoFar(target);
+  const envelope = telegramEnvelope(message);
 
   await telegramCall(token, 'sendChatAction', {
     chat_id: message.chat.id,
@@ -484,7 +522,7 @@ export async function handleTelegramEvent(
         create: `telegram:create:${install.botId}:${event.id}`,
         createClaim,
       },
-      followUp: telegramEnvelope(message),
+      followUp: picks ? { ...envelope, text: `${picks}\n\n${envelope.text}` } : envelope,
       files: file
         ? [{
             kind: file.kind,
@@ -500,7 +538,7 @@ export async function handleTelegramEvent(
           return { agentName: 'default' } as Awaited<ReturnType<typeof chatSessionStart>>;
         });
         if (start.unavailableModel) {
-          await reply(`Dosco did not send your message: this chat's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.`);
+          await reply(`Kortix did not send your message: this chat's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.`);
           return null;
         }
         return {
@@ -521,12 +559,14 @@ export async function handleTelegramEvent(
               message_id: message.message_id,
             },
           },
-          prompt: telegramEnvelope(message),
+          // A new session never asked the questions: the message alone.
+          prompt: envelope,
         };
       },
     },
     run,
   );
+  await clearQuestionButtons(telegramQuestions, target, 'answered_in_chat');
 }
 
 /**
@@ -550,7 +590,7 @@ export async function handleTelegramPress(
     return;
   }
   const message = press.message;
-  // No message to answer in (an inline-mode press, which Dosco never asks for).
+  // No message to answer in (an inline-mode press, which Kortix never asks for).
   if (!message) return void (await answerPress(token, press.id));
   if (isCommandPressData(press.data ?? '')) return handleTelegramCommandPress(event, install.botId, token, press, message);
   const ref = String(message.message_id);
@@ -562,26 +602,36 @@ export async function handleTelegramPress(
       data: press.data ?? '',
       id: press.id,
     },
-    (threadId, answer) => {
-      const [, topicId] = threadId.split(':');
-      const reply: TelegramMessage = {
-        message_id: message.message_id,
-        chat: message.chat,
-        from: press.from,
-        text: answer,
-        ...(topicId ? { is_topic_message: true, message_thread_id: Number(topicId) } : {}),
-      };
-      return {
-        keys: {
-          followUp: `telegram:${install.botId}:${event.id}`,
-          create: `telegram:create:${install.botId}:${event.id}`,
-          createClaim: `telegram:threadcreate:${event.projectId}:${install.botId}:${threadId}`,
-        },
-        followUp: telegramEnvelope(reply),
-      };
-    },
+    answerFollowUp(event, install.botId, message, press.from),
     run,
   );
+}
+
+/** An answer to the agent's question, as a follow-up under the key of the update (a press or a typed message) that gave it. */
+function answerFollowUp(
+  event: IntegrationEvent,
+  botId: string,
+  message: Pick<TelegramMessage, 'message_id' | 'chat'>,
+  from: TelegramMessage['from'],
+): (threadId: string, answer: string) => Pick<ChannelMessage, 'keys' | 'followUp'> {
+  return (threadId, answer) => {
+    const [, topicId] = threadId.split(':');
+    const reply: TelegramMessage = {
+      message_id: message.message_id,
+      chat: message.chat,
+      from,
+      text: answer,
+      ...(topicId ? { is_topic_message: true, message_thread_id: Number(topicId) } : {}),
+    };
+    return {
+      keys: {
+        followUp: `telegram:${botId}:${event.id}`,
+        create: `telegram:create:${botId}:${event.id}`,
+        createClaim: `telegram:threadcreate:${event.projectId}:${botId}:${threadId}`,
+      },
+      followUp: telegramEnvelope(reply),
+    };
+  };
 }
 
 /** A tap on a command button: the core runs it in the pressed message's chat and topic (core/commands.ts `runCommandPress`). */
@@ -681,23 +731,26 @@ function telegramCommandMessage(reply: CommandReply): { text: string; keyboard: 
   const actions = (reply.actions ?? []).map((a) => button(a.label, a.press));
   for (let i = 0; i < actions.length; i += 2) keyboard.push(actions.slice(i, i + 2));
   const url = 'url' in reply ? reply.url : undefined;
-  if (url && reply.kind === 'panel' && url.startsWith('https://')) keyboard.push([{ text: 'Open in Dosco', url }]);
+  if (url && reply.kind === 'panel' && url.startsWith('https://')) keyboard.push([{ text: 'Open in Kortix', url }]);
   else if (url) lines.push(url);
   return { text: reply.note ? `${lines.join('\n')}\n\n${reply.note}` : lines.join('\n'), keyboard };
 }
 
 /**
- * Once per bot: a bot connected before #10994 (2026-10-28) receives messages only
- * (`allowed_updates: ['message']`), so its buttons would never answer. Not
- * subscribed: the claim goes, and the next menu tries again.
+ * Once per bot, before its first menu or question: a bot connected before
+ * #10994 (2026-10-28) receives messages only (`allowed_updates: ['message']`),
+ * so its buttons would never answer. Not subscribed: false, the claim goes, and
+ * the next menu or question tries again.
  */
-async function ensureTelegramButtons(token: string, projectId: string, botId: string): Promise<void> {
+async function ensureTelegramButtons(token: string, projectId: string, botId: string): Promise<boolean> {
   const key = `telegram:buttons:${botId}`;
   const claim = await claimThreadCreate(key, 365 * 24 * 60 * 60_000).catch(() => null);
-  if (claim && !(await subscribeToButtons(token, projectId))) await releaseThreadCreate(key, claim).catch(() => undefined);
+  if (!claim || (await subscribeToButtons(token, projectId))) return true;
+  await releaseThreadCreate(key, claim).catch(() => undefined);
+  return false;
 }
 
-/** What the Dosco Channels page calls a chat: its title, else the @username or the first name of a private chat. */
+/** What the Kortix Channels page calls a chat: its title, else the @username or the first name of a private chat. */
 function telegramChatName(chat: TelegramMessage['chat']): string | null {
   return chat.title || (chat.username ? `@${chat.username}` : chat.first_name) || null;
 }
@@ -763,11 +816,12 @@ export function telegramEnvelope(message: TelegramMessage): ChannelEnvelope {
         ? ['This message is one item of an album. Telegram sends each item as its own message, and usually only the first carries the caption.']
         : []),
       `One message holds at most ${CHANNELS.telegram.messageChars} characters; send a longer answer as several messages.`,
-      'To let the user choose between options, call your question tool: Dosco posts it in this chat when it can, with buttons for a single choice; otherwise its result says how to ask.',
+      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Kortix shows them in this chat as buttons, one question at a time.',
+      'Never list choices or questions as plain text. Ask in plain words only when the tool result says the question could not be posted.',
       `While you work on a long task, show typing: ${connectorReply(TELEGRAM_CHANNEL_CONNECTOR_SLUG, 'send_chat_action', { chat_id: String(chat.id) })}.`,
       'For bold or code, add `"parse_mode":"HTML"` and use <b>, <i>, <code>, <pre>; otherwise send plain text.',
       'The bot token is resolved server-side. Do not look for it in the sandbox.',
-      `The next message in this chat continues this session. Dosco answers ${KORTIX_COMMANDS} in the chat itself; those commands never reach you.`,
+      `The next message in this chat continues this session. Kortix answers ${KORTIX_COMMANDS} in the chat itself; those commands never reach you.`,
     ],
   };
 }

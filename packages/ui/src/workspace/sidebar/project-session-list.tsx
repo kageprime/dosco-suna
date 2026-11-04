@@ -49,6 +49,7 @@ import {
 import { SessionsEmptyState } from '../sessions/sessions-empty-state';
 import { RenameSessionModal } from './modal/rename-session-modal';
 import { SessionDeleteModal } from '../../session/actions/session-delete-modal';
+import { subagentTitle } from '../../session/agents/agent-model';
 import { SessionLabelsModal } from './modal/session-labels-modal';
 import { ShareSessionModal } from './modal/share-session-modal';
 import {
@@ -60,7 +61,6 @@ import {
   starterSectionOf,
 } from '../../session/actions/project-session-list-helpers';
 import {
-  MobileSessionCreatedTime,
   SessionBriefDescription,
   SessionBriefCardHost,
   SessionBriefHoverCard,
@@ -154,7 +154,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useUiPathname, useUiRouter, useUiSearchParams, useUiViewerId } from '../../providers/ui-provider';
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSessionListActions } from '../../session/actions/use-session-list-actions';
 import { Separator } from '../../primitives/separator';
 
@@ -165,33 +165,19 @@ interface ProjectSessionListProps {
 const SESSION_RELATIVE_TIME_CLASS =
   'text-muted-foreground block w-10 min-w-10 max-w-10 shrink-0 truncate text-right text-xs tabular-nums';
 
-/** The same trigger on a touch device.
+/** The same trigger on a device that cannot hover (touch).
  *
- *  It cannot stay hover-revealed and absolutely positioned — there is no hover,
- *  and the glyph has to hold a real finger target. It goes `relative` (in flex
- *  flow, nothing running underneath it) and permanently visible.
+ *  A row looks the same everywhere: one line, `h-8`, at every width. A touch
+ *  row is a desktop row under the pointer: the `⋯` square sits in the same
+ *  place at the same size, it is only always visible, because a finger cannot
+ *  hover to reveal it. An unpainted `::after` grows the tap target to the row's
+ *  height without growing the square.
  *
- *  The size is split from the target on purpose. `size-12` made the button the
- *  full 44.16px of the row's own `min-h-12`, so pressing it lit a slab of
- *  `bg-sidebar-accent` spanning the entire row height — a control that reads as
- *  heavy as the row it belongs to. The square is `size-8` and an unpainted
- *  `::after` carries the touch target instead:
- *
- *    size-8            8 × 0.23rem = 29.44px   ← what you see
- *    after:-inset-2  + 2 × 7.36px   = 44.16px  ← what you can hit
- *
- *  44.16px is exactly `min-h-12`, so the target fills the row's height and not
- *  one pixel more: it can never annex a neighbouring row's right edge. Nothing
- *  in the row clips (`overflow-hidden` would drop the overflowing hit area), and
- *  `px-2` on the row is 7.36px, so the target ends flush with the row's edge.
- *
- *  All three variants are the exact complement of the hover-card gate
- *  (`min-width: 768px` AND `hover: hover` AND `pointer: fine`), which is why the
- *  same block is written narrow-viewport, no-hover, and coarse-pointer. */
+ *  A narrow window with a mouse is not a touch device: it keeps hover, so it
+ *  gets no variant here. */
 const SESSION_MENU_TRIGGER_TOUCH_CLASS = cn(
-  "max-md:pointer-events-auto max-md:relative max-md:size-8 max-md:translate-y-0 max-md:opacity-100 max-md:after:absolute max-md:after:-inset-2 max-md:after:content-['']",
-  "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:relative [@media(hover:none)]:size-8 [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100 [@media(hover:none)]:after:absolute [@media(hover:none)]:after:-inset-2 [@media(hover:none)]:after:content-['']",
-  "pointer-coarse:pointer-events-auto pointer-coarse:relative pointer-coarse:size-8 pointer-coarse:translate-y-0 pointer-coarse:opacity-100 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']",
+  "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:after:absolute [@media(hover:none)]:after:-inset-1 [@media(hover:none)]:after:content-['']",
+  "pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 pointer-coarse:after:absolute pointer-coarse:after:-inset-1 pointer-coarse:after:content-['']",
 );
 
 /** The Pinned section's id in the collapsed-sections store: open unless closed. */
@@ -357,6 +343,31 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
     if (activeSection) setExpanded(projectId, `section:${activeSection}`, true);
   }, [projectId, activeParentId, activeSection, setExpanded]);
 
+  // The session you are in opens when it spawns a session, so the new row is
+  // in view. Only a rise while you watch opens it: a row you closed stays
+  // closed on every later read.
+  const activeChildCount =
+    [sessions, pinnedQuery.sessions, sharedQuery.sessions, automatedQuery.sessions]
+      .flat()
+      .find((session) => session.session_id === activeSessionId)?.child_count ?? null;
+  const seenChildCount = useRef<{ sessionId: string | null; count: number | null }>({
+    sessionId: null,
+    count: null,
+  });
+  useEffect(() => {
+    const seen = seenChildCount.current;
+    if (
+      activeSessionId &&
+      seen.sessionId === activeSessionId &&
+      seen.count !== null &&
+      activeChildCount !== null &&
+      activeChildCount > seen.count
+    ) {
+      setExpanded(projectId, activeSessionId, true);
+    }
+    seenChildCount.current = { sessionId: activeSessionId ?? null, count: activeChildCount };
+  }, [projectId, activeSessionId, activeChildCount, setExpanded]);
+
   // The brief is a session record, not a Review Center inbox. It therefore
   // loads every CR state, not only the ones awaiting review: the newest
   // SIDEBAR_CHANGE_REQUEST_LIMIT of them, which belong to the recent sessions
@@ -500,7 +511,7 @@ export function ProjectSessionList({ projectId }: ProjectSessionListProps) {
               beginSessionSwitch(session.session_id);
             }
           }}
-          displayTitle={getSessionDisplayTitle(session)}
+          displayTitle={nested ? subagentTitle(getSessionDisplayTitle(session)) : getSessionDisplayTitle(session)}
           inSharedGroup={inSharedGroup}
           spawned={nested}
           subagentCount={children.length}
@@ -959,6 +970,7 @@ function SessionListSection({
     chat: 'chat',
     slack: 'slack',
     telegram: 'telegram',
+    discord: 'discord',
     teams: 'teams',
     email: 'email',
     schedule: 'scheduled',
@@ -1440,13 +1452,6 @@ function ProjectSessionRow({
 
       <span className="min-w-0 flex-1">
         <SessionTitle title={displayTitle} className={cn('min-w-0', isActive && 'font-medium')} />
-        <span
-          className="hidden max-md:block pointer-coarse:block [@media(hover:none)]:block"
-          aria-hidden
-          data-session-mobile-created-at="true"
-        >
-          <MobileSessionCreatedTime createdAt={session.created_at} />
-        </span>
       </span>
 
       {subagentCount + spawnedCount > 0 && onToggleChildRuns && (
@@ -1487,7 +1492,7 @@ function ProjectSessionRow({
         <div
           className={cn(
             'flex shrink-0 items-center gap-0 transition-none',
-            'max-md:hidden pointer-coarse:hidden [@media(hover:none)]:hidden',
+            'pointer-coarse:hidden [@media(hover:none)]:hidden',
             'group-hover/session-list:pointer-events-none group-hover/session-list:opacity-0',
             'group-has-data-[state=open]/session-list:pointer-events-none group-has-data-[state=open]/session-list:opacity-0',
           )}
@@ -1527,9 +1532,6 @@ function ProjectSessionRow({
           // Paint with the variable (not bg-card + a different surface token) so
           // the end fade can never disagree with the row fill.
           'relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-none',
-          'max-md:h-auto max-md:min-h-12 max-md:gap-1',
-          '[@media(hover:none)]:h-auto [@media(hover:none)]:min-h-12 [@media(hover:none)]:gap-1',
-          'pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:gap-1',
           isActive
             ? 'text-sidebar-foreground bg-(--session-row-surface) font-medium [--session-row-surface:var(--sidebar-row)]'
             : 'text-muted-foreground hover:text-sidebar-foreground bg-(--session-row-surface) [--session-row-surface:var(--background)] hover:[--session-row-surface:var(--sidebar-row)]',
@@ -1770,9 +1772,6 @@ function FirstChatRow({ projectId, isActive }: { projectId: string; isActive: bo
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         'flex h-8 items-center gap-2 rounded-md px-2 transition-none',
-        'max-md:h-auto max-md:min-h-12 max-md:gap-1',
-        '[@media(hover:none)]:h-auto [@media(hover:none)]:min-h-12 [@media(hover:none)]:gap-1',
-        'pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:gap-1',
         'focus-visible:ring-kortix-base focus-visible:ring-[0.6px] focus-visible:outline-none',
         isActive
           ? 'bg-sidebar-row text-sidebar-foreground'

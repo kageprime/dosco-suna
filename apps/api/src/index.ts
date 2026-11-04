@@ -1,5 +1,4 @@
 // Expand the aggregate ECS secret before any module reads process.env.
-import { loadManagedLineupAtBoot } from './workers/managed-lineup-worker';
 import './environment-secret';
 
 // ─── Observability (must follow environment hydration) ───────────────────────
@@ -10,14 +9,9 @@ import { ensureAbsoluteRequestUrl, getRequestUrl } from './lib/request-url';
 import { runInboundAudit } from './shared/audit-edge';
 import { beginWork, captureServer, finishRequest } from './shared/drain';
 import { describeEmailChain } from './lib/email/transport';
-import { initModelPricing } from './router/config/model-pricing';
-import { runtimeModelCatalog } from './llm-gateway/models/runtime-catalog';
-import { primeDaytonaRateLimitClassifier } from './shared/daytona-rate-limit';
-import { primeDaytonaTransientClassifier } from './shared/daytona-transient';
-import { primeComposioTransientClassifier } from './shared/composio-transient';
 import { ensureSchema } from './ensure-schema';
 import { dispatchInbound } from './inbound-dispatch';
-import { bootServices, markSchemaReady, shutdown } from './bootstrap';
+import { bootServices, markSchemaReady, prepareProcess, shutdown } from './bootstrap';
 import { appWsHandlers } from './apps/ws-proxy';
 import { wsHandlers as tunnelWsHandlers } from './tunnel';
 import { chromeWsHandlers } from './chrome/ws';
@@ -30,35 +24,9 @@ export { app };
 
 // === Start Server ===
 
-// Pre-load the Daytona SDK's `DaytonaRateLimitError` class so the synchronous
-// `isDaytonaRateLimitError` classifier (on the global `app.onError` hot path)
-// has its strongest instanceof signal available the first time a 429 throws —
-// see shared/daytona-rate-limit.ts. Fire-and-forget: the classifier's
-// name/statusCode/message fallbacks already cover the rare race where a 429
-// throws before this resolves, so we never block startup on it.
-void primeDaytonaRateLimitClassifier();
-
-// Pre-load the Daytona SDK's `DaytonaTimeoutError` / `DaytonaConnectionError`
-// classes so the synchronous `isDaytonaTransientProviderError` classifier (on
-// the global `app.onError` hot path) has its strongest instanceof signal
-// available the first time a transient gateway / connection / timeout failure
-// throws — see shared/daytona-transient.ts. Fire-and-forget: the classifier's
-// name / statusCode / message fallbacks already cover the rare race where a
-// transient failure throws before this resolves, so we never block startup on
-// it.
-void primeDaytonaTransientClassifier();
-
-// Same for the Composio client's `InternalServerError` / `APIConnectionError`
-// classes so `isComposioTransientProviderError` (global `app.onError`) has
-// its instanceof signal from the first transient Composio failure on — see
-// shared/composio-transient.ts. Fire-and-forget, never blocks startup; an
-// error thrown before this resolves classifies `false` (identical to the
-// pre-classifier behavior) and cannot occur before a Composio call has run.
-void primeComposioTransientClassifier();
-
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                  Dosco API Starting                      ║
+║                  Kortix API Starting                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  Port: ${config.PORT.toString().padEnd(49)}║
 ║  Env:  ${config.INTERNAL_KORTIX_ENV.padEnd(49)}║
@@ -81,29 +49,14 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
-// Local REST tests use the bundled model catalog and never contact models.dev.
-if (process.env.KORTIX_MODEL_PRICING_LIVE_ENABLED !== '0') {
-  await initModelPricing().catch((err) =>
-    console.error('[startup] Model pricing init failed (will retry in 24h):', err),
-  );
-}
-// Dosco managed models come from Platinum Inference: read the lineup before serving.
-if (import.meta.main) await loadManagedLineupAtBoot();
-if (process.env.KORTIX_MODEL_CATALOG_LIVE_ENABLED !== '0') {
-  runtimeModelCatalog
-    .start()
-    .catch((err) =>
-      console.error('[startup] Gateway model catalog init failed (keeping bundled snapshot):', err),
-    );
-}
+// Classifiers, model pricing, the managed lineup and the gateway catalog.
+await prepareProcess({ entry: import.meta.main });
 
-// Boot: DB schema check, background services, signal handlers. Exported so the
-// container launcher (`src/serve.ts`) can call it after importing this module
-// behind an already-bound `$PORT` listener — binding must happen BEFORE this
-// module's expensive evaluation to fit the platform's web boot window (see
-// serve.ts). The `import.meta.main` guard below still lets tooling and tests
-// `import { app }` to introspect the route table without starting the DB
-// schema check, background workers, or signal handlers.
+// Boot only when this module is the entry point (`bun run src/index.ts`, which
+// is how both `pnpm dev` and the Docker CMD launch it). Guarding behind
+// import.meta.main lets tooling and tests `import { app }` to introspect the
+// route table without starting the DB schema check, background workers, or
+// signal handlers. Does NOT change production boot — there, import.meta.main is true.
 export function startBootServices(): void {
   // One line an operator can grep for when email "does not work": which
   // providers EMAIL_URL resolved to, and the address mail is sent from. Never
@@ -117,21 +70,18 @@ export function startBootServices(): void {
       // boot-time system-role seed + membership-policy backfill from V1
       // are no longer needed. Permissions resolve directly from
       // account_members.account_role and project_members.project_role.
-      await bootServices();
+      await bootServices('api');
     })
     .catch(async (err) => {
       console.error('[startup] ensureSchema failed, starting services anyway:', err);
       markSchemaReady();
-      await bootServices();
+      await bootServices('api');
     });
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-// Local entries (`bun run src/index.ts`, `pnpm dev`, Docker without the
-// launcher) keep the auto-serve boot; tooling and tests that `import { app }`
-// still skip it.
 if (import.meta.main) {
   startBootServices();
 }

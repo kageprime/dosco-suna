@@ -42,8 +42,8 @@
  *
  *   • API — `requireFeatureFlag` on its routes (403 `feature_disabled`).
  *   • Session box — the API lists the enabled flags in KORTIX_FEATURE_FLAGS
- *     (projects/lib/feature-flag-env.ts). Boot-only; a change retires warm
- *     sessions (toggle-effects.ts) and reaches the next new box.
+ *     (projects/lib/feature-flag-env.ts). Boot-only; a change reaches the next
+ *     new box.
  *   • Managed skill — put the feature's agent docs in their own skill under
  *     packages/starter/templates/managed/skills, with `metadata:
  *     kortix-feature-flag: <key>` in its frontmatter. kortixd withholds it from a
@@ -68,7 +68,7 @@
  * a time. `unit-feature-flag-drift.test.ts` compares contract <-> SDK <->
  * registry and catches 1/3/5 only. List every holder before you start:
  *
- *   rg -l "meta_agent" --glob '!node_modules' . | xargs rg -l "agent_rooms"
+ *   rg -l "reminders" --glob '!node_modules' . | xargs rg -l "agent_rooms"
  *
  * The UI renders straight from {@link buildFeatureFlagCatalog}, so a new entry
  * lights up in Settings automatically. `unit-feature-flags.test.ts` pins the
@@ -95,19 +95,13 @@
  *     (which would force the flag OFF for every project — the opposite of
  *     what a hidden default means).
  *
- * ## Derived flags (`derivedFrom: 'volumes'`)
- *
- * `drives` is not a choice of its own: it follows
- * the project's `volumes` flag and is never offered as a toggle. Every flag is
- * per project; none is set for a whole organization (2026-10-13).
- *
  * A hidden flag is a DATED state, not a parking spot: hide it in the release
  * that makes it the default, delete it in the next one. The comment on the
  * entry names the release and the spec section that ends it.
  *
  * The same state also serves INTERNAL-ONLY surfaces (`session_log_restore`):
  * not offered in Settings, enabled per project by a
- * Dosco operator on request. Their 403 says "contact Dosco" instead of
+ * Kortix operator on request. Their 403 says "contact Kortix" instead of
  * naming a toggle the caller cannot see (gate.ts).
  */
 import { config } from '../config';
@@ -157,12 +151,6 @@ export interface FeatureFlagDef {
    */
   catalogHidden?: true;
   /**
-   * The flag is not a project choice: it follows the project's `volumes`
-   * flag. A project override is ignored, and the flag is never offered as a
-   * toggle.
-   */
-  derivedFrom?: 'volumes';
-  /**
    * IAM actions that exist only with this flag. The account permission catalog
    * (`GET /accounts/:id/iam/permissions`) leaves them out until a project of the
    * account has the flag on ({@link hiddenIamActions}).
@@ -188,9 +176,8 @@ const FLAGS: readonly FeatureFlagDef[] = [
     platformDefault: () => true,
     enforcement: 'routes',
   },
-
   // `connectors_api_discover` graduated (2026-10-24) with `connectors_v2`:
-  // integrations.sh is part of the one Dosco catalog every project browses.
+  // integrations.sh is part of the one Kortix catalog every project browses.
   // A stored override is inert.
   // `agentmail_email` graduated (2026-10-24): every project can connect an
   // email inbox. Turning it on never provisioned an inbox (only an explicit
@@ -198,32 +185,23 @@ const FLAGS: readonly FeatureFlagDef[] = [
   // `llm_gateway` graduated (2026-10-20): the LLM gateway is the only model
   // path for every project. No flag, no native OpenCode provider mode, no
   // operator lever. A stored `experimental.llm_gateway` override is inert.
-
-  {
-    key: 'meta_agent',
-    name: 'Orchestrator',
-    description:
-      'Orchestrator, the one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions. The project setting is `builtin_agents.my_kortix` in kortix.yaml; this switch applies only when that key is not set.',
-    stability: 'experimental',
-    available: () => true,
-    // On by default (Marko, 2026-10-24): My Dosco is the default cloud
-    // orchestrator for every project. The project switch is kortix.yaml
-    // `builtin_agents.my_kortix`; this flag is its operator-only legacy fallback,
-    // so Settings never shows a second toggle that the manifest overrides.
-    platformDefault: () => true,
-    catalogHidden: true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'The legacy fallback of kortix.yaml `builtin_agents.my_kortix`: read only when ' +
-      'the manifest does not set the key (projects/lib/builtin-agents.ts). Off ⇒ the ' +
-      'built-in `meta` agent is not listed and is not the default for new sessions.',
-  },
+  // `meta_agent` removed (2026-11-02): My Kortix follows kortix.yaml
+  // `builtin_agents.my_kortix` alone and is on when the key is not set
+  // (projects/lib/my-kortix-agent.ts). The flag defaulted off until 2026-10-24,
+  // so projects that saved Settings before then stored `false` and lost My
+  // Kortix after it became the default. A stored `experimental.meta_agent`
+  // override is inert; the API still sends `true` to older clients.
   // `apps` graduated (2026-10-14, spec §28): Apps is generally available —
   // every project can create and deploy Apps and there is no flag, no row and
   // no operator lever. A stored `experimental.apps` override is inert.
   // `monitors` (the per-project monitor box) was removed: an App with a
   // schedule or `type: app` trigger replaces it. A stored
   // `experimental.monitors` override is inert.
+  // `warm_sessions` removed (2026-11-03): a session boots fast enough on its
+  // own, and 66 % of the pre-created sessions were never used. Clients no
+  // longer pre-create a session; POST /sessions/warm and /sessions/warm/claim
+  // answer 410 (routes/retired.ts). A stored `experimental.warm_sessions`
+  // override is inert; the API still sends `false` to older clients.
   {
     key: 'reminders',
     name: 'Loops',
@@ -238,25 +216,10 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcement: 'routes',
   },
   {
-    key: 'warm_sessions',
-    name: 'Warm Sessions',
-    description:
-      'Keep one sandbox booted and waiting while you have a project open, so a new session starts instantly instead of waiting for a cold boot. A warm sandbox is billed compute even when idle, until you use it or it expires. Turn this off to trade instant starts for lower cost.',
-    stability: 'beta',
-    available: () => true,
-    // Idle compute requires explicit opt-in. Opening a project or sending its
-    // first prompt must not create an unused replacement sandbox by default.
-    platformDefault: () => false,
-    // NOT 'ui-only'. A flag that only hid client surface would let any other
-    // caller keep booting billed sandboxes, which defeats the reason someone
-    // turns this off.
-    enforcement: 'routes',
-  },
-  {
     key: 'secrets_egress',
     name: 'Network-Enforced Secrets',
     description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Dosco substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
+      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
     stability: 'experimental',
     available: () => true,
     // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
@@ -276,10 +239,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
   {
     key: 'pooled_provider_secrets',
     name: 'Pooled Provider Secrets',
-    description: 'Members connect their own ChatGPT subscriptions and provider keys, share them when needed, and choose which ones each session uses.',
+    description: 'Members connect their own ChatGPT and Claude subscriptions and provider keys, share them when needed, and choose which ones each session uses.',
     stability: 'experimental',
     available: () => true,
-    platformDefault: () => false,
+    // On by default since 2026-10-31: every project gets private-by-default
+    // provider accounts. A project that turned it off keeps it off.
+    platformDefault: () => true,
     enforcement: 'behavioral',
     enforcementNote: 'Session selection and provider credential resolution reject or ignore resource secrets while disabled.',
   },
@@ -313,7 +278,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     name: 'Composio event triggers',
     description:
       'Start an agent when something happens in a connected app: a new email, a pull request, a calendar event. ' +
-      'Events come from Composio, and Dosco also checks your connected apps itself.',
+      'Events come from Composio, and Kortix also checks your connected apps itself.',
     stability: 'beta',
     // Always offered: on a deployment with no event source configured, the
     // triggers themselves say so (status `error` naming COMPOSIO_API_KEY).
@@ -351,50 +316,23 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'rows of a project with the flag off (notifications/inbox-read.ts). The ' +
       'per-person /v1/notifications/* routes carry no project and stay ungated.',
   },
-  {
-    key: 'volumes',
-    name: 'Volumes',
-    description:
-      'Shared Files for this project.',
-    stability: 'experimental',
-    available: () => driveStorageAvailable(),
-    // On by default (founder, 2026-10-24): every project gets Files — a private
-    // folder per person (`/drives/me`, where the agent keeps user memory) and
-    // the shared `/Company` folder (`Company/Memory`). Onboarding writes both.
-    platformDefault: () => true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'BEHAVIORAL only, through the flag derived from it: drives (Files routes and ' +
-      'session drive mounts).',
-  },
-  {
-    key: 'drives',
-    name: 'Files',
-    description:
-      'The project\'s shared folders, in sync with sessions: everyone has their own private folder (their session desktop), and any folder can be shared with people, teams and agents. New sessions see the folders they may use under /drives.',
-    stability: 'experimental',
-    available: () => driveStorageAvailable(),
-    // Follows the project's `volumes` flag; not a toggle of its own.
-    platformDefault: () => false,
-    derivedFrom: 'volumes',
-    catalogHidden: true,
-    enforcement: 'routes',
-    enforcementNote:
-      'Mixed, and both halves are enforced. ROUTES: GET /v1/drives?projectId= answers ' +
-      '403 `feature_disabled` when off, and so does every write addressed by drive id ' +
-      '(drives/routes.ts). Reads by drive id stay open, so a file a session already ' +
-      'wrote under /drives still opens. BEHAVIORAL: session provisioning mounts no ' +
-      'folder when off (drives/service.ts sessionVolumeMounts).',
-  },
+  // `volumes` and `drives` graduated (2026-11-02, Marko: "rm the feature flag
+  // for volumes, make them default & always enabled"): every project has a
+  // Drive wherever the platform stores one (Platinum configured,
+  // drives/volumes.ts driveStorageAvailable). A stored `experimental.volumes`
+  // or `experimental.drives` override is inert. The project detail still sends
+  // both keys, equal to that availability, for older SDKs, hosts and CLIs.
   {
     key: 'goals',
     name: 'Goals',
     description:
-      'Give an agent an objective and it owns the outcome until an independent check confirms it, for days or weeks: it plans, works, waits, chases people for what only they can give, and keeps its state in a Goals folder in Files. Needs Volumes and Loops on (flag key `reminders`).',
+      'Give an agent an objective and it owns the outcome until an independent check confirms it, for days or weeks: it plans, works, waits, chases people for what only they can give, and keeps its state in a Goals folder in the Drive. Needs Loops on (flag key `reminders`).',
     stability: 'beta',
+    // Work in progress (Marko, 2026-11-01): Settings marks the row "Not
+    // recommended yet" until Goals v1 is finished.
+    wip: true,
     available: () => driveStorageAvailable(),
-    // Off by default; a project turns it on (Marko, 2026-10-28). Not marked
-    // work in progress: Goals is being finished as a usable v1.
+    // Off by default; a project turns it on (Marko, 2026-10-28).
     platformDefault: () => false,
     enforcement: 'ui-only',
     enforcementNote:
@@ -441,7 +379,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
     available: () => true,
     platformDefault: () => false,
     enforcement: 'routes',
-
     enforcementNote:
       'ROUTES: …/channels/email/connect, /domains*, PATCH …/email/installation and an email `POST /connectors` answer 403 `feature_disabled`; ' +
       'GET …/email/installation answers null and …/email/mode `enabled: false`; the Resend webhook ignores the project\'s inboxes; ' +
@@ -454,12 +391,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'session_log_restore',
     name: 'Session log restore',
     description:
-      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: on by default; Dosco turns it off per project, or for a whole deployment.',
+      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: on by default; Kortix turns it off per project, or for a whole deployment.',
     stability: 'experimental',
     available: () => true,
     // On unless the deployment sets SESSION_LOG_RESTORE_DEFAULT_ENABLED=false (on by default since 2026-10-28).
     platformDefault: () => config.SESSION_LOG_RESTORE_DEFAULT_ENABLED,
-    // Internal-only (2026-10-13): not a Settings toggle. A Dosco operator sets it per project
+    // Internal-only (2026-10-13): not a Settings toggle. A Kortix operator sets it per project
     // (PUT /v1/admin/api/projects/:id/features). While on, Settings lists it read-only.
     catalogHidden: true,
     enforcement: 'behavioral',
@@ -472,8 +409,8 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'turns the default off with SESSION_LOG_RESTORE_DEFAULT_ENABLED=false. A log over SESSION_LOG_RESTORE_MAX_BYTES ' +
       '(24 MiB) answers 413 with what the model sees of it, else the newest turns, else the D3 note alone (harness/README.md).',
   },
-  // `connectors_v2` graduated (2026-10-24): the Dosco catalog (MCP apps,
-  // integrations.sh, Composio), Telegram as a channel connector, the Dosco
+  // `connectors_v2` graduated (2026-10-24): the Kortix catalog (MCP apps,
+  // integrations.sh, Composio), Telegram as a channel connector, the Kortix
   // app-event source (under `event_triggers`) and no seeded empty project
   // account are the only connectors path. A stored override is inert; the
   // serializer keeps sending `true` for older clients.
@@ -488,7 +425,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcement: 'routes',
     enforcementNote:
       'Every /projects/:id/spaces route returns 403 feature_disabled while off. Session create/list ignore space_id while off. ' +
-      'BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so kortixd withholds the kortix-channel-memory skill; a change reaches the next new box and retires warm sessions (feature-flags/toggle-effects.ts). ' +
+      'BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so kortixd withholds the kortix-channel-memory skill; a change reaches the next new box. ' +
       'PRIVATE CHANNELS (shared/space-access.ts) are enforced whatever this flag says, and created only with KORTIX_PRIVATE_CHANNELS_ENABLED. ' +
       'Revocation windows after a removal or a conversion: REST ≤ 10 s on another replica (access memo; busted at once on the serving one), ' +
       'proxy ≤ 10 s more (verdict cache; cleared on the serving replica), /events SSE, proxied SSE and proxied WebSockets ≤ 60 s (re-check; WebSockets of the serving replica at once). ' +
@@ -496,30 +433,46 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Accepted limits: a private thread\'s git branch is readable like any branch, and agent config, skills, MCP tools and network egress are not private.',
   },
   {
+    key: 'shared_drives',
+    name: 'Shared drives',
+    description:
+      'Drives the whole team can use: an admin makes a Drive and adds agents to it. Every session of those agents mounts it, and everyone who may use one of them can open it. Off, every person has only My files.',
+    stability: 'experimental',
+    wip: true,
+    available: () => driveStorageAvailable(),
+    // Off by default (Marko, 2026-11-03): Drive is My files until shared Drives are figured out.
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'PUT /v1/drives/:driveId/access answers 403 feature_disabled while off. Off, driveSubjectFor gives a person no agent reach (agentIds empty) and ' +
+      'planSessionDrives mounts no folder granted to an agent: a session mounts only its person\'s own folder (and a private channel thread its channel folder). ' +
+      'Grants made while on stay stored and count again when it is turned on; a change reaches running sessions at their next mount enforcement or boot. ' +
+      'WEB: the Drive tree shows only My files while off (no Drives section, no All files, no Share).',
+  },
+  {
     key: 'agent_rooms',
     name: 'Rooms',
     iamActions: ['project.room.read', 'project.room.write'],
     description:
       'Named chat rooms per goal or topic where agent sessions and people post (`kortix rooms`, `kortix peers`). Every message is stored in its room. A member session gets a message addressed to it (an @-mention, a reply in its thread) between its steps; other room traffic arrives as one batched notice when its turn ends; a thread reply reaches only the thread participants. A stopped session wakes. A member person gets every message as unread and, with the notification center on, a notification for one addressed to them.',
-
     stability: 'experimental',
     available: () => true,
     // Off by default again (Marko, 2026-10-27): a project turns it on.
     platformDefault: () => false,
     enforcement: 'routes',
     enforcementNote:
-      'Off ⇒ nothing of Rooms exists in the project. ROUTES: every /projects/:id/rooms* route and POST /projects/:id/sessions/:sid/idle-notice answer 403 `feature_disabled` (projects/routes/rooms.ts); a post fans out only to members whose own project still has the flag on (projects/rooms/service.ts); room notifications leave the inbox (notifications/inbox-read.ts). BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so kortixd withholds the kortix-rooms skill and the CLI hides and refuses `kortix rooms` / `kortix peers`; a change reaches the next new box, and retires warm sessions (feature-flags/toggle-effects.ts). CLI outside a box: hidden and refused unless the linked project has the flag on. IAM: project.room.* leave the account permission catalog until a project of the account has it on. NOTIFICATIONS: the `message` kind is in `hidden_kinds` (no settings row) unless the person is in a room of a flag-on project. WEB: no sidebar row, no More entry, no Rooms permission group; a deep link shows the flag-off screen. DOCS: the reference is the kortix-rooms skill (references/rooms.md), not the public docs.',
+      'Off ⇒ nothing of Rooms exists in the project. ROUTES: every /projects/:id/rooms* route and POST /projects/:id/sessions/:sid/idle-notice answer 403 `feature_disabled` (projects/routes/rooms.ts); a post fans out only to members whose own project still has the flag on (projects/rooms/service.ts); room notifications leave the inbox (notifications/inbox-read.ts). BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so kortixd withholds the kortix-rooms skill and the CLI hides and refuses `kortix rooms` / `kortix peers`; a change reaches the next new box. CLI outside a box: hidden and refused unless the linked project has the flag on. IAM: project.room.* leave the account permission catalog until a project of the account has it on. NOTIFICATIONS: the `message` kind is in `hidden_kinds` (no settings row) unless the person is in a room of a flag-on project. WEB: no sidebar row, no More entry, no Rooms permission group; a deep link shows the flag-off screen. DOCS: the reference is the kortix-rooms skill (references/rooms.md), not the public docs.',
   },
   {
     key: 'workspace_volume',
     name: 'Workspace volume',
     description:
-      "Keep each new Platinum session's /workspace on its own Platinum volume instead of the sandbox disk, so the sandbox is disposable: one stopped for an hour is deleted, and the next open boots a new sandbox on the same files and conversation. Not a Settings toggle: Dosco enables it per project.",
+      "Keep each new Platinum session's /workspace on its own Platinum volume instead of the sandbox disk, so the sandbox is disposable: one stopped for an hour is deleted, and the next open boots a new sandbox on the same files and conversation. Not a Settings toggle: Kortix enables it per project.",
     stability: 'experimental',
     // Every workspace volume is a Platinum volume.
     available: () => Boolean(config.PLATINUM_API_KEY),
     platformDefault: () => false,
-    // Internal-only: stateless sandboxes roll out project by project. A Dosco
+    // Internal-only: stateless sandboxes roll out project by project. A Kortix
     // operator sets it (PUT /v1/admin/api/projects/:id/features).
     catalogHidden: true,
     enforcement: 'behavioral',
@@ -532,7 +485,6 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'KORTIX_SANDBOX_IDLE_DELETE_MINUTES (default 60) is deleted (projects/reaping/idle-volume-retire.ts). The ' +
       'volume is deleted with the session content: by the retention purge after the trash window ' +
       '(projects/session-log-purge.ts) or by account erasure.',
-
   },
   {
     key: 'session_groups',
@@ -551,9 +503,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'chrome',
-    name: 'Dosco in Chrome',
+    name: 'Kortix in Chrome',
     description:
-      "Let a session drive your own Chrome, with your logins, through the Dosco in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
+      "Let a session drive your own Chrome, with your logins, through the Kortix in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
     stability: 'experimental',
     // Off on staging and prod until the Chrome Web Store listing is public.
     available: () => config.KORTIX_CHROME_ENABLED,
@@ -582,6 +534,21 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'a change reaches the next new box. Cross-session messages (`send_message`, `list_agents`, the peer-message ' +
       'routes) do not read this flag. The session list `team_lead` filter and the session row fields stay on: ' +
       'without teammates they return nothing new.',
+  },
+  {
+    key: 'voice_call',
+    name: 'Voice calls',
+    description:
+      'Call the session\'s agent from the session page and talk it through: it hears you, answers in a voice, sees a screen you share, and works in the same session, so the conversation stays in the chat.',
+    stability: 'experimental',
+    wip: true,
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'Off ⇒ nothing of the voice loads. BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so ' +
+      'kortixd registers no voice extension and opens no voice port; a change reaches the next new box. WEB: no call ' +
+      'button on the session page. The gateway\'s audio routes are inference like chat: billed per use, not gated here.',
   },
 ];
 
@@ -624,14 +591,8 @@ function explicitOverride(metadata: unknown, key: FeatureFlagKey): boolean | und
 export function resolveFeatureFlag(metadata: unknown, key: FeatureFlagKey): boolean {
   const def = FLAG_BY_KEY[key];
   if (!def || !def.available()) return false;
-  if (def.derivedFrom) return resolveFeatureFlag(metadata, def.derivedFrom);
   if (key === 'artifact_comments' && !resolveFeatureFlag(metadata, 'artifacts')) return false;
   return explicitOverride(metadata, key) ?? def.platformDefault();
-}
-
-/** Is this flag derived from another flag (and so not a project choice)? */
-export function isDerivedFeatureFlag(key: FeatureFlagKey): boolean {
-  return Boolean(FLAG_BY_KEY[key]?.derivedFrom);
 }
 
 /**
@@ -684,8 +645,6 @@ export interface FeatureFlagView {
  */
 export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
   return FLAGS.flatMap((f) => {
-    // A flag that follows another flag has no row of its own.
-    if (f.derivedFrom) return [];
     const enabled = resolveFeatureFlag(metadata, f.key);
     if (f.catalogHidden && !enabled) return [];
     return [{

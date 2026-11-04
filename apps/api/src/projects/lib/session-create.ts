@@ -30,13 +30,14 @@ import {
   type ModelSource,
   toOpencodeModelRef,
 } from '../../llm-gateway/resolution/effective';
+import { checkClaudeAgentRef } from '../../llm-gateway/resolution/claude-agent';
+import { claudeSubscriptionRequiredBody, missingClaudeSubscription } from '../claude-subscription/gate';
 
 import { selectProvider } from '../../platform/services/provider-balancer';
 import { ProvisionTimeline } from '../../platform/services/provision-timeline';
 import { provisionSessionSandbox } from '../../platform/services/session-sandbox';
 import { resolveSessionPlacement } from '../../platform/services/sandbox-region';
 import { startWorkspaceVolume, WORKSPACE_VOLUME_SESSION_KEY, type WorkspaceVolume } from '../../platform/services/workspace-volume';
-import { WARM_SESSION_LOCATION_KEY, WARM_SESSION_METADATA_KEY } from './warm-sessions';
 
 
 import { db } from '../../shared/db';
@@ -69,7 +70,6 @@ import {
 
 import { type ProjectRow, type ProjectSessionRow, type RequestAuditContext, normalizeString } from './serializers';
 import { normalizeJsonObject } from '../../shared/json';
-import { resolveBuiltinAgents } from './my-kortix-agent';
 import { isUuid } from '../../shared/validate';
 import {
   canonicalConnectorAlias,
@@ -93,7 +93,7 @@ import {
 } from './session-sandbox-metadata';
 import { projectSessionMetadataMerge } from './session-metadata-merge';
 import { transitionSession } from '../session-lifecycle/status-transitions';
-import { mergeSessionSandboxEnv, parseSessionRuntimeContext } from './session-runtime-context';
+import { mergeSessionSandboxEnv, parseSessionRuntimeContext, reservedRuntimeContextRefusal } from './session-runtime-context';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { resolveMyKortixSandbox } from './my-kortix-agent';
 import { spaceAccessFor } from '../../shared/space-access';
@@ -273,15 +273,12 @@ type SessionCreateMetadata = ReturnType<typeof buildSessionCreateMetadata>['meta
  * `project_channels` on: the space the body names, checked, and the sharing it
  * implies (`spaceSessionVisibility`: a channel thread is project-visible
  * unless the caller chose otherwise, a DM thread is private, a fork keeps its
- * source's sharing). A warm draft gets no space until a real create. Flag off:
- * `space_id` is ignored.
+ * source's sharing). Flag off: `space_id` is ignored.
  */
 async function resolveRequestedSessionSpace(input: CreateProjectSessionInput): Promise<
   SessionCreateStep<{ filed: boolean; spaceId: string | null; visibility?: 'project' | 'private' | 'restricted' }>
 > {
   const { project, body, userId } = input;
-  const warm =
-    (input.metadata?.[WARM_SESSION_METADATA_KEY] ?? normalizeJsonObject(body.metadata)[WARM_SESSION_METADATA_KEY]) === true;
   const access = () => spaceAccessFor(project.projectId, userId, input.callerSessionId ?? null);
   // A fork or child of a private channel's thread stays in it, whatever the
   // flag or the body says (`inheritedPrivateSpace`). A trigger run names no
@@ -289,7 +286,7 @@ async function resolveRequestedSessionSpace(input: CreateProjectSessionInput): P
   const sourced = [body.fork_from_session_id, input.callerSessionId, body.parent_session_id].some(
     (id) => typeof id === 'string' && id.length > 0,
   );
-  const inherited = warm || !sourced
+  const inherited = !sourced
     ? null
     : await inheritedPrivateSpace(
         project.projectId,
@@ -302,7 +299,7 @@ async function resolveRequestedSessionSpace(input: CreateProjectSessionInput): P
         await access(),
       );
   if (inherited) return 'error' in inherited ? inherited : { filed: true, spaceId: inherited.spaceId };
-  if (!resolveFeatureFlag(project.metadata, 'project_channels') || warm) return { filed: false, spaceId: null };
+  if (!resolveFeatureFlag(project.metadata, 'project_channels')) return { filed: false, spaceId: null };
   // A run of a repo trigger lands in the trigger's live space, read when the
   // create executes (a queued run sees the space as it is then). The space
   // was checked when it was set on the trigger: a DM was the setter's own,
@@ -537,21 +534,17 @@ async function resolveSessionAgent(params: {
     (project.metadata as Record<string, unknown> | null | undefined)?.default_agent,
   );
   const projectDefaultAgent = normalizeString(loadedAgents.defaultAgent) ?? mirroredDefaultAgent;
-  // My Dosco (slug `mykortix`) is on unless kortix.yaml sets
-  // `builtin_agents.my_kortix: false` (no key: the legacy `meta_agent` switch).
-  // Off: agent resolution below is the pre-meta behavior, and a session that
-  // would run My Dosco is refused with 409 builtin_agent_disabled. Without the
-  // refusal it ran with My Dosco's grant, prompt and sandbox anyway.
-  const metaAgentEnabled = resolveBuiltinAgents(
-    loadedAgents.builtinAgents ?? {},
-    resolveFeatureFlag(project.metadata, 'meta_agent'),
-  ).my_kortix;
-  // Meta→meta recursion stop. Anyone — dashboard users included — may spawn
-  // the meta coordinator, and an omitted agent still defaults to it. The one
-  // exception is a caller that IS a meta session: its omitted agent resolves
-  // to the project default (the observed failure was meta "spawning a worker"
-  // and getting another coordinator), and an explicit meta request is
-  // rejected.
+  // Orchestrator (slug `mykortix`) runs only when kortix.yaml sets
+  // `builtin_agents.my_kortix: true`.
+  // Off: a session that would run Orchestrator is refused with 409
+  // builtin_agent_disabled. Without the refusal it ran with Orchestrator's grant,
+  // prompt and sandbox anyway.
+  const metaAgentEnabled = loadedAgents.builtinAgents?.my_kortix === true;
+  // Meta→meta recursion stop. Anyone — dashboard users included — may start
+  // Orchestrator. The one exception is a caller that IS an Orchestrator session: its
+  // omitted agent resolves to a project agent (the observed failure was meta
+  // "spawning a worker" and getting another coordinator), and an explicit
+  // Orchestrator request is rejected.
   let callerIsMeta = false;
   if (metaAgentEnabled && input.callerSessionId) {
     const [caller] = await db
@@ -566,14 +559,36 @@ async function resolveSessionAgent(params: {
       .limit(1);
     callerIsMeta = !!caller && isMyKortixAgentName(caller.agentName);
   }
-  const agentName =
-    metaAgentEnabled && !requestedAgent && !callerIsMeta
+  const manifestDefaultAgent = normalizeString(loadedAgents.defaultAgent);
+  // A session that names no agent runs `default_agent`. A project that runs My
+  // Kortix and sets no `default_agent` runs My Kortix; the mirrored default is
+  // not read then, since it can name an agent the file turned off.
+  let agentName =
+    metaAgentEnabled && !requestedAgent && !manifestDefaultAgent && !callerIsMeta
       ? MY_KORTIX_AGENT_NAME
       : resolveSessionAgentName({
           requestedAgent,
-          manifestDefaultAgent: normalizeString(loadedAgents.defaultAgent),
+          manifestDefaultAgent,
           mirroredDefaultAgent,
         });
+  // My Kortix starting a session without naming an agent, in a project whose
+  // `default_agent` is My Kortix: the first enabled primary agent the file declares.
+  if (callerIsMeta && !requestedAgent && isMyKortixAgentName(agentName)) {
+    agentName = loadedAgents.specs.find((spec) => spec.enabled && !spec.subagent)?.name ?? agentName;
+  }
+  // kortix.yaml is not YAML: repair mode. Only My Kortix runs, so the file can
+  // be fixed. Any other agent is a typed refusal that names the error, never a 500.
+  if (loadedAgents.manifestSyntaxError && !isMyKortixAgentName(agentName)) {
+    return {
+      error: {
+        status: 409,
+        body: {
+          error: `kortix.yaml is not valid YAML (${loadedAgents.manifestSyntaxError}). Only My Kortix runs until it is fixed.`,
+          code: 'manifest_invalid',
+        },
+      },
+    };
+  }
   if (!metaAgentEnabled && isMyKortixAgentName(agentName)) {
     return {
       error: {
@@ -618,6 +633,23 @@ async function resolveSessionAgent(params: {
     };
   }
   return { loadedAgents, projectDefaultAgent, agentName, platformMetaAgent, repositoryAccess };
+}
+
+/**
+ * The model ref of the first prompt's pick (`pending_prompt.model`), or null.
+ * `{ providerID: 'claude-agent', modelID: 'opus' }` is `claude-agent/opus`;
+ * an unknown Claude id is null.
+ */
+export function firstPromptModelRef(pendingPrompt: unknown): string | null {
+  if (!pendingPrompt || typeof pendingPrompt !== 'object' || Array.isArray(pendingPrompt)) return null;
+  const model = (pendingPrompt as { model?: unknown }).model as { providerID?: unknown; modelID?: unknown } | null | undefined;
+  const providerID = typeof model?.providerID === 'string' ? model.providerID.trim() : '';
+  const modelID = typeof model?.modelID === 'string' ? model.modelID.trim() : '';
+  if (!providerID || !modelID || /\s/.test(providerID + modelID)) return null;
+  const ref = `${providerID}/${modelID}`;
+  const claude = checkClaudeAgentRef(ref);
+  if (claude.kind === 'invalid') return null;
+  return claude.kind === 'valid' ? claude.ref : ref;
 }
 
 /**
@@ -670,6 +702,17 @@ async function resolveSessionModel(params: {
           body: { error: `"${requestedModel}" doesn't look like a model id`, code: 'INVALID_SESSION_MODEL' },
         },
       };
+    }
+    const claudeAgent = checkClaudeAgentRef(requestedModel);
+    if (claudeAgent.kind === 'invalid') {
+      return { error: { status: 400, body: { error: claudeAgent.message, code: 'INVALID_SESSION_MODEL' } } };
+    }
+    // A Claude subscription model needs a Claude account, so a first prompt
+    // without one could only fail in the box.
+    const initialPrompt = normalizeString(body.initial_prompt ?? body.initialPrompt);
+    if (claudeAgent.kind === 'valid' && initialPrompt && !input.callerSessionId) {
+      const missing = await missingClaudeSubscription({ accountId, projectId, userId, model: claudeAgent.ref });
+      if (missing) return { error: { status: 409, body: claudeSubscriptionRequiredBody(missing) } };
     }
     let servable = await isModelServableForAccount({
       userId,
@@ -748,6 +791,14 @@ async function resolveSessionModel(params: {
       if (concreteModel) {
         opencodeModel = toOpencodeModelRef(concreteModel);
         opencodeModelSource = resolved.model ? resolved.source : 'platform';
+      } else {
+        // No default: the box would boot with no model, and pi does not start
+        // without one. The web names the person's pick only on the first prompt.
+        const picked = firstPromptModelRef(body.pending_prompt);
+        if (picked && (await isModelServableForAccount({ userId, accountId, projectId, freeModelsOnly, model: picked, providerSecretPools }))) {
+          opencodeModel = toOpencodeModelRef(picked);
+          opencodeModelSource = 'explicit';
+        }
       }
     } catch (error) {
       console.error('[projects] Failed to resolve the session default model:', error);
@@ -1068,8 +1119,6 @@ function buildSessionCreateMetadata(params: {
   /** Filed into a space: the first prompt is stored for the channel timeline. */
   filed: boolean;
   workspaceVolume: WorkspaceVolume | null;
-  /** The region the session's boxes run in (sandbox-region.ts resolveSessionPlacement); undefined = home. */
-  sandboxLocation: string | undefined;
 }) {
   const {
     input,
@@ -1092,7 +1141,6 @@ function buildSessionCreateMetadata(params: {
     sandboxSlug,
     filed,
     workspaceVolume,
-    sandboxLocation,
   } = params;
   const { project, userId, body } = input;
   // A name supplied at create is an EXPLICIT, user-chosen name — the same thing
@@ -1178,10 +1226,6 @@ function buildSessionCreateMetadata(params: {
     ...(opencodeModel ? { opencode_model: opencodeModel } : {}),
     ...(opencodeModelSource ? { opencode_model_source: opencodeModelSource } : {}),
     ...(input.metadata ?? {}),
-    // Server-owned creation intent, never caller metadata or actual placement.
-    ...((input.metadata?.[WARM_SESSION_METADATA_KEY] ?? requestMetadata[WARM_SESSION_METADATA_KEY]) === true
-      ? { [WARM_SESSION_LOCATION_KEY]: sandboxLocation ?? 'home' }
-      : {}),
     // Persist the coordinator→worker link. The sidebar badges child sessions
     // with it, and the turn-end deadline shortener stops child sandboxes on a
     // tight grace so finished workers don't idle at full compute.
@@ -1463,8 +1507,8 @@ async function provisionCreatedSession(params: {
   const tl = new ProvisionTimeline(sessionId, 'session-create');
   try {
     // Resolve git auth and user env concurrently. Git auth is needed for
-    // background freshness checks, but a warm session can boot from an
-    // existing ready snapshot without waiting for it.
+    // background freshness checks, but a session can boot from an existing
+    // ready snapshot without waiting for it.
     const projectWithGitAuthPromise = withProjectGitAuth(project).then((gitProject) => {
       tl.mark('git-auth');
       return gitProject;
@@ -1689,6 +1733,12 @@ export async function createProjectSession(input: {
   const parsedBody = parseSessionCreateBody(body);
   if (parsedBody.error) return { error: parsedBody.error };
   const { parsedRuntimeContext, parsedConnectorBindings } = parsedBody;
+  // The `kortix.` keys are facts kortixd acts on (depth, workflow runner, hand-off digest): only the box that
+  // creates its own child, with its session token, may set them.
+  const reservedRefusal = reservedRuntimeContextRefusal(parsedRuntimeContext.context, input.callerSessionId);
+  if (reservedRefusal) {
+    return { error: { status: 400, body: { error: reservedRefusal, code: 'INVALID_SESSION_RUNTIME_CONTEXT' } } };
+  }
   if (isDeprecatedProvider(normalizeString(body.provider))) {
     return { error: { status: 400, body: { error: DEPRECATED_PROVIDER_ERROR, code: DEPRECATED_PROVIDER_CODE } } };
   }
@@ -1840,7 +1890,6 @@ export async function createProjectSession(input: {
     filed: requestedSpace.filed,
     // Only a Platinum session box mounts it. An unrecorded open is deleted.
     workspaceVolume: providerName === 'platinum' && !isMyKortixSandboxSlug(sandboxSlug) ? workspaceVolume : null,
-    sandboxLocation: sandboxRegion.location,
   });
 
   let sessionRow: ProjectSessionRow | null = null;

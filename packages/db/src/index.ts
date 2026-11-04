@@ -7,6 +7,7 @@ export * as schema from './schema';
 export {
   // Schema namespace
   kortixSchema,
+  salesEventOutbox,
   usedRefreshTokens,
   cliDeviceGrants,
   // Enums
@@ -50,6 +51,7 @@ export {
   configReleases,
   configReleaseFailures,
   configReleaseHeads,
+  projectConfigSummaries,
   baseTipChecks,
   projectMembers,
   projectAccessRequests,
@@ -148,10 +150,14 @@ export {
   pushDeviceTokens,
   // Drives (shared folders backed by Platinum volumes)
   drives,
+  driveFolderAdminReads,
   driveGrants,
+  storageCharges,
+  providerOrphanBoxCosts,
   platinumVolumeDeletions,
   driveMountRevocations,
   driveConflicts,
+  driveIndexEntries,
   // Notification inbox, preferences, watchers, Web Push (KRTX-1742)
   notifications,
   notificationPreferences,
@@ -175,6 +181,8 @@ export {
   artifactEvents,
   driveCommitAuthors,
   sessionSandboxIdentities,
+  claudeSubscriptionLogins,
+  claudeSubscriptionLoginFlows,
   // Product feedback (POST /v1/feedback)
   feedback,
   // Kortix in Chrome (apps/api/src/chrome)

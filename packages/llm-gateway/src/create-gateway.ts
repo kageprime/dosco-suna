@@ -12,17 +12,22 @@ import {
   responsesToChat,
 } from './ingress/openai-responses';
 import {
+  type AudioRequest,
   type ChatCompletionRequest,
   type GatewayDeps,
   type HandlerRuntime,
   type ImageRequest,
+  type VoicesRequest,
+  handleAudioRequest,
   handleChatCompletions,
   handleImageRequest,
+  handleVoicesRequest,
 } from './pipeline';
 import { parseUpstreamErrorBody } from './http/parse-upstream-error';
 import { gatewayErrorResponse } from './pipeline/error-response';
 import { requestFieldError } from './pipeline/request-fields';
 import { createRouteMemory } from './pipeline/route-memory';
+import { createClaudeCodePassthrough, type ClaudeCodeRequest } from './claude-code/passthrough';
 
 // Anthropic Messages API error `type` values by HTTP status — used only to
 // shape the JSON envelope for clients speaking the Anthropic wire format; the
@@ -273,12 +278,29 @@ export function createGateway(hooks: GatewayHooks, deps: GatewayDeps = {}) {
     return withModelNames(upstream, jsonResponse(chatJsonToResponsesObject(data as Record<string, unknown>)));
   };
 
+  // Claude Code's own Anthropic requests on a stored Claude account. Never
+  // translated and never through the chat pipeline: see claude-code/passthrough.ts.
+  const claudeCredentials = hooks.claudeCredentials;
+  const claudeCodePassthrough = claudeCredentials
+    ? createClaudeCodePassthrough({
+      authenticate: hooks.authenticate,
+      claudeCredentials,
+      claudeRefused: hooks.claudeRefused,
+      notePoolRateLimit: hooks.notePoolRateLimit,
+    }, { upstream: deps.claudeCodeUpstream, logger })
+    : null;
+  const claudeCode = (req: ClaudeCodeRequest): Promise<Response> =>
+    claudeCodePassthrough ? claudeCodePassthrough(req) : Promise.resolve(anthropicErrorResponse(404, 'Claude Code passthrough is not configured'));
+
   return {
+    claudeCode,
     chatCompletions: (req: ChatCompletionRequest): Promise<Response> =>
       handleChatCompletions(runtime, req),
     messages,
     responses,
     listModels,
     images: (req: ImageRequest): Promise<Response> => handleImageRequest(runtime, req),
+    audio: (req: AudioRequest): Promise<Response> => handleAudioRequest(runtime, req),
+    voices: (req: VoicesRequest): Promise<Response> => handleVoicesRequest(runtime, req),
   };
 }

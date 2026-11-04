@@ -48,6 +48,8 @@ const PROVIDER_ICON_MAP: Record<string, { icon: string; fallback: string }> = {
   openai: { icon: 'openai', fallback: 'OA' },
   agentrouter: { icon: 'agentrouter', fallback: 'AR' },
   codex: { icon: 'openai', fallback: 'GPT' },
+  // Claude subscription models (`claude-agent/<id>`), run through Claude Code.
+  'claude-agent': { icon: 'anthropic', fallback: 'CL' },
   opencode: { icon: 'opencode', fallback: 'OC' },
   'opencode-go': { icon: 'opencode', fallback: 'OC' },
   'github-copilot': { icon: 'github-copilot', fallback: 'GH' },
