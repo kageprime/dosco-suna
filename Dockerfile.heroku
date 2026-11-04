@@ -13,7 +13,7 @@ ARG BUN_VERSION=1.4.3
 # returns a pid while the shell exits 0 before its WebSocket can attach, surfacing
 # as `pty not found`. Keep this exact pin synchronized with the agent package's
 # `engines.bun`; that package metadata is also part of the snapshot fingerprint.
-ARG SANDBOX_AGENT_BUN_VERSION=1.3.11
+ARG SANDBOX_AGENT_BUN_VERSION=1.4.3
 FROM oven/bun:${BUN_VERSION}-slim AS base
 
 # ---- Kortix Apps Runtime Stage ----
@@ -53,7 +53,7 @@ WORKDIR /repo/apps/kortix-sandbox-agent-server
 ARG KORTIX_AGENT_BUN_TARGET=bun-linux-x64
 
 COPY apps/kortix-sandbox-agent-server/package.json apps/kortix-sandbox-agent-server/bun.lock ./
-COPY patches/undici@8.12.2.patch /repo/patches/undici@8.12.2.patch
+COPY patches/undici@8.12.2.patch patches/@eslint%2Feslintrc@3.3.7.patch /repo/patches/
 RUN bun install --frozen-lockfile
 
 COPY packages/api-contract /repo/packages/api-contract
@@ -61,6 +61,7 @@ COPY packages/shared/src/peer-message-prompt.ts /repo/packages/shared/src/peer-m
 COPY packages/shared/src/room-prompt.ts /repo/packages/shared/src/room-prompt.ts
 COPY packages/shared/src/ssrf-guard.ts /repo/packages/shared/src/ssrf-guard.ts
 COPY packages/sdk/src/core/session/wire-message-id.ts /repo/packages/sdk/src/core/session/wire-message-id.ts
+COPY packages/voice/src /repo/packages/voice/src
 COPY apps/kortix-sandbox-agent-server/ ./
 RUN BUN_COMPILE_TARGET=${KORTIX_AGENT_BUN_TARGET} bash scripts/build.sh
 
@@ -137,6 +138,7 @@ COPY packages/manifest-schema/package.json ./packages/manifest-schema/
 COPY packages/registry/package.json ./packages/registry/
 COPY packages/llm-gateway/package.json ./packages/llm-gateway/
 COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/minimatch-compat/package.json ./packages/minimatch-compat/
 
 # Install pnpm and deps for this app + workspace packages it depends on.
 # --shamefully-hoist flattens node_modules (no symlinks) so COPY works on all Docker versions.
@@ -236,7 +238,9 @@ COPY apps/sandbox/slack-cli ./apps/sandbox/slack-cli
 # trees + package.json must be present in the image. Without them the Sandbox
 # panel throws "Failed to list sandbox templates: ENOENT … package.json".
 COPY apps/kortix-sandbox-agent-server/package.json ./apps/kortix-sandbox-agent-server/package.json
+COPY apps/kortix-sandbox-agent-server/scripts/build.sh ./apps/kortix-sandbox-agent-server/scripts/build.sh
 COPY apps/kortix-sandbox-agent-server/src ./apps/kortix-sandbox-agent-server/src
+COPY packages/voice/src ./packages/voice/src
 COPY apps/cli/package.json ./apps/cli/package.json
 COPY apps/cli/src ./apps/cli/src
 
