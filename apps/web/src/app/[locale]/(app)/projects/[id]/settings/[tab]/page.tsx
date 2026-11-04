@@ -68,8 +68,7 @@ export default function ProjectSettingsTabPage() {
       router.replace(legacy.href ?? `/projects/${projectId}/settings`);
       return;
     }
-    useSettingsPanelStore.getState().openSettings(tab);
-    router.replace(`/projects/${projectId}`);
+    router.replace(`/projects/${projectId}/settings?tab=${tab}`);
   }, [projectId, tab, legacy.href, legacy.pending, router]);
 
   return null;

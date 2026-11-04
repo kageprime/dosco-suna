@@ -1,11 +1,18 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-import { ProjectAdminRoute } from '@/features/workspace/project-admin/project-admin-route';
-
-/** /projects/[id]/admin/connectors — the static `connectors/` folder owns this path, so it needs its own page. */
+/** /projects/[id]/admin/connectors — redirects to unified settings connectors tab. */
 export default function ProjectAdminConnectorsPage() {
   const { id } = useParams<{ id: string }>();
-  return <ProjectAdminRoute projectId={id} section="connectors" />;
+  const router = useRouter();
+
+  useEffect(() => {
+    if (id) {
+      router.replace(`/projects/${id}/settings?tab=connectors&category=capabilities`);
+    }
+  }, [id, router]);
+
+  return null;
 }

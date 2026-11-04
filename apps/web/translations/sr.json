@@ -23591,6 +23591,7 @@
       "builtInHint": "Агент са којим разговарате. Покреће агенте испод за вас."
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",

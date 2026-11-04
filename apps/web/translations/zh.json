@@ -23591,6 +23591,7 @@
       "builtInHint": "这是与你交流的智能体。它会为你运行下方的智能体。"
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",

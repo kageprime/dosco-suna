@@ -23591,6 +23591,7 @@
       "builtInHint": "Der eine Agent, mit dem du sprichst. Er führt die Agenten unten für dich aus."
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",

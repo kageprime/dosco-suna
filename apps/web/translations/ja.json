@@ -23591,6 +23591,7 @@
       "builtInHint": "あなたが話しかけるエージェントです。下のエージェントをあなたの代わりに実行します。"
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",

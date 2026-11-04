@@ -12,6 +12,7 @@
  */
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { useOptionalSidebar } from '@kortix/ui/sidebar';
 import { useIsMobile } from '@kortix/ui';
@@ -23,7 +24,8 @@ import { matchesSettingsShortcut } from './settings-shortcut';
  * itself, so there is one binding per panel and no way to advertise the
  * keystroke on a surface that cannot answer it.
  */
-export function useSettingsKeyboardShortcut() {
+export function useSettingsKeyboardShortcut(projectId?: string) {
+  const router = useRouter();
   const openSettings = useSettingsPanelStore((s) => s.openSettings);
   const isMobile = useIsMobile();
   const sidebar = useOptionalSidebar();
@@ -36,13 +38,14 @@ export function useSettingsKeyboardShortcut() {
       // Preferences binding — the app's Settings is what the user is asking
       // for from inside the app.
       event.preventDefault();
-      openSettings();
-      // The mobile sidebar is a Sheet. Leaving it up would stack the
-      // full-screen overlay on top of an open drawer, and closing the overlay
-      // would reveal it again.
       if (isMobile) setOpenMobile?.(false);
+      if (projectId) {
+        router.push(`/projects/${projectId}/settings`);
+      } else {
+        openSettings();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [openSettings, isMobile, setOpenMobile]);
+  }, [projectId, router, openSettings, isMobile, setOpenMobile]);
 }

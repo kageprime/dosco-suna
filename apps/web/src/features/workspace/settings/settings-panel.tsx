@@ -61,7 +61,7 @@ export function SettingsPanel({ projectId }: { projectId?: string }) {
   // Mod+, lives with the panel, not with whatever row happens to link to it —
   // binding it here is what makes the keystroke work on every surface that
   // mounts this component, and impossible to advertise on one that doesn't.
-  useSettingsKeyboardShortcut();
+  useSettingsKeyboardShortcut(projectId);
 
   useEffect(preloadWhenIdle, []);
 

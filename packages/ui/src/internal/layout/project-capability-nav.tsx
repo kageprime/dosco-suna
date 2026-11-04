@@ -17,7 +17,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '../../primitives/sidebar';
-import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
+import { UiLink as Link, useUiPathname, useUiSearchParams } from '../../providers/ui-provider';
 import { useIsMobile } from '../hooks';
 import { activeCapabilityTab, agentHref, capabilityTabHref } from '../lib/capability-tab-routes';
 import { useReviewSessionSummary } from '../hooks/use-review-session-summary';
@@ -49,7 +49,11 @@ export function sortCustomizeAgents<T extends Pick<Agent, 'name'> & { hidden?: b
 /** Whether the pathname is a Project admin (Settings) page. The locale prefix
  *  the host may not strip is tolerated. */
 export function isProjectAdminPath(pathname: string | null | undefined): boolean {
-  return !!pathname && /\/projects\/[^/]+\/admin(?:[/?#]|$)/.test(pathname);
+  return (
+    !!pathname &&
+    (/\/projects\/[^/]+\/admin(?:[/?#]|$)/.test(pathname) ||
+      /\/projects\/[^/]+\/settings(?:[/?#]|$)/.test(pathname))
+  );
 }
 
 /** A row's glyph in a 20px box (literal px, as the sidebar's agent marks), so
@@ -75,6 +79,7 @@ function RowGlyph({ children }: { children: ReactNode }) {
  */
 export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const pathname = useUiPathname();
+  const searchParams = useUiSearchParams();
   const config = useProjectConfig(projectId);
   const access = useCapabilityAccess(projectId);
   const needsYou = useReviewSessionSummary(projectId, { enabled: true }).totalNeedsYou;
@@ -84,6 +89,9 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const pinned = usePinnedAgents(projectId);
 
   if (!access.settled) return null;
+
+  const rawAgents = tTabs('agents');
+  const agentsLabel = !rawAgents || rawAgents === 'agentEditor.tabs.agents' ? 'Agents' : rawAgents;
 
   const allAgents = access.tabs.includes('agent')
     ? sortCustomizeAgents((config?.agents ?? []).filter((agent) => !agent.platform))
@@ -96,7 +104,10 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const showReview = access.tabs.includes('review');
   const onReview = pathname ? activeCapabilityTab(pathname) === 'review' : false;
   const hasModels = access.tabs.includes('models');
-  const onModels = !!pathname && /\/admin\/models(\/|$)/.test(pathname);
+  const onSettingsPage = isProjectAdminPath(pathname);
+  const onModels =
+    (!!pathname && /\/admin\/models(\/|$)/.test(pathname)) ||
+    (onSettingsPage && searchParams.get('tab') === 'models');
   const hasSettings = access.tabs.includes('config');
   const onAgents =
     !!pathname &&
@@ -131,7 +142,7 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
                 <RowGlyph>
                   <RobotIcon className="size-3.5" />
                 </RowGlyph>
-                <span className="truncate">{tTabs('agents') || 'Agents'}</span>
+                <span className="truncate">{agentsLabel}</span>
                 <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums pr-5">
                   {allAgents.length}
                 </span>
@@ -216,7 +227,7 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
       {hasModels ? (
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild isActive={onModels}>
-            <Link href={adminPath(projectId, 'models')} prefetch={false} onClick={close}>
+            <Link href={`/projects/${projectId}/settings?tab=models&category=capabilities`} prefetch={false} onClick={close}>
               <RowGlyph>
                 <CpuIcon className="size-3.5" />
               </RowGlyph>
@@ -227,8 +238,8 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
       ) : null}
       {hasSettings ? (
         <SidebarMenuSubItem>
-          <SidebarMenuSubButton asChild isActive={isProjectAdminPath(pathname) && !onModels}>
-            <Link href={adminPath(projectId, 'general')} prefetch={false} onClick={close}>
+          <SidebarMenuSubButton asChild isActive={onSettingsPage && !onModels}>
+            <Link href={`/projects/${projectId}/settings`} prefetch={false} onClick={close}>
               <RowGlyph>
                 <GearSixIcon className="size-3.5" />
               </RowGlyph>

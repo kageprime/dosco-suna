@@ -44,6 +44,8 @@ import {
   HardDriveIcon,
   TerminalWindowIcon,
   CheckIcon,
+  HardDrivesIcon,
+  TrayIcon,
 } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { getProjectDetail } from '@kortix/sdk';
@@ -89,6 +91,10 @@ import { useSettingsAccountId } from './use-settings-account-id';
 import {
   AgentsPage,
   SkillsPage,
+  ToolsPage,
+  ExtensionsPage,
+  AgentDrivesSection,
+  ReviewPage,
   ConnectorsPage,
   TriggersPage,
   SecretsPage,
@@ -163,6 +169,14 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     icon: SparkleIcon,
   },
   {
+    id: 'tools',
+    category: 'capabilities',
+    group: 'Intelligence',
+    label: 'Tools',
+    description: 'Custom tools, CLI scripts, and MCP tool integrations',
+    icon: WrenchIcon,
+  },
+  {
     id: 'models',
     category: 'capabilities',
     group: 'Intelligence',
@@ -170,6 +184,14 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     description: 'Providers, lineups, custom models, gateway, routing, costs & logs',
     icon: CpuIcon,
     drilldown: true,
+  },
+  {
+    id: 'review',
+    category: 'capabilities',
+    group: 'Intelligence',
+    label: 'Review',
+    description: 'Agent approvals, human-in-the-loop decisions & change requests',
+    icon: TrayIcon,
   },
 
   // Capabilities — Connectivity & Secrets
@@ -180,6 +202,14 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     label: 'Connectors',
     description: 'Integrations with GitHub, Slack, Linear, Google Drive & Notion',
     icon: PlugsConnectedIcon,
+  },
+  {
+    id: 'extensions',
+    category: 'capabilities',
+    group: 'Connectivity',
+    label: 'Extensions',
+    description: 'Runtime extensions and external platform plugins',
+    icon: PuzzlePieceIcon,
   },
   {
     id: 'triggers',
@@ -216,12 +246,28 @@ const NAV_ITEMS: readonly NavItemDef[] = [
     icon: GitBranchIcon,
   },
   {
+    id: 'drives',
+    category: 'capabilities',
+    group: 'Project & Runtime',
+    label: 'Drives',
+    description: 'Workspace storage drives, mounts & shared folders',
+    icon: HardDrivesIcon,
+  },
+  {
     id: 'sandbox',
     category: 'capabilities',
     group: 'Project & Runtime',
     label: 'Sandbox & Snapshots',
     description: 'Cloud Hypervisor microVM templates & filesystem snapshots',
     icon: CubeIcon,
+  },
+  {
+    id: 'members',
+    category: 'capabilities',
+    group: 'Project & Runtime',
+    label: 'Members',
+    description: 'Project collaborators, roles & member permissions',
+    icon: UsersIcon,
   },
   {
     id: 'feature-flags',
@@ -1191,6 +1237,14 @@ export function UnifiedSettingsPage({
                 <SkillsPage projectId={projectId} />
               )}
 
+              {category === 'capabilities' && activeTab === 'tools' && (
+                <ToolsPage projectId={projectId} />
+              )}
+
+              {category === 'capabilities' && activeTab === 'review' && (
+                <ReviewPage projectId={projectId} />
+              )}
+
               {/* Models View */}
               {category === 'capabilities' && activeTab === 'models' && (
                 <div className="space-y-6">
@@ -1226,6 +1280,9 @@ export function UnifiedSettingsPage({
               {category === 'capabilities' && activeTab === 'connectors' && (
                 <ConnectorsPage projectId={projectId} />
               )}
+              {category === 'capabilities' && activeTab === 'extensions' && (
+                <ExtensionsPage projectId={projectId} />
+              )}
               {category === 'capabilities' && activeTab === 'triggers' && (
                 <TriggersPage projectId={projectId} />
               )}
@@ -1248,10 +1305,44 @@ export function UnifiedSettingsPage({
                   <GitView projectId={projectId} />
                 </div>
               )}
+              {category === 'capabilities' && activeTab === 'drives' && (
+                <div className="space-y-6">
+                  <div className="border-border flex flex-col gap-1 border-b pb-4">
+                    <h2 className="text-foreground text-xl font-medium tracking-tight">
+                      Drives & Storage
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      Configure persistent workspace storage volumes, mounts, and shared folders.
+                    </p>
+                  </div>
+                  <AgentDrivesSection projectId={projectId} />
+                </div>
+              )}
               {category === 'capabilities' && activeTab === 'sandbox' && (
                 <div className="space-y-8">
                   <SandboxTab projectId={projectId} />
                   <SnapshotsTab projectId={projectId} />
+                </div>
+              )}
+              {category === 'capabilities' && activeTab === 'members' && (
+                <div className="space-y-6">
+                  <div className="border-border flex flex-col gap-1 border-b pb-4">
+                    <h2 className="text-foreground text-xl font-medium tracking-tight">
+                      Members & Access
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      Manage project members, roles, and collaborative workspace access permissions.
+                    </p>
+                  </div>
+                  <BillingAccountProvider accountId={accountId ?? null}>
+                    <AccountHubSheetProvider>
+                      <AccountHubContent
+                        accountId={accountId}
+                        section="access-projects"
+                        embedded
+                      />
+                    </AccountHubSheetProvider>
+                  </BillingAccountProvider>
                 </div>
               )}
               {category === 'capabilities' && activeTab === 'feature-flags' && (

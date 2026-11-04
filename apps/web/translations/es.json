@@ -23591,6 +23591,7 @@
       "builtInHint": "El agente con el que hablas. Ejecuta los agentes de abajo por ti."
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",

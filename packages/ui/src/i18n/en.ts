@@ -7900,6 +7900,7 @@ const catalog = {
       "builtInHint": "The one agent you talk to. It runs the agents below for you."
     },
     "tabs": {
+      "agents": "Agents",
       "tabsLabel": "Agent sections",
       "tabOverview": "Overview",
       "tabInstructions": "Instructions",
