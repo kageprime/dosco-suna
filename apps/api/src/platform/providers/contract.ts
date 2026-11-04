@@ -1,9 +1,8 @@
 import { config } from '../../config';
 
-// Platinum is the reference provider; Daytona is a legacy fallback (removal
-// scheduled). E2B support is discontinued: a stored `e2b` row resolves through
-// tryGetProvider() to null.
-export type ProviderName = 'platinum' | 'daytona';
+// Platinum is the reference provider; Daytona is a legacy fallback.
+// E2B is supported as the cloud microVM sandbox provider on Heroku/container deployments.
+export type ProviderName = 'platinum' | 'daytona' | 'e2b';
 
 export class WarmRuntimeUnavailableError extends Error {
   constructor(message: string) {
@@ -215,6 +214,48 @@ export interface ProvisioningStatus {
   errorMessage?: string;
 }
 
+/**
+ * Which dimensions of an App machine specification a provider can actually
+ * enforce. Dosco bills an App from the specification it recorded, so a
+ * dimension the provider cannot honor must not reach the meter: E2B's
+ * Template.build accepts cpuCount and memoryMB and has no disk parameter
+ * (e2b 2.37.0), so an App on E2B was being charged for disk nobody allocated.
+ */
+export interface AppMachineSupport {
+  cpu: boolean;
+  memoryGb: boolean;
+  diskGb: boolean;
+}
+
+export const FULL_APP_MACHINE_SUPPORT: AppMachineSupport = {
+  cpu: true,
+  memoryGb: true,
+  diskGb: true,
+};
+
+export interface AppMachine {
+  cpuCores: number;
+  memoryGb: number;
+  diskGb: number;
+}
+
+/**
+ * The machine a provider will really allocate, which is what billing must use.
+ * A dimension the provider cannot set bills as zero rather than as the number
+ * the customer typed. Absent support means the provider honors everything.
+ */
+export function effectiveAppMachine(
+  provider: { appMachineSupport?: AppMachineSupport },
+  requested: AppMachine,
+): AppMachine {
+  const support = provider.appMachineSupport ?? FULL_APP_MACHINE_SUPPORT;
+  return {
+    cpuCores: support.cpu ? requested.cpuCores : 0,
+    memoryGb: support.memoryGb ? requested.memoryGb : 0,
+    diskGb: support.diskGb ? requested.diskGb : 0,
+  };
+}
+
 
 /** Result of a provider-level command run inside a sandbox VM/container. */
 export interface SandboxExecResult {
@@ -248,6 +289,8 @@ export interface SandboxProvider {
    * default cache. Use zero when the provider owns a shorter credential cache.
    */
   readonly ingressCacheTtlMs?: number;
+  /** Absent means the provider enforces the whole App machine specification. */
+  readonly appMachineSupport?: AppMachineSupport;
   create(opts: CreateSandboxOpts): Promise<ProvisionResult>;
   /**
    * Ensure the Kortix App supervisor is running after create or resume.
@@ -318,6 +361,14 @@ export interface SandboxProvider {
     externalId: string,
     request: SandboxIngressRequest,
   ): Promise<ResolvedSandboxIngress>;
+  /**
+   * Drop the provider-owned cached ingress credential for a sandbox after the
+   * provider edge refuses it. E2B rotates its traffic token on every
+   * pause-resume; the provider handle is the credential source, so the proxy
+   * must ask the provider to drop it before re-resolving. Providers without a
+   * provider-owned credential cache omit this hook.
+   */
+  invalidateIngress?(externalId: string): void;
   ensureRunning(externalId: string): Promise<void>;
   getProvisioningStatus(sandboxId: string): Promise<ProvisioningStatus | null>;
   /**

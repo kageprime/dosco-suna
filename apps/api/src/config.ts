@@ -33,11 +33,9 @@ process.env.GIT_NO_LAZY_FETCH = '1';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-// Platinum is the reference provider. Daytona is a legacy fallback: its
-// removal is scheduled, existing Daytona sessions keep working for now, and it
-// gets no new features and no support guarantee. E2B support is discontinued;
-// the DB enum keeps `e2b` only so legacy rows stay readable.
-export type SandboxProviderName = 'platinum' | 'daytona';
+// Platinum is the reference provider. Daytona is a legacy fallback.
+// E2B is supported as cloud sandbox provider on Heroku/container deployments.
+export type SandboxProviderName = 'platinum' | 'daytona' | 'e2b';
 type InternalKortixEnv = 'dev' | 'staging' | 'prod' | 'preview';
 
 // ─── Zod Helpers ────────────────────────────────────────────────────────────
@@ -824,6 +822,16 @@ export const envSchema = z.object({
   PLATINUM_API_URL_LOCAL: optStr,
   PLATINUM_API_KEY_LOCAL: optStr,
 
+  // ── E2B — sandbox provisioning (conditional: required if enabled) ────────
+  // E2B_DOMAIN is the base E2B domain without a protocol. The default uses
+  // E2B Cloud. A self-hosted deployment uses its own base domain.
+  // E2B_TEMPLATE is an optional ready fallback template. Project-specific
+  // templates built by the shared snapshot system take precedence.
+  E2B_API_KEY: optStr,
+  E2B_DOMAIN: optStrDefault('e2b.app'),
+  E2B_TEMPLATE: optStr,
+  E2B_WEBHOOK_SECRET: optStr,
+
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // Public API base URL, without a route suffix. Auto-derived from PORT in local mode.
   KORTIX_URL: optStr,
@@ -1079,8 +1087,7 @@ type EnvIssue = { var: string; message: string; level: 'error' | 'warn' };
 // Recognised provider names. Source-of-truth for what can legally appear in
 // ALLOWED_SANDBOX_PROVIDERS — adding a new provider is a one-place change
 // here plus a case in `getProvider()` in platform/providers/index.ts.
-// `e2b` is not listed: E2B support is discontinued, so the entry is ignored.
-export const KNOWN_PROVIDERS: readonly SandboxProviderName[] = ['platinum', 'daytona'] as const;
+export const KNOWN_PROVIDERS: readonly SandboxProviderName[] = ['platinum', 'daytona', 'e2b'] as const;
 
 /**
  * Parse comma-separated provider list (e.g. "platinum,daytona"). `fallback` is
@@ -1174,6 +1181,14 @@ function validateEnv(): z.infer<typeof envSchema> {
       issues.push({
         var: 'PLATINUM_API_URL',
         message: `Required when ALLOWED_SANDBOX_PROVIDERS includes "platinum"${providerKeySuffix}`,
+        level: providerKeyLevel,
+      });
+  }
+  if (providers.includes('e2b')) {
+    if (!raw.E2B_API_KEY)
+      issues.push({
+        var: 'E2B_API_KEY',
+        message: `Required when ALLOWED_SANDBOX_PROVIDERS includes "e2b"${providerKeySuffix}`,
         level: providerKeyLevel,
       });
   }
@@ -1647,6 +1662,10 @@ export const config = {
     env.PLATINUM_TARGET === 'local' ? env.PLATINUM_API_URL_LOCAL : env.PLATINUM_API_URL,
   PLATINUM_TEMPLATE: env.PLATINUM_TEMPLATE,
   PLATINUM_WEBHOOK_SECRET: env.PLATINUM_WEBHOOK_SECRET,
+  E2B_API_KEY: env.E2B_API_KEY,
+  E2B_DOMAIN: env.E2B_DOMAIN,
+  E2B_TEMPLATE: env.E2B_TEMPLATE,
+  E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ARTIFACT_CONTENT_URL: env.ARTIFACT_CONTENT_URL.replace(/\/+$/, ''),
@@ -1795,6 +1814,8 @@ export const config = {
         return !!this.DAYTONA_API_KEY;
       case 'platinum':
         return !!this.PLATINUM_API_KEY;
+      case 'e2b':
+        return !!this.E2B_API_KEY;
       default: {
         const exhaustive: never = name;
         return exhaustive;

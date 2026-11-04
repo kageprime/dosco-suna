@@ -1,6 +1,7 @@
 import { config, KNOWN_PROVIDERS } from '../../config';
 import type { ProviderName, SandboxProvider } from './contract';
 import { DaytonaProvider } from './daytona';
+import { E2BProvider } from './e2b';
 import { PlatinumProvider } from './platinum';
 
 export * from './contract';
@@ -34,6 +35,12 @@ export function getProvider(name: ProviderName): SandboxProvider {
         throw new Error('Daytona (legacy fallback) provider requires DAYTONA_API_KEY to be set.');
       }
       provider = new DaytonaProvider();
+      break;
+    case 'e2b':
+      if (!config.E2B_API_KEY) {
+        throw new Error('E2B provider requires E2B_API_KEY to be set.');
+      }
+      provider = new E2BProvider();
       break;
     default: {
       const exhaustive: never = name;
