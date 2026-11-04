@@ -3,16 +3,9 @@
 /**
  * The React half of Mod+, — see `settings-shortcut.ts` for the match itself and
  * for why the keystroke is homed with the panel rather than with the sidebar.
- * Split in two so the pure constants stay importable from a component that
- * renders without a React harness.
- *
- * `useOptionalSidebar`, not `useSidebar`: `StandaloneSettingsRoute` renders the
- * panel with no `SidebarProvider` above it, and the throwing hook would take
- * the whole route down.
  */
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { useOptionalSidebar } from '@kortix/ui/sidebar';
 import { useIsMobile } from '@kortix/ui';
@@ -25,7 +18,6 @@ import { matchesSettingsShortcut } from './settings-shortcut';
  * keystroke on a surface that cannot answer it.
  */
 export function useSettingsKeyboardShortcut(projectId?: string) {
-  const router = useRouter();
   const openSettings = useSettingsPanelStore((s) => s.openSettings);
   const isMobile = useIsMobile();
   const sidebar = useOptionalSidebar();
@@ -34,18 +26,11 @@ export function useSettingsKeyboardShortcut(projectId?: string) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!matchesSettingsShortcut(event)) return;
-      // Taken back from the browser and from the desktop shell's own
-      // Preferences binding — the app's Settings is what the user is asking
-      // for from inside the app.
       event.preventDefault();
       if (isMobile) setOpenMobile?.(false);
-      if (projectId) {
-        router.push(`/projects/${projectId}/settings`);
-      } else {
-        openSettings();
-      }
+      openSettings();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [projectId, router, openSettings, isMobile, setOpenMobile]);
+  }, [openSettings, isMobile, setOpenMobile]);
 }

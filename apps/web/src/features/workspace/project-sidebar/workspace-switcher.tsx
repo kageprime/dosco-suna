@@ -316,30 +316,20 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
 
               {canRename === true && (
                 <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-                  <Link href={`/projects/${projectId}/settings?category=capabilities&tab=general`} prefetch>
+                  <Link href={`/projects/${projectId}/admin/general`} prefetch>
                     <PencilSimpleIcon />
                     {tUi('text3064d79a295c')}
                   </Link>
                 </DropdownMenuItem>
               )}
 
-              {/* `profile`, NOT `general`. In the merged settings vocabulary
-                  (`settings/settings-tabs.ts`) `general` is Workspace →
-                  General, a PROJECT-scoped tab — a row labelled "User
-                  Settings" that opens it lands the user on the workspace pane.
-                  The user's own name/email/avatar/delete-account surface is the
-                  `profile` tab, and it is the tab `/settings` opens on
-                  (`STANDALONE_DEFAULT_SETTINGS_TAB`). This row pokes the store
-                  rather than navigating because `ProjectSidebar` only mounts
-                  under `ProjectShell`, which renders `SettingsPanel` as a
-                  sibling (`project-layout/project-shell.tsx:195`) — the
-                  header `UserMenu` has no such renderer and must navigate. */}
-              <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-                <Link href={`/projects/${projectId}/settings`} prefetch>
-                  <CogOne />
-                  {t('workspace.settings')}
-                  <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
-                </Link>
+              <DropdownMenuItem
+                onSelect={() => openUserSettings('profile')}
+                size="sm"
+              >
+                <CogOne />
+                {t('workspace.settings')}
+                <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
               </DropdownMenuItem>
 
               <DropdownMenuItem

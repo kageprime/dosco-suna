@@ -130,122 +130,15 @@ export function buildSettingsPanelSettingsNav(state: {
   };
 }
 
+import { UnifiedSettingsModal } from './unified-settings-modal';
+
 /**
  * The panel itself, loaded on demand by `SettingsPanel` (settings-panel.tsx)
- * the first time Settings opens. Everything below — every tab, both icon
- * pickers, the rail — used to ship with every project page because the panel
- * is mounted by project-shell.tsx whether or not it is open.
+ * the first time Settings opens. Renders the unified Antigravity-style
+ * settings modal.
  */
 export function SettingsPanelBody({ projectId }: { projectId?: string }) {
-  const tSettingsRail = useI18nTranslations('settings.rail');
-  const tOrganizations = useI18nTranslations('settings.profile.organizations');
-  const open = useSettingsPanelStore((s) => s.open);
-  const tab = useSettingsPanelStore((s) => s.tab);
-  const setTab = useSettingsPanelStore((s) => s.setTab);
-  const close = useSettingsPanelStore((s) => s.close);
-  // Reactive (not getState()) so it re-renders this provider — and every
-  // useSettingsNav() consumer — when membersTab changes, e.g. a deep link
-  // opening straight to Invite.
-  const membersTab = useSettingsPanelStore((s) => s.membersTab);
-  const paneRequested = useSettingsPanelStore((s) => s.paneRequested);
-  const settingsNav = useMemo(
-    () => buildSettingsPanelSettingsNav({ open, tab, membersTab }),
-    [open, tab, membersTab],
-  );
-  const isMobile = useIsMobile();
-  const memberships = useAccountMemberships();
-
-  const detail = useQuery({
-    queryKey: qk.project.detail(projectId ?? ''),
-    queryFn: () => getProjectDetail(projectId!),
-    enabled: open && !!projectId,
-    ...contract('config'),
-  });
-  const project = projectId ? detail.data?.project : undefined;
-
-  // Still resolved, still passed down: `ConnectedAccountsTab` takes an account
-  // id. The batched IAM probe that used to sit here went with the
-  // account-scoped tabs — see `ACCOUNT_SCOPED_SETTINGS_TABS` above.
-  const resolvedAccountId = useSettingsAccountId(project?.account_id);
-
-  // Kortix in Chrome exists only where the platform switch is on (local, dev
-  // until launch): the browser list answers 404 elsewhere.
-  const chromeOffered = useChromeOffered(open);
-  const isTabAllowed = useCallback(
-    (t: SettingsTab) =>
-      isSettingsTabAllowed(t, { hasProject: !!projectId }) && (t !== 'chrome' || chromeOffered),
-    [projectId, chromeOffered],
-  );
-
-  const groups = useMemo(() => {
-    const allowed: RailGroup[] = [];
-    for (const g of railGroups((key) => tSettingsRail(key as never))) {
-      const items = g.items.filter((item) => isTabAllowed(item.tab));
-      if (items.length > 0) allowed.push({ ...g, items });
-    }
-    return allowed;
-  }, [isTabAllowed, tSettingsRail]);
-  const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
-  const chrome = useMemo<SettingsRailChromeCopy>(
-    () => ({
-      settings: tSettingsRail('settings'),
-      backToApp: tSettingsRail('backToApp'),
-      close: tSettingsRail('close'),
-      docs: tSettingsRail('docs'),
-    }),
-    [tSettingsRail],
-  );
-  const organizationCopy = useMemo<AccountMembershipsCopy>(
-    () => ({
-      title: tOrganizations('title'),
-      description: tOrganizations('description'),
-      fallbackAccountName: tOrganizations('fallbackAccountName'),
-      owner: tOrganizations('owner'),
-      admin: tOrganizations('admin'),
-      member: tOrganizations('member'),
-      manage: tOrganizations('manage'),
-    }),
-    [tOrganizations],
-  );
-  const tabVisible = allItems.some((item) => isRailItemActive(item, tab));
-
-  useEffect(() => {
-    if (open && !tabVisible) {
-      setTab(DEFAULT_SETTINGS_TAB);
-    }
-  }, [open, tabVisible, setTab]);
-
-  const activeAllowed = isTabAllowed(tab);
-  useEffect(() => {
-    if (!open || activeAllowed) return;
-    const fallback = allItems[0]?.tab ?? DEFAULT_SETTINGS_TAB;
-    if (fallback !== tab) setTab(fallback);
-  }, [open, activeAllowed, allItems, tab, setTab]);
-
-  return (
-    <SettingsNavProvider value={settingsNav}>
-      <SettingsPanelView
-        open={open}
-        tab={tab}
-        onTabChange={setTab}
-        onOpenChange={(next) => (next ? undefined : close())}
-        isMobile={isMobile}
-        projectId={projectId}
-        accountId={resolvedAccountId}
-        groups={groups}
-        allItems={allItems}
-        organizations={memberships.accounts}
-        organizationCopy={organizationCopy}
-        chrome={chrome}
-        startOnPane={paneRequested}
-        // The dialog is the personal settings shell wherever it opens from —
-        // inside a project too, where only the `workspace` pane knows the
-        // project exists (KRTX-1975): the accessible title stays "Settings",
-        // never "Settings — <project>".
-        modalTitle={chrome.settings}
-      />
-    </SettingsNavProvider>
-  );
+  return <UnifiedSettingsModal projectId={projectId} />;
 }
 
 export interface SettingsPanelViewProps {
