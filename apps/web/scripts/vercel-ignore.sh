@@ -86,7 +86,7 @@ case "${VERCEL_ENV:-}:$REF" in
   *:prod)
     echo "vercel-ignore: prod deploys only via deploy-prod.yml after the API is live — skipping auto build."
     exit 0 ;;
-  production:*|*:staging)
+  production:*|*:main|*:staging)
     echo "vercel-ignore: environment branch (${REF:-$VERCEL_ENV}) — building frontend."
     exit 1 ;;
 esac
