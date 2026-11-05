@@ -187,7 +187,7 @@ export const topics = {
       description: 'Your identity provider decides who gets in.',
       body: [
         'People sign in with SAML 2.0 single sign-on. Enforce it, and other ways to sign in for your domain stop working.',
-        'SCIM 2.0 keeps members and groups in sync. Map an identity provider group to a Kortix group once.',
+        'SCIM 2.0 keeps members and groups in sync. Map an identity provider group to a Dosco group once.',
       ],
     },
     {
@@ -213,7 +213,7 @@ export const topics = {
       title: 'Audit log',
       description: 'Read it, export it, stream it.',
       body: [
-        'Kortix records who did what, when, how they signed in, and whether it was allowed. An agent’s row names the person it acted for.',
+        'Dosco records who did what, when, how they signed in, and whether it was allowed. An agent’s row names the person it acted for.',
         'Export CSV or JSONL, or stream each new event to a signed webhook. Events stay readable for 90 days, then sit in a locked archive to day 365.',
       ],
     },
@@ -272,10 +272,10 @@ export const trust = {
   titleMuted: 'Run it where your policy says, and read every line.',
   /* The security model and the buyer page carry the depth. */
   cells: [
-    { k: 'Kortix Cloud', v: 'We run the platform and the cloud computers.' },
-    { k: 'Self-hosted', v: 'The app, the API and the database on your server.' },
-    { k: 'Your VPC or on-prem', v: 'A single-tenant deployment, scoped with us.' },
-    { k: 'Open source', v: 'Read it, fork it, audit it.' },
+    { k: 'Cloud', v: 'We run the platform and compute sandboxes.' },
+    { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
+    { k: 'Your VPC or on-prem', v: 'An isolated enterprise deployment, scoped with us.' },
+    { k: 'Governance & control', v: 'Audit every run, inspect every diff, verify every boundary.' },
   ],
   seal: 'SOC 2 Type I verified',
   sealNote: 'GDPR operated. The security page has the full model.',
@@ -297,13 +297,13 @@ export const faqItems = [
     id: 'compliance-idp',
     question: 'Which identity providers work?',
     answer:
-      'Sign-in uses SAML 2.0. Directory sync uses SCIM 2.0 and covers the request patterns Okta and Microsoft Entra ID use. Both need a team account, not the personal account Kortix creates at sign-up.',
+      'Sign-in uses SAML 2.0. Directory sync uses SCIM 2.0 and covers the request patterns Okta and Microsoft Entra ID use. Both need a team account, not the personal account Dosco creates at sign-up.',
   },
   {
     id: 'compliance-leave',
     question: 'What happens when someone leaves the company?',
     answer:
-      'Remove them in your identity provider. Directory sync removes them from Kortix, and they lose access to every project.',
+      'Remove them in your identity provider. Directory sync removes them from Dosco, and they lose access to every project.',
   },
   {
     id: 'compliance-agent',
@@ -336,13 +336,13 @@ export const faqItems = [
   },
   {
     id: 'compliance-soc2',
-    question: 'Which certifications does Kortix hold?',
+    question: 'Which certifications does Dosco hold?',
     answer: 'SOC 2 Type I verified. GDPR is a posture we run, not a certificate.',
   },
   {
     id: 'compliance-selfhost',
-    question: 'Do these controls work on a self-hosted instance?',
-    answer: 'Yes. On a self-hosted instance, Enterprise turns them on for every account.',
+    question: 'Do these controls work on dedicated deployments?',
+    answer: 'Yes. On dedicated and enterprise deployments, Enterprise turns them on for every account.',
   },
 ] as const;
 

@@ -106,6 +106,16 @@ corner to make sure the output is good.
 
 ## Brand & Naming Rules: Dosco / Dosco Tek
 
+### CRITICAL DIRECTIVE: THIS IS NOT KORTIX. THIS IS DOSCO / DOSCO TEK
+- **Never write "Kortix" on any customer-facing surface:** This includes marketing pages, security pages, enterprise pages, framework docs, metadata titles, social cards, modals, settings, and UI labels. The product and company are **Dosco** or **Dosco Tek**.
+- **No Platinum:** Dosco does NOT use Platinum. Sandboxes run in isolated cloud microVMs powered by **E2B**, storage uses **Supabase Storage**, and models route through **OpenRouter & BYOK**. Never claim "Platinum compute", "runs on Platinum", or "Platinum microVMs".
+- **Not open source:** Dosco is a proprietary managed product. Never describe Dosco as open source, free to self-host, or forkable.
+- **Allowed technical occurrences only:** The ONLY acceptable appearances of the string "kortix" are strictly internal technical artifacts:
+  - The repository project manifest filename (`kortix.yaml`).
+  - Internal package namespaces and imports (e.g., `@kortix/ui`, `@kortix/sdk`).
+  - Legacy internal database columns or environment variable tokens where renaming would cause data loss or migration drift (e.g., `KORTIX_TOKEN` inside sandboxes).
+  On every user-facing, customer-facing, or marketing surface, replace any reference with Dosco.
+
 - **No brand prefixes on product surfaces.** Write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS".
 - **Company and platform identity:** Dosco or Dosco Tek. Tagline: **"Dosco Tek is the harness that powers companies that run agents."**
 - **Not open source:** Dosco is a proprietary managed product. Do not describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase.

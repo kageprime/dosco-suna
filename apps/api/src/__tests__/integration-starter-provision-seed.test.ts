@@ -51,7 +51,7 @@ describe('buildProjectSeedFiles — the seeded manifest satisfies its own requir
     expect(result.issues.filter((i) => i.severity === 'error')).toEqual([]);
   });
 
-  test('a first session with no explicit agent runs My Kortix, and the worker it starts RESOLVES on a project stamped require_declared_agents:true — matches projects.ts /projects/provision + sessions.ts exactly', async () => {
+  test('a first session with no explicit agent runs My Dosco, and the worker it starts RESOLVES on a project stamped require_declared_agents:true — matches projects.ts /projects/provision + sessions.ts exactly', async () => {
     const seed = await buildProjectSeedFiles({
       projectName: 'Acme Co',
       repoFullName: 'kortix/acme-co',
@@ -63,7 +63,7 @@ describe('buildProjectSeedFiles — the seeded manifest satisfies its own requir
     const manifest = parseManifestString(manifestFile.content, 'kortix.yaml');
     const loaded = extractAgents(manifest);
 
-    // The default is My Kortix: built in, turned on by the starter, and run by
+    // The default is My Dosco: built in, turned on by the starter, and run by
     // session create with the platform grant, past the declared-agent check.
     expect(isMyKortixAgentName(loaded.defaultAgent ?? '')).toBe(true);
     expect(projectBuiltinAgents(manifest.raw).my_kortix).toBe(true);

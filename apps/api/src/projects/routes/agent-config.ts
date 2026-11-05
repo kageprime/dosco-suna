@@ -211,11 +211,11 @@ export function registerAgentConfigRoutes(): void {
       } catch (e) {
         rethrowDatabaseError(e);
         if (isManifestSyntaxError(e)) {
-          // Repair mode: My Kortix runs while kortix.yaml is not YAML, and its
+          // Repair mode: My Dosco runs while kortix.yaml is not YAML, and its
           // config is platform-owned. Every other agent names the error.
           const builtinKey = enabledBuiltinAgentKey(agentName, { my_kortix: true });
           if (builtinKey) return c.json(builtinAgentConfigView(builtinKey, null));
-          return c.json({ error: `kortix.yaml is not valid YAML (${e.message}). Only My Kortix runs until it is fixed.`, code: 'manifest_invalid' }, 409);
+          return c.json({ error: `kortix.yaml is not valid YAML (${e.message}). Only My Dosco runs until it is fixed.`, code: 'manifest_invalid' }, 409);
         }
         return c.json(
           { error: (e as Error).message || 'failed to read manifest', code: 'manifest_read' },

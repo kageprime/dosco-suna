@@ -226,9 +226,9 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'white-label',
-    title: 'White-label: your AI product on Platinum.dev compute',
+    title: 'White-label: your AI product on isolated cloud compute',
     description:
-      'Fork Dosco, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.',
+      'Deploy Dosco, put your brand on it, and deliver it under your name. Hardware-isolated cloud microVMs powered by E2B.',
     htmlPath: '/white-label',
     markdownPath: '/markdown/white-label.md',
   },

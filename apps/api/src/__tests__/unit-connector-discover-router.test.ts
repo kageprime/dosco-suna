@@ -112,7 +112,7 @@ describe('Discover catalogue routes', () => {
     expect((await request(app, `/projects/${PROJECT}/discover/connectors/detail?id=native:email`, { headers: ADMIN })).status).toBe(200);
   });
 
-  test('Discord is hidden from the catalogue on a deployment without the Kortix Discord app', async () => {
+  test('Discord is hidden from the catalogue on a deployment without the Dosco Discord app', async () => {
     let available = false;
     const seen: unknown[] = [];
     const app = createConnectorRouter(

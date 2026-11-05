@@ -1,5 +1,5 @@
 /**
- * `/connect`: which Kortix project a Discord channel or DM uses, when more than
+ * `/connect`: which Dosco project a Discord channel or DM uses, when more than
  * one could (a server installed in several projects, a person allowed in
  * several). The command answers at once with one button per project (`kd:`);
  * a press from a person the chosen project allows binds the channel
@@ -39,14 +39,14 @@ export async function connectReply(place: { guildId: string | null; userId: stri
   const named = (await projectNames(ids)).slice(0, 25);
   if (!named.length) {
     return {
-      content: `No Kortix project here allows your Discord account yet. Ask a project admin to allow your Discord user ID ${place.userId} under Customize → Connectors → Channels → Discord.`,
+      content: `No Dosco project here allows your Discord account yet. Ask a project admin to allow your Discord user ID ${place.userId} under Customize → Connectors → Channels → Discord.`,
       components: [],
     };
   }
   const buttons = named.map((p) => ({ type: 2, style: 2, label: clip(p.name, 80), custom_id: projectPressData(p.projectId) }));
   const rows = [];
   for (let i = 0; i < buttons.length; i += 5) rows.push({ type: 1, components: buttons.slice(i, i + 5) });
-  return { content: `Which Kortix project should this ${place.guildId ? 'channel' : 'conversation'} use?`, components: rows };
+  return { content: `Which Dosco project should this ${place.guildId ? 'channel' : 'conversation'} use?`, components: rows };
 }
 
 /**

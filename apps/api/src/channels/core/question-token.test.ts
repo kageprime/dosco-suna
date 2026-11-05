@@ -66,7 +66,7 @@ describe('question control data (Done, a page turn)', () => {
     expect(parseQuestionControl(questionButtonData(ID, 1, 1))).toBeNull();
   });
 
-  test('control data Kortix did not post parses as nothing', () => {
+  test('control data Dosco did not post parses as nothing', () => {
     for (const data of [`kq:${ID}:0.d`, `kq:${ID}:p`, `kq:${ID}:p01`, `kq:${ID}:p100`, `kq:${ID}:1.dd`, `kq:${ID}:D`, 'kq:not-a-uuid:d', '']) {
       expect(parseQuestionControl(data)).toBeNull();
     }

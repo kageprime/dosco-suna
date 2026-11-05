@@ -15,7 +15,7 @@ import { extractTriggers } from './trigger-entry';
  * the top, per-trigger comments, a folded prompt scalar, and an aligned
  * inline comment.
  */
-const FIXTURE = `# Kortix manifest — edited by both humans and the agent.
+const FIXTURE = `# Dosco manifest — edited by both humans and the agent.
 # The comments below carry the reasons behind each grant; keep them.
 
 project:

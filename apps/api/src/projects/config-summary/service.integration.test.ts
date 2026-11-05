@@ -135,7 +135,7 @@ test('a stored disconnect serves no saved summary', async () => {
   expect(await readServableConfigSummary(fx.project, 'main')).toBeNull();
 });
 
-test('savedProjectConfig serves the config the live loader returns, Kortix skills included, and the resource config reads it with no git', async () => {
+test('savedProjectConfig serves the config the live loader returns, Dosco skills included, and the resource config reads it with no git', async () => {
   const commit = await fx.push({}, 'tip');
   const { loadProjectConfig } = await import('../git/config');
   const live = await loadProjectConfig(fx.project);

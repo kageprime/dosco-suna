@@ -126,7 +126,7 @@ export async function switchChannelProject(
 
 /**
  * Give a chat a settings row in `projectId`, for a platform whose admitted senders change settings
- * with no Kortix login (Telegram's and Discord's allowed users). 'not_installed': the platform has
+ * with no Dosco login (Telegram's and Discord's allowed users). 'not_installed': the platform has
  * no install of this workspace in the project. A row of this project stays as it is. A row another
  * project left (a Telegram bot reused across projects) is taken over with its agent and model
  * cleared; with `keepsOtherProjects` (Discord, where `/connect` moves a channel) it stays, and the

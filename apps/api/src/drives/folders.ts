@@ -11,7 +11,7 @@
 //   owner shares it. An admin reaches it as a person, never through a session
 //   (`adminPeople`), and every such open is recorded for the owner to see.
 // - `/Channels/<space_id>`, where `<space_id>` is a private channel of the
-//   project, is that channel's folder, protected the same way. Kortix gives
+//   project, is that channel's folder, protected the same way. Dosco gives
 //   each channel member one `write` grant; nobody holds `manage`, so nothing in
 //   it is shared on. Only the channel's own threads mount it
 //   (`sessionMountCandidates`), never a member's other sessions. The caller
@@ -57,7 +57,7 @@ export const DESKTOP_MOUNT_PATH = '/drives/me';
 export const DRIVES_ROOT = '/drives';
 /**
  * Who a grant names: an agent (its service account), or a person or team.
- * People and teams get only Kortix's own grants (their folder, a private
+ * People and teams get only Dosco's own grants (their folder, a private
  * channel's, an Agent Drive's); a grant anyone makes names an agent.
  */
 export type FolderPrincipalType = 'user' | 'group' | 'agent';
@@ -68,7 +68,7 @@ export interface FolderGrant {
   level: FolderLevel;
   principalType: FolderPrincipalType;
   principalId: string;
-  /** `system` grants are the ones Kortix made (a person's own folder, a private channel's). */
+  /** `system` grants are the ones Dosco made (a person's own folder, a private channel's). */
   source?: string;
 }
 
@@ -162,7 +162,7 @@ export function adminOnlyPersonalFolder(path: string, grants: readonly FolderGra
   return folderVisible(path, grants, { ...subject, adminPeople: false }) ? null : folder;
 }
 
-/** A folder a grant may name: not the root, not `/Users` itself, nothing that is or holds a private channel's folder (Kortix grants those). */
+/** A folder a grant may name: not the root, not `/Users` itself, nothing that is or holds a private channel's folder (Dosco grants those). */
 export function grantableFolder(path: string, channels: PrivateChannelFolders): boolean {
   return path !== '/' && path !== USERS_DIR && !touchesPrivateChannel(path, channels);
 }
@@ -335,7 +335,7 @@ export function planFolderMounts(
 /**
  * The folders a session may mount, before {@link planFolderMounts} picks
  * them: each grant that reaches its agent (a shared Drive an admin added it
- * to), and (in the person's own session, `owner`) the grants Kortix made for
+ * to), and (in the person's own session, `owner`) the grants Dosco made for
  * its person (their own folder). A grant on or
  * inside a private channel's folder never counts, a member's included, nor
  * one on a folder that holds one (`/Channels` then: its mount would show

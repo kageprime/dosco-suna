@@ -1,7 +1,7 @@
 /**
  * Discord's interactions webhook on the shared route (channels/inbound),
  * mounted at `/v1/webhooks/discord`: the Interactions Endpoint URL of the
- * Kortix Discord application, one URL for every project. Discord signs each
+ * Dosco Discord application, one URL for every project. Discord signs each
  * request with the application's Ed25519 key and wants an answer within 3
  * seconds, so the webhook answers at once and the event inbox does the work:
  *
@@ -83,11 +83,11 @@ const ephemeral = (content: string): InboundReply => ({ status: 200, body: { typ
 
 const NOT_CONNECTED: Record<Exclude<DiscordRoute['kind'], 'project'>, (direct: boolean) => string> = {
   ambiguous: (direct) =>
-    `More than one Kortix project can answer ${direct ? 'you here' : 'in this channel'}. Use /connect to pick one.`,
+    `More than one Dosco project can answer ${direct ? 'you here' : 'in this channel'}. Use /connect to pick one.`,
   none: (direct) =>
     direct
-      ? 'No Kortix project allows your Discord account yet. Ask a project admin to allow your Discord user id under Customize → Connectors → Channels → Discord.'
-      : 'This server is not connected to a Kortix project. A project admin connects it under Customize → Connectors → Channels → Discord.',
+      ? 'No Dosco project allows your Discord account yet. Ask a project admin to allow your Discord user id under Customize → Connectors → Channels → Discord.'
+      : 'This server is not connected to a Dosco project. A project admin connects it under Customize → Connectors → Channels → Discord.',
 };
 
 const VIEW_CHANNEL = 1n << 10n;
@@ -105,9 +105,9 @@ export function missingPermission(interaction: Pick<Interaction, 'guild_id' | 'a
   const thread = interaction.channel ? isDiscordThread(interaction.channel.type) : false;
   if ((has & VIEW_CHANNEL) && (has & (thread ? SEND_MESSAGES_IN_THREADS : SEND_MESSAGES))) return null;
   if (interaction.channel?.type === 12) {
-    return 'Kortix is not in this private thread. Mention @Kortix here or add it to the thread, then use the command again.';
+    return 'Dosco is not in this private thread. Mention @Dosco here or add it to the thread, then use the command again.';
   }
-  return `Kortix cannot ${has & VIEW_CHANNEL ? 'post' : 'see or post'} in this ${thread ? 'thread' : 'channel'}. A server admin can give the Kortix app the View Channel and Send Messages${thread ? ' in Threads' : ''} permissions here.`;
+  return `Dosco cannot ${has & VIEW_CHANNEL ? 'post' : 'see or post'} in this ${thread ? 'thread' : 'channel'}. A server admin can give the Dosco app the View Channel and Send Messages${thread ? ' in Threads' : ''} permissions here.`;
 }
 
 /** The project's Discord allow-list holds the user. */
@@ -197,7 +197,7 @@ export const discordInbound: ChannelAppInbound<true> = {
     const interaction = body as Interaction;
     if (interaction.type === 1) return { events: [], reply: { status: 200, body: { type: 1 } } };
     const user = interaction.member?.user ?? interaction.user;
-    if (!user?.id || !interaction.id || !interaction.token || !interaction.channel_id) return { events: [], reply: ephemeral('Kortix could not read this request.') };
+    if (!user?.id || !interaction.id || !interaction.token || !interaction.channel_id) return { events: [], reply: ephemeral('Dosco could not read this request.') };
     const direct = !interaction.guild_id;
     if (interaction.type === 2) {
       const missing = missingPermission(interaction);
@@ -208,7 +208,7 @@ export const discordInbound: ChannelAppInbound<true> = {
       const choice = await connectReply({ guildId: interaction.guild_id ?? null, userId: user.id });
       return { events: [], reply: { status: 200, body: { type: 4, data: { ...choice, flags: EPHEMERAL } } } };
     }
-    if (interaction.type !== 2 && interaction.type !== 3) return { events: [], reply: ephemeral('Kortix does not answer this here.') };
+    if (interaction.type !== 2 && interaction.type !== 3) return { events: [], reply: ephemeral('Dosco does not answer this here.') };
 
     const pressData = interaction.type === 3 ? interactionPressData(interaction.data?.custom_id ?? '', interaction.data?.values) : undefined;
     const ack: InboundReply = { status: 200, body: { type: interaction.type === 2 ? 5 : 6 } };

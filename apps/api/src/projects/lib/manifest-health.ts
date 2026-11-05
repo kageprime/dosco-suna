@@ -36,7 +36,7 @@ export type ManifestHealthState =
   | 'ok'
   /** The manifest has at least one error or warning. */
   | 'issues'
-  /** No manifest file. Valid: no agent is declared, and My Kortix is off. */
+  /** No manifest file. Valid: no agent is declared, and My Dosco is off. */
   | 'missing'
   /** The repository read failed. */
   | 'unreadable'

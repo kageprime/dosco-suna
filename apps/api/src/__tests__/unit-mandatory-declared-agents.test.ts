@@ -295,17 +295,17 @@ describe('resolveGovernedAgentGrant — the actual shipped starter satisfies its
     expect(starterFiles.some((f) => f.path === 'kortix.toml')).toBe(false);
   });
 
-  test('a first session with no explicit agent runs My Kortix, which the starter turns on', () => {
+  test('a first session with no explicit agent runs My Dosco, which the starter turns on', () => {
     const manifest = parseManifestString(manifestFile!.content, 'kortix.yaml');
     const loaded = extractAgents(manifest);
     expect(loaded.errors).toEqual([]);
-    // My Kortix is built in, never declared: session create runs it with the
+    // My Dosco is built in, never declared: session create runs it with the
     // platform grant and skips the declared-agent check (`platformMetaAgent`).
     expect(isMyKortixAgentName(declaredDefaultAgent(loaded))).toBe(true);
     expect(projectBuiltinAgents(manifest.raw).my_kortix).toBe(true);
   });
 
-  test('the worker My Kortix starts RESOLVES with the full grant — ok:true, not AGENT_NOT_DECLARED', () => {
+  test('the worker My Dosco starts RESOLVES with the full grant — ok:true, not AGENT_NOT_DECLARED', () => {
     const manifest = parseManifestString(manifestFile!.content, 'kortix.yaml');
     const loaded = extractAgents(manifest);
     expect(loaded.specs.map((spec) => spec.name)).toContain('worker');

@@ -561,7 +561,7 @@ async function resolveSessionAgent(params: {
   }
   const manifestDefaultAgent = normalizeString(loadedAgents.defaultAgent);
   // A session that names no agent runs `default_agent`. A project that runs My
-  // Kortix and sets no `default_agent` runs My Kortix; the mirrored default is
+  // Dosco and sets no `default_agent` runs My Dosco; the mirrored default is
   // not read then, since it can name an agent the file turned off.
   let agentName =
     metaAgentEnabled && !requestedAgent && !manifestDefaultAgent && !callerIsMeta
@@ -571,19 +571,19 @@ async function resolveSessionAgent(params: {
           manifestDefaultAgent,
           mirroredDefaultAgent,
         });
-  // My Kortix starting a session without naming an agent, in a project whose
-  // `default_agent` is My Kortix: the first enabled primary agent the file declares.
+  // My Dosco starting a session without naming an agent, in a project whose
+  // `default_agent` is My Dosco: the first enabled primary agent the file declares.
   if (callerIsMeta && !requestedAgent && isMyKortixAgentName(agentName)) {
     agentName = loadedAgents.specs.find((spec) => spec.enabled && !spec.subagent)?.name ?? agentName;
   }
-  // kortix.yaml is not YAML: repair mode. Only My Kortix runs, so the file can
+  // kortix.yaml is not YAML: repair mode. Only My Dosco runs, so the file can
   // be fixed. Any other agent is a typed refusal that names the error, never a 500.
   if (loadedAgents.manifestSyntaxError && !isMyKortixAgentName(agentName)) {
     return {
       error: {
         status: 409,
         body: {
-          error: `kortix.yaml is not valid YAML (${loadedAgents.manifestSyntaxError}). Only My Kortix runs until it is fixed.`,
+          error: `kortix.yaml is not valid YAML (${loadedAgents.manifestSyntaxError}). Only My Dosco runs until it is fixed.`,
           code: 'manifest_invalid',
         },
       },

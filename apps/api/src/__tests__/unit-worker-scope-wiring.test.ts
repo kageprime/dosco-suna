@@ -92,7 +92,7 @@ const PER_PROCESS: Record<string, string> = {
   'session-lifecycle':
     'message delivery: a request queues a prompt and kicks the drain on its own process; every web process drains the shared queue',
   'job-queue': 'the durable job queue (held connector calls, Capture ingest): any web process claims a job with SKIP LOCKED',
-  'trigger-event-poll': 'Kortix-polled app events: every web process claims due streams under a lease',
+  'trigger-event-poll': 'Dosco-polled app events: every web process claims due streams under a lease',
   'tunnel-rpc-forwarder': 'forwards RPCs to the agents connected to this process: it claims only rows addressed to its own instance id',
 };
 

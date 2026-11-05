@@ -83,7 +83,7 @@ export interface LoadedAgents {
    *  = on, anything else off. Unset = off. */
   builtinAgents?: Record<BuiltinAgentKey, boolean>;
   /** Set when kortix.yaml is not YAML: the parser's message. The project is in
-   *  repair mode: only My Kortix runs, and a session for any other agent is
+   *  repair mode: only My Dosco runs, and a session for any other agent is
    *  refused with 422 `manifest_invalid`. */
   manifestSyntaxError?: string;
 }

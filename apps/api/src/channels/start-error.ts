@@ -58,12 +58,12 @@ export const TELEGRAM_START_ERROR_COMMANDS: StartErrorCommands = {
   login: 'Channels → Telegram in the Dosco project',
 };
 
-/** Discord renders Markdown: `/status` and `/connect` are slash commands; the login lives in Kortix. */
+/** Discord renders Markdown: `/status` and `/connect` are slash commands; the login lives in Dosco. */
 export const DISCORD_START_ERROR_COMMANDS: StartErrorCommands = {
   surface: 'conversation',
   settings: '`/status`',
   switchProject: '`/connect`',
-  login: 'Channels → Discord in the Kortix project',
+  login: 'Channels → Discord in the Dosco project',
 };
 
 export function startErrorMessage(

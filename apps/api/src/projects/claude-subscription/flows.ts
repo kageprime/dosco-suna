@@ -1,5 +1,5 @@
 /**
- * The Claude subscription login run in Kortix.
+ * The Claude subscription login run in Dosco.
  *
  *   start    (any replica) runs `claude setup-token` here, records a flow row
  *            with the authorize URL, and keeps the process in this replica.
@@ -204,7 +204,7 @@ async function ownFlow(flowId: string, login: ClaudeLoginInput, run: SetupTokenR
 
 const FAILURES: Record<string, ClaudeLoginFlowError> = {
   expired: new ClaudeLoginFlowError('expired', 'This Claude sign-in expired. Start it again.', 410),
-  restarted: new ClaudeLoginFlowError('expired', 'Kortix restarted during your sign-in. Sign in with Claude again.', 410),
+  restarted: new ClaudeLoginFlowError('expired', 'Dosco restarted during your sign-in. Sign in with Claude again.', 410),
   replaced: new ClaudeLoginFlowError('expired', 'A newer Claude sign-in replaced this one.', 410),
   account_gone: new ClaudeLoginFlowError('not_found', 'This Claude account is no longer available. Add it again.', 404),
   invalid_code: new ClaudeLoginFlowError('invalid_code', 'Claude did not accept that code. Sign in with Claude again and paste the new code.', 400),

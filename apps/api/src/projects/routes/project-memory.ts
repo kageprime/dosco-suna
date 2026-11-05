@@ -9,7 +9,7 @@
  * the same and the routes keep working; only the Channels UI is hidden.
  * Read and write rights are the Drive folder rights. A session token (an
  * agent) gets 403 `use_files` on every route: agents use their `/drives` mounts.
- * The one exception is `project-my-memory.ts`: a My Kortix session reads and
+ * The one exception is `project-my-memory.ts`: a My Dosco session reads and
  * writes the memory of the person it acts for.
  */
 import { createRoute, z } from '@hono/zod-openapi';
@@ -89,10 +89,10 @@ export async function withMemoryCaller<R>(
     if (!options.myKortixSession) {
       return c.json({ error: 'Agents read and write memory as files in their /drives mounts.', code: 'use_files' }, 403);
     }
-    // `kortix_memory`: a My Kortix session, for the person it acts for (`on_behalf_of`), in that person's own folder.
+    // `kortix_memory`: a My Dosco session, for the person it acts for (`on_behalf_of`), in that person's own folder.
     const person = getRequestOnBehalfOf(c);
     if (!person || !(await isMyKortixSession(row.projectId, sessionId))) {
-      return c.json({ error: 'Only My Kortix keeps memory here, and only for the person it acts for.', code: 'my_kortix_only' }, 403);
+      return c.json({ error: 'Only My Dosco keeps memory here, and only for the person it acts for.', code: 'my_kortix_only' }, 403);
     }
     userId = person;
   }

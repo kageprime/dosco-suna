@@ -1,4 +1,4 @@
-// Orphan box costs: what the reaper records before it stops a box no Kortix
+// Orphan box costs: what the reaper records before it stops a box no Dosco
 // row owns. A failed read never keeps the reaper from stopping the box.
 import { describe, expect, test } from 'bun:test';
 import { recordOrphanBoxCost, type OrphanBoxCostDeps } from './orphan-box-costs';

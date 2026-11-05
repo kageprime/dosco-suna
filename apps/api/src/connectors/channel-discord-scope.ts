@@ -1,7 +1,7 @@
 /**
  * Discord connector calls, kept in the calling project's own conversations.
  *
- * Every Kortix project talks to Discord through ONE bot token, the Kortix
+ * Every Dosco project talks to Discord through ONE bot token, the Dosco
  * Discord application's, and that bot sits in every server any project
  * installed it in. The token alone would let an agent in one project read and
  * post in another customer's server. So every `kortix_discord` action, read or
@@ -31,7 +31,7 @@
  *      request budget, and Discord's invalid-request ban, are shared by every
  *      project. A channel Discord refused is not asked again for 10 minutes.
  *
- * Discord unreachable: refused, never allowed. Kortix's own replies (notices,
+ * Discord unreachable: refused, never allowed. Dosco's own replies (notices,
  * questions, menus) do not go through the connector.
  */
 import { and, desc, eq } from 'drizzle-orm';
@@ -110,7 +110,7 @@ async function projectGuild(projectId: string): Promise<string | null> {
 }
 
 const notThisProject = (channelId: string) =>
-  `Discord channel ${channelId} is not a conversation of this Kortix project. This project's agent reads and writes only in its own server's channels and threads, and in direct messages its conversations run in.`;
+  `Discord channel ${channelId} is not a conversation of this Dosco project. This project's agent reads and writes only in its own server's channels and threads, and in direct messages its conversations run in.`;
 
 const SNOWFLAKE = /^\d{17,20}$/;
 
@@ -175,7 +175,7 @@ export async function discordCallRefusal(input: {
   const refusedUntil = refusedChannels.get(channelId);
   if (refusedUntil && refusedUntil > Date.now()) return notThisProject(channelId);
   const guildId = await projectGuild(input.projectId);
-  if (!guildId) return 'This Kortix project has no Discord server connected.';
+  if (!guildId) return 'This Dosco project has no Discord server connected.';
   let channel: DiscordChannel;
   try {
     channel = await discordCall<DiscordChannel>('GET /channels/{id}', `/channels/${channelId}`, { timeoutMs: 5_000 });
@@ -186,7 +186,7 @@ export async function discordCallRefusal(input: {
       if (refusedChannels.size > 10_000) refusedChannels.clear();
       refusedChannels.set(channelId, Date.now() + REFUSED_CHANNEL_TTL_MS);
     }
-    return `Kortix could not check Discord channel ${channelId}, so the call did not run.`;
+    return `Dosco could not check Discord channel ${channelId}, so the call did not run.`;
   }
   if (channel.guild_id !== guildId) {
     if (refusedChannels.size > 10_000) refusedChannels.clear();
@@ -199,7 +199,7 @@ export async function discordCallRefusal(input: {
     if (parent.projects.has(input.projectId)) return null;
   }
   if ((await discordGuildProjects(guildId)).length > 1) {
-    return `Discord channel ${channelId} belongs to no conversation of this project, and its server is connected to more than one Kortix project: this project's agent acts only in its own conversations and bound channels there.`;
+    return `Discord channel ${channelId} belongs to no conversation of this project, and its server is connected to more than one Dosco project: this project's agent acts only in its own conversations and bound channels there.`;
   }
   return null;
 }

@@ -30,7 +30,7 @@ import { localizeUiCatalog } from '@kortix/ui/i18n';
 export const hero = {
   title: 'One CompanyOS for every team.',
   titleMuted: 'Every team’s agents and memory, in one place you own.',
-  sub: 'Roll Kortix out team by team. Agents run around the clock on schedules and webhooks, on Kortix Cloud or your own infrastructure, with any model.',
+  sub: 'Roll Dosco out team by team. Agents run around the clock on schedules and webhooks, on Cloud or dedicated infrastructure, with any model.',
   caption: 'One account for every team.',
   captionMuted: 'Members are unlimited.',
 } as const;
@@ -135,7 +135,7 @@ export const governedLine = 'Every action in the audit log · SAML SSO and SCIM 
    "Models" (gateway, budgets), "Security"; claims.md Hosting, Source,
    Models rows; sovereign/content.ts (the same images). */
 export const pillars = {
-  title: 'Why companies standardize on Kortix.',
+  title: 'Why companies standardize on Dosco.',
   titleMuted: 'One platform, on your terms.',
   items: [
     {
@@ -151,9 +151,9 @@ export const pillars = {
     {
       id: 'infra',
       name: 'Runs where you need it',
-      line: 'Kortix Cloud, your VPC or on-prem.',
+      line: 'Cloud, dedicated VPC or on-prem.',
       facts: [
-        'Open source',
+        'Governance & control',
         'The same images in every deployment',
         'Your company is a git repository',
       ],
@@ -213,9 +213,9 @@ export const topics = {
     {
       id: 'infra',
       title: 'Your infrastructure',
-      description: 'Kortix Cloud, your VPC or on-prem.',
+      description: 'Cloud, dedicated VPC or on-prem.',
       body: [
-        'Run Kortix on Kortix Cloud, in your VPC, or on your own on-prem network. Self-hosting is one Docker Compose stack.',
+        'Run Dosco on Cloud, in your VPC, or on your own dedicated network. Deployments are fully managed.',
         'Your agents, skills and memory are files in a git repository you own. Clone it any time.',
       ],
     },
@@ -224,8 +224,8 @@ export const topics = {
       title: 'Models and spend control',
       description: 'Any model, with limits you set.',
       body: [
-        'Use Kortix-managed models, your own provider keys, or a ChatGPT subscription. Pick a model per project, per agent or per session.',
-        'Every request goes through the Kortix LLM gateway. Set budgets, and block new requests or warn at the limit.',
+        'Use Dosco-managed models, your own provider keys, or a ChatGPT subscription. Pick a model per project, per agent or per session.',
+        'Every request goes through the Dosco LLM gateway. Set budgets, and block new requests or warn at the limit.',
       ],
     },
     {
@@ -271,8 +271,8 @@ export const driveTree = [
 
 /** claims.md Hosting row; security-page/model.ts trust cells. */
 export const deployments = [
-  { k: 'Kortix Cloud', v: 'We run the platform and the cloud computers.' },
-  { k: 'Self-hosted', v: 'The app, the API and the database on your server.' },
+  { k: 'Cloud', v: 'We run the platform and compute sandboxes.' },
+  { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
   { k: 'Your VPC or on-prem', v: 'A single-tenant deployment, scoped with us.' },
 ] as const;
 
@@ -318,10 +318,10 @@ export const trust = {
   title: 'Ready for your security review.',
   titleMuted: 'Run it where your policy says, and read every line.',
   cells: [
-    { k: 'Kortix Cloud', v: 'We run the platform and the cloud computers.' },
-    { k: 'Self-hosted', v: 'The app, the API and the database on your server.' },
+    { k: 'Cloud', v: 'We run the platform and compute sandboxes.' },
+    { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
     { k: 'Your VPC or on-prem', v: 'A single-tenant deployment, scoped with us.' },
-    { k: 'Open source', v: 'Read it, fork it, audit it.' },
+    { k: 'Governance & control', v: 'Audit every run, inspect every diff, verify every boundary.' },
   ],
   seal: 'SOC 2 Type I verified',
   sealNote: 'GDPR operated. The compliance and security pages have the detail.',
@@ -344,27 +344,27 @@ export const trust = {
 export const faqItems = [
   {
     id: 'enterprise-rollout',
-    question: 'How do we roll Kortix out across the company?',
+    question: 'How do we roll Dosco out across the company?',
     answer:
       'Create a team account, start with one team’s project and agents, then grant the next team its project and the agents it may run. Groups grant access to many people at once. Members are unlimited.',
   },
   {
     id: 'enterprise-where',
-    question: 'Where can Kortix run?',
+    question: 'Where can Dosco run?',
     answer:
-      'On Kortix Cloud, in your VPC, or on your own on-prem network. Sessions run on Platinum cloud computers in every topology. For an isolated topology, talk to us: we scope it with you.',
+      'On Cloud, in your VPC, or on your own dedicated network. Sessions run in isolated cloud microVM sandboxes (E2B) in every topology. For an isolated topology, talk to us: we scope it with you.',
   },
   {
     id: 'enterprise-models',
     question: 'Which models can we use?',
     answer:
-      'Any model provider with your own keys, the ChatGPT plan you already pay for, or any OpenAI-compatible endpoint. On Kortix Cloud you can also use Kortix-managed open-weight models (DeepSeek, GLM), served with zero data retention.',
+      'Any model provider with your own keys, the ChatGPT plan you already pay for, or any OpenAI-compatible endpoint. On Cloud you can also use Dosco-managed open-weight models, served with zero data retention.',
   },
   {
     id: 'enterprise-spend',
     question: 'How do we keep model spend under control?',
     answer:
-      'Set a budget per day, week or month on each project. At the limit, Kortix blocks new requests or only warns, as you choose. Owners, admins and project managers get an email at 80% and at 100%.',
+      'Set a budget per day, week or month on each project. At the limit, Dosco blocks new requests or only warns, as you choose. Owners, admins and project managers get an email at 80% and at 100%.',
   },
   {
     id: 'enterprise-own',
@@ -392,7 +392,7 @@ export const faqItems = [
   },
   {
     id: 'enterprise-sso',
-    question: 'Does Kortix work with our identity provider?',
+    question: 'Does Dosco work with our identity provider?',
     answer:
       'Sign-in uses SAML 2.0, and directory sync uses SCIM 2.0. The compliance page has the detail.',
   },

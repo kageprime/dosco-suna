@@ -573,7 +573,7 @@ const PLATINUM_LIMITS_RETRY_MS = 30_000;
 // replica-local: the one read in flight, shared by concurrent callers.
 let platinumLimitsRead: Promise<PlatinumMountLimits> | null = null;
 
-/** Platinum's limits for Kortix's org, cached 10 minutes. `{}` when they cannot be read (for 30 s). */
+/** Platinum's limits for Dosco's org, cached 10 minutes. `{}` when they cannot be read (for 30 s). */
 export async function platinumVolumeLimits(): Promise<PlatinumMountLimits> {
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.volumeLimits();

@@ -1,4 +1,4 @@
-/** Catalogue browse routes: Discover (the Kortix catalog: Kortix apps, integrations.sh, Composio), easy-connect toolkits, Pipedream apps. */
+/** Catalogue browse routes: Discover (the Dosco catalog: Dosco apps, integrations.sh, Composio), easy-connect toolkits, Pipedream apps. */
 import { withDirectIds, withDirectMcpUrls } from '../connect-direct-twins';
 import { CatalogInstallError, catalogInstallDraft, connectorIdentity, freeSlug, installedSlugs } from '../catalog-install';
 import { type ConnectorCatalogDetail, canonicalCatalogId } from '../connector-catalog';
@@ -348,8 +348,8 @@ function registerDiscoverToolsAndInstallRoutes(app: OpenAPIHono, deps: Connector
 }
 
 /**
- * The Kortix apps a project cannot use yet: Email is behind its own flag
- * (`email_channel`), Discord needs the deployment's Kortix Discord application.
+ * The Dosco apps a project cannot use yet: Email is behind its own flag
+ * (`email_channel`), Discord needs the deployment's Dosco Discord application.
  * Hidden from the listings, and its detail answers 404.
  */
 async function hiddenKortixApps(deps: ConnectorRouterDeps, projectId: string): Promise<Set<string>> {

@@ -106,7 +106,7 @@ async function readLastGoodManifest(
 
 /**
  * Read + parse the project's manifest. Returns null if no manifest file is
- * present (so the caller can treat the repo as "not a Kortix project yet").
+ * present (so the caller can treat the repo as "not a Dosco project yet").
  * A file that is not YAML reads as the last commit's file that is, marked
  * `fallback` (the error stays visible: `manifest_health`, and every write
  * refuses). With no such commit it throws `ManifestSyntaxError`.
@@ -156,7 +156,7 @@ export async function readManifest(
   } catch (err) {
     // Not YAML: the project runs the last commit's file that is, so nothing
     // stops. With no such commit the error propagates: repair mode
-    // (`loadProjectAgents`), where only My Kortix runs.
+    // (`loadProjectAgents`), where only My Dosco runs.
     if (!isManifestSyntaxError(err) || !found.commit) throw err;
     const lastGood = await readLastGoodManifest(project, found, found.commit, err);
     if (!lastGood) throw err;
@@ -290,7 +290,7 @@ export function manifestIssueSummary(issues: readonly ManifestIssue[], file: str
 }
 
 /**
- * The errors `after` has that `before` does not (path + message). A Kortix
+ * The errors `after` has that `before` does not (path + message). A Dosco
  * write is refused only for these: a file that already carries an error stays
  * editable, and no edit may add one. `after` is checked as it is written,
  * without `kortix_version`: a retired-format file is refused until its body
@@ -550,18 +550,18 @@ export interface ManifestWrites {
 }
 
 /**
- * Why Kortix may not write `manifest`, or null. A last-good manifest
+ * Why Dosco may not write `manifest`, or null. A last-good manifest
  * (`fallback`) stands in while the default branch's file is not YAML: an edit
  * of it would revert every change since that commit.
  */
 export function manifestWriteRefusal(manifest: ParsedManifest): ManifestWriteRefusedError | null {
   if (!manifest.fallback) return null;
   return new ManifestWriteRefusedError(
-    `${manifest.path || MANIFEST_FILENAME} on the default branch is not valid YAML (${manifest.fallback.error}). Kortix does not change it until it is fixed.`,
+    `${manifest.path || MANIFEST_FILENAME} on the default branch is not valid YAML (${manifest.fallback.error}). Dosco does not change it until it is fixed.`,
   );
 }
 
-/** A write Kortix refuses because the default branch's manifest is not YAML (409 `manifest_invalid`). */
+/** A write Dosco refuses because the default branch's manifest is not YAML (409 `manifest_invalid`). */
 export class ManifestWriteRefusedError extends Error {
   readonly code = 'manifest_invalid';
   constructor(message: string) {

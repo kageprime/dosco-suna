@@ -6,7 +6,7 @@
  * the allowed users' names and avatars, and a message's files. Agent-sent
  * messages go through the `kortix_discord` connector instead (connectors/channels.ts).
  *
- * One bot token serves every project: the Kortix Discord application's
+ * One bot token serves every project: the Dosco Discord application's
  * (config.DISCORD_BOT_TOKEN). Every write names a channel a project's
  * conversation proved, never one a sender typed.
  */
@@ -28,7 +28,7 @@ export class DiscordApiError extends Error {
 
 export const discordApiBase = () => config.DISCORD_API_URL.replace(/\/+$/, '');
 
-/** The Kortix Discord application is configured on this server. */
+/** The Dosco Discord application is configured on this server. */
 export function discordConfigured(): boolean {
   return Boolean(
     config.DISCORD_APPLICATION_ID && config.DISCORD_PUBLIC_KEY && config.DISCORD_CLIENT_SECRET && config.DISCORD_BOT_TOKEN,
@@ -109,7 +109,7 @@ export async function discordCall<T = unknown>(
         headers: {
           ...(init.auth === false ? {} : { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` }),
           ...(init.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          'User-Agent': 'DiscordBot (https://kortix.com, 1)',
+          'User-Agent': 'DiscordBot (https://dosco.live, 1)',
         },
         ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
         signal: AbortSignal.timeout(init.timeoutMs ?? 10_000),

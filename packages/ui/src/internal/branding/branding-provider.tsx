@@ -250,9 +250,8 @@ function BrandingDocumentEffect({ branding }: { branding: AccountBranding | null
     if (typeof document === 'undefined' || !appName) return;
     const rewrite = () => {
       const current = document.title;
-      if (!current.includes('Dosco')) return;
-      const next =
-        current === siteMetadata.title ? appName : current.replace(/\bKortix(?: CompanyOS)?\b/g, appName);
+      if (!current) return;
+      const next = current.replace(/\bKortix(?: CompanyOS)?\b/gi, appName);
       if (next !== current) document.title = next;
     };
     rewrite();

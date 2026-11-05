@@ -8,7 +8,7 @@
  *   unknown sender  → a pairing reply naming their user id, no session (fail closed),
  *                     and an access request an admin can allow; in a thread, a message
  *                     not written to the bot is ignored
- *   a mention       → in a channel that takes threads, Kortix starts a thread on the
+ *   a mention       → in a channel that takes threads, Dosco starts a thread on the
  *                     message: the thread is the conversation, one session
  *   a command       → `/help`, `/status`, `/new`, `/stop`, `/model`, `/agent`, as a slash
  *                     command or typed after a mention, run in the core (core/commands.ts)
@@ -87,7 +87,7 @@ import {
 const THREAD_ALREADY_CREATED = 160004;
 /** The server reached Discord's cap on active threads. */
 const MAX_ACTIVE_THREADS = 160006;
-/** The message was deleted before Kortix started its thread. */
+/** The message was deleted before Dosco started its thread. */
 const UNKNOWN_MESSAGE = 10008;
 /** `MessageFlags.EPHEMERAL`: only the person who used the command or button sees the reply. */
 const EPHEMERAL = 64;
@@ -158,7 +158,7 @@ async function editInteractionReply(token: string, body: Partial<DiscordMessageB
 }
 
 /**
- * A refused slash command: the deferred reply ("Kortix is thinking…") is
+ * A refused slash command: the deferred reply ("Dosco is thinking…") is
  * public, and Discord cannot make it private, so it goes and the refusal is
  * a follow-up only the sender sees. Never throws.
  */
@@ -201,14 +201,14 @@ async function react(method: 'PUT' | 'DELETE', channelId: string, messageId: str
   }
 }
 
-/** ⏳ on a message Kortix handed to the agent. */
+/** ⏳ on a message Dosco handed to the agent. */
 const markWorking = (channelId: string, messageId: string) => react('PUT', channelId, messageId, WORKING_EMOJI);
 
 type ReactedMessage = { id: string; channel_id?: string; reactions?: Array<{ me?: boolean; emoji?: { name?: string | null; id?: string | null } }> };
 const markedWorking = (m: ReactedMessage) => (m.reactions ?? []).some((r) => r.me && !r.emoji?.id && r.emoji?.name === WORKING_EMOJI);
 
 /**
- * The parent channel of a thread Kortix started on a mention (the thread has
+ * The parent channel of a thread Dosco started on a mention (the thread has
  * the mention's id, and the mention lives in the parent), or null. A session
  * names it in its metadata; without one, Discord does.
  */
@@ -224,7 +224,7 @@ async function starterParent(threadId: string, sessionId: string | null, message
   return thread?.parent_id ?? null;
 }
 
-/** The messages that carry Kortix's ⏳ in a conversation: its latest messages, and a thread's starter. */
+/** The messages that carry Dosco's ⏳ in a conversation: its latest messages, and a thread's starter. */
 async function workingMessages(channelId: string, sessionId: string | null, messageId?: string): Promise<Array<{ channelId: string; messageId: string }>> {
   const found: Array<{ channelId: string; messageId: string }> = [];
   const recent = await discordCall<ReactedMessage[]>('GET /channels/{id}/messages', `/channels/${channelId}/messages?limit=${SETTLE_SCAN}`).catch(() => []);
@@ -291,14 +291,14 @@ const discordQuestions: QuestionPort = {
 
 /** Plain-text next step per `classifyTurnError` title (slack/errors.ts). Another title ('Run failed') gets the fallback. */
 const RUN_ERROR_ADVICE: Partial<Record<string, string>> = {
-  'Out of credits': 'A workspace admin can top up credits in Kortix. Then send your message again.',
-  'Usage limit reached': 'Wait, then send your message again. A project admin can also pick another model in Kortix.',
+  'Out of credits': 'A workspace admin can top up credits in Dosco. Then send your message again.',
+  'Usage limit reached': 'Wait, then send your message again. A project admin can also pick another model in Dosco.',
   'Response too long': 'Ask the agent to continue, or narrow the request.',
   'Conversation too long': 'Use /new to start a new conversation.',
-  'Agent unavailable': 'Use /agent to pick another agent, then /new and your message again. A project admin can also fix the agent in Kortix.',
+  'Agent unavailable': 'Use /agent to pick another agent, then /new and your message again. A project admin can also fix the agent in Dosco.',
   'Model unavailable': 'Use /model to pick another model, then send your message again.',
-  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Kortix. Then send your message again.',
-  'Provider rejected the request': 'A workspace admin can check the model provider settings in Kortix. Then send your message again.',
+  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Dosco. Then send your message again.',
+  'Provider rejected the request': 'A workspace admin can check the model provider settings in Dosco. Then send your message again.',
   'Provider unavailable': 'Send your message again to retry.',
   'Request blocked': 'Rephrase the request, then send it again.',
 };
@@ -338,33 +338,33 @@ export const discordPort: ChannelPort & { questions: QuestionPort } = {
 export function discordNotice(target: ChannelTarget, notice: ChannelNotice): string | null {
   switch (notice.kind) {
     case 'create_pending':
-      return 'Kortix is still starting a session for this conversation. The agent replies here when it is ready.';
+      return 'Dosco is still starting a session for this conversation. The agent replies here when it is ready.';
     case 'create_in_flight':
-      return 'Kortix is still starting a session for this conversation. Send your message again in a minute.';
+      return 'Dosco is still starting a session for this conversation. Send your message again in a minute.';
     case 'create_failed':
       return startErrorMessage(notice.error.status, notice.error.body, DISCORD_START_ERROR_COMMANDS);
     case 'follow_up_failed':
-      return "This conversation's Kortix session cannot take new messages. Use /new to start a new conversation, then send your message again.";
+      return "This conversation's Dosco session cannot take new messages. Use /new to start a new conversation, then send your message again.";
     case 'run_failed': {
       const { title, aborted } = classifyTurnError(notice.error);
       // A stop is not a failure; the push skips it too (notifications/session-push.ts).
       if (aborted) return null;
       // The title comes from a closed set: the provider's own message never reaches the chat.
       return [
-        `Kortix could not finish this run: ${title}.`,
+        `Dosco could not finish this run: ${title}.`,
         RUN_ERROR_ADVICE[title] ?? RUN_ERROR_FALLBACK_ADVICE,
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
     }
     case 'start_retrying':
       return [
-        `Kortix could not start this conversation's session yet. ${notice.reason}`,
-        'Kortix tries again automatically for a few minutes. If the agent does not reply, use /new, then send your message again.',
+        `Dosco could not start this conversation's session yet. ${notice.reason}`,
+        'Dosco tries again automatically for a few minutes. If the agent does not reply, use /new, then send your message again.',
       ].join('\n');
     case 'start_failed':
       return [
-        `Kortix could not start this conversation's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
-        'Use /new, then send your message again. If it fails again, a project admin can check the session in Kortix.',
+        `Dosco could not start this conversation's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
+        'Use /new, then send your message again. If it fails again, a project admin can check the session in Dosco.',
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
   }
@@ -372,7 +372,7 @@ export function discordNotice(target: ChannelTarget, notice: ChannelNotice): str
 
 // ── A message ────────────────────────────────────────────────────────────────
 
-/** Each kind of file, by its declared type: Kortix's word for it (also the session-view label). */
+/** Each kind of file, by its declared type: Dosco's word for it (also the session-view label). */
 function fileKind(a: { content_type?: string; duration_secs?: number }, voice: boolean): string {
   const type = a.content_type ?? '';
   if (voice && type.startsWith('audio/')) return 'voice message';
@@ -463,13 +463,13 @@ export function discordEnvelope(
       `Channel ${threadId}${conversation.direct ? ' (direct message)' : conversation.threadId !== conversation.settingsId ? ` (a thread of channel ${conversation.settingsId})` : ''}, sender id ${sender.user.id}, message id ${messageId}.`,
       `One message holds at most ${CHANNELS.discord.messageChars} characters; send a longer answer as several messages.`,
       'Discord shows Markdown: **bold**, *italic*, `code`, ```code blocks```, > quotes and lists.',
-      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Kortix shows them in this conversation as buttons, one question at a time.',
+      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Dosco shows them in this conversation as buttons, one question at a time.',
       'Never list choices or questions as plain text. Ask in plain words only when the tool result says the question could not be posted.',
       `While you work on a long task, show typing: ${connectorReply(DISCORD_CHANNEL_CONNECTOR_SLUG, 'trigger_typing', { channel_id: threadId })}.`,
       'The bot token is resolved server-side. Do not look for it in the sandbox.',
       everyMessage
-        ? `The next message in this conversation continues this session. Kortix answers ${KORTIX_COMMANDS} itself; those commands never reach you.`
-        : `The next message that mentions you in this ${conversation.threadId !== conversation.settingsId ? 'thread' : 'channel'} continues this session; people's other messages there do not reach you. Kortix answers ${KORTIX_COMMANDS} itself; those commands never reach you.`,
+        ? `The next message in this conversation continues this session. Dosco answers ${KORTIX_COMMANDS} itself; those commands never reach you.`
+        : `The next message that mentions you in this ${conversation.threadId !== conversation.settingsId ? 'thread' : 'channel'} continues this session; people's other messages there do not reach you. Dosco answers ${KORTIX_COMMANDS} itself; those commands never reach you.`,
       ...(conversation.direct || messageContent
         ? []
         : [
@@ -487,7 +487,7 @@ const createClaimOf = (projectId: string, target: Pick<ChannelTarget, 'workspace
  * False: Discord refused (no permission to start threads there); the sender is told.
  */
 async function startThread(message: DiscordStoredMessage, conversation: DiscordConversation, botUserId: string): Promise<boolean> {
-  const name = clip(mentionsAsNames(message.content, message, botUserId).replace(/\s+/g, ' ').trim() || 'Kortix', 100);
+  const name = clip(mentionsAsNames(message.content, message, botUserId).replace(/\s+/g, ' ').trim() || 'Dosco', 100);
   try {
     await discordCall('POST /channels/{id}/messages/{id}/threads', `/channels/${message.channel_id}/messages/${message.id}/threads`, {
       method: 'POST',
@@ -506,8 +506,8 @@ async function startThread(message: DiscordStoredMessage, conversation: DiscordC
       {
         content:
           error instanceof DiscordApiError && error.code === MAX_ACTIVE_THREADS
-            ? "Kortix could not start a thread for your message: this server has reached Discord's limit of active threads. Archive threads you no longer need, then mention me again."
-            : 'Kortix could not start a thread for your message. A server admin can give the Kortix app the Create Public Threads and Send Messages in Threads permissions in this channel.',
+            ? "Dosco could not start a thread for your message: this server has reached Discord's limit of active threads. Archive threads you no longer need, then mention me again."
+            : 'Dosco could not start a thread for your message. A server admin can give the Dosco app the Create Public Threads and Send Messages in Threads permissions in this channel.',
       },
       message.id,
     );
@@ -539,7 +539,7 @@ export async function handleDiscordMessage(
     if (conversation.addressed && (await claimThreadCreate(`discord:gone:${message.channel_id}`, 60 * 60_000).catch(() => null))) {
       await postMessage(
         message.channel_id,
-        { content: `This ${conversation.direct ? 'conversation' : 'channel'} is not connected to a Kortix project any more. Use /connect to pick one.` },
+        { content: `This ${conversation.direct ? 'conversation' : 'channel'} is not connected to a Dosco project any more. Use /connect to pick one.` },
         message.id,
       );
     }
@@ -573,16 +573,16 @@ export async function handleDiscordMessage(
   }
 
   const text = discordText(message, botUserId);
-  // "@Kortix" alone: no session for nothing. A file, a sticker, a forward or a poll is something.
+  // "@Dosco" alone: no session for nothing. A file, a sticker, a forward or a poll is something.
   if (!mentionsAsNames(message.content, message, botUserId).trim() && !message.carried && !message.attachments.length && !message.stickers.length) {
     // A thread's other messages (an empty one, a pin) are not written to the bot: no hint.
     if (!conversation.addressed) return;
     await reply(
       message.viaRole
-        ? 'You mentioned the Kortix role, so Discord did not show me your message. Mention the app itself: pick @Kortix with the app badge, not the role.'
+        ? 'You mentioned the Dosco role, so Discord did not show me your message. Mention the app itself: pick @Dosco with the app badge, not the role.'
         : conversation.direct
           ? 'Send me what you need, for example: what changed in the last release? /help lists the commands.'
-          : 'Mention me with what you need, for example: @Kortix what changed in the last release? /help lists the commands.',
+          : 'Mention me with what you need, for example: @Dosco what changed in the last release? /help lists the commands.',
     );
     return;
   }
@@ -636,7 +636,7 @@ export async function handleDiscordMessage(
         if (start.unavailableModel) {
           await postMessage(
             target.threadId,
-            { content: `Kortix did not send your message: this channel's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.` },
+            { content: `Dosco did not send your message: this channel's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.` },
             message.id,
           );
           return null;
@@ -733,7 +733,7 @@ export async function handleDiscordInteraction(
   const install = project && (await installFor(event.projectId, conversation));
   const press = interaction.type === 3;
   if (!project || !install) {
-    const gone = 'This channel is not connected to a Kortix project any more. Use /connect to pick one.';
+    const gone = 'This channel is not connected to a Dosco project any more. Use /connect to pick one.';
     return void (press ? await ephemeralFollowUp(interaction.token, gone) : await refuseCommand(interaction.token, gone));
   }
   // The webhook refused them already; an admin removed them since.
@@ -752,7 +752,7 @@ export async function handleDiscordInteraction(
 
   if (!press) {
     const spec = CHANNEL_COMMANDS.find((c) => c.name === interaction.command?.name);
-    if (!spec) return void (await editInteractionReply(interaction.token, { content: 'Kortix does not know this command.' }));
+    if (!spec) return void (await editInteractionReply(interaction.token, { content: 'Dosco does not know this command.' }));
     await runCommand(ctx, { name: spec.name, arg: interaction.command?.arg ?? '' }, async (body) => {
       const sent = await editInteractionReply(interaction.token, body, conversation.threadId);
       if (sent && body.components.length) await rememberCommandMenu(target, sent);
@@ -768,8 +768,8 @@ export async function handleDiscordInteraction(
     await ephemeralFollowUp(
       interaction.token,
       done
-        ? `This ${conversation.direct ? 'conversation' : 'channel'} now uses the Kortix project ${project.name}. ${conversation.direct ? 'Send' : 'Mention the bot with'} your message to start.`
-        : 'Kortix could not connect this channel. Use /connect again.',
+        ? `This ${conversation.direct ? 'conversation' : 'channel'} now uses the Dosco project ${project.name}. ${conversation.direct ? 'Send' : 'Mention the bot with'} your message to start.`
+        : 'Dosco could not connect this channel. Use /connect again.',
     );
     return;
   }
@@ -809,7 +809,7 @@ export function isDiscordInteractionEvent(event: IntegrationEvent): boolean {
  * silence. Never throws.
  */
 export async function tellDeadDiscordEvent(event: IntegrationEvent): Promise<void> {
-  const text = 'Kortix could not handle this after several tries. Send it again in a few minutes. If it keeps failing, a project admin can check Kortix.';
+  const text = 'Dosco could not handle this after several tries. Send it again in a few minutes. If it keeps failing, a project admin can check Dosco.';
   try {
     if (isDiscordInteractionEvent(event)) {
       const { interaction, conversation } = event.data as unknown as DiscordInteractionEventData;

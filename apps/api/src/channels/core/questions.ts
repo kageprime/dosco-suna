@@ -388,7 +388,7 @@ async function questionTap(
   const option = parseQuestionButton(tap.data);
   const control = option ? null : parseQuestionControl(tap.data);
   const button = option ?? control;
-  // A button Kortix did not post (the agent may post its own).
+  // A button Dosco did not post (the agent may post its own).
   if (!button) return settleTap(questions, tap);
 
   const reply = (r?: QuestionTapReply) => settleTap(questions, tap, r);

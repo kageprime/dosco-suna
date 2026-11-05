@@ -44,13 +44,13 @@ export interface DiscordStoredMessage {
 export interface DiscordConversation {
   /** The install the route chose: the conversation's workspace and access scope. */
   guildId: string;
-  /** The channel Kortix posts in and the conversation key: a thread, a DM, or a channel without threads. */
+  /** The channel Dosco posts in and the conversation key: a thread, a DM, or a channel without threads. */
   threadId: string;
   /** The settings channel: a thread's parent, a DM or the channel itself. */
   settingsId: string;
   /** A direct message. */
   direct: boolean;
-  /** A mention in a channel that takes threads: Kortix starts a thread on the message, whose id is the message's. */
+  /** A mention in a channel that takes threads: Dosco starts a thread on the message, whose id is the message's. */
   startThread: boolean;
   /** The message was written to the bot: a DM or a mention. A thread's other messages are not. */
   addressed: boolean;

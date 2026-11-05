@@ -91,9 +91,9 @@ describe('a command reply as a Discord message', () => {
     expect(body.content).toBe('**Models** (page 1 of 2)\nPick a model, or send /model <id>.');
   });
 
-  test('a panel with an https link gets an Open in Kortix link button; another link stays in the text', () => {
+  test('a panel with an https link gets an Open in Dosco link button; another link stays in the text', () => {
     const panel = discordCommandMessage({ kind: 'panel', title: 'Status', rows: [{ label: 'Model', value: 'synthetic' }], url: 'https://kortix.test/p/1' });
-    expect(panel.components.at(-1)!.components[0]).toMatchObject({ type: 2, style: 5, label: 'Open in Kortix', url: 'https://kortix.test/p/1' });
+    expect(panel.components.at(-1)!.components[0]).toMatchObject({ type: 2, style: 5, label: 'Open in Dosco', url: 'https://kortix.test/p/1' });
     const local = discordCommandMessage({ kind: 'panel', title: 'Status', rows: [], url: 'http://localhost:3000/p/1' });
     expect(local.components).toEqual([]);
     expect(local.content).toEndWith('http://localhost:3000/p/1');

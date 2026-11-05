@@ -58,10 +58,10 @@ mock.module('../../llm-gateway/models/served-managed-models', () => ({
 
 import { createProjectSession } from './sessions';
 
-// My Kortix runs only when kortix.yaml turns it on. This suite characterizes the
-// ordinary (non-My Kortix) session-create path — model pin, metadata fields,
+// My Dosco runs only when kortix.yaml turns it on. This suite characterizes the
+// ordinary (non-My Dosco) session-create path — model pin, metadata fields,
 // sandbox slug — so its mocked manifest sets `builtin_agents.my_kortix: false`.
-// The My Kortix path has its own coverage in unit-my-kortix-agent.test.ts.
+// The My Dosco path has its own coverage in unit-my-kortix-agent.test.ts.
 const project = {
   projectId: 'synthetic-project', accountId: 'synthetic-account', defaultBranch: 'main',
   metadata: {}, repoUrl: 'https://example.test/repo', manifestPath: 'kortix.yaml',

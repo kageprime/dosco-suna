@@ -67,7 +67,7 @@ async function account(label: string, withCredits = true): Promise<string> {
   return accountId;
 }
 
-/** A session whose box is `externalId`; returns the Kortix sandbox id its compute windows carry. */
+/** A session whose box is `externalId`; returns the Dosco sandbox id its compute windows carry. */
 async function sessionBox(accountId: string, externalId: string): Promise<{ sandboxId: string; projectId: string; sessionId: string }> {
   const project = await fixtures.seedProject(`box-disk-${externalId}`, { accountId });
   const sessionId = await fixtures.seedSession(project, USER);
@@ -158,7 +158,7 @@ withDb('box disk billing on PostgreSQL', () => {
   test('a stopped box is billed from the end of its compute window, per ended day, once; then archived at half', async () => {
     const paying = await account('box-disk-paying');
     const s = await sessionBox(paying, ids.stopped);
-    // Kortix's compute window billed through 10:00:30; Platinum stopped the box at 10:00:00.
+    // Dosco's compute window billed through 10:00:30; Platinum stopped the box at 10:00:00.
     await computeWindow(paying, s.sandboxId, '2026-10-31T08:00:00.000Z', '2026-10-31T10:00:30.000Z');
     listed.stopped = [box(ids.stopped, 'stopped', '2026-10-31T10:00:00.000Z')];
 
@@ -230,11 +230,11 @@ withDb('box disk billing on PostgreSQL', () => {
     }
   });
 
-  test('a box Kortix still bills as running is skipped; it is billed from the moment its window closes', async () => {
+  test('a box Dosco still bills as running is skipped; it is billed from the moment its window closes', async () => {
     const paying = await account('box-disk-running');
     const s = await sessionBox(paying, ids.running);
     await computeWindow(paying, s.sandboxId, '2026-10-31T07:00:00.000Z', null);
-    // Platinum already says stopped: Kortix's open window still bills compute (and disk) for it.
+    // Platinum already says stopped: Dosco's open window still bills compute (and disk) for it.
     listed.stopped = [box(ids.running, 'stopped', '2026-10-31T09:00:00.000Z')];
     now = at('2026-10-31T12:00:00.000Z');
     expect(await syncBoxDiskCharges(deps)).toMatchObject({ boxes: 1, running: 1, metered: 0 });
@@ -249,7 +249,7 @@ withDb('box disk billing on PostgreSQL', () => {
     expect((await rows(ids.running)).map((r) => [r.day, Number(r.gbHours)])).toEqual([['2026-10-31', 20]]);
   });
 
-  test("Kortix's own cost: an unowned box of this deployment is recorded, never charged; other boxes are left alone", async () => {
+  test("Dosco's own cost: an unowned box of this deployment is recorded, never charged; other boxes are left alone", async () => {
     const bare = await account('box-disk-no-credit-row', false);
     await sessionBox(bare, ids.bare);
     listed.stopped = [
@@ -263,7 +263,7 @@ withDb('box disk billing on PostgreSQL', () => {
     expect(result).toMatchObject({ boxes: 3, foreign: 1, unattributed: 1, waived: 1, charged: 0 });
 
     const orphan = await rows(ids.orphan);
-    // 06:00 (the meter's start) → 24:00 = 18 h × 20 GB at 72 µ$ = 25,920 µ$ Kortix pays.
+    // 06:00 (the meter's start) → 24:00 = 18 h × 20 GB at 72 µ$ = 25,920 µ$ Dosco pays.
     expect(orphan[0]).toMatchObject({ day: '2026-10-31', accountId: null, reason: 'owner_gone', platinumMicros: 25_920 });
     expect(await rows(ids.foreign)).toEqual([]);
     expect(await rows(ids.rooted)).toEqual([]);

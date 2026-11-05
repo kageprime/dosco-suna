@@ -1,8 +1,8 @@
 /**
- * Kortix's own cost of the boxes it created and no Kortix row owns. The
+ * Dosco's own cost of the boxes it created and no Dosco row owns. The
  * orphan reaper (projects/reaping/orphan-boxes.ts) lists the running boxes
  * this deployment created on Platinum, and stops each one that no session,
- * App or monitor row names: a create Kortix gave up on, a box whose row was
+ * App or monitor row names: a create Dosco gave up on, a box whose row was
  * dropped. Compute metering never opened a window for such a box, so no
  * customer paid for it. Before the stop, this records what Platinum charged
  * for the box since it was created (`GET /v1/sandboxes/:id/usage`) in
@@ -70,7 +70,7 @@ export async function recordOrphanBoxCost(box: OrphanBox, deps: OrphanBoxCostDep
       uptimeSeconds: Math.max(Number(usage.uptime_seconds) || 0, 0),
       amountMicros,
     });
-    logger.warn('[orphan-box-costs] Kortix paid for a box no Kortix row owns', {
+    logger.warn('[orphan-box-costs] Dosco paid for a box no Dosco row owns', {
       externalId: box.externalId,
       createdAt: box.createdAt.toISOString(),
       costMicros: amountMicros,

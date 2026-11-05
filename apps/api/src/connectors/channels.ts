@@ -750,7 +750,7 @@ const DISCORD_COMPONENTS = {
 const DISCORD_MENTIONS = { allowed_mentions: { parse: ['users'] } };
 
 /**
- * The Discord catalog: the REST routes a conversation needs, through the Kortix
+ * The Discord catalog: the REST routes a conversation needs, through the Dosco
  * Discord application's bot. Every call names one `channel_id`, and the gateway
  * runs it only in this project's conversations (channel-discord-scope.ts).
  */

@@ -31,7 +31,7 @@ describe('Sales durable delivery transport', () => {
 
 test('signup classification includes freemail, disposable and work', async () => {
   const { enrichSalesEvent } = await import('./sales-event');
-  for (const [email, kind] of [['agent@kortix.ai', 'work'], ['agent@gmail.com', 'freemail'], ['agent@mailinator.com', 'disposable']]) {
+  for (const [email, kind] of [['agent@dosco.live', 'work'], ['agent@gmail.com', 'freemail'], ['agent@mailinator.com', 'disposable']]) {
     expect(enrichSalesEvent({ type: 'account.signup', data: { email } })).toMatchObject({ data: { email_kind: kind } });
   }
 });

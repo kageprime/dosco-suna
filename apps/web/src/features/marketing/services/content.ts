@@ -70,17 +70,17 @@ export const problem = {
 
 /** We build on our own product. Claims: claims.md rows Source, Connectors, Hosting. */
 export const platform = {
-  title: 'Built on Kortix.',
-  titleMuted: 'The open-source CompanyOS we make.',
+  title: 'Built on Dosco.',
+  titleMuted: 'The sovereign CompanyOS we make.',
   body: [
-    'Everything we build runs on **Kortix CompanyOS, our own operating system**. Your agents, skills, company memory, connectors and apps live in **one git repo you own**.',
-    'When we step back, nothing leaves with us: **your team keeps running it on Kortix**, in our cloud, your VPC or your own on-prem network.',
+    'Everything we build runs on **Dosco CompanyOS, our own operating system**. Your agents, skills, company memory, connectors and apps live in **one repository you own**.',
+    'When we step back, nothing leaves with us: **your team keeps running it on Dosco**, in our cloud, your VPC or your own network.',
   ],
   cells: [
     { k: 'Agents and skills', v: 'Every agent and every workflow is a file in your repo.' },
     { k: 'Company memory', v: 'What we map becomes context your agents read.' },
     { k: 'Connectors', v: '3,000+ apps, plus MCP, OpenAPI and raw HTTP.' },
-    { k: 'Open source', v: 'Read it, fork it, audit it. No black box.' },
+    { k: 'Enterprise Sovereign', v: 'Dedicated deployment, full control. No black box.' },
   ],
   link: 'See the CompanyOS',
 } as const;

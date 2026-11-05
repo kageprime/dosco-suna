@@ -10,7 +10,7 @@
  * commit moves far less often than people open the page.
  *
  * - The row holds the repository-derived summary (`loadRepoConfigSummary`)
- *   and the file paths at `source_commit`. Per-user filtering and the Kortix
+ *   and the file paths at `source_commit`. Per-user filtering and the Dosco
  *   skills are applied by the reader, never stored.
  * - Builds run in the background (`scheduleConfigSummary`), one at a time per
  *   (project, ref) per process. Triggers: every base move (`schedulePublish`)
@@ -105,7 +105,7 @@ export async function readServableConfigSummary(project: GitBackedProject, ref: 
 
 /**
  * The project's config from its saved summary, as `loadProjectConfig` returns it
- * (Kortix skills included), or null when no row may be served: the caller then
+ * (Dosco skills included), or null when no row may be served: the caller then
  * reads git as before. Every call also checks the tip behind the response and
  * rebuilds the row when it moved. Database reads only; never throws.
  *

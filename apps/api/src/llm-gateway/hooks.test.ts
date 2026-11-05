@@ -331,9 +331,9 @@ describe('assertLlmBillingActive — the wallet floor follows the credits reques
   });
 
   // The second managed-models gate: only managed models bill credits, so a
-  // Kortix-billed request from an account without the entitlement is refused
+  // Dosco-billed request from an account without the entitlement is refused
   // at admission even if model resolution let it through.
-  test.each(['none', 'free'])('a Kortix-billed request from the %s plan is refused at admission', async (tier) => {
+  test.each(['none', 'free'])('a Dosco-billed request from the %s plan is refused at admission', async (tier) => {
     accountTier = tier;
 
     await expect(assertLlmBillingActive('acct-1', { creditsRequest: true })).rejects.toMatchObject({
@@ -348,7 +348,7 @@ describe('assertLlmBillingActive — the wallet floor follows the credits reques
     expect(await billingVerdict('acct-1')).toEqual({
       active: false,
       reason: 'plan_upgrade_required',
-      message: 'Kortix-managed models require a paid plan.',
+      message: 'Dosco-managed models require a paid plan.',
     });
     expect(billingCalls).toBe(0);
   });
@@ -358,7 +358,7 @@ describe('assertLlmBillingActive — the wallet floor follows the credits reques
     expect(billingCalls).toBe(1);
   });
 
-  test('a Kortix-billed request still gates when the account is entitled', async () => {
+  test('a Dosco-billed request still gates when the account is entitled', async () => {
     await assertLlmBillingActive('acct-1', { creditsRequest: true });
 
     expect(billingCalls).toBe(1);

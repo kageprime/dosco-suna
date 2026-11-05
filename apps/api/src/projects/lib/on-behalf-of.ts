@@ -62,7 +62,7 @@ export function decideSessionOnBehalfOf(input: OnBehalfOfInput): string | null {
   if (meta.trigger_kind != null || meta.trigger_slug != null || meta.trigger_source != null) return null;
   const source = typeof meta.source === 'string' ? meta.source : '';
   // Email, Telegram and Discord sessions run as the account-owner stand-in: the
-  // sender is not a Kortix identity.
+  // sender is not a Dosco identity.
   if (source === 'email' || source === 'telegram' || source === 'discord') return null;
   if (source === 'slack' && !input.slackRequiresUserIdentity) return null;
   if (source === 'teams' && !input.teamsRequiresUserIdentity) return null;
@@ -82,8 +82,8 @@ export function decideSessionOnBehalfOf(input: OnBehalfOfInput): string | null {
  * human caused).
  *
  * The channel identities mirror the mint rule above: email and Telegram
- * senders are never Kortix identities, and a Slack/Teams message carries its
- * sender's Kortix user only when the deployment requires a linked identity.
+ * senders are never Dosco identities, and a Slack/Teams message carries its
+ * sender's Dosco user only when the deployment requires a linked identity.
  */
 export function channelPrompterForOnBehalfOf(input: {
   source: string;

@@ -39,17 +39,16 @@ export const CUSTOM_TERMS_URL = 'mailto:support@dosco.live';
 /** The real config a licensed partner sets: agreement, "After you sign", step 2. */
 export const ENV_LINES = [
   '# API environment of your deployment',
-  'ALLOWED_SANDBOX_PROVIDERS=platinum',
-  'PLATINUM_API_KEY=pt_live_...',
-  'PLATINUM_API_URL=https://api.platinum.dev',
+  'ALLOWED_SANDBOX_PROVIDERS=e2b',
+  'E2B_API_KEY=e2b_...',
 ] as const;
 
 export const hero = {
   eyebrow: 'White-label',
   title: 'Build your own AI product on Dosco.',
-  sub: 'Fork Dosco, put your brand on it, and sell it as your own: a vertical AI product, a wrapper, or a whole cloud business. The license is free. The one requirement is that your compute runs on Platinum.dev.',
-  ctaPrimary: 'Sign the agreement',
-  ctaPrimaryHref: SIGN_URL,
+  sub: 'Deploy Dosco, put your brand on it, and deliver it under your name: a vertical AI product, an agency solution, or a private company deployment.',
+  ctaPrimary: 'Contact sales',
+  ctaPrimaryHref: '/contact',
   ctaSecondary: 'How it works',
   ctaSecondaryHref: '#how-it-works',
   envTitle: '.env',
@@ -114,60 +113,60 @@ export const deal = {
   commit: {
     title: 'What you commit to',
     items: [
-      'Every sandbox your product starts runs on Platinum.dev, from the day you sign.',
-      'Volumes, runners, AI compute and inference move to Platinum.dev once it offers them and Dosco uses them. You get 90 days to move.',
-      'You keep the copyright and license notices in the source. Your customers never need to see Dosco.',
+      'Every sandbox your product starts runs on isolated cloud microVMs.',
+      'Storage and workspace volumes connect to dedicated object storage.',
+      'You keep the copyright and license notices in the source. Your customers see only your brand.',
     ],
   },
 } as const;
 
 export const platinum = {
-  eyebrow: 'Platinum.dev',
-  title: 'The one thing you need from us is compute.',
-  sub: 'Platinum.dev is the compute floor under Dosco. As long as your product runs on it, build any wrapper or cloud business you want.',
+  eyebrow: 'Cloud Compute',
+  title: 'Hardware-isolated microVM compute.',
+  sub: 'Dosco runs sandboxes in isolated microVMs powered by E2B. Build any workflow, agent team, or cloud solution you need.',
   rows: [
     {
       id: 'sandboxes',
       k: 'Sandboxes',
-      v: 'Each Platinum.dev sandbox is a hardware-isolated microVM. Every session your product starts gets its own.',
+      v: 'Each sandbox is a hardware-isolated microVM. Every session your product starts gets its own.',
     },
     {
       id: 'services',
-      k: 'Every new service',
-      v: 'Volumes, runners, AI compute and inference join the agreement as Platinum.dev offers them and Dosco uses them.',
+      k: 'Modular architecture',
+      v: 'Compute, storage, and models route cleanly through designated cloud providers.',
     },
     {
       id: 'rates',
-      k: 'Competitive rates',
-      v: 'Platinum.dev commits to rates that are competitive with comparable providers. Show us a lower rate for a comparable service, and Dosco matches it or releases you for that service.',
+      k: 'Predictable pricing',
+      v: 'Pay only for what you run, with transparent meter rates and zero idle costs.',
     },
     {
       id: 'billing',
-      k: 'One supplier',
-      v: 'You pay Platinum.dev for the compute you use, through your own Platinum.dev account. You run no sandbox fleet of your own.',
+      k: 'Direct control',
+      v: 'Bring your own API keys or use managed infrastructure with zero operational overhead.',
     },
   ],
 } as const;
 
 export const steps = {
   eyebrow: 'How it works',
-  title: 'Sign, connect, rebrand.',
-  sub: 'Three steps, and no call with us unless you want custom terms.',
+  title: 'Configure, deploy, rebrand.',
+  sub: 'Three simple steps to launch your branded agent platform.',
   items: [
     {
       n: '01',
-      k: 'Sign the agreement online',
-      v: 'It takes about two minutes. It is in force when you sign, and Dosco does not countersign. The signed copy arrives by email.',
+      k: 'Contact our enterprise team',
+      v: 'Get your license and deployment architecture tailored to your infrastructure requirements.',
     },
     {
       n: '02',
-      k: 'Get Platinum.dev access',
-      v: 'Create an API key in the Platinum.dev dashboard. Access is by request today: email support@dosco.live from the address you signed with.',
+      k: 'Configure your cloud keys',
+      v: 'Add your sandbox provider credentials and database connection string in your environment.',
     },
     {
       n: '03',
-      k: 'Point your Dosco at Platinum.dev and rebrand',
-      v: 'Set three values in your API environment, on any infrastructure. Then change the code, or upload your name and logo in Branding settings.',
+      k: 'Apply your custom branding',
+      v: 'Set your application title, logos, and custom domains in your settings panel.',
     },
   ],
   panelTitle: 'API environment',

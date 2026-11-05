@@ -1,8 +1,8 @@
 /**
  * The disk of a box that is not running, billed exactly as Platinum bills it
- * to Kortix (platinum apps/api/src/billing.ts, the uptime sampler):
+ * to Dosco (platinum apps/api/src/billing.ts, the uptime sampler):
  *
- * | Box state                 | Platinum bills the disk_gb at          | Kortix charges it from     |
+ * | Box state                 | Platinum bills the disk_gb at          | Dosco charges it from     |
  * |---------------------------|----------------------------------------|----------------------------|
  * | running, stopping         | pricing.storage_gb_hour_micros (72 µ$) | compute metering (running) |
  * | stopped                   | pricing.storage_gb_hour_micros (72 µ$) | here, kind `box_disk`      |
@@ -12,7 +12,7 @@
  * Platinum no longer lists a box's disk in GET /v1/billing/events (its
  * `sandbox.uptime` rows moved to compacted segments on 2026-09-10), and its
  * per-box usage readers are capped at 1,000 boxes or cost one call per box.
- * So Kortix meters the disk itself, from the box list Platinum serves:
+ * So Dosco meters the disk itself, from the box list Platinum serves:
  * `stoppedAt` is when the box stopped, `billableSince` is when an archived box
  * became archived (trg_sandbox_billable_since), `diskGb` is the size billed,
  * `root_disk` marks a root-volume box.
@@ -22,7 +22,7 @@
  * thousands, and nothing about them changes). A box's metered time runs from
  * its watermark (the latest `metered_through` of its rows) to now, split per
  * UTC day and per rate, into kortix.storage_charges rows. It never starts
- * before the end of the box's last Kortix compute window, and a box whose
+ * before the end of the box's last Dosco compute window, and a box whose
  * compute window is still open is skipped: compute metering bills it as
  * running, so no hour is billed twice.
  *
@@ -32,14 +32,14 @@
  *
  * Attribution: box → session_sandboxes, app_runtimes or project_monitor_boxes
  * → account and project. A box with this deployment's create-time marker and
- * no row is recorded unattributed (`owner_gone`): Kortix's own cost. A box of
+ * no row is recorded unattributed (`owner_gone`): Dosco's own cost. A box of
  * another deployment in the shared org is not this deployment's to record.
  * An account with no credit account, or the `storageBilling: false` override,
  * is waived. The first tick of a feed starts the meter: never retroactive.
  *
  * Bounded error, documented: an archived box that is unarchived or deleted
  * between two archived listings is not metered for that part of its last
- * interval (at most ARCHIVED_LIST_INTERVAL_MS, Kortix's cost). The minutes a
+ * interval (at most ARCHIVED_LIST_INTERVAL_MS, Dosco's cost). The minutes a
  * box spends `archiving` are metered at the stopped rate.
  */
 import { appDeployments, appRuntimes, apps, projectMonitorBoxes, sessionSandboxes, storageCharges } from '@kortix/db';
@@ -83,7 +83,7 @@ const ID_CHUNK = 1000;
 export type BoxDiskKind = 'box_disk' | 'box_disk_archived';
 const BOX_DISK_KINDS: BoxDiskKind[] = ['box_disk', 'box_disk_archived'];
 
-/** What Kortix pays Platinum per GB-hour of a box's disk_gb, in µ$ (× PLATINUM_MARKUP is the customer rate). */
+/** What Dosco pays Platinum per GB-hour of a box's disk_gb, in µ$ (× PLATINUM_MARKUP is the customer rate). */
 const PLATINUM_DISK_MICROS: Record<BoxDiskKind, number> = {
   box_disk: PLATINUM_LIST_PRICE_MICROS.diskGbHour,
   box_disk_archived: PLATINUM_LIST_PRICE_MICROS.archivedDiskGbHour,
@@ -169,7 +169,7 @@ export function sliceGbHours(diskGb: number, slice: Pick<BoxDiskSpan, 'fromMs' |
 
 /**
  * Where a box's metering starts: never before the feed's start or the open-day
- * floor, never before its watermark, never inside a Kortix compute window.
+ * floor, never before its watermark, never inside a Dosco compute window.
  * Null when its compute window is still open (compute metering bills it).
  */
 export function boxMeterFrom(input: {
@@ -188,7 +188,7 @@ export function boxMeterFrom(input: {
 }
 
 export interface BoxOwner extends StorageOwner {
-  /** The Kortix id the box's compute windows carry (sandbox_compute_sessions.sandbox_id). */
+  /** The Dosco id the box's compute windows carry (sandbox_compute_sessions.sandbox_id). */
   kortixSandboxId: string | null;
 }
 
@@ -254,7 +254,7 @@ export interface BoxDiskResult {
   boxes: number;
   /** Of those, metered this tick. */
   metered: number;
-  /** Skipped: Kortix still bills them as running. */
+  /** Skipped: Dosco still bills them as running. */
   running: number;
   /** Skipped: another deployment's. */
   foreign: number;
@@ -359,7 +359,7 @@ async function meterFeed(feed: StorageFeed, deps: BoxDiskDeps, total: BoxDiskRes
       if (gbHours > 0) {
         total.metered += 1;
         total.gbHours += gbHours;
-        // Kortix's own cost: recorded on the row, never charged.
+        // Dosco's own cost: recorded on the row, never charged.
         if (!owner.accountId) total.unattributed += 1;
       }
     } catch (error) {
@@ -542,7 +542,7 @@ export async function resolveBoxOwners(boxIds: string[]): Promise<Map<string, Bo
   return owners;
 }
 
-/** The latest compute window of each Kortix box id: open (endedAtMs null), or where it ended. */
+/** The latest compute window of each Dosco box id: open (endedAtMs null), or where it ended. */
 export async function latestComputeWindows(kortixIds: string[]): Promise<Map<string, { endedAtMs: number | null }>> {
   const windows = new Map<string, { endedAtMs: number | null }>();
   for (const ids of chunks([...new Set(kortixIds)])) {

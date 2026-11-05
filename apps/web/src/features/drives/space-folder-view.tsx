@@ -254,7 +254,7 @@ function SpaceFolderEmpty({ tab, place }: { tab: SpaceFolder['tab']; place: stri
   );
 }
 
-/** This Kortix stores no Drive (no Platinum): say so; there is no switch to turn. */
+/** This Dosco instance has no Drive storage configured. */
 function DriveOff({ place }: { place: string }) {
   const t = useTranslations('spaces');
   return (

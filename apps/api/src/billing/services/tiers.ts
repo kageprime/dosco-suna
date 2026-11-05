@@ -108,7 +108,7 @@ const GIB = 1024 ** 3;
 
 /**
  * Files storage per plan (drives/limits.ts). Every customer's Files live in
- * Kortix's ONE Platinum org: 100 GiB per volume (one volume per project), 50
+ * Dosco's ONE Platinum org: 100 GiB per volume (one volume per project), 50
  * TiB stored for the whole org (2026-11-01, `GET /v1/volumes/limits`). The
  * project figure stays at or under the volume size; the account figure keeps
  * one account from filling the org for everyone. An exception is the

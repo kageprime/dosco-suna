@@ -51,7 +51,7 @@ describe('telegram inbox envelope', () => {
   test('the prompt tells the agent to ask every choice and question with its question tool, never as a text list', () => {
     const prompt = channelPromptText(telegramEnvelope(message));
     expect(prompt).toContain(
-      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Kortix shows them in this chat as buttons, one question at a time.',
+      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Dosco shows them in this chat as buttons, one question at a time.',
     );
     expect(prompt).toContain('Never list choices or questions as plain text. Ask in plain words only when the tool result says the question could not be posted.');
     expect(prompt).not.toContain('buttons for a single choice');

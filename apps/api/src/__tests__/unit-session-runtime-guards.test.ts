@@ -1276,7 +1276,7 @@ describe('project session runtime guards', () => {
 
   beforeEach(() => resetState());
 
-  test('creates an omitted-agent session with the meta REST runtime when kortix.yaml turns My Kortix on', async () => {
+  test('creates an omitted-agent session with the meta REST runtime when kortix.yaml turns My Dosco on', async () => {
     manifestYaml = 'builtin_agents:\n  my_kortix: true\nagents:\n  worker: { tools: all, workspace: { project_repository: true } }\n';
     const app = createApp();
     const response = await app.request(`/v1/projects/${PROJECT_ID}/sessions`, {
@@ -2608,7 +2608,7 @@ describe('project session runtime guards', () => {
     expect([200, 202]).toContain(res.status);
     await flushUntil(() => sandboxProvisionCalls === 1);
     // The rebuilt env must keep the meta runtime — losing it makes the daemon
-    // clone the project over My Kortix's empty workspace.
+    // clone the project over My Dosco's empty workspace.
     expect(lastProvisionInput).toMatchObject({
       agentName: 'mykortix',
       extraEnvVars: {

@@ -143,10 +143,10 @@ export async function loadProjectAgents(
     //
     // One exception, for every caller: a file that was READ but is not YAML
     // (a duplicate key, a bad indent). Rethrowing it made every session create
-    // a 500, including the My Kortix session that fixes the file. It is repair
+    // a 500, including the My Dosco session that fixes the file. It is repair
     // mode instead: no project agent is declared and the error is listed, so
     // every project agent and the `default` sentinel resolve to deny-all
-    // (`grantFromLoadedAgents`), and only My Kortix runs, on its platform-owned
+    // (`grantFromLoadedAgents`), and only My Dosco runs, on its platform-owned
     // grant. A file that could not be READ still rethrows.
     const syntaxError = isManifestSyntaxError(err);
     if (opts?.rethrowReadErrors && !syntaxError) throw err;
@@ -159,7 +159,7 @@ export async function loadProjectAgents(
       }],
       defaultAgent: null,
       // A manifest that cannot be read turns nothing on. One that is not YAML
-      // runs My Kortix, so it can be fixed.
+      // runs My Dosco, so it can be fixed.
       builtinAgents: { my_kortix: syntaxError },
       manifest: null,
       ...(syntaxError ? { manifestSyntaxError: (err as Error).message } : {}),

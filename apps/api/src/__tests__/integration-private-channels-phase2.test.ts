@@ -399,7 +399,7 @@ describe('a note from a private thread', () => {
     expect(volume.files.size).toBe(before);
   });
 
-  test('POST notes to the member’s own My Kortix memory with a P thread as source writes no word of it', async () => {
+  test('POST notes to the member’s own My Dosco memory with a P thread as source writes no word of it', async () => {
     const res = await req('POST', '/memory/layers/mykortix/notes', keys.alice!, { text: 'Remember the call', source_session_id: P_THREAD });
     expect(res.status).toBe(201);
     const notes = [...volume.files.entries()].find(([path]) => path.startsWith('/Users/') && path.endsWith('Notes.md'));

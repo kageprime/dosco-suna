@@ -1,6 +1,6 @@
 /**
  * The Discord Gateway: the one WebSocket that delivers the messages written to
- * the Kortix Discord application's bot. Discord sends messages only over it
+ * the Dosco Discord application's bot. Discord sends messages only over it
  * (interactions come to the webhook, inbound.ts), so exactly one process holds
  * it: the leader (worker/jobs/discord-gateway.ts).
  *
@@ -15,7 +15,7 @@
  * The intake (`intakeMessage`) stores in the event inbox only what is written
  * to the bot: a DM, a mention, an edit that adds a mention, and, with the
  * Message Content intent (`DISCORD_MESSAGE_CONTENT`), any message in a thread
- * a Kortix session holds. It routes each to its project (routing.ts) first; a
+ * a Dosco session holds. It routes each to its project (routing.ts) first; a
  * server with no project, or more than one, hears once per channel and hour
  * what to do instead. One channel's messages are taken one at a time, in
  * Discord's order; a failed intake is tried again 3 times, then the sender
@@ -274,7 +274,7 @@ export async function intakeMessage(
   if (!m.author?.id || m.author.bot || m.webhook_id || !PERSON_MESSAGE_TYPES.has(m.type ?? 0)) return 'ignored';
   const authorId = m.author.id;
   const guildId = m.guild_id ?? null;
-  // People often pick the app's role ("@Kortix" with the role icon) instead of the app: it counts as a mention.
+  // People often pick the app's role ("@Dosco" with the role icon) instead of the app: it counts as a mention.
   const botRole = guildId ? botRoles.get(guildId) : undefined;
   let viaRole = false;
   if (botRole && (m.mention_roles ?? []).includes(botRole) && !(m.mentions ?? []).some((u) => u.id === botUserId)) {
@@ -286,7 +286,7 @@ export async function intakeMessage(
     };
   }
   let place: Omit<DiscordConversation, 'guildId'>;
-  /** A reply to Kortix with its @mention turned off: Discord hides its text without the intent. */
+  /** A reply to Dosco with its @mention turned off: Discord hides its text without the intent. */
   let unpingedReply = false;
   if (!guildId) {
     place = { threadId: m.channel_id, settingsId: m.channel_id, direct: true, startThread: false, addressed: true, channelName: null, threadName: null };
@@ -336,7 +336,7 @@ export async function intakeMessage(
   });
   if (unpingedReply) {
     if (route.kind === 'project') {
-      await noticeOnce(m.channel_id, m.id, 'Kortix did not read your reply: turn on @mention when you reply to Kortix, or mention @Kortix in your message. Without it, Discord does not show Kortix your message.');
+      await noticeOnce(m.channel_id, m.id, 'Dosco did not read your reply: turn on @mention when you reply to Dosco, or mention @Dosco in your message. Without it, Discord does not show Dosco your message.');
     }
     return 'ignored';
   }
@@ -344,10 +344,10 @@ export async function intakeMessage(
     if (!place.addressed) return 'ignored';
     const text =
       route.kind === 'ambiguous'
-        ? `More than one Kortix project can answer ${guildId ? 'in this channel' : 'you here'}. Use /connect to pick one.`
+        ? `More than one Dosco project can answer ${guildId ? 'in this channel' : 'you here'}. Use /connect to pick one.`
         : guildId
-          ? 'This server is not connected to a Kortix project. A project admin connects it under Customize → Connectors → Channels → Discord.'
-          : `Kortix does not know your Discord account yet. Ask a Kortix project admin to allow your Discord user id ${authorId} under Customize → Connectors → Channels → Discord.`;
+          ? 'This server is not connected to a Dosco project. A project admin connects it under Customize → Connectors → Channels → Discord.'
+          : `Dosco does not know your Discord account yet. Ask a Dosco project admin to allow your Discord user id ${authorId} under Customize → Connectors → Channels → Discord.`;
     await noticeOnce(m.channel_id, m.id, text);
     return 'ignored';
   }
@@ -384,7 +384,7 @@ export function freshEdit(m: GatewayMessage, now = Date.now()): boolean {
 async function tellNotTaken(m: GatewayMessage, botUserId: string): Promise<void> {
   if (!m.author?.id || m.author.bot || m.webhook_id) return;
   if (m.guild_id && !(m.mentions ?? []).some((u) => u.id === botUserId)) return;
-  await discordPost(m.channel_id, { content: 'Kortix could not take this message. Send it again in a minute.', allowed_mentions: { parse: [] } }, m.id).catch(
+  await discordPost(m.channel_id, { content: 'Dosco could not take this message. Send it again in a minute.', allowed_mentions: { parse: [] } }, m.id).catch(
     (error) => logger.warn('[discord] intake failure notice not sent', { error: String(error) }),
   );
 }
@@ -443,11 +443,11 @@ export function discordCommandDefinitions(): Array<Record<string, unknown>> {
       description: c.description.slice(0, 100),
       ...(arg[c.name] ? { options: [{ type: 3, name: arg[c.name]!.name, description: arg[c.name]!.description, required: false }] } : {}),
     })),
-    { name: 'connect', description: 'Pick the Kortix project this channel uses' },
+    { name: 'connect', description: 'Pick the Dosco project this channel uses' },
   ].map((c) => ({ ...c, type: 1, contexts: [0, 1], integration_types: [0] }));
 }
 
-/** The fields of a command Kortix sets, in one order: a change to any of them registers the commands again. */
+/** The fields of a command Dosco sets, in one order: a change to any of them registers the commands again. */
 export function commandShape(c: Record<string, unknown>): string {
   const options = Array.isArray(c.options) ? (c.options as Array<Record<string, unknown>>) : [];
   const sorted = (v: unknown) => (Array.isArray(v) ? [...(v as number[])].sort() : null);
@@ -856,7 +856,7 @@ export class DiscordGateway {
         const guilds = Array.isArray(data.guilds) ? (data.guilds as Array<{ id?: string }>) : [];
         logger.info('[discord] Gateway ready', { guilds: guilds.length, messageContent: this.messageContent });
         if (guilds.length >= VERIFY_BEFORE_GUILDS) {
-          logger.warn('[discord] the Kortix Discord application nears the 100 servers Discord allows an unverified app; apply for verification', {
+          logger.warn('[discord] the Dosco Discord application nears the 100 servers Discord allows an unverified app; apply for verification', {
             guilds: guilds.length,
           });
         }

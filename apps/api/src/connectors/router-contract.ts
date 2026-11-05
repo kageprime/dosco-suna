@@ -210,7 +210,7 @@ export interface ConnectorRouterDeps extends ConnectorRouterAuth {
    * decide what the gated routes see rather than silently opening them.
    */
   featureFlagEnabled(projectId: string, key: FeatureFlagKey): Promise<boolean>;
-  /** The deployment has the Kortix Discord application. Absent: Discord is listed. */
+  /** The deployment has the Dosco Discord application. Absent: Discord is listed. */
   discordAvailable?(): boolean;
   /**
    * `actingUserId`: whose own credentialed accounts count toward "connected"

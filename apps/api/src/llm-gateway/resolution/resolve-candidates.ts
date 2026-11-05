@@ -548,7 +548,7 @@ export async function resolveCandidates(
   if (isClaudeAgentModelRef(effectiveModel)) {
     throw new GatewayResolutionError(
       'model_not_found',
-      `"${effectiveModel}" runs through Claude Code, and this session's computer runs an older Kortix runtime.`,
+      `"${effectiveModel}" runs through Claude Code, and this session's computer runs an older Dosco runtime.`,
       'Start a new session to use Claude models, or pick another model here.',
     );
   }

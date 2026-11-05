@@ -23,7 +23,7 @@ import { disabledMyKortixAgentGrant, myKortixAgentGrant } from '../projects/lib/
 import { remintDecisionFor } from '../projects/lib/session-token-grant';
 import { agentGrantDiffers } from '../projects/lib/secret-grant';
 
-// Both shapes run My Kortix: since #11578 it is on only when kortix.yaml sets
+// Both shapes run My Dosco: since #11578 it is on only when kortix.yaml sets
 // `builtin_agents.my_kortix: true`.
 const UNGOVERNED: LoadedAgents = { specs: [], errors: [], defaultAgent: null, builtinAgents: { my_kortix: true } };
 
@@ -68,8 +68,8 @@ describe('grantFromLoadedAgents — the reserved meta coordinator', () => {
     expect(grantFromLoadedAgents('meta', UNGOVERNED)).toEqual(myKortixAgentGrant());
   });
 
-  test('resolves to the no-action grant when the manifest is unreadable or does not turn My Kortix on', () => {
-    // Fail closed: a file that cannot be read says nothing, and My Kortix is on
+  test('resolves to the no-action grant when the manifest is unreadable or does not turn My Dosco on', () => {
+    // Fail closed: a file that cannot be read says nothing, and My Dosco is on
     // only on an explicit `my_kortix: true`.
     expect(grantFromLoadedAgents('meta', UNREADABLE)).toEqual(disabledMyKortixAgentGrant());
     expect(grantFromLoadedAgents('meta', { ...GOVERNED, builtinAgents: undefined })).toEqual(disabledMyKortixAgentGrant());

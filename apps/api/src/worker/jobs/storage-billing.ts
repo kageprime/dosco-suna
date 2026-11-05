@@ -17,7 +17,7 @@ const worker = leaderTimer(async () => {
   return INTERVAL_MS;
 }, { name: 'storage-billing', firstDelayMs: 2 * 60_000 });
 
-/** Runs only where Kortix charges for usage and Platinum hosts the volumes. */
+/** Runs only where Dosco charges for usage and Platinum hosts the volumes. */
 export function startStorageBillingWorker(): void {
   if (!config.KORTIX_BILLING_INTERNAL_ENABLED || !config.PLATINUM_API_KEY) return;
   worker.start();

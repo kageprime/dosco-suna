@@ -150,7 +150,7 @@ export const tabs = {
       title: 'Slack and Microsoft Teams',
       description: 'Mention the bot. The agent replies in the thread.',
       body: [
-        'In Slack, one thread is one session, and everyone in the thread works in it. Each person links their Kortix account once, so Kortix knows who asked.',
+        'In Slack, one thread is one session, and everyone in the thread works in it. Each person links their Dosco account once, so Dosco knows who asked.',
         'A join policy decides who may join a session that started in a channel.',
       ],
     },
@@ -306,15 +306,15 @@ export const faqItems = [
   },
   {
     id: 'faq-slack',
-    question: 'How does Kortix know who wrote in Slack or Teams?',
+    question: 'How does Dosco know who wrote in Slack or Teams?',
     answer:
-      'Each person links their Kortix account once, with /kortix login in Slack or /login in Teams. Kortix then checks that the sender is a project member who may start sessions.',
+      'Each person links their Dosco account once, with /dosco login in Slack or /login in Teams. Dosco then checks that the sender is a project member who may start sessions.',
   },
   {
     id: 'faq-groups',
     question: 'Can our identity provider manage the teams?',
     answer:
-      'Yes. Directory sync (SCIM) lets your identity provider add, update and remove members and groups. When someone leaves your company, they lose access in Kortix too. It is an Enterprise feature.',
+      'Yes. Directory sync (SCIM) lets your identity provider add, update and remove members and groups. When someone leaves your company, they lose access in Dosco too. It is an Enterprise feature.',
   },
   {
     id: 'faq-audit',

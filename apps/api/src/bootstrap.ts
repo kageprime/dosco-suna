@@ -148,7 +148,7 @@ export async function prepareProcess(options: { entry: boolean }): Promise<void>
       }),
     );
   }
-  // Kortix managed models come from Platinum Inference: read the lineup before serving.
+  // Dosco managed models come from Platinum Inference: read the lineup before serving.
   if (options.entry) await loadManagedLineupAtBoot();
   if (config.KORTIX_MODEL_CATALOG_LIVE_ENABLED !== '0') {
     runtimeModelCatalog.start().catch((err) =>
@@ -203,7 +203,7 @@ async function startReplicaServices(kind: ProcessKind) {
     startTeamsBotTokenRefresh();
     if (serving) {
       startSessionLifecycleWorker();
-      // Kortix-polled app events: every web process checks due streams.
+      // Dosco-polled app events: every web process checks due streams.
       startTriggerEventPollWorker();
       // Fill the Composio catalogue snapshot, the hidden-toolkit list, the toolkit
       // metadata and the first discovery page in the background, so the first

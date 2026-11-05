@@ -17,7 +17,7 @@ afterAll(() => upstream.remove());
 
 const work = join(upstream.repoUrl, '..', 'work');
 const git = (...args: string[]) =>
-  execFileSync('git', ['-c', 'user.name=Kortix Test', '-c', 'user.email=test@kortix.invalid', ...args], { cwd: work }).toString().trim();
+  execFileSync('git', ['-c', 'user.name=Dosco Test', '-c', 'user.email=test@kortix.invalid', ...args], { cwd: work }).toString().trim();
 const project = {
   projectId: crypto.randomUUID(),
   repoUrl: upstream.repoUrl,

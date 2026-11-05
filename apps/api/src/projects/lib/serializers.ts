@@ -349,7 +349,7 @@ export function serializeProject(
     // 2026-10-24: older web, SDK and mobile clients render blocks only while it is true.
     // `connectors_v2` and `connectors_api_discover` graduated on 2026-10-24: older SDKs and
     // hosts read false as "show the legacy catalog".
-    // `meta_agent` was removed on 2026-11-02: My Kortix follows kortix.yaml
+    // `meta_agent` was removed on 2026-11-02: My Dosco follows kortix.yaml
     // `builtin_agents.my_kortix` alone, and older SDKs and hosts still read the key.
     // `warm_sessions` was removed on 2026-11-03 and stays `false`: older web, SDK
     // and mobile builds pre-create a session only while they read true.

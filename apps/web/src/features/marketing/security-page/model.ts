@@ -32,9 +32,9 @@ import { localizeUiCatalog } from '@kortix/ui/i18n';
 export const hero = {
   title: 'Secure by construction.',
   titleMuted: 'Agents reach your tools only through gates you control.',
-  sub: 'A person grants an agent access. The agent runs as itself on its own isolated computer. Kortix decides which keys reach that computer, and checks every app call, model call and change it makes.',
+  sub: 'A person grants an agent access. The agent runs as itself on its own isolated computer. Dosco decides which keys reach that computer, and checks every app call, model call and change it makes.',
   caption: 'One computer per session.',
-  captionMuted: 'Connector logins and Kortix’s model keys never enter it.',
+  captionMuted: 'Connector logins and Dosco’s model keys never enter it.',
 } as const;
 
 export type GateStep = {
@@ -61,7 +61,7 @@ export const gates: readonly GateStep[] = [
     action: 'Call an app',
     gate: 'Connector broker',
     resource: 'Your apps',
-    line: 'Kortix holds the login, applies Allow, Ask or Block, and records the call.',
+    line: 'Dosco holds the login, applies Allow, Ask or Block, and records the call.',
     where: 'Checked outside the computer.',
   },
   {
@@ -69,7 +69,7 @@ export const gates: readonly GateStep[] = [
     action: 'Use a key',
     gate: 'Secret broker',
     resource: 'Your APIs',
-    line: 'An enforced secret is a stand-in. Kortix swaps in the real value outside the computer, for the hosts you list.',
+    line: 'An enforced secret is a stand-in. Dosco swaps in the real value outside the computer, for the hosts you list.',
     where: 'Checked outside the computer.',
   },
   {
@@ -121,7 +121,7 @@ export const pillars = {
       name: 'Logins stay out',
       line: 'Connector logins never enter the computer.',
       facts: [
-        'Kortix makes each app call',
+        'Dosco makes each app call',
         'Secrets encrypted per project',
         'Enforced secrets swapped outside',
       ],
@@ -187,14 +187,14 @@ export const layers = {
       title: 'The computer and egress',
       description: 'Each session gets its own isolated cloud computer.',
       body: [
-        'A Cloud Hypervisor microVM on Platinum, with its own branch. The agent installs and runs what its tool rules allow.',
-        'Logins, Kortix’s model keys and enforced secret values never enter it. Other outbound traffic is not filtered today.',
+        'An isolated microVM sandbox, with its own branch. The agent installs and runs what its tool rules allow.',
+        'Logins, Dosco’s model keys and enforced secret values never enter it. Other outbound traffic is not filtered today.',
       ],
     },
     {
       id: 'connectors',
       title: 'Connectors and approvals',
-      description: 'Kortix holds the login and decides each call.',
+      description: 'Dosco holds the login and decides each call.',
       body: [
         'Each action is Allow, Ask or Block. Ask holds the call until a project manager or the person who started the session decides.',
         'An approval covers one exact call and expires after 24 hours by default.',
@@ -214,8 +214,8 @@ export const layers = {
       title: 'Models',
       description: 'Every model request passes one gateway.',
       body: [
-        'The agent calls models through the Kortix LLM gateway. It applies budgets and access rules, and reports the cost.',
-        'Use your own provider keys, or Kortix-managed models served with zero data retention.',
+        'The agent calls models through the Dosco LLM gateway. It applies budgets and access rules, and reports the cost.',
+        'Use your own provider keys, or Dosco-managed models served with zero data retention.',
       ],
     },
     {
@@ -224,7 +224,7 @@ export const layers = {
       description: 'Work reaches main through a change request.',
       body: [
         'A session pushes only its own branch. A person reads the change request and merges it.',
-        'Merge is default-deny for agents. The built-in kortix agent may merge its own; remove that permission to require a person.',
+        'Merge is default-deny for agents. The built-in Orchestrator agent may merge its own; remove that permission to require a person.',
       ],
     },
   ],
@@ -259,7 +259,7 @@ export const computerBox = {
     'KORTIX_TOKEN, for this agent only',
     'Secrets granted to it',
   ],
-  never: ['Connector logins', 'Kortix’s model provider keys', 'Enforced secret values'],
+  never: ['Connector logins', 'Dosco’s model provider keys', 'Enforced secret values'],
 } as const;
 
 /* A fictional held call (sample data: Arcadia). */
@@ -286,7 +286,7 @@ export const secretModes = [
 export const modelPath = [
   { k: 'Agent', v: 'In its computer' },
   { k: 'LLM gateway', v: 'Budgets, access rules, cost' },
-  { k: 'Model provider', v: 'Your key, or Kortix-managed' },
+  { k: 'Model provider', v: 'Your key, or Dosco-managed' },
 ] as const;
 
 export const changePath = [
@@ -304,16 +304,16 @@ export const enforcement = {
   titleMuted: 'All but one run outside the computer.',
   head: ['Rule', 'Enforced by', 'On deny'],
   rows: [
-    ['A valid credential', 'Kortix API', '401'],
-    ['A role that allows the action', 'Kortix API, IAM', '403, or 404 if hidden'],
-    ['The agent’s own permissions', 'Kortix API, IAM', '403'],
-    ['No self-granted permissions', 'Kortix API, IAM', '403 agent_grant_escalation'],
+    ['A valid credential', 'Dosco API', '401'],
+    ['A role that allows the action', 'Dosco API, IAM', '403, or 404 if hidden'],
+    ['The agent’s own permissions', 'Dosco API, IAM', '403'],
+    ['No self-granted permissions', 'Dosco API, IAM', '403 agent_grant_escalation'],
     ['Tool, command and path rules', 'Runtime, inside the computer', 'Ask waits, deny refuses'],
     ['Connector rules', 'Connector broker', '202 held, 403 denied'],
     ['No connector calls to private addresses', 'Connector broker', 'connector_egress_blocked'],
     ['Enforced secret, listed hosts only', 'Secret broker', 'Not swapped'],
-    ['Push only to its own branch', 'Kortix git', '403'],
-    ['Merge needs project.gitops.merge', 'Kortix API', '403 CR_SELF_MERGE_REFUSED'],
+    ['Push only to its own branch', 'Dosco git', '403'],
+    ['Merge needs project.gitops.merge', 'Dosco API', '403 CR_SELF_MERGE_REFUSED'],
   ],
 } as const;
 
@@ -323,12 +323,12 @@ export const trust = {
   title: 'Run it where your policy says.',
   titleMuted: 'And read every line of what you run.',
   cells: [
-    { k: 'Kortix Cloud', v: 'We run the control plane and the computers.' },
-    { k: 'Self-hosted', v: 'The app, API and database on your server.' },
-    { k: 'Your VPC or on-prem', v: 'A single-tenant deployment, scoped with us.' },
-    { k: 'Open source', v: 'Read it, fork it, audit it.' },
+    { k: 'Cloud', v: 'We run the control plane and compute sandboxes.' },
+    { k: 'Dedicated cloud', v: 'A single-tenant deployment in a cloud account we scope with you.' },
+    { k: 'Your VPC or on-prem', v: 'An isolated enterprise deployment, scoped with us.' },
+    { k: 'Governance & control', v: 'Audit every run, inspect every diff, verify every boundary.' },
     { k: 'SAML 2.0 and SCIM 2.0', v: 'Your identity provider decides who gets in.' },
-    { k: 'Any model', v: 'Your own provider keys, or Kortix-managed.' },
+    { k: 'Any model', v: 'Your own provider keys, or Dosco-managed.' },
   ],
   seal: 'SOC 2 Type I verified',
   sealNote: 'GDPR operated. We hold no other certification and imply none.',
@@ -341,7 +341,7 @@ export const trust = {
 export const faqItems = [
   {
     id: 'faq-agent-token',
-    question: 'How does an agent authenticate to Kortix?',
+    question: 'How does an agent authenticate to Dosco?',
     answer:
       'Each session computer gets KORTIX_TOKEN. It acts as that session’s agent, limited to its project, and ends with the session. It holds the agent’s permissions, never the role of the person who started it.',
   },
@@ -355,19 +355,19 @@ export const faqItems = [
     id: 'faq-connector-login',
     question: 'Can an agent read our connector logins?',
     answer:
-      'No. Kortix stores the login and makes each call itself. The login never enters the session’s computer.',
+      'No. Dosco stores the login and makes each call itself. The login never enters the session’s computer.',
   },
   {
     id: 'faq-secret-read',
     question: 'Can code in a session read a secret?',
     answer:
-      'A secret delivered as an environment variable is a real value, so code in the session can read it. Mark a web API key Enforced and the computer gets a stand-in instead. Kortix swaps in the real value outside the computer, only on requests to the hosts you list, and an echoed value comes back as [REDACTED].',
+      'A secret delivered as an environment variable is a real value, so code in the session can read it. Mark a web API key Enforced and the computer gets a stand-in instead. Dosco swaps in the real value outside the computer, only on requests to the hosts you list, and an echoed value comes back as [REDACTED].',
   },
   {
     id: 'faq-egress',
-    question: 'Does Kortix filter outbound network traffic?',
+    question: 'Does Dosco filter outbound network traffic?',
     answer:
-      'Not today. A computer can reach the internet directly, for example to install packages. What Kortix enforces: enforced secrets go only to listed hosts, connector calls never reach private addresses, and a copied session token gets no enforced secret outside its own computer.',
+      'Not today. A computer can reach the internet directly, for example to install packages. What Dosco enforces: enforced secrets go only to listed hosts, connector calls never reach private addresses, and a copied session token gets no enforced secret outside its own computer.',
   },
   {
     id: 'faq-approve',
@@ -379,7 +379,7 @@ export const faqItems = [
     id: 'faq-merge',
     question: 'Can an agent merge its own changes?',
     answer:
-      'Only with the project.gitops.merge permission. Without it, the merge answers 403. The built-in kortix agent holds every Kortix permission, so remove the merge permission from it to require a person every time.',
+      'Only with the project.gitops.merge permission. Without it, the merge answers 403. The built-in Orchestrator agent holds full project permissions, so remove the merge permission from it to require a person every time.',
   },
   {
     id: 'faq-audit',
@@ -391,13 +391,13 @@ export const faqItems = [
     id: 'faq-retention',
     question: 'Do the models keep our data?',
     answer:
-      'Kortix-managed models run only through inference providers with zero data retention. With your own provider key, your agreement with that provider applies.',
+      'Dosco-managed models run only through inference providers with zero data retention. With your own provider key, your agreement with that provider applies.',
   },
   {
     id: 'faq-selfhost',
-    question: 'Where does a self-hosted Kortix run sessions?',
+    question: 'Where does Dosco run agent sessions?',
     answer:
-      'The web app, API and database run on your server. Sessions still run on Platinum cloud computers, which call back to your server, so it must be reachable from the internet.',
+      'Sessions run in isolated cloud microVM sandboxes (E2B) that connect back securely to the Dosco API. Each session receives a fresh, disposable environment with zero cross-tenant access.',
   },
 ] as const;
 

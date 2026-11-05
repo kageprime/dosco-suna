@@ -1,5 +1,5 @@
 /**
- * Discord install: one Discord server (guild) per project, through the Kortix
+ * Discord install: one Discord server (guild) per project, through the Dosco
  * Discord application, like one Slack workspace per project. `chat_installs`
  * records the guild id; one guild may be installed in several projects, and
  * each channel goes to one of them (`chat_channel_bindings`, discord/routing.ts).

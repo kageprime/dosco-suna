@@ -17,18 +17,18 @@ const URL = `${siteMetadata.url}/blog`;
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  keywords: ['Kortix blog', 'AI agents', 'AI command center', 'AI workforce', 'agent automation'],
+  keywords: ['Dosco blog', 'AI agents', 'AI command center', 'AI workforce', 'agent automation'],
   openGraph: {
     type: 'website',
-    title: `Kortix ${TITLE}`,
+    title: `Dosco ${TITLE}`,
     description: DESCRIPTION,
     url: URL,
-    siteName: 'Kortix',
+    siteName: 'Dosco',
     images: [{ url: `${siteMetadata.url}/banner.png` }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: `Kortix ${TITLE}`,
+    title: `Dosco ${TITLE}`,
     description: DESCRIPTION,
     images: [`${siteMetadata.url}/banner.png`],
   },

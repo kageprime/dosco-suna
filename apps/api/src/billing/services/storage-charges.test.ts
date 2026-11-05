@@ -76,7 +76,7 @@ describe('classifyVolumeName', () => {
       sessionId: '3f2a9c1e-7d4b-4c55-9a7e-0f1e2d3c4b5a',
     });
   });
-  test('anything else is not a Kortix product volume', () => {
+  test('anything else is not a Dosco product volume', () => {
     for (const name of ['home', 'root-box-1', 'kd-short', 'kws-', 'KD-0123456789abcdef0123']) {
       expect(classifyVolumeName(name)).toEqual({ kind: 'other' });
     }

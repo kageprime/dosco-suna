@@ -1,8 +1,8 @@
 // Files storage limits: what one project's Files and all of an account's Files
 // may hold, checked here before any byte of a write reaches Platinum.
 //
-// Every customer's Files live in Kortix's ONE Platinum org. Platinum caps each
-// volume (one per project) and the org as a whole, so without a Kortix limit
+// Every customer's Files live in Dosco's ONE Platinum org. Platinum caps each
+// volume (one per project) and the org as a whole, so without a Dosco limit
 // one account could fill the org for everyone. The plan decides the figures
 // (`TierConfig.driveStorage` in billing/services/tiers.ts); an exception is the
 // `driveProjectBytes` / `driveAccountBytes` entitlement override. Platinum's
@@ -39,7 +39,7 @@ export const MAX_DRIVE_REQUEST_BYTES = 64 * 1024 * 1024;
 /** A folder at or past this share of the folder-mount cap is shown as close to it. */
 export const FOLDER_MOUNT_WARN_RATIO = 0.8;
 
-/** The limits a project's Files answer to. `null` = no Kortix limit (billing off); Platinum's still apply. */
+/** The limits a project's Files answer to. `null` = no Dosco limit (billing off); Platinum's still apply. */
 export interface DriveLimits {
   /** What this project's Files may hold. Never above Platinum's volume size. */
   projectBytes: number | null;
@@ -327,7 +327,7 @@ export async function driveFolderSizes(drive: UsageDrive, folders: string[]): Pr
 
 // ─── The check ────────────────────────────────────────────────────────────
 
-/** A write refused by a Kortix limit. The routes answer it like any storage refusal. */
+/** A write refused by a Dosco limit. The routes answer it like any storage refusal. */
 export function storageLimitRefusal(input: {
   limit: 'project_bytes' | 'account_bytes';
   max: number;

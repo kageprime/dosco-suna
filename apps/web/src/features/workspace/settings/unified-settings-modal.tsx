@@ -365,11 +365,19 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
           closeOnOutsideClick={true}
           variant="base"
           animation="default"
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            width: 'min(1080px, 95vw)',
+            height: 'min(760px, 92vh)',
+            maxWidth: '1080px',
+            maxHeight: '92vh',
+          }}
           className={cn(
             'p-0 gap-0 border border-border/80 shadow-2xl rounded-2xl bg-surface',
-            'w-[1080px] lg:w-[1080px] max-w-[96vw] lg:max-w-[1080px]',
-            'h-[740px] lg:h-[740px] max-h-[92vh]',
-            'flex flex-row lg:flex-row space-y-0 lg:space-y-0 overflow-hidden lg:overflow-hidden',
+            'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+            'w-[1080px] max-w-[95vw] h-[760px] max-h-[92vh]',
+            'flex flex-row space-y-0 overflow-hidden',
           )}
         >
           {/* ── Left Navigation Rail (Antigravity Style) ── */}

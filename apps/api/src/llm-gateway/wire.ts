@@ -311,7 +311,7 @@ function imagesRoute(path: string, operation: 'generations' | 'edits') {
 }
 
 const AUDIO_ERROR_CODES = [
-  '- `400`: `invalid_request` (the message names the field), `audio_model_unsupported` or `model_not_found` (Kortix serves no such audio model), `plan_upgrade_required`, `provider_disabled`, `model_disabled`.',
+  '- `400`: `invalid_request` (the message names the field), `audio_model_unsupported` or `model_not_found` (Dosco serves no such audio model), `plan_upgrade_required`, `provider_disabled`, `model_disabled`.',
   '- `401`: `missing_token`, a refused gateway credential.',
   '- `402`: a budget limit, or the wallet refused the request.',
   '- `403`: the credential has no project context.',
@@ -324,7 +324,7 @@ const AUDIO_ERROR_CODES = [
 ].join('\n');
 
 const AUDIO_BILLING =
-  'Kortix-managed audio models need a plan that includes managed models. A request is billed in Kortix credits at the price the managed upstream reports for it, with the managed-model markup, exactly as a managed chat model. A refused request records no charge and returns any credit hold. A speech stream is charged once its first audio arrives, even when the client stops it.';
+  'Dosco-managed audio models need a plan that includes managed models. A request is billed in Dosco credits at the price the managed upstream reports for it, with the managed-model markup, exactly as a managed chat model. A refused request records no charge and returns any credit hold. A speech stream is charged once its first audio arrives, even when the client stops it.';
 
 const TranscriptionRequestSchema = z
   .object({
@@ -380,7 +380,7 @@ function transcriptionsRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: 'Transcribe audio (OpenAI-compatible)',
-    description: `Speech-to-text on a Kortix-managed transcription model. The gateway forwards \`file\`, \`language\`, \`prompt\` and \`temperature\` and drops every other field. \`json\` and \`verbose_json\` answer with \`usage: { type: "duration", seconds }\`; \`text\` answers \`text/plain\`.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
+    description: `Speech-to-text on a Dosco-managed transcription model. The gateway forwards \`file\`, \`language\`, \`prompt\` and \`temperature\` and drops every other field. \`json\` and \`verbose_json\` answer with \`usage: { type: "duration", seconds }\`; \`text\` answers \`text/plain\`.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
     ...auth,
     request: { body: { required: true, content: { 'multipart/form-data': { schema: TranscriptionRequestSchema } } } },
     responses: {
@@ -402,7 +402,7 @@ function speechRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: 'Speak text (OpenAI-compatible)',
-    description: `Text-to-speech on a Kortix-managed speech model. The audio streams as it is made: the first bytes arrive before the whole answer exists. A \`pcm\` answer carries its rate in the \`x-sample-rate\` header. An error before the first audio byte is a JSON error; after it, the stream ends early.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
+    description: `Text-to-speech on a Dosco-managed speech model. The audio streams as it is made: the first bytes arrive before the whole answer exists. A \`pcm\` answer carries its rate in the \`x-sample-rate\` header. An error before the first audio byte is a JSON error; after it, the stream ends early.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
     ...auth,
     request: { body: { required: true, content: { 'application/json': { schema: SpeechRequestSchema } } } },
     responses: {

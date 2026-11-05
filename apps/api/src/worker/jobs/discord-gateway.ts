@@ -5,7 +5,7 @@ let checkTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Leader-only (worker/jobs/index.ts): Discord delivers the bot's messages over
- * one Gateway WebSocket, held by one process. Idle when the Kortix Discord
+ * one Gateway WebSocket, held by one process. Idle when the Dosco Discord
  * application is not configured. The tick reopens a connection a stop or a
  * fatal close ended; a dropped one reconnects by itself.
  */

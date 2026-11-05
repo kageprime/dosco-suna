@@ -54,7 +54,7 @@ accessControlApp.openapi(
     responses: {
       200: json(
         z.object({ branding: EffectiveBrandingSchema }),
-        'The instance branding, or null for default Kortix',
+        'The instance branding, or null for default Dosco',
       ),
     },
   }),

@@ -184,7 +184,7 @@ export function parsePage(text: string, rel: string, agentSegment: string | null
   return {
     type: typeOf(data.type, rel, agentSegment),
     title: (h1?.[1] ?? str('title')).trim() || titleFromName(rel),
-    // `description`: a My Kortix memory page's one line (`./my-memory`).
+    // `description`: a My Dosco memory page's one line (`./my-memory`).
     summary: (str('summary').trim() || str('description').trim()).slice(0, MEMORY_LIMITS.summary_chars) || firstLine(body),
     excerpt: excerptOf(body),
     body,

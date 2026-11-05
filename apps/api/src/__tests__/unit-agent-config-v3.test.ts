@@ -303,8 +303,8 @@ describe('the shipped v3 starter compiles', () => {
 
     expect(compiled.schema).toBe(3);
     expect(compiled.manifest_issues?.filter((issue) => issue.severity === 'error') ?? []).toEqual([]);
-    // The starter's default is My Kortix, which is built in: the compiled set
-    // holds only declared agents, and session create adds My Kortix.
+    // The starter's default is My Dosco, which is built in: the compiled set
+    // holds only declared agents, and session create adds My Dosco.
     expect(raw.default_agent).toBe('mykortix');
     expect(compiled.default_agent).toBeUndefined();
     expect(compiled.agent.worker!.prompt?.trim()).toBeTruthy();

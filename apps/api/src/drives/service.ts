@@ -289,7 +289,7 @@ function storePrincipalType(type: FolderPrincipalType): 'user' | 'group' | 'serv
 
 /**
  * Every live folder grant of a project's drive that counts: grants to agents,
- * and the ones Kortix made for people (their own folder, a private channel's
+ * and the ones Dosco made for people (their own folder, a private channel's
  * members). A grant to the whole project, or one a person made for another
  * person or team (before 2026-11-03), reaches nobody: Drive is agent-first,
  * so a person reaches a folder only through an agent they may use. Those rows

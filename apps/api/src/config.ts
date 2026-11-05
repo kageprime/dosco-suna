@@ -132,7 +132,7 @@ export const envSchema = z.object({
   // Public origin for CLIENT-facing Supabase Storage URLs. On a self-host box
   // SUPABASE_URL is an internal Docker hostname (http://supabase-kong:8000) that
   // no browser/CLI/remote-sandbox can resolve; this is the box's public origin
-  // (e.g. https://sampleco.kortix.cloud) used to rewrite signed URLs on the way
+  // (e.g. https://sampleco.dosco.live) used to rewrite signed URLs on the way
   // out (see toPublicStorageUrl). Optional: unset on managed cloud, where
   // SUPABASE_URL is already public and no rewrite is needed.
   SUPABASE_PUBLIC_URL: z
@@ -216,7 +216,7 @@ export const envSchema = z.object({
   // account, Platinum never deletes archived boxes). Turning it on charges the
   // days still open (up to 3 days back), never earlier ones.
   KORTIX_BOX_DISK_CHARGE_ENABLED: optBoolFalse,
-  // Kortix Apps: a `static` App is served by the API from content-addressed
+  // Dosco Apps: a `static` App is served by the API from content-addressed
   // storage, with no runtime. `false` builds it into a sandbox, as before.
   KORTIX_APPS_STATIC_HOSTING: optBoolTrue,
   // Ready deployments an App keeps besides its active one (rollback targets).
@@ -316,7 +316,7 @@ export const envSchema = z.object({
   KORTIX_RELAY_HEADERS_TIMEOUT_MS: optInt(30_000),
   // IDLE on the upstream response socket — never a total duration. 0 = off.
   KORTIX_RELAY_UPSTREAM_IDLE_TIMEOUT_MS: optInt(600_000),
-  // Kortix-owned session titles: the moment a session's first prompt text is
+  // Dosco-owned session titles: the moment a session's first prompt text is
   // known server-side (at create when it carries one, else on the first HTTP
   // prompt), generate the title ourselves via the internal LLM gateway instead
   // of relying on the harness summarizer. On by default; the kill-switch
@@ -370,7 +370,7 @@ export const envSchema = z.object({
   MOBILE_STORE_URL_IOS: optUrl(''),
   MOBILE_STORE_URL_ANDROID: optUrl(''),
   // Self-host enterprise license: when the operator has purchased/holds a
-  // Kortix Enterprise license, this bypasses the sales-assigned `enterprise`
+  // Dosco Enterprise license, this bypasses the sales-assigned `enterprise`
   // tier check and unlocks every enterprise entitlement (SSO, SCIM, RBAC,
   // audit access) regardless of the account's billing tier — see
   // getAccountEntitlements()/accountHasEntitlement() in
@@ -410,7 +410,7 @@ export const envSchema = z.object({
   // `defaultManagedProviderId()` — a deployed bundle that still names it
   // provisions on github and logs a warning. Existing code.storage repos keep
   // resolving through their own connection row. The GitHub backend creates repos under
-  // MANAGED_GIT_GITHUB_OWNER (a Kortix-owned org) via the Kortix App
+  // MANAGED_GIT_GITHUB_OWNER (a Dosco-owned org) via the Dosco App
   // installed there (MANAGED_GIT_GITHUB_INSTALL_ID). Reuses KORTIX_GITHUB_APP_*
   // for the App JWT. Each backend's isConfigured() checks its own vars, so
   // leaving these blank keeps the managed-git path inert.
@@ -477,7 +477,7 @@ export const envSchema = z.object({
   // Optional banner image rendered at the top of the App Home tab. Must be a
   // public HTTPS URL Slack can fetch (no auth). Recommended 1600×400 PNG.
   SLACK_HOME_HERO_URL: optStr,
-  // Per-Slack-user identity. Default-on: each sender must link their own Kortix
+  // Per-Slack-user identity. Default-on: each sender must link their own Dosco
   // account via `/kortix login` and the agent runs AS them; unlinked senders
   // are blocked. Set explicitly to "false" only for legacy fallback where
   // Slack messages should run as the bound project owner.
@@ -487,18 +487,18 @@ export const envSchema = z.object({
   // The managed team key is RESEND_API_KEY (also the transactional sender).
   RESEND_API_URL: optUrl('https://api.resend.com'),
   // Domain for inboxes made with the managed key (verified and receiving on
-  // Kortix's Resend team). Unset: no managed inbox can be created.
+  // Dosco's Resend team). Unset: no managed inbox can be created.
   RESEND_MANAGED_DOMAIN: optStr,
   // Operator switch for managed inboxes on RESEND_MANAGED_DOMAIN. Each one
-  // costs Kortix a paid Resend inbox, so a project cannot turn this on: off,
+  // costs Dosco a paid Resend inbox, so a project cannot turn this on: off,
   // every connect needs the project's own Resend key.
   RESEND_MANAGED_EMAIL_ENABLED: optBoolFalse,
 
   // ── Channels — Telegram Bot API. Overridable for tests. ──
   TELEGRAM_API_URL: optUrl('https://api.telegram.org'),
 
-  // ── Channels — the Kortix Discord application (optional) ──────────────────
-  // One application for every project, like the Kortix Slack app: projects
+  // ── Channels — the Dosco Discord application (optional) ──────────────────
+  // One application for every project, like the Dosco Slack app: projects
   // install it in a server with "Add to Discord". Unset: Discord is off.
   // From the Developer Portal: General Information → Application ID and
   // Public Key; OAuth2 → Client Secret; Bot → Token.
@@ -508,7 +508,7 @@ export const envSchema = z.object({
   DISCORD_BOT_TOKEN: optStr,
   // The privileged Message Content intent, switched on for the application in
   // the Developer Portal (Bot → Privileged Gateway Intents). On: every message in
-  // a thread a Kortix session holds reaches the agent. Off (default, like Slack):
+  // a thread a Dosco session holds reaches the agent. Off (default, like Slack):
   // only a message that mentions the app, and every direct message.
   DISCORD_MESSAGE_CONTENT: optBoolFalse,
   // The OAuth2 redirect URI registered in the Developer Portal. Unset:
@@ -523,14 +523,14 @@ export const envSchema = z.object({
     .default('wss://gateway.discord.gg')
     .refine((v) => /^wss?:\/\//.test(v), { message: 'Must be a ws(s):// URL' }),
 
-  // ── MCP apps — Kortix-owned OAuth clients ───────────────
+  // ── MCP apps — Dosco-owned OAuth clients ───────────────
   // JSON: {"google":{"client_id":"…","client_secret":"…"},"github":{…}}. One
   // client per vendor whose MCP server has no dynamic client registration
   // (connectors/mcp-apps.ts). An app whose client is absent is not listed.
   KORTIX_OAUTH_CLIENTS: optStr,
 
   // ── Channels — Microsoft Teams adapter (optional) ────────────────────────
-  // One Kortix-owned multi-tenant Azure AD bot app. The same app id/password
+  // One Dosco-owned multi-tenant Azure AD bot app. The same app id/password
   // serve every tenant; the per-conversation tenant id arrives on each inbound
   // activity. Outbound auth is a short-lived AAD token minted per scope at call
   // time (channels/teams-auth.ts) — there is no static bot token to store.
@@ -547,10 +547,10 @@ export const envSchema = z.object({
   TEAMS_REQUIRE_USER_IDENTITY: optBoolTrue,
   // Whether the Teams channel is offered is NOT an operator env var — it is the
   // per-project `teams` feature flag (feature-flags/registry.ts).
-  TEAMS_APP_NAME: optStrDefault('Kortix'),
+  TEAMS_APP_NAME: optStrDefault('Dosco'),
 
   // ── LLM Providers (optional — only needed in cloud mode) ─────────────────
-  // Kortix Platinum inference: the one upstream of every Kortix-managed model
+  // Dosco Platinum inference: the one upstream of every Dosco-managed model
   // (`managedCandidates`). The key is a pt_live_ key with `inference:write`.
   PLATINUM_INFERENCE_URL: optUrl('https://api.platinum.dev/v1/inference'),
   PLATINUM_INFERENCE_API_KEY: optStr,
@@ -558,11 +558,11 @@ export const envSchema = z.object({
   OPENROUTER_API_KEY: optStr,
   KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolFalse,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
-  // deployment. The lineup is served by Platinum inference on Kortix's key.
-  // Kortix bills each request as platform credits.
+  // deployment. The lineup is served by Platinum inference on Dosco's key.
+  // Dosco bills each request as platform credits.
   // A self-host still runs the gateway for its own
   // BYOK routing (every sandbox model call goes through `/v1/llm`), it just
-  // must never see or route to Kortix's shared credentials. When unset it
+  // must never see or route to Dosco's shared credentials. When unset it
   // follows KORTIX_BILLING_INTERNAL_ENABLED (derived below): billing on =
   // managed cloud where the managed lineup is the product; billing off =
   // self-host where it must stay dark. An explicit true/false always wins.
@@ -596,7 +596,7 @@ export const envSchema = z.object({
   LLM_GATEWAY_PROXY_PORT: optInt(0),
   // Where the /v1/llm-gateway/* reverse-proxy forwards. Defaults to
   // 127.0.0.1:LLM_GATEWAY_PROXY_PORT (local, gateway same host). In K8s set to
-  // the in-cluster gateway service, e.g. http://kortix-gateway:8090, so the
+  // the in-cluster gateway service, e.g. http://llm-gateway:8090, so the
   // gateway stays internal and sandboxes reach it via the API's public origin.
   LLM_GATEWAY_PROXY_TARGET: optStr,
   OPENAI_API_KEY: optStr,
@@ -761,8 +761,8 @@ export const envSchema = z.object({
   // route streams the bytes when that host is loopback or private.
   KORTIX_CONFIG_ARCHIVE_PUBLIC_URL: optUrl(''),
 
-  // ── Kortix Capture (optional) ───────────────────────────────────────────
-  // Devices write the Kortix Capture format to this bucket under
+  // ── Dosco Capture (optional) ───────────────────────────────────────────
+  // Devices write the Dosco Capture format to this bucket under
   // `orgs/<account_id>/<device_id>/`. The API reads it
   // (ingestion), writes `policy.json`, and signs short-lived media URLs.
   //   dev/staging/prod: the Terraform bucket, credentials from the ECS task role.
@@ -909,7 +909,7 @@ export const envSchema = z.object({
   // Exported collection JSON and Postman-managed Git repositories need no key.
   POSTMAN_API_KEY: optStr,
 
-  // ── Kortix in Chrome ─────────────────────────────────────────────────────
+  // ── Dosco in Chrome ─────────────────────────────────────────────────────
   // Master switch until launch: on in local and dev only. Off, /v1/chrome/* and
   // the extension's control socket answer 404 and the `chrome` project flag is
   // unavailable (feature-flags/registry.ts).
@@ -957,13 +957,13 @@ export const envSchema = z.object({
   // replaces an untrusted header with one entry, which the rule also reads
   // correctly. See shared/client-ip.ts.
   KORTIX_TRUSTED_PROXY_HOPS: optInt(2),
-  // Per client IP: Kortix bearer tokens that need a fresh hash (not seen by
+  // Per client IP: Dosco bearer tokens that need a fresh hash (not seen by
   // this process recently). A token already validated here is not counted.
   KORTIX_UNKNOWN_TOKEN_ATTEMPTS_PER_MIN: optInt(300),
   KORTIX_TRIGGER_MAX_PROVISIONING_SESSIONS_PER_PROJECT: optInt(3),
   KORTIX_TRIGGER_SCHEDULER_ENABLED: optBoolTrue,
   KORTIX_TRIGGER_SCHEDULER_INTERVAL_MS: optInt(1_000),
-  // Kill switch of Kortix-polled app events (source `mcp`). Off: no check runs; streams and
+  // Kill switch of Dosco-polled app events (source `mcp`). Off: no check runs; streams and
   // triggers stay, and checks resume when it is on again.
   KORTIX_EVENT_POLLS_ENABLED: optBoolTrue,
 
@@ -988,7 +988,7 @@ export const envSchema = z.object({
   AUTH_EMAIL_HOOK_SECRET: optStr,
 
   // ── Transactional email: pre-EMAIL_URL variables (still supported) ────────
-  // Deployed Kortix runs on these today. They are used whenever EMAIL_URL is
+  // Deployed Dosco runs on these today. They are used whenever EMAIL_URL is
   // unset; setting EMAIL_URL overrides all of them.
   // `smtp` is last but present by default: an existing self-host that
   // configured SMTP_* for GoTrue before EMAIL_URL shipped starts sending
@@ -1041,17 +1041,17 @@ export const envSchema = z.object({
   // Supabase Mailpit. Deployed environments leave it unset.
   MAILPIT_API_URL: optStr,
   MAILTRAP_API_TOKEN: optStr,
-  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@kortix.com'),
-  MAILTRAP_FROM_NAME: optStrDefault('Kortix'),
-  // Where Kortix sales hears about leads: "book a demo", "Talk to sales", the
+  MAILTRAP_FROM_EMAIL: optStrDefault('noreply@dosco.live'),
+  MAILTRAP_FROM_NAME: optStrDefault('Dosco'),
+  // Where Dosco sales hears about leads: "book a demo", "Talk to sales", the
   // Enterprise demo turned on, billing ops copies. Comma-separated list; every
   // address gets every email. Unset → the sales inboxes on prod only: dev,
   // staging, local and self-host test accounts must never email sales.
   DEMO_LEAD_NOTIFY_EMAIL: z.string().optional(),
-  // Sender for those notifications. kortix.ai (not the global MAILTRAP_FROM_
-  // EMAIL on kortix.com) so the send is DKIM-aligned with the kortix.ai
-  // recipient inboxes — the kortix.com sender was landing in spam.
-  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@kortix.ai'),
+  // Sender for those notifications. dosco.live (not the global MAILTRAP_FROM_
+  // EMAIL on dosco.live) so the send is DKIM-aligned with the dosco.live
+  // recipient inboxes — the dosco.live sender was landing in spam.
+  DEMO_LEAD_FROM_EMAIL: optStrDefault('hi@dosco.live'),
 
   // ── Mailtrap contact sync (signup → automation lists) ─────────────────────
   // The email automations themselves live in Mailtrap's Automations UI; the
@@ -1788,7 +1788,7 @@ export const config = {
   MAILTRAP_FROM_NAME: env.MAILTRAP_FROM_NAME,
   DEMO_LEAD_NOTIFY_EMAIL:
     env.DEMO_LEAD_NOTIFY_EMAIL ??
-    (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@kortix.ai,hey@kortix.ai' : ''),
+    (env.INTERNAL_KORTIX_ENV === 'prod' ? 'marko@dosco.live,hey@dosco.live' : ''),
   DEMO_LEAD_FROM_EMAIL: env.DEMO_LEAD_FROM_EMAIL,
 
   // ─── Mailtrap contact sync (signup → automation lists) ────────────────────

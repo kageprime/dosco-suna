@@ -10,7 +10,7 @@
 //   - Only an instance with the enterprise license
 //     (`ENTERPRISE_LICENSE_AVAILABLE`, a self-host operator's setting) has
 //     instance branding. The license is also what grants every account the
-//     `branding` entitlement there. The Kortix cloud never sets it, so on the
+//     `branding` entitlement there. The Dosco cloud never sets it, so on the
 //     cloud the answer is `null` without a query, and no customer's branding
 //     can reach the cloud's sign-in page.
 //   - Which accounts count: every team account (on a self-host instance only
@@ -65,7 +65,7 @@ export async function loadOldestOperatorBranding(
 }
 
 /**
- * The instance branding, or `null` for default Kortix. `licensed` and `load`
+ * The instance branding, or `null` for default Dosco. `licensed` and `load`
  * are injected so the gate is testable without a database or env.
  */
 export async function instanceBranding(

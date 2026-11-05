@@ -360,7 +360,7 @@ export async function syncEnvBeforeTurnStart(
 }
 
 /**
- * `system` on a Kortix prompt body (`project_channels`): the list of the
+ * `system` on a Dosco prompt body (`project_channels`): the list of the
  * memory files the thread reads, at its mount paths, for the turn's system
  * prompt. The first turn records the list ("Used memory"). A `system` the
  * client sent is always dropped: only the API sets it. Flag off, no space, or
@@ -374,7 +374,7 @@ async function addMemoryTurnLayers(req: ForwardRequest, state: ForwardState): Pr
   state.requestBody = withoutClientSystem(state.requestBody);
   const sessionId = req.record.sessionId;
   try {
-    // My Kortix: the prompter's own memory index (kortix_memory), every turn, with Files on.
+    // My Dosco: the prompter's own memory index (kortix_memory), every turn, with Files on.
     if (isMyKortixAgentName(req.record.agentName)) {
       if (!driveStorageAvailable()) return;
       const { myKortixMemoryTurn } = await import('../../memory/my-memory');

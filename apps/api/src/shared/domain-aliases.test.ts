@@ -41,7 +41,7 @@ beforeEach(() => {
 
 describe('alias domains', () => {
   test('aliases are normalized, deduplicated, and never include the primary domain', () => {
-    configState.KORTIX_DOMAIN_ALIASES = ' HTTPS://Kortix.Acme.com/ , kortix.acme.cloud, kortix.acme.com';
+    configState.KORTIX_DOMAIN_ALIASES = ' HTTPS://Dosco.Acme.com/ , kortix.acme.cloud, kortix.acme.com';
     expect(domainAliases()).toEqual(['kortix.acme.com']);
   });
 

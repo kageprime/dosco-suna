@@ -25,7 +25,7 @@ export class SnapshotBuildError extends Error {
 }
 
 /**
- * My Kortix's machine: the default session machine. Its image is the platform
+ * My Dosco's machine: the default session machine. Its image is the platform
  * default's computer, desktop and browser included (my-kortix-dockerfile.ts),
  * which needs the same room: ~7.4 GB of image, ~380 MB RAM for the desktop.
  */
@@ -38,7 +38,7 @@ export const MY_KORTIX_RUNTIME_SPEC: SandboxImageSpec = Object.freeze({
 const myKortixImageBuilds = new Map<string, Promise<EnsureSandboxImageResult>>();
 let metaRuntimeFingerprint: Promise<string> | null = null;
 
-/** Every input of the My Kortix image, under the repository root `root`. */
+/** Every input of the My Dosco image, under the repository root `root`. */
 export function metaRuntimeArtifacts(root: string) {
   return [
       { label: 'agent', path: resolve(root, 'apps/kortix-sandbox-agent-server/src') },

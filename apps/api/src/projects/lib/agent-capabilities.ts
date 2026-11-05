@@ -14,7 +14,7 @@
  *    `KORTIX_TOOL_NAMES`, and the manifest's `tools:` registry. The model reads
  *    each tool module's own long description; the one-line text here is for
  *    people.
- *  - skills: the Kortix skill files (`skills/catalog.ts`, SKILL.md frontmatter
+ *  - skills: the Dosco skill files (`skills/catalog.ts`, SKILL.md frontmatter
  *    `description` and `metadata.kortix-feature-flag`) and the `skills:`
  *    registry.
  *  - extensions: the platform extensions `harness/pi/runtime.ts` loads, and
@@ -35,22 +35,22 @@ const BUILTIN_TOOLS: ReadonlyArray<{ id: string; group: AgentCapabilityToolGroup
   { id: 'edit', group: 'workspace', description: 'Change part of a file.' },
   { id: 'glob', group: 'workspace', description: 'Find files by name pattern.' },
   { id: 'grep', group: 'workspace', description: 'Search inside files.' },
-  { id: 'codemode', group: 'workspace', description: 'Kortix codemode: write one script that calls the other tools.' },
-  { id: 'question', group: 'interaction', description: 'Ask you a question in the Kortix chat and wait for the answer.' },
-  { id: 'agent', group: 'interaction', description: 'Start a Kortix subagent session and get its result.', aliases: ['task'] },
-  { id: 'workflow', group: 'interaction', description: 'Run a script that starts many Kortix subagents in the background.' },
+  { id: 'codemode', group: 'workspace', description: 'Dosco codemode: write one script that calls the other tools.' },
+  { id: 'question', group: 'interaction', description: 'Ask you a question in the Dosco chat and wait for the answer.' },
+  { id: 'agent', group: 'interaction', description: 'Start a Dosco subagent session and get its result.', aliases: ['task'] },
+  { id: 'workflow', group: 'interaction', description: 'Run a script that starts many Dosco subagents in the background.' },
   { id: 'send_message', group: 'interaction', description: 'Send a message to another session of this project.' },
   { id: 'list_agents', group: 'interaction', description: 'List the sessions this session can reach.' },
   { id: 'task_create', group: 'interaction', description: "Add a task to an agent team's shared list (flag agent_teams).", aliases: ['task_list', 'task_get', 'task_update'] },
 ];
 
-/** One line per Kortix tool (`apps/kortix-sandbox-agent-server/src/services/tools/kortix/`). */
+/** One line per Dosco tool (`apps/kortix-sandbox-agent-server/src/services/tools/kortix/`). */
 const KORTIX_TOOL_DESCRIPTIONS: Record<(typeof KORTIX_TOOL_NAMES)[number], string> = {
-  web_search: 'Kortix web search: current information from the web.',
-  image_search: 'Kortix image search: images from the web.',
-  image_gen: 'Kortix image generation, with an image model the project can use.',
-  scrape_webpage: 'Kortix page reader: web pages as clean text.',
-  show: 'Show you a file, image or result in the Kortix conversation.',
+  web_search: 'Dosco web search: current information from the web.',
+  image_search: 'Dosco image search: images from the web.',
+  image_gen: 'Dosco image generation, with an image model the project can use.',
+  scrape_webpage: 'Dosco page reader: web pages as clean text.',
+  show: 'Show you a file, image or result in the Dosco conversation.',
 };
 
 /** The extensions the pi runtime loads for every agent (`harness/pi/runtime.ts`), in `PLATFORM_EXTENSION_IDS`. */
@@ -92,13 +92,13 @@ export function buildAgentCapabilities(input: {
   projectSkillDescriptions: Record<string, string | null>;
   enabledFlags: ReadonlySet<string>;
 }): AgentCapabilities {
-  // A `kortix:<name>` value names a Kortix tool; any other value is a repository module.
+  // A `kortix:<name>` value names a Dosco tool; any other value is a repository module.
   const registeredTools = Object.entries(mapOf(input.manifest.tools)).filter(
     (entry): entry is [string, string] => typeof entry[1] === 'string' && kortixToolRef(entry[1]) === null,
   );
   const replaced = new Map(registeredTools);
   const kortixNames = new Set<string>(KORTIX_TOOL_NAMES);
-  // A session loads every Kortix tool.
+  // A session loads every Dosco tool.
   const kortixTools = [...KORTIX_TOOL_NAMES];
   const tools: AgentCapabilityTool[] = [
     ...BUILTIN_TOOLS.map((tool) => ({ id: tool.id, group: tool.group, description: tool.description, aliases: tool.aliases ?? [], source: null })),

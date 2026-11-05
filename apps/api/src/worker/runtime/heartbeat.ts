@@ -11,7 +11,7 @@
  *
  * Once a minute the lease holder writes one JSON line to stdout. A CloudWatch
  * log metric filter (`infra/terraform/modules/ecs-api`) turns it into the
- * `Kortix/Worker` `StaleJobs` metric, and an alarm pages when it stays at 1
+ * `Dosco/Worker` `StaleJobs` metric, and an alarm pages when it stays at 1
  * or more for 5 minutes.
  */
 import { config } from '../../config';

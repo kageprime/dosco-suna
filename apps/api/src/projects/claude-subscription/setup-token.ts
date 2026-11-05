@@ -5,7 +5,7 @@
  * Anthropic's own flow: it prints a claude.com authorize URL, the member
  * approves there, platform.claude.com shows a code, and the member pastes the
  * code back. The binary exchanges it and prints a long-lived token that only
- * makes model requests. Kortix never builds the URL or exchanges the code: the
+ * makes model requests. Dosco never builds the URL or exchanges the code: the
  * binary does both.
  *
  * The command draws a terminal UI, so it runs under `script`, which gives it a

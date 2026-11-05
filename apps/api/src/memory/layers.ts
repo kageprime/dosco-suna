@@ -46,7 +46,7 @@ export class MemoryError extends Error {
 export const notFound = () => new MemoryError(404, 'memory_not_found', 'Memory not found.');
 
 /** The `mykortix` layer's name, as the Memory screen shows it. */
-export const MY_KORTIX_DISPLAY_NAME = 'My Kortix';
+export const MY_KORTIX_DISPLAY_NAME = 'My Dosco';
 
 /** Who asks: a person, and their project rights (`session`: a member; `write`: an admin). */
 export interface Viewer {
@@ -84,7 +84,7 @@ export interface Layer {
 /** 403 `feature_disabled` where the platform stores no Drive (no Platinum): every memory route answers it first. */
 export function assertFilesOn(_project: Project): void {
   if (!driveStorageAvailable()) {
-    throw new MemoryError(403, 'feature_disabled', 'Memory lives in the Drive, and this Kortix stores no Drive.', { feature: 'drives' });
+    throw new MemoryError(403, 'feature_disabled', 'Memory lives in the Drive, and this Dosco stores no Drive.', { feature: 'drives' });
   }
 }
 
@@ -133,7 +133,7 @@ export async function resolveLayer(project: Project, key: string, viewer: Viewer
   const base = { key, projectId: project.projectId, drive, agentFolder: null as string | null, skip: [] as string[], isDefault: false };
   let layer: Omit<Layer, 'canWrite'>;
   if (key === MY_KORTIX_MEMORY_LAYER_KEY) {
-    // The viewer's own My Kortix folder: no space row, no other person's.
+    // The viewer's own My Dosco folder: no space row, no other person's.
     const personal = personalFolderFor(caller.grants, viewer.userId) ?? caller.personalFolder;
     const root = spaceDriveFolders('dm', MY_KORTIX_AGENT_NAME, personal)?.memory;
     if (!root) throw notFound();

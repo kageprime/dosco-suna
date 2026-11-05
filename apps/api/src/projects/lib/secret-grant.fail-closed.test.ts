@@ -55,7 +55,7 @@ describe('resolveSessionSecretGrant fails closed through the real manifest loade
       path: 'kortix.yaml',
       content: 'agents:\n  - [unbalanced\n',
     });
-    // Repair mode: only My Kortix runs, so the file can be fixed. No agent,
+    // Repair mode: only My Dosco runs, so the file can be fixed. No agent,
     // the `default` sentinel included, receives a project secret.
     for (const sessionAgent of ['default', 'kortix', 'mykortix']) {
       await expect(resolveSessionSecretGrant({ ...PROJECT, sessionAgent })).resolves.toEqual([]);

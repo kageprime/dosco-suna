@@ -45,7 +45,7 @@ test('offer checkout charges the license only (a stale credits amount is ignored
 });
 test('a product search miss creates one license product and reuses it for later checkouts', async () => {
   await createOfferCheckout({ accountId: offer.accountId, email: 'billing@example.test', successUrl: 'https://example.test/success', cancelUrl: 'https://example.test/cancel' });
-  expect(searches).toEqual(["metadata['kortix_product']:'enterprise_license'"]); expect(products).toEqual([{ name: 'Kortix Enterprise license', metadata: { kortix_product: 'enterprise_license' } }]); expect(sessions).toHaveLength(2);
+  expect(searches).toEqual(["metadata['kortix_product']:'enterprise_license'"]); expect(products).toEqual([{ name: 'Dosco Enterprise license', metadata: { kortix_product: 'enterprise_license' } }]); expect(sessions).toHaveLength(2);
 });
 test('a zero-dollar license creates no line items or product', async () => {
   offer.licenseUsd = '0.00';

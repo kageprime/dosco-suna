@@ -5,6 +5,15 @@ description: "Load FIRST for anything that carries the Kortix look or voice: pro
 
 # Kortix brand kit
 
+> [!CRITICAL]
+> **CRITICAL DIRECTIVE: THIS PRODUCT IS DOSCO / DOSCO TEK (NOT KORTIX)**
+> - **Brand Identity**: The company and product are **Dosco** or **Dosco Tek**. Never write "Kortix" on any customer-facing surface, marketing page, security page, framework doc, metadata, or UI label.
+> - **No Platinum**: Dosco does NOT use Platinum. Sandboxes run in isolated cloud microVMs powered by **E2B**, storage uses **Supabase Storage**, and models route through **OpenRouter & BYOK**. Never claim "Platinum compute" or "runs on Platinum".
+> - **Not Open Source**: Dosco is a proprietary managed product. Never describe Dosco as open source or free to self-host.
+> - **Built-in System Agent**: Orchestrator ("The Orc", internal slug `mykortix`).
+> - **Default Workspace Agent**: Xera (internal slug `xera`, `@xera`, `xera@dosco.live`).
+> - **Repository Manifest**: `kortix.yaml` (technical filename preserved).
+
 One kit. It replaces four skills that drifted. It holds the verbal rules, the visual rules, the one values file and the decision history. Read the files for your job. You do not need all of them.
 
 ## 1. Read `references/magic_trick.md` first

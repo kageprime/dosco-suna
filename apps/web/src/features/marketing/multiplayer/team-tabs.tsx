@@ -92,10 +92,10 @@ function ChannelsPanel() {
   const { joinPolicies } = localizeModel(tMarketing);
 
   const rows = [
-    { who: 'M1', name: 'Member 1', text: '@Kortix list this week’s overdue invoices' },
-    { who: 'K', name: 'Kortix', text: 'Found 4. The list is in the session.', app: true },
-    { who: 'M2', name: 'Member 2', text: '@Kortix send each customer a reminder' },
-    { who: 'K', name: 'Kortix', text: 'Waiting for approval to send 4 emails.', app: true },
+    { who: 'M1', name: 'Member 1', text: '@Dosco list this week’s overdue invoices' },
+    { who: 'D', name: 'Dosco', text: 'Found 4. The list is in the session.', app: true },
+    { who: 'M2', name: 'Member 2', text: '@Dosco send each customer a reminder' },
+    { who: 'D', name: 'Dosco', text: 'Waiting for approval to send 4 emails.', app: true },
   ];
   return (
     <div className="flex flex-col gap-4">

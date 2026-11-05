@@ -94,7 +94,7 @@ describe('POST /v1/projects/:projectId/skills', () => {
 
     const yaml = show(entry, 'kortix.yaml');
     expect(yaml).toContain('release-notes: skills/release-notes');
-    // A Kortix write drops the obsolete version line.
+    // A Dosco write drops the obsolete version line.
     expect(yaml).not.toContain('kortix_version');
     // One commit carries both files.
     const files = execFileSync('git', ['--git-dir', entry.upstream.repoUrl, 'show', '--name-only', '--format=', 'main'], { encoding: 'utf8' });

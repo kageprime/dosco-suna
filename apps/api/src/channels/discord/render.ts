@@ -1,5 +1,5 @@
 /**
- * Kortix's chat replies as Discord messages: a command reply (core/commands.ts
+ * Dosco's chat replies as Discord messages: a command reply (core/commands.ts
  * `CommandReply`) and an agent question (core/questions.ts `QuestionMessage`)
  * become `content` and message components. Pure: no network, no database.
  *
@@ -121,7 +121,7 @@ export function discordCommandMessage(reply: CommandReply): DiscordMessageBody {
   rows.push(...rowsOf(actions));
   const url = 'url' in reply ? reply.url : undefined;
   if (url && reply.kind === 'panel' && url.startsWith('https://')) {
-    rows.push({ type: ROW, components: [{ type: BUTTON, style: STYLE.link, label: 'Open in Kortix', url }] });
+    rows.push({ type: ROW, components: [{ type: BUTTON, style: STYLE.link, label: 'Open in Dosco', url }] });
   } else if (url) lines.push(url);
   const text = reply.note ? `${lines.join('\n')}\n\n${reply.note}` : lines.join('\n');
   return { content: clip(text, DISCORD_MESSAGE_CHARS), components: rows.slice(0, 5) };

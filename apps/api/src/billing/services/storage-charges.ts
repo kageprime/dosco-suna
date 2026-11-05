@@ -1,9 +1,9 @@
 /**
- * Volume storage billing: Platinum meters every volume Kortix creates (a
+ * Volume storage billing: Platinum meters every volume Dosco creates (a
  * project's Files drive `kd-…`, a session's /workspace volume `kws-<session>`,
- * a box's scratch disk, Kortix's own Workers' storage) on its stored bytes.
+ * a box's scratch disk, Dosco's own Workers' storage) on its stored bytes.
  * This tick turns what Platinum metered into a charge in credits on the
- * account that owns the resource, at the Kortix storage rate
+ * account that owns the resource, at the Dosco storage rate
  * (STORAGE_RATES_USD_PER_GIB_HOUR, platform/providers/compute-rates.ts).
  *
  * Two sources, one row per (control plane, meter, resource, UTC day):
@@ -33,10 +33,10 @@
  * under the same key, which moves no money twice.
  *
  * Attribution: drive → account and project; `kws-<session_id>` → session →
- * account and project; a scratch disk → the session box. A resource Kortix
+ * account and project; a scratch disk → the session box. A resource Dosco
  * cannot attribute (another deployment's in the same Platinum org, a deleted
  * owner, a volume Platinum no longer lists, a Worker's storage) is recorded
- * with no account and an `unattributed_reason`: Kortix's own cost, never
+ * with no account and an `unattributed_reason`: Dosco's own cost, never
  * charged to anyone.
  *
  * Never retroactive: the first tick of a feed starts both sources at its own
@@ -200,7 +200,7 @@ export function classifyVolumeName(name: string): { kind: 'drive' } | { kind: 'w
   return { kind: 'other' };
 }
 
-/** A meter of Platinum's volume feed. The box disk kinds are Kortix's own meter, never read from Platinum. */
+/** A meter of Platinum's volume feed. The box disk kinds are Dosco's own meter, never read from Platinum. */
 export function isStorageResourceKind(kind: unknown): kind is StorageResourceKind {
   return kind === 'volume' || kind === 'volume_snapshot' || kind === 'scratch' || kind === 'worker_storage';
 }
@@ -294,7 +294,7 @@ export async function writePlatformSetting(key: string, value: Record<string, un
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Kortix's storage charge rule: compute's (compute-metering.ts startComputeSession), then the storageBilling override. */
+/** Dosco's storage charge rule: compute's (compute-metering.ts startComputeSession), then the storageBilling override. */
 export async function accountStorageBilled(accountId: string): Promise<boolean> {
   // No credit account, nothing to debit. Recorded as waived, so the day closes.
   if (!(await getCreditAccount(accountId))) return false;
@@ -599,7 +599,7 @@ async function chargeDay(
   });
   if (resources.length >= USAGE_PAGE_LIMIT) {
     // GET /v1/billing/volume-usage has no cursor: past 1,000 resources a day the
-    // smallest receipts are not listed. Recorded as Kortix's own cost here.
+    // smallest receipts are not listed. Recorded as Dosco's own cost here.
     const listed = resources.reduce((sum, r) => sum + (Number(r.gib_hours) || 0), 0);
     logger.error('[storage-billing] Platinum listed only the largest volumes of the day; the rest are not charged', {
       feed: feed.name,
@@ -966,7 +966,7 @@ export async function resolveOwners(
   }
   const pending = resources.filter((r) => !owners.has(rowKey(r)));
 
-  // Legacy volume snapshots, and Kortix's own Workers' storage: Kortix's cost.
+  // Legacy volume snapshots, and Dosco's own Workers' storage: Dosco's cost.
   for (const r of pending.filter((r) => r.resource_kind === 'volume_snapshot' || r.resource_kind === 'worker_storage')) {
     owners.set(rowKey(r), UNATTRIBUTED('unsupported_kind', known.get(r.resource_id) ?? null));
   }

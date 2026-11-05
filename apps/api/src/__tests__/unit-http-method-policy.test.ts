@@ -44,7 +44,7 @@ test('ordinary methods still reach downstream handlers', async () => {
 test('OPTIONS retains CORS preflight without advertising TRACE or CONNECT', async () => {
   const response = await app.request('/', {
     method: 'OPTIONS',
-    headers: { Origin: 'https://kortix.com', 'Access-Control-Request-Method': 'POST' },
+    headers: { Origin: 'https://dosco.live', 'Access-Control-Request-Method': 'POST' },
   });
   expect(response.status).toBe(204);
   expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET,POST,PUT,PATCH,DELETE,OPTIONS');

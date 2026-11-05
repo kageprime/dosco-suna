@@ -99,8 +99,8 @@ const ROOT_METADATA: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@kortix',
-    site: '@kortix',
+    creator: '@doscotek',
+    site: '@doscotek',
     images: ['/banner.png'],
   },
   icons: {

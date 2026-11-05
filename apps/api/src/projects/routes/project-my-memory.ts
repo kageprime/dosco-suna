@@ -1,11 +1,11 @@
 /**
- * What My Kortix remembers about the caller:
+ * What My Dosco remembers about the caller:
  * `/v1/projects/:projectId/memory/me/agent/:agent[/pages/:name]`. `:agent` is
  * `mykortix` (its old slug `meta` too); any other agent is 404.
  *
  * Every route reads and writes the caller's own `/Users/<person>/Memory/mykortix`
  * folder, never another person's: a person with their login, or their My
- * Kortix session with its session token (the person is the token's
+ * Dosco session with its session token (the person is the token's
  * `on_behalf_of`). Any other session token gets 403 `my_kortix_only`. The
  * rules (one page per name, caps, secrets) are `../../memory/my-memory.ts`.
  * Files off: 403 `feature_disabled`, as on every memory route.
@@ -46,10 +46,10 @@ export function registerProjectMyMemoryRoutes(): void {
       method: 'get',
       path: '/{projectId}/memory/me/agent/{agent}',
       tags: ['memory'],
-      summary: 'List what My Kortix remembers about you',
+      summary: 'List what My Dosco remembers about you',
       description:
-        'The caller’s own pages in `/Users/<person>/Memory/mykortix`, newest first, at most 200, and the index text a My Kortix turn starts with. ' +
-        'A person, or their My Kortix session.',
+        'The caller’s own pages in `/Users/<person>/Memory/mykortix`, newest first, at most 200, and the index text a My Dosco turn starts with. ' +
+        'A person, or their My Dosco session.',
       ...auth,
       request: { params: agentParams },
       responses: { 200: json(MyKortixMemoryIndexSchema, 'The index'), ...ERRORS },
@@ -72,7 +72,7 @@ export function registerProjectMyMemoryRoutes(): void {
       method: 'get',
       path: '/{projectId}/memory/me/agent/{agent}/pages/{name}',
       tags: ['memory'],
-      summary: 'Read one thing My Kortix remembers about you',
+      summary: 'Read one thing My Dosco remembers about you',
       description: '`name` is the page’s slug. 404 `memory_not_found` when no page of the caller has it.',
       ...auth,
       request: { params: pageParams },
@@ -98,7 +98,7 @@ export function registerProjectMyMemoryRoutes(): void {
       method: 'put',
       path: '/{projectId}/memory/me/agent/{agent}/pages/{name}',
       tags: ['memory'],
-      summary: 'Save one thing My Kortix remembers about you',
+      summary: 'Save one thing My Dosco remembers about you',
       description:
         'Replaces the caller’s page with that `name`, or creates `<folder>/<name>.md`: one page per name. 201 when created, 200 when updated. ' +
         '409 `memory_full` past 200 pages; 413 `page_too_large` over 16,384 bytes; 422 `secret_detected`.',
@@ -114,7 +114,7 @@ export function registerProjectMyMemoryRoutes(): void {
           assertMyKortixAgent(agent);
           assertMemoryName(name);
           const layer = await myKortixLayer(project, viewer);
-          // A My Kortix session writes as My Kortix; a person writes under their own name.
+          // A My Dosco session writes as My Dosco; a person writes under their own name.
           const author = callerKortixSessionId(c) ? MY_KORTIX_AUTHOR : await authorName(viewer.userId);
           const saved = await saveMyMemory(layer, name, author, c.req.valid('json'));
           return saved.created ? c.json(saved, 201) : c.json(saved, 200);
@@ -130,7 +130,7 @@ export function registerProjectMyMemoryRoutes(): void {
       method: 'delete',
       path: '/{projectId}/memory/me/agent/{agent}/pages/{name}',
       tags: ['memory'],
-      summary: 'Forget one thing My Kortix remembers about you',
+      summary: 'Forget one thing My Dosco remembers about you',
       description: 'Deletes the caller’s page with that `name` for good (a Drive delete). 404 `memory_not_found` when there is none.',
       ...auth,
       request: { params: pageParams },

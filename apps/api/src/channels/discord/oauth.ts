@@ -1,5 +1,5 @@
 /**
- * "Add to Discord": the OAuth2 install of the Kortix Discord application in a
+ * "Add to Discord": the OAuth2 install of the Dosco Discord application in a
  * server, for one project, like "Add to Slack".
  *
  *   1. The web asks for the install URL (projects/routes/channel-discord.ts):
@@ -93,7 +93,7 @@ export function registerDiscordOauthRoutes(): void {
         }),
       },
       responses: {
-        302: { description: 'Redirect to the web completion page or the Kortix dashboard' },
+        302: { description: 'Redirect to the web completion page or the Dosco dashboard' },
         ...errors(400),
       },
     }),
@@ -119,7 +119,7 @@ interface TokenResponse {
 
 /**
  * Finish a Discord install for the signed-in caller. The caller must be the
- * Kortix user who started it, for the same project; the code is exchanged only
+ * Dosco user who started it, for the same project; the code is exchanged only
  * after that check.
  */
 export async function completeDiscordOauthInstall(input: { projectId: string; userId: string; code: string; state: string }): Promise<InstallCompletion> {

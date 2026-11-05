@@ -34,7 +34,7 @@ describe('isLaunchableAgentName', () => {
     expect(isLaunchableAgentName('retired', governed)).toBe(false);
   });
 
-  test('the default sentinel is always launchable; My Kortix only when the project runs it', () => {
+  test('the default sentinel is always launchable; My Dosco only when the project runs it', () => {
     expect(isLaunchableAgentName('default', governed)).toBe(true);
     expect(isLaunchableAgentName('meta', governed)).toBe(false);
     expect(isLaunchableAgentName('meta', { ...governed, builtinAgents: { my_kortix: true } })).toBe(true);

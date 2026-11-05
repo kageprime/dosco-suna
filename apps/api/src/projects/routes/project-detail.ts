@@ -190,11 +190,11 @@ export function registerProjectDetailRoutes(): void {
         actingTokenId: (c.get('iamTokenId') as string | undefined) ?? undefined,
       };
       const filteredConfig = await filterConfigResourcesForUser(rawConfig, denierCtx);
-      // My Kortix (slug `mykortix`) is listed first when kortix.yaml sets
+      // My Dosco (slug `mykortix`) is listed first when kortix.yaml sets
       // `builtin_agents.my_kortix: true`. Off: the config is exactly the
       // repo-declared surface. A kortix.yaml that is not YAML runs the last
       // version that parses (`rawConfig.manifest`); with none it is repair
-      // mode, where My Kortix runs so it can be fixed (`loadProjectAgents`).
+      // mode, where My Dosco runs so it can be fixed (`loadProjectAgents`).
       const repairMode =
         rawConfig.manifest_health.issues.some((issue) => issue.path === MANIFEST_SYNTAX_ISSUE_PATH) &&
         Object.keys(rawConfig.manifest).length === 0;
@@ -203,7 +203,7 @@ export function registerProjectDetailRoutes(): void {
         ...(builtinAgents.my_kortix ? addMyKortixAgent(filteredConfig) : filteredConfig),
         builtin_agents: builtinAgents,
       };
-      // A Kortix skill behind a feature flag is listed only while the flag is on: the box does
+      // A Dosco skill behind a feature flag is listed only while the flag is on: the box does
       // not have it either (feature-flag-env.ts → kortixd).
       const enabledFlags = new Set(featureFlagsEnvValue(loaded.row.metadata).split(','));
       const config = {

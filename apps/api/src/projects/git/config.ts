@@ -1,6 +1,6 @@
 // Project config introspection: parses the project manifest (kortix.yaml) out
 // of the repo into a ProjectConfigSummary. kortix.yaml is the only source:
-// agents are its blocks, skills its `skills` registry plus the Kortix skills,
+// agents are its blocks, skills its `skills` registry plus the Dosco skills,
 // commands its `commands` registry. A folder or file the manifest does not
 // register is never listed.
 
@@ -157,7 +157,7 @@ export function resolveConfigAgents(
           enabled: spec.enabled,
           sandbox: spec.sandbox ?? null,
           // Surface the per-agent allowlists so the UI can show (read-only) what
-          // secrets/connectors/Kortix permissions each declared agent is scoped to.
+          // secrets/connectors/Dosco permissions each declared agent is scoped to.
           // `kortix_cli` is the deprecated wire alias of `kortix_permissions`,
           // kept so clients released before the rename still read it.
           scope: {
@@ -165,7 +165,7 @@ export function resolveConfigAgents(
             connectors: spec.connectors,
             kortix_permissions: spec.permissions,
             kortix_cli: spec.permissions,
-            // Kortix Apps this agent may open when restricted/private (§2.5).
+            // Dosco Apps this agent may open when restricted/private (§2.5).
             apps: spec.apps ?? [],
           },
         };
@@ -339,12 +339,12 @@ function spacesFromManifest(manifest: Record<string, unknown>): NonNullable<Proj
 
 /**
  * The syntax-error issue, with what the project runs until the file is fixed:
- * the last commit's file that parses, or (none) only My Kortix.
+ * the last commit's file that parses, or (none) only My Dosco.
  */
 function withSyntaxErrorConsequence(health: ManifestHealth, lastGoodCommit: string | null): ManifestHealth {
   const consequence = lastGoodCommit
-    ? ` Kortix keeps running this file as of commit ${lastGoodCommit.slice(0, 7)}, the last version that parses, until it is fixed. Edits from Kortix are refused until then.`
-    : ' No earlier version parses, so only My Kortix runs until it is fixed.';
+    ? ` Dosco keeps running this file as of commit ${lastGoodCommit.slice(0, 7)}, the last version that parses, until it is fixed. Edits from Dosco are refused until then.`
+    : ' No earlier version parses, so only My Dosco runs until it is fixed.';
   return {
     ...health,
     issues: health.issues.map((issue) =>
@@ -353,7 +353,7 @@ function withSyntaxErrorConsequence(health: ManifestHealth, lastGoodCommit: stri
   };
 }
 
-/** The project config summary at the default branch, with the Kortix skills. */
+/** The project config summary at the default branch, with the Dosco skills. */
 export async function loadProjectConfig(
   project: GitBackedProject,
   files?: ProjectFileEntry[],
@@ -363,7 +363,7 @@ export async function loadProjectConfig(
 
 /**
  * The config summary of the repository alone, at `ref` (a commit pins every
- * read to it): `loadProjectConfig` without the Kortix skills, which change
+ * read to it): `loadProjectConfig` without the Dosco skills, which change
  * with the API, not with the repository. The saved summaries
  * (`projects/config-summary/`) store this. `files` must be the listing at the
  * same `ref`.
@@ -392,7 +392,7 @@ export async function loadRepoConfigSummary(
     if (found) manifest = found.imports?.raw ?? parseManifestText(found.content);
   } catch (err) {
     // Not YAML: the project runs the last commit's file that is
-    // (`readManifest`), and with none only My Kortix. `manifest_health` names
+    // (`readManifest`), and with none only My Dosco. `manifest_health` names
     // the error and says which of the two applies.
     if (!isManifestSyntaxError(err)) throw err;
     const lastGood = strict ? await readManifest(project, { rethrowReadErrors: true }) : await readManifest(project).catch(() => null);
@@ -474,7 +474,7 @@ export async function loadRepoConfigSummary(
 }
 
 /**
- * The project's skills plus the Kortix skills. kortixd injects the Kortix skills
+ * The project's skills plus the Dosco skills. kortixd injects the Dosco skills
  * into every session, so every project lists them. A repo copy of the same name
  * (the scaffold's `kortix-cli`) is listed once.
  */

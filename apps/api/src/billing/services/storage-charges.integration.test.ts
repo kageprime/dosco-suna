@@ -212,13 +212,13 @@ withDb('storage billing on PostgreSQL', () => {
     expect(await chargeRows()).toEqual([]);
   });
 
-  test('each volume is charged to its owner once; unattributed volumes are Kortix cost', async () => {
+  test('each volume is charged to its owner once; unattributed volumes are Dosco cost', async () => {
     await setCursor(YESTERDAY);
     feed[YESTERDAY] = [
       receipt('volume', driveVol, 1000), // a Files drive, by its recorded volume id
       receipt('volume', wsVol, 500), // kws-<session>, by Platinum's name
       receipt('scratch', boxId, 100), // a scratch disk, by its box
-      receipt('volume', 'vol_other', 2000), // a volume no Kortix product made
+      receipt('volume', 'vol_other', 2000), // a volume no Dosco product made
       receipt('volume', 'vol_gone', 300), // Platinum no longer lists it
       receipt('volume_snapshot', 'snap_1', 10),
     ];
@@ -235,7 +235,7 @@ withDb('storage billing on PostgreSQL', () => {
       ['vol_other', false, 'not_kortix', 0, 0],
       [wsVol, true, null, 0.041, 1],
     ]);
-    // Kortix's own cost is what Platinum metered for the unattributed rows.
+    // Dosco's own cost is what Platinum metered for the unattributed rows.
     expect(rows.filter((r) => !r.accountId).reduce((sum, r) => sum + r.platinumMicros, 0)).toBe(164_000 + 24_600 + 820);
     expect(rows.find((r) => r.resourceId === wsVol)).toMatchObject({ sessionId, projectId: project.project_id });
 
@@ -339,7 +339,7 @@ withDb('storage billing on PostgreSQL', () => {
     expect((await chargeRows()).find((r) => r.accountId === bare)).toMatchObject({ waived: true, chargeSeq: 0 });
   });
 
-  test("a deleted owner's volume becomes Kortix cost; nothing more is charged", async () => {
+  test("a deleted owner's volume becomes Dosco cost; nothing more is charged", async () => {
     await setCursor('2026-10-30');
     feed['2026-10-30'] = [receipt('volume', driveVol, 1000)];
     feed[YESTERDAY] = [receipt('volume', driveVol, 1000)];

@@ -48,14 +48,14 @@ export const PLATINUM_LIST_PRICE_MICROS = {
 } as const;
 
 /**
- * What Kortix charges over Platinum's list price. Compute is billed at 1×:
+ * What Dosco charges over Platinum's list price. Compute is billed at 1×:
  * CUSTOMER_COMPUTE_RATE_CARD equals PLATINUM_LIST_PRICE_MICROS for vCPU and
  * RAM (compute-rates.test.ts pins it). Storage uses the same ratio.
  */
 export const PLATINUM_MARKUP = 1;
 
 /**
- * The storage meters Kortix records: Platinum's volume meter (`resource_kind`
+ * The storage meters Dosco records: Platinum's volume meter (`resource_kind`
  * of GET /v1/billing/volume-usage, `size_class` of a `volume.storage` event)
  * and the disk of a box that is not running (box-disk-charges.ts): `box_disk`
  * while it is stopped, `box_disk_archived` while it is archived.
@@ -73,7 +73,7 @@ export type StorageResourceKind =
  *   volume             $0.000082 / GiB-hour (≈ $0.0599 / GiB-month of 730 h)
  *   volume_snapshot    $0.000055 / GiB-hour
  *   scratch            $0.000036 / GiB-hour
- *   worker_storage     $0.000082 / GiB-hour (Kortix's own Workers: recorded, never charged)
+ *   worker_storage     $0.000082 / GiB-hour (Dosco's own Workers: recorded, never charged)
  *   box_disk           $0.000072 / GB-hour of disk_gb (≈ $0.0526 / GB-month, the running disk rate)
  *   box_disk_archived  $0.000036 / GB-hour of disk_gb
  * Billed from the first GiB-hour on every plan; there is no free allowance.

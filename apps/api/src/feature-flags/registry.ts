@@ -101,7 +101,7 @@
  *
  * The same state also serves INTERNAL-ONLY surfaces (`session_log_restore`):
  * not offered in Settings, enabled per project by a
- * Kortix operator on request. Their 403 says "contact Kortix" instead of
+ * Dosco operator on request. Their 403 says "contact Dosco" instead of
  * naming a toggle the caller cannot see (gate.ts).
  */
 import { config } from '../config';
@@ -177,7 +177,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     enforcement: 'routes',
   },
   // `connectors_api_discover` graduated (2026-10-24) with `connectors_v2`:
-  // integrations.sh is part of the one Kortix catalog every project browses.
+  // integrations.sh is part of the one Dosco catalog every project browses.
   // A stored override is inert.
   // `agentmail_email` graduated (2026-10-24): every project can connect an
   // email inbox. Turning it on never provisioned an inbox (only an explicit
@@ -185,11 +185,11 @@ const FLAGS: readonly FeatureFlagDef[] = [
   // `llm_gateway` graduated (2026-10-20): the LLM gateway is the only model
   // path for every project. No flag, no native OpenCode provider mode, no
   // operator lever. A stored `experimental.llm_gateway` override is inert.
-  // `meta_agent` removed (2026-11-02): My Kortix follows kortix.yaml
+  // `meta_agent` removed (2026-11-02): My Dosco follows kortix.yaml
   // `builtin_agents.my_kortix` alone and is on when the key is not set
   // (projects/lib/my-kortix-agent.ts). The flag defaulted off until 2026-10-24,
   // so projects that saved Settings before then stored `false` and lost My
-  // Kortix after it became the default. A stored `experimental.meta_agent`
+  // Dosco after it became the default. A stored `experimental.meta_agent`
   // override is inert; the API still sends `true` to older clients.
   // `apps` graduated (2026-10-14, spec §28): Apps is generally available —
   // every project can create and deploy Apps and there is no flag, no row and
@@ -219,7 +219,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'secrets_egress',
     name: 'Network-Enforced Secrets',
     description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
+      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Dosco substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
     stability: 'experimental',
     available: () => true,
     // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
@@ -278,7 +278,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
     name: 'Composio event triggers',
     description:
       'Start an agent when something happens in a connected app: a new email, a pull request, a calendar event. ' +
-      'Events come from Composio, and Kortix also checks your connected apps itself.',
+      'Events come from Composio, and Dosco also checks your connected apps itself.',
     stability: 'beta',
     // Always offered: on a deployment with no event source configured, the
     // triggers themselves say so (status `error` naming COMPOSIO_API_KEY).
@@ -391,12 +391,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'session_log_restore',
     name: 'Session log restore',
     description:
-      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: on by default; Kortix turns it off per project, or for a whole deployment.',
+      'Rebuild a session from its saved session log when its computer lost the conversation. Not a Settings toggle: on by default; Dosco turns it off per project, or for a whole deployment.',
     stability: 'experimental',
     available: () => true,
     // On unless the deployment sets SESSION_LOG_RESTORE_DEFAULT_ENABLED=false (on by default since 2026-10-28).
     platformDefault: () => config.SESSION_LOG_RESTORE_DEFAULT_ENABLED,
-    // Internal-only (2026-10-13): not a Settings toggle. A Kortix operator sets it per project
+    // Internal-only (2026-10-13): not a Settings toggle. A Dosco operator sets it per project
     // (PUT /v1/admin/api/projects/:id/features). While on, Settings lists it read-only.
     catalogHidden: true,
     enforcement: 'behavioral',
@@ -409,8 +409,8 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'turns the default off with SESSION_LOG_RESTORE_DEFAULT_ENABLED=false. A log over SESSION_LOG_RESTORE_MAX_BYTES ' +
       '(24 MiB) answers 413 with what the model sees of it, else the newest turns, else the D3 note alone (harness/README.md).',
   },
-  // `connectors_v2` graduated (2026-10-24): the Kortix catalog (MCP apps,
-  // integrations.sh, Composio), Telegram as a channel connector, the Kortix
+  // `connectors_v2` graduated (2026-10-24): the Dosco catalog (MCP apps,
+  // integrations.sh, Composio), Telegram as a channel connector, the Dosco
   // app-event source (under `event_triggers`) and no seeded empty project
   // account are the only connectors path. A stored override is inert; the
   // serializer keeps sending `true` for older clients.
@@ -467,12 +467,12 @@ const FLAGS: readonly FeatureFlagDef[] = [
     key: 'workspace_volume',
     name: 'Workspace volume',
     description:
-      "Keep each new Platinum session's /workspace on its own Platinum volume instead of the sandbox disk, so the sandbox is disposable: one stopped for an hour is deleted, and the next open boots a new sandbox on the same files and conversation. Not a Settings toggle: Kortix enables it per project.",
+      "Keep each new Platinum session's /workspace on its own Platinum volume instead of the sandbox disk, so the sandbox is disposable: one stopped for an hour is deleted, and the next open boots a new sandbox on the same files and conversation. Not a Settings toggle: Dosco enables it per project.",
     stability: 'experimental',
     // Every workspace volume is a Platinum volume.
     available: () => Boolean(config.PLATINUM_API_KEY),
     platformDefault: () => false,
-    // Internal-only: stateless sandboxes roll out project by project. A Kortix
+    // Internal-only: stateless sandboxes roll out project by project. A Dosco
     // operator sets it (PUT /v1/admin/api/projects/:id/features).
     catalogHidden: true,
     enforcement: 'behavioral',
@@ -503,9 +503,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'chrome',
-    name: 'Kortix in Chrome',
+    name: 'Dosco in Chrome',
     description:
-      "Let a session drive your own Chrome, with your logins, through the Kortix in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
+      "Let a session drive your own Chrome, with your logins, through the Dosco in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
     stability: 'experimental',
     // Off on staging and prod until the Chrome Web Store listing is public.
     available: () => config.KORTIX_CHROME_ENABLED,

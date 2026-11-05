@@ -1,5 +1,5 @@
 /**
- * Discord channel: whether this server has the Kortix Discord application and
+ * Discord channel: whether this server has the Dosco Discord application and
  * the "Add to Discord" link, the server installation, the OAuth completion,
  * the allowed list, and disconnect. The access routes (users, photos, allow,
  * remove, dismiss) come from registerChannelAccessRoutes (channel-access.ts).

@@ -127,7 +127,7 @@ export function managedLineupRevision(): number {
   return revision;
 }
 
-/** Any managed chat model Platinum serves Kortix, a private one included. */
+/** Any managed chat model Platinum serves Dosco, a private one included. */
 export function getRuntimeManagedModel(id: string): ManagedModel | undefined {
   return byId.get(id) ?? getFreeManagedModel(id);
 }
@@ -138,7 +138,7 @@ export function isRuntimeManagedModelId(id: string): boolean {
   return (!!model && !model.private) || isFreeManagedModel(id);
 }
 
-/** A managed audio model Platinum serves Kortix now. */
+/** A managed audio model Platinum serves Dosco now. */
 export function isManagedAudioModelId(id: string): boolean {
   return audioIds.has(id);
 }

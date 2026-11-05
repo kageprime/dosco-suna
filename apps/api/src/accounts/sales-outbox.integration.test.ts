@@ -20,7 +20,7 @@ describe('transactional Sales outbox on PostgreSQL', () => {
   afterEach(() => { globalThis.fetch = originalFetch; });
 
   async function confirm() {
-    await db.execute(sql`INSERT INTO auth.users(id,email,created_at) VALUES (${userId},'agent@kortix.ai','2026-01-01')`);
+    await db.execute(sql`INSERT INTO auth.users(id,email,created_at) VALUES (${userId},'agent@dosco.live','2026-01-01')`);
     expect(await db.execute(sql`SELECT * FROM kortix.sales_event_outbox`)).toHaveLength(0);
     await db.execute(sql`UPDATE auth.users SET email_confirmed_at = '2026-01-02' WHERE id = ${userId}`);
   }
@@ -76,19 +76,19 @@ describe('transactional Sales outbox on PostgreSQL', () => {
       await db.transaction(async (tx) => {
         if (role === 'anon') await tx.execute(sql`SET LOCAL ROLE anon`);
         else await tx.execute(sql`SET LOCAL ROLE authenticated`);
-        await tx.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`);
+        await tx.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@dosco.live","form":"demo"}')`);
       });
     }
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(0);
-    await db.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`);
+    await db.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@dosco.live","form":"demo"}')`);
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(1);
   });
 
   test('demo persistence enqueues atomically, careers excluded, rollback leaves nothing', async () => {
-    await db.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","source":"contact","form":"demo"}'), ('{"email":"agent@kortix.ai","source":"careers-application","opening":"synthetic"}')`);
+    await db.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@dosco.live","source":"contact","form":"demo"}'), ('{"email":"agent@dosco.live","source":"careers-application","opening":"synthetic"}')`);
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox WHERE payload->>'type'='demo.requested'`)).toHaveLength(1);
     await expect(db.transaction(async (tx) => {
-      await tx.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@kortix.ai","form":"demo"}')`);
+      await tx.execute(sql`INSERT INTO public.contact_forms(data) VALUES ('{"email":"agent@dosco.live","form":"demo"}')`);
       throw new Error('simulated crash before commit');
     })).rejects.toThrow('simulated crash');
     expect(await db.execute(sql`SELECT 1 FROM kortix.sales_event_outbox`)).toHaveLength(1);
@@ -102,7 +102,7 @@ test('reconciliation authorizes, pages tied timestamps without loss and binds cu
   config.SALES_RECONCILIATION_TOKEN = 'synthetic-reconciliation-token';
   await db.execute(sql`DELETE FROM auth.users`);
   await db.execute(sql`INSERT INTO auth.users(id,email,created_at,email_confirmed_at)
-    SELECT ('00000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, 'agent-' || n || '@kortix.ai', '2026-01-01','2026-01-02'
+    SELECT ('00000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, 'agent-' || n || '@dosco.live', '2026-01-01','2026-01-02'
     FROM generate_series(1,101) n`);
   const app = new OpenAPIHono();
   registerSalesReconciliation(app);
@@ -124,7 +124,7 @@ test('real HTTP receiver recovers, validates signature, and concurrent workers c
   const { createHmac } = await import('node:crypto');
   await db.execute(sql`DELETE FROM kortix.sales_event_outbox`);
   await db.execute(sql`INSERT INTO kortix.sales_event_outbox(event_id,payload) VALUES
-    ('demo.requested:synthetic-http','{"schema_version":1,"event_id":"demo.requested:synthetic-http","type":"demo.requested","data":{"email":"agent@kortix.ai"}}')`);
+    ('demo.requested:synthetic-http','{"schema_version":1,"event_id":"demo.requested:synthetic-http","type":"demo.requested","data":{"email":"agent@dosco.live"}}')`);
   let healthy = false;
   const bodies: string[] = [];
   const signatures: boolean[] = [];

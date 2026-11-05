@@ -158,7 +158,7 @@ describe('effectiveBranding — what members are SERVED', () => {
 });
 
 describe('instanceBranding — what the sign-in page shows', () => {
-  test('no enterprise license (the Kortix cloud) → null, and the database is never read', async () => {
+  test('no enterprise license (the Dosco cloud) → null, and the database is never read', async () => {
     let reads = 0;
     const load = async () => {
       reads += 1;
@@ -180,7 +180,7 @@ describe('instanceBranding — what the sign-in page shows', () => {
     });
   });
 
-  test('licensed but no team account set branding → null (default Kortix)', async () => {
+  test('licensed but no team account set branding → null (default Dosco)', async () => {
     expect(await instanceBranding(true, async () => null)).toBeNull();
     expect(await instanceBranding(true, async () => ({}))).toBeNull();
   });
