@@ -562,6 +562,14 @@
     }
   }
 
+  /* Running session indicator: a slow opacity breath so the agent feels live.
+     Opacity-only → no reduced-motion variant needed (motion.md). */
+  --animate-working-pulse: working-pulse 2s ease-in-out infinite;
+  @keyframes working-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
   --animate-blink-cursor: blink-cursor 1.2s step-end infinite;
   @keyframes blink-cursor {
     0%,

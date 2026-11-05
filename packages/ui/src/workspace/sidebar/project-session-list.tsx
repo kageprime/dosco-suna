@@ -873,6 +873,11 @@ function SessionListHeader({
 }) {
   const t = useTranslations('sidebar');
   const tGroups = useTranslations('sidebar.sessionGroups');
+  // Count running sessions for the live badge: green pill that updates as
+  // agents work, without any additional fetch (sessions array is already polled).
+  const runningCount = sessions.filter(
+    (s) => sessionDisplayStatus(s, reviewCountBySession[s.session_id] ?? 0) === 'running',
+  ).length;
   return (
     <div
       className={cn(
@@ -881,8 +886,19 @@ function SessionListHeader({
       )}
     >
       <DisclosureTrigger>
-        <div className="text-muted-foreground group-hover/sessions-header:text-sidebar-foreground flex min-w-0 flex-1 cursor-pointer flex-row items-center gap-1 self-stretch text-sm font-medium focus-visible:outline-none">
+        <div className="text-muted-foreground group-hover/sessions-header:text-sidebar-foreground flex min-w-0 flex-1 cursor-pointer flex-row items-center gap-1.5 self-stretch text-xs font-medium focus-visible:outline-none uppercase tracking-widest">
           <span className="truncate">{t('sessions')}</span>
+          {runningCount > 0 && (
+            <span
+              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none"
+              style={{
+                background: 'color-mix(in oklab, var(--kortix-green) 15%, transparent)',
+                color: 'var(--kortix-green)',
+              }}
+            >
+              {runningCount}
+            </span>
+          )}
           <CaretRightIcon
             aria-hidden
             className="duration-normal size-3 shrink-0 opacity-0 transition-transform ease-out group-hover/sessions-header:opacity-100 group-data-[state=open]/sessions:rotate-90"
@@ -1519,6 +1535,24 @@ function ProjectSessionRow({
           {!inSharedGroup && <SessionSharedIcon session={session} />}
         </div>
       )}
+
+      {/* Relative timestamp: appears on hover in the right slot, hidden at rest.
+          Fixed-width `w-10` block so the title truncation point never shifts.
+          `opacity-0` → `opacity-60` on row hover, `duration-fast` (100ms) keeps
+          it snappy. Pointer-events-none when invisible so it can't eat a click.
+          Hidden on touch (no hover) to match the indicator strip above. */}
+      <span
+        className={cn(
+          SESSION_RELATIVE_TIME_CLASS,
+          'pointer-coarse:hidden [@media(hover:none)]:hidden',
+          'opacity-0 duration-fast transition-opacity pointer-events-none',
+          'group-hover/session-list:opacity-60',
+          'group-has-data-[state=open]/session-list:opacity-0',
+        )}
+        aria-hidden
+      >
+        {shortRelative(session.updated_at ?? session.created_at)}
+      </span>
     </HoverPrefetchLink>
   );
 
@@ -1533,7 +1567,13 @@ function ProjectSessionRow({
           // the end fade can never disagree with the row fill.
           'relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-none',
           isActive
-            ? 'text-sidebar-foreground bg-(--session-row-surface) font-medium [--session-row-surface:var(--sidebar-row)]'
+            ? [
+                'text-sidebar-foreground bg-(--session-row-surface) font-medium [--session-row-surface:var(--sidebar-row)]',
+                // 2px left accent bar: Cursor-style active indicator. The pseudo-
+                // element sits inside the row's own rounded-md, inset from the
+                // vertical edges so it doesn't clip the corner radius.
+                'before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--kortix-base)]',
+              ]
             : 'text-muted-foreground hover:text-sidebar-foreground bg-(--session-row-surface) [--session-row-surface:var(--background)] hover:[--session-row-surface:var(--sidebar-row)]',
         )}
       >

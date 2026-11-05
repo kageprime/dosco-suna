@@ -15,6 +15,7 @@ import {
   SidebarRail,
   useSidebar,
 } from '../../primitives/sidebar';
+import { Separator } from '../../primitives/separator';
 import { NotificationBell } from '../../internal/notifications/notification-bell';
 import { ComputerConnectModal } from '../../internal/tunnel/computer-connect';
 import { ConnectMcpModal } from '../../internal/layout/connect-mcp-modal';
@@ -43,7 +44,7 @@ import {
   ChatCircleIcon,
   GearSixIcon,
   MagnifyingGlassIcon,
-  NavigationArrowIcon,
+  PlusIcon,
 } from '@phosphor-icons/react';
 import { useSettingsPanelStore } from '../../internal/stores/settings-panel-store';
 import { UiLink as Link } from '../../providers/ui-provider';
@@ -113,9 +114,9 @@ export function ProjectSidebar({
   const newSessionRowBody = (
     <>
         <span className="shrink-0">
-          <NavigationArrowIcon className="rotate-90" />
+          <PlusIcon className="size-4" />
         </span>
-        <span className="group-data-[collapsible=icon]:hidden">{t('newSession')}</span>
+        <span className="font-medium group-data-[collapsible=icon]:hidden">{t('newSession')}</span>
         {!isMobile && (
           <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden">
             <Kbd>{modSymbol}</Kbd>
@@ -301,7 +302,7 @@ export function ProjectSidebar({
                       disabled
                       aria-busy
                       tooltip={t('newSession')}
-                      className="group/menu-button text-sidebar-foreground relative"
+                      className="group/menu-button text-sidebar-foreground relative ring-1 ring-sidebar-border hover:ring-transparent group-data-[collapsible=icon]:ring-0"
                     >
                       {newSessionRowBody}
                     </SidebarMenuButton>
@@ -309,7 +310,7 @@ export function ProjectSidebar({
                     <SidebarMenuButton
                       asChild
                       tooltip={t('newSession')}
-                      className="group/menu-button text-sidebar-foreground relative"
+                      className="group/menu-button text-sidebar-foreground relative ring-1 ring-sidebar-border hover:ring-transparent group-data-[collapsible=icon]:ring-0"
                     >
                       <Link href={uiRoutes().project(projectId)} prefetch onClick={handleNewSessionClick}>
                         {newSessionRowBody}
@@ -342,6 +343,11 @@ export function ProjectSidebar({
               <ProjectNavItems projectId={projectId} />
             </SidebarMenu>
           </SidebarGroup>
+
+          {/* Thin hairline separates the nav shortcuts from the session list —
+              two distinct zones, visually clear without hard borders. Hidden in
+              icon-collapsed mode where the session list is already hidden. */}
+          <Separator className="mx-2 opacity-40 group-data-[collapsible=icon]:hidden" />
 
           <SidebarGroup className="min-h-0 flex-1 flex-col py-0 group-data-[collapsible=icon]:hidden" ref={sessionsGroupRef}>
             {channels ? (

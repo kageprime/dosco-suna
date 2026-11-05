@@ -55,7 +55,9 @@ function ReadyGlyph() {
   );
 }
 
-/** `running`: a solid half arc leading a fading trail of dashes. */
+/** `running`: a solid half arc leading a fading trail of dashes. Pulses slowly
+ *  to show the agent is live; opacity-only so no reduced-motion variant is
+ *  needed (motion.md). */
 function WorkingGlyph() {
   return (
     <svg
@@ -65,6 +67,7 @@ function WorkingGlyph() {
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
+      className="shrink-0 animate-[working-pulse_2s_ease-in-out_infinite]"
     >
       {WORKING_TRAIL.map((dash) => (
         <path key={dash.d} data-dash="" d={dash.d} opacity={dash.opacity} />

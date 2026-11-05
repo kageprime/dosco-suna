@@ -36,12 +36,12 @@ describe('SessionStatusMark', () => {
     expect(html).not.toContain('M4 8.4');
   });
 
-  test('running is a half arc with a fading three-dash trail, and does not animate', () => {
+  test('running is a half arc with a fading three-dash trail, and pulses gently', () => {
     const html = render('running');
     expect(html).toContain('data-glyph="working"');
     expect((html.match(/data-dash=""/g) ?? []).length).toBe(3);
     expect(html).not.toContain('data-core');
-    expect(html).not.toContain('animate-');
+    expect(html).toContain('animate-');
   });
 
   test('needs-you is the blue change-request glyph', () => {
