@@ -672,9 +672,11 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
               {activeTab === 'mcp' && (
                 <div className="space-y-8 max-w-3xl">
                   <McpTab />
-                  <div className="border-t border-border/40 pt-6">
-                    <ComputerTab projectId={projectId} />
-                  </div>
+                  {projectId && (
+                    <div className="border-t border-border/40 pt-6">
+                      <ComputerTab projectId={projectId} />
+                    </div>
+                  )}
                 </div>
               )}
 
