@@ -37,7 +37,7 @@ export type CaseStudy = {
   id: string;
   /** A third-party logo on a white tile, a drawn brand mark, or a Phosphor glyph. */
   logo?: { src: string; alt: string; width: number; height: number };
-  mark?: 'kortix' | 'platinum';
+  mark?: 'kortix' | 'dosco';
   icon?: 'telecom' | 'search' | 'finance';
   category: string;
   /** Who it is, as a name (logo cases) or a class. */
@@ -63,26 +63,31 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       category: 'Research',
       org: 'Hong Kong Institute of AI for Science, City University of Hong Kong',
       title: 'SciencePal: a science agent for researchers.',
-      body: 'The institute’s AI research assistant, built from Dosco’s open-source code. It searches large literature databases and cites its sources, and it runs specialist agents for protein design and materials science, from property prediction to experiment design.',
+      body: 'The institute’s AI research assistant, built on Dosco. It searches large literature databases and cites its sources, and it runs specialist agents for protein design and materials science, from property prediction to experiment design.',
       facts: [
         'Literature search with citations',
         'A protein design agent',
         'A materials science agent',
-        'Built from Dosco’s open-source code',
+        'Built on Dosco',
       ],
     },
     {
-      id: 'platinum',
-      mark: 'platinum',
-      category: 'Cloud infrastructure',
-      org: 'Platinum',
-      title: 'An autonomous cloud company.',
-      body: 'Platinum is a sandbox cloud for AI agents, run by agents on Dosco. Engineering agents take Linear issues, build and test the change and open the pull request. QA agents drive the real dashboard, record every flow and report to Slack with the video. People set the direction and approve.',
+      id: 'asset-management',
+      logo: {
+        src: '/media/case-studies/asset-management.svg',
+        alt: 'Asset management',
+        width: 100,
+        height: 100,
+      },
+      category: 'Asset management',
+      org: 'A global asset manager',
+      title: 'Portfolio monitoring, automated end to end.',
+      body: 'The firm runs portfolio surveillance and risk monitoring on Dosco. Agents monitor holdings against investment mandates, flag liquidity variances, and generate compliance memos for review.',
       facts: [
-        'Engineering agents ship from Linear issues',
-        'QA agents test every flow on video',
-        'MicroVM sandboxes that boot in 400 ms',
-        'Every Dosco session runs on Platinum',
+        'Mandate surveillance across portfolios',
+        'Real-time liquidity and risk checks',
+        'Automated compliance documentation',
+        'Human sign-off on every alert',
       ],
     },
     {
@@ -146,10 +151,10 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       logo: { src: '/media/case-studies/writer.svg', alt: 'WRITER', width: 110, height: 35 },
       category: 'Enterprise AI',
       org: 'WRITER',
-      title: 'The enterprise AI platform, built from Dosco’s open-source code.',
-      body: 'WRITER built its core agent platform from Dosco’s open-source code. Enterprises such as Salesforce, Vanguard, KPMG, Dropbox and H&R Block run their marketing, sales and support agents on WRITER.',
+      title: 'The enterprise AI platform, built on Dosco.',
+      body: 'WRITER built its core agent platform on Dosco. Enterprises such as Salesforce, Vanguard, KPMG, Dropbox and H&R Block run their marketing, sales and support agents on WRITER.',
       facts: [
-        'Core platform built from Dosco’s code',
+        'Core platform built on Dosco',
         'Salesforce, Vanguard and KPMG',
         'Dropbox, H&R Block and Boots',
         'Agents for marketing, sales and support',

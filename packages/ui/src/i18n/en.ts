@@ -397,11 +397,11 @@ const catalog = {
         },
         "mcp": {
           "label": "MCP",
-          "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
+          "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
         },
         "computer": {
           "label": "My computer",
-          "description": "Let Kortix agents work with the files, terminal, and applications on your computer."
+          "description": "Let agents work with the files, terminal, and applications on your computer."
         }
       }
     },
@@ -2861,7 +2861,7 @@ const catalog = {
       "text18885f27b5af": "Python",
       "text1898b198a7e6": "Nobody present",
       "text18a4e711991b": "Enriches leads from the CRM, researches each account and drafts tailored outreach.",
-      "text18f31a325716": "About Kortix CompanyOS – the open-source operating system for your company",
+      "text18f31a325716": "About Dosco Tek – The agentic operating system",
       "text18fb4a5618b9": "The same parameter view used for live approvals.",
       "text18fdd549b2ed": "New",
       "text192173c3beda": "billed to your own provider keys",
@@ -3067,7 +3067,7 @@ const catalog = {
       "text2bcb43cbc8f6": "view",
       "text2bd873d6c734": "Breadcrumb",
       "text2bdb956493fd": "Read the webhook handler",
-      "text2bf70270bfde": "Open-source CompanyOS: your agents, skills, memory, and connectors in one repo you own. Any model. Self-host or cloud.",
+      "text2bf70270bfde": "Dosco Tek is the agentic operating system — agents, skills, memory and connectors in one managed workspace.",
       "text2bfc3471571e": "Approvals",
       "text2c014f8f8986": "Cursor",
       "text2c063e7ab5f6": "The recipe for the machine a session runs on, and the record of every time Kortix prepared one.",
@@ -5012,7 +5012,7 @@ const catalog = {
       "textce0faee27592": "billing payment credit card subscription manage wallet tier plan limits overview spend",
       "textce18e358bf01": "Try a different term.",
       "textce1e609b7bf5": "Sandbox ports only",
-      "textce34af36d804": "Kortix CompanyOS – the open-source operating system for your company",
+      "textce34af36d804": "Dosco Tek – The agentic operating system",
       "textce4683e7013a": "Channel",
       "text68971283841a": "Subject",
       "textce49e021df99": "The session owner or a project manager can reload it.",
@@ -6866,8 +6866,8 @@ const catalog = {
     "typeFilterKortix": "Kortix"
   },
   "connectMcp": {
-    "title": "Connect Kortix over MCP",
-    "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
+    "title": "Connect Dosco over MCP",
+    "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
     "docs": "Docs",
     "done": "Done",
     "copy": "Copy",
@@ -7126,8 +7126,8 @@ const catalog = {
     "online": "Online",
     "offline": "Offline",
     "connectTitle": "Connect your computer",
-    "connectDescription": "Let Kortix agents work with the files, terminal, and apps on your computer.",
-    "downloadDesktop": "Download Kortix for desktop",
+    "connectDescription": "Let agents work with the files, terminal, and apps on your computer.",
+    "downloadDesktop": "Download desktop app",
     "downloadHint": "The desktop app connects this computer in one click and keeps it connected in the background.",
     "runCommand": "Run this command on the computer",
     "commandCopied": "Command copied",
@@ -9251,23 +9251,23 @@ const catalog = {
   },
   "appsModal": {
     "title": "Apps and extensions",
-    "subtitle": "Use Kortix in your browser, on your computer and from your tools.",
+    "subtitle": "Use agents in your browser, on your computer and from your tools.",
     "mock": {
-      "group": "Kortix · Return my order",
+      "group": "Dosco · Return my order",
       "button": "Start return",
-      "working": "Kortix is working",
+      "working": "Dosco is working",
       "takeOver": "Take over",
       "stop": "Stop"
     },
     "chrome": {
-      "name": "Kortix in Chrome",
-      "description": "Kortix opens pages, clicks and fills forms in your own browser, with your logins. You see every step.",
+      "name": "Chrome Extension",
+      "description": "Opens pages, clicks and fills forms in your own browser, with your logins. You see every step.",
       "connect": "Connect",
       "connecting": "Connecting…",
       "manage": "Manage",
-      "unsupported": "Open Kortix in Chrome, Edge, Brave or Arc to add it. Copy the link to open it there.",
+      "unsupported": "Open in Chrome, Edge, Brave or Arc to add it. Copy the link to open it there.",
       "group": "Browser",
-      "manageLabel": "Manage Kortix in Chrome",
+      "manageLabel": "Manage Chrome Extension",
       "summary": "{count, plural, one {# browser} other {# browsers}} · {online} online"
     },
     "computer": {
@@ -9278,7 +9278,7 @@ const catalog = {
       "connect": "Connect",
       "manage": "Manage",
       "desktop": "Desktop app",
-      "desktopDescription": "Kortix as an app on your computer.",
+      "desktopDescription": "Desktop app on your computer.",
       "desktopRunning": "You are using it.",
       "download": "Download",
       "manageLabel": "Manage this computer",
@@ -9291,7 +9291,7 @@ const catalog = {
       "copy": "Copy command",
       "copied": "Copied",
       "mcp": "MCP",
-      "mcpDescription": "Use Kortix from Claude, Cursor or Codex.",
+      "mcpDescription": "Use Dosco from Claude, Cursor or Codex.",
       "connect": "Connect",
       "connectLabel": "Connect MCP",
       "copyFailed": "Could not copy the command. Try again."
@@ -9303,11 +9303,11 @@ const catalog = {
     "offline": "The desktop is not running on this computer.",
     "noDesktop": "This computer has no desktop.",
     "noDesktopHint": "Orchestrator runs on a minimal computer. Your agents' sessions have a desktop.",
-    "start": "Ask Kortix to run",
+    "start": "Ask agent to run",
     "retry": "Retry",
     "takeOver": "Take over",
     "userControl": "You have control",
-    "agentControl": "Kortix has control",
+    "agentControl": "Agent has control",
     "returnControl": "Return control",
     "escape": "Esc"
   },

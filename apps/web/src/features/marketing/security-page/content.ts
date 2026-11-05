@@ -108,7 +108,7 @@ export const isolation = {
     {
       id: 'microvm',
       k: 'microVM where you ask for it',
-      v: 'On Dosco’s own Platinum compute a sandbox is a Cloud Hypervisor microVM. Daytona and E2B are also supported. The provider is a deployment choice, and we will tell you which one you are on rather than blur them together.',
+      v: 'On Dosco’s cloud infrastructure, a sandbox runs in an isolated E2B microVM. Sessions never share a filesystem or execution boundary.',
     },
     {
       id: 'branch',

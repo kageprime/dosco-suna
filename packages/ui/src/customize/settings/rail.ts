@@ -124,7 +124,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         tab: 'mcp',
         label: 'MCP',
         description:
-          'Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
+          'Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.',
         docsHref: '/docs/guide#other-ai-tools-mcp',
         icon: Mcp,
       },
@@ -140,7 +140,7 @@ const STATIC_GROUPS: readonly RailGroupDefinition[] = [
         // stated in `translations/en.json` under `settings.rail.items.` — the
         // palette serves the catalog, these tests search the literal, and the
         // two copies must move together.
-        description: 'Let Kortix agents work with the files, terminal, and applications on your computer.',
+        description: 'Let agents work with the files, terminal, and applications on your computer.',
         icon: Laptop,
       },
     ],

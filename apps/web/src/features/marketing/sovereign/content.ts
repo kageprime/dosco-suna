@@ -179,7 +179,7 @@ export const topics = {
       description: 'Your server, or Kortix Cloud.',
       body: [
         'Self-hosting puts the web app, the API, the LLM gateway and the database on your server.',
-        'Sessions and Drive still run on Platinum sandboxes. They call back to your instance, so it must be reachable from the internet.',
+        'Sessions run on isolated cloud sandboxes (E2B) and persistent workspace storage.',
       ],
     },
     {
@@ -234,12 +234,12 @@ export type TopicId = (typeof topics.tabs)[number]['id'];
 
 /** developers.mdx "What runs where" and "Off the box". */
 export const whereRows = [
-  { k: 'Web app, API, LLM gateway', cloud: 'Kortix', self: 'Your server' },
-  { k: 'Database and file storage', cloud: 'Kortix', self: 'Your server' },
-  { k: 'Accounts, secrets, audit log', cloud: 'Kortix', self: 'Your server' },
-  { k: 'Sessions', cloud: 'Platinum', self: 'Platinum' },
-  { k: 'Drive', cloud: 'Platinum', self: 'Platinum' },
-  { k: 'Models', cloud: 'Managed or yours', self: 'Yours' },
+  { k: 'Web app, API, LLM gateway', cloud: 'Dosco', self: 'Your server' },
+  { k: 'Database and file storage', cloud: 'Dosco', self: 'Your server' },
+  { k: 'Accounts, secrets, audit log', cloud: 'Dosco', self: 'Your server' },
+  { k: 'Sessions', cloud: 'E2B Sandboxes', self: 'E2B Sandboxes' },
+  { k: 'Drive', cloud: 'Supabase Storage', self: 'Supabase Storage / S3' },
+  { k: 'Models', cloud: 'OpenRouter & BYOK', self: 'BYOK' },
 ] as const;
 
 export const installLines = [

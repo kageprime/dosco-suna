@@ -19,6 +19,7 @@ for (const key of Object.getOwnPropertyNames(win)) {
 }
 
 import { NotFoundTitleSync } from './not-found-title-sync';
+import { siteMetadata } from '@kortix/ui/internal/lib/site-metadata';
 
 /**
  * The 404 boundary renders this sync as a client-side guard for the tab
@@ -32,6 +33,7 @@ import { NotFoundTitleSync } from './not-found-title-sync';
  */
 describe('NotFoundTitleSync', () => {
   const HEADING = '404 Page not found';
+  const EXPECTED_404 = `${HEADING} | ${siteMetadata.name}`;
 
   function mountWithTitle(title: string): () => void {
     document.title = title;
@@ -53,18 +55,18 @@ describe('NotFoundTitleSync', () => {
   }
 
   test('a navigation that landed on the boundary with a stale title gets the 404 title', () => {
-    const unmount = mountWithTitle('Pricing | Dosco');
+    const unmount = mountWithTitle(`Pricing | ${siteMetadata.name}`);
     try {
-      expect(document.title).toBe('404 Page not found | Dosco');
+      expect(document.title).toBe(EXPECTED_404);
     } finally {
       unmount();
     }
   });
 
   test('it stays quiet when the metadata-owned 404 title is already in place', () => {
-    const unmount = mountWithTitle('404 Page not found | Dosco');
+    const unmount = mountWithTitle(EXPECTED_404);
     try {
-      expect(document.title).toBe('404 Page not found | Dosco');
+      expect(document.title).toBe(EXPECTED_404);
     } finally {
       unmount();
     }
@@ -80,24 +82,24 @@ describe('NotFoundTitleSync', () => {
   });
 
   test('it re-asserts the 404 title when the metadata commit clobbers it while mounted', async () => {
-    const unmount = mountWithTitle('Pricing | Dosco');
+    const unmount = mountWithTitle(`Pricing | ${siteMetadata.name}`);
     try {
-      expect(document.title).toBe('404 Page not found | Dosco');
+      expect(document.title).toBe(EXPECTED_404);
       // The tree's own metadata commit re-asserts the previous page's title
       // after client effects run (session-tab-title-sync measured the race).
-      document.title = 'Dosco – The agentic operating system';
+      document.title = siteMetadata.title;
       await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(document.title).toBe('404 Page not found | Dosco');
+      expect(document.title).toBe(EXPECTED_404);
     } finally {
       unmount();
     }
   });
 
   test('it stops guarding once unmounted so the next page owns the tab again', async () => {
-    const unmount = mountWithTitle('Pricing | Dosco');
+    const unmount = mountWithTitle(`Pricing | ${siteMetadata.name}`);
     unmount();
-    document.title = 'Docs | Dosco';
+    document.title = `Docs | ${siteMetadata.name}`;
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(document.title).toBe('Docs | Dosco');
+    expect(document.title).toBe(`Docs | ${siteMetadata.name}`);
   });
 });

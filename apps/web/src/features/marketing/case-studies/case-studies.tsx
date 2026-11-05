@@ -14,29 +14,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { localizeMarketingContent as localizeContent, type CaseStudy } from './content';
 
-const PLATINUM_TRACKING = 'tracking-[0.22em]'; // audit:allow Platinum's own wordmark tracking (pt-logo.tsx), a third-party mark
-
-/** Platinum's mark as platinum.dev draws it (`pt-logo.tsx`): a square and PLATINUM in mono, both in the tile's ink. */
-function PlatinumMark() {
-  const tMarketing = useTranslations('hardcodedUi.i18nComplete');
-
-  return (
-    <span
-      className="inline-flex items-center gap-4"
-      role="img"
-      aria-label={tMarketing('text5a98505ed913')}
-    >
-      <span aria-hidden className="block size-5 bg-current" />
-      <span aria-hidden className={`font-mono text-xl ${PLATINUM_TRACKING}`}>
-        PLATINUM
-      </span>
-    </span>
-  );
-}
-
 /** A third-party logo is drawn for a white ground: white in both themes (color.md, logo tile rule). */
 const LOGO_TILE_BACKGROUND = 'bg-white';
-/** A mark drawn in code (Platinum, Kortix) takes black on the white tile, in both themes. */
+/** A mark drawn in code takes black on the white tile, in both themes. */
 const LOGO_TILE_INK = 'text-black';
 
 /** The card's top: every card's mark on the same white tile, a logo file or a mark drawn in code. */
@@ -55,10 +35,8 @@ function Mark({ item }: { item: CaseStudy }) {
           // A wordmark (wider than 2.5:1) sits lower so it matches a stacked mark's weight.
           className={item.logo.width / item.logo.height > 2.5 ? 'h-12 w-auto' : 'h-20 w-auto'}
         />
-      ) : item.mark === 'kortix' ? (
-        <KortixLogo size={28} variant="logomark" />
       ) : (
-        <PlatinumMark />
+        <KortixLogo size={28} variant="logomark" />
       )}
     </div>
   );

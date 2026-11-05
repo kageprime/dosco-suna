@@ -366,13 +366,14 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
           variant="base"
           animation="default"
           className={cn(
-            'p-0 gap-0 overflow-hidden border border-border/80 shadow-2xl rounded-2xl bg-surface',
-            'w-[1040px] max-w-[96vw] h-[720px] max-h-[90vh]',
-            'flex flex-row',
+            'p-0 gap-0 border border-border/80 shadow-2xl rounded-2xl bg-surface',
+            'w-[1080px] lg:w-[1080px] max-w-[96vw] lg:max-w-[1080px]',
+            'h-[740px] lg:h-[740px] max-h-[92vh]',
+            'flex flex-row lg:flex-row space-y-0 lg:space-y-0 overflow-hidden lg:overflow-hidden',
           )}
         >
           {/* ── Left Navigation Rail (Antigravity Style) ── */}
-          <aside className="w-60 shrink-0 border-r border-border/60 flex flex-col justify-between bg-sidebar/40 p-2.5 overflow-y-auto select-none">
+          <aside className="w-64 shrink-0 border-r border-border/60 flex flex-col justify-between bg-sidebar/40 p-3 overflow-y-auto select-none">
             <div className="space-y-4">
               {/* Rail Top Title */}
               <div className="px-2 pt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -503,9 +504,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
             {/* Rail Bottom Footer: Feedback & User Card */}
             <div className="pt-3 border-t border-border/60 space-y-2 mt-auto">
               <a
-                href="https://github.com/kortix-ai/CompanyOS/issues"
-                target="_blank"
-                rel="noreferrer"
+                href="mailto:support@dosco.live"
                 className="block px-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
                 Give Feedback
@@ -558,7 +557,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
             </header>
 
             {/* Content Scroll Container */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 pb-20">
+            <div className="flex-1 overflow-y-auto px-8 py-6 pb-20">
               {/* Application / General Tab */}
               {activeTab === 'application' && <ApplicationGeneralTab />}
 

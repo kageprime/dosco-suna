@@ -130,9 +130,8 @@ const ROOT_METADATA: Metadata = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('hardcodedUi.i18nComplete');
-  const title = t.raw('textce34af36d804');
-  const description = t.raw('text2bf70270bfde');
+  const title = siteMetadata.title;
+  const description = siteMetadata.description;
   return {
     ...ROOT_METADATA,
     title: { default: title, template: `%s | ${siteMetadata.name}` },
