@@ -219,27 +219,12 @@ export const DEFAULT_OPENROUTER_MANAGED_MODELS: readonly ManagedModel[] = [
   },
   {
     id: 'openrouter-free',
-    name: 'OpenRouter Free (Auto-Failover)',
+    name: 'OpenRouter Free',
     upstreamModelId: 'openrouter/free',
     pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-    vision: false,
-    limit: { context: 200000, output: 8192 },
-  },
-  {
-    id: 'north-mini-code',
-    name: 'Cohere North Mini Code (Free)',
-    upstreamModelId: 'cohere/north-mini-code:free',
-    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-    vision: false,
-    limit: { context: 256000, output: 8192 },
-  },
-  {
-    id: 'nemotron-super-vl',
-    name: 'Nemotron 3.5 Super VL (Free Vision)',
-    upstreamModelId: 'nvidia/nemotron-3.5-super-vl:free',
-    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
     vision: true,
-    limit: { context: 1000000, output: 8192 },
+    reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
+    limit: { context: 200000, output: 8192 },
   },
 ];
 

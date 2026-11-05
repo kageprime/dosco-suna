@@ -556,7 +556,7 @@ export const envSchema = z.object({
   PLATINUM_INFERENCE_API_KEY: optStr,
   OPENROUTER_URL: optUrl('https://openrouter.ai/api/v1'),
   OPENROUTER_API_KEY: optStr,
-  KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolFalse,
+  KORTIX_MANAGED_FREE_TIER_ENABLED: optBoolTrue,
   // CLOUD-ONLY. Whether KORTIX's own managed model lineup exists on this
   // deployment. The lineup is served by Platinum inference on Dosco's key.
   // Dosco bills each request as platform credits.
