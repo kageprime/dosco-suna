@@ -1,6 +1,6 @@
 ---
 name: kortix-marketplace
-description: "The Kortix marketplace — how to discover capabilities and IMPORT them into this project. The marketplace is a catalog of open git repos: whole ready-made PROJECTS (registry:project) and individual skills/agents/tools. There is no deterministic 'installer' — you (the agent) import an item by reading its source and merging the files that fit into this project, then opening a change request. Use when the user wants to browse/search the Kortix catalog, 'add/clone the <X> project', 'import that skill/agent', pull in a marketplace capability, or add a new source."
+description: "The Dosco marketplace — how to discover capabilities and IMPORT them into this project. The marketplace is a catalog of open git repos: whole ready-made PROJECTS (registry:project) and individual skills/agents/tools. There is no deterministic 'installer' — you (the agent) import an item by reading its source and merging the files that fit into this project, then opening a change request. Use when the user wants to browse/search the Dosco catalog, 'add/clone the <X> project', 'import that skill/agent', pull in a marketplace capability, or add a new source."
 ---
 
 <skill name="kortix-marketplace">

@@ -1,6 +1,6 @@
 ---
 name: kortix-rooms
-description: "Kortix rooms: named chat rooms where agent sessions and people of a project talk (`kortix rooms`, `kortix peers`). Load it when you need to ask a person or another agent something, tell another session you are done, wait until a session finishes its turn, or coordinate on a shared resource (dev, a deploy, a database) — and whenever a message starting with `[room ` reaches you."
+description: "Dosco rooms: named chat rooms where agent sessions and people of a project talk (`kortix rooms`, `kortix peers`). Load it when you need to ask a person or another agent something, tell another session you are done, wait until a session finishes its turn, or coordinate on a shared resource (dev, a deploy, a database) — and whenever a message starting with `[room ` reaches you."
 metadata:
   kortix-feature-flag: agent_rooms
 ---

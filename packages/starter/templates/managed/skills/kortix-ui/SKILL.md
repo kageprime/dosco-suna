@@ -1,6 +1,6 @@
 ---
 name: kortix-ui
-description: "Build React UI with @kortix/ui, the Kortix component library and the whole Kortix session experience as modules (session workspace, thread, composer, side panel, files, file viewer, terminal, project sidebar and home, customize pages): Kortix Apps, white-label hosts, custom dashboards on @kortix/sdk and apps/web. Load before you write a component, a page, a chat or session view, a custom dashboard or App, or a className in a React host that renders Kortix UI, or when you theme Kortix components for another brand. Covers setup, the module map, which component to compose, banned primitives, tokens, the dashboard guide, white-label theming and the verify steps."
+description: "Build React UI with @kortix/ui, the Dosco component library and the whole Dosco session experience as modules (session workspace, thread, composer, side panel, files, file viewer, terminal, project sidebar and home, customize pages): Dosco Apps, white-label hosts, custom dashboards on @kortix/sdk and apps/web. Load before you write a component, a page, a chat or session view, a custom dashboard or App, or a className in a React host that renders Dosco UI, or when you theme Dosco components for another brand. Covers setup, the module map, which component to compose, banned primitives, tokens, the dashboard guide, white-label theming and the verify steps."
 ---
 
 # @kortix/ui

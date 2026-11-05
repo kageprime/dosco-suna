@@ -1,6 +1,6 @@
 ---
 name: kortix-design
-description: "How every interface you build should look: a dashboard, an analytics view, an internal tool or pipeline, a Kortix App UI, a website, a landing page, a component, a redesign. Load before you write the first className or the first user-facing string, when you review a UI, when a page looks generic or 'AI-made', when you add motion, or when you need the exact name for a design or animation concept."
+description: "How every interface you build should look: a dashboard, an analytics view, an internal tool or pipeline, a Dosco App UI, a website, a landing page, a component, a redesign. Load before you write the first className or the first user-facing string, when you review a UI, when a page looks generic or 'AI-made', when you add motion, or when you need the exact name for a design or animation concept."
 ---
 
 # Kortix Design

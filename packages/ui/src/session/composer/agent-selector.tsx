@@ -58,6 +58,7 @@ function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
+  if (name.toLowerCase() === 'kortix' || name.toLowerCase() === 'worker') return 'Xera';
   return isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name);
 }
 
@@ -115,8 +116,13 @@ export function AgentSelector({
     [agents, offeredAgents],
   );
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
-  const label = (name: string) =>
-    agentLabels?.[name] ?? (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name));
+  const label = (name: string) => {
+    if (name.toLowerCase() === 'kortix' || name.toLowerCase() === 'worker') return 'Xera';
+    return (
+      agentLabels?.[name] ??
+      (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name))
+    );
+  };
 
   // A `flash` state, a `prevAgentRef` feeding it, two effects and a 400ms
   // timer used to live here. Nothing ever READ `flash` — it was written on

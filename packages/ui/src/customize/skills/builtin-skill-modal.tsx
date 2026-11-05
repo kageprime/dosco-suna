@@ -50,10 +50,14 @@ export function BuiltinSkillModal({
     };
   }, [name, queryClient]);
 
+  const cleanName = name?.startsWith('kortix-') ? name.slice('kortix-'.length) : name;
+  const cleanDescription =
+    typeof description === 'string' ? description.replace(/Kortix/g, 'Dosco') : description;
+
   return (
     <EntityDetailModal
       projectId={projectId}
-      entity={name ? { name, path: `${name}/SKILL.md`, description } : null}
+      entity={name ? { name: cleanName ?? name, path: `${name}/SKILL.md`, description: cleanDescription } : null}
       kind="skill"
       open={!!name}
       source={source}

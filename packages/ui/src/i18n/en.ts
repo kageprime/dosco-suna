@@ -9345,7 +9345,7 @@ const catalog = {
       "project": "Project",
       "workspace": "Workspace",
       "interaction": "Interaction",
-      "kortix": "Kortix",
+      "kortix": "Dosco",
       "platform": "Platform"
     },
     "alwaysOn": "Always on",

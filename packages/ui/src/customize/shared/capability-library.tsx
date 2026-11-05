@@ -102,15 +102,27 @@ export function capabilityModeGrant(
   };
 }
 
-/** One row per catalog item, in the order the view draws them: the project's, then Kortix's. */
-function catalogRows(
+/** One row per catalog item, in the order the view draws them: the project's, then built-in. */
+export function catalogRows(
   view: CapabilityView,
   catalog: ProjectCapabilities,
   t: ReturnType<typeof useI18nTranslations>,
   agentMode: boolean,
 ): { project: AccessItem[]; builtin: AccessItem[]; ids: string[] } {
   if (view === 'skills') {
-    const item = (skill: ProjectCapabilities['skills'][number]): AccessItem => ({ id: skill.id, description: skill.description, disabled: !skill.available });
+    const item = (skill: ProjectCapabilities['skills'][number]): AccessItem => {
+      const cleanTitle = skill.id.startsWith('kortix-') ? skill.id.slice('kortix-'.length) : skill.id;
+      const cleanDesc =
+        typeof skill.description === 'string'
+          ? skill.description.replace(/Kortix/g, 'Dosco')
+          : skill.description;
+      return {
+        id: skill.id,
+        title: <span className="font-mono !tracking-normal">{cleanTitle}</span>,
+        description: cleanDesc,
+        disabled: !skill.available,
+      };
+    };
     return {
       project: catalog.skills.filter((s) => s.group === 'project').map(item),
       builtin: catalog.skills.filter((s) => s.group === 'builtin').map(item),
@@ -134,14 +146,22 @@ function catalogRows(
       ids: catalog.tools.map((tool) => tool.id),
     };
   }
-  const item = (ext: ProjectCapabilities['extensions'][number]): AccessItem => ({
-    id: ext.id,
-    // "Follows the agent tool switch" only where that switch is on screen. The context record's
-    // switch is its own row (the agent's `context` setting), so it follows nothing.
-    description:
-      ext.controlled_by && ext.controlled_by !== 'context' && agentMode ? `${ext.description ?? ''} ${t('followsTool', { tool: ext.controlled_by })}` : ext.description,
-    status: ext.required ? <span className="text-muted-foreground text-xs">{t('alwaysOn')}</span> : undefined,
-  });
+  const item = (ext: ProjectCapabilities['extensions'][number]): AccessItem => {
+    const cleanTitle = ext.id.startsWith('kortix-') ? ext.id.slice('kortix-'.length) : ext.id;
+    const cleanDesc =
+      typeof ext.description === 'string'
+        ? ext.description.replace(/Kortix/g, 'Dosco')
+        : ext.description;
+    return {
+      id: ext.id,
+      title: <span className="font-mono !tracking-normal">{cleanTitle}</span>,
+      description:
+        ext.controlled_by && ext.controlled_by !== 'context' && agentMode
+          ? `${cleanDesc ?? ''} ${t('followsTool', { tool: ext.controlled_by })}`
+          : cleanDesc,
+      status: ext.required ? <span className="text-muted-foreground text-xs">{t('alwaysOn')}</span> : undefined,
+    };
+  };
   // A required platform extension (permission rules on script calls, the show
   // tool's part, the turn's date) is plumbing, not a choice: it is not listed.
   return {
@@ -233,7 +253,13 @@ export function CapabilityLibrary({
   const rows = useMemo(() => (catalog ? catalogRows(view, catalog, t, !!agent) : null), [catalog, view, t, agent]);
   const match = (row: AccessItem) => {
     const q = search.trim().toLowerCase();
-    return !q || row.id.toLowerCase().includes(q) || String(row.description ?? '').toLowerCase().includes(q);
+    const cleanId = row.id.startsWith('kortix-') ? row.id.slice('kortix-'.length) : row.id;
+    return (
+      !q ||
+      row.id.toLowerCase().includes(q) ||
+      cleanId.toLowerCase().includes(q) ||
+      String(row.description ?? '').toLowerCase().includes(q)
+    );
   };
 
   let project = rows?.project.filter(match) ?? [];
@@ -320,7 +346,7 @@ export function CapabilityLibrary({
           group: group as string,
           items: builtin.filter((row) => catalog?.tools.find((tool) => tool.id === row.id)?.group === group),
         }))
-      : [{ group: 'kortix', items: builtin }];
+      : [{ group: 'builtin', items: builtin }];
   const shownProject = project;
   const shownBuiltin = builtinGroups.filter((g) => g.items.length > 0);
   const projectSections: ReactNode = (

@@ -1,6 +1,6 @@
 ---
 name: kortix-connectors
-description: Use Kortix connectors to reach external systems from a session, an App, a Convex backend, or an external program. Use the `kortix connectors` CLI for agent work, `@kortix/sdk` for durable TypeScript workflows and for App, backend, and script code, and the hosted Kortix MCP server (`<api>/v1/mcp`) for an MCP client outside Kortix. Load this skill to inspect, add, connect, or call external tools without exposing third-party credentials to the sandbox, an App, or a backend.
+description: Use Dosco connectors to reach external systems from a session, an App, a Convex backend, or an external program. Use the `kortix connectors` CLI for agent work, `@kortix/sdk` for durable TypeScript workflows and for App, backend, and script code, and the hosted Dosco MCP server (`<api>/v1/mcp`) for an MCP client outside Dosco. Load this skill to inspect, add, connect, or call external tools without exposing third-party credentials to the sandbox, an App, or a backend.
 ---
 
 <skill name="kortix-connectors">
