@@ -1,5 +1,8 @@
 // Expand the aggregate ECS secret before any module reads process.env.
 import './environment-secret';
+// zod 4 gives `.openapi()` only to schemas built after this import, and
+// `@kortix/api-contract` builds its schemas at load. Load it before any of them.
+import '@hono/zod-openapi';
 
 // ─── Observability (must follow environment hydration) ───────────────────────
 import './lib/sentry';
@@ -26,7 +29,7 @@ export { app };
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                  Dosco API Starting                      ║
+║                  Kortix API Starting                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  Port: ${config.PORT.toString().padEnd(49)}║
 ║  Env:  ${config.INTERNAL_KORTIX_ENV.padEnd(49)}║
@@ -57,7 +60,7 @@ await prepareProcess({ entry: import.meta.main });
 // import.meta.main lets tooling and tests `import { app }` to introspect the
 // route table without starting the DB schema check, background workers, or
 // signal handlers. Does NOT change production boot — there, import.meta.main is true.
-export function startBootServices(): void {
+if (import.meta.main) {
   // One line an operator can grep for when email "does not work": which
   // providers EMAIL_URL resolved to, and the address mail is sent from. Never
   // prints credentials.
@@ -80,10 +83,6 @@ export function startBootServices(): void {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-}
-
-if (import.meta.main) {
-  startBootServices();
 }
 
 async function handleInbound(req: Request, server: any): Promise<Response | undefined> {

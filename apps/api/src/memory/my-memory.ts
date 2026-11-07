@@ -1,5 +1,5 @@
 /**
- * What My Dosco remembers about one person (the `kortix_memory` tool): one
+ * What My Kortix remembers about one person (the `kortix_memory` tool): one
  * fact per page in the person's own `/Users/<person>/Memory/mykortix` folder
  * (the `mykortix` layer, `./layers`). The person reads and edits the same
  * files on the Memory screen and in Files; nothing is stored anywhere else.
@@ -43,10 +43,10 @@ import { joinFrontMatter, setFrontMatter } from './front-matter';
 import { assertWrites, type Layer, MemoryError, MY_KORTIX_DISPLAY_NAME, notFound, type Project, resolveLayer, type Viewer } from './layers';
 import { volumeOps } from './volume-ops';
 
-/** The front-matter author of a page My Dosco wrote: read back as the agent (`authorFromFrontMatter`). */
+/** The front-matter author of a page My Kortix wrote: read back as the agent (`authorFromFrontMatter`). */
 export const MY_KORTIX_AUTHOR = `${MY_KORTIX_AGENT_NAME} (agent)`;
 
-/** `:agent` of a `/memory/me/agent/:agent` route: My Dosco only (its old slug `meta` too); anything else is 404. */
+/** `:agent` of a `/memory/me/agent/:agent` route: My Kortix only (its old slug `meta` too); anything else is 404. */
 export function assertMyKortixAgent(agent: string): void {
   if (canonicalAgentName(agent) !== MY_KORTIX_AGENT_NAME) throw notFound();
 }
@@ -58,7 +58,7 @@ export function assertMemoryName(name: string): void {
   }
 }
 
-/** Is `sessionId` a My Dosco session of the project? Only its token may use the person's My Dosco memory. */
+/** Is `sessionId` a My Kortix session of the project? Only its token may use the person's My Kortix memory. */
 export async function isMyKortixSession(projectId: string, sessionId: string): Promise<boolean> {
   const [row] = await db
     .select({ agentName: projectSessions.agentName })
@@ -68,7 +68,7 @@ export async function isMyKortixSession(projectId: string, sessionId: string): P
   return isMyKortixAgentName(row?.agentName);
 }
 
-/** The viewer's My Dosco memory layer: 403 with Files off, 404 without a personal folder. */
+/** The viewer's My Kortix memory layer: 403 with Files off, 404 without a personal folder. */
 export const myKortixLayer = (project: Project, viewer: Viewer) => resolveLayer(project, MY_KORTIX_MEMORY_LAYER_KEY, viewer);
 
 const str = (page: ParsedPage, key: string) => {
@@ -198,7 +198,7 @@ export async function saveMyMemory(
     try {
       if (!hit) {
         if (all.length >= MY_KORTIX_MEMORY_LIMITS.pages) {
-          throw new MemoryError(409, 'memory_full', `My Dosco remembers at most ${MY_KORTIX_MEMORY_LIMITS.pages} things for one person. Forget something first.`);
+          throw new MemoryError(409, 'memory_full', `My Kortix remembers at most ${MY_KORTIX_MEMORY_LIMITS.pages} things for one person. Forget something first.`);
         }
         const title = (input.title ?? titleOfName(name)).trim().slice(0, MEMORY_LIMITS.title_chars);
         const path = `${layer.root}/${name}.md`;
@@ -236,7 +236,7 @@ export async function deleteMyMemory(layer: Layer, name: string): Promise<{ ok: 
 }
 
 /**
- * The index a My Dosco turn starts with, for `userId` (the prompter, who
+ * The index a My Kortix turn starts with, for `userId` (the prompter, who
  * owns the session): their own folder only. Null without a project drive or
  * a personal folder. Never creates a folder: a person with none has no memory yet.
  */
@@ -266,8 +266,8 @@ export async function myKortixTurnIndex(projectId: string, userId: string): Prom
 }
 
 /**
- * The `system` of a My Dosco turn (`sandbox-proxy/forward/turn-start.ts`):
- * the prompter's memory index, every turn, with or without `project_channels`.
+ * The `system` of a My Kortix turn (`sandbox-proxy/forward/turn-start.ts`):
+ * the prompter's memory index, every turn, with or without `chat`.
  * Only the session's owner gets theirs: another member who prompts it gets
  * none, so nobody reads someone else's memory. Null: no index to send.
  */

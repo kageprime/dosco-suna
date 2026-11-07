@@ -182,14 +182,14 @@ describe('step citations + answer card', () => {
         status: 'complete',
         title: 'Reading the incident logs',
         sources: [
-          { type: 'url', url: 'https://dosco.live/a', text: 'incident 42' },
-          { type: 'url', url: 'https://dosco.live/b', text: 'deploy log' },
+          { type: 'url', url: 'https://kortix.com/a', text: 'incident 42' },
+          { type: 'url', url: 'https://kortix.com/b', text: 'deploy log' },
         ],
       }),
     ]);
     const flat = JSON.stringify(card);
-    expect(flat).toContain('[incident 42](https://dosco.live/a)');
-    expect(flat).toContain('[deploy log](https://dosco.live/b)');
+    expect(flat).toContain('[incident 42](https://kortix.com/a)');
+    expect(flat).toContain('[deploy log](https://kortix.com/b)');
   });
 
   test('buildAnswerCard renders a provided Adaptive Card verbatim instead of the text body', () => {
@@ -221,7 +221,7 @@ describe('Slack parity cards', () => {
     expect(actions(large)).toEqual([expect.objectContaining({ type: 'Action.Execute', verb: 'teams_set_agent' })]);
   });
 
-  test('the /status panel carries its change buttons before "Open in Dosco"', () => {
+  test('the /status panel carries its change buttons before "Open in Kortix"', () => {
     const c = buildPanelCard({
       title: 'This conversation',
       rows: [{ label: 'Model', value: 'default' }],
@@ -231,7 +231,7 @@ describe('Slack parity cards', () => {
     expect(actions(c).map((a) => [a.type, (a as { title?: string }).title, a.data?.panel])).toEqual([
       ['Action.Execute', 'Change model', 'models'],
       ['Action.Execute', 'Change agent', 'agents'],
-      ['Action.OpenUrl', 'Open in Dosco', undefined],
+      ['Action.OpenUrl', 'Open in Kortix', undefined],
     ]);
     expect(actions(c)[0]).toMatchObject({ verb: 'teams_open_panel' });
   });
@@ -309,10 +309,10 @@ describe('Slack parity cards, part 2', () => {
     const c = buildHomeCard({ projects: [project(1)] });
     expect(allExecuteActions(c)).toEqual([]);
     const json = JSON.stringify(c);
-    expect(json).toContain('Projects in this organization');
+    expect(json).toContain('Kortix workspaces here');
     expect(json).toContain('put together a one-pager on our Q2 numbers');
     expect(json).toContain('/login');
-    expect(JSON.stringify(buildHomeCard({ projects: [] }))).not.toContain('Projects in this organization');
+    expect(JSON.stringify(buildHomeCard({ projects: [] }))).not.toContain('Kortix workspaces here');
   });
 
   test('/sessions rows carry the repo preview', () => {
@@ -321,16 +321,16 @@ describe('Slack parity cards, part 2', () => {
 
   test('models are grouped by how they are paid for, in Slack\'s order', () => {
     const models = [
-      { id: 'kortix/glm', label: 'GLM', via: 'kortix' as const, providerLabel: 'Dosco' },
+      { id: 'kortix/glm', label: 'GLM', via: 'kortix' as const, providerLabel: 'Kortix' },
       { id: 'anthropic/claude', label: 'Claude', via: 'key' as const, providerLabel: 'Anthropic' },
       { id: 'codex/gpt', label: 'GPT', via: 'chatgpt' as const, providerLabel: 'OpenAI' },
     ];
     const json = JSON.stringify(buildModelPickerCard({ models, current: null, currentLabel: null, defaultLabel: null, scopeNote: 'note' }));
-    const order = ['ChatGPT subscriptions', 'GPT', 'API keys', 'Claude', 'Dosco models', 'GLM'].map((t) => json.indexOf(`"text":"${t}"`));
+    const order = ['ChatGPT subscriptions', 'GPT', 'API keys', 'Claude', 'Kortix models', 'GLM'].map((t) => json.indexOf(`"text":"${t}"`));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-    const many = Array.from({ length: 9 }, (_, i) => ({ id: `kortix/m${i}`, label: `M${i}`, via: 'kortix' as const, providerLabel: 'Dosco' }));
+    const many = Array.from({ length: 9 }, (_, i) => ({ id: `kortix/m${i}`, label: `M${i}`, via: 'kortix' as const, providerLabel: 'Kortix' }));
     const dropdown = (buildModelPickerCard({ models: [...many, models[2]!], current: null, currentLabel: null, defaultLabel: null, scopeNote: 'n' }).body as Array<Record<string, unknown>>)
       .find((e) => e.type === 'Input.ChoiceSet')!;
     expect((dropdown.choices as Array<{ value: string }>).map((c) => c.value).slice(0, 2)).toEqual(['', 'codex/gpt']);
@@ -340,22 +340,22 @@ describe('Slack parity cards, part 2', () => {
     expect(texts(buildConnectedCard({ email: 'alex@example.test', resumed: true, hasAccess: true, projectId: 'p1' })).join(' ')).toContain('Picking up your message now.');
     expect(texts(buildConnectedCard({ email: null, resumed: false, hasAccess: true, projectId: 'p1' })).join(' ')).toContain('Mention me with a task');
     const noAccess = buildConnectedCard({ email: 'alex@example.test', resumed: false, hasAccess: false, projectId: 'p1' });
-    expect(texts(noAccess).join(' ')).toContain("can't run this project yet");
+    expect(texts(noAccess).join(' ')).toContain("can't run this Kortix workspace yet");
     expect(actions(noAccess)).toEqual([expect.objectContaining({ verb: 'teams_request_access', data: expect.objectContaining({ projectId: 'p1' }) })]);
   });
 
   test('the admin notice links to Members, and the other 1:1 notices say where the link went', () => {
     const notice = buildAccessRequestNoticeCard({ requester: '**alex@example.test**', reviewUrl: 'https://app/projects/p1/customize/members' });
     expect(actions(notice)).toEqual([expect.objectContaining({ type: 'Action.OpenUrl', url: 'https://app/projects/p1/customize/members' })]);
-    expect(texts(buildConnectSentPrivatelyCard({ botName: 'Dosco', resumes: true })).join(' ')).toContain('private chat with Dosco');
+    expect(texts(buildConnectSentPrivatelyCard({ botName: 'Kortix', resumes: true })).join(' ')).toContain('private chat with Kortix');
     expect(actions(buildOpenSessionCard('https://app/s/1'))).toEqual([expect.objectContaining({ type: 'Action.OpenUrl', url: 'https://app/s/1' })]);
   });
 });
 
 // An agent can post any Adaptive Card (`teams send --card-file`, `teams post
-// --card-file`). A look-alike of Dosco's own Stop, Approve or join card would
-// post Dosco's verbs when a person clicks it. Agent cards keep links only.
-describe('agent-built cards cannot post back to Dosco', () => {
+// --card-file`). A look-alike of Kortix's own Stop, Approve or join card would
+// post Kortix's verbs when a person clicks it. Agent cards keep links only.
+describe('agent-built cards cannot post back to Kortix', () => {
   const forged = {
     type: 'AdaptiveCard',
     version: '1.5',
@@ -400,7 +400,7 @@ describe('agent-built cards cannot post back to Dosco', () => {
 });
 
 describe('the agent line', () => {
-  // Teams fixes the bot name per app, so every reply card says which Dosco
+  // Teams fixes the bot name per app, so every reply card says which Kortix
   // agent answered on its first line.
   const firstText = (c: Record<string, unknown>) => (c.body as Array<{ text?: string }>)[0]?.text;
 

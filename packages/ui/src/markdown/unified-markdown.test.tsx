@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { IntlTestProvider } from '../test-utils/intl';
 import { createRequire } from 'node:module';
 import type { ReactNode } from 'react';
@@ -423,8 +423,8 @@ const REFERENCE_MD = [
   '',
   'A second paragraph.',
   '',
-  '[1]: https://dosco.live/docs',
-  '[2]: https://dosco.live/changelog',
+  '[1]: https://kortix.com/docs',
+  '[2]: https://kortix.com/changelog',
 ].join('\n');
 
 describe('UnifiedMarkdown — reference-style links', () => {
@@ -433,8 +433,8 @@ describe('UnifiedMarkdown — reference-style links', () => {
       withIntl(<UnifiedMarkdown trust="agent" content={REFERENCE_MD} />),
     );
 
-    expect(html).toContain('href="https://dosco.live/docs"');
-    expect(html).toContain('href="https://dosco.live/changelog"');
+    expect(html).toContain('href="https://kortix.com/docs"');
+    expect(html).toContain('href="https://kortix.com/changelog"');
     expect(visibleText(html)).toContain('Two sources: the docs and the changelog.');
     expect(html).not.toContain('[blocked]');
   });
@@ -445,11 +445,11 @@ describe('UnifiedMarkdown — reference-style links', () => {
     );
 
     expect(text).not.toContain('[1]');
-    expect(text).not.toContain('https://dosco.live/docs');
+    expect(text).not.toContain('https://kortix.com/docs');
   });
 });
 
-// ─── Raw HTML from content no Dosco user wrote ─────────────────────────────
+// ─── Raw HTML from content no Kortix user wrote ─────────────────────────────
 // Scraped pages, connector tool output and public share transcripts all reach
 // this renderer with raw HTML enabled. The sanitizer keeps structure and text,
 // never presentation: an inline `style` or a class name from the content could
@@ -692,13 +692,13 @@ describe('UnifiedMarkdown — a link to a workspace file', () => {
       withIntl(
         <UnifiedMarkdown
           trust="agent"
-          content="[home](/projects/p1) and [site](https://dosco.live/a.pdf)"
+          content="[home](/workspaces/p1) and [site](https://kortix.com/a.pdf)"
         />,
       ),
     );
 
-    expect(html).toContain('href="/projects/p1"');
-    expect(html).toContain('href="https://dosco.live/a.pdf"');
+    expect(html).toContain('href="/workspaces/p1"');
+    expect(html).toContain('href="https://kortix.com/a.pdf"');
     expect(html).not.toContain('<button');
   });
 
@@ -707,6 +707,42 @@ describe('UnifiedMarkdown — a link to a workspace file', () => {
       withIntl(<UnifiedMarkdown trust="untrusted" content="[x](sandbox:/workspace/a.docx)" />),
     );
 
+    expect(html).not.toContain('<button');
+  });
+});
+
+// ─── A link to a Drive file ─────────────────────────────────────────────────
+// A chat message linked a Drive file as `/drives/me/…`, or as the same path on
+// this app's origin. The web app has no `/drives` route: the link opened the
+// 404 page. It opens the file preview, which reads the bytes through the drive
+// API with the viewer's own access.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('UnifiedMarkdown — a link to a Drive file', () => {
+  const ORIGIN = 'https://app.example.com';
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'window', { value: { location: { origin: ORIGIN } }, configurable: true });
+  });
+  afterAll(() => {
+    Reflect.deleteProperty(globalThis, 'window');
+  });
+
+  for (const href of ['/drives/me/Avatars/avatar.jpg', `${ORIGIN}/drives/me/Avatars/avatar.jpg`]) {
+    test(`a ${href} link opens the file preview, never the app route`, () => {
+      const html = renderToStaticMarkup(withIntl(<UnifiedMarkdown trust="agent" content={`[Download](${href})`} />));
+
+      expect(html).not.toContain('<a');
+      expect(html).toContain('title="/drives/me/Avatars/avatar.jpg — Click to preview"');
+      expect(visibleText(html)).toBe('Download');
+    });
+  }
+
+  test('a drive path on another origin stays a link', () => {
+    const html = renderToStaticMarkup(
+      withIntl(<UnifiedMarkdown trust="agent" content="[x](https://other.example.com/drives/me/a.jpg)" />),
+    );
+
+    expect(html).toContain('href="https://other.example.com/drives/me/a.jpg"');
     expect(html).not.toContain('<button');
   });
 });
@@ -804,12 +840,12 @@ describe("UnifiedMarkdown — a markdown document's file links", () => {
           trust="agent"
           variant="document"
           documentPath="/workspace/memory/MEMORY.md"
-          content="[site](https://dosco.live)"
+          content="[site](https://kortix.com)"
         />,
       ),
     );
 
-    expect(html).toContain('href="https://dosco.live/"');
+    expect(html).toContain('href="https://kortix.com/"');
     expect(html).not.toContain('<button');
   });
 });

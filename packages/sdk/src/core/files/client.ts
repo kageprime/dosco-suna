@@ -12,6 +12,7 @@ import { getActiveRuntimeUrl } from '../session/server-store/active';
 import { authenticatedFetch } from '../http/auth';
 import { type AuthenticatedRequest, authenticatedRequest } from '../http/authenticated-request';
 import { ApiError } from '../http/api/errors';
+import { isSandboxNotReadyError } from '../http/runtime-errors';
 import type {
   FileContent,
   FileNode,
@@ -23,8 +24,7 @@ import type {
   WriteFileResult,
 } from './types';
 
-// Re-export the file types from the `@kortix/sdk/files` subpath too, so hosts can
-// import both the ops and the types from one place.
+// Re-export the file types too, so hosts import the ops and the types from one place.
 export type * from './types';
 
 function unwrap<T>(result: { data?: T; error?: unknown }): T {
@@ -210,7 +210,7 @@ async function readFileRaw(filePath: string, fallbackMime?: string, baseUrl?: st
 // A host transcript can show hundreds of binary file cards, and the live event
 // stream refetches every mounted card at once — `binaryBlobKeys.all` is
 // invalidated on each `file.edited` event and at turn end
-// (`use-opencode-events/handle-event.ts`). Unbounded, that fan-out saturates a
+// (`use-runtime-events/handle-event.ts`). Unbounded, that fan-out saturates a
 // box's dial path: on 2026-10-10 one web client fired 649 `GET /file/raw` in one
 // minute at a single box and the route's p95 reached 20 s (Linear KRTX-471).
 // Eight concurrent reads keep every request fast and still drain a 700-card
@@ -309,7 +309,21 @@ export async function findText(pattern: string, baseUrl?: string): Promise<FindM
 
 // ── writes ───────────────────────────────────────────────────────────────────
 const UPLOAD_RETRY_DELAYS_MS = [400, 1200];
+// A 503 the sandbox proxy answers from the row (`sandbox_not_ready`, `retry:
+// true`) means the box is parked or waking and the proxy never dialled it. The
+// first attempt of an upload (a POST) already claimed the wake; it finishes in
+// seconds, so three attempts inside ~1.6 s all land on the same refusal. Give
+// that one answer a wake-length schedule instead (~15 s total).
+const UPLOAD_WAKE_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
 const isTransient = (s: number) => s === 408 || s === 429 || s === 502 || s === 503 || s === 504;
+const isWakeRetryable = (body: string) => {
+  if (!isSandboxNotReadyError(body)) return false;
+  try {
+    return (JSON.parse(body) as { retry?: unknown }).retry !== false;
+  } catch {
+    return true;
+  }
+};
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
@@ -371,8 +385,7 @@ export function uploadTimeoutMsForBytes(bytes?: number): number {
   return Math.min(UPLOAD_TIMEOUT_CEILING_MS, Math.max(UPLOAD_TIMEOUT_FLOOR_MS, Math.round(scaled)));
 }
 
-async function uploadErrorMessage(res: Response): Promise<string> {
-  const text = await res.text().catch(() => '');
+function uploadErrorMessage(res: Response, text: string): string {
   let parsed: { error?: string; message?: string; data?: { message?: string } } | null = null;
   try { parsed = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
   const jsonMessage = parsed?.error || parsed?.message || parsed?.data?.message;
@@ -390,7 +403,8 @@ async function uploadWithRetry<T = UploadResult[]>(
   send: (form: FormData) => Promise<Response>,
 ): Promise<T> {
   let lastError: unknown;
-  for (let attempt = 0; attempt <= UPLOAD_RETRY_DELAYS_MS.length; attempt++) {
+  let delays = UPLOAD_RETRY_DELAYS_MS;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
     let res: Response;
     try {
       res = await send(buildForm());
@@ -398,15 +412,25 @@ async function uploadWithRetry<T = UploadResult[]>(
       lastError = err;
       // A timeout or a deliberate abort is terminal — see `isUnretryableThrow`.
       if (isUnretryableThrow(err)) break;
-      if (attempt === UPLOAD_RETRY_DELAYS_MS.length) break;
-      await sleep(UPLOAD_RETRY_DELAYS_MS[attempt]);
+      if (attempt === delays.length) break;
+      await sleep(delays[attempt]);
       continue;
     }
     if (res.ok) return res.json() as Promise<T>;
-    const message = await uploadErrorMessage(res);
+    const text = await res.text().catch(() => '');
+    const message = uploadErrorMessage(res, text);
     lastError = new ApiError(`Upload failed (${res.status}): ${message}`, { status: res.status, response: res });
-    if (!isTransient(res.status) || attempt === UPLOAD_RETRY_DELAYS_MS.length) throw lastError;
-    await sleep(UPLOAD_RETRY_DELAYS_MS[attempt]);
+    if (!isTransient(res.status)) throw lastError;
+    // A not-ready answer the proxy marks retryable swaps in the longer schedule
+    // at most once, and restarts the count (earlier 502s do not shorten the
+    // wake wait). A `retry: false` answer (parked, no wake claimed) keeps the
+    // short schedule: waiting 15 s for a wake nobody started cannot help.
+    if (delays === UPLOAD_RETRY_DELAYS_MS && res.status === 503 && isWakeRetryable(text)) {
+      delays = UPLOAD_WAKE_RETRY_DELAYS_MS;
+      attempt = 0;
+    }
+    if (attempt === delays.length) throw lastError;
+    await sleep(delays[attempt]);
   }
   if (lastError instanceof ApiError) throw lastError;
   const message = lastError instanceof Error ? lastError.message : String(lastError || 'request failed');
@@ -884,9 +908,12 @@ async function moveFile(from: string, to: string, base: string, overwrite: boole
 }
 
 // ── project / health (via opencode client) ────────────────────────────────────
-export async function getCurrentProject(): Promise<RuntimeProjectInfo> {
+export async function getCurrentWorkspace(): Promise<RuntimeProjectInfo> {
   return unwrap(await getClient().project.current()) as RuntimeProjectInfo;
 }
+
+/** @deprecated Use `getCurrentWorkspace`. Kept permanently. */
+export const getCurrentProject = getCurrentWorkspace;
 
 export async function getServerHealth(): Promise<ServerHealth> {
   return unwrap(await getClient().global.health()) as ServerHealth;
@@ -916,7 +943,7 @@ export const files = {
   remove: deleteFile,
   mkdir,
   rename: renameFile,
-  currentProject: getCurrentProject,
+  currentProject: getCurrentWorkspace,
   health: getServerHealth,
   isReachable: isServerReachable,
   toDaemonPath,

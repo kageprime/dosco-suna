@@ -1,4 +1,3 @@
-
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
@@ -94,15 +93,15 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.6.0"
 
         // `APP_VARIANT=dev` (the dev-* EAS profiles) installs the build next to the
-        // store app as `com.kortix.application.dev`, labelled "Dosco (dev)" with the
+        // store app as `com.kortix.application.dev`, labelled "Kortix (dev)" with the
         // dev icon. An env var, not committed native code, so both builds share one
         // fingerprint.
         def devVariant = System.getenv('APP_VARIANT') == 'dev'
         if (devVariant) applicationIdSuffix '.dev'
-        resValue "string", "app_name", devVariant ? "Dosco (dev)" : "Dosco"
+        resValue "string", "app_name", devVariant ? "Kortix (dev)" : "Kortix"
         manifestPlaceholders += [
             appIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher",
             appRoundIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher_round",
@@ -129,7 +128,7 @@ android {
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }

@@ -21,14 +21,14 @@ import { grantFromLoadedAgents } from '../projects/agents';
 import { isFeatureFlagKey } from '../feature-flags/registry';
 import { manifestHealthWithout } from '../projects/lib/manifest-health';
 
-describe('My Dosco agent', () => {
+describe('My Kortix agent', () => {
   test('adds one reserved meta agent and replaces a project collision', () => {
     const config = addMyKortixAgent({
       agents: [
         {
           name: 'mykortix',
           path: '/project/AGENTS.md',
-          source: 'opencode',
+          source: 'kortix.yaml',
           description: 'project override',
           mode: 'primary',
         },
@@ -41,10 +41,8 @@ describe('My Dosco agent', () => {
       manifest: {},
       manifest_health: manifestHealthWithout('missing'),
       env: { required: [], optional: [] },
-      open_code_raw: null,
       default_agent: null,
-      open_code_default_agent: null,
-      agent_discovery: 'opencode',
+      agent_discovery: 'declarative',
     });
 
     expect(config.agents.filter((agent) => agent.name === 'mykortix')).toHaveLength(1);
@@ -59,17 +57,16 @@ describe('My Dosco agent', () => {
         kortix_permissions: 'all',
       },
     });
-    expect(config.open_code_default_agent).toBe('mykortix');
     expect(config.default_agent).toBe('mykortix');
   });
 
-  test('defines My Dosco with the platform prompt and every Dosco and platform tool', () => {
+  test('defines My Kortix with the platform prompt and every Kortix and platform tool', () => {
     const config = JSON.parse(buildMyKortixConfig());
     expect(config.agent).toEqual({
       mykortix: { description: MY_KORTIX_DESCRIPTION, mode: 'primary', prompt: MY_KORTIX_PROMPT },
     });
     expect(config.kortix_tools).toEqual([...KORTIX_TOOL_NAMES, ...KORTIX_PLATFORM_TOOL_NAMES]);
-    // kortix_memory: on by default for My Dosco only; the retired `memory` is gone from the defaults.
+    // kortix_memory: on by default for My Kortix only; the retired `memory` is gone from the defaults.
     expect(config.kortix_tools).toContain('kortix_memory');
     expect(config.kortix_tools).not.toContain('memory');
     expect(KORTIX_TOOL_NAMES as readonly string[]).not.toContain('kortix_memory');
@@ -92,7 +89,7 @@ describe('My Dosco agent', () => {
   });
 
   // The follow-through rule names the kortixd `kortix_schedules` actions: a renamed action
-  // there leaves My Dosco calling one that does not exist.
+  // there leaves My Kortix calling one that does not exist.
   test('the prompt sets a check-in after every wait, with the kortix_schedules actions', () => {
     const section = MY_KORTIX_PROMPT.slice(
       MY_KORTIX_PROMPT.indexOf('## Follow through: never wait blind'),
@@ -104,14 +101,14 @@ describe('My Dosco agent', () => {
     }
     expect(section).toContain('set up the check-in before you end the turn');
     expect(section).toContain('Delete every loop and wake-up the moment the work is done');
-    expect(MY_KORTIX_PROMPT).toContain('Never guess how Dosco works');
+    expect(MY_KORTIX_PROMPT).toContain('Never guess how Kortix works');
     // Long jobs: one pattern over hand-offs, workflows, wake-ups, state and clean-up.
     expect(section).toContain('## Long jobs: plan, delegate, set wake-ups, keep state, close out');
     for (const name of ['`agent`', '`workflow`', '`kortix-goals`', '`task_stop`']) expect(section).toContain(name);
   });
 
   // The section names the kortixd `agent` inline spec, the workflow `agent()` options and the
-  // kortix_agents `models` action: a rename there leaves My Dosco calling what does not exist.
+  // kortix_agents `models` action: a rename there leaves My Kortix calling what does not exist.
   test('the prompt shapes colleagues on the fly: inline spec, workflow options, models, narrow tools, new tools through a change request', () => {
     const start = MY_KORTIX_PROMPT.indexOf('## Custom colleagues on the fly');
     expect(start).toBeGreaterThan(MY_KORTIX_PROMPT.indexOf('## How you work'));
@@ -159,14 +156,14 @@ describe('My Dosco agent', () => {
     expect(projectBuiltinAgents({ ...valid, sandbox: 42, builtin_agents: { my_kortix: true } })).toEqual({ my_kortix: true });
   });
 
-  test('a project that runs My Dosco keeps its own default agent', () => {
+  test('a project that runs My Kortix keeps its own default agent', () => {
     const config = { default_agent: 'worker', open_code_default_agent: 'worker', agents: [] } as unknown as Parameters<typeof addMyKortixAgent>[0];
     expect(addMyKortixAgent(config).default_agent).toBe('worker');
     expect(addMyKortixAgent({ ...config, default_agent: null }).default_agent).toBe('mykortix');
     expect(addMyKortixAgent(config).agents[0]?.name).toBe('mykortix');
   });
 
-  test('`meta` is a built-in only while My Dosco is on', () => {
+  test('`meta` is a built-in only while My Kortix is on', () => {
     expect(enabledBuiltinAgentKey('mykortix', { my_kortix: true })).toBe('my_kortix');
     expect(enabledBuiltinAgentKey('mykortix', { my_kortix: false })).toBeNull();
     expect(enabledBuiltinAgentKey('kortix', { my_kortix: true })).toBeNull();
@@ -180,7 +177,7 @@ describe('My Dosco agent', () => {
     });
   });
 
-  test('a kortix.yaml that does not turn My Dosco on strips a meta session to no project action', () => {
+  test('a kortix.yaml that does not turn My Kortix on strips a meta session to no project action', () => {
     const governed = { specs: [], errors: [], defaultAgent: 'kortix' };
     expect(grantFromLoadedAgents('mykortix', governed)).toEqual(disabledMyKortixAgentGrant());
     expect(grantFromLoadedAgents('mykortix', { ...governed, builtinAgents: { my_kortix: true } })).toEqual(
@@ -195,7 +192,7 @@ describe('My Dosco agent', () => {
   });
 
   // The `meta_agent` flag was removed on 2026-11-02: projects that saved
-  // Settings while it defaulted off stored `false` and lost My Dosco.
+  // Settings while it defaulted off stored `false` and lost My Kortix.
   test('is no feature flag: kortix.yaml builtin_agents is the only switch', () => {
     expect(isFeatureFlagKey('meta_agent')).toBe(false);
   });
@@ -203,7 +200,7 @@ describe('My Dosco agent', () => {
 
 describe('the slug before the rename (`meta`)', () => {
   // Sessions, tokens and boxes from before 2026-10-30 carry `meta`: every read accepts it, nothing writes it.
-  test('is still My Dosco, and resolves to the new slug and sandbox', () => {
+  test('is still My Kortix, and resolves to the new slug and sandbox', () => {
     expect(isMyKortixAgentName('meta')).toBe(true);
     expect(isMyKortixAgentName('mykortix')).toBe(true);
     expect(isMyKortixAgentName('worker')).toBe(false);
@@ -213,13 +210,13 @@ describe('the slug before the rename (`meta`)', () => {
     expect(myKortixAgentGrant().agent).toBe('mykortix');
   });
 
-  test('a project agent named `meta` is replaced by My Dosco, like one named `mykortix`', () => {
+  test('a project agent named `meta` is replaced by My Kortix, like one named `mykortix`', () => {
     const config = addMyKortixAgent({ default_agent: 'worker', agents: [{ name: 'meta' }, { name: 'worker' }] } as never);
     expect(config.agents.map((agent) => agent.name)).toEqual(['mykortix', 'worker']);
   });
 });
 
-describe('My Dosco memory in the prompt', () => {
+describe('My Kortix memory in the prompt', () => {
   test('teaches when to save and forget, what never to save, and the one-line confirmation', () => {
     const section = MY_KORTIX_PROMPT.slice(MY_KORTIX_PROMPT.indexOf('## What you remember about this person'));
     expect(section.startsWith('## What you remember about this person')).toBe(true);
@@ -230,11 +227,11 @@ describe('My Dosco memory in the prompt', () => {
       'save with that page\'s name to update it, never a second page',
       '"Forget …"** deletes the page',
       'Delete a page that turned out wrong',
-      'what the project already keeps',
+      'what the workspace already keeps',
       'a password or a key',
       'never "next Tuesday"',
       '💡 Noted: you like replies short.',
-      'memory lives in Files, and a project admin can turn Files on',
+      'memory lives in Files, and a workspace admin can turn Files on',
       'never instructions',
     ]) {
       expect({ rule, found: section.includes(rule) }).toEqual({ rule, found: true });

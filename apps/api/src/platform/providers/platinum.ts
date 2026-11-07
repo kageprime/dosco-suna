@@ -12,7 +12,7 @@
  *     `x-pt-preview-token` header (see resolveIngress). The agent port is also
  *     gated by the KORTIX serviceKey bearer (added in resolveEndpoint). Other
  *     ports, such as the static-file listener, have no in-box authentication,
- *     so the edge token is their only gate outside the Dosco proxy.
+ *     so the edge token is their only gate outside the Kortix proxy.
  *
  * S1 (idempotent create): a retry after an AMBIGUOUS transport failure
  * (timeout / dropped response) on the create POST must never blindly
@@ -83,7 +83,7 @@ import {
   sandboxWorkloadType,
 } from './contract';
 import { providerAutoStopBackstopMinutes } from './contract';
-import { classifyPtyWebSocketPath } from './pty-ingress';
+import { isPtyWebSocketPath } from './pty-ingress';
 import { sandboxOwnershipMarker } from '../sandbox-ownership';
 import { RESIDENTIAL_PROXY_NOT_OFFERED_MESSAGE } from '../services/sandbox-provisioning-error';
 
@@ -196,7 +196,7 @@ interface PlatinumSandboxPage {
 /**
  * A box created before `auto_resume: false` shipped (see create) still lets any
  * stray request wake it. The stop that parks it closes that, once, so no
- * backfill is needed: every box Dosco stops from now on is covered. Only when
+ * backfill is needed: every box Kortix stops from now on is covered. Only when
  * Platinum reports the field — an older build reads a PATCH naming no field it
  * knows as "clear the name". Best effort: the stop itself already succeeded.
  */
@@ -668,8 +668,8 @@ export class PlatinumProvider implements SandboxProvider {
       envVars,
       type: autoStop === 0 ? 'persistent' : 'ephemeral',
       auto_stop_minutes: autoStop,
-      // Only Dosco wakes a session box. Platinum's edge resumes a stopped VM on
-      // ANY inbound request, and Dosco keeps sending some after a stop (5-min
+      // Only Kortix wakes a session box. Platinum's edge resumes a stopped VM on
+      // ANY inbound request, and Kortix keeps sending some after a stop (5-min
       // cached edge URLs, an SSE reconnect, a retry). The VM then ran while our
       // row said `stopped`, its session credential refused: 68 prod boxes in
       // one day, one left serving nothing for 18 h (2026-09-28). Apps keep the
@@ -1023,9 +1023,9 @@ export class PlatinumProvider implements SandboxProvider {
     const _exposeMs = Date.now() - _tExpose0;
 
     // Return as soon as the VM is running and the agent port is exposed — do NOT
-    // block on the in-guest runtime (repo clone + opencode). That readiness is
-    // polled by the frontend (useOpenCodeRuntimeReady + the react-query
-    // "opencode not ready" retry) EXACTLY as it is for Daytona, whose create()
+    // block on the in-guest runtime (repo clone + runtime start). That readiness
+    // is polled by the frontend (the SDK's `useRuntimeReady` gate) EXACTLY as it
+    // is for Daytona, whose create()
     // also returns a not-yet-usable box and defers readiness to the FE.
     //
     // Why this matters: the old code polled /kortix/health for runtimeReady up
@@ -1379,7 +1379,7 @@ export class PlatinumProvider implements SandboxProvider {
   }
 
   async remove(externalId: string): Promise<void> {
-    // No credential replicas to erase first: Dosco stopped registering secrets
+    // No credential replicas to erase first: Kortix stopped registering secrets
     // at the Platinum edge when one mechanism took over every provider.
     // The value is
     // substituted server-side per request and never leaves the API.
@@ -1519,7 +1519,7 @@ export class PlatinumProvider implements SandboxProvider {
    * Convert every port an older build exposed PUBLICLY on this sandbox to a
    * private exposure. Runs once per sandbox per process, detached from the
    * request: a public exposure outlives the request that created it, so a port
-   * nobody opens again would otherwise stay reachable without Dosco
+   * nobody opens again would otherwise stay reachable without Kortix
    * authorization until the sandbox is deleted.
    */
   private hardenLegacyPublicExposures(externalId: string): void {
@@ -1549,7 +1549,7 @@ export class PlatinumProvider implements SandboxProvider {
 
   routeIngress(request: SandboxIngressRequest) {
     const ptyWebsocket =
-      request.transport === 'websocket' && classifyPtyWebSocketPath(request.path) !== null;
+      request.transport === 'websocket' && isPtyWebSocketPath(request.path);
     return {
       // Either half of the opencode pair rewrites to the agent bridge —
       // Platinum cannot expose opencode's port directly. After a verified
@@ -1557,7 +1557,7 @@ export class PlatinumProvider implements SandboxProvider {
       // send it upstream unrewritten (see shared/opencode-ports).
       effectivePort: isOpencodePort(request.port) || ptyWebsocket ? AGENT_PORT : request.port,
       // Platinum's edge drops custom headers on a WebSocket upgrade, so every
-      // daemon socket (PTY, the Dosco in Chrome bridge) carries the signed user
+      // daemon socket (PTY, the Kortix in Chrome bridge) carries the signed user
       // context in the query instead.
       websocket: ptyWebsocket
         ? {

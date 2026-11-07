@@ -11,7 +11,7 @@ import { promisify } from 'node:util';
 import { loadProjectConfig } from './config';
 import { listManagedSkills } from '../../skills/catalog';
 import { getStarterFiles } from '@kortix/starter';
-import { isSelectableAgent } from '@kortix/sdk/projects-client';
+import { isSelectableAgent } from '@kortix/sdk';
 import { projectConfigAgentsToRuntimeAgents } from '@kortix/sdk';
 import type { GitBackedProject } from './types';
 
@@ -76,7 +76,7 @@ beforeEach(async () => {
   seedPath = join(testRoot, 'seed');
   await git(['init', '--bare', remotePath]);
   await git(['init', '--initial-branch=main', seedPath]);
-  await git(['config', 'user.name', 'Dosco Test'], seedPath);
+  await git(['config', 'user.name', 'Kortix Test'], seedPath);
   await git(['config', 'user.email', 'test@kortix.invalid'], seedPath);
   await git(['remote', 'add', 'origin', remotePath], seedPath);
   await push(SEED, 'seed the synthetic project');
@@ -204,7 +204,6 @@ imports:
     const config = await loadProjectConfig(project);
 
     expect(config.is_kortix_repo).toBe(true);
-    expect(config.signals).toEqual({ manifest: true, openCodeConfig: false, openCodeAgent: false });
     // `manifest_raw` stays the ROOT file text even when imports merge into `manifest`.
     expect(config.manifest_raw).toBe(ROOT);
     expect(config.manifest_health).toEqual({ path: 'kortix.yaml', state: 'ok', errors: 0, warnings: 0, issues: [] });
@@ -217,7 +216,6 @@ imports:
       { slug: 'nightly', type: 'cron', cron: '0 3 * * *', prompt: 'run the nightly job' },
     ]);
     expect(config.env).toEqual({ required: ['FOO_TOKEN', 'BAR_KEY'], optional: ['OPTIONAL_ONE'] });
-    expect(config.open_code_raw).toBeNull();
     expect(config.default_agent).toBeNull();
     expect(config.agent_discovery).toBe('declarative');
     expect(config.agents).toEqual([]);
@@ -267,7 +265,7 @@ description: "Runs deploys: say \\"go\\""
 });
 
 describe('loadProjectConfig: kortix.yaml is the only source', () => {
-  test('agents come from the YAML blocks, skills from the registry plus the Dosco skills, commands from the registry', async () => {
+  test('agents come from the YAML blocks, skills from the registry plus the Kortix skills, commands from the registry', async () => {
     await push(
       {
         'kortix.yaml': `default_agent: lead
@@ -304,7 +302,6 @@ agents:
     const config = await loadProjectConfig(project);
 
     expect(config.default_agent).toBe('lead');
-    expect(config.open_code_raw).toBeNull();
     expect(config.agent_discovery).toBe('declarative');
     expect(config.agents.map((agent) => [agent.name, agent.path, agent.description, agent.mode, agent.model, agent.enabled])).toEqual([
       ['helper', 'kortix.yaml#agents.helper', null, 'subagent', null, false],
@@ -411,7 +408,7 @@ describe('a legacy format still works', () => {
     const { files, deletes } = manifestWrites(manifest);
     expect(files.map((file) => file.path)).toEqual(['kortix.yaml', 'agents/lead.md']);
     expect(deletes).toEqual(['harnesses/opencode/opencode.jsonc']);
-    expect(files[0]!.content).toStartWith('# yaml-language-server: $schema=https://dosco.live/schema/kortix.schema.json\n');
+    expect(files[0]!.content).toStartWith('# yaml-language-server: $schema=https://kortix.com/schema/kortix.schema.json\n');
     expect(files[0]!.content).not.toContain('kortix_version');
     expect(validateManifest(files[0]!.content).issues).toEqual([]);
     expect(files[1]!.content).toBe('You lead.\n');

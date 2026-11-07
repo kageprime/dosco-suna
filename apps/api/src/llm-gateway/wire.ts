@@ -30,7 +30,7 @@ const GATEWAY_INFERENCE_TAG = 'gateway-inference';
 
 const AUTH_DESCRIPTION =
   'Bearer token: a project gateway key (`kortix_gw_…`, created via ' +
-  'POST /v1/projects/{projectId}/gateway/keys) or a Dosco account token ' +
+  'POST /v1/projects/{projectId}/gateway/keys) or a Kortix account token ' +
   '(PAT `kortix_pat_…`, API key, or sandbox key). Inference requires a project ' +
   'context: a project-scoped or session token is admitted, while a bare ' +
   'account-wide PAT is refused with 403 project_required. Unlike most of the ' +
@@ -131,7 +131,7 @@ function chatCompletionsRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: "Chat completions (OpenAI-compatible LLM gateway call)",
-    description: `OpenAI-compatible chat completions, proxied through the Dosco LLM gateway (model routing/failover, budgets, usage billing, and request tracing all apply). The body is forwarded close to verbatim to the resolved upstream provider.\n\nAuth: ${AUTH_DESCRIPTION}\n\n\`\`\`\ncurl -sS $KORTIX_API_URL${fullPath} \\\n  -H "Authorization: Bearer $KORTIX_GATEWAY_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"Say hello in one word."}]}\'\n\`\`\``,
+    description: `OpenAI-compatible chat completions, proxied through the Kortix LLM gateway (model routing/failover, budgets, usage billing, and request tracing all apply). The body is forwarded close to verbatim to the resolved upstream provider.\n\nAuth: ${AUTH_DESCRIPTION}\n\n\`\`\`\ncurl -sS $KORTIX_API_URL${fullPath} \\\n  -H "Authorization: Bearer $KORTIX_GATEWAY_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"Say hello in one word."}]}\'\n\`\`\``,
     ...auth,
     request: {
       body: {
@@ -282,7 +282,7 @@ const ImageResponseSchema = z
 const IMAGE_ERROR_CODES = [
   '- `400`: `invalid_request`, `image_model_unavailable` (no image model is reachable), `not_an_image_model`, `image_model_unsupported`, `image_model_unpriced`, `provider_not_connected`, `model_unavailable`.',
   '- `401`: `missing_token`, a refused gateway credential, `provider_reauth_required`.',
-  '- `402`: a budget limit, or the wallet refused a Dosco-billed model.',
+  '- `402`: a budget limit, or the wallet refused a Kortix-billed model.',
   '- `403`: the credential has no access to the project.',
   '- `413`: `request_too_large`: the request body is over the gateway limit.',
   '- `429`: `image_rate_limited`, or `provider_pool_rate_limited` (every pooled ChatGPT account rests), with `retry-after`.',
@@ -311,7 +311,7 @@ function imagesRoute(path: string, operation: 'generations' | 'edits') {
 }
 
 const AUDIO_ERROR_CODES = [
-  '- `400`: `invalid_request` (the message names the field), `audio_model_unsupported` or `model_not_found` (Dosco serves no such audio model), `plan_upgrade_required`, `provider_disabled`, `model_disabled`.',
+  '- `400`: `invalid_request` (the message names the field), `audio_model_unsupported` or `model_not_found` (Kortix serves no such audio model), `plan_upgrade_required`, `provider_disabled`, `model_disabled`.',
   '- `401`: `missing_token`, a refused gateway credential.',
   '- `402`: a budget limit, or the wallet refused the request.',
   '- `403`: the credential has no project context.',
@@ -324,7 +324,7 @@ const AUDIO_ERROR_CODES = [
 ].join('\n');
 
 const AUDIO_BILLING =
-  'Dosco-managed audio models need a plan that includes managed models. A request is billed in Dosco credits at the price the managed upstream reports for it, with the managed-model markup, exactly as a managed chat model. A refused request records no charge and returns any credit hold. A speech stream is charged once its first audio arrives, even when the client stops it.';
+  'Kortix-managed audio models need a plan that includes managed models. A request is billed in Kortix credits at the price the managed upstream reports for it, with the managed-model markup, exactly as a managed chat model. A refused request records no charge and returns any credit hold. A speech stream is charged once its first audio arrives, even when the client stops it.';
 
 const TranscriptionRequestSchema = z
   .object({
@@ -380,7 +380,7 @@ function transcriptionsRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: 'Transcribe audio (OpenAI-compatible)',
-    description: `Speech-to-text on a Dosco-managed transcription model. The gateway forwards \`file\`, \`language\`, \`prompt\` and \`temperature\` and drops every other field. \`json\` and \`verbose_json\` answer with \`usage: { type: "duration", seconds }\`; \`text\` answers \`text/plain\`.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
+    description: `Speech-to-text on a Kortix-managed transcription model. The gateway forwards \`file\`, \`language\`, \`prompt\` and \`temperature\` and drops every other field. \`json\` and \`verbose_json\` answer with \`usage: { type: "duration", seconds }\`; \`text\` answers \`text/plain\`.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
     ...auth,
     request: { body: { required: true, content: { 'multipart/form-data': { schema: TranscriptionRequestSchema } } } },
     responses: {
@@ -402,7 +402,7 @@ function speechRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: 'Speak text (OpenAI-compatible)',
-    description: `Text-to-speech on a Dosco-managed speech model. The audio streams as it is made: the first bytes arrive before the whole answer exists. A \`pcm\` answer carries its rate in the \`x-sample-rate\` header. An error before the first audio byte is a JSON error; after it, the stream ends early.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
+    description: `Text-to-speech on a Kortix-managed speech model. The audio streams as it is made: the first bytes arrive before the whole answer exists. A \`pcm\` answer carries its rate in the \`x-sample-rate\` header. An error before the first audio byte is a JSON error; after it, the stream ends early.\n\n${AUDIO_BILLING}\n\nError codes (the body's \`code\`):\n${AUDIO_ERROR_CODES}\n\nAuth: ${AUTH_DESCRIPTION}`,
     ...auth,
     request: { body: { required: true, content: { 'application/json': { schema: SpeechRequestSchema } } } },
     responses: {
@@ -490,7 +490,7 @@ const GatewayModelSchema = z
     family: z.string().optional(),
     // The REAL upstream provider this model resolves against ('anthropic',
     // 'openai', 'codex', 'kortix', ...) — every gateway model is registered
-    // under the single synthetic `kortix` opencode provider, so this is the
+    // under the one provider id `kortix`, so this is the
     // field a client groups/labels by instead of parsing the wire model id.
     provider: z.string().optional(),
     reasoning: z.boolean().optional(),
@@ -535,6 +535,18 @@ const ModelsResponseSchema = z
     },
   });
 
+const OpenAiModelListSchema = z
+  .object({
+    object: z.literal('list'),
+    data: z.array(GatewayModelSchema.extend({
+      id: z.string(),
+      object: z.literal('model'),
+      created: z.number(),
+      owned_by: z.string(),
+    })),
+  })
+  .openapi('GatewayModelList');
+
 function modelsRoute(path: string) {
   const fullPath = `/v1/llm${path}`;
   return createRoute({
@@ -542,18 +554,18 @@ function modelsRoute(path: string) {
     path,
     tags: [GATEWAY_INFERENCE_TAG],
     summary: "List models served by the LLM gateway",
-    description: `Servable model catalog for the caller\'s account/project — a keyed object (NOT the OpenAI \`{object:"list",data:[...]}\` array shape) mapping model id → capabilities.\n\nAuth: ${AUTH_DESCRIPTION}\n\n\`\`\`\ncurl -sS $KORTIX_API_URL${fullPath} -H "Authorization: Bearer $KORTIX_GATEWAY_KEY"\n\`\`\``,
+    description: `The models the caller\'s key can call, in the OpenAI \`{object:"list",data:[...]}\` shape: the project\'s servable set (the \`scope=picker\` set) without the models the project turned off or whose provider is not connected. An explicit \`scope\` answers a keyed object mapping model id → capabilities instead.\n\nAuth: ${AUTH_DESCRIPTION}\n\n\`\`\`\ncurl -sS $KORTIX_API_URL${fullPath} -H "Authorization: Bearer $KORTIX_GATEWAY_KEY"\n\`\`\``,
     request: {
       query: z.object({
-        scope: z.enum(['managed', 'picker']).optional().openapi({
+        scope: z.enum(['managed', 'picker', 'all']).optional().openapi({
           description:
-            "Set to `picker` for the caller's project SERVABLE set (~80KB: managed models the account may use, connected BYOK providers, routing-named ids — the same list the web model picker shows; sandboxes fetch it on every boot). `managed` is the platform-managed lineup only (~3KB). Omit for the caller's full catalog (~3.3MB).",
+            "Omit for the OpenAI list of the models this key can call. `picker` is the caller's project SERVABLE set as a keyed map (~80KB: managed models the account may use, connected BYOK providers, routing-named ids, each stamped `enabled` — the same list the web model picker shows; sandboxes fetch it on every boot). `managed` is the platform-managed lineup only (~3KB). `all` is the full discovery catalog (~3.3MB), each entry stamped with its `availability`.",
           example: 'managed',
         }),
       }),
     },
     ...auth,
-    responses: { 200: json(ModelsResponseSchema, 'Servable model catalog'), ...errors(401, 502) },
+    responses: { 200: json(z.union([OpenAiModelListSchema, ModelsResponseSchema]), 'Callable models (no scope) or the model catalog'), ...errors(401, 502) },
   });
 }
 

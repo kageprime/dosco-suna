@@ -1,5 +1,5 @@
 /**
- * The chat commands Dosco answers itself, for every platform: names, aliases,
+ * The chat commands Kortix answers itself, for every platform: names, aliases,
  * the help and menu lines, and the parser for a platform whose commands arrive
  * as text. No imports: a platform's menu registrar reads this at load
  * (channels/telegram/menu.ts). The runners are channels/core/commands.ts.
@@ -13,7 +13,7 @@ export interface ChannelCommandSpec {
   /** The /help line's left side: '/model [id]'. */
   usage: string;
   /**
-   * 3–100 characters: the menu line and the /help line. A Telegram menu knows Dosco's entry by its
+   * 3–100 characters: the menu line and the /help line. A Telegram menu knows Kortix's entry by its
    * name and this text, so a changed text leaves the old entry in merged menus (telegram/menu.ts).
    */
   description: string;
@@ -23,7 +23,7 @@ export interface ChannelCommandSpec {
 export const CHANNEL_COMMANDS = [
   { name: 'new', aliases: ['reset'], usage: '/new', description: "Start a new conversation and stop this chat's run" },
   { name: 'stop', aliases: ['cancel'], usage: '/stop', description: "Stop the agent's current run in this chat" },
-  { name: 'status', aliases: [], usage: '/status', description: "Show this chat's project, agent, model and session" },
+  { name: 'status', aliases: [], usage: '/status', description: "Show this chat's workspace, agent, model and session" },
   { name: 'model', aliases: ['models'], usage: '/model [id]', description: 'List the models, or switch this chat to one' },
   { name: 'agent', aliases: ['agents'], usage: '/agent [name]', description: 'List the agents, or switch this chat to one' },
   { name: 'help', aliases: ['start'], usage: '/help', description: 'List the commands' },

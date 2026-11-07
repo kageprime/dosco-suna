@@ -98,6 +98,15 @@ const INJECTED_APP_SOURCE_PATTERNS = [
   // pattern matches. The chunk id varies with the extension's build, so the
   // stable anchor is the `executors/<digits>.js` shape, not one file name.
   /^app:\/\/\/executors\/\d+\.js$/,
+  // A browser extension's main-world bridge, a Parcel bundle (`newRequire`,
+  // module `Object.fIhds`) loaded as `dragOutMainWorldBridge.<hash>.js?<ms>?r=<ms>`.
+  // Sentry's `NextjsClientStackFrameNormalization` rewrites every frame origin,
+  // `chrome-extension://<id>` included, to `app://` before `beforeSend`. The
+  // bridge calls `chrome.runtime.connect` in the page world, where
+  // `chrome.runtime` is undefined: `TypeError: Cannot read properties of
+  // undefined (reading 'connect')` (KRTX-4430, pattern `7268998c…`, 1
+  // occurrence, 0 users, `https://kortix.com/`). The app ships no such file.
+  /^app:\/\/\/dragOutMainWorldBridge\.[0-9a-f]+\.js(?:\?|$)/,
 ] as const;
 
 export function isExtensionSource(filename: unknown): boolean {
@@ -756,6 +765,16 @@ export const EXTENSION_RULES: readonly NoiseRule[] = [
       normalizeString(message) === 'Talisman extension has not been configured yet. Please continue with onboarding.' &&
       !frames.some((frame) => isFirstPartyResolvedSource(frame.filename)) &&
       frames.some((frame) => frame.filename === 'app:///page.js' && frame.function === 'ne.handleResponse'),
+  },
+  {
+    // The locked Shield wallet rejects a dapp request from its background.js
+    // (KRTX-4433). Require its exact message and that script's frame.
+    id: 'shield-wallet-locked',
+    appliesTo: 'sentry',
+    match: ({ message, frames }) =>
+      normalizeString(message) === 'NotUnlocked: Unlock Shield to use a DApp.' &&
+      !frames.some((frame) => isFirstPartyResolvedSource(frame.filename)) &&
+      frames.some((frame) => frame.filename === 'app:///background.js'),
   },
   {
     id: 'injected-app-source',

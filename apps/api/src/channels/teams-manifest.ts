@@ -50,7 +50,7 @@ export interface TeamsManifest {
  * on an older version; a team owner still accepts a new permission or message
  * action in each team. `unit-teams-manifest.test.ts` fails until you bump.
  */
-export const TEAMS_MANIFEST_VERSION = '1.6.3';
+export const TEAMS_MANIFEST_VERSION = '1.6.4';
 
 /**
  * Resource-specific consent (RSC). These let the bot receive every message in
@@ -73,13 +73,13 @@ export const TEAMS_RSC_PERMISSIONS = [
 ];
 
 const BOT_COMMANDS = [
-  { title: '/help', description: 'Show what Dosco can do' },
-  { title: '/status', description: 'Show and change the project, agent and model' },
+  { title: '/help', description: 'Show what Kortix can do' },
+  { title: '/status', description: 'Show and change the workspace, agent and model' },
   { title: '/sessions', description: 'Your recent sessions started from Teams' },
-  { title: '/login', description: 'Connect your Dosco account' },
+  { title: '/login', description: 'Connect your Kortix account' },
   { title: '/models', description: 'Pick the model for this conversation' },
   { title: '/agents', description: 'Pick the agent for this conversation' },
-  { title: '/projects', description: 'List connected projects' },
+  { title: '/projects', description: 'List connected Kortix workspaces' },
   { title: '/stop', description: 'Stop the run in progress here' },
   { title: '/new', description: 'Start a new session in this chat' },
   { title: '/policy', description: 'Who may join sessions started here' },
@@ -98,7 +98,7 @@ const SHORT_DESCRIPTION =
   'Open-source CompanyOS — start a session from any Teams chat.';
 
 const LONG_DESCRIPTION =
-  'Dosco is an open-source CompanyOS — your agents, skills, company memory, and connectors in one git repo you own. This app starts Dosco sessions from Microsoft Teams. Add the bot to a chat or channel, @-mention it with a task, and an agent gets on it — using your connected tools and replying right here as it goes, with live progress. Follow-ups stay in the same session. Managed by Dosco · https://dosco.live';
+  'Kortix is an open-source CompanyOS — your agents, skills, company memory, and connectors in one git repo you own. This app starts Kortix sessions from Microsoft Teams. Add the bot to a chat or channel, @-mention it with a task, and an agent gets on it — using your connected tools and replying right here as it goes, with live progress. Follow-ups stay in the same session. Managed by Kortix · https://kortix.com';
 
 function hostOf(baseUrl: string): string {
   try {
@@ -109,7 +109,7 @@ function hostOf(baseUrl: string): string {
 }
 
 export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest {
-  const appName = cfg.appName ?? 'Dosco';
+  const appName = cfg.appName ?? 'Kortix';
   return {
     $schema:
       'https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json',
@@ -117,13 +117,13 @@ export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest
     version: TEAMS_MANIFEST_VERSION,
     id: cfg.appId,
     developer: {
-      name: 'Dosco',
-      websiteUrl: 'https://dosco.live',
-      privacyUrl: 'https://dosco.live/privacy',
-      termsOfUseUrl: 'https://dosco.live/terms',
+      name: 'Kortix',
+      websiteUrl: 'https://kortix.com',
+      privacyUrl: 'https://kortix.com/privacy',
+      termsOfUseUrl: 'https://kortix.com/terms',
     },
     // `short` is the @-mention name, so it stays short.
-    name: { short: appName, full: cfg.appName ?? 'Dosco CompanyOS' },
+    name: { short: appName, full: cfg.appName ?? 'Kortix CompanyOS' },
     description: {
       short: cfg.description ?? SHORT_DESCRIPTION,
       full: cfg.longDescription ?? LONG_DESCRIPTION,
@@ -139,7 +139,7 @@ export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest
         commandLists: [{ scopes: ['personal', 'team', 'groupchat'], commands: BOT_COMMANDS }],
       },
     ],
-    // "Open in Dosco" on a message's ⋯ menu, as Slack's message shortcut
+    // "Open in Kortix" on a message's ⋯ menu, as Slack's message shortcut
     // (teams/message-action.ts).
     composeExtensions: [
       {
@@ -148,8 +148,8 @@ export function buildTeamsManifest(cfg: BuildTeamsManifestConfig): TeamsManifest
           {
             id: 'openInKortix',
             type: 'action',
-            title: 'Open in Dosco',
-            description: "Open this conversation's Dosco session",
+            title: 'Open in Kortix',
+            description: "Open this conversation's Kortix session",
             context: ['message'],
             fetchTask: true,
           },

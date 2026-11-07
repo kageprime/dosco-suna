@@ -3,7 +3,7 @@
  *
  * GET    /connections                      — machines the caller owns (+ owner-less team machines for managers)
  * GET    /connections/:tunnelId            — get one machine
- * PATCH  /connections/:tunnelId            — rename a machine, or change what Dosco may use on it
+ * PATCH  /connections/:tunnelId            — rename a machine, or change what Kortix may use on it
  * DELETE /connections/:tunnelId            — unpair: delete the machine, revoke its computer accounts
  * POST   /connections/:tunnelId/rotate-token — rotate the setup token
  * POST   /connections/:tunnelId/access — change access on the machine (it confirms a widening itself)
@@ -177,7 +177,7 @@ export function createConnectionsRouter() {
       method: 'patch',
       path: '/{tunnelId}',
       tags: ['tunnel'],
-      summary: 'Rename a paired machine, or change what Dosco may use on it',
+      summary: 'Rename a paired machine, or change what Kortix may use on it',
       description:
         'Give `name`, `capabilities`, or both. `capabilities` is the full approved list, a subset of `filesystem`, `shell`, `desktop`. It applies to the next call.',
       security: [{ bearerAuth: [] }],
@@ -301,9 +301,9 @@ export function createConnectionsRouter() {
       method: 'post',
       path: '/{tunnelId}/access',
       tags: ['tunnel'],
-      summary: 'Change when Dosco may use a paired machine',
+      summary: 'Change when Kortix may use a paired machine',
       description:
-        'Relays the owner\'s change to the machine, which applies it. A narrowing (Ask each time, Off, revoke, deny, keep awake) applies at once. A widening (Always, a longer grant) waits up to 20 s for the owner to confirm in the Dosco app on that machine, and fails with `computer_access_unconfirmed` otherwise. User credentials only.',
+        'Relays the owner\'s change to the machine, which applies it. A narrowing (Ask each time, Off, revoke, deny, keep awake) applies at once. A widening (Always, a longer grant) waits up to 20 s for the owner to confirm in the Kortix app on that machine, and fails with `computer_access_unconfirmed` otherwise. User credentials only.',
       security: [{ bearerAuth: [] }],
       request: {
         params: z.object({ tunnelId: z.string().uuid() }),
@@ -383,6 +383,7 @@ export function createTunnelSelfRouter() {
       method: 'delete',
       path: '/',
       tags: ['tunnel'],
+      security: [{ bearerAuth: [] }],
       summary: 'A machine unpairs itself with its own credential',
       description:
         "Deletes the calling machine and revokes its computer accounts, exactly like `DELETE /v1/tunnel/connections/{tunnelId}`. Authenticated only by the machine's setup token (`Authorization: Bearer kortix_tnl_…`) and `X-Tunnel-Id`. Rate-limited per client.",

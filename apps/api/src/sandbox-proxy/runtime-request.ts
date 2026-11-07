@@ -2,10 +2,9 @@
  * What a request to a session runtime does, read from its method and path.
  *
  * The one place the API recognizes a runtime's turn routes. Two spellings reach
- * it: the daemon's Dosco routes (`/kortix/runtime/sessions/:id/prompt|command|
- * compact|abort` and `/kortix/runtime/questions/:id/reply|reject`; the session
- * routes are also mounted at the pre-W3 `/kortix/opencode`) and OpenCode's REST
- * routes (`/session/:id/prompt_async|message|command|summarize|abort`), which
+ * it: the daemon's Kortix routes (`/kortix/runtime/sessions/:id/prompt|command|
+ * compact|abort` and `/kortix/runtime/questions/:id/reply|reject`) and the box's
+ * OpenCode-shaped REST routes (`/session/:id/prompt_async|message|command|summarize|abort`), which
  * web and older API instances still send. Every proxy guard (turn ledger, dedupe,
  * env sync, deadline, client stop, retry budget) asks this function instead of
  * keeping its own regex.
@@ -14,7 +13,7 @@
  * `mock.module` cannot poison it (see `projects/turn-start-request.ts`).
  */
 
-/** The verb of a turn-starting request. `prompt` is the Dosco route. */
+/** The verb of a turn-starting request. `prompt` is the Kortix route. */
 export type RuntimeTurnVerb = 'prompt' | 'prompt_async' | 'message' | 'command' | 'summarize';
 
 export type RuntimeRequest =
@@ -31,15 +30,19 @@ export type RuntimeRequest =
   | { kind: 'message-list'; runtimeSessionId: string; prefix: string }
   /** A client answers (`reply`) or dismisses (`reject`) an agent question. Both harnesses serve it. */
   | { kind: 'question-answer'; requestId: string; prefix: string }
+  /** A client answers an agent permission request (`once`, `always`, `reject` in the body). */
+  | { kind: 'permission-reply'; requestId: string; prefix: string }
   | { kind: 'other' };
 
 const OTHER: RuntimeRequest = { kind: 'other' };
 const PREFIX = /^\/proxy\/\d+(?=\/)/;
-const KORTIX = /^\/kortix\/(?:runtime|opencode)\/sessions\/([^/?#]+)\/(prompt|command|compact|abort)\/?$/;
+const KORTIX = /^\/kortix\/runtime\/sessions\/([^/?#]+)\/(prompt|command|compact|abort)\/?$/;
 const KORTIX_QUESTION = /^\/kortix\/runtime\/questions\/([^/?#]+)\/(?:reply|reject)\/?$/;
 const NATIVE = /^\/session\/([^/?#]+)\/(prompt_async|message|command|summarize|abort)(?=$|[/?#])(.*)$/;
 const REVERT = /^\/session\/([^/?#]+)\/revert\/?(?:$|[?#])/;
 const QUESTION = /^\/question\/([^/?#]+)\/(?:reply|reject)\/?(?:$|[?#])/;
+const PERMISSION = /^\/permission\/([^/?#]+)\/reply\/?(?:$|[?#])/;
+const KORTIX_PERMISSION = /^\/kortix\/runtime\/permissions\/([^/?#]+)\/reply\/?$/;
 
 /**
  * Drop the in-box dynamic-port nesting a client may address through, so one
@@ -79,6 +82,12 @@ export function classifyRuntimeRequest(method: string, path: string): RuntimeReq
     return verb === 'POST' && requestId ? { kind: 'question-answer', requestId, prefix } : OTHER;
   }
 
+  const permission = PERMISSION.exec(bare) ?? KORTIX_PERMISSION.exec(bare);
+  if (permission) {
+    const requestId = decodeSegment(permission[1]!);
+    return verb === 'POST' && requestId ? { kind: 'permission-reply', requestId, prefix } : OTHER;
+  }
+
   const revert = REVERT.exec(bare);
   if (revert) {
     const runtimeSessionId = decodeSegment(revert[1]!);
@@ -100,8 +109,8 @@ export function classifyRuntimeRequest(method: string, path: string): RuntimeReq
 
 /**
  * The message identity a turn-start body carries: the client-minted wire id
- * and whether the prompt asks for no reply. The Dosco route spells them
- * `message_id` / `no_reply`, OpenCode's `messageID` / `noReply`.
+ * and whether the prompt asks for no reply. The Kortix route spells them
+ * `message_id` / `no_reply`, the `/session/...` routes `messageID` / `noReply`.
  */
 export function turnStartBodyFields(body: ArrayBuffer | undefined): {
   messageId: string | null;

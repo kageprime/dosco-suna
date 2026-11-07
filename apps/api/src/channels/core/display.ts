@@ -1,6 +1,6 @@
 /**
  * Words and links every chat platform shows for a session: its status, its age
- * and its page in Dosco. No imports: a platform's renderer and the core both
+ * and its page in Kortix. No imports: a platform's renderer and the core both
  * read these.
  */
 
@@ -61,15 +61,15 @@ export function formatRelativeTime(d: Date): string {
 
 /** Dashboard base URL (no trailing slash) for building project/session links. */
 export function dashboardBase(kortixUrl?: string): string {
-  return (kortixUrl || 'https://dosco.live').replace(/\/$/, '');
+  return (kortixUrl || 'https://kortix.com').replace(/\/$/, '');
 }
 
-/** Web URL for a Dosco session. */
+/** Web URL for a Kortix session. */
 export function sessionWebUrl(kortixUrl: string | undefined, projectId: string, sessionId: string): string {
-  return `${dashboardBase(kortixUrl)}/projects/${projectId}/sessions/${sessionId}`;
+  return `${dashboardBase(kortixUrl)}/workspaces/${projectId}/sessions/${sessionId}`;
 }
 
-/** Web URL for a Dosco project. */
+/** Web URL for a Kortix project. */
 export function projectWebUrl(kortixUrl: string | undefined, projectId: string): string {
-  return `${dashboardBase(kortixUrl)}/projects/${projectId}`;
+  return `${dashboardBase(kortixUrl)}/workspaces/${projectId}`;
 }

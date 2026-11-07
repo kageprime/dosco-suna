@@ -1,5 +1,4 @@
 import { createHostedCheckout } from '../services/hosted-checkout';
-import { createPaystackCreditCheckout } from '../services/paystack';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { AppEnv } from '../../types';
 import { getStripe } from '../../shared/stripe';
@@ -16,6 +15,8 @@ import { BillingError } from '../../errors';
 import { resolveBillingReadAccountId, resolveBillingWriteAccountId } from '../http-require-billing-write';
 import { makeOpenApiApp, json, auth, errors } from '../../openapi';
 import { formatUsdAsCredits } from '@kortix/shared';
+import { captureProductEvent } from '../../shared/product-analytics';
+import { analyticsSource } from '../../middleware/analytics-source';
 
 export const paymentsRouter = makeOpenApiApp<AppEnv>();
 
@@ -38,7 +39,6 @@ paymentsRouter.openapi(
               account_id: z.string().optional(),
               success_url: z.string().optional(),
               cancel_url: z.string().optional(),
-              provider: z.enum(['stripe', 'paystack']).optional(),
             }),
           },
         },
@@ -46,7 +46,7 @@ paymentsRouter.openapi(
     },
     responses: {
       200: json(z.object({ checkout_url: z.string().nullable() }), 'Stripe checkout URL'),
-      ...errors(400),
+      ...errors(400, 429),
     },
   }),
   async (c) => {
@@ -69,18 +69,6 @@ paymentsRouter.openapi(
 
     if (!entitlements.canPurchaseCredits) {
       throw new BillingError('Your tier does not allow credit purchases');
-    }
-
-    // Paystack is the default payment provider; only an explicit 'stripe' routes to Stripe.
-    const provider = body.provider ?? 'paystack';
-    if (provider !== 'stripe') {
-      const result = await createPaystackCreditCheckout({
-        accountId,
-        email,
-        amount,
-        successUrl: body.success_url,
-      });
-      return c.json({ checkout_url: result.checkout_url });
     }
 
     const customerId = await getOrCreateStripeCustomer(accountId, email);
@@ -119,6 +107,12 @@ paymentsRouter.openapi(
       },
     });
 
+    captureProductEvent({
+      userId: c.get('userId'),
+      accountId,
+      event: 'checkout_started',
+      properties: { kind: 'credits', amount_usd: amount, source: analyticsSource(c) },
+    });
     return c.json({ checkout_url: session.url });
   },
 );
@@ -133,8 +127,8 @@ paymentsRouter.openapi(
     request: {
       query: z.object({
         account_id: z.string().optional(),
-        limit: z.coerce.number().optional(),
-        offset: z.coerce.number().optional(),
+        limit: z.coerce.number().int().nonnegative().safe().optional(),
+        offset: z.coerce.number().int().nonnegative().safe().optional(),
         type_filter: z.string().optional(),
       }),
     },
@@ -287,6 +281,7 @@ paymentsRouter.openapi(
     },
     responses: {
       200: json(OpaqueSchema, 'Auto-topup configuration result'),
+      ...errors(429),
     },
   }),
   async (c) => {
@@ -317,8 +312,8 @@ paymentsRouter.openapi(
     request: {
       query: z.object({
         account_id: z.string().optional(),
-        limit: z.coerce.number().optional(),
-        offset: z.coerce.number().optional(),
+        limit: z.coerce.number().int().nonnegative().safe().optional(),
+        offset: z.coerce.number().int().nonnegative().safe().optional(),
       }),
     },
     responses: {

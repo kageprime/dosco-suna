@@ -14,10 +14,10 @@ import type { SlackEnvelope, SlackEvent } from './types';
 // link itself and the actor check).
 
 // ── In-thread identity / access nudges ───────────────────────────────────────
-// When an unlinked or no-access sender @-mentions Dosco we answer right where
+// When an unlinked or no-access sender @-mentions Kortix we answer right where
 // they asked — an ephemeral (“only visible to you”) message in the same thread —
 // instead of a separate DM. Two states, two affordances:
-//   • unlinked   → "Connect your Dosco account" (opens the /login web flow)
+//   • unlinked   → "Connect your Kortix account" (opens the /login web flow)
 //   • not_member → "Request access" (files a project access request for an admin)
 // Connecting is decoupled from access, so a brand-new user connects once and then
 // requests access in-thread without bouncing off a hard "ask an admin" wall.
@@ -28,7 +28,7 @@ export function connectAccountBlocks(url: string, pendingId?: string | null): un
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: 'Dosco needs a linked Dosco account before it can run from Slack. Connect or create one to continue. _Only you can see this._',
+        text: 'Kortix needs a linked Kortix account before it can run from Slack. Connect or create one to continue. _Only you can see this._',
       },
     },
     {
@@ -52,7 +52,7 @@ export function requestAccessBlocks(projectId: string): unknown[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: "You're connected, but your Dosco account doesn't have access to this project yet. Request access and an admin will approve it. _Only you can see this._",
+        text: "You're connected, but your Kortix account doesn't have access to this Kortix workspace yet. Request access and an admin will approve it. _Only you can see this._",
       },
     },
     {
@@ -100,10 +100,10 @@ export async function postIdentityPrompt(input: {
       slackUserId: input.slackUserId,
       ...(pendingId ? { pendingId } : {}),
     }), pendingId);
-    fallback = 'Dosco needs a linked Dosco account to continue.';
+    fallback = 'Kortix needs a linked Kortix account to continue.';
   } else {
     blocks = requestAccessBlocks(input.projectId);
-    fallback = "You're connected, but don't have access to this project yet.";
+    fallback = "You're connected, but don't have access to this Kortix workspace yet.";
   }
 
   // Send BOTH: an in-thread ephemeral for context right where they asked, AND a
@@ -118,7 +118,7 @@ export async function postIdentityPrompt(input: {
 
 // DM every account admin (owner/admin) who has a linked Slack identity in this
 // workspace that a new access request is waiting, with a link to review it in
-// Dosco. Best-effort — an admin without a Slack link still sees it on the web
+// Kortix. Best-effort — an admin without a Slack link still sees it on the web
 // Members screen (the same request row powers both).
 export async function notifyAdminsOfAccessRequest(input: {
   teamId: string;
@@ -145,19 +145,19 @@ export async function notifyAdminsOfAccessRequest(input: {
     input.requesterUserId,
   );
   const who = email ? `*${email}*` : `<@${input.requesterSlackUserId}>`;
-  const projectUrl = `${dashboardBase(config.FRONTEND_URL)}/projects/${input.projectId}/customize/members`;
-  const text = `${who} requested access to a Dosco project in this workspace.`;
+  const projectUrl = `${dashboardBase(config.FRONTEND_URL)}/workspaces/${input.projectId}/customize/members`;
+  const text = `${who} requested access to a Kortix workspace in this Slack workspace.`;
   const blocks = [
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `${text}\nOpen *Members* in Dosco to approve.` },
+      text: { type: 'mrkdwn', text: `${text}\nOpen *Members* in Kortix to approve.` },
     },
     {
       type: 'actions',
       elements: [
         {
           type: 'button',
-          text: { type: 'plain_text', text: 'Review in Dosco', emoji: true },
+          text: { type: 'plain_text', text: 'Review in Kortix', emoji: true },
           style: 'primary',
           url: projectUrl,
           action_id: 'slack_open_access_review',

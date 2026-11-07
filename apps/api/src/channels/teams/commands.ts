@@ -52,10 +52,10 @@ function conversationRef(activity: TeamsActivity, projectId?: string): TeamsConv
   };
 }
 
-const OWN_PROJECT_NOTICE = 'This bot always runs its own project, so there is no other project to pick here.';
+const OWN_PROJECT_NOTICE = 'This bot always runs its own Kortix workspace, so there is no other workspace to pick here.';
 
 function dashboardBase(): string {
-  return (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
+  return (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
 }
 
 export async function handleTeamsCommand(input: {
@@ -133,7 +133,7 @@ export async function handleTeamsCommand(input: {
       case 'new':
       case 'reset': {
         // A chat is one conversation id for life, so without this every task
-        // anyone ever asked shared one session. The old one stays in Dosco.
+        // anyone ever asked shared one session. The old one stays in Kortix.
         const selection = await currentChannelSelection(ctx);
         const outcome = await startFreshTeamsConversation({
           tenantId: input.tenantId,
@@ -149,7 +149,7 @@ export async function handleTeamsCommand(input: {
         }
         const message = messageAfterFreshStart(input.activity);
         const previous = outcome.previousSessionId
-          ? ` The previous session stays in Dosco — [open it](${sessionWebUrl(config.FRONTEND_URL, input.projectId, outcome.previousSessionId)}).`
+          ? ` The previous session stays in Kortix — [open it](${sessionWebUrl(config.FRONTEND_URL, input.projectId, outcome.previousSessionId)}).`
           : '';
         await post(
           buildNoticeCard(
@@ -183,13 +183,13 @@ export async function handleTeamsCommand(input: {
         // A per-project bot runs its own project in every conversation: there
         // is no binding to remove.
         if (sessionProjectId) {
-          await post(buildNoticeCard('This bot always runs its own project, so there is nothing to unbind.'));
+          await post(buildNoticeCard('This bot always runs its own Kortix workspace, so there is nothing to unbind.'));
           return true;
         }
         const result = await unbindChannel(actor, settings);
         await post(
           result.ok
-            ? buildNoticeCard('Unbound. The next message here picks the project again.', '✅')
+            ? buildNoticeCard('Unbound. The next message here picks the Kortix workspace again.', '✅')
             : buildNoticeCard(teamsSettingsRefusal(result.reason, '')),
         );
         return true;
@@ -260,20 +260,20 @@ async function ensureBinding(
 
 function helpCard() {
   return buildHelpCard([
-    { cmd: '/login', desc: 'connect your Dosco account' },
+    { cmd: '/login', desc: 'connect your Kortix account' },
     { cmd: '/logout', desc: 'disconnect your account' },
     { cmd: '/whoami', desc: 'show who you are linked as' },
-    { cmd: '/status', desc: 'show and change the project, agent and model' },
+    { cmd: '/status', desc: 'show and change the workspace, agent and model' },
     { cmd: '/sessions', desc: 'your recent sessions started from Teams' },
     { cmd: '/models', desc: 'pick the model for this conversation' },
     { cmd: '/agents', desc: 'pick the agent for this conversation' },
-    { cmd: '/projects', desc: 'list connected projects' },
-    { cmd: '/use <name>', desc: 'point this conversation at another project' },
+    { cmd: '/projects', desc: 'list connected Kortix workspaces' },
+    { cmd: '/use <name>', desc: 'point this conversation at another Kortix workspace' },
     { cmd: '/stop', desc: 'stop the run in progress here' },
     { cmd: '/new [message]', desc: 'start a new session in this chat' },
     { cmd: '/policy', desc: 'who may join sessions started here: open, owner, approval' },
-    { cmd: '/unbind', desc: 'disconnect this conversation from its project' },
-    { cmd: '/home', desc: 'your projects and what to try' },
+    { cmd: '/unbind', desc: 'disconnect this conversation from its Kortix workspace' },
+    { cmd: '/home', desc: 'your Kortix workspaces and what to try' },
   ]);
 }
 
@@ -299,28 +299,28 @@ async function buildStatusCard(
     emoji: '⚙️',
     title: 'This conversation',
     rows: [
-      { label: 'Project', value: projectName },
+      { label: 'Workspace', value: projectName },
       { label: 'Agent', value: selection?.agentName || 'default' },
-      { label: 'Model', value: statusModel(selection?.opencodeModel ?? null, session?.opencodeModel ?? null) },
+      { label: 'Model', value: statusModel(selection?.sessionModel ?? null, session?.sessionModel ?? null) },
       { label: 'Policy', value: conversationPolicyLabel(normalizeConversationPolicy(selection?.conversationPolicy ?? null)) },
       // The run itself. `/status` was the one place a user looks to answer
       // "what is this conversation doing", and it answered everything except
       // that — so a run that had quietly stopped looked identical to one still
       // working.
       { label: 'Session', value: describeSession(session, { none: 'none yet — @-mention me with a task' }) },
-      { label: 'You', value: identity ? `connected as ${email || 'your Dosco account'}` : 'not connected — run /login' },
+      { label: 'You', value: identity ? `connected as ${email || 'your Kortix account'}` : 'not connected — run /login' },
     ],
     // Slack's settings panel changes what it shows; this one only showed it.
     actions: [
       openPanelAction('Change model', 'models'),
       openPanelAction('Change agent', 'agents'),
-      ...(projects.length > 1 && !sessionProjectId ? [openPanelAction('Switch project', 'projects')] : []),
+      ...(projects.length > 1 && !sessionProjectId ? [openPanelAction('Switch workspace', 'projects')] : []),
     ],
     // Deep-link to the run when there is one: the project page is a detour
     // from the thing the card is about.
     url: session
       ? sessionWebUrl(config.FRONTEND_URL, projectId, session.sessionId)
-      : `${dashboardBase()}/projects/${projectId}`,
+      : `${dashboardBase()}/workspaces/${projectId}`,
   });
 }
 
@@ -347,10 +347,10 @@ export async function buildTeamsPanel(input: {
 const RECENT_SESSIONS = 5;
 
 async function buildRecentSessionsCard(actor: ChatUser, projectId?: string) {
-  // Only sessions the linked Dosco account may open, as on the web; a
+  // Only sessions the linked Kortix account may open, as on the web; a
   // per-project bot lists its own project's only.
   const rows = await listVisibleChatSessions(actor, { limit: RECENT_SESSIONS, projectId });
-  if (rows === null) return buildNoticeCard('Connect your Dosco account to see your recent sessions: run `/login`.', '🔑');
+  if (rows === null) return buildNoticeCard('Connect your Kortix account to see your recent sessions: run `/login`.', '🔑');
   if (rows.length === 0) return buildNoticeCard('No recent sessions from this Teams tenant yet. @-mention me with a task to start one.', '🗂️');
   const images = await repoPreviewImages(rows.map((r) => r.repoUrl), { waitMs: PREVIEW_WAIT_MS });
   return buildSessionsCard(rows.map((r) => ({
@@ -375,7 +375,7 @@ async function buildWhoamiCard(tenantId: string, userId: string | null, projectI
       { label: 'Connected as', value: email || identity.userId },
       { label: 'Runs act as', value: 'you — your credentials & secrets' },
     ],
-    url: `${dashboardBase()}/projects/${projectId}`,
+    url: `${dashboardBase()}/workspaces/${projectId}`,
   });
 }
 
@@ -399,7 +399,7 @@ const POLICY_ALIASES: Record<string, 'project_open' | 'owner_only' | 'owner_appr
 
 async function setPolicy(ctx: SettingsChannel, user: ChatUser, arg: string) {
   const selection = await currentChannelSelection(ctx);
-  if (!selection) return buildNoticeCard('Connect a project to this conversation first — try /projects.', '📁');
+  if (!selection) return buildNoticeCard('Connect a Kortix workspace to this conversation first — try /projects.', '📁');
   const current = normalizeConversationPolicy(selection.conversationPolicy);
   const requested = arg.trim().toLowerCase();
   if (!requested) {
@@ -408,7 +408,7 @@ async function setPolicy(ctx: SettingsChannel, user: ChatUser, arg: string) {
       title: 'Session policy',
       rows: [
         { label: 'Current', value: conversationPolicyLabel(current) },
-        { label: 'open', value: 'linked project members can join sessions started here (default)' },
+        { label: 'open', value: 'linked workspace members can join sessions started here (default)' },
         { label: 'approval', value: 'the session owner approves each person' },
         { label: 'owner', value: 'only the session owner' },
       ],
@@ -417,14 +417,14 @@ async function setPolicy(ctx: SettingsChannel, user: ChatUser, arg: string) {
   const next = POLICY_ALIASES[requested];
   if (!next) return buildNoticeCard('Use `/policy open`, `/policy approval`, or `/policy owner`.');
   const result = await changeChannelPolicy(user, ctx, next);
-  if (!result.ok) return buildNoticeCard(teamsSettingsRefusal(result.reason, 'Connect a project to this conversation first — try /projects.'), '📁');
+  if (!result.ok) return buildNoticeCard(teamsSettingsRefusal(result.reason, 'Connect a Kortix workspace to this conversation first — try /projects.'), '📁');
   return buildNoticeCard(`Session policy set to **${conversationPolicyLabel(next)}**. New sessions started here use it.`, '✅');
 }
 
 async function buildProjectsCard(tenantId: string, currentProjectId: string) {
   const projects = await listTenantProjects(tenantId);
   if (projects.length === 0) {
-    return buildNoticeCard('No Dosco projects are connected to this Teams tenant yet.', '📁');
+    return buildNoticeCard('No Kortix workspaces are connected to this Teams tenant yet.', '📁');
   }
   return buildProjectsPickerCard(await projectRows(projects, currentProjectId));
 }
@@ -443,7 +443,7 @@ async function switchProject(user: ChatUser, channel: SettingsChannel, arg: stri
   if (!result.ok) {
     return buildNoticeCard(
       result.reason === 'not_installed'
-        ? "That project isn't connected to this Teams tenant."
+        ? "That Kortix workspace isn't connected to this Teams tenant."
         : teamsSettingsRefusal(result.reason, ''),
     );
   }

@@ -148,7 +148,7 @@ export async function prepareProcess(options: { entry: boolean }): Promise<void>
       }),
     );
   }
-  // Dosco managed models come from Platinum Inference: read the lineup before serving.
+  // Kortix managed models come from Platinum Inference: read the lineup before serving.
   if (options.entry) await loadManagedLineupAtBoot();
   if (config.KORTIX_MODEL_CATALOG_LIVE_ENABLED !== '0') {
     runtimeModelCatalog.start().catch((err) =>
@@ -189,6 +189,15 @@ async function startReplicaServices(kind: ProcessKind) {
   await import('./platform/services/managed-git-backend')
     .then((m) => m.refreshGitBackend())
     .catch(() => {});
+  // Self-host: the sign-up policy the auth service's hook reads. A failure
+  // leaves the previous policy row in force.
+  await import('./shared/self-host-signup-policy')
+    .then((m) => m.syncSelfHostSignupPolicy())
+    .catch((err) =>
+      appLogger.error('[startup] Self-host sign-up policy not written', {
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   // Warm the maintenance config, so a fresh pod serves the stored config from
   // request #1, not the cold-cache default.
   await maintenanceSetting.refresh().catch(() => {});
@@ -203,7 +212,7 @@ async function startReplicaServices(kind: ProcessKind) {
     startTeamsBotTokenRefresh();
     if (serving) {
       startSessionLifecycleWorker();
-      // Dosco-polled app events: every web process checks due streams.
+      // Kortix-polled app events: every web process checks due streams.
       startTriggerEventPollWorker();
       // Fill the Composio catalogue snapshot, the hidden-toolkit list, the toolkit
       // metadata and the first discovery page in the background, so the first
@@ -218,8 +227,12 @@ async function startReplicaServices(kind: ProcessKind) {
   // A tip-proof read adopts the base tip another process asked the upstream
   // for (config-releases/base-tip.ts) when this mirror holds it: the per-prompt
   // grant read then needs no fetch on a process that has not proven it itself.
+  // Every tip this process asks for is shared the same way.
   await Promise.all([import('./config-releases/base-tip'), import('./projects/surface')]).then(
-    ([tips, projects]) => projects.useSharedTipProof(tips.storedBaseTipProof),
+    ([tips, projects]) => {
+      projects.useSharedTipProof(tips.storedBaseTipProof);
+      projects.publishTipProofsTo(tips.publishBaseTipProof);
+    },
   );
   // Every api process must learn that a base branch moved, not just the one
   // that handled the push — otherwise the turn-start gate answers `current`
@@ -385,7 +398,12 @@ async function runShutdown(signal: string): Promise<void> {
   // Flush observability data last, after the drain: audit rows are buffered off
   // the request path, and requests that finished during the drain wrote some.
   await within(
-    Promise.allSettled([shutdownAuditEvents(), appLogger.flush(), flushSentry()]),
+    Promise.allSettled([
+      shutdownAuditEvents(),
+      appLogger.flush(),
+      flushSentry(),
+      import('./shared/product-analytics').then((m) => m.shutdownProductAnalytics()),
+    ]),
     WORKER_STOP_BUDGET_MS,
     'flush',
   );

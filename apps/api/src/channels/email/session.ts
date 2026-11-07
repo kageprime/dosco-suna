@@ -1,9 +1,4 @@
-import {
-  chatChannelBindings,
-  chatEventDedup,
-  chatInstalls,
-  projects,
-} from '@kortix/db';
+import { chatChannelBindings, chatEventDedup, chatInstalls } from '@kortix/db';
 import type { ChannelEnvelope } from '@kortix/shared';
 import { CHANNELS } from '@kortix/shared/channel-descriptors';
 import { and, eq } from 'drizzle-orm';
@@ -31,6 +26,7 @@ import {
 } from '../install-store';
 import { matchesEmailSenderRegex } from './sender-policy-regex';
 import type { InboundEmail, ResendInboxEmailReceivedEvent } from './types';
+import { projectsView } from '../../workspaces/rows';
 
 export function resetEmailChannelForTest() {
   threadEmailLoader = getResendThreadEmail;
@@ -40,7 +36,7 @@ export async function resolveProjectForEmailInbox(inboxId: string): Promise<stri
   const [row] = await db
     .select({ projectId: chatInstalls.projectId })
     .from(chatInstalls)
-    .where(and(eq(chatInstalls.platform, 'email'), eq(chatInstalls.workspaceId, inboxId)))
+    .where(and(eq(chatInstalls.platform, 'email'), eq(chatInstalls.platformTeamId, inboxId)))
     .limit(1);
   return row?.projectId ?? null;
 }
@@ -48,9 +44,9 @@ export async function resolveProjectForEmailInbox(inboxId: string): Promise<stri
 /** Whether the project has the email channel (`email_channel`); off, its inboxes' mail is ignored. */
 export async function emailChannelOnForProject(projectId: string): Promise<boolean> {
   const [row] = await db
-    .select({ metadata: projects.metadata })
-    .from(projects)
-    .where(eq(projects.projectId, projectId))
+    .select({ metadata: projectsView.metadata })
+    .from(projectsView)
+    .where(eq(projectsView.projectId, projectId))
     .limit(1);
   return Boolean(row) && resolveFeatureFlag(row!.metadata, 'email_channel');
 }
@@ -302,8 +298,8 @@ async function planEmailSession(projectId: string, email: InboundEmail): Promise
   const { inboxId, threadId } = email;
   const [project] = await db
     .select()
-    .from(projects)
-    .where(eq(projects.projectId, projectId))
+    .from(projectsView)
+    .where(eq(projectsView.projectId, projectId))
     .limit(1);
   if (!project) return null;
 
@@ -313,14 +309,14 @@ async function planEmailSession(projectId: string, email: InboundEmail): Promise
   const [selection] = await db
     .select({
       agentName: chatChannelBindings.agentName,
-      opencodeModel: chatChannelBindings.model,
+      sessionModel: chatChannelBindings.model,
     })
     .from(chatChannelBindings)
     .where(
       and(
         eq(chatChannelBindings.projectId, projectId),
         eq(chatChannelBindings.platform, 'email'),
-        eq(chatChannelBindings.workspaceId, inboxId),
+        eq(chatChannelBindings.platformTeamId, inboxId),
       ),
     )
     .limit(1);
@@ -340,7 +336,7 @@ async function planEmailSession(projectId: string, email: InboundEmail): Promise
     visibility: privateInbox ? 'private' : 'project',
     body: {
       agent_name: selection?.agentName || 'default',
-      ...(selection?.opencodeModel ? { opencode_model: selection.opencodeModel } : {}),
+      ...(selection?.sessionModel ? { model: selection.sessionModel } : {}),
       connector_bindings: {
         email: { connection_id: account.connectionId },
       },
@@ -411,14 +407,14 @@ async function replyNotAccepting(target: ChannelTarget): Promise<void> {
 /**
  * The email as one channel message (`channelPromptText`): the subject is where it
  * was sent, the body is the text. The agent works the inbox with the
- * `kortix connectors` CLI, which every harness's shell has: the MCP face exists
- * only in OpenCode's config, so a prompt that named MCP tools left a pi session
+ * `kortix connectors` CLI, which every harness's shell has: pi serves no MCP
+ * servers, so a prompt that named MCP tools left a pi session
  * unable to read or answer. Every value the sender wrote is quoted in the notes.
  */
 /**
  * A value the sender wrote, as a JSON string that stays on one line and opens no tag: JSON
  * leaves U+0085, U+2028, U+2029, `<` and `>` as they are, and a client reads a `<file>` tag
- * after the delimiter as one Dosco wrote.
+ * after the delimiter as one Kortix wrote.
  */
 const quoted = (value: string) =>
   JSON.stringify(value).replace(/[<>\u0085\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
@@ -441,12 +437,12 @@ function emailEnvelope(email: InboundEmail): ChannelEnvelope {
       ...email.attachments.map(
         (a) => `Attachment ${quoted(a.filename ?? a.id)} (${a.size ?? 'unknown'} bytes, attachment_id ${a.id}).`,
       ),
-      'You are operating an email inbox assigned to this Dosco project.',
+      'You are operating an email inbox assigned to this Kortix workspace.',
       'Use the `kortix connectors` CLI in the shell. Connector actions are not direct tools.',
       `Read the current thread, every email with its body: ${connectorReply('email', 'get_thread', { thread_id: email.threadId })}.`,
       'Start a new outbound email with `kortix connectors call email.send_message` and args containing `to`, `subject`, and `text` or `html`.',
       'Run `kortix connectors show email.<action>` to confirm an input schema before the first call. Pass long or quoted args as a file: `@args.json`.',
-      'Dosco fills in the inbox and resolves the email key server-side. Do not look for either in the sandbox.',
+      'Kortix fills in the inbox and resolves the email key server-side. Do not look for either in the sandbox.',
       'If you need the user to clarify something, reply by email and end the turn. Their next reply will resume this same session.',
     ],
   };

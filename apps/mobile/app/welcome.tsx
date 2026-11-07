@@ -1,9 +1,10 @@
 /**
- * Upgrade screen — `/welcome`, shown once per user right after sign-up
- * (COR-161). The start screen (`app/index.tsx`) opens it when no account has
- * a project and this user has not seen it (`startDestination`,
- * lib/onboarding/onboarding.ts). Never a paywall: "Continue with Free"
- * always leads on to `/new`.
+ * Upgrade screen — `/welcome`, shown once per user (COR-161). The start
+ * screen (`app/index.tsx`) opens it when the user has no workspace but holds
+ * an account (an empty one kept from before Workspaces D3; the workspace
+ * created next keeps its plan) and has not seen it (`startDestination`,
+ * lib/onboarding/onboarding.ts). A new user has no account, so never sees
+ * it. Never a paywall: "Continue with Free" always leads on to `/new`.
  *
  * The offer is the upgrade sheet's (`GlobalUpgradeSheet`): Kortix Credits and the
  * first four lines of its Includes list (`welcomeOffer`).
@@ -12,7 +13,7 @@
  * - Android and web: the pitch line (pick any monthly amount on the web) and a
  *   primary Upgrade that opens web
  *   billing (the Plans screen's checkout, `openExternalUrl`); a user who
- *   cannot manage billing sees "Ask an account owner to upgrade" instead.
+ *   cannot manage billing sees "Ask a workspace owner or admin to upgrade" instead.
  * - An account already on a paid plan skips the screen.
  *
  * The seen flag is written as soon as the offer is on screen
@@ -86,11 +87,11 @@ export default function WelcomeScreen() {
     haptics.medium();
     setOpening(true);
     try {
-      // Resolves when the in-app browser closes: then on to the first project.
+      // Resolves when the in-app browser closes: then on to the first workspace.
       await openExternalUrl(getWebBillingUrl());
       router.replace('/new');
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
     } finally {
       setOpening(false);
     }
@@ -115,7 +116,7 @@ export default function WelcomeScreen() {
         style={{ paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 16) }}>
         <View className="flex-1 justify-center gap-6">
           <View className="items-center">
-            <Text variant="h3">{t('upgrade.creditsPlan', 'Dosco Credits')}</Text>
+            <Text variant="h3">{t('upgrade.creditsPlan', 'Kortix Credits')}</Text>
             {offer.action === 'none' ? null : (
               <Text variant="muted" className="mt-1 text-center">
                 {t(
@@ -141,7 +142,7 @@ export default function WelcomeScreen() {
             </Button>
           ) : offer.action === 'ask-owner' ? (
             <Text variant="muted" className="py-2 text-center">
-              {t('plans.askOwner', 'Ask an account owner to upgrade')}
+              {t('plans.askOwner', 'Ask a workspace owner or admin to upgrade')}
             </Text>
           ) : null}
           <Button
@@ -150,7 +151,7 @@ export default function WelcomeScreen() {
             className="rounded-full"
             disabled={opening}
             onPress={continueFree}>
-            <Text>Continue with Free</Text>
+            <Text>{t('upgrade.continueFree', 'Continue with Free')}</Text>
           </Button>
         </View>
       </View>

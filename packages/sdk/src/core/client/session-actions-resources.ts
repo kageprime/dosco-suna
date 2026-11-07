@@ -15,17 +15,25 @@ export function bindSessionActionsResources(ctx: SessionBindingContext) {
     setModel: (model: SessionModel | undefined) => {
       ctx.model = model;
     },
+    /** Read the server-side pin, not this handle's local send preference. */
+    getModel: () => P.getWorkspaceSessionModel(ctx.projectId, ctx.sessionId),
+    /** Persist a model and queue a continuation without interrupting this turn. */
+    switchModel: async (input: P.SessionModelSwitchInput) => {
+      const result = await P.switchWorkspaceSessionModel(ctx.projectId, ctx.sessionId, input);
+      ctx.clearPersistedDefaults();
+      return result;
+    },
     /**
      * PERSIST a new model for this session server-side, re-pointing the
      * running sandbox. Distinct from `setModel`, which only chooses what the
      * NEXT local `send` asks for and never leaves this handle.
      *
-     * Restarting the runtime is how the change takes effect, so an in-flight
-     * turn ends. `applied_live` reports whether a running session took it now
-     * or whether it applies at next start.
+     * Pi reconfigures without restarting. The running turn finishes on its
+     * current model; the next turn uses the new settings. `applied_live`
+     * reports whether the live sandbox accepted those settings.
      */
     changeModel: async (model: string) => {
-      const result = await P.setProjectSessionModel(ctx.projectId, ctx.sessionId, model);
+      const result = await P.setWorkspaceSessionModel(ctx.projectId, ctx.sessionId, model);
       ctx.clearPersistedDefaults();
       return result;
     },

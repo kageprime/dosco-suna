@@ -1,4 +1,3 @@
-
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -12,8 +11,8 @@
     <key>EXUpdatesLaunchWaitMs</key>
     <integer>0</integer>
     <key>EXUpdatesRuntimeVersion</key>
-    <string>1.0.0</string>
+    <string>1.6.0</string>
     <key>EXUpdatesURL</key>
-    <string>https://u.expo.dev/2e700259-ff47-4127-9fcf-f9a435746a13</string>
+    <string>https://u.expo.dev/9fca3cff-a291-41c9-88b9-feb8053b990f</string>
   </dict>
 </plist>

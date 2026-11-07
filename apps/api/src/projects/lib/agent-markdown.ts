@@ -1,7 +1,7 @@
 /**
- * Read/write for an OpenCode agent's native `.md` file — YAML frontmatter +
- * body (the system prompt). This is now the ONE home for agent BEHAVIOR
- * (decision 2026-07-05: "OpenCode behavior lives in the native .md; Dosco
+ * Read/write for an agent's `.md` file — YAML frontmatter + body (the system
+ * prompt). This is now the ONE home for agent BEHAVIOR
+ * (decision 2026-07-05: "OpenCode behavior lives in the native .md; Kortix
  * governance lives in kortix.yaml — one home per concern").
  *
  * Distinct from `@kortix/registry`'s `parseFrontmatter` (a dependency-free

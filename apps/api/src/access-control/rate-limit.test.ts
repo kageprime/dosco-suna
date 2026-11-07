@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test';
 const submissions: Array<Record<string, unknown>> = [];
 mock.module('../config', () => ({ config: {} }));
 mock.module('../shared/db', () => ({
+  withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
   db: { insert: () => ({ values: async (row: Record<string, unknown>) => { submissions.push(row); } }) },
 }));
 mock.module('../shared/audit', () => ({ recordAuditEvent: async () => {} }));
@@ -27,7 +28,7 @@ function submit(client = '192.0.2.1', prefix = '198.51.100.1') {
   return accessControlApp.request('/request-access', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': `${prefix}, ${client}, 192.0.2.254` },
-    body: JSON.stringify({ email: 'agent@dosco.live', company: 'Synthetic', useCase: 'Testing' }),
+    body: JSON.stringify({ email: 'agent@kortix.ai', company: 'Synthetic', useCase: 'Testing' }),
   });
 }
 
@@ -35,7 +36,7 @@ test('a normal unauthenticated submission succeeds and preserves its fields', as
   const response = await submit();
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ success: true, message: 'Access request submitted' });
-  expect(submissions).toEqual([{ email: 'agent@dosco.live', company: 'Synthetic', useCase: 'Testing' }]);
+  expect(submissions).toEqual([{ email: 'agent@kortix.ai', company: 'Synthetic', useCase: 'Testing' }]);
 });
 
 test('a burst stops at 60 writes, ignores forged prefixes, and refills after a minute', async () => {

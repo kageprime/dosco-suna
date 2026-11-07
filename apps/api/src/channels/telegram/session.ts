@@ -12,7 +12,7 @@
  *   anything else   → the core: a follow-up into the chat's session, or a new
  *                     project-visible session bound to the chat; the message's own
  *                     file (photo, document, audio, voice, video) goes with it
- *   a button press  → a command button (`kc:`) on a menu Dosco sent runs its command
+ *   a button press  → a command button (`kc:`) on a menu Kortix sent runs its command
  *                     over the pressed message (core/commands.ts `runCommandPress`); a
  *                     question button answers the agent's question (core/questions.ts),
  *                     one question at a time; so does a message typed while one shows
@@ -21,7 +21,7 @@
  * the bot token never enters the sandbox.
  */
 import type { RuntimeQuestion } from '@kortix/api-contract/transcript';
-import { chatThreads, projects } from '@kortix/db';
+import { chatThreads } from '@kortix/db';
 import type { ChannelEnvelope } from '@kortix/shared';
 import { CHANNELS } from '@kortix/shared/channel-descriptors';
 import { and, eq, like, or } from 'drizzle-orm';
@@ -57,6 +57,7 @@ import { telegramAccessPort } from './access';
 import { TELEGRAM_UPDATES, telegramCall, telegramFile } from './api';
 import { loadTelegramBotToken, loadTelegramInstall, loadTelegramWebhookSecret } from './installs';
 import { repairTelegramMenu } from './menu';
+import { projectsView } from '../../workspaces/rows';
 
 export const TELEGRAM_MESSAGE_EVENT = 'telegram.message.created';
 
@@ -83,7 +84,7 @@ export interface TelegramMessage {
   media_group_id?: string;
 }
 
-/** Each kind of file, in the order read: Dosco's word for it (also the session-view label) and the type Telegram leaves out. */
+/** Each kind of file, in the order read: Kortix's word for it (also the session-view label) and the type Telegram leaves out. */
 const TELEGRAM_FILE_KINDS = [
   { kind: 'photo', noun: 'photo', mime: 'image/jpeg' },
   { kind: 'document', noun: 'document', mime: 'application/octet-stream' },
@@ -131,7 +132,7 @@ function telegramText(message: TelegramMessage): string {
 export interface TelegramCallbackQuery {
   id: string;
   from: { id: number; username?: string };
-  /** The message with the button. Absent for an inline-mode message, which Dosco never sends. */
+  /** The message with the button. Absent for an inline-mode message, which Kortix never sends. */
   message?: Pick<TelegramMessage, 'message_id' | 'chat' | 'message_thread_id' | 'is_topic_message'>;
   data?: string;
 }
@@ -346,14 +347,14 @@ const telegramQuestions: QuestionPort = {
 
 /** Plain-text next step per `classifyTurnError` title (slack/errors.ts). Another title ('Run failed') gets the fallback. */
 const RUN_ERROR_ADVICE: Partial<Record<string, string>> = {
-  'Out of credits': 'A workspace admin can top up credits in Dosco. Then send your message again.',
-  'Usage limit reached': 'Wait, then send your message again. A project admin can also pick another model in Dosco.',
+  'Out of credits': 'A workspace admin can top up credits in Kortix. Then send your message again.',
+  'Usage limit reached': 'Wait, then send your message again. A workspace admin can also pick another model in Kortix.',
   'Response too long': 'Ask the agent to continue, or narrow the request.',
   'Conversation too long': 'Send /new to start a new conversation.',
-  'Agent unavailable': 'Send /agent to pick another agent, then /new and your message again. A project admin can also fix the agent in Dosco.',
+  'Agent unavailable': 'Send /agent to pick another agent, then /new and your message again. A workspace admin can also fix the agent in Kortix.',
   'Model unavailable': 'Send /model to pick another model, then send your message again.',
-  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Dosco. Then send your message again.',
-  'Provider rejected the request': 'A workspace admin can check the model provider settings in Dosco. Then send your message again.',
+  'ChatGPT login needs reconnection': 'Whoever connected the ChatGPT account must reconnect it in Kortix. Then send your message again.',
+  'Provider rejected the request': 'A workspace admin can check the model provider settings in Kortix. Then send your message again.',
   'Provider unavailable': 'Send your message again to retry.',
   'Request blocked': 'Rephrase the request, then send it again.',
 };
@@ -405,33 +406,33 @@ async function subscribeToButtons(token: string, projectId: string): Promise<boo
 export function telegramNotice(target: ChannelTarget, notice: ChannelNotice): string | null {
   switch (notice.kind) {
     case 'create_pending':
-      return 'Dosco is still starting a session for this chat. The agent replies here when it is ready.';
+      return 'Kortix is still starting a session for this chat. The agent replies here when it is ready.';
     case 'create_in_flight':
-      return 'Dosco is still starting a session for this chat. Send your message again in a minute.';
+      return 'Kortix is still starting a session for this chat. Send your message again in a minute.';
     case 'create_failed':
       return startErrorMessage(notice.error.status, notice.error.body, TELEGRAM_START_ERROR_COMMANDS);
     case 'follow_up_failed':
-      return "This chat's Dosco session cannot take new messages. Send /new to start a new conversation, then send your message again.";
+      return "This chat's Kortix session cannot take new messages. Send /new to start a new conversation, then send your message again.";
     case 'run_failed': {
       const { title, aborted } = classifyTurnError(notice.error);
       // A stop is not a failure; the push skips it too (notifications/session-push.ts).
       if (aborted) return null;
       // The title comes from a closed set: the provider's own message never reaches the chat.
       return [
-        `Dosco could not finish this run: ${title}.`,
+        `Kortix could not finish this run: ${title}.`,
         RUN_ERROR_ADVICE[title] ?? RUN_ERROR_FALLBACK_ADVICE,
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
     }
     case 'start_retrying':
       return [
-        `Dosco could not start this chat's session yet. ${notice.reason}`,
-        'Dosco tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
+        `Kortix could not start this chat's session yet. ${notice.reason}`,
+        'Kortix tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
       ].join('\n');
     case 'start_failed':
       return [
-        `Dosco could not start this chat's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
-        'Send /new, then send your message again. If it fails again, a project admin can check the session in Dosco.',
+        `Kortix could not start this chat's session, so the agent did not run.${notice.reason ? ` ${notice.reason}` : ''}`,
+        'Send /new, then send your message again. If it fails again, a workspace admin can check the session in Kortix.',
         `Details: ${sessionWebUrl(config.FRONTEND_URL, target.projectId, notice.sessionId)}`,
       ].join('\n');
   }
@@ -442,7 +443,7 @@ export async function handleTelegramEvent(
   run: { finalAttempt: boolean } = { finalAttempt: false },
 ): Promise<void> {
   const message = event.data.message as unknown as TelegramMessage;
-  const [project] = await db.select().from(projects).where(eq(projects.projectId, event.projectId)).limit(1);
+  const [project] = await db.select().from(projectsView).where(eq(projectsView.projectId, event.projectId)).limit(1);
   if (!project) return;
   const [install, token] = await Promise.all([
     loadTelegramInstall(event.projectId),
@@ -538,7 +539,7 @@ export async function handleTelegramEvent(
           return { agentName: 'default' } as Awaited<ReturnType<typeof chatSessionStart>>;
         });
         if (start.unavailableModel) {
-          await reply(`Dosco did not send your message: this chat's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.`);
+          await reply(`Kortix did not send your message: this chat's model ${start.unavailableModel} is not available any more. Pick another with /model, then send your message again.`);
           return null;
         }
         return {
@@ -546,7 +547,7 @@ export async function handleTelegramEvent(
           visibility: 'project',
           body: {
             agent_name: start.agentName,
-            ...(start.model ? { opencode_model: start.model } : {}),
+            ...(start.model ? { model: start.model } : {}),
             ...(start.pools ? { provider_secret_pools: start.pools } : {}),
             title_source: text || null,
           },
@@ -590,7 +591,7 @@ export async function handleTelegramPress(
     return;
   }
   const message = press.message;
-  // No message to answer in (an inline-mode press, which Dosco never asks for).
+  // No message to answer in (an inline-mode press, which Kortix never asks for).
   if (!message) return void (await answerPress(token, press.id));
   if (isCommandPressData(press.data ?? '')) return handleTelegramCommandPress(event, install.botId, token, press, message);
   const ref = String(message.message_id);
@@ -642,7 +643,7 @@ async function handleTelegramCommandPress(
   press: TelegramCallbackQuery,
   message: NonNullable<TelegramCallbackQuery['message']>,
 ): Promise<void> {
-  const [project] = await db.select().from(projects).where(eq(projects.projectId, event.projectId)).limit(1);
+  const [project] = await db.select().from(projectsView).where(eq(projectsView.projectId, event.projectId)).limit(1);
   if (!project) return void (await answerPress(token, press.id));
   const target: ChannelTarget = {
     platform: 'telegram',
@@ -690,7 +691,7 @@ async function telegramThreadOfSession(sessionId: string, botId: string, chatId:
     .where(
       and(
         eq(chatThreads.platform, 'telegram'),
-        eq(chatThreads.workspaceId, botId),
+        eq(chatThreads.platformTeamId, botId),
         eq(chatThreads.sessionId, sessionId),
         or(eq(chatThreads.threadId, chatId), like(chatThreads.threadId, `${chatId}:%`)),
       ),
@@ -731,7 +732,7 @@ function telegramCommandMessage(reply: CommandReply): { text: string; keyboard: 
   const actions = (reply.actions ?? []).map((a) => button(a.label, a.press));
   for (let i = 0; i < actions.length; i += 2) keyboard.push(actions.slice(i, i + 2));
   const url = 'url' in reply ? reply.url : undefined;
-  if (url && reply.kind === 'panel' && url.startsWith('https://')) keyboard.push([{ text: 'Open in Dosco', url }]);
+  if (url && reply.kind === 'panel' && url.startsWith('https://')) keyboard.push([{ text: 'Open in Kortix', url }]);
   else if (url) lines.push(url);
   return { text: reply.note ? `${lines.join('\n')}\n\n${reply.note}` : lines.join('\n'), keyboard };
 }
@@ -750,7 +751,7 @@ async function ensureTelegramButtons(token: string, projectId: string, botId: st
   return false;
 }
 
-/** What the Dosco Channels page calls a chat: its title, else the @username or the first name of a private chat. */
+/** What the Kortix Channels page calls a chat: its title, else the @username or the first name of a private chat. */
 function telegramChatName(chat: TelegramMessage['chat']): string | null {
   return chat.title || (chat.username ? `@${chat.username}` : chat.first_name) || null;
 }
@@ -816,12 +817,12 @@ export function telegramEnvelope(message: TelegramMessage): ChannelEnvelope {
         ? ['This message is one item of an album. Telegram sends each item as its own message, and usually only the first carries the caption.']
         : []),
       `One message holds at most ${CHANNELS.telegram.messageChars} characters; send a longer answer as several messages.`,
-      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Dosco shows them in this chat as buttons, one question at a time.',
+      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Kortix shows them in this chat as buttons, one question at a time.',
       'Never list choices or questions as plain text. Ask in plain words only when the tool result says the question could not be posted.',
       `While you work on a long task, show typing: ${connectorReply(TELEGRAM_CHANNEL_CONNECTOR_SLUG, 'send_chat_action', { chat_id: String(chat.id) })}.`,
       'For bold or code, add `"parse_mode":"HTML"` and use <b>, <i>, <code>, <pre>; otherwise send plain text.',
       'The bot token is resolved server-side. Do not look for it in the sandbox.',
-      `The next message in this chat continues this session. Dosco answers ${KORTIX_COMMANDS} in the chat itself; those commands never reach you.`,
+      `The next message in this chat continues this session. Kortix answers ${KORTIX_COMMANDS} in the chat itself; those commands never reach you.`,
     ],
   };
 }

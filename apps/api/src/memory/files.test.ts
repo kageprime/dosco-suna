@@ -66,7 +66,7 @@ describe('a file as a page', () => {
     expect(page.excerpt).toBe('Ships on 2026-11-12. New pricing page with Team. Copy done code Quote a b');
     expect(parsePage(`# T\n\n${'x'.repeat(400)}`, 'x.md', null).excerpt).toHaveLength(280);
     expect(parsePage('# Only a title', 'x.md', null).excerpt).toBe('');
-    expect(parsePage('# T\n\n`project_channels` is _off_ by default.', 'x.md', null).excerpt).toBe('project_channels is off by default.');
+    expect(parsePage('# T\n\n`chat` is _off_ by default.', 'x.md', null).excerpt).toBe('chat is off by default.');
   });
 
   test('sources, author and related come from front-matter', () => {
@@ -84,7 +84,7 @@ describe('a file as a page', () => {
   });
 
   test('updated_by: `<name> (agent)` is an agent, a plain name a person, an email or nothing is system', () => {
-    expect(authorFromFrontMatter('Dosco (agent)')).toEqual({ kind: 'agent', user_id: null, name: null, agent: 'Dosco' });
+    expect(authorFromFrontMatter('Kortix (agent)')).toEqual({ kind: 'agent', user_id: null, name: null, agent: 'Kortix' });
     expect(authorFromFrontMatter('  Priya Shah  ')).toEqual({ kind: 'person', user_id: null, name: 'Priya Shah', agent: null });
     expect(authorFromFrontMatter('priya@example.test')).toBeNull();
     expect(authorFromFrontMatter('Priya <priya@example.test>')).toBeNull();
@@ -93,7 +93,7 @@ describe('a file as a page', () => {
   });
 
   test('the declared author stays when the file is newer than its updated_at; the time is the mtime', () => {
-    const agent = authorFromFrontMatter('Dosco (agent)')!;
+    const agent = authorFromFrontMatter('Kortix (agent)')!;
     const mtime = Date.parse('2026-10-25T10:13:51.929Z');
     expect(updatedOf({ updatedAt: '2026-10-09T16:40:00.000Z', updatedBy: agent }, mtime)).toEqual({ at: '2026-10-25T10:13:51.929Z', by: agent });
     expect(updatedOf({ updatedAt: '2026-10-25T10:13:30.000Z', updatedBy: agent }, mtime)).toEqual({ at: '2026-10-25T10:13:30.000Z', by: agent });

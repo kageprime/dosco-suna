@@ -5,7 +5,7 @@ const mockConfig = {
   FRONTEND_URL: 'https://app.example.test',
   MAILTRAP_API_TOKEN: 'mailtrap-token',
   MAILTRAP_FROM_EMAIL: 'noreply@example.test',
-  MAILTRAP_FROM_NAME: 'Dosco Test',
+  MAILTRAP_FROM_NAME: 'Kortix Test',
 };
 
 mock.module('../config', () => ({
@@ -52,7 +52,7 @@ describe('notification emails', () => {
       const payload = sentPayload();
       expect(payload.HTML).toContain('Research &lt;team&gt;');
       expect(payload.HTML).not.toContain('Research <team>');
-      expect(payload.HTML).toContain('https://app.example.test/projects/synthetic-project');
+      expect(payload.HTML).toContain('https://app.example.test/workspaces/synthetic-project');
       expect(payload.Text).toContain('no invitation acceptance is required');
       expect(payload.Text).toContain('member@example.test');
     } finally {
@@ -62,7 +62,7 @@ describe('notification emails', () => {
 
   test('sends account invite emails to the shared invite landing route', async () => {
     const result = await sendAccountInviteEmail({
-      email: 'teammate@dosco.live',
+      email: 'teammate@kortix.com',
       accountName: 'Acme <Labs>',
       inviterEmail: 'owner@example.test',
       inviteId: 'invite-account-123',
@@ -74,9 +74,9 @@ describe('notification emails', () => {
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer mailtrap-token');
 
     const payload = sentPayload();
-    expect(payload.from).toEqual({ email: 'noreply@example.test', name: 'Dosco Test' });
-    expect(payload.to).toEqual([{ email: 'teammate@dosco.live' }]);
-    expect(payload.subject).toBe('You\'re invited to join "Acme <Labs>" on Dosco');
+    expect(payload.from).toEqual({ email: 'noreply@example.test', name: 'Kortix Test' });
+    expect(payload.to).toEqual([{ email: 'teammate@kortix.com' }]);
+    expect(payload.subject).toBe('You\'re invited to join "Acme <Labs>" on Kortix');
     expect(payload.category).toBe('account-invite');
     expect(payload.html).toContain('https://app.example.test/invites/invite-account-123');
     expect(payload.html).toContain('Acme &lt;Labs&gt;');
@@ -90,13 +90,13 @@ describe('notification emails', () => {
     expect(payload.text).toContain('If you were not expecting this invitation, you can ignore this email.');
     // Accepting requires the invited address (email_matches_caller), so the
     // email says which address the invitation is for.
-    expect(payload.html).toContain('This invitation is for teammate@dosco.live. Sign in with that address');
-    expect(payload.text).toContain('This invitation is for teammate@dosco.live. Sign in with that address');
+    expect(payload.html).toContain('This invitation is for teammate@kortix.com. Sign in with that address');
+    expect(payload.text).toContain('This invitation is for teammate@kortix.com. Sign in with that address');
   });
 
   test('an invite without an inviter email names the account as the inviter', async () => {
     await sendAccountInviteEmail({
-      email: 'teammate@dosco.live',
+      email: 'teammate@kortix.com',
       accountName: 'Acme',
       inviterEmail: null,
       inviteId: 'invite-no-inviter',
@@ -106,7 +106,7 @@ describe('notification emails', () => {
 
     const payload = sentPayload();
     expect(payload.html).toContain('>Acme</span> invited you to join the');
-    expect(payload.text).toContain('Acme invited you to join the kaab-demo project on Dosco.');
+    expect(payload.text).toContain('Acme invited you to join the kaab-demo workspace on Kortix.');
     expect(payload.html).not.toContain("You've been invited");
   });
 
@@ -120,7 +120,7 @@ describe('notification emails', () => {
     ['an account invite', { inviterEmail: 'o@example.org', projectName: null, accountName: 'A', role: 'admin' }],
   ])('%s stays above the image-only HTML window', async (_name, opts) => {
     // Worst case: the shortest real origin and address, one-letter names.
-    mockConfig.FRONTEND_URL = 'https://dosco.live';
+    mockConfig.FRONTEND_URL = 'https://kortix.com';
     try {
       await sendAccountInviteEmail({ email: 'a@b.co', inviteId: 'i', ...opts });
     } finally {
@@ -135,7 +135,7 @@ describe('notification emails', () => {
     mockConfig.MAILTRAP_API_TOKEN = '';
 
     const result = await sendAccountInviteEmail({
-      email: 'teammate@dosco.live',
+      email: 'teammate@kortix.com',
       accountName: 'Acme',
       inviterEmail: null,
       inviteId: 'invite-disabled',
@@ -148,20 +148,20 @@ describe('notification emails', () => {
 
   test('sends project access request emails to the Members review surface', async () => {
     const result = await sendProjectAccessRequestEmail({
-      email: 'manager@dosco.live',
+      email: 'manager@kortix.com',
       projectName: 'Slack <Auth>',
       requesterEmail: 'requester@example.test',
-      reviewUrl: 'https://app.example.test/projects/proj-1/customize/members',
+      reviewUrl: 'https://app.example.test/workspaces/proj-1/customize/members',
       message: 'Please approve <this account>.',
     });
 
     expect(result).toEqual({ ok: true, provider: 'mailtrap', status: 200 });
 
     const payload = sentPayload();
-    expect(payload.to).toEqual([{ email: 'manager@dosco.live' }]);
+    expect(payload.to).toEqual([{ email: 'manager@kortix.com' }]);
     expect(payload.subject).toBe('requester@example.test requested access to Slack <Auth>');
     expect(payload.category).toBe('project-access-request');
-    expect(payload.html).toContain('https://app.example.test/projects/proj-1/customize/members');
+    expect(payload.html).toContain('https://app.example.test/workspaces/proj-1/customize/members');
     expect(payload.html).toContain('Slack &lt;Auth&gt;');
     expect(payload.html).toContain('Please approve &lt;this account&gt;.');
   });

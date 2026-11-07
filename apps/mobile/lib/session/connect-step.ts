@@ -78,7 +78,7 @@ export function connectStepFromRequestError(
   if (status === null) {
     return fail(
       'Could not reach the server',
-      'The app could not connect to the Dosco API. Check the connection and try again.',
+      'The app could not connect to the Kortix API. Check the connection and try again.',
       message ?? undefined,
     );
   }
@@ -117,10 +117,8 @@ export function startPollDelayMs(attempt: number): number {
 export function shouldAwaitHealthProbe(start: {
   stage: string;
   runtime_session_id?: string | null;
-  /** The pre-W4 name of `runtime_session_id`; an older API answers only this. */
-  opencode_session_id?: string | null;
 }): boolean {
-  return !(start.stage === 'ready' && Boolean(start.runtime_session_id ?? start.opencode_session_id));
+  return !(start.stage === 'ready' && Boolean(start.runtime_session_id));
 }
 
 /** The sandbox image step of a provisioning `/start` answer (`boot.image`). */

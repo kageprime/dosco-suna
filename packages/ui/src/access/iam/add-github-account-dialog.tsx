@@ -18,12 +18,12 @@ import { GithubLogoIcon as Github } from '@phosphor-icons/react';
 
 /**
  * "Add a GitHub account" — the ONE dialog for linking a GitHub personal
- * account or organization to a Dosco account. The account Git tab and `/new`
+ * account or organization to a Kortix account. The account Git tab and `/workspaces/new`
  * both open it, so the two surfaces can never drift into two different
  * stories about how a connection is made.
  *
  * Two labelled actions, not one ambiguous button. Which one a user needs
- * depends on a fact only they know — whether the Dosco App is already
+ * depends on a fact only they know — whether the Kortix App is already
  * installed on the GitHub account they have in mind — so the dialog states
  * both and lets them pick. Installing is the primary action: it works no
  * matter what the user's GitHub looks like. Linking an existing installation
@@ -46,7 +46,7 @@ export function AddGitHubAccountDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string;
-  /** Where GitHub installs the Dosco App — `install_url` off
+  /** Where GitHub installs the Kortix App — `install_url` off
    *  `listGitHubInstallations`. Null on an instance with no App configured;
    *  the action then says so instead of opening a 404 on github.com. */
   installUrl: string | null;

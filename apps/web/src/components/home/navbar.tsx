@@ -77,9 +77,9 @@ const USE_CASES_ENABLED = process.env.NEXT_PUBLIC_USE_CASES_ENABLED !== 'false';
 const BAR_LINK =
   'text-foreground hover:text-muted-foreground outline-ring flex h-full items-center rounded-sm text-sm transition-colors duration-moderate focus-visible:outline-2';
 
-/** Nav trigger or link: high-contrast text with subtle hover pill for clear feedback. */
+/** Nav trigger or link: a quiet row that turns into a muted pill while its menu is open. */
 const NAV_ITEM =
-  'text-foreground/90 hover:text-foreground hover:bg-foreground/10 active:bg-foreground/15 outline-ring flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors duration-moderate focus-visible:outline-2';
+  'text-foreground hover:text-muted-foreground outline-ring flex h-8 items-center rounded-md px-3 text-sm transition-colors duration-moderate focus-visible:outline-2';
 
 /** Drawer row: one link per line, the full width, 44px tall to tap. */
 const DRAWER_ROW =
@@ -208,12 +208,14 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
     return () => query.removeEventListener('change', onChange);
   }, [setMenu]);
 
-  // A committed navigation closes the menu (Next keeps this component mounted).
+  // A committed navigation closes the menu and the drawer (Next keeps this
+  // component mounted). The drawer's site switcher links carry no pending row.
   const [menuPathname, setMenuPathname] = useState(pathname);
   if (menuPathname !== pathname) {
     setMenuPathname(pathname);
     setOpenMenu(null);
     setInstant(true);
+    setIsDrawerOpen(false);
   }
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
@@ -406,7 +408,9 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
         ? `/brandkit/Logo/Brandmark/SVG/Brandmark ${color}.svg`
         : `/brandkit/Logo/Logomark/SVG/Logomark ${color}.svg`;
     try {
-      const svg = await (await fetch(path)).text();
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`Brand SVG fetch failed: ${response.status}`);
+      const svg = await response.text();
       await navigator.clipboard.writeText(svg);
       successToast(tHardcodedUi.raw('i18nComplete.textc46a054cc5d2'));
     } catch {
@@ -475,7 +479,7 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                   onPointerEnter={closeOnEnter}
                   className="text-foreground outline-ring flex h-16 w-fit shrink-0 items-center rounded-sm focus-visible:outline-2"
                 >
-                  <KortixLogo size={26} variant="logomark" />
+                  <KortixLogo size={15} variant="logomark" />
                 </Link>
               </ContextMenuTrigger>
               {/* Brand menu: copy the theme-matching SVG, download the brandkit, open the design system. */}
@@ -491,8 +495,8 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                 <ContextMenuItem
                   onClick={() => {
                     const a = document.createElement('a');
-                    a.href = '/brandkit/dosco-brand-assets.zip';
-                    a.download = 'dosco-brand-assets.zip';
+                    a.href = '/brandkit/kortix-brand-assets.zip';
+                    a.download = 'kortix-brand-assets.zip';
                     a.click();
                   }}
                   className="gap-2 text-sm"
@@ -510,9 +514,11 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
               </ContextMenuContent>
             </ContextMenu>
 
-            {/* The CompanyOS / Services switcher: centred in the bar on desktop,
-                after the logo on smaller screens. */}
-            <SiteSwitcher className="mr-auto ml-4 lg:absolute lg:left-1/2 lg:m-0 lg:-translate-x-1/2" />
+            {/* The CompanyOS / Services switcher: centred in the bar from xl,
+                after the logo below it. Centred at lg (1024 px), it covers
+                "Pricing". Below sm (640 px) it moves into the drawer, so the
+                GitHub link and the CTA keep their room in the bar. */}
+            <SiteSwitcher className="ml-4 hidden sm:mr-auto sm:flex lg:mr-0 xl:absolute xl:left-1/2 xl:m-0 xl:-translate-x-1/2" />
 
             {/* The links sit right after the logo; `mr-auto` pushes the actions to the end. */}
             <nav className="hidden items-center gap-1 lg:mr-auto lg:ml-8 lg:flex">
@@ -555,7 +561,22 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
               ))}
             </nav>
 
-            <div className="flex items-center justify-end gap-1" onPointerEnter={closeOnEnter}>
+            <div className="ml-auto flex items-center justify-end gap-1" onPointerEnter={closeOnEnter}>
+              {/* The GitHub link shows at every width, phones included. The
+                  count joins it once it loads. `stars`, not `formattedStars`:
+                  the formatter returns an en dash for a missing count. */}
+              <Link
+                href="https://github.com/kortix-ai/CompanyOS"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-github-link=""
+                className={cn(BAR_LINK, 'hit-area-y-3 mr-2 gap-1.5 lg:mr-4 lg:gap-2')}
+              >
+                <Github className="size-4 shrink-0" />
+                {stars !== null && !starsLoading && (
+                  <span className="tabular-nums">{formattedStars}</span>
+                )}
+              </Link>
               {user ? (
                 <MarketingButton asChild className="hit-area-y-3">
                   <Link href={projectsHref} prefetch>
@@ -642,9 +663,10 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
               onClick={handleDrawerNavClick('/')}
               className="text-foreground flex h-16 items-center gap-2"
             >
-              <KortixLogo size={24} variant="logomark" />
+              <KortixLogo size={15} variant="logomark" />
               {isPending('/') && <Loading variant="spokes" />}
             </Link>
+            <SiteSwitcher className="mr-auto ml-4 sm:hidden" />
             <button
               ref={drawerCloseRef}
               type="button"
@@ -668,7 +690,7 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                 })),
                 {
                   id: 'kortix',
-                  label: 'Dosco',
+                  label: 'Kortix',
                   links: [
                     { label: tHardcodedUi.raw('componentsHomeNavbar.home'), href: '/' },
                     ...plainLinks,

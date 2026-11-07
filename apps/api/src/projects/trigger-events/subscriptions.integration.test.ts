@@ -171,13 +171,12 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     setEventSourceForTest('composio', fake);
     const db = testDb();
     await db.insert(accounts).values({ accountId: ACCOUNT_ID, name: 'Event reconcile proof' });
-    // Event-trigger alerts need the notification_center flag (KRTX-1742).
     await db.insert(projects).values({
       projectId: PROJECT_ID,
       accountId: ACCOUNT_ID,
       name: 'Event reconcile proof',
       repoUrl: 'https://example.test/event-reconcile.git',
-      metadata: { experimental: { event_triggers: true, notification_center: true } },
+      metadata: { experimental: { event_triggers: true } },
     });
     await db.insert(connectors).values({
       connectorId: CONNECTOR_ID,
@@ -328,7 +327,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     await connect();
     await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a')]);
     expect((await store.get(PROJECT_ID, 'a'))?.externalId).toBe('ti_EXAMPLE_NEW_MESSAGE_{}');
-    // The connector moves to Dosco: provider mcp.
+    // The connector moves to Kortix: provider mcp.
     setEventSourceForTest('mcp', {
       ...fake,
       id: 'mcp',
@@ -343,7 +342,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
     try {
       await testDb()
         .update(projects)
-        .set({ metadata: { experimental: { event_triggers: true, notification_center: true } } })
+        .set({ metadata: { experimental: { event_triggers: true } } })
         .where(eq(projects.projectId, PROJECT_ID));
       await testDb()
         .update(connectors)
@@ -351,7 +350,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
         .where(eq(connectors.connectorId, CONNECTOR_ID));
       calls.length = 0;
       await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a')]);
-      // Composio drops its own instance; the Dosco source never sees the Composio id.
+      // Composio drops its own instance; the Kortix source never sees the Composio id.
       expect(calls).toContain('unsubscribe:ti_EXAMPLE_NEW_MESSAGE_{}');
       expect(calls.some((call) => call.startsWith('mcp:unsubscribe'))).toBe(false);
       expect((await store.get(PROJECT_ID, 'a'))?.provider).toBe('mcp');
@@ -468,7 +467,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       await reconcileEventSubscriptions(PROJECT_ID, ACCOUNT_ID, [spec('a')]);
       const row = await store.get(PROJECT_ID, 'a');
       expect(row?.status).toBe('error');
-      expect(row?.lastError).toBe('Composio event triggers are off for this project. Turn them on in Settings → Feature flags.');
+      expect(row?.lastError).toBe('Composio event triggers are off for this workspace. Turn them on in Workspace settings → Feature flags.');
       expect(calls).toEqual([]);
     });
 
@@ -699,33 +698,18 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
       });
     });
 
-    describe('with the notification_center flag off (KRTX-1742)', () => {
-      beforeEach(async () => {
-        // Only notification_center goes off: event_triggers stays on so the deliveries still run.
-        await testDb().update(projects).set({ metadata: { experimental: { event_triggers: true } } }).where(eq(projects.projectId, PROJECT_ID));
-      });
-
-      test('a failure no redelivery can fix is recorded on the trigger but opens no alert', async () => {
-        await armed();
-        fireStatus = 'failed';
-        expect((await deliverEvents('composio', [delivery()])).failed).toBe(1);
-        expect(await runtime('a')).toMatchObject({ lastStatus: 'failed', lastError: 'boom', alertSource: null, alertFailingSince: null });
-        await settleTriggerAlerts();
-      });
-
-      test('the third failed delivery of one event opens no alert either', async () => {
-        await armed();
-        fireStatus = 'retryable';
-        leftCommand = 'dead_lettered';
-        for (const attempt of [1, 2, 3]) {
-          expect({ attempt, failed: (await deliverEvents('composio', [delivery()])).failed }).toEqual({ attempt, failed: 1 });
-        }
-        fireStatus = 'throws';
-        leftCommand = null;
-        expect((await deliverEvents('composio', [delivery()])).failed).toBe(1);
-        expect(await runtime('a')).toMatchObject({ lastStatus: 'failed', alertSource: null, alertFailingSince: null });
-        await settleTriggerAlerts();
-      });
+    // The flag graduated on 2026-11-06: a stored override changes no alert.
+    test('a stored notification_center: false override is inert: a failure no redelivery can fix still alerts', async () => {
+      await testDb()
+        .update(projects)
+        .set({ metadata: { experimental: { event_triggers: true, notification_center: false } } })
+        .where(eq(projects.projectId, PROJECT_ID));
+      await armed();
+      fireStatus = 'failed';
+      expect((await deliverEvents('composio', [delivery()])).failed).toBe(1);
+      expect(await runtime('a')).toMatchObject({ lastStatus: 'failed', lastError: 'boom', alertSource: 'fire' });
+      expect((await runtime('a'))?.alertFailingSince).toBeInstanceOf(Date);
+      await settleTriggerAlerts();
     });
 
     test('notices mark rows error with remediation text', async () => {
@@ -749,7 +733,7 @@ describeWithDb('event subscriptions — real PostgreSQL, fake provider', () => {
         ],
       });
       // Composio apps list only where the project has a connector ("other" has none);
-      // Dosco's own `mcp` source lists its catalog apps too.
+      // Kortix's own `mcp` source lists its catalog apps too.
       const entry = async () =>
         (await listEventApps(PROJECT_ID, ACCOUNT_ID)).filter((a) => a.provider === 'composio').map((a) => [a.app, a.connector, a.connected]);
       expect(await entry()).toEqual([['example', 'inbox', false]]);

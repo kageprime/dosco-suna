@@ -57,7 +57,7 @@ describe('resolveSessionReleaseAgent', () => {
     ).toEqual({ kind: 'declared', agent: 'anything' });
   });
 
-  test('My Dosco is never re-pointed', () => {
+  test('My Kortix is never re-pointed', () => {
     expect(resolveSessionReleaseAgent('mykortix', roster())).toEqual({ kind: 'declared', agent: 'mykortix' });
     expect(resolveSessionReleaseAgent('meta', roster())).toEqual({ kind: 'declared', agent: 'meta' });
   });
@@ -80,14 +80,14 @@ describe('releaseVariantFor', () => {
 
   // The coordinator never holds the project's files, whatever the session
   // metadata says about repository access.
-  test('My Dosco has its own variant, also for a session from before the rename (`meta`)', () => {
+  test('My Kortix has its own variant, also for a session from before the rename (`meta`)', () => {
     expect(releaseVariantFor('mykortix', true)).toBe('mykortix');
     expect(releaseVariantFor('mykortix', false)).toBe('mykortix');
     expect(releaseVariantFor('meta', true)).toBe('mykortix');
   });
 
   // The whole point: a session with no usable agent still gets a RELEASE.
-  // `none` compiles to an empty OpenCode config, which has a non-null etag,
+  // `none` compiles to an empty config (`{}`), which has a non-null etag,
   // so `release_id` is never null and the box never falls back.
   test('no usable agent and no repository access compiles nothing, not a failure', () => {
     expect(releaseVariantFor(null, false)).toBe('none');

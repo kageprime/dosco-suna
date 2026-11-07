@@ -3,7 +3,7 @@ import { chatIdentityStub } from './helpers/chat-identity-stub';
 
 // A conversation's project, agent, model and policy are project settings.
 // Changing one from Teams needs what the web binding editor needs: a linked
-// Dosco account with `project.connector.write` on the conversation's project
+// Kortix account with `project.connector.write` on the conversation's project
 // (project managers, account owners and admins). The commands and the card
 // buttons both go through channels/core/settings.ts.
 
@@ -16,10 +16,8 @@ const realConfig = await import('../config');
 mock.module('../config', () => ({
   ...realConfig,
   SANDBOX_VERSION: 'test',
-
-  config: { FRONTEND_URL: 'https://dev.dosco.live', TEAMS_REQUIRE_USER_IDENTITY: true },
-  KNOWN_PROVIDERS: ['platinum', 'daytona', 'e2b'],
-
+  config: { FRONTEND_URL: 'https://dev.kortix.com', TEAMS_REQUIRE_USER_IDENTITY: true },
+  KNOWN_PROVIDERS: ['platinum', 'daytona'],
 }));
 
 let dbResults: unknown[][] = [];
@@ -48,6 +46,10 @@ mock.module('../shared/db', () => ({
     }),
   },
   hasDatabase: () => true,
+  // Imported by modules in this route's graph; no test here opens a transaction.
+  withDbTransaction: async () => {
+    throw new Error('unit-teams-settings-authz: no transaction expected');
+  },
 }));
 
 let settingsActor: { userId: string } | { reason: 'unlinked' | 'not_member' } = { userId: 'user-1' };
@@ -63,7 +65,7 @@ mock.module('../channels/core/identity', () =>
 
 const writes: Array<{ kind: string; value: unknown }> = [];
 mock.module('../channels/slack/selection', () => ({
-  currentChannelSelection: async () => ({ projectId: PROJECT, agentName: null, opencodeModel: null, conversationPolicy: null }),
+  currentChannelSelection: async () => ({ projectId: PROJECT, agentName: null, sessionModel: null, conversationPolicy: null }),
   setChannelAgent: async (_c: unknown, a: string | null) => {
     writes.push({ kind: 'agent', value: a });
     return { ok: true };
@@ -192,7 +194,7 @@ describe('Teams setting commands need a linked project manager', () => {
     await run('/agent reviewer');
     await run('/policy owner');
     expect(writes).toEqual([]);
-    expect(posted.every((c) => c.includes('Only a project manager'))).toBe(true);
+    expect(posted.every((c) => c.includes('Only a workspace manager'))).toBe(true);
     expect(actorChecks.every((c) => c.action === 'project.connector.write' && c.projectId === PROJECT)).toBe(true);
   });
 
@@ -207,7 +209,7 @@ describe('Teams setting commands need a linked project manager', () => {
     settingsActor = { reason: 'not_member' };
     await run('/use Second');
     expect(inserts).toEqual([]);
-    expect(posted[0]).toContain('Only a project manager');
+    expect(posted[0]).toContain('Only a workspace manager');
   });
 
   test('a project manager changes the model, agent, policy and project', async () => {
@@ -221,7 +223,7 @@ describe('Teams setting commands need a linked project manager', () => {
       { kind: 'agent', value: 'reviewer' },
       { kind: 'policy', value: 'owner_only' },
     ]);
-    expect(inserts).toEqual([{ platform: 'teams', workspaceId: TENANT, channelId: CONVO, projectId: OTHER, pickerTs: null }]);
+    expect(inserts).toEqual([{ platform: 'teams', platformTeamId: TENANT, channelId: CONVO, projectId: OTHER, pickerTs: null }]);
     expect(actorChecks.map((c) => c.projectId)).toEqual([PROJECT, PROJECT, PROJECT, PROJECT, OTHER]);
   });
 });
@@ -229,9 +231,9 @@ describe('Teams setting commands need a linked project manager', () => {
 describe('Teams setting cards need a linked project manager', () => {
   test('model, agent and project picks from a member without the capability change nothing', async () => {
     settingsActor = { reason: 'not_member' };
-    expect(await press('teams_set_model', { model: 'kortix/glm-5.3-flash' })).toContain('Only a project manager');
-    expect(await press('teams_set_agent', { agent: 'reviewer' })).toContain('Only a project manager');
-    expect(await press('teams_pick_project', { projectId: OTHER })).toContain('Only a project manager');
+    expect(await press('teams_set_model', { model: 'kortix/glm-5.3-flash' })).toContain('Only a workspace manager');
+    expect(await press('teams_set_agent', { agent: 'reviewer' })).toContain('Only a workspace manager');
+    expect(await press('teams_pick_project', { projectId: OTHER })).toContain('Only a workspace manager');
     expect(writes).toEqual([]);
     expect(inserts).toEqual([]);
   });
@@ -255,13 +257,13 @@ describe('/status and /sessions', () => {
     expect(card.actions.map((a: { title: string; data?: { panel?: string } }) => [a.title, a.data?.panel ?? null])).toEqual([
       ['Change model', 'models'],
       ['Change agent', 'agents'],
-      ['Switch project', 'projects'],
-      ['Open in Dosco', null],
+      ['Switch workspace', 'projects'],
+      ['Open in Kortix', null],
     ]);
   });
 
   test('a /status button returns its picker to the presser', async () => {
-    expect(await press('teams_open_panel', { panel: 'projects' })).toContain('Connected projects');
+    expect(await press('teams_open_panel', { panel: 'projects' })).toContain('Connected workspaces');
     expect(await press('teams_open_panel', { panel: 'models' })).toContain('MODELS-PICKER');
     expect(await press('teams_open_panel', { panel: 'agents' })).toContain('AGENTS-PICKER');
     expect(await press('teams_open_panel', { panel: 'nope' })).toContain("isn't available anymore");
@@ -270,7 +272,7 @@ describe('/status and /sessions', () => {
     expect(inserts).toEqual([]);
   });
 
-  test('/sessions lists the recent sessions this person may open, each linking to Dosco', async () => {
+  test('/sessions lists the recent sessions this person may open, each linking to Kortix', async () => {
     sessionQueries.length = 0;
     recentSessions = [
       { projectId: PROJECT, projectName: 'First', repoUrl: '', sessionId: 'sess-1', lastMessageAt: new Date(), title: 'Fix the flaky test', status: 'completed' },
@@ -281,7 +283,7 @@ describe('/status and /sessions', () => {
     expect(posted[0]).toContain('Fix the flaky test');
     expect(posted[0]).toContain('First · done');
     expect(posted[0]).toContain('Untitled session');
-    expect(posted[0]).toContain('https://dev.dosco.live/projects/proj-1/sessions/sess-1');
+    expect(posted[0]).toContain('https://dev.kortix.com/workspaces/proj-1/sessions/sess-1');
     expect(sessionQueries).toEqual([{ user: expect.objectContaining({ platform: 'teams', workspaceId: TENANT }), opts: { limit: 5, projectId: undefined } }]);
   });
 
@@ -308,7 +310,7 @@ describe('/unbind, /home and /projects', () => {
     settingsActor = { reason: 'not_member' };
     await run('/unbind');
     expect(deletes).toBe(0);
-    expect(posted[0]).toContain('Only a project manager');
+    expect(posted[0]).toContain('Only a workspace manager');
   });
 
   test('a per-project bot has nothing to unbind', async () => {
@@ -326,21 +328,21 @@ describe('/unbind, /home and /projects', () => {
     expect(inserts).toEqual([]);
     expect(actorChecks).toEqual([]);
     expect(posted).toHaveLength(3);
-    for (const card of posted) expect(card).toContain('always runs its own project');
+    for (const card of posted) expect(card).toContain('always runs its own Kortix workspace');
   });
 
   test('/projects lists each project with Open and Use, the current one marked', async () => {
     await run('/projects');
     const card = posted[0]!;
-    expect(card).toContain('Connected projects');
+    expect(card).toContain('Connected workspaces');
     expect(card).toContain('"title":"✓ In use"');
     expect(card).toContain(`"projectId":"${OTHER}"`);
-    expect(card).toContain('https://dev.dosco.live/projects/proj-2');
+    expect(card).toContain('https://dev.kortix.com/workspaces/proj-2');
   });
 
   test('/home lists the organization\'s projects and what to try', async () => {
     await run('/home');
-    expect(posted[0]).toContain('Projects in this organization');
+    expect(posted[0]).toContain('Kortix workspaces here');
     expect(posted[0]).toContain('First');
     expect(posted[0]).toContain('Second');
   });

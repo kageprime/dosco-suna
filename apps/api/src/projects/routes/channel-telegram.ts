@@ -42,11 +42,11 @@ export function registerChannelTelegramRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'get',
-      path: '/{projectId}/channels/telegram/installation',
+      path: '/{workspaceId}/channels/telegram/installation',
       tags: ['channels'],
       summary: 'Get the Telegram bot installation',
       ...auth,
-      request: { params: z.object({ projectId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(403, 404) },
     }),
     async (c: Context<AppEnv>) => {
@@ -61,12 +61,12 @@ export function registerChannelTelegramRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/telegram/connect',
+      path: '/{workspaceId}/channels/telegram/connect',
       tags: ['channels'],
       summary: 'Connect a Telegram bot',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         // `{ bot_token, allowed_user_ids? }`, validated in the handler so every refusal carries a `code`.
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
@@ -117,7 +117,7 @@ export function registerChannelTelegramRoutes(): void {
       });
       if (allowed?.success) await setTelegramAllowedUserIds(ctx.projectId, allowed.data);
       // Not awaited, as the reconcile: Telegram may take up to 16 s for the old bot and 6 s for the new one.
-      // The old bot is released as a disconnect releases it: its webhook and Dosco's menu entries.
+      // The old bot is released as a disconnect releases it: its webhook and Kortix's menu entries.
       if (replaced) void releaseTelegramWebhook(ctx.projectId, replaced);
       void repairTelegramMenu(token, String(bot.id), { force: true });
       reconcileInBackground(ctx.projectId);
@@ -128,12 +128,12 @@ export function registerChannelTelegramRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'put',
-      path: '/{projectId}/channels/telegram/allowed-users',
+      path: '/{workspaceId}/channels/telegram/allowed-users',
       tags: ['channels'],
       summary: 'Set the Telegram users allowed to talk to the bot',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         // `{ user_ids: string[] }`, validated in the handler so every refusal carries a `code`.
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
@@ -155,11 +155,11 @@ export function registerChannelTelegramRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'delete',
-      path: '/{projectId}/channels/telegram',
+      path: '/{workspaceId}/channels/telegram',
       tags: ['channels'],
       summary: 'Disconnect the Telegram bot',
       ...auth,
-      request: { params: z.object({ projectId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string() }) },
       responses: { 200: json(z.object({ ok: z.boolean() }), 'OK'), ...errors(403, 404) },
     }),
     async (c: Context<AppEnv>) => {

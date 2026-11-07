@@ -122,7 +122,7 @@ export function homeAgentPick(i: {
  * The agents a thread can run, from the Kortix project config: the SDK's
  * `selectableProjectAgents`, default first. Never the sandbox's `/agent` list,
  * which adds the runtime's built-ins (`build`, `plan`, `explore`, `general`).
- * A missing `mode` is OpenCode's default, `all`.
+ * A missing `mode` means `all`.
  */
 export function threadAgents(config: ProjectConfigSummary): Agent[] {
   return selectableProjectAgents(config).map((a) => ({
@@ -130,7 +130,7 @@ export function threadAgents(config: ProjectConfigSummary): Agent[] {
     description: a.description ?? undefined,
     mode: a.mode === 'primary' ? 'primary' : 'all',
     options: {},
-    // The SDK's `Agent` type (OpenCode's runtime shape) has fields a project
+    // The SDK's `Agent` type (the runtime's agent shape) has fields a project
     // config entry does not carry; the picker reads only these.
   })) as unknown as Agent[];
 }
@@ -148,12 +148,7 @@ export function latestAssistantAgent(messages: ReadonlyArray<{ role: string; age
 }
 
 export function agentDisplayName(name: string | undefined): string {
-  // Web's `displayAgentName` (`apps/web/.../agent-display-name.ts`): the
-  // backend's default agent id ('kortix', never renamed) renders as the
-  // product-surface name Xera. Every other agent renders capitalized raw.
-  if (!name) return 'Agent';
-  if (name === 'mykortix' || name === 'meta') return 'Orchestrator';
-  return name === 'worker' || name === 'kortix' || name === 'xera' ? 'Xera' : capitalise(name);
+  return name ? capitalise(name) : 'Agent';
 }
 
 /**

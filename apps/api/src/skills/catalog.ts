@@ -1,17 +1,17 @@
 /**
  * The kortix-managed system skills, as data.
  *
- * These are the `kortix-*` markdown skills that tell an agent how Dosco itself
+ * These are the `kortix-*` markdown skills that tell an agent how Kortix itself
  * works (sessions, sandboxes, the connector/approval loop, memory, channels, the
  * CLI). Until now they were only reachable two ways: scaffolded into a project's
  * git tree by `kortix init`, or baked into the sandbox image at
  * `/opt/kortix/managed-skills` and overlaid per session. Both require being
- * *inside* Dosco. An OpenCode agent holding only the `kortix` binary and a
+ * *inside* Kortix. An agent holding only the `kortix` binary and a
  * token had no way to read them.
  *
  * SOURCE OF TRUTH: `@kortix/starter`. This module runs the exact same extraction
  * as `packages/starter/scripts/write-managed-skills.ts` (the script that bakes the
- * sandbox image) — same `getStarterFiles()` call, same `projectName: 'Dosco'`
+ * sandbox image) — same `getStarterFiles()` call, same `projectName: 'Kortix'`
  * interpolation, same `isKortixManagedSkillName()` filter — so what the API serves
  * is byte-identical to what a session gets overlaid. `@kortix/starter` is already
  * an apps/api dependency and its `templates/` tree is COPYed into the API image
@@ -34,13 +34,13 @@ import {
   isKortixManagedSkillName,
 } from '@kortix/starter';
 
-/** Where skills live inside the starter templates (and a root-layout Dosco project). */
+/** Where skills live inside the starter templates (and a root-layout Kortix project). */
 const SKILLS_PREFIX = `${SKILLS_DIR}/`;
 /** The skill body every skill has; everything else under the dir is a reference. */
 const SKILL_ENTRYPOINT = 'SKILL.md';
 
 export interface ManagedSkillFile {
-  /** Path relative to the skill directory, e.g. `references/opencode/tools.md`. */
+  /** Path relative to the skill directory, e.g. `references/bindings.md`. */
   path: string;
   content: string;
 }
@@ -75,7 +75,7 @@ export interface ManagedSkillSummary {
 export function buildManagedSkills(): Map<string, ManagedSkill> {
   const files = [
     ...getManagedSkillFiles(),
-    ...getStarterFiles({ projectName: 'Dosco', template: 'general-knowledge-worker' }),
+    ...getStarterFiles({ projectName: 'Kortix', template: 'general-knowledge-worker' }),
     ...getMarketplaceFiles(),
   ];
 
@@ -153,16 +153,7 @@ export function listManagedSkills(): ManagedSkillSummary[] {
 }
 
 export function getManagedSkill(name: string): ManagedSkill | null {
-  const map = managedSkills();
-  const direct = map.get(name);
-  if (direct) return direct;
-  const normalized = name.replace(/ /g, '-');
-  return (
-    map.get(normalized) ??
-    map.get(`kortix-${normalized}`) ??
-    map.get(`dosco-${normalized}`) ??
-    null
-  );
+  return managedSkills().get(name) ?? null;
 }
 
 /**
@@ -171,7 +162,7 @@ export function getManagedSkill(name: string): ManagedSkill | null {
  * read here to traverse out of.
  */
 export function getManagedSkillFile(name: string, path: string): ManagedSkillFile | null {
-  const skill = getManagedSkill(name);
+  const skill = managedSkills().get(name);
   if (!skill) return null;
   if (path === SKILL_ENTRYPOINT) return { path: SKILL_ENTRYPOINT, content: skill.body };
   return skill.references.find((f) => f.path === path) ?? null;

@@ -1,12 +1,13 @@
 /**
  * Who wrote each message of a session. The live runtime does not know: an
- * OpenCode user message has no author. The prompt ledger does — every row a
+ * runtime user message has no author. The prompt ledger does — every row a
  * person or an agent sent through `POST .../prompts` (or a create's first
  * prompt) carries the authenticated sender. Never inferred from the owner.
  */
 import { projectSessions, sessionLifecycleCommands, sessionTurns } from '@kortix/db';
 import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
+import { sessionTitleFromMetadata } from './session-title-placeholder';
 import { resolveUserIdentities } from './user-identity';
 
 export type SessionMessageAuthor =
@@ -28,11 +29,6 @@ export interface SessionMessageAuthors {
 /** The agent a session runs, unless it is the column's `'default'` placeholder. */
 function namedAgent(agentName: string | null | undefined): agentName is string {
   return !!agentName && agentName !== 'default';
-}
-
-function sessionTitle(metadata: unknown): string {
-  const meta = (metadata ?? {}) as Record<string, unknown>;
-  return [meta.custom_name, meta.name].find((v): v is string => typeof v === 'string' && !!v.trim()) ?? 'Untitled session';
 }
 
 export async function sessionMessageAuthors(session: {
@@ -91,7 +87,7 @@ export async function sessionMessageAuthors(session: {
   const sessionAuthor = (id: string): SessionMessageAuthor | null => {
     const row = sessionById.get(id);
     if (!row) return null;
-    return { kind: 'session', session_id: id, name: sessionTitle(row.metadata), ...(namedAgent(row.agentName) ? { agent: row.agentName } : {}) };
+    return { kind: 'session', session_id: id, name: sessionTitleFromMetadata(row.metadata, 'Untitled session'), ...(namedAgent(row.agentName) ? { agent: row.agentName } : {}) };
   };
 
   const memberAuthor = (userId: string): SessionMessageAuthor | null => {

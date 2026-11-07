@@ -2,10 +2,10 @@
 
 import { adminPath } from '../../lib/routes';
 
-import { useProjectConfig } from '@kortix/sdk/react';
+import { useProjectConfig, useSessionAsks } from '@kortix/sdk/react';
 
-import { CaretRightIcon, CpuIcon, GearSixIcon, ListIcon, RobotIcon, TrayIcon } from '@phosphor-icons/react';
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { CpuIcon, GearSixIcon, ListIcon, TrayIcon } from '@phosphor-icons/react';
+import { createContext, type ReactNode, useContext } from 'react';
 
 import { useTranslations as useI18nTranslations } from '../../i18n';
 import { AgentMark, agentDisplayName } from '../components/agent-mark';
@@ -17,7 +17,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '../../primitives/sidebar';
-import { UiLink as Link, useUiPathname, useUiSearchParams } from '../../providers/ui-provider';
+import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
 import { useIsMobile } from '../hooks';
 import { activeCapabilityTab, agentHref, capabilityTabHref } from '../lib/capability-tab-routes';
 import { useReviewSessionSummary } from '../hooks/use-review-session-summary';
@@ -49,11 +49,7 @@ export function sortCustomizeAgents<T extends Pick<Agent, 'name'> & { hidden?: b
 /** Whether the pathname is a Project admin (Settings) page. The locale prefix
  *  the host may not strip is tolerated. */
 export function isProjectAdminPath(pathname: string | null | undefined): boolean {
-  return (
-    !!pathname &&
-    (/\/projects\/[^/]+\/admin(?:[/?#]|$)/.test(pathname) ||
-      /\/projects\/[^/]+\/settings(?:[/?#]|$)/.test(pathname))
-  );
+  return !!pathname && /\/(?:workspaces|projects)\/[^/]+\/admin(?:[/?#]|$)/.test(pathname);
 }
 
 /** A row's glyph in a 20px box (literal px, as the sidebar's agent marks), so
@@ -73,25 +69,26 @@ function RowGlyph({ children }: { children: ReactNode }) {
 /**
  * What Customize opens to, kept short on purpose: most configuration happens
  * by asking an agent in a session, so the sidebar lists only the agents you
- * pinned (none pinned: the first five) and All agents when more exist, then Review (with its "needs you" count), Models, and Settings
- * (Project admin, whose top bar holds every library and Members).
- * The header's + and All agents buttons sit on the Customize row itself.
+ * pinned (none pinned: the first five) and All agents when more exist, then Review (with its "needs you" count), Models, and
+ * Workspace settings (the one Settings panel, whose rail holds every library and People).
+ * The header's + (New agent) button sits on the Customize row itself.
  */
 export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const pathname = useUiPathname();
-  const searchParams = useUiSearchParams();
   const config = useProjectConfig(projectId);
   const access = useCapabilityAccess(projectId);
-  const needsYou = useReviewSessionSummary(projectId, { enabled: true }).totalNeedsYou;
+  const reviewNeedsYou = useReviewSessionSummary(projectId, { enabled: true }).totalNeedsYou;
+  // Questions and permission asks wait in Review too (its deck). Connector
+  // approvals are already in the review summary, so they are not added twice.
+  const asks = useSessionAsks(projectId).data?.asks;
+  const needsYou = reviewNeedsYou + (asks?.filter((ask) => ask.kind !== 'approval').length ?? 0);
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
   const tTabs = useI18nTranslations('agentEditor.tabs');
+  const tSettings = useI18nTranslations('workspaces.settings');
   const pinned = usePinnedAgents(projectId);
 
   if (!access.settled) return null;
-
-  const rawAgents = tTabs('agents');
-  const agentsLabel = !rawAgents || rawAgents === 'agentEditor.tabs.agents' ? 'Agents' : rawAgents;
 
   const allAgents = access.tabs.includes('agent')
     ? sortCustomizeAgents((config?.agents ?? []).filter((agent) => !agent.platform))
@@ -104,109 +101,49 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
   const showReview = access.tabs.includes('review');
   const onReview = pathname ? activeCapabilityTab(pathname) === 'review' : false;
   const hasModels = access.tabs.includes('models');
-  const onSettingsPage = isProjectAdminPath(pathname);
-  const onModels =
-    (!!pathname && /\/admin\/models(\/|$)/.test(pathname)) ||
-    (onSettingsPage && searchParams.get('tab') === 'models');
+  const onModels = !!pathname && /\/admin\/models(\/|$)/.test(pathname);
   const hasSettings = access.tabs.includes('config');
-  const onAgents =
-    !!pathname &&
-    (pathname.includes('/customize/agents') ||
-      agents.some((agent) => {
-        const href = agentHref(projectId, agent.name);
-        return pathname === href || pathname.startsWith(`${href}/`);
-      }));
-
-  const [agentsOpen, setAgentsOpen] = useState(onAgents);
-
-  useEffect(() => {
-    if (onAgents) setAgentsOpen(true);
-  }, [onAgents]);
-
   const close = () => {
     if (isMobile) setOpenMobile(false);
   };
 
-  const hasAgents = allAgents.length > 0;
-  if (!hasAgents && !showReview && !hasModels && !hasSettings) return null;
+  if (agents.length === 0 && !showReview && !hasModels && !hasSettings) return null;
 
   // `mr-0 pr-0`: the rows reach the sidebar's right edge like the rows above;
   // the left indent and guide line stay.
   return (
     <SidebarMenuSub className="mr-0 pr-0">
-      {hasAgents ? (
-        <>
-          <SidebarMenuSubItem>
-            <SidebarMenuSubButton asChild isActive={onAgents && !agents.some((a) => pathname === agentHref(projectId, a.name))}>
-              <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
+      {agents.map((agent) => {
+        const href = agentHref(projectId, agent.name);
+        const active = !!pathname && (pathname === href || pathname.startsWith(`${href}/`));
+        return (
+          <SidebarMenuSubItem key={agent.name}>
+            <SidebarMenuSubButton asChild isActive={active}>
+              <Link href={href} prefetch={false} onClick={close}>
                 <RowGlyph>
-                  <RobotIcon className="size-3.5" />
+                  <AgentMark slug={agent.name} size={14} />
                 </RowGlyph>
-                <span className="truncate">{agentsLabel}</span>
-                <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums pr-5">
-                  {allAgents.length}
+                <span className={cn('truncate', agent.hidden && 'text-muted-foreground')}>
+                  {agentDisplayName(agent.name)}
                 </span>
               </Link>
             </SidebarMenuSubButton>
-            <button
-              type="button"
-              aria-label={agentsOpen ? 'Collapse agents' : 'Expand agents'}
-              aria-expanded={agentsOpen}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setAgentsOpen((prev) => !prev);
-              }}
-              className="text-muted-foreground hover:text-sidebar-foreground absolute right-1.5 top-1/2 -translate-y-1/2 p-1 cursor-pointer transition-transform"
-            >
-              <CaretRightIcon
-                className={cn('size-3 transition-transform duration-200', agentsOpen && 'rotate-90')}
-              />
-            </button>
           </SidebarMenuSubItem>
-
-          {agentsOpen ? (
-            <SidebarMenuSub className="mr-0 pr-0 my-0.5">
-              {agents.map((agent) => {
-                const href = agentHref(projectId, agent.name);
-                const active = !!pathname && (pathname === href || pathname.startsWith(`${href}/`));
-                return (
-                  <SidebarMenuSubItem key={agent.name}>
-                    <SidebarMenuSubButton asChild isActive={active}>
-                      <Link href={href} prefetch={false} onClick={close}>
-                        <RowGlyph>
-                          <AgentMark slug={agent.name} size={14} />
-                        </RowGlyph>
-                        <span className={cn('truncate', agent.hidden && 'text-muted-foreground')}>
-                          {agentDisplayName(agent.name)}
-                        </span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                );
-              })}
-              {moreAgents ? (
-                <SidebarMenuSubItem>
-                  <SidebarMenuSubButton asChild isActive={!!pathname && pathname.endsWith('/customize/agents')}>
-                    <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
-                      <RowGlyph>
-                        <ListIcon className="size-3.5" />
-                      </RowGlyph>
-                      <span className="truncate">{tTabs('allAgents')}</span>
-                      <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">{allAgents.length}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              ) : null}
-            </SidebarMenuSub>
-          ) : null}
-        </>
+        );
+      })}
+      {moreAgents ? (
+        <SidebarMenuSubItem>
+          <SidebarMenuSubButton asChild isActive={!!pathname && pathname.endsWith('/customize/agents')}>
+            <Link href={capabilityTabHref(projectId, 'agent')} prefetch={false} onClick={close}>
+              <RowGlyph>
+                <ListIcon className="size-3.5" />
+              </RowGlyph>
+              <span className="truncate">{tTabs('allAgents')}</span>
+              <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">{allAgents.length}</span>
+            </Link>
+          </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
       ) : null}
-
-      {hasAgents && (showReview || hasModels || hasSettings) ? (
-        <div className="my-1 border-t border-sidebar-border/50" />
-      ) : null}
-
       {showReview ? (
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild isActive={onReview}>
@@ -227,7 +164,7 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
       {hasModels ? (
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild isActive={onModels}>
-            <Link href={`/projects/${projectId}/settings?tab=models&category=capabilities`} prefetch={false} onClick={close}>
+            <Link href={adminPath(projectId, 'models')} prefetch={false} onClick={close}>
               <RowGlyph>
                 <CpuIcon className="size-3.5" />
               </RowGlyph>
@@ -238,12 +175,12 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
       ) : null}
       {hasSettings ? (
         <SidebarMenuSubItem>
-          <SidebarMenuSubButton asChild isActive={onSettingsPage && !onModels}>
-            <Link href={`/projects/${projectId}/settings`} prefetch={false} onClick={close}>
+          <SidebarMenuSubButton asChild isActive={isProjectAdminPath(pathname) && !onModels}>
+            <Link href={adminPath(projectId, 'general')} prefetch={false} onClick={close}>
               <RowGlyph>
                 <GearSixIcon className="size-3.5" />
               </RowGlyph>
-              <span className="truncate">{tTabs('settings')}</span>
+              <span className="truncate">{tSettings('title')}</span>
             </Link>
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>

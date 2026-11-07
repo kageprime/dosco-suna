@@ -17,6 +17,8 @@ import { resolveScopedAccountId } from '../../middleware/resolve-account';
 import { resolveBillingWriteAccountId } from '../http-require-billing-write';
 import { makeOpenApiApp, json, auth, errors } from '../../openapi';
 import { readJsonObject } from '../../shared/http-body';
+import { captureProductEvent } from '../../shared/product-analytics';
+import { analyticsSource } from '../../middleware/analytics-source';
 
 export const subscriptionsRouter = makeOpenApiApp<AppEnv>();
 
@@ -41,35 +43,28 @@ subscriptionsRouter.openapi(
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
     responses: {
       200: json(OpaqueSchema, 'Plan change result'),
-      ...errors(400),
+      ...errors(400, 429),
     },
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
     const body = await readJsonObject(c);
-    const monthlyUsd = parseMonthlyUsd(body.monthly_usd);
-    const provider = body.provider ?? 'paystack';
-
-    // Paystack is the default payment provider; only an explicit 'stripe' routes to Stripe.
-    if (provider !== 'stripe') {
-      const { createPaystackSubscriptionCheckout } = await import('../services/paystack');
-      const result = await createPaystackSubscriptionCheckout({
-        accountId,
-        email: c.get('userEmail'),
-        monthlyUsd,
-        successUrl: String(body.success_url ?? ''),
-      });
-      return c.json(result);
-    }
-
     const result = await setPlan({
       accountId,
       email: c.get('userEmail'),
-      monthlyUsd,
+      monthlyUsd: parseMonthlyUsd(body.monthly_usd),
       successUrl: String(body.success_url ?? ''),
       cancelUrl: String(body.cancel_url ?? ''),
       locale: typeof body.locale === 'string' ? body.locale : undefined,
     });
+    if (result.status === 'checkout_created') {
+      captureProductEvent({
+        userId: c.get('userId'),
+        accountId,
+        event: 'checkout_started',
+        properties: { kind: 'subscription', tier: 'credits', amount_usd: result.monthly_usd, source: analyticsSource(c) },
+      });
+    }
     return c.json(result);
   },
 );
@@ -86,11 +81,11 @@ subscriptionsRouter.openapi(
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
     responses: {
       200: json(OpaqueSchema, 'Plan change preview'),
-      ...errors(400),
+      ...errors(400, 429),
     },
   }),
   async (c) => {
-    const accountId = await resolveBillingWriteAccountId(c, 'body');
+    const accountId = await resolveBillingWriteAccountId(c, 'body', 'preview');
     const body = await readJsonObject(c);
     return c.json(await previewPlan({ accountId, monthlyUsd: parseMonthlyUsd(body.monthly_usd) }));
   },
@@ -103,7 +98,7 @@ subscriptionsRouter.openapi(
     method: 'post',
     path: '/enterprise/contact',
     tags: ['billing'],
-    summary: 'Ask Dosco sales to get in touch about Enterprise',
+    summary: 'Ask Kortix sales to get in touch about Enterprise',
     ...auth,
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
     responses: {
@@ -141,7 +136,7 @@ subscriptionsRouter.openapi(
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
     responses: {
       200: json(z.object({ checkout_url: z.string(), contract_id: z.string() }), 'Checkout to accept the offer'),
-      ...errors(400, 404, 409),
+      ...errors(400, 404, 409, 429),
     },
   }),
   async (c) => {
@@ -167,7 +162,7 @@ subscriptionsRouter.openapi(
     summary: 'Create a Stripe customer portal session',
     ...auth,
     request: { body: { content: { 'application/json': { schema: AnyBody } } } },
-    responses: { 200: json(OpaqueSchema, 'Portal session result') },
+    responses: { 200: json(OpaqueSchema, 'Portal session result'), ...errors(429) },
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
@@ -186,18 +181,11 @@ subscriptionsRouter.openapi(
     summary: 'Cancel the active subscription',
     ...auth,
     request: { body: { required: false, content: { 'application/json': { schema: AnyBody } } } },
-    responses: { 200: json(OpaqueSchema, 'Cancellation result') },
+    responses: { 200: json(OpaqueSchema, 'Cancellation result'), ...errors(429) },
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
     const body = await readJsonObject(c);
-    const { getCreditAccount } = await import('../repositories/credit-accounts');
-    const account = await getCreditAccount(accountId);
-    if (account?.provider === 'paystack') {
-      const { cancelPaystackSubscription } = await import('../services/paystack');
-      const result = await cancelPaystackSubscription(accountId);
-      return c.json(result);
-    }
     const result = await cancelSubscription(
       accountId,
       typeof body.feedback === 'string' ? body.feedback : undefined,
@@ -214,7 +202,7 @@ subscriptionsRouter.openapi(
     summary: 'Reactivate a cancelled subscription',
     ...auth,
     request: { body: { required: false, content: { 'application/json': { schema: AnyBody } } } },
-    responses: { 200: json(OpaqueSchema, 'Reactivation result') },
+    responses: { 200: json(OpaqueSchema, 'Reactivation result'), ...errors(429) },
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');
@@ -231,7 +219,7 @@ subscriptionsRouter.openapi(
     summary: 'Sync subscription state from Stripe',
     ...auth,
     request: { body: { required: false, content: { 'application/json': { schema: AnyBody } } } },
-    responses: { 200: json(OpaqueSchema, 'Sync result') },
+    responses: { 200: json(OpaqueSchema, 'Sync result'), ...errors(404, 429) },
   }),
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body');

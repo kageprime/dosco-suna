@@ -3,8 +3,8 @@ import { chatIdentityStub } from './helpers/chat-identity-stub';
 import * as realConnectorSync from '../connectors/sync';
 
 /**
- * The Slack OAuth install is bound to the Dosco user who started it. The
- * callback (the registered redirect URI) carries no Dosco credential, so it
+ * The Slack OAuth install is bound to the Kortix user who started it. The
+ * callback (the registered redirect URI) carries no Kortix credential, so it
  * installs nothing and hands the browser to the web completion page. The
  * completion step installs only for the user and project the signed state names.
  */
@@ -44,10 +44,10 @@ mock.module('../config', () => ({
     API_KEY_SECRET: 'unit-test-api-key-secret',
     SLACK_CLIENT_ID: 'client-id',
     SLACK_CLIENT_SECRET: 'client-secret',
-    SLACK_REDIRECT_URI: 'https://dev-api.dosco.live/v1/webhooks/slack/oauth/callback',
+    SLACK_REDIRECT_URI: 'https://dev-api.kortix.com/v1/webhooks/slack/oauth/callback',
     SLACK_OAUTH_SCOPES: 'app_mentions:read,chat:write,commands',
     SLACK_REQUIRE_USER_IDENTITY: false,
-    FRONTEND_URL: 'https://dev.dosco.live',
+    FRONTEND_URL: 'https://dev.kortix.com',
   },
 }));
 
@@ -153,7 +153,7 @@ function complete(input: Partial<{ projectId: string; userId: string; code: stri
 }
 
 const dashboard = (qs: string) =>
-  `https://dev.dosco.live/projects/${PROJECT_ID}?projectId=${PROJECT_ID}&${qs}&customize=connectors`;
+  `https://dev.kortix.com/workspaces/${PROJECT_ID}?projectId=${PROJECT_ID}&${qs}&customize=connectors`;
 
 describe('Slack OAuth callback', () => {
   test('the callback hands off to web completion and saves nothing', async () => {
@@ -162,7 +162,7 @@ describe('Slack OAuth callback', () => {
 
     expect(res.status).toBe(302);
     const location = new URL(redirectLocation(res));
-    expect(`${location.origin}${location.pathname}`).toBe('https://dev.dosco.live/slack/install');
+    expect(`${location.origin}${location.pathname}`).toBe('https://dev.kortix.com/slack/install');
     expect(location.searchParams.get('project')).toBe(PROJECT_ID);
     expect(location.searchParams.get('code')).toBe('code-1');
     expect(location.searchParams.get('state')).toBe(state);
@@ -207,7 +207,7 @@ describe('Slack OAuth completion', () => {
     }]);
   });
 
-  test('another Dosco user is refused with 403 before the code is exchanged, and nothing is saved', async () => {
+  test('another Kortix user is refused with 403 before the code is exchanged, and nothing is saved', async () => {
     const result = await complete({ userId: OTHER_USER_ID });
     expect(result).toMatchObject({ ok: false, status: 403, code: 'CHANNEL_INSTALL_STATE_MISMATCH' });
     expect(fetchCalls).toBe(0);
@@ -286,13 +286,13 @@ describe('Slack OAuth installer identity', () => {
     expect(linkCalls).toEqual([{ teamId: WORKSPACE_ID, slackUserId: 'U_ADMIN', userId: USER_ID }]);
   });
 
-  test('a link to the same Dosco user is refreshed', async () => {
+  test('a link to the same Kortix user is refreshed', async () => {
     identityRow = { userId: USER_ID };
     await complete();
     expect(linkCalls).toHaveLength(1);
   });
 
-  test('a live link to another Dosco user stays unchanged', async () => {
+  test('a live link to another Kortix user stays unchanged', async () => {
     identityRow = { userId: OTHER_USER_ID };
     const result = await complete();
     expect(result.ok).toBe(true);

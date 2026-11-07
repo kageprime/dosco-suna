@@ -1,5 +1,5 @@
 // What a notification email says (KRTX-1742): the immediate trigger alert
-// and the digest of unread rows. One Dosco shell (lib/email/template.tsx);
+// and the digest of unread rows. One Kortix shell (lib/email/template.tsx);
 // voice rules: .agents/skills/kortix-brand/references/verbal/voice-and-tone.md 5.5.
 import type { NotificationKindName } from '@kortix/shared/notification-kinds';
 import { config } from '../config';
@@ -27,8 +27,6 @@ export const KIND_LABELS: Record<NotificationKindName, string> = {
   automation_recovered: 'Trigger recovered',
   capture_device_down: 'Computer not recording',
   capture_device_recovered: 'Computer recording again',
-  message: 'New message',
-  artifact_comment: 'Artifact comment',
 };
 
 /** The settings pane that holds the per-kind Push and Email switches. */
@@ -36,10 +34,15 @@ const SETTINGS_PATH = '/settings/sessions';
 const SETTINGS_LINK_LABEL = 'Settings → Notifications';
 const SETTINGS_LEAD = 'Change which notifications get email in';
 
-/** An app path as a link that works from a mail client. */
+/**
+ * An app path as a link that works from a mail client. A notification row
+ * keeps the `/projects/…` path that shipped mobile apps parse (push-payload.ts);
+ * the email names the canonical web page, `/workspaces/…`.
+ */
 export function absoluteAppUrl(path: string): string {
   const base = (config.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
-  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+  const rooted = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${rooted.replace(/^\/projects(?=[/?#]|$)/, '/workspaces')}`;
 }
 
 function message(parts: {
@@ -122,10 +125,10 @@ export function renderImmediateNotificationEmail(item: NotificationEmailItem): R
   return null;
 }
 
-/** A Dosco Capture computer stopped recording, or records again. Sent to the people who manage Capture. */
+/** A Kortix Capture computer stopped recording, or records again. Sent to the people who manage Capture. */
 function renderCaptureEmail(item: NotificationEmailItem): RenderedEmail {
   const cta = { url: absoluteAppUrl(item.url), label: 'Open devices' };
-  const note = 'You get this email because you manage Dosco Capture for this account.';
+  const note = 'You get this email because you manage Kortix Capture for this account.';
   if (item.kind === 'capture_device_down') {
     return message({
       subject: `Computer not recording: ${item.title}`,
@@ -162,7 +165,7 @@ export function renderNotificationDigestEmail(input: { items: readonly Notificat
         </div>`)
     .join('');
   return message({
-    subject: `Review ${total} unread ${noun} in Dosco`,
+    subject: `Review ${total} unread ${noun} in Kortix`,
     title: `${total} unread ${noun}`,
     lead: { text: `${total === 1 ? 'This notification was' : 'These notifications were'} unread for 15 minutes or more.` },
     extra: {
@@ -172,7 +175,7 @@ export function renderNotificationDigestEmail(input: { items: readonly Notificat
         ...(moreLine ? [moreLine] : []),
       ],
     },
-    cta: { url: absoluteAppUrl('/projects'), label: 'Open Dosco' },
+    cta: { url: absoluteAppUrl('/workspaces'), label: 'Open Kortix' },
     note: 'You get this email for unread questions, failed sessions and shares.',
   });
 }

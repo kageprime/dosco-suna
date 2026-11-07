@@ -1,9 +1,9 @@
 /**
- * Integration test (real local DB, fake Drive volume): what My Dosco
+ * Integration test (real local DB, fake Drive volume): what My Kortix
  * remembers about a person (`kortix_memory`). One page per name in the
  * person's own `/Users/<person>/Memory/mykortix`, nobody else's; the caps and
- * the secret check; and the index every My Dosco turn starts with, with
- * `project_channels` off.
+ * the secret check; and the index every My Kortix turn starts with, with
+ * `chat` off.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { accounts, projectSessions, projects } from '@kortix/db';
@@ -36,8 +36,8 @@ const PRIYA = crypto.randomUUID();
 const SAM = crypto.randomUUID();
 const MK_SESSION = crypto.randomUUID();
 const WORKER_SESSION = crypto.randomUUID();
-// Channels off on purpose: My Dosco memory needs Files only.
-const project = { projectId: PROJECT, accountId: ACCOUNT, metadata: { experimental: { project_channels: false, drives: true } } };
+// Channels off on purpose: My Kortix memory needs Files only.
+const project = { projectId: PROJECT, accountId: ACCOUNT, metadata: { experimental: { chat: false, drives: true } } };
 const person = (userId: string): Viewer => ({ userId, may: async (action) => action === 'session' });
 const volume = new FakeVolume();
 let priyaFolder = '';
@@ -73,7 +73,7 @@ afterAll(async () => {
 describe('the mykortix layer', () => {
   test('is the viewer’s own folder: Priya’s and Sam’s are two folders; no Drive storage is 403 feature_disabled', async () => {
     const priya = await myKortixLayer(project, person(PRIYA));
-    expect(priya).toMatchObject({ key: 'mykortix', scope: 'dm', spaceId: null, name: 'My Dosco', root: `${priyaFolder}/Memory/mykortix`, agentFolder: null, canWrite: true });
+    expect(priya).toMatchObject({ key: 'mykortix', scope: 'dm', spaceId: null, name: 'My Kortix', root: `${priyaFolder}/Memory/mykortix`, agentFolder: null, canWrite: true });
     const sam = await myKortixLayer(project, person(SAM));
     expect(sam.root).not.toBe(priya.root);
     expect(sam.root.endsWith('/Memory/mykortix')).toBe(true);
@@ -86,7 +86,7 @@ describe('the mykortix layer', () => {
     }
   });
 
-  test('only a My Dosco session may use it with its session token', async () => {
+  test('only a My Kortix session may use it with its session token', async () => {
     expect(await isMyKortixSession(PROJECT, MK_SESSION)).toBe(true);
     expect(await isMyKortixSession(PROJECT, WORKER_SESSION)).toBe(false);
     expect(await isMyKortixSession(PROJECT, crypto.randomUUID())).toBe(false);
@@ -125,7 +125,7 @@ describe('save, view, list, delete', () => {
     await deleteMyMemory(layer, 'prefers-meetings-before-noon');
   });
 
-  test('the Memory screen reads the same file: type feedback, author My Dosco, the description as its summary', async () => {
+  test('the Memory screen reads the same file: type feedback, author My Kortix, the description as its summary', async () => {
     const layer = await resolveLayer(project, 'mykortix', person(PRIYA));
     const { pages } = await listPages(layer);
     expect(pages).toEqual([expect.objectContaining({ type: 'feedback', title: 'Likes short replies', summary: 'Wants replies of one or two sentences', updated_by: expect.objectContaining({ kind: 'agent', agent: 'mykortix' }) })]);
@@ -172,8 +172,8 @@ describe('save, view, list, delete', () => {
   });
 });
 
-describe('the index a My Dosco turn starts with', () => {
-  test('lists the session owner’s pages, with project_channels off, and sets the prompt body’s system', async () => {
+describe('the index a My Kortix turn starts with', () => {
+  test('lists the session owner’s pages, with chat off, and sets the prompt body’s system', async () => {
     const turn = (await myKortixMemoryTurn(PROJECT, MK_SESSION, PRIYA))!;
     expect(turn.pages).toBe(1);
     expect(turn.system).toContain('## Your memory of this person');

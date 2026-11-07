@@ -16,7 +16,7 @@ export {
 } from './tier-facts';
 
 /**
- * The platform fee on Dosco-managed model usage, as a percent of the
+ * The platform fee on Kortix-managed model usage, as a percent of the
  * provider's base price. Customers see base prices; the fee is stated once.
  * 5.5% matches what the upstream router charges on credit purchases, so
  * managed models run at break-even until routes move to direct providers.
@@ -102,13 +102,11 @@ export function topUpBonusUsd(amountUsd: number): number {
   return step ? Math.round(amountUsd * step.percent) / 100 : 0;
 }
 
-export const MAX_PROJECTS_PER_ACCOUNT = 200;
-
 const GIB = 1024 ** 3;
 
 /**
  * Files storage per plan (drives/limits.ts). Every customer's Files live in
- * Dosco's ONE Platinum org: 100 GiB per volume (one volume per project), 50
+ * Kortix's ONE Platinum org: 100 GiB per volume (one volume per project), 50
  * TiB stored for the whole org (2026-11-01, `GET /v1/volumes/limits`). The
  * project figure stays at or under the volume size; the account figure keeps
  * one account from filling the org for everyone. An exception is the
@@ -162,7 +160,7 @@ const TIERS: Record<string, TierConfig> = {
     displayName: 'Free',
     monthlyCredits: 5,
     canPurchaseCredits: true,
-    // Never the Dosco-managed models: the Free credits pay for compute and
+    // Never the Kortix-managed models: the Free credits pay for compute and
     // the user's own provider keys or ChatGPT subscription only.
     models: [],
     appLimit: 50,
@@ -202,7 +200,7 @@ const TIERS: Record<string, TierConfig> = {
 interface StripePriceConfig {
   /** The $0 subscription every free account holds. */
   free: string;
-  /** "Dosco credits": $0.01 per unit per month, quantity = credits. */
+  /** "Kortix credits": $0.01 per unit per month, quantity = credits. */
   credits: string;
   /** One-time top-up packages, by whole-dollar amount. */
   topUps: Record<number, string>;
@@ -210,7 +208,7 @@ interface StripePriceConfig {
 
 const STRIPE_PRICES_PROD: StripePriceConfig = {
   free: 'price_1RIGvuG6l1KZGqIrw14abxeL',
-  credits: 'price_1UQEUsG6l1KZGqIrSUPCdtIO', // live "Dosco credits", $0.01/credit/month
+  credits: 'price_1UQEUsG6l1KZGqIrSUPCdtIO', // live "Kortix credits", $0.01/credit/month
   topUps: {
     10: 'price_1RxmQUG6l1KZGqIru453O1zW',
     25: 'price_1RxmQlG6l1KZGqIr3hS5WtGg',
@@ -221,7 +219,7 @@ const STRIPE_PRICES_PROD: StripePriceConfig = {
   },
 };
 
-// Staging and dev share the main Dosco Stripe account's TEST mode
+// Staging and dev share the main Kortix Stripe account's TEST mode
 // (acct_1R5BVvG6l1KZGqIr); both deployed keys are the same sk_test_ key.
 const STRIPE_PRICES_STAGING: StripePriceConfig = {
   free: 'price_1RIGvuG6l1KZGqIrw14abxeL',
@@ -316,7 +314,7 @@ export function resolveFreePriceId(): string {
   return getStripePrices().free;
 }
 
-/** The "Dosco credits" price for this environment. */
+/** The "Kortix credits" price for this environment. */
 export function resolveCreditsPriceId(): string {
   return getStripePrices().credits;
 }
@@ -380,7 +378,7 @@ export function planForSubscription(subscription: {
  * Σ items: monthly credits per unit × quantity. Discounts do not reduce it —
  * the allowance is what the plan lists, as the seat rule always was.
  *
- *   - "Dosco credits": $0.01 × quantity.
+ *   - "Kortix credits": $0.01 × quantity.
  *   - A legacy price: its row in LEGACY_PRICE_MONTHLY_USD.
  *   - Any other price (a legacy machine subscription): its list price per month.
  *
@@ -470,7 +468,7 @@ export function isValidTier(name: string): boolean {
 
 /**
  * Whether a tier unlocks the full model catalog — the premium LLM gateway
- * (Claude/GPT/Gemini/…), not just OpenCode's built-in models. Pure function of
+ * (Claude/GPT/Gemini/…), not just the free and BYOK models. Pure function of
  * tier config: environment and wallet balance cannot grant it.
  */
 export function tierGrantsAllModels(tierName: string): boolean {

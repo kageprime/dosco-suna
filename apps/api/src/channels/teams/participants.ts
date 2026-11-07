@@ -39,7 +39,7 @@ export function normalizeConversationPolicy(value: unknown): TeamsConversationPo
 }
 
 export function conversationPolicyLabel(policy: TeamsConversationPolicy): string {
-  if (policy === 'project_open') return 'Project members can join';
+  if (policy === 'project_open') return 'Workspace members can join';
   if (policy === 'owner_only') return 'Owner only';
   return 'Owner approval';
 }
@@ -79,7 +79,7 @@ async function loadParticipant(input: { tenantId: string; conversationId: string
     .where(
       and(
         eq(chatThreadParticipants.platform, PLATFORM),
-        eq(chatThreadParticipants.workspaceId, input.tenantId),
+        eq(chatThreadParticipants.platformTeamId, input.tenantId),
         eq(chatThreadParticipants.threadId, input.conversationId),
         eq(chatThreadParticipants.platformUserId, input.teamsUserId),
       ),
@@ -130,7 +130,7 @@ export async function ensureTeamsThreadParticipant(input: {
   if (policy === 'owner_only') {
     return {
       allowed: false,
-      notice: 'This Dosco session is owner-only. Start a new conversation if you want Dosco to work with you separately.',
+      notice: 'This Kortix session is owner-only. Start a new conversation if you want Kortix to work with you separately.',
     };
   }
 
@@ -146,7 +146,7 @@ export async function ensureTeamsThreadParticipant(input: {
   if (existing?.status === 'denied' && existing.userId === input.actorUserId) {
     return {
       allowed: false,
-      notice: "You don't have access to this Dosco session — the owner declined your request. Start a new conversation to work with Dosco separately.",
+      notice: "You don't have access to this Kortix session — the owner declined your request. Start a new conversation to work with Kortix separately.",
     };
   }
 
@@ -165,7 +165,7 @@ export async function ensureTeamsThreadParticipant(input: {
       .where(
         and(
           eq(chatThreadParticipants.platform, PLATFORM),
-          eq(chatThreadParticipants.workspaceId, input.tenantId),
+          eq(chatThreadParticipants.platformTeamId, input.tenantId),
           eq(chatThreadParticipants.threadId, input.conversationId),
           eq(chatThreadParticipants.platformUserId, input.teamsUserId),
         ),
@@ -176,7 +176,7 @@ export async function ensureTeamsThreadParticipant(input: {
       .insert(chatThreadParticipants)
       .values({
         platform: PLATFORM,
-        workspaceId: input.tenantId,
+        platformTeamId: input.tenantId,
         threadId: input.conversationId,
         sessionId: input.sessionId,
         platformUserId: input.teamsUserId,
@@ -186,7 +186,7 @@ export async function ensureTeamsThreadParticipant(input: {
       .onConflictDoNothing({
         target: [
           chatThreadParticipants.platform,
-          chatThreadParticipants.workspaceId,
+          chatThreadParticipants.platformTeamId,
           chatThreadParticipants.threadId,
           chatThreadParticipants.platformUserId,
         ],
@@ -214,7 +214,7 @@ export async function ensureTeamsThreadParticipant(input: {
   return {
     allowed: false,
     notice: inserted
-      ? "This Dosco session is private. I've asked the session owner to approve you — I won't send your message until they do."
+      ? "This Kortix session is private. I've asked the session owner to approve you — I won't send your message until they do."
       : "You're still waiting for the session owner to approve access to this conversation.",
   };
 }
@@ -232,7 +232,7 @@ export async function rememberTeamsThreadOwner(input: {
     .insert(chatThreadParticipants)
     .values({
       platform: PLATFORM,
-      workspaceId: input.tenantId,
+      platformTeamId: input.tenantId,
       threadId: input.conversationId,
       sessionId: input.sessionId,
       platformUserId: input.teamsUserId,
@@ -244,7 +244,7 @@ export async function rememberTeamsThreadOwner(input: {
     .onConflictDoUpdate({
       target: [
         chatThreadParticipants.platform,
-        chatThreadParticipants.workspaceId,
+        chatThreadParticipants.platformTeamId,
         chatThreadParticipants.threadId,
         chatThreadParticipants.platformUserId,
       ],
@@ -266,7 +266,7 @@ export async function rememberTeamsThreadOwner(input: {
  * proof: an agent can post any Adaptive Card into its conversation. So the
  * decision applies only to a request this conversation actually raised for
  * its current session (`ensureTeamsThreadParticipant` wrote it, pending), and
- * the requester's Dosco account is the one that request recorded, never the
+ * the requester's Kortix account is the one that request recorded, never the
  * card's. The owner must still be able to work in the project.
  */
 export async function decideTeamsThreadJoin(input: {
@@ -280,7 +280,7 @@ export async function decideTeamsThreadJoin(input: {
   const closed = { ok: false, text: 'This request is no longer open.' };
   const deciderUser = chatUser('teams', input.tenantId, input.deciderTeamsUserId);
   const decider = await lookupChatIdentity(deciderUser);
-  if (!decider) return { ok: false, text: 'Connect your Dosco account (`/login`) before approving session access.' };
+  if (!decider) return { ok: false, text: 'Connect your Kortix account (`/login`) before approving session access.' };
 
   const [thread] = await db
     .select({ sessionId: chatThreads.sessionId })
@@ -288,7 +288,7 @@ export async function decideTeamsThreadJoin(input: {
     .where(
       and(
         eq(chatThreads.platform, PLATFORM),
-        eq(chatThreads.workspaceId, input.tenantId),
+        eq(chatThreads.platformTeamId, input.tenantId),
         eq(chatThreads.threadId, input.conversationId),
       ),
     )
@@ -309,12 +309,12 @@ export async function decideTeamsThreadJoin(input: {
     .from(projectSessions)
     .where(eq(projectSessions.sessionId, sessionId))
     .limit(1);
-  if (!session) return { ok: false, text: 'This Dosco session no longer exists.' };
+  if (!session) return { ok: false, text: 'This Kortix session no longer exists.' };
   if (!session.createdBy || session.createdBy !== decider.userId) {
     return { ok: false, text: 'Only the session owner can approve people for this conversation.' };
   }
   if (!('userId' in (await resolveProjectChatActor(deciderUser, session.projectId)))) {
-    return { ok: false, text: 'Your Dosco account no longer has access to this project, so you cannot approve people for it.' };
+    return { ok: false, text: 'Your Kortix account no longer has access to this Kortix workspace, so you cannot approve people for it.' };
   }
 
   const now = new Date();
@@ -343,14 +343,14 @@ export async function decideTeamsThreadJoin(input: {
     await conversationMemberId(ref, input.requesterTeamsUserId),
     buildNoticeCard(
       input.decision === 'approved'
-        ? `${label} — you're approved for this Dosco session. Send your message again and I'll continue. You can also [open the session in Dosco](${sessionUrl}).`
-        : `${label} — the session owner declined your request for this Dosco session. Start a new conversation to work with Dosco separately.`,
+        ? `${label} — you're approved for this Kortix session. Send your message again and I'll continue. You can also [open the session in Kortix](${sessionUrl}).`
+        : `${label} — the session owner declined your request for this Kortix session. Start a new conversation to work with Kortix separately.`,
       input.decision === 'approved' ? '✅' : '🚫',
     ),
   ).catch((err) => console.warn('[teams-participants] decision notice failed', err));
 
   return {
     ok: true,
-    text: input.decision === 'approved' ? `Approved ${label} for this Dosco session.` : `Denied ${label} for this Dosco session.`,
+    text: input.decision === 'approved' ? `Approved ${label} for this Kortix session.` : `Denied ${label} for this Kortix session.`,
   };
 }

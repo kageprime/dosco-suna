@@ -5,11 +5,11 @@ import { config } from '../../config';
  * The OAuth install hand-off shared by Slack, Teams and Discord.
  *
  * The provider redirects the browser to the API callback, which carries no
- * Dosco credential. The callback therefore installs nothing: it verifies the
+ * Kortix credential. The callback therefore installs nothing: it verifies the
  * signed `state` and forwards the browser to the web completion page. That page
  * posts `{code, state}` with the signed-in user's bearer, and the completion
  * route installs only when the state names that same user and project. An
- * install always lands in the project of the Dosco user who started it.
+ * install always lands in the project of the Kortix user who started it.
  */
 export type ChatInstallPlatform = 'slack' | 'teams' | 'discord';
 
@@ -21,7 +21,7 @@ export const INSTALL_STATE_INVALID = 'CHANNEL_INSTALL_STATE_INVALID';
 export const INSTALL_STATE_MISMATCH = 'CHANNEL_INSTALL_STATE_MISMATCH';
 
 export function frontendBase(): string {
-  return (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
+  return (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
 }
 
 /**
@@ -42,7 +42,7 @@ export type InstallRefusal = Extract<InstallCompletion, { ok: false }>;
 /**
  * The verified state when it names the caller and the caller's project, else
  * the refusal to send: 400 when the state did not verify, 403 when it names
- * another project or another Dosco user.
+ * another project or another Kortix user.
  */
 export function stateForCaller<T extends { projectId: string; userId: string }>(
   state: T | null,
@@ -60,7 +60,7 @@ export function stateForCaller<T extends { projectId: string; userId: string }>(
     return {
       ok: false,
       status: 403,
-      error: 'This install was started by another Dosco account or for another project. Start it again from the project.',
+      error: 'This install was started by another Kortix account or for another workspace. Start it again from the workspace.',
       code: INSTALL_STATE_MISMATCH,
     };
   }

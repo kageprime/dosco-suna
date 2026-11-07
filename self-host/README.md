@@ -81,7 +81,7 @@ for real use) running Linux, and a domain you control.
    [Unconfirmed email addresses](https://kortix.com/docs/host#unconfirmed-email-addresses).
    Then:
    - **Settings → Git** — connect a GitHub App (or PAT) so the platform can
-     create project repos. This one dashboard flow replaces the old
+     create workspace repos. This one dashboard flow replaces the old
      env-var-only managed-git setup.
    - **Settings → Model** — connect your own model key (BYOK: Anthropic,
      OpenAI, OpenRouter, etc.).
@@ -93,8 +93,8 @@ against it like you would against Kortix Cloud:
 kortix hosts use selfhost   # already registered + pointed at your instance by `init`/`start`
 kortix login
 kortix whoami
-kortix projects ls
-cd your-project && kortix ship
+kortix workspaces ls
+cd your-workspace && kortix ship
 ```
 
 ## 2. Want something more robust on AWS? There's a Terraform for that
@@ -255,13 +255,33 @@ too. Without it, such a repository cloned twice over Git on every new session.
   sends the checkout back to Git. The config still uses an archive when one
   exists, verified file by file against the commit.
 - **External Capture store.** `KORTIX_CAPTURE_STORE=external` removes the
-  on-box MinIO, so it also removes the snapshot wiring. Snapshots are then off
-  unless you set `KORTIX_PROJECT_SNAPSHOT_*` in `.env` for a store of your own.
+  on-box MinIO, so it also removes the snapshot wiring: new sessions clone over
+  Git again. To keep snapshots, give them a bucket of your own (on AWS):
+  1. Create a private bucket in the server's region with a 30-day expiry rule.
+     The API does not create it in this mode.
+  2. Grant the server's identity `s3:PutObject` and `s3:GetObject` on
+     `<bucket>/*`, and `s3:ListBucket` on `<bucket>` (a missing archive then
+     answers `404`, not `403`). On EC2 that is the instance role: the API uses
+     the default AWS credential chain when
+     `KORTIX_PROJECT_SNAPSHOT_S3_ACCESS_KEY_ID` is unset.
+  3. Set three keys. This rolls `kortix-api`:
+     `kortix self-host env set KORTIX_PROJECT_SNAPSHOT_MODE=prefer-s3
+     KORTIX_PROJECT_SNAPSHOT_S3_BUCKET=<bucket>
+     KORTIX_PROJECT_SNAPSHOT_S3_REGION=<region>`
+
+  Sandboxes download over presigned AWS URLs, so the bucket stays private and
+  needs no Caddy route. `kortix-api` reads the keys from `.env` through
+  `env_file`, so they survive `kortix self-host update`. The API log prints
+  `[project-snapshot] ready` once the first archive is built, after the next
+  push to the base branch or the next new session.
 - **Upgrading.** `kortix self-host update` with a CLI that knows the bucket
   adds the wiring, recreates `kortix-api` once, and reloads Caddy when the
   Caddyfile changed.
-- **Check it.** `curl -s https://api.<your domain>/kortix-project-snapshots/`
-  answers MinIO's S3 XML error (`AccessDenied`), never the API's JSON `404`.
+- **Check it.** With the bundled store,
+  `curl -s https://api.<your domain>/kortix-project-snapshots/` answers MinIO's
+  S3 XML error (`AccessDenied`), never the API's JSON `404`. With either store,
+  a new session's daemon log shows `[workspace-provider] complete` with
+  `"provider":"s3"` and `"fallback":null`.
 
 ## 4. Day-2 operations
 

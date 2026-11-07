@@ -3,12 +3,12 @@
 import { getAuthToken, getSandboxUrlForExternalId, probePreviewPort } from '@kortix/sdk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useSandboxProxy } from '../../internal/hooks/use-sandbox-proxy';
 import { CallAudio } from './call-audio';
 import { canShareScreen, sampleScreen, SCREEN_MEDIA, type ScreenSampler } from './screen-share';
 import {
   AUDIBLE_RMS,
   createPlayback,
+  DIAL_MS,
   INITIAL_CALL,
   reduceCall,
   REDIAL_MS,
@@ -39,13 +39,11 @@ interface LiveCall {
 }
 
 /**
- * One voice call with the session `sessionId` (the Kortix session id), for as long as the caller is mounted.
- * It dials the box's relay, plays the voice, sends the microphone and a shared screen, redials a live call
- * that drops, and releases everything on unmount and when the tab closes.
+ * One voice call with the session `sessionId` (the Kortix session id) on its box `sandboxId` (the sandbox's external
+ * id), for as long as the caller is mounted. It dials the box's relay, plays the voice, sends the microphone and a
+ * shared screen, redials a live call that drops, and releases everything on unmount and when the tab closes.
  */
-export function useVoiceCall(sessionId: string) {
-  const { subdomainOpts, isReady } = useSandboxProxy();
-  const sandboxId = isReady ? subdomainOpts.sandboxId : '';
+export function useVoiceCall(sessionId: string, sandboxId: string) {
   const [state, setState] = useState<CallState>(INITIAL_CALL);
   const [muted, setMuted] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -99,7 +97,7 @@ export function useVoiceCall(sessionId: string) {
     };
 
     const onReady = (message: RelayMessage) => {
-      step({ type: 'ready' });
+      step({ type: 'ready', at: Date.now() });
       // A redialed call is a new call on the relay: it sees the shared screen again.
       shareRef.current?.sampler.snap();
       const started = (audio = new CallAudio());
@@ -160,10 +158,13 @@ export function useVoiceCall(sessionId: string) {
         if (disposed || socket !== opened) return;
         dropAudio();
         if (current.phase === 'connecting') {
-          // Before the first `ready`: a port nothing listens on is a sandbox without the relay, which a redial
-          // cannot fix. The proxy answers that itself (502/503/504).
+          // Before the first `ready`: dialed again while a box that just started opens the relay's port (DIAL_MS).
+          // After the last try, a port nothing listens on is a sandbox without the relay: the proxy answers that
+          // itself (502/503/504), and the probe tells it from a failed dial.
           void probePreviewPort(voiceRelayHealthUrl(portUrl)).then((relay) => {
-            if (!disposed) step({ type: 'drop', relay });
+            if (disposed) return;
+            const next = step({ type: 'drop', relay });
+            if (next.phase === 'connecting') redial = setTimeout(() => void dial(false), DIAL_MS[next.redials - 1]);
           });
           return;
         }
@@ -183,7 +184,7 @@ export function useVoiceCall(sessionId: string) {
     // Closing the tab (or leaving it for the back-forward cache) ends the call and its bar.
     const onPageHide = () => {
       teardown();
-      useVoiceCallStore.getState().close(sessionId);
+      useVoiceCallStore.getState().end(sessionId);
     };
     window.addEventListener('pagehide', onPageHide);
     void dial(false);

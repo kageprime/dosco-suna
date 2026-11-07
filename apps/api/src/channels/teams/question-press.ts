@@ -9,7 +9,6 @@
  * session. Loaded on press by interactivity.ts.
  */
 import type { RuntimeQuestion } from '@kortix/api-contract/transcript';
-import { projects } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
@@ -25,13 +24,14 @@ import { type TeamsInvokeResponse, cardResponse, messageResponse } from './invok
 import { type TeamsFollowUp, admitTeamsFollowUp, deliverAdmittedFollowUp, resolveTeamsTurnActor } from './session';
 import { noticeOnLiveCard, startTurn } from './turn';
 import type { TeamsActivity, TeamsLiveTurn } from './types';
+import { projectsView } from '../../workspaces/rows';
 
 /** The card once a press settled it: each question, then `line`, and no buttons. */
 const settledCard = (questions: RuntimeQuestion[], line: string) =>
   buildNoticeCard([...questions.map((q) => `**${q.question}**`), line].join('\n\n'));
 
 /**
- * The stored question and the picks of a `kq` press, or null for data Dosco
+ * The stored question and the picks of a `kq` press, or null for data Kortix
  * did not write. A one-tap button carries `kq:<id>:<option>`. A form carries
  * the id in `kq`, each question's choice in `kq<q>` (option indexes,
  * comma-joined on a multi-select) and its own text in `kq<q>.text`.
@@ -62,12 +62,12 @@ const NOT_TAKEN = 'Your answer was not taken. Follow the message I sent you, the
 
 /**
  * The reply for the presser of a card from before `kq` (interactivity.ts)
- * whom Dosco cannot act as in `projectId`, else null. Decided before the
+ * whom Kortix cannot act as in `projectId`, else null. Decided before the
  * invoke replies, as for a `kq` press: they get the sign-in prompt, nothing is
  * kept to replay, and their card keeps its inputs for the press after login.
  */
 export async function unlinkedPresser(activity: TeamsActivity, projectId: string, tenantId: string): Promise<TeamsInvokeResponse | null> {
-  const [project] = await db.select({ accountId: projects.accountId }).from(projects).where(eq(projects.projectId, projectId)).limit(1);
+  const [project] = await db.select({ accountId: projectsView.accountId }).from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
   const userId = project && (await resolveTeamsTurnActor(project.accountId, projectId, tenantId, activity, undefined, false));
   return userId ? null : messageResponse(NOT_TAKEN);
 }
@@ -88,7 +88,7 @@ export async function answerTeamsQuestion(
     { platform: 'teams', workspaceId: tenantId, threadId: conversationId },
     inbound.kind === 'project' ? inbound.projectId : undefined,
   );
-  const [project] = thread ? await db.select().from(projects).where(eq(projects.projectId, thread.projectId)).limit(1) : [];
+  const [project] = thread ? await db.select().from(projectsView).where(eq(projectsView.projectId, thread.projectId)).limit(1) : [];
   if (!thread || !project) return cardResponse(settledCard([], QUESTION_EARLIER));
   const { projectId, sessionId } = thread;
 

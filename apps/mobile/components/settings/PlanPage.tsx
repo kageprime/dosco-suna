@@ -2,7 +2,7 @@
  * Plans — `/plans`, where a user picks a plan and upgrades. Opened from
  * Billing → Change plan and from the upgrade sheet.
  *
- * Mobile has no in-app purchase. The button opens dosco.live — web billing,
+ * Mobile has no in-app purchase. The button opens kortix.com — web billing,
  * or the contact page for Enterprise — where checkout happens. Plans mirror
  * the web pricing (`lib/billing/pricing` → PRICING_PLANS); which plan is
  * current and what the button does come from `lib/billing/plan-action`.
@@ -60,7 +60,7 @@ export function PlanPage({ visible = true }: PlanPageProps) {
     enabled: visible && !isLoadingAccount,
   });
 
-  // Back from dosco.live after a checkout: the current plan moves.
+  // Back from kortix.com after a checkout: the current plan moves.
   React.useEffect(() => {
     if (!visible) return;
     const subscription = AppState.addEventListener('change', (state) => {
@@ -91,7 +91,7 @@ export function PlanPage({ visible = true }: PlanPageProps) {
     try {
       await openExternalUrl(url);
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
     }
   };
 
@@ -143,7 +143,7 @@ function PlanActionButton({
 
   const label = {
     current: t('plans.currentPlan', 'Current plan'),
-    'ask-owner': t('plans.askOwner', 'Ask an account owner to upgrade'),
+    'ask-owner': t('plans.askOwner', 'Ask a workspace owner or admin to upgrade'),
     'contact-sales': t('plans.contactSales', 'Contact sales'),
     upgrade: t('plans.upgradeTo', { defaultValue: 'Upgrade to {{plan}}', plan: planName }),
     switch: t('plans.switchTo', { defaultValue: 'Switch to {{plan}}', plan: planName }),

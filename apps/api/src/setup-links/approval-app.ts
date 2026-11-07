@@ -1,4 +1,4 @@
-import { connectorHeldCalls, connectors, connectorCalls, projects } from '@kortix/db';
+import { connectorHeldCalls, connectors, connectorCalls } from '@kortix/db';
 import { composioToolkitLogo } from '../connectors/composio';
 /**
  * Approval links — the AUTHENTICATED half, mounted at /v1/approval-links.
@@ -16,7 +16,7 @@ import { composioToolkitLogo } from '../connectors/composio';
  * to stop — strictly worse than no gate, because it also looks governed.
  *
  * So the token here is only a POINTER to "which decision is being asked". Every
- * route requires a signed-in Dosco account and re-checks that the account may
+ * route requires a signed-in Kortix account and re-checks that the account may
  * act on this project (`mayResolveApproval`: a manager, or the session's
  * launcher — never a session-bound/agent credential).
  *
@@ -41,6 +41,7 @@ import {
 import { db } from '../shared/db';
 import { resolveSetupLink } from './token';
 import type { AppEnv } from '../types';
+import { projectsView } from '../workspaces/rows';
 
 // AppEnv: every route here is authenticated and the project gate reads the
 // auth variables the middleware sets (authType, accountId, ...).
@@ -69,7 +70,7 @@ const ApprovalLinkSchema = z.object({
   review_complete: z.boolean(),
   args_summary: z.string().nullable(),
   approval_context: z.string().nullable(),
-  /** Content Dosco read from the provider for a reference-only call
+  /** Content Kortix read from the provider for a reference-only call
    *  (`gmail.send_draft {draft_id}` → the draft), redacted. */
   resolved_preview: z.record(z.string(), z.unknown()).nullable(),
   /** `unavailable` when that read failed or timed out. */
@@ -151,18 +152,18 @@ approvalLinksApp.openapi(createRoute({
           }
         : verdict.reason === 'non_human_caller'
           ? {
-              error: 'Sign in with a Dosco account to review this approval',
+              error: 'Sign in with a Kortix account to review this approval',
               code: 'APPROVAL_REQUIRES_HUMAN',
             }
-          : { error: 'Only a project manager or the session launcher can resolve this' },
+          : { error: 'Only a workspace manager or the session launcher can resolve this' },
       403,
     );
   }
 
   const [project] = await db
-    .select({ name: projects.name })
-    .from(projects)
-    .where(eq(projects.projectId, projectId))
+    .select({ name: projectsView.name })
+    .from(projectsView)
+    .where(eq(projectsView.projectId, projectId))
     .limit(1);
 
   // The connector's own name and logo, so the approval page can say WHICH

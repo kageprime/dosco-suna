@@ -119,7 +119,7 @@ function message(over: Partial<GatewayMessage> & { channel_id: string }): Gatewa
     author: { id: ALLOWED, username: 'synthetic_sam', global_name: 'Sam' },
     content: `<@${BOT}> what changed in the release?`,
     timestamp: new Date().toISOString(),
-    mentions: [{ id: BOT, username: 'Dosco' }],
+    mentions: [{ id: BOT, username: 'Kortix' }],
     attachments: [],
     ...over,
   };
@@ -178,6 +178,7 @@ beforeAll(async () => {
   await db.insert(accounts).values({ accountId: ACCOUNT, name: 'discord-test' });
   for (const [projectId, name] of [[PROJECT, 'discord-main'], [OTHER, 'discord-other']] as const) {
     await db.insert(projects).values({
+      splitPending: true,
       projectId,
       accountId: ACCOUNT,
       name,
@@ -290,7 +291,7 @@ describe('the interactions webhook', () => {
     const reply = (await (await interact(body)).json()) as { type: number; data: { content: string; flags: number } };
     expect(reply.type).toBe(4);
     expect(reply.data.flags).toBe(64);
-    expect(reply.data.content).toContain('not connected to a Dosco project');
+    expect(reply.data.content).toContain('not connected to a Kortix workspace');
     expect(await db.select().from(jobQueue).where(eq(jobQueue.jobKey, `discord:${FOREIGN_GUILD}:${body.id}`))).toEqual([]);
   });
 });
@@ -482,8 +483,8 @@ describe('the kortix_discord connector', () => {
     expect(await refusal({ channel_id: own })).toBeNull();
     expect(await refusal({ channel_id: CHANNEL })).toBeNull();
     // Bound to the other project by /connect above.
-    expect(await refusal({ channel_id: OTHER_CHANNEL })).toContain('not a conversation of this Dosco project');
-    expect(await refusal({ channel_id: FOREIGN_CHANNEL })).toContain('not a conversation of this Dosco project');
+    expect(await refusal({ channel_id: OTHER_CHANNEL })).toContain('not a conversation of this Kortix workspace');
+    expect(await refusal({ channel_id: FOREIGN_CHANNEL })).toContain('not a conversation of this Kortix workspace');
     expect(await refusal({ channel_id: 'general' })).toContain('one Discord channel id');
     expect(await refusal({ channel_id: own, message_reference: { message_id: own, channel_id: FOREIGN_CHANNEL } })).toContain('same channel');
     expect(await refusal({ channel_id: own, message_reference: { message_id: own, type: 1 } })).toContain('does not forward');
@@ -496,7 +497,7 @@ describe('the kortix_discord connector', () => {
 });
 
 describe('edge cases', () => {
-  test('"@Dosco" alone gets a hint and starts no session; a mention of the app\'s role counts as a mention', async () => {
+  test('"@Kortix" alone gets a hint and starts no session; a mention of the app\'s role counts as a mention', async () => {
     expect(await intakeMessage(message({ channel_id: CHANNEL, content: `<@${BOT}>` }), BOT)).toBe('stored');
     await drain();
     expect(created).toHaveLength(0);
@@ -527,7 +528,7 @@ describe('edge cases', () => {
     expect((await loadDiscordInstall(PROJECT))?.accessRequests.map((r) => r.id)).toContain(someone);
   });
 
-  test("Dosco's reply into a thread that archived is posted after it unarchives the thread", async () => {
+  test("Kortix's reply into a thread that archived is posted after it unarchives the thread", async () => {
     const archived = '760000000000000044';
     channels.set(archived, { id: archived, type: 11, guild_id: GUILD, parent_id: CHANNEL, name: 'old' });
     failures.set(`POST /channels/${archived}/messages`, { status: 400, body: { message: 'Thread is archived', code: 50083 }, times: 1 });
@@ -550,7 +551,7 @@ describe('edge cases', () => {
     const gone = '760000000000000055';
     const session = await newSession();
     await bindChatThread({ platform: 'discord', workspaceId: GUILD, threadId: gone, projectId: PROJECT, sessionId: session });
-    await db.insert(chatChannelBindings).values({ platform: 'discord', workspaceId: GUILD, channelId: gone, projectId: PROJECT });
+    await db.insert(chatChannelBindings).values({ platform: 'discord', platformTeamId: GUILD, channelId: gone, projectId: PROJECT });
     await forgetDiscordChannel(gone);
     expect(await db.select().from(chatThreads).where(eq(chatThreads.threadId, gone))).toEqual([]);
     expect(await db.select().from(chatChannelBindings).where(eq(chatChannelBindings.channelId, gone))).toEqual([]);
@@ -559,12 +560,12 @@ describe('edge cases', () => {
   test("a server that removed the bot while no Gateway listened is forgotten at READY; a suspicious READY removes nothing", async () => {
     const gone = '720000000000000777';
     const extra = crypto.randomUUID();
-    await db.insert(projects).values({ projectId: extra, accountId: ACCOUNT, name: 'discord-gone', repoUrl: 'file:///nonexistent/gone.git', metadata: {} });
+    await db.insert(projects).values({ splitPending: true, projectId: extra, accountId: ACCOUNT, name: 'discord-gone', repoUrl: 'file:///nonexistent/gone.git', metadata: {} });
     await saveDiscordInstall({ projectId: extra, guildId: gone, guildName: null });
     // An empty list is a broken READY, not a bot removed from every server.
     expect(await reconcileGuilds([])).toEqual([]);
     expect(await reconcileGuilds([GUILD])).toEqual([gone]);
-    expect(await db.select().from(chatInstalls).where(eq(chatInstalls.workspaceId, gone))).toEqual([]);
+    expect(await db.select().from(chatInstalls).where(eq(chatInstalls.platformTeamId, gone))).toEqual([]);
   });
 
   test('the bot leaves a server no project has, but never one it joined in the last hour (an install in progress)', async () => {
@@ -586,17 +587,17 @@ describe('the shared bot token stays in each project', () => {
   beforeEach(() => resetDiscordScopeForTest());
 
   test("a DM moved to another project leaves its old project nothing there, and its history before the move stays closed", async () => {
-    await db.insert(projects).values({ projectId: LEFT, accountId: ACCOUNT, name: 'discord-left', repoUrl: 'file:///nonexistent/left.git', metadata: { discord: { allowedUserIds: [] } } });
+    await db.insert(projects).values({ splitPending: true, projectId: LEFT, accountId: ACCOUNT, name: 'discord-left', repoUrl: 'file:///nonexistent/left.git', metadata: { discord: { allowedUserIds: [] } } });
     await saveDiscordInstall({ projectId: LEFT, guildId: GUILD_B, guildName: null });
     const old = await newSession(LEFT);
     await bindChatThread({ platform: 'discord', workspaceId: GUILD_B, threadId: DM2, projectId: LEFT, sessionId: old });
-    await db.insert(chatChannelBindings).values({ platform: 'discord', workspaceId: GUILD_B, channelId: DM2, projectId: LEFT, channelType: 'dm' });
+    await db.insert(chatChannelBindings).values({ platform: 'discord', platformTeamId: GUILD_B, channelId: DM2, projectId: LEFT, channelType: 'dm' });
     expect(await discordCallRefusal({ projectId: LEFT, args: { channel_id: DM2 } })).toBeNull();
 
     // The person moves their DM, though the old project no longer allows them: only they press a button in it.
     const moved = await bindDiscordChannel({ guildId: GUILD, threadId: DM2, settingsId: DM2, direct: true, startThread: false, addressed: true, channelName: null, threadName: null }, PROJECT, ALLOWED);
     expect(moved).toBe(true);
-    expect(await discordCallRefusal({ projectId: LEFT, args: { channel_id: DM2 } })).toContain('not a conversation of this Dosco project');
+    expect(await discordCallRefusal({ projectId: LEFT, args: { channel_id: DM2 } })).toContain('not a conversation of this Kortix workspace');
     expect(await db.select().from(chatThreads).where(and(eq(chatThreads.threadId, DM2), eq(chatThreads.projectId, LEFT)))).toEqual([]);
 
     expect(await discordCallRefusal({ projectId: PROJECT, actionPath: 'send_message', args: { channel_id: DM2 } })).toBeNull();
@@ -619,7 +620,7 @@ describe('the shared bot token stays in each project', () => {
     const unbound = '730000000000000003';
     channels.set(unbound, { id: unbound, type: 0, guild_id: GUILD, parent_id: null, name: 'general' });
     // OTHER has the server too (/connect above).
-    expect(await discordCallRefusal({ projectId: PROJECT, args: { channel_id: unbound } })).toContain('more than one Dosco project');
+    expect(await discordCallRefusal({ projectId: PROJECT, args: { channel_id: unbound } })).toContain('more than one Kortix workspace');
     await releaseDiscordInstall(OTHER);
     expect(await discordCallRefusal({ projectId: PROJECT, args: { channel_id: unbound } })).toBeNull();
 
@@ -766,7 +767,7 @@ describe('the Gateway', () => {
     const guild = '720000000000000555';
     await saveDiscordInstall({ projectId: OTHER, guildId: guild, guildName: null });
     expect(await forgetDiscordGuild(guild)).toEqual([OTHER]);
-    expect(await db.select().from(chatInstalls).where(eq(chatInstalls.workspaceId, guild))).toEqual([]);
+    expect(await db.select().from(chatInstalls).where(eq(chatInstalls.platformTeamId, guild))).toEqual([]);
   });
 });
 
@@ -809,7 +810,7 @@ describe('edge cases: failures, order and Discord limits', () => {
     await drain();
   });
 
-  test('a reply to Dosco with its @mention turned off hears, once, that Discord hid it', async () => {
+  test('a reply to Kortix with its @mention turned off hears, once, that Discord hid it', async () => {
     const thread = '760000000000000500';
     channels.set(thread, { id: thread, type: 11, guild_id: GUILD, parent_id: CHANNEL, name: 'unpinged' });
     const reply = () => message({ channel_id: thread, type: 19, content: '', mentions: [], referenced_message: { author: { id: BOT } } });
@@ -900,7 +901,7 @@ describe('edge cases: failures, order and Discord limits', () => {
     await handleDiscordMessage({ ...event, id: snowflake() } as never);
     const gone = calls.filter((c) => c.route === `POST /channels/${CHANNEL}/messages`);
     expect(gone).toHaveLength(1);
-    expect(gone[0]!.body.content).toContain('not connected to a Dosco project any more');
+    expect(gone[0]!.body.content).toContain('not connected to a Kortix workspace any more');
 
     calls.length = 0;
     await tellDeadDiscordEvent(event as never);
@@ -925,7 +926,7 @@ describe('edge cases: failures, order and Discord limits', () => {
     channels.set(CH, { id: CH, type: 0, guild_id: GUILD, parent_id: null, name: 'shared' });
     await saveDiscordInstall({ projectId: OTHER, guildId: GUILD, guildName: null });
     try {
-      await db.insert(chatChannelBindings).values({ platform: 'discord', workspaceId: GUILD, channelId: CH, projectId: OTHER, model: 'other-model' });
+      await db.insert(chatChannelBindings).values({ platform: 'discord', platformTeamId: GUILD, channelId: CH, projectId: OTHER, model: 'other-model' });
       await bindChatThread({ platform: 'discord', workspaceId: GUILD, threadId: THREAD, projectId: PROJECT, sessionId: await newSession() });
       const settings = { platform: 'discord', teamId: GUILD, channelId: CH };
       expect(await ensureChatBinding(settings, PROJECT, { name: null, type: 'channel' }, { keepsOtherProjects: true })).toBe('held');
@@ -950,9 +951,9 @@ describe('edge cases: failures, order and Discord limits', () => {
     const DM3 = '750000000000000003';
     const GX = '720000000000000003';
     const removed = crypto.randomUUID();
-    await db.insert(projects).values({ projectId: removed, accountId: ACCOUNT, name: 'discord-removed', repoUrl: 'file:///nonexistent/removed.git', metadata: { discord: { allowedUserIds: [] } } });
+    await db.insert(projects).values({ splitPending: true, projectId: removed, accountId: ACCOUNT, name: 'discord-removed', repoUrl: 'file:///nonexistent/removed.git', metadata: { discord: { allowedUserIds: [] } } });
     await saveDiscordInstall({ projectId: removed, guildId: GX, guildName: null });
-    await db.insert(chatChannelBindings).values({ platform: 'discord', workspaceId: GX, channelId: DM3, projectId: removed, channelType: 'dm' });
+    await db.insert(chatChannelBindings).values({ platform: 'discord', platformTeamId: GX, channelId: DM3, projectId: removed, channelType: 'dm' });
     expect(await resolveDiscordRoute({ guildId: null, channelId: DM3, userId: ALLOWED })).toMatchObject({ kind: 'project', projectId: PROJECT });
     const dm = { guildId: GUILD, threadId: DM3, settingsId: DM3, direct: true, startThread: false, addressed: true, channelName: null, threadName: null };
     await claimDiscordChannel(dm, PROJECT, ALLOWED);
@@ -981,7 +982,7 @@ describe('edge cases: failures, order and Discord limits', () => {
     expect(await discordCallRefusal({ projectId: PROJECT, actionPath: 'get_messages', args: { channel_id: DM, after, before: snowflake() } })).toContain('no `before`');
   });
 
-  test('a change to any field Dosco sets on a command registers the commands again', () => {
+  test('a change to any field Kortix sets on a command registers the commands again', () => {
     const [first] = discordCommandDefinitions();
     expect(commandShape({ ...first!, id: '1', version: '2' })).toBe(commandShape(first!));
     expect(commandShape({ ...first!, contexts: [0] })).not.toBe(commandShape(first!));
@@ -1169,7 +1170,7 @@ describe('the working mark', () => {
     expect(routes()).toContain(`PUT /channels/${CHANNEL}/messages/${m.id}/reactions/${HOURGLASS}/@me`);
     const [thread] = await db.select({ sessionId: chatThreads.sessionId }).from(chatThreads).where(eq(chatThreads.threadId, m.id));
 
-    // Discord lists the bot's own ⏳ (`me`) on a follow-up in the thread; someone else's ⏳ is not Dosco's.
+    // Discord lists the bot's own ⏳ (`me`) on a follow-up in the thread; someone else's ⏳ is not Kortix's.
     const followUp = snowflake();
     failures.set(`GET /channels/${m.id}/messages`, { status: 200, body: [marked(followUp), marked(snowflake(), false)], times: 1 });
     failures.set(`GET /channels/${CHANNEL}/messages/${m.id}`, { status: 200, body: marked(m.id), times: 1 });
@@ -1191,7 +1192,7 @@ describe('the working mark', () => {
 
   test('a message that never reached a session loses its ⏳ with the notice that says so, a thread start included', async () => {
     const started = snowflake();
-    // The thread Dosco started on the mention: Discord names its parent.
+    // The thread Kortix started on the mention: Discord names its parent.
     channels.set(started, { id: started, type: 11, guild_id: GUILD, parent_id: CHANNEL, name: 'started' });
     failures.set(`GET /channels/${CHANNEL}/messages/${started}`, { status: 200, body: marked(started), times: 1 });
     await discordPort.notify(

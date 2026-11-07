@@ -65,7 +65,7 @@ describe('picker sheet sections', () => {
 describe('composer chip (KRTX-247)', () => {
   test('the agent name, capitalised, not the model, as a low-key ghost chip', () => {
     expect(composerChip({ connectModel: false, agentName: 'kortix', modelName: 'Sonnet 5' })).toEqual({
-      label: 'Xera',
+      label: 'Kortix',
       variant: 'ghost',
     });
     expect(composerChip({ connectModel: false, agentName: 'plan', modelName: undefined })).toEqual({
@@ -93,7 +93,7 @@ describe('composer chip (KRTX-247)', () => {
     // A new thread: its sandbox has not listed its agents yet.
     expect(
       composerChip({ connectModel: false, agentName: null, pendingAgentName: 'kortix', agentsLoading: true, modelName: 'Sonnet 5' }),
-    ).toEqual({ label: 'Xera', variant: 'ghost' });
+    ).toEqual({ label: 'Kortix', variant: 'ghost' });
     expect(
       composerChip({ connectModel: false, agentName: null, pendingAgentName: null, agentsLoading: true, modelName: 'Sonnet 5' }),
     ).toBeNull();
@@ -116,7 +116,6 @@ describe('agents', () => {
   test('thread agents: the project config roster, default first, no runtime built-ins', () => {
     const config = {
       default_agent: 'kortix',
-      open_code_default_agent: 'kortix',
       agents: [
         { name: 'engineering', path: 'a', description: 'Eng', mode: 'primary' },
         { name: 'explore', path: 'b', description: null, mode: 'subagent' },
@@ -136,7 +135,6 @@ describe('agents — the SDK resolver over the thread roster', () => {
   // `/projects/:id/detail` config of a local project (synthetic names), plus edge rows.
   const config = {
     default_agent: 'engineering',
-    open_code_default_agent: 'engineering',
     agents: [
       { name: 'kortix', mode: 'primary', enabled: true, source: 'config' },
       { name: 'engineering', mode: 'primary', enabled: true, source: 'config' },
@@ -149,7 +147,7 @@ describe('agents — the SDK resolver over the thread roster', () => {
   // The roster the thread and project home offer (#8007): `threadAgents`.
   const roster = threadAgents(config);
 
-  test('the Agent tab: config agents only (no OpenCode build/plan), default first, no subagent, no disabled', () => {
+  test('the Agent tab: config agents only (no runtime built-ins build/plan), default first, no subagent, no disabled', () => {
     const names = roster.map((a) => a.name);
     expect(names).toEqual(['engineering', 'kortix', 'no-mode']);
     expect(names).not.toContain('build');
@@ -188,7 +186,7 @@ describe('agents — the SDK resolver over the thread roster', () => {
       modelID: id,
       modelName: id,
     }));
-    const pinned = { metadata: { opencode_model: 'kortix/model-b', opencode_model_source: 'explicit' } };
+    const pinned = { metadata: { model: 'kortix/model-b', model_source: 'explicit' } };
     const thread = (picked: ReturnType<typeof k> | undefined) =>
       resolveComposerModel({
         models,
@@ -227,7 +225,7 @@ describe('agents — the SDK resolver over the thread roster', () => {
   });
 
   test('display name capitalises the first letter; unknown agent says Agent', () => {
-    expect(agentDisplayName('kortix')).toBe('Xera');
+    expect(agentDisplayName('kortix')).toBe('Kortix');
     expect(agentDisplayName('chief-of-staff')).toBe('Chief-of-staff');
     expect(agentDisplayName(undefined)).toBe('Agent');
   });

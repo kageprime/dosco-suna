@@ -1,10 +1,10 @@
 /**
- * The hosted Dosco MCP server: `POST /v1/mcp`, MCP Streamable HTTP (JSON
+ * The hosted Kortix MCP server: `POST /v1/mcp`, MCP Streamable HTTP (JSON
  * responses, stateless). One server per person, like the `kortix` CLI: it is
  * bound to the caller's token, never to a project, and reaches every account,
  * project and session that token can.
  *
- * Any MCP client adds the URL and signs in with OAuth ("Sign in with Dosco",
+ * Any MCP client adds the URL and signs in with OAuth ("Sign in with Kortix",
  * ../oauth): a `401` carries `WWW-Authenticate: Bearer resource_metadata=…`,
  * the client reads the RFC 9728 document, registers itself (RFC 7591), runs
  * the PKCE code flow, and returns with a `kortix_oat_` token that acts as the
@@ -12,6 +12,7 @@
  * tool call runs through the real API routes in-process with that token, so
  * authorization is exactly the API's.
  */
+import { canonicalWorkspaceRoute, renameWorkspaceRouteParams } from '@kortix/shared/workspace-routes';
 import { Hono, type Context, type Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { mintWireMessageId } from '@kortix/sdk';
@@ -39,6 +40,7 @@ import { KORTIX_TOOL, parseArgs, runCli } from './cli';
 import { CONNECTOR_TOOLS, isConnectorTool, runConnectorTool, type Host } from './connectors';
 import { blockedPath, canonicalPath, requestBodyShape, searchOperations, shapeTranscript, type Operation } from './shape';
 import { bearerToken } from '../shared/bearer-token';
+import { PROVISIONING_SESSION_STATUSES } from '../projects/surface';
 
 type Dispatch = (request: Request) => Promise<Response>;
 
@@ -65,7 +67,7 @@ const text = (value: string, isError = false): ToolResult => ({
   ...(isError ? { isError: true } : {}),
 });
 
-// ─── The Dosco API, in-process, as the caller ──────────────────────────────
+// ─── The Kortix API, in-process, as the caller ──────────────────────────────
 
 export type ApiReply = {
   status: number;
@@ -148,6 +150,9 @@ function loadCatalog(ctx: ToolContext) {
         if (!path.startsWith('/v1/') || blockedPath(path)) continue;
         for (const [method, spec] of Object.entries<any>(methods)) {
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) continue;
+          // A legacy name (`/v1/projects/…`) of a canonical `/v1/workspaces/…`
+          // route: search shows the canonical one only, so every hit is one route.
+          if (spec?.['x-kortix-alias-of']) continue;
           ops.push({
             method: method.toUpperCase(),
             path,
@@ -365,7 +370,7 @@ function pageLines(content: string, input: Record<string, unknown>): ToolResult 
 // ─── Sessions ───────────────────────────────────────────────────────────────
 
 /** A session is busy while it boots, runs a turn, or holds queued prompts. */
-const BOOTING = new Set(['queued', 'branching', 'provisioning']);
+const BOOTING = new Set<string>(PROVISIONING_SESSION_STATUSES);
 
 async function sessionActivity(ctx: ToolContext, path: string) {
   const [session, turn, prompts] = await Promise.all([
@@ -422,7 +427,7 @@ const TOOLS = [
     name: 'start_session',
     title: 'Start a session',
     description:
-      'Start a Dosco session in a project with a first prompt. An agent runs it in its own cloud sandbox on its own git branch. Returns the session_id. Follow it with read_session and wait_seconds (the first turn needs ~10–60 s while the sandbox boots).',
+      'Start a Kortix session in a project with a first prompt. An agent runs it in its own cloud sandbox on its own git branch. Returns the session_id. Follow it with read_session and wait_seconds (the first turn needs ~10–60 s while the sandbox boots).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -586,9 +591,9 @@ const TOOLS = [
   },
   {
     name: 'read_skill',
-    title: 'Read Dosco guides',
+    title: 'Read Kortix guides',
     description:
-      "Read the Dosco platform guides (skills): how projects, sessions, agents, kortix.yaml, triggers, connectors, secrets, Apps, change requests and the CLI work. No name lists them; a name returns the guide and its reference file paths; file reads one reference. With project_id, the project's own skills come with them: no name lists both; a name returns that project skill's SKILL.md and its reference file paths (a project skill wins over a guide of the same name); file reads one of its references.",
+      "Read the Kortix platform guides (skills): how projects, sessions, agents, kortix.yaml, triggers, connectors, secrets, Apps, change requests and the CLI work. No name lists them; a name returns the guide and its reference file paths; file reads one reference. With project_id, the project's own skills come with them: no name lists both; a name returns that project skill's SKILL.md and its reference file paths (a project skill wins over a guide of the same name); file reads one of its references.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -602,9 +607,9 @@ const TOOLS = [
   },
   {
     name: 'search_api',
-    title: 'Search the Dosco API',
+    title: 'Search the Kortix API',
     description:
-      'Search the Dosco API — the routes the web app and the kortix CLI use: accounts, projects, sessions, files, secrets, connectors, triggers, agents, models, change requests, Apps, access, billing, audit. Returns METHOD /path — summary lines. Follow with describe_api, then call_api.',
+      'Search the Kortix API — the routes the web app and the kortix CLI use: accounts, projects, sessions, files, secrets, connectors, triggers, agents, models, change requests, Apps, access, billing, audit. Returns METHOD /path — summary lines. Follow with describe_api, then call_api.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -624,7 +629,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         method: { type: 'string', description: 'GET, POST, PUT, PATCH or DELETE.' },
-        path: { type: 'string', description: 'The route as search_api printed it, e.g. /v1/projects/{projectId}/secrets.' },
+        path: { type: 'string', description: 'The route as search_api printed it, e.g. /v1/workspaces/{workspaceId}/secrets.' },
       },
       required: ['method', 'path'],
       additionalProperties: false,
@@ -633,15 +638,15 @@ const TOOLS = [
   },
   {
     name: 'call_api',
-    title: 'Call the Dosco API',
+    title: 'Call the Kortix API',
     description:
-      'Call any Dosco API route as the signed-in user, with their permissions. {projectId} in the path is replaced with project_id; replace every other {placeholder} yourself, e.g. /v1/projects/{projectId}/secrets/MY_KEY. Returns `METHOD path → HTTP status` and the response body.',
+      'Call any Kortix API route as the signed-in user, with their permissions. {workspaceId} (or the older {projectId}) in the path is replaced with project_id; replace every other {placeholder} yourself, e.g. /v1/workspaces/{workspaceId}/secrets/MY_KEY. Returns `METHOD path → HTTP status` and the response body.',
     inputSchema: {
       type: 'object',
       properties: {
         method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
-        project_id: { type: 'string', description: 'Fills {projectId} in the path.' },
-        path: { type: 'string', description: 'Starts with /v1/, e.g. /v1/projects/{projectId}/sessions.' },
+        project_id: { type: 'string', description: 'Fills {workspaceId} (or {projectId}) in the path.' },
+        path: { type: 'string', description: 'Starts with /v1/, e.g. /v1/workspaces/{workspaceId}/sessions.' },
         query: { type: 'object', description: 'Query-string parameters; an array value repeats the parameter.' },
         body: { type: 'object', additionalProperties: true, description: 'JSON request body (an object; a JSON string is parsed).' },
       },
@@ -751,14 +756,26 @@ export function listSessionRow(s: any) {
 }
 
 /** The project's own skills (`skills/<slug>/SKILL.md`, or the legacy dir) from the same /detail route the web app reads; it honors the caller's per-skill grants. */
-async function projectSkills(ctx: ToolContext, projectId: string): Promise<{ slug: string; name: string; description: string | null; path: string; files: string[] }[] | Error> {
+async function projectSkills(ctx: ToolContext, projectId: string): Promise<{ slug: string; name: string; description: string | null; path: string }[] | Error> {
   const r = await callApi(ctx, 'GET', `/v1/projects/${projectId}/detail`);
   if (r.status >= 400) return new ToolInputError(`HTTP ${r.status} reading project ${projectId}: ${r.body.slice(0, 200)}`);
-  const detail = JSON.parse(r.body) as { config?: { skills?: { name: string; path: string; description: string | null }[] }; files?: { path: string }[] };
+  const detail = JSON.parse(r.body) as { config?: { skills?: { name: string; path: string; description: string | null }[] } };
   return (detail.config?.skills ?? []).map((s) => {
     const dir = s.path.slice(0, s.path.lastIndexOf('/') + 1);
-    return { ...s, slug: dir.split('/').at(-2) ?? s.name, files: (detail.files ?? []).map((f) => f.path).filter((p) => p.startsWith(dir)) };
+    return { ...s, slug: dir.split('/').at(-2) ?? s.name };
   });
+}
+
+/**
+ * The files in one skill's directory, from the file listing route (it honors
+ * project.file.read and the per-resource grants). The detail's `files` was
+ * cut at 300 paths, so on a large repository a skill listed no references.
+ * A caller without file.read gets none, as before.
+ */
+async function skillDirectoryFiles(ctx: ToolContext, projectId: string, dir: string): Promise<string[]> {
+  const r = await callApi(ctx, 'GET', `/v1/projects/${projectId}/files`, { query: { path: dir.replace(/\/+$/, '') } });
+  if (r.status >= 400) return [];
+  return (JSON.parse(r.body) as { path: string }[]).map((f) => f.path).filter((path) => path.startsWith(dir));
 }
 
 export async function runTool(ctx: ToolContext, name: string, input: Record<string, unknown>): Promise<ToolResult> {
@@ -868,7 +885,7 @@ async function sendMessageTool(ctx: ToolContext, input: Record<string, unknown>)
   if (found.status >= 400) return apiResult(found);
   const session = JSON.parse(found.body);
   // The same body `kortix sessions chat --queue` sends (apps/cli/src/commands/sessions-queue.ts).
-  const model = typeof session.metadata?.opencode_model === 'string' ? session.metadata.opencode_model : '';
+  const model = typeof session.metadata?.model === 'string' ? session.metadata.model : '';
   const slash = model.indexOf('/');
   const overrides = {
     ...(session.agent_name ? { agent: session.agent_name } : {}),
@@ -1033,7 +1050,7 @@ async function readSkillTool(ctx: ToolContext, input: Record<string, unknown>): 
     }
     const r = await callApi(ctx, 'GET', `/v1/projects/${projectId}/files/content`, { query: { path: mine.path } });
     if (r.status >= 400) return apiResult(r);
-    const refs = mine.files.filter((f) => f !== mine.path).map((f) => `- ${f.slice(dir.length)}`);
+    const refs = (await skillDirectoryFiles(ctx, projectArg(input), dir)).filter((f) => f !== mine.path).map((f) => `- ${f.slice(dir.length)}`);
     const body = JSON.parse(r.body).content as string;
     return text(refs.length ? `${body}\n\nReference files (read_skill with project_id, name and file):\n${refs.join('\n')}` : body);
   }
@@ -1082,8 +1099,15 @@ async function kortixCliTool(ctx: ToolContext, input: Record<string, unknown>): 
 async function describeApiTool(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolResult> {
   const { ops, doc } = await loadCatalog(ctx);
   const method = arg(input, 'method').toUpperCase();
-  const path = arg(input, 'path').replace(/:([A-Za-z_]+)/g, '{$1}');
-  const op = ops.find((o) => o.method === method && o.path === path);
+  const asked = arg(input, 'path');
+  // A legacy name (`/v1/projects/:projectId/secrets`) finds its canonical route
+  // (`/v1/workspaces/{workspaceId}/secrets`): search lists only canonical names.
+  const renamed = renameWorkspaceRouteParams(asked);
+  const candidates = [asked, renamed, canonicalWorkspaceRoute(renamed)]
+    .filter((p): p is string => typeof p === 'string')
+    .map((p) => p.replace(/:([A-Za-z_]+)/g, '{$1}'));
+  const op = ops.find((o) => o.method === method && candidates.includes(o.path));
+  const path = op?.path ?? candidates[0]!;
   if (!op) return text(`No route ${method} ${path}. Use search_api to find it.`, true);
   const responses = op.spec.responses ?? {};
   const success = responses['200'] ?? responses['201'] ?? responses['202'];
@@ -1110,14 +1134,19 @@ async function describeApiTool(ctx: ToolContext, input: Record<string, unknown>)
 async function callApiTool(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolResult> {
   const method = arg(input, 'method').toUpperCase();
   let path = arg(input, 'path');
-  if (/\{projectId\}|:projectId/.test(path)) {
+  // `{workspaceId}` is the route param since 2026-11-05; `{projectId}` is what
+  // older prompts and clients still send. Both name the workspace.
+  if (/\{(projectId|workspaceId)\}|:(projectId|workspaceId)\b/.test(path)) {
     const projectId = projectArg(input);
-    path = path.replaceAll('{projectId}', projectId).replaceAll(':projectId', projectId);
+    path = path
+      .replaceAll('{projectId}', projectId)
+      .replaceAll('{workspaceId}', projectId)
+      .replace(/:(projectId|workspaceId)\b/g, projectId);
   }
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) throw new ToolInputError(`method ${method} is not allowed`);
   if (!path.startsWith('/v1/')) throw new ToolInputError('path must start with /v1/ and not target /v1/oauth or an MCP endpoint');
   const open = /\{[^}/]+\}/.exec(path.split('?')[0]!)?.[0];
-  if (open) throw new ToolInputError(`path still has ${open}: replace it with the real value, e.g. /v1/projects/{projectId}/secrets/MY_KEY`);
+  if (open) throw new ToolInputError(`path still has ${open}: replace it with the real value, e.g. /v1/workspaces/{workspaceId}/secrets/MY_KEY`);
   const query = input.query && typeof input.query === 'object' ? (input.query as Record<string, unknown>) : undefined;
   let body = input.body;
   // A client that types `body` as a string sends JSON text: parse it, never double-encode it.
@@ -1149,16 +1178,14 @@ const connectorHost = (ctx: ToolContext): Host => ({
 
 function instructions(): string {
   return [
-    'Dosco MCP. You act as the signed-in user, with their permissions, across every account and project they can open — the same reach as the kortix CLI.',
+    'Kortix MCP. You act as the signed-in user, with their permissions, across every account and project they can open — the same reach as the kortix CLI.',
     'Start with list_projects. Tools take a project_id (start_session, list_sessions, repository reads) or a session_id (everything about one session).',
-    'Sessions: start_session delegates a task to a Dosco agent in its own cloud sandbox; read_session (with wait_seconds) follows it; send_message continues it; list_sessions finds existing ones.',
+    'Sessions: start_session delegates a task to a Kortix agent in its own cloud sandbox; read_session (with wait_seconds) follows it; send_message continues it; list_sessions finds existing ones.',
     "Sandboxes: run_command runs bash in a session's sandbox, and read_file / write_file / list_files reach its live /workspace. With a project_id instead of a session_id, read_file and list_files read the project's git repository.",
-
-    'Platform knowledge: read_skill lists the Dosco guides; read_skill name=kortix-system is the complete reference.',
+    'Platform knowledge: read_skill lists the Kortix guides; read_skill name=kortix-system is the complete reference.',
     'Connectors (Gmail, Slack, GitHub, MCP servers, APIs a project connected): list_connectors shows what is connected and its accounts → search_connector_actions finds an action by intent → describe_connector_action reads its arguments → call_connector runs it as you (pass `reason` for a write whose args are only ids; a `pending_approval` result carries a link the human opens, then call again). A connector that is not connected: connect_connector returns the url the human opens. upload_connector_attachment stages a file for a call; search_connector_apps finds an app (every MCP server, API and Composio app), get_connector_app lists its ways to connect and their tools, and add_connector installs one.',
-
     'The kortix CLI itself: the `kortix` tool runs any CLI command as you, e.g. args ["secrets","ls","--json"] (discover with ["--help"] and ["<group>","--help"]; project_id and session_id set the context). Login, hosts, ship, tui and other machine-local commands are refused with the alternative. read_skill with project_id also lists the project\'s own skills.',
-    'Everything else the web app and the kortix CLI can do is the Dosco API: search_api finds a route, describe_api reads it, call_api runs it (project_id fills {projectId}).',
+    'Everything else the web app and the kortix CLI can do is the Kortix API: search_api finds a route, describe_api reads it, call_api runs it (project_id fills {workspaceId}).',
   ].join('\n');
 }
 
@@ -1170,7 +1197,7 @@ async function handleRpc(ctx: ToolContext, method: string, params: Record<string
       const requested = String(params.protocolVersion ?? '');
       return {
         protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : SUPPORTED_PROTOCOL_VERSIONS[0]!,
-        serverInfo: { name: 'kortix', title: 'Dosco CompanyOS', version: process.env.KORTIX_VERSION ?? 'dev' },
+        serverInfo: { name: 'kortix', title: 'Kortix CompanyOS', version: process.env.KORTIX_VERSION ?? 'dev' },
         capabilities: { tools: {} },
         instructions: instructions(),
       };
@@ -1203,7 +1230,7 @@ function challengeUnauthorized(c: Context, next: Next) {
   const sent = bearerToken(c.req.header('Authorization')) !== null;
   // RFC 6750 3.1: a token that was sent and refused names `invalid_token`.
   const challenge = () =>
-    c.json({ error: 'unauthorized', error_description: 'Sign in with OAuth, or send a kortix_pat_ token, to use the Dosco MCP server.' }, 401, {
+    c.json({ error: 'unauthorized', error_description: 'Sign in with OAuth, or send a kortix_pat_ token, to use the Kortix MCP server.' }, 401, {
       'WWW-Authenticate': `Bearer ${sent ? 'error="invalid_token", ' : ''}${metadata}, scope="${OAUTH_SCOPE_KORTIX}"`,
     });
   if (!sent) return challenge();

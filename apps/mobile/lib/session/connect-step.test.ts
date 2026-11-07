@@ -122,7 +122,7 @@ describe('connectStepFromRequestError', () => {
       kind: 'fail',
       failure: {
         title: 'Could not reach the server',
-        message: 'The app could not connect to the Dosco API. Check the connection and try again.',
+        message: 'The app could not connect to the Kortix API. Check the connection and try again.',
         detail: 'Network request failed',
       },
     });
@@ -140,13 +140,13 @@ describe('startPollDelayMs', () => {
 
 describe('shouldAwaitHealthProbe', () => {
   test('ready with a pin skips the awaited health probe', () => {
-    expect(shouldAwaitHealthProbe({ stage: 'ready', opencode_session_id: 'ses_oc' })).toBe(false);
+    expect(shouldAwaitHealthProbe({ stage: 'ready', runtime_session_id: 'ses_oc' })).toBe(false);
   });
 
   test('ready without a pin, or not ready, awaits the probe', () => {
-    expect(shouldAwaitHealthProbe({ stage: 'ready', opencode_session_id: null })).toBe(true);
+    expect(shouldAwaitHealthProbe({ stage: 'ready', runtime_session_id: null })).toBe(true);
     expect(shouldAwaitHealthProbe({ stage: 'ready' })).toBe(true);
-    expect(shouldAwaitHealthProbe({ stage: 'booting', opencode_session_id: 'ses_oc' })).toBe(true);
+    expect(shouldAwaitHealthProbe({ stage: 'booting', runtime_session_id: 'ses_oc' })).toBe(true);
   });
 });
 

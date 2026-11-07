@@ -39,14 +39,19 @@ import { startProjectMaintenance, stopProjectMaintenance } from './project-maint
 import { startProjectSnapshotWorker, stopProjectSnapshotWorker } from './project-snapshot';
 import { startProviderTransitionWorker, stopProviderTransitionWorker } from './provider-transition';
 import { startResidentialProxyBillingWorker, stopResidentialProxyBillingWorker } from './residential-proxy-billing';
+import { startRetentionErasureWorker, stopRetentionErasureWorker } from './retention-erasure';
 import { startSessionLogPurgeWorker, stopSessionLogPurgeWorker } from './session-log-purge';
 import { startStorageBillingWorker, stopStorageBillingWorker } from './storage-billing';
 import { startSessionModelFallbackWorker, stopSessionModelFallbackWorker } from './session-model-fallback';
+import { startSpaceWatcher, stopSpaceWatcher } from './space-watcher';
+import { startGoalReconciler, stopGoalReconciler } from './goal-reconciler';
 import { startSlackTurnGc, stopSlackTurnGc } from './slack-turn-gc';
 import { startTeamsTurnGc, stopTeamsTurnGc } from './teams-turn-gc';
 import { startProjectTriggerScheduler, stopProjectTriggerScheduler, triggerSweepStalled } from './trigger-scheduler';
 import { startTunnelCleanup, stopTunnelCleanup } from './tunnel-cleanup';
 import { startTunnelForwardExpiry, stopTunnelForwardExpiry } from './tunnel-forward-expiry';
+import { startWorkspaceIdFillWorker, stopWorkspaceIdFillWorker } from './workspace-id-fill';
+import { startWorkspaceSplitWorker, stopWorkspaceSplitWorker } from './workspace-split';
 
 import { startSalesOutbox, stopSalesOutbox } from './sales-outbox';
 
@@ -117,6 +122,12 @@ export const JOBS: readonly Job[] = [
   { ticks: { 'notification-digest': 10 * MIN }, start: startNotificationWorker, stop: stopNotificationWorker },
   // Retention purge of session content.
   { ticks: { 'session-log-purge': 3 * HOUR }, start: startSessionLogPurgeWorker, stop: stopSessionLogPurgeWorker },
+  // The 90-day retention backstop: closures still open 80 days after their date. Daily; a minute apart while a backlog lasts.
+  { ticks: { 'retention-erasure': 26 * HOUR }, start: startRetentionErasureWorker, stop: stopRetentionErasureWorker },
+  // Proactive spaces (flag `spaces_proactive`): wake each watched space's watcher on new events, at most every 10 min.
+  { ticks: { 'space-watcher': 10 * MIN }, start: startSpaceWatcher, stop: stopSpaceWatcher },
+  // Goals (flag `goals`): finishes partial creates, repairs heartbeats, flags lost owners and stalled verifications.
+  { ticks: { 'goal-reconciler': 10 * MIN }, start: startGoalReconciler, stop: stopGoalReconciler },
   // Idle sessions off a fallback model once their own model serves again.
   { ticks: { 'session-model-fallback': 10 * MIN }, start: startSessionModelFallbackWorker, stop: stopSessionModelFallbackWorker },
   // Closed pending days of the gateway spend running total.
@@ -132,4 +143,8 @@ export const JOBS: readonly Job[] = [
   // Database-wide tunnel sweeps; every API process ran them before the worker split.
   { ticks: { 'tunnel-cleanup': 20 * MIN }, start: startTunnelCleanup, stop: stopTunnelCleanup },
   { ticks: { 'tunnel-forward-expiry': 10 * MIN }, start: startTunnelForwardExpiry, stop: stopTunnelForwardExpiry },
+  // Legacy multi-project accounts → one workspace per project. Dry-run plans every 6 h.
+  { ticks: { 'workspace-split': 8 * HOUR }, start: startWorkspaceSplitWorker, stop: stopWorkspaceSplitWorker },
+  // The Release 1 workspace_id fill, batch by batch after the deploy (never the migrate job). Hourly while paused or done.
+  { ticks: { 'workspace-id-fill': 3 * HOUR }, start: startWorkspaceIdFillWorker, stop: stopWorkspaceIdFillWorker },
 ];

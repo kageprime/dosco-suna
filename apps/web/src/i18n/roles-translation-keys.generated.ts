@@ -66,7 +66,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'A draft lands on the session branch and reaches main through a change request. An agent cannot merge unless an admin has granted project.cr.merge in kortix.yaml, and widening that grant is itself a reviewed change. Nothing goes live because a session decided it was finished.':
     'textcd738deed65a',
   'A draft on a branch, reviewed as a diff.': 'texte335ed040bfe',
-  'A gate that errors out teaches an agent to route around it. A Dosco gate holds the call open, so you answer while the session is still mid-task and it resumes from exactly where it stopped.':
+  'A gate that errors out teaches an agent to route around it. A Kortix gate holds the call open, so you answer while the session is still mid-task and it resumes from exactly where it stopped.':
     'text66d1a4edbd90',
   'A kit any interviewer can run.': 'text3015112f4f45',
   'A launch note, the page section, the changelog entry, the social copy, the email. Written from the same source of truth in one session, so they agree with each other — which is usually the actual failure, not the quality of any single one.':
@@ -84,7 +84,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'A report tells you what is wrong. A sales session hands you the rows and the drafted action for each one, waiting for a yes. That difference is the whole product.':
     'text5a7fbd0a11c4',
   'A review with a recommendation on every row.': 'text58d3ccb0ea54',
-  'A sales agent is only useful if it reaches the systems the pipeline lives in. Connect each one once for the project. Credentials are decrypted on our side and never enter the machine.':
+  'A sales agent is only useful if it reaches the systems the pipeline lives in. Connect each one once for the workspace. Credentials are decrypted on our side and never enter the machine.':
     'texta878c15f58b7',
   'A scheduled session reads what has publicly changed and reports what is genuinely new — and says plainly when nothing is. A weekly digest that invents a headline every week gets muted by week five.':
     'textc6d99a300de0',
@@ -167,7 +167,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Calendars, invitations and the mail thread with the candidate. Reading a calendar, booking on it and sending as you are separate actions with separate answers.':
     'text70bb18e2a653',
   'Call notes into the CRM, in your fields': 'text894bde8368c8',
-  'Choose one project-managed connection the whole team shares, or a personal authorization where every member acts as themselves — and an automated principal cannot act at all.':
+  'Choose one workspace-managed connection the whole team shares, or a personal authorization where every member acts as themselves — and an automated principal cannot act at all.':
     'text97c60c222a1a',
   Cites: 'textbbeb1185a5ff',
   Claims: 'text1c85c12229a4',
@@ -178,13 +178,13 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text111534bb6407',
   'Close-lost: no reply to three touches': 'text9f4f0fa7e685',
   'Cloud infrastructure': 'text4bba4ad3c2e5',
-  'Dosco Cloud': 'text9a4a0ce6a928',
+  'Cloud, your VPC, or on-prem': 'text9a4a0ce6a928',
   'Configuration drift, reported not fixed': 'text4c97eef02faf',
-  'Connect each source once for the whole project. Credentials are decrypted on our side and attached to the outgoing call. They never land in the machine the model is driving.':
+  'Connect each source once for the whole workspace. Credentials are decrypted on our side and attached to the outgoing call. They never land in the machine the model is driving.':
     'textde0a6db058a5',
   'Connect Slack and the shortlist lands in a thread you can argue with. Reply in the same thread and you are talking to the same session, not starting a new one.':
     'textfa4e10e03866',
-  'Connected directly from its API description rather than through a middleman: Dosco reads the specification, works out the authentication, and turns every operation into a tool with its own answer.':
+  'Connected directly from its API description rather than through a middleman: Kortix reads the specification, works out the authentication, and turns every operation into a tool with its own answer.':
     'text96fa8ecff679',
   'Connector credentials never enter the machine': 'textd87cb0774bec',
   'Contractor cover, weeks 2–3': 'texta12fc20f38b2',
@@ -246,9 +246,9 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Every figure has a source': 'text7de1a9410fa6',
   'Every figure traces to a source · nothing posts without approval': 'text125080e7790f',
   'Every grouping opens up': 'text9f528e32ee1f',
-  'Every Dosco session gets its own cloud computer and its own branch. The agent reproduces the bug, writes the patch, runs the tests, and opens a change request. Merge is default-deny for agents.':
+  'Every Kortix session gets its own cloud computer and its own branch. The agent reproduces the bug, writes the patch, runs the tests, and opens a change request. Merge is default-deny for agents.':
     'textcec34edc4be8',
-  'Every Dosco session is a real Linux machine, so an analysis agent can install a package, run the query, and commit the notebook. The analysis lands in the repo as a change request, so it can be re-run.':
+  'Every Kortix session is a real Linux machine, so an analysis agent can install a package, run the query, and commit the notebook. The analysis lands in the repo as a change request, so it can be re-run.':
     'text3f5377410e64',
   'Every message it writes lands as a draft in the CRM or the inbox. If you want a hard stop before anything goes out, set the send action to Ask and the run pauses at the call and waits for you.':
     'text295a899a5fcd',
@@ -293,7 +293,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Hand over the assembly. Keep the judgement.': 'text804367668473',
   'helpdesk · read': 'text2206b18e524f',
   'hiring/scorecards/platform.md': 'text5255b5685b02',
-  'How your close works — the matching rules, the coding conventions, the commentary style — is a skill file in the project. It is versioned, it is diffable, and improving it is a change someone reviews.':
+  'How your close works — the matching rules, the coding conventions, the commentary style — is a skill file in the workspace. It is versioned, it is diffable, and improving it is a change someone reviews.':
     'textf8ac0465d6a6',
   'Human-assisted': 'textc91c073984b4',
   'Identity, audit and where it runs': 'textb1f18214b68b',
@@ -303,13 +303,13 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'text25df917eafc7',
   'Illustration. Figures are fictional and internally consistent, not a real ledger.':
     'textdbf788502aee',
-  'Illustration. Northwind, Acme, Globex and Initech are placeholders — Dosco never names a customer.':
+  'Illustration. Northwind, Acme, Globex and Initech are placeholders — Kortix never names a customer.':
     'textba001c7cb599',
   'Illustration. The branch name is the session id, because that is what a session branch is.':
     'text69c063f8947f',
-  'Illustration. The excluded domain is a placeholder — Dosco never names a real customer or tenant.':
+  'Illustration. The excluded domain is a placeholder — Kortix never names a real customer or tenant.':
     'text3cc0540830e1',
-  'Illustration. The paths are the real shape of a project, the copy is fictional.':
+  'Illustration. The paths are the real shape of a Kortix workspace repo, the copy is fictional.':
     'text97f1a47d1742',
   'Illustration. The principals are fictional. Note that one of them is an agent — both kinds of principal appear in the same review.':
     'textaf82e7e6c590',
@@ -318,19 +318,19 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Improves by': 'textb486892ff5b2',
   'In finance, "the AI said so" is not an answer. So every figure carries the source it came from, and the arithmetic sits in a file you can open.':
     'text0c419d6faab8',
-  'In finance, reading and writing are different risks. Connect each system once for the project. Credentials are decrypted on our side and never enter the machine.':
+  'In finance, reading and writing are different risks. Connect each system once for the workspace. Credentials are decrypted on our side and never enter the machine.':
     'text799c2993b99d',
   'In sales, a mistake is customer-visible. So the defaults below are stated precisely, not reassuringly.':
     'text68bb1b4dfcb0',
-  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the project. Read accounts, opportunities and activity; write back the fields you allow it to write.':
+  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the workspace. Read accounts, opportunities and activity; write back the fields you allow it to write.':
     'text0f8b05405598',
-  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the project. Read the pipeline and the scorecard, write back stage and scheduling. Whether it may write at all is your grant to make.':
+  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the workspace. Read the pipeline and the scorecard, write back stage and scheduling. Whether it may write at all is your grant to make.':
     'textd0e52a56b556',
-  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the project. Support tickets are where the highest-signal feedback is and the lowest-signal summaries get made.':
+  'In the Easy connect catalogue: click through the OAuth screen and the connection belongs to the workspace. Support tickets are where the highest-signal feedback is and the lowest-signal summaries get made.':
     'text801c059e1253',
   'Initech Retail': 'text7fda2b723187',
   Installs: 'text527ee583427a',
-  'Interview kits, scheduling, onboarding runs and policy answers drawn from your own handbook. Dosco does the coordination; a person makes every decision about a person.':
+  'Interview kits, scheduling, onboarding runs and policy answers drawn from your own handbook. Kortix does the coordination; a person makes every decision about a person.':
     'textd1cc686f8a1b',
   'Invoice intake and coding': 'text49c336a473eb',
   'Issues, discussions and what actually merged. This is where release notes come from, because the diff is the only honest record of what shipped.':
@@ -400,17 +400,17 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Joiner, mover, leaver': 'text19c9c39fa297',
   'Keep — in the release path': 'text0d50bfa1f30c',
   'Keep — scoped, read only': 'textba49fa284746',
-  'Dosco for data science teams': 'textec90ac92e442',
-  'Dosco for engineering teams': 'text4be11575cc7d',
-  'Dosco for finance teams': 'textd4a9db8c6f31',
-  'Dosco for IT teams': 'text0c752c7a803c',
-  'Dosco for marketing teams': 'text88d457aa9389',
-  'Dosco for people and recruiting teams': 'text46c67c4b4a86',
-  'Dosco for product teams': 'text246f2a6245a5',
-  'Dosco for sales teams': 'text48de6f4846b1',
-  'Dosco has a real account, member, group and role model with per-resource permissions for people and for agents. An access review that covers your humans and not your automation is half a review.':
+  'Kortix for data science teams': 'textec90ac92e442',
+  'Kortix for engineering teams': 'text4be11575cc7d',
+  'Kortix for finance teams': 'textd4a9db8c6f31',
+  'Kortix for IT teams': 'text0c752c7a803c',
+  'Kortix for marketing teams': 'text88d457aa9389',
+  'Kortix for people and recruiting teams': 'text46c67c4b4a86',
+  'Kortix for product teams': 'text246f2a6245a5',
+  'Kortix for sales teams': 'text48de6f4846b1',
+  'Kortix has a real workspace, member, group and role model with per-resource permissions for people and for agents. An access review that covers your humans and not your automation is half a review.':
     'text895560302007',
-  'Dosco is a managed cloud platform: Dosco Cloud, with a dedicated isolated machine for every session. If personal data may not leave your region, or you need a specific deployment, talk to us rather than trusting a claim on a marketing page.':
+  'Kortix is open source and self-hostable: Kortix Cloud, your own VPC, or your own on-prem network. If personal data may not leave your infrastructure, run the whole platform inside it. For deployment and compliance questions, talk to us rather than trusting a claim on a marketing page.':
     'textba3f27dd11a9',
   'Lands as': 'text91a5715f7014',
   'Last night’s exceptions, grouped': 'text4d77a6d5bda3',
@@ -460,15 +460,15 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'One long piece into the formats it should have been': 'textd7153709ba6f',
   'One machine per session': 'text6590dfdb580e',
   'One machine per session · one branch per session · merge is default-deny': 'text8e0e8d4bbd58',
-  'One project-managed connection the team shares, or a personal authorization where each member acts as themselves and an automated principal cannot act at all. For People systems the second is usually the right answer.':
+  'One workspace-managed connection the team shares, or a personal authorization where each member acts as themselves and an automated principal cannot act at all. For People systems the second is usually the right answer.':
     'text64c41c6adfa4',
   'One rename, one API move, one lint rule turned on — the kind of change that is trivial per file and unbearable at scale. It works file by file on its own branch and lands one reviewable diff.':
     'text2c0f44757d70',
-  'No lock-in. Any model, your keys. Dosco Cloud, managed for you.':
+  'Open source and self-hostable. Any model, your keys. Kortix Cloud, your own VPC, or your own on-prem network.':
     'text8af666ebb4c8',
   'packages/export/': 'text7fec5f7bc46e',
   People: 'text7db20897053b',
-  'People systems hold the most sensitive data in the company, so the mechanism matters most here. Connect each one once for the project. Credentials never enter the machine.':
+  'People systems hold the most sensitive data in the company, so the mechanism matters most here. Connect each one once for the workspace. Credentials never enter the machine.':
     'text5c6660c5d3f6',
   'Permissions stop an agent doing something. A claims skill stops it saying something. Both live in the repo, and the second one is what actually keeps an unverifiable number off your homepage.':
     'textbb39dca99b35',
@@ -476,7 +476,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Plan: 'textfa8ed0bdabdd',
   'Plan against actual per cost centre, then the part people actually want: which transactions drove the variance, and a written explanation of each one that a non-finance reader can follow.':
     'text0450eaa713ef',
-  'Point Dosco at an OpenAPI or Postman spec, a GraphQL endpoint, a remote MCP server, or a bare HTTP base URL. It reads the source, works out the authentication, and turns every operation into a tool the agent can call.':
+  'Point Kortix at an OpenAPI or Postman spec, a GraphQL endpoint, a remote MCP server, or a bare HTTP base URL. It reads the source, works out the authentication, and turns every operation into a tool the agent can call.':
     'text41fb6b8b43f6',
   'Policy answers come from the document in your repo with the section quoted. A question the handbook does not cover gets routed to a person — the gap is reported, not filled.':
     'textabaed96d8526',
@@ -486,7 +486,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Prior art': 'text857be0b1fee8',
   Produces: 'texta68d63e3af6b',
   Product: 'textfb9ef894175c',
-  'Product feedback never lives in one system, which is the whole problem. Connect each source once for the project. Credentials are resolved on our side, never in the machine.':
+  'Product feedback never lives in one system, which is the whole problem. Connect each source once for the workspace. Credentials are resolved on our side, never in the machine.':
     'text722b64806bda',
   'Production work that sounds like you, because the voice is a file': 'texta8c4aee2e2e6',
   'Profile the dataset, plot the distributions, check for leakage and imbalance, and write the first honest paragraph about what is in the data. You start from a briefed position rather than from an empty cell.':
@@ -502,10 +502,10 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Re-runnable': 'text7b3a98463022',
   Reach: 'text2068b81b75d4',
   'Reach is granted per agent, not inherited': 'texta2cced726aa6',
-  'Reached as a connector you define: an OpenAPI or Postman description, a GraphQL endpoint, a raw HTTP base URL, or a remote MCP server. Dosco reads the source, works out the authentication, and turns each operation into a tool with its own Allow, Ask or Block.':
+  'Reached as a connector you define: an OpenAPI or Postman description, a GraphQL endpoint, a raw HTTP base URL, or a remote MCP server. Kortix reads the source, works out the authentication, and turns each operation into a tool with its own Allow, Ask or Block.':
     'text4610c1dbee14',
   Reaches: 'text08d641af4250',
-  'Read issues, comments and the state of a branch, and write back where you have allowed it. Dosco opens the change request itself; the connector is for everything around it.':
+  'Read issues, comments and the state of a branch, and write back where you have allowed it. Kortix opens the change request itself; the connector is for everything around it.':
     'text2ed79c632f79',
   'Read the security page before the pitch.': 'text3c42e874fe74',
   'Read the threads on an account and draft the reply. Reading and sending are separate actions with separate answers, so "may read the thread" never silently means "may send as me".':
@@ -581,7 +581,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textbb5635b0e8d3',
   'Set the send action to Ask and the run holds at the call, showing you the message and who it is addressed to. Approve and the same call completes. Deny and the session carries on without it.':
     'text10e0b5222505',
-  'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Dosco runs on Dosco Cloud, with a dedicated isolated machine for every session. Every change is versioned and every run is audited, so you can verify what happened. For questions about isolation and compliance, talk to us.':
+  'Single sign-on is SAML 2.0. Every tool call is written to an audit record with the agent, the person or trigger, the outcome and the approver. Deployment is Kortix Cloud, your own VPC, or your own on-prem network — it is open source, so you can read what you are running. It is not air-gapped: starting a self-hosted stack pulls images over the network. For an isolated topology, talk to us.':
     'text07d514c3e52e',
   'skills/claims/SKILL.md': 'text7779bc2ac4be',
   'skills/voice/SKILL.md': 'textf947a3ead994',
@@ -733,29 +733,29 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The same figures, assembled into the format the board reads, with the commentary drafted from the variance work rather than written from scratch at midnight.':
     'textec4b346efc00',
   'The same loop for every candidate': 'textd29c02694ba8',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. The banking or ledger credential is decrypted server-side and attached to the outbound request, then thrown away.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. The banking or ledger credential is decrypted server-side and attached to the outbound request, then thrown away.':
     'text40a3454eacbe',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. The credential for your campaign tool is decrypted server-side and attached to the outbound request.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. The credential for your campaign tool is decrypted server-side and attached to the outbound request.':
     'text21d978d10cd9',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. The gateway decrypts the real credential server-side and attaches it to the outbound call. A runtime secret you deliberately grant is different — that one is a real environment value the agent can read, and it is meant to be.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. The gateway decrypts the real credential server-side and attaches it to the outbound call. A runtime secret you deliberately grant is different — that one is a real environment value the agent can read, and it is meant to be.':
     'text58f7e09c0d5f',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. Your applicant-system credential is decrypted server-side and attached to the outbound request, then thrown away.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. Your applicant-system credential is decrypted server-side and attached to the outbound request, then thrown away.':
     'text1b8f0674b970',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. Your CRM credential is decrypted server-side and attached to the outbound request. Turning a connector off takes effect on the next call — there is nothing in the sandbox to rotate.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. Your CRM credential is decrypted server-side and attached to the outbound request. Turning a connector off takes effect on the next call — there is nothing in the sandbox to rotate.':
     'textd13a607ddf4b',
-  'The sandbox carries one project-scoped Dosco token and no third-party keys. Your tracker and helpdesk credentials are decrypted server-side and attached to the outbound call.':
+  'The sandbox carries one workspace-scoped Kortix token and no third-party keys. Your tracker and helpdesk credentials are decrypted server-side and attached to the outbound call.':
     'textd864380a766f',
   'The sandbox is a real Linux machine, so the agent installs, builds and runs the suite itself. A change request that arrives red says so in the description rather than claiming green.':
     'texte8957df16c6b',
   'The session clones the repo, so the spec can say what already exists. A draft that knows the serialisation is done and the pagination is not is worth an order of magnitude more than one written from tickets alone.':
     'text5fb3b3c8b69d',
-  'The shipped default is permissive — an action runs unless you have said otherwise. For a marketing project, setting every publish and every send to Ask is the first change you make. It is not already done for you, and we would rather say so.':
+  'The shipped default is permissive — an action runs unless you have said otherwise. For a marketing workspace, setting every publish and every send to Ask is the first change you make. It is not already done for you, and we would rather say so.':
     'text9c0d133e242c',
-  'The shipped default is permissive — an action runs unless you have said otherwise. For a People project, setting every message to a candidate or an employee to Ask is the first change to make. It is not already done for you.':
+  'The shipped default is permissive — an action runs unless you have said otherwise. For a People workspace, setting every message to a candidate or an employee to Ask is the first change to make. It is not already done for you.':
     'text3f0b69b39e1c',
-  'The shipped default is permissive — an action runs unless you have said otherwise. For a sales project the first thing to do is set the outbound actions to Ask and the destructive ones to Block. We are telling you this rather than letting you assume the safer default was chosen for you.':
+  'The shipped default is permissive — an action runs unless you have said otherwise. For a sales workspace the first thing to do is set the outbound actions to Ask and the destructive ones to Block. We are telling you this rather than letting you assume the safer default was chosen for you.':
     'text9d4b2eae7c42',
-  'The shipped default is permissive — an action runs unless you have said otherwise. In a finance project, setting Ask on every write to a system of record and Block on every delete is the first configuration change to make, not something already done for you.':
+  'The shipped default is permissive — an action runs unless you have said otherwise. In a finance workspace, setting Ask on every write to a system of record and Block on every delete is the first configuration change to make, not something already done for you.':
     'text2d9a37f092d5',
   'The shipped default is permissive: actions run unless you say otherwise. Set Ask on the ones that should pause and Block on the ones that should never happen, per action or with one pattern rule. We would rather tell you the default than let you assume the safer one.':
     'text7123e636dd02',
@@ -783,7 +783,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'The work that never reaches the top of the queue.': 'textf6d7008c2f59',
   'The workbook is derived, not typed. Each line carries the query or the document it came from, so the review question is "is this the right source" rather than "where did this number come from".':
     'text8fb82f06ce29',
-  'This is most of an IT estate. Point Dosco at an OpenAPI or Postman description, a GraphQL endpoint, a bare HTTP base URL, or a remote MCP server. It reads the source, works out the authentication, and turns each operation into a tool with its own Allow, Ask or Block.':
+  'This is most of an IT estate. Point Kortix at an OpenAPI or Postman description, a GraphQL endpoint, a bare HTTP base URL, or a remote MCP server. It reads the source, works out the authentication, and turns each operation into a tool with its own Allow, Ask or Block.':
     'textd6a7bfaf08b0',
   'This is the function where "the agent handled it" is the wrong answer. The first row is the product position. The rest are the platform controls.':
     'text3b39a1eeb288',
@@ -831,7 +831,7 @@ export const ROLES_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'What you pay for against what is assigned against what was opened this quarter. It writes the reclaim list per tool with the last-used date on every row.':
     'texta6621f47f55d',
   'Whatever the analysis needs': 'text373f4878fa90',
-  'When a draft comes back wrong, you edit the skill file, not the prompt. Every future session in every project that loads that skill inherits the correction — and you can see in the history exactly when the register changed.':
+  'When a draft comes back wrong, you edit the skill file, not the prompt. Every future session in every workspace that loads that skill inherits the correction — and you can see in the history exactly when the register changed.':
     'texta97afbb23437',
   'Where specs, research and the last six months of decisions live. It reads them as prior art so a new draft does not re-litigate something settled in March.':
     'text73c829ffdd54',

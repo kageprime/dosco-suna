@@ -16,8 +16,8 @@ import { createHmac } from 'node:crypto';
 
 const PROJECT_ID = '40c2e222-c4c2-47f6-ba40-05e8f40098b3';
 const TENANT_ID = '5a1e0c09-0000-4000-8000-000000000009';
-const BASE_URL = 'https://dev-api.dosco.live';
-const CHANNELS_URL = `https://dev.dosco.live/projects/${PROJECT_ID}/admin/connectors?scope=channels`;
+const BASE_URL = 'https://dev-api.kortix.com';
+const CHANNELS_URL = `https://dev.kortix.com/workspaces/${PROJECT_ID}/admin/connectors?scope=channels`;
 
 let tokenExchangeOk = true;
 const saved: Array<Record<string, unknown>> = [];
@@ -35,8 +35,8 @@ mock.module('../config', () => ({
     MICROSOFT_APP_ID: '62b4470a-e8e6-4e13-a73f-363de2209dfc',
     MICROSOFT_APP_PASSWORD: 'app-secret',
     API_KEY_SECRET: 'unit-test-api-key-secret',
-    FRONTEND_URL: 'https://dev.dosco.live',
-    TEAMS_APP_NAME: 'Dosco Dev',
+    FRONTEND_URL: 'https://dev.kortix.com',
+    TEAMS_APP_NAME: 'Kortix Dev',
   },
 }));
 
@@ -172,7 +172,7 @@ describe('Teams one-click install callback', () => {
 
     expect(res.status).toBe(302);
     const target = new URL(location(res));
-    expect(`${target.origin}${target.pathname}`).toBe('https://dev.dosco.live/teams/install');
+    expect(`${target.origin}${target.pathname}`).toBe('https://dev.kortix.com/teams/install');
     expect(target.searchParams.get('project')).toBe(PROJECT_ID);
     expect(target.searchParams.get('code')).toBe('c1');
     expect(target.searchParams.get('state')).toBe(s);
@@ -188,7 +188,7 @@ describe('Teams one-click install callback', () => {
 
   test('tampered or expired state → home with ?teams_error=expired', async () => {
     const res = await teamsOauthApp.request(`/callback?code=c8&state=${state()}x`);
-    expect(location(res)).toBe('https://dev.dosco.live/?teams_error=expired');
+    expect(location(res)).toBe('https://dev.kortix.com/?teams_error=expired');
   });
 });
 
@@ -225,7 +225,7 @@ describe('Teams one-click install completion', () => {
     expect(catalogIds).toEqual(['cat-1']);
   });
 
-  test('another Dosco user is refused with 403 before the code is exchanged, and nothing is saved', async () => {
+  test('another Kortix user is refused with 403 before the code is exchanged, and nothing is saved', async () => {
     tokenExchangeOk = false;
     const result = await complete({ state: state(OTHER_USER_ID) });
     expect(result).toMatchObject({ ok: false, status: 403, code: 'CHANNEL_INSTALL_STATE_MISMATCH' });
@@ -333,7 +333,7 @@ describe('Teams install state key', () => {
       ).toString('base64url');
       const forged = `${body}.${createHmac('sha256', '').update(body).digest('base64url')}`;
       const res = await teamsOauthApp.request(`/callback?code=c9&state=${forged}`);
-      expect(location(res)).toBe('https://dev.dosco.live/?teams_error=expired');
+      expect(location(res)).toBe('https://dev.kortix.com/?teams_error=expired');
       expect(saved).toHaveLength(0);
     } finally {
       config.MICROSOFT_APP_PASSWORD = original;
@@ -346,7 +346,7 @@ describe('Teams install state key', () => {
     ).toString('base64url');
     const forged = `${body}.${createHmac('sha256', 'app-secret').update(body).digest('base64url')}`;
     const res = await teamsOauthApp.request(`/callback?code=c10&state=${forged}`);
-    expect(location(res)).toBe('https://dev.dosco.live/?teams_error=expired');
+    expect(location(res)).toBe('https://dev.kortix.com/?teams_error=expired');
     expect(saved).toHaveLength(0);
   });
 });

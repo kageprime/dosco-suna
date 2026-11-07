@@ -44,14 +44,14 @@ describe('telegram inbox envelope', () => {
     expect(prompt).toContain('"chat_id":"-100123"');
     expect(prompt).toContain('"reply_parameters":{"message_id":7}');
     expect(prompt).toContain('status?');
-    // Every Dosco command, not only /new: the agent must not offer one it never receives.
-    expect(prompt).toContain('Dosco answers /new, /stop, /status, /model, /agent and /help in the chat itself; those commands never reach you.');
+    // Every Kortix command, not only /new: the agent must not offer one it never receives.
+    expect(prompt).toContain('Kortix answers /new, /stop, /status, /model, /agent and /help in the chat itself; those commands never reach you.');
   });
 
   test('the prompt tells the agent to ask every choice and question with its question tool, never as a text list', () => {
     const prompt = channelPromptText(telegramEnvelope(message));
     expect(prompt).toContain(
-      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Dosco shows them in this chat as buttons, one question at a time.',
+      'Whenever you need the user to choose or to answer, call your question tool, with every question in one call: Kortix shows them in this chat as buttons, one question at a time.',
     );
     expect(prompt).toContain('Never list choices or questions as plain text. Ask in plain words only when the tool result says the question could not be posted.');
     expect(prompt).not.toContain('buttons for a single choice');
@@ -135,8 +135,8 @@ describe('telegram notices for a session (run errors)', () => {
   const runFailed = (error?: TurnErrorInfo) => telegramNotice(target, { kind: 'run_failed', sessionId: 's1', error });
 
   const cases: Array<[TurnErrorInfo | undefined, string, string]> = [
-    [{ name: 'APIError', statusCode: 402, message: 'Payment Required: Insufficient credits. Balance: -6 credits' }, 'Out of credits', 'A workspace admin can top up credits in Dosco. Then send your message again.'],
-    [{ name: 'APIError', statusCode: 429, message: 'rate limited' }, 'Usage limit reached', 'Wait, then send your message again. A project admin can also pick another model in Dosco.'],
+    [{ name: 'APIError', statusCode: 402, message: 'Payment Required: Insufficient credits. Balance: -6 credits' }, 'Out of credits', 'A workspace admin can top up credits in Kortix. Then send your message again.'],
+    [{ name: 'APIError', statusCode: 429, message: 'rate limited' }, 'Usage limit reached', 'Wait, then send your message again. A workspace admin can also pick another model in Kortix.'],
     [{ name: 'MessageOutputLengthError', message: '' }, 'Response too long', 'Ask the agent to continue, or narrow the request.'],
     [{ name: 'ContextOverflowError', message: '' }, 'Conversation too long', 'Send /new to start a new conversation.'],
     [{ name: 'APIError', statusCode: 503, message: 'upstream unavailable' }, 'Provider unavailable', 'Send your message again to retry.'],
@@ -145,7 +145,7 @@ describe('telegram notices for a session (run errors)', () => {
   ];
   for (const [error, title, advice] of cases) {
     test(`${title}: the title, what to do next and the session link, never the provider's text`, () => {
-      expect(runFailed(error)).toBe([`Dosco could not finish this run: ${title}.`, advice, details].join('\n'));
+      expect(runFailed(error)).toBe([`Kortix could not finish this run: ${title}.`, advice, details].join('\n'));
       if (error?.message) expect(runFailed(error)).not.toContain(error.message);
     });
   }
@@ -157,12 +157,12 @@ describe('telegram notices for a session (run errors)', () => {
 
   test('a failed start says so, with the classified reason when there is one, and asks for /new', () => {
     const reason = "Couldn't access the project's Git repository. Check the project's Git credentials and try again.";
-    const tail = ['Send /new, then send your message again. If it fails again, a project admin can check the session in Dosco.', details];
+    const tail = ['Send /new, then send your message again. If it fails again, a workspace admin can check the session in Kortix.', details];
     expect(telegramNotice(target, { kind: 'start_failed', sessionId: 's1', reason })).toBe(
-      [`Dosco could not start this chat's session, so the agent did not run. ${reason}`, ...tail].join('\n'),
+      [`Kortix could not start this chat's session, so the agent did not run. ${reason}`, ...tail].join('\n'),
     );
     expect(telegramNotice(target, { kind: 'start_failed', sessionId: 's1', reason: null })).toBe(
-      ["Dosco could not start this chat's session, so the agent did not run.", ...tail].join('\n'),
+      ["Kortix could not start this chat's session, so the agent did not run.", ...tail].join('\n'),
     );
   });
 
@@ -170,16 +170,16 @@ describe('telegram notices for a session (run errors)', () => {
     const reason = 'The compute provider is at capacity right now.';
     expect(telegramNotice(target, { kind: 'start_retrying', sessionId: 's1', reason })).toBe(
       [
-        `Dosco could not start this chat's session yet. ${reason}`,
-        'Dosco tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
+        `Kortix could not start this chat's session yet. ${reason}`,
+        'Kortix tries again automatically for a few minutes. If the agent does not reply, send /new, then send your message again.',
       ].join('\n'),
     );
   });
 
   test('the inbound notices keep their copy', () => {
     const inbound = { ...target, messageId: '7' };
-    expect(telegramNotice(inbound, { kind: 'create_pending' })).toBe('Dosco is still starting a session for this chat. The agent replies here when it is ready.');
-    expect(telegramNotice(inbound, { kind: 'follow_up_failed' })).toBe("This chat's Dosco session cannot take new messages. Send /new to start a new conversation, then send your message again.");
+    expect(telegramNotice(inbound, { kind: 'create_pending' })).toBe('Kortix is still starting a session for this chat. The agent replies here when it is ready.');
+    expect(telegramNotice(inbound, { kind: 'follow_up_failed' })).toBe("This chat's Kortix session cannot take new messages. Send /new to start a new conversation, then send your message again.");
   });
 });
 

@@ -1,5 +1,4 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { projects } from '@kortix/db';
 import { inArray } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { config } from '../../config';
@@ -15,6 +14,7 @@ import { verifyTeamsLoginState } from './login';
 import { createOrJoinTeamsConversationSession } from './session';
 import { confirmTeamsConnected } from './identity';
 import { readJsonObject } from '../../shared/http-body';
+import { projectsView } from '../../workspaces/rows';
 
 export const teamsIdentityApp = makeOpenApiApp();
 
@@ -29,7 +29,7 @@ teamsIdentityApp.openapi(
   }),
   async (c: Context) => {
     const token = c.req.param('token') ?? '';
-    const base = (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
+    const base = (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
     const target = `${base}/teams/login/${encodeURIComponent(token)}`;
     return c.html(`<!doctype html>
 <html>
@@ -37,12 +37,12 @@ teamsIdentityApp.openapi(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="refresh" content="0; url=${target}" />
-    <title>Opening Dosco</title>
+    <title>Opening Kortix</title>
   </head>
   <body>
-    <p>Opening Dosco...</p>
+    <p>Opening Kortix...</p>
     <script>window.location.replace(${JSON.stringify(target)});</script>
-    <p><a href="${target}">Continue to Dosco</a></p>
+    <p><a href="${target}">Continue to Kortix</a></p>
   </body>
 </html>`);
   },
@@ -91,7 +91,7 @@ teamsIdentityApp.openapi(
 
     const projectIds = await listProjectsForWorkspace('teams', payload.tenantId);
     if (projectIds.length === 0) {
-      return c.json({ error: 'This Teams tenant is not connected to any Dosco project.' }, 403);
+      return c.json({ error: 'This Teams tenant is not connected to any Kortix workspace.' }, 403);
     }
     const [install, chatUserName] = await Promise.all([
       loadTeamsInstall(projectIds[0]!).catch(() => null),
@@ -122,7 +122,7 @@ teamsIdentityApp.openapi(
     method: 'post',
     path: '/bind',
     tags: ['channels'],
-    summary: 'Bind the calling Dosco user to a Teams user from a login token',
+    summary: 'Bind the calling Kortix user to a Teams user from a login token',
     ...auth,
     middleware: [combinedAuth] as const,
     request: { body: { content: { 'application/json': { schema: BindBody } } } },
@@ -147,12 +147,12 @@ teamsIdentityApp.openapi(
 
     const projectIds = await listProjectsForWorkspace('teams', payload.tenantId);
     if (projectIds.length === 0) {
-      return c.json({ error: 'This Teams tenant is not connected to any Dosco project.' }, 403);
+      return c.json({ error: 'This Teams tenant is not connected to any Kortix workspace.' }, 403);
     }
     const accountRows = await db
-      .select({ accountId: projects.accountId })
-      .from(projects)
-      .where(inArray(projects.projectId, projectIds));
+      .select({ accountId: projectsView.accountId })
+      .from(projectsView)
+      .where(inArray(projectsView.projectId, projectIds));
     const accountIds = Array.from(new Set(accountRows.map((r) => r.accountId)));
 
     const outcome = await completeChatLogin({
@@ -168,11 +168,11 @@ teamsIdentityApp.openapi(
         throw buildDenialError(PROJECT_ACTIONS.PROJECT_SESSION_START, 'account_mfa_required');
       }
       return outcome.reason === 'used'
-        ? c.json({ error: 'This link was already used. Send /login to the Dosco bot in Teams for a new one.' }, 410)
+        ? c.json({ error: 'This link was already used. Send /login to the Kortix bot in Teams for a new one.' }, 410)
         : c.json(
             {
               error:
-                'This Teams account is connected to a different Dosco account. Send /logout to the Dosco bot in Teams, then /login.',
+                'This Teams account is connected to a different Kortix account. Send /logout to the Kortix bot in Teams, then /login.',
             },
             409,
           );

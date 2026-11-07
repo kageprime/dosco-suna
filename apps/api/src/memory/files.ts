@@ -154,7 +154,7 @@ function excerptOf(body: string): string {
         .replace(/^(?:[-*+>]\s+|\d+[.)]\s+|\[[ xX]\]\s+)+/, '')
         .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
         .replace(/[*`~]+/g, '')
-        // `_` marks emphasis only at a word edge: `project_channels` keeps its underscore.
+        // `_` marks emphasis only at a word edge: `chat` keeps its underscore.
         .replace(/(^|\W)_+|_+(?=\W|$)/g, '$1')
         .replace(/\s*\|\s*/g, ' ')
         .trim(),
@@ -184,7 +184,7 @@ export function parsePage(text: string, rel: string, agentSegment: string | null
   return {
     type: typeOf(data.type, rel, agentSegment),
     title: (h1?.[1] ?? str('title')).trim() || titleFromName(rel),
-    // `description`: a My Dosco memory page's one line (`./my-memory`).
+    // `description`: a My Kortix memory page's one line (`./my-memory`).
     summary: (str('summary').trim() || str('description').trim()).slice(0, MEMORY_LIMITS.summary_chars) || firstLine(body),
     excerpt: excerptOf(body),
     body,

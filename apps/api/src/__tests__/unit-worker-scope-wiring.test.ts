@@ -54,9 +54,13 @@ const WORKERS: Record<string, string> = {
   'approval-expiry': 'worker/jobs/approval-expiry.ts',
   'oauth-sweep': 'worker/jobs/oauth-sweep.ts',
   'session-model-fallback': 'worker/jobs/session-model-fallback.ts',
+  'space-watcher': 'worker/jobs/space-watcher.ts',
+  'goal-reconciler': 'worker/jobs/goal-reconciler.ts',
   'session-lifecycle': 'projects/session-lifecycle/drain.ts',
   'tunnel-cleanup': 'worker/jobs/tunnel-cleanup.ts',
   'tunnel-forward-expiry': 'worker/jobs/tunnel-forward-expiry.ts',
+  'workspace-split': 'worker/jobs/workspace-split.ts',
+  'workspace-id-fill': 'worker/jobs/workspace-id-fill.ts',
   'tunnel-rpc-forwarder': 'tunnel/core/cluster-forwarder.ts',
   'billing-trial-expiry': 'worker/jobs/billing-rotation.ts',
   'billing-yearly-rotation': 'worker/jobs/billing-rotation.ts',
@@ -79,6 +83,7 @@ const WORKERS: Record<string, string> = {
   'drive-index': 'worker/jobs/drive.ts',
   'notification-digest': 'worker/jobs/notification.ts',
   'session-log-purge': 'worker/jobs/session-log-purge.ts',
+  'retention-erasure': 'worker/jobs/retention-erasure.ts',
   'gateway-spend-backfill': 'worker/jobs/gateway-spend-backfill.ts',
   'residential-proxy-billing': 'worker/jobs/residential-proxy-billing.ts',
   'storage-billing': 'worker/jobs/storage-billing.ts',
@@ -92,7 +97,7 @@ const PER_PROCESS: Record<string, string> = {
   'session-lifecycle':
     'message delivery: a request queues a prompt and kicks the drain on its own process; every web process drains the shared queue',
   'job-queue': 'the durable job queue (held connector calls, Capture ingest): any web process claims a job with SKIP LOCKED',
-  'trigger-event-poll': 'Dosco-polled app events: every web process claims due streams under a lease',
+  'trigger-event-poll': 'Kortix-polled app events: every web process claims due streams under a lease',
   'tunnel-rpc-forwarder': 'forwards RPCs to the agents connected to this process: it claims only rows addressed to its own instance id',
 };
 

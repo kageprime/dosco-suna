@@ -1,5 +1,5 @@
 /**
- * My Dosco, the built-in agent (slug `mykortix`), and its kortix.yaml switch
+ * My Kortix, the built-in agent (slug `mykortix`), and its kortix.yaml switch
  * `builtin_agents.my_kortix` (`true` = on; anything else off). The agent page and the CLI read
  * `GET /agents/meta/config`; it answered `404 No agent "meta" declared in
  * kortix.yaml` for an agent `/detail` lists. In-process app, real DB, real git.
@@ -29,17 +29,17 @@ const OWNER = crypto.randomUUID();
 const ON = crypto.randomUUID();
 /** `builtin_agents: { my_kortix: true }`, `default_agent: mykortix`. */
 const ON_DEFAULT = crypto.randomUUID();
-/** No `builtin_agents` key: My Dosco is off. */
+/** No `builtin_agents` key: My Kortix is off. */
 const ABSENT = crypto.randomUUID();
 /** `builtin_agents: { my_kortix: false }`. */
 const OFF = crypto.randomUUID();
 /** No key, and an error that voids the whole file (`sandbox: 42`): off. */
 const BROKEN = crypto.randomUUID();
-/** `my_kortix: true` and `sandbox: 42`: on, so My Dosco can fix the file. */
+/** `my_kortix: true` and `sandbox: 42`: on, so My Kortix can fix the file. */
 const BROKEN_ON = crypto.randomUUID();
-/** Not YAML (a duplicate key): repair mode, only My Dosco runs. */
+/** Not YAML (a duplicate key): repair mode, only My Kortix runs. */
 const SYNTAX = crypto.randomUUID();
-/** A valid commit (My Dosco off), then one that is not YAML: the project runs the valid one. */
+/** A valid commit (My Kortix off), then one that is not YAML: the project runs the valid one. */
 const LAST_GOOD = crypto.randomUUID();
 /** No key, and the project still stores `experimental.meta_agent: true` from the removed flag. */
 const LEGACY_ON = crypto.randomUUID();
@@ -50,7 +50,7 @@ let lastGoodSeed = '';
 function pushOnTop(repoUrl: string, path: string, content: string): { parent: string } {
   const work = join(repoUrl, '..', 'work');
   const git = (...args: string[]) =>
-    execFileSync('git', ['-c', 'user.name=Dosco Test', '-c', 'user.email=test@kortix.invalid', ...args], { cwd: work }).toString().trim();
+    execFileSync('git', ['-c', 'user.name=Kortix Test', '-c', 'user.email=test@kortix.invalid', ...args], { cwd: work }).toString().trim();
   const parent = git('rev-parse', 'HEAD');
   writeFileSync(join(work, path), content);
   git('commit', '-q', '-am', 'not YAML');
@@ -93,7 +93,7 @@ beforeAll(async () => {
     [LAST_GOOD, lastGood.repoUrl, {}],
     [LEGACY_ON, absent.repoUrl, { experimental: { meta_agent: true } }],
   ] as const) {
-    await db.insert(projects).values({ projectId, accountId: ACCOUNT, name: `builtin-agents-${projectId.slice(0, 8)}`, repoUrl, metadata });
+    await db.insert(projects).values({ splitPending: true, projectId, accountId: ACCOUNT, name: `builtin-agents-${projectId.slice(0, 8)}`, repoUrl, metadata });
     await insertIntoView(db, projectMembers, [{ accountId: ACCOUNT, projectId, userId: OWNER, projectRole: 'manager' }]);
     secrets[projectId] = (
       await createAccountToken({ accountId: ACCOUNT, userId: OWNER, projectId, name: 'builtin-agents-test', agentGrant: null as any })
@@ -129,7 +129,7 @@ async function detail(projectId: string): Promise<Detail['config']> {
 }
 
 describe('builtin_agents.my_kortix: true (on)', () => {
-  test('GET /detail lists My Dosco first and keeps the manifest default agent', async () => {
+  test('GET /detail lists My Kortix first and keeps the manifest default agent', async () => {
     const config = await detail(ON);
     expect(config.builtin_agents).toEqual({ my_kortix: true });
     expect(config.default_agent).toBe('kortix');
@@ -138,7 +138,7 @@ describe('builtin_agents.my_kortix: true (on)', () => {
     expect(config.agents[0]?.description).toContain('The one agent you talk to');
   });
 
-  test('`default_agent: mykortix` makes My Dosco the default, like any declared agent', async () => {
+  test('`default_agent: mykortix` makes My Kortix the default, like any declared agent', async () => {
     const config = await detail(ON_DEFAULT);
     expect(config.builtin_agents).toEqual({ my_kortix: true });
     expect(config.default_agent).toBe('mykortix');
@@ -199,7 +199,7 @@ for (const [label, projectId] of [
       }
     });
 
-    test('POST /sessions naming My Dosco is refused with 409 builtin_agent_disabled, and no session row is written', async () => {
+    test('POST /sessions naming My Kortix is refused with 409 builtin_agent_disabled, and no session row is written', async () => {
       for (const name of ['mykortix', 'meta']) {
         const res = await call(projectId(), '/sessions', { method: 'POST', body: JSON.stringify({ agent_name: name }) });
         expect(res.status).toBe(409);
@@ -211,7 +211,7 @@ for (const [label, projectId] of [
 }
 
 describe('a file with an error that voids every key', () => {
-  test('without the key: My Dosco is off, and naming it is refused with 409', async () => {
+  test('without the key: My Kortix is off, and naming it is refused with 409', async () => {
     const config = await detail(BROKEN);
     expect(config.builtin_agents).toEqual({ my_kortix: false });
     expect(config.agents.map((agent) => agent.name)).not.toContain('mykortix');
@@ -220,7 +220,7 @@ describe('a file with an error that voids every key', () => {
     expect(await res.json()).toMatchObject({ code: 'builtin_agent_disabled' });
   });
 
-  test('with `my_kortix: true`: My Dosco stays on and is the default, so that it can fix the file', async () => {
+  test('with `my_kortix: true`: My Kortix stays on and is the default, so that it can fix the file', async () => {
     const config = await detail(BROKEN_ON);
     expect(config.builtin_agents).toEqual({ my_kortix: true });
     expect(config.default_agent).toBe('mykortix');
@@ -229,7 +229,7 @@ describe('a file with an error that voids every key', () => {
 });
 
 describe('a file that is not YAML (repair mode)', () => {
-  test('GET /detail names the syntax error and lists My Dosco, on, so that it can fix the file', async () => {
+  test('GET /detail names the syntax error and lists My Kortix, on, so that it can fix the file', async () => {
     const res = await call(SYNTAX, '/detail');
     expect(res.status).toBe(200);
     const config = ((await res.json()) as Detail & { config: { manifest_health: { issues: Array<{ path: string; line?: number }> } } }).config;
@@ -252,11 +252,11 @@ describe('a file that is not YAML (repair mode)', () => {
   test('POST /sessions for a project agent is 409 manifest_invalid, never 500, and writes no session row', async () => {
     const res = await call(SYNTAX, '/sessions', { method: 'POST', body: JSON.stringify({ agent_name: 'kortix' }) });
     expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({ code: 'manifest_invalid', error: 'kortix.yaml is not valid YAML (Map keys must be unique at line 9, column 3). Only My Dosco runs until it is fixed.' });
+    expect(await res.json()).toMatchObject({ code: 'manifest_invalid', error: 'kortix.yaml is not valid YAML (Map keys must be unique at line 9, column 3). Only My Kortix runs until it is fixed.' });
     expect(await db.select().from(projectSessions).where(eq(projectSessions.projectId, SYNTAX))).toEqual([]);
   });
 
-  test('POST /sessions for My Dosco passes agent resolution exactly like a project that runs My Dosco', async () => {
+  test('POST /sessions for My Kortix passes agent resolution exactly like a project that runs My Kortix', async () => {
     // This suite has no sandbox provider: both creates stop at the same later
     // step. The point is that the file's syntax error is not what stops them.
     const create = (projectId: string) =>
@@ -275,7 +275,7 @@ describe('a file that is not YAML (repair mode)', () => {
 });
 
 describe('a file that is not YAML, with a valid commit before it (last good version)', () => {
-  test('GET /detail runs the last valid commit: its agents and its My Dosco switch, and the issue names that commit', async () => {
+  test('GET /detail runs the last valid commit: its agents and its My Kortix switch, and the issue names that commit', async () => {
     const res = await call(LAST_GOOD, '/detail');
     expect(res.status).toBe(200);
     const config = ((await res.json()) as Detail & { config: { manifest_health: { issues: Array<{ path: string; message: string }> } } }).config;
@@ -285,7 +285,7 @@ describe('a file that is not YAML, with a valid commit before it (last good vers
     expect(config.manifest_health.issues).toEqual([
       expect.objectContaining({
         path: '<yaml>',
-        message: `Syntax error: Map keys must be unique at line 9, column 3. Dosco keeps running this file as of commit ${lastGoodSeed.slice(0, 7)}, the last version that parses, until it is fixed. Edits from Dosco are refused until then.`,
+        message: `Syntax error: Map keys must be unique at line 9, column 3. Kortix keeps running this file as of commit ${lastGoodSeed.slice(0, 7)}, the last version that parses, until it is fixed. Edits from Kortix are refused until then.`,
       }),
     ]);
   });
@@ -298,11 +298,11 @@ describe('a file that is not YAML, with a valid commit before it (last good vers
     expect(write.status).toBe(409);
     expect(await write.json()).toEqual({
       code: 'manifest_invalid',
-      error: 'kortix.yaml on the default branch is not valid YAML (Map keys must be unique at line 9, column 3). Dosco does not change it until it is fixed.',
+      error: 'kortix.yaml on the default branch is not valid YAML (Map keys must be unique at line 9, column 3). Kortix does not change it until it is fixed.',
     });
   });
 
-  test('POST /sessions for the project agent passes agent resolution; My Dosco stays off, as the valid commit says', async () => {
+  test('POST /sessions for the project agent passes agent resolution; My Kortix stays off, as the valid commit says', async () => {
     const create = (projectId: string, agent: string) =>
       call(projectId, '/sessions', { method: 'POST', body: JSON.stringify({ agent_name: agent }) });
     const lastGoodRes = await create(LAST_GOOD, 'kortix');

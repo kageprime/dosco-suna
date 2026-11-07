@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
 import { InfoBanner } from '@kortix/ui/info-banner';
@@ -169,6 +169,18 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
   const { data: fxAccountState } = useAccountState();
   const fxRate = fxAccountState?.billing_fx?.usd_ngn_rate ?? null;
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const purchasingRef = useRef(false);
+  // Back from Stripe restores this page from the back/forward cache with the
+  // button still "processing": open it again.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      purchasingRef.current = false;
+      setIsPurchasing(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [provider, setProvider] = useState<'stripe' | 'paystack'>('paystack');
 
@@ -208,7 +220,10 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
   };
 
   const handlePurchase = async () => {
-    if (amount === null || !canBuy) return;
+    // Synchronous guard: a second click before the re-render made a second
+    // Stripe Checkout Session.
+    if (amount === null || !canBuy || purchasingRef.current) return;
+    purchasingRef.current = true;
     setIsPurchasing(true);
     setPurchaseError(null);
     try {
@@ -222,16 +237,17 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
         cancelUrl: cancelUrl ?? window.location.href,
       });
       if (response.checkout_url) {
+        // The page is leaving for Stripe: the button stays in "processing".
         window.location.href = response.checkout_url;
-      } else {
-        throw new Error(t('noCheckoutUrl'));
+        return;
       }
+      throw new Error(t('noCheckoutUrl'));
     } catch (err: unknown) {
       const error = err as { details?: { detail?: string }; message?: string };
       const msg = error?.details?.detail || error?.message || t('checkoutFailed');
       setPurchaseError(msg);
       errorToast(msg);
-    } finally {
+      purchasingRef.current = false;
       setIsPurchasing(false);
     }
   };

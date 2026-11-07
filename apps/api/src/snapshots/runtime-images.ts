@@ -25,7 +25,7 @@ export class SnapshotBuildError extends Error {
 }
 
 /**
- * My Dosco's machine: the default session machine. Its image is the platform
+ * My Kortix's machine: the default session machine. Its image is the platform
  * default's computer, desktop and browser included (my-kortix-dockerfile.ts),
  * which needs the same room: ~7.4 GB of image, ~380 MB RAM for the desktop.
  */
@@ -38,32 +38,32 @@ export const MY_KORTIX_RUNTIME_SPEC: SandboxImageSpec = Object.freeze({
 const myKortixImageBuilds = new Map<string, Promise<EnsureSandboxImageResult>>();
 let metaRuntimeFingerprint: Promise<string> | null = null;
 
-/** Every input of the My Dosco image, under the repository root `root`. */
+/** Every input of the My Kortix image, under the repository root `root`. */
 export function metaRuntimeArtifacts(root: string) {
   return [
-      { label: 'agent', path: resolve(root, 'apps/kortix-sandbox-agent-server/src') },
-      { label: 'agent-package', path: resolve(root, 'apps/kortix-sandbox-agent-server/package.json') },
+    { label: 'agent', path: resolve(root, 'apps/kortix-sandbox-agent-server/src') },
+    { label: 'agent-package', path: resolve(root, 'apps/kortix-sandbox-agent-server/package.json') },
     // The daemon's compile flags (`--bytecode`) change the binary with no
     // source change; without this a flag change kept the old image.
     { label: 'agent-build', path: resolve(root, 'apps/kortix-sandbox-agent-server/scripts/build.sh') },
-      { label: 'api-contract', path: resolve(root, 'packages/api-contract/src') },
-      { label: 'cli', path: resolve(root, 'apps/cli/src') },
-      { label: 'cli-package', path: resolve(root, 'apps/cli/package.json') },
-      { label: 'entrypoint', path: resolve(root, 'apps/sandbox/entrypoint.sh') },
-      // The rest of the Dosco defaults' staged artifacts (defaults.ts): the
-      // same inputs as a project agent's image fingerprint.
-      { label: 'machine-doc', path: resolve(root, 'apps/sandbox/MACHINE.md') },
-      { label: 'slack-cli', path: resolve(root, 'apps/sandbox/slack-cli') },
-      { label: 'meta-renderer', path: resolve(root, 'packages/shared/src/sandbox/my-kortix-dockerfile.ts') },
-      { label: 'sdk', path: resolve(root, 'packages/sdk/src') },
-      { label: 'llm-catalog', path: resolve(root, 'packages/llm-catalog/src') },
-      { label: 'manifest-schema', path: resolve(root, 'packages/manifest-schema/src') },
-      { label: 'registry', path: resolve(root, 'packages/registry/src') },
-      { label: 'shared', path: resolve(root, 'packages/shared/src') },
-      { label: 'starter', path: resolve(root, 'packages/starter/src') },
-      // The managed skills baked into the image live under templates/, not
-      // src/ — without this a SKILL.md edit never re-fingerprints the image.
-      { label: 'starter-templates', path: resolve(root, 'packages/starter/templates') },
+    { label: 'api-contract', path: resolve(root, 'packages/api-contract/src') },
+    { label: 'cli', path: resolve(root, 'apps/cli/src') },
+    { label: 'cli-package', path: resolve(root, 'apps/cli/package.json') },
+    { label: 'entrypoint', path: resolve(root, 'apps/sandbox/entrypoint.sh') },
+    // The rest of the Kortix defaults' staged artifacts (defaults.ts): the
+    // same inputs as a project agent's image fingerprint.
+    { label: 'machine-doc', path: resolve(root, 'apps/sandbox/MACHINE.md') },
+    { label: 'slack-cli', path: resolve(root, 'apps/sandbox/slack-cli') },
+    { label: 'meta-renderer', path: resolve(root, 'packages/shared/src/sandbox/my-kortix-dockerfile.ts') },
+    { label: 'sdk', path: resolve(root, 'packages/sdk/src') },
+    { label: 'llm-catalog', path: resolve(root, 'packages/llm-catalog/src') },
+    { label: 'manifest-schema', path: resolve(root, 'packages/manifest-schema/src') },
+    { label: 'registry', path: resolve(root, 'packages/registry/src') },
+    { label: 'shared', path: resolve(root, 'packages/shared/src') },
+    { label: 'starter', path: resolve(root, 'packages/starter/src') },
+    // The managed skills baked into the image live under templates/, not
+    // src/ — without this a SKILL.md edit never re-fingerprints the image.
+    { label: 'starter-templates', path: resolve(root, 'packages/starter/templates') },
   ];
 }
 
@@ -89,7 +89,7 @@ const RUNTIME_REAP_PROTECT_MS = 60 * 60 * 1000;
 /** Names are `kortix-mykortix-<env>-<hash16>`; see `myKortixSnapshotName`. */
 const MY_KORTIX_SNAPSHOT_PREFIX = 'kortix-mykortix';
 /**
- * The prefix before the My Dosco rename (2026-10-30). The reap still tidies
+ * The prefix before the My Kortix rename (2026-10-30). The reap still tidies
  * its superseded images, and a served legacy image stays a fallback and stays
  * protected until a newer served image of either prefix replaces it.
  */
@@ -326,7 +326,7 @@ function myKortixImageResult(snapshotName: string, contentHash: string, built: b
 export const MY_KORTIX_SERVED_IMAGE_LIMIT = 3;
 
 /**
- * My Dosco images a session of this environment booted, newest first, under
+ * My Kortix images a session of this environment booted, newest first, under
  * either prefix (`kortix-mykortix-<env>-` and the legacy `kortix-meta-<env>-`):
  * on the first deploy after the rename, the only served images are legacy, and
  * they stay fallbacks and stay protected from the reap.
@@ -490,7 +490,7 @@ type TemplateIdentity = Awaited<ReturnType<typeof computeTemplateIdentity>>;
  *   • a distinct predecessor snapshot exists (there's a real drift), and
  *   • the drift is provably agent-ONLY: the new identity's swapKey (user image +
  *     spec + NON-agent runtime layer) equals the predecessor's STORED swapKey, so
- *     the ONLY thing that changed is the agent binary. A bumped opencode /
+ *     the ONLY thing that changed is the agent binary. A bumped
  *     entrypoint / CLI / slack-cli / SDK / manifest-schema / browser /
  *     layer version — or the user image or spec — moves swapKey → full rebuild.
  *     (No isShared shortcut: the shared default's runtime LAYER is not constant,
@@ -530,7 +530,7 @@ export async function maybeSwapAgent(
     );
     // Reap any half-created new-name row so the fallback buildSnapshot (same name)
     // isn't blocked by a name-collision 409 — pickBuildHost has no state filter for
-    // non-admin/org callers, which is exactly how Dosco builds authenticate.
+    // non-admin/org callers, which is exactly how Kortix builds authenticate.
     await provider.deleteSnapshot(identity.snapshotName).catch(() => {});
     return false;
   }

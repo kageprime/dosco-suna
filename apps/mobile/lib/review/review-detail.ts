@@ -81,15 +81,15 @@ export function reviewDetailRows(item: ReviewItem, extras: ReviewDetailExtras = 
 }
 
 /**
- * The change request on dosco.live: its session with `?cr=` (web opens the
+ * The change request on kortix.com: its session with `?cr=` (web opens the
  * change request dialog from it), else the project's Review page.
  */
 export function changeRequestWebUrl(projectId: string, item: ReviewItem): string {
   const crId = item.kind === 'change' ? item.detail.crId : undefined;
   if (item.sessionId && crId) {
-    return `${KORTIX_WEB_URL}/projects/${projectId}/sessions/${item.sessionId}?cr=${crId}`;
+    return `${KORTIX_WEB_URL}/workspaces/${projectId}/sessions/${item.sessionId}?cr=${crId}`;
   }
-  return `${KORTIX_WEB_URL}/projects/${projectId}/review`;
+  return `${KORTIX_WEB_URL}/workspaces/${projectId}/review`;
 }
 
 /** A file row's name and folder. */

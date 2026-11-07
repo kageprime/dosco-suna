@@ -70,7 +70,7 @@ export interface CatalogItem {
   owner?: string;
   /** The user-added source row this came from (for exact Remove matching); absent for base/env. */
   sourceId?: string;
-  /** First-party runtime skill managed by Dosco, not an ordinary optional install. */
+  /** First-party runtime skill managed by Kortix, not an ordinary optional install. */
   managedBy?: "kortix";
   updatePolicy?: "kortix-managed";
   defaultProjectInstall?: boolean;
@@ -228,7 +228,7 @@ let marketplaceLabelsCache: Map<string, string> | null = null;
 function marketplaceLabels(): Map<string, string> {
   if (marketplaceLabelsCache) return marketplaceLabelsCache;
   const labels = new Map<string, string>([
-    ["kortix", "Dosco"],
+    ["kortix", "Kortix"],
     ["anthropics/skills", "Anthropic Skills"],
     ["anthropics/knowledge-work-plugins", "Anthropic Knowledge Work"],
   ]);
@@ -237,10 +237,10 @@ function marketplaceLabels(): Map<string, string> {
   return labels;
 }
 
-/** Display label for a registry/marketplace (base → "Dosco", external → curated name). */
+/** Display label for a registry/marketplace (base → "Kortix", external → curated name). */
 export function marketplaceLabelOf(registry: string): string {
   const id = marketplaceIdOf(registry);
-  return marketplaceLabels().get(id) ?? (id === "kortix" ? "Dosco" : id);
+  return marketplaceLabels().get(id) ?? (id === "kortix" ? "Kortix" : id);
 }
 
 /** GitHub owner from a marketplace id, when it looks like `owner/repo` (for avatars). */
@@ -335,11 +335,11 @@ function buildStarterRegistry(): RegistryJson {
   const starterFloorFiles = [
     ...getManagedSkillFiles(),
     ...getStarterFiles({
-      projectName: "Dosco Starter",
+      projectName: "Kortix Starter",
       template: "general-knowledge-worker",
     }),
   ];
-  // The `marketplace` template layer is "listed in the Dosco marketplace but
+  // The `marketplace` template layer is "listed in the Kortix marketplace but
   // not part of the starter floor" (see getMarketplaceFiles in @kortix/starter):
   // standalone optional skills plus the use-case templates' runbook skills.
   const files = [...starterFloorFiles, ...getMarketplaceFiles()];
@@ -366,11 +366,11 @@ function buildStarterRegistry(): RegistryJson {
       starterFloorPaths.has(primaryPath)
     ) {
       // A starter-floor skill: it stands on its own in the catalog AND ships
-      // inside the Dosco Starter project, so tag it so the UI can badge it
-      // "Part of Dosco Starter" and link back to the whole project.
+      // inside the Kortix Starter project, so tag it so the UI can badge it
+      // "Part of Kortix Starter" and link back to the whole project.
       item.meta = {
         ...(item.meta ?? {}),
-        partOfProject: { id: STARTER_KIT_ITEM_ID, title: "Dosco Starter" },
+        partOfProject: { id: STARTER_KIT_ITEM_ID, title: "Kortix Starter" },
       };
     } else if (
       item.type === "registry:skill" &&
@@ -378,7 +378,7 @@ function buildStarterRegistry(): RegistryJson {
     ) {
       // A use-case runbook skill (declared in the marketplace template's
       // kortix.registry.json): it ships inside the Use-case pack project, not
-      // the Dosco Starter. Tag it so the explore grid folds it under the
+      // the Kortix Starter. Tag it so the explore grid folds it under the
       // pack tile while it stays resolvable for the use-case install wizard.
       item.meta = {
         ...(item.meta ?? {}),
@@ -387,7 +387,7 @@ function buildStarterRegistry(): RegistryJson {
     }
     // Remaining marketplace-layer skills (deep-research, search, coding, …)
     // are ordinary standalone browse tiles: optional installs, not part of
-    // the Dosco Starter project.
+    // the Kortix Starter project.
     for (const f of item.files ?? []) {
       const content = map.get(f.path);
       if (content != null) f.content = content;
@@ -458,7 +458,7 @@ function buildProjectTemplateRegistry(): RegistryItem[] {
   return items;
 }
 
-// The marketplace hero: one synthetic "Dosco Starter" project. Its contents
+// The marketplace hero: one synthetic "Kortix Starter" project. Its contents
 // (`what's inside`) are every browseable starter skill — resolved typed from the
 // catalog by name — and its files are the whole starter kit (file browser +
 // clone). This is the single project we lead the marketplace with; individual
@@ -469,19 +469,19 @@ export const STARTER_KIT_ITEM_ID = `kortix-projects:${STARTER_KIT_ITEM_NAME}`;
 // The second synthetic project: the Use-case pack. One browse tile that groups
 // every use-case runbook skill + persona agent from the marketplace template
 // layer (`packages/starter/templates/marketplace/runtime/**`) — visible and
-// clonable in the marketplace, but never advertised as Dosco Starter content.
+// clonable in the marketplace, but never advertised as Kortix Starter content.
 export const USE_CASE_PACK_ITEM_NAME = "use-case-pack";
 export const USE_CASE_PACK_ITEM_ID = `kortix-projects:${USE_CASE_PACK_ITEM_NAME}`;
 export const USE_CASE_PACK_TITLE = "Use-case pack";
 
-const STARTER_KIT_README = `# Dosco Starter
+const STARTER_KIT_README = `# Kortix Starter
 
-The default Dosco project — a general knowledge worker that's ready to do real
+The default Kortix workspace — a general knowledge worker that's ready to do real
 work from the very first message.
 
-It comes preloaded with the core Dosco skill floor: documents (PDF, DOCX,
+It comes preloaded with the core Kortix skill floor: documents (PDF, DOCX,
 XLSX) and slides, web apps and websites, browser automation, publishing and
-deployments, and design foundations. The managed Dosco platform skills
+deployments, and design foundations. The managed Kortix platform skills
 (sessions, memory, the CLI) are injected into every session automatically.
 More skills — research, outreach, and per-role runbooks — are one install away
 in the marketplace.
@@ -529,9 +529,9 @@ function buildStarterKitProjectItem(): RegistryItem {
   return {
     name: STARTER_KIT_ITEM_NAME,
     type: "registry:project",
-    title: "Dosco Starter",
+    title: "Kortix Starter",
     description:
-      "The default Dosco project — a general knowledge worker preloaded with the core skill floor (documents, slides, spreadsheets, web apps, browser automation, and more), ready to work from the first session.",
+      "The default Kortix workspace — a general knowledge worker preloaded with the core skill floor (documents, slides, spreadsheets, web apps, browser automation, and more), ready to work from the first session.",
     categories: ["project", "starter"],
     registryDependencies: skillNames,
     files,
@@ -541,14 +541,14 @@ function buildStarterKitProjectItem(): RegistryItem {
 
 const USE_CASE_PACK_README = `# Use-case pack
 
-Every Dosco use-case runbook in one place: the day-to-day operations playbooks
+Every Kortix use-case runbook in one place: the day-to-day operations playbooks
 (sales, finance, support, recruiting, engineering, and more) plus the persona
 agents that run them.
 
 ## How to use it
 
 - **Guided (recommended):** each use case installs individually through the
-  [use-case pages](https://dosco.live/use-cases) — the wizard wires the agent,
+  [use-case pages](https://kortix.com/use-cases) — the wizard wires the agent,
   its skill, grants, and any scheduled trigger into your project.
 - **Bulk clone:** clone this pack as a project to get every runbook skill under
   \`skills/\` and every persona agent file under \`agents/\`. Agent files ship
@@ -596,7 +596,7 @@ function buildUseCasePackProjectItem(): RegistryItem {
     type: "registry:project",
     title: USE_CASE_PACK_TITLE,
     description:
-      "Every Dosco use-case runbook and persona agent in one pack — sales, finance, support, recruiting, engineering ops, and more. Install use cases one at a time from the use-case pages, or clone the whole pack.",
+      "Every Kortix use-case runbook and persona agent in one pack — sales, finance, support, recruiting, engineering ops, and more. Install use cases one at a time from the use-case pages, or clone the whole pack.",
     categories: ["project", "use-case"],
     registryDependencies: skillNames,
     files,
@@ -678,7 +678,7 @@ export const MARKETPLACE_EXTERNAL_BUILD_CONCURRENCY = 4;
 
 // The cache lives on globalThis so it survives `bun --hot` reloads in dev
 // (otherwise every edit re-scans every source → the "so slow"). External sources
-// resolve PROGRESSIVELY: the base (Dosco) shows instantly and each source is
+// resolve PROGRESSIVELY: the base (Kortix) shows instantly and each source is
 // folded into `partial` as it arrives, so the list never blocks on the slowest.
 /** Per-source resolution state — drives the UI's spinner-per-source. */
 export interface SourceStatus {
@@ -739,9 +739,9 @@ function envSources(): string[] {
 }
 
 /**
- * Marketplaces that ship ENABLED by default — loaded like the Dosco base (not
+ * Marketplaces that ship ENABLED by default — loaded like the Kortix base (not
  * removable), so the catalog is full on day one. For now this is empty: **only
- * Dosco is active by default**, and every other source (Anthropic, OpenAI, and
+ * Kortix is active by default**, and every other source (Anthropic, OpenAI, and
  * the rest of FEATURED_MARKETPLACES) is one-click opt-in via "Add a source".
  * Can be overridden by `KORTIX_DEFAULT_MARKETPLACES` (comma-separated).
  */
@@ -1045,7 +1045,7 @@ async function buildExternalCatalog(): Promise<Catalog> {
     : (CACHE.partial ??= { items: [], byId: new Map() });
   // Resolve sources concurrently with isolation — one slow/huge/dead source
   // neither blocks the others nor sinks the catalog; each folds in the instant
-  // it arrives so the list streams Dosco-first, then source-by-source.
+  // it arrives so the list streams Kortix-first, then source-by-source.
   await mapWithConcurrency(
     refs,
     MARKETPLACE_EXTERNAL_BUILD_CONCURRENCY,
@@ -1163,7 +1163,7 @@ export function catalogStatus(): {
 
 /**
  * Group the base registries (kortix bundles + kortix-starter skills) under one
- * "Dosco" marketplace; every external registry is its own marketplace keyed by
+ * "Kortix" marketplace; every external registry is its own marketplace keyed by
  * its `owner/repo`. This is the id the "browse by marketplace" filter uses.
  */
 export function marketplaceIdOf(registry: string): string {
@@ -1194,7 +1194,7 @@ export async function listMarketplaces(): Promise<MarketplaceFacet[]> {
     // A company/source's sourceUrl means "the repo this whole source lives in"
     // — only external registries have one. Base items (kortix-starter,
     // kortix-projects) may carry a per-ITEM sourceUrl (e.g. a project
-    // template's own path), but that must NOT become the whole "Dosco"
+    // template's own path), but that must NOT become the whole "Kortix"
     // company's source, or it leaks onto every sibling item's page.
     const companySourceUrl = it.external ? it.sourceUrl : undefined;
     if (!m) {
@@ -1216,7 +1216,7 @@ export async function listMarketplaces(): Promise<MarketplaceFacet[]> {
     if (!m.sourceUrl && companySourceUrl) m.sourceUrl = companySourceUrl;
     if (!m.sourceId && it.sourceId) m.sourceId = it.sourceId;
   }
-  // Dosco first, then external alphabetically.
+  // Kortix first, then external alphabetically.
   return [...by.values()].sort((a, b) =>
     a.id === "kortix"
       ? -1
@@ -1880,7 +1880,7 @@ type ItemQuery = { query?: string; type?: string; source?: string };
 const MARKETPLACE_VISIBLE_TYPES = new Set<string>(["registry:skill", "registry:project"]);
 
 function isBrowseableCatalogItem(it: CatalogItem): boolean {
-  // Dosco-managed system skills (kortix-system/connectors/memory/slack/computer/
+  // Kortix-managed system skills (kortix-system/connectors/memory/slack/computer/
   // meet) are the platform floor — they ship in every project and are served
   // live via `kortix skills get`, so they're not browse-and-install cards. They
   // stay installable by id (getCatalogEntry, ungated).
@@ -1968,7 +1968,7 @@ export async function listCatalogItems(
   return filterCatalogItems((await mergedCatalogComplete()).items, opts);
 }
 
-/** Progressive catalog — base (Dosco) instantly, external sources as they land.
+/** Progressive catalog — base (Kortix) instantly, external sources as they land.
  *  Use for the browse list so the UI never blocks on the slowest source. */
 export async function listCatalogItemsLive(
   opts: ItemQuery = {},

@@ -8,8 +8,8 @@
  */
 
 export const hero = {
-  title: 'The agentic operating system',
-  sub: 'Your agents, skills, company memory and connectors in one managed workspace. Any model, your keys.',
+  title: 'The open-source CompanyOS',
+  sub: 'Your agents, skills, company memory and connectors in one git repo you own. Any model, your keys, self-hosted or managed cloud.',
   ctaPrimary: 'Get started',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Star on GitHub',
@@ -24,30 +24,30 @@ export const pillars = {
     {
       id: 'open',
       title: 'Open and yours',
-      body: 'Managed cloud, any model, your own keys. No lock-in, and every session audited.',
-      href: '/enterprise',
-      link: 'Enterprise',
+      body: 'Open source and self-hostable. Your data, your models, your infrastructure. No lock-in, and every line auditable.',
+      href: '/self-hosted',
+      link: 'Self-hosting',
     },
     {
       id: 'workforce',
       title: 'A workforce, not one assistant',
       body: 'Specialist agents run in parallel, each session on its own cloud computer and its own branch, and they compound a shared memory.',
-      href: '/agent-computer',
-      link: 'Agent Computer',
+      href: '/docs/work/sessions',
+      link: 'Sessions',
     },
     {
       id: 'work',
       title: 'Real work, not chat',
       body: 'Agents return finished deliverables and take real actions in your tools — on demand, human-assisted, or on a schedule.',
-      href: '/automations',
-      link: 'Automations',
+      href: '/docs/connect/triggers',
+      link: 'Triggers',
     },
     {
       id: 'code',
       title: 'Everything is code',
       body: 'Versioned, reviewable, portable, governable. Work reaches main through a change request a person approves.',
-      href: '/company-as-code',
-      link: 'Company as code',
+      href: '/docs/project',
+      link: 'Workspaces',
     },
   ],
 } as const;
@@ -55,7 +55,7 @@ export const pillars = {
 export const start = {
   eyebrow: 'Start',
   title: 'Two commands.',
-  sub: 'kortix init turns any directory into a Dosco project. kortix ship checks it, asks for missing secrets, pushes it, and runs it. The repo behaves the same on your laptop as in the cloud.',
+  sub: 'kortix init turns any directory into a Kortix project. kortix ship checks it, asks for missing secrets, pushes it, and runs it. The repo behaves the same on your laptop as in the cloud.',
   shell: {
     title: 'terminal',
     lines: ['kortix init northwind', 'cd northwind', 'kortix ship'],
@@ -78,7 +78,7 @@ export const kit = {
     { token: 'bg-kortix-green', label: 'Merged — the one accent' },
   ],
   type: [
-    { sample: 'The agentic operating system', spec: 'Roobert Medium · tight tracking · headlines' },
+    { sample: 'The open-source CompanyOS', spec: 'Roobert Medium · tight tracking · headlines' },
     { sample: 'kortix ship', spec: 'Roobert Mono · commands, paths, branches only', mono: true },
   ],
   motion: [

@@ -163,7 +163,7 @@ export interface GatewayDeps {
   loadConnectorBySlug(projectId: string, slug: string): Promise<GatewayConnector | null>;
   /**
    * Spec 2026-09-22 §2.5: the `X-Kortix-App-Authorization` value for a call
-   * whose base URL is a Dosco App of THIS deployment in the caller's OWN
+   * whose base URL is a Kortix App of THIS deployment in the caller's OWN
    * project — a ≤ 60 s signed assertion naming the calling session token.
    * Null for any other host. Optional: absent = never attach.
    */
@@ -419,7 +419,7 @@ export type ComputerCallOutcome =
        *  `computer_offline` | `computer_capability_not_approved`,
        *  an access refusal on the machine (`computer_access_pending` |
        *  `computer_access_denied` | `computer_access_off`),
-       *  `computer_desktop_permission_missing` (macOS has not given Dosco
+       *  `computer_desktop_permission_missing` (macOS has not given Kortix
        *  Accessibility or Screen Recording), or `error` for a
        *  failure on the machine or in the relay. */
       kind:
@@ -442,7 +442,7 @@ export interface CallInput {
   sessionId?: string | null;
   /** The presented account token's id (`account_tokens.token_id`), when the
    *  caller authenticated with one. With `sessionId` it identifies an agent
-   *  session — the only caller that gets a Dosco App assertion. */
+   *  session — the only caller that gets a Kortix App assertion. */
   actingTokenId?: string | null;
   connectorSlug: string;
   /** Connector-relative action path (e.g. `charges.create`). */
@@ -521,7 +521,7 @@ export type CallResult =
       approvalSummary?: string | null;
       /** Agent instruction for the asynchronous handoff. */
       approvalInstructions?: string | null;
-      /** True when the gate holds the input: Dosco runs the call once after
+      /** True when the gate holds the input: Kortix runs the call once after
        *  approval and the caller must not repeat it. Absent: the caller repeats it. */
       runsOnApproval?: boolean;
     }
@@ -1056,7 +1056,7 @@ async function enforceCallPolicies(
   // Keys are OMITTED when empty rather than set to null: the pending_approval
   // result is a wire shape other code compares against, and a key that carries
   // no information shouldn't change it.
-  // `held`: the gate stored the input, so Dosco runs the call after
+  // `held`: the gate stored the input, so Kortix runs the call after
   // approval. Otherwise the caller repeats it (APPROVAL_RERUN_RULE).
   const approvalExtras = async (executionId: string | null | undefined, held: boolean) => {
     const url =
@@ -1077,7 +1077,7 @@ async function enforceCallPolicies(
               held && executionId
                 ? `Share approval_url with a human${input.sessionId ? ', then stop this turn' : ''}. ${heldRunRule({ projectId: input.projectId, executionId, sessionId: input.sessionId ?? null })}${approvalContext ? '' : CONTEXT_HINT}`
                 : input.sessionId
-                  ? `Share approval_url with a human, then stop this turn. Dosco resumes the session after approve or deny. ${APPROVAL_RERUN_RULE}${approvalContext ? '' : CONTEXT_HINT}`
+                  ? `Share approval_url with a human, then stop this turn. Kortix resumes the session after approve or deny. ${APPROVAL_RERUN_RULE}${approvalContext ? '' : CONTEXT_HINT}`
                   : `Share approval_url with a human. ${APPROVAL_RERUN_RULE}${approvalContext ? '' : CONTEXT_HINT}`,
           }
         : {}),
@@ -1320,7 +1320,7 @@ async function enforceCallPolicies(
               approvalInstructions: `${CARD_POSTED}${
                 held
                   ? `. ${heldRunRule({ projectId: input.projectId, executionId: executionId!, sessionId: input.sessionId ?? null })}`
-                  : ` — Dosco resumes the session after approve or deny. ${APPROVAL_RERUN_RULE}`
+                  : ` — Kortix resumes the session after approve or deny. ${APPROVAL_RERUN_RULE}`
               }${approvalContext ? '' : CONTEXT_HINT}`,
             }
           : {}),
@@ -1362,7 +1362,7 @@ async function runConnectorAction(
       // These runners take provider-native file inputs. Forwarding the
       // reference would deliver the message without its file.
       throw new Error(
-        `connector_attachments_unsupported: ${connector.provider} connectors do not accept Dosco attachments` +
+        `connector_attachments_unsupported: ${connector.provider} connectors do not accept Kortix attachments` +
           (connector.provider === 'composio' ? '; pass a public https URL in the file field instead' : ''),
       );
     }
@@ -1497,7 +1497,7 @@ async function runConnectorAction(
               .catch(() => false)
           : false;
         const { reason } = misfire.refusal;
-        const message = `${misfire.refusal.message} ${undone ? 'Dosco removed it.' : 'Dosco could not remove it: delete it in Slack.'}`;
+        const message = `${misfire.refusal.message} ${undone ? 'Kortix removed it.' : 'Kortix could not remove it: delete it in Slack.'}`;
         await audit(deps, input, connector, 'denied', action.risk, { reason, message, removed: undone });
         return { status: 'denied', reason, message };
       }
@@ -1855,9 +1855,9 @@ function upstreamReason(result: ExecResult): string {
 const CREDENTIAL_REJECTED = 'credential_rejected';
 
 /**
- * An upstream 401 to the credential Dosco stored for this account: the key
+ * An upstream 401 to the credential Kortix stored for this account: the key
  * expired, was revoked, or is wrong. The bare upstream body (`api_key_expired`)
- * reads like a Dosco auth failure, so name the account and the fix. Empty
+ * reads like a Kortix auth failure, so name the account and the fix. Empty
  * for any other result, and for a channel: it sends the platform install
  * token, not an account credential. A later ok call clears the mark, so one
  * stray 401 does not leave a working account flagged.
@@ -1898,7 +1898,7 @@ async function rejectedCredentialAccount(
 
 /**
  * Teams refuses a read with 403 "… Resource specific consent grants on the
- * request ''" when the Dosco app in that team holds no permission to read its
+ * request ''" when the Kortix app in that team holds no permission to read its
  * messages: the team added it before the app asked for one, and an update that
  * adds a permission never installs itself (a team owner accepts it). Graph
  * names a permission; this names who fixes it and where. A new app version
@@ -1910,9 +1910,9 @@ function teamsReadConsentHint(connector: GatewayConnector, result: ExecResult): 
   const body = typeof result.data === 'string' ? result.data : JSON.stringify(result.data ?? '');
   if (!/Resource specific consent/i.test(body)) return '';
   return (
-    'Dosco cannot read messages in this team yet: the Dosco app in the team has no permission to read them. ' +
+    'Kortix cannot read messages in this team yet: the Kortix app in the team has no permission to read them. ' +
     'A team owner updates the app in Teams (the team → ⋯ → Manage team → Apps → Update) and accepts the new permission. ' +
-    'If no update is offered, a Teams admin first publishes the latest app from the Dosco project ' +
+    'If no update is offered, a Teams admin first publishes the latest app from the Kortix workspace ' +
     '(Connectors → Channels → Microsoft Teams). '
   );
 }

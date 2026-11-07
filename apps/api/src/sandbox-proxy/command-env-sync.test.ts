@@ -1,4 +1,4 @@
-// `POST /session/:id/command` is opencode's BLOCKING slash-command endpoint: it
+// `POST /session/:id/command` is the box's BLOCKING slash-command endpoint: it
 // creates a user message and runs a full agent turn, exactly like a prompt does.
 // It therefore needs the same PRE-PROMPT project-env sync a prompt gets, and for
 // the same reasons — the grant that scopes which secrets the box may read is
@@ -54,9 +54,9 @@ function encode(value: unknown): ArrayBuffer {
   return new TextEncoder().encode(JSON.stringify(value)).buffer as ArrayBuffer;
 }
 
-// The real shape of an opencode slash-command body: `{command, arguments, agent,
-// model, variant}` — NOT `{parts}`. See SessionCommandData in
-// @opencode-ai/sdk/dist/v2/gen/types.gen.d.ts.
+// The real shape of a slash-command body: `{command, arguments, agent,
+// model, variant}` — NOT `{parts}` (OpenCode's `SessionCommandData`; pi
+// serves the same shape).
 const COMMAND_BODY = encode({
   command: 'webapp',
   arguments: 'build a landing page',
@@ -262,20 +262,20 @@ describe('runPrePromptEnvSync — refusals and retries', () => {
     expect(await refusal?.json()).toMatchObject({ code: 'AGENT_SWITCH_GRANT_UNAPPLIED' });
   });
 
-  // The one 409: a My Dosco prompt in a project whose kortix.yaml turned it off.
-  test('a My Dosco prompt in a project that turned it off refuses with 409 builtin_agent_disabled', async () => {
+  // The one 409: a My Kortix prompt in a project whose kortix.yaml turned it off.
+  test('a My Kortix prompt in a project that turned it off refuses with 409 builtin_agent_disabled', async () => {
     const rec = recorder({
       envSyncError: () =>
         new SessionGrantRemintError(
           'ses_1',
-          new Error('My Dosco is off in this project. Start a session with a project agent.'),
+          new Error('My Kortix is off in this project. Start a session with a project agent.'),
           'builtin_agent_disabled',
         ),
     });
     const refusal = await runSync(rec, COMMAND_BODY);
     expect(refusal?.status).toBe(409);
     expect(await refusal?.json()).toEqual({
-      error: 'My Dosco is off in this project. Start a session with a project agent.',
+      error: 'My Kortix is off in this project. Start a session with a project agent.',
       code: 'builtin_agent_disabled',
     });
   });
@@ -285,8 +285,8 @@ describe('runPrePromptEnvSync — refusals and retries', () => {
 // one are proven at the HTTP route in __tests__/e2e-preview-proxy.test.ts.
 
 describe('requestedPromptManagedModelId', () => {
-  // /session/:id/message + /prompt_async — verified against @opencode-ai/sdk's
-  // generated `SessionPromptData`: a NESTED `model: {providerID, modelID}`.
+  // /session/:id/message + /prompt_async — OpenCode's `SessionPromptData`
+  // shape, which pi serves too: a NESTED `model: {providerID, modelID}`.
   // This is the shape the server-side prompt queue relay
   // (`session-lifecycle/runtime-client.ts`) sends, and what the overwhelming
   // majority of real turn-start bodies use.
@@ -332,7 +332,7 @@ describe('requestedPromptManagedModelId', () => {
   // POST /kortix/runtime/sessions/:id/prompt — the body `postPrompt`
   // (session-lifecycle/runtime-client.ts) relays every inbox prompt as. Without
   // this branch no relayed turn reaches the model-catalog lane at all.
-  test('reads the Dosco prompt route body (flat kortix/<provider>/<model> string)', () => {
+  test('reads the Kortix prompt route body (flat kortix/<provider>/<model> string)', () => {
     const body = encode({
       message_id: 'msg_0fdcfe9b0000mSIdTv1hWHxxEe',
       parts: [{ type: 'text', text: 'hi' }],

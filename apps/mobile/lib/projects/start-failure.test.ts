@@ -32,7 +32,7 @@ describe('classifyStartFailure', () => {
 describe('startFailureCopy', () => {
   test('each kind has one short line that says what to do', () => {
     expect(startFailureCopy('unreachable')).toEqual({
-      title: "Can't reach Dosco",
+      title: "Can't reach Kortix",
       body: 'Check your connection, then try again.',
     });
     expect(startFailureCopy('session')).toEqual({
@@ -40,8 +40,8 @@ describe('startFailureCopy', () => {
       body: 'Sign in again to continue.',
     });
     expect(startFailureCopy('server')).toEqual({
-      title: 'Could not open your project',
-      body: 'Try again, or open another project.',
+      title: 'Could not open your workspace',
+      body: 'Try again, or open another workspace.',
     });
   });
 });

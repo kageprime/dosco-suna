@@ -253,7 +253,17 @@ export const envSchema = z.object({
   KORTIX_JOB_WORKER_ENABLED: optBoolFalse,
   // Kill switch for the scheduled account-deletion sweep. True skips every
   // scheduled run; immediate deletion is unaffected. Default off (sweep runs).
+  KORTIX_SPACE_WATCH_ASK_OVERDUE_MS: optInt(2 * 60 * 60_000),
+  KORTIX_SPACE_WATCH_DEBOUNCE_MS: optInt(10 * 60_000),
   ACCOUNT_DELETION_SWEEP_PAUSED: optBoolFalse,
+  RETENTION_ERASURE_MODE: z.enum(['off', 'dry_run', 'execute']).optional().default('dry_run'),
+  WORKSPACE_SPLIT_MODE: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toLowerCase().replace('-', '_') : value),
+    z.enum(['off', 'dry_run', 'apply']).optional(),
+  ),
+  RETENTION_ERASURE_AFTER_DAYS: optInt(80).refine((days) => days >= 0, {
+    message: 'Must be 0 or more days: the retention backstop never erases an account before its date',
+  }),
   /**
    * Enforce the sandbox egress pin on the secret-broker route (default ON).
    *
@@ -367,6 +377,13 @@ export const envSchema = z.object({
       message: 'Must be major.minor.patch',
     },
   ),
+  CLI_MIN_VERSION: optStr.refine(
+    (v) => v.trim() === '' || /^v?\d+(\.\d+){0,2}$/.test(v.trim()),
+    {
+      message: 'Must be major.minor.patch',
+    },
+  ),
+  KORTIX_SIGNUP_MODE: z.enum(['open', 'invite_only', 'closed']).optional().default('open'),
   MOBILE_STORE_URL_IOS: optUrl(''),
   MOBILE_STORE_URL_ANDROID: optUrl(''),
   // Self-host enterprise license: when the operator has purchased/holds a
@@ -1070,6 +1087,8 @@ export const envSchema = z.object({
   SALES_RECONCILIATION_TOKEN: optStr,
   SIGNUP_WEBHOOK_URL: optStr,
   SIGNUP_WEBHOOK_SECRET: optStr,
+  POSTHOG_PROJECT_KEY: optStr,
+  POSTHOG_HOST: optStr,
 
   // ── Better Stack Observability (optional — graceful degradation) ────────
   BETTERSTACK_API_LOG_TOKEN: optStr, // Logtail source token for structured logs
@@ -1440,7 +1459,13 @@ export const config = {
   KORTIX_MODEL_CATALOG_LIVE_ENABLED: env.KORTIX_MODEL_CATALOG_LIVE_ENABLED,
   HEALTH_MAX_EVENT_LOOP_LAG_MS: env.HEALTH_MAX_EVENT_LOOP_LAG_MS,
   KORTIX_JOB_WORKER_ENABLED: env.KORTIX_JOB_WORKER_ENABLED,
+  KORTIX_SPACE_WATCH_ASK_OVERDUE_MS: Math.max(60_000, env.KORTIX_SPACE_WATCH_ASK_OVERDUE_MS),
+  KORTIX_SPACE_WATCH_DEBOUNCE_MS: Math.max(60_000, env.KORTIX_SPACE_WATCH_DEBOUNCE_MS),
   ACCOUNT_DELETION_SWEEP_PAUSED: env.ACCOUNT_DELETION_SWEEP_PAUSED,
+  RETENTION_ERASURE_MODE: env.RETENTION_ERASURE_MODE,
+  RETENTION_ERASURE_AFTER_DAYS: env.RETENTION_ERASURE_AFTER_DAYS,
+  WORKSPACE_SPLIT_MODE: (env.WORKSPACE_SPLIT_MODE
+    ?? (process.env.INTERNAL_KORTIX_ENV ? 'dry_run' : 'off')) as 'off' | 'dry_run' | 'apply',
   KORTIX_SANDBOX_EGRESS_PIN_ENFORCED: env.KORTIX_SANDBOX_EGRESS_PIN_ENFORCED,
   KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS: env.KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS.split(',')
     .map((host) => host.trim())
@@ -1462,6 +1487,8 @@ export const config = {
   SESSION_LOG_PURGE_ENABLED: env.SESSION_LOG_PURGE_ENABLED,
   OPENAPI_PUBLIC_DOCS: env.OPENAPI_PUBLIC_DOCS,
   MOBILE_MIN_VERSION: env.MOBILE_MIN_VERSION.trim(),
+  CLI_MIN_VERSION: env.CLI_MIN_VERSION.trim(),
+  KORTIX_SIGNUP_MODE: env.KORTIX_SIGNUP_MODE,
   MOBILE_STORE_URL_IOS: env.MOBILE_STORE_URL_IOS,
   MOBILE_STORE_URL_ANDROID: env.MOBILE_STORE_URL_ANDROID,
   ENTERPRISE_LICENSE_AVAILABLE: env.ENTERPRISE_LICENSE_AVAILABLE,
@@ -1652,6 +1679,7 @@ export const config = {
   // Sandbox lifecycle intervals (minutes) — see schema comment above.
   KORTIX_SANDBOX_AUTOSTOP_MINUTES: env.KORTIX_SANDBOX_AUTOSTOP_MINUTES,
   KORTIX_SANDBOX_IDLE_DELETE_MINUTES: env.KORTIX_SANDBOX_IDLE_DELETE_MINUTES,
+  KORTIX_PLATINUM_BACKGROUND_WRITES_PER_SECOND: env.KORTIX_PLATINUM_BACKGROUND_WRITES_PER_SECOND,
   KORTIX_SANDBOX_AUTOARCHIVE_MINUTES: env.KORTIX_SANDBOX_AUTOARCHIVE_MINUTES,
   KORTIX_SANDBOX_AUTODELETE_MINUTES: env.KORTIX_SANDBOX_AUTODELETE_MINUTES,
   KORTIX_SANDBOX_PROVIDER_AUTOSTOP_MINUTES: env.KORTIX_SANDBOX_PROVIDER_AUTOSTOP_MINUTES,
@@ -1800,6 +1828,8 @@ export const config = {
   SALES_RECONCILIATION_TOKEN: env.SALES_RECONCILIATION_TOKEN,
   SIGNUP_WEBHOOK_URL: env.SIGNUP_WEBHOOK_URL,
   SIGNUP_WEBHOOK_SECRET: env.SIGNUP_WEBHOOK_SECRET,
+  POSTHOG_PROJECT_KEY: env.POSTHOG_PROJECT_KEY,
+  POSTHOG_HOST: env.POSTHOG_HOST,
 
   // ─── Stray env vars (centralized from other files) ────────────────────────
   CORS_ALLOWED_ORIGINS: env.CORS_ALLOWED_ORIGINS,

@@ -63,6 +63,7 @@ describe('qk.project', () => {
     const scope = qk.project.scope(id);
     const scoped = [
       qk.project.summary(id),
+      qk.project.workspace(id),
       qk.project.detail(id),
       qk.project.sessionsScope(id),
       qk.project.sessions(id),
@@ -637,5 +638,18 @@ describe('qk.notifications', () => {
 
     await client.invalidateQueries({ queryKey: qk.notifications.scope() });
     for (const key of keys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  });
+});
+
+describe('gateway log keys', () => {
+  const id = 'p1';
+  test('each filter set is its own key, under the gateway prefix', () => {
+    const bySession = qk.project.gatewayLogs(id, null, { sessionId: 's1' });
+    expect(bySession).not.toEqual(qk.project.gatewayLogs(id, null, { sessionId: 's2' }) as never);
+    expect(bySession).not.toEqual(qk.project.gatewayLogs(id, null) as never);
+    expect(startsWith(bySession, qk.project.gateway(id))).toBe(true);
+  });
+  test('facets of each window are their own key', () => {
+    expect(qk.project.gatewayLogFacets(id, 24)).not.toEqual(qk.project.gatewayLogFacets(id, 168) as never);
   });
 });

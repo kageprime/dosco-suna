@@ -127,7 +127,7 @@ async function asked(opts: { questions?: typeof QUESTIONS; open?: boolean; metad
     createdBy: OWNER,
     metadata: { source: 'slack', slack: { team_id: TEAM, channel: CHANNEL, thread_ts: threadTs }, ...opts.metadata },
   });
-  await db.insert(chatThreads).values({ projectId: project.project_id, platform: 'slack', workspaceId: TEAM, threadId: threadTs, sessionId });
+  await db.insert(chatThreads).values({ projectId: project.project_id, platform: 'slack', platformTeamId: TEAM, threadId: threadTs, sessionId });
   const [row] = await db
     .insert(sessionPendingQuestions)
     .values({
@@ -191,13 +191,13 @@ const actionBlocks = (blocks: Array<{ type: string; block_id?: string }>) => blo
 
 beforeAll(async () => {
   project = await seedProject('slack-question-answer');
-  await db.insert(chatInstalls).values({ platform: 'slack', workspaceId: TEAM, projectId: project.project_id });
+  await db.insert(chatInstalls).values({ platform: 'slack', platformTeamId: TEAM, projectId: project.project_id });
   await insertIntoView(db, accountMembers, { userId: OWNER, accountId: project.account_id, accountRole: 'owner' });
   await insertIntoView(db, accountMembers, { userId: MEMBER, accountId: project.account_id, accountRole: 'member' });
   await insertIntoView(db, projectMembers, { accountId: project.account_id, projectId: project.project_id, userId: MEMBER, projectRole: 'member' });
   await db.insert(chatUserIdentities).values([
-    { platform: 'slack', workspaceId: TEAM, platformUserId: SLACK.owner, userId: OWNER },
-    { platform: 'slack', workspaceId: TEAM, platformUserId: SLACK.member, userId: MEMBER },
+    { platform: 'slack', platformTeamId: TEAM, platformUserId: SLACK.owner, userId: OWNER },
+    { platform: 'slack', platformTeamId: TEAM, platformUserId: SLACK.member, userId: MEMBER },
   ]);
 });
 
@@ -210,8 +210,8 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.workspaceId, TEAM));
-  await db.delete(chatPendingAuthMessages).where(eq(chatPendingAuthMessages.workspaceId, TEAM));
+  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.platformTeamId, TEAM));
+  await db.delete(chatPendingAuthMessages).where(eq(chatPendingAuthMessages.platformTeamId, TEAM));
   await db.delete(chatTurnStreams).where(eq(chatTurnStreams.projectId, project.project_id));
   await db.delete(sessionLifecycleCommands).where(eq(sessionLifecycleCommands.projectId, project.project_id));
   await db.delete(sessionPendingQuestions).where(eq(sessionPendingQuestions.projectId, project.project_id));
@@ -378,14 +378,14 @@ test('a button posted before (`qa_` with its label): each click has its own key,
 test('an unlinked or refused clicker gets only the prompt or refusal, and nothing is kept to replay', async () => {
   const q = await asked();
   await click({ at: q, user: SLACK.stranger, value: questionButtonData(q.pendingId, 0), blocks: buildQuestionBlocks(QUESTIONS, q.pendingId) });
-  expect(calls('chat.postEphemeral')).toEqual([expect.objectContaining({ user: SLACK.stranger, text: 'Dosco needs a linked Dosco account to continue.' })]);
+  expect(calls('chat.postEphemeral')).toEqual([expect.objectContaining({ user: SLACK.stranger, text: 'Kortix needs a linked Kortix account to continue.' })]);
   expect(await db.select().from(chatPendingAuthMessages).where(eq(chatPendingAuthMessages.platformUserId, SLACK.stranger))).toEqual([]);
 
   const ownerOnly = await asked({
     metadata: { slack: { team_id: TEAM, channel: CHANNEL, conversation_policy: 'owner_only' } },
   });
   await click({ at: ownerOnly, user: SLACK.member, value: questionButtonData(ownerOnly.pendingId, 0), blocks: buildQuestionBlocks(QUESTIONS, ownerOnly.pendingId) });
-  expect(calls('chat.postEphemeral').at(-1)).toMatchObject({ user: SLACK.member, text: 'This Dosco session is owner-only.' });
+  expect(calls('chat.postEphemeral').at(-1)).toMatchObject({ user: SLACK.member, text: 'This Kortix session is owner-only.' });
 
   expect(await followUps(q.sessionId)).toEqual([]);
   expect(await followUps(ownerOnly.sessionId)).toEqual([]);

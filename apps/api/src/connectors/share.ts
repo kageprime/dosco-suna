@@ -105,7 +105,7 @@ export type SessionVisibility = 'private' | 'project' | 'restricted';
  * Context needed to decide whether `created_by` may confer ownership.
  *
  * For an INTERACTIVE session created_by is one human, so ownership is real. For
- * a Dosco-as-a-Backend session it is the WRAPPER's credential — identical for
+ * a Kortix-as-a-Backend session it is the WRAPPER's credential — identical for
  * every one of that wrapper's end-users — so it identifies nobody, and letting
  * it short-circuit would make every end-user's session visible to every other.
  */
@@ -170,7 +170,7 @@ export function isSessionTargetVisibleToCaller(
   // `resolveSupabaseAuth` sets `c.get('sessionId')` to the SUPABASE LOGIN
   // session id for every signed-in human (middleware/auth.ts), so
   // `callerSessionId` is non-null for ordinary dashboard users and can never
-  // equal a Dosco session id. Reading it here made all three conditions below
+  // equal a Kortix session id. Reading it here made all three conditions below
   // true for ANY human opening ANY backend-origin session, so the narrowing
   // returned false and `/start` answered 404 — a session listed in the sidebar
   // that could never be opened. Measured on a live self-host (sampleco,
@@ -258,7 +258,8 @@ export function isTriggerRunSession(session: { metadata: unknown; initiatorType?
  * An agent session's standing on one session row under the agent-principal
  * model (spec §2). The agent acts as itself, so it owns only its own session
  * and the sessions it spawned (`metadata.spawned_by_session`), never the
- * launcher's other sessions. Visibility only narrows: a private or restricted
+ * launcher's other sessions. It also reads, without owning, the sessions that
+ * spawned it (`ancestor`). Visibility only narrows: a private or restricted
  * session it does not own is invisible even when the launcher could see it; a
  * project-visible session keeps the ordinary verdict (`visibleByRules`).
  */
@@ -266,13 +267,15 @@ export function agentSessionStanding(
   boundCredentialSessionId: string | null,
   row: { sessionId: string; metadata: unknown; visibility: string },
   visibleByRules: boolean,
+  /** The row spawned the agent's session, directly or through its spawners: visible, never owned. */
+  ancestor = false,
 ): { isOwner: boolean; visible: boolean } {
   const meta = (row.metadata ?? {}) as Record<string, unknown>;
   const isOwner =
     boundCredentialSessionId !== null &&
     (row.sessionId === boundCredentialSessionId ||
       meta.spawned_by_session === boundCredentialSessionId);
-  return { isOwner, visible: isOwner || (row.visibility === 'project' && visibleByRules) };
+  return { isOwner, visible: isOwner || ancestor || (row.visibility === 'project' && visibleByRules) };
 }
 
 /**
@@ -504,7 +507,7 @@ export function mayPublishTurn(input: {
 
 /**
  * "Human" for `mayPublishTurn`: a browser login (`jwt`) or a person's PAT/API
- * key, with no Dosco session binding. Everything else is a machine: a service
+ * key, with no Kortix session binding. Everything else is a machine: a service
  * account bearer, any agent-session token (bound or not, governed or not), a
  * sandbox token, a session-bound PAT, or no actor at all (fail closed).
  */

@@ -1,5 +1,4 @@
 import { AUTO_TOPUP_DEFAULT_AMOUNT, AUTO_TOPUP_DEFAULT_THRESHOLD } from '@kortix/shared';
-import { PAYSTACK_CHARGE_CURRENCY } from '../../shared/paystack';
 import { config } from '../../config';
 import { isPlatformAdmin } from '../../shared/platform-roles';
 import { isoValue } from '../../shared/cost-values';
@@ -14,6 +13,7 @@ import type {
 } from '../../types';
 import { getCreditAccount } from '../repositories/credit-accounts';
 import { getAutoTopupSettings } from './auto-topup';
+import { accountHoldsComp } from './account-write-owner';
 import { resolveAccountBilling } from './billing-cache';
 import { ACCESS_GRACE_DAYS, type ResolvedBilling } from './resolve-billing';
 import { type ContractRow, getContractState } from './enterprise-contracts';
@@ -32,12 +32,6 @@ import { currentPeriodStart, getUsageBreakdownThisPeriod } from './usage-breakdo
 
 type CreditAccountRow = Awaited<ReturnType<typeof getCreditAccount>>;
 
-/** Configured USD→NGN rate for Paystack display, or null when unset. */
-function paystackUsdNgnRateOrNull(): number | null {
-  const rate = Number(config.PAYSTACK_USD_NGN_RATE ?? 0);
-  return Number.isFinite(rate) && rate > 0 ? rate : null;
-}
-
 export async function buildMinimalAccountState(accountId: string): Promise<AccountStateResponse> {
   // Single source of truth for the credit_accounts row for this request.
   // getCreditSummary / getAccountEntitlements / getAutoTopupSettings used to
@@ -46,7 +40,12 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
   // cached across requests: this endpoint gates real spending, so it must
   // always read the live balance.
   let account = await getCreditAccount(accountId);
-  if (!account) {
+  // The $2 welcome grant is a WALLET write — a charging action. It must stay
+  // behind the same charging gate as every debit, or a billing-disabled
+  // deployment (self-hosted, dev) mints free_tier_grant ledger rows on every
+  // billing-state read of a row-less account (KRTX-1832). With charging off
+  // the row stays absent and the response falls through to the free defaults.
+  if (!account && config.KORTIX_BILLING_INTERNAL_ENABLED) {
     await initializeFreeTierAccount(accountId);
     account = await getCreditAccount(accountId);
   }
@@ -108,12 +107,19 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
   const billingSnapshot = billingSnapshotFromAccount(sub);
   const billingState = resolveBillingState(billingSnapshot);
 
+  // Free credits once per person (design.md §3.2 C6): a further workspace on
+  // Free gets no recurring grant, so it reports none and no reset date.
+  const freeEligible = sub?.freeCreditsEligible !== false;
+  const onPaidPlan = monthlyUsd !== null;
+  const compUntil = planCompUntil(sub, billingSnapshot);
+
   const state = {
     credits: {
       total: credits.total,
       daily: credits.daily,
       monthly: credits.monthly,
-      expires_at: isoValue(account?.nextCreditGrant),
+      expires_at: compUntil ?? (freeEligible || onPaidPlan ? isoValue(account?.nextCreditGrant) : null),
+      free_grant: { eligible: freeEligible, claimed_workspace_id: null as string | null },
       extra: credits.extra,
       can_run: isAdmin ? true : billingStateAllowsRun(billingState),
       // Lifetime rollups, maintained from credit_ledger by the
@@ -178,15 +184,12 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
       name: resolved.features.key,
       display_name: isAdmin && tierName === 'none' ? 'Admin' : resolved.features.displayName,
       // STORED: `monthly_credits` is the recurring GRANT, which Stripe owns.
-      monthly_credits: monthlyUsd ?? tier.monthlyCredits,
+      // 0 on a Free workspace that gets no free credits.
+      monthly_credits: monthlyUsd ?? (freeEligible ? tier.monthlyCredits : 0),
       can_purchase_credits: isAdmin ? true : resolved.entitlements.canPurchaseCredits,
       entitlements,
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
-    billing_fx: {
-      currency: PAYSTACK_CHARGE_CURRENCY,
-      usd_ngn_rate: paystackUsdNgnRateOrNull(),
-    },
     enterprise_entitled: resolved.enterprise !== 'off',
     // Trials are removed (plans-and-access.md): always null, kept for the wire shape.
     trial: null,
@@ -197,9 +200,16 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
     models: [],
     auto_topup: autoTopup,
     usage_this_period: usageThisPeriod,
+    plan_comp: compUntil ? { until: compUntil, source: 'workspace_split' as const } : null,
   };
 
   return state;
+}
+
+/** The end of an active split-off comp, or null. A subscription the account bought itself ends the comp's meaning. */
+function planCompUntil(sub: CreditAccountRow, snapshot: ReturnType<typeof billingSnapshotFromAccount>): string | null {
+  if (!sub || !accountHoldsComp(sub) || hasLiveSubscription(snapshot)) return null;
+  return isoValue(sub.compPlanUntil);
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -256,6 +266,7 @@ export function buildLocalAccountState(): AccountStateResponse {
       lifetime_purchased: 0,
       lifetime_used: 0,
       daily_refresh: null,
+      free_grant: { eligible: true, claimed_workspace_id: null },
     },
     model_access: { managed: true, requires_provider_key: false },
     billing_state: 'active',
@@ -301,10 +312,6 @@ export function buildLocalAccountState(): AccountStateResponse {
       entitlements: getTierEntitlements('free'),
     },
     enterprise_license_available: config.ENTERPRISE_LICENSE_AVAILABLE,
-    billing_fx: {
-      currency: PAYSTACK_CHARGE_CURRENCY,
-      usd_ngn_rate: paystackUsdNgnRateOrNull(),
-    },
     // No-DB local mode has no credit_accounts row, so the contracted-Enterprise
     // flag is false by construction (fail-closed).
     enterprise_entitled: false,
@@ -323,6 +330,7 @@ export function buildLocalAccountState(): AccountStateResponse {
       last_failure_at: null,
     },
     usage_this_period: null,
+    plan_comp: null,
   };
 }
 

@@ -63,7 +63,7 @@
  *      session write to any chat of the bot: an automation that sends order
  *      notifications relies on it.
  *   4. Reads (`TELEGRAM_READS`) are not confined.
- * Dosco's own replies (notices, questions, menus) do not go through the
+ * Kortix's own replies (notices, questions, menus) do not go through the
  * connector and are not checked here.
  */
 import { and, eq, inArray } from 'drizzle-orm';
@@ -154,7 +154,7 @@ export async function slackWriteRefusal(
     if (owner) {
       return {
         kind: 'thread',
-        message: `Slack thread ${ts} in ${channel} belongs to another Dosco project. This project's agent does not post in, change, or react to another project's threads.`,
+        message: `Slack thread ${ts} in ${channel} belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to another workspace's threads.`,
       };
     }
   }
@@ -163,7 +163,7 @@ export async function slackWriteRefusal(
   if (!owners?.size || owners.has(projectId)) return null;
   return {
     kind: 'channel',
-    message: `Slack conversation ${channel} belongs to another Dosco project. This project's agent does not post in, change, or react to messages in another project's channels. Post in a channel of this project, in a channel no project is connected to, or in a direct message.`,
+    message: `Slack conversation ${channel} belongs to another Kortix workspace. This workspace's agent does not post in, change, or react to messages in another workspace's channels. Post in a channel of this workspace, in a channel no Kortix workspace is connected to, or in a direct message.`,
   };
 }
 

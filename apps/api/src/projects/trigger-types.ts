@@ -2,7 +2,7 @@ import type { ResolvedManifest, TriggerFilter } from '@kortix/manifest-schema';
 
 /**
  * The source of a trigger (a kortix.yaml trigger or a loop). `change_request` fires
- * when a change request of the project merges through Dosco; a kortix.yaml
+ * when a change request of the project merges through Kortix; a kortix.yaml
  * trigger (`filter.base` names the branch) and a runtime trigger
  * (`lib/runtime-triggers.ts`) can both have it.
  */
@@ -64,6 +64,12 @@ export interface GitTriggerSpec {
    */
   maxLatenessSeconds?: number;
   /**
+   * For type=app only (`expect_event_within`): the silence alert. No event for
+   * this many seconds tells the trigger's watchers once; the next event
+   * clears it (lib/app-trigger-silence.ts). Omitted when unset.
+   */
+  expectEventWithinSeconds?: number;
+  /**
    * Any trigger type (`max_runs_per_hour`, KRTX-1721): runs started in any 60
    * minutes. A fire past it is recorded as a throttled, skipped run. Omitted
    * when unset: the platform default (60) applies.
@@ -110,7 +116,7 @@ export interface GitTriggerSpec {
    * - `'fresh'` (default): every fire mints a brand-new session (new sandbox +
    *   new ephemeral branch) — the historical behavior.
    * - `'reuse'`: re-prompt the most recent session this trigger created
-   *   (resuming its sandbox + opencode root) so ONE long-lived session
+   *   (resuming its sandbox + runtime root) so ONE long-lived session
    *   accumulates context across fires. If no reusable session exists yet (or
    *   the last one is dead/failed), a fresh one is created and becomes the
    *   canonical session going forward. Primarily meant for recurring cron

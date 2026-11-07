@@ -1,4 +1,4 @@
-// Sign in with Dosco: the authorization request is persisted (not held in an
+// Sign in with Kortix: the authorization request is persisted (not held in an
 // in-process Map), the consent screen sees only an opaque request id, approval
 // mints a code bound to the STORED request fields, remembers the consent, and
 // a replayed decision is refused.
@@ -179,16 +179,18 @@ describe('OAuth authorization request persistence + consent', () => {
       remembered: false,
       self_registered: false,
       redirect_to: 'client.example',
+      // A client with a web redirect binds its grant to one workspace (design.md §3.2 C4a).
+      asks_workspace: true,
     });
   });
 
-  test('the consent screen names the Dosco extension "Dosco in Chrome"', async () => {
+  test('the consent screen names the Kortix extension "Kortix in Chrome"', async () => {
     const app = createApp();
     const start = await app.request(authRequestUrl());
     const requestId = new URL(start.headers.get('location')!).searchParams.get('request_id')!;
     pendingRequests[0].redirectUri = KORTIX_EXTENSION_REDIRECT_URI;
     const metadata = await app.request(`/oauth/authorize/consent/${requestId}`, { headers: authed });
-    expect((await metadata.json()).redirect_to).toBe('Dosco in Chrome');
+    expect((await metadata.json()).redirect_to).toBe('Kortix in Chrome');
   });
 
   test('approval mints a code from the STORED request, remembers the consent, and a replay is refused', async () => {
@@ -323,7 +325,7 @@ describe('self-registered clients', () => {
   test('an app that registered itself is shown as unverified', () => {
     expect(isSelfRegistered({ ...selfRegistered, redirectUris: ['https://client.example/callback'] })).toBe(true);
   });
-  test('the Dosco Chrome extension is not: only it serves its chrome-extension:// page', () => {
+  test('the Kortix Chrome extension is not: only it serves its chrome-extension:// page', () => {
     expect(isSelfRegistered({ ...selfRegistered, redirectUris: [KORTIX_EXTENSION_REDIRECT_URI] })).toBe(false);
     // A second redirect target would let the code go elsewhere: unverified again.
     expect(

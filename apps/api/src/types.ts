@@ -32,10 +32,12 @@ export interface AuthVariables {
   accountId?: string;
   authType?: 'supabase' | 'pat' | 'apiKey' | 'service_account' | 'oauth';
   apiKeyType?: 'user' | 'sandbox';
-  /** Sign in with Dosco: the OAuth client the `kortix_oat_` token was minted for. */
+  /** Sign in with Kortix: the OAuth client the `kortix_oat_` token was minted for. */
   oauthClientId?: string;
-  /** Sign in with Dosco: scopes granted to the token (`profile`, `email`, `kortix`). */
+  /** Sign in with Kortix: scopes granted to the token (`profile`, `email`, `kortix`). */
   oauthScopes?: string[];
+  /** Sign in with Kortix: the `oauth_access_tokens` row id of the token. */
+  oauthTokenId?: string;
   keyId?: string;
   sandboxId?: string;
   /** Set for project-scoped CLI PATs — enforced against the URL :projectId. */
@@ -45,7 +47,7 @@ export interface AuthVariables {
   /** PAT token identity for the IAM engine (token-as-principal evaluation). */
   iamTokenId?: string;
   /** Per-agent authorization grant — non-null only for agent-session tokens.
-   *  Read by assertAgentScope() to gate Dosco CLI/API actions on top of the
+   *  Read by assertAgentScope() to gate Kortix CLI/API actions on top of the
    *  user's own role (net = userRole ∩ agentGrant). Null = full access. */
   agentGrant?: AgentGrant | null;
   /** The human an agent-session token acts on behalf of. Null for an
@@ -60,6 +62,13 @@ export interface AuthVariables {
   impersonatorUserId?: string;
   /** Platform role, set by requireAdmin on /v1/admin routes. */
   platformRole?: string;
+  /** The account key the path id of an account-key route resolves to
+   *  (middleware/workspace-account.ts). Read it through `accountIdParam(c)`. */
+  workspaceAccountId?: string;
+  /** The workspace id (`project_id`) when the path of an account-key route named one. */
+  pathWorkspaceId?: string;
+  /** True when that workspace's account still holds other active projects (`split_pending`). */
+  pathWorkspaceSplitPending?: boolean;
 }
 
 // Hono environment type — Variables match exactly what the auth middleware sets.
@@ -99,7 +108,7 @@ export interface TierEntitlements {
    */
   auditAccess: boolean;
   /**
-   * Organization branding: replace the Dosco logo, icon, favicon (light +
+   * Organization branding: replace the Kortix logo, icon, favicon (light +
    * dark), and product name with the account's own for every member of the account
    * (`accounts.branding`, written only through `/accounts/:id/branding*`).
    * Reads and the reset/remove routes stay ungated so a downgraded account can
@@ -121,7 +130,7 @@ export interface TierConfig {
   /**
    * Files storage (drives/limits.ts), in bytes: what one project's Files may
    * hold, and what all the account's projects hold together. Every customer
-   * shares Dosco's one Platinum org, so these partition its storage; the
+   * shares Kortix's one Platinum org, so these partition its storage; the
    * project figure never exceeds Platinum's volume size.
    */
   driveStorage: { projectBytes: number; accountBytes: number };
@@ -176,11 +185,21 @@ export interface AccountStateResponse {
     total: number;
     daily: number;
     monthly: number;
-    /** Next scheduled reset of the expiring credit bucket. */
+    /** Next scheduled reset of the expiring credit bucket. Null on a
+     *  workspace that gets no free credits: no reset is scheduled. */
     expires_at?: string | null;
     extra: number;
     /** Wallet admission only. Project model availability is resolved by /model-picker. */
     can_run: boolean;
+    /**
+     * The Free plan's monthly credits go to a person's first workspace only
+     * (Workspaces, design.md §3.2 C6). `eligible` is false on a further
+     * workspace: Free with 0 credits, `tier.monthly_credits` 0 and no reset.
+     * `claimed_workspace_id` is the workspace that holds the caller's free
+     * credits. It is set only on a workspace that is not eligible, and only
+     * when the caller is a member of the workspace that holds them.
+     */
+    free_grant?: { eligible: boolean; claimed_workspace_id: string | null };
     /** Lifetime rollups derived from credit_ledger (see the
      *  apply_credit_ledger_lifetime_rollup trigger). Reporting figures only —
      *  no gate reads them. */
@@ -244,7 +263,7 @@ export interface AccountStateResponse {
     monthly_usd: number | null;
     status: string;
     billing_period: 'monthly' | 'yearly' | 'yearly_commitment' | null;
-    provider: 'stripe' | 'paystack' | 'revenuecat' | 'local';
+    provider: 'stripe' | 'revenuecat' | 'local';
     subscription_id: string | null;
     current_period_end: number | null;
     cancel_at_period_end: boolean;
@@ -271,9 +290,6 @@ export interface AccountStateResponse {
    *  forces every enterprise entitlement on platform-wide. The frontend then
    *  hides every Enterprise upsell. */
   enterprise_license_available: boolean;
-  /** Paystack billing currency + USD→NGN rate for pre-redirect display
-   *  ("≈ ₦X charged"). `usd_ngn_rate` null = rate unconfigured. */
-  billing_fx?: { currency: string; usd_ngn_rate: number | null };
   /** @deprecated Read `plan.family === 'enterprise'`. True on the Enterprise
    *  plan (a contract or an Enterprise trial). */
   enterprise_entitled: boolean;
@@ -315,6 +331,13 @@ export interface AccountStateResponse {
     period_start: string | null;
     period_end: string | null;
   } | null;
+  /**
+   * The plan is comped, with no Stripe subscription, until `until`: a
+   * workspace split off a paid account keeps that account's plan to the end of
+   * its period (design.md §3.2 C6). Then it moves to Free with free credits.
+   * Null when there is no comp.
+   */
+  plan_comp?: { until: string; source: 'workspace_split' } | null;
 }
 
 export interface ScheduledChange {

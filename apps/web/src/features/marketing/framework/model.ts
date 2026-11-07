@@ -26,9 +26,9 @@ import { MANIFEST } from './content';
 export const hero = {
   title: 'Company as code.',
   titleMuted: 'A backend framework and server for agents.',
-  sub: 'A project is a git repo. Every agent in it is a custom pi agent: a minimal open-source harness you extend with pi extensions. kortix.yaml declares the agents, connectors, triggers and rules. Dosco deploys them to the cloud and runs every session on its own computer. Build your own experience with @kortix/sdk and @kortix/ui.',
+  sub: 'A workspace is backed by a git repo. Every agent in it is a custom pi agent: a minimal open-source harness you extend with pi extensions. kortix.yaml declares the agents, connectors, triggers and rules. Kortix deploys them to the cloud and runs every session on its own computer. Build your own experience with @kortix/sdk and @kortix/ui.',
   caption: 'One file in one repo.',
-  captionMuted: 'Dosco runs what it declares.',
+  captionMuted: 'Kortix runs what it declares.',
 } as const;
 
 /** A contiguous MANIFEST excerpt: `from` and `to` are the first and last
@@ -84,7 +84,7 @@ export const walk: readonly WalkStep[] = [
   {
     id: 'connectors',
     label: 'Connect an app',
-    line: 'Dosco holds the LinkedIn login. One rule holds every new post until a person approves it.',
+    line: 'Kortix holds the LinkedIn login. One rule holds every new post until a person approves it.',
   },
   {
     id: 'triggers',
@@ -125,7 +125,7 @@ export const shipTerminal = [
 
 /* What the shipped MANIFEST holds, counted from it. */
 export const shipped = [
-  { k: 'Agents', v: 'worker, eng-triage, marketing, sales-inbound' },
+  { k: 'Agents', v: 'kortix, eng-triage, marketing, sales-inbound' },
   { k: 'Connectors', v: 'github, linkedin, hubspot' },
   { k: 'Skills', v: 'triage-issue, write-post, qualify-lead' },
   { k: 'Triggers', v: 'new-issue, inbound-lead, weekly-post' },
@@ -146,7 +146,7 @@ export const pillars = {
       name: 'A project is a git repo',
       line: 'Your company, versioned.',
       facts: [
-        'Dosco hosts it, or link GitHub',
+        'Kortix hosts it, or link GitHub',
         'Agents, skills and memory are files',
         'Every change is a commit',
       ],
@@ -238,7 +238,7 @@ export const tabs = {
       description: 'Allow, Ask or Block, per tool and per app call.',
       body: [
         'Tool rules decide which commands and edits run, wait for a person, or never run. The runtime checks them before every call.',
-        'Connector rules do the same for app calls. Dosco holds the login and decides outside the computer. With no rule, a call runs.',
+        'Connector rules do the same for app calls. Kortix holds the login and decides outside the computer. With no rule, a call runs.',
       ],
     },
     {
@@ -274,7 +274,7 @@ export const tabs = {
       description: '@kortix/sdk and @kortix/ui on the same backend.',
       body: [
         '@kortix/sdk is one typed client for projects, sessions and the live event stream, on servers and in browsers.',
-        '@kortix/ui is the component library of the Dosco web app. SessionThread renders one session’s chat.',
+        '@kortix/ui is the component library of the Kortix web app. SessionThread renders one session’s chat.',
       ],
     },
   ],
@@ -380,23 +380,23 @@ export const architecture = {
   titleMuted: 'One API. A computer per session.',
   clients: {
     k: 'Clients',
-    v: 'People and code reach Dosco the same way.',
+    v: 'People and code reach Kortix the same way.',
     chips: ['Web app', 'Desktop', 'Mobile', 'CLI', 'Slack', 'Microsoft Teams', 'Your app'],
   },
   api: {
-    k: 'Dosco API',
+    k: 'Kortix API',
     v: 'Decides who may run which agent, starts sessions, holds connector logins and change requests.',
   },
   repo: {
-    k: 'Project repository',
-    v: 'kortix.yaml, agents, skills and memory. Dosco hosts it, or you link GitHub.',
+    k: 'Workspace repository',
+    v: 'kortix.yaml, agents, skills and memory. Kortix hosts it, or you link GitHub.',
   },
   computer: {
     k: 'Session computer',
     v: 'One per session. Your pi agent and its extensions work here, on the session’s own branch.',
   },
-  gateway: { k: 'LLM gateway', v: 'Every model call. Dosco-managed models or your own keys.' },
-  drive: { k: 'Drive', v: 'Shared folders and company memory, open at /drives.' },
+  gateway: { k: 'LLM gateway', v: 'Every model call. Kortix-managed models or your own keys.' },
+  drive: { k: 'Kortix Drive', v: 'Shared folders and company memory, open at /drives.' },
 } as const;
 
 /* FAQ. Sources per answer: guide.mdx "A workspace for people" (Customize),
@@ -416,7 +416,7 @@ export const faqItems = [
     id: 'faq-github',
     question: 'Can I keep the repository on GitHub?',
     answer:
-      'Yes. With a GitHub origin, kortix ship links that repository, and plain git push and git pull work. Without one, Dosco creates and hosts the repository.',
+      'Yes. With a GitHub origin, kortix ship links that repository, and plain git push and git pull work. Without one, Kortix creates and hosts the repository.',
   },
   {
     id: 'faq-validate',
@@ -434,7 +434,7 @@ export const faqItems = [
     id: 'faq-pi',
     question: 'What runs inside a session?',
     answer:
-      'pi, a minimal open-source agent harness. Every agent you declare is a pi agent, and every new session runs it on its own cloud computer. It calls models only through the Dosco LLM gateway.',
+      'pi, a minimal open-source agent harness. Every agent you declare is a pi agent, and every new session runs it on its own cloud computer. It calls models only through the Kortix LLM gateway.',
   },
   {
     id: 'faq-extensions',
@@ -446,13 +446,13 @@ export const faqItems = [
     id: 'faq-secrets',
     question: 'Where do secret values live?',
     answer:
-      'In Dosco, encrypted. kortix.yaml lists only the names a project needs. No page, command or API shows a stored value again.',
+      'In Kortix, encrypted. kortix.yaml lists only the names a project needs. No page, command or API shows a stored value again.',
   },
   {
     id: 'faq-host',
-    question: 'Where can Dosco run?',
+    question: 'Can I run it myself?',
     answer:
-      'Run Dosco on Cloud, in your VPC, or on your own dedicated network.',
+      'Yes. Kortix is open source. Run it on Kortix Cloud, in your VPC, or on your own on-prem network.',
   },
 ] as const;
 

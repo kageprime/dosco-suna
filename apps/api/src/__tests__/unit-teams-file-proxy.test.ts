@@ -422,7 +422,7 @@ describe('initiateTeamsUpload outside a personal chat', () => {
     });
     expect(r).toMatchObject({ ok: true, delivered: 'drive_link' });
     const put = fetchCalls.find((c) => c.method === 'PUT');
-    expect(put?.url).toBe('https://graph.microsoft.com/v1.0/groups/group-1/drive/root:/Dosco/report.pdf:/content');
+    expect(put?.url).toBe('https://graph.microsoft.com/v1.0/groups/group-1/drive/root:/Kortix/report.pdf:/content');
     expect(put?.headers?.Authorization).toBe('Bearer graph-tok');
     const link = fetchCalls.find((c) => c.method === 'POST' && c.url.endsWith('/createLink'));
     expect(link).toBeDefined();
@@ -535,7 +535,7 @@ describe('file proxy — token and drive authorization', () => {
 
 
 // An agent's image in a PERSONAL chat used to go through the consent card —
-// "Dosco wants to send you chart.png — Accept / Decline", then OneDrive — the
+// "Kortix wants to send you chart.png — Accept / Decline", then OneDrive — the
 // worst image experience of the three scopes, in the most common one. A group
 // chat or channel posted inline with NO fallback: a refused post was a 502.
 describe('initiateTeamsUpload — an image is shown inline first, in every scope', () => {
@@ -685,7 +685,7 @@ describe('download proxy — Graph paths and attachment hosts', () => {
 
 
 // The Graph token is minted for the tenant, and one tenant can be connected to
-// several Dosco projects. A hosted-content URL names its conversation, so the
+// several Kortix projects. A hosted-content URL names its conversation, so the
 // download is confined like a read of that conversation.
 describe('download proxy — confined to this project\'s conversations', () => {
   const CHANNEL = '19:chan@thread.tacv2';
@@ -701,7 +701,7 @@ describe('download proxy — confined to this project\'s conversations', () => {
       ownedBy({ threads: { [`${CHANNEL};messageid=171`]: 'proj-2' } }, true),
     );
     expect(r).toMatchObject({ ok: false, status: 403 });
-    if (!r.ok) expect(r.error).toContain('belongs to another Dosco project');
+    if (!r.ok) expect(r.error).toContain('belongs to another Kortix workspace');
     expect(fetchCalls).toHaveLength(0);
   });
 

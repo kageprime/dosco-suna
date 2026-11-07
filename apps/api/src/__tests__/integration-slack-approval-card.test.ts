@@ -141,15 +141,15 @@ beforeAll(async () => {
     await db.insert(chatThreads).values({
       projectId: project.project_id,
       platform: 'slack',
-      workspaceId: TEAM,
+      platformTeamId: TEAM,
       threadId: thread,
       sessionId: id,
     });
   }
   await db.insert(chatUserIdentities).values([
-    { platform: 'slack', workspaceId: TEAM, platformUserId: SLACK.owner, userId: OWNER },
-    { platform: 'slack', workspaceId: TEAM, platformUserId: SLACK.launcher, userId: LAUNCHER },
-    { platform: 'slack', workspaceId: TEAM, platformUserId: SLACK.bystander, userId: BYSTANDER },
+    { platform: 'slack', platformTeamId: TEAM, platformUserId: SLACK.owner, userId: OWNER },
+    { platform: 'slack', platformTeamId: TEAM, platformUserId: SLACK.launcher, userId: LAUNCHER },
+    { platform: 'slack', platformTeamId: TEAM, platformUserId: SLACK.bystander, userId: BYSTANDER },
   ]);
 });
 
@@ -162,7 +162,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.workspaceId, TEAM));
+  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.platformTeamId, TEAM));
   await db.delete(jobQueue).where(eq(jobQueue.queue, HELD_CALL_QUEUE));
   await db.delete(connectorCalls).where(eq(connectorCalls.projectId, project.project_id));
   await db.delete(sessionLifecycleCommands).where(eq(sessionLifecycleCommands.projectId, project.project_id));
@@ -254,7 +254,7 @@ test('a member who neither manages the project nor started the session cannot de
   await click('approve', executionId, SLACK.bystander);
 
   expect((await loadApprovalRow(project.project_id, executionId))?.status).toBe('pending_approval');
-  expect(ephemeral).toEqual(['Only a project manager or the person who started this session can decide.']);
+  expect(ephemeral).toEqual(['Only a workspace manager or the person who started this session can decide.']);
   expect(spawned).toHaveLength(0);
 });
 
@@ -309,7 +309,7 @@ test('a call with nothing to review cannot be approved from the card', async () 
   expect(ephemeral).toEqual(['This call recorded no parameters to review, so it can only be denied.']);
 });
 
-test('a decision made in Dosco replaces the card buttons in the thread too', async () => {
+test('a decision made in Kortix replaces the card buttons in the thread too', async () => {
   const executionId = await pending({
     args_preview: { draft_id: 'r-1' },
     args_preview_complete: true,
@@ -370,7 +370,7 @@ test.each(['absent', 'revoked', 'other-workspace', 'expired'] as const)(
     const workspaceId = scenario === 'other-workspace' ? `${TEAM}OTHER` : TEAM;
     if (scenario !== 'absent') {
       await db.insert(chatUserIdentities).values({
-        platform: 'slack', workspaceId, platformUserId: `U${scenario}`, userId: actorUserId,
+        platform: 'slack', platformTeamId: workspaceId, platformUserId: `U${scenario}`, userId: actorUserId,
         revokedAt: scenario === 'revoked' ? new Date() : null,
       });
     }
@@ -389,7 +389,7 @@ test.each(['absent', 'revoked', 'other-workspace', 'expired'] as const)(
       const blocks = JSON.stringify(updated[0]?.blocks);
       expect(blocks).not.toContain('<@');
       if (scenario === 'expired') expect(blocks).toContain('Expired');
-      else expect(blocks).toContain('a teammate in Dosco');
+      else expect(blocks).toContain('a teammate in Kortix');
     } finally {
       await db.delete(chatUserIdentities).where(eq(chatUserIdentities.userId, actorUserId));
     }
@@ -456,7 +456,7 @@ test('approve of a held call in the thread: the card shows running, then the run
   expect(updated[1]).toMatchObject({ channel: CHANNEL, ts: '200.0020' });
   const ran = JSON.stringify(updated[1].blocks);
   expect(ran).toContain(`<@${SLACK.owner}>`);
-  expect(ran).toContain('Not run: Dosco refused it at run time.');
+  expect(ran).toContain('Not run: Kortix refused it at run time.');
   expect(ran).not.toContain('Running…');
 });
 
@@ -499,7 +499,7 @@ test('a held call approved from a follow-up thread resumes the agent with that t
   await db.insert(chatThreads).values({
     projectId: project.project_id,
     platform: 'slack',
-    workspaceId: TEAM,
+    platformTeamId: TEAM,
     threadId: FOLLOW_UP,
     sessionId,
   });
@@ -519,7 +519,7 @@ test('a held call approved from a follow-up thread resumes the agent with that t
   expect(text).not.toContain(`--thread ${THREAD}`);
 });
 
-test('a held call approved in Dosco resumes with the plain text, no chat reply target', async () => {
+test('a held call approved in Kortix resumes with the plain text, no chat reply target', async () => {
   const executionId = await pendingHeld('200.0023');
   const row = await loadApprovalRow(project.project_id, executionId);
   await decideConnectorApproval({

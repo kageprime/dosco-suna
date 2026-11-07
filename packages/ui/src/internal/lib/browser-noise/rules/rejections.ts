@@ -24,13 +24,13 @@ import {
 //
 // Better Stack pattern
 // 5cfc90e5077a4f3d956f46b51beb633256b9a74532717d4b5797ca5cbc62f2f1
-// (Dosco Frontend prod, application_id 2346967): `UnhandledRejection`, 1
+// (Kortix Frontend prod, application_id 2346967): `UnhandledRejection`, 1
 // occurrence, 0 identified users (anonymous), mechanism
 // `auto.browser.global_handlers.onunhandledrejection` (UNCAUGHT global
 // unhandledrejection — never reached any React error boundary), release
 // `470fe6f3c88460212c3b187f6f86fb4ad456c4d6`, first 2026-04-23 / last
 // 2026-07-22, Safari 26.5.2 on iOS 18.7 (iPhone, Mobile), request URL
-// `https://dosco.live/` (the marketing/landing page). Stack trace: NONE —
+// `https://kortix.com/` (the marketing/landing page). Stack trace: NONE —
 // `call_site_file`/`call_site_function` are null, `call_stack_hash` is null,
 // no frames at all. A bare `onunhandledrejection` capture of `undefined`.
 //
@@ -104,16 +104,16 @@ export function isNonErrorUndefinedRejectionNoise(input: {
 // Browser-internal DOM/binding `OperationError` noise — `Instance dropped in
 // popErrorScope`. `popErrorScope` is part of the WebIDL/internal error-scope
 // machinery (DOMQueuingStrategy, ResizeObserver, IntersectionObserver, media
-// streams, GPU, …), NOT a first-party Dosco API. Some browser code paths
+// streams, GPU, …), NOT a first-party Kortix API. Some browser code paths
 // (Firefox-originated; also emitted by some Chromium/Edge paths) surface a
 // frameless `OperationError: Instance dropped in popErrorScope` as an
 // unhandled promise rejection via the global `onunhandledrejection` handler.
 // Better Stack pattern
 // 5e1aca208331fa2d7540c9810b815b6c94f1373c470ff54e15f39d389dac7e0c
-// (Dosco Frontend prod, application_id 2346967): `OperationError`, 2
+// (Kortix Frontend prod, application_id 2346967): `OperationError`, 2
 // occurrences EVER across a 90-day window (first 2026-04-28 18:41:18 UTC on
 // `https://www.kortix.com/instances` Chrome/Win, last 2026-07-22 18:26:35 UTC
-// on `https://dosco.live/projects/<id>` reached from Google account sign-in
+// on `https://kortix.com/projects/<id>` reached from Google account sign-in
 // Chrome/Edge/Win), 0 identified users (anonymous), mechanism
 // `auto.browser.global_handlers.onunhandledrejection` (`handled:false` —
 // UNCAUGHT, never reached a React error boundary). The exception payload is
@@ -129,7 +129,7 @@ export function isNonErrorUndefinedRejectionNoise(input: {
 // `5cfc90e5…`) and `isFirefoxReactSchedulerReentryNoise` (PR #5185, pattern
 // `0f03b24e…`).
 //
-// `OperationError` is the WebIDL type for async DOM operations, NOT a Dosco
+// `OperationError` is the WebIDL type for async DOM operations, NOT a Kortix
 // error class, and it is a GENERIC type a real first-party
 // `new OperationError(...)` could also surface with — so the matcher anchors on
 // the EXACT message `/^Instance dropped in popErrorScope$/` (case-sensitive),
@@ -153,7 +153,7 @@ const OPERATION_ERROR_POP_ERROR_SCOPE_PATTERN = /^Instance dropped in popErrorSc
  * `OperationError: Instance dropped in popErrorScope` noise class:
  * `popErrorScope` is part of the WebIDL/internal error-scope machinery
  * (DOMQueuingStrategy, ResizeObserver, IntersectionObserver, media streams,
- * GPU, …), NOT a first-party Dosco API. Some browser code paths surface a
+ * GPU, …), NOT a first-party Kortix API. Some browser code paths surface a
  * frameless `OperationError` with this exact message as an uncaught global
  * `onunhandledrejection` — never first-party app code. Requires the EXACT
  * message (case-sensitive; `OperationError` alone is a generic WebIDL type a
@@ -222,14 +222,14 @@ function isWebGpuRendererPipelineFrame(
 // "Object captured as promise rejection with keys: code, message, status" with
 // NO stacktrace frames. Better Stack pattern
 // 63b0cde714048bca4c42129afacd5f8ec56813e0e663fbdb41265fdba6ed28a4
-// (Dosco Frontend prod, application_id 2346967): `UnhandledRejection`, 2
+// (Kortix Frontend prod, application_id 2346967): `UnhandledRejection`, 2
 // occurrences, 0 identified users (anonymous), first 2026-08-01 13:22:03 UTC,
 // last 2026-08-01 13:22:27 UTC, mechanisms
 // `auto.browser.global_handlers.onunhandledrejection` (`handled:false` —
 // UNCAUGHT, never reached a React error boundary), `synthetic:true`, releases
 // `c330eda4d96e7aee557618254a86df7d16ba5d9b` (v0.12.0), request URLs
-// `https://dosco.live/auth` (first occurrence) and
-// `https://dosco.live/projects/<project_id>` (second
+// `https://kortix.com/auth` (first occurrence) and
+// `https://kortix.com/projects/<project_id>` (second
 // occurrence, referer `https://accounts.google.com/` post-Google OAuth), Chrome
 // 151.0.0.0 on Windows. Breadcrumbs: `https://supa.kortix.com/auth/v1/user`
 // (Supabase gotrue), `/_vercel/insights/view`, google-analytics,
@@ -334,13 +334,13 @@ export function isSupabaseTokenExpiredNoise(input: {
 // (the rejection value inlined after `value: `) with NO stacktrace frames at
 // all — there is no Error object to de-minify. Better Stack pattern
 // e9a720020c921fbf82323125c20714fd7455e803295cf13aa624440de6d35e8e
-// (Dosco Frontend prod, application_id 2346967): `UnhandledRejection`,
+// (Kortix Frontend prod, application_id 2346967): `UnhandledRejection`,
 // 116 occurrences, 0 identified users (anonymous), first 2026-06-02 /
 // recurring, mechanism `auto.browser.global_handlers.onunhandledrejection`
 // (`handled:false` — UNCAUGHT, never reached a React error boundary),
 // `synthetic:true`, release
 // `160f0b286f0ad5c53debc343d5e055241694e24d` (v0.12.4 prod), request URL
-// `https://dosco.live/#error=access_denied&error_code=otp_expired&error_
+// `https://kortix.com/#error=access_denied&error_code=otp_expired&error_
 // description=Email+link+is+invalid+or+has+expired` (the auth error page —
 // the OTP-expired redirect). Browser Chrome 142 on Windows 10. Breadcrumbs:
 // `[runtime-env]` with `supabaseUrl: https://supa.kortix.com` (the Supabase
@@ -448,24 +448,6 @@ export function isNonErrorObjectNotFoundRejectionNoise(input: {
   return true;
 }
 
-// A Supabase refresh can race with sign-out on the anonymous landing page.
-// The SDK rejects with AuthSessionMissingError when its stored session has
-// disappeared; there is no session to recover and no user to notify.
-export function isAnonymousAuthRefreshRace(input: {
-  message?: unknown;
-  requestUrl?: string;
-  mechanism?: unknown;
-  frames?: Array<{ function?: unknown; filename?: unknown }>;
-}): boolean {
-  if (normalizeString(input.message) !== 'Auth session missing!' ||
-      input.requestUrl !== 'https://dosco.live/' ||
-      input.mechanism !== 'auto.browser.global_handlers.onunhandledrejection') return false;
-  const frames = input.frames ?? [];
-  return frames.some((frame) => normalizeString(frame.function).includes('refreshSession') &&
-    isBrowserBundleSource(frame.filename)) &&
-    !frames.some((frame) => isFirstPartyResolvedSource(frame.filename));
-}
-
 // An `HTMLMediaElement.play()` promise the browser's autoplay policy denied.
 // The HTML spec fixes the DOMException message: `NotAllowedError: The play
 // method is not allowed by the user agent or the platform in the current
@@ -473,12 +455,12 @@ export function isAnonymousAuthRefreshRace(input: {
 // emit exactly this string; it is the UA policy state, not app logic. Better
 // Stack pattern
 // 3fcd960e70b449ebba706970a7b6dc43d89258e52785dea78693c955e6337225
-// (Dosco Frontend prod, application_id 2346967): `NotAllowedError`, 1
+// (Kortix Frontend prod, application_id 2346967): `NotAllowedError`, 1
 // occurrence, 0 identified users, mechanism
 // `auto.browser.global_handlers.onunhandledrejection` (`handled:false` —
 // UNCAUGHT global unhandledrejection, never reached a React error boundary),
 // release `84a0bc48…`, first=last 2026-10-03 03:55:02Z, Firefox 157 on
-// macOS 10.15, request URL `https://dosco.live/` (the marketing/landing
+// macOS 10.15, request URL `https://kortix.com/` (the marketing/landing
 // page). NO stacktrace, NO `call_site_file`/`call_site_function`, NO
 // `call_stack_hash` — the browser rejected the play promise without a stack,
 // so no call site is attributable. Breadcrumbs: only the landing-page boot
@@ -584,7 +566,6 @@ export const REJECTION_RULES: readonly NoiseRule[] = [
     appliesTo: 'sentry',
     match: isNonErrorUndefinedRejectionNoise,
   },
-  { id: 'anonymous-auth-refresh-race', appliesTo: 'sentry', match: isAnonymousAuthRefreshRace },
   { id: 'pop-error-scope', appliesTo: 'sentry', match: isOperationErrorPopErrorScopeNoise },
   { id: 'supabase-token-expired', appliesTo: 'sentry', match: isSupabaseTokenExpiredNoise },
   {

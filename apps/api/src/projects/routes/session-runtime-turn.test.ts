@@ -32,14 +32,14 @@ const SESSION_ID = '55555555-5555-4555-8555-555555555555';
 function authorityTurn(overrides: {
   token: string;
   state?: 'delivering' | 'active';
-  opencodeSessionId?: string | null;
+  runtimeSessionId?: string | null;
   messageId?: string | null;
   startedAtMs?: number | null;
 }) {
   return {
     token: overrides.token,
     state: overrides.state ?? 'active',
-    opencodeSessionId: overrides.opencodeSessionId ?? null,
+    runtimeSessionId: overrides.runtimeSessionId ?? null,
     messageId: overrides.messageId ?? null,
     ...(overrides.startedAtMs === null
       ? {}
@@ -54,7 +54,7 @@ function ledgerRow(overrides: {
   turn_token: string;
   state?: 'delivering' | 'active' | 'ended';
   message_id?: string | null;
-  opencode_session_id?: string | null;
+  runtime_session_id?: string | null;
   started_at?: Date;
   accepted_at?: Date | null;
   end_reason?: string | null;
@@ -65,7 +65,7 @@ function ledgerRow(overrides: {
     session_id: SESSION_ID,
     state: 'active',
     message_id: null,
-    opencode_session_id: null,
+    runtime_session_id: null,
     started_at: new Date('2026-08-17T00:00:00.000Z'),
     accepted_at: null,
     end_reason: null,
@@ -154,6 +154,7 @@ function execute(
   predicate: unknown,
   orderBy: unknown[],
   limit: number | null,
+  distinctOn: unknown | null = null,
 ) {
   const which = table === sessionSandboxes ? 'sandboxes' : table === sessionTurns ? 'turns' : null;
   if (!which) throw new Error('query reads a table this route has no business reading');
@@ -161,7 +162,7 @@ function execute(
   const where = render(predicate);
   // Scope first: a query that does not bind THIS session's id is not reading
   // this session's state, whatever else it gets right.
-  if (!where.includes(`col:session_id = $${JSON.stringify(SESSION_ID)}`)) {
+  if (!/col:session_id (?:=|in) \(?\$/.test(where) || !params(where).includes(SESSION_ID)) {
     throw new Error(`query is not scoped to the session: ${where}`);
   }
   const order = orderBy.map(render);
@@ -174,7 +175,12 @@ function execute(
   const columns = Object.entries(projection).map(
     ([field, column]) => [field, render(column).replace(/^col:/, '')] as const,
   );
-  return (limit === null ? rows : rows.slice(0, limit)).map((row) =>
+  // `DISTINCT ON (col)`: the first row of each value of `col`, in ORDER BY order.
+  const distinctColumn = distinctOn === null ? null : render(distinctOn).replace(/^col:/, '');
+  const distinct = distinctColumn === null
+    ? rows
+    : rows.filter((row, index) => rows.findIndex((first) => first[distinctColumn] === row[distinctColumn]) === index);
+  return (limit === null ? distinct : distinct.slice(0, limit)).map((row) =>
     Object.fromEntries(columns.map(([field, column]) => [field, row[column]])),
   );
 }
@@ -187,19 +193,20 @@ function stage(
   predicate: unknown,
   orderBy: unknown[],
   limit: number | null,
+  distinctOn: unknown | null = null,
 ): PromiseLike<Array<Record<string, unknown>>> & {
   orderBy: (...order: unknown[]) => ReturnType<typeof stage>;
   limit: (n: number) => ReturnType<typeof stage>;
 } {
   return {
-    orderBy: (...order: unknown[]) => stage(projection, table, predicate, order, limit),
-    limit: (n: number) => stage(projection, table, predicate, orderBy, n),
+    orderBy: (...order: unknown[]) => stage(projection, table, predicate, order, limit, distinctOn),
+    limit: (n: number) => stage(projection, table, predicate, orderBy, n, distinctOn),
     // biome-ignore lint/suspicious/noThenProperty: The Drizzle query mock must be awaitable.
     then: (resolve, reject) => {
       // `execute` throws synchronously when the handler asks something this
       // mock refuses to fake; awaiting must surface that as a rejection.
       try {
-        return Promise.resolve(execute(projection, table, predicate, orderBy, limit)).then(
+        return Promise.resolve(execute(projection, table, predicate, orderBy, limit, distinctOn)).then(
           resolve,
           reject,
         );
@@ -214,6 +221,11 @@ const databaseMock = {
   select: (projection: Record<string, unknown>) => ({
     from: (table: unknown) => ({
       where: (predicate: unknown) => stage(projection, table, predicate, [], null),
+    }),
+  }),
+  selectDistinctOn: (on: unknown[], projection: Record<string, unknown>) => ({
+    from: (table: unknown) => ({
+      where: (predicate: unknown) => stage(projection, table, predicate, [], null, on[0]),
     }),
   }),
 };
@@ -425,7 +437,6 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
           state: 'delivering',
           message_id: 'msg_boot',
           runtime_session_id: null,
-          opencode_session_id: null,
           started_at: '2026-08-17T00:00:00.000Z',
           accepted_at: null,
         },
@@ -498,7 +509,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
       runningBox(
         authorityTurn({
           token: 't-live',
-          opencodeSessionId: 'ses_root',
+          runtimeSessionId: 'ses_root',
           messageId: 'msg_1',
           startedAtMs: Date.parse('2026-08-17T00:00:00.000Z'),
         }),
@@ -520,7 +531,6 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
         state: 'active',
         message_id: 'msg_1',
         runtime_session_id: 'ses_root',
-        opencode_session_id: 'ses_root',
         started_at: '2026-08-17T00:00:00.000Z',
         accepted_at: '2026-08-17T00:00:01.000Z',
       },
@@ -530,7 +540,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
   test('takes state from the authority, never from the ledger row', async () => {
     // `acceptSandboxTurn` promotes the authority entry in statement one and
     // UPSERTs the ledger in statement two. When that second write is swallowed
-    // the row still says `delivering` for a turn OpenCode has accepted.
+    // the row still says `delivering` for a turn the runtime has accepted.
     sandboxTable = [runningBox(authorityTurn({ token: 't-live', state: 'active' }))];
     turnTable = [ledgerRow({ turn_token: 't-live', state: 'delivering' })];
     const body = await (await getTurn()).json();
@@ -555,7 +565,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/turn', () => {
       {
         session_id: SESSION_ID,
         status: 'active',
-        metadata: { activeTurn: { token: 't-legacy', state: 'active', opencodeSessionId: 'ses_root' } },
+        metadata: { activeTurn: { token: 't-legacy', state: 'active', runtimeSessionId: 'ses_root' } },
       },
     ];
     turnTable = [ledgerRow({ turn_token: 't-legacy' })];

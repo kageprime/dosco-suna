@@ -23,7 +23,7 @@ export function normalizeConversationPolicy(value: unknown): SlackConversationPo
 }
 
 export function conversationPolicyLabel(policy: SlackConversationPolicy): string {
-  if (policy === 'project_open') return 'Project members can join';
+  if (policy === 'project_open') return 'Workspace members can join';
   if (policy === 'owner_only') return 'Owner only';
   return 'Owner approval';
 }
@@ -59,7 +59,7 @@ async function approvedParticipantExists(input: {
     .from(chatThreadParticipants)
     .where(and(
       eq(chatThreadParticipants.platform, PLATFORM),
-      eq(chatThreadParticipants.workspaceId, input.teamId),
+      eq(chatThreadParticipants.platformTeamId, input.teamId),
       eq(chatThreadParticipants.threadId, input.threadId),
       eq(chatThreadParticipants.platformUserId, input.slackUserId),
       eq(chatThreadParticipants.userId, input.actorUserId),
@@ -86,7 +86,7 @@ async function loadParticipant(input: {
     .from(chatThreadParticipants)
     .where(and(
       eq(chatThreadParticipants.platform, PLATFORM),
-      eq(chatThreadParticipants.workspaceId, input.teamId),
+      eq(chatThreadParticipants.platformTeamId, input.teamId),
       eq(chatThreadParticipants.threadId, input.threadId),
       eq(chatThreadParticipants.platformUserId, input.slackUserId),
     ))
@@ -114,7 +114,7 @@ function threadJoinRequestBlocks(input: {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${input.requesterLabel}* wants to join this Dosco session.\nThis Slack thread is private until you approve them.`,
+        text: `*${input.requesterLabel}* wants to join this Kortix session.\nThis Slack thread is private until you approve them.`,
       },
     },
     {
@@ -141,7 +141,7 @@ function threadJoinRequestBlocks(input: {
 
 /**
  * The requester as mrkdwn: a live `<@U…>` mention, which every Slack client
- * renders as the person's current name, then their Dosco email when known.
+ * renders as the person's current name, then their Kortix email when known.
  * Only the email is escaped — escaping the mention prints it as literal text.
  */
 async function requesterLabel(userId: string, slackUserId: string): Promise<string> {
@@ -178,7 +178,7 @@ async function postJoinRequest(input: {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*This Dosco session is private.*\n${requesterText}`,
+          text: `*This Kortix session is private.*\n${requesterText}`,
         },
       },
     ],
@@ -193,7 +193,7 @@ async function postJoinRequest(input: {
     token,
     input.channel,
     ownerSlackUserId,
-    `${label} wants to join this Dosco session.`,
+    `${label} wants to join this Kortix session.`,
     threadJoinRequestBlocks({
       requesterLabel: label,
       projectId: input.projectId,
@@ -236,13 +236,13 @@ export async function ensureSlackThreadParticipant(input: {
         token,
         input.channel,
         input.slackUserId,
-        'This Dosco session is owner-only.',
+        'This Kortix session is owner-only.',
         [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '*This Dosco session is owner-only.*\nStart a new thread if you want Dosco to work with you separately.',
+              text: '*This Kortix session is owner-only.*\nStart a new thread if you want Kortix to work with you separately.',
             },
           },
         ],
@@ -272,7 +272,7 @@ export async function ensureSlackThreadParticipant(input: {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: "*You don't have access to this Dosco session.*\nThe owner declined your request. Start a new thread to work with Dosco separately.",
+              text: "*You don't have access to this Kortix session.*\nThe owner declined your request. Start a new thread to work with Kortix separately.",
             },
           },
         ],
@@ -296,7 +296,7 @@ export async function ensureSlackThreadParticipant(input: {
       })
       .where(and(
         eq(chatThreadParticipants.platform, PLATFORM),
-        eq(chatThreadParticipants.workspaceId, input.teamId),
+        eq(chatThreadParticipants.platformTeamId, input.teamId),
         eq(chatThreadParticipants.threadId, input.threadId),
         eq(chatThreadParticipants.platformUserId, input.slackUserId),
       ));
@@ -306,7 +306,7 @@ export async function ensureSlackThreadParticipant(input: {
       .insert(chatThreadParticipants)
       .values({
         platform: PLATFORM,
-        workspaceId: input.teamId,
+        platformTeamId: input.teamId,
         threadId: input.threadId,
         sessionId: input.sessionId,
         platformUserId: input.slackUserId,
@@ -316,7 +316,7 @@ export async function ensureSlackThreadParticipant(input: {
       .onConflictDoNothing({
         target: [
           chatThreadParticipants.platform,
-          chatThreadParticipants.workspaceId,
+          chatThreadParticipants.platformTeamId,
           chatThreadParticipants.threadId,
           chatThreadParticipants.platformUserId,
         ],
@@ -350,7 +350,7 @@ export async function rememberSlackThreadOwner(input: {
     .insert(chatThreadParticipants)
     .values({
       platform: PLATFORM,
-      workspaceId: input.teamId,
+      platformTeamId: input.teamId,
       threadId: input.threadId,
       sessionId: input.sessionId,
       platformUserId: input.slackUserId,
@@ -362,7 +362,7 @@ export async function rememberSlackThreadOwner(input: {
     .onConflictDoUpdate({
       target: [
         chatThreadParticipants.platform,
-        chatThreadParticipants.workspaceId,
+        chatThreadParticipants.platformTeamId,
         chatThreadParticipants.threadId,
         chatThreadParticipants.platformUserId,
       ],
@@ -384,7 +384,7 @@ export async function rememberSlackThreadOwner(input: {
  * proof: an agent can post any Block Kit button through the same bot. So the
  * decision applies only to a request this thread actually raised for its
  * current session (`ensureSlackThreadParticipant` wrote it, pending), and the
- * requester's Dosco account is the one that request recorded, never the
+ * requester's Kortix account is the one that request recorded, never the
  * value's. `sessionId` is the thread's own session, which the caller resolved
  * from the thread mapping. The owner must still be able to work in the project.
  */
@@ -400,7 +400,7 @@ export async function decideSlackThreadJoin(input: {
   const closed = { ok: false as const, text: 'This request is no longer open.' };
   const deciderUser = chatUser('slack', input.teamId, input.deciderSlackUserId);
   const decider = await lookupChatIdentity(deciderUser);
-  if (!decider) return { ok: false, text: 'Connect your Dosco account before approving session access.' };
+  if (!decider) return { ok: false, text: 'Connect your Kortix account before approving session access.' };
 
   const request = await loadParticipant({ teamId: input.teamId, threadId: input.threadId, slackUserId: input.requesterSlackUserId });
   if (!request || request.status !== 'pending' || request.sessionId !== input.sessionId || !request.userId) return closed;
@@ -411,12 +411,12 @@ export async function decideSlackThreadJoin(input: {
     .from(projectSessions)
     .where(eq(projectSessions.sessionId, input.sessionId))
     .limit(1);
-  if (!session) return { ok: false, text: 'This Dosco session no longer exists.' };
+  if (!session) return { ok: false, text: 'This Kortix session no longer exists.' };
   if (!session.createdBy || session.createdBy !== decider.userId) {
     return { ok: false, text: 'Only the session owner can approve people for this thread.' };
   }
   if (!('userId' in (await resolveProjectChatActor(deciderUser, session.projectId)))) {
-    return { ok: false, text: 'Your Dosco account no longer has access to this project, so you cannot approve people for it.' };
+    return { ok: false, text: 'Your Kortix account no longer has access to this Kortix workspace, so you cannot approve people for it.' };
   }
 
   const now = new Date();
@@ -439,8 +439,8 @@ export async function decideSlackThreadJoin(input: {
   const sessionUrl = sessionWebUrl(config.FRONTEND_URL, session.projectId, input.sessionId);
   if (token) {
     const text = input.decision === 'approved'
-      ? `You've been approved for this Dosco session. Mention me again and I'll continue.`
-      : 'The session owner declined your request for this Dosco session.';
+      ? `You've been approved for this Kortix session. Mention me again and I'll continue.`
+      : 'The session owner declined your request for this Kortix session.';
     await postEphemeral(
       token,
       input.channelId,
@@ -452,8 +452,8 @@ export async function decideSlackThreadJoin(input: {
           text: {
             type: 'mrkdwn',
             text: input.decision === 'approved'
-              ? `*Approved.*\nMention me again in this thread. You can also <${sessionUrl}|open the session in Dosco>.`
-              : '*Request declined.*\nStart a new thread if you want Dosco to work with you separately.',
+              ? `*Approved.*\nMention me again in this thread. You can also <${sessionUrl}|open the session in Kortix>.`
+              : '*Request declined.*\nStart a new thread if you want Kortix to work with you separately.',
           },
         },
       ],
@@ -465,7 +465,7 @@ export async function decideSlackThreadJoin(input: {
   return {
     ok: true,
     text: input.decision === 'approved'
-      ? `Approved ${label} for this Dosco session.`
-      : `Denied ${label} for this Dosco session.`,
+      ? `Approved ${label} for this Kortix session.`
+      : `Denied ${label} for this Kortix session.`,
   };
 }

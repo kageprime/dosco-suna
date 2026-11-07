@@ -96,7 +96,7 @@ import { SettingsTabHeader } from '../settings-tab-header';
  */
 export interface ExperimentalCopy {
   overridden: string;
-  /** Origin line of an `operator_only` flag: only Dosco changes it. */
+  /** Origin line of an `operator_only` flag: only Kortix changes it. */
   managedByKortix: string;
   defaultOn: string;
   defaultOff: string;
@@ -113,24 +113,24 @@ export interface ExperimentalCopy {
 }
 
 export const DEFAULT_EXPERIMENTAL_COPY: ExperimentalCopy = {
-  overridden: 'Overridden for this project',
-  managedByKortix: 'Managed by Dosco',
+  overridden: 'Overridden for this workspace',
+  managedByKortix: 'Managed by Kortix',
   defaultOn: 'Default on',
   defaultOff: 'Default off',
   search: 'Search features',
-  loadFailed: 'Failed to load project',
+  loadFailed: 'Failed to load workspace',
   retry: 'Retry',
   noMatches: (query) => `No matches for ${query}.`,
   emptyTitle: 'No experimental features',
-  emptyDescription: 'This deployment exposes no per-project feature flags.',
-  permission: "You need the project's settings permission to change a feature flag.",
+  emptyDescription: 'This deployment exposes no per-workspace feature flags.',
+  permission: "You need the workspace's settings permission to change a feature flag.",
   wip: 'Work in progress',
   wipNote: 'Not recommended yet: it can change or break.',
 };
 
 function originLabel(feature: FeatureFlagView, copy: ExperimentalCopy): string {
   // An internal-only flag (`apps`) is listed only while on, and
-  // `PATCH /features` refuses it to anyone but a Dosco operator.
+  // `PATCH /features` refuses it to anyone but a Kortix operator.
   if (feature.operator_only) return copy.managedByKortix;
   if (feature.overridden) return copy.overridden;
   return feature.enabled ? copy.defaultOn : copy.defaultOff;
@@ -488,7 +488,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
 
   // the Channels switch changes the sidebar for everyone, so only a
   // viewer who may flip it sees it (hidden while that answer loads).
-  const visible = canEdit ? withPending : withPending.filter((f) => f.key !== 'project_channels');
+  const visible = canEdit ? withPending : withPending.filter((f) => f.key !== 'chat');
   const features = filterFeatures(visible, query);
 
   const apply = (key: string, next: boolean) => {
@@ -498,7 +498,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
   // Channels asks first: the dialog says what changes for everyone.
   const [channelsTarget, setChannelsTarget] = useState<boolean | null>(null);
   const handleToggle = (key: string, next: boolean) => {
-    if (key === 'project_channels') setChannelsTarget(next);
+    if (key === 'chat') setChannelsTarget(next);
     else apply(key, next);
   };
 
@@ -512,7 +512,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
         onConfirm={() => {
           const target = channelsTarget === true;
           setChannelsTarget(null);
-          apply('project_channels', target);
+          apply('chat', target);
         }}
       />
       <ExperimentalTabView

@@ -50,6 +50,7 @@ import { loadProjectAgents } from '../agents';
 import { assertProjectCapability, loadProjectForUser } from '../lib/access';
 import { AnyObject, projectsApp } from '../lib/app';
 import type { AppEnv } from '../../types';
+import { workspaceIdParam } from '../../shared/route-params';
 
 type LoadedProject = NonNullable<Awaited<ReturnType<typeof loadProjectForUser>>>;
 
@@ -58,15 +59,15 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'get',
-      path: '/{projectId}/channels/email/inboxes',
+      path: '/{workspaceId}/channels/email/inboxes',
       tags: ['channels'],
       summary: 'List the email inboxes (accounts of the email connector)',
       ...auth,
-      request: { params: z.object({ projectId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(403, 404) },
     }),
     async (c: Context<AppEnv>) => {
-      const projectId = c.req.param('projectId') ?? '';
+      const projectId = workspaceIdParam(c) ?? '';
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       if (!emailChannelOn(loaded.row.metadata)) return c.json({ inboxes: [] });
@@ -78,12 +79,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/email/inboxes',
+      path: '/{workspaceId}/channels/email/inboxes',
       tags: ['channels'],
       summary: 'Add an email inbox (a new account of the email connector)',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: { 201: json(z.any(), 'Created'), ...errors(400, 403, 404, 409, 502, 503, 504) },
@@ -99,12 +100,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'patch',
-      path: '/{projectId}/channels/email/inboxes/{connectionId}',
+      path: '/{workspaceId}/channels/email/inboxes/{connectionId}',
       tags: ['channels'],
       summary: 'Update an email inbox: who may email it, its agent, its names',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string(), connectionId: z.string() }),
+        params: z.object({ workspaceId: z.string(), connectionId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: { 200: json(z.any(), 'OK'), ...errors(400, 403, 404) },
@@ -142,11 +143,11 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'delete',
-      path: '/{projectId}/channels/email/inboxes/{connectionId}',
+      path: '/{workspaceId}/channels/email/inboxes/{connectionId}',
       tags: ['channels'],
-      summary: 'Remove an email inbox; deletes it on Resend when Dosco created it',
+      summary: 'Remove an email inbox; deletes it on Resend when Kortix created it',
       ...auth,
-      request: { params: z.object({ projectId: z.string(), connectionId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string(), connectionId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(403, 404, 502, 504) },
     }),
     async (c: Context<AppEnv>) => {
@@ -162,15 +163,15 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'get',
-      path: '/{projectId}/channels/email/installation',
+      path: '/{workspaceId}/channels/email/installation',
       tags: ['channels'],
       summary: 'Get the email channel installation (the default inbox)',
       ...auth,
-      request: { params: z.object({ projectId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(404) },
     }),
     async (c: Context<AppEnv>) => {
-      const projectId = c.req.param('projectId') ?? '';
+      const projectId = workspaceIdParam(c) ?? '';
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       if (!emailChannelOn(loaded.row.metadata)) return c.json(null);
@@ -182,12 +183,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'get',
-      path: '/{projectId}/channels/email/mode',
+      path: '/{workspaceId}/channels/email/mode',
       tags: ['channels'],
       summary: 'Get the email channel mode',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
       },
       responses: {
         200: json(z.any(), 'OK'),
@@ -195,12 +196,12 @@ export function registerChannelEmailRoutes(): void {
       },
     }),
     async (c: any) => {
-      const projectId = c.req.param('projectId');
+      const projectId = workspaceIdParam(c);
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       // `enabled` stays on the wire for older clients: the channel graduated
       // from the `agentmail_email` flag (2026-10-24) and is on for every project.
-      // A managed inbox needs the operator switch, Dosco's Resend team AND
+      // A managed inbox needs the operator switch, Kortix's Resend team AND
       // its receiving domain. Bring-your-own key works whenever the channel is on.
       const managed = managedDomain();
       return c.json({
@@ -216,12 +217,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/email/connect',
+      path: '/{workspaceId}/channels/email/connect',
       tags: ['channels'],
       summary: 'Connect an email channel (adds a shared inbox)',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: { 200: json(z.any(), 'OK'), ...errors(400, 403, 404, 409, 502, 503, 504) },
@@ -239,12 +240,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/email/domains',
+      path: '/{workspaceId}/channels/email/domains',
       tags: ['channels'],
       summary: 'List the email domains a Resend key can use',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: {
@@ -281,12 +282,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/email/domains/add',
+      path: '/{workspaceId}/channels/email/domains/add',
       tags: ['channels'],
       summary: 'Add a custom email domain to a Resend team',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: {
@@ -313,12 +314,12 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/channels/email/domains/verify',
+      path: '/{workspaceId}/channels/email/domains/verify',
       tags: ['channels'],
       summary: 'Check a custom email domain\'s DNS records again',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: {
@@ -342,18 +343,18 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'patch',
-      path: '/{projectId}/channels/email/installation',
+      path: '/{workspaceId}/channels/email/installation',
       tags: ['channels'],
       summary: 'Update the email channel (the default inbox)',
       ...auth,
       request: {
-        params: z.object({ projectId: z.string() }),
+        params: z.object({ workspaceId: z.string() }),
         body: { content: { 'application/json': { schema: AnyObject } } },
       },
       responses: { 200: json(z.any(), 'OK'), ...errors(400, 403, 404) },
     }),
     async (c: Context<AppEnv>) => {
-      const projectId = c.req.param('projectId') ?? '';
+      const projectId = workspaceIdParam(c) ?? '';
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
@@ -380,15 +381,15 @@ export function registerChannelEmailRoutes(): void {
   projectsApp.openapi(
     createRoute({
       method: 'delete',
-      path: '/{projectId}/channels/email/installation',
+      path: '/{workspaceId}/channels/email/installation',
       tags: ['channels'],
       summary: 'Disconnect the email channel (removes the default inbox)',
       ...auth,
-      request: { params: z.object({ projectId: z.string() }) },
+      request: { params: z.object({ workspaceId: z.string() }) },
       responses: { 200: json(z.any(), 'OK'), ...errors(404, 502) },
     }),
     async (c: Context<AppEnv>) => {
-      const projectId = c.req.param('projectId') ?? '';
+      const projectId = workspaceIdParam(c) ?? '';
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
       await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
@@ -459,7 +460,7 @@ async function defaultVisibleInbox(projectId: string, userId: string): Promise<E
 async function manageableInbox(
   c: Context<AppEnv>,
 ): Promise<{ response: Response } | { loaded: LoadedProject; account: EmailInboxAccount }> {
-  const projectId = c.req.param('projectId') ?? '';
+  const projectId = workspaceIdParam(c) ?? '';
   const loaded = await loadProjectForUser(c, projectId, 'read');
   if (!loaded) return { response: c.json({ error: 'Not found' }, 404) };
   if (!emailChannelOn(loaded.row.metadata)) return { response: c.json(featureDisabledBody('email_channel'), 403) };
@@ -473,7 +474,7 @@ async function manageableInbox(
   return { loaded, account };
 }
 
-/** Delete on Resend what Dosco made, then revoke the account. A Resend failure keeps it. */
+/** Delete on Resend what Kortix made, then revoke the account. A Resend failure keeps it. */
 async function removeEmailInbox(c: Context<AppEnv>, account: EmailInboxAccount): Promise<Response | null> {
   try {
     await deleteEmailInbox(account);
@@ -525,7 +526,7 @@ async function addEmailInbox(
   c: Context<AppEnv>,
   options: { share?: 'me' | 'project' } = {},
 ): Promise<{ response: Response } | { account: EmailInboxAccount }> {
-  const projectId = c.req.param('projectId') ?? '';
+  const projectId = workspaceIdParam(c) ?? '';
   // Floor 'read' (membership). A shared inbox also needs the connector.write
   // leaf; a private one ("only me") is the caller's own, like a private account.
   const loaded = await loadProjectForUser(c, projectId, 'read');
@@ -560,14 +561,14 @@ async function addEmailInbox(
   }
 
   const ownKey = body.api_key?.trim() || null;
-  // Managed inboxes cost Dosco; only the operator switch offers them.
+  // Managed inboxes cost Kortix; only the operator switch offers them.
   if (!ownKey && !managedDomain()) return { response: c.json(keyRequiredBody(), 400) };
   const apiKey = ownKey ?? resolveEmailApiKey(null);
   if (!apiKey) return { response: c.json(keyRequiredBody(), 400) };
 
   const agent = await checkAgent(loaded, body.agent_name ?? body.agentName);
   if ('response' in agent) return { response: c.json(agent.response.body, agent.response.status) };
-  const displayName = (body.display_name ?? body.displayName ?? loaded.row.name ?? 'Dosco Agent').trim();
+  const displayName = (body.display_name ?? body.displayName ?? loaded.row.name ?? 'Kortix Agent').trim();
   let senderPolicy: EmailSenderPolicy;
   try {
     senderPolicy = parseSenderPolicyBody(body.sender_policy);
@@ -605,7 +606,7 @@ async function addEmailInbox(
   } else {
     const requestedDomain =
       typeof body.domain === 'string' && body.domain.trim() ? body.domain.trim().toLowerCase() : null;
-    // The managed key is Dosco's Resend team: its inboxes live on the managed
+    // The managed key is Kortix's Resend team: its inboxes live on the managed
     // domain only, never on another domain that team happens to hold.
     if (!ownKey) {
       const managed = managedDomain()!;
@@ -720,7 +721,7 @@ function keyRequiredBody(lead = 'Connect your own Resend API key.') {
 
 /**
  * The managed team's inbox domain, or null when this server offers no managed
- * inbox: the operator switch `RESEND_MANAGED_EMAIL_ENABLED`, Dosco's
+ * inbox: the operator switch `RESEND_MANAGED_EMAIL_ENABLED`, Kortix's
  * `RESEND_API_KEY` and `RESEND_MANAGED_DOMAIN` are all needed.
  */
 function managedDomain(): string | null {
@@ -778,7 +779,7 @@ async function emailDomainsGate(
   c: Context<AppEnv>,
   options: { ownKeyRequired?: boolean } = {},
 ) {
-  const projectId = c.req.param('projectId') ?? '';
+  const projectId = workspaceIdParam(c) ?? '';
   const loaded = await loadProjectForUser(c, projectId, 'read');
   if (!loaded) return { response: c.json({ error: 'Not found' }, 404) } as const;
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);

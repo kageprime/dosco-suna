@@ -75,8 +75,8 @@ afterEach(() => {
 
 describe('parseSetupLinkHref', () => {
   test('parses a same-origin secret-intake URL', () => {
-    withWindowOrigin('https://dosco.live');
-    expect(parseSetupLinkHref(`https://dosco.live/secret-intake/${TOKEN}`)).toEqual({
+    withWindowOrigin('https://kortix.com');
+    expect(parseSetupLinkHref(`https://kortix.com/secret-intake/${TOKEN}`)).toEqual({
       kind: 'secret',
       token: TOKEN,
     });
@@ -91,20 +91,20 @@ describe('parseSetupLinkHref', () => {
 
   test('cross-origin ksl_ links are still intercepted (FRONTEND_URL ≠ app origin)', () => {
     withWindowOrigin('https://staging.kortix.com');
-    expect(parseSetupLinkHref(`https://dosco.live/secret-intake/${TOKEN}`)).toEqual({
+    expect(parseSetupLinkHref(`https://kortix.com/secret-intake/${TOKEN}`)).toEqual({
       kind: 'secret',
       token: TOKEN,
     });
   });
 
   test('cross-origin non-ksl paths stay plain links', () => {
-    withWindowOrigin('https://dosco.live');
+    withWindowOrigin('https://kortix.com');
     expect(parseSetupLinkHref('https://example.com/connect/some-other-token')).toBeNull();
   });
 
   test('unrelated URLs are ignored', () => {
-    expect(parseSetupLinkHref('https://dosco.live/docs')).toBeNull();
-    expect(parseSetupLinkHref('/projects/p1')).toBeNull();
+    expect(parseSetupLinkHref('https://kortix.com/docs')).toBeNull();
+    expect(parseSetupLinkHref('/workspaces/p1')).toBeNull();
     expect(parseSetupLinkHref(undefined)).toBeNull();
   });
 });
@@ -112,7 +112,7 @@ describe('parseSetupLinkHref', () => {
 describe('setupLinkChipLabel', () => {
   test('a raw URL as link text falls back to the friendly label', () => {
     expect(
-      setupLinkChipLabel(`https://dosco.live/secret-intake/${TOKEN}`, TOKEN, 'Enter credentials'),
+      setupLinkChipLabel(`https://kortix.com/secret-intake/${TOKEN}`, TOKEN, 'Enter credentials'),
     ).toBe('Enter credentials');
   });
 
@@ -199,21 +199,21 @@ describe('describeLinkExpiry', () => {
 
 describe('partialSetupLinkKind', () => {
   test('answers as soon as the path names a setup route', () => {
-    withWindowOrigin('https://dosco.live');
-    expect(partialSetupLinkKind('https://dosco.live/connect/')).toBe('connector');
-    expect(partialSetupLinkKind('https://dosco.live/connect/ksl_AB')).toBe('connector');
-    expect(partialSetupLinkKind('https://dosco.live/secret-intake/k')).toBe('secret');
+    withWindowOrigin('https://kortix.com');
+    expect(partialSetupLinkKind('https://kortix.com/connect/')).toBe('connector');
+    expect(partialSetupLinkKind('https://kortix.com/connect/ksl_AB')).toBe('connector');
+    expect(partialSetupLinkKind('https://kortix.com/secret-intake/k')).toBe('secret');
     expect(partialSetupLinkKind('/connect/ksl_AB')).toBe('connector');
   });
 
   test('says nothing while the URL could still be anything', () => {
-    withWindowOrigin('https://dosco.live');
+    withWindowOrigin('https://kortix.com');
     for (const partial of [
       '',
       'h',
       'https:/',
       'https://kort',
-      'https://dosco.live/co',
+      'https://kortix.com/co',
       '/connect',
     ]) {
       expect(partialSetupLinkKind(partial)).toBeNull();
@@ -222,14 +222,14 @@ describe('partialSetupLinkKind', () => {
 
   test('a cross-origin URL counts only while its token can still be ksl_', () => {
     withWindowOrigin('https://staging.kortix.com');
-    expect(partialSetupLinkKind('https://dosco.live/connect/')).toBe('connector');
-    expect(partialSetupLinkKind('https://dosco.live/connect/ks')).toBe('connector');
-    expect(partialSetupLinkKind('https://dosco.live/connect/ksl_AB')).toBe('connector');
+    expect(partialSetupLinkKind('https://kortix.com/connect/')).toBe('connector');
+    expect(partialSetupLinkKind('https://kortix.com/connect/ks')).toBe('connector');
+    expect(partialSetupLinkKind('https://kortix.com/connect/ksl_AB')).toBe('connector');
     expect(partialSetupLinkKind('https://example.com/connect/other-token')).toBeNull();
   });
 
   test('other routes and schemes are not setup links', () => {
-    expect(partialSetupLinkKind('https://dosco.live/docs/connect/')).toBeNull();
+    expect(partialSetupLinkKind('https://kortix.com/docs/connect/')).toBeNull();
     expect(partialSetupLinkKind('javascript:/connect/')).toBeNull();
     expect(partialSetupLinkKind('Connect Outlook')).toBeNull();
   });
@@ -255,23 +255,23 @@ describe('pending setup-link href', () => {
 
 describe('holdPendingSetupLink', () => {
   const LEAD = "Here's a fresh authorization link:\n\n";
-  const URL = `https://dosco.live/connect/${TOKEN}`;
+  const URL = `https://kortix.com/connect/${TOKEN}`;
   const LINK = `[Connect Outlook](${URL})`;
 
   test('holds the link as a pending card from the moment the path names a setup route', () => {
-    withWindowOrigin('https://dosco.live');
+    withWindowOrigin('https://kortix.com');
     const pending = `${LEAD}[Connect Outlook](${pendingSetupLinkHref('connector')})`;
-    for (const cut of ['https://dosco.live/connect/', 'https://dosco.live/connect/ksl_AAA', URL]) {
+    for (const cut of ['https://kortix.com/connect/', 'https://kortix.com/connect/ksl_AAA', URL]) {
       expect(holdPendingSetupLink(`${LEAD}[Connect Outlook](${cut}`)).toBe(pending);
     }
   });
 
   test('leaves the text alone before the route is known and after the link closes', () => {
-    withWindowOrigin('https://dosco.live');
+    withWindowOrigin('https://kortix.com');
     for (const text of [
       `${LEAD}[Connect Outl`,
       `${LEAD}[Connect Outlook](`,
-      `${LEAD}[Connect Outlook](https://dosco.live/co`,
+      `${LEAD}[Connect Outlook](https://kortix.com/co`,
       `${LEAD}${LINK}`,
       `${LEAD}${LINK}\n\nIt expires in about 30 minutes.`,
     ]) {
@@ -280,7 +280,7 @@ describe('holdPendingSetupLink', () => {
   });
 
   test('holds a link on the line after a bold heading in the same paragraph', () => {
-    withWindowOrigin('https://dosco.live');
+    withWindowOrigin('https://kortix.com');
     const heading = `${LEAD}📅 **Google Calendar (member level):**\n`;
     expect(holdPendingSetupLink(`${heading}[Authorize my Calendar](${URL.slice(0, 40)}`)).toBe(
       `${heading}[Authorize my Calendar](${pendingSetupLinkHref('connector')})`,
@@ -288,21 +288,21 @@ describe('holdPendingSetupLink', () => {
   });
 
   test('a label that is itself the setup URL holds with no label, like the bare URL it becomes', () => {
-    withWindowOrigin('https://dosco.live');
-    expect(holdPendingSetupLink(`${LEAD}[https://dosco.live/secret-intake/ksl_A`)).toBe(
+    withWindowOrigin('https://kortix.com');
+    expect(holdPendingSetupLink(`${LEAD}[https://kortix.com/secret-intake/ksl_A`)).toBe(
       `${LEAD}[](${pendingSetupLinkHref('secret')})`,
     );
   });
 
   test('ordinary links are never held', () => {
-    withWindowOrigin('https://dosco.live');
-    const text = `${LEAD}[the docs](https://dosco.live/docs/conn`;
+    withWindowOrigin('https://kortix.com');
+    const text = `${LEAD}[the docs](https://kortix.com/docs/conn`;
     expect(holdPendingSetupLink(text)).toBe(text);
   });
 
   test('a label with brackets inside is left to the generic path', () => {
-    withWindowOrigin('https://dosco.live');
-    const text = `${LEAD}[a] b](https://dosco.live/connect/ksl_A`;
+    withWindowOrigin('https://kortix.com');
+    const text = `${LEAD}[a] b](https://kortix.com/connect/ksl_A`;
     expect(holdPendingSetupLink(text)).toBe(text);
   });
 });

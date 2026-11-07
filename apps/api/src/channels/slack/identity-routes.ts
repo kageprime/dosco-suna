@@ -2,17 +2,16 @@
  * Slack `/login` — the AUTHENTICATED bind half.
  *
  * The Slack slash command mints a short-lived signed token (channels/slack/login.ts)
- * and DMs the user a link to the web page. That page requires a normal Dosco
+ * and DMs the user a link to the web page. That page requires a normal Kortix
  * login and POSTs the token here with the user's bearer. We verify the token,
- * confirm the now-known Dosco user is a member of the Slack workspace's project
+ * confirm the now-known Kortix user is a member of the Slack workspace's project
  * account, and persist the (workspace, slack_user) → kortix_user mapping.
  *
  * Same trust model as accepting a team invite: the token proves which Slack user
- * asked to link; the bearer proves which Dosco user is accepting.
+ * asked to link; the bearer proves which Kortix user is accepting.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { inArray } from 'drizzle-orm';
-import { projects } from '@kortix/db';
 import { db } from '../../shared/db';
 import { config } from '../../config';
 import { auth, errors, json, makeOpenApiApp } from '../../openapi';
@@ -30,6 +29,7 @@ import { chatUser, completeChatLogin } from '../core/identity';
 import { readJsonObject } from '../../shared/http-body';
 import { buildDenialError } from '../../iam/denial-message';
 import { PROJECT_ACTIONS } from '../../iam/actions';
+import { projectsView } from '../../workspaces/rows';
 
 export const slackIdentityApp = makeOpenApiApp();
 
@@ -46,7 +46,7 @@ slackIdentityApp.openapi(
   }),
   async (c: any) => {
     const token = c.req.param('token');
-    const base = (config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '');
+    const base = (config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '');
     const target = `${base}/slack/login/${encodeURIComponent(token)}`;
     return c.html(`<!doctype html>
 <html>
@@ -54,12 +54,12 @@ slackIdentityApp.openapi(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="refresh" content="0; url=${target}" />
-    <title>Opening Dosco</title>
+    <title>Opening Kortix</title>
   </head>
   <body>
-    <p>Opening Dosco...</p>
+    <p>Opening Kortix...</p>
     <script>window.location.replace(${JSON.stringify(target)});</script>
-    <p><a href="${target}">Continue to Dosco</a></p>
+    <p><a href="${target}">Continue to Kortix</a></p>
   </body>
 </html>`);
   },
@@ -102,7 +102,7 @@ slackIdentityApp.openapi(
 
     const projectIds = await listProjectsForWorkspace('slack', payload.teamId);
     if (projectIds.length === 0) {
-      return c.json({ error: 'This Slack workspace is not connected to any Dosco project.' }, 403);
+      return c.json({ error: 'This Slack workspace is not connected to any Kortix workspace.' }, 403);
     }
     const [workspaceName, botToken] = await Promise.all([
       loadSlackTeamNameForProject(projectIds[0]!).catch(() => null),
@@ -134,7 +134,7 @@ slackIdentityApp.openapi(
     method: 'post',
     path: '/bind',
     tags: ['channels'],
-    summary: 'Bind the calling Dosco user to a Slack user from a /login token',
+    summary: 'Bind the calling Kortix user to a Slack user from a /login token',
     ...auth,
     middleware: [combinedAuth] as const,
     request: { body: { content: { 'application/json': { schema: BindBody } } } },
@@ -154,20 +154,20 @@ slackIdentityApp.openapi(
     const payload = verifyLoginState(token);
     if (!payload) return c.json({ error: 'This link is invalid or has expired. Run `/kortix login` again.' }, 410);
 
-    // The workspace must be connected to at least one Dosco project, and the
+    // The workspace must be connected to at least one Kortix project, and the
     // accepting user must be a member of that project's account — otherwise a
     // stranger could bind into a workspace they have no access to.
     const projectIds = await listProjectsForWorkspace('slack', payload.teamId);
     if (projectIds.length === 0) {
-      return c.json({ error: 'This Slack workspace is not connected to any Dosco project.' }, 403);
+      return c.json({ error: 'This Slack workspace is not connected to any Kortix workspace.' }, 403);
     }
     const accountRows = await db
-      .select({ accountId: projects.accountId })
-      .from(projects)
-      .where(inArray(projects.projectId, projectIds));
+      .select({ accountId: projectsView.accountId })
+      .from(projectsView)
+      .where(inArray(projectsView.projectId, projectIds));
     const accountIds = Array.from(new Set(accountRows.map((r) => r.accountId)));
 
-    // Link regardless of membership. Connecting your Dosco account is decoupled
+    // Link regardless of membership. Connecting your Kortix account is decoupled
     // from having access: we establish WHO this Slack user is so a non-member can
     // request access right in the thread. This is safe — the link grants nothing
     // on its own; the runtime gate (resolveChatActor) still requires membership
@@ -190,7 +190,7 @@ slackIdentityApp.openapi(
         : c.json(
             {
               error:
-                'This Slack account is connected to a different Dosco account. Run `/kortix logout` in Slack, then `/kortix login`.',
+                'This Slack account is connected to a different Kortix account. Run `/kortix logout` in Slack, then `/kortix login`.',
             },
             409,
           );

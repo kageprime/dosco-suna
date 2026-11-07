@@ -6,10 +6,11 @@ const writes: unknown[] = [];
 const searches: string[] = [];
 const products: unknown[] = [];
 const invoices: unknown[] = [];
-mock.module('../../shared/db', () => ({ db: {
+mock.module('../../shared/db', () => ({ withDbTransaction: <T>(fn: () => Promise<T>) => fn(), db: {
   select: () => ({ from: () => ({ where: () => ({ limit: async () => offer.collection === 'invoice' ? [] : [offer] }) }) }),
   insert: () => ({ values: () => ({ returning: async () => [offer] }) }),
-  update: () => ({ set: (patch: unknown) => { writes.push(patch); return { where: async () => undefined }; } }),
+  // A status write is a compare-and-set that reads its row back (`.returning()`).
+  update: () => ({ set: (patch: unknown) => { writes.push(patch); return { where: () => Object.assign(Promise.resolve(undefined), { returning: async () => [] }) }; } }),
 } }));
 mock.module('../../shared/stripe', () => ({ getStripe: () => ({
   products: {
@@ -45,7 +46,7 @@ test('offer checkout charges the license only (a stale credits amount is ignored
 });
 test('a product search miss creates one license product and reuses it for later checkouts', async () => {
   await createOfferCheckout({ accountId: offer.accountId, email: 'billing@example.test', successUrl: 'https://example.test/success', cancelUrl: 'https://example.test/cancel' });
-  expect(searches).toEqual(["metadata['kortix_product']:'enterprise_license'"]); expect(products).toEqual([{ name: 'Dosco Enterprise license', metadata: { kortix_product: 'enterprise_license' } }]); expect(sessions).toHaveLength(2);
+  expect(searches).toEqual(["metadata['kortix_product']:'enterprise_license'"]); expect(products).toEqual([{ name: 'Kortix Enterprise license', metadata: { kortix_product: 'enterprise_license' } }]); expect(sessions).toHaveLength(2);
 });
 test('a zero-dollar license creates no line items or product', async () => {
   offer.licenseUsd = '0.00';

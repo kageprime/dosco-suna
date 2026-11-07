@@ -1,6 +1,6 @@
 // Generated from application option and presentation registries.
 export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
-  'A laptop, a VPS, or your own VPC — the exact same stack as Dosco cloud.': 'text5f303c017ed7',
+  'A laptop, a VPS, or your own VPC — the exact same stack as Kortix cloud.': 'text5f303c017ed7',
   'A new machine is being prepared. Sessions started now wait for it to finish — they don’t fail.':
     'textb16ecefb1aec',
   Account: 'text7e1b0d5641f2',
@@ -15,14 +15,14 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Any model': 'texte75d99a42dba',
   'Any runtime': 'text76020fe09cc6',
   Apps: 'text89dd748442c1',
-  'Attach a group to any project with a role': 'textb9e8c0ab350c',
+  'Attach a group to any workspace with a role': 'textb9e8c0ab350c',
   Audit: 'textbb6aea287396',
   'Audit logs are an Enterprise feature': 'text1c791e8c04de',
   'Auto Top-up': 'textb22c4907adbb',
   Automate: 'textf9dcbb55deba',
   Billing: 'text3ac8bbca9a74',
   'Branding is an Enterprise feature': 'textc44722e44ce4',
-  'Bring your own keys — Anthropic, OpenAI, or local models — or run on Dosco compute.':
+  'Bring your own keys — Anthropic, OpenAI, or local models — or run on Kortix compute.':
     'text0ced428dea65',
   'Categorizes, prioritizes and routes inbound tickets, drafting an empathetic first reply.':
     'text75c341902d77',
@@ -56,8 +56,8 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Groups are an Enterprise feature': 'text76afda83081b',
   Home: 'text3a78695388b3',
   'How this works': 'textbdbd7706de64',
-  'IdP groups map to roles on your projects': 'textb978cac03a79',
-  'Dosco prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
+  'IdP groups map to roles on your workspaces': 'textb978cac03a79',
+  'Kortix prepares a machine the first time you start a session here. Nothing needs to be set up in advance.':
     'text5c48b158361a',
   'LLM Overage': 'text3f6365f81e08',
   'Machine Bonus': 'text917ffd97c41a',
@@ -69,14 +69,14 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
     'textc910d1020fa8',
   'Nothing prepared yet': 'text8b64afef1a24',
   'Offboard someone everywhere by removing one membership': 'text6d2d6f5347aa',
-  'Bring your own model keys. No black box, no lock-in.':
+  'Open source. Self-host the exact same stack, bring your own runtime and model keys. No black box, no lock-in.':
     'textc417a3753a0b',
   Operate: 'text58c3939c4ce9',
-  'Preparing this project’s environment': 'text69e4bd3a0f79',
+  'Preparing this workspace’s environment': 'text69e4bd3a0f79',
   'Profiles the warehouse, writes performant SQL and ships a dashboard from a plain question.':
     'text4ea9bc9c2acc',
-  Project: 'text985959785319',
-  Projects: 'text04e2a9728af7',
+  Workspace: 'text985959785319',
+  Workspaces: 'text04e2a9728af7',
   Promotional: 'texta9b8859fba62',
   Purchase: 'text5b5e9c65b400',
   'Reflects on recent activity and curates .kortix/memory, opening a memory CR each run.':
@@ -95,7 +95,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Scaffold & ship': 'textbb742be18fc7',
   Scheduling: 'texted5c58303a98',
   Security: 'text8f6fb4eb7f42',
-  'Run anywhere': 'text6416e5f37409',
+  'Self-host anywhere': 'text6416e5f37409',
   Sessions: 'text6fa3cbf451b2',
   'Single sign-on with just-in-time member provisioning': 'texte67b8abd74eb',
   Skills: 'text66d0f523a379',
@@ -104,7 +104,7 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   Su: 'text2d88a3a2842e',
   'Sync membership automatically from your identity provider': 'texte164235035e6',
   Th: 'text3bff939c10f4',
-  'This project’s environment is ready': 'text108fd36702c5',
+  'This workspace’s environment is ready': 'text108fd36702c5',
   'Tier Grant': 'text16a2a5617354',
   Tokens: 'texta039dfb9628b',
   Triggers: 'texte62f2148a64d',
@@ -122,4 +122,10 @@ export const APP_REGISTRY_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   building: 'text5167e9677e1f',
   failed: 'text5d28a90f4498',
   ready: 'textb24d6d33736e',
+  "Define roles of your own: pick exactly what a member may view and change, then give them out from Members like the built-in ones.": 'text1a836dc94f41',
+  "Give a custom role to a person or a group": 'textb2c26ac6527b',
+  "Put your own logo, icon, favicon, and product name on the app for everyone in this workspace: Kortix becomes your tool.": 'textfab4077701b7',
+  "IdP groups map to roles in this workspace": 'textfd8fee75dbb5',
+  "Bundle members into groups and give the whole group a role: one grant instead of dozens, revoked just as easily.": 'textadca5dfd1e42',
+  "A complete, filterable trail of every admin and agent action in this workspace: who did what, where, and when.": 'text16ba47efb9f2',
 };

@@ -284,7 +284,7 @@ export async function conversationRefForSession(sessionId: string): Promise<Team
   const [thread] = await db
     .select({
       projectId: chatThreads.projectId,
-      tenantId: chatThreads.workspaceId,
+      tenantId: chatThreads.platformTeamId,
       conversationId: chatThreads.threadId,
     })
     .from(chatThreads)
@@ -526,7 +526,7 @@ export async function finalizeTurn(
       ? sessionWebUrl(config.FRONTEND_URL, handle.projectId, handle.sessionId)
       : undefined;
   const ref = refOf(handle);
-  // Which Dosco agent answered: the first line of every card below.
+  // Which Kortix agent answered: the first line of every card below.
   const agent = await sessionAgentName(handle.sessionId).catch(() => null);
 
   // Did the answer reach the conversation? `updateCard` and `sendCard` report
@@ -594,7 +594,7 @@ const MAX_BODY_CHARS = 60_000;
 const TEXT_BUDGET_BYTES = 20_000;
 
 function fitTextMessage(body: string, sessionUrl?: string): string {
-  const link = sessionUrl ? `\n\n[Open session in Dosco ↗](${sessionUrl})` : '';
+  const link = sessionUrl ? `\n\n[Open session in Kortix ↗](${sessionUrl})` : '';
   let out = body;
   if (Buffer.byteLength(out + link, 'utf8') > TEXT_BUDGET_BYTES) {
     // Characters, not bytes, are what slice counts: shrink until the bytes fit.
@@ -715,7 +715,7 @@ async function runtimeStillWorking(sessionId: string): Promise<boolean> {
 
 /**
  * Closing the card is not ending the run. A turn this sweep reaps has been
- * silent for 30 minutes, but OpenCode can still hold its assistant message
+ * silent for 30 minutes, but the runtime can still hold its assistant message
  * OPEN — and while it does, every later prompt in that conversation is
  * accepted and never runs. Seen on dev 2026-09-19: two messages vanished that
  * way over two days. Imported lazily so the channel modules keep no static

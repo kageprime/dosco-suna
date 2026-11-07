@@ -43,8 +43,8 @@
  *  - PRICE. Managed cloud is credits: one paid plan sold in tiers from $50 a month,
  *    1 credit = $0.01, unlimited members sharing one pool —
  *    `apps/web/src/features/billing/pricing-plans.ts`, the `credits` entry of
- *    `PRICING_PLANS`. Its `free` entry is $0 with "500 credits / month, no card
- *    needed" and "1 project"; managed models are in the `credits` entry only. This FAQ names no dollar plan: amounts live on
+ *    `PRICING_PLANS`. Its `free` entry is $0 with "500 credits / month on your
+ *    first workspace" and no workspace cap; managed models are in the `credits` entry only. This FAQ names no dollar plan: amounts live on
  *    /pricing and in the plan picker. (Cited by plan id, not line number — the
  *    ids are stable, the line numbers were not.) Never write "seat" or "per
  *    seat", and never invent a discount, a trial length or a usage rate.
@@ -55,8 +55,8 @@
  *    correction). Name ChatGPT only.
  *  - SELF-HOST IS NOT AIR-GAPPED. `kortix self-host start` pulls images over the
  *    internet, the default sandbox provider is remote, and the instance must be
- *    reachable so the sandbox can call back (`apps/cli/src/commands/self-host.ts`).
- *    Say it.
+ *    reachable so the sandbox can call back (`apps/cli/src/commands/self-host.ts`,
+ *    and the honesty gate in `marketing/self-hosted/content.ts`). Say it.
  *  - APPROVAL GATES ARE OFF BY DEFAULT. `policy.default_mode` falls back to
  *    `allow_all` when a project declares no `policy:` block
  *    (`apps/api/src/projects/policies.ts:73`). Write "you set allow, ask or
@@ -102,7 +102,7 @@ export const faq = {
   eyebrow: 'Frequently asked questions',
   title: 'The questions people ask before the first session.',
   /** One link out, to the page that carries the longest of these answers. */
-  /* No trailing link. One 'How Dosco is secured →' under a list of six
+  /* No trailing link. One 'How Kortix is secured →' under a list of six
      questions pointed at the answer to only one of them, and reads as an
      apology for the section. Each answer carries its own link where it needs
      one. */
@@ -117,7 +117,7 @@ export const faq = {
       id: 'guardrails',
       question: 'What stops it doing something I did not want?',
       answer:
-        'You set allow, ask or block per action, and a rule can match on a glob, a regular expression, or the arguments of the call itself. Be aware that nothing is switched on for you: a project with no policy declared runs every action, so this is a thing you configure rather than a thing you inherit. Session work reaches main through a change request, and merge is default-deny for an agent unless an admin grants it.',
+        'You set allow, ask or block per action, and a rule can match on a glob, a regular expression, or the arguments of the call itself. Be aware that nothing is switched on for you: a workspace with no policy declared runs every action, so this is a thing you configure rather than a thing you inherit. Session work reaches main through a change request, and merge is default-deny for an agent unless an admin grants it.',
     },
     {
       id: 'audit',
@@ -129,19 +129,19 @@ export const faq = {
       id: 'ownership',
       question: 'Is my company data yours?',
       answer:
-        'No. A project is a git repository — clone it and the agents, the skills and everything the company has learned come with you. The repository, its history and the configuration are yours to inspect, fork and take with you.',
+        'No. A workspace is backed by a git repository — clone it and the agents, the skills and everything the company has learned come with you. Self-host and the database, the files, the repos, the secrets and the audit record all sit on disk you control, on one Docker Compose stack built from the same images the managed cloud runs. It is not air-gapped, and we will not pretend otherwise: agent sandboxes run on the compute provider you configure, and your instance has to be reachable so they can call back.',
     },
     {
       id: 'models',
       question: 'Can I use the models I already pay for?',
       answer:
-        'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for. Managed models are not currently enabled. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.',
+        'Yes. Bring your own API key for any major provider, or sign in with the ChatGPT subscription you already pay for, or use the managed gateway and bring no key at all. The model is a line of configuration in your repo, so switching provider is a diff rather than a migration.',
     },
     {
       id: 'price',
       question: 'What does it cost?',
       answer:
-        'Free is $0 — one project, 500 credits a month, every self-serve feature, with your own key for any model. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole account. The software costs nothing; you pay your own model bill and your own compute bill instead.',
+        'Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Kortix-managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.',
     },
   ] satisfies readonly FaqItem[],
 } as const;

@@ -31,6 +31,7 @@ import {
 import type { SlackInteractionPayload, SlashResponse } from './types';
 import { bindIntegrationPrincipal } from '../../shared/audit-scope';
 import { runWebhookWork, type WebhookOutcome } from '../webhook-work';
+import { workspaceIdParam } from '../../shared/route-params';
 
 // ── Shared slash + interactivity processing ───────────────────────────────────
 // The canonical OAuth app and per-project (BYO) apps run the SAME logic. They
@@ -38,7 +39,7 @@ import { runWebhookWork, type WebhookOutcome } from '../webhook-work';
 // request may reach (see `SlackInbound`). Each route does its own signature
 // check, then hands the verified raw body and its inbound scope to these.
 
-const WORKSPACE_MISMATCH = { error: 'This Slack workspace is not connected to this project' };
+const WORKSPACE_MISMATCH = { error: 'This Slack workspace is not connected to this workspace' };
 
 /**
  * Verify a per-project (BYO) request: the project's own signing secret, then
@@ -183,7 +184,6 @@ export function registerSlackWebhookRoutes(): void {
       }
       bindIntegrationPrincipal('slack');
 
-
       const envelope = parseEnvelope(rawBody);
       if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
       if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
@@ -195,7 +195,6 @@ export function registerSlackWebhookRoutes(): void {
         if (envelope.event?.type === 'member_joined_channel') {
           await maybePostChannelIntro(teamId, envelope.event);
           return;
-
         }
         if (
           envelope.event?.type === 'app_home_opened' &&
@@ -205,7 +204,7 @@ export function registerSlackWebhookRoutes(): void {
           await publishHomeForUser(teamId, envelope.event.user);
           return;
         }
-        // Opening the Dosco DM (AI-Assistant pane) → greet with the project picker.
+        // Opening the Kortix DM (AI-Assistant pane) → greet with the project picker.
         // The channel/thread live on event.assistant_thread, NOT the top-level event,
         // so resolveOauthProject can't see it — handle it before that branch.
         if (envelope.event?.type === 'assistant_thread_started') {
@@ -230,7 +229,7 @@ export function registerSlackWebhookRoutes(): void {
           const installs = await db
             .select({ projectId: chatInstalls.projectId })
             .from(chatInstalls)
-            .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.workspaceId, teamId)));
+            .where(and(eq(chatInstalls.platform, 'slack'), eq(chatInstalls.platformTeamId, teamId)));
           if (installs.length > 0) {
             await maybePostPicker(
               teamId,
@@ -325,7 +324,7 @@ export function registerSlackWebhookRoutes(): void {
   slackWebhookApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}',
+      path: '/{workspaceId}',
       tags: ['channels'],
       summary: 'Per-project (BYO app) Slack Events webhook (signature verified)',
       request: {
@@ -333,7 +332,7 @@ export function registerSlackWebhookRoutes(): void {
           // A project id is always a UUID. Without this, a non-UUID path segment
           // reached the projects DB lookup, which threw on the invalid input and
           // surfaced as a 500 to an anonymous caller (pentest 2026-10-22).
-          projectId: z.string().uuid(),
+          workspaceId: z.string().uuid(),
         }),
         body: { content: { 'application/json': { schema: z.any() } } },
       },
@@ -346,18 +345,16 @@ export function registerSlackWebhookRoutes(): void {
       },
     }),
     async (c: any) => {
-      const projectId = c.req.param('projectId');
+      const projectId = workspaceIdParam(c);
       const rawBody = await c.req.text();
-
 
       const envelope = parseEnvelope(rawBody);
       if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
       // Slack verifies the Events API request URL before a manual/BYO app can be
-      // installed and saved back to Dosco, so there is no project signing secret
+      // installed and saved back to Kortix, so there is no project signing secret
       // yet. Only the bootstrap challenge is allowed through this unsigned path;
       // every real callback below remains project-secret verified.
       if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
-
 
       const verified = await verifyProjectSlackRequest(c, projectId, rawBody, envelope.team_id);
       if ('refusal' in verified) return verified.refusal;
@@ -384,7 +381,7 @@ export function registerSlackWebhookRoutes(): void {
   slackWebhookApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/commands',
+      path: '/{workspaceId}/commands',
       tags: ['channels'],
       summary: 'Per-project (BYO app) Slack slash command webhook (signature verified)',
       request: {
@@ -392,7 +389,7 @@ export function registerSlackWebhookRoutes(): void {
           // A project id is always a UUID. Without this, a non-UUID path segment
           // reached the projects DB lookup, which threw on the invalid input and
           // surfaced as a 500 to an anonymous caller (pentest 2026-10-22).
-          projectId: z.string().uuid(),
+          workspaceId: z.string().uuid(),
         }),
         body: { content: { 'application/x-www-form-urlencoded': { schema: z.any() } } },
       },
@@ -407,7 +404,7 @@ export function registerSlackWebhookRoutes(): void {
       },
     }),
     async (c: any) => {
-      const projectId = c.req.param('projectId');
+      const projectId = workspaceIdParam(c);
       const rawBody = await c.req.text();
       const bodyTeamId = new URLSearchParams(rawBody).get('team_id');
       const verified = await verifyProjectSlackRequest(c, projectId, rawBody, bodyTeamId);
@@ -418,12 +415,12 @@ export function registerSlackWebhookRoutes(): void {
   );
 
   // Per-project (BYO app) interactivity — parity with the canonical /interactivity
-  // (block-action pickers + the "Open in Dosco" message shortcut), verified with
+  // (block-action pickers + the "Open in Kortix" message shortcut), verified with
   // the project's own signing secret. The BYO manifest points interactivity here.
   slackWebhookApp.openapi(
     createRoute({
       method: 'post',
-      path: '/{projectId}/interactivity',
+      path: '/{workspaceId}/interactivity',
       tags: ['channels'],
       summary: 'Per-project (BYO app) Slack interactivity webhook (signature verified)',
       request: {
@@ -431,7 +428,7 @@ export function registerSlackWebhookRoutes(): void {
           // A project id is always a UUID. Without this, a non-UUID path segment
           // reached the projects DB lookup, which threw on the invalid input and
           // surfaced as a 500 to an anonymous caller (pentest 2026-10-22).
-          projectId: z.string().uuid(),
+          workspaceId: z.string().uuid(),
         }),
         body: { content: { 'application/x-www-form-urlencoded': { schema: z.any() } } },
       },
@@ -441,7 +438,7 @@ export function registerSlackWebhookRoutes(): void {
       },
     }),
     async (c: any) => {
-      const projectId = c.req.param('projectId');
+      const projectId = workspaceIdParam(c);
       const rawBody = await c.req.text();
       const bodyTeamId = interactionPayload(rawBody)?.team?.id;
       const verified = await verifyProjectSlackRequest(c, projectId, rawBody, bodyTeamId);
@@ -463,7 +460,7 @@ export function registerSlackWebhookRoutes(): void {
   slackWebhookApp.openapi(
     createRoute({
       method: 'get',
-      path: '/{projectId}/manifest',
+      path: '/{workspaceId}/manifest',
       tags: ['channels'],
       summary: 'Per-project (BYO app) Slack app manifest (single source of truth)',
       request: {
@@ -471,7 +468,7 @@ export function registerSlackWebhookRoutes(): void {
           // A project id is always a UUID. Without this, a non-UUID path segment
           // reached the projects DB lookup, which threw on the invalid input and
           // surfaced as a 500 to an anonymous caller (pentest 2026-10-22).
-          projectId: z.string().uuid(),
+          workspaceId: z.string().uuid(),
         }),
         query: z.object({ name: z.string().optional(), command: z.string().optional() }),
       },
@@ -480,7 +477,7 @@ export function registerSlackWebhookRoutes(): void {
       },
     }),
     async (c: any) => {
-      const projectId = c.req.param('projectId');
+      const projectId = workspaceIdParam(c);
       const name = c.req.query('name') || undefined;
       const command = c.req.query('command') || undefined;
       // Prefer the configured public URL; fall back to the request host.

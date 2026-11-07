@@ -36,7 +36,7 @@ export const hero = {
   eyebrow: 'Connectors',
   title: 'Every tool your company runs on.',
   titleMuted: 'None of the keys.',
-  sub: 'Connect a tool once, for the whole company. Agents reach it through one scoped token that Dosco brokers server-side — so the raw credential never lands in the machine the model is driving.',
+  sub: 'Connect a tool once, for the whole company. Agents reach it through one scoped token that Kortix brokers server-side — so the raw credential never lands in the machine the model is driving.',
   ctaPrimary: 'Get started',
   ctaPrimaryHref: '/auth',
   ctaSecondary: 'Talk to sales',
@@ -56,20 +56,20 @@ export const connect = {
   eyebrow: 'Connect once',
   title: 'One connection.',
   titleMuted: 'Every agent, every session, every person.',
-  sub: 'A connector belongs to the project, not to a laptop or a login. Add it once and every session that project starts can reach it — with no second setup and no key passed around in a DM.',
+  sub: 'A connector belongs to the workspace, not to a laptop or a login. Add it once and every session that workspace starts can reach it — with no second setup and no key passed around in a DM.',
   /** Mirrors the real tabs on the Add-a-connector screen. */
   routes: [
     {
       id: 'easy',
       label: 'Easy connect',
       title: '3,000+ apps, OAuth handled',
-      body: 'Pick the app, click through its OAuth screen, done. Dosco stores the connection, not your password — Gmail, Notion, Linear, Salesforce, HubSpot, Zendesk, Google Drive and thousands more.',
+      body: 'Pick the app, click through its OAuth screen, done. Kortix stores the connection, not your password — Gmail, Notion, Linear, Salesforce, HubSpot, Zendesk, Google Drive and thousands more.',
     },
     {
       id: 'custom',
       label: 'Custom',
       title: 'Your own APIs, in the same shape',
-      body: 'Point Dosco at an OpenAPI or Postman spec, a GraphQL endpoint, a remote MCP server, or a bare HTTP base URL. It reads the source, works out the authentication, and turns every operation into a tool.',
+      body: 'Point Kortix at an OpenAPI or Postman spec, a GraphQL endpoint, a remote MCP server, or a bare HTTP base URL. It reads the source, works out the authentication, and turns every operation into a tool.',
     },
     {
       id: 'channels',
@@ -81,7 +81,7 @@ export const connect = {
   /** Real product screenshot — the Easy connect catalogue on a live project. */
   shot: {
     src: '/media/connectors/connector-catalogue.webp',
-    alt: 'The Dosco connector catalogue, showing Notion, Google Sheets, Linear, Google Drive, Salesforce, HubSpot, GitHub, Gmail and more, each one click from connected.',
+    alt: 'The Kortix connector catalogue, showing Notion, Google Sheets, Linear, Google Drive, Salesforce, HubSpot, GitHub, Gmail and more, each one click from connected.',
     caption: 'Connectors → Add app → Easy connect.',
   },
 } as const;
@@ -114,7 +114,7 @@ export const broker = {
   eyebrow: 'The credential never travels',
   title: 'The agent gets a token. It never gets the key.',
   titleMuted: 'The key stays on our side of the wall.',
-  sub: 'A sandbox is a real Linux machine the model can run anything on. So we do not put your credentials in it. The sandbox carries exactly one Dosco token, scoped to the project, and every outbound call is assembled on our side of the wall.',
+  sub: 'A sandbox is a real Linux machine the model can run anything on. So we do not put your credentials in it. The sandbox carries exactly one Kortix token, scoped to the workspace, and every outbound call is assembled on our side of the wall.',
 
   /** The old shape, stated plainly so the new one has something to beat. */
   before: {
@@ -129,10 +129,10 @@ export const broker = {
     body: 'Every key sits in the environment the model reads from. Revoking one means rotating it everywhere it was copied, and any of them can end up in a log line.',
   },
   after: {
-    label: 'How Dosco does it',
+    label: 'How Kortix does it',
     title: 'One scoped token, and nothing else',
     lines: ['KORTIX_TOKEN=kortix_pat_…'],
-    body: 'Scoped to one project and narrowed again by what that agent is allowed to touch. Turning a connector off takes effect on the next call. Nothing in the sandbox needs rotating, because nothing in the sandbox was ever a secret of yours.',
+    body: 'Scoped to one workspace and narrowed again by what that agent is allowed to touch. Turning a connector off takes effect on the next call. Nothing in the sandbox needs rotating, because nothing in the sandbox was ever a secret of yours.',
   },
 
   /** The diagram, left to right. */
@@ -147,7 +147,7 @@ export const broker = {
     {
       id: 'broker',
       step: '2',
-      title: 'Dosco brokers',
+      title: 'Kortix brokers',
       mono: 'POST /v1/connectors/call',
       body: 'The gateway checks this agent may use this connector, resolves the policy, decrypts the credential server-side, and attaches it to the outbound request.',
     },
@@ -168,7 +168,7 @@ export const broker = {
     {
       id: 'encrypted',
       title: 'Encrypted at rest',
-      body: 'Connector credentials are encrypted with a per-project key and stored apart from the values a sandbox is allowed to read.',
+      body: 'Connector credentials are encrypted with a per-workspace key and stored apart from the values a sandbox is allowed to read.',
     },
     {
       id: 'runtime',
@@ -196,8 +196,8 @@ export const scope = {
   layers: [
     {
       id: 'project',
-      label: 'Per project',
-      body: 'A connector lives in one project. Another project cannot see it, call it, or read its credential — a project is its own blast radius.',
+      label: 'Per workspace',
+      body: 'A connector lives in one workspace. Another workspace cannot see it, call it, or read its credential — a workspace is its own blast radius.',
     },
     {
       id: 'agent',
@@ -207,7 +207,7 @@ export const scope = {
     {
       id: 'person',
       label: 'Per person',
-      body: 'Choose who the connection belongs to: one project-managed account everyone shares, or a personal authorization where each member acts as themselves and an automated principal cannot act at all.',
+      body: 'Choose who the connection belongs to: one workspace-managed account everyone shares, or a personal authorization where each member acts as themselves and an automated principal cannot act at all.',
     },
   ],
   /** Real `kortix.yaml`. Keep it valid — people will copy it. */
@@ -273,12 +273,12 @@ export const policy = {
    * writes ask by default — they do not until somebody sets `risk`.
    */
   defaultState:
-    'A tool left on Default has no rule of its own and falls through to the project default. Until you set that default to risk — reads run, writes and destructive actions ask — an untouched project runs everything.',
+    'A tool left on Default has no rule of its own and falls through to the workspace default. Until you set that default to risk — reads run, writes and destructive actions ask — an untouched workspace runs everything.',
 
   /** Real product screenshot — the Permissions tab on a live connector. */
   shot: {
     src: '/media/connectors/connector-permissions.webp',
-    alt: 'The Permissions tab of the Google Drive connector in Dosco: a default rule, then every Drive tool set to Allow, Ask, Block or Default.',
+    alt: 'The Permissions tab of the Google Drive connector in Kortix: a default rule, then every Drive tool set to Allow, Ask, Block or Default.',
     caption: 'The Permissions tab of a Google Drive connector.',
   },
 
@@ -286,7 +286,7 @@ export const policy = {
   pause: {
     eyebrow: 'The pause is real',
     title: 'An approval stops the run. It does not fail it.',
-    body: 'A gate that errors out teaches an agent to retry around it. A Dosco gate holds the call open, so the agent is still mid-task when you answer — and picks up exactly where it stopped.',
+    body: 'A gate that errors out teaches an agent to retry around it. A Kortix gate holds the call open, so the agent is still mid-task when you answer — and picks up exactly where it stopped.',
     steps: [
       { id: 'run', mono: 'running', label: 'The agent drafts the reply and reaches send_email.' },
       {
@@ -331,7 +331,7 @@ export const policy = {
     ] satisfies readonly { match: string; when: string; action: PolicyStateId }[],
   },
 
-  note: 'Project-wide rules are evaluated first and cannot be overridden by whoever adds a connector later.',
+  note: 'Workspace-wide rules are evaluated first and cannot be overridden by whoever adds a connector later.',
 } as const;
 
 /* ── 5 · audit ────────────────────────────────────────────────────────────── */
@@ -371,7 +371,7 @@ export const close = {
   ctaSecondary: 'Read the docs',
   ctaSecondaryHref: '/docs/connect/connectors',
   points: [
-    'No lock-in — any model, your keys, your data.',
+    'Open source and self-hostable — Kortix Cloud, your VPC, or on-prem.',
     'Credentials encrypted, brokered server-side, never handed to the model.',
     'Allow, Ask, or Block on every action, with a human in the loop where it matters.',
   ],

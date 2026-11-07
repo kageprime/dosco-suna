@@ -1,4 +1,4 @@
-// The Dosco email shell. Every email the platform sends — invites, access
+// The Kortix email shell. Every email the platform sends — invites, access
 // requests, magic links, signup confirmations, password recovery — is rendered
 // through renderEmail() so they are visibly one product rather than a branded
 // invite next to a default GoTrue plain-text link.
@@ -6,7 +6,7 @@
 // The frame is the React Email demo template 01-Barebone, built from
 // @react-email/components: a grey page, a white frame with a header row
 // (the symbol only, no label), one grey card, and a white footer. Two edges:
-// the header sits on the frame edge and the footer is centered; every block inside the card
+// the header and the footer sit on the frame edge; every block inside the card
 // sits on one left edge, 40 px in.
 import { Body, Button, Container, Head, Heading, Html, Img, Link, Preview, Section, Text } from '@react-email/components';
 import type { CSSProperties } from 'react';
@@ -17,7 +17,7 @@ import { EMAIL_COLORS as C, EMAIL_FONT_SANS, EMAIL_LAYOUT as L } from './brand-t
 
 // Colors and fonts come from the brand kit (brand-tokens.generated.ts). Rules:
 // .agents/skills/kortix-brand/references/verbal/voice-and-tone.md section 5.5.
-export const BRAND_FOOTER = 'Dosco CompanyOS – the open-source operating system for your company';
+export const BRAND_FOOTER = 'Kortix CompanyOS – the open-source operating system for your company';
 // The Brandmark PNG (the symbol) is 2000 x 1708. Outlook desktop ignores CSS
 // sizes and draws an <img> at its attribute size, so both attributes are set.
 const LOGO_HEIGHT = Math.round((L.logoWidth * 1708) / 2000);
@@ -44,7 +44,7 @@ export const S = {
 /** The Barebone `mobile:` variants. Clients that drop <style> keep the desktop layout. */
 const MOBILE_CSS = `@media (max-width:600px){.k-page{margin-top:0!important}.k-frame{padding:${L.mobileFramePadding}!important}.k-card{padding:${L.mobileCardPadding}!important}}`;
 
-const small = { margin: 0, color: C.inkMuted, fontFamily: EMAIL_FONT_SANS, fontSize: T.small, lineHeight: L.lineHeight.label, textAlign: 'center' } satisfies CSSProperties;
+const small = { margin: 0, color: C.inkMuted, fontFamily: EMAIL_FONT_SANS, fontSize: T.small, lineHeight: L.lineHeight.label, textAlign: 'left' } satisfies CSSProperties;
 
 const st = {
   body: { backgroundColor: C.surface1, margin: 0, textAlign: 'left', fontFamily: EMAIL_FONT_SANS },
@@ -53,9 +53,11 @@ const st = {
   header: { padding: '8px 0', marginBottom: 16 },
   card: { backgroundColor: C.surface1, borderRadius: L.cardRadius, padding: L.cardPadding, textAlign: 'left' },
   h1: { margin: `0 0 ${L.gap.title_after}px`, color: C.ink, fontFamily: EMAIL_FONT_SANS, fontSize: T.title, lineHeight: L.lineHeight.title, fontWeight: W.title, letterSpacing: L.letterSpacing.title, textAlign: 'left', textWrap: 'balance' },
-  footer: { padding: '32px 0 16px', textAlign: 'center' },
+  footer: { padding: '32px 0 16px', textAlign: 'left' },
   slogan: { ...small, fontSize: T.label, margin: '0 0 16px' },
-  socialLink: { display: 'inline-block', padding: '0 8px', verticalAlign: 'middle' },
+  // A table cell, not link padding or table margin: Outlook desktop ignores both.
+  // Right padding only, so the first icon sits on the footer's left edge.
+  socialCell: { padding: '0 16px 16px 0', verticalAlign: 'middle' },
   small,
   smallLink: { color: C.inkMuted, textDecoration: 'underline' },
   button: { display: 'inline-block', backgroundColor: C.ink, color: C.canvas, padding: L.buttonPadding, borderRadius: L.buttonRadius, fontFamily: EMAIL_FONT_SANS, fontSize: T.body, lineHeight: '20px', fontWeight: W.strong, textDecoration: 'none', textAlign: 'center' },
@@ -68,6 +70,9 @@ const SOCIALS = [
   { href: 'https://linkedin.com/company/kortix', icon: 'social-linkedin.png', alt: 'LinkedIn' },
   { href: 'https://github.com/kortix-ai/CompanyOS', icon: 'social-github.png', alt: 'GitHub' },
 ];
+
+// The web app's /download/<platform> route redirects to the App Store and
+// Google Play listings (apps/web/src/app/(utility)/download/[platform]/route.ts).
 
 function Shell(props: { title: string; body: string; preview: string }) {
   const site = (config.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -84,7 +89,7 @@ function Shell(props: { title: string; body: string; preview: string }) {
         <Container className="k-page" style={st.page}>
           <Section className="k-frame" style={st.frame}>
             <Section style={st.header}>
-              <Img src={L.logoUrl} alt="Dosco" width={L.logoWidth} height={LOGO_HEIGHT} style={{ display: 'block' }} />
+              <Img src={L.logoUrl} alt="Kortix" width={L.logoWidth} height={LOGO_HEIGHT} style={{ display: 'block' }} />
             </Section>
 
             <Section className="k-card" style={st.card}>
@@ -96,16 +101,26 @@ function Shell(props: { title: string; body: string; preview: string }) {
 
             <Section style={st.footer}>
               <Text style={st.slogan}>{BRAND_FOOTER}</Text>
-              <Section style={{ marginBottom: 16, textAlign: 'center' }}>
-                {SOCIALS.map((s) => (
-                  <Link key={s.alt} href={s.href} style={st.socialLink}>
-                    <Img src={`${site}/email/${s.icon}`} alt={s.alt} width={16} height={16} style={{ display: 'block' }} />
-                  </Link>
-                ))}
-              </Section>
+              <table role="presentation" cellPadding={0} cellSpacing={0} border={0}>
+                <tbody>
+                  <tr>
+                    {SOCIALS.map((s) => (
+                      <td key={s.alt} style={st.socialCell}>
+                        <Link href={s.href}>
+                          <Img src={`${site}/email/${s.icon}`} alt={s.alt} width={16} height={16} style={{ display: 'block' }} />
+                        </Link>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
               <Text style={st.small}>
-                <Link href="https://dosco.live" style={st.smallLink}>
-                  dosco.live
+                <Link href={`${site}/download/ios`} style={st.smallLink}>
+                  iOS app
+                </Link>
+                {' · '}
+                <Link href={`${site}/download/android`} style={st.smallLink}>
+                  Android app
                 </Link>
               </Text>
             </Section>

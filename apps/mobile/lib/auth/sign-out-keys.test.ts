@@ -23,11 +23,12 @@ describe('keysToClear', () => {
       'kortix.currentAccount',
       'kortix.lastProject',
       'selected-project-v1',
+      'kortix-local-config',
       'opencode-local-config',
       'presence_session_id',
       'kortix:ssh-access-meta:v1',
       'tab-screenshots',
-      'dosco.liveposerDrafts',
+      'kortix.composerDrafts',
     ];
     expect(keysToClear(userData)).toEqual(userData);
   });

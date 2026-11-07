@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Dosco",
-    "slug": "dosco",
-    "version": "1.0.0",
+    "name": "Kortix",
+    "slug": "kortix",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/AppIcon-Light.png",
-    "scheme": "dosco",
+    "scheme": "kortix",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -13,19 +13,21 @@
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": true,
-      "bundleIdentifier": "com.dosco.app",
+      "bundleIdentifier": "com.kortix.app",
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:dosco.live",
-        "webcredentials:dosco.live"
+        "applinks:kortix.com",
+        "applinks:www.kortix.com",
+        "applinks:staging.kortix.com",
+        "webcredentials:kortix.com"
       ],
       "infoPlist": {
         "UIViewControllerBasedStatusBarAppearance": false,
-        "NSCameraUsageDescription": "Dosco needs camera access so you can attach photos to a session.",
-        "NSPhotoLibraryUsageDescription": "Dosco needs access to your photo library so you can attach images to a session.",
-        "NSSpeechRecognitionUsageDescription": "Dosco turns your speech into text when you dictate a message.",
-        "NSMicrophoneUsageDescription": "Dosco uses the microphone when you dictate a message and when you record a video to attach to a session.",
-        "NSUserTrackingUsageDescription": "Dosco uses analytics to improve your experience and understand how features are used. For example, we track which AI features are most helpful so we can make the app better for everyone."
+        "NSCameraUsageDescription": "Kortix needs camera access so you can attach photos to a session.",
+        "NSPhotoLibraryUsageDescription": "Kortix needs access to your photo library so you can attach images to a session.",
+        "NSSpeechRecognitionUsageDescription": "Kortix turns your speech into text when you dictate a message.",
+        "NSMicrophoneUsageDescription": "Kortix uses the microphone when you dictate a message and when you record a video to attach to a session.",
+        "NSUserTrackingUsageDescription": "Kortix uses analytics to improve your experience and understand how features are used. For example, we track which AI features are most helpful so we can make the app better for everyone."
       },
       "appleTeamId": "T8G9J33433",
       "privacyManifests": {
@@ -64,9 +66,9 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0c0c0c"
+        "backgroundColor": "#F0F0E9"
       },
-      "package": "com.dosco.application",
+      "package": "com.kortix.application",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -74,7 +76,17 @@
           "data": [
             {
               "scheme": "https",
-              "host": "dosco.live",
+              "host": "kortix.com",
+              "pathPrefix": "/auth/callback"
+            },
+            {
+              "scheme": "https",
+              "host": "www.kortix.com",
+              "pathPrefix": "/auth/callback"
+            },
+            {
+              "scheme": "https",
+              "host": "staging.kortix.com",
               "pathPrefix": "/auth/callback"
             }
           ],
@@ -89,7 +101,17 @@
           "data": [
             {
               "scheme": "https",
-              "host": "dosco.live",
+              "host": "kortix.com",
+              "pathPrefix": "/share"
+            },
+            {
+              "scheme": "https",
+              "host": "www.kortix.com",
+              "pathPrefix": "/share"
+            },
+            {
+              "scheme": "https",
+              "host": "staging.kortix.com",
               "pathPrefix": "/share"
             }
           ],
@@ -103,10 +125,6 @@
       "blockedPermissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "com.google.android.gms.permission.AD_ID"
-      ],
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
         "com.google.android.gms.permission.AD_ID"
       ]
     },
@@ -138,24 +156,24 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash.png",
-          "backgroundColor": "#000000",
+          "backgroundColor": "#ffffff",
           "resizeMode": "contain",
-          "imageWidth": 200
+          "imageWidth": 80
         }
       ],
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Dosco needs camera access so you can attach photos to a session.",
-          "photosPermission": "Dosco needs access to your photo library so you can attach images to a session.",
-          "microphonePermission": "Dosco uses the microphone when you dictate a message and when you record a video to attach to a session."
+          "cameraPermission": "Kortix needs camera access so you can attach photos to a session.",
+          "photosPermission": "Kortix needs access to your photo library so you can attach images to a session.",
+          "microphonePermission": "Kortix uses the microphone when you dictate a message and when you record a video to attach to a session."
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Dosco uses the microphone when you dictate a message and when you record a video to attach to a session.",
-          "speechRecognitionPermission": "Dosco turns your speech into text when you dictate a message.",
+          "microphonePermission": "Kortix uses the microphone when you dictate a message and when you record a video to attach to a session.",
+          "speechRecognitionPermission": "Kortix turns your speech into text when you dictate a message.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox",
             "com.google.android.as",
@@ -167,7 +185,7 @@
       [
         "expo-tracking-transparency",
         {
-          "userTrackingPermission": "Dosco uses analytics to improve your experience and understand how features are used. For example, we track which AI features are most helpful so we can make the app better for everyone."
+          "userTrackingPermission": "Kortix uses analytics to improve your experience and understand how features are used. For example, we track which AI features are most helpful so we can make the app better for everyone."
         }
       ],
       [
@@ -177,26 +195,27 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-audio",
+      "expo-font",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "ka9es-team",
-    "runtimeVersion": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "9fca3cff-a291-41c9-88b9-feb8053b990f"
+      }
+    },
+    "owner": "kortix",
+    "runtimeVersion": "1.6.0",
     "updates": {
-      "url": "https://u.expo.dev/2e700259-ff47-4127-9fcf-f9a435746a13",
+      "url": "https://u.expo.dev/9fca3cff-a291-41c9-88b9-feb8053b990f",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
-    },
-    "extra": {
-      "router": {},
-      "expo-navigation-bar": {
-        "enforceContrast": false
-      },
-      "eas": {
-        "projectId": "2e700259-ff47-4127-9fcf-f9a435746a13"
-      }
     }
   }
 }

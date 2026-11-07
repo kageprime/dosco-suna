@@ -2,7 +2,7 @@ import { afterAll, describe, expect, mock, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// @Dosco from another bot did nothing, and the code that was supposed to allow
+// @Kortix from another bot did nothing, and the code that was supposed to allow
 // it had never been reachable.
 //
 // dispatchSlackEvent gated on:
@@ -23,7 +23,7 @@ import { join } from 'node:path';
 // site so the fix cannot be silently unwired.
 //
 // Loop safety. Only OUR messages can loop. A plain post comes back with our bot
-// user id as event.user. A post under a Dosco agent's name (slack/persona.ts)
+// user id as event.user. A post under a Kortix agent's name (slack/persona.ts)
 // comes back with no user, so isOwnBotEvent also matches our stored bot id, and
 // persona.ts names a post only once that id is known. The last tests pin both.
 
@@ -35,6 +35,7 @@ function makeChain(): any {
   return chain;
 }
 mock.module('../shared/db', () => ({
+  withDbTransaction: <T,>(action: () => Promise<T>): Promise<T> => action(),
   db: { select: () => makeChain() },
   hasDatabase: () => true,
 }));
@@ -122,7 +123,7 @@ describe('isOwnBotEvent — blocks ourselves, not every bot', () => {
 
   test('THE FIX: a webhook / Workflow Builder post (bot_id, NO user) is NOT ours', () => {
     // Incoming webhooks and Workflow Builder post with bot_id and no user at
-    // all. These were blocked outright, so an automation could never tag Dosco.
+    // all. These were blocked outright, so an automation could never tag Kortix.
     expect(isOwnBotEvent(ev({ bot_id: 'B999', subtype: 'bot_message', text: '<@B1> deploy done' }), BOT)).toBe(false);
   });
 
@@ -211,7 +212,7 @@ describe('source contracts', () => {
 //
 // Worse, it returned LOUDLY into a void: postIdentityPrompt posts an ephemeral
 // AND opens a DM, both addressed to slackUserId — the bot. Nobody sees either,
-// so the mention reads as "Dosco ignored it". Verified on dev f07c04f0 with a
+// so the mention reads as "Kortix ignored it". Verified on dev f07c04f0 with a
 // real bot-to-bot mention.
 
 describe('a bot sender is never sent an identity prompt', () => {

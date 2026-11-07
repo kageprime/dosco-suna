@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * The content column of every `/accounts/**` route — what sits to the right
- * of the settings sidebar, under the breadcrumb bar.
+ * The content column of an account pane in Workspace settings
+ * (`/workspaces/<id>/admin/<section>`), right of the settings rail.
  *
  * A centred column (`max-w-2xl` by default) whose first block is the page
  * title and its one-line description, followed by the section's own panels.
@@ -43,7 +43,11 @@ export interface AccountPaneProps {
   /** One control, right of the title. */
   action?: ReactNode;
   width?: AccountPaneWidth;
-  embedded?: boolean;
+  /**
+   * Drawn under a project pane in the same section (General, Git repo): no
+   * padding and no title of its own, the project pane's column holds both.
+   */
+  companion?: boolean;
   className?: string;
   children?: ReactNode;
 }
@@ -54,13 +58,16 @@ export function AccountPane({
   description,
   action,
   width = 'default',
-  embedded = false,
+  companion = false,
   className,
   children,
 }: AccountPaneProps) {
+  if (companion) {
+    return <div className={cn('@container mx-auto w-full space-y-10', WIDTH_CLASS[width], className)}>{children}</div>;
+  }
   return (
     <div className={cn('flex w-full flex-col', className)}>
-      {back && !embedded ? (
+      {back ? (
         <div className="flex h-12 shrink-0 items-center px-4 md:hidden">
           <Button
             asChild
@@ -77,16 +84,22 @@ export function AccountPane({
       ) : null}
       <div
         className={cn(
-          embedded ? 'p-0' : 'px-4 pb-12 sm:px-12',
-          !embedded && (back ? 'md:pt-12' : 'pt-12'),
+          'px-4 pb-12',
+          // `sm:px-12` on every pane. A fluid table hangs its select gutter
+          // and hover fill `9` steps outside the content edge (`member-table.tsx`);
+          // `px-9` left nothing between that fill and the sidebar border.
+          'sm:px-12',
+          back ? 'md:pt-12' : 'pt-12',
         )}
       >
         {/* A fluid pane is a working table: its toolbar sits close under the title. */}
         <div
           className={cn(
-            'mx-auto w-full',
+            // A container: the members grid follows the pane's width, not the
+            // viewport (the app sidebar and the settings rail sit beside it).
+            '@container mx-auto w-full',
             width === 'fluid' ? 'space-y-5' : 'space-y-10',
-            embedded ? 'max-w-none' : WIDTH_CLASS[width],
+            WIDTH_CLASS[width],
           )}
         >
           {title ? (

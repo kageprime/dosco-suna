@@ -1,6 +1,6 @@
 /**
- * The single source of truth for "what URL does OpenCode's in-sandbox `kortix`
- * LLM provider hit" (KORTIX_LLM_BASE_URL). Takes the ORIGIN a sandbox should
+ * The single source of truth for "what URL does the runtime's in-sandbox
+ * `kortix` LLM provider hit" (KORTIX_LLM_BASE_URL). Takes the ORIGIN a sandbox should
  * use to reach kortix-api and applies the proxy-mode suffix rule.
  *
  * Deliberately a tiny, dependency-free module (only `../config`) rather than
@@ -16,7 +16,7 @@ import { config } from '../config';
 
 export function resolveLlmGatewayBaseUrl(origin: string): string {
   // Set: sandboxes call the standalone gateway directly, not through this API
-  // (staging sets https://gateway-staging.dosco.live/v1/llm).
+  // (staging sets https://gateway-staging.kortix.com/v1/llm).
   // The gateway authenticates every call itself through /internal/gateway/admit.
   if (config.LLM_GATEWAY_BASE_URL) return config.LLM_GATEWAY_BASE_URL;
   const trimmedOrigin = origin.replace(/\/+$/, '');

@@ -1,7 +1,7 @@
 
-import { projectSessions, projectSpaces, projects } from '@kortix/db';
+import { projectSessions, projectSpaces } from '@kortix/db';
 import { COMPILED_AGENT_CONFIG_ENV, fitsInEnvString } from '@kortix/api-contract/compiled-agent-config-env';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 
 
@@ -53,7 +53,7 @@ export { proxyGitUrl };
 
 
 
-import { sessionChannelEnvFromMetadata, sessionSpaceEnv } from './session-channel-env';
+import { sessionChannelEnvFromMetadata, sessionParentEnv, sessionSpaceEnv } from './session-channel-env';
 
 
 
@@ -64,38 +64,41 @@ import { sessionChannelEnvFromMetadata, sessionSpaceEnv } from './session-channe
 import { buildSessionRuntimeContextEnv } from './session-runtime-context';
 import { buildFeatureFlagSandboxEnv } from './feature-flag-env';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
-import { recordedWorkspaceVolume } from '../../platform/services/workspace-volume';
 import { buildSessionRuntimeEnv } from './session-runtime-env';
 import { buildMyKortixConfig } from './my-kortix-agent';
 
 import { resolveSessionPersonalOwner } from './personal-resources';
+import { projectsView } from '../../workspaces/rows';
 
 
 /**
- * Re-derive persisted channel env so every cold reprovision restores it, and
- * the channel or DM the session is a thread of (`project_channels` on).
+ * Re-derive persisted channel env so every cold reprovision restores it, the
+ * channel or DM the session is a thread of (`chat` on), and the session that
+ * started this one (`KORTIX_PARENT_SESSION_ID`: the agent reads its
+ * conversation with `kortix sessions log`).
  */
 async function buildSessionChannelEnv(sessionId: string): Promise<Record<string, string>> {
   try {
     const [row] = await db
       .select({
         metadata: projectSessions.metadata,
-        projectMetadata: projects.metadata,
+        parentSessionId: projectSessions.parentSessionId,
+        projectMetadata: projectsView.metadata,
         spaceId: projectSpaces.spaceId,
         kind: projectSpaces.kind,
         slug: projectSpaces.slug,
         dmAgentName: projectSpaces.dmAgentName,
       })
       .from(projectSessions)
-      .leftJoin(projects, eq(projects.projectId, projectSessions.projectId))
+      .leftJoin(projectsView, eq(projectsView.projectId, projectSessions.projectId))
       .leftJoin(projectSpaces, eq(projectSpaces.spaceId, projectSessions.spaceId))
       .where(eq(projectSessions.sessionId, sessionId))
       .limit(1);
     const space =
-      row?.spaceId && row.kind && resolveFeatureFlag(row.projectMetadata, 'project_channels')
+      row?.spaceId && row.kind && resolveFeatureFlag(row.projectMetadata, 'chat')
         ? { spaceId: row.spaceId, kind: row.kind, slug: row.slug, dmAgentName: row.dmAgentName }
         : null;
-    return { ...sessionChannelEnvFromMetadata(row?.metadata), ...sessionSpaceEnv(space) };
+    return { ...sessionChannelEnvFromMetadata(row?.metadata), ...sessionSpaceEnv(space), ...sessionParentEnv(row) };
   } catch (err) {
     console.warn('[session-env] failed to restore channel binding', {
       sessionId,
@@ -113,7 +116,7 @@ type SessionSandboxEnvInput = {
   repoUrl: string;
   baseRef: string;
   agentName: string;
-  opencodeModel?: string | null;
+  sessionModel?: string | null;
   /** New session (brand-new branch == base, no remote commits). Lets the
    *  daemon create the session branch LOCALLY instead of a redundant network
    *  fetch of a branch that's identical to base — that fetch cost up to ~10s
@@ -219,48 +222,16 @@ async function resolveSessionAgentConfig(input: SessionSandboxEnvInput): Promise
     [compiledAgentConfig, agentGrantEnv] = await Promise.all([
       compiled,
       resolveSessionSecretGrant({
-      projectId: input.projectId,
-      repoUrl: input.repoUrl,
-      defaultBranch: input.defaultBranch,
-      manifestPath: input.manifestPath,
-      sessionAgent: input.agentName,
-      forceRefresh: 'tip-proof',
+        projectId: input.projectId,
+        repoUrl: input.repoUrl,
+        defaultBranch: input.defaultBranch,
+        manifestPath: input.manifestPath,
+        sessionAgent: input.agentName,
+        forceRefresh: 'tip-proof',
       }),
     ]);
   }
   return { agentGrantEnv, compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext };
-}
-
-/**
- * Whether the daemon restores its native store from the session log at boot
- * (`session_log_restore`, kortixd `harness/shared/session-log-boot.ts`).
- */
-async function resolveSessionLogRestore(input: SessionSandboxEnvInput): Promise<boolean> {
-  // One indexed read for the flag: the callers hold the project row in
-  // different shapes (or not at all on the reload paths), and the flag must
-  // apply on every provisioning path, not only create.
-  const [projectRow] = await db
-    .select({ metadata: projects.metadata, sessionMetadata: projectSessions.metadata })
-    .from(projects)
-    .leftJoin(
-      projectSessions,
-      and(eq(projectSessions.projectId, projects.projectId), eq(projectSessions.sessionId, input.sessionId)),
-    )
-    .where(eq(projects.projectId, input.projectId))
-    .limit(1);
-  // A lost session continued on a new computer (KRTX-2419,
-  // `recover-lost-session.ts`) and a restored deleted session
-  // (`restore-session.ts`) restore from their log whatever the project flag says.
-  const sessionMetadata = (projectRow?.sessionMetadata ?? null) as Record<string, unknown> | null;
-  return (
-    resolveFeatureFlag(projectRow?.metadata, 'session_log_restore') ||
-    typeof sessionMetadata?.lostRecoveredAt === 'string' ||
-    typeof sessionMetadata?.restoredAt === 'string' ||
-    typeof sessionMetadata?.forkedFromSessionId === 'string' ||
-    // A /workspace-volume session's box is removed when idle
-    // (reaping/idle-volume-retire.ts): its next box gets the conversation from the log.
-    recordedWorkspaceVolume(input.sessionId, sessionMetadata) !== null
-  );
 }
 
 /** Read the session's runtime secrets and drop the ones the sandbox must never hold. */
@@ -355,11 +326,10 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     return promise;
   };
   const agentConfigRead = started(tl.span('agent-config', () => resolveSessionAgentConfig(input)));
-  const logRestoreRead = started(tl.span('log-restore', () => resolveSessionLogRestore(input)));
   // The prebuilt bundle of the project's pi packages (one S3 HEAD + presign; none without npm packages).
   const piPackagesRead = started(
     agentConfigRead.then(({ manifestPackages }) =>
-    manifestPackages.length > 0
+      manifestPackages.length > 0
         ? tl.span('pi-packages', () =>
             piPackageBundleForSession(manifestPackages, { projectId: input.projectId, sessionId: input.sessionId }),
           )
@@ -401,16 +371,16 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
         .from(projectSessions)
         .where(eq(projectSessions.sessionId, input.sessionId))
         .limit(1);
-  const secretsPrincipalUserId = await resolveSessionPersonalOwner({
-    projectId: input.projectId,
-    sessionId: input.sessionId,
-    accountId: input.accountId,
-    legacyUserId: sessionPolicyRow?.createdBy ?? input.userId,
-  });
+      const secretsPrincipalUserId = await resolveSessionPersonalOwner({
+        projectId: input.projectId,
+        sessionId: input.sessionId,
+        accountId: input.accountId,
+        legacyUserId: sessionPolicyRow?.createdBy ?? input.userId,
+      });
       return { sessionPolicyRow, secretsPrincipalUserId };
     }),
   );
-  const managedModelsRead = input.opencodeModel ? started(accountMayUseManagedModels(input.accountId)) : null;
+  const managedModelsRead = input.sessionModel ? started(accountMayUseManagedModels(input.accountId)) : null;
 
   // A session's stored model pin outlives any single boot — the runtime
   // managed lineup can rotate past it while the session sits open. Re-point
@@ -420,18 +390,18 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
   // llm-gateway/resolution/session-model-repoint.ts.
   const modelRead = started(
     Promise.all([agentConfigRead, policyRead]).then(async ([, { sessionPolicyRow, secretsPrincipalUserId }]) => {
-      const opencodeModel = input.opencodeModel ?? null;
-      if (!opencodeModel) return null;
+      const sessionModel = input.sessionModel ?? null;
+      if (!sessionModel) return null;
       const freeModelsOnly = !(await managedModelsRead);
       return tl.span('model-repoint', () =>
-        repointRetiredSessionModel(opencodeModel, {
-      projectId: input.projectId,
-      accountId: input.accountId,
-      sessionId: input.sessionId,
-      userId: secretsPrincipalUserId ?? input.userId,
-      agentName: input.agentName,
+        repointRetiredSessionModel(sessionModel, {
+          projectId: input.projectId,
+          accountId: input.accountId,
+          sessionId: input.sessionId,
+          userId: secretsPrincipalUserId ?? input.userId,
+          agentName: input.agentName,
           freeModelsOnly,
-      metadata: sessionPolicyRow?.metadata ?? null,
+          metadata: sessionPolicyRow?.metadata ?? null,
         }),
       );
     }),
@@ -451,20 +421,20 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
   // A read with a fire-and-forget publish (publish.ts), so it needs nothing above.
   const configReleaseRead = started(
     tl.span('config-release', () =>
-    (input.repositoryAccess ?? true) && !input.platformMetaAgent
+      (input.repositoryAccess ?? true) && !input.platformMetaAgent
         ? configReleaseEnvForSession({
-          projectId: input.projectId,
-          ref: input.baseRef,
-          agentName: input.agentName,
-          tip: input.baseSha ?? null,
-        }).catch((error: Error) => {
-          logger.warn('[config-releases] published release lookup failed; the box asks the route', {
             projectId: input.projectId,
-            sessionId: input.sessionId,
-            error: error.message,
-          });
-          return null;
-        })
+            ref: input.baseRef,
+            agentName: input.agentName,
+            tip: input.baseSha ?? null,
+          }).catch((error: Error) => {
+            logger.warn('[config-releases] published release lookup failed; the box asks the route', {
+              projectId: input.projectId,
+              sessionId: input.sessionId,
+              error: error.message,
+            });
+            return null;
+          })
         : Promise.resolve(null),
     ),
   );
@@ -486,10 +456,9 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
   );
 
   const { compiledAgentConfig, manifestPackages, manifestCodemode, manifestContext } = await agentConfigRead;
-  const sessionLogRestore = await logRestoreRead;
   const piPackagesBundle = await piPackagesRead;
   await policyRead;
-  const opencodeModel = await modelRead;
+  const sessionModel = await modelRead;
   const runtimeSecrets = await secretsRead;
   const configRelease = await configReleaseRead;
   if (compiledAgentConfig && !fitsInEnvString(COMPILED_AGENT_CONFIG_ENV, compiledAgentConfig)) {
@@ -513,7 +482,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     KORTIX_PROJECT_SECRETS_REVISION: runtimeSecrets.revision,
     [SECRET_CAPABILITIES_ENV_NAME]: runtimeSecrets.capabilitiesJson,
     // No partial-clone filter. Blobless (`blob:none`) defers file blobs to
-    // on-demand fetches, which stall through the Dosco git proxy when its
+    // on-demand fetches, which stall through the Kortix git proxy when its
     // partial-clone capability isn't advertised consistently — the clone then
     // never finishes and the session never reaches runtimeReady. It is also
     // simply slower: measured on kortix-ai/company, blobless 6161ms vs a full
@@ -529,7 +498,7 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     ...buildSessionRuntimeEnv({
       projectId: input.projectId,
       sessionId: input.sessionId,
-      // Every sandbox clones through the Dosco Git proxy with KORTIX_TOKEN.
+      // Every sandbox clones through the Kortix Git proxy with KORTIX_TOKEN.
       // Direct upstream origins are never delivered to the guest because they
       // require exposing a provider credential to the sandbox.
       repoUrl: proxyGitUrl(input.projectId),
@@ -539,9 +508,9 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
       frontendUrl: sandboxFrontendBaseUrl(),
       // Concrete session model after explicit → agent → project → account →
       // platform resolution — re-pointed above when the runtime lineup
-      // retired it. The sandbox uses it for the first OpenCode turn and as
-      // the session's OpenCode config default.
-      opencodeModel,
+      // retired it. The sandbox uses it for the first turn and as the
+      // runtime's default model.
+      sessionModel,
       compiledAgentConfig,
       piPackages: manifestPackages,
       piCodemode: manifestCodemode,
@@ -565,8 +534,10 @@ export async function buildSessionSandboxEnvVars(input: SessionSandboxEnvInput):
     ...(input.platformMetaAgent
       ? { KORTIX_PROJECT_AUTO_CLONE: '0', KORTIX_META_AGENT: '1' }
       : {}),
-    // The project flag `session_log_restore`: no key while it is off, so the box keeps its native state.
-    ...(sessionLogRestore ? { KORTIX_SESSION_LOG_RESTORE: '1' } : {}),
+    // The restore graduated on 2026-11-05: a current daemon reconciles at every boot without this key.
+    // A daemon older than that skips the reconcile unless it reads '1', so every box gets it. Delete
+    // the key once the runtime floor (session-open/runtime-floor-policy.ts) excludes those daemons.
+    KORTIX_SESSION_LOG_RESTORE: '1',
   };
 }
 

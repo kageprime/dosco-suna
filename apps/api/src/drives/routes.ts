@@ -4,7 +4,6 @@
 // for someone's private folder.
 
 import { logger } from '../lib/logger';
-import { recordDriveCommitAuthor } from '../artifacts/events-store';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -81,7 +80,6 @@ import {
   writeDriveVolume,
 } from './service';
 import { type DriveUpload, openDriveUpload, sealDriveUpload } from './upload-token';
-import { parseVolumeWriteCommit } from './volume-commit';
 import {
   assertDriveWriteFits,
   driveFolderSizes,
@@ -151,7 +149,7 @@ const FolderGrantSchema = z
     path: z.string(),
     /** Granted on a folder above this one. */
     inherited: z.boolean(),
-    /** Made by Dosco: a person's own folder, a private channel's members. */
+    /** Made by Kortix: a person's own folder, a private channel's members. */
     system: z.boolean(),
     principalType: z.enum(['user', 'group', 'agent']),
     principalId: z.string(),
@@ -244,7 +242,7 @@ interface Caller {
 /**
  * The name each person's own folder lists under: their display name, else
  * their email, else the folder's handle. Owners come from the folder's
- * system grant (the one Dosco made for its person).
+ * system grant (the one Kortix made for its person).
  */
 async function personalFolderNames(grants: readonly FolderGrant[], paths: readonly string[]): Promise<Map<string, string>> {
   const owners = new Map<string, string>();
@@ -503,7 +501,7 @@ drivesApp.openapi(
 
 const DriveLimitsSchema = z
   .object({
-    /** What this project's Files may hold; null = no Dosco limit (Platinum's still applies). */
+    /** What this project's Files may hold; null = no Kortix limit (Platinum's still applies). */
     projectBytes: z.number().nullable(),
     /** What all the account's projects' Files may hold together; null = no limit. */
     accountBytes: z.number().nullable(),
@@ -698,7 +696,7 @@ drivesApp.openapi(
     const entries = raw
       .filter((e) => !(e.type === 'file' && baseName(e.path) === FOLDER_MARKER && Number(e.size) === 0))
       .filter((e) => !(e.type === 'dir' && e.path === '/lost+found'))
-      // Dosco's own bookkeeping (the fold job's markers) is not a folder of anyone's.
+      // Kortix's own bookkeeping (the fold job's markers) is not a folder of anyone's.
       .filter((e) => !e.path.startsWith('/.kortix'))
       .map((e) => ({ path: e.path, name: baseName(e.path), type: e.type, size: Number(e.size ?? 0), mtime: Number(e.mtime ?? 0) }));
     // Folders that exist only as grants so far (a new person's folder, an
@@ -818,10 +816,6 @@ drivesApp.openapi(
         writeVolumeFile(volume, path, body, { overwrite: true, ...(ifMatch ? { ifMatch } : {}) }),
       ),
     );
-    await recordDriveCommitAuthor(caller.drive.driveId, written.commit, {
-      userId: caller.userId,
-      sessionId: callerKortixSessionId(c),
-    });
     noteDriveWrite(caller.drive.driveId);
     forgetDriveUsage(caller.drive.platinumVolumeName);
     // The version this write made, as storage answered it: a read afterwards
@@ -974,13 +968,9 @@ drivesApp.openapi(
       const current = await withStorage(() => currentFileVersion(caller.drive, upload.path));
       if (!current || !sameVersion(current, upload.ifMatch)) fail(409, FILE_CHANGED_MESSAGE, 'file_changed');
     }
-    const committed = await withUploadStorage(() =>
+    await withUploadStorage(() =>
       writeDriveVolume(caller.drive, (volume) => commitVolumeUpload(volume, upload.uploadId)),
     );
-    await recordDriveCommitAuthor(caller.drive.driveId, parseVolumeWriteCommit(committed), {
-      userId: caller.userId,
-      sessionId: callerKortixSessionId(c),
-    });
     noteDriveWrite(caller.drive.driveId);
     forgetDriveUsage(caller.drive.platinumVolumeName);
     return c.json({ path: upload.path, size: upload.size });
@@ -1005,7 +995,7 @@ drivesApp.openapi(
   async (c) => {
     const caller = await loadDrive(c);
     const path = drivePath((c.req.valid('json') as { path: string }).path, { allowRoot: false });
-    if (parentOf(path) === USERS_DIR) fail(400, 'People’s folders are made by Dosco');
+    if (parentOf(path) === USERS_DIR) fail(400, 'People’s folders are made by Kortix');
     need(caller, path, 'write');
     await withStorage(() =>
       writeDriveVolume(caller.drive, (volume) =>
@@ -1432,7 +1422,7 @@ drivesApp.openapi(
     tags: ['drives'],
     summary: 'List open conflict copies',
     description:
-      'Files Dosco kept beside the original when two writers changed it at once, named `<name> (conflict <date> <time>)<ext>`, in folders the caller can see.',
+      'Files Kortix kept beside the original when two writers changed it at once, named `<name> (conflict <date> <time>)<ext>`, in folders the caller can see.',
     ...auth,
     request: { params: DriveParams },
     responses: { 200: json(z.object({ conflicts: z.array(DriveConflictSchema) }), 'Open conflicts'), ...errors(401, 404) },

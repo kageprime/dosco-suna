@@ -20,7 +20,7 @@ import type { Agent } from '@kortix/sdk/react';
 import { capitalizeWords, isMyKortixAgentName, MY_KORTIX_DISPLAY_NAME } from '@kortix/shared';
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react';
 import { AgentMark } from '../../internal/components/agent-mark';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { composerSelectableAgents } from './composer-agent-access';
 
 /**
@@ -49,7 +49,7 @@ const SEARCH_MIN_AGENTS = 7;
  * The agent a selector shows: the selected one, even before the roster has it,
  * else the first selectable agent. One rule for the trigger and the chat composer.
  */
-function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string | null) {
+export function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string | null) {
   const current = primaryAgents.find((a) => a.name === selectedAgent);
   return current?.name ?? selectedAgent ?? primaryAgents[0]?.name;
 }
@@ -58,8 +58,31 @@ function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent: string
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
-  if (name.toLowerCase() === 'kortix' || name.toLowerCase() === 'worker') return 'Xera';
   return isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name);
+}
+
+/**
+ * The agents a composer picker offers and the name it shows for each. One
+ * rule for `AgentSelector` and the `chat_input` control: a host that lists its
+ * agents (`offeredAgents`) offers only those and names them with `agentLabels`.
+ */
+export function useComposerAgentChoices(agents: Agent[]) {
+  const { offeredAgents, agentLabels } = useUiHostConfig();
+  const offered = useMemo(
+    () => {
+      if (!offeredAgents) return agents;
+      const offeredNames = new Set(offeredAgents);
+      return agents.filter((a) => offeredNames.has(a.name));
+    },
+    [agents, offeredAgents],
+  );
+  const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
+  const label = useCallback(
+    (name: string) =>
+      agentLabels?.[name] ?? (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name)),
+    [agentLabels],
+  );
+  return { offered, primaryAgents, label, agentLabels };
 }
 
 export function AgentSelector({
@@ -105,24 +128,7 @@ export function AgentSelector({
   const setOpen = onOpenChange ?? setInternalOpen;
   const [search, setSearch] = useState('');
 
-  const { offeredAgents, agentLabels } = useUiHostConfig();
-  // A host that lists its agents (`offeredAgents`) offers only those; it names them with `agentLabels`.
-  const offered = useMemo(
-    () => {
-      if (!offeredAgents) return agents;
-      const offeredNames = new Set(offeredAgents);
-      return agents.filter((a) => offeredNames.has(a.name));
-    },
-    [agents, offeredAgents],
-  );
-  const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
-  const label = (name: string) => {
-    if (name.toLowerCase() === 'kortix' || name.toLowerCase() === 'worker') return 'Xera';
-    return (
-      agentLabels?.[name] ??
-      (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name))
-    );
-  };
+  const { offered, primaryAgents, label, agentLabels } = useComposerAgentChoices(agents);
 
   // A `flash` state, a `prevAgentRef` feeding it, two effects and a 400ms
   // timer used to live here. Nothing ever READ `flash` — it was written on
@@ -171,7 +177,7 @@ export function AgentSelector({
 
   // The trigger names the agent that will RUN, which is `selectedAgent` even
   // when the roster does not (yet) contain it: a session bound to `kortix`
-  // must read "Dosco" while the roster query is still in flight, not whatever
+  // must read "Kortix" while the roster query is still in flight, not whatever
   // happens to be first in someone else's list. The `primaryAgents[0]`
   // fallback stays only for a truly unresolved selection (no name at all),
   // matching the resolver's own first-accessible pre-selection.

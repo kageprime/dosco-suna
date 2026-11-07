@@ -32,7 +32,7 @@ export const WORKSPACE_VOLUME_UNREACHABLE_MESSAGE =
 const RESIDENTIAL_PROXY_PREFIX = '[residential-proxy] ';
 export const RESIDENTIAL_PROXY_NOT_OFFERED_MESSAGE =
   `${RESIDENTIAL_PROXY_PREFIX}This sandbox template asks for a residential IP, which this deployment does not offer, so the session did not start. ` +
-  'Turn off residential_proxy in the sandbox template, or ask Dosco to enable it.';
+  'Turn off residential_proxy in the sandbox template, or ask Kortix to enable it.';
 export const RESIDENTIAL_PROXY_PLATINUM_ONLY_MESSAGE =
   `${RESIDENTIAL_PROXY_PREFIX}This sandbox template asks for a residential IP, which runs on Platinum only, and this session's sandbox provider is not Platinum, so it did not start. ` +
   'Switch the sandbox provider to Platinum, or turn off residential_proxy in the sandbox template.';
@@ -45,7 +45,7 @@ export const SANDBOX_PROVIDER_FAILURE_MESSAGE =
 
 export const SANDBOX_PROVIDER_STORAGE_FULL_MESSAGE =
   'The sandbox provider is out of storage, so no new session can start on it. ' +
-  'Try again later, or ask a project admin to switch the sandbox provider in Customize → Settings → Sandbox.';
+  'Try again later, or ask a workspace admin to switch the sandbox provider in Customize → Settings → Sandbox.';
 
 export const INVALID_SECRET_BOUNDARY_POLICY_MESSAGE =
   "A network-boundary secret in this project has an invalid outbound policy, so no session can start. " +
@@ -96,7 +96,7 @@ const GIT_AUTH_PATTERN =
  * The project's own network-boundary config is unusable, so `resolveNetworkBoundaryBindings`
  * refuses the whole set before any provider is contacted.
  *
- * A Dosco-side configuration error, and it used to be indistinguishable from a provider fault:
+ * A Kortix-side configuration error, and it used to be indistinguishable from a provider fault:
  * with no pattern here it fell through to `sandbox-provider`, whose copy blames the provider and
  * says "Try again" — for a state where retrying can never succeed. Two secrets claiming the same
  * (host, header) is now rejected at save time, so this classifies the configs that predate that
@@ -117,14 +117,12 @@ const INVALID_SECRET_BOUNDARY_POLICY_PATTERN =
 export function classifySandboxProvisioningFailure(error: unknown): SandboxProvisioningFailure {
   const rawMessage = error instanceof Error ? error.message : String(error);
 
-
-  // Dosco Drive: the session's drives did not mount, so it did not start.
+  // Kortix Drive: the session's drives did not mount, so it did not start.
   // The message already says which drives and why (drives/service.ts). A
   // /workspace volume that did not open is the same class: storage the box
   // mounts (platform/services/workspace-volume.ts).
   const storagePrefix = ['[drives] ', '[workspace] '].find((p) => rawMessage.startsWith(p));
   if (storagePrefix) {
-
     return {
       category: 'drives-unavailable',
       userMessage: rawMessage.slice(storagePrefix.length),

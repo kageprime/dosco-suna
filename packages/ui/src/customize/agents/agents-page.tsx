@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /projects/[id]/customize/agents: the Agents index, where the sidebar's
+ * /workspaces/[id]/customize/agents: the Agents index, where the sidebar's
  * Customize row lands.
  *
  * Customize is agent-first. My Kortix is not listed: the project home starts
@@ -72,13 +72,7 @@ import { AgentPinButton } from './agent-pin-button';
 
 type Agent = ProjectConfigSummary['agents'][number];
 
-export function AgentsPage({
-  projectId,
-  onSelectAgent,
-}: {
-  projectId: string;
-  onSelectAgent?: (agentName: string) => void;
-}) {
+export function AgentsPage({ projectId }: { projectId: string }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const t = useI18nTranslations('agentEditor.tabs');
   const tPage = useI18nTranslations('agentEditor.page');
@@ -103,7 +97,6 @@ export function AgentsPage({
   };
 
   const [query, setQuery] = useState('');
-  const [modeFilter, setModeFilter] = useState<'all' | 'primary' | 'subagent'>('all');
   const searchRef = useRef<HTMLInputElement>(null);
   // The table is the page's main content, not the search: no focus on arrival.
   useSlashFocus(searchRef, true, { focusOnArrival: false });
@@ -123,7 +116,7 @@ export function AgentsPage({
   });
   const triggerCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    const fallback = config?.default_agent ?? config?.open_code_default_agent ?? null;
+    const fallback = config?.default_agent ?? null;
     for (const trigger of triggersQuery.data?.triggers ?? []) {
       const owner = trigger.agent === 'default' && fallback ? fallback : trigger.agent;
       counts.set(owner, (counts.get(owner) ?? 0) + 1);
@@ -149,8 +142,7 @@ export function AgentsPage({
 
   const agents = useMemo(() => toArray(config?.agents), [config]);
   const filtered = useMemo(() => filterAgents(agents, { mode: null, query }), [agents, query]);
-  const defaultAgent = config?.default_agent ?? config?.open_code_default_agent ?? null;
-
+  const defaultAgent = config?.default_agent ?? null;
   // The agents a person starts first (the default leading), subagents after.
   const work = useMemo(
     () =>
@@ -164,33 +156,23 @@ export function AgentsPage({
         ),
     [filtered, defaultAgent],
   );
-  // Spaces are Work in progress: with `project_channels` off, no space filter and no Space column.
+  // Spaces are Work in progress: with `chat` off, no space filter and no Space column.
   const spacesOn = useSpacesEnabled(projectId);
   const groups = useMemo(() => (spacesOn ? groupBySpace(work, config?.spaces) : []), [spacesOn, work, config?.spaces]);
   const [activeSpace, setActiveSpace] = useActiveSpace(projectId);
   const spaceFilter = activeSpace ?? ALL_SPACES;
   const shown = spaceFilter === ALL_SPACES ? work : (groups.find((g) => g.name === spaceFilter)?.items ?? work);
 
-  const allPrimaryCount = useMemo(
-    () => shown.filter((agent) => agentInMode(agent, 'primary')).length,
-    [shown],
-  );
-  const allSubagentCount = useMemo(
-    () => shown.filter((agent) => !agentInMode(agent, 'primary')).length,
-    [shown],
-  );
-
   // Agents first, subagents second (Marko, 2026-10-17): the agents a person
   // starts get the cover cards, the default first; the ones other agents call
   // sit in their own section. `all` is usable both ways and stays with the first.
-  const primaryAgents = modeFilter === 'subagent' ? [] : shown.filter((agent) => agentInMode(agent, 'primary'));
-  const subagents = modeFilter === 'primary' ? [] : shown.filter((agent) => !agentInMode(agent, 'primary'));
+  const primaryAgents = shown.filter((agent) => agentInMode(agent, 'primary'));
+  const subagents = shown.filter((agent) => !agentInMode(agent, 'primary'));
   const card = (agent: Agent, cover?: string) => (
     <AgentCoverCard
       key={agent.name}
       slug={agent.name}
       href={agentHref(projectId, agent.name)}
-      onClick={onSelectAgent ? () => onSelectAgent(agent.name) : undefined}
       onIntent={() => prefetchAgentConfig(queryClient, projectId, agent.name)}
       title={agentDisplayName(agent.name)}
       description={agent.description}
@@ -240,40 +222,6 @@ export function AgentsPage({
             {groups.length > 0 ? (
               <CatalogSpaceTabs groups={groups} value={spaceFilter} onValueChange={(v) => setActiveSpace(v === ALL_SPACES ? null : v)} />
             ) : null}
-            {allPrimaryCount > 0 && allSubagentCount > 0 ? (
-              <div
-                role="group"
-                aria-label="Filter agents by mode"
-                className="bg-muted text-muted-foreground inline-flex h-8 w-fit items-center rounded-md p-0.5"
-              >
-                {(
-                  [
-                    { id: 'all', label: 'All', count: shown.length },
-                    { id: 'primary', label: 'Primary', count: allPrimaryCount },
-                    { id: 'subagent', label: 'Subagents', count: allSubagentCount },
-                  ] as const
-                ).map((item) => {
-                  const active = modeFilter === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setModeFilter(item.id)}
-                      className={cn(
-                        'inline-flex h-full items-center gap-1.5 rounded-sm px-2.5 text-xs font-medium transition-colors cursor-pointer',
-                        active
-                          ? 'bg-background text-foreground shadow-2xs'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      <span>{item.label}</span>
-                      <span className="text-muted-foreground tabular-nums">{item.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
             {primaryAgents.length > 0 ? (
               <div className={GRID_CLASSNAME}>
                 {primaryAgents.map((agent) => card(agent, agent.name === defaultAgent ? tPage('default') : undefined))}
@@ -312,24 +260,24 @@ export function AgentsPage({
           </>
         }
         search={
-    <InputGroupSearch>
-      <InputGroupSearchIcon>
-        <MagnifyingGlassIcon />
-      </InputGroupSearchIcon>
-      <InputGroupSearchInput
+          <InputGroupSearch>
+            <InputGroupSearchIcon>
+              <MagnifyingGlassIcon />
+            </InputGroupSearchIcon>
+            <InputGroupSearchInput
               ref={searchRef}
-        aria-label={tI18nComplete.raw('text212fd04a1d20')}
-        placeholder={tI18nComplete.raw('text212fd04a1d20')}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        variant="popover"
-        size="sm"
-      />
-      {query ? <InputGroupSearchClear onClick={() => setQuery('')} /> : null}
-    </InputGroupSearch>
-          }
+              aria-label={tI18nComplete.raw('text212fd04a1d20')}
+              placeholder={tI18nComplete.raw('text212fd04a1d20')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              variant="popover"
+              size="sm"
+            />
+            {query ? <InputGroupSearchClear onClick={() => setQuery('')} /> : null}
+          </InputGroupSearch>
+        }
       >
-          {body}
+        {body}
       </CapabilityPageShell>
       {canWrite ? (
         <CreateAgentModal open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} config={config} />
@@ -417,7 +365,7 @@ function DefaultAgentSelector({
   const availableAgents = toArray(config.agents).filter(
     (agent) => agent.enabled !== false && agentInMode(agent, 'primary'),
   );
-  const current = config.default_agent ?? config.open_code_default_agent;
+  const current = config.default_agent;
   const mutation = useMutation({
     mutationFn: (agentName: string) => updateProjectDefaultAgent(projectId, agentName),
     onSuccess: async (result) => {

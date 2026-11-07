@@ -5,7 +5,7 @@
  * requests are `projects.metadata.telegram` (channels/core/channel-access.ts),
  * scoped to the bot id.
  */
-import { chatChannelBindings, chatInstalls, projects } from '@kortix/db';
+import { chatChannelBindings, chatInstalls } from '@kortix/db';
 import { CHANNELS } from '@kortix/shared/channel-descriptors';
 import { and, eq } from 'drizzle-orm';
 import { logger } from '../../lib/logger';
@@ -22,6 +22,7 @@ import {
   setChannelAllowedUsers,
 } from '../core/channel-access';
 import { deleteProjectSecrets, readSecret, upsertSecret } from '../install-store';
+import { projectsView } from '../../workspaces/rows';
 
 export const TELEGRAM_BOT_TOKEN = 'TELEGRAM_BOT_TOKEN';
 /** Same name the legacy webhook verifies against, so one secret serves both paths. */
@@ -62,10 +63,10 @@ export async function saveTelegramInstall(input: {
   const [previous] = await db
     .delete(chatInstalls)
     .where(and(eq(chatInstalls.platform, 'telegram'), eq(chatInstalls.projectId, input.projectId)))
-    .returning({ botId: chatInstalls.workspaceId });
+    .returning({ botId: chatInstalls.platformTeamId });
   await db
     .insert(chatInstalls)
-    .values({ platform: 'telegram', workspaceId: input.botId, projectId: input.projectId })
+    .values({ platform: 'telegram', platformTeamId: input.botId, projectId: input.projectId })
     .onConflictDoNothing();
   // Requests to another bot are not requests to this one. After the insert: a
   // request still writing checks its bot under the row lock. The chats' settings
@@ -85,9 +86,9 @@ export async function saveTelegramInstall(input: {
  */
 export async function loadTelegramInstall(projectId: string): Promise<TelegramInstall | null> {
   const [row] = await db
-    .select({ botId: chatInstalls.workspaceId, metadata: projects.metadata })
+    .select({ botId: chatInstalls.platformTeamId, metadata: projectsView.metadata })
     .from(chatInstalls)
-    .innerJoin(projects, and(eq(projects.projectId, chatInstalls.projectId), eq(projects.status, 'active')))
+    .innerJoin(projectsView, and(eq(projectsView.projectId, chatInstalls.projectId), eq(projectsView.status, 'active')))
     .where(and(eq(chatInstalls.platform, 'telegram'), eq(chatInstalls.projectId, projectId)))
     .limit(1);
   if (!row) return null;
@@ -136,7 +137,7 @@ export async function releaseTelegramBot(projectId: string): Promise<void> {
 }
 
 /**
- * The bot's webhook and Dosco's menu entries go, only while the webhook
+ * The bot's webhook and Kortix's menu entries go, only while the webhook
  * points at this project: the bot may serve another project since. Telegram
  * is best effort; never throws.
  */
@@ -145,9 +146,9 @@ export async function releaseTelegramWebhook(projectId: string, token: string): 
     const info = await telegramCall<{ url?: string }>(token, 'getWebhookInfo', {}, 5_000);
     if (!info.url?.endsWith(`/v1/webhooks/telegram/${projectId}`)) return;
     await telegramCall(token, 'deleteWebhook', {}, 5_000);
-    // The bot is this project's: its menu loses Dosco's commands and keeps the owner's.
+    // The bot is this project's: its menu loses Kortix's commands and keeps the owner's.
     await removeTelegramMenu(token).catch((error) =>
-      logger.warn('[telegram] the released bot kept its Dosco commands', { projectId, error: String(error) }));
+      logger.warn('[telegram] the released bot kept its Kortix commands', { projectId, error: String(error) }));
   } catch (error) {
     logger.warn('[telegram] the released bot kept its webhook', { projectId, error: String(error) });
   }
@@ -156,7 +157,7 @@ export async function releaseTelegramWebhook(projectId: string, token: string): 
 /** The token of the project's bot when a connect replaces it with `botId`; read it before the save overwrites it. */
 export async function replacedTelegramBotToken(projectId: string, botId: string): Promise<string | null> {
   const [row] = await db
-    .select({ botId: chatInstalls.workspaceId })
+    .select({ botId: chatInstalls.platformTeamId })
     .from(chatInstalls)
     .where(and(eq(chatInstalls.platform, 'telegram'), eq(chatInstalls.projectId, projectId)))
     .limit(1);

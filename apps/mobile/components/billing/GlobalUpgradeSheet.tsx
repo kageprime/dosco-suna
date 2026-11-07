@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -77,7 +77,7 @@ export function GlobalUpgradeSheet() {
           gap: 18,
         }}>
         <View className="items-center">
-          <Text variant="large">{t('upgrade.creditsPlan', 'Dosco Credits')}</Text>
+          <Text variant="large">{t('upgrade.creditsPlan', 'Kortix Credits')}</Text>
           {canPurchase ? (
             <Text variant="muted" className="mt-1 text-center">
               {t(
@@ -104,7 +104,7 @@ export function GlobalUpgradeSheet() {
             <SettingsGroup>
               <SettingsRow
                 icon={UserPlus}
-                label={t('plans.askOwner', 'Ask an account owner to upgrade')}
+                label={t('plans.askOwner', 'Ask a workspace owner or admin to upgrade')}
                 multiline
               />
             </SettingsGroup>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { MagnifyingGlassIcon } from '@phosphor-icons/react';
+import Link from 'next/link';
+
 import { BackPillBody, backPillClass } from '@kortix/ui/back-pill';
 import { Button } from '@kortix/ui/button';
 import { ModalClose } from '@kortix/ui/modal';
@@ -10,6 +10,7 @@ import { HubLink } from '@kortix/ui/internal/account-hub/account-hub-location';
 import { workspaceAccountLabel } from '@kortix/ui/workspace/sidebar/workspace-grouping';
 import { cn } from '@kortix/ui';
 import { hubTarget } from '@kortix/ui/internal/stores/account-panel-store';
+import { useSettingsPanelStore } from '@kortix/ui/internal/stores/settings-panel-store';
 import type { SettingsRailChromeCopy } from '@kortix/ui/customize/settings/rail-copy-context';
 import {
   accountRoleLabel,
@@ -34,44 +35,15 @@ export function RailNav({
   onPick?: () => void;
   className?: string;
 }) {
-  const [search, setSearch] = useState('');
-  const normalized = search.trim().toLowerCase();
-
-  const filteredGroups = normalized
-    ? groups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter(
-            (item) =>
-              item.label.toLowerCase().includes(normalized) ||
-              item.description?.toLowerCase().includes(normalized),
-          ),
-        }))
-        .filter((group) => group.items.length > 0)
-    : groups;
-
   return (
     <nav
       aria-label={chrome.settings}
       className={cn(
-        'flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-3 overflow-y-auto px-2 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+        'flex min-h-0 flex-1 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-2 pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
     >
-      <div className="px-0.5 pt-1">
-        <div className="relative flex items-center">
-          <MagnifyingGlassIcon className="text-muted-foreground pointer-events-none absolute left-2.5 size-3.5" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search settings..."
-            className="bg-popover border-border/80 text-foreground placeholder:text-muted-foreground w-full rounded-md border py-1 pr-2 pl-7 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-      </div>
-
-      {filteredGroups.map((group) => (
+      {groups.map((group) => (
         <div key={group.label}>
           {showGroupLabels ? (
             <div className="text-muted-foreground flex h-7 items-center px-2.5 text-xs font-medium">
@@ -114,34 +86,45 @@ export function RailNav({
             {organizationCopy.title}
           </div>
           <ul className="flex flex-col gap-0.5">
-            {organizations.map((account) => (
-              <li key={account.account_id}>
-                <ModalClose asChild>
-                  <HubLink
-                    to={hubTarget(account.account_id)}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2.5 pt-1 pb-1.5 text-sm font-medium',
-                      'text-sidebar-foreground/75 hover:bg-hover hover:text-sidebar-foreground transition-colors',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">
-                        {workspaceAccountLabel(
-                          account.name,
-                          organizationCopy.fallbackAccountName,
-                          false,
-                        )}
-                      </span>
-                      {accountRoleLabel(account.account_role, organizationCopy) ? (
-                        <span className="text-muted-foreground block truncate text-xs font-normal">
-                          {accountRoleLabel(account.account_role, organizationCopy)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </HubLink>
-                </ModalClose>
-              </li>
-            ))}
+            {organizations.map((account) => {
+              const rowClass = cn(
+                'flex w-full items-center gap-2 rounded-md px-2.5 pt-1 pb-1.5 text-sm font-medium',
+                'text-sidebar-foreground/75 hover:bg-hover hover:text-sidebar-foreground transition-colors',
+              );
+              const role = accountRoleLabel(account.account_role, organizationCopy);
+              const body = (
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">
+                    {workspaceAccountLabel(account.name, organizationCopy.fallbackAccountName, false)}
+                  </span>
+                  {role ? (
+                    <span className="text-muted-foreground block truncate text-xs font-normal">{role}</span>
+                  ) : null}
+                </span>
+              );
+              return (
+                <li key={account.workspace_id ?? account.account_id}>
+                  {/* A workspace row opens that workspace's settings. It closes
+                      the panel with its destination: on /settings, a plain
+                      close would send the route back to the last workspace. */}
+                  {account.workspace_id ? (
+                    <Link
+                      href={`/workspaces/${account.workspace_id}/admin`}
+                      className={rowClass}
+                      onClick={() => useSettingsPanelStore.getState().closeTo(`/workspaces/${account.workspace_id}/admin`)}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <ModalClose asChild>
+                      <HubLink to={hubTarget(account.account_id)} className={rowClass}>
+                        {body}
+                      </HubLink>
+                    </ModalClose>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

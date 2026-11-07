@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { chatEventDedup, chatThreads, projectSessions, projects } from '@kortix/db';
+import { chatEventDedup, chatThreads, projectSessions } from '@kortix/db';
 import { db } from '../../shared/db';
 import { config } from '../../config';
 import {
@@ -56,6 +56,7 @@ import {
 } from './types';
 import { describeTeamsConversation, isPersonalChat, stripTeamsMentions, teamsMessageText } from './util';
 import { ensureTeamsThreadParticipant, normalizeConversationPolicy, rememberTeamsThreadOwner } from './participants';
+import { projectsView } from '../../workspaces/rows';
 
 const defaultTeamsSessionLifecycle = {
   deliverFollowUp: deliverThroughQueue,
@@ -97,7 +98,7 @@ async function tellSender(
 }
 
 /**
- * The Dosco user a Teams turn runs as, or null after the sender was told how
+ * The Kortix user a Teams turn runs as, or null after the sender was told how
  * to get in. `replay` false: nothing is kept to run again after they link (a
  * card press runs only while its card is current: they press again).
  */
@@ -176,7 +177,7 @@ function projectDefaultAgentOf(metadata: unknown): string | null {
 
 /** The model this session is pinned to, as `createProjectSession` recorded it. */
 function sessionModelOf(metadata: Record<string, unknown> | null | undefined): string | null {
-  const value = metadata?.opencode_model;
+  const value = metadata?.model;
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
@@ -399,7 +400,7 @@ export async function deliverAdmittedFollowUp(
     userId,
     scope: await teamsTurnScope(input.project, activity, userId),
     session: { sessionId, ownerUserId: input.sessionOwnerId, pinnedModel: currentModel },
-    chosenModel: selection?.opencodeModel,
+    chosenModel: selection?.sessionModel,
     hasImage,
   });
   // Nothing reachable can read the image. Say so in the prompt rather than
@@ -427,7 +428,7 @@ export async function deliverAdmittedFollowUp(
       if (await claimConversationErrorNotice(tenantId, conversationId)) {
         const url = sessionWebUrl(config.FRONTEND_URL, projectId, sessionId);
         await finalizeTurn(handle, {
-          error: `This conversation's session hit an error and couldn't start. [Open it in Dosco](${url}) to see what happened.`,
+          error: `This conversation's session hit an error and couldn't start. [Open it in Kortix](${url}) to see what happened.`,
         });
       } else {
         // The notice is suppressed so a jammed conversation does not repeat
@@ -478,8 +479,8 @@ export async function createOrJoinTeamsConversationSession(input: {
 
   let [project] = await db
     .select()
-    .from(projects)
-    .where(eq(projects.projectId, projectId))
+    .from(projectsView)
+    .where(eq(projectsView.projectId, projectId))
     .limit(1);
   if (!project) return;
 
@@ -499,7 +500,7 @@ export async function createOrJoinTeamsConversationSession(input: {
   const authorizedResume = Boolean(input.authorizedResume) && route.kind === 'here';
   if (route.kind === 'thread_project') {
     projectId = route.projectId;
-    [project] = await db.select().from(projects).where(eq(projects.projectId, projectId)).limit(1);
+    [project] = await db.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
     if (!project) return;
   }
 
@@ -510,7 +511,7 @@ export async function createOrJoinTeamsConversationSession(input: {
   // sender may run here: their identity link, project access, the
   // conversation's join policy and the agent's scope. A sender who may not is
   // told why in a targeted message only they see, as Slack's ephemeral
-  // (2026-10-01: the public card used to turn into a "Connect your Dosco
+  // (2026-10-01: the public card used to turn into a "Connect your Kortix
   // account" card in front of everyone).
   const shared = !isPersonalChat(activity) || Boolean(input.followUpOnly);
   let handle: TeamsLiveTurn | null = shared ? null : await startTurn(projectId, tenantId, activity);
@@ -614,7 +615,7 @@ export async function createOrJoinTeamsConversationSession(input: {
   // of the conversation's agent cannot start a session on it from Teams.
   if (!(await userMayLaunchAgent({ projectId, accountId: project.accountId }, userId, selection?.agentName))) {
     if (claimKey) await releaseThreadCreate(claimKey);
-    const refusal = `You don't have access to the \`${selection?.agentName}\` agent in this project. Ask a project manager to grant it, or pick another agent with /agents.`;
+    const refusal = `You don't have access to the \`${selection?.agentName}\` agent in this Kortix workspace. Ask a workspace manager to grant it, or pick another agent with /agents.`;
     if (handle) await finalizeTurn(handle, { error: refusal });
     else if (shared) await tellSender(activity, tenantId, conversationId, projectId, refusal);
     return;
@@ -630,7 +631,7 @@ export async function createOrJoinTeamsConversationSession(input: {
     accountId: project.accountId,
     userId,
     scope: await teamsTurnScope(project, activity, userId),
-    chosenModel: selection?.opencodeModel,
+    chosenModel: selection?.sessionModel,
     agentName: selection?.agentName || projectDefaultAgentOf(project.metadata),
     hasImage: teamsMessageHasImage(activity),
   });
@@ -646,7 +647,7 @@ export async function createOrJoinTeamsConversationSession(input: {
     body: {
       base_ref: project.defaultBranch,
       agent_name: selection?.agentName || 'default',
-      ...(createModel ? { opencode_model: createModel } : {}),
+      ...(createModel ? { model: createModel } : {}),
       ...(start.pools ? { provider_secret_pools: start.pools } : {}),
       initial_prompt: renderAgentPrompt(activity, revived),
       // Title from the user's actual words — without the `<at>…</at>` mention
@@ -763,7 +764,7 @@ function startError(status: number | undefined, body: unknown): string {
 }
 
 function queuedMessage(): string {
-  return "I've queued your task behind the sessions already starting in this project, and I'll reply right here the moment it begins.";
+  return "I've queued your task behind the sessions already starting in this Kortix workspace, and I'll reply right here the moment it begins.";
 }
 
 async function claimThreadCreate(key: string): Promise<boolean> {
@@ -802,7 +803,7 @@ async function waitForConversationSession(
       .where(
         and(
           eq(chatThreads.platform, 'teams'),
-          eq(chatThreads.workspaceId, tenantId),
+          eq(chatThreads.platformTeamId, tenantId),
           eq(chatThreads.threadId, conversationId),
           eq(chatThreads.projectId, projectId),
         ),
@@ -817,7 +818,7 @@ async function waitForConversationSession(
 const TURN_INSTRUCTIONS = [
   'How to work:',
   '- First, load the `kortix-teams` skill via the `skill` tool for the canonical reference on posting in Teams (step/send semantics, Adaptive Cards, tone).',
-  '- The `teams` CLI needs no token in your sandbox — every command runs through the Dosco Connector (the bot credential is resolved server-side).',
+  '- The `teams` CLI needs no token in your sandbox — every command runs through the Kortix Connector (the bot credential is resolved server-side).',
   '- As you go, post a short progress checkpoint before each major step:',
   '    teams step "Reading the incident logs"',
   '  Keep them human and brief — a few per task — and post one right before anything slow so the conversation always shows fresh progress.',

@@ -22,6 +22,8 @@ import {
 } from '../projects/sandbox-deadline';
 import { validateAccountToken } from '../repositories/account-tokens';
 import { tokenRefusalReason } from '../shared/session-lease-refusal';
+import { keyScopeAllows } from '../iam/key-scope';
+import { PROJECT_ACTIONS } from '../iam/actions';
 import { isGatewayKey } from '../shared/crypto';
 import { recordGatewayTrace } from '../shared/gateway-logs';
 import { recordUsageEvent } from '../shared/usage-events';
@@ -31,6 +33,9 @@ import { validateGatewayKey } from './gateway-keys';
 import { resolveDefaultModelForPrincipal } from './resolution/default-model';
 import { fallbackSwitchOf, switchSessionToFallback } from './resolution/session-model-fallback';
 import { resolveSessionPersonalOwner } from '../projects/lib/personal-resources';
+
+/** The permission a workspace key's scope must hold to call a model. */
+const GATEWAY_KEY_ACTION = PROJECT_ACTIONS.PROJECT_SESSION_START;
 
 // ─── Canonical gateway control plane ────────────────────────────────────────
 //
@@ -80,6 +85,20 @@ async function resolvePrincipalWithReason(
   const yolo = await attributeYoloToken(token);
   if (yolo) return { principal: yolo, reason: null };
   const account = await validateAccountToken(token);
+  if (account.isValid && account.userId && account.accountId && !keyScopeAllows(account.scopes ?? null, GATEWAY_KEY_ACTION)) {
+    // A scoped workspace key (read, or a custom list without session start)
+    // runs no model: a model call is work the key was not granted
+    // (iam/key-scope.ts). Refused, attributed to the key's owner.
+    return {
+      principal: null,
+      reason: `This key's scope does not include "workspace.session.start", which model calls need.`,
+      refusedPrincipal: {
+        userId: account.userId,
+        accountId: account.accountId,
+        ...(account.projectId ? { projectId: account.projectId } : {}),
+      },
+    };
+  }
   if (account.isValid && account.userId && account.accountId) {
     // projectId/sessionId attribute usage to the calling session (the sandbox
     // connector token is minted per-session with session_id = sandbox_id) — the
@@ -131,7 +150,7 @@ async function resolvePrincipalWithReason(
  * Attach the resolved billing tier + `freeModelsOnly` flag to a principal once,
  * at authentication, so they travel with it everywhere — including across the
  * RPC boundary to the out-of-process gateway pod — and decide whether managed
- * Dosco models are visible without a second tier lookup. When internal billing
+ * Kortix models are visible without a second tier lookup. When internal billing
  * is off (self-host) every account sees the full lineup.
  */
 async function withResolvedTier(
@@ -344,16 +363,14 @@ export async function authorizeRequest(
 
 /**
  * Apply the LLM wallet gate to every request that can spend wallet credits on
- * Dosco-managed models.
+ * Kortix-managed models.
  *
  * An account without the managed-models entitlement (BYOK-only, whether by
  * tier, trial, or operator override) settles its own keys and ChatGPT
  * subscription at billingMode 'none' — nothing for this gate to fund — so the
-
  * legacy non-deferred auth call (no model resolved yet) skips it. The deferred
- * gateway path calls this only for a Dosco-billed request it already resolved
+ * gateway path calls this only for a Kortix-billed request it already resolved
  * (`creditsRequest`), so the floor applies there for every account.
-
  */
 export async function assertLlmBillingActive(
   accountId: string,
@@ -361,11 +378,11 @@ export async function assertLlmBillingActive(
 ): Promise<{ holdUsd?: number } | void> {
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(accountId))) {
     // The second managed-models gate, independent of model resolution: a
-    // Dosco-billed request (only managed models bill credits) from an
+    // Kortix-billed request (only managed models bill credits) from an
     // account without the entitlement is refused here even if resolution let
     // it through.
     if (opts?.creditsRequest) {
-      throw new BillingGateError('plan_upgrade_required', 0, 'Dosco-managed models require a paid plan.', accountId);
+      throw new BillingGateError('plan_upgrade_required', 0, 'Kortix-managed models require a paid plan.', accountId);
     }
     return;
   }
@@ -467,7 +484,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   const pureHoldRefund = isPureHoldRefund(event);
   // A pure hold refund observed nothing — no upstream call happened.
   if (!pureHoldRefund) extendDeadlineForLlmActivity(event.sessionId);
-  // On a customer's own key the only Dosco charge is the BYOK fee.
+  // On a customer's own key the only Kortix charge is the BYOK fee.
   const byokFee = pureHoldRefund ? 0 : await byokFeeFor(event);
 
   const usageEventId = pureHoldRefund
@@ -498,8 +515,8 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
           // The stream ended before the provider reported usage; the token
           // counts are the gateway's estimate (see usage/estimate.ts).
           ...(event.usageEstimated ? { usageEstimated: true } : {}),
-          // Staff-only: the upstream behind a Dosco-managed model. Customer
-          // surfaces read `provider`/`model`, which name Dosco.
+          // Staff-only: the upstream behind a Kortix-managed model. Customer
+          // surfaces read `provider`/`model`, which name Kortix.
           ...(event.upstream
             ? { upstreamProvider: event.upstream.provider, upstreamModel: event.upstream.model }
             : {}),
@@ -508,7 +525,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
 
   if (!config.KORTIX_BILLING_INTERNAL_ENABLED) return;
 
-  // What this request owes Dosco: the BYOK fee on the customer's own key,
+  // What this request owes Kortix: the BYOK fee on the customer's own key,
   // the real cost otherwise. A hold taken at admission can end on an own key
   // (a held route-memory fallback, a dispatch fallback), so the hold
   // reconciles against what is owed, never against finalCost alone.

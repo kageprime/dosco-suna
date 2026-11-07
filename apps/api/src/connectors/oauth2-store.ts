@@ -21,7 +21,8 @@ import { isUniqueViolation } from '../shared/postgres-errors';
 import { isUuid } from '../shared/validate';
 import { config } from '../config';
 import { logger } from '../lib/logger';
-import { connectionIsEffectiveProjectDefault, upsertConnectionCredential } from './credentials';
+import { ConnectionRevokedError, connectionIsEffectiveProjectDefault, upsertConnectionCredential } from './credentials';
+import { failConnection, revokeConnections } from './connection-status';
 import { nativeOAuth2CallbackResponse, nativeOAuth2CallbackUrl } from './oauth2-callback-url';
 import {
   createStoredDelegatedCredential,
@@ -110,7 +111,7 @@ async function rematerializeAfterOAuthCompletion(connectionId: string): Promise<
       .where(eq(connectorConnections.connectionId, connectionId))
       .limit(1);
     if (!row) return;
-    // A sign-in on a Pipedream or Composio connector is a move to Dosco: switch it now.
+    // A sign-in on a Pipedream or Composio connector is a move to Kortix: switch it now.
     if (row.providerType === 'pipedream' || row.providerType === 'composio') {
       const { finishMarkedMove } = await import('./connector-move');
       await finishMarkedMove(connectionId);
@@ -282,7 +283,7 @@ export async function discoverConnectionOAuth2Resource(
   );
 }
 
-/** A connection that moves its Pipedream or Composio connector to Dosco signs
+/** A connection that moves its Pipedream or Composio connector to Kortix signs
  *  in to the catalogue app's MCP server (connectors/connector-move.ts). */
 async function connectionMoveTargetUrl(row: { providerType: string; connectionId: string }): Promise<string | null> {
   if (row.providerType !== 'pipedream' && row.providerType !== 'composio') return null;
@@ -312,9 +313,9 @@ async function kortixClientApplicationForConnection(
 }
 
 /**
- * Register Dosco as an OAuth2 client (RFC 7591) at the discovered
+ * Register Kortix as an OAuth2 client (RFC 7591) at the discovered
  * registration endpoint and save the issued client as the connection's
- * application. The callback URL is the one public redirect URI Dosco owns.
+ * application. The callback URL is the one public redirect URI Kortix owns.
  */
 export async function registerConnectionOAuth2Client(
   input: {
@@ -327,12 +328,12 @@ export async function registerConnectionOAuth2Client(
 ): Promise<OAuth2ApplicationInput> {
   const { registration } = input;
   if (!registration.registration_endpoint) {
-    // No dynamic registration: only a catalogue app signs in, with Dosco's own
+    // No dynamic registration: only a catalogue app signs in, with Kortix's own
     // client and the catalogue's endpoints. Nothing from the request is used.
     const application = await kortixClientApplicationForConnection(input.identity.connectionId);
     if (!application) {
       throw new Error(
-        'This authorization server does not support dynamic client registration (RFC 7591), and Dosco has no OAuth client for this server',
+        'This authorization server does not support dynamic client registration (RFC 7591), and Kortix has no OAuth client for this server',
       );
     }
     await saveOAuth2Application(input.identity, application, input.createdBy);
@@ -383,7 +384,7 @@ function signInReturnUri(value: string | undefined): string | undefined {
   try {
     const uri = new URL(value);
     if (uri.protocol === 'kortix:') return uri.href;
-    const allowed = new Set([new URL(config.FRONTEND_URL).origin, 'https://dosco.live', 'https://dev.dosco.live', 'https://staging.dosco.live']);
+    const allowed = new Set([new URL(config.FRONTEND_URL).origin, 'https://kortix.com', 'https://dev.kortix.com', 'https://staging.kortix.com']);
     return allowed.has(uri.origin) ? uri.href : undefined;
   } catch {
     return undefined;
@@ -392,9 +393,9 @@ function signInReturnUri(value: string | undefined): string | undefined {
 
 /**
  * Start a one-click sign-in for a connection server-side: discover the MCP
- * authorization chain, register Dosco as a client (or take Dosco's own
+ * authorization chain, register Kortix as a client (or take Kortix's own
  * client), start Authorization Code + PKCE. The provider URL to open, or null
- * when the server needs no sign-in or none Dosco can run in one click. The
+ * when the server needs no sign-in or none Kortix can run in one click. The
  * same steps as the web's `startDiscoveredSignIn`, for a caller with no
  * browser of its own: an agent's connect link, a setup link.
  */
@@ -529,10 +530,7 @@ export async function completeAuthorizationCodeSession(input: {
       input.providerError && /^[A-Za-z0-9_.-]{1,128}$/.test(input.providerError)
         ? input.providerError
         : 'authorization_failed';
-    await db
-      .update(connectorConnections)
-      .set({ status: 'error', updatedAt: new Date() })
-      .where(eq(connectorConnections.connectionId, claimed.connectionId));
+    await failConnection(claimed.connectionId);
     return { redirectUri: claimed.errorRedirectUri, ok: false, errorCode };
   }
   try {
@@ -546,10 +544,7 @@ export async function completeAuthorizationCodeSession(input: {
       recorded: loaded.application.issuer,
     });
     if (!issuerVerdict.ok) {
-      await db
-        .update(connectorConnections)
-        .set({ status: 'error', updatedAt: new Date() })
-        .where(eq(connectorConnections.connectionId, claimed.connectionId));
+      await failConnection(claimed.connectionId);
       return {
         redirectUri: claimed.errorRedirectUri,
         ok: false,
@@ -571,6 +566,8 @@ export async function completeAuthorizationCodeSession(input: {
       value: createStoredDelegatedCredential(loaded.application, token),
       kind: 'oauth2_delegated',
       createdBy: claimed.initiatedBy,
+      // A revoke that landed after this sign-in started wins.
+      startedAt: claimed.createdAt,
     });
     // The catalog was last fetched WITHOUT this credential, so the connector is
     // very likely sitting on a 401. Refetch before the user sees the result.
@@ -582,10 +579,10 @@ export async function completeAuthorizationCodeSession(input: {
       connectionId: claimed.connectionId,
       err: (error as Error).message,
     });
-    await db
-      .update(connectorConnections)
-      .set({ status: 'error', updatedAt: new Date() })
-      .where(eq(connectorConnections.connectionId, claimed.connectionId));
+    if (error instanceof ConnectionRevokedError) {
+      return { redirectUri: claimed.errorRedirectUri, ok: false, errorCode: 'connection_revoked' };
+    }
+    await failConnection(claimed.connectionId);
     return {
       redirectUri: claimed.errorRedirectUri,
       ok: false,
@@ -650,6 +647,12 @@ export async function pollDeviceAuthorizationSession(input: {
       .limit(1);
     if (!session) throw new Error('OAuth2 device session not found');
     if (session.status === 'active') return { status: 'active' as const };
+    // A finished session never polls the provider again: a revoke expired it,
+    // or the provider answered expired or denied.
+    if (session.status === 'expired') return { status: 'expired' as const };
+    if (session.status !== 'pending') {
+      return { status: 'error' as const, error_code: session.errorCode ?? 'authorization_failed' };
+    }
     if (session.expiresAt <= new Date()) {
       await tx
         .update(connectionOAuthSessions)
@@ -693,14 +696,25 @@ export async function pollDeviceAuthorizationSession(input: {
         .where(eq(connectionOAuthSessions.sessionId, session.sessionId));
       return { status: 'error' as const, error_code: result.status };
     }
-    await upsertConnectionCredential({
-      projectId: loaded.projectId,
-      connectorId: loaded.connectorId,
-      connectionId: loaded.connectionId,
-      value: createStoredDelegatedCredential(loaded.application, result.token),
-      kind: 'oauth2_delegated',
-      createdBy: session.initiatedBy,
-    });
+    try {
+      await upsertConnectionCredential({
+        projectId: loaded.projectId,
+        connectorId: loaded.connectorId,
+        connectionId: loaded.connectionId,
+        value: createStoredDelegatedCredential(loaded.application, result.token),
+        kind: 'oauth2_delegated',
+        createdBy: session.initiatedBy,
+        // A revoke that landed after this sign-in started wins.
+        startedAt: session.createdAt,
+      });
+    } catch (error) {
+      if (!(error instanceof ConnectionRevokedError)) throw error;
+      await tx
+        .update(connectionOAuthSessions)
+        .set({ status: 'error', errorCode: 'connection_revoked', consumedAt: new Date(), updatedAt: new Date() })
+        .where(eq(connectionOAuthSessions.sessionId, session.sessionId));
+      return { status: 'error' as const, error_code: 'connection_revoked' };
+    }
     await rematerializeAfterOAuthCompletion(loaded.connectionId);
     await tx
       .update(connectionOAuthSessions)
@@ -782,10 +796,7 @@ export async function revokeConnectionOAuth2(connectionId: string): Promise<void
       .delete(connectionCredentials)
       .where(eq(connectionCredentials.credentialId, credential.credentialId));
   }
-  await db
-    .update(connectorConnections)
-    .set({ status: 'revoked', updatedAt: new Date() })
-    .where(eq(connectorConnections.connectionId, connectionId));
+  await revokeConnections(eq(connectorConnections.connectionId, connectionId));
 }
 
 export async function handleNativeOAuth2Callback(requestUrl: string) {

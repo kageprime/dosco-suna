@@ -14,9 +14,9 @@ import {
   grantWebRegistrationHandoff,
 } from '@/lib/auth/callback-state';
 import { readCallbackTokens } from '@/lib/auth/callback-tokens';
-import { oauthQueryParams, prefersEphemeralAuthSession } from '@/lib/auth/oauth-browser';
 import { mfaChallengeRequired, verifiedTotpFactor } from '@/lib/auth/mfa';
 import { admitMobileOAuthSession } from '@/lib/auth/mobile-admission';
+import { armOAuthAdmission, disarmOAuthAdmission, takeOAuthAdmission } from '@/lib/auth/oauth-admission';
 import { oauthQueryParams, prefersEphemeralAuthSession } from '@/lib/auth/oauth-browser';
 import { parsePersistedSession, sessionForNullAuthResult } from '@/lib/auth/persisted-session';
 import { sessionExpiry } from '@/lib/auth/session-expiry-monitor';
@@ -40,13 +40,7 @@ import { useComposerDraftStore } from '@/stores/composer-draft-store';
 import { useSessionFilterStore } from '@/stores/session-filter-store';
 import { useSessionTreeStore } from '@/stores/session-tree-store';
 
-let useTracking: any = null;
-try {
-  const TrackingModule = require('@/contexts/TrackingContext');
-  useTracking = TrackingModule.useTracking;
-} catch (e) {
-  log.warn('⚠️ TrackingContext not available');
-}
+import { useTracking } from '@/contexts/TrackingContext';
 import type {
   AuthState,
   SignInCredentials,
@@ -139,7 +133,7 @@ function isExpectedAuthCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return (
-      parsed.protocol === 'dosco:' && parsed.hostname === 'auth' && parsed.pathname === '/callback'
+      parsed.protocol === 'kortix:' && parsed.hostname === 'auth' && parsed.pathname === '/callback'
     );
   } catch {
     return false;
@@ -156,28 +150,6 @@ function extractAuthCallbackState(url: string): string | null {
     }
   } catch {}
   return null;
-}
-
-/**
- * Create session from OAuth callback URL
- */
-async function createSessionFromUrl(url: string) {
-  const tokens = readCallbackTokens(url);
-
-  if (!tokens) {
-    log.log('⚠️ No tokens found in URL');
-    return null;
-  }
-
-  log.log('✅ Tokens extracted, setting session...');
-  const { data, error } = await supabase.auth.setSession(tokens);
-
-  if (error) {
-    log.error('❌ Failed to set session:', error);
-    throw error;
-  }
-
-  return data.session;
 }
 
 /**
@@ -211,8 +183,7 @@ function nextAuthState(prev: UserState, session: Session | null): UserState {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const trackingState = useTracking ? useTracking() : { canTrack: false, isLoading: false };
-  const { canTrack, isLoading: trackingLoading } = trackingState;
+  const { canTrack } = useTracking();
   const [authState, setAuthState] = useState<UserState>({
     user: null,
     isLoading: true,
@@ -226,7 +197,6 @@ export function useAuth() {
   const initializedUserIdRef = useRef<string | null>(null);
   const initializedCanTrackRef = useRef<boolean | null>(null);
   const oauthSessionActiveRef = useRef<boolean>(false);
-  const mobileOAuthAdmissionPendingRef = useRef<boolean>(false);
   // True once a real auth answer (restore or auth event) has set the state, so
   // the stalled-restore fallback never overwrites it.
   const authResolvedRef = useRef<boolean>(false);
@@ -320,8 +290,7 @@ export function useAuth() {
         // Login-only gate for direct mobile OAuth sign-up only. Password and magic
         // link sign-in, plus session hydration, must not consult the new-user window
         // — a user who registered separately on the web can sign in immediately.
-        if (_event === 'SIGNED_IN' && mobileOAuthAdmissionPendingRef.current) {
-          mobileOAuthAdmissionPendingRef.current = false;
+        if (_event === 'SIGNED_IN' && takeOAuthAdmission()) {
           if (!(await admitMobileOAuthSession(session))) {
             log.warn(
               '🚫 New direct OAuth user on mobile — signing out (register on the web first)'
@@ -529,7 +498,7 @@ export function useAuth() {
       // ========================================
       if (provider === 'apple' && Platform.OS === 'ios') {
         log.log('🍎 Using native Apple Authentication for iOS');
-        mobileOAuthAdmissionPendingRef.current = true;
+        armOAuthAdmission();
 
         try {
           const credential = await AppleAuthentication.signInAsync({
@@ -548,7 +517,7 @@ export function useAuth() {
           });
 
           if (appleError) {
-            mobileOAuthAdmissionPendingRef.current = false;
+            disarmOAuthAdmission();
             log.error('❌ Apple sign in error:', appleError.message);
             setError({ message: appleError.message });
             setAuthState((prev) => ({ ...prev, isLoading: false }));
@@ -564,7 +533,7 @@ export function useAuth() {
           setAuthState((prev) => ({ ...prev, isLoading: false }));
           return { success: true, data };
         } catch (appleErr: any) {
-          mobileOAuthAdmissionPendingRef.current = false;
+          disarmOAuthAdmission();
           if (appleErr.code === 'ERR_REQUEST_CANCELED') {
             log.log('⚠️ Apple sign in cancelled by user');
             setAuthState((prev) => ({ ...prev, isLoading: false }));
@@ -582,7 +551,7 @@ export function useAuth() {
       // - Other providers: Platform-specific browser handling
       // ========================================
 
-      const redirectTo = await createAuthCallbackRedirect();
+      const redirectTo = await createAuthCallbackRedirect(undefined, { admission: true });
 
       log.log('📊 Redirect URL:', redirectTo, 'Platform:', Platform.OS);
 
@@ -623,7 +592,7 @@ export function useAuth() {
       // missing from its allow-list and falls back to SITE_URL, so the IdP
       // would land on web and the app would stay signed out (KRTX-2052). The
       // web origin is always allowed: web auth runs SSO and hands the session
-      // back through `dosco://auth/callback`. Reuse the state already in
+      // back through `kortix://auth/callback`. Reuse the state already in
       // `redirectTo`; a second state would overwrite the persisted one.
       const authUrl =
         provider === 'sso'
@@ -648,7 +617,7 @@ export function useAuth() {
 
       try {
         oauthSessionActiveRef.current = true;
-        mobileOAuthAdmissionPendingRef.current = true;
+        armOAuthAdmission();
 
         // ========================================
         // ANDROID: Use external browser via Linking.openURL
@@ -677,7 +646,7 @@ export function useAuth() {
                 log.log('❌ Android: OAuth timeout');
                 setAuthState((prev) => ({ ...prev, isLoading: false }));
                 oauthSessionActiveRef.current = false;
-                mobileOAuthAdmissionPendingRef.current = false;
+                disarmOAuthAdmission();
                 resolve({
                   success: false,
                   error: { message: 'Authentication timed out. Please try again.' },
@@ -739,7 +708,7 @@ export function useAuth() {
                     log.log('❌ Android: No session after returning from browser');
                     setAuthState((prev) => ({ ...prev, isLoading: false }));
                     oauthSessionActiveRef.current = false;
-                    mobileOAuthAdmissionPendingRef.current = false;
+                    disarmOAuthAdmission();
                     resolve({
                       success: false,
                       error: { message: 'Authentication was not completed. Please try again.' },
@@ -784,7 +753,7 @@ export function useAuth() {
             setError(stateError);
             setAuthState((prev) => ({ ...prev, isLoading: false }));
             oauthSessionActiveRef.current = false;
-            mobileOAuthAdmissionPendingRef.current = false;
+            disarmOAuthAdmission();
             return { success: false, error: stateError };
           }
 
@@ -808,7 +777,7 @@ export function useAuth() {
               setError({ message: sessionError.message });
               setAuthState((prev) => ({ ...prev, isLoading: false }));
               oauthSessionActiveRef.current = false;
-              mobileOAuthAdmissionPendingRef.current = false;
+              disarmOAuthAdmission();
               return { success: false, error: sessionError };
             }
 
@@ -838,7 +807,7 @@ export function useAuth() {
               setError({ message: sessionError.message });
               setAuthState((prev) => ({ ...prev, isLoading: false }));
               oauthSessionActiveRef.current = false;
-              mobileOAuthAdmissionPendingRef.current = false;
+              disarmOAuthAdmission();
               return { success: false, error: sessionError };
             }
 
@@ -856,19 +825,19 @@ export function useAuth() {
           log.log('⚠️ OAuth cancelled/dismissed by user');
           setAuthState((prev) => ({ ...prev, isLoading: false }));
           oauthSessionActiveRef.current = false;
-          mobileOAuthAdmissionPendingRef.current = false;
+          disarmOAuthAdmission();
           return { success: false, error: { message: 'Sign in cancelled' } };
         }
 
         log.log('❌ OAuth failed - unexpected result type:', result.type);
         setAuthState((prev) => ({ ...prev, isLoading: false }));
         oauthSessionActiveRef.current = false;
-        mobileOAuthAdmissionPendingRef.current = false;
+        disarmOAuthAdmission();
         return { success: false, error: { message: 'Authentication failed' } };
       } catch (sessionErr: any) {
         // Reset session flag on error within try block
         oauthSessionActiveRef.current = false;
-        mobileOAuthAdmissionPendingRef.current = false;
+        disarmOAuthAdmission();
         throw sessionErr;
       }
     } catch (err: any) {
@@ -876,7 +845,7 @@ export function useAuth() {
 
       // Reset session flag on error
       oauthSessionActiveRef.current = false;
-      mobileOAuthAdmissionPendingRef.current = false;
+      disarmOAuthAdmission();
 
       // Handle specific WebBrowser auth session error
       if (err.message?.includes('invalid state') || err.message?.includes('redirect handler')) {
@@ -899,7 +868,7 @@ export function useAuth() {
   /**
    * Sign in with magic link (passwordless)
    * Auto-creates account if it doesn't exist
-   * Uses dosco:// deep link - works when app is installed
+   * Uses kortix:// deep link - works when app is installed
    */
   const signInWithMagicLink = useCallback(
     async ({ email, acceptedTerms }: { email: string; acceptedTerms?: boolean }) => {
@@ -929,7 +898,7 @@ export function useAuth() {
             message: magicLinkError.message,
             status: magicLinkError.status,
             attemptedUrl: emailRedirectTo,
-            hint: 'Add dosco://** to Auth → Redirect URLs (local: supabase/config.toml additional_redirect_urls)',
+            hint: 'Add kortix://** to Auth → Redirect URLs (local: supabase/config.toml additional_redirect_urls)',
           });
         }
 
@@ -964,7 +933,7 @@ export function useAuth() {
       setError(null);
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'dosco://auth/reset-password',
+        redirectTo: 'kortix://auth/reset-password',
       });
 
       if (resetError) {

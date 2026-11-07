@@ -1,4 +1,5 @@
 import { isClaudeAgentModelRef } from './claude-agent';
+import { resolveClaudeCredentials } from '../../claude-subscription/accounts';
 import { getProjectGatewayResolution, type getProjectModelAccess } from '../../repositories/project-model-access';
 import {
   resolveDefaultCodexAccountSecret,
@@ -24,7 +25,6 @@ import { opencodeInferenceBaseUrl, parseOpencodeLogin, resolveOpencodeLogin } fr
 import { capabilitiesForModel } from '../models/catalog-models';
 import { type CustomLlmProviderDefinition, customProviderDescriptor, customProviderSecretName } from '../custom-providers';
 import { isRefusedCodexModelId } from '../models/codex-models';
-import { isFreeManagedModel } from '../models/free-models';
 import {
   canonicalManagedModelId,
   getRuntimeManagedModel,
@@ -56,7 +56,7 @@ import { isAwsRegion } from './aws-region';
 const BEDROCK_REGION_ENV_VAR = 'AWS_REGION';
 
 const PLAN_UPGRADE_SUGGESTION =
-  'Your plan includes no Dosco-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.';
+  'Your plan includes no Kortix-managed models. Upgrade to Credits, or connect your own provider key or ChatGPT account. List connected models with /v1/llm/v1/models?scope=picker in your project.';
 
 /**
  * The same block, for a plan that is PAID but simply does not include managed
@@ -170,6 +170,7 @@ async function codexSharedCandidates(context: Context): Promise<UpstreamDescript
     accountId: principal.accountId, projectId: principal.projectId!,
     userId: principal.userId, grantUserId: principal.keyId ? null : personalUserId,
     providerId: 'codex', name: 'CODEX_AUTH_JSON',
+    sessionId: principal.sessionId, probe: context.options?.probe,
   });
   if (shared.secrets.length) {
     const { candidates, failed } = await codexAccountCandidates(context, shared.secrets);
@@ -266,7 +267,7 @@ async function resolveCodexCandidates(context: Context): Promise<UpstreamDescrip
 /**
  * OpenCode (Zen and Go) refuses a request without `x-opencode-session`
  * (`MissingSessionID`) and routes and prompt-caches by it. It also asks clients
- * to name themselves in User-Agent (https://opencode.ai/docs/go). The Dosco
+ * to name themselves in User-Agent (https://opencode.ai/docs/go). The Kortix
  * session is the stable conversation id; a gateway API key call has none.
  */
 function opencodeHeaders(baseUrl: string, principal: AuthedPrincipal): Record<string, string> | undefined {
@@ -274,7 +275,7 @@ function opencodeHeaders(baseUrl: string, principal: AuthedPrincipal): Record<st
   // ponytail: an API-key caller shares one session id across its conversations;
   // forward the caller's own x-opencode-session if that ever costs cache hits.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
-  return { 'x-opencode-session': session, 'User-Agent': 'Dosco (https://dosco.live)' };
+  return { 'x-opencode-session': session, 'User-Agent': 'Kortix (https://kortix.com)' };
 }
 
 /**
@@ -373,8 +374,8 @@ async function resolveByokCandidates(context: Context, provider: string,
       `No usable ${provider} key is selected for this session.`,
     pool.coolingDown ? 'Retry after the provider cooldown, or select another granted key.' :
       'Select a granted key in session settings.', pool.retryAfterSeconds);
-  // Never append a Dosco-managed fallback to BYOK keys: a failed BYOK key must
-  // fail as BYOK, not silently become a Dosco credit charge.
+  // Never append a Kortix-managed fallback to BYOK keys: a failed BYOK key must
+  // fail as BYOK, not silently become a Kortix credit charge.
   return keys.length ? byokDescriptors(context, provider, byok, keys, !!pool?.configured) : [];
 }
 
@@ -395,7 +396,7 @@ async function resolveCustomCandidates(context: Context, provider: CustomLlmProv
 }
 
 /**
- * The managed route on Dosco's own credentials. Cloud-only:
+ * The managed route on Kortix's own credentials. Cloud-only:
  * getRuntimeManagedModel() matches only when KORTIX_MANAGED_PROVIDER_ENABLED is
  * on, so a self-host falls through to "model not available on this deployment".
  * An empty result (no transport credential configured) falls through the same way.
@@ -407,21 +408,16 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
     ?? (isManagedAudioModelId(effectiveModel) ? { id: effectiveModel } : undefined);
   if (!managed || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
-
-    'Dosco Managed Models are disabled for this project.',
-    'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
+    'Kortix Managed Models are disabled for this project.',
+    'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
   // THE managed-model gate. No model, default or fallback is exempt: an
   // account without the entitlement (the Free plan) never reaches a managed
-  // model on Dosco credits. Designated free models are exempt (0 credit cost).
-  if (principal.freeModelsOnly && !isFreeManagedModel(effectiveModel)) {
-    throw new GatewayResolutionError('plan_upgrade_required',
-      `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
-  }
+  // model on Kortix credits.
+  if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
+    `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
   if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
-    if (!isFreeManagedModel(effectiveModel)) {
-      const tier = await getCachedAccountTier(principal.accountId);
-      throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
-    }
+    const tier = await getCachedAccountTier(principal.accountId);
+    throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
   }
   // Platinum keys its upstream prompt caches by this id: the conversation.
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
@@ -529,8 +525,8 @@ export async function resolveCandidates(
       throw new GatewayResolutionError(
         'model_retired',
         named
-          ? `The "${effectiveModel}" model was retired from Dosco's managed lineup. Use "${named}" instead.`
-          : `The "${effectiveModel}" model was retired from Dosco's managed lineup.`,
+          ? `The "${effectiveModel}" model was retired from Kortix's managed lineup. Use "${named}" instead.`
+          : `The "${effectiveModel}" model was retired from Kortix's managed lineup.`,
         named
           ? `Switch to "${named}", or choose another model from the current lineup.`
           : 'Choose another model from the current managed lineup.',
@@ -538,18 +534,34 @@ export async function resolveCandidates(
     }
     throw new GatewayResolutionError(
       'model_disabled_on_deployment',
-      `The "${effectiveModel}" model requires Dosco's managed provider, which is disabled on this deployment.`,
+      `The "${effectiveModel}" model requires Kortix's managed provider, which is disabled on this deployment.`,
       'Connect your own API key for a BYOK-compatible model, or ask your deployment operator to enable the managed provider.',
     );
   }
 
-  // Only a daemon from before Claude subscription models sends one here: a current
-  // one runs them through Claude Code in the box. A new session boots the current image.
+  // Chat completion callers (including the sessionless playground) cannot run
+  // Claude Code. Reaching this resolver says nothing about a runtime's age.
   if (isClaudeAgentModelRef(effectiveModel)) {
+    // pi sends a Claude step here when every Claude account of the session is at
+    // its limit (harness/pi/claude/provider.ts). A resting pool starts the
+    // project's Routing chain with its own rest, so the session's fallback holds
+    // until the plan resets. Any other refusal stays `model_not_found` below,
+    // which starts the chain too. So does a short per-minute 429 on an account
+    // with room: the fallback serves that step and the revert moves the session
+    // back at its next check.
+    if (principal.projectId && principal.sessionId) {
+      await resolveClaudeCredentials({
+        accountId: principal.accountId, projectId: principal.projectId, userId: principal.userId,
+        sessionId: principal.sessionId, keyId: principal.keyId, personalUserId,
+      }, { probe: true }).catch((err: unknown) => {
+        // A resting pool starts the chain with its own reason; another typed refusal falls through.
+        if (!(err instanceof GatewayResolutionError) || err.code === 'provider_pool_rate_limited') throw err;
+      });
+    }
     throw new GatewayResolutionError(
       'model_not_found',
-      `"${effectiveModel}" runs through Claude Code, and this session's computer runs an older Dosco runtime.`,
-      'Start a new session to use Claude models, or pick another model here.',
+      `"${effectiveModel}" runs through Claude Code inside sessions only. Test it by starting a session with this model; the gateway playground and chat completions cannot execute it.`,
+      'Start a session with this model, or choose a gateway-compatible model for this request.',
     );
   }
   throw new GatewayResolutionError(

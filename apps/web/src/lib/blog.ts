@@ -1,7 +1,5 @@
 import type { CoverLogo } from '@/components/blog/blog-cover';
 
-const AUTHOR_EMAIL = 'xera@dosco.live';
-
 /**
  * Post shapes and the author registry shared by the use-case pages. The blog
  * itself moved to its own codebase (kortix-ai/marketing) and is served at
@@ -15,13 +13,6 @@ export interface Author {
   /** Used by <UserAvatar> for initials + image lookup. */
   email: string;
   avatarUrl?: string;
-  /**
-   * This author is Dosco itself, not a person — `<PostAuthorAvatar>` renders
-   * the Dosco symbol instead of initials. A flag rather than a check on
-   * `role`, because `role` is display copy: rewording it must not silently
-   * change which mark renders.
-   */
-  isKortix?: boolean;
 }
 
 // Author registry. A post references one of these keys (`author: 'marko'`);
@@ -30,18 +21,17 @@ export const AUTHORS: Record<string, Author> = {
   marko: {
     name: 'Marko Kraemer',
     role: 'Co-founder',
-    email: AUTHOR_EMAIL,
+    email: 'marko@kortix.ai',
   },
   team: {
-    name: 'The Dosco Team',
-    role: 'Dosco',
-    email: AUTHOR_EMAIL,
-    isKortix: true,
+    name: 'The Kortix Team',
+    role: 'Kortix',
+    email: 'team@kortix.ai',
   },
 };
 
 export function resolveAuthor(key: string): Author {
-  return AUTHORS[key] ?? { name: key, role: '', email: AUTHOR_EMAIL };
+  return AUTHORS[key] ?? { name: key, role: '', email: `${key}@kortix.ai` };
 }
 
 export interface PostFrontmatter {

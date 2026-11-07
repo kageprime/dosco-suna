@@ -127,13 +127,13 @@ beforeAll(async () => {
   await db.insert(chatThreads).values({
     projectId: project.project_id,
     platform: 'teams',
-    workspaceId: TENANT,
+    platformTeamId: TENANT,
     threadId: CONVO,
     sessionId,
   });
   await db.insert(chatUserIdentities).values([
-    { platform: 'teams', workspaceId: TENANT, platformUserId: 'aad-manager', userId: MANAGER },
-    { platform: 'teams', workspaceId: TENANT, platformUserId: 'aad-bystander', userId: BYSTANDER },
+    { platform: 'teams', platformTeamId: TENANT, platformUserId: 'aad-manager', userId: MANAGER },
+    { platform: 'teams', platformTeamId: TENANT, platformUserId: 'aad-bystander', userId: BYSTANDER },
   ]);
 });
 
@@ -144,7 +144,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.workspaceId, TENANT));
+  await db.delete(chatUserIdentities).where(eq(chatUserIdentities.platformTeamId, TENANT));
   await db.delete(jobQueue).where(eq(jobQueue.queue, HELD_CALL_QUEUE));
   await db.delete(sessionLifecycleCommands).where(eq(sessionLifecycleCommands.projectId, project.project_id));
   await db.delete(connectorCalls).where(eq(connectorCalls.projectId, project.project_id));
@@ -201,12 +201,12 @@ test('a member who is neither manager nor launcher gets a refusal and the card k
   expect(response).toEqual({
     statusCode: 200,
     type: 'application/vnd.microsoft.activity.message',
-    value: 'Only a project manager or the person who started this session can decide.',
+    value: 'Only a workspace manager or the person who started this session can decide.',
   });
   expect(resumed).toHaveLength(0);
 });
 
-test('a decision made in Dosco updates the Teams card', async () => {
+test('a decision made in Kortix updates the Teams card', async () => {
   const executionId = await pending({
     args_preview: { draft_id: 'r-1' },
     args_preview_complete: true,
@@ -277,7 +277,7 @@ test('approve of a held call on the card: running, then the run; the session res
   expect(resumed).toHaveLength(0);
   const ran = cardUpdates.filter((u) => u.activityId === 'activity-held').at(-1);
   // The presser's name survives to the card update after the run.
-  expect(JSON.stringify(ran?.card)).toContain('by Teams aad-manager. Not run: Dosco refused it at run time.');
+  expect(JSON.stringify(ran?.card)).toContain('by Teams aad-manager. Not run: Kortix refused it at run time.');
 });
 
 test('approve of a call with no held input keeps the repeat-the-call resume', async () => {

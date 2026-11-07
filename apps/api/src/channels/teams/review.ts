@@ -14,9 +14,9 @@ export async function postTeamsReviewCard(
     // A review filed by a prompt with no card of its own (a follow-up, a
     // queued start) still reaches the conversation the session owns.
   const ref = await prepareWaitingTurn(sessionId, 'Waiting for your decision');
-    if (!ref) return { ok: false, error: 'No active Teams turn for this session.' };
+  if (!ref) return { ok: false, error: 'No active Teams turn for this session.' };
   const viewUrl = ref.projectId
-    ? `${(config.FRONTEND_URL || 'https://dosco.live').replace(/\/+$/, '')}/projects/${ref.projectId}/review`
+    ? `${(config.FRONTEND_URL || 'https://kortix.com').replace(/\/+$/, '')}/workspaces/${ref.projectId}/review`
     : undefined;
 
   const posted = await sendCard(
@@ -36,12 +36,12 @@ export async function postTeamsReviewCard(
   // looking at "Waiting for your decision" with nothing to decide on. The
   // question path has always fallen back to text for exactly this; the review
   // path did not, and lost the review outright. The buttons are gone, but the
-  // decision can still be made in Dosco or stated as a reply.
+  // decision can still be made in Kortix or stated as a reply.
   const plain = [
     `**${item.title}**`,
     item.summary,
     item.risk && item.risk !== 'none' ? `Risk · ${item.risk}` : '',
-    viewUrl ? `[Review it in Dosco ↗](${viewUrl})` : '',
+    viewUrl ? `[Review it in Kortix ↗](${viewUrl})` : '',
   ]
     .filter(Boolean)
     .join('\n\n');

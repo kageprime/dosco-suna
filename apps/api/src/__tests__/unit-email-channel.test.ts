@@ -43,6 +43,8 @@ function makeChain(): any {
 }
 
 mock.module("../shared/db", () => ({
+  withDbTransaction: async <T>(action: () => Promise<T>) => action(),
+  afterDbCommit: (action: () => void) => action(),
   db: {
     select: () => makeChain(),
     insert: () => makeChain(),
@@ -105,7 +107,7 @@ let createCalls: Array<any> = [];
 let deliverOutcome: "delivered" | "no-session" = "delivered";
 
 // The email tools go through the `kortix connectors` CLI, which every harness's
-// shell has. OpenCode alone has the MCP face, so an MCP-only prompt left a pi
+// shell has. pi serves no MCP servers, so an MCP-only prompt left a pi
 // session unable to read or answer the thread (W1 B8).
 function expectConnectorEmailPrompt(prompt: string) {
   expect(prompt).toContain(
@@ -623,7 +625,7 @@ describe("handleEmailEvent", () => {
       [CHANNEL_ON],
       [],
       [PROJECT_ROW],
-      [{ agentName: "veyris", opencodeModel: null }],
+      [{ agentName: "veyris", sessionModel: null }],
       [{ eventId: "email:threadcreate:inb-1:thr-1" }],
     ];
 
@@ -653,7 +655,7 @@ describe("handleEmailEvent", () => {
       }),
     ]);
     const prompt: string = createCalls[0].postCreate[1].text;
-    // The channel envelope: the header and the body, then Dosco's lines.
+    // The channel envelope: the header and the body, then Kortix's lines.
     expect(prompt).toStartWith(`${EMAIL_HEAD}\n\n── Email instructions\n`);
     expect(prompt).toContain(
       '\n- Attachment "invoice.pdf" (1200 bytes, attachment_id att-1).\n',
@@ -701,7 +703,7 @@ describe("handleEmailEvent", () => {
       [CHANNEL_ON],
       [],
       [PROJECT_ROW],
-      [{ agentName: null, opencodeModel: null }],
+      [{ agentName: null, sessionModel: null }],
       [{ eventId: "email:threadcreate:inb-1:thr-1" }],
     ];
 
@@ -741,7 +743,7 @@ describe("handleEmailEvent", () => {
       // The stale thread is dropped, then the session plan reads the project and the binding.
       [],
       [PROJECT_ROW],
-      [{ agentName: null, opencodeModel: null }],
+      [{ agentName: null, sessionModel: null }],
       [{ eventId: "email:threadcreate:inb-1:thr-1" }],
     ];
 
@@ -809,7 +811,7 @@ describe("handleEmailEvent", () => {
     expect(vouched).toContain(`, subject ${JSON.stringify(subject)}.\n`);
   });
 
-  test("sender-written values cannot forge a line or a file tag in the part Dosco writes", async () => {
+  test("sender-written values cannot forge a line or a file tag in the part Kortix writes", async () => {
     setThreadEmailLoaderForTest(async (input) => ({
       id: input.emailId,
       direction: "inbound",
@@ -893,7 +895,6 @@ describe("handleEmailEvent", () => {
   });
 });
 
-
 describe("sender policy", () => {
   const restricted = (
     over: Partial<{
@@ -907,20 +908,19 @@ describe("sender policy", () => {
     allowedDomains: [],
     allowedRegex: null,
     ...over,
-
   });
 
   test("exact emails, domains (and subdomains) and regex", () => {
     const policy = restricted({
       allowedEmails: ["customer@example.com"],
-      allowedDomains: ["dosco.live"],
+      allowedDomains: ["kortix.com"],
       allowedRegex: "^vip-[0-9]+@example\\.org$",
     });
     expect(
       isEmailSenderAllowed("Customer <customer@example.com>", policy),
     ).toBe(true);
     expect(
-      isEmailSenderAllowed("Teammate <person@ops.dosco.live>", policy),
+      isEmailSenderAllowed("Teammate <person@ops.kortix.com>", policy),
     ).toBe(true);
     expect(isEmailSenderAllowed("vip-12@example.org", policy)).toBe(true);
     expect(isEmailSenderAllowed("Other <other@external.test>", policy)).toBe(
