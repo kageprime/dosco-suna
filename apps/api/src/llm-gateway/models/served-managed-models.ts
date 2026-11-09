@@ -2,11 +2,13 @@ import { config } from '../../config';
 import { managedTransportAvailable } from '../resolution/descriptors';
 import {
   FREE_MANAGED_MODELS,
+  platformDefaultFreeModelId,
+} from './free-models';
+import {
   managedLineup,
   resolvePlatformDefaultModelId,
   type ManagedModel,
 } from './managed-models';
-import { platformDefaultFreeModelId } from './free-models';
 
 export { platformDefaultFreeModelId };
 

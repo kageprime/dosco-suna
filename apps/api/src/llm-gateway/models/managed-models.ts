@@ -246,3 +246,5 @@ export function resolvePlatformDefaultModelId(
   if (bare && served.some((model) => model.id === bare)) return trimmed;
   return served[0]?.id ?? trimmed;
 }
+
+export { FREE_MANAGED_MODELS } from './free-models';
