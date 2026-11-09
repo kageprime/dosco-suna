@@ -4,31 +4,39 @@
  * Plain English lives here, not in `apps/web/translations/*.json`, so copy can
  * iterate before paying the 8-locale parity gate.
  *
- * ACCURACY GATE - what this page may claim:
- *  1. The product surfaces are the WEB APP (dosco.live - nothing to install)
- *     and the Android APK. There is no desktop app (Windows/macOS/Linux) and
- *     the page must not advertise one, not even as "coming soon".
- *  2. Android ships as a direct APK (no store listing yet): the row links
- *     `/download/android`, which 302s to the current EAS artifact - see
- *     MOBILE_ROWS and mobile-store-urls.ts.
- *  3. There is no iOS build; iOS stays off the rows entirely.
- *  4. There is no Chrome extension in this repo - no manifest, no app. The
- *     page must not advertise one, not even as "coming soon".
- *  5. The CLI redirect routes (`/download/cli/<target>`) still answer for
- *     terminal users, but the page no longer advertises them.
+ * ACCURACY GATE — what this page may claim:
+ *  1. macOS ships ONE universal .dmg (Apple Silicon + Intel).
+ *  2. Linux desktop is x86_64 ONLY (.AppImage).
+ *  3. Windows ships a 64-bit installer (.exe).
+ *  4. Android ships as a direct APK (no store listing yet): the row links
+ *     `/download/android`, which 302s to the current EAS artifact.
+ *  5. There is no iOS build; iOS stays off the rows entirely.
+ *  6. The CLI install command is displayed in the terminal block.
  */
 
 import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { REMAINING_UI_TRANSLATION_KEYS } from '@kortix/ui/i18n/ui-catalog/remaining-ui-translation-keys.generated';
 import type { UiTranslator } from '@/i18n/translator';
+import type { DesktopOs } from '@kortix/ui/internal/lib/detect-os';
 
 export const hero = {
   title: 'Download Dosco',
-  sub: 'Get the app on your phone, or use Dosco right in your browser.',
+  sub: 'Get the app for your desktop, your phone, or your terminal.',
 };
 
 export type CardCopy = { title: string; description: string };
 export type RowCopy = { label: string; hint: string; href: string };
+
+export const DESKTOP_CARD: CardCopy = {
+  title: 'Desktop app',
+  description: 'Run Dosco on your own machine, with your files and your terminal.',
+};
+
+export const DESKTOP_ROWS: Record<DesktopOs, RowCopy> = {
+  macos: { label: 'macOS', hint: 'Universal', href: '/download/macos' },
+  windows: { label: 'Windows', hint: '64-bit', href: '/download/windows' },
+  linux: { label: 'Linux', hint: 'AppImage · x86_64', href: '/download/linux' },
+};
 
 export const MOBILE_CARD: CardCopy = {
   title: 'Mobile app',
@@ -51,12 +59,21 @@ export const MOBILE_ROWS: Record<'android', RowCopy> = {
   },
 };
 
+export const TERMINAL = {
+  title: 'Terminal',
+  description: 'Install the CLI and drive Dosco from your shell.',
+  support: 'macOS & Linux · WSL on Windows',
+};
+
 export function localizedDownloadContent(tI18nComplete: UiTranslator) {
   return localizeUiCatalog(
     {
       hero,
+      desktopCard: DESKTOP_CARD,
       mobileCard: MOBILE_CARD,
+      desktopRows: DESKTOP_ROWS,
       mobileRows: MOBILE_ROWS,
+      terminal: TERMINAL,
     },
     tI18nComplete,
     REMAINING_UI_TRANSLATION_KEYS,

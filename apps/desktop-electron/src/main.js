@@ -88,17 +88,17 @@ function bakedDefaultUrl() {
 //   2. value baked into package.json at build time (CI dev vs prod)
 //   3. production kortix.com
 // A runtime KORTIX_DESKTOP_URL / the Frontend-URL menu still overrides this.
-const DEFAULT_URL = process.env.KORTIX_DESKTOP_DEFAULT_URL || bakedDefaultUrl() || 'https://kortix.com/workspaces';
+const DEFAULT_URL = process.env.KORTIX_DESKTOP_DEFAULT_URL || bakedDefaultUrl() || 'https://dosco.live/workspaces';
 
 // The update channel baked into the bundle decides whether the frontend-URL
 // menu is the developer preset switcher or the single production
-// "Change Kortix Instance…" entry (frontend-menu.js).
+// "Change Dosco Instance…" entry (frontend-menu.js).
 const CHANNEL = resolveChannel(require('../package.json'));
 
-const URL_SCHEME = 'kortix';
+const URL_SCHEME = 'dosco';
 // Matches DESKTOP_UA_TOKEN in packages/ui/src/internal/lib/desktop.ts and the
-// KortixDesktop check in apps/web/src/middleware.ts.
-const UA_TOKEN = 'KortixDesktop/0.1.0';
+// DoscoDesktop check in apps/web/src/middleware.ts.
+const UA_TOKEN = 'DoscoDesktop/0.1.0';
 
 // net::ERR_ABORTED — a navigation replaced by another one, not a failure.
 const ERR_ABORTED = -3;
@@ -330,7 +330,7 @@ function createSplash() {
     show: true,
     hasShadow: true,
     backgroundColor: currentBackgroundColor(),
-    title: 'Kortix CompanyOS',
+    title: 'Dosco',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
   splashWindow.loadFile(path.join(__dirname, '..', 'assets', 'splash.html'));
@@ -362,7 +362,7 @@ function createMainWindow() {
     minHeight: MIN_HEIGHT,
     show: false, // revealed once the remote app finishes loading (splash covers the gap)
     backgroundColor: currentBackgroundColor(),
-    title: 'Kortix CompanyOS',
+    title: 'Dosco',
     // macOS: hidden title bar, traffic lights centered in the title-bar band
     // the web app's first row shares with them. The band height and every
     // offset derived from it live in ONE table (window-chrome.js →
@@ -593,7 +593,7 @@ function createMainWindow() {
         buttons: ['Reload', 'Go Home'],
         defaultId: 0,
         cancelId: 0,
-        message: 'Kortix stopped unexpectedly',
+        message: 'Dosco stopped unexpectedly',
         detail: 'Reload to return to this page, or go home to your latest workspace.',
       })
       .then(({ response }) => {
@@ -1144,7 +1144,7 @@ function registerIpc() {
           buttons: ['Switch', 'Cancel'],
           defaultId: 1,
           cancelId: 1,
-          message: 'Switch Kortix to another server?',
+          message: 'Switch Dosco to another server?',
           detail: `The app will load and trust ${new URL(normalized.url).origin}.`,
         });
         if (response !== 0) throw new Error('Switching the server was cancelled.');
@@ -1152,7 +1152,7 @@ function registerIpc() {
           kind: 'custom',
           url: normalized.url,
         });
-        if (saveError) throw new Error(`Kortix could not save the URL: ${saveError}`);
+        if (saveError) throw new Error(`Dosco could not save the URL: ${saveError}`);
         return null;
       }
       case 'show_app_menu': {

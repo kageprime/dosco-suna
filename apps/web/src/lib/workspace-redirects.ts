@@ -45,12 +45,13 @@ export interface Rewrite {
  * Client navigations (Link, router.push) never reach the gate. Drop this once
  * every shell in use ships `/workspaces` in its list.
  */
-export const DESKTOP_SHELL_UA = 'KortixDesktop';
-const DESKTOP: Condition = { type: 'header', key: 'user-agent', value: `.*${DESKTOP_SHELL_UA}.*` };
+export const DESKTOP_SHELL_UA = 'DoscoDesktop';
+export const LEGACY_DESKTOP_SHELL_UA = 'KortixDesktop';
+const DESKTOP: Condition = { type: 'header', key: 'user-agent', value: `.*(${DESKTOP_SHELL_UA}|${LEGACY_DESKTOP_SHELL_UA}).*` };
 
 /** True for a request from the desktop shell. */
 export function isDesktopShell(userAgent: string | null | undefined): boolean {
-  return Boolean(userAgent?.includes(DESKTOP_SHELL_UA));
+  return Boolean(userAgent?.includes(DESKTOP_SHELL_UA) || userAgent?.includes(LEGACY_DESKTOP_SHELL_UA));
 }
 
 /** The path an installed desktop shell may load for `path`: `/workspaces…` → `/projects…`. Other paths are unchanged. */

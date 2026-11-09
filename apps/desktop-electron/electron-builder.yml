@@ -5,9 +5,9 @@
 # Icons live in build/ (icon.icns / icon.ico / icon.png) and are auto-detected.
 # Code signing / notarization are env-driven (CSC_LINK / APPLE_* / WIN_CSC_*) so
 # unsigned local builds work for testing; CI injects the secrets.
-appId: com.kortix.desktop
-productName: Kortix
-copyright: © Kortix
+appId: live.dosco.desktop
+productName: Dosco
+copyright: © Dosco Tek
 
 # Publish target. We never auto-publish from electron-builder (CI uploads the
 # artifacts itself with --publish never), but a concrete provider is REQUIRED:
@@ -15,8 +15,8 @@ copyright: © Kortix
 # crashes generating update metadata (computeChannelNames → channel of null).
 publish:
   provider: github
-  owner: kortix-ai
-  repo: suna
+  owner: kageprime
+  repo: dosco-suna
 
 directories:
   output: dist
@@ -40,11 +40,11 @@ extraResources:
   - from: ../../packages/agent-tunnel/package.json
     to: agent-tunnel/package.json
 
-# Registers the kortix:// deep-link scheme (auth callbacks) in the OS bundle.
+# Registers the dosco:// deep-link scheme (auth callbacks) in the OS bundle.
 protocols:
-  - name: Kortix
+  - name: Dosco
     schemes:
-      - kortix
+      - dosco
 
 mac:
   category: public.app-category.productivity
@@ -69,24 +69,24 @@ mac:
   # macOS ATS exceptions so HTTP localhost / *.localhost sandbox previews load
   # inside the in-app browser (same rationale as the Tauri Info.plist).
   # Computer Use: the agent runs this driver embedded, so the macOS grants
-  # belong to Kortix (scripts/fetch-cua-driver.js). It is already a universal
+  # belong to Dosco (scripts/fetch-cua-driver.js). It is already a universal
   # binary: x64ArchFiles lets the universal merge keep the one file.
   extraResources:
     - from: vendor/cua-driver/cua-driver
       to: cua-driver/cua-driver
   x64ArchFiles: Contents/Resources/cua-driver/cua-driver
   extendInfo:
-    NSAppleEventsUsageDescription: Kortix agents use this to work with the apps on this computer when you allow Computer Use.
-    NSScreenCaptureUsageDescription: Kortix agents see this computer's screen when you allow Computer Use.
+    NSAppleEventsUsageDescription: Dosco agents use this to work with the apps on this computer when you allow Computer Use.
+    NSScreenCaptureUsageDescription: Dosco agents see this computer's screen when you allow Computer Use.
     NSAppTransportSecurity:
       NSAllowsArbitraryLoads: true
       NSAllowsArbitraryLoadsInWebContent: true
       NSAllowsLocalNetworking: true
 
 # Per-arch dmg name so the /download route can pick the right one
-# (e.g. Kortix-0.9.82-arm64.dmg / Kortix-0.9.82-x64.dmg).
+# (e.g. Dosco-0.9.82-arm64.dmg / Dosco-0.9.82-x64.dmg).
 dmg:
-  title: Kortix ${version}
+  title: Dosco ${version}
   artifactName: ${productName}-${version}-${arch}.${ext}
   # Drag-to-install window, laid out like sindresorhus/create-dmg 8.1.0: a
   # 660x400 window, 160pt icons, app left, Applications right. The background
@@ -130,7 +130,7 @@ nsis:
 linux:
   # electron-builder 26 derives the binary name from package.json `name`
   # (@kortix/desktop-electron), which it rejects for AppImage. Name it here.
-  executableName: kortix
+  executableName: dosco
   icon: build/icon.png
   category: Utility
   target:

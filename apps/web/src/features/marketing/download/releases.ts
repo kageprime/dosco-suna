@@ -74,8 +74,8 @@ export type DesktopChannel = 'dev' | 'staging' | 'stable';
 export function deploymentChannel(backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL): DesktopChannel {
   try {
     const host = new URL(backendUrl ?? '').hostname;
-    if (host === 'dev-api.kortix.com') return 'dev';
-    if (host === 'staging-api.kortix.com') return 'staging';
+    if (host === 'dev-api.dosco.live' || host === 'dev-api.kortix.com') return 'dev';
+    if (host === 'staging-api.dosco.live' || host === 'staging-api.kortix.com') return 'staging';
   } catch {
     // A relative or unset backend URL is a local or self-hosted build.
   }

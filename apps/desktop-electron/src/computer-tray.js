@@ -109,7 +109,7 @@ function setupComputer(deps) {
       }
     } else {
       backendUrl = cachedBackend(appOrigin);
-      if (!backendUrl) throw new Error(error || 'The Kortix instance did not report its backend.');
+      if (!backendUrl) throw new Error(error || 'The Dosco instance did not report its backend.');
     }
     if (ctx?.appOrigin !== appOrigin || ctx.backendUrl !== backendUrl) {
       ctx = contextFor(appOrigin, backendUrl);
@@ -331,17 +331,17 @@ function setupComputer(deps) {
 
   /** Failures from the tray surface as a dialog, never silently. */
   const reportFailure = (what) => (result) => {
-    if (result && result.ok === false) dialog.showErrorBox(`Kortix could not ${what}`, result.error || 'Unknown error');
+    if (result && result.ok === false) dialog.showErrorBox(`Dosco could not ${what}`, result.error || 'Unknown error');
   };
 
   const actions = {
     open: () => deps.openMainWindow(),
     pause: () => void pause().then(reportFailure('pause computer access')),
     resume: () => void resume().then(reportFailure('resume computer access')),
-    setMode: (mode) => void setAccess({ mode }).catch((e) => dialog.showErrorBox('Kortix', String(e))),
-    revoke: () => void setAccess({ revoke: true }).catch((e) => dialog.showErrorBox('Kortix', String(e))),
-    toggleKeepAwake: () => void setAccess({ keepAwake: !status?.access?.keepAwake }).catch((e) => dialog.showErrorBox('Kortix', String(e))),
-    logs: () => void openLogs().catch((e) => dialog.showErrorBox('Kortix', String(e))),
+    setMode: (mode) => void setAccess({ mode }).catch((e) => dialog.showErrorBox('Dosco', String(e))),
+    revoke: () => void setAccess({ revoke: true }).catch((e) => dialog.showErrorBox('Dosco', String(e))),
+    toggleKeepAwake: () => void setAccess({ keepAwake: !status?.access?.keepAwake }).catch((e) => dialog.showErrorBox('Dosco', String(e))),
+    logs: () => void openLogs().catch((e) => dialog.showErrorBox('Dosco', String(e))),
     toggleLogin: () => {
       app.setLoginItemSettings({ openAtLogin: !app.getLoginItemSettings().openAtLogin });
       renderTraySafely();
@@ -353,15 +353,15 @@ function setupComputer(deps) {
         defaultId: 1,
         cancelId: 1,
         message: 'Disconnect this computer?',
-        detail: 'Kortix removes this computer from your account and agents lose access to it. Connect it again at any time.',
+        detail: 'Dosco removes this computer from your account and agents lose access to it. Connect it again at any time.',
       });
       if (response !== 0) return;
       const result = await disconnect();
       reportFailure('disconnect this computer')(result);
       if (result.ok && !result.serverUnpaired) {
         dialog.showErrorBox(
-          'Removed here, not yet in Kortix',
-          'Kortix could not be reached, so the computer still appears in your account. Remove it from Customize → Connectors → Computer.',
+          'Removed here, not yet in Dosco',
+          'Dosco could not be reached, so the computer still appears in your account. Remove it from Customize → Connectors → Computer.',
         );
       }
     },
@@ -379,7 +379,7 @@ function setupComputer(deps) {
       // Windows and Linux: a left click opens the app; the menu is on right click.
       if (process.platform !== 'darwin') tray.on('click', actions.open);
     }
-    tray.setToolTip(`Kortix — ${computer.statusLabel(status)}`);
+    tray.setToolTip(`Dosco — ${computer.statusLabel(status)}`);
     tray.setContextMenu(
       Menu.buildFromTemplate(
         computer.trayMenuTemplate(
@@ -649,7 +649,7 @@ function setupComputer(deps) {
     // A translocated or disk-image copy has a path that disappears; the
     // service would point at it and never start again.
     if (runsFromTemporaryLocation()) {
-      return { ok: false, error: 'Move Kortix to the Applications folder, then connect again.' };
+      return { ok: false, error: 'Move Dosco to the Applications folder, then connect again.' };
     }
     if (pendingConnect) {
       if (approvalWindow) approvalWindow.focus();

@@ -68,7 +68,7 @@ describe('desktop site root', () => {
   const desktopRequest = (path: string) =>
     new NextRequest(
       new Request(`https://dev.kortix.com${path}`, {
-        headers: { 'user-agent': 'Mozilla/5.0 KortixDesktop/0.1.0' },
+        headers: { 'user-agent': 'Mozilla/5.0 DoscoDesktop/0.1.0' },
       }),
     );
 
@@ -85,7 +85,7 @@ describe('desktop site root', () => {
   });
 
   test('desktop `/` passes the gate to the remembered-project redirect', () => {
-    const gate = source.slice(source.indexOf("includes('KortixDesktop')) {"));
+    const gate = source.slice(source.indexOf("if (isDesktopShell(request.headers.get('user-agent'))) {"));
     expect(gate.slice(0, gate.indexOf('if (!isAllowed)'))).toContain("pathname === '/' ||");
     expect(source).toContain(
       "if (pathname === '/' && user) {\n    return finalizeEnvironmentAccess(\n      redirectPreservingSession(new URL(defaultLandingPath",

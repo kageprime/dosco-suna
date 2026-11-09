@@ -5,7 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const MENUS = ['session', 'agent'];
 
-contextBridge.exposeInMainWorld('kortixQuickEntry', {
+const api = {
   /**
    * Main → page, on every open: `{ target, session, composer, canScreenshot }`.
    * `target` is the project name or null; `session` the picked `{ title, status }`
@@ -34,4 +34,7 @@ contextBridge.exposeInMainWorld('kortixQuickEntry', {
   dismiss: () => ipcRenderer.send('kortix:quick-entry:dismiss'),
   /** Page → main: the rendered height, so the window fits the bar as it grows. */
   resize: (height) => ipcRenderer.send('kortix:quick-entry:resize', Number(height) || 0),
-});
+};
+
+contextBridge.exposeInMainWorld('doscoQuickEntry', api);
+contextBridge.exposeInMainWorld('kortixQuickEntry', api);

@@ -19,7 +19,7 @@ const mustNotFetch = async () => {
 
 describe('normalizeInstanceUrl', () => {
   it('rejects empty input', () => {
-    expect(normalizeInstanceUrl('')).toEqual({ ok: false, error: 'Enter the URL of your Kortix instance.' });
+    expect(normalizeInstanceUrl('')).toEqual({ ok: false, error: 'Enter the URL of your Dosco instance.' });
     expect(normalizeInstanceUrl('   ')).toMatchObject({ ok: false });
     expect(normalizeInstanceUrl(undefined)).toMatchObject({ ok: false });
   });
@@ -65,11 +65,11 @@ describe('normalizeInstanceUrl', () => {
 });
 
 describe('describeDefaultInstance', () => {
-  it('names Kortix Cloud for kortix.com hosts', () => {
-    expect(describeDefaultInstance('https://kortix.com/workspaces')).toEqual({ title: 'Kortix Cloud', host: 'kortix.com' });
-    expect(describeDefaultInstance('https://dev.kortix.com/workspaces')).toEqual({
-      title: 'Kortix Cloud',
-      host: 'dev.kortix.com',
+  it('names Cloud for dosco.live hosts', () => {
+    expect(describeDefaultInstance('https://dosco.live/workspaces')).toEqual({ title: 'Cloud', host: 'dosco.live' });
+    expect(describeDefaultInstance('https://dev.dosco.live/workspaces')).toEqual({
+      title: 'Cloud',
+      host: 'dev.dosco.live',
     });
   });
 

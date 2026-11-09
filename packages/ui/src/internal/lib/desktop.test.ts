@@ -97,6 +97,13 @@ describe('desktop shell detection', () => {
     expect(desktopShellPlatform()).toBeNull();
   });
 
+  test('DoscoDesktop UA on a Mac resolves to macos', () => {
+    setNavigator('Mozilla/5.0 Chrome/130 Safari/537.36 DoscoDesktop/0.1.0', 'MacIntel');
+    expect(isDesktop()).toBe(true);
+    expect(desktopPlatform()).toBe('macos');
+    expect(desktopShellPlatform()).toBe('macos');
+  });
+
   test('KortixDesktop UA on a Mac resolves to macos', () => {
     setNavigator('Mozilla/5.0 Chrome/130 Safari/537.36 KortixDesktop/0.1.0', 'MacIntel');
     expect(isDesktop()).toBe(true);

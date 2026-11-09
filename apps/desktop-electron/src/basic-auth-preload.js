@@ -3,7 +3,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('kortixBasicAuth', {
+const api = {
   /** Main → page: host / realm / prefilled user / error text. */
   onInit: (cb) => ipcRenderer.on('kortix:basic-auth:init', (_e, init) => cb(init)),
   submit: ({ user, password, remember }) =>
@@ -13,4 +13,7 @@ contextBridge.exposeInMainWorld('kortixBasicAuth', {
       remember: Boolean(remember),
     }),
   cancel: () => ipcRenderer.send('kortix:basic-auth:cancel'),
-});
+};
+
+contextBridge.exposeInMainWorld('doscoBasicAuth', api);
+contextBridge.exposeInMainWorld('kortixBasicAuth', api);

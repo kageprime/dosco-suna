@@ -39,6 +39,7 @@ import { useSettingsPanelStore, type MembersTab } from '@kortix/ui/internal/stor
 import { useSettingsAccountId } from './use-settings-account-id';
 import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-account-context';
 import { AccountHubSheetProvider } from '@kortix/ui/internal/account-hub/hub-sheet';
+import { EmbeddedAccountHubProvider } from '@kortix/ui/internal/account-hub/account-hub-location';
 import { SettingsNavProvider, type SettingsNav } from '@kortix/ui/internal/layout/settings-nav-context';
 import { PROJECT_ACTIONS, useProjectCan } from '@kortix/ui/workspace';
 
@@ -576,7 +577,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
               {activeTab === 'shortcuts' && <PreferencesTab />}
 
               {/* Notifications Tab */}
-              {activeTab === 'notifications' && <SessionsTab projectId={projectId} />}
+              {activeTab === 'notifications' && <SessionsTab />}
 
               {/* Models Tab */}
               {activeTab === 'models' && (
@@ -610,7 +611,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
                   selectedAgent ? (
                     <AgentPage projectId={projectId} agentName={selectedAgent} />
                   ) : (
-                    <AgentsPage projectId={projectId} onSelectAgent={(name) => setSelectedAgent(name)} />
+                    <AgentsPage projectId={projectId} />
                   )
                 ) : <div className="text-sm text-muted-foreground">Select a project to configure agents.</div>
               )}
@@ -660,9 +661,11 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
               {/* Organization — Members & Roles */}
               {activeTab === 'org-members' && (
                 <BillingAccountProvider accountId={resolvedAccountId ?? null}>
-                  <AccountHubSheetProvider>
-                    <AccountHubContent accountId={resolvedAccountId} section="members" embedded />
-                  </AccountHubSheetProvider>
+                  <EmbeddedAccountHubProvider value={{ accountId: resolvedAccountId ?? '', tab: 'members' }}>
+                    <AccountHubSheetProvider>
+                      <AccountHubContent />
+                    </AccountHubSheetProvider>
+                  </EmbeddedAccountHubProvider>
                 </BillingAccountProvider>
               )}
 
@@ -690,9 +693,11 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
               {/* Organization — Audit Log */}
               {activeTab === 'org-audit' && (
                 <BillingAccountProvider accountId={resolvedAccountId ?? null}>
-                  <AccountHubSheetProvider>
-                    <AccountHubContent accountId={resolvedAccountId} section="audit" embedded />
-                  </AccountHubSheetProvider>
+                  <EmbeddedAccountHubProvider value={{ accountId: resolvedAccountId ?? '', tab: 'audit' }}>
+                    <AccountHubSheetProvider>
+                      <AccountHubContent />
+                    </AccountHubSheetProvider>
+                  </EmbeddedAccountHubProvider>
                 </BillingAccountProvider>
               )}
 

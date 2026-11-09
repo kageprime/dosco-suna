@@ -392,10 +392,6 @@ export function ProjectSidebar({
               <ProjectSessionList projectId={projectId} />
             )}
           </SidebarGroup>
-            ) : (
-              <ProjectSessionList projectId={projectId} />
-            )}
-          </SidebarGroup>
 
           <SidebarGroup className="mt-auto">
             <SidebarMenu className="gap-1">

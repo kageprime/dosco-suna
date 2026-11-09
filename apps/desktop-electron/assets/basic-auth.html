@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
-    <title>Sign in</title>
+    <title>Sign in · Dosco</title>
     <style>
       /* Kortix tokens: .agents/skills/kortix-brand/references/visual/tokens.css. The CSP
          blocks web fonts, so Roobert applies only where installed; the system stack follows. */
@@ -136,7 +136,7 @@
       // Values arrive from the main process via preload (contextBridge); the
       // page never sees Node. Every string is set with textContent — the host
       // and realm come from the network and must never be parsed as HTML.
-      const api = window.kortixBasicAuth;
+      const api = window.doscoBasicAuth || window.kortixBasicAuth;
       const $ = (id) => document.getElementById(id);
       api.onInit((init) => {
         $('host').textContent = init.host;

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
-    <title>Kortix</title>
+    <title>Dosco</title>
     <style>
       /* Kortix tokens: .agents/skills/kortix-brand/references/visual/tokens.css. The CSP
          blocks web fonts, so Roobert applies only where installed; the system stack follows. */
@@ -146,7 +146,7 @@
         <p class="sub" id="subtitle"></p>
       </header>
       <fieldset>
-        <legend>Kortix instance</legend>
+        <legend>Dosco instance</legend>
         <div class="option">
           <label class="option-head">
             <input type="radio" name="instance" value="default" id="opt-default" checked />
@@ -161,14 +161,14 @@
             <input type="radio" name="instance" value="custom" id="opt-custom" />
             <span class="option-text">
               <span class="option-title">Self-hosted</span>
-              <span class="option-detail">A Kortix instance your team runs</span>
+              <span class="option-detail">An instance your team runs</span>
             </span>
           </label>
           <input
             id="url"
             type="text"
             inputmode="url"
-            placeholder="https://kortix.your-company.com"
+            placeholder="https://dosco.your-company.com"
             autocapitalize="off"
             spellcheck="false"
             aria-label="Self-hosted instance URL"
@@ -195,16 +195,16 @@
       //   retry          label the primary "Try Again" while the current choice is selected
       const MODES = {
         setup: (init) => ({
-          title: 'Connect to Kortix',
-          subtitle: 'Use Kortix Cloud, or connect to a Kortix instance your team hosts.',
+          title: 'Connect to Dosco',
+          subtitle: 'Use Cloud, or connect to an instance your team hosts.',
           hint: `You can change this later in ${init.menuPath}.`,
           secondary: 'quit',
           closeOnEscape: false,
           retry: false,
         }),
         change: () => ({
-          title: 'Change Kortix instance',
-          subtitle: 'Kortix reloads on the instance you choose.',
+          title: 'Change Dosco instance',
+          subtitle: 'Dosco reloads on the instance you choose.',
           hint: '',
           secondary: 'cancel',
           closeOnEscape: true,

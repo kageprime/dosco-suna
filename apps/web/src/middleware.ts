@@ -562,14 +562,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Desktop app: logged-in product surface only ─────────────────────────
-  // The desktop shell (KortixDesktop UA) must never render marketing/docs/
+  // The desktop shell (DoscoDesktop UA) must never render marketing/docs/
   // public pages. Allow only product + auth routes; bounce everything else to
   // /workspaces. Runs AFTER the Supabase-at-root handling (so OAuth callbacks
   // still work) and BEFORE the locale/marketing logic (irrelevant for desktop).
   // This is the authoritative gate — it catches initial loads, SSR, and
   // Next.js client/RSC navigations alike. The Tauri shell separately opens
   // docs/external links in the user's real browser.
-  if (request.headers.get('user-agent')?.includes('KortixDesktop')) {
+  if (isDesktopShell(request.headers.get('user-agent'))) {
     const isAuthPath = pathname === '/auth' || pathname.startsWith('/auth/');
     // The site root passes: the identity-aware `/` redirects below send it into
     // the remembered project, exactly as on web. The shell launches here.
@@ -853,7 +853,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Desktop shell never shows the marketing homepage — bounce into the product.
-  if (pathname === '/' && request.headers.get('user-agent')?.includes('KortixDesktop')) {
+  if (pathname === '/' && isDesktopShell(request.headers.get('user-agent'))) {
     return finalizeEnvironmentAccess(
       redirectPreservingSession(new URL(defaultLandingPath, request.url)),
     );

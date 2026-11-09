@@ -27,9 +27,9 @@ describe('frontendMenuLabel', () => {
 });
 
 describe('buildFrontendMenu — production build', () => {
-  it('exposes one Change Kortix Instance item, not a preset submenu', () => {
+  it('exposes one Change Dosco Instance item, not a preset submenu', () => {
     const menu = buildFrontendMenu({ channel: 'stable', ...handlers() });
-    expect(menu.label).toBe('Change Kortix Instance…');
+    expect(menu.label).toBe('Change Dosco Instance…');
     expect(menu.id).toBe('kx-change-instance');
     expect(menu.submenu).toBeUndefined();
   });
@@ -50,10 +50,9 @@ describe('buildFrontendMenu — production build', () => {
       for (const child of item.submenu || []) collect(child);
     };
     collect(buildFrontendMenu({ channel: 'stable', ...handlers() }));
-    expect(labels).toEqual(['Change Kortix Instance…']);
+    expect(labels).toEqual(['Change Dosco Instance…']);
     for (const preset of [
-      'Production (kortix.com)',
-      'Dev (dev.kortix.com)',
+      'Production (dosco.live)',
       'Local (localhost:3000)',
     ]) {
       expect(labels).not.toContain(preset);
@@ -69,8 +68,7 @@ describe('buildFrontendMenu — dev build', () => {
 
     const labels = menu.submenu.filter((item) => item.label).map((item) => item.label);
     expect(labels).toEqual([
-      'Production (kortix.com)',
-      'Dev (dev.kortix.com)',
+      'Production (dosco.live)',
       'Local (localhost:3000)',
       'Custom URL…',
       'Reset to Default',
@@ -82,12 +80,10 @@ describe('buildFrontendMenu — dev build', () => {
     const h = handlers();
     const menu = buildFrontendMenu({ channel: 'dev', ...h });
     const preset = (label) => menu.submenu.find((item) => item.label === label);
-    preset('Production (kortix.com)').click();
-    preset('Dev (dev.kortix.com)').click();
+    preset('Production (dosco.live)').click();
     preset('Local (localhost:3000)').click();
     expect(h.onPreset.mock.calls.map(([url]) => url)).toEqual([
       PRESET_PROD,
-      PRESET_DEV,
       PRESET_LOCAL,
     ]);
   });

@@ -1,42 +1,32 @@
 #!/usr/bin/env python3
-"""Build build/icon.ico, the Windows app icon, from apps/web/public/favicon.svg.
+"""Build build/icon.ico, the Windows app icon, from apps/web/public/brand/dosco-crest.png.
 
-favicon.svg is the source of every Kortix app icon (kortix-brand brandmark.md,
-Q39): the dark symbol on the light #F8F8F8 rounded tile, which keeps contrast
-on a light and a dark taskbar. Each size is rasterized from the vector, not
-downscaled from one bitmap, so 16, 20 and 24 px stay crisp. The tile sits
-inside a 1/16 margin, the padding Windows app icons keep around their plate.
+Generates crisp multi-resolution icon frames (16, 20, 24, 32, 40, 48, 64, 96, 128, 256 px)
+with appropriate margins.
 
-Needs rsvg-convert (librsvg) and Pillow:
-  python3 apps/desktop-electron/scripts/build-win-icon.py
+Usage:
+  python apps/desktop-electron/scripts/build-win-icon.py
 """
-import io
 import pathlib
-import subprocess
-
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-SOURCE = ROOT / "apps/web/public/favicon.svg"
+SOURCE = ROOT / "apps/web/public/brand/dosco-crest.png"
 TARGET = ROOT / "apps/desktop-electron/build/icon.ico"
 SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
 
 
-def frame(size: int) -> Image.Image:
-    margin = round(size / 16)
+def frame(img: Image.Image, size: int) -> Image.Image:
+    margin = max(1, round(size / 16))
     inner = size - 2 * margin
-    png = subprocess.run(
-        ["rsvg-convert", "-w", str(inner), "-h", str(inner), str(SOURCE)],
-        check=True,
-        capture_output=True,
-    ).stdout
-    tile = Image.open(io.BytesIO(png)).convert("RGBA")
+    resized = img.resize((inner, inner), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    canvas.paste(tile, (margin, margin), tile)
+    canvas.paste(resized, (margin, margin), resized)
     return canvas
 
 
-frames = [frame(s) for s in SIZES]
+crest = Image.open(SOURCE).convert("RGBA")
+frames = [frame(crest, s) for s in SIZES]
 largest = frames[-1]
 largest.save(TARGET, format="ICO", sizes=[(s, s) for s in SIZES], append_images=frames[:-1])
 print(f"wrote {TARGET.relative_to(ROOT)}: {', '.join(map(str, SIZES))} px")

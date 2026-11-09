@@ -19,7 +19,7 @@ const LOOPBACK_HOST = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$|\.localhost$/;
  */
 function normalizeInstanceUrl(raw) {
   const input = typeof raw === 'string' ? raw.trim() : '';
-  if (!input) return { ok: false, error: 'Enter the URL of your Kortix instance.' };
+  if (!input) return { ok: false, error: 'Enter the URL of your Dosco instance.' };
 
   // `localhost:3000` parses as the scheme `localhost:`. A host:port prefix is a
   // bare host, not a scheme.
@@ -62,8 +62,8 @@ function describeDefaultInstance(defaultUrl) {
   } catch {
     return { title: 'Default', host: String(defaultUrl) };
   }
-  const isCloud = parsed.hostname === 'kortix.com' || parsed.hostname.endsWith('.kortix.com');
-  return { title: isCloud ? 'Kortix Cloud' : 'Default', host: parsed.host };
+  const isCloud = parsed.hostname === 'dosco.live' || parsed.hostname.endsWith('.dosco.live') || parsed.hostname === 'kortix.com' || parsed.hostname.endsWith('.kortix.com');
+  return { title: isCloud ? 'Cloud' : 'Default', host: parsed.host };
 }
 
 function hostOf(url) {

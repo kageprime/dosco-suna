@@ -76,9 +76,9 @@ async function promptRestart(info) {
     defaultId: 0,
     cancelId: 1,
     title: 'Update ready',
-    message: version ? `Kortix ${version} is ready to install.` : 'A Kortix update is ready to install.',
+    message: version ? `Dosco ${version} is ready to install.` : 'A Dosco update is ready to install.',
     detail:
-      'Restart Kortix to finish updating. It only takes a moment — your work lives on the web, so nothing is lost.',
+      'Restart Dosco to finish updating. It only takes a moment — your work lives on the web, so nothing is lost.',
   };
   const { response } = await showMessage(opts, getMainWindow());
   if (response === 0) {
@@ -105,7 +105,7 @@ function registerHandlers() {
         type: 'info',
         buttons: ['OK'],
         title: 'You’re up to date',
-        message: `Kortix ${app.getVersion()} is the latest version.`,
+        message: `Dosco ${app.getVersion()} is the latest version.`,
       };
       showMessage(opts, getMainWindow());
     }

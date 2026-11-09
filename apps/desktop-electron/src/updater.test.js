@@ -41,7 +41,7 @@ const upToDate = {
   type: 'info',
   buttons: ['OK'],
   title: 'You’re up to date',
-  message: 'Kortix 1.2.3 is the latest version.',
+  message: 'Dosco 1.2.3 is the latest version.',
 };
 
 describe('update dialogs', () => {
@@ -90,9 +90,9 @@ describe('update dialogs', () => {
       defaultId: 0,
       cancelId: 1,
       title: 'Update ready',
-      message: 'Kortix 1.2.4 is ready to install.',
+      message: 'Dosco 1.2.4 is ready to install.',
       detail:
-        'Restart Kortix to finish updating. It only takes a moment — your work lives on the web, so nothing is lost.',
+        'Restart Dosco to finish updating. It only takes a moment — your work lives on the web, so nothing is lost.',
     };
     mainWindow = destroyedWindow;
     autoUpdater.emit('update-downloaded', { version: '1.2.4' });
@@ -104,7 +104,7 @@ describe('update dialogs', () => {
     mainWindow = liveWindow;
     answer = 0;
     checkForUpdatesInteractive();
-    expect(boxes[1]).toEqual([liveWindow, { ...ready, message: 'A Kortix update is ready to install.' }]);
+    expect(boxes[1]).toEqual([liveWindow, { ...ready, message: 'A Dosco update is ready to install.' }]);
     await new Promise(setImmediate);
     await new Promise(setImmediate);
     expect(autoUpdater.quitAndInstall).toHaveBeenCalledTimes(1);

@@ -26,15 +26,15 @@ function agentCliPath({ isPackaged, resourcesPath }) {
 function ensureDevAgentCli() {
   const cli = agentCliPath({ isPackaged: false });
   if (!fs.existsSync(cli)) {
-    console.log('[kortix] building packages/agent-tunnel (dist/agent-cli.js is missing)…');
-    execFileSync('bun', ['run', 'build'], { cwd: REPO_AGENT_DIR, stdio: 'inherit' });
+    console.log('[dosco] building packages/agent-tunnel (dist/agent-cli.js is missing)…');
+    execFileSync('bun', ['run', 'build'], { cwd: REPO_AGENT_DIR, stdio: 'inherit', shell: process.platform === 'win32' });
   }
   if (!fs.existsSync(cli)) throw new Error(`agent-tunnel build did not produce ${cli}`);
   return cli;
 }
 
 /** The only backend whose machines use the default ~/.agent-tunnel identity. */
-const CANONICAL_API_ORIGIN = 'https://api.kortix.com';
+const CANONICAL_API_ORIGIN = 'https://api.dosco.live';
 
 const sha8 = (text) => crypto.createHash('sha256').update(text).digest('hex').slice(0, 8);
 
@@ -124,19 +124,19 @@ function isLoopbackHost(host) {
  * fetched by the main process. The page never chooses the relay.
  */
 function backendFromRuntimeConfig(script, appOrigin) {
-  const match = /__KORTIX_RUNTIME_CONFIG=(\{.*?\});/s.exec(String(script || ''));
+  const match = /(?:__DOSCO_RUNTIME_CONFIG|__KORTIX_RUNTIME_CONFIG)=(\{.*?\});/s.exec(String(script || ''));
   let raw;
   try {
     raw = match && JSON.parse(match[1]).BACKEND_URL;
   } catch {
     raw = null;
   }
-  if (typeof raw !== 'string' || !raw) return { ok: false, error: 'The Kortix instance does not publish its backend URL.' };
+  if (typeof raw !== 'string' || !raw) return { ok: false, error: 'The Dosco instance does not publish its backend URL.' };
   let api;
   try {
     api = new URL(raw, appOrigin);
   } catch {
-    return { ok: false, error: 'The Kortix instance publishes an invalid backend URL.' };
+    return { ok: false, error: 'The Dosco instance publishes an invalid backend URL.' };
   }
   if (api.username || api.password || api.search || api.hash) {
     return { ok: false, error: 'The backend URL must not carry credentials, a query, or a fragment.' };
@@ -157,7 +157,7 @@ function checkPageApiUrl(given, backendUrl) {
   } catch {
     /* fall through */
   }
-  return `apiUrl is not the backend of this Kortix instance (${backendUrl})`;
+  return `apiUrl is not the backend of this Dosco instance (${backendUrl})`;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -234,14 +234,14 @@ const CAPABILITY_WORDS = { filesystem: 'files', shell: 'the shell', desktop: 'th
  * default. ponytail: per-capability grants replace this if owners need them.
  */
 function accessPrompt(request, machineName) {
-  const title = `Allow Kortix to use ${machineName}?`;
+  const title = `Allow Dosco to use ${machineName}?`;
   return {
     type: 'question',
     title,
     message: title,
     detail:
       `An agent wants to use ${CAPABILITY_WORDS[request.capability] || 'this computer'}. ` +
-      'Allowing lets any Kortix agent that can reach this computer use its files, the shell, and the screen and keyboard until the time runs out. ' +
+      'Allowing lets any Dosco agent that can reach this computer use its files, the shell, and the screen and keyboard until the time runs out. ' +
       'You can revoke access at any time from the menu bar.',
     buttons: ['Allow for 24 hours', 'Allow for 1 hour', 'Deny'],
     defaultId: 1,
@@ -249,7 +249,7 @@ function accessPrompt(request, machineName) {
   };
 }
 
-/** The owner's confirmation of a wider access asked for through Kortix (a relayed change). */
+/** The owner's confirmation of a wider access asked for through Dosco (a relayed change). */
 function widenPrompt(change, machineName) {
   const minutes = change.grantMinutes;
   const what =
@@ -258,9 +258,9 @@ function widenPrompt(change, machineName) {
       : `every agent call for the next ${minutes >= 60 ? `${Math.round(minutes / 60)} hour${minutes >= 120 ? 's' : ''}` : `${minutes} minutes`} without asking you first`;
   return {
     type: 'warning',
-    title: `Allow Kortix to use ${machineName}?`,
-    message: `Allow Kortix to use ${machineName}?`,
-    detail: `Someone signed in to Kortix as you asked to allow ${what}: files, the shell, and the screen and keyboard. Allow it only if that was you. You can revoke access at any time from the menu bar.`,
+    title: `Allow Dosco to use ${machineName}?`,
+    message: `Allow Dosco to use ${machineName}?`,
+    detail: `Someone signed in to Dosco as you asked to allow ${what}: files, the shell, and the screen and keyboard. Allow it only if that was you. You can revoke access at any time from the menu bar.`,
     buttons: ['Allow', 'Cancel'],
     defaultId: 1,
     cancelId: 1,
@@ -411,7 +411,7 @@ function statusLabel(status) {
   if (!status.serviceActive) return 'Computer service stopped';
   if (status.state === 'connecting') return 'Computer connecting…';
   if (status.state === 'rejected') return 'Computer needs to reconnect';
-  if (status.state === 'standby') return 'Computer in use by another Kortix app or terminal';
+  if (status.state === 'standby') return 'Computer in use by another Dosco app or terminal';
   return 'Computer offline';
 }
 
@@ -432,7 +432,7 @@ function trayMenuTemplate(status, { openAtLogin, loginItemSupported, now = Date.
   return [
     { id: 'status', label: statusLabel(status), enabled: false },
     { type: 'separator' },
-    { id: 'open', label: 'Open Kortix', click: actions.open },
+    { id: 'open', label: 'Open Dosco', click: actions.open },
     { type: 'separator' },
     {
       id: 'access',
@@ -463,7 +463,7 @@ function trayMenuTemplate(status, { openAtLogin, loginItemSupported, now = Date.
     { type: 'separator' },
     {
       id: 'quit',
-      label: status?.paired && !paused ? 'Quit Kortix (your computer stays connected)' : 'Quit Kortix',
+      label: status?.paired && !paused ? 'Quit Dosco (your computer stays connected)' : 'Quit Dosco',
       click: actions.quit,
     },
   ];
@@ -475,6 +475,7 @@ function keepRunningInTray(status) {
 }
 
 module.exports = {
+  CANONICAL_API_ORIGIN,
   accessArgs,
   accessPrompt,
   agentCliPath,

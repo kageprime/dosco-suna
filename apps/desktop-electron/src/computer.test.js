@@ -18,7 +18,7 @@ function tempDir() {
 describe('bundled agent location and isolation', () => {
   test('a packaged app runs the extraResources copy; dev runs the repo build', () => {
     expect(computer.agentCliPath({ isPackaged: true, resourcesPath: '/App/Contents/Resources' })).toBe(
-      '/App/Contents/Resources/agent-tunnel/agent-cli.js',
+      path.join('/App/Contents/Resources', 'agent-tunnel', 'agent-cli.js'),
     );
     expect(computer.agentCliPath({ isPackaged: false })).toBe(
       path.resolve(__dirname, '../../../packages/agent-tunnel/dist/agent-cli.js'),
@@ -28,14 +28,14 @@ describe('bundled agent location and isolation', () => {
   test('X6: only a packaged stable build on the canonical API uses the real ~/.agent-tunnel identity', () => {
     const userData = tempDir();
     const defaultHome = tempDir();
-    const canonical = 'https://api.kortix.com';
+    const canonical = computer.CANONICAL_API_ORIGIN;
     expect(computer.agentHome({ isPackaged: true, channel: 'stable', userData, apiOrigin: canonical, defaultHome })).toBeNull();
     // Every other backend gets its own home, so a saved token never reaches another relay.
     const selfHost = computer.agentHome({ isPackaged: true, channel: 'stable', userData, apiOrigin: 'https://api.acme.example', defaultHome });
     expect(selfHost).toBe(path.join(userData, 'agent-tunnel', computer.sha8('https://api.acme.example')));
     const dev = computer.agentHome({ isPackaged: false, channel: 'stable', userData, apiOrigin: canonical, defaultHome });
     expect(dev).toBe(path.join(userData, 'agent-tunnel', computer.sha8(canonical)));
-    expect(computer.sha8('https://api.kortix.com')).toMatch(/^[0-9a-f]{8}$/);
+    expect(computer.sha8(canonical)).toMatch(/^[0-9a-f]{8}$/);
   });
 
   test('X6: an existing pairing keeps its home when it belongs to the same backend', () => {
@@ -53,8 +53,8 @@ describe('bundled agent location and isolation', () => {
     fs.writeFileSync(path.join(defaultHome, 'config.json'), JSON.stringify({ apiUrl: 'https://api.acme.example/v1/tunnel' }));
     expect(computer.agentHome({ isPackaged: true, channel: 'stable', userData, apiOrigin: 'https://api.acme.example', defaultHome })).toBeNull();
     // ...and a stable build on the canonical API never takes a ~/.agent-tunnel paired with another backend.
-    expect(computer.agentHome({ isPackaged: true, channel: 'stable', userData, apiOrigin: 'https://api.kortix.com', defaultHome })).toBe(
-      path.join(legacy, computer.sha8('https://api.kortix.com')),
+    expect(computer.agentHome({ isPackaged: true, channel: 'stable', userData, apiOrigin: computer.CANONICAL_API_ORIGIN, defaultHome })).toBe(
+      path.join(legacy, computer.sha8(computer.CANONICAL_API_ORIGIN)),
     );
   });
 
@@ -157,21 +157,21 @@ describe('access control: the agent CLI applies it, this app asks (A1, A4, A5, X
   test('the prompt names the machine, what the agent wants, and the whole scope of a grant; 1 hour is the default', () => {
     const prompt = computer.accessPrompt({ capability: 'shell', method: 'shell.exec' }, 'Studio');
     expect(prompt).toMatchObject({
-      title: 'Allow Kortix to use Studio?',
-      message: 'Allow Kortix to use Studio?',
+      title: 'Allow Dosco to use Studio?',
+      message: 'Allow Dosco to use Studio?',
       buttons: ['Allow for 24 hours', 'Allow for 1 hour', 'Deny'],
       defaultId: 1,
       cancelId: 2,
     });
     expect(prompt.detail).toStartWith('An agent wants to use the shell.');
-    expect(prompt.detail).toContain('any Kortix agent that can reach this computer use its files, the shell, and the screen and keyboard');
+    expect(prompt.detail).toContain('any Dosco agent that can reach this computer use its files, the shell, and the screen and keyboard');
     expect(computer.accessPrompt({ capability: 'filesystem' }, 'Studio').detail).toContain('use files');
     expect(computer.accessPrompt({ capability: 'desktop' }, 'Studio').detail).toContain('the screen and keyboard');
   });
 
-  test('a wider access asked for through Kortix names what it allows; Cancel is the default', () => {
+  test('a wider access asked for through Dosco names what it allows; Cancel is the default', () => {
     const always = computer.widenPrompt({ mode: 'always' }, 'Studio');
-    expect(always).toMatchObject({ title: 'Allow Kortix to use Studio?', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1 });
+    expect(always).toMatchObject({ title: 'Allow Dosco to use Studio?', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1 });
     expect(always.detail).toContain('every agent call without asking you first');
     expect(always.detail).toContain('Allow it only if that was you');
     expect(computer.widenPrompt({ grantMinutes: 60 }, 'Studio').detail).toContain('for the next 1 hour');
@@ -184,12 +184,25 @@ describe('access control: the agent CLI applies it, this app asks (A1, A4, A5, X
     // The app runs its bundled agent-cli.js with its own binary; bun runs the source here.
     const cli = path.join(__dirname, '..', '..', '..', 'packages', 'agent-tunnel', 'src', 'agent', 'cli.ts');
     const run = (args) => computer.runAgent(args, { cli, home, execPath: process.execPath });
-    for (const args of [computer.accessArgs({ mode: 'ask' }), computer.accessArgs({ keepAwake: true }), computer.answerArgs({ id: 'r', capability: 'shell' }, 1)]) {
+    const commands = [
+      computer.accessArgs({ mode: 'ask' }),
+      ...(process.platform !== 'win32' ? [computer.accessArgs({ keepAwake: true })] : []),
+      computer.answerArgs({ id: 'r', capability: 'shell' }, 1),
+    ];
+    for (const args of commands) {
       const result = await run(args);
       expect(result.code).toBe(0);
     }
     const status = await computer.computerStatus({ cli, home, execPath: process.execPath });
-    expect(status).toMatchObject({ available: true, paired: false, access: { mode: 'ask', keepAwake: true, pendingRequest: null } });
+    expect(status).toMatchObject({
+      available: true,
+      paired: false,
+      access: {
+        mode: 'ask',
+        ...(process.platform !== 'win32' ? { keepAwake: true } : {}),
+        pendingRequest: null,
+      },
+    });
     expect(Date.parse(status.access.grantedUntil) - Date.now()).toBeGreaterThan(59 * 60_000);
     const refused = await run(['access', 'sometimes', '--json']);
     expect(refused.code).toBe(1);
@@ -218,7 +231,7 @@ describe('access control: the agent CLI applies it, this app asks (A1, A4, A5, X
       }),
     ).toEqual({
       command: '/repo/node_modules/electron/dist/Electron',
-      args: ['/repo/apps/desktop-electron'],
+      args: [path.resolve('/repo/apps/desktop-electron', '.')],
       pid: 8,
       // The profile must follow, or the woken app misses the single-instance lock.
       env: { KORTIX_DESKTOP_URL: 'http://localhost:3000/workspaces', KORTIX_DESKTOP_USER_DATA: '/tmp/profile' },
@@ -306,14 +319,14 @@ describe('tray', () => {
     const items = computer.trayMenuTemplate(online, opts, actions);
     expect(items.filter((item) => item.id).map((item) => item.label)).toEqual([
       'Computer connected',
-      'Open Kortix',
+      'Open Dosco',
       'Access',
       'Keep this computer awake while plugged in',
       'Pause computer access',
       'Show logs',
       'Open at login',
       'Disconnect this computer…',
-      'Quit Kortix (your computer stays connected)',
+      'Quit Dosco (your computer stays connected)',
     ]);
     const modes = items.find((item) => item.id === 'access').submenu;
     expect(modes.map((item) => [item.label, item.checked])).toEqual([
@@ -340,12 +353,12 @@ describe('tray', () => {
     expect(items.find((item) => item.id === 'pause').label).toBe('Resume computer access');
     expect(items.find((item) => item.id === 'login')).toBeUndefined();
     expect(items.find((item) => item.id === 'keepAwake')).toMatchObject({ label: 'Keep awake: not available on Windows yet', enabled: false });
-    expect(items.find((item) => item.id === 'quit').label).toBe('Quit Kortix');
+    expect(items.find((item) => item.id === 'quit').label).toBe('Quit Dosco');
   });
 
   test('a refused credential reads as Needs reconnect', () => {
     expect(computer.statusLabel({ ...online, status: 'rejected', state: 'rejected' })).toBe('Computer needs to reconnect');
-    expect(computer.statusLabel({ ...online, status: 'standby', state: 'standby' })).toBe('Computer in use by another Kortix app or terminal');
+    expect(computer.statusLabel({ ...online, status: 'standby', state: 'standby' })).toBe('Computer in use by another Dosco app or terminal');
   });
 
   test('stays in the tray after the last window closes only while paired', () => {

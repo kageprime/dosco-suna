@@ -213,8 +213,8 @@ describe('deploymentChannel', () => {
   });
 
   test('a channel falls back to its own prerelease, never to the production release', () => {
-    expect(desktopReleasesPage('dev')).toBe('https://github.com/kortix-ai/suna/releases/tag/desktop-dev-latest');
-    expect(desktopReleasesPage('staging')).toBe('https://github.com/kortix-ai/suna/releases/tag/desktop-staging-latest');
-    expect(desktopReleasesPage('stable')).toBe('https://github.com/kortix-ai/suna/releases/latest');
+    expect(desktopReleasesPage('dev')).toBe('https://github.com/kageprime/dosco-suna/releases/tag/desktop-dev-latest');
+    expect(desktopReleasesPage('staging')).toBe('https://github.com/kageprime/dosco-suna/releases/tag/desktop-staging-latest');
+    expect(desktopReleasesPage('stable')).toBe('https://github.com/kageprime/dosco-suna/releases/latest');
   });
 });

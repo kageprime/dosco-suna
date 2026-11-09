@@ -1,4 +1,4 @@
-// Pure builder for the "Frontend URL" / "Change Kortix Instance…" menu entry.
+// Pure builder for the "Frontend URL" / "Change Dosco Instance…" menu entry.
 //
 // Split out of main.js so the menu shape is unit-testable without the Electron
 // runtime, the same way update-channel.js is split out of updater.js.
@@ -6,10 +6,10 @@
 // Two audiences, one decision — the update channel baked in at build time
 // (CI: `extraMetadata.kortixUpdateChannel`; see update-channel.js):
 //   • dev build  → the full preset switcher, so a developer jumps between
-//     prod / dev / local without a rebuild (mirrors the Tauri "Frontend URL"
+//     prod / local without a rebuild (mirrors the Tauri "Frontend URL"
 //     submenu).
-//   • production → ONE clean "Change Kortix Instance…" item. A normal user
-//     never sees "Dev (dev.kortix.com)" or "Local (localhost:3000)". The item
+//   • production → ONE clean "Change Dosco Instance…" item. A normal user
+//     never sees "Dev" or "Local (localhost:3000)". The item
 //     opens the native instance chooser (the COR-2 first-launch window), so a
 //     self-hoster still reaches a custom URL.
 //
@@ -18,12 +18,12 @@
 
 const { isDevChannel } = require('./update-channel');
 
-const PRESET_PROD = 'https://kortix.com/workspaces';
-const PRESET_DEV = 'https://dev.kortix.com/workspaces';
+const PRESET_PROD = 'https://dosco.live/workspaces';
+const PRESET_DEV = 'http://localhost:3000/workspaces';
 const PRESET_LOCAL = 'http://localhost:3000/workspaces';
 
 const DEV_MENU_LABEL = 'Frontend URL';
-const PRODUCTION_MENU_LABEL = 'Change Kortix Instance…';
+const PRODUCTION_MENU_LABEL = 'Change Dosco Instance…';
 
 /** The top-level menu label for the build's channel. */
 function frontendMenuLabel(channel) {
@@ -59,8 +59,7 @@ function buildFrontendMenu({ channel, onPreset, onChange, onReset, onForgetPassw
     id: 'kx-frontend-url',
     label: DEV_MENU_LABEL,
     submenu: [
-      preset('Production (kortix.com)', PRESET_PROD),
-      preset('Dev (dev.kortix.com)', PRESET_DEV),
+      preset('Production (dosco.live)', PRESET_PROD),
       preset('Local (localhost:3000)', PRESET_LOCAL),
       { type: 'separator' },
       { id: 'kx-frontend-url-custom', label: 'Custom URL…', click: () => onChange() },

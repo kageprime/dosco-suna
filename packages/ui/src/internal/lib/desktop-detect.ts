@@ -3,18 +3,19 @@
  * shared UI imports it without the rest of `packages/ui/src/internal/lib/desktop.ts`.
  */
 
-export const DESKTOP_UA_TOKEN = 'KortixDesktop';
+export const DESKTOP_UA_TOKEN = 'DoscoDesktop';
+export const LEGACY_DESKTOP_UA_TOKEN = 'KortixDesktop';
 
 export type DesktopPlatform = 'macos' | 'windows' | 'linux';
 
 export function isDesktop(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return navigator.userAgent.includes(DESKTOP_UA_TOKEN);
+  return navigator.userAgent.includes(DESKTOP_UA_TOKEN) || navigator.userAgent.includes(LEGACY_DESKTOP_UA_TOKEN);
 }
 
 export function desktopPlatform(): DesktopPlatform | null {
   if (typeof navigator === 'undefined') return null;
-  if (!navigator.userAgent.includes(DESKTOP_UA_TOKEN)) return null;
+  if (!isDesktop()) return null;
   // navigator.platform is host-OS-derived and unaffected by our custom UA.
   // userAgent here is replaced (not appended) by Tauri, so OS substrings are gone.
   const p = navigator.platform || '';

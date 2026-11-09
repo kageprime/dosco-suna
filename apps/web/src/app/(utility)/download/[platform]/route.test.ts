@@ -9,12 +9,12 @@ const origin = 'https://dosco.live';
 const realFetch = globalThis.fetch;
 const asset = (name: string) => ({
   name,
-  browser_download_url: `https://github.com/kortix-ai/CompanyOS/releases/download/v1.0.0/${name}`,
+  browser_download_url: `https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/${name}`,
   size: 1,
 });
 const release = {
   tag_name: 'v1.0.0',
-  assets: [asset('Kortix-1.0.0-universal.dmg'), asset('Kortix-Setup-1.0.0.exe'), asset('Kortix-1.0.0-x86_64.AppImage')],
+  assets: [asset('Dosco-1.0.0-universal.dmg'), asset('Dosco-Setup-1.0.0.exe'), asset('Dosco-1.0.0-x86_64.AppImage')],
 };
 let githubFetch: typeof fetch;
 beforeEach(() => {
@@ -47,12 +47,28 @@ describe('GET /download/<platform>', () => {
     }
   });
 
-  test('sends desktop to the download page — no Dosco desktop build yet', async () => {
-    for (const platform of ['macos', 'windows', 'linux', 'mac', 'win', 'solaris']) {
-      const res = await call(platform);
-      expect(res.status).toBe(302);
-      expect(res.headers.get('location')).toBe(`${origin}/download`);
-    }
+  test('serves desktop platforms the appropriate installer', async () => {
+    expect((await call('macos')).headers.get('location')).toBe(
+      'https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/Dosco-1.0.0-universal.dmg',
+    );
+    expect((await call('mac')).headers.get('location')).toBe(
+      'https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/Dosco-1.0.0-universal.dmg',
+    );
+    expect((await call('windows')).headers.get('location')).toBe(
+      'https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/Dosco-Setup-1.0.0.exe',
+    );
+    expect((await call('win')).headers.get('location')).toBe(
+      'https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/Dosco-Setup-1.0.0.exe',
+    );
+    expect((await call('linux')).headers.get('location')).toBe(
+      'https://github.com/kageprime/dosco-suna/releases/download/v1.0.0/Dosco-1.0.0-x86_64.AppImage',
+    );
+  });
+
+  test('unknown platforms redirect to /download', async () => {
+    const res = await call('solaris');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`${origin}/download`);
   });
 });
 
@@ -100,21 +116,21 @@ describe('GET /download/<platform> per deployment', () => {
         urls.push(String(url));
         return Response.json({
           tag_name: `desktop-${channel}-latest`,
-          assets: [asset('Kortix-0.9.83-universal.dmg'), asset('Kortix.Dev-0.14.3-universal.dmg'), asset('Kortix.Dev-0.13.51-universal.dmg')],
+          assets: [asset('Dosco-0.9.83-universal.dmg'), asset('Dosco.Dev-0.14.3-universal.dmg'), asset('Dosco.Dev-0.13.51-universal.dmg')],
         });
       }) as unknown as typeof fetch;
-      await withBackend(`https://${channel}-api.kortix.com/v1`, async () => {
+      await withBackend(`https://${channel}-api.dosco.live/v1`, async () => {
         const res = await call('macos');
-        expect(res.headers.get('location') ?? '').toEndWith('/Kortix.Dev-0.14.3-universal.dmg');
-        expect(urls).toEqual([`https://api.github.com/repos/kortix-ai/CompanyOS/releases/tags/desktop-${channel}-latest`]);
+        expect(res.headers.get('location') ?? '').toEndWith('/Dosco.Dev-0.14.3-universal.dmg');
+        expect(urls).toEqual([`https://api.github.com/repos/kageprime/dosco-suna/releases/tags/desktop-${channel}-latest`]);
       });
     });
 
     test(`the ${channel} deployment never falls back to the production installer`, async () => {
       githubFetch = (async () => new Response('Not Found', { status: 404 })) as unknown as typeof fetch;
-      await withBackend(`https://${channel}-api.kortix.com/v1`, async () => {
+      await withBackend(`https://${channel}-api.dosco.live/v1`, async () => {
         const res = await call('windows');
-        expect(res.headers.get('location')).toBe(`https://github.com/kortix-ai/CompanyOS/releases/tag/desktop-${channel}-latest`);
+        expect(res.headers.get('location')).toBe(`https://github.com/kageprime/dosco-suna/releases/tag/desktop-${channel}-latest`);
       });
     });
   }
@@ -125,9 +141,9 @@ describe('GET /download/<platform> per deployment', () => {
       urls.push(String(url));
       return Response.json(release);
     }) as unknown as typeof fetch;
-    await withBackend('https://api.kortix.com/v1', async () => {
-      expect((await call('linux')).headers.get('location') ?? '').toEndWith('/Kortix-1.0.0-x86_64.AppImage');
-      expect(urls).toEqual(['https://api.github.com/repos/kortix-ai/CompanyOS/releases/latest']);
+    await withBackend('https://api.dosco.live/v1', async () => {
+      expect((await call('linux')).headers.get('location') ?? '').toEndWith('/Dosco-1.0.0-x86_64.AppImage');
+      expect(urls).toEqual(['https://api.github.com/repos/kageprime/dosco-suna/releases/latest']);
     });
   });
 });

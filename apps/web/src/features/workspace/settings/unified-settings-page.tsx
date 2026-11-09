@@ -75,6 +75,7 @@ import type { SettingsNav } from '@kortix/ui/internal/layout/settings-nav-contex
 import { PROJECT_ACTIONS, useProjectCan } from '@kortix/ui/workspace';
 import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-account-context';
 import { AccountHubSheetProvider } from '@kortix/ui/internal/account-hub/hub-sheet';
+import { EmbeddedAccountHubProvider } from '@kortix/ui/internal/account-hub/account-hub-location';
 import { useSettingsPanelStore, type MembersTab } from '@kortix/ui/internal/stores/settings-panel-store';
 
 // Personal Tabs
@@ -1228,7 +1229,6 @@ export function UnifiedSettingsPage({
                 ) : (
                   <AgentsPage
                     projectId={projectId}
-                    onSelectAgent={(name) => handleSelectAgent(name, 'overview')}
                   />
                 )
               )}
@@ -1335,13 +1335,11 @@ export function UnifiedSettingsPage({
                     </p>
                   </div>
                   <BillingAccountProvider accountId={accountId ?? null}>
-                    <AccountHubSheetProvider>
-                      <AccountHubContent
-                        accountId={accountId}
-                        section="access-projects"
-                        embedded
-                      />
-                    </AccountHubSheetProvider>
+                    <EmbeddedAccountHubProvider value={{ accountId: accountId ?? '', tab: 'access-projects' }}>
+                      <AccountHubSheetProvider>
+                        <AccountHubContent />
+                      </AccountHubSheetProvider>
+                    </EmbeddedAccountHubProvider>
                   </BillingAccountProvider>
                 </div>
               )}
@@ -1354,7 +1352,7 @@ export function UnifiedSettingsPage({
               {category === 'personal' && activeTab === 'security' && <SecurityTab />}
               {category === 'personal' && activeTab === 'appearance' && <AppearanceTab />}
               {category === 'personal' && activeTab === 'notifications' && (
-                <SessionsTab projectId={projectId} />
+                <SessionsTab />
               )}
               {category === 'personal' && activeTab === 'preferences' && <PreferencesTab />}
               {category === 'personal' && activeTab === 'tokens' && (
@@ -1368,13 +1366,11 @@ export function UnifiedSettingsPage({
               {/* 3. Organization Tab Views (Embedded Account Hub Engine) */}
               {category === 'organization' && (
                 <BillingAccountProvider accountId={accountId ?? null}>
-                  <AccountHubSheetProvider>
-                    <AccountHubContent
-                      accountId={accountId}
-                      section={activeTab as any}
-                      embedded
-                    />
-                  </AccountHubSheetProvider>
+                  <EmbeddedAccountHubProvider value={{ accountId: accountId ?? '', tab: String(activeTab) }}>
+                    <AccountHubSheetProvider>
+                      <AccountHubContent />
+                    </AccountHubSheetProvider>
+                  </EmbeddedAccountHubProvider>
                 </BillingAccountProvider>
               )}
             </div>

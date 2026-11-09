@@ -3,7 +3,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('kortixInstance', {
+const api = {
   /** Main → page: mode / default instance / current choice / error text. */
   onInit: (cb) => ipcRenderer.on('kortix:instance:init', (_e, init) => cb(init)),
   /** Resolves to { ok: true } (main closes the window) or { ok: false, error, unreachable? }. */
@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld('kortixInstance', {
   quit: () => ipcRenderer.send('kortix:instance:quit'),
   /** Page → main: rendered content height, so the window fits its content. */
   resize: (height) => ipcRenderer.send('kortix:instance:resize', Number(height) || 0),
-});
+};
+
+contextBridge.exposeInMainWorld('doscoInstance', api);
+contextBridge.exposeInMainWorld('kortixInstance', api);

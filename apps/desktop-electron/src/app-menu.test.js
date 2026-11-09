@@ -19,7 +19,7 @@ function template(platform, channel = 'stable') {
   const frontend = { onPreset: mock(() => {}), onChange: mock(() => {}), onReset: mock(() => {}), onForgetPassword: mock(() => {}) };
   const menu = buildAppMenuTemplate({
     platform,
-    appName: 'Kortix',
+    appName: 'Dosco',
     shortcuts: { back: 'CommandOrControl+[', forward: 'CommandOrControl+]', home: 'CommandOrControl+Shift+H' },
     frontendMenu: buildFrontendMenu({ channel, ...frontend }),
     quickEntry: {
@@ -52,7 +52,7 @@ function find(items, predicate) {
 }
 
 /** The app-level actions the macOS app menu offers. */
-const APP_ACTIONS = ['About', 'Settings…', 'Check for Updates…', 'Change Kortix Instance…', 'Quit'];
+const APP_ACTIONS = ['About', 'Settings…', 'Check for Updates…', 'Change Dosco Instance…', 'Quit'];
 
 function appMenuActions(menu) {
   return menu[0].submenu.map((item) => {
@@ -65,12 +65,12 @@ function appMenuActions(menu) {
 describe('application menu: macOS', () => {
   test('is unchanged: the app menu, then File, Edit, View, Go, Window', () => {
     expect(shape(template('darwin').menu)).toEqual([
-      'Kortix',
+      'Dosco',
       '  about',
       '  Settings…',
       '  Check for Updates…',
       '  -',
-      '  Change Kortix Instance…',
+      '  Change Dosco Instance…',
       '  -',
       '  services',
       '  -',
@@ -113,9 +113,9 @@ describe('application menu: macOS', () => {
 
 for (const platform of ['win32', 'linux']) {
   describe(`application menu: ${platform}`, () => {
-    test('a first Kortix menu holds every macOS app-menu action', () => {
+    test('a first Dosco menu holds every macOS app-menu action', () => {
       const { menu } = template(platform);
-      expect(menu[0].label).toBe('Kortix');
+      expect(menu[0].label).toBe('Dosco');
       const actions = appMenuActions(menu);
       for (const action of APP_ACTIONS) expect(actions).toContain(action);
       // The same ids as macOS, so the native e2e journey drives both.
@@ -127,7 +127,7 @@ for (const platform of ['win32', 'linux']) {
       const flat = shape(template(platform).menu).map((s) => s.trim());
       expect(flat.filter((s) => s === 'Settings…')).toHaveLength(1);
       expect(flat.filter((s) => s === 'Check for Updates…')).toHaveLength(1);
-      expect(flat.filter((s) => s === 'Change Kortix Instance…')).toHaveLength(1);
+      expect(flat.filter((s) => s === 'Change Dosco Instance…')).toHaveLength(1);
       for (const macOnly of ['services', 'hide', 'hideOthers', 'unhide']) expect(flat).not.toContain(macOnly);
     });
 
@@ -144,17 +144,17 @@ for (const platform of ['win32', 'linux']) {
       expect(find(menu, (i) => i.id === 'kx-app-settings').accelerator).toBe('CommandOrControl+,');
       const quit = find(menu, (i) => i.id === 'kx-app-quit');
       expect(quit.role).toBe('quit');
-      expect(quit.label).toBe('Quit Kortix');
+      expect(quit.label).toBe('Quit Dosco');
     });
 
-    test('a dev build keeps the Frontend URL switcher in the Kortix menu', () => {
+    test('a dev build keeps the Frontend URL switcher in the Dosco menu', () => {
       const { menu } = template(platform, 'dev');
       expect(menu[0].submenu.find((i) => i.id === 'kx-frontend-url')?.label).toBe('Frontend URL');
     });
 
     test('File, Edit, View, Go and Window follow it unchanged', () => {
       const tops = template(platform).menu.map((i) => i.label ?? i.role);
-      expect(tops).toEqual(['Kortix', 'File', 'editMenu', 'View', 'Go', 'windowMenu']);
+      expect(tops).toEqual(['Dosco', 'File', 'editMenu', 'View', 'Go', 'windowMenu']);
     });
   });
 }

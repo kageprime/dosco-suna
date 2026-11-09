@@ -2,13 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';" />
-    <title>Kortix</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:;" />
+    <title>Dosco</title>
     <style>
-      /* Kortix tokens: .agents/skills/kortix-brand/references/visual/tokens.css. The CSP
-         blocks web fonts, so Roobert applies only where installed; the system stack follows. */
-      :root { color-scheme: light dark; --background: var(--background); --card: #f4f4f4; --foreground: #1f1f1f; --muted-foreground: #666666; --border: #e2e2e2; --primary: #1f1f1f; --primary-foreground: #ffffff; --destructive: #e7000b; --font-sans: Roobert, ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", "Noto Sans", sans-serif; }
-      @media (prefers-color-scheme: dark) { :root { --background: #0b0b0b; --card: #141414; --foreground: #ffffff; --muted-foreground: #999999; --border: #262626; --primary: #ffffff; --primary-foreground: #090909; --destructive: #ff6467; } }
+      :root {
+        color-scheme: light dark;
+        --background: #ffffff;
+        --foreground: #09090b;
+        --muted-foreground: #71717a;
+        --glow: rgba(239, 68, 68, 0.15);
+        --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #09090b;
+          --foreground: #f4f4f5;
+          --muted-foreground: #a1a1aa;
+          --glow: rgba(239, 68, 68, 0.25);
+        }
+      }
       html, body {
         margin: 0;
         height: 100%;
@@ -22,42 +34,84 @@
         height: 100%;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 20px;
         align-items: center;
         justify-content: center;
         font-family: var(--font-sans);
       }
-      .ring {
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        border: 2px solid rgba(0, 0, 0, 0.14);
-        border-top-color: rgba(0, 0, 0, 0.78);
-        animation: spin 0.9s linear infinite;
+      .crest-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      /* Update status, driven from the main process (see updater.js). Empty by
-         default so it occupies no visual space until there's something to say. */
+      .crest-glow {
+        position: absolute;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--glow) 0%, transparent 70%);
+        animation: pulse-glow 2.4s ease-in-out infinite;
+      }
+      .crest {
+        position: relative;
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        animation: pulse-crest 2.4s ease-in-out infinite;
+      }
+      @keyframes pulse-glow {
+        0%, 100% { transform: scale(0.9); opacity: 0.6; }
+        50% { transform: scale(1.35); opacity: 1; }
+      }
+      @keyframes pulse-crest {
+        0%, 100% { transform: scale(0.97); }
+        50% { transform: scale(1.03); }
+      }
+      .bar-track {
+        width: 96px;
+        height: 2px;
+        background: rgba(125, 125, 125, 0.15);
+        border-radius: 999px;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-indeterminate {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 40%;
+        background: linear-gradient(90deg, #f97316, #ef4444);
+        border-radius: 999px;
+        animation: progress 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      @keyframes progress {
+        0% { left: -40%; width: 30%; }
+        50% { width: 50%; }
+        100% { left: 100%; width: 30%; }
+      }
       #kx-status {
         min-height: 14px;
         font-size: 12px;
+        font-weight: 500;
         line-height: 14px;
         color: var(--muted-foreground);
-        letter-spacing: 0.01em;
-      }
-      @media (prefers-color-scheme: dark) {
-        html, body { background: var(--background); }
-        .ring {
-          border-color: rgba(255, 255, 255, 0.14);
-          border-top-color: rgba(255, 255, 255, 0.85);
-        }
-        #kx-status { color: var(--muted-foreground); }
+        letter-spacing: 0.02em;
       }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <div class="ring" aria-label="Loading"></div>
+      <div class="crest-box">
+        <div class="crest-glow"></div>
+        <img src="dosco-crest.png" alt="Dosco" class="crest" draggable="false" />
+      </div>
+      <div class="bar-track">
+        <div class="bar-indeterminate"></div>
+      </div>
       <div id="kx-status" aria-live="polite"></div>
     </div>
   </body>
