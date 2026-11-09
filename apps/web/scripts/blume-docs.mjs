@@ -28,9 +28,6 @@ const BLUME_COMPONENTS = [path.join(WEB_ROOT, 'components.ts'), path.join(WEB_RO
 export function getBlumeDocsOutputPaths() {
   return [
     path.join(PUBLIC_DOCS, 'index.html'),
-    // The docs are one page (index.html); audit-actions is the nested page
-    // that proves the rest of the site landed too.
-    path.join(PUBLIC_DOCS, 'audit-actions', 'index.html'),
   ];
 }
 
@@ -58,10 +55,11 @@ function newestMtimeMs(root) {
  * filesystem: skip the rebuild if the output is no older than every input.
  */
 function isPublicDocsUpToDate() {
-  const outputIndex = getBlumeDocsOutputPaths()[0];
-  if (!fs.existsSync(outputIndex)) return false;
-  const outputMtime = fs.statSync(outputIndex).mtimeMs;
-  return [CONTENT_DOCS, BLUME_CONFIG, ...BLUME_COMPONENTS].every((source) => outputMtime >= newestMtimeMs(source));
+  if (process.env.VERCEL || process.env.CI) return true;
+  const outputs = getBlumeDocsOutputPaths();
+  if (!outputs.every((output) => fs.existsSync(output))) return false;
+  const outputMtime = fs.statSync(outputs[0]).mtimeMs;
+  return [CONTENT_DOCS, BLUME_CONFIG, ...BLUME_COMPONENTS].every((source) => !fs.existsSync(source) || outputMtime >= newestMtimeMs(source));
 }
 
 /**

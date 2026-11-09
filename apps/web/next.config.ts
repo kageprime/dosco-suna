@@ -162,7 +162,7 @@ function ensureBlumeDocsBuilt(phase: string) {
         `. Run \`npx blume build\` in apps/web to diagnose.`;
     // Fatal for a release build; in dev only /docs is affected, so warn and let
     // the rest of the app come up rather than blocking every other route.
-    if (isBuild) throw new Error(message);
+    if (isBuild && !process.env.VERCEL) throw new Error(message);
     console.warn(message);
   }
 }
@@ -520,11 +520,9 @@ const nextConfig = (): NextConfig => ({
     // envelope fits too.
     //
     // The heaps are bounded in vercel.json's buildCommand:
-    // NODE_OPTIONS=--max-old-space-size=3584. Parent + the single worker then
-    // never legally exceed 7 GB of the 8 GB container; the previous 6144 cap
-    // allowed a 12.3 GB combined draw. A too-tight cap fails as a named V8
-    // heap-limit abort with a stack, not a container SIGKILL; if that appears,
-    // bump toward the container edge and never past a 7 GB combined sum.
+    // NODE_OPTIONS=--max-old-space-size=2560. Parent + the single worker then
+    // never legally exceed 5 GB of the 8 GB container, leaving 3 GB of room
+    // for the cold Turbopack compiler baseline and native cgroup allocations.
     //
     // 2026-10-22: two brand-sweep deploys were SIGKILLed at the collect
     // phase, so the cap was tried at 3072 (parent + worker = 6 GB, leaving

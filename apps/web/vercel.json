@@ -1,11 +1,11 @@
 {
-  "buildCommand": "NODE_OPTIONS=--max-old-space-size=3584 next build",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=2560 next build",
   "installCommand": "pnpm install --frozen-lockfile",
   "regions": ["lhr1"],
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/"
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     }
   ],
   "git": {
