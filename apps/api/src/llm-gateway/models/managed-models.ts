@@ -1,15 +1,16 @@
 import type { CatalogReasoningOption } from '@kortix/llm-catalog';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
+import { getFreeManagedModel, isFreeManagedModel } from './free-models';
 
 /**
- * A Kortix managed model: one model Platinum Inference offers, paid from
- * Kortix credits. Platinum's `GET /v1/inference/models` is the only source;
- * nothing here lists or prices a model.
+ * A Dosco managed model: one model Platinum Inference or OpenRouter offers, paid from
+ * credits or zero-cost for designated free models.
  */
 export interface ManagedModel {
   id: string;
   name: string;
+  upstreamModelId?: string;
   // Platinum's price per 1M tokens. The gateway bills Platinum's `usage.cost`;
   // this applies only when a response carries none.
   pricing: { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number };
@@ -115,18 +116,19 @@ export function managedLineupRevision(): number {
   return revision;
 }
 
-/** Any managed chat model Platinum serves Kortix, a private one included. */
+/** Any managed chat model served on this deployment, private and free models included. */
 export function getRuntimeManagedModel(id: string): ManagedModel | undefined {
-  return byId.get(id);
+  return byId.get(id) ?? byId.get(canonicalManagedModelId(id)) ?? getFreeManagedModel(id);
 }
 
 /** In the lineup: a private model is not. */
 export function isRuntimeManagedModelId(id: string): boolean {
+  if (isFreeManagedModel(id)) return true;
   const model = byId.get(id);
   return !!model && !model.private;
 }
 
-/** A managed audio model Platinum serves Kortix now. */
+/** A managed audio model Platinum serves now. */
 export function isManagedAudioModelId(id: string): boolean {
   return audioIds.has(id);
 }
@@ -167,17 +169,84 @@ export async function fetchPlatinumModels(baseUrl: string, apiKey: string, fetch
   return managedModelsFromPlatinum(await readPlatinumModels(baseUrl, apiKey, fetchImpl));
 }
 
+export const DEFAULT_OPENROUTER_MANAGED_MODELS: readonly ManagedModel[] = [
+  {
+    id: 'deepseek-v4.1-flash',
+    name: 'DeepSeek V4.1 Flash',
+    upstreamModelId: 'deepseek/deepseek-v4.1-flash',
+    pricing: { inputPerMillion: 0.02, outputPerMillion: 1.0 },
+    vision: false,
+    reasoningOptions: [{ type: 'effort', values: ['low', 'medium', 'high'] }],
+    limit: { context: 1048576, output: 16384 },
+  },
+  {
+    id: 'qwen3-coder',
+    name: 'Qwen 3 Coder 30B',
+    upstreamModelId: 'qwen/qwen3-coder-30b-a3b-instruct',
+    pricing: { inputPerMillion: 0.07, outputPerMillion: 0.28 },
+    vision: false,
+    limit: { context: 262144, output: 16384 },
+  },
+  {
+    id: 'qwen3.7-flash',
+    name: 'Qwen 3.7 Flash',
+    upstreamModelId: 'qwen/qwen3.7-flash',
+    pricing: { inputPerMillion: 0.03, outputPerMillion: 0.13 },
+    vision: false,
+    limit: { context: 1000000, output: 16384 },
+  },
+  {
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
+    upstreamModelId: 'google/gemini-2.5-flash-lite',
+    pricing: { inputPerMillion: 0.10, outputPerMillion: 0.40 },
+    vision: true,
+    limit: { context: 1048576, output: 16384 },
+  },
+  {
+    id: 'openrouter-free',
+    name: 'OpenRouter Free (Auto-Failover)',
+    upstreamModelId: 'openrouter/free',
+    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+    vision: false,
+    limit: { context: 200000, output: 8192 },
+  },
+  {
+    id: 'north-mini-code',
+    name: 'Cohere North Mini Code (Free)',
+    upstreamModelId: 'cohere/north-mini-code:free',
+    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+    vision: false,
+    limit: { context: 256000, output: 8192 },
+  },
+  {
+    id: 'nemotron-super-vl',
+    name: 'Nemotron 3.5 Super VL (Free Vision)',
+    upstreamModelId: 'nvidia/nemotron-3.5-super-vl:free',
+    pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+    vision: true,
+    limit: { context: 1000000, output: 8192 },
+  },
+];
+
 /**
- * Reads Platinum's `/models` into the lineup. On any failure the last good
- * lineup stays and the error is logged; returns whether the read succeeded.
+ * Reads Platinum's `/models` into the lineup, or falls back to OpenRouter managed models
+ * when Platinum is not configured.
  */
 export async function loadManagedLineup(fetchImpl: FetchLike = fetch): Promise<boolean> {
-  if (!config.KORTIX_MANAGED_PROVIDER_ENABLED || !config.PLATINUM_INFERENCE_API_KEY) {
+  if (!config.KORTIX_MANAGED_PROVIDER_ENABLED || (!config.PLATINUM_INFERENCE_API_KEY && !config.OPENROUTER_API_KEY)) {
     if (loaded.models.length || loaded.audio.length) setLineup([]);
     return true;
   }
+  if (config.OPENROUTER_API_KEY && !config.PLATINUM_INFERENCE_API_KEY) {
+    setLineup(DEFAULT_OPENROUTER_MANAGED_MODELS);
+    logger.info('[managed-lineup] loaded OpenRouter managed models', {
+      models: DEFAULT_OPENROUTER_MANAGED_MODELS.map((m) => m.id),
+    });
+    return true;
+  }
   try {
-    const body = await readPlatinumModels(config.PLATINUM_INFERENCE_URL, config.PLATINUM_INFERENCE_API_KEY, fetchImpl);
+    const body = await readPlatinumModels(config.PLATINUM_INFERENCE_URL, config.PLATINUM_INFERENCE_API_KEY!, fetchImpl);
     const models = managedModelsFromPlatinum(body);
     const audio = managedAudioModelIdsFromPlatinum(body);
     if (JSON.stringify({ models, audio }) !== JSON.stringify(loaded)) {
@@ -203,18 +272,29 @@ const RETIRED_MANAGED_MODEL_IDS = new Set([
   'kimi-k3',
 ]);
 
+const OPENROUTER_ALIASES: Record<string, string> = {
+  'deepseek/deepseek-v4.1-flash': 'deepseek-v4.1-flash',
+  'qwen/qwen3-coder-30b-a3b-instruct': 'qwen3-coder',
+  'qwen/qwen3.7-flash': 'qwen3.7-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+  'openrouter/free': 'openrouter-free',
+  'cohere/north-mini-code:free': 'north-mini-code',
+  'nvidia/nemotron-3.5-super-vl:free': 'nemotron-super-vl',
+};
+
 /**
- * A stored managed id as the gateway should serve it: a retired id becomes the
- * first model Platinum lists (its preferred default); anything else is itself.
- * No successor is hardcoded: the lineup decides.
+ * A stored managed id as the gateway should serve it: an alias or retired id becomes the
+ * canonical model id.
  */
 export function canonicalManagedModelId(id: string): string {
+  const alias = OPENROUTER_ALIASES[id];
+  if (alias) return alias;
   return RETIRED_MANAGED_MODEL_IDS.has(id) ? (lineup[0]?.id ?? id) : id;
 }
 
-/** In the current lineup, or a retired id stored sessions may still carry. */
+/** In the current lineup, or an alias / retired id stored sessions may still carry. */
 export function isKnownManagedModelId(id: string): boolean {
-  return byId.has(id) || RETIRED_MANAGED_MODEL_IDS.has(id);
+  return byId.has(id) || RETIRED_MANAGED_MODEL_IDS.has(id) || id in OPENROUTER_ALIASES || isFreeManagedModel(id);
 }
 
 /** Explicitly retired — distinct from merely "not currently servable". */

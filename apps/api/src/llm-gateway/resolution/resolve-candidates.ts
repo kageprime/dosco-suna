@@ -33,6 +33,7 @@ import {
   managedLineup,
   isRetiredManagedModelId,
 } from '../models/managed-models';
+import { isFreeManagedModel } from '../models/free-models';
 import { resolveCatalogUpstream } from '../models/provider-registry';
 import {
   bedrockByokBaseUrl,
@@ -408,18 +409,20 @@ async function resolveManagedCandidates(principal: AuthedPrincipal, effectiveMod
     ?? (isManagedAudioModelId(effectiveModel) ? { id: effectiveModel } : undefined);
   if (!managed || !config.KORTIX_MANAGED_PROVIDER_ENABLED) return [];
   if (access.disabledProviders.includes('kortix')) throw new GatewayResolutionError('provider_disabled',
-    'Kortix Managed Models are disabled for this project.',
-    'Choose a model from an enabled provider, or enable Kortix Managed Models in Models.');
+    'Dosco Managed Models are disabled for this project.',
+    'Choose a model from an enabled provider, or enable Dosco Managed Models in Models.');
   // THE managed-model gate. No model, default or fallback is exempt: an
   // account without the entitlement (the Free plan) never reaches a managed
-  // model on Kortix credits.
-  if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
-    `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
-  if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
-    const tier = await getCachedAccountTier(principal.accountId);
-    throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
+  // model on credits. Free managed models (e.g. openrouter-free) are exempt.
+  if (!isFreeManagedModel(managed.id)) {
+    if (principal.freeModelsOnly) throw new GatewayResolutionError('plan_upgrade_required',
+      `"${effectiveModel}" requires a paid plan.`, PLAN_UPGRADE_SUGGESTION);
+    if (config.KORTIX_BILLING_INTERNAL_ENABLED && !(await accountMayUseManagedModels(principal.accountId))) {
+      const tier = await getCachedAccountTier(principal.accountId);
+      throw noManagedModelsError(effectiveModel, isPaidTier(tier ?? 'free'));
+    }
   }
-  // Platinum keys its upstream prompt caches by this id: the conversation.
+  // Upstream conversation/session tracking
   const session = principal.sessionId ?? principal.keyId ?? principal.userId;
   return managedCandidates(managed).map((candidate) => ({ ...candidate, headers: { 'x-platinum-session': session } }));
 }
@@ -534,7 +537,7 @@ export async function resolveCandidates(
     }
     throw new GatewayResolutionError(
       'model_disabled_on_deployment',
-      `The "${effectiveModel}" model requires Kortix's managed provider, which is disabled on this deployment.`,
+      `The "${effectiveModel}" model requires Dosco's managed provider, which is disabled on this deployment.`,
       'Connect your own API key for a BYOK-compatible model, or ask your deployment operator to enable the managed provider.',
     );
   }
