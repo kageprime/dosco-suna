@@ -116,7 +116,7 @@ describe('NotificationInboxView', () => {
   test('an empty inbox is the empty state: one title, one sentence', () => {
     const out = render({ rows: [], unreadCount: 0 });
     expect(out).toContain('Notifications will show up here');
-    expect(out).toContain('Kortix notifies you when a session finishes');
+    expect(out).toContain('Dosco notifies you when a session finishes');
     expect(out).not.toContain('href="/projects/');
   });
 
@@ -136,8 +136,8 @@ describe('NotificationInboxView', () => {
 
   test('the offer to turn browser notifications on shows when it applies, and can be dismissed', () => {
     expect(render()).not.toContain('Turn on');
-    const out = render({ prompt: 'Get notified when Kortix is closed' });
-    expect(out).toContain('Get notified when Kortix is closed');
+    const out = render({ prompt: 'Get notified when Dosco is closed' });
+    expect(out).toContain('Get notified when Dosco is closed');
     expect(out).toContain('>Turn on<');
     expect(out).toContain('aria-label="Dismiss"');
   });

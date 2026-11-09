@@ -670,12 +670,11 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                   links: menu.groups.flatMap((group) => group.links),
                 })),
                 {
-                  id: 'kortix',
-                  label: 'Kortix',
+                  id: 'dosco',
+                  label: 'Dosco',
                   links: [
                     { label: tHardcodedUi.raw('componentsHomeNavbar.home'), href: '/' },
                     ...plainLinks,
-                    { label: 'X', href: 'https://x.com/kortix', external: true },
                   ],
                 },
               ].map((section) => (

@@ -11,7 +11,7 @@ import { cn } from '@kortix/ui';
 
 const TITLE = 'Blog';
 const DESCRIPTION =
-  'Field notes on building, running, and governing AI agents that do real work — from the team building the Kortix command center.';
+  'Field notes on building, running, and governing AI agents that do real work — from the team building the Dosco command center.';
 const URL = `${siteMetadata.url}/blog`;
 
 export const metadata: Metadata = {
@@ -52,12 +52,12 @@ export default async function BlogIndexPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
-    name: 'Kortix Blog',
+    name: 'Dosco Blog',
     description: DESCRIPTION,
     url: URL,
     publisher: {
       '@type': 'Organization',
-      name: 'Kortix',
+      name: 'Dosco',
       logo: { '@type': 'ImageObject', url: `${siteMetadata.url}/favicon.svg` },
     },
     blogPost: posts.map((post) => ({

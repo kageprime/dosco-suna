@@ -244,7 +244,7 @@ function CliAuthorizeInner() {
         // A CLI login renews on use: 90 days out, moved out again on every call.
         createAccountToken({ name, accountId: targetAccountId, renews: true }),
         MINT_TIMEOUT_MS,
-        'Timed out asking the Kortix API to mint an API key. Is the API reachable?',
+        'Timed out asking the Dosco API to mint an API key. Is the API reachable?',
         // The timeout does not cancel the mint. A key that arrives after it
         // never reaches the CLI: revoke it, so no orphan key stays live.
         (late) => {

@@ -22,6 +22,7 @@ describe('Dosco brand surfaces guard', () => {
       expect(content).not.toContain('github.com/kortix-ai');
       expect(content).not.toContain('kortix-ai/CompanyOS');
       expect(content).not.toContain('useGitHubStars');
+      expect(content).not.toMatch(/label:\s*['"]Kortix['"]/);
     });
   });
 
@@ -91,6 +92,14 @@ describe('Dosco brand surfaces guard', () => {
       expect(matches).toBeNull();
     });
 
+    test('en.json has zero occurrences of notification prompt leaks ("Kortix is closed" / "when Kortix")', () => {
+      const enJsonPath = join(REPO_ROOT, 'apps', 'web', 'translations', 'en.json');
+      const content = readFileSync(enJsonPath, 'utf8');
+      expect(content).not.toMatch(/when Kortix/i);
+      expect(content).not.toMatch(/Kortix notifies you/i);
+      expect(content).not.toMatch(/Kortix is closed/i);
+    });
+
     test('compiled UI catalog en.ts has zero occurrences of "Kortix workspace"', () => {
       const enTsPath = join(REPO_ROOT, 'packages', 'ui', 'src', 'i18n', 'en.ts');
       expect(existsSync(enTsPath)).toBe(true);
@@ -105,6 +114,14 @@ describe('Dosco brand surfaces guard', () => {
       const content = readFileSync(enTsPath, 'utf8');
       const matches = content.match(/My Kortix/gi);
       expect(matches).toBeNull();
+    });
+
+    test('compiled UI catalog en.ts has zero occurrences of notification prompt leaks ("Kortix is closed" / "when Kortix")', () => {
+      const enTsPath = join(REPO_ROOT, 'packages', 'ui', 'src', 'i18n', 'en.ts');
+      const content = readFileSync(enTsPath, 'utf8');
+      expect(content).not.toMatch(/when Kortix/i);
+      expect(content).not.toMatch(/Kortix notifies you/i);
+      expect(content).not.toMatch(/Kortix is closed/i);
     });
   });
 

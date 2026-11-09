@@ -49,7 +49,7 @@ export function EmailThreadMock() {
             <span className="bg-background flex size-5 items-center justify-center rounded-sm border">
               <Kortix className="size-3" />
             </span>
-            <span className="text-foreground font-semibold">Kortix</span>
+            <span className="text-foreground font-semibold">Dosco</span>
             <span className="text-muted-foreground text-xs">{t('mockEmailReplied')}</span>
           </p>
           <p className="text-foreground text-pretty">{t('mockEmailReply')}</p>
@@ -69,7 +69,7 @@ export function TelegramChatMock() {
           <Kortix className="size-3.5 text-(--telegram-on-accent)" />
         </span>
         <div className="min-w-0">
-          <p className="text-foreground text-sm font-semibold">Kortix</p>
+          <p className="text-foreground text-sm font-semibold">Dosco</p>
           <p className="text-muted-foreground text-xs">{t('mockTelegramBot')}</p>
         </div>
       </div>
@@ -90,11 +90,11 @@ export function TelegramChatMock() {
 }
 
 /** The bot as a Discord mention: the product name, never translated. */
-const DISCORD_BOT_MENTION = '@Kortix';
+const DISCORD_BOT_MENTION = '@Dosco';
 
 /**
  * A Discord thread started from a mention: Maya asks in `#launch`, the agent
- * answers in the thread Kortix opened on her message.
+ * answers in the thread Dosco opened on her message.
  */
 export function DiscordThreadMock() {
   const t = useTranslations('connectorPages');
@@ -114,7 +114,7 @@ export function DiscordThreadMock() {
             <p className="text-foreground text-pretty">
               <span className="rounded-sm bg-(--discord-accent)/15 px-0.5 text-(--discord-accent)">{DISCORD_BOT_MENTION}</span> {t('mockDiscordAsk')}
             </p>
-            {/* Kortix's own mark on the message: ⏳ while the agent works, ✅ once it answered. */}
+            {/* Dosco's own mark on the message: ⏳ while the agent works, ✅ once it answered. */}
             <span className="mt-1 inline-flex items-center gap-1 rounded-md border border-(--discord-accent)/40 bg-(--discord-accent)/10 px-1.5 py-0.5 text-xs text-foreground">
               <span aria-hidden>✅</span>1
             </span>
@@ -125,7 +125,7 @@ export function DiscordThreadMock() {
             <Kortix className="size-3.5 text-(--discord-on-accent)" />
           </span>
           <div className="min-w-0 space-y-0.5">
-            <p className="text-foreground font-semibold">Kortix</p>
+            <p className="text-foreground font-semibold">Dosco</p>
             <p className="text-foreground text-pretty">{t('mockDiscordReply')}</p>
           </div>
         </div>

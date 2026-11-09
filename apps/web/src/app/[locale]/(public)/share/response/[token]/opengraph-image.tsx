@@ -8,7 +8,7 @@ import { loadPublicResponse } from './public-response';
 // the symbol, the page title, black on white, light only, 1200 x 630.
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'Kortix';
+export const alt = 'Dosco';
 
 // Satori cannot read CSS variables, so the two light-theme roles are inlined
 // from tokens.css (--background, --foreground).

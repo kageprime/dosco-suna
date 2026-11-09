@@ -85,7 +85,7 @@ export default async function UseCasesIndexPage() {
       <PageHero
         title="Use cases."
         titleMuted="Outcomes agents deliver, for every team."
-        sub={`${useCases.length} jobs Kortix agents run end to end, each on its own cloud computer, with the tools your team already uses and a person approving what matters.`}
+        sub={`${useCases.length} jobs Dosco agents run end to end, each on its own cloud computer, with the tools your team already uses and a person approving what matters.`}
         actions={
           <>
             <MarketingButton size="md" className="hit-area-y-1" asChild>

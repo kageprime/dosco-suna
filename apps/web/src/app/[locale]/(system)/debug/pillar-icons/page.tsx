@@ -58,10 +58,10 @@ const PILLARS: { mode: DitherMode; icon: PhosphorIcon; name: string; line: strin
   {
     mode: 'shield',
     icon: ShieldCheckIcon,
-    name: 'Sovereign and open',
+    name: 'Sovereign and secure',
     line: 'Own your data and your infrastructure.',
-    body: 'Kortix is open source. Run it on Kortix Cloud, in your VPC or on your own on-prem network.',
-    facts: ['Open source: read it, fork it, audit it', 'Self-host in your VPC or on-prem'],
+    body: 'Dosco runs on isolated cloud infrastructure. Your data and workflows stay under your control.',
+    facts: ['Isolated cloud microVM execution', 'Scoped credentials and audit logs'],
   },
 ];
 

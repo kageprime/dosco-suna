@@ -131,7 +131,7 @@ export function EmailConnectForm({
   const [domainChoice, setDomain] = useState('');
   const [added, setAdded] = useState<EmailDomain[]>([]);
   const [username, setUsername] = useState('agent');
-  const [displayName, setDisplayName] = useState('Kortix Agent');
+  const [displayName, setDisplayName] = useState('Dosco Agent');
   const [senders, setSenders] = useState<Senders>(() => defaultSenders(viewerEmail));
   const [customList, setCustomList] = useState('');
   const [attachOpen, setAttachOpen] = useState(false);
@@ -290,7 +290,7 @@ export function EmailConnectForm({
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <EnvelopeSimpleIcon className="size-3.5 shrink-0" />
             <span className="truncate">
-              {displayName.trim() || 'Kortix Agent'} &lt;{address}&gt;
+              {displayName.trim() || 'Dosco Agent'} &lt;{address}&gt;
             </span>
           </p>
           {home === 'own' && domain === ADD_DOMAIN ? (
@@ -319,7 +319,7 @@ export function EmailConnectForm({
               id="email-connect-name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Kortix Agent"
+              placeholder="Dosco Agent"
             />
           </Field>
         </section>
