@@ -11,7 +11,9 @@ import { RUNTIME_NOT_READY_MARKERS } from '@kortix/sdk';
 // the runtime-not-ready markers MUST live here too.
 
 test('sentry.client.config ignores the transient runtime-not-ready markers', async () => {
-  const source = await Bun.file(`${import.meta.dir}/../../sentry.client.config.ts`).text();
+  const clientSource = await Bun.file(`${import.meta.dir}/../../sentry.client.config.ts`).text();
+  const optionsSource = await Bun.file(`${import.meta.dir}/../../sentry.options.ts`).text();
+  const source = clientSource + '\n' + optionsSource;
   expect(source).toContain('ignoreErrors');
   // The three marker strings that cover every variant of the throw
   // (RuntimeNotReadyError, the plain Error in env.ts/pty.ts, and any
@@ -20,7 +22,7 @@ test('sentry.client.config ignores the transient runtime-not-ready markers', asy
   expect(source).toContain("'sandbox is still loading'");
   // The daemon's not-ready 503: the SDK owns its spellings (code, pi, OpenCode).
   expect(source).toContain('...RUNTIME_NOT_READY_MARKERS');
-  expect([...RUNTIME_NOT_READY_MARKERS]).toContain('opencode not ready');
+  expect([...RUNTIME_NOT_READY_MARKERS]).toContain('runtime_not_ready');
   expect([...RUNTIME_NOT_READY_MARKERS]).toContain('sandbox runtime not ready');
   // The beforeSend hook must still delegate to the noise filter (which also
   // classifies runtime-not-ready via shouldIgnoreSentryNoiseEvent).
