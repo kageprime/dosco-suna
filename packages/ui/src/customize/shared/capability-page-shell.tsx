@@ -133,8 +133,8 @@ export function CapabilityPageShell({
       <div
         className={
           wide
-            ? 'mx-auto w-full max-w-7xl space-y-5 px-4 py-10 pb-20 md:px-8 lg:py-14'
-            : 'mx-auto w-full max-w-5xl space-y-5 px-4 py-10 pb-20 lg:py-14'
+            ? 'mx-auto w-full max-w-7xl space-y-5 px-4 py-6 pb-20 sm:py-10 md:px-8 lg:py-14'
+            : 'mx-auto w-full max-w-5xl space-y-5 px-4 py-6 pb-20 sm:py-10 lg:py-14'
         }
       >
         <header
@@ -163,13 +163,17 @@ export function CapabilityPageShell({
               the middle of the header — visually detached from both the
               heading it did not belong to and the search it sat next to. */}
           {search || action ? (
-            <div className={cn('flex w-full shrink-0 items-center gap-2', !stacked && 'sm:w-auto')}>
+            <div className={cn('flex w-full shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:w-auto')}>
               {search ? (
-                <div className={cn('min-w-0 flex-1', !stacked && 'sm:w-64 sm:flex-none')}>
+                <div className={cn('min-w-0 w-full sm:w-64 sm:flex-none', !action && 'flex-1')}>
                   {search}
                 </div>
               ) : null}
-              {action}
+              {action ? (
+                <div className="flex w-full sm:w-auto items-center gap-2 justify-between sm:justify-start">
+                  {action}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </header>

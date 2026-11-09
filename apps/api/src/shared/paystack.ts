@@ -184,6 +184,10 @@ export function fetchSubscription(code: string): Promise<PaystackSubscription> {
   return paystackFetch<PaystackSubscription>(`/subscription/${encodeURIComponent(code)}`);
 }
 
+export function getSubscriptionManageLink(code: string): Promise<{ link: string }> {
+  return paystackFetch<{ link: string }>(`/subscription/${encodeURIComponent(code)}/manage/link`);
+}
+
 export function fetchPlan(planCode: string): Promise<PaystackPlan> {
   return paystackFetch<PaystackPlan>(`/plan/${encodeURIComponent(planCode)}`);
 }

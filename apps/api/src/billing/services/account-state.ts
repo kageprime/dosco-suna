@@ -99,7 +99,10 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
   const scheduledChange = extractScheduledChange(sub, tierName);
   const billingPeriod = (sub?.planType ??
     null) as AccountStateResponse['subscription']['billing_period'];
-  const provider = (sub?.provider ?? 'stripe') as AccountStateResponse['subscription']['provider'];
+  const defaultProvider = config.PAYSTACK_SECRET_KEY && !config.STRIPE_SECRET_KEY ? 'paystack' : 'stripe';
+  const provider = ((sub as any)?.paystackSubscriptionCode || (account as any)?.paystackSubscriptionCode
+    ? 'paystack'
+    : (sub?.provider ?? defaultProvider)) as AccountStateResponse['subscription']['provider'];
 
   // The SAME state machine the billing gate admits on (billing-state.ts), so
   // can_run answers the same question the gate answers, and `billing_state`
@@ -287,7 +290,7 @@ export function buildLocalAccountState(): AccountStateResponse {
       monthly_usd: null,
       status: 'active',
       billing_period: null,
-      provider: 'stripe',
+      provider: (config.PAYSTACK_SECRET_KEY && !config.STRIPE_SECRET_KEY ? 'paystack' : 'stripe') as AccountStateResponse['subscription']['provider'],
       subscription_id: null,
       current_period_end: null,
       cancel_at_period_end: false,

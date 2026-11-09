@@ -37,6 +37,8 @@ export async function getSubscriptionInfo(accountId: string) {
       planType: creditAccounts.planType,
       stripeSubscriptionId: creditAccounts.stripeSubscriptionId,
       stripeSubscriptionStatus: creditAccounts.stripeSubscriptionStatus,
+      paystackSubscriptionCode: creditAccounts.paystackSubscriptionCode,
+      paystackEmailToken: creditAccounts.paystackEmailToken,
       commitmentType: creditAccounts.commitmentType,
       commitmentEndDate: creditAccounts.commitmentEndDate,
       billingCycleAnchor: creditAccounts.billingCycleAnchor,

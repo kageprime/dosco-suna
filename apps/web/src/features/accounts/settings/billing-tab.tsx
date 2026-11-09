@@ -275,7 +275,7 @@ export function BillingTab({
                   {t('cancelSubscription')}
                 </Button>
               ) : null}
-              {isPaystackBilled ? null : (
+              {isPaystackBilled || !hasActiveSubscription ? null : (
                 <Button
                   size="sm"
                   variant="outline"

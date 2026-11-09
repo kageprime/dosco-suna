@@ -299,6 +299,23 @@ export async function createPaystackSubscriptionCheckout(params: {
 
 /** Cancel at period end — Paystack stops renewals; the tier lapses on the
  *  `subscription.disable` webhook, mirroring Stripe's cancelled-at-period-end. */
+
+/**
+ * Generates a Paystack-hosted subscription management link where customers
+ * can manage their card details and subscription.
+ */
+export async function getPaystackManageSubscriptionLink(accountId: string): Promise<{ portal_url: string }> {
+  const account = await getCreditAccount(accountId);
+  const code = account?.paystackSubscriptionCode;
+  if (!code) {
+    throw new BillingError('Account has no active Paystack subscription');
+  }
+  const result = await paystackCheckout('get subscription manage link', () =>
+    paystack.getSubscriptionManageLink(code),
+  );
+  return { portal_url: result.link };
+}
+
 export async function cancelPaystackSubscription(accountId: string): Promise<{ ok: boolean }> {
   const account = await getCreditAccount(accountId);
   const code = account?.paystackSubscriptionCode;

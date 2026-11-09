@@ -30,7 +30,7 @@ export default function CapabilitiesLayout({ children }: { children: React.React
   const { id: projectId } = useParams<{ id: string }>();
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <CustomizeFrame projectId={projectId}>
         <CapabilityAccessGate projectId={projectId}>{children}</CapabilityAccessGate>
       </CustomizeFrame>

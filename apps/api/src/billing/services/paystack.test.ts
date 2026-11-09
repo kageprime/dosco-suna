@@ -149,6 +149,15 @@ beforeEach(() => {
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
     }
+    if (u.includes('/manage/link')) {
+      return new Response(
+        JSON.stringify({
+          status: true,
+          data: { link: 'https://paystack.com/manage/subscription/sub_test_manage' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
     if (u.includes('/subscription/disable')) {
       return new Response(
         JSON.stringify({
@@ -172,6 +181,7 @@ const {
   createPaystackCreditCheckout,
   createPaystackSubscriptionCheckout,
   cancelPaystackSubscription,
+  getPaystackManageSubscriptionLink,
 } = await import('./paystack');
 
 describe('verifyPaystackSignature', () => {
@@ -263,6 +273,27 @@ describe('cancelPaystackSubscription', () => {
     const disableCall = fetchCalls.find((c) => c.url.includes('/subscription/disable'));
     expect(disableCall).toBeDefined();
     expect(disableCall?.body).toEqual({ code: 'SUB_123', token: 'tok_abc' });
+  });
+});
+
+describe('getPaystackManageSubscriptionLink', () => {
+  test('throws BillingError when account has no subscription code', async () => {
+    mockCreditAccounts['acc-nosub'] = { accountId: 'acc-nosub' };
+    await expect(getPaystackManageSubscriptionLink('acc-nosub')).rejects.toThrow(
+      'Account has no active Paystack subscription',
+    );
+  });
+
+  test('returns portal_url with manage link when code exists', async () => {
+    mockCreditAccounts['acc-sub'] = {
+      accountId: 'acc-sub',
+      paystackSubscriptionCode: 'SUB_123',
+    };
+    const res = await getPaystackManageSubscriptionLink('acc-sub');
+    expect(res.portal_url).toBe('https://paystack.com/manage/subscription/sub_test_manage');
+
+    const linkCall = fetchCalls.find((c) => c.url.includes('/subscription/SUB_123/manage/link'));
+    expect(linkCall).toBeDefined();
   });
 });
 

@@ -306,6 +306,25 @@ export function inEffectMonthlyUsd(
 }
 
 export async function createPortalSession(accountId: string, returnUrl: string, email?: string) {
+  const account = await getCreditAccount(accountId);
+  if (account?.paystackSubscriptionCode || (account?.provider === 'paystack' && !account?.stripeSubscriptionId)) {
+    if (!account?.paystackSubscriptionCode) {
+      throw new BillingError('No active subscription found to manage', 400);
+    }
+    const { getPaystackManageSubscriptionLink } = await import('./paystack');
+    return getPaystackManageSubscriptionLink(accountId);
+  }
+
+  // If Paystack is default and Stripe is not configured:
+  const { config } = await import('../../config');
+  if (config.PAYSTACK_SECRET_KEY && !config.STRIPE_SECRET_KEY) {
+    if (account?.paystackSubscriptionCode) {
+      const { getPaystackManageSubscriptionLink } = await import('./paystack');
+      return getPaystackManageSubscriptionLink(accountId);
+    }
+    throw new BillingError('No active subscription found to manage', 400);
+  }
+
   // Verify the stored customer exists in the current Stripe account (drops a
   // stale id); recreate it if missing so the portal never 500s on "No such customer".
   let customerId = await resolveLiveStripeCustomerId(accountId);
@@ -325,6 +344,10 @@ export async function createPortalSession(accountId: string, returnUrl: string, 
 
 export async function cancelSubscription(accountId: string, feedback?: string) {
   const account = await getCreditAccount(accountId);
+  if (account?.paystackSubscriptionCode) {
+    const { cancelPaystackSubscription } = await import('./paystack');
+    return cancelPaystackSubscription(accountId);
+  }
   if (!account?.stripeSubscriptionId) throw new SubscriptionError('No active subscription');
 
   if (account.commitmentType && account.commitmentEndDate) {

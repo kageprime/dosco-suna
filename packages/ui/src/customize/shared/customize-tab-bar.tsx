@@ -159,7 +159,7 @@ export function CustomizeTabBar({ projectId }: { projectId: string }) {
             })}
             {allowed.has('review') ? tab('review', capabilityTabHref(projectId, 'review'), tTabs('review')) : null}
             {/* The right edge: the one link into Workspace settings. */}
-            <span className="ml-auto flex items-center gap-5">
+            <span className="flex items-center gap-5 shrink-0 sm:ml-auto">
               <WorkspaceSettingsLink projectId={projectId} config={allowed.has('config')} />
             </span>
           </TabsList>
