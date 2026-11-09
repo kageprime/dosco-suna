@@ -495,9 +495,7 @@ const nextConfig = (): NextConfig => ({
     // 20GB in 2 days and 60GB in one case. GC drops unreachable work from
     // memory and from that cache. It is a no-op when the FS cache is off, and
     // Turbopack skips it when turbopackMemoryEviction is false.
-    turbopackGc: process.env.VERCEL
-      ? { minProgressMs: 100, rootTtlMs: 0 }
-      : true,
+    turbopackGc: true,
     turbopackFileSystemCacheForBuild: resolveTurbopackFileSystemCacheForBuild(),
     // The Vercel build machine is 8 GB (both plan defaults), and the default
     // `next build` fan-out killed it: build-utils SIGKILLed `next build` (OOM)
@@ -505,8 +503,8 @@ const nextConfig = (): NextConfig => ({
     // app's static pages; each worker loads the full module graph plus
     // writePublicCatalogs()' output for all nine locales. Both knobs come from
     // /docs/app/api-reference/config/next-config-js/staticGeneration.
-    // staticGenerationMinPagesPerWorker: 1000 keeps the phase at exactly one
-    // worker for this app's 954-page static surface.
+    // staticGenerationMinPagesPerWorker: 10000 keeps the phase at exactly one
+    // worker even as the static page count grows well beyond 1000.
     //
     // The phase OOM'd a second time the same afternoon with the first knobs in
     // place: its generate phase ran 99 s to a container SIGKILL without even a
@@ -534,7 +532,7 @@ const nextConfig = (): NextConfig => ({
     // envelope described above, and it is intermittent - the same commit
     // built green on a warm container. `node scripts/check-build-memory.mjs`
     // prints the arithmetic.
-    staticGenerationMinPagesPerWorker: 1000,
+    staticGenerationMinPagesPerWorker: 10000,
     staticGenerationMaxConcurrency: 1,
     // Optimize package imports for faster builds and smaller bundles
     optimizePackageImports: [
