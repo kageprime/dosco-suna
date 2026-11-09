@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/generate-fumadocs-source.mjs && NODE_OPTIONS=--max-old-space-size=3072 next build",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=3584 next build",
   "installCommand": "pnpm install --frozen-lockfile",
   "regions": ["lhr1"],
   "rewrites": [

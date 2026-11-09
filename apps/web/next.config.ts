@@ -210,9 +210,8 @@ function resolveTurbopackMemoryEviction(): false | 'auto' | 'full' {
         `expected one of 'auto', 'full', 'false'.`,
     );
   }
-  // On Vercel / CI, drop intermediate memory after snapshots to stay inside
-  // the 8 GB container limit.
-  if (process.env.VERCEL || process.env.CI) return 'full';
+  // On Vercel / CI, stay on 'auto' to avoid disk-serialization thrashing.
+  if (process.env.VERCEL || process.env.CI) return 'auto';
   return 'auto';
 }
 
@@ -466,6 +465,9 @@ const nextConfig = (): NextConfig => ({
     serverActions: {
       allowedOrigins: ALLOWED_PROXY_ORIGINS,
     },
+    // Pin build workers to 1 so Vercel's multi-core container does not fan out
+    // and spawn multiple worker processes that exceed the 8 GB container.
+    cpus: 1,
     // Escape hatch for memory-constrained machines. 16.3 advertises "up to 90%
     // less dev RAM". That number is eviction-OFF vs eviction-ON within 16.3
     // (see the chart in /blog/next-16-3-turbopack), not 16.2 vs 16.3. It did
