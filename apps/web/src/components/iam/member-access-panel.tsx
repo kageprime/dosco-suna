@@ -52,7 +52,7 @@ import {
   DropdownMenuTrigger,
 } from '@kortix/ui/dropdown-menu';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { InlineMeta } from '@kortix/ui/inline-meta';
 import {
   Modal,
@@ -468,7 +468,7 @@ export function MemberAccessPanel({
       ) : null}
 
       {!membersQuery.isLoading && !member ? (
-        <InfoBanner tone="neutral">{tI18nComplete.raw('textf75481058771')}</InfoBanner>
+        <BannerAlert variant="default" ><BannerAlertDescription>{tI18nComplete.raw('textf75481058771')}</BannerAlertDescription></BannerAlert>
       ) : null}
 
       {member ? (

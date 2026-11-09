@@ -11,6 +11,7 @@ import { egressShimPort } from '@/services/egress-shim'
 import { logger } from '@/lib/log/logger'
 import { slowRequestLogger } from './slow-request'
 import { agentSwapRequiresUnattendedBox, registerAgentSwapBlocker } from '@/services/runtime-assets/runtime-assets'
+import { startSampling } from '@/lib/loop-lag'
 import { kortixEventBus, sessionLogEventBus } from '@/services/event-bus/kortix-event-bus'
 import { createEnvRpcRouter } from '@/routes/kortix/env-rpc'
 import { createChromeRouter } from '@/routes/kortix/chrome'
@@ -226,6 +227,10 @@ export function startProxy(
   // Mutable so restore-time reload() can hot-swap the handler in place; the
   // indirection below re-reads `app` per request, so reassigning it is enough.
   let currentCfg = cfg
+  // Loop-lag sampling for the Server-Timing stamp (KRTX-4459): start at server
+  // entry, not on the first turn-verb answer, so a stall in the boot window or
+  // a pre-first-request turn is counted too.
+  startSampling()
   // Kortix Drive off Platinum (KORTIX_DRIVE_SYNC=1): copy the session's drives in and keep them in sync.
   startDriveSyncFromEnv(cfg)
   // Constructed once, outside reload() — pty state must survive a config

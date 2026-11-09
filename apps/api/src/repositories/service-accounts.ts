@@ -100,26 +100,6 @@ export async function findBotServiceAccount(accountId: string, ref: string): Pro
   return row ? mapRow(row) : null;
 }
 
-/** The agent identity service account of (account, workspace, agent), or null when none exists yet. */
-export async function findAgentServiceAccount(
-  accountId: string,
-  projectId: string,
-  agentName: string,
-): Promise<string | null> {
-  const [row] = await db
-    .select({ id: serviceAccounts.serviceAccountId })
-    .from(serviceAccounts)
-    .where(
-      and(
-        eq(serviceAccounts.accountId, accountId),
-        eq(serviceAccounts.projectId, projectId),
-        eq(serviceAccounts.agentName, agentName),
-      ),
-    )
-    .limit(1);
-  return row?.id ?? null;
-}
-
 export async function getServiceAccount(
   accountId: string,
   serviceAccountId: string,
@@ -137,6 +117,20 @@ export async function getServiceAccount(
   return row ? mapRow(row) : null;
 }
 
+/**
+ * Mint one service-account bearer: the configured secret env, the generated
+ * secret and its hash. Both creators (a human bearer SA and an agent
+ * identity) go through it.
+ */
+function mintServiceAccountSecret(): { secret: string; secretHash: string; publicPrefix: string } {
+  if (!isApiKeySecretConfigured()) {
+    throw new Error('API_KEY_SECRET not configured');
+  }
+  const { secret, publicPrefix } = generateServiceAccountSecret();
+  const secretHash = hashSecretKey(secret);
+  return { secret, secretHash, publicPrefix };
+}
+
 export async function createServiceAccount(args: {
   accountId: string;
   name: string;
@@ -147,11 +141,7 @@ export async function createServiceAccount(args: {
    *  plaintext discarded (`secret` is empty), so only its keys authenticate. */
   issueBearer?: boolean;
 }): Promise<CreatedServiceAccount> {
-  if (!isApiKeySecretConfigured()) {
-    throw new Error('API_KEY_SECRET not configured');
-  }
-  const { secret, publicPrefix } = generateServiceAccountSecret();
-  const secretHash = hashSecretKey(secret);
+  const { secret, secretHash, publicPrefix } = mintServiceAccountSecret();
 
   const [row] = await db
     .insert(serviceAccounts)
@@ -168,19 +158,6 @@ export async function createServiceAccount(args: {
     .returning();
   if (!row) throw new Error('failed to create service account');
   return { ...mapRow(row), secret: args.issueBearer === false ? '' : secret };
-}
-
-/** A service account's status and expiry, or null when it is not in the account. Throws when the read fails. */
-export async function readServiceAccountState(
-  accountId: string,
-  serviceAccountId: string,
-): Promise<{ status: string; expiresAt: Date | null } | null> {
-  const [row] = await db
-    .select({ status: serviceAccounts.status, expiresAt: serviceAccounts.expiresAt })
-    .from(serviceAccounts)
-    .where(and(eq(serviceAccounts.accountId, accountId), eq(serviceAccounts.serviceAccountId, serviceAccountId)))
-    .limit(1);
-  return row ?? null;
 }
 
 /** True when `serviceAccountId` is a service account of `accountId` that is active and not expired. */
@@ -252,11 +229,7 @@ export async function ensureAgentServiceAccount(args: {
     .limit(1);
   if (existing[0]) return existing[0].id;
 
-  if (!isApiKeySecretConfigured()) {
-    throw new Error('API_KEY_SECRET not configured');
-  }
-  const { secret, publicPrefix } = generateServiceAccountSecret();
-  const secretHash = hashSecretKey(secret); // plaintext `secret` intentionally discarded — identity-only
+  const { secretHash, publicPrefix } = mintServiceAccountSecret(); // plaintext `secret` intentionally discarded — identity-only
   const name = (args.displayName ?? args.agentName).slice(0, 128);
   try {
     const [row] = await db

@@ -193,7 +193,7 @@ export function registerProjectInvitesRoutes(): void {
       );
     }
 
-    const targetAccountRole = await ensureOrgMembership(loaded.row.accountId, targetUserId);
+    const targetAccountRole = await ensureOrgMembership(loaded.row.accountId, targetUserId, 'project_invite');
     const implicitAccess = isAccountManager(targetAccountRole);
     if (!implicitAccess) {
       await grantProjectRole({

@@ -104,7 +104,7 @@ export function previewBaseDomain(): string | null {
  * links from before a domain move working. URLs are only ever built on the
  * primary.
  */
-export function previewServedBaseDomains(): string[] {
+function previewServedBaseDomains(): string[] {
   const primary = primaryPreviewBaseDomain();
   const aliases = [
     ...aliasFormsOf(primary),

@@ -3,9 +3,11 @@
 import { useTranslations } from '@/i18n/use-translations';
 
 import type { UseSessionResult } from '@kortix/sdk/react';
+import { useNow } from '@kortix/sdk/react';
 import Loading from '@kortix/ui/loading';
 import { cn } from '@kortix/ui';
-import { useEffect, useState } from 'react';
+
+import { formatClock } from '@/lib/format-clock';
 
 /**
  * What a starting session waits on while its sandbox image is not ready yet:
@@ -25,18 +27,7 @@ export type SessionImageStep = NonNullable<UseSessionResult['bootImage']>;
 export function formatImageElapsed(since: string, now: number): string {
   const start = Date.parse(since);
   const seconds = Number.isFinite(start) ? Math.max(0, Math.floor((now - start) / 1_000)) : 0;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
-/** A 1 s tick for the elapsed timer. */
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
+  return formatClock(seconds);
 }
 
 function SessionImageStepBody({ step }: { step: SessionImageStep }) {

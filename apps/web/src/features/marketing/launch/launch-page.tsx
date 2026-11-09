@@ -14,16 +14,14 @@ import { FPS } from '@/app/[locale]/presentations/film/engine/time';
 import { launchFilm } from '@/app/[locale]/presentations/film/films/launch';
 import { useTranslations } from '@/i18n/use-translations';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
+import { formatClock } from '@/lib/format-clock';
 import { cn } from '@kortix/ui';
 import { ArrowRightIcon, ArrowUpRightIcon, GithubLogoIcon } from '@phosphor-icons/react';
 import { useCallback, useRef, useState } from 'react';
 import { hero, kit, pillars, start } from './content';
 
 const chapters = launchFilm.chapters ?? [];
-const stamp = (frame: number) => {
-  const s = Math.round(frame / FPS);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
+const stamp = (frame: number) => formatClock(Math.round(frame / FPS));
 
 /** The film, with a chapter strip that follows playback and seeks on click. */
 function FilmHero() {

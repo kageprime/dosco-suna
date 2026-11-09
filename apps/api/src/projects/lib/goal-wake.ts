@@ -23,9 +23,9 @@ import { goalWakePrompt } from '../goals/rules';
 import { goalOfSession, type GoalRow } from '../goals/store';
 import type { ProjectRow } from './serializers';
 
-export type GoalWakeResult = 'woken' | 'refused' | 'failed';
+type GoalWakeResult = 'woken' | 'refused' | 'failed';
 
-export async function wakeGoal(input: {
+async function wakeGoal(input: {
   project: ProjectRow;
   goal: GoalRow;
   source: string;

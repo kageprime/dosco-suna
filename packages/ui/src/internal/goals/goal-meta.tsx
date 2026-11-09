@@ -18,7 +18,7 @@ import { useUiViewerId } from '../../providers/ui-provider';
 import { useAccountMembers } from '../account-hub/use-account-members';
 import { useNewProjectSession } from '../hooks/projects/use-new-project-session';
 import { MAKE_GOAL_PROMPT } from '@kortix/sdk';
-import { useProjectAccountId } from '@kortix/sdk/react';
+import { useNow, useProjectAccountId } from '@kortix/sdk/react';
 import { useCallback, useMemo } from 'react';
 
 /**
@@ -364,4 +364,6 @@ export function goalHref(projectId: string, goal: Pick<ProjectGoal, 'scope' | 's
 }
 
 /** The current time, re-read every 30 seconds: relative times and health stay current. */
-export { useNow as useGoalClock } from '../reminders/use-refetch-after-fire';
+export function useGoalClock(): number {
+  return useNow(30_000);
+}

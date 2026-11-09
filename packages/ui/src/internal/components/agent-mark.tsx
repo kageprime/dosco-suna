@@ -113,6 +113,11 @@ export function AgentMark({
  */
 export function agentDisplayName(slug: string): string {
   if (isMyKortixAgentName(slug)) return MY_KORTIX_DISPLAY_NAME;
+  // Model tool input and event data reach this through `as string` casts, so the
+  // slug is `unknown` at runtime. A truthy non-string degrades to its string
+  // form instead of crashing the render tree (KRTX-4511: `e.replace is not a
+  // function` took down the session page).
+  if (typeof slug !== 'string') return String(slug);
   if (slug === 'worker' || slug === 'kortix' || slug === 'xera') return 'Xera';
   const words = slug.replace(/[-_]+/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);

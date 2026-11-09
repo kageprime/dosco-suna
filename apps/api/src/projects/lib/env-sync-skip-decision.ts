@@ -64,7 +64,7 @@ export interface EnvSyncDurableRecord {
   appliedAtMs: number;
 }
 
-export interface EnvSyncSkipDecisionInput {
+interface EnvSyncSkipDecisionInput {
   /** The signature `syncSandboxEnvForPrompt` just computed for THIS prompt. */
   signature: string;
   /** This process's own memo for the sandbox, already confirmed by
@@ -81,7 +81,7 @@ export interface EnvSyncSkipDecisionInput {
   backgroundRefreshStaleMs: number;
 }
 
-export type EnvSyncSkipDecision =
+type EnvSyncSkipDecision =
   | { action: 'push' }
   | { action: 'skip'; scheduleBackgroundRefresh: boolean; appliedAtMs: number };
 

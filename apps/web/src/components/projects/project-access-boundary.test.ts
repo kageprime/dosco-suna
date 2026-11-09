@@ -482,7 +482,7 @@ describe('house dialect', () => {
       'rounded-2xl',
       'fixed inset-0',
       'KortixHyperLogo',
-      'InfoBanner',
+      'Alert',
     ]) {
       expect({ banned, present: componentSource.includes(banned) }).toEqual({
         banned,

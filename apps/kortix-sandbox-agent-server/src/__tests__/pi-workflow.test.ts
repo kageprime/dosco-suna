@@ -591,7 +591,7 @@ describe('pi workflow tool', () => {
     expect(lastWorkflowPart(frames).error).toContain('nothing to resume: no run no-such-run-0000 is saved on this computer.')
   })
 
-  test('custom agents: instructions ride as the child\'s initial_context, tools narrow it, the model reaches the create; a tool this session lacks, a bad model ref and instructions on a named agent are refused; all three are in the resume key', async () => {
+  test('custom agents: instructions are the child\'s own system prompt (kortix.agent.instructions), tools narrow it, the model reaches the create; a tool this session lacks, a bad model ref and instructions on a named agent are refused; all three are in the resume key', async () => {
     const script = [
       "const a = await agent('audit the logs', { instructions: 'You audit logs. Report only errors.', tools: ['read', 'grep'], model: 'kortix/fast' })",
       "const e = await agent('look around', { agent: 'explore', tools: ['grep', 'write'], model: 'kortix/codex/gpt-5' })",
@@ -604,7 +604,8 @@ describe('pi workflow tool', () => {
     expect(await inlineTurn(rt)).toBe('completed')
     // Two children: every refusal came before a session.
     expect(api.creates).toHaveLength(2)
-    expect(api.creates[0]).toMatchObject({ initial_prompt: 'audit the logs', initial_context: 'You audit logs. Report only errors.', model: 'kortix/fast', runtime_context: { 'kortix.subagent.tools': 'read,grep' } })
+    expect(api.creates[0]).toMatchObject({ initial_prompt: 'audit the logs', model: 'kortix/fast', runtime_context: { 'kortix.subagent.tools': 'read,grep', 'kortix.agent.instructions': 'You audit logs. Report only errors.' } })
+    expect(api.creates[0]).not.toHaveProperty('initial_context')
     // explore allows bash, read, glob and grep: of the call's grep and write, grep stays.
     expect(api.creates[1]).toMatchObject({ initial_prompt: 'look around', model: 'kortix/codex/gpt-5', runtime_context: { 'kortix.subagent.tools': 'grep' } })
     expect(api.creates[1]!.initial_context).toContain('You are read-only')
@@ -619,7 +620,7 @@ describe('pi workflow tool', () => {
     const edited = script.replace('Report only errors.', 'Report errors and warnings.')
     model.script([{ tool: 'workflow', args: { description: 'Research two topics', script: edited, resume_run_id: runId } }, { text: 'again' }])
     expect(await inlineTurn(rt, 'again')).toBe('completed')
-    expect(api.creates.slice(2).map((c) => [c.initial_prompt, c.initial_context])).toEqual([['audit the logs', 'You audit logs. Report errors and warnings.']])
+    expect(api.creates.slice(2).map((c) => [c.initial_prompt, c.runtime_context['kortix.agent.instructions']])).toEqual([['audit the logs', 'You audit logs. Report errors and warnings.']])
   })
 
   test('the agent tool: model overrides a named subagent_type\'s model; a bad ref, a model on a follow-up and an inline tool this session lacks are refused before any session', async () => {

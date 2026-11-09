@@ -80,7 +80,7 @@ import {
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
 import Hint from '../../primitives/hint';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { errorToast, successToast } from '../../primitives/toast';
 import { UiLink as Link, useUiPathname, useUiRouter, useUiSearchParams } from '../../providers/ui-provider';
 import { configEntitySourcePath } from '../sections/component/config-entity-source-path';
@@ -1065,9 +1065,9 @@ function ReadOnlyAgentPage({
   // A reader has a page for Kortix permissions and Model only. Every other
   // Access row shows its grant by name on the Overview and links nowhere.
   const banner = (
-    <InfoBanner tone="neutral" icon={LockSimpleIcon} title={t('readOnlyTitle')}>
+    <BannerAlert variant="default" ><BannerAlertMedia><LockSimpleIcon /></BannerAlertMedia><BannerAlertTitle>{t('readOnlyTitle')}</BannerAlertTitle><BannerAlertDescription>
       {t.rich('readOnlyBody', { code: (chunks) => <span className="font-mono">{chunks}</span> })}
-    </InfoBanner>
+    </BannerAlertDescription></BannerAlert>
   );
 
   const body = (() => {

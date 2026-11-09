@@ -25,7 +25,7 @@ import {
 import { useMemo, type ComponentType } from 'react';
 
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { useLocale, useTranslations } from '../../i18n';
 
 /** A harness id as a person reads it. An id this list does not know shows as it is. */
@@ -76,22 +76,12 @@ export function RestoreNotice({ notice, onDismiss }: { notice: SessionLogRestore
   );
   return (
     // `info`: the neutral tone keeps `Alert`'s default fill under a hairline (two boundaries).
-    <InfoBanner
-      tone="info"
-      role="status"
-      data-restore-notice=""
-      className="mb-6 rounded-md"
-      icon={ClockCounterClockwiseIcon}
-      title={t('restoreTitle')}
-      action={
-        <Button variant="ghost" size="icon-sm" onClick={onDismiss} aria-label={t('restoreDismiss')} className="text-muted-foreground">
-          <XIcon className="size-4" />
-        </Button>
-      }
-    >
+    <BannerAlert variant="default" role="status" data-restore-notice="" className="mb-6 rounded-md"><BannerAlertMedia><ClockCounterClockwiseIcon /></BannerAlertMedia><BannerAlertTitle>{t('restoreTitle')}</BannerAlertTitle><BannerAlertDescription>
       {notice.missing.length > 0 && <span>{t('restoreMissing', { items })} </span>}
       {t('restoreAgent')}
-    </InfoBanner>
+    </BannerAlertDescription><BannerAlertActions>{<Button variant="ghost" size="icon-sm" onClick={onDismiss} aria-label={t('restoreDismiss')} className="text-muted-foreground">
+          <XIcon className="size-4" />
+        </Button>}</BannerAlertActions></BannerAlert>
   );
 }
 

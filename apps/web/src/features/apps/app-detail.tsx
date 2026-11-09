@@ -20,7 +20,7 @@ import {
   SplitSheetMain,
   SplitSheetTitle,
 } from '@kortix/ui/split-sheet';
-import { Tabs, TabsList, TabsListCompact, TabsTrigger, TabsTriggerCompact } from '@kortix/ui/tabs';
+import { Tabs, TabsList, TabsTrigger} from '@kortix/ui/tabs';
 
 import { Switch } from '@kortix/ui/switch';
 import { successToast } from '@kortix/ui/toast';
@@ -241,12 +241,12 @@ export function AppDetailModal({
                   non-running state read its status out twice. */}
               {children.length ? (
                 <Tabs value={view} onValueChange={setView} className="shrink-0">
-                  <TabsListCompact>
-                    <TabsTriggerCompact value={app.app_id}>{app.name}</TabsTriggerCompact>
+                  <TabsList size="xs">
+                    <TabsTrigger value={app.app_id}>{app.name}</TabsTrigger>
                     {children.map((child) => (
-                      <TabsTriggerCompact key={child.app_id} value={child.app_id}>{appTabLabel(child, app)}</TabsTriggerCompact>
+                      <TabsTrigger key={child.app_id} value={child.app_id}>{appTabLabel(child, app)}</TabsTrigger>
                     ))}
-                  </TabsListCompact>
+                  </TabsList>
                 </Tabs>
               ) : null}
               {status.live ? (

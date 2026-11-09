@@ -1633,6 +1633,11 @@
       "count": 1
     }
   },
+  "src/projects/lib/project-detail-config.ts": {
+    "no-console": {
+      "count": 1
+    }
+  },
   "src/projects/lib/project-registration.ts": {
     "no-console": {
       "count": 1
@@ -1755,11 +1760,8 @@
     }
   },
   "src/projects/managed-repo-seed.ts": {
-    "kortix-api/replica-local": {
-      "count": 1
-    },
     "no-console": {
-      "count": 4
+      "count": 1
     }
   },
   "src/projects/prompt-attachment-cleanup.ts": {
@@ -2075,7 +2077,7 @@
   },
   "src/projects/routes/project-detail.ts": {
     "no-console": {
-      "count": 2
+      "count": 1
     },
     "no-restricted-imports": {
       "count": 1
@@ -2733,10 +2735,7 @@
   },
   "src/sandbox-proxy/routes/share.ts": {
     "no-console": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 3
+      "count": 1
     }
   },
   "src/sandbox-proxy/sse-stall.ts": {

@@ -4,7 +4,7 @@ import { AgentMark } from '@kortix/ui/internal/components/agent-mark';
 import { Button } from '@kortix/ui/button';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
 import { Field, FieldLabel } from '@kortix/ui/field';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import {
   Modal,
@@ -359,9 +359,9 @@ function FolderAccessForm({
               </Field>
             ) : null}
 
-            <InfoBanner tone="neutral" icon={LockIcon}>
+            <BannerAlert variant="default" ><BannerAlertMedia><LockIcon /></BannerAlertMedia><BannerAlertDescription>
               <span data-testid="folder-access-result">{result}</span>
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
             {!canManage ? <p className="text-muted-foreground text-xs">{t('viewOnlyAccess')}</p> : null}
           </>
         )}

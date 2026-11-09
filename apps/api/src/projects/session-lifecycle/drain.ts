@@ -17,7 +17,6 @@ import {
   type SessionLifecycleCommandRow,
   claimDueLifecycleCommands,
   markCommandFailed,
-  markCommandSucceeded,
   requeueForAdmission,
 } from './store';
 import { clearTriggerAlert, commandTriggerSlug } from '../lib/trigger-alerts';
@@ -29,8 +28,8 @@ import { compareInboxSendOrder } from './inbox-order';
 import type { QueuedCreateSessionPayload } from './types';
 import { executeQueuedContinue } from './queued-continue';
 import {
-  applyPostCreateActions,
   executeQueuedCreate,
+  finalizeCreatedSession,
   isRetryableCreateError,
 } from './create-session';
 
@@ -212,35 +211,22 @@ async function drainSessionLifecycleQueueTick(
     }
     if (result.status === 'created' && result.sessionId) {
       const payload = row.payload as unknown as QueuedCreateSessionPayload;
-      const postCreate = await applyPostCreateActions({
+      const postCreate = await finalizeCreatedSession({
+        row,
         projectId: row.projectId,
         sessionId: result.sessionId,
         actions: payload.postCreate,
+        source: row.source,
+        attempts: row.attempts,
       });
       if (!postCreate.ok) {
-        await markCommandFailed(row, postCreate.error, {
-          retryable: true,
-          attempts: row.attempts,
-          sessionId: result.sessionId,
-          result: {
-            status: 'created',
-            session_id: result.sessionId,
-            source: row.source,
-            post_create_error: postCreate.error,
-          },
-        });
         out.queued += 1;
         return;
       }
-      const applied = await markCommandSucceeded(
-        row,
-        { status: 'created', session_id: result.sessionId, source: row.source },
-        result.sessionId,
-      );
       // A queued trigger create reached its session: that ends a fire failure
       // streak, as markTriggerRuntimeDelivered does for a queued prompt
       // (KRTX-1742). clearTriggerAlert never throws.
-      const triggerSlug = applied ? commandTriggerSlug(row) : null;
+      const triggerSlug = postCreate.applied ? commandTriggerSlug(row) : null;
       if (triggerSlug) {
         await clearTriggerAlert({ projectId: row.projectId, accountId: row.accountId, slug: triggerSlug, source: 'fire' });
       }

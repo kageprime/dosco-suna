@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { MIRROR_WINDOW_MAX_CHARS, type MirrorSnapshot } from './session-transcript-mirror';
 
-const { buildSessionTranscriptDigest, buildSessionTranscriptSyncEnvelope, mirrorIsComplete } =
+const { buildSessionTranscriptDigest, buildSessionTranscriptSyncEnvelope, lastAssistantAnswer, mirrorIsComplete } =
   await import('./session-transcript');
 
 const session = (status: string) =>
@@ -93,6 +93,69 @@ describe('with no mirror, the old honest answer is unchanged', () => {
     expect(digest.reason).toBe('nothing is saved for this session yet');
     expect(digest.runtime_session_id).toBe('ses_pin');
     expect(digest.runtime_session_id).toBe('ses_pin');
+  });
+});
+
+describe('lastAssistantAnswer is the turn that just ended', () => {
+  // The three former inline readers (`recordResultExcerpt`, `lastTurnAnswer`,
+  // subagent-notice `readReport`) all selected the assistant window after the
+  // last user message. These pins hold their shared selection, call-site
+  // post-processing aside.
+  const mirrorWith = (
+    messages: MirrorSnapshot['messages'],
+  ) => build('stopped', snapshot({ messages, total: messages.length }));
+
+  test('the newest assistant text after the last user message, under its own id', async () => {
+    const digest = await mirrorWith([
+      { info: { id: 'u1', role: 'user', time: { created: 1 } }, parts: [{ id: 'p1', type: 'text', text: 'go' }] },
+      { info: { id: 'a1', role: 'assistant', parentID: 'u1', time: { created: 2, completed: 3 } }, parts: [{ id: 'p2', type: 'text', text: 'half answer' }] },
+      { info: { id: 'u2', role: 'user', time: { created: 4 } }, parts: [{ id: 'p3', type: 'text', text: 'again' }] },
+      { info: { id: 'a2', role: 'assistant', parentID: 'u2', time: { created: 5, completed: 6 } }, parts: [{ id: 'p4', type: 'text', text: ' final answer ' }] },
+    ]);
+    expect(lastAssistantAnswer(digest)).toEqual({
+      id: 'a2',
+      text: 'final answer',
+      error: null,
+    });
+  });
+
+  test('no user message reads the whole window', async () => {
+    const digest = await mirrorWith([
+      { info: { id: 'a1', role: 'assistant', time: { created: 2, completed: 3 } }, parts: [{ id: 'p1', type: 'text', text: 'resumed answer' }] },
+    ]);
+    expect(lastAssistantAnswer(digest)).toEqual({ id: 'a1', text: 'resumed answer', error: null });
+  });
+
+  test('no assistant message after the last user is null', async () => {
+    const digest = await mirrorWith([
+      { info: { id: 'u1', role: 'user', time: { created: 1 } }, parts: [{ id: 'p1', type: 'text', text: 'asked' }] },
+    ]);
+    expect(lastAssistantAnswer(digest)).toBeNull();
+  });
+
+  test('no assistant text: empty text, and the last assistant message still carries the turn error', async () => {
+    const digest = await mirrorWith([
+      { info: { id: 'u1', role: 'user', time: { created: 1 } }, parts: [{ id: 'p1', type: 'text', text: 'asked' }] },
+      { info: { id: 'a1', role: 'assistant', parentID: 'u1', time: { created: 2, completed: 3 }, error: { name: 'ProviderError', message: 'stream cut' } }, parts: [{ id: 'p2', type: 'tool', tool: 'bash', state: { status: 'completed' } }] },
+    ]);
+    expect(lastAssistantAnswer(digest)).toEqual({
+      id: null,
+      text: '',
+      error: { name: 'ProviderError', message: 'stream cut' },
+    });
+  });
+
+  test('the error is the LAST assistant message\'s, the text the newest one that wrote text', async () => {
+    const digest = await mirrorWith([
+      { info: { id: 'u1', role: 'user', time: { created: 1 } }, parts: [{ id: 'p1', type: 'text', text: 'asked' }] },
+      { info: { id: 'a1', role: 'assistant', parentID: 'u1', time: { created: 2, completed: 3 } }, parts: [{ id: 'p2', type: 'text', text: 'the report' }] },
+      { info: { id: 'a2', role: 'assistant', parentID: 'u1', time: { created: 4, completed: 5 }, error: { name: 'ProviderError', message: 'stream cut' } }, parts: [{ id: 'p3', type: 'tool', tool: 'bash', state: { status: 'completed' } }] },
+    ]);
+    expect(lastAssistantAnswer(digest)).toEqual({
+      id: 'a1',
+      text: 'the report',
+      error: { name: 'ProviderError', message: 'stream cut' },
+    });
   });
 });
 

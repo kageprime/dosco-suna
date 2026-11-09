@@ -3,7 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { tunnelPermissions } from '@kortix/db';
 import type { TunnelFilesystemScope, TunnelShellScope, TunnelPermissionScope } from '@kortix/db';
 import { db } from '../../shared/db';
-import { validateTunnelPermissionScope, type TunnelCapability } from 'agent-tunnel';
+import { shellCommandAllowed, validateTunnelPermissionScope, type TunnelCapability } from 'agent-tunnel';
 
 export interface PermissionCheckResult {
   allowed: boolean;
@@ -152,13 +152,16 @@ function validateShellScope(
   _operation: string,
   args: Record<string, unknown>,
 ): PermissionCheckResult {
-  const command = (args.command as string) || '';
-  if (scope.commands && scope.commands.length > 0 && command) {
-    const executable = command.trim();
-    if (!scope.commands.includes(executable)) {
+  const command = typeof args.command === 'string' ? args.command : '';
+  const commandArgs = args.args ?? [];
+  if (!Array.isArray(commandArgs) || !commandArgs.every((arg) => typeof arg === 'string')) {
+    return { allowed: false, reason: 'Command args must be an array of strings' };
+  }
+  if (scope.commands && scope.commands.length > 0) {
+    if (!shellCommandAllowed(scope.commands, command, commandArgs)) {
       return {
         allowed: false,
-        reason: `Command "${executable}" not in allowed commands`,
+        reason: `Command "${command.trim()}" with these arguments is not in allowed commands`,
       };
     }
   }

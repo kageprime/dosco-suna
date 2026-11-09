@@ -173,7 +173,7 @@ export interface GrantRow {
   decision: string;
 }
 
-export type ConsentOutcome = 'granted' | 'ask';
+type ConsentOutcome = 'granted' | 'ask';
 
 /**
  * Decide whether an attach needs a prompt in Chrome.
@@ -201,7 +201,7 @@ export function decideConsent(input: {
   return allowed ? 'granted' : 'ask';
 }
 
-export type ConsentDecision = 'session' | 'project' | 'deny';
+type ConsentDecision = 'session' | 'project' | 'deny';
 
 export function isConsentDecision(v: unknown): v is ConsentDecision {
   return v === 'session' || v === 'project' || v === 'deny';

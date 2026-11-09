@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { narrationToolName } from '@kortix/sdk';
 import { useClearFocusedToolCall, useFocusedAgent, useFocusedToolCallId, useKortixComputerStore } from '../../../internal/stores/kortix-computer-store';
 import { SubagentPanel } from '../../agents/subagent-view';
-import { DetailSidebarToggle } from '../easy/detail-view';
+import { DetailSidebarToggle, ToolParts } from '../easy/detail-view';
 import { useSessionBrowserStore } from '../../../internal/stores/session-browser-store';
 import { pathOutput, shouldAutoExpandOutputs, shouldAutoOpenPayoff, stepForCallId } from '../easy/easy-panel-logic';
 import { StepDetailBody } from '../easy/step-detail-body';
@@ -13,10 +14,10 @@ import type { usePanelDerivations } from './use-panel-derivations';
 type Handoffs = Pick<SessionPanelValue,
   'sessionId' | 'projectId' | 'projectSessionId' | 'detail' | 'handleOpenOutput' |
   'openDetail' | 'closeDetail' | 'openTerminal' | 'openAudit' | 'openReminders' | 'openDesktop' | 'openBrowser' | 'openFiles'
-> & Pick<ReturnType<typeof usePanelDerivations>, 'isRunning' | 'outcome' | 'apps' | 'files' | 'steps'>;
+> & Pick<ReturnType<typeof usePanelDerivations>, 'isRunning' | 'outcome' | 'apps' | 'files' | 'steps' | 'calls'>;
 
 export function usePanelHandoffs({
-  sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps,
+  sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps, calls,
   detail, handleOpenOutput, openDetail, closeDetail, openTerminal, openAudit, openReminders, openDesktop, openBrowser, openFiles,
 }: Handoffs) {
   // Auto-expand Outputs the moment a run finishes with something to show —
@@ -149,9 +150,26 @@ export function usePanelHandoffs({
           />
         ),
       });
+      clearFocusedToolCall();
+      return;
     }
+    // The chat renders a tool row the steps do not hold: a call whose step
+    // `groupSteps` drops (context-engine bookkeeping a GenericTool row still
+    // draws) — and, for one render, every call a still-streaming thread has
+    // not derived yet. The panel is already open (`focusToolCall` flipped it
+    // before this effect ran), so open the call ITSELF instead of leaving a
+    // blank panel. The focus stays armed until a detail exists, so a lagging
+    // derivation lands on it rather than eating the click.
+    const call = calls.find((c) => c.call_id === focusedToolCallId);
+    if (!call) return;
+    openDetail({
+      key: `tool:${focusedToolCallId}`,
+      title: narrationToolName(call.name),
+      padded: false,
+      body: <ToolParts calls={[call]} sessionId={sessionId} />,
+    });
     clearFocusedToolCall();
-  }, [focusedToolCallId, steps, clearFocusedToolCall, sessionId, openDetail]);
+  }, [focusedToolCallId, steps, calls, clearFocusedToolCall, sessionId, openDetail]);
 
   // An agent clicked in the CHAT (its row, its finish notice, a workflow agent,
   // the agents line) opens that agent's session here, beside the chat: its face,

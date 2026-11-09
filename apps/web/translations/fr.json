@@ -347,7 +347,8 @@
       "actionImport": "Importer un dépôt existant",
       "ownerTypePersonal": "Compte personnel",
       "ownerTypeOrg": "Organisation",
-      "createPersonalAuthorize": "Kortix demande votre autorisation à GitHub la première fois que vous créez un dépôt dans un compte personnel."
+      "createPersonalAuthorize": "Kortix demande votre autorisation à GitHub la première fois que vous créez un dépôt dans un compte personnel.",
+      "importHint": "Kortix lit les agents dans le kortix.yaml de ce dépôt. S’il n’existe pas, le workspace s’ouvre sur un prompt de configuration à copier dans votre agent de code."
     }
   },
   "projectHome": {
@@ -3749,6 +3750,25 @@
     "startHint": "Dites à Kortix ci-dessous sur quoi vous travaillez, ou envoyez « Fais-moi découvrir Kortix » pour une configuration guidée.",
     "placeholder": "Dites à Kortix sur quoi vous travaillez",
     "kickoff": "Fais-moi découvrir Kortix"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "Configurer Kortix dans ce dépôt",
+      "body": "Collez le prompt de configuration dans Claude Code, Codex ou Cursor, dans votre clone. Le chat s’ouvre ici quand <code>kortix.yaml</code> arrive sur <code>{branch}</code>."
+    },
+    "defaultBranch": "la branche par défaut",
+    "copy": "Copier le prompt de configuration",
+    "copied": "Copié",
+    "copyFailed": "Impossible de copier le prompt",
+    "docs": "Guide de configuration",
+    "noAccess": {
+      "title": "Aucun agent ne vous est accessible",
+      "body": "Toute personne qui gère ce workspace peut vous donner accès."
+    },
+    "empty": {
+      "title": "Aucun agent dans ce workspace",
+      "body": "Déclarez-en un dans kortix.yaml ou créez-en un avec Nouvel agent."
+    }
   },
   "announcements": {
     "memories": {
@@ -26606,7 +26626,9 @@
         "createdDescription": "{name} agit en tant que {actsAs}. Kortix n'affiche la clé qu'une fois : copiez-la maintenant et stockez-la comme secret.",
         "accessFullHint": "Tout ce que le principal de la clé peut faire dans cet espace de travail.",
         "accessCustomHint": "Uniquement les autorisations choisies. Chacune doit faire partie de ce que le principal de la clé peut faire."
-      }
+      },
+      "searchPlaceholder": "Rechercher dans les paramètres",
+      "searchNoResults": "Aucun paramètre ne correspond"
     },
     "cli": {
       "noWorkspaceTitle": "Créez un espace de travail pour connecter la CLI",
@@ -26637,7 +26659,9 @@
     },
     "menu": {
       "invite": "Inviter des personnes dans {name}",
-      "leave": "Quitter {name}"
+      "leave": "Quitter {name}",
+      "invitePeople": "Inviter des personnes",
+      "more": "Plus"
     },
     "roles": {
       "owner": {

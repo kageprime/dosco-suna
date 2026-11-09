@@ -2235,6 +2235,51 @@ describe('pi subagents extension', () => {
     }
   })
 
+  test('My Kortix (KORTIX_META_AGENT=1): an inline agent and a built-in run as My Kortix with their own prompts; a named agent runs as itself', async () => {
+    const creates: Array<Record<string, any>> = []
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (req) => {
+        const path = new URL(req.url).pathname
+        if (req.method === 'POST' && path === '/v1/workspaces/proj-pi-test/sessions') {
+          creates.push((await req.json()) as Record<string, any>)
+          return Response.json({ session_id: `cloud-child-${creates.length}` }, { status: 201 })
+        }
+        if (path.endsWith('/transcript')) return Response.json({ messages: [{ role: 'user', text: 'go' }, { role: 'assistant', text: 'cloud report' }] })
+        if (req.method === 'GET' && path.startsWith('/v1/workspaces/proj-pi-test/sessions/cloud-child-')) {
+          return Response.json({ status: 'running', working: { state: 'idle', since: '2026-10-24T10:00:00.000Z', pending_delivery: false } })
+        }
+        return new Response('not found', { status: 404 })
+      },
+    })
+    try {
+      const r = await boot({
+        script: [
+          TASK({ subagent_type: undefined, agent: { instructions: 'You are a product designer and prototyper.' }, run_in_background: false }),
+          TASK({ subagent_type: 'general', run_in_background: false }),
+          TASK({ subagent_type: 'engineering', run_in_background: false }),
+          { text: 'parent done' },
+        ],
+        env: {
+          // The compiled config of My Kortix (my-kortix-agent.ts `buildMyKortixConfig`): one agent, no schema.
+          KORTIX_COMPILED_AGENT_CONFIG: JSON.stringify({ agent: { mykortix: { mode: 'primary', prompt: 'You are My Kortix.' } } }),
+          KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1`,
+          KORTIX_AGENT_NAME: 'mykortix',
+          KORTIX_META_AGENT: '1',
+        },
+      })
+      await promptAndSettle(r, 'hand three things off')
+      expect(creates.map((c) => c.agent_name)).toEqual(['mykortix', 'mykortix', 'engineering'])
+      expect(creates[0]!.runtime_context['kortix.agent.instructions']).toBe('You are a product designer and prototyper.')
+      expect(String(creates[1]!.runtime_context['kortix.agent.instructions'])).toStartWith('You are a subagent')
+      expect(creates[2]!.runtime_context).not.toHaveProperty('kortix.agent.instructions')
+      // The coordinator's own prompt never reaches a child, as a note or otherwise.
+      expect(creates.some((c) => JSON.stringify(c).includes('You are My Kortix.'))).toBe(false)
+    } finally {
+      server.stop(true)
+    }
+  })
+
   test('run_in_background: the call returns the child task_id at once, asks the API to notify this session, and the turn goes on', async () => {
     const creates: Array<Record<string, any>> = []
     const reads: string[] = []
@@ -2276,6 +2321,54 @@ describe('pi subagents extension', () => {
       expect(part.state.output).toContain('<task_started>\nThe subagent runs in the background in its own session.')
       expect(part.state.output).toContain('task_stop({ task_id: "bg-child-1" })')
       expect(JSON.stringify(page)).toContain('parent keeps working')
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  test('subagent_type and an inline agent spec are mutually exclusive: the call is refused before any child, and the corrected call spawns the child', async () => {
+    // The empty inline spec is the exact shape a router over the wire sent beside its subagent_type:
+    // the inline spec silently displaced the named agent and the child ran as an unnamed inline agent.
+    const creates: Array<Record<string, unknown>> = []
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (req) => {
+        const path = new URL(req.url).pathname
+        if (req.method === 'POST' && path === '/v1/workspaces/proj-pi-test/sessions') {
+          creates.push((await req.json()) as Record<string, unknown>)
+          return Response.json({ session_id: 'refusal-child' }, { status: 201 })
+        }
+        if (req.method === 'GET' && path.startsWith('/v1/workspaces/proj-pi-test/sessions')) return Response.json([])
+        return new Response('not found', { status: 404 })
+      },
+    })
+    try {
+      const r = await boot({
+        script: [
+          TASK({ description: 'Ship it', subagent_type: 'general', agent: { instructions: '', tools: [], model: '', description: '' } }),
+          TASK({ description: 'Ship it too', subagent_type: 'general', agent: { instructions: 'You do extra work.' } }),
+          // The corrected hand-off, without the inline spec: the child starts (the loop cannot repeat the same failure).
+          TASK({ description: 'Ship it right', subagent_type: 'general' }),
+          { text: 'parent done' },
+        ],
+        env: { KORTIX_API_URL: `http://127.0.0.1:${server.port}/v1` },
+      })
+      await promptAndSettle(r, 'delegate with a named type, then the corrected call')
+      expect(creates).toHaveLength(1)
+      // A built-in `general` maps to no project agent (cloud-subagent.ts), so the create
+      // carries no `agent_name`; the named project-agent path is asserted by the
+      // 'separate sessions (the default, no `session` arg)' test above (agent_name reviewer/build).
+      expect('agent_name' in creates[0]!).toBe(false)
+      const page = (await r.bearer(`/kortix/runtime/messages/${r.service.runtime()!.rootId}`).then((res) => res.json())) as WirePage
+      const parts = toolParts(page, 'task')
+      expect(parts).toHaveLength(3)
+      for (const part of parts.slice(0, 2)) {
+        expect(part.state.status, 'a refused call carries its error').toBe('error')
+        expect(part.state.error).toContain('cannot combine')
+        expect(part.state.error).toContain('"general"')
+      }
+      expect(parts[2]!.state.status).toBe('completed')
+      expect(parts[2]!.state.output).toContain('<task_started>')
     } finally {
       server.stop(true)
     }
@@ -2375,6 +2468,23 @@ describe('pi subagents extension', () => {
     const systems = gateway.sent.slice(sentBefore).map(systemSent)
     expect(systems.length).toBeGreaterThan(0)
     expect(systems.every((system) => system.startsWith("You are Kortix, the watcher of one space"))).toBe(true)
+  })
+
+  test('an inline agent (kortix.agent.instructions) runs on its instructions, never on its agent\'s own prompt', async () => {
+    const r = await boot({
+      script: [{ text: 'ok' }],
+      env: {
+        KORTIX_AGENT_NAME: 'coder',
+        KORTIX_COMPILED_AGENT_CONFIG: JSON.stringify({ agent: { coder: { prompt: 'You code.', description: 'Writes code' } } }),
+        KORTIX_SESSION_CONTEXT: JSON.stringify({ 'kortix.subagent.depth': 1, 'kortix.agent.instructions': 'You are a product designer and prototyper.' }),
+      },
+    })
+    const sentBefore = gateway.sent.length
+    await promptAndSettle(r, 'Build the three prototypes.')
+    const systems = gateway.sent.slice(sentBefore).map(systemSent)
+    expect(systems.length).toBeGreaterThan(0)
+    expect(systems.every((system) => system.startsWith('You are a product designer and prototyper.'))).toBe(true)
+    expect(systems.some((system) => system.includes('You code.'))).toBe(false)
   })
 
   test("a router's prompt body thread_files end every worker prompt with the Context files block, a notice turn's too", async () => {

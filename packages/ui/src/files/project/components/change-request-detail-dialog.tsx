@@ -21,7 +21,7 @@ import { UnifiedMarkdown } from '../../../markdown';
 import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import { ButtonGroup } from '../../../primitives/button-group';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
 import { Modal, ModalClose, ModalContent, ModalHeader, ModalTitle } from '../../../primitives/modal';
 import { Skeleton } from '../../../primitives/skeleton';
@@ -298,11 +298,7 @@ export function ChangeRequestDetailDialog({ crId, onClose, onOpenChangeRequest }
             {/* Problems only. A proposal that can be applied says so by having
                 an enabled Apply button — it does not also need a chip. */}
             {manifestIssues !== null && (
-              <InfoBanner
-                tone="destructive"
-                icon={WarningIcon}
-                title={tI18nComplete('text8e5d6f03865c', { value0: manifestFile })}
-              >
+              <BannerAlert variant="destructive" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('text8e5d6f03865c', { value0: manifestFile })}</BannerAlertTitle><BannerAlertDescription>
                 {manifestIssues.length > 0 ? (
                   <ul className="mt-1 space-y-1">
                     {dedupeIssues(manifestIssues).map(({ key, issue }) => (
@@ -324,17 +320,13 @@ export function ChangeRequestDetailDialog({ crId, onClose, onOpenChangeRequest }
                 ) : (
                   <span>{tI18nComplete.raw('textcc85fb556a48')}</span>
                 )}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {manifestIssues === null && conflictPaths !== null && conflictPaths.length > 0 && (
-              <InfoBanner
-                tone="warning"
-                icon={WarningIcon}
-                title={tI18nComplete('text57bbed2817ff', {
+              <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('text57bbed2817ff', {
                   value0: fileCount(conflictPaths.length),
-                })}
-              >
+                })}</BannerAlertTitle><BannerAlertDescription>
                 <ul className="mt-1 space-y-0.5">
                   {conflictPaths.map((path) => (
                     <li key={path} className="font-mono text-xs break-all">
@@ -342,13 +334,13 @@ export function ChangeRequestDetailDialog({ crId, onClose, onOpenChangeRequest }
                     </li>
                   ))}
                 </ul>
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {alreadyApplied && (
-              <InfoBanner tone="neutral" icon={CheckIcon} className="items-center">
+              <BannerAlert variant="default" className="items-center"><BannerAlertMedia><CheckIcon /></BannerAlertMedia><BannerAlertDescription>
                 {tI18nComplete.raw('text30b077fb0e07')} {cr?.base_ref}.
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {/* What the person who proposed it wrote. First, unwrapped, at

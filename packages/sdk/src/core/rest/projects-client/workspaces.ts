@@ -51,6 +51,7 @@ import {
 import { readProvisionStream } from './provision-stream';
 import { type AccountRole, type ProjectRole, unwrap } from './shared';
 import type { AccountToken, CreateAccountTokenInput, CreatedAccountToken, ListAccountTokensOptions, WorkspaceKeyScopes } from './tokens';
+import { appendQuery } from '../../http/url';
 
 /**
  * The caller's role in a workspace. `owner` and `admin` administer it
@@ -636,7 +637,7 @@ export async function resendWorkspaceInvite(
 
 /** The workspace's personal access tokens (`kortix_pat_…`). `mine` narrows to the caller's own. */
 export async function listWorkspaceTokens(workspaceId: string, options?: ListAccountTokensOptions) {
-  const qs = options?.mine ? '?mine=true' : '';
+  const qs = appendQuery({ mine: options?.mine ? 'true' : undefined });
   return unwrap(await backendApi.get<AccountToken[]>(`/workspaces/${workspaceId}/tokens${qs}`));
 }
 
@@ -661,7 +662,7 @@ export async function revokeWorkspaceToken(
   tokenId: string,
   options?: { deleteRevoked?: boolean },
 ) {
-  const qs = options?.deleteRevoked ? '?delete_revoked=true' : '';
+  const qs = appendQuery({ delete_revoked: options?.deleteRevoked ? 'true' : undefined });
   return unwrap(
     await backendApi.delete<{ ok: boolean; deleted?: boolean }>(
       `/workspaces/${workspaceId}/tokens/${encodeURIComponent(tokenId)}${qs}`,
@@ -763,7 +764,7 @@ export async function revokeWorkspaceKey(
   keyId: string,
   options?: { deleteRevoked?: boolean },
 ) {
-  const qs = options?.deleteRevoked ? '?delete_revoked=true' : '';
+  const qs = appendQuery({ delete_revoked: options?.deleteRevoked ? 'true' : undefined });
   return unwrap(
     await backendApi.delete<{ ok: boolean; deleted?: boolean }>(
       `/workspaces/${workspaceId}/keys/${encodeURIComponent(keyId)}${qs}`,

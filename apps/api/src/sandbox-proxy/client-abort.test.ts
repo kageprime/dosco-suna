@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { clientAbortTarget } from './client-abort';
+import { clientAbortTarget, parseForkPath } from './client-abort';
 
 // Every client that stops a turn — web, mobile, SDK, CLI — does it with one
 // abort call through this proxy. It is the only place the control plane can
@@ -23,5 +23,27 @@ describe('clientAbortTarget', () => {
 
   test('a malformed escape is not an abort target', () => {
     expect(clientAbortTarget(8000, 'POST', '/session/%E0%A4%A/abort')).toBeNull();
+  });
+});
+
+// KRTX-4477: both fork call sites (the stopped-sandbox gate and the record a
+// successful fork registers) parse with this one predicate now, over the same
+// shapes the old two regexes accepted — every in-box-prefixed, trailing-slash
+// and query-tailed spelling included (the registration used to miss those).
+describe('parseForkPath', () => {
+  test('names the conversation every fork spelling starts from', () => {
+    expect(parseForkPath(8000, 'POST', '/session/ses_root/fork')).toBe('ses_root');
+    expect(parseForkPath(8000, 'POST', '/proxy/1/session/ses_root/fork')).toBe('ses_root');
+    expect(parseForkPath(8000, 'POST', '/session/ses_root/fork/')).toBe('ses_root');
+    expect(parseForkPath(4096, 'POST', '/session/ses_root/fork?after=1')).toBe('ses_root');
+    expect(parseForkPath(8000, 'post', '/session/ses_root/fork')).toBe('ses_root');
+  });
+
+  test('is null for everything that is not a fork on a session-data port', () => {
+    expect(parseForkPath(8000, 'GET', '/session/ses_root/fork')).toBeNull();
+    expect(parseForkPath(3000, 'POST', '/session/ses_root/fork')).toBeNull();
+    expect(parseForkPath(8000, 'POST', '/session/ses_root/fork/sub')).toBeNull();
+    expect(parseForkPath(8000, 'POST', '/session/ses_root/message')).toBeNull();
+    expect(parseForkPath(8000, 'POST', '/session//fork')).toBeNull();
   });
 });

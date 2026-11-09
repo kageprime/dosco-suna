@@ -18,6 +18,7 @@ import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
 import { enqueueJobs, registerJobHandler } from '../../shared/job-queue';
 import { assertSafeEgressUrl, safeEgressFetch, UnsafeEgressError } from '../../shared/ssrf-guard';
+import { errorMessage } from '../../shared/error-message';
 
 const LINK_UNFURL_QUEUE = 'link-unfurl';
 export const UNFURL_TIMEOUT_MS = 5_000;
@@ -265,7 +266,7 @@ export async function enqueueLinkUnfurls(rows: UnfurlState[]): Promise<void> {
   const day = Math.floor(Date.now() / (24 * 60 * 60_000));
   const jobs = rows.filter((row) => needsUnfurl(row)).map((row) => ({ key: `${row.linkId}:${day}`, payload: { link_id: row.linkId } }));
   await enqueueJobs(LINK_UNFURL_QUEUE, jobs).catch((err) =>
-    logger.warn('[spaces] queueing link unfurls failed', { error: err instanceof Error ? err.message : String(err) }),
+    logger.warn('[spaces] queueing link unfurls failed', { error: errorMessage(err) }),
   );
 }
 

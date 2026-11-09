@@ -12,6 +12,7 @@ export {
   normalizeDesktopCall,
   isTunnelCapability,
   operationForMethod,
+  shellCommandAllowed,
   validateTunnelPermissionScope,
   validateFilesystemParams,
 } from './shared';

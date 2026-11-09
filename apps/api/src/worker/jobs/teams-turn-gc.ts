@@ -1,17 +1,21 @@
 import { sweepStaleTeamsTurns } from '../../channels/teams/turn';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 
-let gcTimer: ReturnType<typeof setInterval> | null = null;
+const SWEEP_MS = 5 * 60 * 1000;
 
-/** Leader-only (bootstrap.ts): one replica sweeps, not all of them. */
-export function startTeamsTurnGc(): void {
-  if (gcTimer) return;
-  gcTimer = setInterval(() => {
-    runWorkerTick('teams-turn-gc', sweepStaleTeamsTurns).catch((err) => console.warn('[teams-webhook] gc tick failed', err));
-  }, 5 * 60 * 1000);
-}
+// Leader-only (bootstrap.ts): one replica sweeps, not all of them.
+const gc = leaderTimer(
+  async () => {
+    try {
+      await runWorkerTick('teams-turn-gc', sweepStaleTeamsTurns);
+    } catch (err) {
+      console.warn('[teams-webhook] gc tick failed', err);
+    }
+    return SWEEP_MS;
+  },
+  { firstDelayMs: SWEEP_MS, name: 'teams-turn-gc' },
+);
 
-export function stopTeamsTurnGc(): void {
-  if (gcTimer) clearInterval(gcTimer);
-  gcTimer = null;
-}
+export const startTeamsTurnGc = gc.start;
+export const stopTeamsTurnGc = gc.stop;

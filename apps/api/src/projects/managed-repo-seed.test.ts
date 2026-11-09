@@ -6,7 +6,6 @@ import {
   isRepoNotYetReachableError,
   pushVerifiedSeed,
   readManagedRepoSeedState,
-  shouldSelfHealManagedRepoSeed,
 } from './managed-repo-seed';
 
 const PROJECT_ID = '514f25cd-1c15-4104-8d2b-0aae00c949f6';
@@ -266,87 +265,6 @@ describe('isMissingRemoteBranchError', () => {
       stderr: "fatal: couldn't find remote ref refs/heads/main\n",
     });
     expect(isMissingRemoteBranchError(err)).toBe(true);
-  });
-});
-
-describe('shouldSelfHealManagedRepoSeed', () => {
-  test('repairs a managed repo that has no recorded seed state', () => {
-    expect(
-      shouldSelfHealManagedRepoSeed({ managed: true, metadata: { git: { managed: true } } }),
-    ).toBe(true);
-  });
-
-  test('repairs a managed repo whose seed was expected but never landed', () => {
-    const metadata = {
-      git: {
-        managed: true,
-        seed: {
-          seeded: false,
-          expected: true,
-          reason: 'push_failed',
-          at: '2026-07-30T00:00:00.000Z',
-        },
-      },
-    };
-    expect(shouldSelfHealManagedRepoSeed({ managed: true, metadata })).toBe(true);
-  });
-
-  test('leaves a LEGACY caller opt-out alone (pre-invariant rows only)', () => {
-    const metadata = {
-      git: {
-        managed: true,
-        seed: {
-          seeded: false,
-          expected: false,
-          reason: 'caller_opted_out',
-          at: '2026-07-30T00:00:00.000Z',
-        },
-      },
-    };
-    expect(shouldSelfHealManagedRepoSeed({ managed: true, metadata })).toBe(false);
-  });
-
-  // THE INVARIANT: a project always ends up with a manifest. `seed_starter:
-  // false` says "I am about to push my own scaffold", not "leave this empty" —
-  // so a client that provisions and then never pushes must still be repaired.
-  // This is the case the old `caller_opted_out` state skipped forever, which is
-  // how a bare provision call produced a permanently empty project.
-  test('repairs a client-owned first commit the client never actually pushed', () => {
-    const metadata = {
-      git: {
-        managed: true,
-        seed: {
-          seeded: false,
-          expected: true,
-          reason: 'client_owns_first_commit',
-          at: '2026-07-30T00:00:00.000Z',
-          template: 'minimal',
-        },
-      },
-    };
-    expect(shouldSelfHealManagedRepoSeed({ managed: true, metadata })).toBe(true);
-  });
-
-  // The repair is what makes the above safe for `kortix ship`: it re-checks the
-  // remote and skips a repo the client HAS populated (repairManagedRepo's
-  // `remoteBranchExists` guard). Seeding intent alone never overwrites work.
-  test('a client-owned first commit that DID land is already seeded, so nothing repairs it', () => {
-    const metadata = {
-      git: {
-        managed: true,
-        seed: {
-          seeded: true,
-          expected: true,
-          reason: 'seeded',
-          at: '2026-07-30T00:00:00.000Z',
-        },
-      },
-    };
-    expect(shouldSelfHealManagedRepoSeed({ managed: true, metadata })).toBe(false);
-  });
-
-  test('never touches a repo Dosco does not manage', () => {
-    expect(shouldSelfHealManagedRepoSeed({ managed: false, metadata: null })).toBe(false);
   });
 });
 

@@ -44,6 +44,7 @@ import {
   isLaunchableAgentName,
   loadProjectAgents,
 } from '../agents';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * The grant could not be resolved (manifest unreadable, loader threw). Callers
@@ -58,7 +59,7 @@ export class SecretGrantResolutionError extends Error {
   ) {
     super(
       `could not resolve the secrets grant for agent '${agentName}': ${
-        cause instanceof Error ? cause.message : String(cause)
+        errorMessage(cause)
       }`,
       { cause },
     );

@@ -1235,7 +1235,10 @@ export async function getSessionTranscriptSync(
 /**
  * One page of one thread of the session's stored log (`kortix.session/2`): the session record,
  * every thread head, and the thread's newest `limit` messages (default 40, max 500) with
- * `seq < before_seq`, ascending. `thread` defaults to the root thread. Read from Postgres, so it
+ * `seq < before_seq`, ascending. `thread` defaults to the root thread. A page carries whole
+ * messages up to `SESSION_LOG_PAGE_MAX_BYTES` of stored payload (default 2 MiB): an over-budget
+ * window answers fewer than `limit` with `has_more: true`, the newest message however large it is.
+ * Read from Postgres, so it
  * answers while the sandbox is stopped; the daemon journals each turn at its end.
  * Null on a 404: the session has no stored log yet, or no such thread.
  */

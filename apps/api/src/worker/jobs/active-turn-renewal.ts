@@ -1,86 +1,59 @@
 import { logger } from '../../lib/logger';
 import { runWorkerTick } from '../../shared/audit-scope';
 import { inPlatinumBackgroundLane } from '../../shared/platinum-write-lane';
+import { leaderTimer } from '../../shared/leader-timer';
 import {
   type ActiveTurnRenewalDependencies,
   activeTurnRenewalIntervalMs,
   runActiveTurnRenewal,
 } from '../../projects/active-turn-renewal';
 
-type Timer = ReturnType<typeof setTimeout>;
-type Cancel = (timer: Timer) => void;
-
-const state = globalThis as typeof globalThis & {
-  __kortixActiveTurnRenewalTimer?: Timer | null;
-  __kortixActiveTurnRenewalRunning?: boolean;
-  __kortixActiveTurnRenewalGeneration?: number;
-  __kortixActiveTurnRenewalCancel?: Cancel;
-};
-
-function isCurrentGeneration(generation: number): boolean {
-  return (
-    state.__kortixActiveTurnRenewalRunning === true &&
-    state.__kortixActiveTurnRenewalGeneration === generation
-  );
-}
-
-async function tick(
-  generation: number,
-  dependencies: ActiveTurnRenewalDependencies,
-): Promise<void> {
-  if (!isCurrentGeneration(generation)) return;
-  const monotonicNowMs = dependencies.monotonicNowMs ?? (() => performance.now());
-  const startedAtMs = monotonicNowMs();
-  try {
-    // Each renewal is a Platinum `exec` (a write): paced with the maintenance sweeps.
-    const result = await inPlatinumBackgroundLane(() => runActiveTurnRenewal(dependencies));
-    if (result.candidates > 0 || result.errors > 0 || result.transient > 0) {
-      logger.info('[active-turn-renewal] pass', {
-        candidates: result.candidates,
-        matching: result.matching,
-        deferred: result.deferred,
-        lifecycleRenewed: result.lifecycleRenewed,
-        reconciled: result.reconciled,
-        errors: result.errors,
-        transient: result.transient,
-      });
-    }
-  } catch (error) {
-    logger.error('[active-turn-renewal] pass failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  } finally {
-    if (isCurrentGeneration(generation)) {
-      const schedule = dependencies.schedule ?? setTimeout;
-      const intervalMs = (dependencies.intervalMs ?? activeTurnRenewalIntervalMs)();
-      const delayMs = Math.max(0, intervalMs - (monotonicNowMs() - startedAtMs));
-      state.__kortixActiveTurnRenewalCancel = dependencies.cancel ?? clearTimeout;
-      state.__kortixActiveTurnRenewalTimer = schedule(
-        () => void runWorkerTick('active-turn-renewal', () => tick(generation, dependencies)),
-        delayMs,
-      );
-    }
-  }
-}
+let job: ReturnType<typeof leaderTimer> | null = null;
 
 export function startActiveTurnRenewal(
   dependencies: ActiveTurnRenewalDependencies = {},
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
 ): void {
   if (env.KORTIX_ACTIVE_TURN_RENEWAL_ENABLED === 'false') return;
-  if (state.__kortixActiveTurnRenewalRunning) return;
-  state.__kortixActiveTurnRenewalRunning = true;
-  const generation = (state.__kortixActiveTurnRenewalGeneration ?? 0) + 1;
-  state.__kortixActiveTurnRenewalGeneration = generation;
-  void runWorkerTick('active-turn-renewal', () => tick(generation, dependencies));
+  if (job) return;
+  const monotonicNowMs = dependencies.monotonicNowMs ?? (() => performance.now());
+  const nextDelayMs = (startedAtMs: number): number => {
+    const intervalMs = (dependencies.intervalMs ?? activeTurnRenewalIntervalMs)();
+    return Math.max(0, intervalMs - (monotonicNowMs() - startedAtMs));
+  };
+  job = leaderTimer(
+    async () => {
+      const startedAtMs = monotonicNowMs();
+      try {
+        // Each renewal is a Platinum `exec` (a write): paced with the maintenance sweeps.
+        const result = await runWorkerTick('active-turn-renewal', () =>
+          inPlatinumBackgroundLane(() => runActiveTurnRenewal(dependencies)),
+        );
+        if (result.candidates > 0 || result.errors > 0 || result.transient > 0) {
+          logger.info('[active-turn-renewal] pass', {
+            candidates: result.candidates,
+            matching: result.matching,
+            deferred: result.deferred,
+            lifecycleRenewed: result.lifecycleRenewed,
+            reconciled: result.reconciled,
+            errors: result.errors,
+            transient: result.transient,
+          });
+        }
+      } catch (error) {
+        logger.error('[active-turn-renewal] pass failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return nextDelayMs(startedAtMs);
+    },
+    { name: 'active-turn-renewal' },
+  );
+  job.start();
 }
 
-export function stopActiveTurnRenewal(): void {
-  state.__kortixActiveTurnRenewalRunning = false;
-  state.__kortixActiveTurnRenewalGeneration = (state.__kortixActiveTurnRenewalGeneration ?? 0) + 1;
-  if (state.__kortixActiveTurnRenewalTimer) {
-    (state.__kortixActiveTurnRenewalCancel ?? clearTimeout)(state.__kortixActiveTurnRenewalTimer);
-    state.__kortixActiveTurnRenewalTimer = null;
-  }
-  state.__kortixActiveTurnRenewalCancel = undefined;
+export async function stopActiveTurnRenewal(): Promise<void> {
+  const renewal = job;
+  job = null;
+  await renewal?.stop();
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { configureKortix } from '../http/config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fetchFirstSessionLogPage, fetchSessionLogPage, loadSessionLogPage, SESSION_LOG_FIRST_PAGE_LIMIT } from './source';
+import { fetchSessionLogPage, loadSessionLogPage, SESSION_LOG_FIRST_PAGE_LIMIT } from './source';
 import type { SessionLog } from './types';
 
 const log: SessionLog = JSON.parse(readFileSync(join(import.meta.dir, '../../../../api-contract/src/__tests__/fixtures/session-log/golden21.v2.json'), 'utf8'));
@@ -34,28 +34,7 @@ describe('loadSessionLogPage: GET /v1/workspaces/:p/sessions/:s/log', () => {
 
   test('a 404 (no stored log, or an unknown thread) reads as no page: the session stays on v1', async () => {
     serve(404, { error: 'No session log for this session' });
-    expect(await fetchFirstSessionLogPage(loadSessionLogPage!, 'p', 's')).toBeNull();
-  });
-});
-
-describe('fetchFirstSessionLogPage', () => {
-  test('asks for the newest page of the root thread and returns a valid page', async () => {
-    const calls: unknown[] = [];
-    const signal = new AbortController().signal;
-    const result = await fetchFirstSessionLogPage(async (...args) => {
-      calls.push(args);
-      return page();
-    }, 'proj_1', 'kses_1', signal);
-    expect(calls).toEqual([['proj_1', 'kses_1', { limit: SESSION_LOG_FIRST_PAGE_LIMIT }, signal]]);
-    expect(result).toEqual(page());
-  });
-
-  test('null for an invalid page or a failed request; never throws', async () => {
-    const bad = page();
-    (bad.messages[0] as Record<string, unknown>).blocks = 'x';
-    expect(await fetchFirstSessionLogPage(async () => bad, 'p', 's')).toBeNull();
-    expect(await fetchFirstSessionLogPage(async () => ({ error: 'not found' }), 'p', 's')).toBeNull();
-    expect(await fetchFirstSessionLogPage(async () => { throw new Error('404'); }, 'p', 's')).toBeNull();
+    expect(await fetchSessionLogPage(loadSessionLogPage, 'p', 's', { limit: SESSION_LOG_FIRST_PAGE_LIMIT })).toBeNull();
   });
 });
 

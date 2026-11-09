@@ -32,6 +32,38 @@ import { isRuntimeTriggerSlug, runtimeWebhookSpec } from '../lib/runtime-trigger
 import { workspaceIdParam } from '../../shared/route-params';
 import { projectsView } from '../../workspaces/rows';
 
+/**
+ * KRTX-4473 (CWE-770): a trigger payload is a few KB, but the handler read the
+ * whole body before it verified the signature, so any caller presenting some
+ * credential header chose how much this route buffered. Enforced in the handler,
+ * not as app middleware: `webhookWorkspacesApp` (the canonical
+ * `/workspaces/:workspaceId/:slug` name) rewrites paths and re-registers only
+ * the source's routes, so middleware mounted here would not cover it.
+ */
+export const TRIGGER_INGRESS_MAX_BYTES = 1024 * 1024;
+
+/**
+ * The raw request body, or `null` when it exceeds `maxBytes`. KRTX-4473: the
+ * trigger handler must verify an HMAC over the exact bytes, so it cannot let a
+ * parser read them first - but it also must not buffer an unauthenticated
+ * caller's chosen size. Reading stops at the cap and cancels the stream.
+ */
+async function readBodyWithinCap(request: Request, maxBytes: number): Promise<string | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (let r = await reader.read(); !r.done; r = await reader.read()) {
+    size += r.value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(r.value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 export function registerTriggerWebhooksRoutes(): void {
   projectWebhooksApp.use('/projects/:workspaceId/:slug', createProjectWebhookRateLimitMiddleware());
 
@@ -49,7 +81,7 @@ export function registerTriggerWebhooksRoutes(): void {
       202: json(TriggerFireResultSchema, 'Queued or fired'),
       // 402: the account has no usable model (no plan-covered managed model, no
       // connected provider key) — the fire gates instead of minting a doomed session.
-      ...errors(400, 401, 402, 500),
+      ...errors(400, 401, 402, 413, 500),
     },
   }), async (c) => {
     const projectId = workspaceIdParam(c);
@@ -68,6 +100,18 @@ export function registerTriggerWebhooksRoutes(): void {
     );
     if (!hasCredentialHeader) {
       return c.json({ error: 'Invalid webhook signature' }, 401);
+    }
+    // KRTX-4473 (CWE-770): bound the body here, before any project or manifest
+    // read, so an oversized delivery costs one bounded read and nothing else.
+    // The declared length refuses without reading when the sender states it; a
+    // chunked delivery declares none, so the read itself stops at the cap.
+    const declaredLength = Number(c.req.header('content-length') ?? 0);
+    if (declaredLength > TRIGGER_INGRESS_MAX_BYTES) {
+      return c.json({ error: 'Payload too large' }, 413);
+    }
+    const rawBody = await readBodyWithinCap(c.req.raw, TRIGGER_INGRESS_MAX_BYTES);
+    if (rawBody === null) {
+      return c.json({ error: 'Payload too large' }, 413);
     }
 
     const [project] = await db
@@ -100,7 +144,6 @@ export function registerTriggerWebhooksRoutes(): void {
         })();
     if (!spec || spec.type !== 'webhook' || !spec.enabled) return reject('trigger_not_found');
 
-    const rawBody = await c.req.text();
     // From here every answer is a run in the trigger's history (KRTX-1743). A
     // delivery refused before its signature verified is kept 7 days, unverified.
     const runPayload = () => ({

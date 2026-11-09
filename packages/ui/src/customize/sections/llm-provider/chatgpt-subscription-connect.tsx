@@ -2,7 +2,7 @@
 
 import { ChatGptDeviceChallenge } from './chatgpt-device-challenge';
 import { Button } from '../../../primitives/button';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
 import { errorToast, successToast } from '../../../primitives/toast';
 import { ProviderLogo } from '../../../internal/lib/provider-branding';
@@ -390,15 +390,15 @@ export function ChatGptSubscriptionConnect({
       )}
 
       {(phase === 'done' || (connected && !waiting)) && (
-        <InfoBanner tone="success" icon={CheckCircle2} className="mt-3 text-xs">
+        <BannerAlert variant="success" className="mt-3 text-xs"><BannerAlertMedia><CheckCircle2 /></BannerAlertMedia><BannerAlertDescription>
           {copy.connectedBanner}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       {error && (
-        <InfoBanner tone="destructive" icon={TriangleAlert} className="mt-3 text-xs">
+        <BannerAlert variant="destructive" className="mt-3 text-xs"><BannerAlertMedia><TriangleAlert /></BannerAlertMedia><BannerAlertDescription>
           {error}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">

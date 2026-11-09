@@ -168,7 +168,10 @@ export function WorkflowRunRows({
   const groups = groupRows(run);
   const unfinished = run.agents.filter((agent) => agent.status === 'running' || agent.status === 'starting').length;
   return (
-    <div onKeyDown={moveBetweenRows} className="flex flex-col p-1.5">
+    // The rows own the type scale (the card's section sets text-xs, but the
+    // agents line popover renders these rows with no size context): every
+    // surface renders the same sizes without a caller-side override.
+    <div onKeyDown={moveBetweenRows} className="flex flex-col p-1.5 text-xs">
       {groups.map((group, index) => {
         if (!group.phase) {
           return (

@@ -41,6 +41,7 @@
     "./internal/diagnostics-store": "./src/internal/diagnostics-store.ts",
     "./internal/managed-storage": "./src/internal/managed-storage.ts",
     "./wire-message-id": "./src/core/session/wire-message-id.ts",
+    "./wire-values": "./src/core/wire-values.ts",
     "./capture-rules": "./src/core/capture/rules.ts",
     "./workspace-search": "./src/workspace-search/index.ts"
   },
@@ -70,6 +71,10 @@
       "./wire-message-id": {
         "types": "./dist/core/session/wire-message-id.d.ts",
         "import": "./dist/core/session/wire-message-id.js"
+      },
+      "./wire-values": {
+        "types": "./dist/core/wire-values.d.ts",
+        "import": "./dist/core/wire-values.js"
       },
       "./capture-rules": {
         "types": "./dist/core/capture/rules.d.ts",

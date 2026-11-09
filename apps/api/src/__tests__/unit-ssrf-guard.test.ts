@@ -86,6 +86,20 @@ describe('isPrivateIp', () => {
     // Deprecated site-local fec0::/10
     ['fec0::1', true],
     ['feff::1', true],
+    // Report vectors: 6to4 to the metadata address, Teredo in full form, NAT64.
+    ['2002:a9fe:a9fe::1', true],
+    ['2001:0000:4136:e378:8000:63bf:3f57:fffe', true],
+    ['64:ff9b::a9fe:a9fe', true],
+    ['64:ff9b:1::a9fe:a9fe', true], // NAT64 local-use 64:ff9b:1::/48
+    // Any valid spelling of a range classifies the same: leading zeros, upper case, a zone id.
+    ['0064:ff9b::a9fe:a9fe', true],
+    ['0100::1', true], // discard 100::/64
+    ['2001:0db8::1', true], // documentation
+    ['FE80::1', true],
+    ['fe80::1%eth0', true],
+    ['0:0:0:0:0:ffff:169.254.169.254', true],
+    ['100:1::1', false], // outside 100::/64
+    ['2606:4700::1111', false],
     ['not-an-ip', true], // non-IP → unsafe (defensive)
     ['', true],
   ];

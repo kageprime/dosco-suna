@@ -15,6 +15,7 @@ import {
 } from './sandbox-env-snapshot';
 import { runBounded, FANOUT_CONCURRENCY } from './sandbox-env-push';
 import { SANDBOX_SERVICE_PORT, postEnvToDaemon } from './sandbox-env-transport';
+import { errorMessage } from '../../shared/error-message';
 
 export interface ProjectSecretPropagationTarget {
   session_id: string;
@@ -194,7 +195,7 @@ async function runProjectSecretPropagation(
           agent_env_written: proof.agentEnvWritten,
         });
       } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
+        const reason = errorMessage(err);
         report.results.push({
           session_id: row.sessionId,
           sandbox_id: row.externalId,
@@ -228,7 +229,7 @@ async function runProjectSecretPropagation(
     });
     return report;
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const reason = errorMessage(err);
     console.warn(
       `[env-sync] hot fan-out failed for project ${projectId}:`,
       reason,

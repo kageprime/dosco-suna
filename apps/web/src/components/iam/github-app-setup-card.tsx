@@ -59,7 +59,7 @@ import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { Disclosure, DisclosureContent } from '@kortix/ui/disclosure';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -398,13 +398,9 @@ export function GitHubAppSetupCard() {
       {showSetup ? (
         <div className="space-y-3">
           {reconfiguring ? (
-            <InfoBanner
-              tone="warning"
-              icon={WarningIcon}
-              title={tI18nComplete.raw('text8f0059a35e90')}
-            >
+            <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text8f0059a35e90')}</BannerAlertTitle><BannerAlertDescription>
               {tI18nComplete.raw('text4795dc5fb288')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           ) : null}
 
           {/* One bordered group; the rows are its hairline-divided children, so

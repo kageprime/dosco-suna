@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { cn } from '../lib/utils';
-import type * as React from 'react';
+import { cn } from "../lib/utils";
+import type * as React from "react";
 
 /**
  * Kortix status palette — the SINGLE source of truth for "this means
  * success / warning / error / info" coloring.
  *
  * The design system already encapsulates this palette inside `<Badge>` and
- * `<InfoBanner>`. Use those whenever the surface is a chip or a box. But for
+ * `<Alert>`. Use those whenever the surface is a chip or a box. But for
  * the cases a component can't cover — a lone status icon, a diff +/- counter,
  * a live activity dot — reach for these maps instead of re-inlining a palette
  * class by hand (which is how shade drift creeps in).
@@ -19,51 +19,52 @@ import type * as React from 'react';
  * label beside the glyph stays foreground.
  */
 
-export type StatusTone = 'success' | 'warning' | 'destructive' | 'info' | 'neutral';
+export type StatusTone =
+  "success" | "warning" | "destructive" | "info" | "neutral";
 
 /** Foreground (text / icon) color per tone. */
 export const STATUS_TEXT: Record<StatusTone, string> = {
-  success: 'text-kortix-green',
-  warning: 'text-kortix-orange',
-  destructive: 'text-kortix-red',
-  info: 'text-kortix-blue',
-  neutral: 'text-muted-foreground',
+  success: "text-kortix-green",
+  warning: "text-kortix-orange",
+  destructive: "text-kortix-red",
+  info: "text-kortix-blue",
+  neutral: "text-muted-foreground",
 };
 
 /** Faint tinted background per tone (for chips / fills). */
 export const STATUS_BG: Record<StatusTone, string> = {
-  success: 'bg-kortix-green/15',
-  warning: 'bg-kortix-orange/15',
-  destructive: 'bg-kortix-red/15',
-  info: 'bg-kortix-blue/15',
-  neutral: 'bg-popover',
+  success: "bg-kortix-green/15",
+  warning: "bg-kortix-orange/15",
+  destructive: "bg-kortix-red/15",
+  info: "bg-kortix-blue/15",
+  neutral: "bg-popover",
 };
 
 /** Solid hairline border per tone. */
 export const STATUS_BORDER: Record<StatusTone, string> = {
-  success: 'border-kortix-green',
-  warning: 'border-kortix-orange',
-  destructive: 'border-kortix-red',
-  info: 'border-kortix-blue',
-  neutral: 'border-border',
+  success: "border-kortix-green",
+  warning: "border-kortix-orange",
+  destructive: "border-kortix-red",
+  info: "border-kortix-blue",
+  neutral: "border-border",
 };
 
 /** Solid dot fill per tone (for the live activity indicator). */
 export const STATUS_DOT: Record<StatusTone, string> = {
-  success: 'bg-kortix-green',
-  warning: 'bg-kortix-orange',
-  destructive: 'bg-kortix-red',
-  info: 'bg-kortix-blue',
-  neutral: 'bg-muted-foreground',
+  success: "bg-kortix-green",
+  warning: "bg-kortix-orange",
+  destructive: "bg-kortix-red",
+  info: "bg-kortix-blue",
+  neutral: "bg-muted-foreground",
 };
 
 /** Tone color for an svg glyph inside a chip. The chip label stays foreground. */
 const STATUS_CHIP_GLYPH: Record<StatusTone, string> = {
-  success: '[&>svg]:text-kortix-green',
-  warning: '[&>svg]:text-kortix-orange',
-  destructive: '[&>svg]:text-kortix-red',
-  info: '[&>svg]:text-kortix-blue',
-  neutral: '[&>svg]:text-muted-foreground',
+  success: "[&>svg]:text-kortix-green",
+  warning: "[&>svg]:text-kortix-orange",
+  destructive: "[&>svg]:text-kortix-red",
+  info: "[&>svg]:text-kortix-blue",
+  neutral: "[&>svg]:text-muted-foreground",
 };
 
 export function statusText(tone: StatusTone) {
@@ -78,20 +79,20 @@ export function statusText(tone: StatusTone) {
  * because Badge's `destructive` variant is a SOLID red pill meant for
  * actions — and "red is the brake, not the paint". StatusBadge keeps red
  * faint and consistent with its success/warning/info siblings, sharing the
- * same tone vocabulary as StatusDot / InfoBanner / DiffStat. Geometry matches
+ * same tone vocabulary as StatusDot / Alert / DiffStat. Geometry matches
  * `<Badge size="sm">` so the two are visually interchangeable for non-red tones.
  */
 export function StatusBadge({
-  tone = 'neutral',
+  tone = "neutral",
   className,
   children,
   ...props
-}: React.ComponentProps<'span'> & { tone?: StatusTone }) {
+}: React.ComponentProps<"span"> & { tone?: StatusTone }) {
   return (
     <span
       data-slot="status-badge"
       className={cn(
-        'text-foreground inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        "text-foreground inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap",
         STATUS_BG[tone],
         STATUS_CHIP_GLYPH[tone],
         className,
@@ -108,7 +109,7 @@ export function StatusBadge({
  * `bg-emerald-500 animate-pulse` indicators.
  */
 export function StatusDot({
-  tone = 'neutral',
+  tone = "neutral",
   pulse = false,
   className,
 }: {
@@ -120,9 +121,9 @@ export function StatusDot({
     <span
       data-slot="status-dot"
       className={cn(
-        'inline-block size-2 shrink-0 rounded-full',
+        "inline-block size-2 shrink-0 rounded-full",
         STATUS_DOT[tone],
-        pulse && 'animate-pulse',
+        pulse && "animate-pulse",
         className,
       )}
     />
@@ -146,10 +147,17 @@ export function DiffStat({
   return (
     <span
       data-slot="diff-stat"
-      className={cn('inline-flex items-center gap-1.5 font-mono tabular-nums', className)}
+      className={cn(
+        "inline-flex items-center gap-1.5 font-mono tabular-nums",
+        className,
+      )}
     >
-      {additions ? <span className={STATUS_TEXT.success}>+{additions}</span> : null}
-      {deletions ? <span className={STATUS_TEXT.destructive}>{`−${deletions}`}</span> : null}
+      {additions ? (
+        <span className={STATUS_TEXT.success}>+{additions}</span>
+      ) : null}
+      {deletions ? (
+        <span className={STATUS_TEXT.destructive}>{`−${deletions}`}</span>
+      ) : null}
     </span>
   );
 }

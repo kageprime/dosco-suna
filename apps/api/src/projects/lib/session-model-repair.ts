@@ -37,6 +37,7 @@ import { repointRetiredSessionModel } from '../../llm-gateway/resolution/session
 import { accountMayUseManagedModels } from '../../billing/services/entitlements';
 import { logger } from '../../lib/logger';
 import { pushSessionModelToSandbox } from './sandbox-env-sync';
+import { errorMessage } from '../../shared/error-message';
 
 export interface SessionModelRepairInput {
   projectId: string;
@@ -136,7 +137,7 @@ export async function repairRetiredSessionModelOnOpen(
         logger.warn('[projects] retired session model push failed', {
           session_id: input.sessionId,
           pin,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       });
     return { repointed: next };
@@ -144,7 +145,7 @@ export async function repairRetiredSessionModelOnOpen(
     logger.warn('[projects] retired session model repair failed', {
       session_id: input.sessionId,
       pin,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return NO_REPAIR;
   }

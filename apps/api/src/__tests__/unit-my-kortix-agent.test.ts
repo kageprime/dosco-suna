@@ -117,6 +117,8 @@ describe('My Kortix agent', () => {
       expect(section).toContain(name);
     }
     expect(section).toContain('A colleague never gets a tool or an extension you lack.');
+    // The access an inline colleague runs with is My Kortix's own (cloud-subagent.ts, session-create.ts).
+    expect(section).toContain('An inline colleague has your access, never another agent\'s');
     expect(section).toContain('opens a change request for the person to approve');
     expect(section).not.toMatch(/\$|price|cost/i);
   });

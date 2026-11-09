@@ -19,6 +19,7 @@ import type { ProviderName } from '../../platform/providers';
 import { db } from '../../shared/db';
 import { holdsStopClaim, noLiveStopClaim } from '../session-lifecycle/stop-claim';
 import { reapBatchSize } from '../reaper-constants';
+import { stripMetadataKeys } from '../session-lifecycle/sandbox-metadata-sql';
 import { mergeMetadata } from './sandbox-state-sync';
 
 export interface ReapCandidate {
@@ -222,7 +223,7 @@ export async function releaseSandboxStopClaim(sandboxId: string, token: string):
   await db
     .update(sessionSandboxes)
     .set({
-      metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) - 'lifecycleStopClaim'`,
+      metadata: stripMetadataKeys(['lifecycleStopClaim']),
       updatedAt: new Date(),
     })
     .where(

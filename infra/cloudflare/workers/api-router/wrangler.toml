@@ -29,6 +29,13 @@ name = "api-kortix-router"
 routes = [
   { pattern = "api.kortix.com", custom_domain = true },
   { pattern = "gateway.kortix.com/*", zone_name = "kortix.com" },
+  # api-yolo.kortix.com has no origin: the per-member YOLO endpoint is retired
+  # and its cfargotunnel connector is dead (530 / error 1033 on every path).
+  # A Worker ROUTE over the proxied DNS record — never a custom_domain, that
+  # would claim the record itself; same approach as staging-api below — lets
+  # worker fetch() answer 410 Gone for this host without touching the DNS.
+  # Deleting the record stays with the zone operator.
+  { pattern = "api-yolo.kortix.com/*", zone_name = "kortix.com" },
 ]
 
 [env.prod.vars]

@@ -438,6 +438,23 @@ flow(
         if (after !== before) throw new Error(`a refused meta spawn wrote ${after - before} session row(s)`);
       });
 
+      await ctx.step('the meta coordinator starting an inline colleague (agent_name mykortix + kortix.agent.instructions) passes the recursion check: the colleague runs as My Kortix', async () => {
+        const r = await ctx.client
+          .withBearer(meta!.token, 'SESSION_TOKEN')
+          .post(
+            '/v1/workspaces/:projectId/sessions',
+            { agent_name: 'mykortix', runtime_context: { 'kortix.subagent.depth': 1, 'kortix.agent.instructions': 'You are a product designer and prototyper.' } },
+            { params },
+          );
+        // Local: every create check passed and the loopback callback check answers.
+        if (ctx.env.target === 'local') {
+          r.status(503).body().has('$.code', 'KORTIX_URL_UNREACHABLE');
+        } else {
+          r.status(201).body().has('$.agent_name', 'mykortix');
+          ctx.track('session', r.json<{ session_id: string }>().session_id, { projectId: project.id });
+        }
+      });
+
       await ctx.step('a non-meta session asking for My Kortix by its old slug `meta` passes the recursion check and gets `mykortix`', async () => {
         const r = await ctx.client.withBearer(worker!.token, 'SESSION_TOKEN').post('/v1/workspaces/:projectId/sessions', { agent_name: 'meta' }, { params });
         // Local: every create check passed and the loopback callback check answers.

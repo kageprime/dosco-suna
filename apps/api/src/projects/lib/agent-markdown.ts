@@ -14,7 +14,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?([\s\S]*)$/;
 
-export interface ParsedAgentMarkdown {
+interface ParsedAgentMarkdown {
   frontmatter: Record<string, unknown>;
   body: string;
 }

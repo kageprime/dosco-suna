@@ -4,7 +4,7 @@ import { AppLogo } from '../../../workspace/projects/onboarding/app-logo';
 import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import { Disclosure, DisclosureContent } from '../../../primitives/disclosure';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import {
   InputGroupSearch,
   InputGroupSearchIcon,
@@ -154,16 +154,16 @@ function AppBrowser({
   if (apps.isLoading) return <Skeletons />;
   if (apps.isError) {
     return (
-      <InfoBanner tone="warning" className="text-xs" title={tI18nComplete.raw('textc416d056595e')}>
+      <BannerAlert variant="warning" className="text-xs"><BannerAlertTitle>{tI18nComplete.raw('textc416d056595e')}</BannerAlertTitle><BannerAlertDescription>
         {apps.error instanceof Error ? apps.error.message : tI18nComplete.raw('text29cc3339fce9')}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
   if (list.length === 0) {
     return (
-      <InfoBanner tone="warning" className="text-xs" title={tI18nComplete.raw('text2c4ef9cc0c30')}>
+      <BannerAlert variant="warning" className="text-xs"><BannerAlertTitle>{tI18nComplete.raw('text2c4ef9cc0c30')}</BannerAlertTitle><BannerAlertDescription>
         {tI18nComplete.raw('texte558709e2278')}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
   const group = (heading: string | null, rows: EventApp[]) =>
@@ -289,10 +289,10 @@ function EventList({
   if (events.isLoading) return <Skeletons />;
   if (events.isError) {
     return (
-      <InfoBanner tone="warning" className="text-xs" title={tI18nComplete.raw('text50a06ae2ec9e')}>
+      <BannerAlert variant="warning" className="text-xs"><BannerAlertTitle>{tI18nComplete.raw('text50a06ae2ec9e')}</BannerAlertTitle><BannerAlertDescription>
         {tI18nComplete.raw('texta9cb192dbee2')}{' '}
         {events.error instanceof Error ? events.error.message : ''}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
   // An MCP app's events are its list and search tools, which its server shows only after sign-in.

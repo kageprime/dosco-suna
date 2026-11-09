@@ -391,7 +391,8 @@ export async function refreshTemplateState(
 /**
  * Resolve a template's snapshot identity: derive the content-addressed
  * snapshot name from (Dockerfile bytes or FROM image, runtime fingerprint,
- * spec). Used by builder.ts to know what to ask the provider for.
+ * spec, the owning tenant and the template entrypoint for project templates).
+ * Used by builder.ts to know what to ask the provider for.
  */
 /**
  * The region a project's own image is built in: the region its sessions boot
@@ -442,6 +443,16 @@ export async function computeTemplateIdentity(
    */
   swapKey: string;
 }> {
+  // Trust boundary (KRTX-4469): the snapshot namespace is shared by every
+  // account, so an identity computed here names the image the CALLING project
+  // may delete or re-bake. The caller must have resolved this row for its own
+  // project; a row that names another project must never reach the provider
+  // under this project's identity of it.
+  if (!template.isShared && template.projectId && template.projectId !== project.projectId) {
+    throw new Error(
+      `Sandbox template "${template.slug}" belongs to a different project; refusing to compute its snapshot identity.`,
+    );
+  }
   const runtimeFingerprint = await currentRuntimeArtifactFingerprint();
   const { dockerfile: userDockerfile, commit } = await resolveUserDockerfile(project, template);
   const region = template.isShared
@@ -455,6 +466,18 @@ export async function computeTemplateIdentity(
     // In swapKey too: an agent swap patches its predecessor in the
     // predecessor's region, so a region change must rebuild instead.
     region,
+    // Tenant-scoped (KRTX-4469, CWE-639: one provider namespace serves every
+    // account): a project template's identity carries its projectId, so two
+    // projects that declare identical template content can never derive the
+    // same `kortix-tpl-<hash>` name and a project-scoped rebuild can never
+    // delete or re-bake a name another project derives. The shared default
+    // stays project-independent (one image serves every project).
+    projectId: template.isShared ? undefined : template.projectId ?? project.projectId,
+    // The builder bakes `template.entrypoint` at build time (builder.ts), so
+    // it must move the identity: an entrypoint change re-bakes under a new
+    // name instead of overwriting live image content. It moves swapKey too —
+    // an entrypoint change is not agent drift.
+    entrypoint: template.isShared ? undefined : template.entrypoint ?? undefined,
   };
   const hash = computeSnapshotHash({ ...hashInputs, runtimeFingerprint });
   // swapKey identifies EVERYTHING the agent-swap does NOT touch: the user image,
@@ -634,17 +657,7 @@ async function reapPredecessorSnapshot(
     if (!config.KORTIX_SNAPSHOT_REAP_PREDECESSOR) return;
     if (!isReapableTemplatePredecessor(snapshotName)) return;
     // Still referenced by a DIFFERENT template row? Leave it shared.
-    const stillUsed = await db
-      .select({ id: sandboxTemplates.templateId })
-      .from(sandboxTemplates)
-      .where(
-        and(
-          eq(sandboxTemplates.providerSnapshotName, snapshotName),
-          ne(sandboxTemplates.templateId, templateId),
-        ),
-      )
-      .limit(1);
-    if (stillUsed.length > 0) return;
+    if (await templateSnapshotReferencedByAnotherRow(snapshotName, templateId)) return;
     await getSandboxProvider(provider).deleteSnapshot(snapshotName);
     console.log(`[snapshots] reaped superseded snapshot ${snapshotName} (provider=${provider})`);
   } catch (err) {
@@ -669,6 +682,32 @@ export async function recordTemplateFailed(
     })
     .where(eq(sandboxTemplates.templateId, templateId))
     .catch(() => {});
+}
+
+/**
+ * Is the snapshot name still referenced by a template row other than
+ * `exceptTemplateId`? Pre-fix identities were content-addressed once per
+ * provider namespace, so a legacy `kortix-tpl-<hash>` name can be the CURRENT
+ * name of rows in several projects. The name's latest provider image is the
+ * `contentHash`/snapshotName every such row still matches
+ * (KRTX-4469): deletion that skips this check deletes another tenant's
+ * image.
+ */
+export async function templateSnapshotReferencedByAnotherRow(
+  snapshotName: string,
+  exceptTemplateId: string | null = null,
+): Promise<boolean> {
+  const stillUsed = await db
+    .select({ id: sandboxTemplates.templateId })
+    .from(sandboxTemplates)
+    .where(
+      and(
+        eq(sandboxTemplates.providerSnapshotName, snapshotName),
+        exceptTemplateId ? ne(sandboxTemplates.templateId, exceptTemplateId) : sql`true`,
+      ),
+    )
+    .limit(1);
+  return stillUsed.length > 0;
 }
 
 // ─── Internals ────────────────────────────────────────────────────────────

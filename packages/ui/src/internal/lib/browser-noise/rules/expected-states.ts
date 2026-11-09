@@ -5,9 +5,8 @@ import { normalizeString } from '../evidence';
 
 // Transient "the session runtime / sandbox URL hasn't pinned yet" throws. The
 // SDK throws `RuntimeNotReadyError` (`[kortix-runtime] Server URL not ready —
-// sandbox is still loading`) from `getClient()` for the ~1s window before a
-// new/switched session's runtime URL resolves; sibling guards reuse the same
-// wording for the pty/env paths (`[kortix-pty] Server URL not ready …`). It is
+// sandbox is still loading`) from `getClient()` and the env/pty/daemon request
+// guards — one wording, one class. It is
 // an EXPECTED, self-healing info state — never an error — but it can reach
 // Sentry through paths that don't go through the global `app/error.tsx`
 // boundary's manual guard: a subtree wrapped in `<ClientErrorBoundary>`

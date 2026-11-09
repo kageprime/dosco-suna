@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { accounts, gatewayRequestLogs, projects } from '@kortix/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from './db';
-import { llmValueFields } from './llm-value';
 import { totalSpendSql } from './llm-spend';
+import { llmValueFields } from './llm-value';
 import { listProjectGatewaySourceSpend } from './session-costs';
 
 const accountId = crypto.randomUUID();
@@ -51,6 +51,9 @@ test('SQL values reconcile with sources; estimates never alter charges or duplic
     {
       ...base,
       requestId: crypto.randomUUID(),
+      // KRTX-4023: the flag is a real column now; the writer sets column and
+      // metadata key together (gateway-trace-row.ts), so the seed does too.
+      usageEstimated: true,
       metadata: { usageEstimated: true },
     },
     { ...base, requestId: crypto.randomUUID(), cachedTokens: 1001 },
@@ -85,6 +88,35 @@ test('SQL values reconcile with sources; estimates never alter charges or duplic
     hours: 24,
   });
   expect(other.total.estimated_usage_value).toBe(0.00205);
+});
+
+// KRTX-4023 rework: an ECS rollout replaces pods gradually, so old writers
+// keep inserting rows after the one-shot backfill ran. Their INSERT predates
+// the promoted columns — the flag rides in metadata only — and the table is
+// insert-only, so nothing heals them later. The fill trigger
+// (20261108090000100) lifts the key at insert; without it the gate reads the
+// row as not-estimated and prices a usage its own writer marked estimated.
+test('a row the old writer inserts during the rollout (the key in metadata, no column) stays unpriced', async () => {
+  const id = crypto.randomUUID();
+  await db.insert(projects).values({
+    projectId: id,
+    accountId,
+    name: 'Rollout window',
+    repoUrl: 'https://example.test/repo.git',
+  });
+  await db.execute(sql`
+    insert into kortix.gateway_request_logs
+      (request_id, account_id, project_id, requested_model, resolved_model,
+       provider, status, ok, billing_mode, final_cost, input_tokens, output_tokens, cached_tokens, metadata)
+    values (${crypto.randomUUID()}, ${accountId}::uuid, ${id}::uuid,
+            'codex/gpt-6.1-sol', 'gpt-6.1-sol', 'openai-codex', 200, true, 'none', '0', 1000, 100, 500,
+            '{"usageEstimated":true}'::jsonb)
+  `);
+  const [sum] = await db
+    .select({ ...llmValueFields })
+    .from(gatewayRequestLogs)
+    .where(eq(gatewayRequestLogs.projectId, id));
+  expect(sum).toEqual({ estimated_usage_value: null, priced_requests: 0, unpriced_requests: 1 });
 });
 
 test('an unsupported-only window remains unknown, never a guessed zero', async () => {

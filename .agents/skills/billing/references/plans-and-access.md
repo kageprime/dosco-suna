@@ -18,7 +18,10 @@ account buys, and which features it may use.
 1. **Money and features are separate.** Every account buys usage the same way:
    a billing plan (Free or Credits) plus top-ups. Enterprise never changes that.
 2. **Enterprise is a feature entitlement**, nothing else: SSO, SCIM, advanced
-   roles, audit export, branding. No credits come with it.
+   roles, audit export, branding. No credits come with it. Branding is
+   self-host only: with billing on (the Kortix cloud) `brandingEntitled`
+   in `apps/api/src/accounts/branding.ts` is always false, nothing stored is
+   served, and the writes answer `403 branding_unavailable`.
 3. **Three Enterprise states, no clocks.** Off, Demo (self-serve) and Licensed
    (a contract). There are no trials.
 4. **Exceptions are per-key overrides** in `entitlement_overrides`, each with an

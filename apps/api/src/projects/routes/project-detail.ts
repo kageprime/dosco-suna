@@ -6,35 +6,21 @@ import { PROJECT_ACTIONS } from '../../iam';
 import { auth, errors, json, lenientBody } from '../../openapi';
 import { db } from '../../shared/db';
 import { readJsonObject } from '../../shared/http-body';
-import { listRepoFiles, loadProjectConfig } from '../git';
-import { savedProjectConfig } from '../config-summary/service';
-import { disconnectedProjectConfig } from '../git/config';
-import { isRepositoryDisconnectedError } from '../../shared/repository-health';
 import { allowStaleMirrorReads } from '../git/mirror';
+import { getProjectGitConnection } from '../lib/git';
 import {
   agentSessionWorkspaceAllowsRepository,
   assertAgentSessionWorkspaceAllowsRepository,
   assertProjectCapability,
   loadProjectForUser,
-  projectCapabilityAllowed,
 } from '../lib/access';
+import { loadProjectDetailConfig } from '../lib/project-detail-config';
 import { ProjectSchema, projectsApp } from '../lib/app';
-import { applyDetailCapabilityFilter } from '../lib/detail-capability-filter';
-import { getProjectGitConnection, withProjectGitAuth } from '../lib/git';
+import { normalizeString, serializeProject, serializeProjectGitConnection } from '../lib/serializers';
 import { MANIFEST_PROJECT_NAME_KEY, commitProjectName } from '../lib/manifest-project-name';
 import { renameAccountOfSoleProject } from '../lib/workspace-name';
-import { MANIFEST_SYNTAX_ISSUE_PATH } from '@kortix/manifest-schema';
-import { addMyKortixAgent, projectBuiltinAgents } from '../lib/my-kortix-agent';
-import { normalizeProjectGlyph } from '../lib/project-glyph';
 import { normalizeProjectIcon } from '../lib/project-icon';
-import { denierFromConfig, filterConfigResourcesForUser } from '../lib/project-resources';
-import { featureFlagsEnvValue } from '../lib/feature-flag-env';
-import { managedSkillFeatureFlag } from '../../skills/catalog';
-import {
-  normalizeString,
-  serializeProject,
-  serializeProjectGitConnection,
-} from '../lib/serializers';
+import { normalizeProjectGlyph } from '../lib/project-glyph';
 import { workspaceIdParam } from '../../shared/route-params';
 import type { AppEnv } from '../../types';
 import { metadataMerge, projectsView, updateProjectRows, updateProjectRowsReturning, type ProjectRowInsert, type ProjectRowSet } from '../../workspaces/rows';
@@ -155,138 +141,15 @@ export function registerProjectDetailRoutes(): void {
       await assertAgentSessionWorkspaceAllowsRepository(c, loaded.row.accountId, projectId);
       // A page view: serve the warm git mirror, refresh it behind the response.
       allowStaleMirrorReads();
-      const ref = loaded.row.defaultBranch;
 
-      // The saved summary of the default branch: no git on this path
-      // (`config-summary/service.ts`). A moved tip rebuilds it behind the response.
-      const saved = await savedProjectConfig(loaded.row);
-      let files: Awaited<ReturnType<typeof listRepoFiles>> = [];
-      let rawConfig: Awaited<ReturnType<typeof loadProjectConfig>>;
-      const listLive = async (gitProject: Awaited<ReturnType<typeof withProjectGitAuth>>) => {
-        try {
-          return await listRepoFiles(gitProject, ref);
-        } catch (error) {
-          console.warn('[projects] repo detail listing unavailable', {
-            projectId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          c.header('X-Kortix-Repo-Status', 'unavailable');
-          return [];
-        }
-      };
-      if (saved) {
-        c.header('X-Kortix-Config-Source', `snapshot; commit=${saved.sourceCommit}`);
-        rawConfig = saved.config;
-        // Past the stored path cap the list comes from git, as before.
-        if (saved.filesComplete) files = saved.files;
-        else {
-          const gitProject = await withProjectGitAuth(loaded.row).catch((error) => {
-            if (isRepositoryDisconnectedError(error)) return null;
-            throw error;
-          });
-          if (gitProject) files = await listLive(gitProject);
-          else c.header('X-Kortix-Repo-Status', 'disconnected');
-        }
-      } else {
-        c.header('X-Kortix-Config-Source', 'live');
-        // A disconnected repository still renders the project shell: no files,
-        // and a config whose `manifest_version.unknown_reason` names the cause.
-        // `git_connection` below carries the reason and the fix.
-        const gitProject = await withProjectGitAuth(loaded.row).catch((error) => {
-          if (isRepositoryDisconnectedError(error)) return null;
-          throw error;
-        });
-        if (!gitProject) {
-          c.header('X-Kortix-Repo-Status', 'disconnected');
-        } else {
-          files = await listLive(gitProject);
-        }
-        rawConfig = gitProject ? await loadProjectConfig(gitProject, files) : disconnectedProjectConfig();
-      }
-      // Per-resource scoping: hide agents/skills this member isn't granted (owner/
-      // admins/SAs see everything). No-op when the project has no resource grants.
-      const denierCtx = {
-        userId: loaded.userId,
-        accountId: loaded.row.accountId,
-        projectId,
-        actingTokenId: (c.get('iamTokenId') as string | undefined) ?? undefined,
-      };
-      const filteredConfig = await filterConfigResourcesForUser(rawConfig, denierCtx);
-      // My Kortix (slug `mykortix`) is listed first when kortix.yaml sets
-      // `builtin_agents.my_kortix: true`. Off: the config is exactly the
-      // repo-declared surface. A kortix.yaml that is not YAML runs the last
-      // version that parses (`rawConfig.manifest`); with none it is repair
-      // mode, where My Kortix runs so it can be fixed (`loadProjectAgents`).
-      const repairMode =
-        rawConfig.manifest_health.issues.some((issue) => issue.path === MANIFEST_SYNTAX_ISSUE_PATH) &&
-        Object.keys(rawConfig.manifest).length === 0;
-      const builtinAgents = repairMode ? { my_kortix: true } : projectBuiltinAgents(rawConfig.manifest);
-      const withAgents = {
-        ...(builtinAgents.my_kortix ? addMyKortixAgent(filteredConfig) : filteredConfig),
-        builtin_agents: builtinAgents,
-      };
-      // A Kortix skill behind a feature flag is listed only while the flag is on: the box does
-      // not have it either (feature-flag-env.ts → kortixd).
-      const enabledFlags = new Set(featureFlagsEnvValue(loaded.row.metadata).split(','));
-      const config = {
-        ...withAgents,
-        skills: withAgents.skills.filter((skill) => {
-          const flag = managedSkillFeatureFlag(skill.name);
-          return !flag || enabledFlags.has(flag);
-        }),
-      };
-      // …and hide the raw FILES of those resources from the file list (visibility
-      // isolation). Reuses the config already loaded — no extra git round-trip.
-      const denier = await denierFromConfig(rawConfig, denierCtx);
-      const visibleFiles = denier ? files.filter((f) => !denier.isDenied(f.path)) : files;
-      // Per-CAPABILITY filtering (distinct from the per-resource grants above): the
-      // /detail bundle serves several read surfaces behind ONE project.read floor, so
-      // gate each section on its own leaf. A plain `member` keeps the config sections
-      // it can read but NOT the file list (member lacks project.file.read), and a
-      // custom role that unchecks e.g. project.skill.read gets an empty skills
-      // section — all WITHOUT 403-ing the whole workspace load (which loadProjectForUser
-      // deliberately gates only on project.read so the shell renders for every member).
-      const [canFiles, canAgents, canSkills, canCommands] = await Promise.all([
-        projectCapabilityAllowed(
-          c,
-          loaded.userId,
-          loaded.row.accountId,
-          projectId,
-          PROJECT_ACTIONS.PROJECT_FILE_READ,
-        ),
-        projectCapabilityAllowed(
-          c,
-          loaded.userId,
-          loaded.row.accountId,
-          projectId,
-          PROJECT_ACTIONS.PROJECT_AGENT_READ,
-        ),
-        projectCapabilityAllowed(
-          c,
-          loaded.userId,
-          loaded.row.accountId,
-          projectId,
-          PROJECT_ACTIONS.PROJECT_SKILL_READ,
-        ),
-        projectCapabilityAllowed(
-          c,
-          loaded.userId,
-          loaded.row.accountId,
-          projectId,
-          PROJECT_ACTIONS.PROJECT_COMMAND_READ,
-        ),
-      ]);
-      const gated = applyDetailCapabilityFilter(config, visibleFiles, {
-        canFiles,
-        canAgents,
-        canSkills,
-        canCommands,
-      });
+      // The config+files half: ../lib/project-detail-config.ts.
+      const { config, files, file_count, headers } = await loadProjectDetailConfig(c, loaded, loaded.row.defaultBranch);
+      for (const [name, value] of Object.entries(headers)) c.header(name, value);
       // The parsed kortix.yaml stays on the server: no client reads it, and on
       // a large project it was 84 KB of a 208 KB body that every project page
       // loads (2026-11-04). The summary below, and `manifest_raw` for the
       // agent editor, are what the readers use.
-      const { manifest: _parsedManifest, ...wireConfig } = gated.config;
+      const { manifest: _parsedManifest, ...wireConfig } = config;
       return c.json({
         project: serializeProject(loaded.row, {
           projectRole: loaded.projectRole,
@@ -294,8 +157,8 @@ export function registerProjectDetailRoutes(): void {
         }),
         git_connection: serializeProjectGitConnection(await getProjectGitConnection(projectId)),
         config: wireConfig,
-        file_count: gated.file_count,
-        files: gated.files,
+        file_count,
+        files,
       });
     },
   );

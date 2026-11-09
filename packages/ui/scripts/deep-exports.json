@@ -281,8 +281,6 @@
     "./session/thread/session-chat",
     "./session/thread/transcript",
     "./session/tool/foreign-tool-calls",
-    "./session/tool/shared/file-list",
-    "./session/tool/shared/patch-helpers",
     "./session/tool/shared/show-helpers",
     "./session/tool/tools/register",
     "./session/tool/tools/session-spawn-urls",

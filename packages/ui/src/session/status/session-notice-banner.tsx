@@ -1,6 +1,6 @@
 'use client';
 
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { type StatusTone } from '../../primitives/status';
 import { WarningCircleIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
@@ -27,9 +27,9 @@ export interface SessionNoticeProps {
 export function SessionNotice({ tone = 'warning', title, message, action }: SessionNoticeProps) {
   return (
     <div role="status" aria-live="polite" data-session-notice-banner="">
-      <InfoBanner tone={tone} icon={WarningCircleIcon} title={title} action={action}>
+      <BannerAlert variant={({ neutral: 'default', info: 'default', success: 'success', warning: 'warning', destructive: 'destructive' } as const)[tone ?? 'neutral']} ><BannerAlertMedia><WarningCircleIcon /></BannerAlertMedia><BannerAlertTitle>{title}</BannerAlertTitle><BannerAlertDescription>
         {message}
-      </InfoBanner>
+      </BannerAlertDescription><BannerAlertActions>{action}</BannerAlertActions></BannerAlert>
     </div>
   );
 }

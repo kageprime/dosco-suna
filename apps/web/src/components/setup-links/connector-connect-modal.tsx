@@ -2,7 +2,7 @@
 
 import { SessionDotMatrix } from '@kortix/ui/dot-matrix/session-dot-matrix';
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import {
   Modal,
@@ -261,7 +261,7 @@ function AddAccountDialogBody({
 
       <ModalBody className="max-h-[50vh] space-y-4 overflow-y-auto">
         {error ? (
-          <InfoBanner tone="destructive" icon={<WarningIcon weight="fill" />} title={error} />
+          <BannerAlert variant="destructive" ><BannerAlertMedia>{<WarningIcon weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{error}</BannerAlertTitle></BannerAlert>
         ) : null}
         {connected && landed ? (
           <div className="space-y-1.5" data-testid="connector-connect-landed">
@@ -360,7 +360,7 @@ function OneClickDialogBody({ token, onClose, onConnected, fallbackName }: Dialo
         {copy.loading}
       </p>
     ) : phase === 'error' || error ? (
-      <InfoBanner tone="destructive" icon={<WarningIcon weight="fill" />} title={error ?? ''} />
+      <BannerAlert variant="destructive" ><BannerAlertMedia>{<WarningIcon weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{error ?? ''}</BannerAlertTitle></BannerAlert>
     ) : waiting ? (
       <div className="bg-popover flex items-center gap-3 rounded-md border px-4 py-3">
         <Loading variant="spokes" className="size-4 shrink-0" />

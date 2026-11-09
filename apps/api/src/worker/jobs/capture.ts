@@ -11,29 +11,24 @@ import { logger } from '../../lib/logger';
 import { ensureCaptureBucket } from '../../capture/store';
 import { captureMaintenance, pollAllDevices, receiveEvents } from '../../capture/workers';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 
-const loops: Array<{ stop: () => void }> = [];
+let loops: Array<ReturnType<typeof leaderTimer>> = [];
 
 function loop(name: string, everyMs: () => number, tick: () => Promise<unknown>) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let stopped = false;
-  const run = async () => {
-    let delay = everyMs();
-    try {
-      await tick();
-    } catch (error) {
-      delay = Math.max(delay, 30_000);
-      logger.error(`[capture] ${name} tick failed`, { error: String(error) });
-    }
-    if (!stopped) timer = setTimeout(run, delay);
-  };
-  timer = setTimeout(run, 1_000);
-  return {
-    stop: () => {
-      stopped = true;
-      if (timer) clearTimeout(timer);
+  return leaderTimer(
+    async () => {
+      let delay = everyMs();
+      try {
+        await tick();
+      } catch (error) {
+        delay = Math.max(delay, 30_000);
+        logger.error(`[capture] ${name} tick failed`, { error: String(error) });
+      }
+      return delay;
     },
-  };
+    { firstDelayMs: 1_000, name },
+  );
 }
 
 export function startCaptureWorkers(): void {
@@ -45,8 +40,10 @@ export function startCaptureWorkers(): void {
   if ((config.KORTIX_CAPTURE_SQS_QUEUE_URL ?? '').trim()) {
     loops.push(loop('capture-events-reader', () => 0, () => runWorkerTick('capture-events-reader', receiveEvents)));
   }
+  for (const l of loops) l.start();
 }
 
-export function stopCaptureWorkers(): void {
-  for (const l of loops.splice(0)) l.stop();
+export async function stopCaptureWorkers(): Promise<void> {
+  const stopped = loops.splice(0);
+  await Promise.all(stopped.map((l) => l.stop()));
 }

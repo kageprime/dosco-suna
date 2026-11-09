@@ -13,6 +13,7 @@ import type { SandboxProviderName } from '../../config';
 import { logger } from '../../lib/logger';
 import { getProvider } from '../../platform/providers';
 import { db } from '../../shared/db';
+import { errorMessage } from '../../shared/error-message';
 
 const LIVE = ['provisioning', 'starting', 'running', 'stopping', 'stopped', 'error'];
 
@@ -28,7 +29,7 @@ export async function retireMonitorBoxes(): Promise<{ retired: number; errors: n
       retired += 1;
     } catch (error) {
       errors += 1;
-      logger.warn('[monitors] retiring a monitor box failed', { boxId: box.boxId, error: error instanceof Error ? error.message : String(error) });
+      logger.warn('[monitors] retiring a monitor box failed', { boxId: box.boxId, error: errorMessage(error) });
     }
   }
   return { retired, errors };

@@ -84,6 +84,7 @@ jobs:
               # Bundled into the daemon (KORTIXD_SHARED_SOURCES).
               - 'packages/api-contract/src/**'
               - 'packages/sdk/src/core/session/wire-message-id.ts'
+              - 'packages/sdk/src/core/wire-values.ts'
               - 'packages/voice/src/**'
             sandbox_image:
               - '.github/workflows/ci.yml'
@@ -453,7 +454,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         if: always()
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - name: Check daemon lockfile against GHSA advisories
         if: always()
         working-directory: apps/kortix-sandbox-agent-server

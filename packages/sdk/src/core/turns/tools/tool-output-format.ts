@@ -1,4 +1,4 @@
-import { jsonTail, stripMarkdownImages, unwrapMarkdownLinks } from '../text-scan';
+import { decodeJsonStringLiteral, jsonTail, stripMarkdownImages, unwrapMarkdownLinks } from '../text-scan';
 
 /**
  * Shared formatting for raw tool input/output blobs so oversized, truncated, or
@@ -141,14 +141,6 @@ export interface RecoveredResult {
   title: string;
   url: string;
   snippet?: string;
-}
-
-function decodeJsonStringLiteral(escaped: string): string {
-  try {
-    return JSON.parse(`"${escaped}"`) as string;
-  } catch {
-    return escaped;
-  }
 }
 
 /**

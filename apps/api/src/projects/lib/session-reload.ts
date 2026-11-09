@@ -68,6 +68,7 @@ import {
 } from './session-sandbox-metadata';
 import { parseActualRuntime, UNREPORTED_ACTUAL_RUNTIME, type ActualRuntimeDocument } from '../../runtime-convergence/actual';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 /** A competing refresh is a fetch plus a fast-forward: seconds, not minutes. */
 const REFRESH_BUSY_RETRIES = 5;
@@ -499,6 +500,15 @@ export async function readSandboxConfigState(
     sessionId: string;
     /** Also ask whether a turn is running. Costs a call into the runtime, so opt-in. */
     includeTurnState?: boolean;
+    /**
+     * Cap on one probe, in milliseconds; default 10_000. Callers that poll a
+     * box they only REPORT on pass a shorter budget: an unreachable box is
+     * answered the same shape ("could not tell") after any wait, so the poll
+     * chooses how long it holds the client. Reloads and convergences keep
+     * the default: they act on the state, so a slow-but-live box still
+     * deserves the full wait before the caller treats it as unreachable.
+     */
+    timeoutMs?: number;
   },
   deps: SessionReloadDeps = defaultReloadDeps(),
 ): Promise<SandboxConfigState> {
@@ -507,7 +517,7 @@ export async function readSandboxConfigState(
     if (!endpoint) return UNREACHABLE_STATE;
     const res = await deps.fetch(`${endpoint.baseUrl}/kortix/health${input.includeTurnState ? '?turn=1' : ''}`, {
       headers: endpoint.headers,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(input.timeoutMs ?? 10_000),
     });
     if (!res.ok) return UNREACHABLE_STATE;
     const body = (await res.json()) as {
@@ -859,7 +869,7 @@ export async function reloadSessionConfig(input: {
         .catch((error) =>
           console.warn(
             `[session-reload] orphaned-turn repair failed for ${input.sessionId}:`,
-            error instanceof Error ? error.message : String(error),
+            errorMessage(error),
           ),
         );
     }

@@ -286,7 +286,7 @@ no build step required:
 ## Entry points
 
 `@kortix/sdk` is the canonical entry — everything framework-free lives there.
-Eight others are stable, each for a reason that fits in one sentence:
+Nine others are stable, each for a reason that fits in one sentence:
 
 | Entry                           | Why it is separate                                         |
 | ------------------------------- | ---------------------------------------------------------- |
@@ -296,6 +296,7 @@ Eight others are stable, each for a reason that fits in one sentence:
 | `@kortix/sdk/genui`             | needs the optional peers `zod` and `@openuidev/lang-core`  |
 | `@kortix/sdk/genui/react`       | React and the Generative UI peers                          |
 | `@kortix/sdk/wire-message-id`   | the message-id mint alone, one file with no imports (also at root) |
+| `@kortix/sdk/wire-values`       | the session wire value sets alone, one file with no imports (also at root) |
 | `@kortix/sdk/workspace-search`  | the workspace search client; the root does not export it   |
 | `@kortix/sdk/capture-rules`     | the Kortix Capture constants alone                         |
 | `@kortix/sdk/internal/*`        | unsupported, outside semver                                |
@@ -1383,6 +1384,7 @@ learn it once.
 | `@kortix/sdk/server` | `runWithKortix`, `createScopedKortix`, `getScopedConfig` — per-request config isolation in a Node/Bun backend | imports `node:async_hooks`. Never let it into a browser bundle |
 | `@kortix/sdk/genui/fence`, `@kortix/sdk/genui`, `@kortix/sdk/genui/react` | Generative UI: split `openui` blocks out of text, parse them, render them (see **Generative UI** below) | `genui` and `genui/react` need the optional peers `zod` and `@openuidev/lang-core`; `genui/fence` loads neither |
 | `@kortix/sdk/wire-message-id` | `mintWireMessageId` and `WIRE_MESSAGE_ID`: mint and validate a Kortix message id. Its clock helpers (`wireIdClockDelta`, `mintWireMessageIdAbove`, …) place ids on the 48-bit clock | not a dependency split: the root exports the same names. A server that mints ids loads this one import-free module instead of the whole barrel |
+| `@kortix/sdk/wire-values` | the session wire value sets (`THREAD_STATUSES`, `RUNTIME_CAPABILITIES`, the control-frame types, the prompt reasons, the decision functions). `@kortix/api-contract/wire-values` re-exports it | the root exports the same names; this module loads alone (zero imports) so a server bundles the contract without zod or the barrel |
 | `@kortix/sdk/workspace-search` | `createWorkspaceSearchClient` and its ranking helpers | isolated from the root on purpose |
 | `@kortix/sdk/capture-rules` | the Kortix Capture constants (`CAPTURE_LAYERS`, `CAPTURE_DEVICE_DEFAULTS`, …) | the root exports the same names; this module loads alone |
 | `@kortix/sdk/internal/*` | nothing, in host code | apps/web's zustand stores. Browser-only, **outside semver**, and not on the `window.Kortix` global. Implementation detail that is regrettably visible |

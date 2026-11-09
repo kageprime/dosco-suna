@@ -1,12 +1,14 @@
 'use client';
 
 import { SessionApprovals } from '@/components/workbench/approvals-panel';
-import { BootScreen } from '@/components/workbench/boot-screen';
 import { SessionHeader } from '@/components/workbench/session-header';
-import { useRuntimeRecovery } from '@/components/workbench/use-runtime-recovery';
+import { BootScreen } from '@kortix/white-label-shared/boot-screen';
+import { useRuntimeRecovery } from '@kortix/white-label-shared/use-runtime-recovery';
 import { CitationLayer } from '@/components/chat/citation-layer';
 import { CITATION_REPAIR_PROMPT, unlinkedAnswerId } from '@/lib/cite-link';
 import { registerLumenToolRows } from '@/components/chat/lumen-tool-row';
+import { kortix } from '@/lib/kortix';
+import { qk } from '@/lib/query-keys';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useSession } from '@kortix/sdk/react';
@@ -25,7 +27,10 @@ export function ThreadWorkbench({ projectId, sessionId, matterId }: { projectId:
   // The host reads the provider-neutral session state and renders it.
   const session = useSession(projectId, sessionId);
   // One automatic restart when a connected runtime drops.
-  useRuntimeRecovery(session);
+  useRuntimeRecovery(session, {
+    restart: () => kortix.session(session.projectId, session.sessionId).restart(),
+    sessionStartKey: qk.sessionStart(session.projectId, session.sessionId),
+  });
   useOutputsToDocuments(matterId, sessionId, session.isBusy);
   useCitationRepair(session);
   useAuditDownloads(matterId);

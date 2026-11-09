@@ -8,7 +8,7 @@
 
 import { manifestHealthWithout } from './manifest-health';
 
-export interface DetailCaps {
+interface DetailCaps {
   /** project.file.read — the repo file list. */
   canFiles: boolean;
   /** project.agent.read — the agents summary + discovery mode. */

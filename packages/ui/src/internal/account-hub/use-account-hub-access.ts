@@ -171,8 +171,10 @@ export function useAccountHubAccess(accountId: string | undefined): AccountHubAc
     audit: canReadAudit === true,
     settings: canWriteAccount === true,
     // Branding is all mutations (upload / remove / rename); the entitlement is
-    // the OTHER axis and picks between the pane and the upsell card.
-    branding: canWriteAccount === true,
+    // the OTHER axis and picks between the pane and the upsell card. The
+    // Kortix cloud (billing on) does not offer branding: the API serves no
+    // brand there and refuses the writes (apps/api/src/accounts/branding.ts).
+    branding: canWriteAccount === true && !billingActive,
     // Reference copy — no data, no mutations, nothing to gate.
     help: true,
   };

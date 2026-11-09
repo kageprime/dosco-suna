@@ -123,7 +123,6 @@ const NOT_WORKERS: Record<string, string> = {
   'replica/teams-bot-token-refresh.ts': 'refreshes the in-memory Teams bot token',
   'replica/tmp-reaper.ts': 'deletes stale local tmp directories; no database writes',
   'replica/tunnel.ts': "clears this process's in-memory tunnel rate-limit buckets",
-  'worker/jobs/app-deployment.ts': 'timer that calls triggerAppDeploymentWorker, which wraps itself',
   'worker/runtime/heartbeat.ts': 'reports the in-memory tick times as one stdout line; no database writes',
 };
 

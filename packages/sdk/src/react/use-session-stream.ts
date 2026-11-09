@@ -48,7 +48,11 @@ import {
   type SessionStreamEnd,
 } from '../core/session/control-stream';
 import type { SessionWorkingVerdict } from '../core/session/working-server';
-import { isParkedRuntimeDownReason, type SessionControlFrameType } from '../core/wire-values';
+import {
+  SESSION_CONTROL_FRAME_TYPES,
+  isParkedRuntimeDownReason,
+  type SessionControlFrameType,
+} from '../core/wire-values';
 import { invalidateWorkspaceProviderQueries } from './provider-refresh';
 import { qk } from './query-keys';
 import type { SessionTurnObservation } from './use-session-working';
@@ -79,19 +83,92 @@ export function useSessionStreamEnded(projectId: string, sessionId: string): Ses
 export type { SessionStreamEnd, SessionStreamEndReason } from '../core/session/control-stream';
 
 /**
- * What the reducer below does with each control frame type. A type added to
- * `SESSION_CONTROL_FRAME_TYPES` fails the typecheck here until it is routed.
+ * Why the reducer does what it does with each control frame type: the appliers
+ * below are the whole dispatch. A type added to `SESSION_CONTROL_FRAME_TYPES`
+ * fails the typecheck here until it is handled.
  */
-const CONTROL_FRAME_ROUTES: Record<SessionControlFrameType, 'applied' | 'ignored'> = {
-  'kortix.control.turn': 'applied',
-  'kortix.control.session': 'applied',
-  'kortix.control.audit': 'applied',
-  'kortix.control.runtime': 'applied',
+type FrameMemory = { secretsRev?: string; runtimeKey?: string; modelRev?: string };
+type ControlFrameApplier = (queryClient: QueryClient, projectId: string, sessionId: string, frame: SessionControlFrame, memory: FrameMemory, nowMs: number) => void;
+
+const CONTROL_FRAME_APPLIERS: Record<SessionControlFrameType, ControlFrameApplier> = {
+  'kortix.control.turn': (queryClient, projectId, sessionId, frame, memory, nowMs) => {
+    const payload = frame.payload as TurnPayload;
+    if (!payload?.known || !Array.isArray(payload.turns)) return;
+    const key = qk.project.sessionTurn(projectId, sessionId);
+    // The stream is one broadcast per session, so a frame may carry no
+    // per-caller `can_stop`. The last `/turn` answer still holds while the
+    // SAME turns are open; once they change it is about another run.
+    const previous = queryClient.getQueryData<SessionTurnObservation>(key);
+    const canStop =
+      typeof payload.can_stop === 'boolean'
+        ? payload.can_stop
+        : previous && openTurnsKey(previous.turns) === openTurnsKey(payload.turns)
+          ? previous.can_stop
+          : undefined;
+    const observation: SessionTurnObservation = {
+      turns: payload.turns,
+      ...(payload.last_ended ? { last_ended: payload.last_ended } : {}),
+      ...(payload.recent_failures ? { recent_failures: payload.recent_failures } : {}),
+      ...(canStop !== undefined ? { can_stop: canStop } : {}),
+      ...(payload.working ? { working: payload.working } : {}),
+      // This tab's clock at arrival. The server re-publishes an unchanged frame
+      // every 20 s, so a live stream keeps the entry fresh. A frame replayed to
+      // a late joiner keeps the instant it first arrived.
+      atMs: frame.receivedAtMs ?? nowMs,
+    };
+    queryClient.setQueryData(key, observation);
+  },
+  'kortix.control.session': (queryClient, projectId, sessionId, frame, memory) => {
+    const payload = frame.payload as SessionPayload;
+    if (!payload?.known) return;
+    if (typeof payload.title === 'string' && payload.title) {
+      patchCachedSessionTitle(queryClient, projectId, sessionId, payload.title);
+    }
+    if (typeof payload.secrets_rev === 'string') {
+      // The first frame only records the version: the caches were read just now.
+      if (memory.secretsRev !== undefined && memory.secretsRev !== payload.secrets_rev) {
+        invalidateWorkspaceProviderQueries(queryClient, projectId);
+      }
+      memory.secretsRev = payload.secrets_rev;
+    }
+    // The model pin moved (a fallback took the session over, or handed it
+    // back): re-read the row so the composer shows and sends the new model.
+    if (typeof payload.model_rev === 'string') {
+      if (memory.modelRev !== undefined && memory.modelRev !== payload.model_rev) {
+        void queryClient.invalidateQueries({ queryKey: qk.project.session(projectId, sessionId) });
+      }
+      memory.modelRev = payload.model_rev;
+    }
+  },
   // The stream hands the queue to `onQueue` (`useSessionQueue` and the inbox read it).
-  'kortix.control.queue': 'ignored',
+  'kortix.control.queue': () => {},
+  'kortix.control.audit': (queryClient, projectId, sessionId, frame) =>
+    queryClient.setQueryData(qk.project.sessionAuditWatermark(projectId, sessionId), frame.payload),
+  'kortix.control.runtime': (queryClient, projectId, sessionId, frame, memory) => {
+    const payload = frame.payload as RuntimePayload;
+    queryClient.setQueryData(qk.project.sessionRuntimeControl(projectId, sessionId), payload);
+    // A change to the box row is what moves `/start`'s stage. Re-read it then,
+    // instead of on a timer. The first frame only records the row.
+    const runtimeKey = JSON.stringify([
+      payload?.sandbox_status ?? null,
+      payload?.external_id ?? null,
+      payload?.waking ?? false,
+      payload?.stop_reason ?? null,
+    ]);
+    if (memory.runtimeKey !== undefined && memory.runtimeKey !== runtimeKey) {
+      // A user Stop made elsewhere (another tab, the API) reaches this tab
+      // here. It counts as this tab's own Stop: from now on its `/start`
+      // polls report the stop instead of waking the box again.
+      if (payload?.sandbox_status === 'stopped' && payload?.stop_reason === 'manual') {
+        noteSessionStopped(sessionId);
+      }
+      void queryClient.invalidateQueries({ queryKey: sessionStartKey(projectId, sessionId) });
+    }
+    memory.runtimeKey = runtimeKey;
+  },
   // The deprecated OpenCode `/kortix/opencode/state` projection. A pi box has
   // none; the session log and `/kortix/runtime/pending` carry what it held.
-  'kortix.control.runtime_state': 'ignored',
+  'kortix.control.runtime_state': () => {},
 };
 
 interface TurnPayload {
@@ -122,94 +199,22 @@ interface RuntimePayload {
   stop_reason?: string | null;
 }
 
+/** Is this a control type this SDK knows? A newer API may send one it does not. */
+const isKnownControlFrameType = (type: string): type is SessionControlFrameType =>
+  (SESSION_CONTROL_FRAME_TYPES as readonly string[]).includes(type);
+
 /** Write one control frame where its poll used to land. Exported for tests. */
 export function applySessionControlFrame(
   queryClient: QueryClient,
   projectId: string,
   sessionId: string,
   frame: SessionControlFrame,
-  memory: { secretsRev?: string; runtimeKey?: string; modelRev?: string },
+  memory: FrameMemory,
   nowMs: number = Date.now(),
 ): void {
   // An unknown type comes from a newer API: ignored, as before.
-  if (CONTROL_FRAME_ROUTES[frame.type as SessionControlFrameType] !== 'applied') return;
-  if (frame.type === 'kortix.control.turn') {
-    const payload = frame.payload as TurnPayload;
-    if (!payload?.known || !Array.isArray(payload.turns)) return;
-    const key = qk.project.sessionTurn(projectId, sessionId);
-    // The stream is one broadcast per session, so a frame may carry no
-    // per-caller `can_stop`. The last `/turn` answer still holds while the
-    // SAME turns are open; once they change it is about another run.
-    const previous = queryClient.getQueryData<SessionTurnObservation>(key);
-    const canStop =
-      typeof payload.can_stop === 'boolean'
-        ? payload.can_stop
-        : previous && openTurnsKey(previous.turns) === openTurnsKey(payload.turns)
-          ? previous.can_stop
-          : undefined;
-    const observation: SessionTurnObservation = {
-      turns: payload.turns,
-      ...(payload.last_ended ? { last_ended: payload.last_ended } : {}),
-      ...(payload.recent_failures ? { recent_failures: payload.recent_failures } : {}),
-      ...(canStop !== undefined ? { can_stop: canStop } : {}),
-      ...(payload.working ? { working: payload.working } : {}),
-      // This tab's clock at arrival. The server re-publishes an unchanged frame
-      // every 20 s, so a live stream keeps the entry fresh. A frame replayed to
-      // a late joiner keeps the instant it first arrived.
-      atMs: frame.receivedAtMs ?? nowMs,
-    };
-    queryClient.setQueryData(key, observation);
-    return;
-  }
-  if (frame.type === 'kortix.control.session') {
-    const payload = frame.payload as SessionPayload;
-    if (!payload?.known) return;
-    if (typeof payload.title === 'string' && payload.title) {
-      patchCachedSessionTitle(queryClient, projectId, sessionId, payload.title);
-    }
-    if (typeof payload.secrets_rev === 'string') {
-      // The first frame only records the version: the caches were read just now.
-      if (memory.secretsRev !== undefined && memory.secretsRev !== payload.secrets_rev) {
-        invalidateWorkspaceProviderQueries(queryClient, projectId);
-      }
-      memory.secretsRev = payload.secrets_rev;
-    }
-    // The model pin moved (a fallback took the session over, or handed it
-    // back): re-read the row so the composer shows and sends the new model.
-    if (typeof payload.model_rev === 'string') {
-      if (memory.modelRev !== undefined && memory.modelRev !== payload.model_rev) {
-        void queryClient.invalidateQueries({ queryKey: qk.project.session(projectId, sessionId) });
-      }
-      memory.modelRev = payload.model_rev;
-    }
-    return;
-  }
-  if (frame.type === 'kortix.control.audit') {
-    queryClient.setQueryData(qk.project.sessionAuditWatermark(projectId, sessionId), frame.payload);
-    return;
-  }
-  if (frame.type === 'kortix.control.runtime') {
-    const payload = frame.payload as RuntimePayload;
-    queryClient.setQueryData(qk.project.sessionRuntimeControl(projectId, sessionId), payload);
-    // A change to the box row is what moves `/start`'s stage. Re-read it then,
-    // instead of on a timer. The first frame only records the row.
-    const runtimeKey = JSON.stringify([
-      payload?.sandbox_status ?? null,
-      payload?.external_id ?? null,
-      payload?.waking ?? false,
-      payload?.stop_reason ?? null,
-    ]);
-    if (memory.runtimeKey !== undefined && memory.runtimeKey !== runtimeKey) {
-      // A user Stop made elsewhere (another tab, the API) reaches this tab
-      // here. It counts as this tab's own Stop: from now on its `/start`
-      // polls report the stop instead of waking the box again.
-      if (payload?.sandbox_status === 'stopped' && payload?.stop_reason === 'manual') {
-        noteSessionStopped(sessionId);
-      }
-      void queryClient.invalidateQueries({ queryKey: sessionStartKey(projectId, sessionId) });
-    }
-    memory.runtimeKey = runtimeKey;
-  }
+  if (!isKnownControlFrameType(frame.type)) return;
+  CONTROL_FRAME_APPLIERS[frame.type](queryClient, projectId, sessionId, frame, memory, nowMs);
 }
 
 function readTitle(row: Record<string, unknown>): string | null {

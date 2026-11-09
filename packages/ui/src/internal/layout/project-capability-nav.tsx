@@ -176,7 +176,9 @@ export function ProjectCapabilityNav({ projectId }: { projectId: string }) {
       {hasSettings ? (
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild isActive={isProjectAdminPath(pathname) && !onModels}>
-            <Link href={adminPath(projectId, 'general')} prefetch={false} onClick={close}>
+            {/* Prefetched: the sidebar swaps on the click, and the page
+                should be there when the swap lands. */}
+            <Link href={adminPath(projectId, 'general')} prefetch onClick={close}>
               <RowGlyph>
                 <GearSixIcon className="size-3.5" />
               </RowGlyph>

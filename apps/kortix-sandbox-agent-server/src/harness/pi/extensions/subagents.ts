@@ -188,6 +188,13 @@ export interface SpawnSessionInput {
   agent: string
   /** Base system prompt; the runtime appends the workspace, skills and tool list. */
   systemPrompt: string
+  /**
+   * `systemPrompt` is this child's own system prompt (an inline agent's
+   * instructions), in place of its agent's. A separate session carries it in
+   * `kortix.agent.instructions`; without it, a built-in or fork prompt there is
+   * a note beside the agent's own prompt (cloud-subagent.ts `buildCreateBody`).
+   */
+  ownPrompt?: boolean
   /** `provider/model` ref; the parent's model when absent. */
   model?: string
   variant?: string
@@ -296,15 +303,15 @@ export function subagentTypes(host: KortixHost): Map<string, SubagentType> {
   return types
 }
 
-/** An inline, ephemeral agent defined in the call, with no manifest entry. */
+/** An inline, ephemeral agent defined in the call, with no manifest entry. It runs with this session's own access. */
 const inlineAgent = Type.Object(
   {
-    instructions: Type.String({ description: 'The system prompt for this ephemeral agent: who it is and how it works.' }),
+    instructions: Type.String({ description: 'The system prompt for this ephemeral agent: who it is and how it works. It runs with your own access (your connectors, secrets, computer type and the channel this chat came from), never with another agent\'s.' }),
     description: Type.Optional(Type.String({ description: 'A short description of this ephemeral agent.' })),
     model: Type.Optional(Type.String({ description: 'A `provider/model` ref for this ephemeral agent; the parent model when absent.' })),
     tools: Type.Optional(Type.Array(Type.String(), { description: 'Workspace tool names this ephemeral agent may use; all of them when absent.' })),
   },
-  { description: 'An inline, ephemeral agent defined here instead of a named subagent_type. When set, subagent_type is ignored.' },
+  { description: 'An inline, ephemeral agent defined here instead of a named subagent_type. Pass one, not both: a call with subagent_type is refused.' },
 )
 
 const parameters = Type.Object({
@@ -334,7 +341,7 @@ const parameters = Type.Object({
         'A `provider/model` ref for this hand-off, such as kortix/glm-5.3: it overrides the model of the named subagent_type, the inline agent and a fork. The agent\'s own model (else this session\'s) when absent. A follow-up (task_id) keeps its model.',
     }),
   ),
-  subagent_type: Type.Optional(Type.String({ description: 'The named agent to use for this task. Omitted: the general-purpose agent `general` (for the platform coordinator: the default agent of the project). Ignored when you pass an inline `agent` spec.' })),
+  subagent_type: Type.Optional(Type.String({ description: 'The named agent to use for this task. Omitted: the general-purpose agent `general`, which runs with your own access. Mutually exclusive with an inline `agent` spec: a call carrying both is refused.' })),
   agent: Type.Optional(inlineAgent),
   task_id: Type.Optional(Type.String({ description: 'Set only to resume a previous task: the task_id a previous task output returned. The task resumes in the session it was created in.' })),
   session: Type.Optional(
@@ -620,11 +627,20 @@ function resolveSpec(params: SubagentParams, host: KortixHost): Omit<SpawnSessio
     return { title: `${params.description} (fork)`, agent: INLINE_AGENT, systemPrompt: FORK_PROMPT }
   }
   const inline = params.agent
+  // One call names the child's agent one way. A previous release let an inline spec — even an
+  // empty one — silently displace subagent_type and spawn an unnamed, tool-less child.
+  if (inline && params.subagent_type && !params.task_id) {
+    throw new Error(
+      `subagent_type "${params.subagent_type}" and an inline \`agent\` spec cannot combine: the inline spec displaces the named agent. Pass one: omit agent to run the named type, or omit subagent_type and fill the inline spec.`,
+    )
+  }
   if (inline) {
+    const instructions = inline.instructions?.trim()
     return {
       title: `${params.description} (inline agent)`,
       agent: INLINE_AGENT,
-      systemPrompt: inline.instructions?.trim() || SUBAGENT_PROMPT,
+      systemPrompt: instructions || SUBAGENT_PROMPT,
+      ...(instructions ? { ownPrompt: true } : {}),
       ...(inline.model ? { model: inline.model } : {}),
       ...(inline.tools ? { tools: inline.tools } : {}),
     }
@@ -637,8 +653,8 @@ function resolveSpec(params: SubagentParams, host: KortixHost): Omit<SpawnSessio
     if (params.task_id) return { title: params.description, agent: '', systemPrompt: '' }
     // No type named: the general-purpose agent, where this session may start it.
     if (types.has('general')) return resolveSpec({ ...params, subagent_type: 'general' }, host)
-    // The platform coordinator has no built-ins: its child names no agent, so the API runs the project's default agent.
-    if (anyProjectAgent && params.session !== 'same') return { title: `${params.description} (default agent)`, agent: INLINE_AGENT, systemPrompt: SUBAGENT_PROMPT }
+    // The platform coordinator without built-ins: its child is a colleague with the coordinator's own access.
+    if (anyProjectAgent && params.session !== 'same') return { title: `${params.description} (inline agent)`, agent: INLINE_AGENT, systemPrompt: SUBAGENT_PROMPT }
     throw new Error(anyProjectAgent ? "Set subagent_type to a project agent's name (kortix_agents list shows them), or pass an inline `agent` spec." : SUBAGENT_SPEC_REQUIRED)
   }
   // The title is the task alone: the child carries its agent as `agent_name`, and every list shows it from there.

@@ -260,21 +260,18 @@ export async function runProvision(ctx: ProvisionContext, emit: ProvisionEmit): 
   // client that is about to push its own `kortix init` output — never WHETHER
   // the project gets one. It used to default to false, so a caller who said
   // nothing (a bare `POST /v1/projects/provision`, an agent, any integration)
-  // got a repo with no kortix.yaml, no agents and no skills, recorded as
-  // `caller_opted_out` so the self-heal skipped it permanently. See
-  // ./managed-repo-seed.ts for the full rule.
+  // got a repo with no kortix.yaml, no agents and no skills, and only the
+  // explicit call recorded it. See ./managed-repo-seed.ts for the full rule.
   //
   // The one opt-out is an EXPLICIT `seed_starter: false` (`kortix ship`, which
   // pushes its own history with a plain non-force push that a seeded repo would
   // reject). Even that records `expected: true` with `client_owns_first_commit`,
-  // so a client that never pushes is repaired on next access by
-  // `shouldSelfHealManagedRepoSeed` instead of being left permanently blank —
-  // and the repair re-checks `remoteBranchExists`, so it is a no-op once the
-  // client HAS pushed.
+  // so the row names the client, not emptiness, as the repo's first commit.
   //
   // Resolved BEFORE the insert so the row records the INTENT: a crash between
   // the insert and a verified seed leaves `{ expected: true, seeded: false }`,
-  // which the same repair path fixes.
+  // and the provision's own seed rollback (a failed seed deletes the repo and
+  // the row) is what keeps that state transient.
   const clientOwnsFirstCommit = body.seed_starter === false || body.seedStarter === false;
   const seedStarter = !clientOwnsFirstCommit || !!sourceItemId;
   const marketplaceItems = normalizeMarketplaceItems(body.marketplace_items ?? body.marketplaceItems);

@@ -8,7 +8,7 @@ import Loading from '../../primitives/loading';
 import { errorToast, successToast } from '../../primitives/toast';
 import { useTranslations } from '../../i18n';
 import { FloppyDiskIcon, PauseIcon, PlayIcon, SquareIcon, WarningIcon } from '@phosphor-icons/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { WORKFLOW_LARGE_AGENT_COUNT } from '@kortix/sdk';
 import { useSessionWorkflows } from '@kortix/sdk/react';
 import { parseWorkflowRun, type WorkflowRun, type WorkflowRunAgent } from '../tool/tools/workflow-run';
@@ -62,17 +62,6 @@ export function useLiveWorkflowRun(
   if (!run) return { run: null, controlSessionId: undefined, fromRunner: false };
   if (runner) return { run: live ?? run, controlSessionId: runner, fromRunner: !!live };
   return { run, controlSessionId: sessionId, fromRunner: false };
-}
-
-/** The current time, every second while `active`: a live run's elapsed labels tick. */
-export function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
 }
 
 /** The prompt "Save" sends to the session that owns the run. */

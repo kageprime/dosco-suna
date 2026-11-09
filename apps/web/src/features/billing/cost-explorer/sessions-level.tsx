@@ -10,7 +10,7 @@ import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import type { CostRange } from '@kortix/ui/date-range-picker';
 import Hint from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import {
   Select,
   SelectContent,
@@ -289,9 +289,9 @@ export function SessionsLevelTable({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   if (error) {
     return (
-      <InfoBanner tone="destructive" title={tI18nComplete.raw('textda6efefb0490')}>
+      <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nComplete.raw('textda6efefb0490')}</BannerAlertTitle><BannerAlertDescription>
         {error.message}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
 

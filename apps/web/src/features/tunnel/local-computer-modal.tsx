@@ -16,7 +16,7 @@ import { useState, type ReactNode } from 'react';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@kortix/ui/modal';
 import { SettingsRow, SettingsRowGroup } from '@kortix/ui/settings-row';
 import { Switch } from '@kortix/ui/switch';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '@kortix/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast, successToast } from '@kortix/ui/toast';
 import { connectorHref } from '@kortix/ui/customize/connectors/connector-routes';
 import { SolidCheckIcon } from '@kortix/ui/internal/icons/solid-check-icon';
@@ -215,7 +215,7 @@ function LocalComputerContent({ projectId, onClose }: { projectId: string; onClo
         />
         <ModalBody className="space-y-5">
           {reconnect ? (
-            <InfoBanner tone="warning" icon={WarningIcon} title={t('needsReconnectHint')} />
+            <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{t('needsReconnectHint')}</BannerAlertTitle></BannerAlert>
           ) : null}
           <section className="space-y-2">
             <ComputerCapabilities />
@@ -709,13 +709,9 @@ type AccessUpdate = ReturnType<typeof useComputerAccess>['update'];
 function AccessRequestBanner({ capability, update }: { capability: string; update: AccessUpdate }) {
   const t = useTranslations('computers');
   return (
-    <InfoBanner
-      tone="info"
-      icon={HandPalmIcon}
-      title={t(
+    <BannerAlert variant="default" ><BannerAlertMedia><HandPalmIcon /></BannerAlertMedia><BannerAlertTitle>{t(
         `access.request.${REQUEST_CAPABILITIES.includes(capability) ? capability : 'other'}`,
-      )}
-    >
+      )}</BannerAlertTitle><BannerAlertDescription>
       <div className="space-y-2.5">
         <p>{t('access.requestHint')}</p>
         <Button
@@ -727,7 +723,7 @@ function AccessRequestBanner({ capability, update }: { capability: string; updat
           {t('access.deny')}
         </Button>
       </div>
-    </InfoBanner>
+    </BannerAlertDescription></BannerAlert>
   );
 }
 
@@ -764,17 +760,17 @@ function AccessSection({
           }}
           className="w-fit"
         >
-          <TabsListCompact aria-label={t('access.title')}>
+          <TabsList size="xs" aria-label={t('access.title')}>
             {ACCESS_MODES.map((mode) => (
-              <TabsTriggerCompact
+              <TabsTrigger
                 key={mode}
                 value={mode}
                 disabled={update.isPending || unavailable !== null}
               >
                 {t(`access.${mode}`)}
-              </TabsTriggerCompact>
+              </TabsTrigger>
             ))}
-          </TabsListCompact>
+          </TabsList>
         </Tabs>
       </div>
       <p className="text-muted-foreground flex min-h-7 flex-wrap items-center gap-x-2 text-xs">

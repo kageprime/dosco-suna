@@ -520,13 +520,21 @@ function close(block: ToolCallBlock): void {
 }
 
 /** The whole session as a log, each message's native hash, and each image's base64 data by sha256. */
-export function piSessionLog(s: PiSessionSnapshot): { log: SessionLog; hashes: Map<string, string>; images: Map<string, string> } {
+export function piSessionLog(
+  s: PiSessionSnapshot,
+  /** False skips the per-message hashing: a read (`GET /kortix/runtime/log`) never uses
+   * the hashes — only the journal relay (`changes`) and a restore do — and digesting every
+   * entry's JSON on a long session costs hundreds of milliseconds per read (KRTX-4488:
+   * ~75% of a scaled-up export).*/
+  opts: { hashes?: boolean } = {},
+): { log: SessionLog; hashes: Map<string, string>; images: Map<string, string> } {
   const created = s.header?.timestamp ?? iso(0)
+  const hashMessages = opts.hashes !== false
   const hashes = new Map<string, string>()
   const images = new Map<string, string>()
   const finish = (derived: Derived[]) =>
     derived.map(({ message, native }) => {
-      hashes.set(message.message_id, sha256(JSON.stringify([message.seq, native])))
+      if (hashMessages) hashes.set(message.message_id, sha256(JSON.stringify([message.seq, native])))
       return message
     })
   const all = s.entries as J[]

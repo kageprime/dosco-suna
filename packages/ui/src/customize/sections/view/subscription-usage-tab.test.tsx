@@ -67,9 +67,10 @@ test('an expired full window plus a future partial window does not claim a curre
   expect(html).not.toContain('Limit reached');
 });
 
-test('a weekly-only subscription says five-hour usage is unreported, without inventing a meter', () => {
+test('a plan without a 5-hour window shows only the windows it reports', () => {
   const html = render(secret, {
     ...usage,
+    limited: false,
     windows: [
       {
         id: 'weekly',
@@ -79,9 +80,35 @@ test('a weekly-only subscription says five-hour usage is unreported, without inv
       },
     ],
   });
-  expect(html).toContain('Five-hour window not reported');
+  expect(html).not.toContain('5-hour');
+  expect(html).not.toContain('Five-hour window not reported');
   expect((html.match(/role="progressbar"/g) ?? []).length).toBe(1);
 });
+
+test('Claude Max shows a meter for the 5-hour, weekly and Fable windows', () => {
+  const html = render(
+    { ...secret, provider_id: 'claude-agent' },
+    {
+      ...usage,
+      limited: false,
+      windows: [
+        { id: 'five_hour', window_minutes: 300, used_percent: 84, resets_at: '2099-01-01T00:00:00Z' },
+        { id: 'weekly', window_minutes: 10080, used_percent: 21, resets_at: '2099-01-01T00:00:00Z' },
+        { id: 'seven_day_fable', window_minutes: null, used_percent: 9, resets_at: '2099-01-01T00:00:00Z' },
+      ],
+    },
+  );
+  expect(html).toContain('Claude Code');
+  expect((html.match(/role="progressbar"/g) ?? []).length).toBe(3);
+  for (const text of ['5-hour limit', 'Weekly limit', 'Weekly · Fable', '84%', '21%', '9%']) {
+    expect(html).toContain(text);
+  }
+  // The window closest to its limit leads the card.
+  expect(html.indexOf('84%')).toBeLessThan(html.indexOf('21%'));
+  // A healthy card carries no status badge.
+  expect(html).not.toContain('Usage reported');
+});
+
 test('Fable has a separate weekly meter and explains the shared weekly allowance', () => {
   const html = render(
     { ...secret, provider_id: 'claude-agent' },

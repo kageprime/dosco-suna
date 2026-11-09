@@ -23,7 +23,7 @@ interface MaintenanceBannerProps {
   config: MaintenanceConfig;
 }
 
-// Per-level styling — brand tokens only (kortix-*), mirroring the InfoBanner tone
+// Per-level styling — brand tokens only (kortix-*), mirroring the Alert tone
 // scale so a system banner reads the same as every other alert in the app. The
 // card border is tinted to the level so severity is legible before you read a word.
 const levelConfig: Record<

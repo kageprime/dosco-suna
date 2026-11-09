@@ -16,6 +16,7 @@
 // (held equal by `src/contract-drift.test.ts`).
 
 import { backendApi } from '../../http/api-client';
+import { appendQuery } from '../../http/url';
 import { unwrap } from './shared';
 
 /**
@@ -378,7 +379,7 @@ export async function listWorkspaceMemoryPages(
   layerKey: ProjectMemoryLayerKey,
   options?: ProjectMemoryPageListOptions,
 ): Promise<ProjectMemoryPageSummary[]> {
-  const suffix = options?.type ? `?type=${options.type}` : '';
+  const suffix = appendQuery({ type: options?.type });
   const body = unwrap(
     await backendApi.get<{ pages: ProjectMemoryPageSummary[] }>(`${layer(projectId, layerKey)}/pages${suffix}`, quiet),
   );

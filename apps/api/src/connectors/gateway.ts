@@ -546,6 +546,44 @@ const MAX_UPSTREAM_RESPONSE_BYTES = 64 * 1024 * 1024;
 /** Reason prefix of a call that hit the upstream deadline. */
 export const UPSTREAM_TIMEOUT = 'upstream_timeout';
 
+/**
+ * The upstream-failure warn is rate-limited per call path. A provider outage
+ * plus one agent repeating the failed call every few seconds used to log one
+ * warn per attempt: prod, 2026-11-07, 28 warns in one hour for
+ * `linear.run_query_or_mutation` against a baseline near zero (KRTX-4446),
+ * and it read as a new log-pattern anomaly. KRTX-614 learning ("rate limit
+ * the warning for expected backpressure", also #8212): the FIRST failure of
+ * a call path always warns, then at most one per interval. Every failure
+ * still returns its `reason` and writes its own audit row.
+ */
+const UPSTREAM_WARN_INTERVAL_MS = 60_000;
+const UPSTREAM_WARN_MAX_PATHS = 128;
+// replica-local: per-process warn throttle. A throttle shared across replicas would
+// either need a database round-trip per failure or leave one window open, and
+// a per-replica window can only over-report by one line per replica per interval.
+const lastUpstreamWarnAt = new Map<string, number>();
+
+function shouldLogUpstreamWarn(path: string): boolean {
+  const now = Date.now();
+  if (lastUpstreamWarnAt.size >= UPSTREAM_WARN_MAX_PATHS && !lastUpstreamWarnAt.has(path)) {
+    for (const [key, at] of lastUpstreamWarnAt) {
+      if (now - at >= UPSTREAM_WARN_INTERVAL_MS) lastUpstreamWarnAt.delete(key);
+      if (lastUpstreamWarnAt.size < UPSTREAM_WARN_MAX_PATHS) break;
+    }
+    if (lastUpstreamWarnAt.size >= UPSTREAM_WARN_MAX_PATHS) {
+      // A flood of distinct failing paths inside one interval (an outage on a
+      // large catalogue) drops the oldest entry, in insertion order, so the
+      // map stays bounded; that path's next failure warns again.
+      const oldest = lastUpstreamWarnAt.keys().next().value;
+      if (oldest !== undefined) lastUpstreamWarnAt.delete(oldest);
+    }
+  }
+  const last = lastUpstreamWarnAt.get(path);
+  if (last !== undefined && now - last < UPSTREAM_WARN_INTERVAL_MS) return false;
+  lastUpstreamWarnAt.set(path, now);
+  return true;
+}
+
 /** A channel call with an argument its action does not declare (HTTP 400). */
 export const INVALID_ARGS = 'invalid_args';
 
@@ -1555,7 +1593,10 @@ async function runConnectorAction(
     });
     const message = `[connector] ${fullPath} failed (upstream ${result.status}): ${reason.slice(0, 500)}`;
     if (connector.provider === 'composio' && result.status === 400) logger.debug(message);
-    else logger.warn(message);
+    else if (shouldLogUpstreamWarn(fullPath)) logger.warn(message);
+    // A suppressed repeat still lands at debug: prod (LOG_LEVEL=info) never
+    // ships it, a developer debugging the retry path still sees every failure.
+    else logger.debug(message);
     return {
       status: 'error',
       reason,

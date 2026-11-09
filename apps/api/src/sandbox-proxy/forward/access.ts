@@ -5,7 +5,7 @@ import { setContextField } from '../../lib/request-context';
 import { canAccessPreviewSandbox, canAccessSandboxSession, takeSessionAccessRefusal } from '../../shared/preview-ownership';
 import type { SandboxRecord } from '../backend';
 import { DEFAULT_AGENT_SENTINEL, jsonProxyError } from '../pre-prompt-env-sync';
-import { stripInBoxProxyPrefix } from '../runtime-request';
+import { classifyRuntimeRequest, stripInBoxProxyPrefix } from '../runtime-request';
 import { carriesSessionData } from '../session-data-ports';
 
 // Who may reach a sandbox through the proxy: the caller's access kind, the
@@ -165,6 +165,12 @@ export async function refuseSessionOrControlAccess(input: {
   // The daemon enforces this independently (it also demands the stripped
   // service-call header) — a destructive primitive should not depend on a remote
   // allowlist staying correct.
+  // An ask exists so the agent yields to a person: the box's own credential
+  // never decides one here, as `POST /asks/:askId/answer` refuses it. Without
+  // this the proxy also records the agent's reply as decided by the launcher.
+  if (access.kind === 'principal' && access.sandboxAuthored && isProxiedAskDecision(upstreamPort, method, remainingPath)) {
+    return jsonProxyError({ error: 'An agent cannot answer its own ask — a person must', code: 'ASK_REQUIRES_HUMAN' }, 403, origin);
+  }
   if (isProxiedBaseReset(upstreamPort, remainingPath, queryString)) {
     console.warn(`[PREVIEW] Refused base=1 branch reset on ${sandboxId} from a proxied caller`);
     return jsonProxyError(
@@ -190,6 +196,17 @@ export async function refuseSessionOrControlAccess(input: {
 export function isSessionLogRead(upstreamPort: number, method: string, remainingPath: string): boolean {
   if (method !== 'GET' || upstreamPort !== 8000) return false;
   return /^\/kortix\/runtime\/log(?:\/messages\/[^/?#]+)?\/?$/.test(remainingPath);
+}
+
+/**
+ * Does this request decide an ask on the session runtime: a permission reply, a
+ * question reply or dismissal, or the session grants (`*` allows every call)?
+ */
+export function isProxiedAskDecision(upstreamPort: number, method: string, remainingPath: string): boolean {
+  if (!carriesSessionData(upstreamPort)) return false;
+  const kind = classifyRuntimeRequest(method, remainingPath).kind;
+  if (kind === 'permission-reply' || kind === 'question-answer') return true;
+  return method.toUpperCase() === 'PUT' && /^\/kortix\/runtime\/sessions\/[^/?#]+\/grants\/?$/.test(stripInBoxProxyPrefix(remainingPath));
 }
 
 /**

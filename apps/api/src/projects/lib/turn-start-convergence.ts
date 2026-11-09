@@ -67,6 +67,7 @@ import { ttlMemo } from '../../shared/ttl-memo';
 import { repositoryAccessFromSessionMetadata } from './session-sandbox-metadata';
 import type { SessionConfigConvergenceOutcome } from './session-config-convergence';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * How long a resolved desired release stands for a `(project, base ref, agent,
@@ -374,7 +375,7 @@ async function noteAssetsFromHealth(
   } catch (error) {
     logger.warn('[runtime-assets] could not record a box\'s asset verdict', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -417,7 +418,7 @@ export async function noteSandboxHealthBody(sessionId: string, body: unknown): P
   } catch (error) {
     logger.warn('[turn-start] could not record an admission health read', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -488,7 +489,7 @@ export async function convergeConfigIfBehind(
   } catch (error) {
     logger.warn('[projects] turn-start convergence threw', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return done('skipped', null);
   }
@@ -654,7 +655,7 @@ export async function convergeModelCatalogForTurnStart(
   } catch (error) {
     logger.warn('[projects] turn-start model-catalog convergence threw', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return { decision: 'unknown' };
   }

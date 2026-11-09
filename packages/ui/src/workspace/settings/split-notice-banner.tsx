@@ -15,7 +15,7 @@ import { useState } from 'react';
 
 import { useLocale, useTranslations } from '../../i18n';
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '../../primitives/alert';
 import { formatWorkspaceDate } from '../project-selector/project-selector-model';
 
 /** `split_notice` on a served workspace (C9). Absent on an older API. */
@@ -65,13 +65,10 @@ export function SplitNoticeBanner({ workspaceId, className }: { workspaceId: str
           : null;
 
   return (
-    <InfoBanner
-      tone="info"
-      title={notice.role === 'moved' ? t('movedTitle') : t('keeperTitle')}
-      className={className}
-      data-testid="split-notice"
-      action={
-        <Button
+    <BannerAlert variant="default" className={className} data-testid="split-notice"><BannerAlertTitle>{notice.role === 'moved' ? t('movedTitle') : t('keeperTitle')}</BannerAlertTitle><BannerAlertDescription>
+      {body}
+      {billing ? ` ${billing}` : null}
+    </BannerAlertDescription><BannerAlertActions>{<Button
           variant="ghost"
           size="icon-xs"
           aria-label={t('dismiss')}
@@ -85,11 +82,6 @@ export function SplitNoticeBanner({ workspaceId, className }: { workspaceId: str
           }}
         >
           <XIcon className="size-3.5" />
-        </Button>
-      }
-    >
-      {body}
-      {billing ? ` ${billing}` : null}
-    </InfoBanner>
+        </Button>}</BannerAlertActions></BannerAlert>
   );
 }

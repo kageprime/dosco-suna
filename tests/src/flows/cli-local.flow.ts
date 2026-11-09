@@ -377,7 +377,7 @@ flow('HOSTS-6', { domain: 'cli', routes: [] }, async (ctx) => {
 
 flow('LOGOUT-1', { domain: 'cli', routes: [] }, async (ctx) => {
   await ctx.step(
-    'kortix logout → removes host creds (no API); not-logged-in is a no-op',
+    'kortix logout → removes host creds (revokes first, offline-safe); not-logged-in is a no-op',
     async () => {
       const sb = new CliSandbox('logout1');
       ctx.track('cli-sandbox', sb.cwd);

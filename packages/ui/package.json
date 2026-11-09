@@ -221,7 +221,6 @@
     "./i18n/ui-catalog/use-localized-ui-catalog": "./src/i18n/ui-catalog/use-localized-ui-catalog.ts",
     "./icon-provider": "./src/primitives/icon-provider.tsx",
     "./icons": "./src/icons/index.ts",
-    "./info-banner": "./src/primitives/info-banner.tsx",
     "./inline-meta": "./src/primitives/inline-meta.tsx",
     "./input": "./src/primitives/input.tsx",
     "./input-group": "./src/primitives/input-group.tsx",
@@ -468,8 +467,6 @@
     "./session/thread/session-chat": "./src/session/thread/session-chat.tsx",
     "./session/thread/transcript": "./src/session/thread/transcript.tsx",
     "./session/tool/foreign-tool-calls": "./src/session/tool/foreign-tool-calls.ts",
-    "./session/tool/shared/file-list": "./src/session/tool/shared/file-list.tsx",
-    "./session/tool/shared/patch-helpers": "./src/session/tool/shared/patch-helpers.tsx",
     "./session/tool/shared/show-helpers": "./src/session/tool/shared/show-helpers.tsx",
     "./session/tool/tools/register": "./src/session/tool/tools/register.ts",
     "./session/tool/tools/session-spawn-urls": "./src/session/tool/tools/session-spawn-urls.ts",
@@ -1355,10 +1352,6 @@
       "./icons": {
         "types": "./dist/icons/index.d.ts",
         "import": "./dist/icons/index.js"
-      },
-      "./info-banner": {
-        "types": "./dist/primitives/info-banner.d.ts",
-        "import": "./dist/primitives/info-banner.js"
       },
       "./inline-meta": {
         "types": "./dist/primitives/inline-meta.d.ts",
@@ -2337,14 +2330,6 @@
       "./session/tool/foreign-tool-calls": {
         "types": "./dist/session/tool/foreign-tool-calls.d.ts",
         "import": "./dist/session/tool/foreign-tool-calls.js"
-      },
-      "./session/tool/shared/file-list": {
-        "types": "./dist/session/tool/shared/file-list.d.ts",
-        "import": "./dist/session/tool/shared/file-list.js"
-      },
-      "./session/tool/shared/patch-helpers": {
-        "types": "./dist/session/tool/shared/patch-helpers.d.ts",
-        "import": "./dist/session/tool/shared/patch-helpers.js"
       },
       "./session/tool/shared/show-helpers": {
         "types": "./dist/session/tool/shared/show-helpers.d.ts",

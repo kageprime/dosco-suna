@@ -19,7 +19,7 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import { blockedPath, canonicalPath } from '../mcp/shape';
 import { APP_EDGE_HEADERS } from '../shared/edge-signature';
-import { APP_AUTHORIZATION_HEADER, resolveAppViewerUserId, type AppAccessRow } from './public-proxy-access';
+import { APP_AUTHORIZATION_HEADER, liveAppViewerUserId, type AppAccessRow } from './public-proxy-access';
 import { APP_VIEWER_HEADER, APP_VIEWER_TOKEN_HEADER, mintAppViewerToken, normalizeViewerTokenScope } from './viewer';
 
 export const APP_API_PROXY_PREFIX = '/_kortix/api';
@@ -72,9 +72,9 @@ export async function appApiProxyResponse(
   if (!path.startsWith('/v1/') || !routed?.startsWith('/v1/') || blockedPath(routed)) {
     return refuse(404, 'not_found', 'The App API path forwards /_kortix/api/v1/* only, except /v1/oauth and MCP.');
   }
-  const userId = resolveAppViewerUserId(request, url, app);
+  const userId = await liveAppViewerUserId(request, url, app);
   if (!userId) {
-    return refuse(401, 'no_viewer_identity', 'No Dosco viewer is signed in to this App.');
+    return refuse(401, 'no_viewer_identity', 'No Dosco viewer with access to this App is signed in.');
   }
   const minted = await mintAppViewerToken(
     { appId: app.appId, accountId: app.accountId, name: app.name, viewerTokenScope: 'api' },

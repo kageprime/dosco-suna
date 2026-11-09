@@ -2,12 +2,6 @@ import { config } from '../../config';
 import { isPlainObject } from '../../shared/json';
 import { ACCOUNT_AUTOMATIONS_PAUSED_REASON, readAccountAutomationPause } from '../../accounts/automation-pause';
 
-export type TriggerSchedulerTimer = ReturnType<typeof setInterval>;
-
-export const globalForProjectTriggers = globalThis as typeof globalThis & {
-  __kortixProjectTriggerSchedulerTimer?: TriggerSchedulerTimer | null;
-};
-
 // In-memory heartbeat for the trigger scheduler, surfaced at /health so an
 // operator can tell at a glance whether the leader's sweep is alive and what
 // the last pass did. Lives on the leader pod; resets on restart. This is the

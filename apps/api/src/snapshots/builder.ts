@@ -21,8 +21,10 @@ import {
   recordTemplateBuilt,
   recordTemplateFailed,
   resolveTemplateBySlug,
+  templateSnapshotReferencedByAnotherRow,
   type ResolvedTemplate,
 } from './templates';
+import { isReapableTemplatePredecessor } from './predecessor-reap-policy';
 import { DEFAULT_SANDBOX_SLUG } from './dockerfile-layer';
 import {
   type ReadyImage,
@@ -742,10 +744,25 @@ async function runInlineBuild(
           `[snapshots] keeping predecessor ${prevSnapshot}: it was built recently, so another ` +
           `live replica/code version likely still serves it; it is pruned once it stops being rebuilt`,
         );
-      } else {
+      } else if (
+        isReapableTemplatePredecessor(prevSnapshot) &&
+        !(await templateSnapshotReferencedByAnotherRow(prevSnapshot, template.templateId))
+      ) {
         await provider
           .deleteSnapshot(prevSnapshot)
           .catch((e) => console.warn(`[snapshots] prune predecessor ${prevSnapshot} failed: ${e?.message ?? e}`));
+      } else {
+        // Outside the reap-eligible namespaces, or another template row still
+        // points at it (pre-fix identities were content-addressed once per
+        // provider namespace: a legacy `kortix-tpl-<hash>` name can be the
+        // current name of rows in several projects; deleting it here deletes
+        // the image their sessions still boot, KRTX-4469). The ownership-aware
+        // per-project reaper handles scoped images; quota GC collects
+        // everything left unreferenced.
+        logger.info(
+          `[snapshots] keeping predecessor ${prevSnapshot}: it is not proven owned by this template's namespace ` +
+          `or another row still references it`,
+        );
       }
     }
     return {

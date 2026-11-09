@@ -49,7 +49,7 @@ import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import { Checkbox } from '../../../primitives/checkbox';
 import { ConfirmDialog } from '../../../primitives/confirm-dialog';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import Loading from '../../../primitives/loading';
@@ -361,21 +361,15 @@ export function TokensTab({
         </div>
       ) : tokensQuery.isError ? (
         isMfaRequired(tokensQuery.error) ? (
-          <InfoBanner
-            tone="warning"
-            title={t('confirmIdentity')}
-            action={
-              <Button
+          <BannerAlert variant="warning" ><BannerAlertTitle>{t('confirmIdentity')}</BannerAlertTitle><BannerAlertDescription>
+            {t('mfaDescription')}
+          </BannerAlertDescription><BannerAlertActions>{<Button
                 variant="outline"
                 size="sm"
                 onClick={() => window.dispatchEvent(new CustomEvent(MFA_REQUIRED_EVENT))}
               >
                 {t('verify')}
-              </Button>
-            }
-          >
-            {t('mfaDescription')}
-          </InfoBanner>
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : (
           <ErrorState
             size="sm"

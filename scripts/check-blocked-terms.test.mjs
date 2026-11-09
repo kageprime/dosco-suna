@@ -137,6 +137,27 @@ test('no decryptable terms: warns and allows', () => {
   r.cleanup();
 });
 
+// dotenvx 1.x with no private key prints the ciphertext and exits 0. The guard
+// took that ciphertext as its term list, matched nothing, and passed every
+// commit without its warning (2026-11-07).
+test('ciphertext from dotenvx with exit 0: warns and allows, never a silent pass', () => {
+  const r = repo();
+  mkdirSync(join(r.dir, 'apps/api'), { recursive: true });
+  writeFileSync(join(r.dir, 'apps/api/.env'), 'BLOCKED_COMMIT_TERMS="encrypted:BSYNTHETIC"\n');
+  const bin = mkdtempSync(join(tmpdir(), 'fake-dotenvx-'));
+  writeFileSync(join(bin, 'dotenvx'), "#!/bin/sh\nprintf 'encrypted:BSYNTHETIC'\nexit 0\n");
+  chmodSync(join(bin, 'dotenvx'), 0o755);
+  writeFileSync(join(r.dir, 'a.txt'), 'acme\n');
+  r.git('add', '.');
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  delete env.BLOCKED_COMMIT_TERMS;
+  const res = spawnSync('sh', [SCRIPT, 'staged'], { cwd: r.dir, encoding: 'utf8', env });
+  assert.equal(res.status, 0);
+  assert.match(res.stderr, /could not be decrypted; check skipped/);
+  r.cleanup();
+  rmSync(bin, { recursive: true, force: true });
+});
+
 // Every worktree runs the PRIMARY checkout's hooks (`core.hooksPath` is an
 // absolute path). A worktree cut before the guard existed has neither the
 // script nor the encrypted term list, so the hooks must reach both through the

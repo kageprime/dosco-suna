@@ -988,8 +988,9 @@ session. Every rule below holds for the working tree and for a config release.
   only declared, enabled agents with `mode` `subagent` or `all` that the
   calling agent's `permission.task` rule does not deny. The rule's subject is
   `subagent_type`, so a call to a denied name is refused before it runs.
-  The tool also takes an inline ephemeral agent (no manifest entry); the
-  session's tool rules still gate every call its child makes.
+  The tool also takes an inline ephemeral agent (no manifest entry): its
+  instructions are its system prompt, it runs with this session's own access,
+  and the session's tool rules still gate every call its child makes.
 - **Commands.** `GET /command` lists every `compiled.commands` entry with its
   `agents`. `POST /session/:id/command` runs on the body's `agent`, else the
   session's agent. An agent outside `agents` gets `403 { error:
@@ -1300,10 +1301,20 @@ setting, the model picks per call). The
 call is a real child session (`harness/pi/cloud-subagent.ts`):
 `POST /v1/workspaces/:id/sessions` with the
 box token, which links the child to this session and authorizes every later
-read of it. A named agent runs as itself; `general`, `explore` and an inline
-spec run as the parent's resolved agent (never the `default` sentinel; the
-platform coordinator sends none), with the spec's instructions in
-`initial_context`. Every child, named ones included, gets the parent agent's
+read of it. A named agent runs as itself. `general`, `explore`, a fork and
+an inline spec run as the parent's resolved agent (never the `default`
+sentinel), My Kortix included, so the child's grant, connectors, secrets,
+sandbox and originating channel are the parent's, never another agent's. Only
+a parent with no resolved agent (a router) sends no `agent_name`, and the API
+picks. An inline spec's instructions are the child's own system prompt: they
+ride in `runtime_context` `kortix.agent.instructions` (at most 4,096
+characters) and the child's runtime uses them as its base prompt in place of
+its agent's, exactly as the in-process path does. Under My Kortix every spec
+prompt (a built-in's, a fork's) rides there, because My Kortix's coordinator
+prompt never runs in a child; the API lets such a My Kortix child through
+its recursion stop (`apps/api/src/projects/lib/inline-colleague.ts`). Any
+other spec prompt is a note beside the agent's own prompt in
+`initial_context`, which the child pastes into its first message. Every child, named ones included, gets the parent agent's
 effective tool list (the tools that pass `rootToolAllowed`), intersected with
 the spec's list, in `runtime_context` `kortix.subagent.tools`. The child's
 runtime narrows its tools to that list, so a child never has a tool its parent

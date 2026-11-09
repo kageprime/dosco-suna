@@ -72,7 +72,7 @@ export async function readSavedSessionCopy(input: {
 }): Promise<SavedSessionCopy> {
   const { projectId, sessionId, runtimeSessionId } = input;
   if (!projectId || !sessionId || !runtimeSessionId) return { envelope: null, empty: false };
-  const log = loadSessionLogPage ? await readFirstSessionLogAnswer(loadSessionLogPage, projectId, sessionId) : null;
+  const log = await readFirstSessionLogAnswer(loadSessionLogPage, projectId, sessionId);
   if (!log || log === 'missing') return { envelope: null, empty: false, log: null };
   const root = sessionLogRoot(applySessionLogPage(EMPTY_SESSION_LOG_STATE, log));
   const provenEmpty = !!root?.empty && root.runtimeSessionId === runtimeSessionId;

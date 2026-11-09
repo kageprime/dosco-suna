@@ -18,7 +18,7 @@ import { AgentMark } from '../../internal/components/agent-mark';
 import { Button } from '../../primitives/button';
 import { EntityAvatar } from '../../primitives/entity-avatar';
 import { Field, FieldLabel } from '../../primitives/field';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import Loading from '../../primitives/loading';
 import {
   Modal,
@@ -310,7 +310,7 @@ export function ShareAccessBody({
             ) : null}
           </Field>
 
-          <InfoBanner tone="neutral" icon={everyoneAfter ? UsersThreeIcon : LockIcon}>
+          <BannerAlert variant="default" ><BannerAlertMedia>{everyoneAfter ? <UsersThreeIcon /> : <LockIcon />}</BannerAlertMedia><BannerAlertDescription>
             <span data-testid="share-result">
               {everyoneAfter
                 ? t('resultEveryone', { project: projectName })
@@ -318,7 +318,7 @@ export function ShareAccessBody({
                   ? t('onlyYouDescription')
                   : t('resultNarrowed')}
             </span>
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         </ModalBody>
 
         <ModalFooter className="sm:justify-between">

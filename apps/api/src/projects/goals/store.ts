@@ -47,11 +47,6 @@ export async function getGoal(projectId: string, goalId: string): Promise<GoalRo
   return row ?? null;
 }
 
-export async function getGoalById(goalId: string): Promise<GoalRow | null> {
-  const [row] = await db.select().from(projectGoals).where(eq(projectGoals.goalId, goalId)).limit(1);
-  return row ?? null;
-}
-
 /** The project's goals, newest first. `where` narrows (a session sees only its own). */
 export async function listGoals(projectId: string, where?: SQL): Promise<GoalRow[]> {
   return db
@@ -128,15 +123,6 @@ async function insertEvent(tx: Tx, goal: GoalRow, event: GoalEventInput, from: s
 /** An event with no row change (a refused wake, a notification marker). False: its dedupe key already exists. */
 export async function appendGoalEvent(goal: GoalRow, event: GoalEventInput): Promise<boolean> {
   return db.transaction((tx) => insertEvent(tx, goal, event, goal.state, goal.state));
-}
-
-export async function goalEventExists(goalId: string, dedupeKey: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: projectGoalEvents.id })
-    .from(projectGoalEvents)
-    .where(and(eq(projectGoalEvents.goalId, goalId), eq(projectGoalEvents.dedupeKey, dedupeKey)))
-    .limit(1);
-  return Boolean(row);
 }
 
 export type GoalPatch = Partial<Omit<typeof projectGoals.$inferInsert, 'goalId' | 'projectId' | 'revision' | 'generation'>>;

@@ -124,11 +124,21 @@ export function WorkspaceFramework() {
   useEffect(() => {
     const el = bar.current;
     if (!el || reduced) return;
-    const fill = el.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], {
-      duration: STEP_MS,
-      easing: 'linear',
-      fill: 'forwards',
-    });
+    let fill: Animation;
+    try {
+      fill = el.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], {
+        duration: STEP_MS,
+        easing: 'linear',
+        fill: 'forwards',
+      });
+    } catch (error) {
+      // A patched or synthetic DOM can throw here (`TypeError: Illegal
+      // invocation`, KRTX-4513), and one throw out of this mount effect
+      // blanked the whole home page into the error boundary. The timeline is
+      // an enhancement: degrade to no auto-advance; the walkthrough stays usable.
+      console.warn('[marketing] hero timeline unavailable; auto-advance disabled', error);
+      return;
+    }
     fill.pause();
     fill.onfinish = () => go((index + 1) % TOTAL);
     timer.current = fill;

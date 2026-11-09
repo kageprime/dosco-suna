@@ -22,7 +22,7 @@
 # The gateway runs on the same Bun as every test lane (`bun-version` in
 # .github/workflows/tests.yml). tests/unit/image-bun.test.ts fails when the two
 # differ.
-ARG BUN_VERSION=1.4.3
+ARG BUN_VERSION=1.4.4
 
 # ---- Deps Stage ----
 # A MINIMAL synthetic workspace (only the gateway + its two packages) so we don't

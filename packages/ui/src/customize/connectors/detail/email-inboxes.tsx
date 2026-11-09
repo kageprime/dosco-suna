@@ -28,7 +28,7 @@ import { useProjectCan } from '../../../internal/lib/use-project-can';
 import { Button } from '../../../primitives/button';
 import { Checkbox } from '../../../primitives/checkbox';
 import { Field } from '../../../primitives/field';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import Loading from '../../../primitives/loading';
@@ -307,7 +307,7 @@ export function EmailSenderPolicyDialog({
                   </Field>
                 </div>
               ) : null}
-              {error ? <InfoBanner tone="destructive">{error}</InfoBanner> : null}
+              {error ? <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert> : null}
             </div>
           </div>
         </ModalBody>

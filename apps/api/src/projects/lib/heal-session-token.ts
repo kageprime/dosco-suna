@@ -12,6 +12,7 @@ import { db } from '../../shared/db';
 import { accountMemberExistsSql } from '../../iam/membership-read';
 import { logger } from '../../lib/logger';
 import { candidateSecretKeyHashesAsync } from '../../shared/token-hash';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * A `KORTIX_TOKEN` we are willing to believe. Deliberately strict: this value
@@ -102,7 +103,7 @@ export async function healSupersededSessionToken(
   } catch (error) {
     logger.warn('[service-key] could not heal the session token', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return null;
   }

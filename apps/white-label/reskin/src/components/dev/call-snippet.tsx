@@ -14,7 +14,7 @@
  * never rendered at all (`src/lib/call-snippets.ts` has nowhere to put one).
  *
  * Colouring is presentation and nothing else. The tokenizer
- * (`src/lib/syntax-highlight.ts`) only ever slices the snippet, so this file
+ * (`@kortix/white-label-shared/syntax-highlight`) only ever slices the snippet, so this file
  * holds the class per token role and no logic about what a token is.
  */
 
@@ -36,7 +36,7 @@ import {
   type SnippetLanguage,
   type TokenKind,
   highlight,
-} from '@/lib/syntax-highlight';
+} from '@kortix/white-label-shared/syntax-highlight';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@kortix/ui';
 import { errorToast, successToast } from '@kortix/ui/toast';
@@ -221,7 +221,7 @@ function Block({
         <pre className="mt-1 overflow-x-auto rounded-md border border-border bg-background p-2.5 text-[11px] leading-relaxed text-foreground/80 scrollbar-thin">
           {/* Spans are slices of `code` in order — the copy button above still
               writes `code` itself, so what lands in an editor is byte for byte
-              what this block shows (src/lib/syntax-highlight.ts). */}
+              what this block shows (@kortix/white-label-shared/syntax-highlight). */}
           <code>
             {highlight(code, language).map((token, i) => (
               <span key={i} className={TOKEN_CLASS[token.kind]}>

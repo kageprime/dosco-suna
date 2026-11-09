@@ -24,55 +24,7 @@
  * `/kortix/*` catch-all answers every one with 404 `unknown kortix route`.
  * Every export stays until the next major and carries `@deprecated`.
  */
-import { authenticatedFetch } from '../http/auth';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Request core
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * JSON request against `${baseUrl}${path}`, surfacing the daemon's error body
- * on non-2xx responses. Reads the body as text first and parses defensively
- * (falls back to `{}`) rather than assuming every response — success or
- * error, from every one of these routes — is guaranteed valid JSON; some
- * service actions reply with an empty body.
- */
-async function kortixMasterRequest<T>(
-  baseUrl: string,
-  path: string,
-  init?: RequestInit,
-  fetchOptions?: { retryOnAuthError?: boolean },
-): Promise<T> {
-  let base = baseUrl;
-  while (base.endsWith('/')) base = base.slice(0, -1);
-
-  const response = await authenticatedFetch(
-    `${base}${path}`,
-    {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init?.headers as Record<string, string> | undefined),
-      },
-    },
-    fetchOptions,
-  );
-
-  const text = await response.text();
-  let body: any = {};
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch {
-    body = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      body?.error || body?.message || body?.details || text.slice(0, 200) || `Request failed with ${response.status}`,
-    );
-  }
-  return body as T;
-}
+import { sandboxRequest } from './sandbox-request';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tasks — /kortix/tasks
@@ -156,7 +108,7 @@ export async function listTasks(baseUrl: string, params: ListTasksParams = {}): 
   if (params.projectId) search.set('project_id', params.projectId);
   if (params.status) search.set('status', params.status);
   const qs = search.toString() ? `?${search}` : '';
-  return kortixMasterRequest<unknown[]>(baseUrl, `/kortix/tasks${qs}`);
+  return sandboxRequest<unknown[]>(baseUrl, `/kortix/tasks${qs}`);
 }
 
 /**
@@ -165,22 +117,22 @@ export async function listTasks(baseUrl: string, params: ListTasksParams = {}): 
  * @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major.
  */
 export async function getTask(baseUrl: string, id: string): Promise<unknown> {
-  return kortixMasterRequest<unknown>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`);
+  return sandboxRequest<unknown>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listTaskEvents(baseUrl: string, id: string): Promise<KortixTaskEvent[]> {
-  return kortixMasterRequest<KortixTaskEvent[]>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/events`);
+  return sandboxRequest<KortixTaskEvent[]>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/events`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getTaskStatus(baseUrl: string, id: string): Promise<KortixTaskLiveStatus> {
-  return kortixMasterRequest<KortixTaskLiveStatus>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/status`);
+  return sandboxRequest<KortixTaskLiveStatus>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/status`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function createTask(baseUrl: string, data: CreateTaskInput): Promise<KortixTask> {
-  return kortixMasterRequest<KortixTask>(baseUrl, '/kortix/tasks', {
+  return sandboxRequest<KortixTask>(baseUrl, '/kortix/tasks', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -188,7 +140,7 @@ export async function createTask(baseUrl: string, data: CreateTaskInput): Promis
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function updateTask(baseUrl: string, id: string, data: Partial<KortixTask>): Promise<KortixTask> {
-  return kortixMasterRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`, {
+  return sandboxRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -196,21 +148,21 @@ export async function updateTask(baseUrl: string, id: string, data: Partial<Kort
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function startTask(baseUrl: string, id: string): Promise<KortixTask> {
-  return kortixMasterRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/start`, {
+  return sandboxRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/start`, {
     method: 'POST',
   });
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function approveTask(baseUrl: string, id: string): Promise<KortixTask> {
-  return kortixMasterRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/approve`, {
+  return sandboxRequest<KortixTask>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}/approve`, {
     method: 'POST',
   });
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function deleteTask(baseUrl: string, id: string): Promise<{ deleted: boolean }> {
-  return kortixMasterRequest<{ deleted: boolean }>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`, {
+  return sandboxRequest<{ deleted: boolean }>(baseUrl, `/kortix/tasks/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
 }
@@ -344,17 +296,17 @@ export interface UpdateTicketInput {
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listTickets(baseUrl: string, projectId?: string): Promise<Ticket[]> {
   const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
-  return kortixMasterRequest<Ticket[]>(baseUrl, `/kortix/tickets${qs}`);
+  return sandboxRequest<Ticket[]>(baseUrl, `/kortix/tickets${qs}`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getTicket(baseUrl: string, id: string): Promise<Ticket> {
-  return kortixMasterRequest<Ticket>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`);
+  return sandboxRequest<Ticket>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listTicketEvents(baseUrl: string, id: string): Promise<TicketEvent[]> {
-  return kortixMasterRequest<TicketEvent[]>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/events`);
+  return sandboxRequest<TicketEvent[]>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/events`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -362,7 +314,7 @@ export async function createTicket(
   baseUrl: string,
   body: CreateTicketInput,
 ): Promise<{ ticket: Ticket; triggered: TriggeredAgent[] }> {
-  return kortixMasterRequest(baseUrl, '/kortix/tickets', {
+  return sandboxRequest(baseUrl, '/kortix/tickets', {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -370,7 +322,7 @@ export async function createTicket(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function updateTicket(baseUrl: string, id: string, body: Partial<UpdateTicketInput>): Promise<Ticket> {
-  return kortixMasterRequest<Ticket>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`, {
+  return sandboxRequest<Ticket>(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -382,7 +334,7 @@ export async function updateTicketStatus(
   id: string,
   body: { status: string; actor_type: ActorType; actor_id: string },
 ): Promise<{ ticket: Ticket; triggered: TriggeredAgent[] }> {
-  return kortixMasterRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/status`, {
+  return sandboxRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/status`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -394,7 +346,7 @@ export async function assignTicket(
   id: string,
   body: { assignee_type: AssigneeType; assignee_id: string; actor_type: ActorType; actor_id: string },
 ): Promise<{ added: boolean; ticket: Ticket }> {
-  return kortixMasterRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/assign`, {
+  return sandboxRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/assign`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -406,7 +358,7 @@ export async function unassignTicket(
   id: string,
   body: { assignee_type: AssigneeType; assignee_id: string; actor_type: ActorType; actor_id: string },
 ): Promise<{ removed: boolean; ticket: Ticket }> {
-  return kortixMasterRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/unassign`, {
+  return sandboxRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/unassign`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -418,7 +370,7 @@ export async function commentTicket(
   id: string,
   body: { body: string; actor_type: ActorType; actor_id: string },
 ): Promise<{ event: TicketEvent; mentions: string[]; triggered: Array<{ agent_slug: string }> }> {
-  return kortixMasterRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/comments`, {
+  return sandboxRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}/comments`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -426,7 +378,7 @@ export async function commentTicket(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function deleteTicket(baseUrl: string, id: string): Promise<{ deleted: true }> {
-  return kortixMasterRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return sandboxRequest(baseUrl, `/kortix/tickets/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -445,7 +397,7 @@ export interface ReplaceColumnInput {
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listColumns(baseUrl: string, projectId: string): Promise<TicketColumn[]> {
-  return kortixMasterRequest<TicketColumn[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/columns`);
+  return sandboxRequest<TicketColumn[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/columns`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -454,7 +406,7 @@ export async function replaceColumns(
   projectId: string,
   columns: ReplaceColumnInput[],
 ): Promise<TicketColumn[]> {
-  return kortixMasterRequest<TicketColumn[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/columns`, {
+  return sandboxRequest<TicketColumn[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/columns`, {
     method: 'PUT',
     body: JSON.stringify({ columns }),
   });
@@ -473,7 +425,7 @@ export interface ReplaceFieldInput {
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listFields(baseUrl: string, projectId: string): Promise<ProjectField[]> {
-  return kortixMasterRequest<ProjectField[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/fields`);
+  return sandboxRequest<ProjectField[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/fields`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -482,7 +434,7 @@ export async function replaceFields(
   projectId: string,
   fields: ReplaceFieldInput[],
 ): Promise<ProjectField[]> {
-  return kortixMasterRequest<ProjectField[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/fields`, {
+  return sandboxRequest<ProjectField[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/fields`, {
     method: 'PUT',
     body: JSON.stringify({ fields }),
   });
@@ -499,7 +451,7 @@ export interface ReplaceTemplateInput {
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listTemplates(baseUrl: string, projectId: string): Promise<TicketTemplate[]> {
-  return kortixMasterRequest<TicketTemplate[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/templates`);
+  return sandboxRequest<TicketTemplate[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/templates`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -508,7 +460,7 @@ export async function replaceTemplates(
   projectId: string,
   templates: ReplaceTemplateInput[],
 ): Promise<TicketTemplate[]> {
-  return kortixMasterRequest<TicketTemplate[]>(
+  return sandboxRequest<TicketTemplate[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/templates`,
     { method: 'PUT', body: JSON.stringify({ templates }) },
@@ -526,7 +478,7 @@ export async function replaceTemplates(
  * @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major.
  */
 export async function ensurePmSession(baseUrl: string, projectId: string): Promise<{ session_id: string; reused: boolean }> {
-  return kortixMasterRequest(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/pm-session`, {
+  return sandboxRequest(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/pm-session`, {
     method: 'POST',
   });
 }
@@ -551,7 +503,7 @@ export type UpdateProjectAgentInput = Partial<Omit<CreateProjectAgentInput, 'slu
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listProjectAgents(baseUrl: string, projectId: string): Promise<ProjectAgent[]> {
-  return kortixMasterRequest<ProjectAgent[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/agents`);
+  return sandboxRequest<ProjectAgent[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/agents`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -560,7 +512,7 @@ export async function createProjectAgent(
   projectId: string,
   body: CreateProjectAgentInput,
 ): Promise<ProjectAgent> {
-  return kortixMasterRequest<ProjectAgent>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/agents`, {
+  return sandboxRequest<ProjectAgent>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/agents`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -573,7 +525,7 @@ export async function updateProjectAgent(
   slug: string,
   body: UpdateProjectAgentInput,
 ): Promise<ProjectAgent> {
-  return kortixMasterRequest<ProjectAgent>(
+  return sandboxRequest<ProjectAgent>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(slug)}`,
     { method: 'PATCH', body: JSON.stringify(body) },
@@ -582,7 +534,7 @@ export async function updateProjectAgent(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function deleteProjectAgent(baseUrl: string, projectId: string, slug: string): Promise<{ deleted: true }> {
-  return kortixMasterRequest(
+  return sandboxRequest(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(slug)}`,
     { method: 'DELETE' },
@@ -595,7 +547,7 @@ export async function getAgentPersona(
   projectId: string,
   slug: string,
 ): Promise<{ agent: ProjectAgent; body_md: string }> {
-  return kortixMasterRequest(
+  return sandboxRequest(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(slug)}/persona`,
   );
@@ -607,7 +559,7 @@ export async function getAgentPersona(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getProjectActivity(baseUrl: string, projectId: string, limit = 200): Promise<TicketEvent[]> {
-  return kortixMasterRequest<TicketEvent[]>(
+  return sandboxRequest<TicketEvent[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/activity?limit=${limit}`,
   );
@@ -659,22 +611,22 @@ export type PatchKortixProjectInput = PatchKortixMasterProjectInput;
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listKortixProjects(baseUrl: string): Promise<KortixMasterProject[]> {
-  return kortixMasterRequest<KortixMasterProject[]>(baseUrl, '/kortix/projects');
+  return sandboxRequest<KortixMasterProject[]>(baseUrl, '/kortix/projects');
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getKortixProject(baseUrl: string, id: string): Promise<KortixMasterProject> {
-  return kortixMasterRequest<KortixMasterProject>(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`);
+  return sandboxRequest<KortixMasterProject>(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getKortixProjectBySession(baseUrl: string, sessionId: string): Promise<KortixMasterProject> {
-  return kortixMasterRequest<KortixMasterProject>(baseUrl, `/kortix/projects/by-session/${encodeURIComponent(sessionId)}`);
+  return sandboxRequest<KortixMasterProject>(baseUrl, `/kortix/projects/by-session/${encodeURIComponent(sessionId)}`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listKortixProjectSessions(baseUrl: string, projectId: string): Promise<unknown[]> {
-  return kortixMasterRequest<unknown[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/sessions`);
+  return sandboxRequest<unknown[]>(baseUrl, `/kortix/projects/${encodeURIComponent(projectId)}/sessions`);
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -682,7 +634,7 @@ export async function deleteKortixProject(
   baseUrl: string,
   id: string,
 ): Promise<{ deleted: boolean; name: string; path: string }> {
-  return kortixMasterRequest(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return sandboxRequest(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
@@ -691,7 +643,7 @@ export async function patchKortixProject(
   id: string,
   body: PatchKortixMasterProjectInput,
 ): Promise<KortixMasterProject> {
-  return kortixMasterRequest<KortixMasterProject>(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`, {
+  return sandboxRequest<KortixMasterProject>(baseUrl, `/kortix/projects/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -769,7 +721,7 @@ export async function listMilestones(
   projectId: string,
   statusFilter: 'open' | 'closed' | 'all' = 'all',
 ): Promise<Milestone[]> {
-  return kortixMasterRequest<Milestone[]>(
+  return sandboxRequest<Milestone[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones?status=${statusFilter}`,
   );
@@ -777,7 +729,7 @@ export async function listMilestones(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function getMilestone(baseUrl: string, projectId: string, ref: string): Promise<MilestoneDetail> {
-  return kortixMasterRequest<MilestoneDetail>(
+  return sandboxRequest<MilestoneDetail>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}`,
   );
@@ -785,7 +737,7 @@ export async function getMilestone(baseUrl: string, projectId: string, ref: stri
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listMilestoneEvents(baseUrl: string, projectId: string, ref: string): Promise<MilestoneEvent[]> {
-  return kortixMasterRequest<MilestoneEvent[]>(
+  return sandboxRequest<MilestoneEvent[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}/events`,
   );
@@ -797,7 +749,7 @@ export async function createMilestone(
   projectId: string,
   body: CreateMilestoneBody,
 ): Promise<Milestone> {
-  return kortixMasterRequest<Milestone>(
+  return sandboxRequest<Milestone>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones`,
     { method: 'POST', body: JSON.stringify(body) },
@@ -811,7 +763,7 @@ export async function updateMilestone(
   ref: string,
   patch: UpdateMilestoneBody,
 ): Promise<Milestone> {
-  return kortixMasterRequest<Milestone>(
+  return sandboxRequest<Milestone>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}`,
     { method: 'PATCH', body: JSON.stringify(patch) },
@@ -825,7 +777,7 @@ export async function closeMilestone(
   ref: string,
   body: { summary_md?: string; cancelled?: boolean },
 ): Promise<Milestone> {
-  return kortixMasterRequest<Milestone>(
+  return sandboxRequest<Milestone>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}/close`,
     { method: 'POST', body: JSON.stringify(body) },
@@ -834,7 +786,7 @@ export async function closeMilestone(
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function reopenMilestone(baseUrl: string, projectId: string, ref: string): Promise<Milestone> {
-  return kortixMasterRequest<Milestone>(
+  return sandboxRequest<Milestone>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}/reopen`,
     { method: 'POST' },
@@ -843,7 +795,7 @@ export async function reopenMilestone(baseUrl: string, projectId: string, ref: s
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function deleteMilestone(baseUrl: string, projectId: string, ref: string): Promise<{ ok: boolean }> {
-  return kortixMasterRequest(
+  return sandboxRequest(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(ref)}`,
     { method: 'DELETE' },
@@ -887,7 +839,7 @@ export interface UpsertCredentialBody {
 
 /** @deprecated Part of the kortix-master client. The sandbox daemon serves none of its routes: every call answers 404. Removed in the next major. */
 export async function listCredentials(baseUrl: string, projectId: string): Promise<CredentialItem[]> {
-  return kortixMasterRequest<CredentialItem[]>(
+  return sandboxRequest<CredentialItem[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/credentials`,
   );
@@ -899,7 +851,7 @@ export async function listCredentialEvents(
   projectId: string,
   name: string,
 ): Promise<CredentialEvent[]> {
-  return kortixMasterRequest<CredentialEvent[]>(
+  return sandboxRequest<CredentialEvent[]>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/credentials/${encodeURIComponent(name)}/events`,
   );
@@ -911,7 +863,7 @@ export async function upsertCredential(
   projectId: string,
   body: UpsertCredentialBody,
 ): Promise<CredentialItem> {
-  return kortixMasterRequest<CredentialItem>(
+  return sandboxRequest<CredentialItem>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/credentials`,
     { method: 'POST', body: JSON.stringify(body) },
@@ -928,7 +880,7 @@ export async function revealCredential(
   projectId: string,
   name: string,
 ): Promise<CredentialWithValue> {
-  return kortixMasterRequest<CredentialWithValue>(
+  return sandboxRequest<CredentialWithValue>(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/credentials/${encodeURIComponent(name)}`,
   );
@@ -940,7 +892,7 @@ export async function deleteCredential(
   projectId: string,
   name: string,
 ): Promise<{ ok: boolean }> {
-  return kortixMasterRequest(
+  return sandboxRequest(
     baseUrl,
     `/kortix/projects/${encodeURIComponent(projectId)}/credentials/${encodeURIComponent(name)}`,
     { method: 'DELETE' },
@@ -1026,11 +978,11 @@ const SERVICES_TIMEOUT_MS = 10_000;
 const servicesFetchOptions = { retryOnAuthError: false } as const;
 
 function servicesRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
-  return kortixMasterRequest<T>(
+  return sandboxRequest<T>(
     baseUrl,
     path,
     { signal: AbortSignal.timeout(SERVICES_TIMEOUT_MS), ...init },
-    servicesFetchOptions,
+    { fetchOptions: servicesFetchOptions },
   );
 }
 

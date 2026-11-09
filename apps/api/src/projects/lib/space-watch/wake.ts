@@ -46,6 +46,7 @@ import {
   type WatcherRow,
 } from './store';
 import { projectsView } from '../../../workspaces/rows';
+import { errorMessage } from '../../../shared/error-message';
 
 type SpaceRow = typeof projectSpaces.$inferSelect;
 
@@ -142,7 +143,7 @@ async function writeEventsFile(place: { drive: DriveRow; folder: string } | null
     const text = eventsFileText(spacePlace(space), await latestLines(space.spaceId, EVENTS_FILE_LINES));
     await volumeOps().write(place.drive, `${place.folder}/events.md`, text, { overwrite: true });
   } catch (error) {
-    logger.warn('[space-watch] events.md was not written', { space_id: space.spaceId, error: error instanceof Error ? error.message : String(error) });
+    logger.warn('[space-watch] events.md was not written', { space_id: space.spaceId, error: errorMessage(error) });
   }
 }
 
@@ -274,7 +275,7 @@ export async function runSpaceWatcherTick(now: Date = new Date()): Promise<Space
         logger.warn('[space-watch] daily wake budget reached; no more wakes today (UTC)', { space_id: space.spaceId, wakes_today: decision.wakesOnDay });
       }
     } catch (error) {
-      logger.warn('[space-watch] the wake failed', { space_id: space.spaceId, error: error instanceof Error ? error.message : String(error) });
+      logger.warn('[space-watch] the wake failed', { space_id: space.spaceId, error: errorMessage(error) });
     }
   }
   return result;

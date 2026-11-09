@@ -298,8 +298,8 @@ describe('Channels view — per-channel binding management (spec §2.5)', () => 
   test('the dialog has a tab per platform and searches within the open tab', () => {
     const dialog = dialogSource();
     expect(dialog).toContain('bindingTabs(');
-    expect(dialog).toContain('<TabsListCompact');
-    expect(dialog).toContain('<TabsTriggerCompact');
+    expect(dialog).toContain('<TabsList size="xs"');
+    expect(dialog).toContain('<TabsTrigger');
     expect(dialog).toContain('BINDING_SEARCH_MIN');
   });
 
@@ -440,7 +440,7 @@ describe('Teams connect hero — the Slack hero, for Teams', () => {
 
   test('the old panel chrome is gone: no disclosure, banner, tenant form or manifest block', () => {
     expect(teamsCardSource).not.toContain('<Disclosure');
-    expect(teamsCardSource).not.toContain('<InfoBanner');
+    expect(teamsCardSource).not.toContain('<Alert');
     expect(teamsCardSource).not.toContain('<Input');
     expect(teamsCardSource).not.toContain('<ManifestCopyBlock');
   });
@@ -514,10 +514,10 @@ describe('Channels view — Teams one-click install outcome', () => {
  * notice names both steps.
  */
 describe('Channels view — a Teams catalog on an older app', () => {
-  test('the notice renders from the server verdict, as an InfoBanner under the rows', () => {
+  test('the notice renders from the server verdict, as an Alert under the rows', () => {
     expect(channelsSource).toContain('teamsInstall?.appUpdateAvailable');
     expect(channelsSource).toContain('<TeamsAppUpdateNotice');
-    expect(channelsSource).toMatch(/<InfoBanner\s+tone="warning"/);
+    expect(channelsSource).toMatch(/<BannerAlert\s+variant="warning"/);
   });
 
   test('it names both versions when the catalog version is known, and the latest when not', () => {

@@ -73,10 +73,10 @@ Vercel. Each of these returns prod to the version in `prod:VERSION`:
   `prod:VERSION` and switches the api back to `KORTIX_PROCESS_ROLE=web`. Do not
   dispatch `deploy-prod.yml` while prod is rolled back, unless you mean to roll
   forward.
-- **A push to `prod` rebuilds the Vercel frontend** from branch source.
-  `apps/web/scripts/vercel-ignore.sh` (`ignoreCommand` in `apps/web/vercel.json`)
-  skips that build when the push changes only files under `infra/`, and builds
-  on any doubt.
+- **Vercel never builds on a push.** The Vercel project has no Git connection,
+  and `apps/web/vercel.json` sets `git.deploymentEnabled: false`. kortix.com
+  changes only through `deploy-prod.yml` (`deploy-web-vercel`), so a Vercel
+  instant rollback of the frontend holds until the next `deploy-prod.yml` run.
 
 Until one of these runs, the worker stays at 0 and the api runs the scheduled
 jobs (`KORTIX_PROCESS_ROLE=all`). Nothing expires that state: plan the roll

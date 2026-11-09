@@ -2,10 +2,12 @@
 
 import { ProjectShell } from '@/components/project-shell';
 import { SessionApprovals } from '@/components/workbench/approvals-panel';
-import { BootScreen } from '@/components/workbench/boot-screen';
-import { useRuntimeRecovery } from '@/components/workbench/use-runtime-recovery';
+import { BootScreen } from '@kortix/white-label-shared/boot-screen';
+import { useRuntimeRecovery } from '@kortix/white-label-shared/use-runtime-recovery';
 import { useSession } from '@kortix/sdk/react';
 import { SessionWorkspace } from '@kortix/ui/workspace';
+import { kortix } from '@/lib/kortix';
+import { qk } from '@/lib/query-keys';
 import { useParams } from 'next/navigation';
 
 export default function SessionWorkbenchPage() {
@@ -32,7 +34,10 @@ function Workbench() {
   // One hook owns readiness, transport, streaming, the transcript, prompts and
   // message sync. Everything below reads it.
   const session = useSession(projectId, sessionId);
-  useRuntimeRecovery(session);
+  useRuntimeRecovery(session, {
+    restart: () => kortix.session(projectId, sessionId).restart(),
+    sessionStartKey: qk.sessionStart(projectId, sessionId),
+  });
 
   return (
     <>

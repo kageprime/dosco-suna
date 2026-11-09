@@ -19,6 +19,7 @@ import {
   WorkspaceHasProjectError,
 } from '../../workspaces/one-project';
 import { insertProjectRow } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 type GitHubInstallation = typeof accountGithubInstallations.$inferSelect;
 
@@ -159,7 +160,7 @@ async function registerLinkedProject(input: RegistrationInput): Promise<ProjectR
     .catch((err) => {
       console.warn('[project-snapshot] enqueue after registration failed', {
         projectId: row.projectId,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     });
   captureProductEvent({

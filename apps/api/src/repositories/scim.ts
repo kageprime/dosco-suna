@@ -41,7 +41,7 @@ function isScimSecret(value: string): boolean {
   return typeof value === 'string' && value.startsWith(SCIM_TOKEN_PREFIX);
 }
 
-export interface CreateScimTokenInput {
+interface CreateScimTokenInput {
   accountId: string;
   name: string;
   createdBy: string;

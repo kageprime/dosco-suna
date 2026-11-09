@@ -17,7 +17,7 @@
  */
 
 import { Button } from '../../../primitives/button';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import Loading from '../../../primitives/loading';
@@ -159,9 +159,9 @@ const KIND_LABEL_KEY = {
 /** A source this project cannot use yet: one sentence on why, and the link that fixes it. */
 function Unavailable({ children, action }: { children: ReactNode; action: ReactNode }) {
   return (
-    <InfoBanner tone="info" className="text-xs" action={action}>
+    <BannerAlert variant="default" className="text-xs"><BannerAlertDescription>
       {children}
-    </InfoBanner>
+    </BannerAlertDescription><BannerAlertActions>{action}</BannerAlertActions></BannerAlert>
   );
 }
 
@@ -575,9 +575,9 @@ function ComposerForm({
 
           {error ? (
             <div ref={errorRef}>
-              <InfoBanner tone="destructive" className="text-xs">
+              <BannerAlert variant="destructive" className="text-xs"><BannerAlertDescription>
                 {error}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             </div>
           ) : null}
         </div>

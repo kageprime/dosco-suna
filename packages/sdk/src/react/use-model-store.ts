@@ -172,6 +172,29 @@ function subscribe(fn: () => void) {
   return () => _listeners.delete(fn);
 }
 
+/** Copy-map / set-or-delete: the one body of every per-session map setter. */
+function mapEntry<V>(map: Record<string, V> | undefined, key: string, value: V | undefined): Record<string, V> {
+  const next = { ...(map ?? {}) };
+  if (value !== undefined) next[key] = value;
+  else delete next[key];
+  return next;
+}
+
+/** The one body of the explicit "make this my default everywhere" write; both entry points call it. */
+function clearPerSessionSelections(model: ModelKey | undefined): ModelStore {
+  // When setting a new global default, clear ALL per-agent and per-session
+  // selections so the global default takes effect everywhere immediately.
+  // Without this, stale per-agent/per-session data from previous interactions
+  // would override the user's explicit setup choice.
+  return {
+    ...getStore(),
+    globalDefault: model,
+    selectedModel: {},
+    sessionModel: {},
+    sessionModelFallbackAt: {},
+  };
+}
+
 /**
  * Non-hook API to SEED the global-default display cache from the server's
  * account default (useModelDefaults). Always reflects the server value (it's the
@@ -197,13 +220,7 @@ export function seedGlobalDefaultFromServer(model: ModelKey | undefined): void {
  * Clears per-agent/per-session selections so the new default takes effect everywhere.
  */
 export function setGlobalDefaultModel(model: ModelKey | undefined): void {
-  const s = getStore();
-  setStore({
-    ...s,
-    globalDefault: model,
-    selectedModel: {},
-    sessionModel: {},
-  });
+  setStore(clearPerSessionSelections(model));
 }
 
 // The default-visibility rule is framework-free (`createModelVisibility`), so
@@ -324,13 +341,7 @@ export function useModelStore(
 
   const setSelectedModel = useCallback((agentName: string, model: ModelKey | undefined) => {
     const s = getStore();
-    const next = { ...s.selectedModel };
-    if (model) {
-      next[agentName] = model;
-    } else {
-      delete next[agentName];
-    }
-    setStore({ ...s, selectedModel: next });
+    setStore({ ...s, selectedModel: mapEntry(s.selectedModel, agentName, model) });
   }, []);
 
   // Per-session agent name selection
@@ -350,13 +361,8 @@ export function useModelStore(
     // 351da943…). See `shouldSetSessionAgentName` for the rationale.
     const current = s.sessionAgentName?.[sessionId];
     if (!shouldSetSessionAgentName(current, name)) return;
-    const next = { ...s.sessionAgentName };
-    if (name) {
-      next[sessionId] = name;
-    } else {
-      delete next[sessionId];
-    }
-    setStore({ ...s, sessionAgentName: next });
+    // `''` and `undefined` are the same clear intent (see the guard above).
+    setStore({ ...s, sessionAgentName: mapEntry(s.sessionAgentName, sessionId, name ? name : undefined) });
   }, []);
 
   // Globally last-used agent — fallback for dashboard (no sessionId) and a seed
@@ -384,31 +390,15 @@ export function useModelStore(
   /** `fallbackAtMs`: the `atMs` of the fallback switch the composer showed when this pick was made, if any. */
   const setSessionModel = useCallback((sessionId: string, model: ModelKey | undefined, fallbackAtMs?: number) => {
     const s = getStore();
-    const next = { ...s.sessionModel };
-    const over = { ...s.sessionModelFallbackAt };
-    if (model) next[sessionId] = model;
-    else delete next[sessionId];
-    if (model && fallbackAtMs !== undefined) over[sessionId] = fallbackAtMs;
-    else delete over[sessionId];
-    setStore({ ...s, sessionModel: next, sessionModelFallbackAt: over });
+    const stamp = model && fallbackAtMs !== undefined ? fallbackAtMs : undefined;
+    setStore({ ...s, sessionModel: mapEntry(s.sessionModel, sessionId, model), sessionModelFallbackAt: mapEntry(s.sessionModelFallbackAt, sessionId, stamp) });
   }, []);
 
   // Global default model (set during onboarding setup wizard)
   const globalDefault = useMemo(() => store.globalDefault, [store.globalDefault]);
 
   const setGlobalDefault = useCallback((model: ModelKey | undefined) => {
-    const s = getStore();
-    // When setting a new global default, clear ALL per-agent and per-session
-    // selections so the global default takes effect everywhere immediately.
-    // Without this, stale per-agent/per-session data from previous interactions
-    // would override the user's explicit setup choice.
-    setStore({
-      ...s,
-      globalDefault: model,
-      selectedModel: {},
-      sessionModel: {},
-      sessionModelFallbackAt: {},
-    });
+    setStore(clearPerSessionSelections(model));
   }, []);
 
   return {

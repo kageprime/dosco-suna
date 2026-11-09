@@ -9,7 +9,7 @@
  * CRUD, executions) rather than part of the OpenCode protocol, so this stays a
  * thin typed passthrough rather than a full typed surface per endpoint.
  */
-import { authenticatedFetch } from '../http/auth';
+import { sandboxRequest } from './sandbox-request';
 
 /**
  * JSON request against `${baseUrl}/kortix/triggers${path}`, surfacing the
@@ -20,19 +20,5 @@ export async function triggersRequest<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  let base = baseUrl;
-  while (base.endsWith('/')) base = base.slice(0, -1);
-  const response = await authenticatedFetch(`${base}/kortix/triggers${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers as Record<string, string> | undefined),
-    },
-  });
-
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body?.error || body?.message || `Request failed with ${response.status}`);
-  }
-  return body as T;
+  return sandboxRequest<T>(baseUrl, `/kortix/triggers${path}`, init);
 }

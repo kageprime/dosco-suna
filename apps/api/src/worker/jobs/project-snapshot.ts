@@ -1,57 +1,49 @@
 import { runProjectSnapshotWorkerOnce } from '../../git-proxy/project-snapshot-worker';
 import { ensureProjectSnapshotBucket, projectSnapshotStorageConfigured } from '../../git-proxy/project-snapshot-store';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 
 const IDLE_MS = 5_000;
 const ERROR_MS = 15_000;
 
-let timer: ReturnType<typeof setTimeout> | null = null;
-let running = false;
-let stopped = true;
-let activeTick: Promise<void> | null = null;
 // Self-host's bundled store starts empty: no build may claim a row before the bucket exists.
 let bucketReady = false;
 
-async function tick(): Promise<void> {
-  if (stopped) return;
-  let delay = IDLE_MS;
-  try {
-    if (!bucketReady) {
-      await ensureProjectSnapshotBucket();
-      bucketReady = true;
-    }
-    const processed = await runProjectSnapshotWorkerOnce();
-    // Drain a backlog promptly; sleep only when the queue was empty.
-    if (processed.length > 0) delay = 250;
-  } catch (err) {
-    console.error('[project-snapshot] worker tick failed', err);
-    delay = ERROR_MS;
-  }
-  if (stopped) return;
-  timer = setTimeout(() => {
-    activeTick = runWorkerTick('project-snapshots', tick);
-  }, delay);
-}
+const job = leaderTimer(
+  () =>
+    runWorkerTick('project-snapshots', async () => {
+      let delay = IDLE_MS;
+      try {
+        if (!bucketReady) {
+          await ensureProjectSnapshotBucket();
+          bucketReady = true;
+        }
+        const processed = await runProjectSnapshotWorkerOnce();
+        // Drain a backlog promptly; sleep only when the queue was empty.
+        if (processed.length > 0) delay = 250;
+      } catch (err) {
+        console.error('[project-snapshot] worker tick failed', err);
+        delay = ERROR_MS;
+      }
+      return delay;
+    }),
+  { name: 'project-snapshots' },
+);
+
+let started = false;
 
 export function startProjectSnapshotWorker(): void {
-  if (running) return;
+  if (started) return;
   if (!projectSnapshotStorageConfigured()) {
     console.info('[project-snapshot] worker idle: KORTIX_PROJECT_SNAPSHOT_S3_BUCKET is not configured');
     return;
   }
-  running = true;
-  stopped = false;
-  activeTick = runWorkerTick('project-snapshots', tick);
+  started = true;
+  job.start();
 }
 
 export async function stopProjectSnapshotWorker(): Promise<void> {
-  if (!running) return;
-  stopped = true;
-  running = false;
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
-  await activeTick?.catch(() => {});
-  activeTick = null;
+  if (!started) return;
+  started = false;
+  await job.stop();
 }

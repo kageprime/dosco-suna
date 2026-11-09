@@ -33,6 +33,7 @@ import { RETIRED_EXTERNAL_ID_KEY } from '../../platform/services/retired-sandbox
 import { WORKSPACE_VOLUME_SESSION_KEY, workspaceVolumeHoldReason } from '../../platform/services/workspace-volume';
 import { db } from '../../shared/db';
 import { transitionSandbox } from '../session-lifecycle/status-transitions';
+import { mergeMetadata } from './sandbox-state-sync';
 import { PROVIDER_REMOVED_KEY } from './archived-box-removal';
 
 /** Sandbox metadata: when this lane retired the row. */
@@ -127,7 +128,10 @@ async function holdIdleBox(sandboxId: string, externalId: string, reason: string
   await db
     .update(sessionSandboxes)
     .set({
-      metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) || jsonb_build_object(${IDLE_DELETE_HELD_AT_KEY}::text, ${now.toISOString()}::text, ${IDLE_DELETE_HELD_REASON_KEY}::text, ${reason}::text)`,
+      metadata: mergeMetadata({
+        [IDLE_DELETE_HELD_AT_KEY]: now.toISOString(),
+        [IDLE_DELETE_HELD_REASON_KEY]: reason,
+      }),
     })
     .where(and(eq(sessionSandboxes.sandboxId, sandboxId), eq(sessionSandboxes.externalId, externalId)))
     .catch((error) => {
@@ -148,7 +152,7 @@ async function removeRetiredBox(sandboxId: string, externalId: string, now: Date
     await db
       .update(sessionSandboxes)
       .set({
-        metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) || jsonb_build_object(${PROVIDER_REMOVED_KEY}::text, ${now.toISOString()}::text)`,
+        metadata: mergeMetadata({ [PROVIDER_REMOVED_KEY]: now.toISOString() }),
       })
       .where(and(eq(sessionSandboxes.sandboxId, sandboxId), isNull(sessionSandboxes.externalId), unremovedIdleRetire));
     return true;

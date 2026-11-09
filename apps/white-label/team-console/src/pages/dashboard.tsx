@@ -3,7 +3,7 @@ import { ErrorState } from '@kortix/ui/error-state';
 import Loading from '@kortix/ui/loading';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kortix/ui/table';
 import { useQueries } from '@tanstack/react-query';
-import { PageTitle, RowLink, SessionStatus, When } from '../app';
+import { PageTitle, RowLink, SessionStatus, When } from '../ui';
 import { kortix } from '../kortix';
 import { useProjects } from './projects';
 

@@ -162,6 +162,11 @@ export function registerProviderSecretPoolsRoutes(): void {
     await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SESSION_STOP);
     const visible = await loadVisibleSession(loaded, sessionId, callerKortixSessionId(c), callerKortixSessionId(c));
     if (!visible) return c.json({ error: 'Not found' }, 404);
+    // Session control and secret visibility are separate leaves: assert both,
+    // the leaf-pairing pattern the agent-secret route uses
+    // (projects/routes/agent-scope.ts pairs agent.write with this leaf).
+    // After the session read, so a session the caller cannot see stays a 404.
+    await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SECRET_READ);
     if (!mayChangeSessionModel(visible)) return c.json({ error: 'Only the session owner or a workspace manager can select provider secrets' }, 403);
     const gate = requireFeatureFlag(c, loaded.row.metadata, 'pooled_provider_secrets');
     if (gate) return gate;

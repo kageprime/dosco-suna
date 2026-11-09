@@ -3,7 +3,7 @@
  * legal, what a complete verdict is, which evidence path is acceptable, and
  * the wake cap. `service.ts` applies them inside one row lock per write.
  */
-import { GOAL_LIMITS, GOAL_OPEN_STATES, type GoalCapabilities, type GoalState } from '@kortix/api-contract';
+import { GOAL_LIMITS, GOAL_OPEN_STATES, type GoalCapabilities } from '@kortix/api-contract';
 import type { ProjectGoalCriterion } from '@kortix/db';
 import { parseDurationSeconds } from '@kortix/manifest-schema';
 import type { GoalRow } from './store';
@@ -18,10 +18,6 @@ export type GoalActor =
   | { kind: 'user'; userId: string; isAdmin: boolean }
   | { kind: 'session'; sessionId: string; userId: string }
   | { kind: 'platform' };
-
-export function actorKindOf(actor: GoalActor): 'user' | 'session' | 'platform' {
-  return actor.kind;
-}
 
 export function actorIdOf(actor: GoalActor): string | null {
   if (actor.kind === 'user') return actor.userId;
@@ -234,5 +230,3 @@ export function chaseBounds(now: Date): { min: Date; max: Date } {
     max: new Date(now.getTime() + GOAL_LIMITS.chase_max_days * 86_400_000),
   };
 }
-
-export const GOAL_STATES: readonly GoalState[] = ['draft', 'active', 'waiting_on_user', 'verifying', 'done', 'stopped'];

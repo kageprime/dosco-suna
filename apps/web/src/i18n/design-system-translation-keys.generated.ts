@@ -26,7 +26,6 @@ export const DESIGN_SYSTEM_TRANSLATION_KEYS: Readonly<Record<string, string>> = 
   'Encrypted at rest, injected at boot.': 'textf9e2518649d9',
   'Every session boots its own cloud sandbox — session_id == sandbox_id.': 'texta4074914401a',
   Icons: 'texteae96e02bbc4',
-  InfoBanner: 'text17df71c477b7',
   InlineMeta: 'text053805aad93b',
   Input: 'text36ecb4f86691',
   Kbd: 'text76cce341b6b9',

@@ -23,9 +23,9 @@ import { useTranslations } from '../../../i18n';
 import { ArrowUpRightIcon, TreeStructureIcon } from '@phosphor-icons/react';
 import { AgentFailure } from '../../agents/agent-surface';
 import { Button } from '../../../primitives/button';
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { qk, useProjectSession, useSessionChildren } from '@kortix/sdk/react';
+import { qk, useNow, useProjectSession, useSessionChildren } from '@kortix/sdk/react';
 import { stopProjectSession, type ProjectSession } from '@kortix/sdk';
 import { useSessionIds } from '../../../providers/session-ids';
 import { RunProgressRing, type AgentStopState } from './workflow-progress';
@@ -116,18 +116,6 @@ function RunChips({ run }: { run: WorkflowRun }) {
   );
 }
 
-
-/** The current time, every second while `active`: a live run's elapsed labels tick. */
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
-}
-
 /**
  * A live run read from this session's children: each `agent()` is a child session named after
  * its label, started after the call. Null until the first child exists.
@@ -193,7 +181,7 @@ export function WorkflowTool(props: ToolProps) {
   // Live: a foreground run while its call runs, or a background run its runner still runs.
   const live = !!run && run.status === 'running' && (fromRunner || (!settled && !run.background && running));
   const restart = useRestartAgent(ids.projectId, controlSessionId, live ? run : null);
-  const now = useNow(live);
+  const now = useNow(1_000, live);
   const [open, setOpen] = useState<OpenTarget | null>(null);
   const onOpen = useCallback(
     (agent: WorkflowRunAgent) => {

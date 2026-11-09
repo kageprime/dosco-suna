@@ -36,7 +36,7 @@ import { tunnelRateLimiter } from './rate-limiter';
 import { isValidCapability } from './scope-validator';
 
 /** Outcome of a single relayed tunnel RPC. The route + the connector each map this. */
-export type TunnelRpcOutcome =
+type TunnelRpcOutcome =
   | { ok: true; result: unknown }
   | {
       ok: false;
@@ -55,7 +55,7 @@ export type TunnelRpcOutcome =
     };
 
 /** Map a tunnel method to its capability (explicit table first, then prefix). */
-export function resolveCapability(method: string): TunnelCapability | null {
+function resolveCapability(method: string): TunnelCapability | null {
   return capabilityForMethod(method);
 }
 

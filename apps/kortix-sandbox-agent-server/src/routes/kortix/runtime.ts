@@ -13,6 +13,7 @@ import { WorkflowControlBodySchema } from '@kortix/api-contract/multi-agent'
 import type { z } from 'zod'
 import type { Config } from '@/lib/config/config'
 import { logger } from '@/lib/log/logger'
+import { startSampling, loopLagMs } from '@/lib/loop-lag'
 import { KORTIX_SERVICE_CALL_HEADER, KORTIX_USER_CONTEXT_HEADER, verifyKortixUserContext } from '@/lib/kortix-api/kortix-user-context'
 import { sessionLogEventBus, type KortixEvent } from '@/services/event-bus/kortix-event-bus'
 import { etagMatches, notModified, timedJson } from './kortix-http'
@@ -148,15 +149,26 @@ export function createRuntimeRouter(
       // Marks the answer as the verb's own: a 404 without it is a daemon that
       // lacks the route, and apps/api resends on the legacy route.
       c.header('X-Kortix-Turn-Verb', '1')
+      // The box's own attribution stamp (KRTX-4459): the wrapper's wall time
+      // plus the sampled loop lag, so the request log on the API side can
+      // split 'the daemon was slow' from 'the ingress hop was slow' without
+      // a post-hoc reconstruction. One performance.now() pair, no await.
+      startSampling()
+      const answerStartMs = performance.now()
+      const stampTiming = () =>
+        c.header('Server-Timing', `daemon;dur=${(performance.now() - answerStartMs).toFixed(1)}, lag;dur=${loopLagMs()}`)
       const readiness = await options.readiness?.()
       if (readiness && !readiness.ready) {
+        stampTiming()
         c.header('X-Kortix-Boot-Phase', readiness.phase)
         return c.json({ code: RUNTIME_NOT_READY_CODE, ...readiness.details, phase: readiness.phase }, 503)
       }
       try {
         const result = await verb()
+        stampTiming()
         return c.json(result.body as Record<string, unknown>, result.status as 200)
       } catch (err) {
+        stampTiming()
         return c.json({ error: 'upstream unreachable', details: (err as Error).message }, 502)
       }
     }

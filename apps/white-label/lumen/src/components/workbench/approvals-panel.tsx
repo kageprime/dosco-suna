@@ -27,7 +27,7 @@ import {
   approvalFailure,
   sessionApprovalsView,
   type ApprovalFailure,
-} from '@/components/workbench/approvals-model';
+} from '@kortix/white-label-shared/approvals-model';
 import { CallSnippet } from '@/components/dev/call-snippet';
 import { kortix } from '@/lib/kortix';
 import { relativeTime } from '@/lib/utils';

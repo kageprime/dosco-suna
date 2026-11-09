@@ -4,7 +4,7 @@ import type { CostSummary } from '@kortix/sdk';
 import { useTranslations } from '@/i18n/use-translations';
 
 import { DateRangePicker, type CostRange } from '@kortix/ui/date-range-picker';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 
 import { CostChart } from './cost-chart';
 import { CostModelList } from './cost-model-list';
@@ -60,9 +60,9 @@ export function CostLevelShell({
       </div>
 
       {summaryError ? (
-        <InfoBanner tone="destructive" title={tI18nComplete.raw('textbb53fb4d70fa')}>
+        <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nComplete.raw('textbb53fb4d70fa')}</BannerAlertTitle><BannerAlertDescription>
           {summaryError.message}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       <CostSummaryTiles summary={summary} isLoading={isSummaryLoading} extraTiles={extraTiles} />

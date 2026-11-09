@@ -253,6 +253,34 @@ function validateDesktopScope(scope: Record<string, unknown>): PermissionScopeVa
   return { valid: true, sanitized };
 }
 
+/**
+ * A shell allow-list entry is the whole command line the person approved, not
+ * an executable name. `git status` allows exactly `git` with the one argument
+ * `status`. A trailing ` *` allows any further arguments: `git *` is every git
+ * invocation, and `git *`, `node *`, `python3 *` or `sh *` run any code through
+ * their own flags (`git -c alias.x=!cmd x`, `node -e`, `sh -c`).
+ * Arguments compare one token at a time, so an argument never matches a
+ * pattern token by containing whitespace. An entry with no ` *` whose whole
+ * text is the executable (a path with spaces) allows that executable with no
+ * arguments.
+ */
+export function shellCommandAllowed(
+  entries: readonly string[],
+  command: string,
+  args: readonly string[],
+): boolean {
+  const argv = [command.trim(), ...args];
+  return entries.some((entry) => {
+    const anyArgs = entry.endsWith(' *');
+    const fixed = (anyArgs ? entry.slice(0, -2) : entry).trim();
+    if (!fixed) return false;
+    if (fixed === argv[0] && (anyArgs || args.length === 0)) return true;
+    const tokens = fixed.split(/\s+/);
+    if (anyArgs ? argv.length < tokens.length : argv.length !== tokens.length) return false;
+    return tokens.every((token, index) => token === argv[index]);
+  });
+}
+
 export function operationForMethod(method: string): string {
   if (method === 'fs.stat') return 'read';
   const separator = method.indexOf('.');

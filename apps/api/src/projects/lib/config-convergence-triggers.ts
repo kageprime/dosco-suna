@@ -37,6 +37,7 @@ import { expireBaseTips } from '../../config-releases/base-tip';
 import { schedulePublish } from '../../config-releases/publish';
 import { isUuid } from '../../shared/validate';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 export const BASE_MOVE_WINDOW_MS = 30_000;
 export const MAX_SESSIONS_PER_BASE_MOVE = 200;
@@ -136,7 +137,7 @@ export function createConvergenceTriggers(deps: ConvergenceTriggerDeps): Converg
       logger.warn('[projects] base-move fan-out could not list sessions', {
         project_id: projectId,
         branch,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
       return;
     }

@@ -9,8 +9,8 @@
 
 import { ApiError, backendApi } from '../../http/api-client';
 import { authenticatedFetch } from '../../http/auth';
+import { appendQuery, platformApiBase } from '../../http/url';
 import { platformConfig } from '../../http/config';
-import { stripTrailingSlashes } from '../../../platform/strings';
 import type { SessionParticipants } from './sessions';
 import { unwrap } from './shared';
 
@@ -158,20 +158,18 @@ export interface UpdateArtifactInput extends ArtifactBindingInput {
 
 const base = (projectId: string) => `/workspaces/${projectId}/artifacts`;
 
-function query(params: Record<string, string | number | undefined>): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
-  const text = search.toString();
-  return text ? `?${text}` : '';
-}
-
 export async function listArtifactTypes(projectId: string) {
   return unwrap(await backendApi.get<{ types: ArtifactTypeInfo[] }>(`${base(projectId)}/types`)).types;
 }
 
 export async function listArtifacts(projectId: string, options: ListArtifactsOptions = {}) {
   const { agents, unbound, ...rest } = options;
-  const search = new URLSearchParams(query(rest).slice(1));
+  // The one URLSearchParams build left in the unit: repeated `agent` keys,
+  // appendQuery cannot encode those and the rest keeps the options record's order.
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(rest)) {
+    if (value !== undefined && value !== '') search.set(key, String(value));
+  }
   for (const agent of agents ?? []) search.append('agent', agent);
   if (unbound) search.set('unbound', '1');
   const text = search.toString();
@@ -198,7 +196,7 @@ export async function getLinkPreview(projectId: string, url: string) {
 }
 
 export async function getArtifact(projectId: string, artifactId: string, options: { version?: string } = {}) {
-  return unwrap(await backendApi.get<ArtifactDetail>(`${base(projectId)}/${artifactId}${query(options)}`));
+  return unwrap(await backendApi.get<ArtifactDetail>(`${base(projectId)}/${artifactId}${appendQuery(options)}`));
 }
 
 export async function createArtifact(projectId: string, input: PublishArtifactInput) {
@@ -245,7 +243,7 @@ export async function readArtifactFile(
   artifactId: string,
   options: { path?: string; version?: string; signal?: AbortSignal } = {},
 ): Promise<Blob> {
-  const url = `${stripTrailingSlashes(platformConfig().backendUrl)}${base(projectId)}/${artifactId}/content${query({ path: options.path, version: options.version })}`;
+  const url = `${platformApiBase(platformConfig().backendUrl)}${base(projectId)}/${artifactId}/content${appendQuery({ path: options.path, version: options.version })}`;
   const response = await authenticatedFetch(url, { signal: options.signal });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;

@@ -1,47 +1,49 @@
-'use client';
+"use client";
 
-import { Copy } from '../icons/copy';
-import { useTranslations } from '../i18n';
-import { cn } from '../lib/utils';
-import { CheckIcon } from '@phosphor-icons/react';
-import { AnimatedCopyIcon } from '../animated-copy-icon';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Hint from '../primitives/hint';
-import { errorToast, successToast } from '../primitives/toast';
+import { Copy } from "../icons/copy";
+import { useTranslations } from "../i18n";
+import { cn } from "../lib/utils";
+import { SolidCheckIcon } from "../internal/icons/solid-check-icon";
+import { AnimatedCopyIcon } from "../animated-copy-icon";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Hint from "../primitives/hint";
+import { errorToast, successToast } from "../primitives/toast";
 
 export function CopyButton({
   code,
   className,
   size,
-  hintSide = 'bottom',
+  hintSide = "bottom",
   label,
 }: {
   code: string;
   /** The button's accessible name. Defaults to "Copy code". */
   label?: string;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  hintSide?: 'top' | 'bottom' | 'left' | 'right';
+  size?: "sm" | "md" | "lg";
+  hintSide?: "top" | "bottom" | "left" | "right";
 }) {
-  const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
-  const copiedLabel = tI18nComplete.raw('text8d525e5f158b');
-  const copyError = tI18nComplete.raw('text4cb23f3c3b90');
+  const tI18nComplete = useTranslations("hardcodedUi.i18nComplete");
+  const copiedLabel = tI18nComplete.raw("text8d525e5f158b");
+  const copyError = tI18nComplete.raw("text4cb23f3c3b90");
   const [copied, setCopied] = useState(false);
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState("");
   const copying = useRef(false);
-  const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   useEffect(() => () => clearTimeout(resetTimer.current), []);
   const sizeClasses = {
-    sm: 'size-6 rounded-sm',
-    md: 'size-7',
-    lg: 'size-9',
+    sm: "size-6 rounded-sm",
+    md: "size-7",
+    lg: "size-9",
   };
   const handleCopy = useCallback(async () => {
     if (copying.current) return;
     copying.current = true;
     clearTimeout(resetTimer.current);
     setCopied(false);
-    setAnnouncement('');
+    setAnnouncement("");
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
@@ -49,7 +51,7 @@ export function CopyButton({
       successToast(copiedLabel);
       resetTimer.current = setTimeout(() => {
         setCopied(false);
-        setAnnouncement('');
+        setAnnouncement("");
       }, 2000);
     } catch {
       setAnnouncement(copyError);
@@ -62,27 +64,31 @@ export function CopyButton({
   return (
     <>
       <Hint
-        label={copied ? copiedLabel : tI18nComplete.raw('texte21f935f11d7')}
+        label={copied ? copiedLabel : tI18nComplete.raw("texte21f935f11d7")}
         side={hintSide}
         align="center"
       >
         <button
           type="button"
           onClick={handleCopy}
-          aria-label={copied ? copiedLabel : (label ?? tI18nComplete.raw('text49a0053f3b0d'))}
+          aria-label={
+            copied
+              ? copiedLabel
+              : (label ?? tI18nComplete.raw("text49a0053f3b0d"))
+          }
           className={cn(
-            'inline-flex items-center justify-center rounded-md',
-            'text-foreground hover:text-foreground hover:bg-muted-foreground/10',
-            'cursor-pointer transition-colors active:scale-[0.97]',
-            'hit-area-3 outline-none focus-visible:outline-none',
+            "inline-flex items-center justify-center rounded-md",
+            "text-foreground hover:text-foreground hover:bg-muted-foreground/10",
+            "cursor-pointer transition-colors motion-safe:active:scale-[0.96]",
+            "hit-area-3 outline-none focus-visible:outline-none",
             className,
-            sizeClasses[size ?? 'md'],
+            sizeClasses[size ?? "md"],
           )}
         >
           <span className="relative inline-flex size-5 shrink-0 items-center justify-center">
             <AnimatedCopyIcon copied={copied}>
               {copied ? (
-                <CheckIcon className="text-foreground size-4" />
+                <SolidCheckIcon className="text-foreground size-4" />
               ) : (
                 <Copy className="size-4" />
               )}
@@ -90,7 +96,12 @@ export function CopyButton({
           </span>
         </button>
       </Hint>
-      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
         {announcement}
       </span>
     </>

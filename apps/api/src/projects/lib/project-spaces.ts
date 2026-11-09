@@ -30,6 +30,7 @@ import { insertSpaceMembers, isSpaceMember, memberDisplayName, nonProjectMembers
 import { resolveUserIdentities } from './user-identity';
 import { bustSpaceAccess, canSeeSpace, type SpaceAccess } from '../../shared/space-access';
 import { normalizeString } from './serializers';
+import { errorMessage } from '../../shared/error-message';
 
 // Lazy: the drives service stays off the static import graph of every session
 // create, trigger and member offboard that reaches this module.
@@ -504,7 +505,7 @@ export async function updateChannel(
       folderMoved = await (await spaceFolders()).moveChannelFolderVisibility(projectId, { spaceId, slug: row.slug }, 'private');
     } catch (error) {
       logger.warn(`[spaces] the folder of channel ${spaceId} did not move for its conversion to private`, {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
       return {
         error: {
@@ -518,7 +519,7 @@ export async function updateChannel(
     if (!folderMoved) return;
     await (await spaceFolders()).moveChannelFolderVisibility(projectId, { spaceId, slug: row.slug! }, 'public').catch((error) =>
       logger.error(`[spaces] the folder of channel ${spaceId} is in /Channels but the channel stayed public`, {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       }),
     );
   };
@@ -557,7 +558,7 @@ export async function updateChannel(
         resourceId: spaceId,
         metadata: { from: row.visibility, to: 'private' },
       }).catch((error: unknown) => {
-        logger.warn('[spaces] conversion audit write failed', { spaceId, error: error instanceof Error ? error.message : String(error) });
+        logger.warn('[spaces] conversion audit write failed', { spaceId, error: errorMessage(error) });
       });
     }
     const changes = converting ? { converted: true as const } : {};

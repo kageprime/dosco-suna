@@ -24,7 +24,7 @@
  * clean — the next call starts fresh instead of inheriting a poisoned promise.
  */
 
-export interface CoalescedRunOpts {
+interface CoalescedRunOpts {
   refreshModels?: boolean;
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { errorToast } from '@kortix/ui/toast';
 import { useBillingReturnUrl } from '@/features/billing/billing-return';
@@ -369,7 +369,7 @@ export function CreditTopupSection({ successUrl, cancelUrl, className }: CreditT
 
       <p className="text-muted-foreground text-xs tabular-nums">{hint}</p>
 
-      {purchaseError && <InfoBanner tone="destructive">{purchaseError}</InfoBanner>}
+      {purchaseError && <BannerAlert variant="destructive" ><BannerAlertDescription>{purchaseError}</BannerAlertDescription></BannerAlert>}
     </div>
   );
 }

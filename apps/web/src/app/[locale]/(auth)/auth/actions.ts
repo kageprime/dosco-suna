@@ -1,10 +1,7 @@
 'use server';
 
-import {
-  AUTH_TIMEOUT_AUTH_ERROR,
-  AUTH_UPSTREAM_TIMEOUT_MS,
-  settleWithin,
-} from '@/lib/auth/submit-auth';
+import { AUTH_TIMEOUT_AUTH_ERROR, AUTH_UPSTREAM_TIMEOUT_MS } from '@/lib/auth/submit-auth';
+import { settleWithin } from '@/lib/deadline';
 import { buildMobileSessionHandoffUrl } from '@/lib/auth/mobile-handoff';
 import {
   resolveNewAccountReturnUrl,

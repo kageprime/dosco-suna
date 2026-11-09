@@ -14,6 +14,7 @@ import { chatEventDedup } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
+import { errorMessage } from '../../shared/error-message';
 
 /** The create is bounded by the session boot deadline; past this the claim frees itself. */
 const CLAIM_TTL_MS = 2 * 60_000;
@@ -41,7 +42,7 @@ export async function claimTriggerCreate(key: string): Promise<boolean> {
     }
     return false;
   } catch (error) {
-    logger.warn('[trigger-create-claim] claim failed (fail-open)', { error: error instanceof Error ? error.message : String(error) });
+    logger.warn('[trigger-create-claim] claim failed (fail-open)', { error: errorMessage(error) });
     return true;
   }
 }
@@ -50,7 +51,7 @@ export async function releaseTriggerCreate(key: string): Promise<void> {
   try {
     await db.delete(chatEventDedup).where(eq(chatEventDedup.eventId, claimKey(key)));
   } catch (error) {
-    logger.warn('[trigger-create-claim] release failed (expires on its own)', { error: error instanceof Error ? error.message : String(error) });
+    logger.warn('[trigger-create-claim] release failed (expires on its own)', { error: errorMessage(error) });
   }
 }
 

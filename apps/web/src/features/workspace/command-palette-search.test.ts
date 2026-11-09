@@ -545,7 +545,7 @@ describe('subscription usage destinations', () => {
   });
   test('subscription results select the Usage tab and matching provider', () => {
     const items = getItemsForSurface('commandPalette');
-    expect(items.find(item => item.id === 'proj-chatgpt-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage&provider=codex');
-    expect(items.find(item => item.id === 'proj-claude-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage&provider=claude-agent');
+    expect(items.find(item => item.id === 'proj-chatgpt-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage');
+    expect(items.find(item => item.id === 'proj-claude-usage')?.href).toBe('/workspaces/{projectId}/admin/models?tab=usage');
   });
 });

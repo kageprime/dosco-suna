@@ -6,7 +6,7 @@ import { CountBadge } from '../../primitives/count-badge';
 import { Hint } from '../../primitives/hint';
 import Loading from '../../primitives/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '../../primitives/popover';
-import { Tabs, TabsContent, TabsListCompact, TabsTriggerCompact } from '../../primitives/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { errorToast } from '../../primitives/toast';
 import { useTranslations } from '../../i18n';
 import { agentDisplayName } from '../../internal/components/agent-mark';
@@ -20,6 +20,7 @@ import { stopProjectSession, type SessionTask, type WorkflowRunMetadata } from '
 import {
   qk,
   useFeatureFlag,
+  useNow,
   useSessionChildren,
   useSessionWorkflows,
   useTeamTasks,
@@ -42,7 +43,6 @@ import {
   isLargeRun,
   LargeRunBadge,
   useLiveWorkflowRun,
-  useNow,
   useRestartAgent,
   WorkflowRunControls,
 } from './workflow-run-controls';
@@ -237,7 +237,7 @@ export interface AgentsPanelProps extends Omit<AgentsLineViewProps, 'compact' | 
 export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, onOpen, onStop, stopping, live }: AgentsPanelProps) {
   const t = useTranslations('multiAgent.strip');
   const anyWorking = live && [...agents, ...team].some((row) => row.state === 'working');
-  const now = useNow(anyWorking);
+  const now = useNow(1_000, anyWorking);
   const sections = [agents.length > 0, team.length > 0, runs.length > 0].filter(Boolean).length;
 
   const renderRows = (list: AgentRow[], teammate: boolean) => (
@@ -292,13 +292,13 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
         <TasksPanel tasks={tasks} />
       </TabsContent>
       <div className="border-t p-1">
-        <TabsListCompact animate="none" className="w-full">
-          <TabsTriggerCompact value="agents">{t('label')}</TabsTriggerCompact>
-          <TabsTriggerCompact value="tasks" className="gap-1.5">
+        <TabsList size="xs" animate="none" className="w-full">
+          <TabsTrigger value="agents">{t('label')}</TabsTrigger>
+          <TabsTrigger value="tasks" className="gap-1.5">
             {t('tasks')}
             {openTasks > 0 && <CountBadge count={openTasks} />}
-          </TabsTriggerCompact>
-        </TabsListCompact>
+          </TabsTrigger>
+        </TabsList>
       </div>
     </Tabs>
   );
@@ -436,7 +436,7 @@ function WorkflowLineRow({
   const [open, setOpen] = useState(false);
   // A background run's progress is read from its runner, so it keeps moving after this turn ended.
   const { run, controlSessionId } = useLiveWorkflowRun(projectId, sessionId, listed);
-  const now = useNow(open && run?.status === 'running');
+  const now = useNow(1_000, open && run?.status === 'running');
   const restart = useRestartAgent(projectId, controlSessionId, run);
   const queryClient = useQueryClient();
   const stopAgent = useMutation({

@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
   boxServesRuntimeFloor,
+  claimRuntimeFloorRefusalLog,
   currentBelowSpell,
   decideRuntimeFloor,
   decideRuntimeFloorWhileBooting,
   readRuntimeFloorRecord,
+  RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS,
   RUNTIME_FLOOR_RESTART_BUDGET_MS,
   RUNTIME_FLOOR_SPELL_GAP_MS,
   RUNTIME_FLOOR_STAGE_BUDGET_MS,
@@ -146,5 +148,27 @@ describe('boxServesRuntimeFloor', () => {
     expect(boxServesRuntimeFloor(metadata, 'sbx_b')).toBe(false);
     expect(boxServesRuntimeFloor({ runtimeFloor: { below: spell() } }, 'sbx_a')).toBe(false);
     expect(boxServesRuntimeFloor(null, 'sbx_a')).toBe(false);
+  });
+});
+
+describe('claimRuntimeFloorRefusalLog', () => {
+  // Prod 2026-11-07 (KRTX-4457): a box that cannot reach the floor refuses on
+  // every retry open — bursts of concurrent opens every ~10 min for days — and
+  // one naming per box+reason per window is the whole signal the logs need.
+  test('names the first refusal, silences its repeats in the window, and names a later window or a new reason', () => {
+    const a = 'sbx_claim_a';
+    expect(claimRuntimeFloorRefusalLog(a, 'pinned', NOW)).toBe(true);
+    expect(claimRuntimeFloorRefusalLog(a, 'pinned', NOW + 1_000)).toBe(false);
+    expect(claimRuntimeFloorRefusalLog(a, 'pinned', NOW + RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS - 1_000)).toBe(false);
+    // A different reason against the same box is a new fact.
+    expect(claimRuntimeFloorRefusalLog(a, 'not_staged', NOW + 1_000)).toBe(true);
+    // Outside the window the box is named again (the window is a silence, never a swallow).
+    expect(claimRuntimeFloorRefusalLog(a, 'pinned', NOW + RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS)).toBe(true);
+  });
+
+  test('the concurrent opens of one burst collapse to one naming', () => {
+    const b = 'sbx_claim_b';
+    const claims = [0, 1, 2].map((i) => claimRuntimeFloorRefusalLog(b, 'pinned', NOW + i));
+    expect(claims).toEqual([true, false, false]);
   });
 });

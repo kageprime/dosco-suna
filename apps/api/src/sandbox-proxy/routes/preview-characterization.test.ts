@@ -115,10 +115,13 @@ mock.module('../../projects/sandbox-turn-lifecycle', () => ({
   abandonSandboxTurn: async () => true,
 }));
 // A forwarded fork is recorded through projects/surface (#10421); the real
-// module loads the whole projects graph, so the record is counted here.
+// module loads the whole projects graph, so the record is counted here,
+// and the record's shape is captured for the fork-registration pins below.
+let lastFork: { sourceId?: unknown } | null = null;
 mock.module('../../projects/surface', () => ({
-  registerRuntimeFork: async () => {
+  registerRuntimeFork: async (input: { sourceId?: unknown }) => {
     counts.registerRuntimeFork += 1;
+    lastFork = input;
   },
   // Imported at load by modules this graph pulls in (memory/layers.ts); never called here.
   resolveUserIdentities: async () => new Map(),
@@ -493,6 +496,7 @@ describe('forwardToSandbox on a stopped sandbox', () => {
     [8000, '/session/sess-1/fork'],
     [4096, '/session/sess-1/fork/'],
     [4097, '/proxy/4096/session/sess-1/fork'],
+    [8000, '/proxy/1/session/sess-1/fork/'],
     [8000, '/session/sess-1/%66ork'],
   ])('forking a stopped conversation on port %s at %s returns an actionable conflict', async (port, path) => {
     currentRecord = { ...ACTIVE_RECORD, status: 'stopped' };
@@ -514,6 +518,29 @@ describe('forwardToSandbox on a stopped sandbox', () => {
     expect(fetchCalls).toBe(1);
     expect(counts.registerRuntimeFork).toBe(1);
     expect(counts.resumeStopped).toBe(0);
+  });
+
+  // KRTX-4477: the fork-path parser is ONE thing now. The stopped gate above
+  // always accepted the in-box prefix and a trailing slash; the record a
+  // successful fork leaves behind used to accept only the bare
+  // `/session/:id/fork`, so a fork on a prefixed path was refused-if-stopped
+  // yet never registered its record. Both spellings must register.
+  test('a fork on an in-box prefixed path registers its record', async () => {
+    queueFetch(new Response('{"id":"fork-p"}', { status: 200 }));
+    const res = await forward({ method: 'POST', port: 8000, path: '/proxy/1/session/sess-1/fork', body: bodyOf({}), headers: jsonHeaders() });
+    expect(res.status).toBe(200);
+    expect(fetchCalls).toBe(1);
+    expect(counts.registerRuntimeFork).toBe(1);
+    expect(lastFork?.sourceId).toBe('sess-1');
+  });
+
+  test('a fork with a trailing slash registers its record', async () => {
+    queueFetch(new Response('{"id":"fork-s"}', { status: 200 }));
+    const res = await forward({ method: 'POST', port: 8000, path: '/session/sess-1/fork/', body: bodyOf({}), headers: jsonHeaders() });
+    expect(res.status).toBe(200);
+    expect(fetchCalls).toBe(1);
+    expect(counts.registerRuntimeFork).toBe(1);
+    expect(lastFork?.sourceId).toBe('sess-1');
   });
 
   test('an app route named fork retains the normal stopped-preview response', async () => {

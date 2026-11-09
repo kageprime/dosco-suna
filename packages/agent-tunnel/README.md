@@ -233,11 +233,24 @@ The local config is the maximum boundary. The server cannot widen configured
 filesystem paths, blocked paths, shell commands, timeouts, file sizes, or desktop
 features.
 
-A `shell` grant is local code execution. The allow list matches the executable
-name exactly and the block list also matches every path ending in that name
-(`/bin/rm` is `rm`). Arguments are not restricted: an allowed `git`, `find`, or
-`python` can run any code through its own flags. Grant `shell` only to a session
-you trust with this computer.
+A `shell` grant with no command list is local code execution. Grant it only to
+a session you trust with this computer.
+
+A command list (`allowedCommands` in the local config, `commands` in a
+permission scope) holds whole command lines, and both lists must match:
+
+- `git status` allows `git` with the one argument `status`, and nothing else.
+- A trailing ` *` allows any further arguments: `npm run *` allows
+  `npm run build` but not `npm exec`.
+- `git *`, `node *`, `python3 *`, `sh *`, `find *` and similar entries allow
+  any code: these programs run commands through their own flags
+  (`git -c alias.x=!cmd x`, `node -e`, `find -exec`).
+- A bare `git` allows only `git` with no arguments. Agent Tunnel 0.1.2 and
+  earlier let it take any arguments; write `git *` for that.
+
+Arguments compare one at a time, and no shell parses the command. The block
+list matches executable names, and every path ending in that name (`/bin/rm`
+is `rm`).
 
 ## Computer Use driver
 

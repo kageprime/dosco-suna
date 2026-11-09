@@ -15,15 +15,15 @@ import { useTranslations as useI18nTranslations } from '@/i18n/use-translations'
  * "who am I" surface since the old footer user menu was folded into this
  * control — and keeps the account rows below it.
  *
- * The menu, top to bottom (design.md §3.1 finding 21, Slack's workspace menu):
- * the workspace header (icon, name, the caller's role) → "Invite people to
- * {name}" (`project.members.manage`) → "Workspace settings" (the one Settings
- * panel, `/workspaces/<id>/admin`) → "Switch workspace" (the list, with the
- * pending-invitation count) → "Create workspace" → "Preferences" (the
- * person's own settings overlay; it keeps Mod+,) → Apps and extensions,
- * Appearance, Help, Download app → "Leave {name}" (never for the last owner)
- * → Log out, with the signed-in identity under it. Rename lives in Workspace
- * settings › General.
+ * The menu, top to bottom (`workspaceMenuGroups`): the workspace header (icon
+ * and name) → "Invite people" (`project.members.manage`) → "Workspace
+ * settings" (the one Settings panel, `/workspaces/<id>/admin`) → "Switch
+ * workspace" (the list, with the pending-invitation count, and "Create
+ * workspace" at its foot) → Inbox → "Preferences" (the person's own settings
+ * overlay; it keeps Mod+,) → More (Apps and extensions, Appearance, Help,
+ * Download app) → "Leave {name}" (never for the last owner) → Log out, with
+ * the signed-in identity under it. Rename lives in Workspace settings ›
+ * General.
  *
  * Preferences pokes `useSettingsPanelStore.openSettings('profile')`: this
  * control only renders under `ProjectShell`, which mounts `SettingsPanel` as a
@@ -87,12 +87,13 @@ import { cn } from '@kortix/ui';
 import { useSettingsPanelStore } from '@kortix/ui/internal/stores/settings-panel-store';
 import { useAppsModalStore } from '@kortix/ui/internal/stores/apps-modal-store';
 import { getProject } from '@kortix/sdk';
-import { contract, qk, useWorkspace } from '@kortix/sdk/react';
+import { contract, qk } from '@kortix/sdk/react';
 import { useInboxSummary } from '@kortix/ui/internal/notifications/use-inbox-summary';
 import {
   ArrowsLeftRightIcon,
   BellIcon,
   CaretUpDownIcon,
+  DotsThreeIcon,
   GearSixIcon as CogOne,
   DoorOpenIcon,
   SignOutIcon as LogOut,
@@ -110,13 +111,11 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
   const t = useI18nTranslations('sidebar');
   const tWorkspaces = useI18nTranslations('workspaces.switcher');
   const tUi = useI18nTranslations('hardcodedUi.i18nComplete');
-  const tChooser = useI18nTranslations('workspaces.chooser');
   const tWorkspaceMenu = useI18nTranslations('workspaces.menu');
   // "Invite people" follows the palette's gate; "Workspace settings" follows
   // Customize › Workspace settings (`config`).
   const canInvite = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE).allowed === true;
   const canOpenSettings = useCapabilityAccess(projectId).tabs.includes('config');
-  const role = useWorkspace(projectId).data?.role ?? null;
   const leave = useLeaveWorkspace(projectId);
   const inviteCount = useMyInvites().data?.length ?? 0;
   const directory = useWorkspaceDirectory();
@@ -198,24 +197,21 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
   const menuGroups = workspaceMenuGroups({
     canInvite,
     canOpenSettings,
-    canCreate,
     canLeave: leave.canLeave,
     hasInbox: inbox.href !== null,
   });
   const renderRow = (row: WorkspaceMenuRow): React.ReactNode => {
     switch (row) {
       case 'header':
-        // The workspace first (Slack's "Acme ▾"): its icon, its name and the
-        // caller's one role in it. A label, not a row.
+        // The workspace first (Slack's "Acme ▾"): its icon and its name. A
+        // label, not a row. The caller's role is not here: it answers nothing
+        // a person opens this menu for, and Members shows it.
         return (
           <DropdownMenuLabel className="flex min-w-0 items-center gap-2 font-normal" data-testid="workspace-menu-header">
             {project ? (
               <EntityAvatar label={project.name} glyph={project.icon_glyph} emoji={project.icon} size="sm" />
             ) : null}
-            <span className="flex min-w-0 flex-col">
-              <span className="text-foreground truncate text-sm font-medium">{project?.name ?? ''}</span>
-              {role ? <span className="text-muted-foreground text-xs">{tChooser(`role.${role}`)}</span> : null}
-            </span>
+            <span className="text-foreground min-w-0 truncate text-sm font-medium">{project?.name ?? ''}</span>
           </DropdownMenuLabel>
         );
       case 'invite':
@@ -223,7 +219,8 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
           <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
             <Link href={`${workspaceSettingsPath(projectId, 'members')}?invite=1`} prefetch>
               <UserPlusIcon />
-              <span className="min-w-0 flex-1 truncate">{tWorkspaceMenu('invite', { name: project?.name ?? '' })}</span>
+              {/* The header above already names the workspace. */}
+              <span className="min-w-0 flex-1 truncate">{tWorkspaceMenu('invitePeople')}</span>
             </Link>
           </DropdownMenuItem>
         );
@@ -250,19 +247,25 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
               <DropdownMenuSubContent className="w-[264px] space-y-0.5" sideOffset={6}>
                 {/* Anchors, not handlers: `router.push` from a menu row runs the
                     RSC fetch cold at click time. */}
-                <WorkspaceMenuSection />
+                <WorkspaceMenuSection
+                  actions={
+                    canCreate
+                      ? () => (
+                          // Create sits under the list it adds to, not beside
+                          // the workspace's own rows.
+                          <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
+                            <Link href="/workspaces/new" prefetch>
+                              <PlusIcon />
+                              {tWorkspaces('create')}
+                            </Link>
+                          </DropdownMenuItem>
+                        )
+                      : undefined
+                  }
+                />
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
-        );
-      case 'create':
-        return (
-          <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-            <Link href="/workspaces/new" prefetch>
-              <PlusIcon />
-              {tWorkspaces('create')}
-            </Link>
-          </DropdownMenuItem>
         );
       case 'inbox':
         // The person's notifications from every workspace (KRTX-1742). An
@@ -295,27 +298,38 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
             <DropdownMenuShortcut>{settingsShortcutLabel()}</DropdownMenuShortcut>
           </DropdownMenuItem>
         );
-      case 'apps':
+      case 'more':
+        // Rows a person opens rarely, one level down: the top level keeps
+        // only what is used daily.
         return (
-          <DropdownMenuItem
-            onSelect={() => deferAfterClose(() => useAppsModalStore.getState().setOpen(true))}
-            size="sm"
-          >
-            <PuzzlePieceIcon />
-            {t('workspace.appsAndExtensions')}
-          </DropdownMenuItem>
-        );
-      case 'appearance':
-        return <ThemeSubmenu />;
-      case 'help':
-        return <HelpSubmenu onClose={() => setMenuOpen(false)} />;
-      case 'download':
-        // A modal, not a route: the user stays in the workspace.
-        return (
-          <DropdownMenuItem onSelect={() => deferAfterClose(() => setDownloadOpen(true))} size="sm" data-desktop-hidden>
-            <Download />
-            {t('workspace.downloadApp')}
-          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <DotsThreeIcon />
+              <span className="min-w-0 flex-1 truncate">{tWorkspaceMenu('more')}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-[14rem] space-y-0.5" sideOffset={6}>
+                <DropdownMenuItem
+                  onSelect={() => deferAfterClose(() => useAppsModalStore.getState().setOpen(true))}
+                  size="sm"
+                >
+                  <PuzzlePieceIcon />
+                  {t('workspace.appsAndExtensions')}
+                </DropdownMenuItem>
+                <ThemeSubmenu />
+                <HelpSubmenu onClose={() => setMenuOpen(false)} />
+                {/* A modal, not a route: the user stays in the workspace. */}
+                <DropdownMenuItem
+                  onSelect={() => deferAfterClose(() => setDownloadOpen(true))}
+                  size="sm"
+                  data-desktop-hidden
+                >
+                  <Download />
+                  {t('workspace.downloadApp')}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
         );
       case 'leave':
         // Leave and Log out end something, so they sit last, and both confirm first.

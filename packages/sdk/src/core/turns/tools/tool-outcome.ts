@@ -11,7 +11,7 @@
  */
 
 import type { ToolPart } from '../../runtime/client';
-import { jsonTail, stripErrorPrefixes } from '../text-scan';
+import { isJsonObject, jsonTail, stripErrorPrefixes, tryParseJson } from '../text-scan';
 import { isToolCallBlock, toolPartOf } from '../../session-log/tool-call';
 import type { ToolCallBlock } from '../../session-log/types';
 
@@ -25,11 +25,6 @@ export interface ParsedJsonFailure {
 }
 
 export type ToolOutcome = 'ok' | 'partial' | 'failed';
-
-/** A JSON value that owns properties — i.e. a plain object, not null/array. */
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 export function looksLikeError(text: string): boolean {
   const t = text.trim();
@@ -123,15 +118,6 @@ function computeOutcome(part: Pick<ToolPart, 'state'>): ToolOutcome {
   if (parsed === undefined) return 'ok';
   if (isJsonFailure(parsed)) return 'failed';
   return batchOutcomeOf(parsed);
-}
-
-/** `undefined` when the text is not JSON — distinct from a parsed `undefined`. */
-function tryParseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }
 
 /** The boolean half of {@link parseJsonFailure}, without rebuilding its result. */

@@ -17,6 +17,7 @@ import { raiseTriggerAlert } from './trigger-alerts';
 import { fireGitTrigger, markGitTriggerAttemptFailed, markGitTriggerFired } from './trigger-fire';
 import { renderPromptTemplate } from './trigger-payload';
 import { automaticFirePauseReason } from './trigger-scheduler-state';
+import { errorMessage } from '../../shared/error-message';
 
 /** Fire the triggers each merged request matches. Returns the fires that reached a session. Never throws. */
 export async function fireChangeRequestMergedTriggers(
@@ -50,7 +51,7 @@ export async function fireChangeRequestMergedTriggers(
   } catch (error) {
     logger.warn('[triggers] change request fire failed', {
       projectId: project.projectId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return 0;
   }
@@ -78,7 +79,7 @@ async function fireOne(project: ProjectRow, spec: GitTriggerSpec, cr: MergedChan
     source: 'change_request',
     // One merge fires one trigger once, however often the hook is retried.
     idempotencyKey: `trigger:change_request:${project.projectId}:${spec.slug}:${cr.cr_id}`,
-  }).catch((error: unknown) => ({ status: 'failed' as const, error: error instanceof Error ? error.message : String(error) }));
+  }).catch((error: unknown) => ({ status: 'failed' as const, error: errorMessage(error) }));
   await recordTriggerRun({ ...run, ...triggerRunFromFire(result) });
   if (result.status === 'fired' || result.status === 'queued') {
     if (!('deduped' in result && result.deduped)) {

@@ -18,6 +18,9 @@ test.each([
   '127.0.0.1:3000', '127.1:80', '10.0.0.1:443', '172.16.0.1:8080',
   '192.168.0.1:80', '169.254.169.254:80', '100.64.0.1:80',
   '[::1]:80', '[fe80::1]:80', '[fd00:ec2::254]:80', '[::ffff:127.0.0.1]:80',
+  // IPv6 forms that carry the metadata address: mapped hex, 6to4, NAT64, Teredo.
+  '[::ffff:a9fe:a9fe]:80', '[2002:a9fe:a9fe::1]:80', '[64:ff9b::a9fe:a9fe]:80',
+  '[2001:0:4136:e378:8000:63bf:3f57:fffe]:80',
 ])('denies non-public destination %s without fetching', async (host) => {
   fetchSpy.mockResolvedValue(new Response('synthetic upstream'))
   const response = await app.request(`/web-proxy/http/${host}/`)

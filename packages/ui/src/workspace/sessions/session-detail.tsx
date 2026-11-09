@@ -2,7 +2,7 @@
 
 import { uiRoutes } from '../../lib/routes';
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { cn } from '../../internal/lib/utils';
 import type { ProjectSession } from '@kortix/sdk';
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react';
@@ -54,28 +54,24 @@ export function SessionDetail({
       </dl>
 
       {session.error ? (
-        <InfoBanner
-          tone="destructive"
-          icon={WarningIcon}
-          title={tI18nComplete.raw('text650e4f3bbda1')}
-        >
+        <BannerAlert variant="destructive" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text650e4f3bbda1')}</BannerAlertTitle><BannerAlertDescription>
           <span className="wrap-break-word">{session.error}</span>
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       {session.deleted_at ? (
-        <InfoBanner tone="neutral" title={tI18nComplete.raw('textfdb73b4a48f2')}>
+        <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('textfdb73b4a48f2')}</BannerAlertTitle><BannerAlertDescription>
           <span>
             {tI18nComplete.raw('textb48ff39c2e0f')}{' '}
             {formatted.deleted ?? tI18nComplete.raw('texted8aa125a36b')}
             {session.deleted_by ? ` by ${session.deleted_by}` : ''}
             {tI18nComplete.raw('text78a10fea0bef')}
           </span>
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : session.can_access === false ? (
-        <InfoBanner tone="neutral" title={tI18nComplete.raw('text4acf3c9c6c5e')}>
+        <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('text4acf3c9c6c5e')}</BannerAlertTitle><BannerAlertDescription>
           {tI18nComplete.raw('text1f5bdc1c9cf0')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       {access.canOpen ? (

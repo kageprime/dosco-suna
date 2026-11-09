@@ -82,5 +82,5 @@ export function usePanelDerivations({ sessionId, projectId, projectSessionId, is
     [messages, latestSteps],
   );
 
-  return { steps, outputs, context, apps, files, isRunning, outcome };
+  return { steps, calls, outputs, context, apps, files, isRunning, outcome };
 }

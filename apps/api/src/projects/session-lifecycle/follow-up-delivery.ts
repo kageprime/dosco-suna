@@ -15,6 +15,7 @@ import { projectSessions, sessionLifecycleCommands } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { drainSessionLifecycleQueue } from './drain';
+import { sessionIsTombstoned } from '../lib/session-visibility';
 import { enqueueContinueSessionCommand } from './enqueue-commands';
 import { DELIVERY_FAILURE_COPY, type ContinueSessionCommand } from './types';
 
@@ -39,7 +40,9 @@ export async function deliverThroughQueue(
     .where(eq(projectSessions.sessionId, command.sessionId))
     .limit(1);
   if (!session) return 'no-session';
-  if (typeof (session.metadata as Record<string, unknown> | null)?.deletedAt === 'string') return 'no-session';
+  // Canonical tombstone predicate (session-visibility.ts): a soft-deleted
+  // session is gone for every runtime verb.
+  if (sessionIsTombstoned(session)) return 'no-session';
   if (command.projectId && command.projectId !== session.projectId) return 'no-session';
   // A parked session refuses delivery (`continueSession` → `unreachable`); the
   // caller shows its error rather than queueing behind a restart nobody asked for.

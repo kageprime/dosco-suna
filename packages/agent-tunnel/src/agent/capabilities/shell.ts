@@ -3,7 +3,8 @@
  *
  * Security:
  *   - Commands are executed as array args (no shell interpolation)
- *   - First arg (executable) is validated against allowedCommands / blockedCommands
+ *   - The whole command line (executable + args) is matched against allowedCommands
+ *     and the permission's scope.commands; the executable against blockedCommands
  *   - Working directory is validated against allowedPaths / blockedPaths
  *   - Timeout enforcement
  */
@@ -54,9 +55,9 @@ export function createShellCapability(config: TunnelConfig): Capability {
     const scopedCommands = Array.isArray(scope.commands)
       ? scope.commands.filter((value): value is string => typeof value === 'string')
       : [];
-    const executable = validateCommand(command, config.allowedCommands, config.blockedCommands);
+    const executable = validateCommand(command, args, config.allowedCommands, config.blockedCommands);
     if (scopedCommands.length > 0) {
-      validateCommand(executable, scopedCommands, []);
+      validateCommand(executable, args, scopedCommands, []);
     }
 
     if (cwd) {

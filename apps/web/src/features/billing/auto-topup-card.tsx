@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { Switch } from '@kortix/ui/switch';
 import { errorToast, successToast } from '@kortix/ui/toast';
@@ -232,20 +232,15 @@ export function AutoTopupCard({
   return (
     <div className="space-y-3">
       {settingsError && (
-        <InfoBanner
-          tone="warning"
-          action={
-            <Button size="sm" variant="outline" onClick={() => refetchSettings()}>
-              {t('retry')}
-            </Button>
-          }
-        >
+        <BannerAlert variant="warning" ><BannerAlertDescription>
           {t('settingsLoadFailed')}
-        </InfoBanner>
+        </BannerAlertDescription><BannerAlertActions>{<Button size="sm" variant="outline" onClick={() => refetchSettings()}>
+              {t('retry')}
+            </Button>}</BannerAlertActions></BannerAlert>
       )}
 
       {failureNotice && (
-        <InfoBanner tone="warning">{t(failureNotice.key, failureNotice.values)}</InfoBanner>
+        <BannerAlert variant="warning" ><BannerAlertDescription>{t(failureNotice.key, failureNotice.values)}</BannerAlertDescription></BannerAlert>
       )}
 
       <div className="flex items-center justify-between gap-4">

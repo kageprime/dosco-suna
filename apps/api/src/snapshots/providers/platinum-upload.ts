@@ -1,4 +1,5 @@
 import { config } from '../../config';
+import { httpStatusFromMessage } from './platinum-poll-classify';
 import { assertSafePresignedUploadUrl, parseUploadHostAllowlist, sanitizeUrlForLog } from './upload-url-guard';
 
 const UPLOAD_ATTEMPTS = 3;
@@ -7,12 +8,13 @@ const UPLOAD_TIMEOUT_MS_PER_GIB = 60_000;
 
 /** 408 (S3 idle-timeout), our own AbortSignal timeout, and 5xx are transient
  *  — worth a fresh presign + retry. Anything else (400/401/403/404/...) is a
- *  real error and must NOT be retried. */
-function isRetryableUploadError(err: unknown): boolean {
+ *  real error and must NOT be retried. Exported for the status-parse
+ *  characterization (KRTX-4468); the behavior is unchanged. */
+export function isRetryableUploadError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
-  const status = Number(err.message.match(/-> (\d{3})\b/)?.[1]);
-  return status === 408 || status >= 500;
+  const status = httpStatusFromMessage(err.message);
+  return status === 408 || (status !== undefined && status >= 500);
 }
 
 /**
@@ -108,7 +110,7 @@ export class UploadUrlRejectedError extends Error {
 
 /** Parse Platinum's 409 template_in_use refusal into a sandbox count. */
 export function templateInUseCount(message: string): number | null {
-  if (!/ -> 409(?:\s|$)/.test(message) || !message.includes('template_in_use')) return null;
+  if (httpStatusFromMessage(message) !== 409 || !message.includes('template_in_use')) return null;
   const count = Number(/"in_use"\s*:\s*(\d+)/.exec(message)?.[1]);
   return Number.isFinite(count) && count > 0 ? count : 1;
 }

@@ -31,6 +31,13 @@ set -e
 
 mode="$1"
 
+# dotenvx 1.x prints the ciphertext and exits 0 when it has no key. Taken as
+# the term list, that ciphertext matched nothing, so the guard passed every
+# commit without its warning.
+decrypted() {
+  [ -n "$1" ] && case "$1" in encrypted:*) return 1 ;; esac
+}
+
 load_terms() {
   if [ -n "${BLOCKED_COMMIT_TERMS:-}" ]; then
     printf '%s' "$BLOCKED_COMMIT_TERMS"
@@ -51,10 +58,10 @@ load_terms() {
     [ -f "$env" ] || continue
     for keys in "$top/apps/api/.env.keys" "$here/apps/api/.env.keys" "$primary/apps/api/.env.keys"; do
       [ -f "$keys" ] || continue
-      out=$($dx get BLOCKED_COMMIT_TERMS -f "$env" -fk "$keys" 2>/dev/null) && [ -n "$out" ] && { printf '%s' "$out"; return 0; }
+      out=$($dx get BLOCKED_COMMIT_TERMS -f "$env" -fk "$keys" 2>/dev/null) && decrypted "$out" && { printf '%s' "$out"; return 0; }
     done
     # CI or an Armor login may provide DOTENV_PRIVATE_KEY without a keys file.
-    out=$($dx get BLOCKED_COMMIT_TERMS -f "$env" 2>/dev/null) && [ -n "$out" ] && { printf '%s' "$out"; return 0; }
+    out=$($dx get BLOCKED_COMMIT_TERMS -f "$env" 2>/dev/null) && decrypted "$out" && { printf '%s' "$out"; return 0; }
   done
   return 1
 }

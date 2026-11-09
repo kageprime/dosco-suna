@@ -31,7 +31,7 @@ import { ObjectStore, type ObjectBody, type PutOutcome, resolvePresignTarget } f
 export { resolvePresignTarget };
 
 export const PROJECT_SNAPSHOT_FORMAT = 'project-snapshot-v2';
-export const PROJECT_SNAPSHOT_MANIFEST_NAME = 'manifest.json';
+const PROJECT_SNAPSHOT_MANIFEST_NAME = 'manifest.json';
 export const PROJECT_SNAPSHOT_ARCHIVE_CONTENT_TYPE = 'application/gzip';
 export const PROJECT_SNAPSHOT_BLOBS_CONTENT_TYPE = 'application/x-git-pack';
 
@@ -100,16 +100,23 @@ export function projectSnapshotObjectPrefix(
   );
 }
 
+/**
+ * One object key behind a 64-hex content digest: the guard and the
+ * prefix+digest+suffix layout, with the caller's error label.
+ */
+function digestKey(prefix: string, sha256: string, suffix: string, label: string): string {
+  if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error(`project snapshot ${label} digest must be 64 hex`);
+  return `${prefix}${sha256}${suffix}`;
+}
+
 /** The boot object (working tree + blobless `.git`). */
 export function projectSnapshotTreeKey(prefix: string, sha256: string): string {
-  if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error('project snapshot archive digest must be 64 hex');
-  return `${prefix}${sha256}.tree.tar.gz`;
+  return digestKey(prefix, sha256, '.tree.tar.gz', 'archive');
 }
 
 /** The hydration object (the tip's blob pack). */
 export function projectSnapshotBlobsKey(prefix: string, sha256: string): string {
-  if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error('project snapshot blob pack digest must be 64 hex');
-  return `${prefix}${sha256}.blobs.pack`;
+  return digestKey(prefix, sha256, '.blobs.pack', 'blob pack');
 }
 
 export function projectSnapshotManifestKey(prefix: string): string {
@@ -147,7 +154,7 @@ export function __resetProjectSnapshotS3ClientForTests(): void {
  * as the Terraform module's `expiration_days` default
  * (infra/terraform/modules/project-snapshots-bucket), which owns the AWS buckets.
  */
-export const CREATED_BUCKET_EXPIRATION_DAYS = 30;
+const CREATED_BUCKET_EXPIRATION_DAYS = 30;
 
 function httpStatus(error: unknown): number | undefined {
   return (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;

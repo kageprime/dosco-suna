@@ -17,7 +17,7 @@ import { removeTriggerFromManifest } from './trigger-manifest';
 import { deleteTriggerWatchers } from './trigger-watchers';
 
 /** Whether a trigger names the App `slug`: its events fire it, or it calls the App. Pure. */
-export function triggerNamesApp(spec: Pick<GitTriggerSpec, 'app' | 'target'>, slug: string): boolean {
+function triggerNamesApp(spec: Pick<GitTriggerSpec, 'app' | 'target'>, slug: string): boolean {
   return spec.app === slug || spec.target?.app === slug;
 }
 

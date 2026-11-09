@@ -15,6 +15,10 @@ export {
 // One connector action's output as a cached query, with typed connector errors.
 export { useConnectorQuery, type ConnectorQueryOptions } from './use-connector-query';
 
+// The host-neutral React clock: elapsed labels and relative times tick on one
+// interval instead of each surface hand-rolling its own.
+export { useNow } from './use-now';
+
 // The one call a host makes on every identity change (sign-out, a different
 // user signing in) to drop the SDK's per-user in-memory session state.
 export { resetIdentityState } from './reset-identity-state';

@@ -343,6 +343,35 @@ describe('admission', () => {
     expect(((await response.json()) as ErrorBody).code).toBe('insufficient_credits');
     expect(calls).toHaveLength(0);
   });
+
+  // Characterization (KRTX-4484): the audio refusal envelope. Pins the shape a
+  // client reads — status, code, the relayed `retry-after` header (the
+  // audio wire: only the header, never a `retry_after` body field), the
+  // request id, the public naming — plus the refunded hold and the trace it
+  // leaves.
+  test('a 429 from the upstream is the model_busy envelope: retry-after relayed, hold refunded', async () => {
+    const { usage, traces, speech } = setup({}, async () => json({ error: 'at capacity' }, 429, { 'retry-after': '30' }));
+    const response = await speech({ model: 'tts-fast', input: 'Hi.', voice: 'Ashley' });
+    expect(response.status).toBe(429);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(response.headers.get('retry-after')).toBe('30');
+    const body = (await response.json()) as ErrorBody & { suggestion: string; request_id: string; requested_model: string; resolved_model: string; retry_after?: number };
+    expect(body.code).toBe('model_busy');
+    expect(body.message).toBe('tts-fast is at capacity right now.');
+    expect(body.suggestion).toBe('Retry in a few seconds.');
+    expect(body.request_id).toMatch(/^req_/);
+    // The audio wire keeps `retry-after` in the header alone: the body never
+    // serializes it (KRTX-4484 rework review, item 1).
+    expect(body.retry_after).toBeUndefined();
+    // The envelope names the public identity, never the managed upstream.
+    expect(body.provider).toBe('kortix');
+    expect(body.requested_model).toBe('tts-fast');
+    expect(body.resolved_model).toBe('tts-fast');
+    // The hold taken at admission is refunded: the zero-cost event carries only the hold.
+    expect(refunds(usage)).toHaveLength(1);
+    expect(refunds(usage)[0]?.billingHoldUsd).toBe(0.05);
+    expect(traces[0]).toMatchObject({ ok: false, status: 429, errorCode: 'model_busy', provider: 'kortix', metadata: { operation: 'audio.speech' } });
+  });
 });
 
 describe('GET /audio/voices', () => {
@@ -378,5 +407,18 @@ describe('GET /audio/voices', () => {
     expect(missing.status).toBe(400);
     expect(((await missing.json()) as ErrorBody).code).toBe('invalid_request');
     expect(calls).toHaveLength(0);
+  });
+
+  test('an admission failure is the 503 envelope on the audio wire: the header says when, the body does not', async () => {
+    const { voices } = setup({ authenticate: async () => { throw new Error('directory unreachable'); } });
+    const response = await voices('tts-fast');
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('5');
+    const body = (await response.json()) as ErrorBody & { suggestion: string; retry_after?: number };
+    expect(body.code).toBe('admission_unavailable');
+    expect(body.suggestion).toBe('Retry the request.');
+    // Audio's own wire: never a `retry_after` body field (the image envelope
+    // adds exactly this; KRTX-4484 rework review, item 1).
+    expect(body.retry_after).toBeUndefined();
   });
 });

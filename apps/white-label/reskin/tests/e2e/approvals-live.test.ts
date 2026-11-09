@@ -17,7 +17,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import {
   approvalFailure,
   sessionApprovalsView,
-} from '../../src/components/workbench/approvals-model';
+} from '@kortix/white-label-shared/approvals-model';
 import { DEMO_PASSWORD, WRAPPER_KEY, wrapperEnv } from './env';
 import {
   APP_SETUP_TIMEOUT_MS,

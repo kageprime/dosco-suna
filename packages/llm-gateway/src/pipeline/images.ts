@@ -4,6 +4,7 @@ import type {
   GatewayAttemptFailure,
   GatewayHooks,
   GatewayLogger,
+  GatewayTrace,
   ModelRoutePlan,
   UpstreamDescriptor,
 } from '../domain';
@@ -12,7 +13,18 @@ import { GatewayResolutionError } from '../errors';
 import { upstreamFetch } from '../upstream-fetch';
 import { calculateCost } from '../usage/pricing';
 import { fallbackModelsOf } from './dispatch';
-import { gatewayErrorBody } from './error-response';
+import {
+  admissionUnavailable,
+  admitOrRefuse,
+  ensureBillingHold,
+  MISSING_TOKEN,
+  type Refusal,
+  type RefusalSite,
+  refusalResponse,
+  refuse,
+  stopped,
+  traceRefusal,
+} from './request-refusal';
 import {
   ASPECT_RATIOS,
   type AspectRatio,
@@ -24,8 +36,8 @@ import {
   imageAdapterFor,
 } from './image-adapters';
 import { shownModel, shownProvider } from './public-identity';
-import { type HandlerRuntime, authorize, bearer, identity, refundHold, requestId } from './simple-handler';
-import { type TraceEmitter, createTraceEmitter } from './trace';
+import { type HandlerRuntime, bearer, identity, requestId } from './simple-handler';
+import { type TraceEmitter, type TraceFields, createTraceEmitter } from './trace';
 
 export type ImageOperation = 'generations' | 'edits';
 
@@ -55,15 +67,8 @@ const ASPECT_FOR_SIZE = new Map<unknown, AspectRatio>([
 ]);
 const NO_IMAGE_MODEL_SUGGESTION = 'Connect ChatGPT, or add an OpenAI, Google, xAI or OpenRouter key in project settings.';
 
-/** Why one candidate did not answer. The last one is the request's answer. */
-interface Refusal {
-  status: number;
-  code: string;
-  message: string;
-  suggestion: string;
-  retryAfter?: number;
-  headers?: Record<string, string>;
-}
+/** The refusal that ends a request past its own time budget. */
+const IMAGE_STOP = { code: 'image_timeout', message: 'Image generation timed out.' };
 
 /**
  * The request in the gateway's own contract (U-D1). Unknown keys never reach
@@ -201,37 +206,19 @@ interface Run {
   attemptFailures: GatewayAttemptFailure[];
   refreshed: boolean;
   charge: Promise<Refusal | null> | null;
+  clientSignal?: AbortSignal;
   signal: AbortSignal;
   last?: Refusal;
+  trace(fields: TraceFields, extra?: Partial<GatewayTrace>): void;
+  readonly site: RefusalSite;
 }
 
-type Named = Pick<Run, 'id' | 'provider' | 'requestedModel' | 'resolvedModel'>;
-
-function errorResponse(at: Named, refusal: Refusal): Response {
-  const { status, retryAfter } = refusal;
-  const body = gatewayErrorBody({
-    message: refusal.message,
-    code: refusal.code,
-    provider: at.provider,
-    requestedModel: at.requestedModel,
-    resolvedModel: at.resolvedModel,
-    requestId: at.id,
-    suggestion: refusal.suggestion,
-    responseStatus: status,
-  });
-  return new Response(JSON.stringify(retryAfter !== undefined ? { ...body, retry_after: retryAfter } : body), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-      ...(retryAfter !== undefined ? { 'retry-after': String(retryAfter) } : {}),
-      ...refusal.headers,
-    },
-  });
+function refusalSite(run: Run): RefusalSite {
+  return { id: run.id, provider: run.provider, requestedModel: run.requestedModel, resolvedModel: run.resolvedModel };
 }
 
 function trace(run: Run, fields: { status: number; ok: boolean; errorCode?: string; errorMessage?: string }, extra = {}): void {
-  run.emit({
-    ...identity(run.principal),
+  traceRefusal(run.emit, run.principal, run.operation, {
     requestedModel: run.requestedModel,
     resolvedModel: run.resolvedModel,
     provider: run.provider,
@@ -239,20 +226,7 @@ function trace(run: Run, fields: { status: number; ok: boolean; errorCode?: stri
     attempts: run.attempts,
     candidatesTried: run.candidatesTried,
     ...(run.attemptFailures.length ? { attemptFailures: run.attemptFailures } : {}),
-    ...fields,
-    ...extra,
-    // Never the prompt or the image bytes.
-    request: null,
-    response: null,
-    metadata: { operation: run.operation },
-  });
-}
-
-/** Every unanswered exit after admission: return any wallet hold, trace, answer. */
-function refuse(run: Run, refusal: Refusal): Response {
-  refundHold(run.hooks, run.principal, run.logger);
-  trace(run, { status: refusal.status, ok: false, errorCode: refusal.code, errorMessage: refusal.message });
-  return errorResponse(run, refusal);
+  }, { ...fields, ...extra });
 }
 
 function failed(run: Run, model: string, refusal: Refusal, stage: GatewayAttemptFailure['stage'] = 'dispatch'): void {
@@ -269,63 +243,16 @@ function failed(run: Run, model: string, refusal: Refusal, stage: GatewayAttempt
   });
 }
 
-/** A stopped client or the request's time budget ends it; no other model is tried. */
-function stopped(run: Run): Refusal | null {
-  if (run.req.signal?.aborted) {
-    return { status: 499, code: 'client_aborted', message: 'The client cancelled the request.', suggestion: 'Retry the request.' };
-  }
-  if (run.signal.aborted) {
-    return { status: 504, code: 'image_timeout', message: 'Image generation timed out.', suggestion: 'Retry the request.' };
-  }
-  return null;
-}
-
 /** Step 1, admission: the bearer token, the account, and a valid body. */
 async function admit(runtime: HandlerRuntime, req: ImageRequest): Promise<Run | Response> {
   const { hooks, logger } = runtime;
   const id = requestId();
   const emit = createTraceEmitter(hooks, logger, id, new Date().toISOString(), Date.now());
   const operation = `images.${req.operation}`;
-  const unnamed: Named = { id, provider: '', requestedModel: '', resolvedModel: '' };
+  const unnamed: RefusalSite = { id, provider: '', requestedModel: '', resolvedModel: '' };
 
-  const token = bearer(req.authorization);
-  if (!token) {
-    return errorResponse(unnamed, {
-      status: 401,
-      code: 'missing_token',
-      message: 'Missing bearer token',
-      suggestion: 'Provide a valid gateway key or account token.',
-    });
-  }
-  let admission;
-  try {
-    admission = await authorize(hooks, token);
-  } catch (error) {
-    logger.error(`[gateway] ${id}: admission control unavailable — ${error instanceof Error ? error.message : String(error)}`);
-    return errorResponse(unnamed, {
-      status: 503,
-      code: 'admission_unavailable',
-      message: 'Gateway admission control is unavailable',
-      suggestion: 'Retry the request.',
-      retryAfter: 5,
-    });
-  }
-  if (!admission.ok) {
-    const message = admission.message ?? 'Request not allowed';
-    if (admission.principal) {
-      emit({
-        ...identity(admission.principal),
-        status: admission.status,
-        ok: false,
-        errorCode: admission.errorCode,
-        errorMessage: message,
-        request: null,
-        response: null,
-        metadata: { operation },
-      });
-    }
-    return errorResponse(unnamed, { status: admission.status, code: admission.errorCode, message, suggestion: 'Sign in again or check the account, then retry.' });
-  }
+  const admitted = await admitOrRefuse(runtime, bearer(req.authorization), { operation, site: unnamed, emit });
+  if (admitted instanceof Response) return admitted;
 
   const timeoutMs = req.timeoutMs ?? UPSTREAM_TIMEOUT_MS;
   const run: Run = {
@@ -336,7 +263,7 @@ async function admit(runtime: HandlerRuntime, req: ImageRequest): Promise<Run | 
     id,
     emit,
     operation,
-    principal: admission.principal,
+    principal: admitted.admission.principal,
     input: { operation: req.operation, prompt: '' },
     requestedModel: '',
     models: [],
@@ -348,9 +275,16 @@ async function admit(runtime: HandlerRuntime, req: ImageRequest): Promise<Run | 
     attemptFailures: [],
     refreshed: false,
     charge: null,
+    clientSignal: req.signal,
     signal: req.signal
       ? AbortSignal.any([req.signal, AbortSignal.timeout(timeoutMs)])
       : AbortSignal.timeout(timeoutMs),
+    trace(fields, extra) {
+      return trace(this, fields, extra);
+    },
+    get site() {
+      return refusalSite(this);
+    },
   };
   const parsed = imageInput(req.rawBody, req.operation);
   req.rawBody = '';
@@ -386,31 +320,6 @@ async function plan(run: Run): Promise<Refusal | null> {
     message: 'No image model is available for this project.',
     suggestion: NO_IMAGE_MODEL_SUGGESTION,
   };
-}
-
-/**
- * One wallet admission per request, before the first Kortix-billed
- * candidate, exactly as chat takes it. A hold is settled with the usage event
- * or returned by `refuse`.
- */
-function admitCharge(run: Run): Promise<Refusal | null> {
-  run.charge ??= (async () => {
-    if (run.principal.billingHold) return null;
-    try {
-      const billing = await run.hooks.assertBillingActive(run.principal.accountId);
-      if (billing?.holdUsd) run.principal = { ...run.principal, billingHold: { amountUsd: billing.holdUsd } };
-      return null;
-    } catch (error) {
-      const reason = (error as { reason?: unknown })?.reason;
-      return {
-        status: 402,
-        code: typeof reason === 'string' ? reason : 'subscription_required',
-        message: error instanceof Error ? error.message : 'Billing inactive',
-        suggestion: 'Check your subscription or add credits, then retry.',
-      };
-    }
-  })();
-  return run.charge;
 }
 
 /** Step 3, one model: its candidates in order. Null: the model failed (recorded in `run.last`). */
@@ -479,7 +388,10 @@ async function tryCandidate(run: Run, candidate: UpstreamDescriptor, model: stri
       });
       return null;
     }
-    const denied = await admitCharge(run);
+    // One wallet admission per request: the hold is taken once, before the
+    // first Kortix-billed candidate, exactly as chat takes it. A hold is
+    // settled with the usage event or returned by `refuse`.
+    const denied = await (run.charge ??= ensureBillingHold(run));
     if (denied) {
       failed(run, model, denied);
       return null;
@@ -503,7 +415,7 @@ async function tryCandidate(run: Run, candidate: UpstreamDescriptor, model: stri
       }
     }
   } catch (error) {
-    const stop = stopped(run);
+    const stop = stopped(run, IMAGE_STOP);
     if (stop) return refuse(run, stop);
     run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} image upstream unreachable — ${error instanceof Error ? error.message : String(error)}`);
     failed(run, model, {
@@ -518,7 +430,7 @@ async function tryCandidate(run: Run, candidate: UpstreamDescriptor, model: stri
   if (attempt.ok) return settle(run, descriptor, model, attempt);
 
   // An abort while the answer was read leaves an unreadable 200.
-  const stop = stopped(run);
+  const stop = stopped(run, IMAGE_STOP);
   if (stop) return refuse(run, stop);
   // Server log only: the upstream's own text and identity.
   if (attempt.detail) {

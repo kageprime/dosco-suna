@@ -180,7 +180,7 @@ export async function upsertConnection(input: {
 }
 
 /** "Chrome · Work (macOS)" style default name. */
-export function defaultChromeName(info: ChromeInfo): string {
+function defaultChromeName(info: ChromeInfo): string {
   // "Chrome · Work" when Chrome names the profile, else "Chrome on macOS".
   const name = info.profileLabel ? `${info.brand} · ${info.profileLabel}` : `${info.brand} on ${info.os}`;
   return name.slice(0, 255);

@@ -36,16 +36,16 @@ type SharingSession = NonNullable<Awaited<ReturnType<typeof loadSessionForSharin
  * compute. The session owner and a project manager qualify. A session-bound
  * credential also qualifies for its OWN session, and never for another one.
  */
-export type SessionNeed = 'read' | 'lifecycle';
+type SessionNeed = 'read' | 'lifecycle';
 
 /**
  * `list` and `revoke` are manager-tier: revoking only removes access.
  * `mint` is owner-governed (see `mayManageSessionSharing`): a public link is
  * unauthenticated, so it is never a way around the visibility gate.
  */
-export type SessionShareNeed = 'list' | 'mint' | 'revoke';
+type SessionShareNeed = 'list' | 'mint' | 'revoke';
 
-export interface SessionAccessDenial {
+interface SessionAccessDenial {
   ok: false;
   status: 403 | 404;
   error: string;

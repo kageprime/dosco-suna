@@ -20,7 +20,7 @@ import { isOAuthAccessToken, isOAuthRefreshToken } from '../oauth/access-token';
 
 type ApiKeyType = 'user' | 'sandbox';
 
-export interface ApiKeyValidationResult {
+interface ApiKeyValidationResult {
   isValid: boolean;
   accountId?: string;
   sandboxId?: string;
@@ -29,7 +29,7 @@ export interface ApiKeyValidationResult {
   error?: string;
 }
 
-export interface CreateApiKeyParams {
+interface CreateApiKeyParams {
   sandboxId: string;
   accountId: string;
   title: string;
@@ -38,7 +38,7 @@ export interface CreateApiKeyParams {
   type?: ApiKeyType;
 }
 
-export interface CreateApiKeyResult {
+interface CreateApiKeyResult {
   keyId: string;
   publicKey: string;
   secretKey: string; // returned ONCE at creation, never stored

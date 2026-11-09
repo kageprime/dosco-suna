@@ -23,6 +23,7 @@ import { presentedKortixToken, withTokenAttemptBudget } from './token-attempt-bu
 import { serviceAccountPrincipal, patPrincipal, jwtPrincipal } from './auth-principal';
 import { applyOAuthAccessTokenPrincipal } from './auth-oauth';
 import { deadCredential401 } from './auth';
+import { INVALID_OR_EXPIRED_TOKEN_MESSAGE } from '../shared/dead-credential-log';
 import { enforceTokenProjectScope, extractPreviewSandboxId, setPreviewSessionCookie } from './auth-scope';
 import { bearerToken } from '../shared/bearer-token';
 
@@ -258,7 +259,7 @@ async function resolveJwt(c: Context, next: Next, token: string, previewSandboxI
   // An inconclusive result falls through to the network path below instead.
   if (!isInconclusiveVerifyFailure(local.reason)) {
     auditLoginFail({ c, reason: `jwt_${local.reason}`, authType: 'jwt' });
-    throw new HTTPException(401, { message: 'Invalid or expired token' });
+    throw new HTTPException(401, { message: INVALID_OR_EXPIRED_TOKEN_MESSAGE });
   }
 
   // JWKS not yet loaded — fall back to network getUser() call
@@ -275,7 +276,7 @@ async function resolveJwt(c: Context, next: Next, token: string, previewSandboxI
         reason: error?.message ?? 'jwt_network_invalid',
         authType: 'jwt',
       });
-      throw new HTTPException(401, { message: 'Invalid or expired token' });
+      throw new HTTPException(401, { message: INVALID_OR_EXPIRED_TOKEN_MESSAGE });
     }
 
     if (

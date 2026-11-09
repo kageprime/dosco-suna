@@ -37,3 +37,60 @@ export function isTurnStartRequest(port: number, method: string, path: string): 
   if (port !== AGENT_PORT && !isOpencodePort(port)) return false;
   return classifyRuntimeRequest(method, path).kind === 'turn-start';
 }
+
+/**
+ * Should this request get the PRE-PROMPT project-env sync (and the small set of
+ * turn-start side effects that hang off it)?
+ *
+ * ONE PREDICATE, because three turn-start preparations used to disagree inside a
+ * single request. `shouldSyncProjectEnvBeforeProxy` — which this replaces —
+ * answered `port !== 8000 ⇒ false` and never stripped the in-box `/proxy/<n>/`
+ * prefix, while the config-convergence gate and the connector gate both keyed on
+ * `isTurnStartRequest`, which covers 4096/4097 AND strips the prefix. Platinum
+ * rewrites 4096→8000 and Daytona does not, so on Daytona a prompt addressed
+ * straight at :4096 got the config check and the undeclared-agent drop but NOT
+ * the secret refresh or the connector-grant re-mint. Same request, two answers,
+ * provider-dependent. Built on `isTurnStartRequest` so that can never recur.
+ *
+ * THREE endpoints. `/command` is one of them, and it was missing until
+ * 2026-08-12. `POST /session/:id/command` is the box's blocking slash-command
+ * endpoint (OpenCode-shaped, served by pi): it creates a user message and runs a full agent turn, exactly like
+ * `/message` does. Skipping the sync for it left two real holes:
+ *
+ *  - **Stale secrets.** A secret write propagates to live boxes through
+ *    `propagateProjectSecretsToActiveSandboxes`, which is fire-and-forget and
+ *    targets `status='active'` rows only. A box that was stopped at write time
+ *    never receives it, so the per-turn sync is the ONLY self-heal. A session
+ *    driven entirely by slash commands never healed.
+ *  - **An unre-scoped agent switch.** A command body carries `agent` just like a
+ *    prompt does. `agentSwitchRefusal` decides whether the caller MAY run that
+ *    agent, but only this block re-resolves the secret grant for it
+ *    (`syncSandboxEnvForPrompt`'s `requestedAgent`) and re-points the session
+ *    token's connector/CLI grant at it (`remintGrantForAgentSwitch`). Without
+ *    both, `/command` with `agent: B` ran B against agent A's env and A's grant.
+ *
+ * It is deliberately NOT the same list as `isNonIdempotentSessionWrite`, and the
+ * two must not be merged back together — see the comment on that function. This
+ * one answers "does this turn need its env re-scoped first?"; that one answers
+ * "may the proxy send this body twice?".
+ *
+ * `/summarize` stays OUT even though `isTurnStartRequest` counts it. Compaction
+ * carries no user prompt and no `agent` to re-scope for, and the sync is
+ * fail-closed on a grant error — refusing to compact a conversation because a
+ * manifest read failed would wedge a session instead of protecting it. That is
+ * the ONLY difference from `isTurnStartRequest`, and it is why the connector
+ * gate (`isConnectorGatedTurn`, which excluded `/summarize` for the identical
+ * reason) is now this same function rather than a second copy of it.
+ *
+ * CALL IT WITH THE UPSTREAM PORT and the remaining path — the values the request
+ * actually reaches the box on. Passing the client-addressed port is what created
+ * the divergence above.
+ *
+ * Pure + exported so the gate is unit-tested without provisioning a box — the
+ * same reason `shouldAutoResumeStoppedSandbox` and `isProxiedBaseReset` are.
+ */
+export function isTurnStartEnvSync(port: number, method: string, path: string): boolean {
+  if (!isTurnStartRequest(port, method, path)) return false;
+  const request = classifyRuntimeRequest(method, path);
+  return request.kind === 'turn-start' && request.verb !== 'summarize';
+}

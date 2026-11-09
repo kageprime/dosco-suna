@@ -21,6 +21,7 @@ import { db } from '../../shared/db';
 import { qualifiedColumn } from '../../shared/sql-qualified-column';
 import { generateSessionTitleFromFirstPrompt } from '../session-title-generate';
 import { resolveProjectAutomationActor } from './actor';
+import { sessionIsTombstoned } from '../lib/session-visibility';
 import { awakeDeliveryTarget, deliverAfterWake, undoDeliveryWake, type SendOutcome } from './deliver';
 import { sandboxRuntimeEndpoint } from '../runtime-session-mapping';
 import { sessionTransitionLeaves, transitionSession } from './status-transitions';
@@ -86,7 +87,7 @@ export async function continueSession(
   // follow-up (Slack reply, scheduled trigger, etc.) would revive a session
   // the user explicitly deleted.
   const sessionMeta = (session.metadata ?? {}) as Record<string, unknown>;
-  if (typeof sessionMeta.deletedAt === 'string') return 'no-session';
+  if (sessionIsTombstoned(session)) return 'no-session';
   if (command.projectId && command.projectId !== session.projectId) {
     console.warn('[session-lifecycle] command project does not own the session; refusing delivery', {
       sessionId,

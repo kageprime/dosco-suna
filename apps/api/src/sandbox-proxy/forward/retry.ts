@@ -9,7 +9,7 @@ import {
   resolveSandboxIngress,
   wakeSandbox,
 } from '../backend';
-import { jsonProxyError, isTurnStartEnvSync } from '../pre-prompt-env-sync';
+import { jsonProxyError } from '../pre-prompt-env-sync';
 import {
   clientResponseHeaders,
   isBrowserNavigation,
@@ -173,7 +173,7 @@ async function forwardAttempt(
   const previewUrl = ingress.url;
   const targetUrl = ingressTargetUrl(ingress, remainingPath + queryString);
 
-  if (isTurnStartEnvSync(upstreamPort, method, remainingPath)) {
+  if (req.turnStartEnvSync) {
     const refusal = await syncEnvBeforeTurnStart(req, state, previewUrl, ingress.headers);
     if (refusal) return refusal;
   }
@@ -366,6 +366,21 @@ async function handleUpstreamFailureStatus(
     // `x-pt-edge-verdict` — it did not proxy the request, so the box never
     // saw the body and a replay cannot deliver it twice (CFG-12).
     const edgeRefused = upstream.headers.has('x-pt-edge-verdict');
+    // The edge answered for a refused daemon port: the daemon is dead on a
+    // running box. Start its relaunch now; waiting for the next `/start` or
+    // reaper tick left uploads 502ing for minutes (KRTX-4438). Dynamic import:
+    // the repair wiring must stay out of this module's static graph
+    // (module-graph.test.ts).
+    if (edgeRefused && upstream.status === 502 && portFailureHop(upstreamPort) === 'daemon') {
+      void import('../../projects/surface')
+        .then(({ repairDeadDaemonOnEdgeRefusal }) => repairDeadDaemonOnEdgeRefusal(req.record.sandboxId))
+        .catch((err) =>
+          logger.warn('[PREVIEW] dead-daemon repair request failed', {
+            sandboxId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+    }
     if ((!nonReplayableWrite || edgeRefused) && attempt < MAX_RETRIES) {
       // Port not ready yet — sandbox is booting (container running, port down).
       // Only the runtime's own ports are ours to flag: a user's dev server that

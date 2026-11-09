@@ -245,16 +245,26 @@ export function titleCompletionBody(model: string, promptText: string): string {
     ],
   });
 }
+/** One title attempt. `transient` marks a failure a second call to the SAME
+ *  model can plausibly succeed — a timeout, a network error, an upstream
+ *  408/429/5xx. A deterministic refusal (any other 4xx: a disconnected
+ *  provider key, an unpaid or unknown model) fails twice; retrying it only
+ *  doubles the doomed calls and their warn lines (KRTX-4500). */
+export interface TitleAttempt {
+  content: string | null;
+  transient: boolean;
+}
+
 async function generateViaGateway(
   model: string,
   authorization: string,
   promptText: string,
-): Promise<string | null> {
+): Promise<TitleAttempt> {
   const rawBody = titleCompletionBody(model, promptText);
   const gatewayUrl = standaloneGatewayUrl();
   if (!gatewayUrl) {
     appLogger.warn('[title-generate] standalone gateway is not configured');
-    return null;
+    return { content: null, transient: false };
   }
   const res = await fetch(gatewayUrl, {
     method: 'POST',
@@ -270,12 +280,17 @@ async function generateViaGateway(
       upstream_status: res.status,
       model,
     });
-    return null;
+    return {
+      content: null,
+      transient: res.status === 408 || res.status === 429 || res.status >= 500,
+    };
   }
   const data = (await res.json().catch(() => null)) as {
     choices?: Array<{ message?: { content?: unknown } }>;
   } | null;
-  return contentToString(data?.choices?.[0]?.message?.content);
+  // An empty 200 (a reasoning-only reply) is a coin flip, not a refusal: a
+  // second call may emit content.
+  return { content: contentToString(data?.choices?.[0]?.message?.content), transient: true };
 }
 
 async function loadRow(sessionId: string, projectId: string): Promise<ProjectSessionRow | null> {
@@ -459,7 +474,11 @@ export interface GenerateSessionTitleInput {
 /** Injectable seams so unit tests run without process-global module mocks. */
 export interface GenerateSessionTitleOptions {
   loadRow?: (sessionId: string, projectId: string) => Promise<ProjectSessionRow | null>;
-  generate?: (model: string, authorization: string, promptText: string) => Promise<string | null>;
+  generate?: (
+    model: string,
+    authorization: string,
+    promptText: string,
+  ) => Promise<TitleAttempt>;
   mintKey?: (
     accountId: string,
     projectId: string,
@@ -481,14 +500,14 @@ async function generateWithDeadline(
   promptText: string,
   sessionId: string,
   timeoutMs: number,
-): Promise<string | null> {
+): Promise<TitleAttempt> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
   try {
-    const timeout = new Promise<null>((resolve) => {
+    const timeout = new Promise<TitleAttempt>((resolve) => {
       timer = setTimeout(() => {
         timedOut = true;
-        resolve(null);
+        resolve({ content: null, transient: true });
       }, Math.max(1, timeoutMs));
     });
     const result = await Promise.race([generate(model, authorization, promptText), timeout]);
@@ -502,7 +521,7 @@ async function generateWithDeadline(
       model,
       error: err instanceof Error ? err.message : String(err),
     });
-    return null;
+    return { content: null, transient: true };
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -570,8 +589,13 @@ export async function generateSessionTitleFromFirstPrompt(
       : gatewayModel(input.modelHint?.trim()) || gatewayModel(sessionModel(row)) || (await fallbackModel(input)) || null;
     let title: string | null = null;
     if (!model) {
+      // An expected steady state, not a failure: a Claude-subscription-only
+      // account, a free tier, or a gateway-disabled project has no gateway
+      // model to spend. The deterministic excerpt below titles the session
+      // (KRTX-4500: at warn this double-logged every session create and
+      // burst-shaped the log-spike filings).
       if (!shortPrompt) {
-        appLogger.warn('[title-generate] no servable model to title with', {
+        appLogger.info('[title-generate] no servable model to title with', {
           sessionId: input.sessionId,
         });
       }
@@ -579,37 +603,43 @@ export async function generateSessionTitleFromFirstPrompt(
       const minted = await mint(input.accountId, input.projectId, input.userId);
       if (minted) {
         try {
-          title = sanitizeGeneratedTitle(
-            await generateWithDeadline(
-              generate,
-              model,
-              `Bearer ${minted.secret}`,
-              promptText,
-              input.sessionId,
-              generationTimeoutMs,
-            ),
+          const first = await generateWithDeadline(
+            generate,
+            model,
+            `Bearer ${minted.secret}`,
+            promptText,
+            input.sessionId,
+            generationTimeoutMs,
           );
+          title = sanitizeGeneratedTitle(first.content);
           if (!title) {
-            // A different servable model when there is one. Otherwise the same
-            // model again: most failures are one stalled or closed upstream
-            // connection, and the next call to that model succeeds.
-            const retryModel = (await fallbackModel(input, model)) || model;
-            appLogger.warn('[title-generate] retrying title model', {
+            // A different servable model when there is one; otherwise the same
+            // model again — but ONLY when the failure can reward it (a stalled
+            // or closed upstream connection, a rate limit, a 5xx). A
+            // deterministic refusal (a disconnected key, an unpaid or unknown
+            // model) fails twice: keep the doomed call off the gateway.
+            const alternative = await fallbackModel(input, model);
+            const retryModel = alternative || (first.transient ? model : null);
+            if (retryModel) {
+              appLogger.warn('[title-generate] retrying title model', {
                 sessionId: input.sessionId,
                 rejectedModel: model,
                 retryModel,
               });
               title = sanitizeGeneratedTitle(
-                await generateWithDeadline(
-                  generate,
-                  retryModel,
-                  `Bearer ${minted.secret}`,
-                  promptText,
-                  input.sessionId,
-                  generationTimeoutMs,
-                ),
+                (
+                  await generateWithDeadline(
+                    generate,
+                    retryModel,
+                    `Bearer ${minted.secret}`,
+                    promptText,
+                    input.sessionId,
+                    generationTimeoutMs,
+                  )
+                ).content,
               );
             }
+          }
         } finally {
           await revoke(input.projectId, minted.keyId).catch(() => {});
         }
@@ -624,8 +654,11 @@ export async function generateSessionTitleFromFirstPrompt(
       if (title && model) {
         fallback = { attempts: fallbackAttempts((row.metadata ?? {}) as Record<string, unknown>) + 1, source: promptText };
       }
+      // The designed guarantee, not a failure — whatever made the model path
+      // fail already logged above (KRTX-4500: at warn this line doubled the
+      // no-servable-model line on every session create).
       if (title && !shortPrompt) {
-        appLogger.warn('[title-generate] using deterministic prompt fallback', {
+        appLogger.info('[title-generate] using deterministic prompt fallback', {
           sessionId: input.sessionId,
         });
       }

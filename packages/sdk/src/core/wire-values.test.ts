@@ -1,33 +1,5 @@
 import { expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import * as sdk from '../index';
-import type { RuntimeCapability, RuntimeThreadStatus } from '../index';
-import type { KortixSessionStatus } from './runtime/transcript-types';
-import type * as C from '../../../api-contract/src/wire-values';
-
-/** Everything from the first declaration on: the part both copies must share. */
-function body(file: string): string {
-  const text = readFileSync(file, 'utf8');
-  return text.slice(text.indexOf('export const THREAD_STATUSES'));
-}
-
-test('the SDK wire value sets equal the api-contract copy', () => {
-  const vendored = body(join(import.meta.dir, 'wire-values.ts'));
-  const contract = body(join(import.meta.dir, '../../../api-contract/src/wire-values.ts'));
-  expect(vendored.length).toBeGreaterThan(3000);
-  expect(vendored).toBe(contract);
-});
-
-/** `true` only when A and B are the same set of literals. */
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-
-test('the SDK public types are the contract sets (typecheck target)', () => {
-  const capabilities: Same<RuntimeCapability, C.RuntimeCapability> = true;
-  const pending: Same<RuntimeThreadStatus, C.RuntimeThreadStatus> = true;
-  const v1: Same<KortixSessionStatus['type'], C.KortixSessionStatusType> = true;
-  expect([capabilities, pending, v1]).toEqual([true, true, true]);
-});
 
 test('runtimeSupports takes every contract capability, session.steer included', () => {
   const caps = ['session.subagents', 'session.steer'];

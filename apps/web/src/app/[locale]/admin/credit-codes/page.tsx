@@ -14,7 +14,7 @@ import { useState, type FormEvent } from 'react';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { EmptyState } from '@kortix/ui/empty-state';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { IconInbox } from '@kortix/ui/kortix-icons';
 import { Label } from '@kortix/ui/label';
@@ -153,7 +153,7 @@ function CreateCodeForm() {
             maxLength={500}
           />
         </div>
-        {error ? <InfoBanner tone="destructive">{error}</InfoBanner> : null}
+        {error ? <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert> : null}
         <div className="flex items-center justify-between gap-3">
           <p className="text-muted-foreground text-xs tabular-nums">
             {Number.isFinite(amountUsd) && amountUsd > 0
@@ -184,7 +184,7 @@ function CodesTable() {
   const setActive = useAdminSetCreditCodeActive();
 
   if (isLoading) return <Skeleton className="h-40 w-full rounded-md" />;
-  if (error) return <InfoBanner tone="destructive">{tI18nComplete('text285d1fb4c107', { value0: error.message })}</InfoBanner>;
+  if (error) return <BannerAlert variant="destructive" ><BannerAlertDescription>{tI18nComplete('text285d1fb4c107', { value0: error.message })}</BannerAlertDescription></BannerAlert>;
   if (!codes?.length) {
     return (
       <AdminEmptyFrame>

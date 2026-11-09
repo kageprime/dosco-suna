@@ -1,5 +1,9 @@
 'use client';
 
+import { Copy } from '@kortix/ui/icons';
+import { SolidCheckIcon as Check } from '@kortix/ui/internal/icons/solid-check-icon';
+import { ClockIcon } from '@phosphor-icons/react';
+
 import { useTranslations } from '@/i18n/use-translations';
 
 import { cn } from '@kortix/ui';
@@ -7,9 +11,7 @@ import {
   WarningIcon as AlertTriangle,
   ArrowRightIcon as ArrowRight,
   TextBIcon as Bold,
-  CheckIcon as Check,
   CaretUpDownIcon as ChevronsUpDown,
-  CopyIcon as Copy,
   GitBranchIcon as FolderGit2,
   QuestionIcon as HelpCircle,
   InfoIcon as Info,
@@ -20,24 +22,15 @@ import {
   SmileyIcon as Smiley,
   StarIcon as Star,
   TrashIcon as Trash2,
-  WarningIcon as TriangleAlert,
   UsersIcon as Users,
   XIcon as X,
 } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@kortix/ui/accordion';
-import {
-  Alert,
-  AlertContent,
-  AlertDescription,
-  AlertTitle,
-} from '@kortix/ui/alert';
+import { DESIGN_SYSTEM_TRANSLATION_KEYS } from '@/i18n/design-system-translation-keys.generated';
+import { WALLPAPER_DOWNLOADS, type WallpaperDownload } from '@/lib/wallpaper-downloads';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@kortix/ui/accordion';
+import { Alert, AlertContent, AlertDescription, AlertTitle } from '@kortix/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,13 +67,14 @@ import {
   DialogTrigger,
 } from '@kortix/ui/dialog';
 import { EmojiPicker, type EmojiSelection } from '@kortix/ui/emoji-picker';
+import { EmptyState } from '@kortix/ui/empty-state';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
 import { FadedScrollArea } from '@kortix/ui/faded-scroll-area';
 import { type GlyphSelection } from '@kortix/ui/glyph-picker';
 import { glyphComponent } from '@kortix/ui/glyph-registry';
 import { glyphForeground, glyphStyle, glyphTint, glyphTintHover } from '@kortix/ui/glyph-tint';
-import { InfoBanner } from '@kortix/ui/info-banner';
-import { InlineMeta } from '@kortix/ui/inline-meta';
+import { localizeUiCatalog } from '@kortix/ui/i18n';
+import { InlineMeta, InlineMetaHint, InlineMetaTime } from '@kortix/ui/inline-meta';
 import { Input } from '@kortix/ui/input';
 import { Kbd, KbdGroup } from '@kortix/ui/kbd';
 import { IconInbox } from '@kortix/ui/kortix-icons';
@@ -114,54 +108,33 @@ import {
 } from '@kortix/ui/sheet';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { Slider } from '@kortix/ui/slider';
-import { SpotlightCard } from '@kortix/ui/spotlight-card';
 import { DiffStat, StatusBadge, StatusDot } from '@kortix/ui/status';
 import { Switch } from '@kortix/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@kortix/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsListCompact,
-  TabsTrigger,
-  TabsTriggerCompact,
-} from '@kortix/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kortix/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { Textarea } from '@kortix/ui/textarea';
 import {
   errorToast,
   infoToast,
   loadingToast,
   successToast,
+  ToastCard,
+  toastIcon,
   warningToast,
 } from '@kortix/ui/toast';
 import { Toggle } from '@kortix/ui/toggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@kortix/ui/tooltip';
 import { UserAvatar } from '@kortix/ui/user-avatar';
-import { EmptyState } from '@kortix/ui/empty-state';
-import { DESIGN_SYSTEM_TRANSLATION_KEYS } from '@/i18n/design-system-translation-keys.generated';
-import { localizeUiCatalog } from '@kortix/ui/i18n';
-import { WALLPAPER_DOWNLOADS, type WallpaperDownload } from '@/lib/wallpaper-downloads';
-import {
-  PlugsConnectedIcon as Cable,
-  CloudIcon,
-  GithubLogoIcon,
-  PlugIcon as Plug,
-  RadioIcon as Radio,
-  LightningIcon as Zap,
-} from '@phosphor-icons/react';
+import { CloudIcon, GithubLogoIcon } from '@phosphor-icons/react';
 
+import { Download } from '@kortix/ui/internal/icons/download';
 import { CardSection } from './card-section';
 import { ConfettiSection } from './confetti-section';
 import { IconsSection } from './icons-section';
+import { InteractionSection } from './interaction-section';
 import {
   AccentRow,
+  CopyValue,
   MotionBar,
   SpacingBase,
   SpacingRow,
@@ -169,7 +142,9 @@ import {
   TypeRow,
 } from './live-tokens';
 import { DropdownDemos, SelectDemos } from './menu-demos';
-import { Download } from '@kortix/ui/internal/icons/download';
+import { aboutLabel, DemoContainer, InfoHint, Spec, SpecRow } from './spec';
+import { StatesSection } from './states-section';
+import { TokenMapSection } from './token-map-section';
 
 // Filtered once at module load — the catalog is a static constant, so the
 // per-render filter().map() chain in the JSX collapses to a single map.
@@ -340,6 +315,18 @@ const LOGO_ASSETS: LogoAsset[] = [
   },
 ];
 
+/**
+ * How to read this page. The values live in the brand kit, the component
+ * choices in the design-system skill, and this route renders both so they
+ * cannot drift. An agent building UI loads the two skills, then copies what it
+ * sees here.
+ */
+const HOW_TO_READ = [
+  { term: 'Values', file: '.agents/skills/kortix-brand' },
+  { term: 'Components', file: '.agents/skills/kortix-design-system' },
+  { term: 'Source', file: 'packages/ui/src/primitives' },
+] as const;
+
 /** Asset names for the vocabulary note: the term, and the file that carries it. */
 const LOGO_VOCABULARY = [
   { term: 'symbol', file: 'brandkit/Logo/Brandmark/' },
@@ -408,7 +395,11 @@ const DURATIONS = [
   { name: 'duration-fast', cls: 'duration-fast', use: 'Hover color and opacity' },
   { name: 'duration-normal', cls: 'duration-normal', use: 'The default UI transition' }, // audit:allow prose uses the word transition
   { name: 'duration-moderate', cls: 'duration-moderate', use: 'Disclosure, accordion, tab' },
-  { name: 'duration-slow', cls: 'duration-slow', use: 'Modal, drawer, sheet. The product ceiling.' },
+  {
+    name: 'duration-slow',
+    cls: 'duration-slow',
+    use: 'Modal, drawer, sheet. The product ceiling.',
+  },
   { name: 'duration-slower', cls: 'duration-slower', use: 'Marketing and decks only' },
 ] as const;
 
@@ -451,13 +442,13 @@ const SHADOW_SCALE: ReadonlyArray<{
     label: 'shadow-xs',
     twClass: 'shadow-xs',
     cssVar: '--shadow-xs',
-    use: 'Chips, slider thumbs, glass panels',
+    use: 'Raised chips and slider thumbs',
   },
   {
     label: 'shadow-sm',
     twClass: 'shadow-sm',
     cssVar: '--shadow-sm',
-    use: 'Tabs, sticky bars, hover lift',
+    use: 'Sticky bars',
   },
   {
     label: 'shadow-md',
@@ -483,11 +474,62 @@ const TOC_SECTIONS = [
   { id: 'hero', label: 'Overview' },
   { id: 'logo', label: 'Logo' },
   { id: 'wallpapers', label: 'Wallpapers' },
-  { id: 'colors', label: 'Colors' },
-  { id: 'typography', label: 'Typography' },
-  { id: 'motion', label: 'Motion' },
+  {
+    id: 'colors',
+    label: 'Colors',
+    children: [
+      { id: 'color-surfaces', label: 'Surfaces' },
+      { id: 'color-semantic', label: 'Core palette' },
+      { id: 'color-accents', label: 'Accents and status' },
+      { id: 'color-chart', label: 'Chart ramp' },
+    ],
+  },
+  {
+    id: 'tokens',
+    label: 'Token map',
+    children: [
+      { id: 'tokens-surface', label: 'Surface' },
+      { id: 'tokens-ink', label: 'Ink and line' },
+      { id: 'tokens-interaction', label: 'Interaction' },
+      { id: 'tokens-status', label: 'Status' },
+      { id: 'tokens-geometry', label: 'Geometry' },
+      { id: 'tokens-elevation', label: 'Elevation' },
+    ],
+  },
+  {
+    id: 'typography',
+    label: 'Typography',
+    children: [
+      { id: 'type-families', label: 'Families' },
+      { id: 'type-scale', label: 'Scale' },
+    ],
+  },
   { id: 'spacing', label: 'Spacing' },
   { id: 'shadows', label: 'Shadows' },
+  {
+    id: 'motion',
+    label: 'Motion',
+    children: [
+      { id: 'motion-durations', label: 'Durations' },
+      { id: 'motion-easing', label: 'Easing' },
+    ],
+  },
+  {
+    id: 'states',
+    label: 'States',
+    children: [
+      { id: 'states-list', label: 'A list' },
+      { id: 'states-action', label: 'An action' },
+    ],
+  },
+  {
+    id: 'interaction',
+    label: 'Interaction',
+    children: [
+      { id: 'interaction-states', label: 'Hover, press, focus' },
+      { id: 'interaction-translate', label: 'Translate and swap' },
+    ],
+  },
   {
     id: 'components',
     label: 'Components',
@@ -532,23 +574,18 @@ const TOC_SECTIONS = [
   {
     id: 'page-patterns',
     label: 'Page Patterns',
-    children: [
-      { id: 'pat-spotlight-card', label: 'SpotlightCard' },
-      { id: 'pat-search-bar', label: 'PageSearchBar' },
-    ],
+    children: [{ id: 'pat-search-bar', label: 'PageSearchBar' }],
   },
   {
     id: 'patterns',
     label: 'Primitives',
     children: [
-      { id: 'pat-page-shell', label: 'PageShell' },
       { id: 'pat-section', label: 'Section' },
       { id: 'pat-banned', label: 'Banned patterns' },
       { id: 'pat-avatars', label: 'Avatars' },
       { id: 'pat-definition-list', label: 'DefinitionList' },
       { id: 'pat-inline-meta', label: 'InlineMeta' },
       { id: 'pat-empty-state', label: 'EmptyState' },
-      { id: 'pat-info-banner', label: 'InfoBanner' },
       { id: 'pat-status', label: 'Status (Dot, Badge, Diff)' },
     ],
   },
@@ -618,11 +655,7 @@ function SocialCard({ asset }: { asset: SocialAsset }) {
 
   return (
     <div className="group relative">
-      <div
-        className={cn(
-          'border-border relative aspect-square overflow-hidden rounded-md border',
-        )}
-      >
+      <div className={cn('border-border relative aspect-square overflow-hidden rounded-md border')}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={asset.pngSrc}
@@ -741,18 +774,8 @@ function FormatToggle({
   );
 }
 
-function DemoContainer({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn('border-border bg-card/10 max-w-full min-w-0 rounded-lg border p-6', className)}
-    >
-      {children}
-    </div>
-  );
-}
-
 function SectionDivider() {
-  return <div className="border-border/50 mt-14 border-t pt-8" />;
+  return <div className="border-border mt-14 border-t pt-8" />;
 }
 
 /**
@@ -774,7 +797,7 @@ function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <AccordionItem id={id} value={id} className="border-border/50 scroll-mt-24 border-b">
+    <AccordionItem id={id} value={id} className="border-border scroll-mt-24 border-b">
       <AccordionTrigger className="min-h-11 items-center gap-6 py-5 hover:no-underline">
         <div className="grid w-full gap-1 sm:grid-cols-12 sm:items-baseline sm:gap-6">
           <span className="text-foreground text-xs tracking-widest uppercase sm:col-span-3">
@@ -785,19 +808,11 @@ function CollapsibleSection({
           </span>
         </div>
       </AccordionTrigger>
-      <AccordionContent className="pt-2 pb-16 text-base">{children}</AccordionContent>
+      <AccordionContent className="pt-2 pb-16">
+        <div className="space-y-10">{children}</div>
+      </AccordionContent>
     </AccordionItem>
   );
-}
-
-function ComponentLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-muted-foreground mb-2 text-xs tracking-widest uppercase">{children}</h3>
-  );
-}
-
-function ComponentDesc({ children }: { children: React.ReactNode }) {
-  return <p className="text-muted-foreground mb-4 text-sm leading-relaxed">{children}</p>;
 }
 
 /**
@@ -827,7 +842,7 @@ function EmojiPickerDemo() {
                 ? tI18nComplete('text1c01c6630cab', { value0: selection.label })
                 : tI18nComplete.raw('textb9edcf16a2bc')
             }
-            className="hit-area-1 size-9 shrink-0 transition-[color,background-color,scale] duration-normal active:scale-[0.96]"
+            className="hit-area-1 duration-normal size-9 shrink-0 transition-[color,background-color,scale] motion-safe:active:scale-[0.96]"
           >
             {selection ? (
               // Named by the button's aria-label, so the glyph itself stays out
@@ -897,8 +912,12 @@ function ProjectIconPickerDemo() {
                   : tI18nComplete.raw('textf2a9bd94c131')
             }
             className={cn(
-              'hit-area-1 size-9 shrink-0 transition-[color,background-color,box-shadow,scale] duration-normal active:scale-[0.96]',
-              glyph && [glyphTint(glyph.color), glyphTintHover(glyph.color), 'hover:brightness-110'],
+              'hit-area-1 duration-normal size-9 shrink-0 transition-[color,background-color,box-shadow,scale] motion-safe:active:scale-[0.96]',
+              glyph && [
+                glyphTint(glyph.color),
+                glyphTintHover(glyph.color),
+                'hover:brightness-110',
+              ],
             )}
           >
             {emoji ? (
@@ -908,7 +927,12 @@ function ProjectIconPickerDemo() {
                 {emoji.emoji}
               </span>
             ) : glyph && Glyph ? (
-              <Glyph aria-hidden weight="fill" className={cn('size-4', glyphForeground(glyph.color))} style={glyphStyle(glyph.color)} />
+              <Glyph
+                aria-hidden
+                weight="fill"
+                className={cn('size-4', glyphForeground(glyph.color))}
+                style={glyphStyle(glyph.color)}
+              />
             ) : (
               <Smiley className="text-muted-foreground size-4" />
             )}
@@ -956,12 +980,12 @@ function AntiPatternBlock({
 }) {
   const tHardcodedUi = useTranslations('hardcodedUi');
   return (
-    <div className="border-border overflow-hidden rounded-xl border">
-      <div className="border-border/30 border-b px-5 py-4">
+    <div className="border-border overflow-hidden rounded-md border">
+      <div className="border-border flex items-center gap-1.5 border-b px-5 py-3">
         <h4 className="text-foreground text-sm font-medium">{title}</h4>
-        <p className="text-muted-foreground mt-1 text-xs">{description}</p>
+        <InfoHint label={aboutLabel(title)}>{description}</InfoHint>
       </div>
-      <div className="divide-border/30 grid divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
+      <div className="divide-border grid divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
         <div className="p-4">
           <div className="mb-2.5 flex items-center gap-1.5">
             <X className="text-kortix-red size-3" />
@@ -969,7 +993,7 @@ function AntiPatternBlock({
               {tHardcodedUi.raw('appHomeDesignSystemPage.line566JsxTextDonAposT')}
             </span>
           </div>
-          <pre className="text-muted-foreground bg-muted/30 max-w-full min-w-0 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+          <pre className="text-muted-foreground bg-muted max-w-full min-w-0 overflow-x-auto rounded-sm p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
             {bad}
           </pre>
         </div>
@@ -980,7 +1004,7 @@ function AntiPatternBlock({
               {tHardcodedUi.raw('i18nComplete.text30094e0bec00')}
             </span>
           </div>
-          <pre className="text-muted-foreground bg-muted/30 max-w-full min-w-0 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+          <pre className="text-muted-foreground bg-muted max-w-full min-w-0 overflow-x-auto rounded-sm p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
             {good}
           </pre>
         </div>
@@ -1137,7 +1161,7 @@ function TocSidebar({ onNavigate }: { onNavigate: (id: string) => boolean }) {
                 {s.label}
               </Button>
               {hasChildren && (
-                <ul className="border-border/30 mt-0.5 mb-1 ml-2.5 space-y-0 border-l pl-2.5">
+                <ul className="border-border mt-0.5 mb-1 ml-2.5 space-y-0 border-l pl-2.5">
                   {s.children.map((c) => (
                     <li key={c.id}>
                       <Button
@@ -1168,6 +1192,7 @@ export default function BrandPage() {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const logoAssets = localizeUiCatalog(LOGO_ASSETS, tI18nComplete, DESIGN_SYSTEM_TRANSLATION_KEYS);
   const [logoFmt, setLogoFmt] = useState<LogoFormat>('svg');
+  const [pageSearch, setPageSearch] = useState('');
   const [checkboxGroupValue, setCheckboxGroupValue] = useState<string[]>(['a']);
   const [switchOn, setSwitchOn] = useState(true);
   const [switchOff, setSwitchOff] = useState(false);
@@ -1239,32 +1264,37 @@ export default function BrandPage() {
                   'appHomeDesignSystemPage.line703JsxTextLogoAssetsColorPaletteTypographyMotionTokensComponent',
                 )}
               </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Badge variant="secondary">
-                  <span className="font-mono">30+</span>{' '}
-                  {tI18nHardcoded.raw('i18nComplete.texta150ce221602')}
-                </Badge>
-                <Badge variant="secondary">
-                  {tHardcodedUi.raw('appHomeDesignSystemPage.line714JsxTextOklchColors')}
-                </Badge>
-                <Badge variant="secondary">
-                  {tHardcodedUi.raw('appHomeDesignSystemPage.line715JsxTextRadixPrimitives')}
-                </Badge>
-              </div>
+              <dl className="text-muted-foreground mt-6 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+                {HOW_TO_READ.map((row) => (
+                  <div key={row.term} className="flex min-w-0 items-baseline gap-1.5">
+                    <dt className="text-foreground shrink-0">{row.term}</dt>
+                    <dd className="truncate font-mono">{row.file}</dd>
+                  </div>
+                ))}
+              </dl>
             </section>
 
             <section id="logo" className="mt-14">
               <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-muted-foreground text-xs tracking-widest uppercase">
-                  {tI18nHardcoded.raw('i18nComplete.textd707dc2f1936')}
-                </h2>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-muted-foreground text-xs tracking-widest uppercase">
+                    {tI18nHardcoded.raw('i18nComplete.textd707dc2f1936')}
+                  </h2>
+                  <InfoHint label={aboutLabel(tI18nHardcoded.raw('i18nComplete.textd707dc2f1936'))}>
+                    {tHardcodedUi.raw(
+                      'appHomeDesignSystemPage.line728JsxTextTwoFormsTheSymbolAndTheWordmarkEach',
+                    )}{' '}
+                    {tHardcodedUi.raw(
+                      'appHomeDesignSystemPage.line737JsxTextTheSymbolIsDerivedFromTheLetterK',
+                    )}
+                    {"'"}
+                    {tHardcodedUi.raw(
+                      'appHomeDesignSystemPage.line739JsxTextTPracticalNeverStretchRotateOrRecolorIt',
+                    )}
+                  </InfoHint>
+                </div>
                 <FormatToggle value={logoFmt} onChange={setLogoFmt} />
               </div>
-              <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                {tHardcodedUi.raw(
-                  'appHomeDesignSystemPage.line728JsxTextTwoFormsTheSymbolAndTheWordmarkEach',
-                )}
-              </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {logoAssets.map((a) => (
                   <LogoCard key={a.id} asset={a} fmt={logoFmt} />
@@ -1278,29 +1308,27 @@ export default function BrandPage() {
                   </div>
                 ))}
               </dl>
-              <p className="text-muted-foreground mt-6 text-sm leading-relaxed">
-                {tHardcodedUi.raw(
-                  'appHomeDesignSystemPage.line737JsxTextTheSymbolIsDerivedFromTheLetterK',
-                )}
-                {"'"}
-                {tHardcodedUi.raw(
-                  'appHomeDesignSystemPage.line739JsxTextTPracticalNeverStretchRotateOrRecolorIt',
-                )}
-              </p>
-
               {/* Social avatars — symbol centred on a solid field, square 1:1 */}
               <div className="mt-10">
-                <h3 className="text-muted-foreground mb-5 text-xs tracking-widest uppercase">
-                  {tI18nHardcoded.raw(
-                    'autoAppPublicMarketingDesignSystemPageJsxTextSocialAvatar0528fcc8',
-                  )}
-                </h3>
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tI18nHardcoded.raw(
-                    'autoAppPublicMarketingDesignSystemPageJsxTextTheSymboleb8e02af',
-                  )}{' '}
-                  {tI18nHardcoded.raw('i18nComplete.textd7abbd37d0b8')}
-                </p>
+                <div className="mb-5 flex items-center gap-1.5">
+                  <h3 className="text-muted-foreground text-xs tracking-widest uppercase">
+                    {tI18nHardcoded.raw(
+                      'autoAppPublicMarketingDesignSystemPageJsxTextSocialAvatar0528fcc8',
+                    )}
+                  </h3>
+                  <InfoHint
+                    label={aboutLabel(
+                      tI18nHardcoded.raw(
+                        'autoAppPublicMarketingDesignSystemPageJsxTextSocialAvatar0528fcc8',
+                      ),
+                    )}
+                  >
+                    {tI18nHardcoded.raw(
+                      'autoAppPublicMarketingDesignSystemPageJsxTextTheSymboleb8e02af',
+                    )}{' '}
+                    {tI18nHardcoded.raw('i18nComplete.textd7abbd37d0b8')}
+                  </InfoHint>
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {SOCIAL_ASSETS.map((a) => (
                     <SocialCard key={a.id} asset={a} />
@@ -1311,32 +1339,34 @@ export default function BrandPage() {
 
             <section id="wallpapers">
               <SectionDivider />
-              <h2 className="text-muted-foreground mb-5 text-xs tracking-widest uppercase">
-                {tI18nHardcoded.raw('i18nComplete.text006547c4fdf5')}
-              </h2>
-              <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                {tI18nHardcoded.raw('i18nComplete.text63315dd386b3')}{' '}
-                <code className="text-foreground font-mono text-sm">
-                  scripts/generate-wallpapers.mjs
-                </code>{' '}
-                {tI18nHardcoded.raw('i18nComplete.textdf6816ae6cb1')}
-              </p>
+              <div className="mb-8 flex items-center gap-1.5">
+                <h2 className="text-muted-foreground text-xs tracking-widest uppercase">
+                  {tI18nHardcoded.raw('i18nComplete.text006547c4fdf5')}
+                </h2>
+                <InfoHint label={aboutLabel(tI18nHardcoded.raw('i18nComplete.text006547c4fdf5'))}>
+                  {tI18nHardcoded.raw('i18nComplete.text63315dd386b3')}{' '}
+                  <code>scripts/generate-wallpapers.mjs</code>{' '}
+                  {tI18nHardcoded.raw('i18nComplete.textdf6816ae6cb1')}
+                </InfoHint>
+              </div>
 
               <div className="mb-10">
-                <h3 className="text-muted-foreground mb-2 text-xs tracking-widest uppercase">
-                  {tI18nHardcoded.raw('i18nComplete.text090ed4316f1d')}
-                </h3>
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tI18nHardcoded.raw('i18nComplete.text1a093dfd0cde')}{' '}
-                  <strong className="font-medium">
-                    {tI18nHardcoded.raw('i18nComplete.textba0e4afa9340')}
-                  </strong>{' '}
-                  {tI18nHardcoded.raw('i18nComplete.textc2d30e82e60f')}{' '}
-                  <strong className="font-medium">
-                    {tI18nHardcoded.raw('i18nComplete.textd707dc2f1936')}
-                  </strong>{' '}
-                  {tI18nHardcoded.raw('i18nComplete.texte53dd7d993e1')}
-                </p>
+                <div className="mb-5 flex items-center gap-1.5">
+                  <h3 className="text-muted-foreground text-xs tracking-widest uppercase">
+                    {tI18nHardcoded.raw('i18nComplete.text090ed4316f1d')}
+                  </h3>
+                  <InfoHint label={aboutLabel(tI18nHardcoded.raw('i18nComplete.text090ed4316f1d'))}>
+                    {tI18nHardcoded.raw('i18nComplete.text1a093dfd0cde')}{' '}
+                    <strong className="font-medium">
+                      {tI18nHardcoded.raw('i18nComplete.textba0e4afa9340')}
+                    </strong>{' '}
+                    {tI18nHardcoded.raw('i18nComplete.textc2d30e82e60f')}{' '}
+                    <strong className="font-medium">
+                      {tI18nHardcoded.raw('i18nComplete.textd707dc2f1936')}
+                    </strong>{' '}
+                    {tI18nHardcoded.raw('i18nComplete.texte53dd7d993e1')}
+                  </InfoHint>
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {MARK_WALLPAPERS.map((w) => (
                     <WallpaperCard key={`${w.id}-${w.theme}`} wallpaper={w} />
@@ -1345,12 +1375,14 @@ export default function BrandPage() {
               </div>
 
               <div>
-                <h3 className="text-muted-foreground mb-2 text-xs tracking-widest uppercase">
-                  {tI18nHardcoded.raw('i18nComplete.textfb9ef894175c')}
-                </h3>
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tI18nHardcoded.raw('i18nComplete.text739dadd6f1f5')}
-                </p>
+                <div className="mb-5 flex items-center gap-1.5">
+                  <h3 className="text-muted-foreground text-xs tracking-widest uppercase">
+                    {tI18nHardcoded.raw('i18nComplete.textfb9ef894175c')}
+                  </h3>
+                  <InfoHint label={aboutLabel(tI18nHardcoded.raw('i18nComplete.textfb9ef894175c'))}>
+                    {tI18nHardcoded.raw('i18nComplete.text739dadd6f1f5')}
+                  </InfoHint>
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {PRODUCT_WALLPAPERS.map((w) => (
                     <WallpaperCard key={`${w.id}-${w.theme}`} wallpaper={w} />
@@ -1363,55 +1395,45 @@ export default function BrandPage() {
               type="multiple"
               value={openSections}
               onValueChange={setOpenSections}
-              className="border-border/50 mt-14 border-t"
+              className="border-border mt-14 border-t"
             >
               <CollapsibleSection
                 id="colors"
                 label={tI18nHardcoded.raw('i18nComplete.text88c45d9e526c')}
                 summary={tI18nHardcoded.raw('i18nComplete.textffd43fd60b28')}
               >
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line751JsxTextBlackAndWhiteIsTheFoundationEachUi',
+                <Spec
+                  id="color-surfaces"
+                  name={tI18nHardcoded.raw('i18nComplete.textdf42a4d5d353')}
+                  about="Pick a neutral by depth: the lowest step that still separates the element from its ground. Every token flips itself; never write dark: for color."
+                  source={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line794JsxTextGlobalsCssRootDark',
                   )}
-                </p>
-
-                <div className="mb-8">
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <p className="text-muted-foreground text-xs">
-                      {tI18nHardcoded.raw('i18nComplete.textdf42a4d5d353')}
-                    </p>
-                    <p className="text-muted-foreground font-mono text-xs">
-                      {tHardcodedUi.raw('appHomeDesignSystemPage.line794JsxTextGlobalsCssRootDark')}
-                    </p>
-                  </div>
+                >
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {SURFACE_LADDER.map((r) => (
                       <TokenSwatch key={r.token} token={r.token} title={r.role} note={r.note} />
                     ))}
                   </div>
-                </div>
+                </Spec>
 
-                <div className="mb-8">
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <p className="text-muted-foreground text-xs">
-                      {tHardcodedUi.raw('appHomeDesignSystemPage.line791JsxTextCorePalette')}
-                    </p>
-                  </div>
+                <Spec
+                  id="color-semantic"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line791JsxTextCorePalette')}
+                  about="Every other semantic token the product reads. Hover and selected are translucent ink; kortix-base aliases ring, so focus, links and the brand share one hue."
+                >
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {SEMANTIC_TOKENS.map((token) => (
                       <TokenSwatch key={token.token} token={token.token} title={token.name} />
                     ))}
                   </div>
-                </div>
+                </Spec>
 
-                <div className="mb-8">
-                  <p className="text-muted-foreground mb-1 text-xs">
-                    {tI18nHardcoded.raw('i18nComplete.text809a706ff256')}
-                  </p>
-                  <p className="text-muted-foreground mb-3 max-w-xl text-xs">
-                    {tI18nHardcoded.raw('i18nComplete.text5ed8e8176c1d')}
-                  </p>
+                <Spec
+                  id="color-accents"
+                  name={tI18nHardcoded.raw('i18nComplete.text809a706ff256')}
+                  about={tI18nHardcoded.raw('i18nComplete.text5ed8e8176c1d')}
+                >
                   <div className="border-border rounded-md border px-4">
                     {ACCENTS.map((a) => (
                       <AccentRow
@@ -1424,21 +1446,27 @@ export default function BrandPage() {
                       />
                     ))}
                   </div>
-                </div>
+                </Spec>
 
-                <div>
-                  <p className="text-muted-foreground mb-1 text-xs">
-                    {tI18nHardcoded.raw('i18nComplete.text1b730c5151b5')}
-                  </p>
-                  <p className="text-muted-foreground mb-3 max-w-xl text-xs">
-                    {tI18nHardcoded.raw('i18nComplete.text7ac77b03cfd2')}
-                  </p>
+                <Spec
+                  id="color-chart"
+                  name={tI18nHardcoded.raw('i18nComplete.text1b730c5151b5')}
+                  about={tI18nHardcoded.raw('i18nComplete.text7ac77b03cfd2')}
+                >
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {CHART_TOKENS.map((token) => (
                       <TokenSwatch key={token} token={token} title={token.slice(2)} />
                     ))}
                   </div>
-                </div>
+                </Spec>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                id="tokens"
+                label="Token map"
+                summary="Job, class, token, live value: what you decide, then what you write."
+              >
+                <TokenMapSection />
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -1446,54 +1474,60 @@ export default function BrandPage() {
                 label={tI18nHardcoded.raw('i18nComplete.textcab94aba84f9')}
                 summary={tI18nHardcoded.raw('i18nComplete.text0c3397719010')}
               >
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line848JsxTextRoobertAGeometricSansSerifFontMedium500',
-                  )}
-                </p>
-
-                <div className="space-y-6">
-                  {[
-                    {
-                      label: tI18nHardcoded.raw('i18nComplete.texte64e02c862bd'),
-                      cls: 'font-medium',
-                    },
-                    {
-                      label: tI18nHardcoded.raw('i18nComplete.textb6bcbb175d23'),
-                      cls: 'font-normal',
-                    },
-                  ].map((s) => (
-                    <div key={s.label} className="border-border/30 border-b pb-5">
-                      <span className="text-muted-foreground mb-2 block font-mono text-xs tracking-widest">
-                        {s.label}
-                      </span>
-                      <p
-                        className={cn('text-foreground text-3xl tracking-tight md:text-5xl', s.cls)}
-                      >
-                        {tHardcodedUi.raw('appHomeDesignSystemPage.line871JsxTextKortixComputer')}
+                <Spec
+                  id="type-families"
+                  name="Roobert"
+                  about="Roobert for everything, Roobert Mono only for literal text you could type. Weights 400, 500 and 600; no third family."
+                  source="--font-sans · --font-mono"
+                >
+                  <DemoContainer className="space-y-5">
+                    {[
+                      {
+                        label: tI18nHardcoded.raw('i18nComplete.texte64e02c862bd'),
+                        cls: 'font-medium',
+                      },
+                      {
+                        label: tI18nHardcoded.raw('i18nComplete.textb6bcbb175d23'),
+                        cls: 'font-normal',
+                      },
+                    ].map((s) => (
+                      <SpecRow key={s.label} label={<span className="font-mono">{s.label}</span>}>
+                        <p
+                          className={cn(
+                            'text-foreground text-3xl tracking-tight md:text-5xl',
+                            s.cls,
+                          )}
+                        >
+                          {tHardcodedUi.raw('appHomeDesignSystemPage.line871JsxTextKortixComputer')}
+                        </p>
+                      </SpecRow>
+                    ))}
+                    <SpecRow
+                      label={
+                        <span className="font-mono">
+                          {tHardcodedUi.raw('appHomeDesignSystemPage.line880JsxTextRoobertMono')}
+                        </span>
+                      }
+                    >
+                      <p className="text-foreground font-mono text-lg tracking-tight md:text-2xl">
+                        {tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line883JsxTextConstAgentNewKortix',
+                        )}
                       </p>
-                    </div>
-                  ))}
-                </div>
+                      <p className="text-muted-foreground mt-3 font-mono text-xs">
+                        {tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line886JsxTextAbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyz0123456789',
+                        )}
+                      </p>
+                    </SpecRow>
+                  </DemoContainer>
+                </Spec>
 
-                <div className="bg-popover border-border mt-6 rounded-md border p-5 md:p-6">
-                  <span className="text-muted-foreground mb-3 block font-mono text-xs">
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line880JsxTextRoobertMono')}
-                  </span>
-                  <p className="text-foreground font-mono text-lg tracking-tight md:text-2xl">
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line883JsxTextConstAgentNewKortix')}
-                  </p>
-                  <p className="text-muted-foreground mt-4 font-mono text-xs">
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line886JsxTextAbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyz0123456789',
-                    )}
-                  </p>
-                </div>
-
-                <div className="mt-8">
-                  <p className="text-muted-foreground mb-4 text-xs">
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line894JsxTextTypeScale')}
-                  </p>
+                <Spec
+                  id="type-scale"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line894JsxTextTypeScale')}
+                  about="These rungs and no others: text-xs (13px) is the workhorse, text-2xl the app ceiling, 3xl and up marketing only. Sizes are measured, not typed."
+                >
                   <div className="space-y-0">
                     {TYPE_STEPS.map((t) => (
                       <TypeRow
@@ -1507,7 +1541,82 @@ export default function BrandPage() {
                       />
                     ))}
                   </div>
-                </div>
+                </Spec>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                id="spacing"
+                label={tI18nHardcoded.raw('i18nComplete.text62a822a58309')}
+                summary={tI18nHardcoded.raw('i18nComplete.texte2fe1fe9cff1')}
+              >
+                <Spec
+                  id="spacing-steps"
+                  name="Steps"
+                  about="The base is 0.23rem, 8% tighter than stock Tailwind: a 16px mockup padding is p-4, never a bracket value. One owner per gap."
+                >
+                  <DemoContainer>
+                    <div className="mb-4">
+                      <SpacingBase />
+                    </div>
+                    <div className="space-y-2.5">
+                      {SPACING_STEPS.map((step) => (
+                        <SpacingRow key={step} step={step} />
+                      ))}
+                    </div>
+                  </DemoContainer>
+                </Spec>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                id="shadows"
+                label={tI18nHardcoded.raw('i18nComplete.text2a19bdc09aa3')}
+                summary={tI18nHardcoded.raw('i18nComplete.text9d1a9c5808a8')}
+              >
+                <Spec
+                  id="elevation-ladder"
+                  name="Ladder"
+                  about="Shadow means floats above the page: in-flow panels stay flat with a border. An overlay pairs its shadow with a hairline, because a shadow is invisible on black."
+                >
+                  <DemoContainer>
+                    <div className="mb-6 grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-medium">In the page</h3>
+                        <div className="bg-popover border-border rounded-md border p-6 text-sm">
+                          Flat panel · no shadow
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-medium">Above the page</h3>
+                        <div className="bg-popover border-border rounded-md border p-6 text-sm shadow-md">
+                          Floating panel · hairline + shadow
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-muted rounded-md p-8">
+                      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                        {SHADOW_SCALE.map((s) => (
+                          <div key={s.label} className="flex flex-col gap-3">
+                            <div
+                              className={cn(
+                                'bg-popover border-border flex h-28 items-center justify-center rounded-md border',
+                                s.twClass,
+                              )}
+                              style={s.twClass ? undefined : { boxShadow: `var(${s.cssVar})` }}
+                            >
+                              <span className="text-muted-foreground font-mono text-xs">
+                                {s.label}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-foreground text-sm">{s.use}</p>
+                              <CopyValue value={s.cssVar} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </DemoContainer>
+                </Spec>
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -1515,16 +1624,11 @@ export default function BrandPage() {
                 label={tI18nHardcoded.raw('i18nComplete.text8ca344247c18')}
                 summary={tI18nHardcoded.raw('i18nComplete.textd1345dc7da98')}
               >
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line938JsxTextStandardizedDurationAndEasingTokensEnsureEveryTransition',
-                  )}
-                </p>
-
-                <div className="mb-8">
-                  <p className="text-muted-foreground mb-4 text-xs">
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line946JsxTextDurationScale')}
-                  </p>
+                <Spec
+                  id="motion-durations"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line946JsxTextDurationScale')}
+                  about="Count how often a user sees it, then pick: constant gets none, often 100 to 200ms, occasionally up to 300ms. The readout is the computed transition, so a dead utility shows as 150ms."
+                >
                   <DemoContainer>
                     <div className="space-y-3">
                       {DURATIONS.map((d) => (
@@ -1538,12 +1642,13 @@ export default function BrandPage() {
                       ))}
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div>
-                  <p className="text-muted-foreground mb-4 text-xs">
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line964JsxTextEasingCurves')}
-                  </p>
+                <Spec
+                  id="motion-easing"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line964JsxTextEasingCurves')}
+                  about="ease-out for anything entering or leaving, ease-in-out for a thing already on screen that moves. Click a label to replay."
+                >
                   <DemoContainer>
                     <div className="space-y-3">
                       {EASING_CURVES.map((e) => (
@@ -1557,70 +1662,23 @@ export default function BrandPage() {
                       ))}
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
               </CollapsibleSection>
 
               <CollapsibleSection
-                id="spacing"
-                label={tI18nHardcoded.raw('i18nComplete.text62a822a58309')}
-                summary={tI18nHardcoded.raw('i18nComplete.texte2fe1fe9cff1')}
+                id="states"
+                label="States"
+                summary="The four states of a list and of an action, one primitive each."
               >
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line988JsxTextAConsistentSpacingScaleBasedOn4pxIncrements',
-                  )}
-                </p>
-
-                <DemoContainer>
-                  <div className="mb-4">
-                    <SpacingBase />
-                  </div>
-                  <div className="space-y-2.5">
-                    {SPACING_STEPS.map((step) => (
-                      <SpacingRow key={step} step={step} />
-                    ))}
-                  </div>
-                </DemoContainer>
+                <StatesSection />
               </CollapsibleSection>
 
               <CollapsibleSection
-                id="shadows"
-                label={tI18nHardcoded.raw('i18nComplete.text2a19bdc09aa3')}
-                summary={tI18nHardcoded.raw('i18nComplete.text9d1a9c5808a8')}
+                id="interaction"
+                label="Interaction"
+                summary="Hover, press, focus, the glyph nudge, the icon swap and the info icon."
               >
-                <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-                  {tI18nHardcoded.raw(
-                    'autoAppPublicMarketingDesignSystemPageJsxTextSubtleElevation8c9f8cda',
-                  )}{' '}
-                  <code className="bg-muted rounded-sm px-1 font-mono text-xs">box-shadow</code>{' '}
-                  {tI18nHardcoded.raw('i18nComplete.textdb482d99cacb')}
-                </p>
-
-                <DemoContainer>
-                  <div className="bg-muted rounded-md p-8">
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                      {SHADOW_SCALE.map((s) => (
-                        <div key={s.label} className="flex flex-col gap-3">
-                          <div
-                            className={cn(
-                              'bg-card border-border flex h-28 items-center justify-center rounded-md border',
-                              s.twClass,
-                            )}
-                            style={s.twClass ? undefined : { boxShadow: `var(${s.cssVar})` }}
-                          >
-                            <span className="text-muted-foreground font-mono text-xs">
-                              {s.label}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-mono text-xs">{s.cssVar}</p>
-                            <p className="text-muted-foreground mt-0.5 text-xs">{s.use}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </DemoContainer>
+                <InteractionSection />
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -1628,29 +1686,29 @@ export default function BrandPage() {
                 label={tI18nHardcoded.raw('i18nComplete.texta150ce221602')}
                 summary={tI18nHardcoded.raw('i18nComplete.texta55bc449bcc1')}
               >
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line1019JsxTextTheCompleteComponentLibraryEachComponentUsesA',
-                  )}
-                </p>
-
-                <div id="comp-button" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text707eab0c23ec')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.rich('i18nComplete.textf25fe860a82d', {
-                      code: (chunks) => (
-                        <code className="bg-muted rounded-sm px-1 font-mono text-xs">{chunks}</code>
-                      ),
-                    })}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-button"
+                  source="@kortix/ui/button"
+                  name={tI18nHardcoded.raw('i18nComplete.text707eab0c23ec')}
+                  about={
+                    <>
+                      {tI18nHardcoded.rich('i18nComplete.textf25fe860a82d', {
+                        code: (chunks) => (
+                          <code className="bg-muted rounded-sm px-1 font-mono text-xs">
+                            {chunks}
+                          </code>
+                        ),
+                      })}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <div className="space-y-6">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1039JsxTextBaseVariants')}
-                        </p>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1039JsxTextBaseVariants',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Button variant="default">
                             {tI18nHardcoded.raw('i18nComplete.text21b111cbfe6e')}
@@ -1671,13 +1729,12 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.texta6a32dbc5618')}
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw(
-                            'appHomeDesignSystemPage.line1051JsxTextKortixVariants',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1051JsxTextKortixVariants',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Button variant="secondary">
                             {tI18nHardcoded.raw('i18nComplete.text62f2ccfffcc5')}
@@ -1692,11 +1749,12 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.textc88a0b907419')}
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1061JsxTextStandardSizes')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1061JsxTextStandardSizes',
+                        )}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           <Button size="lg">
                             {tI18nHardcoded.raw('i18nComplete.textab80540d98d2')}
@@ -1707,15 +1765,19 @@ export default function BrandPage() {
                           <Button size="sm">
                             {tI18nHardcoded.raw('i18nComplete.text5263293fc202')}
                           </Button>
-                          <Button size="icon" aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}>
+                          <Button
+                            size="icon"
+                            aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}
+                          >
                             <Settings className="size-4" />
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1071JsxTextCompactSizes')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1071JsxTextCompactSizes',
+                        )}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           <Button size="toolbar" variant="muted">
                             {tI18nHardcoded.raw('i18nComplete.text451aa51a0fb5')}
@@ -1723,18 +1785,25 @@ export default function BrandPage() {
                           <Button size="xs" variant="muted">
                             {tI18nHardcoded.raw('i18nComplete.text35542ace70ce')}
                           </Button>
-                          <Button size="icon-sm" variant="ghost" aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}
+                          >
                             <Settings className="size-3.5" />
                           </Button>
-                          <Button size="icon-xs" variant="ghost" aria-label={tI18nHardcoded.raw('i18nComplete.text7d9eb7acb13e')}>
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={tI18nHardcoded.raw('i18nComplete.text7d9eb7acb13e')}
+                          >
                             <X className="size-3" />
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1081JsxTextWithIcons')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw('appHomeDesignSystemPage.line1081JsxTextWithIcons')}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           <Button>
                             <Mail className="size-4" />
@@ -1761,11 +1830,8 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.texteebdd24a77d9')}
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text2f6e9daec8e9')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text2f6e9daec8e9')}>
                         <div className="flex flex-wrap items-center gap-2">
                           <Button disabled>
                             {tI18nHardcoded.raw('i18nComplete.text75081b593d15')}
@@ -1780,26 +1846,28 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.textdc380888c4e2')}
                           </Button>
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-button-group" className="mb-12">
-                  <ComponentLabel>{tI18nHardcoded.raw('i18nComplete.text7193a9579bbc')}</ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw('i18nComplete.text07b547d6911c')}{' '}
-                    <code className="bg-muted rounded-sm px-1 font-mono text-xs">
-                      orientation=&quot;vertical&quot;
-                    </code>
-                    .
-                  </ComponentDesc>
+                <Spec
+                  id="comp-button-group"
+                  source="@kortix/ui/button-group"
+                  name={tI18nHardcoded.raw('i18nComplete.text7193a9579bbc')}
+                  about={
+                    <>
+                      {tI18nHardcoded.raw('i18nComplete.text07b547d6911c')}{' '}
+                      <code className="bg-muted rounded-sm px-1 font-mono text-xs">
+                        orientation=&quot;vertical&quot;
+                      </code>
+                      .
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <div className="space-y-6">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text0abba441f16e')}
-                        </p>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text0abba441f16e')}>
                         <div className="flex flex-wrap items-center gap-4">
                           {(['secondary', 'muted', 'ghost', 'outline', 'default'] as const).map(
                             (variant) => (
@@ -1817,21 +1885,30 @@ export default function BrandPage() {
                             ),
                           )}
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.texteae96e02bbc4')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.texteae96e02bbc4')}>
                         <div className="flex flex-wrap items-center gap-4">
                           {(['secondary', 'ghost', 'outline'] as const).map((variant) => (
                             <ButtonGroup key={variant}>
-                              <Button variant={variant} size="icon-sm" aria-label={tI18nHardcoded.raw('i18nComplete.text49c266baaaa7')}>
+                              <Button
+                                variant={variant}
+                                size="icon-sm"
+                                aria-label={tI18nHardcoded.raw('i18nComplete.text49c266baaaa7')}
+                              >
                                 <Search />
                               </Button>
-                              <Button variant={variant} size="icon-sm" aria-label={tI18nHardcoded.raw('i18nComplete.texte21f935f11d7')}>
+                              <Button
+                                variant={variant}
+                                size="icon-sm"
+                                aria-label={tI18nHardcoded.raw('i18nComplete.texte21f935f11d7')}
+                              >
                                 <Copy />
                               </Button>
-                              <Button variant={variant} size="icon-sm" aria-label={tI18nHardcoded.raw('i18nComplete.texte2d0a54968ea')}>
+                              <Button
+                                variant={variant}
+                                size="icon-sm"
+                                aria-label={tI18nHardcoded.raw('i18nComplete.texte2d0a54968ea')}
+                              >
                                 <Trash2 />
                               </Button>
                             </ButtonGroup>
@@ -1840,16 +1917,17 @@ export default function BrandPage() {
                             <Button variant="secondary" size="sm">
                               <Plus /> {tI18nHardcoded.raw('i18nComplete.text18fdd549b2ed')}
                             </Button>
-                            <Button variant="secondary" size="icon-sm" aria-label={tI18nHardcoded.raw('i18nComplete.textbc79cdffbaa8')}>
+                            <Button
+                              variant="secondary"
+                              size="icon-sm"
+                              aria-label={tI18nHardcoded.raw('i18nComplete.textbc79cdffbaa8')}
+                            >
                               <ChevronsUpDown />
                             </Button>
                           </ButtonGroup>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text727cd3a64d79')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text727cd3a64d79')}>
                         <div className="flex flex-wrap items-start gap-6">
                           {(['secondary', 'ghost', 'outline'] as const).map((variant) => (
                             <ButtonGroup key={variant} orientation="vertical" className="w-60">
@@ -1868,26 +1946,26 @@ export default function BrandPage() {
                             </ButtonGroup>
                           ))}
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-badge" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text002474e36821')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1108JsxTextLabelsStatusIndicatorsAndTagsSevenVariantsFrom',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-badge"
+                  source="@kortix/ui/badge"
+                  name={tI18nHardcoded.raw('i18nComplete.text002474e36821')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1108JsxTextLabelsStatusIndicatorsAndTagsSevenVariantsFrom',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1114JsxTextBaseVariants')}
-                        </p>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1114JsxTextBaseVariants',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="solid">
                             {tI18nHardcoded.raw('i18nComplete.textb8b311b0f273')}
@@ -1920,13 +1998,12 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.textaac7e89fcd0e')}
                           </Badge>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw(
-                            'appHomeDesignSystemPage.line1126JsxTextSemanticStatus',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1126JsxTextSemanticStatus',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="success">
                             {tI18nHardcoded.raw('i18nComplete.textc88a0b907419')}
@@ -1949,11 +2026,8 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.text2346f214ad56')}
                           </Badge>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text74a3978d1004')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text74a3978d1004')}>
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="default">
                             {tI18nHardcoded.raw('i18nComplete.text21b111cbfe6e')}
@@ -1977,11 +2051,10 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.text331551b0de41')}
                           </Badge>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1144JsxTextWithIcons')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw('appHomeDesignSystemPage.line1144JsxTextWithIcons')}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="default">
                             <Star className="size-3" />
@@ -2000,30 +2073,28 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.text331551b0de41')}
                           </Badge>
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-card" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textbe3702e3f1af')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw('i18nComplete.text4e37aaf3f5f2')}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-card"
+                  source="@kortix/ui/card"
+                  name={tI18nHardcoded.raw('i18nComplete.textbe3702e3f1af')}
+                  about={tI18nHardcoded.raw('i18nComplete.text4e37aaf3f5f2')}
+                >
                   <CardSection />
-                </div>
+                </Spec>
 
-                <div id="comp-input" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text36ecb4f86691')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1211JsxTextTextInputForFormsAndSearchTheCanonical',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-input"
+                  source="@kortix/ui/input"
+                  name={tI18nHardcoded.raw('i18nComplete.text36ecb4f86691')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1211JsxTextTextInputForFormsAndSearchTheCanonical',
+                  )}
+                >
                   <DemoContainer>
                     <div className="max-w-sm space-y-4">
                       <div className="space-y-2">
@@ -2057,17 +2128,16 @@ export default function BrandPage() {
                       />
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-textarea" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text467065a16a2e')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1235JsxTextMultiLineTextInputForLongerContentShares',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-textarea"
+                  source="@kortix/ui/textarea"
+                  name={tI18nHardcoded.raw('i18nComplete.text467065a16a2e')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1235JsxTextMultiLineTextInputForLongerContentShares',
+                  )}
+                >
                   <DemoContainer>
                     <div className="max-w-sm space-y-4">
                       <Textarea
@@ -2083,51 +2153,52 @@ export default function BrandPage() {
                       />
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-select" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text2a78025de6aa')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1251JsxTextDropdownSelectionFromAListOfOptionsMatches',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-select"
+                  source="@kortix/ui/select"
+                  name={tI18nHardcoded.raw('i18nComplete.text2a78025de6aa')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1251JsxTextDropdownSelectionFromAListOfOptionsMatches',
+                  )}
+                >
                   <DemoContainer>
                     <SelectDemos />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-dropdown" className="mb-12">
-                  <ComponentLabel>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line1526JsxTextDropdownMenu')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1528JsxTextContextualMenuTriggeredByAButtonRowsStay',
-                    )}{' '}
-                    <strong>{tI18nHardcoded.raw('i18nComplete.text7e2372f4115c')}</strong>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1529JsxTextEvenDestructiveOnesLikeDeleteOrRemoveRed',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-dropdown"
+                  source="@kortix/ui/dropdown-menu"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line1526JsxTextDropdownMenu')}
+                  about={
+                    <>
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line1528JsxTextContextualMenuTriggeredByAButtonRowsStay',
+                      )}{' '}
+                      <strong>{tI18nHardcoded.raw('i18nComplete.text7e2372f4115c')}</strong>
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line1529JsxTextEvenDestructiveOnesLikeDeleteOrRemoveRed',
+                      )}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <DropdownDemos />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-checkbox" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw(
-                      'autoAppPublicMarketingDesignSystemPageJsxTextCheckboxGroupf8961cfb',
-                    )}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1276JsxTextToggleForBooleanValues',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-checkbox"
+                  source="@kortix/ui/checkbox-group"
+                  name={tI18nHardcoded.raw(
+                    'autoAppPublicMarketingDesignSystemPageJsxTextCheckboxGroupf8961cfb',
+                  )}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1276JsxTextToggleForBooleanValues',
+                  )}
+                >
                   <DemoContainer className="max-w-xs">
                     <CheckboxGroup value={checkboxGroupValue} onValueChange={setCheckboxGroupValue}>
                       <CheckboxGroupItem
@@ -2154,17 +2225,16 @@ export default function BrandPage() {
                       />
                     </CheckboxGroup>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-switch" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text39921a740bf2')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1311JsxTextToggleControlForOnOffStates',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-switch"
+                  source="@kortix/ui/switch"
+                  name={tI18nHardcoded.raw('i18nComplete.text39921a740bf2')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1311JsxTextToggleControlForOnOffStates',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
@@ -2191,25 +2261,23 @@ export default function BrandPage() {
                       </div>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-toggle" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text3d03a1dea561')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1348JsxTextATwoStateButtonWithDefaultAndOutline',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-toggle"
+                  source="@kortix/ui/toggle"
+                  name={tI18nHardcoded.raw('i18nComplete.text3d03a1dea561')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1348JsxTextATwoStateButtonWithDefaultAndOutline',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw(
-                            'autoAppPublicMarketingDesignSystemPageJsxTextIconOnlyf6a2c4ee',
-                          )}
-                        </p>
+                      <SpecRow
+                        label={tI18nHardcoded.raw(
+                          'autoAppPublicMarketingDesignSystemPageJsxTextIconOnlyf6a2c4ee',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Toggle
                             variant="default"
@@ -2230,13 +2298,12 @@ export default function BrandPage() {
                             <Settings className="size-4" />
                           </Toggle>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw(
-                            'autoAppPublicMarketingDesignSystemPageJsxTextTextOnly458d5129',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tI18nHardcoded.raw(
+                          'autoAppPublicMarketingDesignSystemPageJsxTextTextOnly458d5129',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Toggle variant="default">
                             {tI18nHardcoded.raw('i18nComplete.text94fee62e68e2')}
@@ -2248,13 +2315,12 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.textf20c87946555')}
                           </Toggle>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw(
-                            'autoAppPublicMarketingDesignSystemPageJsxTextTextIconc6453fac',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tI18nHardcoded.raw(
+                          'autoAppPublicMarketingDesignSystemPageJsxTextTextIconc6453fac',
+                        )}
+                      >
                         <div className="flex flex-wrap gap-2">
                           <Toggle variant="default">
                             <Bold className="size-4" />
@@ -2273,20 +2339,19 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}
                           </Toggle>
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-radio" className="mb-12">
-                  <ComponentLabel>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line1369JsxTextRadioGroup')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1371JsxTextSingleSelectionFromASetOfOptions',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-radio"
+                  source="@kortix/ui/radio-group"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line1369JsxTextRadioGroup')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1371JsxTextSingleSelectionFromASetOfOptions',
+                  )}
+                >
                   <DemoContainer className="max-w-xs">
                     <RadioGroup defaultValue="default">
                       <RadioGroupItem
@@ -2306,23 +2371,17 @@ export default function BrandPage() {
                       />
                     </RadioGroup>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-tabs" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text8e5ea509893e')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1395JsxTextTabbedNavigationWithStandardAndCompactVariants',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-tabs"
+                  source="@kortix/ui/tabs"
+                  name={tI18nHardcoded.raw('i18nComplete.text8e5ea509893e')}
+                  about="Tabbed navigation with segmented, secondary, outline and underline variants."
+                >
                   <DemoContainer>
                     <div className="space-y-6">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.textef6691545d2c')}
-                        </p>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.textef6691545d2c')}>
                         <Tabs defaultValue="tab1">
                           <TabsList>
                             <TabsTrigger value="tab1">
@@ -2357,11 +2416,8 @@ export default function BrandPage() {
                             </p>
                           </TabsContent>
                         </Tabs>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.texteabbf3abaf8d')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.texteabbf3abaf8d')}>
                         <Tabs defaultValue="outline-account">
                           <TabsList animate="none" className="bg-transparent p-0">
                             <TabsTrigger variant="outline" value="outline-account">
@@ -2390,11 +2446,8 @@ export default function BrandPage() {
                             </p>
                           </TabsContent>
                         </Tabs>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.text02f843261112')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text02f843261112')}>
                         <Tabs defaultValue="underline-account">
                           <TabsList type="underline">
                             <TabsTrigger value="underline-account">
@@ -2423,11 +2476,8 @@ export default function BrandPage() {
                             </p>
                           </TabsContent>
                         </Tabs>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.textd71a0c697cce')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.textd71a0c697cce')}>
                         <Tabs defaultValue="segmented-managed" className="max-w-sm">
                           <TabsList variant="segmented" className="w-full">
                             <TabsTrigger value="segmented-managed">
@@ -2450,23 +2500,20 @@ export default function BrandPage() {
                             </p>
                           </TabsContent>
                         </Tabs>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.text99452646e34b')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label="Secondary">
                         <Tabs defaultValue="c1">
-                          <TabsListCompact>
-                            <TabsTriggerCompact value="c1">
+                          <TabsList variant="secondary">
+                            <TabsTrigger value="c1">
                               {tI18nHardcoded.raw('i18nComplete.text8f2364e11b8b')}
-                            </TabsTriggerCompact>
-                            <TabsTriggerCompact value="c2">
+                            </TabsTrigger>
+                            <TabsTrigger value="c2">
                               {tI18nHardcoded.raw('i18nComplete.texte78041ab51a8')}
-                            </TabsTriggerCompact>
-                            <TabsTriggerCompact value="c3">
+                            </TabsTrigger>
+                            <TabsTrigger value="c3">
                               {tI18nHardcoded.raw('i18nComplete.text310ca503ef36')}
-                            </TabsTriggerCompact>
-                          </TabsListCompact>
+                            </TabsTrigger>
+                          </TabsList>
                           <TabsContent value="c1">
                             <p className="text-muted-foreground mt-2 text-sm">
                               {tHardcodedUi.raw(
@@ -2489,20 +2536,19 @@ export default function BrandPage() {
                             </p>
                           </TabsContent>
                         </Tabs>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-dialog" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text69b51517d04b')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1467JsxTextModalOverlayForFocusedInteractions',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-dialog"
+                  source="@kortix/ui/dialog · features use @kortix/ui/modal"
+                  name={tI18nHardcoded.raw('i18nComplete.text69b51517d04b')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1467JsxTextModalOverlayForFocusedInteractions',
+                  )}
+                >
                   <DemoContainer>
                     <Dialog>
                       <DialogTrigger asChild>
@@ -2537,18 +2583,21 @@ export default function BrandPage() {
                       </DialogContent>
                     </Dialog>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-modal" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text18093cad2644')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw(
-                      'autoAppPublicMarketingDesignSystemPageJsxTextResponsiveOverlay8094b284',
-                    )}
-                    <code className="font-mono text-xs">side</code>.
-                  </ComponentDesc>
+                <Spec
+                  id="comp-modal"
+                  source="@kortix/ui/modal"
+                  name={tI18nHardcoded.raw('i18nComplete.text18093cad2644')}
+                  about={
+                    <>
+                      {tI18nHardcoded.raw(
+                        'autoAppPublicMarketingDesignSystemPageJsxTextResponsiveOverlay8094b284',
+                      )}
+                      <code className="font-mono text-xs">side</code>.
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <Modal>
                       <ModalTrigger asChild>
@@ -2587,17 +2636,16 @@ export default function BrandPage() {
                       </ModalContent>
                     </Modal>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-sheet" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text54bf0ebbfb3e')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1500JsxTextSlideOutPanelFromTheEdgeOfThe',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-sheet"
+                  source="@kortix/ui/sheet"
+                  name={tI18nHardcoded.raw('i18nComplete.text54bf0ebbfb3e')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1500JsxTextSlideOutPanelFromTheEdgeOfThe',
+                  )}
+                >
                   <DemoContainer>
                     <Sheet>
                       <SheetTrigger asChild>
@@ -2626,23 +2674,26 @@ export default function BrandPage() {
                       </SheetContent>
                     </Sheet>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-tooltip" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text20f12289f9b8')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1558JsxTextContextualInformationOnHover',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-tooltip"
+                  source="@kortix/ui/hint · tooltip is the part"
+                  name={tI18nHardcoded.raw('i18nComplete.text20f12289f9b8')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1558JsxTextContextualInformationOnHover',
+                  )}
+                >
                   <DemoContainer>
                     <div className="flex flex-wrap gap-3">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" aria-label={tI18nHardcoded.raw('i18nComplete.textb79cac926e0b')}>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label={tI18nHardcoded.raw('i18nComplete.textb79cac926e0b')}
+                            >
                               <HelpCircle className="size-4" />
                             </Button>
                           </TooltipTrigger>
@@ -2658,7 +2709,11 @@ export default function BrandPage() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label={tI18nHardcoded.raw('i18nComplete.text74a883a037bc')}
+                            >
                               <Settings className="size-4" />
                             </Button>
                           </TooltipTrigger>
@@ -2673,17 +2728,16 @@ export default function BrandPage() {
                       </TooltipProvider>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-popover" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text064f6ac1a789')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1598JsxTextFloatingContentPanelAttachedToATrigger',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-popover"
+                  source="@kortix/ui/popover"
+                  name={tI18nHardcoded.raw('i18nComplete.text064f6ac1a789')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1598JsxTextFloatingContentPanelAttachedToATrigger',
+                  )}
+                >
                   <DemoContainer>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -2707,45 +2761,50 @@ export default function BrandPage() {
                       </PopoverContent>
                     </Popover>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-emoji-picker" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text7a9d22da3496')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw('i18nComplete.textdc4156c43e06')}
-                    <code>public/emojibase/</code>{' '}
-                    {tI18nHardcoded.raw('i18nComplete.text639c4f3db6ec')}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-emoji-picker"
+                  source="@kortix/ui/emoji-picker"
+                  name={tI18nHardcoded.raw('i18nComplete.text7a9d22da3496')}
+                  about={
+                    <>
+                      {tI18nHardcoded.raw('i18nComplete.textdc4156c43e06')}
+                      <code>public/emojibase/</code>{' '}
+                      {tI18nHardcoded.raw('i18nComplete.text639c4f3db6ec')}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <EmojiPickerDemo />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-project-icon-picker" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text44088993f639')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw('i18nComplete.text8d199c5ef725')} <code>Tabs</code>{' '}
-                    {tI18nHardcoded.raw('i18nComplete.text7e27fa80abb2')}
-                    <code>368px</code> {tI18nHardcoded.raw('i18nComplete.text2b4d98953dc8')}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-project-icon-picker"
+                  source="@kortix/ui/project-icon-picker"
+                  name={tI18nHardcoded.raw('i18nComplete.text44088993f639')}
+                  about={
+                    <>
+                      {tI18nHardcoded.raw('i18nComplete.text8d199c5ef725')} <code>Tabs</code>{' '}
+                      {tI18nHardcoded.raw('i18nComplete.text7e27fa80abb2')}
+                      <code>368px</code> {tI18nHardcoded.raw('i18nComplete.text2b4d98953dc8')}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <ProjectIconPickerDemo />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-alert" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text44a57b22e03d')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1622JsxTextInlineNotificationWithContextualVariants',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-alert"
+                  source="@kortix/ui/alert"
+                  name={tI18nHardcoded.raw('i18nComplete.text44a57b22e03d')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1622JsxTextInlineNotificationWithContextualVariants',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-3">
                       <Alert>
@@ -2788,35 +2847,109 @@ export default function BrandPage() {
                       </Alert>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-toast" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text34b86033459d')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw(
-                      'autoAppPublicMarketingDesignSystemPageJsxTextEphemeralNotifications64698ef7',
-                    )}{' '}
-                    <code>successToast</code>, <code>errorToast</code>, <code>infoToast</code>,{' '}
-                    <code>warningToast</code>
-                    {tI18nHardcoded.raw('autoAppPublicMarketingDesignSystemPageJsxTextAndd93e251a')}
-                    <code>loadingToast</code> {tI18nHardcoded.raw('i18nComplete.text75857a458999')}{' '}
-                    <code>
+                <Spec
+                  id="comp-toast"
+                  source="@kortix/ui/toast"
+                  name={tI18nHardcoded.raw('i18nComplete.text34b86033459d')}
+                  about={
+                    <>
                       {tI18nHardcoded.raw(
-                        'autoAppPublicMarketingDesignSystemPageJsxTextComponentsUi3eb49cdd',
+                        'autoAppPublicMarketingDesignSystemPageJsxTextEphemeralNotifications64698ef7',
+                      )}{' '}
+                      <code>successToast</code>, <code>errorToast</code>, <code>infoToast</code>,{' '}
+                      <code>warningToast</code>
+                      {tI18nHardcoded.raw(
+                        'autoAppPublicMarketingDesignSystemPageJsxTextAndd93e251a',
                       )}
-                    </code>{' '}
-                    {tI18nHardcoded.raw(
-                      'autoAppPublicMarketingDesignSystemPageJsxTextNotRaw7f6d0bf8',
-                    )}
-                  </ComponentDesc>
+                      <code>loadingToast</code>{' '}
+                      {tI18nHardcoded.raw('i18nComplete.text75857a458999')}{' '}
+                      <code>
+                        {tI18nHardcoded.raw(
+                          'autoAppPublicMarketingDesignSystemPageJsxTextComponentsUi3eb49cdd',
+                        )}
+                      </code>{' '}
+                      {tI18nHardcoded.raw(
+                        'autoAppPublicMarketingDesignSystemPageJsxTextNotRaw7f6d0bf8',
+                      )}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <div className="space-y-6">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text63d2643b059e')}
-                        </p>
+                      <SpecRow label="Status icons">
+                        <div className="grid w-full gap-4 sm:grid-cols-2">
+                          {(['success', 'error', 'info', 'warning', 'progress'] as const).map(
+                            (variant) => (
+                              <ToastCard
+                                key={variant}
+                                message={
+                                  variant === 'progress'
+                                    ? 'Loading'
+                                    : variant.charAt(0).toUpperCase() + variant.slice(1)
+                                }
+                                icon={toastIcon(variant)}
+                                variant={variant}
+                                onDismiss={() => {}}
+                              />
+                            ),
+                          )}
+                        </div>
+                      </SpecRow>
+                      <SpecRow label="Entity icons">
+                        <div className="grid w-full gap-4 sm:grid-cols-2">
+                          {(['success', 'error', 'info', 'warning', 'progress'] as const).map(
+                            (variant) => (
+                              <div key={variant} className="space-y-2">
+                                <ToastCard
+                                  message={
+                                    variant === 'progress'
+                                      ? 'Running schedule'
+                                      : `${variant.charAt(0).toUpperCase() + variant.slice(1)} notification`
+                                  }
+                                  icon={toastIcon(variant)}
+                                  variant={variant}
+                                  options={{
+                                    entity: { icon: <ClockIcon />, label: 'Daily summary' },
+                                  }}
+                                  onDismiss={() => {}}
+                                />
+                                <Button
+                                  size="xs"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    const options = {
+                                      entity: { icon: <ClockIcon />, label: 'Daily summary' },
+                                    };
+                                    if (variant === 'progress') {
+                                      loadingToast(
+                                        'Running schedule',
+                                        () =>
+                                          new Promise<string>((resolve) =>
+                                            setTimeout(() => resolve('Schedule complete'), 2000),
+                                          ),
+                                        { ...options, success: (value) => value },
+                                      );
+                                    } else {
+                                      const show = {
+                                        success: successToast,
+                                        error: errorToast,
+                                        info: infoToast,
+                                        warning: warningToast,
+                                      }[variant];
+                                      show('Schedule notification', options);
+                                    }
+                                  }}
+                                >
+                                  Show {variant === 'progress' ? 'loading' : variant}
+                                </Button>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text63d2643b059e')}>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             onClick={() =>
@@ -2859,11 +2992,8 @@ export default function BrandPage() {
                             {tI18nHardcoded.raw('i18nComplete.texte981ddae45d8')}
                           </Button>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw('i18nComplete.text1eec97a07f6b')}
-                        </p>
+                      </SpecRow>
+                      <SpecRow label={tI18nHardcoded.raw('i18nComplete.text1eec97a07f6b')}>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="secondary"
@@ -2914,20 +3044,19 @@ export default function BrandPage() {
                             )}
                           </Button>
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-alert-dialog" className="mb-12">
-                  <ComponentLabel>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line1653JsxTextAlertDialog')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1655JsxTextConfirmationDialogForDestructiveOrImportantActions',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-alert-dialog"
+                  source="@kortix/ui/alert-dialog · features use @kortix/ui/confirm-dialog"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line1653JsxTextAlertDialog')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1655JsxTextConfirmationDialogForDestructiveOrImportantActions',
+                  )}
+                >
                   <DemoContainer>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -2957,17 +3086,16 @@ export default function BrandPage() {
                       </AlertDialogContent>
                     </AlertDialog>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-accordion" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text68344d566701')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1685JsxTextCollapsibleContentSectionsWithSmoothAnimation',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-accordion"
+                  source="@kortix/ui/accordion"
+                  name={tI18nHardcoded.raw('i18nComplete.text68344d566701')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1685JsxTextCollapsibleContentSectionsWithSmoothAnimation',
+                  )}
+                >
                   <DemoContainer>
                     <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value="item-1">
@@ -3006,17 +3134,16 @@ export default function BrandPage() {
                       </AccordionItem>
                     </Accordion>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-collapsible" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textd4a5d5f8fd9b')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1730JsxTextASimplerExpandCollapsePrimitiveUnlikeAccordionIt',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-collapsible"
+                  source="@kortix/ui/collapsible"
+                  name={tI18nHardcoded.raw('i18nComplete.textd4a5d5f8fd9b')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1730JsxTextASimplerExpandCollapsePrimitiveUnlikeAccordionIt',
+                  )}
+                >
                   <DemoContainer>
                     <Collapsible
                       open={collapsibleOpen}
@@ -3038,34 +3165,33 @@ export default function BrandPage() {
                           </Button>
                         </CollapsibleTrigger>
                       </div>
-                      <div className="border-border/50 mt-2 rounded-md border px-4 py-2 text-sm">
+                      <div className="border-border mt-2 rounded-md border px-4 py-2 text-sm">
                         {tHardcodedUi.raw(
                           'appHomeDesignSystemPage.line1751JsxTextKortixDesignSystem',
                         )}
                       </div>
                       <CollapsibleContent className="mt-2 space-y-2">
-                        <div className="border-border/50 rounded-md border px-4 py-2 text-sm">
+                        <div className="border-border rounded-md border px-4 py-2 text-sm">
                           {tHardcodedUi.raw(
                             'appHomeDesignSystemPage.line1755JsxTextKortixComponents',
                           )}
                         </div>
-                        <div className="border-border/50 rounded-md border px-4 py-2 text-sm">
+                        <div className="border-border rounded-md border px-4 py-2 text-sm">
                           {tHardcodedUi.raw('appHomeDesignSystemPage.line1758JsxTextKortixTokens')}
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-separator" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textbe237eda7fff')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1769JsxTextVisualDividerBetweenContentSections',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-separator"
+                  source="@kortix/ui/separator"
+                  name={tI18nHardcoded.raw('i18nComplete.textbe237eda7fff')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1769JsxTextVisualDividerBetweenContentSections',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
                       <p className="text-muted-foreground text-sm">
@@ -3077,26 +3203,30 @@ export default function BrandPage() {
                       </p>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-skeleton" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textea5f6bdc79b8')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1788JsxTextLoadingPlaceholderForContentThatHasn',
-                    )}
-                    {"'"}
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line1788JsxTextTLoadedYet')}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-skeleton"
+                  source="@kortix/ui/skeleton"
+                  name={tI18nHardcoded.raw('i18nComplete.textea5f6bdc79b8')}
+                  about={
+                    <>
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line1788JsxTextLoadingPlaceholderForContentThatHasn',
+                      )}
+                      {"'"}
+                      {tHardcodedUi.raw('appHomeDesignSystemPage.line1788JsxTextTLoadedYet')}
+                    </>
+                  }
+                >
                   <DemoContainer>
                     <div className="space-y-6">
                       {/* Card-like skeleton */}
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line1795JsxTextCardSkeleton')}
-                        </p>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1795JsxTextCardSkeleton',
+                        )}
+                      >
                         <div className="flex items-start gap-4">
                           <Skeleton className="size-12 rounded-full" />
                           <div className="flex-1 space-y-2">
@@ -3105,14 +3235,13 @@ export default function BrandPage() {
                             <Skeleton className="h-4 w-3/4" />
                           </div>
                         </div>
-                      </div>
+                      </SpecRow>
                       {/* Inline skeletons */}
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tHardcodedUi.raw(
-                            'appHomeDesignSystemPage.line1809JsxTextInlineVariants',
-                          )}
-                        </p>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1809JsxTextInlineVariants',
+                        )}
+                      >
                         <div className="space-y-3">
                           <Skeleton className="h-10 w-full rounded-2xl" />
                           <div className="flex gap-3">
@@ -3121,20 +3250,19 @@ export default function BrandPage() {
                             <Skeleton className="h-8 w-20 rounded-xl" />
                           </div>
                         </div>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-progress" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text4664827f8e89')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1828JsxTextVisualIndicatorOfCompletionOrLoading',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-progress"
+                  source="@kortix/ui/progress"
+                  name={tI18nHardcoded.raw('i18nComplete.text4664827f8e89')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1828JsxTextVisualIndicatorOfCompletionOrLoading',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
                       {[0, 25, 50, 75, 100].map((v) => (
@@ -3145,17 +3273,16 @@ export default function BrandPage() {
                       ))}
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-slider" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text14f34284b054')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1848JsxTextRangeInputForSelectingNumericValues',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-slider"
+                  source="@kortix/ui/slider"
+                  name={tI18nHardcoded.raw('i18nComplete.text14f34284b054')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1848JsxTextRangeInputForSelectingNumericValues',
+                  )}
+                >
                   <DemoContainer>
                     <div className="max-w-sm space-y-4">
                       <Slider
@@ -3169,17 +3296,16 @@ export default function BrandPage() {
                       </span>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-label" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text0e66373f45dc')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1869JsxTextAccessibleLabelForFormControls',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-label"
+                  source="@kortix/ui/label"
+                  name={tI18nHardcoded.raw('i18nComplete.text0e66373f45dc')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1869JsxTextAccessibleLabelForFormControls',
+                  )}
+                >
                   <DemoContainer>
                     <div className="max-w-sm space-y-2">
                       <Label htmlFor="label-demo">
@@ -3194,25 +3320,23 @@ export default function BrandPage() {
                       />
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-kbd" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text76cce341b6b9')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1968JsxTextKeyboardShortcutIndicatorsThemeAwareIncludingAutomaticStyling',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-kbd"
+                  source="@kortix/ui/kbd"
+                  name={tI18nHardcoded.raw('i18nComplete.text76cce341b6b9')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1968JsxTextKeyboardShortcutIndicatorsThemeAwareIncludingAutomaticStyling',
+                  )}
+                >
                   <DemoContainer>
                     <div className="space-y-4">
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tHardcodedUi.raw(
-                            'appHomeDesignSystemPage.line1975JsxTextIndividualKeys',
-                          )}
-                        </p>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1975JsxTextIndividualKeys',
+                        )}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           <Kbd>⌘</Kbd>
                           <Kbd>K</Kbd>
@@ -3221,13 +3345,12 @@ export default function BrandPage() {
                           <Kbd>{tI18nHardcoded.raw('i18nComplete.text52f878edb34f')}</Kbd>
                           <Kbd>{tI18nHardcoded.raw('i18nComplete.text90ddf1963abb')}</Kbd>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs">
-                          {tHardcodedUi.raw(
-                            'appHomeDesignSystemPage.line1988JsxTextKeyGroupsShortcuts',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line1988JsxTextKeyGroupsShortcuts',
+                        )}
+                      >
                         <div className="flex flex-wrap items-center gap-4">
                           <KbdGroup>
                             <Kbd>⌘</Kbd>
@@ -3247,13 +3370,12 @@ export default function BrandPage() {
                             <Kbd>C</Kbd>
                           </KbdGroup>
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-3 text-xs tracking-wider uppercase">
-                          {tI18nHardcoded.raw(
-                            'autoAppPublicMarketingDesignSystemPageJsxTextInTooltips3dc63b0c',
-                          )}
-                        </p>
+                      </SpecRow>
+                      <SpecRow
+                        label={tI18nHardcoded.raw(
+                          'autoAppPublicMarketingDesignSystemPageJsxTextInTooltips3dc63b0c',
+                        )}
+                      >
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -3272,20 +3394,19 @@ export default function BrandPage() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      </div>
+                      </SpecRow>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-breadcrumb" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text2bd873d6c734')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1887JsxTextNavigationHierarchyTrail',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-breadcrumb"
+                  source="@kortix/ui/breadcrumb"
+                  name={tI18nHardcoded.raw('i18nComplete.text2bd873d6c734')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1887JsxTextNavigationHierarchyTrail',
+                  )}
+                >
                   <DemoContainer>
                     <Breadcrumb>
                       <BreadcrumbList>
@@ -3311,17 +3432,16 @@ export default function BrandPage() {
                       </BreadcrumbList>
                     </Breadcrumb>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-table" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text16d1c9050a0b')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line1912JsxTextStructuredDataDisplayInRowsAndColumns',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-table"
+                  source="@kortix/ui/table"
+                  name={tI18nHardcoded.raw('i18nComplete.text16d1c9050a0b')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line1912JsxTextStructuredDataDisplayInRowsAndColumns',
+                  )}
+                >
                   <DemoContainer className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -3392,43 +3512,41 @@ export default function BrandPage() {
                       </TableBody>
                     </Table>
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-calendar" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textd5d0a30b517e')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2026JsxTextDatePickerCalendarGrid',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-calendar"
+                  source="@kortix/ui/calendar"
+                  name={tI18nHardcoded.raw('i18nComplete.textd5d0a30b517e')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2026JsxTextDatePickerCalendarGrid',
+                  )}
+                >
                   <DemoContainer>
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      className="border-border/50 rounded-lg border"
+                      className="border-border rounded-lg border"
                     />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                <div id="comp-scrollarea" className="mb-12">
-                  <ComponentLabel>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line2040JsxTextScrollArea')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2042JsxTextCustomScrollableContainerWithStyledScrollbar',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="comp-scrollarea"
+                  source="@kortix/ui/scroll-area"
+                  name={tHardcodedUi.raw('appHomeDesignSystemPage.line2040JsxTextScrollArea')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2042JsxTextCustomScrollableContainerWithStyledScrollbar',
+                  )}
+                >
                   <DemoContainer>
-                    <ScrollArea className="border-border/50 h-48 w-full rounded-md border p-4">
+                    <ScrollArea className="border-border h-48 w-full rounded-md border p-4">
                       <div className="space-y-2">
                         {Array.from({ length: 20 }, (_, i) => (
                           <div
                             key={i}
-                            className="border-border/20 flex items-center gap-3 border-b py-1.5"
+                            className="border-border flex items-center gap-3 border-b py-1.5"
                           >
                             <span className="text-muted-foreground w-6 font-mono text-xs">
                               {String(i + 1).padStart(2, '0')}
@@ -3442,7 +3560,7 @@ export default function BrandPage() {
                       </div>
                     </ScrollArea>
                   </DemoContainer>
-                </div>
+                </Spec>
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -3450,116 +3568,39 @@ export default function BrandPage() {
                 label={tHardcodedUi.raw('appHomeDesignSystemPage.line2070JsxTextPagePatterns')}
                 summary={tI18nHardcoded.raw('i18nComplete.text65562e698ff8')}
               >
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line2073JsxTextHowKortixListManagementPagesAreBuiltThese',
-                  )}
-                  <code className="font-mono text-xs">/scheduled-tasks</code>,{' '}
-                  <code className="font-mono text-xs">/tunnel</code>
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line2075JsxTextNewManagementStylePagesShouldComposeTheSame',
-                  )}
-                </p>
-
-                {/* ── SpotlightCard ── */}
-                <div id="pat-spotlight-card" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text4bbe0b7e8387')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2113JsxTextItemCardUsedAcrossEveryListPageMouse',
-                    )}
-                    <code className="font-mono text-xs">
-                      {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2115JsxTextBgCardBorderBorderBorder50',
-                      )}
-                    </code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2115JsxTextAndApplyYourOwnInnerPadding',
-                    )}
-                  </ComponentDesc>
-                  <DemoContainer>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {[
-                        {
-                          icon: Cable,
-                          label: tI18nHardcoded.raw('i18nComplete.text5b4cd52a0cf7'),
-                          sub: tI18nHardcoded.raw('i18nComplete.text76eaadc67d03'),
-                        },
-                        {
-                          icon: Radio,
-                          label: tI18nHardcoded.raw('i18nComplete.texta57d47538d79'),
-                          sub: tI18nHardcoded.raw('i18nComplete.textda7d161a2777'),
-                        },
-                        {
-                          icon: Zap,
-                          label: tI18nHardcoded.raw('i18nComplete.text43f94e8f3c65'),
-                          sub: tI18nHardcoded.raw('i18nComplete.textb8babd5bba24'),
-                        },
-                        {
-                          icon: Plug,
-                          label: tI18nHardcoded.raw('i18nComplete.textf911e414cf6b'),
-                          sub: tI18nHardcoded.raw('i18nComplete.text22965568d22a'),
-                        },
-                      ].map((item) => {
-                        const I = item.icon;
-                        return (
-                          <SpotlightCard
-                            key={item.label}
-                            className="bg-card border-border/50 border"
-                          >
-                            <div className="flex cursor-pointer items-center gap-3 p-4">
-                              <div className="bg-muted border-border/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-                                <I className="text-foreground h-4 w-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-foreground truncate text-sm font-semibold">
-                                  {item.label}
-                                </div>
-                                <div className="text-muted-foreground truncate text-xs">
-                                  {item.sub}
-                                </div>
-                              </div>
-                            </div>
-                          </SpotlightCard>
-                        );
-                      })}
-                    </div>
-                  </DemoContainer>
-                </div>
-
                 {/* ── PageSearchBar ── */}
-                <div id="pat-search-bar" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text8b46aff86ab6')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2156JsxTextStandardSearchPillPlacedInTheActionBar',
-                    )}
-                    <code className="font-mono text-xs">max-w-md</code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2157JsxTextWidthSoItSitsNextToARight',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-search-bar"
+                  source="@kortix/ui/page-search-bar"
+                  name={tI18nHardcoded.raw('i18nComplete.text8b46aff86ab6')}
+                  about="Page heading, search, and primary action. Search uses a quiet fill and a compact radius."
+                >
                   <DemoContainer>
-                    <div className="flex items-center justify-between gap-4">
-                      <PageSearchBar
-                        value=""
-                        onChange={() => {}}
-                        placeholder={tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2166JsxAttrPlaceholderSearchConnections',
-                        )}
-                        className="max-w-md"
-                      />
-                      <Button size="sm" className="gap-1.5">
-                        <Plus className="h-3.5 w-3.5" />
-                        {tI18nHardcoded.raw('i18nComplete.text18fdd549b2ed')}
-                      </Button>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-medium">Skills</h3>
+                        <p className="text-muted-foreground text-sm">
+                          Instructions agents load when a task matches.
+                        </p>
+                      </div>
+                      <div className="flex w-full items-center gap-2 sm:w-auto">
+                        <PageSearchBar
+                          value={pageSearch}
+                          onChange={setPageSearch}
+                          placeholder="Search skills"
+                          className="sm:w-64"
+                        />
+                        <Button
+                          variant="secondary"
+                          onClick={() => infoToast('Create a skill from Customize → Skills.')}
+                        >
+                          <Plus className="size-4" />
+                          New
+                        </Button>
+                      </div>
                     </div>
                   </DemoContainer>
-                </div>
+                </Spec>
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -3567,93 +3608,48 @@ export default function BrandPage() {
                 label={tI18nHardcoded.raw('i18nComplete.text70929371c10c')}
                 summary={tI18nHardcoded.raw('i18nComplete.textc4f980147c40')}
               >
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line2205JsxTextSmallCompositionPiecesUsedInsideProjectPagesIssue',
-                  )}
-                </p>
-
-                {/* ── PageShell ── */}
-                <div id="pat-page-shell" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text45b37f9e9c85')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2214JsxTextTheOneLayoutWrapperStandardisesMaxWidthHorizontal',
-                    )}{' '}
-                    <code className="font-mono text-xs">
-                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2216JsxTextReading720')}
-                    </code>
-                    ,{' '}
-                    <code className="font-mono text-xs">
-                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2217JsxTextDefault1000')}
-                    </code>
-                    ,{' '}
-                    <code className="font-mono text-xs">
-                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2218JsxTextWide1280')}
-                    </code>
-                    , <code className="font-mono text-xs">full</code>.
-                  </ComponentDesc>
-                  <DemoContainer>
-                    <div className="border-border/60 text-muted-foreground rounded-lg border border-dashed py-10 text-center text-xs">
-                      <code>
-                        {tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2223JsxTextLtPageshellWidthQuotDefaultQuotGtLt',
-                        )}
-                      </code>
-                      <div className="mt-1 opacity-60">
-                        {tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2224JsxTextMaxW1000pxPx6LgPx10',
-                        )}
-                      </div>
-                    </div>
-                  </DemoContainer>
-                </div>
-
                 {/* ── Section ── */}
-                <div id="pat-section" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textdfca5da56b8c')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2233JsxTextLabelledSectionInsideAPageshellUppercaseMicroLabel',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-section"
+                  source="@kortix/ui/section"
+                  name={tI18nHardcoded.raw('i18nComplete.textdfca5da56b8c')}
+                  about="Group related content with one heading and an optional action. Use spacing instead of dividers."
+                >
                   <DemoContainer>
-                    <BrandSection label={tI18nHardcoded.raw('i18nComplete.text4efca0d10c5f')}>
-                      <p className="text-foreground text-sm leading-relaxed">
-                        {tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2241JsxTextDescriptionContentLivesHereSectionsSeparateConcernsOn',
-                        )}
-                      </p>
-                    </BrandSection>
                     <BrandSection
-                      label={tI18nHardcoded.raw('i18nComplete.text45989de49fb7')}
+                      label="Instructions"
                       action={
-                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.text464c4ffd019e')}
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={() =>
+                            infoToast('Edit instructions from the skill details page.')
+                          }
+                        >
+                          Edit
                         </Button>
                       }
                     >
                       <p className="text-muted-foreground text-sm">
-                        {tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2254JsxTextASecondSectionWithATrailingAction',
-                        )}
+                        Load the relevant skill before starting a task.
                       </p>
                     </BrandSection>
+                    <BrandSection label="Availability" spacing="tight">
+                      <InlineMeta>
+                        <span>Workspace</span>
+                        <span>All agents</span>
+                      </InlineMeta>
+                    </BrandSection>
                   </DemoContainer>
-                </div>
+                </Spec>
 
                 {/* ── Banned ── */}
-                <div id="pat-banned" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textc94e8cb68cba')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tI18nHardcoded.raw('i18nComplete.text9bb4af3b0beb')}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-banned"
+                  source="kortix-design-system · Strictly avoid"
+                  name={tI18nHardcoded.raw('i18nComplete.textc94e8cb68cba')}
+                  about={tI18nHardcoded.raw('i18nComplete.text9bb4af3b0beb')}
+                >
                   <DemoContainer className="p-0">
                     {BANNED_PATTERNS.map((b) => (
                       <div
@@ -3673,111 +3669,110 @@ export default function BrandPage() {
                       </div>
                     ))}
                   </DemoContainer>
-                </div>
+                </Spec>
 
                 {/* ── Avatars ── */}
-                <div id="pat-avatars" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.textfedfdc14d4f7')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line2316JsxTextOneRule')}
-                    <strong>
+                <Spec
+                  id="pat-avatars"
+                  source="@kortix/ui/user-avatar · @kortix/ui/entity-avatar"
+                  name={tI18nHardcoded.raw('i18nComplete.textfedfdc14d4f7')}
+                  about={
+                    <>
+                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2316JsxTextOneRule')}
+                      <strong>
+                        {tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line2316JsxTextPeopleAreRoundThingsAreSquare',
+                        )}
+                      </strong>
+                      . <code>UserAvatar</code>
                       {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2316JsxTextPeopleAreRoundThingsAreSquare',
-                      )}
-                    </strong>
-                    . <code>UserAvatar</code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2317JsxTextRendersACircularAvatarForAPersonThe',
-                    )}{' '}
-                    <strong>
+                        'appHomeDesignSystemPage.line2317JsxTextRendersACircularAvatarForAPersonThe',
+                      )}{' '}
+                      <strong>
+                        {tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line2319JsxTextNeutralMonochromeInitials',
+                        )}
+                      </strong>
                       {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2319JsxTextNeutralMonochromeInitials',
+                        'appHomeDesignSystemPage.line2319JsxTextNoColouredBackgrounds',
                       )}
-                    </strong>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2319JsxTextNoColouredBackgrounds',
-                    )}
-                    <code>EntityAvatar</code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2320JsxTextRendersARoundedSquareTileForAccountsProjects',
-                    )}
-                  </ComponentDesc>
+                      <code>EntityAvatar</code>
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line2320JsxTextRendersARoundedSquareTileForAccountsProjects',
+                      )}
+                    </>
+                  }
+                >
                   <DemoContainer className="space-y-5">
-                    <div className="flex items-center gap-4">
-                      <span className="text-muted-foreground w-24 text-xs tracking-wider uppercase">
-                        {tI18nHardcoded.raw('i18nComplete.text7db20897053b')}
-                      </span>
-                      <UserAvatar
-                        email={tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2330JsxAttrEmailAdaKortixAi',
-                        )}
-                        name="Ada Lovelace"
-                        size="sm"
-                      />
-                      <UserAvatar
-                        email={tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2331JsxAttrEmailGraceKortixAi',
-                        )}
-                        name="Grace Hopper"
-                      />
-                      <UserAvatar
-                        email={tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2332JsxAttrEmailAlanKortixAi',
-                        )}
-                        name="Alan Turing"
-                        size="lg"
-                      />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-muted-foreground w-24 text-xs tracking-wider uppercase">
-                        {tI18nHardcoded.raw('i18nComplete.text32b31975c6ca')}
-                      </span>
-                      <EntityAvatar
-                        label={tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2338JsxAttrLabelAcmeAgi',
-                        )}
-                        size="sm"
-                      />
-                      <EntityAvatar label={tI18nHardcoded.raw('i18nComplete.textab54cf5e1d9d')} />
-                      <EntityAvatar icon={FolderGit2} />
-                      <EntityAvatar icon={Users} size="lg" />
-                      {/* `emoji` beats both the icon and the initial, and drops the
+                    <SpecRow label={tI18nHardcoded.raw('i18nComplete.text7db20897053b')}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <UserAvatar
+                          email={tHardcodedUi.raw(
+                            'appHomeDesignSystemPage.line2330JsxAttrEmailAdaKortixAi',
+                          )}
+                          name="Ada Lovelace"
+                          size="sm"
+                        />
+                        <UserAvatar
+                          email={tHardcodedUi.raw(
+                            'appHomeDesignSystemPage.line2331JsxAttrEmailGraceKortixAi',
+                          )}
+                          name="Grace Hopper"
+                        />
+                        <UserAvatar
+                          email={tHardcodedUi.raw(
+                            'appHomeDesignSystemPage.line2332JsxAttrEmailAlanKortixAi',
+                          )}
+                          name="Alan Turing"
+                          size="lg"
+                        />
+                      </div>
+                    </SpecRow>
+                    <SpecRow label={tI18nHardcoded.raw('i18nComplete.text32b31975c6ca')}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <EntityAvatar
+                          label={tHardcodedUi.raw(
+                            'appHomeDesignSystemPage.line2338JsxAttrLabelAcmeAgi',
+                          )}
+                          size="sm"
+                        />
+                        <EntityAvatar label={tI18nHardcoded.raw('i18nComplete.textab54cf5e1d9d')} />
+                        <EntityAvatar icon={FolderGit2} />
+                        <EntityAvatar icon={Users} size="lg" />
+                        {/* `emoji` beats both the icon and the initial, and drops the
                         chalk fill — the glyph is already the colour. */}
-                      <EntityAvatar
-                        label={tI18nHardcoded.raw('i18nComplete.text638e417f4255')}
-                        emoji="🐢"
-                      />
-                      <EntityAvatar
-                        label={tI18nHardcoded.raw('i18nComplete.text638e417f4255')}
-                        emoji="🐢"
-                        size="lg"
-                      />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-muted-foreground w-24 text-xs tracking-wider uppercase">
-                        {tI18nHardcoded.raw('i18nComplete.text78ea37549c37')}
-                      </span>
-                      {['Atlas', 'Beacon', 'Cobalt', 'Drift', 'Ember', 'Forge', 'Glacier'].map(
-                        (label) => (
-                          <EntityAvatar key={label} label={label} />
-                        ),
-                      )}
-                    </div>
+                        <EntityAvatar
+                          label={tI18nHardcoded.raw('i18nComplete.text638e417f4255')}
+                          emoji="🐢"
+                        />
+                        <EntityAvatar
+                          label={tI18nHardcoded.raw('i18nComplete.text638e417f4255')}
+                          emoji="🐢"
+                          size="lg"
+                        />
+                      </div>
+                    </SpecRow>
+                    <SpecRow label={tI18nHardcoded.raw('i18nComplete.text78ea37549c37')}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {['Atlas', 'Beacon', 'Cobalt', 'Drift', 'Ember', 'Forge', 'Glacier'].map(
+                          (label) => (
+                            <EntityAvatar key={label} label={label} />
+                          ),
+                        )}
+                      </div>
+                    </SpecRow>
                   </DemoContainer>
-                </div>
+                </Spec>
 
                 {/* ── DefinitionList ── */}
-                <div id="pat-definition-list" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text3f9ff5e181e9')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2403JsxTextKeyValuePairsFixedWidthLabelColumnSo',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-definition-list"
+                  source="@kortix/ui/definition-list"
+                  name={tI18nHardcoded.raw('i18nComplete.text3f9ff5e181e9')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2403JsxTextKeyValuePairsFixedWidthLabelColumnSo',
+                  )}
+                >
                   <DemoContainer>
                     <DefinitionList dividers>
                       <DefinitionRow label={tI18nHardcoded.raw('i18nComplete.text62fa5a5b0d3c')}>
@@ -3786,11 +3781,11 @@ export default function BrandPage() {
                         </code>
                       </DefinitionRow>
                       <DefinitionRow label={tI18nHardcoded.raw('i18nComplete.textd70b9e24bca2')}>
-                        {tHardcodedUi.raw('appHomeDesignSystemPage.line2413JsxTextText2DaysAgo')}
+                        <InlineMetaTime date="2026-11-05T10:30:00Z">2 days ago</InlineMetaTime>
                       </DefinitionRow>
                       <DefinitionRow label={tI18nHardcoded.raw('i18nComplete.text3a5ecca188c0')}>
                         <span className="tabular-nums">
-                          {tHardcodedUi.raw('appHomeDesignSystemPage.line2415JsxTextText3mAgo')}
+                          <InlineMetaTime date="2026-11-07T10:27:00Z">3m ago</InlineMetaTime>
                         </span>
                       </DefinitionRow>
                       <DefinitionRow label={tI18nHardcoded.raw('i18nComplete.text6fa3cbf451b2')}>
@@ -3798,46 +3793,55 @@ export default function BrandPage() {
                       </DefinitionRow>
                     </DefinitionList>
                   </DemoContainer>
-                </div>
+                </Spec>
 
                 {/* ── InlineMeta ── */}
-                <div id="pat-inline-meta" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text053805aad93b')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2426JsxTextDotSeparatedFactsDropAnyNumberOfChildren',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-inline-meta"
+                  source="@kortix/ui/inline-meta"
+                  name={tI18nHardcoded.raw('i18nComplete.text053805aad93b')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2426JsxTextDotSeparatedFactsDropAnyNumberOfChildren',
+                  )}
+                >
                   <DemoContainer>
                     <InlineMeta>
-                      <span className="text-foreground font-mono">
-                        {tI18nHardcoded.raw('i18nComplete.textde996979df5c')}
-                      </span>
-                      <span>
-                        {tHardcodedUi.raw('appHomeDesignSystemPage.line2435JsxTextText24Issues')}
-                      </span>
-                      <span>
-                        {tHardcodedUi.raw('appHomeDesignSystemPage.line2436JsxTextCreated2dAgo')}
-                      </span>
-                      <span>
-                        {tHardcodedUi.raw('appHomeDesignSystemPage.line2437JsxTextText8Sessions')}
-                      </span>
+                      <span className="text-foreground">Notetaker</span>
+                      <InlineMetaHint label="24 issues">
+                        <ul className="flex flex-col gap-2" aria-label="Issues">
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <li key={i}>
+                              Issue {i + 1}: Review summary {i + 1}
+                            </li>
+                          ))}
+                        </ul>
+                      </InlineMetaHint>
+                      <InlineMetaTime date="2026-11-05T10:30:00Z">
+                        Created 2 days ago
+                      </InlineMetaTime>
+                      <InlineMetaHint label="8 sessions">
+                        <ul className="flex flex-col gap-2" aria-label="Sessions">
+                          {Array.from({ length: 8 }, (_, i) => (
+                            <li key={i}>Session {i + 1}: Daily notes</li>
+                          ))}
+                        </ul>
+                      </InlineMetaHint>
+                      <InlineMetaTime date="2026-11-06T16:45:00Z">
+                        Completed 1 day ago
+                      </InlineMetaTime>
                     </InlineMeta>
                   </DemoContainer>
-                </div>
+                </Spec>
 
                 {/* ── EmptyState ── */}
-                <div id="pat-empty-state" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.texta422df8c8b26')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2446JsxTextTheCalmTeachingMomentIconHeadlineOneLine',
-                    )}
-                  </ComponentDesc>
+                <Spec
+                  id="pat-empty-state"
+                  source="@kortix/ui/empty-state · @kortix/ui/empty-art"
+                  name={tI18nHardcoded.raw('i18nComplete.texta422df8c8b26')}
+                  about={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2446JsxTextTheCalmTeachingMomentIconHeadlineOneLine',
+                  )}
+                >
                   <DemoContainer className="p-0">
                     <EmptyState
                       icon={IconInbox}
@@ -3859,86 +3863,47 @@ export default function BrandPage() {
                       }
                     />
                   </DemoContainer>
-                </div>
+                </Spec>
 
-                {/* ── InfoBanner ── */}
-                <div id="pat-info-banner" className="mb-12">
-                  <ComponentLabel>
-                    {tI18nHardcoded.raw('i18nComplete.text17df71c477b7')}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2473JsxTextAnInlineStatusInfoNoticeManifestStatusA',
-                    )}
-                    <code>tone</code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2474JsxTextNeutralInfoSuccessWarningDestructiveInsteadOfHand',
-                    )}
-                  </ComponentDesc>
-                  <DemoContainer className="space-y-3">
-                    <InfoBanner
-                      tone="info"
-                      icon={Info}
-                      title={tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2479JsxAttrTitleHeadsUp',
-                      )}
-                    >
+                <Spec
+                  id="pat-status"
+                  source="@kortix/ui/status"
+                  name={tHardcodedUi.raw(
+                    'appHomeDesignSystemPage.line2501JsxTextStatusDotBadgeAmpDiffstat',
+                  )}
+                  about={
+                    <>
                       {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2480JsxTextTheManifestIsBeingReSyncedSecretsApply',
-                      )}
-                    </InfoBanner>
-                    <InfoBanner
-                      tone="warning"
-                      icon={TriangleAlert}
-                      title={tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2482JsxAttrTitleEmailSkipped',
-                      )}
-                    >
+                        'appHomeDesignSystemPage.line2503JsxTextTheSingleSourceOfTruthForLdquoThis',
+                      )}{' '}
+                      <code>Badge</code>
+                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2505JsxTextBoxesUse')}
+                      <code>Alert</code>
                       {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2483JsxTextMailtrapIsnAposTConfiguredLocallyCopyThe',
+                        'appHomeDesignSystemPage.line2505JsxTextForTheCasesAComponentCanAposT',
                       )}
-                    </InfoBanner>
-                    <InfoBanner
-                      tone="success"
-                      icon={Check}
-                      title={tHardcodedUi.raw('appHomeDesignSystemPage.line2488JsxAttrTitleAllSet')}
-                      action={
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                          {tI18nHardcoded.raw('i18nComplete.text48845bff334a')}
-                        </Button>
-                      }
-                    >
+                      <code>StatusDot</code>, <code>DiffStat</code>
+                      {tHardcodedUi.raw('appHomeDesignSystemPage.line2508JsxTextOrThe')}
+                      <code>STATUS_TEXT/BG/BORDER</code>{' '}
                       {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2495JsxTextYourRepositoryIsConnected',
+                        'appHomeDesignSystemPage.line2509JsxTextMapsInsteadOfReInlining',
                       )}
-                    </InfoBanner>
-                  </DemoContainer>
-                </div>
-
-                <div id="pat-status" className="mb-12">
-                  <ComponentLabel>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2501JsxTextStatusDotBadgeAmpDiffstat',
-                    )}
-                  </ComponentLabel>
-                  <ComponentDesc>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2503JsxTextTheSingleSourceOfTruthForLdquoThis',
-                    )}{' '}
-                    <code>Badge</code>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line2505JsxTextBoxesUse')}
-                    <code>InfoBanner</code>
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2505JsxTextForTheCasesAComponentCanAposT',
-                    )}
-                    <code>StatusDot</code>, <code>DiffStat</code>
-                    {tHardcodedUi.raw('appHomeDesignSystemPage.line2508JsxTextOrThe')}
-                    <code>STATUS_TEXT/BG/BORDER</code>{' '}
-                    {tHardcodedUi.raw(
-                      'appHomeDesignSystemPage.line2509JsxTextMapsInsteadOfReInlining',
-                    )}
-                    <code>{'text-<palette>-500'}</code>.
-                  </ComponentDesc>
+                      <code>{'text-<palette>-500'}</code>.{' '}
+                      {tI18nHardcoded.raw('i18nComplete.textc36d819e7bc6')} <code>StatusBadge</code>
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line2542JsxTextForInformationalStatusFaintInclRed',
+                      )}
+                      <code>
+                        {tHardcodedUi.raw(
+                          'appHomeDesignSystemPage.line2543JsxTextBadgeVariantQuotDestructiveQuot',
+                        )}
+                      </code>{' '}
+                      {tHardcodedUi.raw(
+                        'appHomeDesignSystemPage.line2544JsxTextIsASolidRedPillReserveItFor',
+                      )}
+                    </>
+                  }
+                >
                   <DemoContainer className="flex flex-col gap-4">
                     <div className="flex items-center gap-4 text-sm">
                       <span className="inline-flex items-center gap-1.5">
@@ -3984,22 +3949,8 @@ export default function BrandPage() {
                         {tI18nHardcoded.raw('i18nComplete.textab0171ca0494')}
                       </StatusBadge>
                     </div>
-                    <p className="text-muted-foreground text-xs">
-                      {tI18nHardcoded.raw('i18nComplete.textc36d819e7bc6')} <code>StatusBadge</code>
-                      {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2542JsxTextForInformationalStatusFaintInclRed',
-                      )}
-                      <code>
-                        {tHardcodedUi.raw(
-                          'appHomeDesignSystemPage.line2543JsxTextBadgeVariantQuotDestructiveQuot',
-                        )}
-                      </code>{' '}
-                      {tHardcodedUi.raw(
-                        'appHomeDesignSystemPage.line2544JsxTextIsASolidRedPillReserveItFor',
-                      )}
-                    </p>
                   </DemoContainer>
-                </div>
+                </Spec>
               </CollapsibleSection>
 
               <CollapsibleSection
@@ -4007,12 +3958,6 @@ export default function BrandPage() {
                 label={tI18nHardcoded.raw('i18nComplete.text8d2be39d6187')}
                 summary={tI18nHardcoded.raw('i18nComplete.text067ed033e4a6')}
               >
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                  {tHardcodedUi.raw(
-                    'appHomeDesignSystemPage.line2557JsxTextCodePatternsThatViolateTheDesignSystemFollow',
-                  )}
-                </p>
-
                 <div className="space-y-6">
                   <AntiPatternBlock
                     title={tHardcodedUi.raw(
@@ -4109,10 +4054,7 @@ export default function BrandPage() {
                       tI18nHardcoded.raw('i18nComplete.text659344748c8e'),
                       tI18nHardcoded.raw('i18nComplete.text1329b0068f14'),
                     ].map((t) => (
-                      <div
-                        key={t}
-                        className="border-border/30 flex items-start gap-2.5 border-b py-2"
-                      >
+                      <div key={t} className="border-border flex items-start gap-2.5 border-b py-2">
                         <span className="bg-kortix-green/15 mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full">
                           <Check className="text-kortix-green size-2.5" />
                         </span>
@@ -4136,10 +4078,7 @@ export default function BrandPage() {
                       tI18nHardcoded.raw('i18nComplete.text97a6a4e757fa'),
                       tI18nHardcoded.raw('i18nComplete.textb2e30caf44ee'),
                     ].map((t) => (
-                      <div
-                        key={t}
-                        className="border-border/30 flex items-start gap-2.5 border-b py-2"
-                      >
+                      <div key={t} className="border-border flex items-start gap-2.5 border-b py-2">
                         <span className="bg-kortix-red/15 mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full">
                           <X className="text-kortix-red size-2.5" />
                         </span>

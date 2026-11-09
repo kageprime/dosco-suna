@@ -1,7 +1,7 @@
 {
   "generatedAt": "static",
-  "count": 1752,
-  "aliases": 674,
+  "count": 1753,
+  "aliases": 675,
   "routes": [
     {
       "method": "GET",
@@ -1026,6 +1026,11 @@
       "method": "DELETE",
       "path": "/v1/accounts/me/tokens/:tokenId",
       "aliasOf": "/v1/me/tokens/:tokenId"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/accounts/me/tokens/self",
+      "aliasOf": "/v1/me/tokens/self"
     },
     {
       "method": "GET",
@@ -2205,6 +2210,10 @@
       "path": "/v1/me/tokens/:tokenId"
     },
     {
+      "method": "DELETE",
+      "path": "/v1/me/tokens/self"
+    },
+    {
       "method": "GET",
       "path": "/v1/notifications"
     },
@@ -2311,10 +2320,6 @@
     {
       "method": "GET",
       "path": "/v1/p/public-share/:token"
-    },
-    {
-      "method": "ALL",
-      "path": "/v1/p/public-share/:token/:port"
     },
     {
       "method": "ALL",

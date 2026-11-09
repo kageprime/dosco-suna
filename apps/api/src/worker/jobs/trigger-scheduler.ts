@@ -1,37 +1,38 @@
 import { config } from '../../config';
+import { logger } from '../../lib/logger';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 import { runProjectTriggerSchedulerTick } from '../../projects/lib/trigger-scheduler';
-import {
-  globalForProjectTriggers,
-  schedulerSweepIsStale,
-  triggerSchedulerIntervalMs,
-  type TriggerSchedulerTimer,
-} from '../../projects/lib/trigger-scheduler-state';
+import { schedulerSweepIsStale, triggerSchedulerIntervalMs } from '../../projects/lib/trigger-scheduler-state';
 
-export let triggerSchedulerTimer: TriggerSchedulerTimer | null = null;
+let timer: ReturnType<typeof leaderTimer> | null = null;
 
 export function startProjectTriggerScheduler(): void {
-  if ((config as any).KORTIX_TRIGGER_SCHEDULER_ENABLED === false) return;
-  if (globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer) {
-    clearInterval(globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer);
-  }
-  // Everything the tick starts (sweep, drains, connector reconcile) inherits
-  // the worker context through AsyncLocalStorage.
-  const tick = () => void runWorkerTick('trigger-scheduler', runProjectTriggerSchedulerTick);
-  tick();
-  triggerSchedulerTimer = setInterval(tick, triggerSchedulerIntervalMs());
-  globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer = triggerSchedulerTimer;
+  if (config.KORTIX_TRIGGER_SCHEDULER_ENABLED === false) return;
+  if (timer) return;
+  const interval = triggerSchedulerIntervalMs();
+  timer = leaderTimer(
+    async () => {
+      try {
+        // Everything the tick starts (sweep, drains, connector reconcile) inherits
+        // the worker context through AsyncLocalStorage.
+        await runWorkerTick('trigger-scheduler', runProjectTriggerSchedulerTick);
+      } catch (error) {
+        logger.error('[trigger-scheduler] tick failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return interval;
+    },
+    { name: 'trigger-scheduler' },
+  );
+  timer.start();
 }
 
-export function stopProjectTriggerScheduler(): void {
-  if (triggerSchedulerTimer) {
-    clearInterval(triggerSchedulerTimer);
-    triggerSchedulerTimer = null;
-  }
-  if (globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer) {
-    clearInterval(globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer);
-    globalForProjectTriggers.__kortixProjectTriggerSchedulerTimer = null;
-  }
+export function stopProjectTriggerScheduler(): Promise<void> {
+  const stopped = timer;
+  timer = null;
+  return stopped?.stop() ?? Promise.resolve();
 }
 
 /** True while the trigger sweep, which a tick starts but does not await, has stalled. */

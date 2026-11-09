@@ -31,7 +31,7 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import {
   Modal,
@@ -172,13 +172,13 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
             )}
 
             {previewQuery.data && previewQuery.data.will_lock_out_account && (
-              <InfoBanner tone="destructive" icon={AlertTriangle}>
+              <BannerAlert variant="destructive" ><BannerAlertMedia><AlertTriangle /></BannerAlertMedia><BannerAlertDescription>
                 {tI18nComplete.raw('text62dd34b5892f')}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {previewQuery.data && !previewQuery.data.will_lock_out_account && (
-              <InfoBanner tone="neutral">
+              <BannerAlert variant="default" ><BannerAlertDescription>
                 <span className="text-foreground font-medium">
                   {previewQuery.data.members_with_mfa}
                 </span>{' '}
@@ -187,18 +187,14 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
                   {previewQuery.data.total_members}
                 </span>{' '}
                 {tI18nComplete.raw('texta8d4a1d5bb6d')}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {partitionedLosers.lockouts.length > 0 && (
-              <InfoBanner
-                tone="warning"
-                icon={AlertTriangle}
-                title={tI18nComplete('text2be1f843485e', {
+              <BannerAlert variant="warning" ><BannerAlertMedia><AlertTriangle /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('text2be1f843485e', {
                   value0: partitionedLosers.lockouts.length,
                   value1: partitionedLosers.lockouts.length === 1 ? 'member' : 'members',
-                })}
-              >
+                })}</BannerAlertTitle><BannerAlertDescription>
                 <ul className="max-h-40 space-y-0.5 overflow-y-auto">
                   {partitionedLosers.lockouts.map((l) => (
                     <li key={l.user_id} className="flex items-center gap-2">
@@ -210,23 +206,18 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
                     </li>
                   ))}
                 </ul>
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {partitionedLosers.exemptAdmins.length > 0 && (
-              <InfoBanner
-                tone="neutral"
-                title={
-                  <span className="inline-flex flex-wrap items-center gap-1.5">
+              <BannerAlert variant="default" ><BannerAlertTitle>{<span className="inline-flex flex-wrap items-center gap-1.5">
                     <Badge variant="outline" size="xs">
                       {tI18nComplete.raw('text42d8a7ea9caf')}
                     </Badge>
                     {partitionedLosers.exemptAdmins.length} {tI18nComplete.raw('text11c520bc9f1f')}
                     {partitionedLosers.exemptAdmins.length === 1 ? '' : 's'}{' '}
                     {tI18nComplete.raw('textdc78f4d17256')}
-                  </span>
-                }
-              >
+                  </span>}</BannerAlertTitle><BannerAlertDescription>
                 <ul className="max-h-32 space-y-0.5 overflow-y-auto">
                   {partitionedLosers.exemptAdmins.map((l) => (
                     <li key={l.user_id} className="text-foreground truncate">
@@ -234,7 +225,7 @@ export function MfaRequiredCard({ accountId, canManage }: MfaRequiredCardProps) 
                     </li>
                   ))}
                 </ul>
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
           </ModalBody>
 

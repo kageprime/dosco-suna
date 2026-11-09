@@ -15,10 +15,11 @@
  * background run live from its runner's run list.
  */
 
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { PressableSurface } from '@/components/kortix/pressable-surface';
 import { parseWorkflowResult, parseWorkflowRun, type WorkflowRun } from '@kortix/sdk';
+import { useNow } from '@kortix/sdk/react';
 import { Text } from '@/components/ui/text';
 import { CaretRightIcon, TreeStructureIcon } from '@/lib/icons';
 import { Icon } from '@/components/ui/icon';
@@ -42,23 +43,12 @@ import { AgentFailure } from '../shared/message-row';
 import { FONT_MEDIUM, TURN_TYPE, useTurnPalette } from '../shared/styles';
 import type { ToolProps } from '../shared/types';
 
-/** The current time, every second while `active`: a live run's elapsed labels tick. */
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
-}
-
 export function WorkflowTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
   const status = partStatus(call);
   const settled = status === 'completed' || status === 'error';
   const run = useMemo(() => parseWorkflowRun(partMetadata(call)), [call]);
   const live = !!run && run.status === 'running' && !settled && !run.background;
-  const now = useNow(live);
+  const now = useNow(1_000, live);
 
   if (!run) {
     // Before the first run document, or a call with none: the plain row and its output.

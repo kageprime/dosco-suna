@@ -54,13 +54,14 @@ test('a project image built in us-east gets its own name and swap key', async ()
   expect(us.swapKey).not.toBe(home.swapKey);
 });
 
-test('a home-region project keeps the identity it had before regions existed', async () => {
+test('a home-region identity is the tenant-scoped hash without a region segment', async () => {
   const home = await computeTemplateIdentity(project, template(), builtIn(undefined));
   const before = computeSnapshotHash({
     dockerfile: home.userDockerfile,
     contextTreeOid: 'template:app',
     spec: { cpu: 2, memory: 4, disk: 20 },
     containerRuntime: false,
+    projectId: 'proj_1',
     runtimeFingerprint: home.runtimeFingerprint,
   });
   expect(home.contentHash).toBe(before.contentHash);

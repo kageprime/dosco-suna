@@ -221,7 +221,7 @@ const EXPOSURE_PRESENTATIONS: Record<SecretExposure, SecretDeliveryPresentation>
   environment: {
     // The only exposure where agent code can read the value, so the badge is a
     // warning and not a neutral label. `secrets-view.tsx` says the same thing
-    // in longhand right below it (`InfoBanner tone="warning"`); the two must
+    // in longhand right below it (`Alert tone="warning"`); the two must
     // agree.
     label: 'Environment variable',
     description: 'The real value is an environment variable agent code and commands can read.',

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import {
   type ActiveTurnRenewalDependencies,
   activeTurnRenewalIntervalMs,
@@ -6,6 +6,9 @@ import {
 } from './active-turn-renewal';
 import { startActiveTurnRenewal, stopActiveTurnRenewal } from '../worker/jobs/active-turn-renewal';
 import type { ReapResult } from './sandbox-reaper';
+
+// leaderTimer consults the lease every tick; the test runs a sole leader.
+mock.module('../shared/leader-election', () => ({ isLeader: () => true }));
 
 function reapResult(overrides: Partial<ReapResult> = {}): ReapResult {
   return {
@@ -30,8 +33,8 @@ async function flushAsync(): Promise<void> {
   await Promise.resolve();
 }
 
-afterEach(() => {
-  stopActiveTurnRenewal();
+afterEach(async () => {
+  await stopActiveTurnRenewal();
 });
 
 describe('active-turn lifecycle renewal loop', () => {
@@ -65,68 +68,58 @@ describe('active-turn lifecycle renewal loop', () => {
     expect(calls[0]?.[2]).toEqual({ activeTurnsOnly: true });
   });
 
-  test('start schedules serial passes and stop cancels the pending pass', async () => {
+  test('start schedules serial passes and stop ends the chain', async () => {
     let runs = 0;
-    const callbacks: Array<() => void> = [];
-    const delays: number[] = [];
-    const cancelled: Array<ReturnType<typeof setTimeout>> = [];
-    const timer = 101 as unknown as ReturnType<typeof setTimeout>;
-
-    const dependencies: ActiveTurnRenewalDependencies = {
+    startActiveTurnRenewal({
       reap: async () => {
         runs += 1;
         return reapResult();
       },
-      schedule: (callback, delayMs) => {
-        callbacks.push(callback);
-        delays.push(delayMs);
-        return timer;
+      intervalMs: () => 60_000,
+    });
+    startActiveTurnRenewal({
+      reap: async () => {
+        runs += 1;
+        return reapResult();
       },
-      cancel: (pending) => cancelled.push(pending),
-      intervalMs: () => 20_000,
-      monotonicNowMs: () => 0,
-    };
-    startActiveTurnRenewal(dependencies);
-    startActiveTurnRenewal(dependencies);
+      intervalMs: () => 60_000,
+    });
     await flushAsync();
 
     expect(runs).toBe(1);
-    expect(callbacks).toHaveLength(1);
-    expect(delays).toEqual([20_000]);
 
-    stopActiveTurnRenewal();
-    expect(cancelled).toEqual([timer]);
-
-    callbacks[0]?.();
-    await flushAsync();
+    await stopActiveTurnRenewal();
+    await Bun.sleep(30);
     expect(runs).toBe(1);
   });
 
   test('a slow pass subtracts its runtime from the next delay', async () => {
-    const delays: number[] = [];
-    const clock = [1_000, 19_000];
+    let runs = 0;
+    const clock = [0, 25];
 
     startActiveTurnRenewal({
-      reap: async () => reapResult(),
-      schedule: (_callback, delayMs) => {
-        delays.push(delayMs);
-        return 301 as unknown as ReturnType<typeof setTimeout>;
+      reap: async () => {
+        runs += 1;
+        return reapResult();
       },
-      intervalMs: () => 20_000,
-      monotonicNowMs: () => clock.shift() ?? 19_000,
+      intervalMs: () => 40,
+      monotonicNowMs: () => clock.shift() ?? 25,
     });
     await flushAsync();
-
-    expect(delays).toEqual([2_000]);
+    expect(runs).toBe(1);
+    // A 25 ms pass over a 40 ms interval returns the next delay: 15 ms. A
+    // full-interval re-arm would fire the second pass at ~40 ms, after this
+    // window, so the count pins the subtraction.
+    await Bun.sleep(30);
+    expect(runs).toBe(2);
+    await stopActiveTurnRenewal();
   });
 
-  test('an in-flight pass cannot reschedule after stop and restart', async () => {
+  test('an in-flight pass re-arms nothing after stop and restart', async () => {
     let finishOldPass: (() => void) | undefined;
     const oldPass = new Promise<void>((resolve) => {
       finishOldPass = resolve;
     });
-    const oldCallbacks: Array<() => void> = [];
-    const newCallbacks: Array<() => void> = [];
     let oldRuns = 0;
     let newRuns = 0;
 
@@ -136,33 +129,27 @@ describe('active-turn lifecycle renewal loop', () => {
         await oldPass;
         return reapResult();
       },
-      schedule: (callback) => {
-        oldCallbacks.push(callback);
-        return 201 as unknown as ReturnType<typeof setTimeout>;
-      },
+      intervalMs: () => 20,
     });
     await flushAsync();
     expect(oldRuns).toBe(1);
 
-    stopActiveTurnRenewal();
+    const stopping = stopActiveTurnRenewal();
     startActiveTurnRenewal({
       reap: async () => {
         newRuns += 1;
         return reapResult();
       },
-      schedule: (callback) => {
-        newCallbacks.push(callback);
-        return 202 as unknown as ReturnType<typeof setTimeout>;
-      },
+      intervalMs: () => 60_000,
     });
     await flushAsync();
     expect(newRuns).toBe(1);
-    expect(newCallbacks).toHaveLength(1);
 
     finishOldPass?.();
-    await flushAsync();
-    expect(oldCallbacks).toHaveLength(0);
-    expect(newCallbacks).toHaveLength(1);
+    await stopping;
+    await Bun.sleep(30);
+    expect(oldRuns).toBe(1);
+    expect(newRuns).toBe(1);
   });
 
   test('the explicit disable flag starts no pass', async () => {

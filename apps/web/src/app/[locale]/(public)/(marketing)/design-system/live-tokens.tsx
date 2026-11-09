@@ -15,7 +15,7 @@
 
 import { useTranslations } from '@/i18n/use-translations';
 import { cn, useIsDark } from '@kortix/ui';
-import { CheckIcon, CopyIcon } from '@phosphor-icons/react';
+import { CopyButton } from '@kortix/ui/markdown/copy-button';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 /** True while the page theme is dark. The theme is the `dark` class on <html>. */
@@ -31,7 +31,7 @@ function useRootVar(name: string): string {
 }
 
 /** Any CSS color the browser understands, as sRGB hex (#rrggbbaa when translucent). */
-function toHex(css: string): string | null {
+export function toHex(css: string): string | null {
   if (!css) return null;
   const ctx = document.createElement('canvas').getContext('2d');
   if (!ctx) return null;
@@ -60,26 +60,11 @@ function useResolvedBackground(token: string) {
 
 /** A value you can click to copy. */
 export function CopyValue({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1200);
-      }}
-      className="group inline-flex max-w-full cursor-pointer items-center gap-1.5"
-    >
-      <span className="text-muted-foreground group-hover:text-foreground truncate font-mono text-xs transition-colors">
-        {value}
-      </span>
-      {copied ? (
-        <CheckIcon className="text-kortix-green size-2.5 shrink-0" />
-      ) : (
-        <CopyIcon className="text-muted-foreground size-2.5 shrink-0" />
-      )}
-    </button>
+    <span className="inline-flex max-w-full min-w-0 items-center gap-1">
+      <span className="text-muted-foreground truncate font-mono text-xs">{value}</span>
+      <CopyButton code={value} label={`Copy ${value}`} size="sm" className="shrink-0" />
+    </span>
   );
 }
 
@@ -228,11 +213,14 @@ export function SpacingRow({ step }: { step: number }) {
   const base = useRootVar('--spacing');
   const [px, setPx] = useState('');
   useEffect(() => {
-    if (ref.current) setPx(`${Math.round(ref.current.getBoundingClientRect().width * 100) / 100}px`);
+    if (ref.current)
+      setPx(`${Math.round(ref.current.getBoundingClientRect().width * 100) / 100}px`);
   }, [base]);
   return (
     <div className="flex items-center gap-4">
-      <span className="text-muted-foreground w-8 shrink-0 text-right font-mono text-xs">{step}</span>
+      <span className="text-muted-foreground w-8 shrink-0 text-right font-mono text-xs">
+        {step}
+      </span>
       <div
         ref={ref}
         className="bg-foreground h-5 rounded-sm"
@@ -297,7 +285,7 @@ export function MotionBar({
         <div
           ref={ref}
           className={cn(
-            'bg-foreground absolute inset-y-1 left-1 right-1 origin-left transition-transform',
+            'bg-foreground absolute inset-y-1 right-1 left-1 origin-left transition-transform',
             durationClass,
             easingClass,
             active ? 'scale-x-100' : 'scale-x-10',

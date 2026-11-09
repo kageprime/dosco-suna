@@ -50,8 +50,8 @@ export type LoadSessionLogPage = (
   signal?: AbortSignal,
 ) => Promise<unknown>;
 
-/** The route's answer as is; `fetchFirstSessionLogPage` validates it. Throws on a non-2xx. */
-export const loadSessionLogPage: LoadSessionLogPage | null = async (projectId, sessionId, query, signal) => {
+/** The route's answer as is; the `readSessionLog*` readers validate it. Throws on a non-2xx. */
+export const loadSessionLogPage: LoadSessionLogPage = async (projectId, sessionId, query, signal) => {
   const search = new URLSearchParams();
   if (query.thread !== undefined) search.set('thread', query.thread);
   if (query.before_seq !== undefined) search.set('before_seq', String(query.before_seq));
@@ -145,15 +145,4 @@ export function readFirstSessionLogAnswer(
   signal?: AbortSignal,
 ): Promise<SessionLogPage | 'missing' | null> {
   return readSessionLogAnswer(load, projectId, sessionId, { limit: SESSION_LOG_FIRST_PAGE_LIMIT }, signal);
-}
-
-/** The newest page of the root thread, validated. Null on any failure; never throws. */
-export async function fetchFirstSessionLogPage(
-  load: LoadSessionLogPage,
-  projectId: string,
-  sessionId: string,
-  signal?: AbortSignal,
-): Promise<SessionLogPage | null> {
-  const answer = await readFirstSessionLogAnswer(load, projectId, sessionId, signal);
-  return answer === 'missing' ? null : answer;
 }

@@ -21,11 +21,11 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import { isUuid } from '../shared/validate';
 
-export const CHROME_AUTH_TIMEOUT_MS = 10_000;
+const CHROME_AUTH_TIMEOUT_MS = 10_000;
 const MAX_FRAME_BYTES = 64 * 1024;
 const BAD_TOKEN = 4001;
 
-export interface ChromeWsData {
+interface ChromeWsData {
   type: 'chrome-extension';
   authTimer?: ReturnType<typeof setTimeout>;
   chromeId?: string;

@@ -52,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@kortix/ui/table';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '@kortix/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast, successToast } from '@kortix/ui/toast';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 import { getEnv } from '@/lib/env-config';
@@ -314,13 +314,13 @@ function CreatedToken({ token }: { token: CaptureEnrollmentTokenSecret }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium">{t('installTitle')}</p>
         <Tabs value={os} onValueChange={(value) => setOs(value as RolloutOs)}>
-          <TabsListCompact aria-label={t('installTitle')}>
+          <TabsList size="xs" aria-label={t('installTitle')}>
             {ROLLOUT_OS.map((value) => (
-              <TabsTriggerCompact key={value} value={value}>
+              <TabsTrigger key={value} value={value}>
                 {t(`os.${value}`)}
-              </TabsTriggerCompact>
+              </TabsTrigger>
             ))}
-          </TabsListCompact>
+          </TabsList>
         </Tabs>
       </div>
       <CopyBlock text={installCommand(os, url, token.token)} copyLabel={t('copy')} />

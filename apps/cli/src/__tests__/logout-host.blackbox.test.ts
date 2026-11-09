@@ -83,7 +83,9 @@ for (const name of ['custom', 'default', 'selfhost']) {
       const whoami = await cli('whoami', '--host', name);
       expect(whoami.code).toBe(1);
       expect(whoami.stderr).toContain(`kortix hosts login ${name} --api '${api.url.origin}'`);
-      expect(requests).toEqual([]);
+      // Logout revokes the stored key on the API before clearing it
+      // (KRTX-4493); whoami, logged out, makes no request.
+      expect(requests).toEqual(['/v1/me/tokens/self']);
       const again = await cli(...args);
       expect(again.code).toBe(0);
       expect(again.stdout).toContain('already logged out');
@@ -93,7 +95,8 @@ for (const name of ['custom', 'default', 'selfhost']) {
         `CLI_BIN="$0"; CLI_ENTRY="$1"; kortix() { "$CLI_BIN" "$CLI_ENTRY" "$@"; }; ${hint?.[1]} --token kortix_pat_new --no-project`,
         process.execPath, join(import.meta.dir, '../index.ts')]);
       expect(login.code).toBe(0);
-      expect(requests).toEqual(['/v1/me']);
+      // The revoke from logout, then the recovery login's /v1/me.
+      expect(requests).toEqual(['/v1/me/tokens/self', '/v1/me']);
       const recovered = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8'));
       expect(recovered.hosts[name]).toMatchObject({ url: api.url.origin,
         dashboard_url: 'http://localhost:3000', token: 'kortix_pat_new' });

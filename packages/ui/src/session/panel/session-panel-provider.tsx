@@ -167,7 +167,7 @@ export function SessionPanelProvider({
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   const tDesktop = useTranslations('sessionDesktop');
   const tReminders = useTranslations('reminders');
-  const { steps, outputs, context, apps, files, isRunning, outcome } = usePanelDerivations({
+  const { steps, calls, outputs, context, apps, files, isRunning, outcome } = usePanelDerivations({
     sessionId, projectId, projectSessionId, isSessionBusy,
   });
 
@@ -643,7 +643,7 @@ export function SessionPanelProvider({
   );
 
   const { outputsDefaultOpen, pendingQuickView } = usePanelHandoffs({
-    sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps,
+    sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps, calls,
     detail, handleOpenOutput, openDetail, closeDetail, openTerminal, openAudit, openReminders, openDesktop, openBrowser, openFiles,
   });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { stopProjectSession, type ProjectSession, type SessionPromptPart } from '@kortix/sdk';
-import { qk, useProjectSession, usePromptAttachments } from '@kortix/sdk/react';
+import { qk, useNow, useProjectSession, usePromptAttachments } from '@kortix/sdk/react';
 import { ArrowUpIcon, ArrowSquareOutIcon, ImageIcon, PlusIcon, SquareIcon, WarningCircleIcon, XIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -25,7 +25,6 @@ import { AgentStateMark } from './agent-state-mark';
 import { LegacySubagentChat } from './legacy-subagent-chat';
 import { SessionPeek } from './session-peek';
 import { useSteerSession } from './steer-session';
-import { useNow } from './workflow-run-controls';
 
 /** A mouse or trackpad: focusing a text field there opens no on-screen keyboard. */
 function finePointer(): boolean {
@@ -74,7 +73,7 @@ function useSubagent(projectId: string | undefined, sessionId: string, title: st
   const agent: AgentRow | null = row.data ? agentRowOf(row.data as ProjectSession) : null;
   const name = agent?.named ? agent.handle : title || agent?.handle || t('fallbackTitle');
   const working = agent?.state === 'working';
-  const now = useNow(enabled && working);
+  const now = useNow(1_000, enabled && working);
   const queryClient = useQueryClient();
 
   // The header's state follows the transcript: a new message re-reads the row.
@@ -271,7 +270,7 @@ export function SubagentPanel({ sessionId, title, handle, projectId: projectIdPr
   const projectId = projectIdProp ?? ids.projectId ?? undefined;
   const sub = useSubagent(projectId, sessionId, title, true);
   const tAgent = useTranslations('tools.agent');
-  const now = useNow(sub.working);
+  const now = useNow(1_000, sub.working);
   const face = handle || sub.agent?.agent || 'general';
   // The name the person clicked in the chat; what the agent works on, muted, after it.
   const name = title || sub.name;

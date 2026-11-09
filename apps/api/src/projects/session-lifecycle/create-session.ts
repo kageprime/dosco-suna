@@ -13,6 +13,7 @@ import { db } from '../../shared/db';
 import { connectorBindingPayloadConflicts } from '../lib/session-connector-bindings';
 import { secretsAllowlistPayloadConflicts } from '../secrets';
 import { forkSourceConflicts, providerPoolConflicts, runtimeContextConflicts } from './idempotency-conflicts';
+import { sessionIsTombstoned } from '../lib/session-visibility';
 import { createProjectSession } from '../lib/sessions';
 import { applyTriggerSessionAccess } from '../trigger-session-access';
 import { repinSessionReminder } from '../lib/session-reminders';
@@ -77,10 +78,13 @@ export async function createSession(
   if (!command.idempotencyKey && !shouldQueue) {
     const result = await executeCreateSession(command);
     if (result.status === 'created' && result.sessionId) {
-      const postCreate = await applyPostCreateActions({
+      const postCreate = await finalizeCreatedSession({
+        row: null,
         projectId: command.project.projectId,
         sessionId: result.sessionId,
         actions: command.postCreate,
+        source: command.source,
+        attempts: 0,
       });
       if (!postCreate.ok) {
         return {
@@ -99,72 +103,8 @@ export async function createSession(
     initialStatus: shouldQueue ? 'queued' : 'running',
     reason,
   });
-  if (claimed.existing) {
-    // Cross-tenant guard: a colliding idempotency key that is not the caller's
-    // OWN create_session for this account+project must never return the foreign
-    // command/session — see crossAccountIdempotencyResult.
-    const crossAccount = crossAccountIdempotencyResult(
-      {
-        accountId: claimed.row.accountId,
-        projectId: claimed.row.projectId,
-        commandType: claimed.row.commandType,
-      },
-      { accountId: command.project.accountId, projectId: command.project.projectId },
-    );
-    if (crossAccount) return crossAccount;
-    const existingPayload = (claimed.row.payload ?? {}) as Record<string, unknown>;
-    const existingBody =
-      existingPayload.body && typeof existingPayload.body === 'object'
-        ? (existingPayload.body as Record<string, unknown>)
-        : {};
-    const conflicts = [
-      [() => forkSourceConflicts(existingBody.parent_session_id, command.body.parent_session_id), 'IDEMPOTENCY_PARENT_CONFLICT', 'a different parent session'],
-      [() => forkSourceConflicts(existingBody.fork_from_session_id, command.body.fork_from_session_id), 'IDEMPOTENCY_FORK_CONFLICT', 'a different fork source'],
-      [() => connectorBindingPayloadConflicts(existingBody.connector_bindings, command.body.connector_bindings), 'IDEMPOTENCY_BINDING_CONFLICT', 'different connector bindings'],
-      [() => providerPoolConflicts(existingBody.provider_secret_pools, command.body.provider_secret_pools), 'IDEMPOTENCY_PROVIDER_POOL_CONFLICT', 'different provider secret pools'],
-      [() => secretsAllowlistPayloadConflicts(existingBody.secrets as string[] | null | undefined, command.body.secrets as string[] | null | undefined), 'IDEMPOTENCY_SECRETS_CONFLICT', 'a different secrets allowlist'],
-      [() => runtimeContextConflicts(existingBody.runtime_context, command.body.runtime_context), 'IDEMPOTENCY_CONTEXT_CONFLICT', 'a different runtime_context'],
-    ] as const;
-    for (const [hasConflict, code, suffix] of conflicts) {
-      if (hasConflict()) {
-        return {
-          status: 'failed', commandId: claimed.row.commandId, retryable: false,
-          error: { status: 409, body: { error: `Idempotency key was already used with ${suffix}`, code } },
-        };
-      }
-    }
-    const existingResult = resultFromExistingCommand(claimed.row);
-    if (existingResult.sessionId) {
-      const [row] = await db
-        .select()
-        .from(projectSessions)
-        .where(eq(projectSessions.sessionId, existingResult.sessionId))
-        .limit(1);
-      if (row) {
-        // A soft-deleted session is gone — deleteSession() stamps
-        // metadata.deletedAt and leaves status 'stopped'. Handing the tombstone
-        // back as a create "success" poisons the key forever (every follow-up
-        // continueSession → no-session). Treat it as spent: 409, use a new key.
-        const rowMeta = (row.metadata ?? {}) as Record<string, unknown>;
-        if (typeof rowMeta.deletedAt === 'string') {
-          return {
-            status: 'failed',
-            commandId: claimed.row.commandId,
-            retryable: false,
-            error: {
-              status: 409,
-              body: {
-                error: 'Idempotency key maps to a deleted session — use a new key',
-                code: 'IDEMPOTENCY_KEY_SESSION_DELETED',
-              },
-            },
-          };
-        }
-        existingResult.row = row;
-      }
-    }
-    return existingResult;
-  }
+  if (claimed.existing) return resolveExistingCreateCommand(claimed.row, command);
+
   if (shouldQueue) {
     await markCommandQueued(claimed.row.commandId, reason);
     return {
@@ -181,19 +121,133 @@ export async function createSession(
   return withCommandLeaseHeartbeat(claimed.row, () => runInlineCreate(command, claimed.row));
 }
 
-/** The inline create, under the lease `claimCreateSessionCommand` returned. */
-async function runInlineCreate(
-  command: CreateSessionCommand,
+/** The reply to a create whose key already owns a command row: cross-tenant
+ *  guard, the six conflict predicates, the existing result, the tombstone. */
+async function resolveExistingCreateCommand(
   row: SessionLifecycleCommandRow,
+  command: CreateSessionCommand,
 ): Promise<SessionLifecycleResult> {
-  let result: SessionLifecycleResult;
-  try {
-    result = await executeCreateSession({
-      ...command,
-      attachmentSourceCommandId: row.commandId,
-      createCommandId: row.commandId,
-    });
-  } catch (err) {
+    // Cross-tenant guard: a colliding idempotency key that is not the caller's
+    // OWN create_session for this account+project must never return the foreign
+    // command/session — see crossAccountIdempotencyResult.
+    const crossAccount = crossAccountIdempotencyResult(
+      {
+        accountId: row.accountId,
+        projectId: row.projectId,
+        commandType: row.commandType,
+      },
+      { accountId: command.project.accountId, projectId: command.project.projectId },
+    );
+    if (crossAccount) return crossAccount;
+    const existingPayload = (row.payload ?? {}) as Record<string, unknown>;
+    const existingBody =
+      existingPayload.body && typeof existingPayload.body === 'object'
+        ? (existingPayload.body as Record<string, unknown>)
+        : {};
+    const conflicts = [
+      [() => forkSourceConflicts(existingBody.parent_session_id, command.body.parent_session_id), 'IDEMPOTENCY_PARENT_CONFLICT', 'a different parent session'],
+      [() => forkSourceConflicts(existingBody.fork_from_session_id, command.body.fork_from_session_id), 'IDEMPOTENCY_FORK_CONFLICT', 'a different fork source'],
+      [() => connectorBindingPayloadConflicts(existingBody.connector_bindings, command.body.connector_bindings), 'IDEMPOTENCY_BINDING_CONFLICT', 'different connector bindings'],
+      [() => providerPoolConflicts(existingBody.provider_secret_pools, command.body.provider_secret_pools), 'IDEMPOTENCY_PROVIDER_POOL_CONFLICT', 'different provider secret pools'],
+      [() => secretsAllowlistPayloadConflicts(existingBody.secrets as string[] | null | undefined, command.body.secrets as string[] | null | undefined), 'IDEMPOTENCY_SECRETS_CONFLICT', 'a different secrets allowlist'],
+      [() => runtimeContextConflicts(existingBody.runtime_context, command.body.runtime_context), 'IDEMPOTENCY_CONTEXT_CONFLICT', 'a different runtime_context'],
+    ] as const;
+    for (const [hasConflict, code, suffix] of conflicts) {
+      if (hasConflict()) {
+        return {
+          status: 'failed', commandId: row.commandId, retryable: false,
+          error: { status: 409, body: { error: `Idempotency key was already used with ${suffix}`, code } },
+        };
+      }
+    }
+    const existingResult = resultFromExistingCommand(row);
+    if (existingResult.sessionId) {
+      const [sessionRow] = await db
+        .select()
+        .from(projectSessions)
+        .where(eq(projectSessions.sessionId, existingResult.sessionId))
+        .limit(1);
+      if (sessionRow) {
+        // A soft-deleted session is gone — deleteSession() stamps
+        // metadata.deletedAt and leaves status 'stopped'. Handing the tombstone
+        // back as a create "success" poisons the key forever (every follow-up
+        // continueSession → no-session). Treat it as spent: 409, use a new key.
+        if (sessionIsTombstoned(sessionRow)) {
+          return {
+            status: 'failed',
+            commandId: row.commandId,
+            retryable: false,
+            error: {
+              status: 409,
+              body: {
+                error: 'Idempotency key maps to a deleted session — use a new key',
+                code: 'IDEMPOTENCY_KEY_SESSION_DELETED',
+              },
+            },
+          };
+        }
+        existingResult.row = sessionRow;
+      }
+    }
+  return existingResult;
+}
+
+/**
+ * The ONE post-create finalization for a created session (KRTX-4471: three
+ * copies of the markCommandFailed/Succeeded payloads had drifted — the drain
+ * cleared the trigger alert and passed `row.attempts`, the inline copy
+ * passed `row.attempts + 1` and returned a `requeued` flag). Callers keep
+ * only their own bookkeeping. `row` is null on an inline create with no
+ * idempotency key: no command row exists, so only the actions run.
+ */
+export async function finalizeCreatedSession(input: {
+  row: SessionLifecycleCommandRow | null;
+  projectId: string;
+  sessionId: string;
+  actions?: SessionLifecyclePostCreateAction[];
+  source: string;
+  attempts: number;
+}): Promise<{ ok: true; applied: boolean } | { ok: false; error: string; requeued: boolean }> {
+  const postCreate = await applyPostCreateActions({
+    projectId: input.projectId,
+    sessionId: input.sessionId,
+    actions: input.actions,
+  });
+  if (postCreate.ok) {
+    // No row (the inline no-key path) wrote nothing, so nothing was applied.
+    const applied = input.row
+      ? await markCommandSucceeded(
+          input.row,
+          { status: 'created', session_id: input.sessionId, source: input.source },
+          input.sessionId,
+        )
+      : false;
+    return { ok: true, applied };
+  }
+  const outcome = input.row
+    ? await markCommandFailed(input.row, postCreate.error, {
+        retryable: true,
+        attempts: input.attempts,
+        sessionId: input.sessionId,
+        result: {
+          status: 'created',
+          session_id: input.sessionId,
+          source: input.source,
+          post_create_error: postCreate.error,
+        },
+      })
+    : 'dead_lettered';
+  return { ok: false, error: postCreate.error, requeued: outcome !== 'dead_lettered' };
+}
+
+/**
+ * The inline create's catch, moved out of `runInlineCreate` verbatim — the
+ * incident note inside is why a throw must finalize here, never escape.
+ */
+async function finalizeInlineCreateThrow(
+  row: SessionLifecycleCommandRow,
+  err: unknown,
+): Promise<SessionLifecycleResult> {
     // `executeCreateSession` -> `createProjectSession` ->
     // `loadProjectAgents({ rethrowReadErrors: true })` -> `refreshMirror` can
     // THROW a `GitOperationError` (e.g. a cold `git clone --bare` that times
@@ -233,44 +287,69 @@ async function runInlineCreate(
       requeued: outcome !== 'dead_lettered',
       error: { status: 503, body: { error: message } },
     };
+}
+
+/** Principal type for a queued create whose enqueue recorded none: the row's
+ *  actor when it is a service account of the project, else the automation. */
+async function resolveQueuedCreatePrincipal(
+  row: SessionLifecycleCommandRow,
+  project: { accountId: string },
+  payload: QueuedCreateSessionPayload,
+): Promise<'human' | 'service_account'> {
+  let requestingPrincipalType = payload.requestingPrincipalType;
+  if (requestingPrincipalType !== 'human' && requestingPrincipalType !== 'service_account') {
+    const [serviceAccount] = row.actorUserId
+      ? await db
+          .select({ serviceAccountId: serviceAccounts.serviceAccountId })
+          .from(serviceAccounts)
+          .where(
+            and(
+              eq(serviceAccounts.serviceAccountId, row.actorUserId),
+              eq(serviceAccounts.accountId, project.accountId),
+            ),
+          )
+          .limit(1)
+      : [];
+    return serviceAccount ? 'service_account' : 'human';
+  }
+  return requestingPrincipalType;
+}
+
+/** The inline create, under the lease `claimCreateSessionCommand` returned. */
+async function runInlineCreate(
+  command: CreateSessionCommand,
+  row: SessionLifecycleCommandRow,
+): Promise<SessionLifecycleResult> {
+  let result: SessionLifecycleResult;
+  try {
+    result = await executeCreateSession({
+      ...command,
+      attachmentSourceCommandId: row.commandId,
+      createCommandId: row.commandId,
+    });
+  } catch (err) {
+    return finalizeInlineCreateThrow(row, err);
   }
   if (result.status === 'created' && result.sessionId) {
-    const postCreate = await applyPostCreateActions({
+    const postCreate = await finalizeCreatedSession({
+      row,
       projectId: command.project.projectId,
       sessionId: result.sessionId,
       actions: command.postCreate,
+      source: command.source,
+      attempts: row.attempts + 1,
     });
     if (!postCreate.ok) {
-      const outcome = await markCommandFailed(row, postCreate.error, {
-        retryable: true,
-        attempts: row.attempts + 1,
-        sessionId: result.sessionId,
-        result: {
-          status: 'created',
-          session_id: result.sessionId,
-          source: command.source,
-          post_create_error: postCreate.error,
-        },
-      });
       return {
         status: 'failed',
         commandId: row.commandId,
         sessionId: result.sessionId,
         row: result.row,
         retryable: true,
-        requeued: outcome !== 'dead_lettered',
+        requeued: postCreate.requeued,
         error: { status: 500, body: { error: postCreate.error } },
       };
     }
-    await markCommandSucceeded(
-      row,
-      {
-        status: 'created',
-        session_id: result.sessionId,
-        source: command.source,
-      },
-      result.sessionId,
-    );
     return { ...result, commandId: row.commandId };
   }
 
@@ -294,22 +373,8 @@ export async function executeQueuedCreate(
   row: SessionLifecycleCommandRow,
 ): Promise<SessionLifecycleResult> {
   const payload = row.payload as unknown as QueuedCreateSessionPayload;
-  if (row.sessionId) {
-    const [session] = await db
-      .select()
-      .from(projectSessions)
-      .where(eq(projectSessions.sessionId, row.sessionId))
-      .limit(1);
-    if (session) {
-      return {
-        status: 'created',
-        commandId: row.commandId,
-        sessionId: row.sessionId,
-        row: session,
-        retryable: true,
-      };
-    }
-  }
+  const createdSession = await existingQueuedSession(row);
+  if (createdSession) return createdSession;
 
   const [project] = await db
     .select()
@@ -333,22 +398,8 @@ export async function executeQueuedCreate(
       error: { status: 409, body: { error: 'No account owner available to own the session' } },
     };
   }
-  let requestingPrincipalType = payload.requestingPrincipalType;
-  if (requestingPrincipalType !== 'human' && requestingPrincipalType !== 'service_account') {
-    const [serviceAccount] = row.actorUserId
-      ? await db
-          .select({ serviceAccountId: serviceAccounts.serviceAccountId })
-          .from(serviceAccounts)
-          .where(
-            and(
-              eq(serviceAccounts.serviceAccountId, row.actorUserId),
-              eq(serviceAccounts.accountId, project.accountId),
-            ),
-          )
-          .limit(1)
-      : [];
-    requestingPrincipalType = serviceAccount ? 'service_account' : 'human';
-  }
+  const requestingPrincipalType = await resolveQueuedCreatePrincipal(row, project, payload);
+
   return executeCreateSession({
     attachmentSourceCommandId: row.commandId,
     createCommandId: row.commandId,
@@ -372,6 +423,27 @@ export async function executeQueuedCreate(
     callerSessionId: payload.callerSessionId,
     parentActor: payload.parentActor,
   });
+}
+
+/** A queued create whose session already exists: replay the recorded row
+ *  instead of creating a second one. */
+async function existingQueuedSession(
+  row: SessionLifecycleCommandRow,
+): Promise<SessionLifecycleResult | null> {
+  if (!row.sessionId) return null;
+  const [session] = await db
+    .select()
+    .from(projectSessions)
+    .where(eq(projectSessions.sessionId, row.sessionId))
+    .limit(1);
+  if (!session) return null;
+  return {
+    status: 'created',
+    commandId: row.commandId,
+    sessionId: row.sessionId,
+    row: session,
+    retryable: true,
+  };
 }
 
 async function executeCreateSession(

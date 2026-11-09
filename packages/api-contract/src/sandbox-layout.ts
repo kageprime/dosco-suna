@@ -46,5 +46,6 @@ export const KORTIXD_SHARED_SOURCES = [
   'packages/api-contract/src/session-log/wire.ts',
   'packages/api-contract/src/transcript.ts',
   'packages/api-contract/src/wire-values.ts',
+  'packages/sdk/src/core/wire-values.ts',
   'packages/sdk/src/core/session/wire-message-id.ts',
 ] as const;

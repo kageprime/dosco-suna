@@ -10,7 +10,7 @@ import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import { ConfirmDialog } from '../../../primitives/confirm-dialog';
 import Hint from '../../../primitives/hint';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
 import { Skeleton } from '../../../primitives/skeleton';
 import { errorToast, successToast } from '../../../primitives/toast';
@@ -515,9 +515,9 @@ export function SandboxTabView({
             </p>
 
             {templatesError ? (
-              <InfoBanner tone="warning">
+              <BannerAlert variant="warning" ><BannerAlertDescription>
                 {copy.configReadFailed} {templatesError}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             ) : null}
 
             {isEmpty ? (

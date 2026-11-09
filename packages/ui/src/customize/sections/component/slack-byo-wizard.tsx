@@ -40,7 +40,7 @@ import { useLocalizedUiCatalog } from '../../../i18n/ui-catalog/use-localized-ui
  */
 
 import { Button } from '../../../primitives/button';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import Loading from '../../../primitives/loading';
@@ -393,9 +393,9 @@ function StepCredentials({
       </Alert>
 
       {error ? (
-        <InfoBanner tone="destructive" title={tI18nComplete.raw('text8630b4dd33f2')}>
+        <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nComplete.raw('text8630b4dd33f2')}</BannerAlertTitle><BannerAlertDescription>
           {error}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
     </>
   );

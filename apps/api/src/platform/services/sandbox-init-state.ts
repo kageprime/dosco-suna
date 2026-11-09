@@ -2,6 +2,7 @@ import { SnapshotStillBuildingError, WarmRuntimeUnavailableError, SandboxTemplat
 import type { CreateSandboxOpts, ProvisionResult, SandboxProvider } from '../providers';
 import { classifySandboxProvisioningFailure } from './sandbox-provisioning-error';
 import { exponentialBackoffMs } from '../../shared/backoff';
+import { errorMessage } from '../../shared/error-message';
 
 export type SandboxInitStatus = 'pending' | 'provisioning' | 'retrying' | 'ready' | 'failed';
 type SandboxHealthStatus = 'healthy' | 'degraded' | 'offline' | 'unknown';
@@ -41,10 +42,6 @@ const FLEET_PLACEMENT_REFUSAL = /"error":"no capacity(?: on a host that can moun
 
 export function isFleetPlacementRefusal(error: unknown): boolean {
   return FLEET_PLACEMENT_REFUSAL.test(errorMessage(error));
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** The provider refused a create because it is still finishing the image (building or replicating). */

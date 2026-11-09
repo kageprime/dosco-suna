@@ -30,14 +30,6 @@ export class UnsafeEgressError extends Error {
 
 const MAX_REDIRECTS = 5;
 
-/**
- * True if a parsed IP address (v4 or v6 string) is in a private / reserved /
- * link-local / cloud-metadata range that an egress fetch must never reach.
- *
- * Handles decimal/octal/hex IPv4 encodings indirectly: callers pass the value
- * returned by `dns.lookup` (a canonical IP), so encodings are normalized before
- * this runs. IPv4-mapped IPv6 (`::ffff:7f00:1`) is unwrapped and checked as v4.
- */
 /** Expand an IPv6 literal to 8 hex groups, or null when it is not one. */
 function ipv6Groups(ip: string): number[] | null {
   let text = ip;
@@ -58,26 +50,34 @@ function ipv6Groups(ip: string): number[] | null {
     : null;
 }
 
-/** The IPv4 address embedded in an IPv4-mapped, IPv4-translated (`::ffff:0:0/96`) or IPv4-compatible IPv6 literal. */
-function embeddedIpv4(ip: string): string | null {
-  const g = ipv6Groups(ip);
-  if (!g || g.slice(0, 4).some((x) => x !== 0)) return null;
-  if (g[4] === 0xffff && g[5] === 0) return `${g[6]! >> 8}.${g[6]! & 0xff}.${g[7]! >> 8}.${g[7]! & 0xff}`;
+/** Two 16-bit groups as a dotted IPv4 address. */
+const ipv4From = (hi: number, lo: number): string => `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+
+/** The IPv4 address embedded in an IPv4-mapped (`::ffff:0:0/96`), IPv4-translated (`::ffff:0:0:0/96`) or IPv4-compatible address. */
+function embeddedIpv4(g: number[]): string | null {
+  if (g.slice(0, 4).some((x) => x !== 0)) return null;
+  if (g[4] === 0xffff && g[5] === 0) return ipv4From(g[6]!, g[7]!);
   if (g[4] !== 0) return null;
   if (g[5] !== 0xffff && g[5] !== 0) return null;
   if (g[5] === 0 && g[6] === 0) return null; // `::` and `::1`, handled by the caller
-  const [, , , , , , hi = 0, lo = 0] = g;
-  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+  return ipv4From(g[6]!, g[7]!);
 }
 
+/**
+ * True if an IP address (v4 or v6 string) is in a private / reserved /
+ * link-local / cloud-metadata range that an egress fetch must never reach.
+ *
+ * Callers pass a canonical IP (`dns.lookup` output or a WHATWG `URL.hostname`),
+ * so decimal/octal/hex IPv4 host spellings are normalized before this runs.
+ * IPv6 is classified on its 8 parsed groups, so every valid spelling of an
+ * address (leading zeros, upper case, a zone id, a dotted v4 tail) gives the
+ * same answer. An IPv6 address that carries an IPv4 address (mapped,
+ * translated, compatible, 6to4) is classified by that IPv4 address.
+ */
 export function isPrivateIp(ip: string): boolean {
   if (!ip || typeof ip !== 'string') return true;
   const family = isIP(ip);
   if (family === 0) return true; // not an IP → treat as unsafe (defensive)
-
-  // IPv4-mapped IPv6 (::ffff:a.b.c.d) → unwrap to the v4 form.
-  const mapped = ip.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
-  if (mapped) return isPrivateIp(mapped[1] ?? '');
 
   if (family === 4) {
     const parts = ip.split('.').map((p) => Number.parseInt(p, 10));
@@ -100,33 +100,21 @@ export function isPrivateIp(ip: string): boolean {
     return false;
   }
 
-  // IPv6
-  const v = ip.toLowerCase();
-  if (v === '::1' || v === '::') return true; // loopback / unspecified
-  // An embedded IPv4 in hex form: IPv4-mapped (`::ffff:7f00:1`, which is how
-  // WHATWG URL serializes `[::ffff:127.0.0.1]`) and IPv4-compatible
-  // (`::7f00:1`). Check the embedded address as v4.
-  const embedded = embeddedIpv4(v);
+  // IPv6. A zone id (`fe80::1%eth0`) does not change the address.
+  const g = ipv6Groups(ip.toLowerCase().split('%')[0]!);
+  if (!g) return true; // isIP accepted it but it does not parse: fail closed
+  const [g0 = 0, g1 = 0] = g;
+  if (g.slice(0, 7).every((x) => x === 0) && g[7]! <= 1) return true; // `::` unspecified, `::1` loopback
+  const embedded = embeddedIpv4(g);
   if (embedded) return isPrivateIp(embedded);
-  const groups = ipv6Groups(v);
-  if (groups) {
-    if (groups.slice(0, 7).every((g) => g === 0) && (groups[7] === 0 || groups[7] === 1)) return true;
-    // 6to4 (2002::/16) carries an IPv4 address in groups 1-2: private v4 → private.
-    if (groups[0] === 0x2002) {
-      const [, hi = 0, lo = 0] = groups;
-      return isPrivateIp(`${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`);
-    }
-    // Teredo (2001::/32) tunnels to an obfuscated v4 address; no public service answers there.
-    if (groups[0] === 0x2001 && groups[1] === 0) return true;
-  }
-  if (v.startsWith('fc') || v.startsWith('fd')) return true; // fc00::/7 ULA (incl. AWS fd00:ec2::254 metadata)
-  if (v.startsWith('fe8') || v.startsWith('fe9') || v.startsWith('fea') || v.startsWith('feb'))
-    return true; // fe80::/10 link-local
-  if (/^fe[c-f]/.test(v)) return true; // fec0::/10 deprecated site-local
-  if (v.startsWith('ff')) return true; // ff00::/8 multicast
-  if (v.startsWith('64:ff9b:')) return true; // NAT64 well-known prefix
-  if (v.startsWith('100::')) return true; // discard prefix
-  if (v.startsWith('2001:db8:')) return true; // documentation
+  if (g0 === 0x2002) return isPrivateIp(ipv4From(g1, g[2]!)); // 6to4 2002::/16 carries a v4 in groups 1-2
+  if (g0 === 0x2001 && g1 === 0) return true; // Teredo 2001::/32: tunnels to an obfuscated v4
+  if (g0 === 0x2001 && g1 === 0x0db8) return true; // documentation 2001:db8::/32
+  if (g0 === 0x0064 && g1 === 0xff9b) return true; // NAT64 64:ff9b::/96 and local-use 64:ff9b:1::/48
+  if (g0 === 0x0100 && g1 === 0 && g[2] === 0 && g[3] === 0) return true; // discard 100::/64
+  if ((g0 & 0xfe00) === 0xfc00) return true; // fc00::/7 ULA (incl. AWS fd00:ec2::254 metadata)
+  if ((g0 & 0xff80) === 0xfe80) return true; // fe80::/10 link-local + fec0::/10 deprecated site-local
+  if ((g0 & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
 

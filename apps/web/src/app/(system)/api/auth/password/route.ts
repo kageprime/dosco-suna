@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { signInWithPassword, signUpWithPassword } from '@/app/[locale]/(auth)/auth/actions';
+import { settleWithin } from '@/lib/deadline';
 import {
   AUTH_ROUTE_TIMEOUT_MS,
   AUTH_TIMEOUT_MESSAGE,
   AUTH_UNEXPECTED_MESSAGE,
   sameOriginRequest,
-  settleWithin,
 } from '@/lib/auth/submit-auth';
 
 export const dynamic = 'force-dynamic';

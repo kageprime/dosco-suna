@@ -12,6 +12,7 @@
 // browser enforced and that `Promise.allSettled` could leave half-applied.
 
 import { backendApi } from '../../http/api-client';
+import { appendQuery } from '../../http/url';
 import { assignmentBody, assignmentQuery } from './assignments-at';
 import { unwrap } from './shared';
 import { iamGet } from './iam-shared';
@@ -148,7 +149,7 @@ export async function listPermissions(
   accountId: string,
   options?: { scopeType?: AssignmentScopeType },
 ) {
-  const qs = options?.scopeType ? `?scope_type=${options.scopeType}` : '';
+  const qs = appendQuery({ scope_type: options?.scopeType });
   return unwrap(
     await iamGet<{ permissions: Permission[] }>(`/accounts/${accountId}/iam/permissions${qs}`),
   ).permissions;

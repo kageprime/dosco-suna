@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { successToast } from '@kortix/ui/toast';
 import { invalidateAccountState } from '@kortix/ui/internal/billing/index';
@@ -98,7 +98,7 @@ export function RedeemCodeForm({
           {t('action')}
         </Button>
       </div>
-      {error ? <InfoBanner tone="destructive">{error}</InfoBanner> : null}
+      {error ? <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert> : null}
     </form>
   );
 }

@@ -33,6 +33,7 @@ import { qualifiedColumn } from '../../shared/sql-qualified-column';
 import { activeTurnAuthorityPredicate } from '../reaping/box-queries';
 import { resolveSessionPersonalOwner } from './personal-resources';
 import { ACTIVE_SESSION_STATUSES } from './session-status';
+import { errorMessage } from '../../shared/error-message';
 
 /** Never throws. Returns the restored model ref, or null when the session stays. */
 export async function revertSessionModelFallback(sessionId: string, nowMs = Date.now()): Promise<string | null> {
@@ -111,7 +112,7 @@ export async function revertSessionModelFallback(sessionId: string, nowMs = Date
   } catch (error) {
     logger.warn('[projects] session model fallback revert failed', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return null;
   }

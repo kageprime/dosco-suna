@@ -1057,6 +1057,11 @@ const nextConfig = (): NextConfig => ({
       { source: '/cli', destination: '/docs/developers#cli', permanent: true },
       { source: `/:locale(${locales.join('|')})/cli`, destination: '/docs/developers#cli', permanent: true },
       { source: '/markdown/cli.md', destination: '/markdown/index.md', permanent: true },
+      // The old /app path served the 404 page: it is neither a public nor a
+      // protected app route, so the middleware rewrote it onto the localized
+      // catch-all (KRTX-4462). It lands on the download page. Exact path only,
+      // query string kept (the destination has none, so Next forwards it).
+      { source: '/app', destination: '/download', permanent: true },
       // Removed pages that may live on in old links and search indexes.
       // /credits-explained became the credits guide in the docs tree; the
       // /compare section was retired with no direct replacement.

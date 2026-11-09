@@ -29,6 +29,7 @@ import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
 import { alertTriggerAutoPaused } from './trigger-alerts';
 import { autoPauseTrigger, readTriggerAutoPause } from './trigger-run-caps';
+import { errorMessage } from '../../shared/error-message';
 
 /** The refusals only the trigger's owner can fix. */
 const OWNER_FIXABLE_SOURCES = [
@@ -142,7 +143,7 @@ export async function pauseTriggerIfAlwaysFailing(input: {
     logger.warn('[trigger-failure-pause] check failed', {
       project_id: input.projectId,
       slug: input.slug,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return false;
   }

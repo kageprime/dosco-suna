@@ -44,10 +44,18 @@ export function TaskTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
   const input = partInput(call);
   const status = partStatus(call);
 
-  const subagentType = (input.subagent_type as string) || (input.agent as string) || 'general';
+  // Tool input is the model's JSON: every field is `unknown` at runtime, and a
+  // truthy non-string used to crash the render tree (`e.replace is not a
+  // function`, KRTX-4511). Read each field by type, never by cast — an empty
+  // or junk value falls through to the same fallback as an absent one.
+  const subagentType =
+    (typeof input.subagent_type === 'string' && input.subagent_type) ||
+    (typeof input.agent === 'string' && input.agent) ||
+    'general';
+  const name = typeof input.name === 'string' ? input.name : '';
   const description = useMemo(
     () =>
-      (input.description as string) ||
+      (typeof input.description === 'string' && input.description) ||
       firstMeaningfulLine(input.prompt) ||
       // Codex `spawn_agent`.
       firstMeaningfulLine(input.message) ||
@@ -76,8 +84,8 @@ export function TaskTool({ call, defaultOpen, forceOpen, locked }: ToolProps) {
     ? 'failed'
     : (child?.state ?? (isRunning || (background && backgroundWorking) ? 'working' : status === 'completed' ? 'completed' : 'idle'));
   // The name its parent gave it (`agent({ name })`) reads best; else the kind of agent.
-  const handle = (input.name as string) || (child?.named ? child.handle : '') || subagentType;
-  const title = (input.name as string) || (child?.named ? child.handle : '') || agentDisplayName(subagentType);
+  const handle = name || (child?.named ? child.handle : '') || subagentType;
+  const title = name || (child?.named ? child.handle : '') || agentDisplayName(subagentType);
 
   // A row with a session opens it: beside the chat in the side panel, or as the agent
   // dialog where there is no panel. Its prompt, steps and answer are that session's

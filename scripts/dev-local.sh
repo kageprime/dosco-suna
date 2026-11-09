@@ -42,15 +42,16 @@ load_local_env() {
   # endpoint back to localhost and mark the process as local-dev so cloud
   # provision pollers do not sweep shared remote rows.
   # apps/api/.env and apps/web/.env are dotenvx-ENCRYPTED and committed to git.
-  # Decrypt them with the dotenvx private keys — apps/{api,web}/.env.keys locally,
-  # or Dotenv Armor (`dotenvx-armor login`) — and export into the shell so the
-  # API (Bun) and web (Next) children inherit the plaintext values.
+  # Decrypt them with the repo's dotenvx (2.x), which finds the private key in
+  # DOTENV_PRIVATE_KEY, apps/{api,web}/.env.keys, or the Dotenv Armor login
+  # (`dotenvx armor login`, token in the OS keychain), and export into the shell
+  # so the API (Bun) and web (Next) children inherit the plaintext values.
   local DOTENVX="$ROOT_DIR/node_modules/.bin/dotenvx" _f _env
   if [[ -x "$DOTENVX" ]]; then
     for _f in apps/api/.env apps/web/.env; do
       _env="$("$DOTENVX" get --format eval -f "$ROOT_DIR/$_f" 2>/dev/null || true)"
       if [[ -z "$_env" || "$_env" == *'="encrypted:'* ]]; then
-        echo "[dev] ⚠️  could not decrypt $_f — run 'dotenvx-armor login' (or restore its .env.keys)" >&2
+        echo "[dev] ⚠️  could not decrypt $_f — run 'dotenvx armor login' (dotenvx 2.7.1+), or restore its .env.keys" >&2
       else
         set -a; eval "$_env"; set +a
       fi

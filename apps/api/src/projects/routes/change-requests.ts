@@ -9,7 +9,7 @@ import {
   CHANGE_REQUEST_LIST_MAX_LIMIT,
   decodeChangeRequestCursor,
   getCrById,
-  getNextCrNumber,
+  insertChangeRequest,
   listChangeRequestsForProject,
   recordRequestedChange,
   serializeChangeRequest,
@@ -334,35 +334,20 @@ export function registerChangeRequestsRoutes(): void {
         );
       }
 
-      // Atomically allocate the next per-project number and insert. Retry once on
-      // unique-constraint collision (only happens under racing opens).
-      let inserted: typeof changeRequests.$inferSelect | null = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const number = await getNextCrNumber(projectId);
-        try {
-          const [row] = await db
-            .insert(changeRequests)
-            .values({
-              accountId: loaded.row.accountId,
-              projectId,
-              number,
-              title,
-              description,
-              baseRef,
-              headRef,
-              headCommitSha: headSha,
-              baseCommitSha: baseSha,
-              originSessionId,
-              createdBy: loaded.userId,
-            })
-            .returning();
-          inserted = row;
-          break;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          if (!/duplicate key/.test(message)) throw error;
-        }
-      }
+      // Atomically allocate the next per-project number and insert, retrying
+      // on a unique-constraint collision (only happens under racing opens).
+      const inserted = await insertChangeRequest({
+        accountId: loaded.row.accountId,
+        projectId,
+        title,
+        description,
+        baseRef,
+        headRef,
+        headCommitSha: headSha,
+        baseCommitSha: baseSha,
+        originSessionId,
+        createdBy: loaded.userId,
+      });
       if (!inserted) return c.json({ error: 'Failed to allocate CR number' }, 500);
 
       return c.json(serializeChangeRequest(inserted), 201);

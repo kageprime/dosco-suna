@@ -25,6 +25,11 @@ let m: {
   SessionFilesBooting: typeof import('./session-files-explorer').SessionFilesBooting;
   AppPreviewBooting: typeof import('./easy/app-preview').AppPreviewBooting;
   SessionBootStatus: typeof import('../status/session-starting-loader').SessionBootStatus;
+  usePanelHandoffs: typeof import('./shared/use-panel-handoffs').usePanelHandoffs;
+  useKortixComputerStore: typeof import('../../internal/stores/kortix-computer-store').useKortixComputerStore;
+  DetailLayer: typeof import('./easy/detail-view').DetailLayer;
+  TooltipProvider: typeof import('../../primitives/tooltip').TooltipProvider;
+  toolCallBlock: typeof import('@kortix/sdk').toolCallBlock;
 };
 
 beforeAll(async () => {
@@ -39,6 +44,7 @@ beforeAll(async () => {
   g.IS_REACT_ACT_ENVIRONMENT = true;
   const query = await import('@tanstack/react-query');
   const provider = await import('./session-panel-provider');
+  const sdk = await import('@kortix/sdk');
   m = {
     act: (await import('react')).act,
     createRoot: (await import('react-dom/client')).createRoot,
@@ -51,7 +57,26 @@ beforeAll(async () => {
     SessionFilesBooting: (await import('./session-files-explorer')).SessionFilesBooting,
     AppPreviewBooting: (await import('./easy/app-preview')).AppPreviewBooting,
     SessionBootStatus: (await import('../status/session-starting-loader')).SessionBootStatus,
+    usePanelHandoffs: (await import('./shared/use-panel-handoffs')).usePanelHandoffs,
+    useKortixComputerStore: (await import('../../internal/stores/kortix-computer-store')).useKortixComputerStore,
+    DetailLayer: (await import('./easy/detail-view')).DetailLayer,
+    TooltipProvider: (await import('../../primitives/tooltip')).TooltipProvider,
+    toolCallBlock: sdk.toolCallBlock,
   };
+  // The built-in tool renderers (GenericTool draws a `prune` call).
+  await import('../tool/tools/register');
+  PRUNE = m.toolCallBlock({
+    type: 'tool',
+    tool: 'prune',
+    callID: 'call-prune',
+    state: { status: 'completed', input: {}, output: 'compacted 2 turns' },
+  } as never) as import('@kortix/sdk').ToolCallBlock;
+  BASH = m.toolCallBlock({
+    type: 'tool',
+    tool: 'bash',
+    callID: 'call-bash',
+    state: { status: 'completed', input: { command: 'ls' }, output: 'files' },
+  } as never) as import('@kortix/sdk').ToolCallBlock;
 });
 
 afterAll(() => {
@@ -67,6 +92,8 @@ afterEach(async () => {
   await m.act(async () => root?.unmount());
   root = null;
   document.body.innerHTML = '';
+  // Reset the store's focus and panel state between tests.
+  m.useKortixComputerStore.setState({ focusedToolCallId: null, isSidePanelOpen: false });
 });
 
 const noop = () => {};
@@ -182,6 +209,16 @@ describe('tool cards while the session boots', () => {
     expect(host.querySelector('[role="status"]')?.textContent).toBe('Starting your session');
   });
 
+  test('open, booted, no detail and no terminal: an explicit empty state, never a blank panel', async () => {
+    // The dead-end behind the reported bug: `focusToolCall` opened the panel,
+    // the handoff found nothing to show, and the panel sat there blank. The
+    // shell must name the state instead of drawing nothing.
+    const { host } = await render(panelValue({ booting: false, detail: null, terminalOpen: false }), <m.SessionDetailPanel />);
+    expect(host.textContent).toContain('Nothing here yet');
+    // The boot status is NOT mounted in this state: booting is false.
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
   test('Files on Changes: only the disabled tabs, like the live Changes card; turns live without reopening', async () => {
     const body = (
       <m.SessionBootGate
@@ -208,5 +245,138 @@ describe('tool cards while the session boots', () => {
     await rerender(panelValue({ booting: false }));
     expect(host.querySelector('[data-testid="live-explorer"]')).not.toBeNull();
     expect(host.querySelector('[role="tab"]')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A tool call clicked in the chat must never open an empty right panel.
+//
+// The chat opens the panel synchronously (`focusToolCall` flips
+// `isSidePanelOpen`); the handoff effect then opens a detail — previously ONLY
+// when the call's step was found. A call whose step `groupSteps` drops (the
+// context-engine bookkeeping tools a chat row still renders) left the panel
+// open with nothing on it: the reported bug (KRTX-4464).
+// ---------------------------------------------------------------------------
+
+type HandoffArgs = Parameters<typeof m.usePanelHandoffs>[0];
+
+/** A harness that mounts the real handoff hook with fixture data. */
+function HandoffsHarness(props: { args: Omit<HandoffArgs, 'openDetail'>; onOpen: (detail: unknown) => void }) {
+  m.usePanelHandoffs({ ...props.args, openDetail: props.onOpen as never });
+  return null;
+}
+
+// The real trigger: a context-engine bookkeeping tool. The chat renders its
+// row (GenericTool — no registered renderer, not in HIDDEN_TOOLS) and is
+// clickable; `groupSteps` drops it (`familyForTool === 'hidden'`), so the
+// step lookup in the handoff used to miss it.
+let PRUNE: import('@kortix/sdk').ToolCallBlock;
+let BASH: import('@kortix/sdk').ToolCallBlock;
+
+const handoffBaseArgs = {
+  sessionId: 'route-session',
+  isRunning: false,
+  outcome: 'succeeded' as const,
+  apps: [],
+  files: [],
+  detail: null,
+  handleOpenOutput: () => {},
+  openTerminal: () => {},
+  openAudit: () => {},
+  openReminders: () => {},
+  openDesktop: () => {},
+  openBrowser: () => {},
+  openFiles: () => {},
+} as unknown as Omit<HandoffArgs, 'openDetail' | 'steps' | 'calls'>;
+
+async function renderHandoffs(args: Omit<HandoffArgs, 'openDetail'>, onOpen: (detail: unknown) => void) {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const tree = (a: Omit<HandoffArgs, 'openDetail'>, o: (detail: unknown) => void) => (
+    <m.QueryClientProvider client={client()}>
+      <m.UiProvider>
+        <m.TooltipProvider>
+          <HandoffsHarness args={a} onOpen={o} />
+        </m.TooltipProvider>
+      </m.UiProvider>
+    </m.QueryClientProvider>
+  );
+  await m.act(async () => {
+    root = m.createRoot(host);
+    root.render(tree(args, onOpen));
+  });
+  return {
+    host,
+    rerender: (a: Omit<HandoffArgs, 'openDetail'>, o: (detail: unknown) => void) =>
+      m.act(async () => root?.render(tree(a, o))),
+  };
+}
+
+describe('a chat tool-call click lands on panel content', () => {
+  test('step found: the step detail opens (unchanged behavior)', async () => {
+    const step: import('@kortix/sdk').Step<import('@kortix/sdk').ToolCallBlock> = {
+      id: 'call-bash',
+      family: 'run',
+      label: 'Ran 1 command',
+      parts: [BASH],
+      status: 'done',
+    };
+    const state: { opened: { key: string } | null } = { opened: null };
+    await renderHandoffs(
+      { ...handoffBaseArgs, steps: [step], calls: [BASH] },
+      (d) => (state.opened = d as { key: string }),
+    );
+    await m.act(async () => m.useKortixComputerStore.getState().focusToolCall('call-bash'));
+    expect(state.opened?.key).toBe('step:call-bash:call-bash');
+    expect(m.useKortixComputerStore.getState().focusedToolCallId).toBeNull();
+  });
+
+  test('step dropped (context bookkeeping): the call itself opens, never a blank panel', async () => {
+    const opened: Array<{ key: string; title: string; body: ReactNode }> = [];
+    await renderHandoffs({ ...handoffBaseArgs, steps: [], calls: [PRUNE] }, (d) => opened.push(d as never));
+    await m.act(async () => m.useKortixComputerStore.getState().focusToolCall('call-prune'));
+    expect(opened.length).toBe(1);
+    expect(opened[0].key).toBe('tool:call-prune');
+    // The focus is consumed only once the detail exists.
+    expect(m.useKortixComputerStore.getState().focusedToolCallId).toBeNull();
+
+    // The panel RENDERS the call's content: mount the opened detail the way
+    // `DetailLayer` frames it and assert the tool view is drawn.
+    const detailHost = document.createElement('div');
+    document.body.appendChild(detailHost);
+    await m.act(async () => {
+      const detailRoot = m.createRoot(detailHost);
+      detailRoot.render(
+        <m.QueryClientProvider client={client()}>
+          <m.UiProvider>
+            <m.TooltipProvider>
+              <m.DetailLayer detail={opened[0] as never} onBack={() => {}} isMobile={false}>
+                {null}
+              </m.DetailLayer>
+            </m.TooltipProvider>
+          </m.UiProvider>
+        </m.QueryClientProvider>,
+      );
+    });
+    expect(detailHost.textContent).toContain('Prune');
+  });
+
+  test('steps not derived yet (streaming race): the focus waits and lands once they arrive', async () => {
+    const opened: Array<{ key: string }> = [];
+    const { rerender } = await renderHandoffs(
+      { ...handoffBaseArgs, steps: [], calls: [] },
+      (d) => opened.push(d as { key: string }),
+    );
+    await m.act(async () => m.useKortixComputerStore.getState().focusToolCall('call-prune'));
+    // The panel opened on a call the panel data does not hold yet: nothing to
+    // open, and the focus stays armed for the data's arrival.
+    expect(opened.length).toBe(0);
+    expect(m.useKortixComputerStore.getState().focusedToolCallId).toBe('call-prune');
+
+    // The thread's derivation catches up.
+    await rerender({ ...handoffBaseArgs, steps: [], calls: [PRUNE] }, (d) => opened.push(d as { key: string }));
+    expect(opened.length).toBe(1);
+    expect(opened[0].key).toBe('tool:call-prune');
+    expect(m.useKortixComputerStore.getState().focusedToolCallId).toBeNull();
   });
 });

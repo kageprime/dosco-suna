@@ -53,6 +53,7 @@
  */
 
 import type { Context, Next } from 'hono';
+import { joinChunks } from '../shared/join-chunks';
 
 /**
  * The smallest body worth compressing, and the exact number of bytes this
@@ -179,18 +180,6 @@ async function peekBody(
     total += value.byteLength;
   }
   return { chunks, total, complete: false };
-}
-
-/** One buffer from the peeked chunks. Only ever called on a completed peek. */
-function joinChunks(chunks: Uint8Array[], total: number): Uint8Array {
-  if (chunks.length === 1) return chunks[0]!;
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return out;
 }
 
 /** The peeked prefix, then everything still to come from the original body. */

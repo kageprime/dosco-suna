@@ -347,7 +347,8 @@
       "actionImport": "导入现有仓库",
       "ownerTypePersonal": "个人账户",
       "ownerTypeOrg": "组织",
-      "createPersonalAuthorize": "首次在个人账户中创建仓库时，Kortix 会请求你在 GitHub 上的授权。"
+      "createPersonalAuthorize": "首次在个人账户中创建仓库时，Kortix 会请求你在 GitHub 上的授权。",
+      "importHint": "Kortix 从此仓库的 kortix.yaml 读取代理。如果没有该文件,工作区会显示一个设置提示词,供你复制到编码代理中。"
     }
   },
   "projectHome": {
@@ -3749,6 +3750,25 @@
     "startHint": "在下方告诉 Kortix 你在做什么，或发送“带我上手 Kortix”开始引导式设置。",
     "placeholder": "告诉 Kortix 您在做什么",
     "kickoff": "带我上手 Kortix"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "在此仓库中设置 Kortix",
+      "body": "在你的本地克隆中,将设置提示词粘贴到 Claude Code、Codex 或 Cursor。<code>kortix.yaml</code> 推送到 <code>{branch}</code> 后,聊天会在这里打开。"
+    },
+    "defaultBranch": "默认分支",
+    "copy": "复制设置提示词",
+    "copied": "已复制",
+    "copyFailed": "无法复制提示词",
+    "docs": "设置指南",
+    "noAccess": {
+      "title": "没有可供你使用的代理",
+      "body": "管理此工作区的任何人都可以为你开通访问权限。"
+    },
+    "empty": {
+      "title": "此工作区没有代理",
+      "body": "在 kortix.yaml 中声明一个,或通过“新建代理”创建一个。"
+    }
   },
   "announcements": {
     "memories": {
@@ -26606,7 +26626,9 @@
         "createdDescription": "{name} 以 {actsAs} 的身份运行。Kortix 只显示一次密钥：请立即复制并作为密钥保存。",
         "accessFullHint": "密钥的运行身份在此工作区中可以执行的全部操作。",
         "accessCustomHint": "仅限你选择的权限。每项权限都必须在密钥运行身份的权限范围内。"
-      }
+      },
+      "searchPlaceholder": "搜索设置",
+      "searchNoResults": "没有匹配的设置"
     },
     "cli": {
       "noWorkspaceTitle": "创建工作区以登录 CLI",
@@ -26637,7 +26659,9 @@
     },
     "menu": {
       "invite": "邀请成员加入 {name}",
-      "leave": "离开 {name}"
+      "leave": "离开 {name}",
+      "invitePeople": "邀请成员",
+      "more": "更多"
     },
     "roles": {
       "owner": {

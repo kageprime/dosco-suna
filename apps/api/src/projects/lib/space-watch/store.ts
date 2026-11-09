@@ -14,6 +14,7 @@ import { db } from '../../../shared/db';
 import { qualifiedColumn } from '../../../shared/sql-qualified-column';
 import { SPACE_EVENTS_KEEP, SPACE_EVENTS_RETENTION_DAYS, type SpaceEventKind } from './policy';
 import { projectsView } from '../../../workspaces/rows';
+import { errorMessage } from '../../../shared/error-message';
 
 export type WatcherRow = typeof projectSpaceWatchers.$inferSelect;
 
@@ -107,7 +108,7 @@ export async function recordSpaceEvent(input: {
     logger.warn('[space-watch] the event was not recorded', {
       space_id: input.spaceId,
       kind: input.kind,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return null;
   }

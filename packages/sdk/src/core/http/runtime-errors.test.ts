@@ -155,7 +155,6 @@ test('isRuntimeNotReadyResponse is only the daemon answer, not every sandbox sta
 test('isRuntimeStartingError also covers a runtime URL that is not pinned yet', () => {
   for (const message of [
     '[kortix-runtime] Server URL not ready — sandbox is still loading',
-    '[kortix-pty] Server URL not ready — sandbox is still loading',
     'sandbox not ready (status: starting)',
   ]) {
     expect({ message, starting: isRuntimeStartingError(new Error(message)) }).toEqual({ message, starting: true });

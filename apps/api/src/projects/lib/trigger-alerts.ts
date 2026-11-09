@@ -30,6 +30,7 @@ import { deliver, liveNotifierDeps, type NotifierDeps } from '../../notification
 import { db } from '../../shared/db';
 import { resolveTriggerWatchers } from './trigger-watchers';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * 'fire' and 'run' as below; 'silence': an app trigger heard no App event
@@ -78,7 +79,7 @@ function runtimeRow(input: TriggerAlertInput) {
 }
 
 function reason(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return errorMessage(err);
 }
 
 /** Start a failure streak and alert the watchers. True when this call started it. */

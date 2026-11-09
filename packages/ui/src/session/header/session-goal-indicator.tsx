@@ -10,12 +10,11 @@
  */
 
 import { HoverPrefetchLink } from '../../internal/components/hover-prefetch-link';
-import { useNow } from '../../internal/reminders/use-refetch-after-fire';
 import { Button } from '../../primitives/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../primitives/popover';
 import { StatusDot } from '../../primitives/status';
 import { useLocale, useTranslations } from '../../i18n';
-import { useFeatureFlag, useSessionGoal } from '@kortix/sdk/react';
+import { useFeatureFlag, useNow, useSessionGoal } from '@kortix/sdk/react';
 import { TargetIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useSessionIds } from '../../providers/session-ids';
@@ -35,7 +34,7 @@ import {
 export function SessionGoalIndicator() {
   const t = useTranslations('goals');
   const locale = useLocale();
-  const now = useNow();
+  const now = useNow(30_000);
   const { projectId, sessionId } = useSessionIds<{ projectId: string; sessionId: string }>();
   const gate = useFeatureFlag(projectId, 'goals');
   const { goal, role } = useSessionGoal(gate.enabled ? projectId : null, sessionId);

@@ -36,7 +36,7 @@ import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { Checkbox } from '@kortix/ui/checkbox';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -455,19 +455,13 @@ function ProviderSelect({
       </p>
       {flow === 'scim' && !ssoConnected && (
         <div className="mt-6">
-          <InfoBanner
-            tone="info"
-            title={tI18nComplete.raw('text65716e73a7c3')}
-            action={
-              <Button asChild variant="outline" size="sm">
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('text65716e73a7c3')}</BannerAlertTitle><BannerAlertDescription>
+            {tI18nComplete.raw('text88f8c1416b7d')}
+          </BannerAlertDescription><BannerAlertActions>{<Button asChild variant="outline" size="sm">
                 <HubLink to={hubTarget(accountId, { tab: 'identity', setup: 'sso' })}>
                   {tI18nComplete.raw('text8bf926d1ef32')}
                 </HubLink>
-              </Button>
-            }
-          >
-            {tI18nComplete.raw('text88f8c1416b7d')}
-          </InfoBanner>
+              </Button>}</BannerAlertActions></BannerAlert>
         </div>
       )}
       <div className="border-border/70 bg-card mt-8 overflow-hidden rounded-md border">
@@ -735,9 +729,9 @@ function ImportForm({
   if (alreadyConnected) {
     return (
       <div className="space-y-3">
-        <InfoBanner tone="info" title={tI18nComplete.raw('textbe03b81f11cb')}>
+        <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('textbe03b81f11cb')}</BannerAlertTitle><BannerAlertDescription>
           {tI18nComplete.raw('text053d2dc26869')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
         <Button onClick={onDone} className="gap-1.5">
           {tI18nComplete.raw('textc75bd371076e')}
           <ArrowRight className="size-3.5 shrink-0" />
@@ -1008,11 +1002,11 @@ function ScimTokenStep({
       {!minted && (
         <div className="space-y-3">
           {priorTokens.length > 0 && (
-            <InfoBanner tone="info" title={tI18nComplete.raw('textcbe414dc8d0f')}>
+            <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('textcbe414dc8d0f')}</BannerAlertTitle><BannerAlertDescription>
               {tI18nComplete.raw('text3bac8a95f83a')}
               {priorTokens[0].public_prefix}
               {tI18nComplete.raw('textc41427dae9e4')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 space-y-1.5">
@@ -1427,15 +1421,15 @@ function StepBody({
       {step.showSpValues && <SpValueRows urls={spUrls} />}
 
       {step.success && (
-        <InfoBanner tone="success" title={tI18nComplete.raw('textb274aca9dee1')}>
+        <BannerAlert variant="success" ><BannerAlertTitle>{tI18nComplete.raw('textb274aca9dee1')}</BannerAlertTitle><BannerAlertDescription>
           {step.success}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       {step.warning && (
-        <InfoBanner tone="warning" title={tI18nComplete.raw('text4f9baa5ecfd7')}>
+        <BannerAlert variant="warning" ><BannerAlertTitle>{tI18nComplete.raw('text4f9baa5ecfd7')}</BannerAlertTitle><BannerAlertDescription>
           {step.warning}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       {step.note && <p className="text-muted-foreground text-xs">{step.note}</p>}

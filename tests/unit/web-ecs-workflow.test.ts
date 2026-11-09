@@ -293,27 +293,23 @@ describe('web ECS migration', () => {
     expect(branchTeardown).not.toContain('gh api');
   });
 
-  it('disables Vercel git auto-deploys for main, staging and prod', () => {
-    const config = read('apps/web/vercel.json');
-    const ignore = read('apps/web/scripts/vercel-ignore.sh');
+  it('never deploys the Vercel frontend from a git push', () => {
+    const config = JSON.parse(read('apps/web/vercel.json'));
     const stagingWorkflow = read('.github/workflows/deploy-staging.yml');
 
-    expect(config).toContain('"main": false');
-    // staging.kortix.com is the build deploy-staging.yml uploads and aliases.
-    // A git build of the staging branch is never served: from 2026-10-13 to
-    // 2026-11-02 it doubled 136 staging builds, 45 % of all finished builds.
-    expect(config).toContain('"staging": false');
+    // Vercel deploys only from the CLI: deploy-staging.yml uploads and aliases
+    // staging.kortix.com, deploy-prod.yml's deploy-web-vercel job deploys
+    // kortix.com after verify-live-version. The Vercel project has no Git
+    // connection; this is the guard if someone reconnects it. A push to prod
+    // must never ship the frontend first: during the 2026-08-10 v0.12.7
+    // rollout the auto-deployed frontend called routes the still-old API
+    // lacked and every project load failed. Git builds that a script then
+    // cancelled still billed ~20 s of a 30-core build machine each: 1,892 of
+    // them from 2026-11-01 to 2026-11-07, ~77 % of the project's build cost.
+    expect(config.git?.deploymentEnabled).toBe(false);
+    expect(config.ignoreCommand).toBeUndefined();
+    expect(existsSync(resolve(root, 'apps/web/scripts/vercel-ignore.sh'))).toBe(false);
     expect(stagingWorkflow).toContain('npx vercel alias set "$url" "$WEB_HOST"');
-    expect(ignore).toContain('staging deploys only via deploy-staging.yml');
-    // prod must NOT auto-deploy on push: during the 2026-08-10 v0.12.7 rollout
-    // the auto-deployed new frontend called routes the still-old API lacked
-    // and every project load failed. kortix.com deploys only from
-    // deploy-prod.yml's deploy-web-vercel job, after verify-live-version.
-    expect(config).toContain('"prod": false');
-    expect(ignore).toContain('prod deploys only via deploy-prod.yml');
-    expect(ignore).not.toContain('KORTIX_PREVIEW_APPROVED_SHA');
-    expect(ignore).not.toContain('*:main');
-    expect(ignore).toContain('dev deploys on ECS; PR previews deploy in sandboxes');
   });
 
   it('deploys the prod Vercel frontend only after the API serves the release', () => {

@@ -53,7 +53,7 @@ function oneLine(text: string, max: number): string {
  * A member-written value as one JSON string. `<` is escaped (\u003c), so no
  * value can close the `<board>` / `<space_tabs>` delimiter it sits in.
  */
-export function quoteData(text: string): string {
+function quoteData(text: string): string {
   return JSON.stringify(text).replace(/</g, '\\u003c');
 }
 

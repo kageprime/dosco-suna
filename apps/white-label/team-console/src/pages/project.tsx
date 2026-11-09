@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { errorToast } from '@kortix/ui/toast';
 import { ChatCircle, Plus } from '@phosphor-icons/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { PageTitle, RowLink, SessionStatus, When } from '../app';
+import { PageTitle, RowLink, SessionStatus, When } from '../ui';
 import { kortix } from '../kortix';
 import { navigate } from '../router';
 

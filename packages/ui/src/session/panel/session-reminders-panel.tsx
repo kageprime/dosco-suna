@@ -36,7 +36,7 @@ import {
   type ReminderStatusFilter,
   type ReminderTimeFilter,
 } from '../../internal/reminders/reminder-filter';
-import { useNow } from '../../internal/reminders/use-refetch-after-fire';
+import { useNow } from '@kortix/sdk/react';
 import { cn } from '../../internal/lib/utils';
 import { useLocale, useTranslations } from '../../i18n';
 import type { SessionReminder } from '@kortix/sdk';
@@ -173,7 +173,7 @@ export function SessionRemindersPanel({
   projectSessionId?: string;
 }) {
   const t = useTranslations('reminders');
-  const now = useNow();
+  const now = useNow(30_000);
   const { reminders, controls, confirm } = useReminderControls(projectId ?? null, projectSessionId);
   const hasTab = useCapabilityAccess(projectId).tabs.includes('reminders');
   const manageHref = hasTab && projectId ? `${remindersHref(projectId)}?session=${projectSessionId}` : null;

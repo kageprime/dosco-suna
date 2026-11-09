@@ -136,7 +136,7 @@ This re-encrypts the file in place (value becomes `KEY=encrypted:…`). Then com
 | Verify each env file equals its AWS SM blob   | `pnpm test:envs --sm` (needs `kortix-mfa` session); `python3 scripts/secrets-sm-parity.py pull <env>` copies SM → file                     |
 | Read a secret                                | `dotenvx get KEY -f apps/api/.env` (or `.env.dev` / `.env.staging` / `.env.prod`)                                                             |
 | Add / change a secret                        | `dotenvx set KEY value -f apps/api/.env` (or `.env.dev` / `.env.staging` / `.env.prod`), then commit                                          |
-| First time / new machine (non-prod profiles) | `dotenvx armor login` then, from each app directory, `for f in .env .env.dev .env.staging; do dotenvx armor pull --team kortix -f "$f"; done` |
+| First time / new machine (non-prod profiles) | `dotenvx armor login` with dotenvx 2.7.1+. `pnpm dev` and `pnpm worktree start` then decrypt through the login; no `.env.keys` needed. For offline runs only: from each app directory, `for f in .env .env.dev .env.staging; do dotenvx armor pull --team kortix -f "$f"; done` |
 | Run against prod (owner only)                | `pnpm dev:prod-env` — decrypts through Armor at run time; do **not** `armor pull -f .env.prod` into `.env.keys`                             |
 | Share a NEW profile / rotated key            | Push every profile with `--team kortix`                                                                                                       |
 | Remove a key from the cloud                  | `dotenvx armor down --team kortix -f <file>`                                                                                                  |
@@ -145,8 +145,12 @@ This re-encrypts the file in place (value becomes `KEY=encrypted:…`). Then com
 
 Use dotenvx **2.7.1 or newer** for Armor authentication. Since 2.7.1, a fresh
 login stores `DOTENVX_ARMOR_TOKEN` in the native OS secret store when available
-instead of the plaintext settings file. Existing users must upgrade once and
-re-authenticate:
+instead of the plaintext settings file. The repo pins dotenvx 2.38.2, so every
+`pnpm` script (`pnpm dev`, `pnpm worktree start`, `pnpm stripe:listen`) reads
+the same login. dotenvx 1.x reads only the settings file, so a 1.x binary fails
+with `[MISSING_PRIVATE_KEY]` after a 2.x login; the API then reports the values
+it could not decrypt as a `dotenvx` warning. Existing users must upgrade once
+and re-authenticate:
 
 ```sh
 dotenvx armor logout
@@ -175,9 +179,13 @@ team boundary until the upstream forwarding bug is fixed.
 
 ## Rotating every keypair
 
-The repo pins dotenvx 1.75.x because dotenvx 2.x temporarily removed `rotate`.
-Run rotation through the repo binary (`pnpm exec dotenvx rotate`), while Armor
-login/push/pull use the current global CLI.
+dotenvx 2.x has no `rotate` (2.38.2 included). Run rotation with the last 1.x
+release, the same pin the deploy workflows use:
+`npx --yes @dotenvx/dotenvx@1.75.1 rotate`. dotenvx 1.x cannot read the Armor
+login (see "Armor login security"), so give it the current key explicitly:
+`DOTENV_PRIVATE_KEY="$(dotenvx keypair DOTENV_PRIVATE_KEY -f .env)"` (the suffix
+follows the file: `_DEV`, `_STAGING`). Armor login, push and pull use the repo
+or global 2.x CLI.
 
 `rotate --no-armor` deliberately leaves a transitional `old,new` value in
 `.env.keys`. Armor accepts exactly one private key, so **never push that combined
@@ -201,7 +209,8 @@ Need a different value just on your machine? Put it in the gitignored `apps/api/
 - Version-controlled git hooks in `.githooks/`, **armed automatically by `pnpm install`** (the root `package.json` `prepare` script runs `git config core.hooksPath .githooks`; run it by hand only if you never installed deps). **Every committable `.env` is dotenvx-managed, no exceptions:** the pre-commit hook discovers _any_ staged `.env`/`.env.<env>` (new services included) and **auto-encrypts** it (`--no-armor`, mints a keypair into the adjacent `.env.keys` for new files), then blocks the commit if any unencrypted, non-gitignored `.env` remains; pre-push re-checks. Excluded: `.env.keys` (private keys) and `.env.example` (templates); gitignored files like `.env.local` / `supabase/.env` are never staged so they're untouched.
 - `.gitleaks.toml` exempts only the dotenvx ciphertext **lines** in the encrypted profiles (`condition = "AND"` + `regexTarget = "line"` + `encrypted:` / `DOTENV_PUBLIC_KEY` regexes), so `secret-scan` passes while a plaintext value in those same files still fails. **Never write a path-only allowlist** — it exempts the whole file. Until 2026-08-29 this one was path-only, and a plaintext `apps/api/.env` carrying a Postgres password and an HMAC secret scanned as `no leaks found`. `secrets-guard.yml` now fails the build if a path-only allowlist reappears.
 - `secrets-guard.yml` runs `pnpm secrets:check` (`scripts/check-env-encrypted.sh`) on every PR: a **structural** assertion that every value in a committed `.env` profile starts with `encrypted:`. It catches what patterns miss — a plaintext `postgres://user:pass@host` slips past gitleaks but not this. Run it locally any time.
-- Note the gate shapes: the hook's `dotenvx ext precommit` backstop only inspects the **staged** diff (a no-op on a plain checkout), and gitleaks runs on the **pull request**, i.e. after the push. Only the hook runs before the commit exists.
+- Note the gate shapes: pre-commit step 1b reads every staged `.env` from the index and refuses a value that is not `encrypted:…`, with any dotenvx version. pre-push runs `dotenvx ext precommit` (deprecated in 2.x, still blocking). gitleaks runs on the **pull request**, i.e. after the push. Only the hook runs before the commit exists.
+- **`dotenvx protect` is a one-time machine setup, never a hook step.** It installs a global git clean filter (`filter.dotenvx.*` with `required = true` in `~/.gitconfig`, `.env*` patterns in the global attributes file) that encrypts `.env*` on `git add`. The filter runs the binary that installed it, so install it with the global CLI from outside any checkout: `cd ~ && ~/.local/bin/dotenvx protect` (or wherever `which dotenvx` points). Run from a worktree's `node_modules`, it points every repository at that worktree, and `git add` of a `.env*` file fails (exit 128) once the worktree is removed. Repair: run the same command again. Check with `git config --global --get filter.dotenvx.clean`.
 - GitHub secret-scanning **push protection** is enabled on the repo.
 
 If a guard fires, the fix is to **encrypt the value**, never to bypass it.

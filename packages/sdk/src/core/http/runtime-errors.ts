@@ -95,8 +95,9 @@ export function isSandboxNotReadyError(error: unknown): boolean {
   return isRuntimeNotReadyResponse(raw) || SANDBOX_NOT_READY_PATTERNS.some((pattern) => pattern.test(raw));
 }
 
-// `getClient()` and the env and pty guards throw this wording for the ~1 s
-// before a new or switched session's runtime URL is pinned.
+// `RuntimeNotReadyError` — thrown by `getClient()` and, through the shared
+// sandbox request core, by the env and pty guards — carries this wording for
+// the ~1 s before a new or switched session's runtime URL is pinned.
 const RUNTIME_URL_NOT_PINNED = /server url not ready|sandbox is still loading/i;
 
 /**

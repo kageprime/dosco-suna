@@ -1,13 +1,13 @@
-import { Button } from './button';
-import Loading from './loading';
-import { Close } from '../icons/close';
-import { cn } from '../lib/utils';
-import { WarningCircleIcon } from '@phosphor-icons/react';
-import * as React from 'react';
-import { toast } from 'sonner';
+import { Button } from "./button";
+import Loading from "./loading";
+import { Close } from "../icons/close";
+import { cn } from "../lib/utils";
+import { WarningCircleIcon } from "@phosphor-icons/react";
+import * as React from "react";
+import { toast } from "sonner";
 
 /** The toast host. Mount it once at the app root; every toast below renders into it. */
-export { Toaster } from 'sonner';
+export { Toaster } from "sonner";
 
 /** A text-link action under the toast body. A click dismisses the toast first. */
 export type ToastAction = { label: string; onClick: () => void };
@@ -19,7 +19,12 @@ type ToastOptions = {
   /** Runs when the toast leaves: a dismissal or its timeout. */
   onClose?: () => void;
   position?:
-    'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'top-center' | 'bottom-center';
+    | "bottom-right"
+    | "bottom-left"
+    | "top-right"
+    | "top-left"
+    | "top-center"
+    | "bottom-center";
   /** Text links under the body, joined by a dot. */
   actions?: ToastAction[];
   /**
@@ -44,16 +49,16 @@ type LoadingToastOptions<T = unknown> = ToastOptions & {
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  return 'An error occurred';
+  if (typeof error === "string") return error;
+  return "An error occurred";
 };
 
 const DEFAULT_DURATION = 3000;
 const UNDO_DURATION = 5000;
-const DEFAULT_POSITION = 'bottom-right';
+const DEFAULT_POSITION = "bottom-right";
 
 /** The card every toast sits on: one shape, the smooth `ring-sm` shadow, no border. */
-const CARD = 'bg-background text-foreground smooth-shadow-ring-sm rounded-lg';
+const CARD = "bg-background text-foreground smooth-shadow-ring-sm rounded-lg";
 
 /**
  * Build the data object for `toast.custom`.
@@ -65,30 +70,37 @@ const CARD = 'bg-background text-foreground smooth-shadow-ring-sm rounded-lg';
  * Only include `id` when it is actually defined.
  */
 const toastData = (
-  options: Pick<ToastOptions, 'id' | 'position'> | undefined,
+  options: Pick<ToastOptions, "id" | "position"> | undefined,
   duration: number,
   isMobile: boolean,
 ): Parameters<typeof toast.custom>[1] => ({
   ...(options?.id != null ? { id: options.id } : {}),
   duration,
-  position: isMobile ? 'top-center' : options?.position || DEFAULT_POSITION,
+  position: isMobile ? "top-center" : options?.position || DEFAULT_POSITION,
 });
 
 /** sonner's two ways off the screen, as one callback. */
 const closeCallbacks = (onClose: (() => void) | undefined) =>
   onClose ? { onDismiss: onClose, onAutoClose: onClose } : {};
 
-export type ToastVariant = 'success' | 'progress' | 'error' | 'info' | 'warning';
+export type ToastVariant =
+  "success" | "progress" | "error" | "info" | "warning";
 
 /** A 16px filled status disc. The mark inside is drawn in the card's own color. */
-function Disc({ className, children }: { className: string; children: React.ReactNode }) {
+function Disc({
+  className,
+  children,
+}: {
+  className: string;
+  children: React.ReactNode;
+}) {
   return (
     // overflow-visible: the disc fills the box edge to edge, and size-4 is a
     // fractional 14.72px, so a clipping svg shaves its antialiased rim.
     <svg
       viewBox="0 0 16 16"
       aria-hidden="true"
-      className={cn('size-4 shrink-0 overflow-visible', className)}
+      className={cn("size-4 shrink-0 overflow-visible", className)}
     >
       <circle cx="8" cy="8" r="8" fill="currentColor" />
       <g className="text-background" stroke="currentColor" fill="currentColor">
@@ -101,7 +113,7 @@ function Disc({ className, children }: { className: string; children: React.Reac
 /** The leading glyph of each variant. `loadingToast` uses `progress`. */
 export const toastIcon = (variant: ToastVariant): React.ReactNode => {
   switch (variant) {
-    case 'success':
+    case "success":
       return (
         <Disc className="text-kortix-green">
           <path
@@ -113,41 +125,56 @@ export const toastIcon = (variant: ToastVariant): React.ReactNode => {
           />
         </Disc>
       );
-    case 'progress':
-      return <Loading variant="spokes" className="size-4 shrink-0 overflow-visible" />;
-    case 'error':
+    case "progress":
+      return (
+        <Loading
+          variant="spokes"
+          className="size-4 shrink-0 overflow-visible"
+        />
+      );
+    case "error":
       return (
         <Disc className="text-kortix-red">
-          <path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" strokeWidth="1.6" strokeLinecap="round" />
+          <path
+            d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
         </Disc>
       );
-    case 'info':
+    case "info":
       return (
         <Disc className="text-foreground">
           <circle cx="8" cy="4.9" r="0.95" stroke="none" />
           <path d="M8 7.4v4" strokeWidth="1.6" strokeLinecap="round" />
         </Disc>
       );
-    case 'warning':
+    case "warning":
       return (
         <WarningCircleIcon
           weight="fill"
           aria-hidden="true"
-          className="text-kortix-orange size-4 shrink-0 overflow-visible"
+          className="text-kortix-orange size-5 shrink-0 overflow-visible"
         />
       );
   }
 };
 
 /** The small muted × every dismissible toast carries. */
-export function ToastClose({ onDismiss, className }: { onDismiss: () => void; className?: string }) {
+export function ToastClose({
+  onDismiss,
+  className,
+}: {
+  onDismiss: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onDismiss}
       aria-label="Close notification"
       className={cn(
-        'text-muted-foreground hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors',
+        "text-muted-foreground hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors",
         className,
       )}
     >
@@ -193,10 +220,10 @@ function ToastActions({
 
 /** The status colour the badge reflects onto the subject icon. `progress` reflects nothing. */
 const REFLECTION_TONE: Partial<Record<ToastVariant, string>> = {
-  success: 'text-kortix-green',
-  error: 'text-kortix-red',
-  warning: 'text-kortix-orange',
-  info: 'text-foreground',
+  success: "text-kortix-green",
+  error: "text-kortix-red",
+  warning: "text-kortix-orange",
+  info: "text-foreground",
 };
 
 /**
@@ -208,7 +235,8 @@ const REFLECTION_TONE: Partial<Record<ToastVariant, string>> = {
  * The badge is 0.72x the clock's radius, as on the board, so it leaves the
  * rim it lights visible.
  */
-export const REFLECTION_MASK = 'radial-gradient(circle 16px at 85% 85%, #000 45%, transparent 100%)';
+export const REFLECTION_MASK =
+  "radial-gradient(circle 16px at 85% 85%, #000 45%, transparent 100%)";
 
 /**
  * The subject's icon, bare, with the status glyph badged on its bottom-right
@@ -234,8 +262,14 @@ function EntityTile({
       {tone && (
         <div
           aria-hidden="true"
-          className={cn('absolute inset-0 flex size-5 items-center justify-center [&_svg]:size-5', tone)}
-          style={{ maskImage: REFLECTION_MASK, WebkitMaskImage: REFLECTION_MASK }}
+          className={cn(
+            "absolute inset-0 flex size-5 items-center justify-center [&_svg]:size-5",
+            tone,
+          )}
+          style={{
+            maskImage: REFLECTION_MASK,
+            WebkitMaskImage: REFLECTION_MASK,
+          }}
         >
           {icon}
         </div>
@@ -262,12 +296,15 @@ export function ToastCard({
   icon: React.ReactNode;
   /** The status, for the colour an entity icon reflects from its badge. */
   variant?: ToastVariant;
-  options?: Pick<ToastOptions, 'description' | 'button' | 'actions' | 'entity' | 'meta' | 'compact'>;
+  options?: Pick<
+    ToastOptions,
+    "description" | "button" | "actions" | "entity" | "meta" | "compact"
+  >;
   onDismiss: () => void;
 }) {
   if (options?.compact) {
     return (
-      <div className={cn(CARD, 'flex w-fit items-center gap-2 px-3 py-2')}>
+      <div className={cn(CARD, "flex w-fit items-center gap-2 px-3 py-2")}>
         {icon}
         <span className="text-xs leading-5 font-medium">{message}</span>
       </div>
@@ -275,30 +312,47 @@ export function ToastCard({
   }
 
   return (
-    <div className={cn(CARD, 'flex w-full items-start gap-2.5 py-3 pr-2.5 pl-4 sm:w-[var(--width)]')}>
+    <div
+      className={cn(
+        CARD,
+        "flex w-full items-start gap-2.5 py-3 pr-2.5 pl-4 sm:w-[var(--width)]",
+      )}
+    >
       {options?.entity?.icon ? (
-        <EntityTile icon={options.entity.icon} status={icon} variant={variant} />
+        <EntityTile
+          icon={options.entity.icon}
+          status={icon}
+          variant={variant}
+        />
       ) : (
-        <div className="flex h-5 w-4 shrink-0 items-center justify-center">{icon}</div>
+        <div className="flex h-5 w-4 shrink-0 items-center justify-center">
+          {icon}
+        </div>
       )}
       <div className="flex min-w-0 grow flex-col gap-1.5">
         {/* Title, then the subject it is about, then the detail. */}
         <p className="text-xs leading-5 font-medium">{message}</p>
         {options?.entity && (
-          <p className="-mt-1 truncate text-xs leading-5">{options.entity.label}</p>
+          <p className="-mt-1 truncate text-xs leading-5">
+            {options.entity.label}
+          </p>
         )}
         {options?.description && (
           <p
             className={cn(
-              'text-muted-foreground text-xs leading-5',
+              "text-muted-foreground text-xs leading-5",
               // Without an entity line it reads as the title's second line.
-              !options.entity && '-mt-1',
+              !options.entity && "-mt-1",
             )}
           >
             {options.description}
           </p>
         )}
-        <ToastActions actions={options?.actions} meta={options?.meta} onDismiss={onDismiss} />
+        <ToastActions
+          actions={options?.actions}
+          meta={options?.meta}
+          onDismiss={onDismiss}
+        />
         {options?.button && <div className="self-start">{options.button}</div>}
       </div>
       <ToastClose onDismiss={onDismiss} />
@@ -308,7 +362,8 @@ export function ToastCard({
 
 const isEditable = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
-  (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  (target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
 /**
  * The one-line undo toast: icon, message, an Undo key and ×. While it is on
@@ -338,20 +393,22 @@ function UndoToastCard({
 
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "z" || event.shiftKey) return;
       if (!(event.metaKey || event.ctrlKey) || isEditable(event.target)) return;
       event.preventDefault();
       undoRef.current();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // The same card and text-link action as every other toast ("Open session").
   return (
     <ToastCard
       message={message}
-      icon={icon ? <span className="text-muted-foreground flex">{icon}</span> : null}
+      icon={
+        icon ? <span className="text-muted-foreground flex">{icon}</span> : null
+      }
       options={{ actions: [{ label: undoLabel, onClick: onUndo }] }}
       onDismiss={onDismiss}
     />
@@ -384,17 +441,33 @@ const renderToast = (
         onDismiss={() => toast.dismiss(t)}
       />
     ),
-    { ...toastData(options, duration, isMobile), ...closeCallbacks(options?.onClose) },
+    {
+      ...toastData(options, duration, isMobile),
+      ...closeCallbacks(options?.onClose),
+    },
   );
 };
 
 export const successToast = (message: string, options?: ToastOptions) => {
-  renderToast(message, 'success', options, options?.duration || DEFAULT_DURATION);
+  renderToast(
+    message,
+    "success",
+    options,
+    options?.duration || DEFAULT_DURATION,
+  );
 };
 
 /** Show or update a loading toast; pass `id` to update an existing toast in place. */
-export const progressToast = (message: string, options?: ToastOptions): string | number => {
-  return renderToast(message, 'progress', options, options?.duration ?? Infinity);
+export const progressToast = (
+  message: string,
+  options?: ToastOptions,
+): string | number => {
+  return renderToast(
+    message,
+    "progress",
+    options,
+    options?.duration ?? Infinity,
+  );
 };
 
 export const loadingToast = <T,>(
@@ -402,17 +475,18 @@ export const loadingToast = <T,>(
   promiseInput: Promise<T> | (() => Promise<T>),
   options?: LoadingToastOptions<T>,
 ): Promise<T> => {
-  const promise = typeof promiseInput === 'function' ? promiseInput() : promiseInput;
+  const promise =
+    typeof promiseInput === "function" ? promiseInput() : promiseInput;
 
-  const toastId = renderToast(message, 'progress', options, Infinity);
+  const toastId = renderToast(message, "progress", options, Infinity);
 
   return promise.then(
     (data) => {
       toast.dismiss(toastId);
       const successMessage =
-        typeof options?.success === 'function'
+        typeof options?.success === "function"
           ? options.success(data)
-          : (options?.success ?? 'Completed');
+          : (options?.success ?? "Completed");
       successToast(successMessage, options);
       return data;
     },
@@ -420,7 +494,7 @@ export const loadingToast = <T,>(
       toast.dismiss(toastId);
       if (options?.showErrorToast) {
         const errorMessage =
-          typeof options?.error === 'function'
+          typeof options?.error === "function"
             ? options.error(error)
             : (options?.error ?? getErrorMessage(error));
         errorToast(errorMessage, options);
@@ -437,22 +511,29 @@ let isSilentErrorMessage: (message: string) => boolean = () => false;
  * toast (apps/web drops request-deadline noise). Default: none is dropped.
  * Call it once at module load, before the first toast.
  */
-export function setSilentErrorToastFilter(filter: (message: string) => boolean): void {
+export function setSilentErrorToastFilter(
+  filter: (message: string) => boolean,
+): void {
   isSilentErrorMessage = filter;
 }
 
 export const errorToast = (message: string, options?: ToastOptions) => {
   if (isSilentErrorMessage(message)) return;
 
-  renderToast(message, 'error', options, options?.duration || DEFAULT_DURATION);
+  renderToast(message, "error", options, options?.duration || DEFAULT_DURATION);
 };
 
 export const infoToast = (message: string, options?: ToastOptions) => {
-  renderToast(message, 'info', options, options?.duration || DEFAULT_DURATION);
+  renderToast(message, "info", options, options?.duration || DEFAULT_DURATION);
 };
 
 export const warningToast = (message: string, options?: ToastOptions) => {
-  renderToast(message, 'warning', options, options?.duration || DEFAULT_DURATION);
+  renderToast(
+    message,
+    "warning",
+    options,
+    options?.duration || DEFAULT_DURATION,
+  );
 };
 
 /**
@@ -461,7 +542,7 @@ export const warningToast = (message: string, options?: ToastOptions) => {
  */
 export const undoToast = (
   message: string,
-  options: Pick<ToastOptions, 'id' | 'position' | 'duration'> & {
+  options: Pick<ToastOptions, "id" | "position" | "duration"> & {
     undoLabel: string;
     onUndo: () => void;
     icon?: React.ReactNode;
@@ -488,7 +569,9 @@ export const undoToast = (
  */
 export const customToast = (
   render: (dismiss: () => void) => React.ReactElement,
-  options: Pick<ToastOptions, 'id' | 'position' | 'duration'> & { onClose?: () => void },
+  options: Pick<ToastOptions, "id" | "position" | "duration"> & {
+    onClose?: () => void;
+  },
 ): string | number => {
   const isMobile = window.innerWidth <= 768;
   return toast.custom((t) => render(() => toast.dismiss(t)), {

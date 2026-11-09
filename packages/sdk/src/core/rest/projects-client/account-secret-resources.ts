@@ -1,4 +1,5 @@
 import { backendApi } from '../../http/api-client';
+import { appendQuery } from '../../http/url';
 import { unwrap } from './shared';
 import type { SecretConsumer, SecretDeliveryStrategy, SecretValueStatus } from './secrets';
 
@@ -79,12 +80,12 @@ export interface SubscriptionConnection extends AccountSecretResource {
 }
 
 export async function listSubscriptionConnections(accountId: string, projectId: string) {
-  return unwrap(await backendApi.get<{ subscriptions: SubscriptionConnection[] }>(`/accounts/${encodeURIComponent(accountId)}/subscription-connections?project_id=${encodeURIComponent(projectId)}`));
+  return unwrap(await backendApi.get<{ subscriptions: SubscriptionConnection[] }>(`/accounts/${encodeURIComponent(accountId)}/subscription-connections${appendQuery({ project_id: projectId })}`));
 }
 
 export async function refreshSubscriptionConnectionUsage(accountId: string, secretId: string, projectId: string, storage: SubscriptionConnection['storage']) {
   const path = `/accounts/${encodeURIComponent(accountId)}/subscription-connections/${encodeURIComponent(secretId)}/usage`;
-  return unwrap(await backendApi.post<{ usage: SubscriptionUsage | null; provider_account?: SubscriptionAccount | null }>(`${path}?project_id=${encodeURIComponent(projectId)}&storage=${storage}`));
+  return unwrap(await backendApi.post<{ usage: SubscriptionUsage | null; provider_account?: SubscriptionAccount | null }>(`${path}${appendQuery({ project_id: projectId, storage })}`));
 }
 
 export interface CreateAccountSecretResourceInput {
@@ -113,7 +114,7 @@ const poolPath = (projectId: string, sessionId: string, providerId: string) =>
   `/workspaces/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/provider-secret-pools/${encodeURIComponent(providerId)}`;
 
 export async function listAccountSecretResources(accountId: string, projectId?: string) {
-  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+  const query = appendQuery({ project_id: projectId });
   return unwrap(await backendApi.get<{ secrets: AccountSecretResource[] }>(`${accountPath(accountId)}${query}`));
 }
 export async function createAccountSecretResource(accountId: string, input: CreateAccountSecretResourceInput) {
@@ -132,7 +133,7 @@ export async function retryAccountSecretResource(accountId: string, secretId: st
  * the stored snapshot; `usage` is null when the provider reports none.
  */
 export async function refreshAccountSecretUsage(accountId: string, secretId: string, projectId?: string) {
-  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+  const query = appendQuery({ project_id: projectId });
   return unwrap(await backendApi.post<{ usage: SubscriptionUsage | null; provider_account?: SubscriptionAccount | null }>(`${secretPath(accountId, secretId)}/usage${query}`));
 }
 export async function deleteAccountSecretResource(accountId: string, secretId: string) {

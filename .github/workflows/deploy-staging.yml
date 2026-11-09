@@ -312,7 +312,7 @@ jobs:
           persist-credentials: false
       - uses: ./.aws-env/.github/actions/prepare-migrate
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
           database-url: DATABASE_URL=kortix-staging-env:DATABASE_URL
       - name: Apply pending migrations (node-pg-migrate; halts on failure)
         run: |
@@ -440,8 +440,6 @@ jobs:
         with:
           keys: |
             CLOUDFLARE_API_TOKEN
-            CLOUDFLARE_EMAIL
-            CLOUDFLARE_GLOBAL_API_KEY
             CLOUDFLARE_APPS_EDGE_API_TOKEN
             CF_WORKER_CI_PASSTHROUGH_SECRET
       - name: Deploy staging API router Worker
@@ -451,21 +449,15 @@ jobs:
           WORKER_ROUTE: staging-api.kortix.com/*
         run: |
           set -euo pipefail
-          # Pick the first credential that actually AUTHENTICATES, probed with a
-          # cheap zone read — since 2026-08-18 the global key 403s and, because
-          # it was tried first and trusted blindly, every Worker deploy failed.
-          # CLOUDFLARE_APPS_EDGE_API_TOKEN is a legitimate same-account token
-          # (Apps edge) and serves as a fallback when it carries Workers scope.
+          # Pick the first scoped token that AUTHENTICATES, probed with a cheap
+          # zone read. The account Global API Key is never used: it leaked in
+          # public history (GHSA-gvj2-w9pq-xmgx) and was revoked 2026-08-18.
           zone_probe() {
             curl -fsS -o /dev/null --max-time 15 \
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}" "$@"
           }
           auth_headers=()
-          if [ -n "${CLOUDFLARE_GLOBAL_API_KEY:-}" ] && [ -n "${CLOUDFLARE_EMAIL:-}" ] \
-            && zone_probe -H "X-Auth-Email: ${CLOUDFLARE_EMAIL}" -H "X-Auth-Key: ${CLOUDFLARE_GLOBAL_API_KEY}"; then
-            auth_headers=(-H "X-Auth-Email: ${CLOUDFLARE_EMAIL}" -H "X-Auth-Key: ${CLOUDFLARE_GLOBAL_API_KEY}")
-            echo "Cloudflare auth: global API key"
-          elif [ -n "${CLOUDFLARE_API_TOKEN:-}" ] \
+          if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] \
             && zone_probe -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"; then
             auth_headers=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
             echo "Cloudflare auth: scoped API token"
@@ -474,7 +466,7 @@ jobs:
             auth_headers=(-H "Authorization: Bearer ${CLOUDFLARE_APPS_EDGE_API_TOKEN}")
             echo "Cloudflare auth: apps-edge API token (fallback)"
           else
-            echo "::error::No Cloudflare credential authenticates (global key, scoped token, apps-edge token all absent or refused). Rotate CLOUDFLARE_GLOBAL_API_KEY or provide a CLOUDFLARE_API_TOKEN with Workers + zone permissions."
+            echo "::error::No Cloudflare credential authenticates (scoped token and apps-edge token absent or refused). Provide a CLOUDFLARE_API_TOKEN with Workers + zone permissions."
             exit 1
           fi
 

@@ -28,7 +28,7 @@ import {
   approvalFailure,
   sessionApprovalsView,
   type ApprovalFailure,
-} from '@/components/workbench/approvals-model';
+} from '@kortix/white-label-shared/approvals-model';
 import { kortix } from '@/lib/kortix';
 import { relativeTime } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

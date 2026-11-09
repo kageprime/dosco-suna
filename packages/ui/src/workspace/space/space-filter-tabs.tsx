@@ -5,7 +5,7 @@ import { PROJECT_WIDE_SPACE, type SpaceGroup, type ManifestSpace } from '@kortix
 import { ALL_SPACES } from '../../customize/shared/catalog/catalog-space-tabs';
 import { useTranslations } from '../../i18n';
 import { CountBadge } from '../../primitives/count-badge';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 
 /**
  * The space filter of a list page (Goals, Artifacts): `All`, one tab per
@@ -36,15 +36,15 @@ export function SpaceFilterTabs<T>({
 
   return (
     <Tabs value={value} onValueChange={onValueChange} className="max-w-full overflow-x-auto">
-      <TabsListCompact aria-label={t('filter')}>
-        <TabsTriggerCompact value={ALL_SPACES}>{t('all')}</TabsTriggerCompact>
+      <TabsList size="xs" aria-label={t('filter')}>
+        <TabsTrigger value={ALL_SPACES}>{t('all')}</TabsTrigger>
         {tabs.map((tab) => (
-          <TabsTriggerCompact key={tab.name} value={tab.name}>
+          <TabsTrigger key={tab.name} value={tab.name}>
             {tab.label}
             <CountBadge count={counts.get(tab.name) ?? 0} tone="neutral" />
-          </TabsTriggerCompact>
+          </TabsTrigger>
         ))}
-      </TabsListCompact>
+      </TabsList>
     </Tabs>
   );
 }

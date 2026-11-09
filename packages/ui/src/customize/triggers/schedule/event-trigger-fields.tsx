@@ -8,7 +8,6 @@
  */
 
 import Hint from '../../../primitives/hint';
-import { InfoBanner } from '../../../primitives/info-banner';
 import { Input } from '../../../primitives/input';
 import {
   InputGroupSearch,

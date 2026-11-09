@@ -194,7 +194,6 @@ variable "api_secrets" {
     MANAGED_GIT_GITHUB_TOKEN      = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:MANAGED_GIT_GITHUB_TOKEN::"
     KORTIX_URL                    = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:KORTIX_URL::"
     KORTIX_WORKERS_ENABLED        = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:KORTIX_WORKERS_ENABLED::"
-    KORTIX_YOLO_URL               = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:KORTIX_YOLO_URL::"
     LANGFUSE_PUBLIC_KEY           = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:LANGFUSE_PUBLIC_KEY::"
     LANGFUSE_SECRET_KEY           = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:LANGFUSE_SECRET_KEY::"
     MAILTRAP_API_TOKEN            = "arn:aws:secretsmanager:eu-west-2:935064898258:secret:kortix-prod-env-omifd2:MAILTRAP_API_TOKEN::"

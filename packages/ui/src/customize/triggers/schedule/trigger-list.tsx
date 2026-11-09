@@ -12,9 +12,9 @@ import { SessionDotMatrix } from '../../../primitives/dot-matrix/session-dot-mat
 import type { UiTranslator } from '../../../i18n';
 import { useLocale, useTranslations } from '../../../i18n';
 import { lastRunLabel, nextRunIn } from '../../../internal/lib/trigger-clock';
-import { useNow } from '../../../internal/reminders/use-refetch-after-fire';
 import { cn } from '../../../internal/lib/utils';
 import type { ProjectTrigger } from '@kortix/sdk';
+import { useNow } from '@kortix/sdk/react';
 import { Fragment, type ReactNode } from 'react';
 
 import { describeNextRun, describeWhen, triggerName, triggerSubtitle } from './schedule-copy';
@@ -63,7 +63,7 @@ export function TriggerList({
   } | null;
 }) {
   // A 30 s tick: the list's poll keeps unchanged data, so nothing else re-renders the countdown.
-  const now = useNow();
+  const now = useNow(30_000);
   const row = (trigger: ProjectTrigger) => (
     <TriggerRow
       key={trigger.slug}

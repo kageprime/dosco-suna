@@ -33,7 +33,7 @@ import {
   SplitSheetTitle,
 } from '../../../../primitives/split-sheet';
 import { useModelsPageSheet } from '../../models-page-sheet';
-import { Tabs, TabsContent, TabsListCompact, TabsTriggerCompact } from '../../../../primitives/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../primitives/tabs';
 import { EmptyState } from '../../../../primitives/empty-state';
 import {
   DropdownMenu,
@@ -66,7 +66,7 @@ import { CopyButton, displayModel } from './_shared';
  *    stamps `role="tablist"`/`role="tab"` but never sets `aria-selected`, has no
  *    roving tabindex, and controls no panel. Assistive tech saw three unselected
  *    tabs; keyboard users got no arrow-key movement. It is also not the house
- *    filter control. Replaced with the sanctioned `Tabs`/`TabsListCompact` pair
+ *    filter control. Replaced with the sanctioned `Tabs`/`TabsList` pair
  *    (Radix — real `aria-selected`, real roving tabindex), same as the analytics
  *    range picker.
  * 2. The header read `Live · {logs.length}`, which looked like a total but was
@@ -923,13 +923,13 @@ function GatewayLogDetail({
 
             {payloads.length > 0 ? (
               <Tabs defaultValue={payloads[0].key} className="gap-2">
-                <TabsListCompact className="self-start">
+                <TabsList size="xs" className="self-start">
                   {payloads.map((p) => (
-                    <TabsTriggerCompact key={p.key} value={p.key}>
+                    <TabsTrigger key={p.key} value={p.key}>
                       {p.label}
-                    </TabsTriggerCompact>
+                    </TabsTrigger>
                   ))}
-                </TabsListCompact>
+                </TabsList>
                 {payloads.map((p) => (
                   <TabsContent key={p.key} value={p.key}>
                     <PayloadCode value={p.value} />
@@ -1437,9 +1437,9 @@ export function GatewayLogs({ projectId }: { projectId: string }) {
                 }}
               >
                 {/* h-8: the same height as the search field beside it (size xs). */}
-                <TabsListCompact aria-label={tI18nComplete.raw('text2dda16fbd512')} className="h-8">
+                <TabsList size="xs" aria-label={tI18nComplete.raw('text2dda16fbd512')} className="h-8">
                   {filters.map((f) => (
-                    <TabsTriggerCompact key={f.key} value={f.key} className="gap-1.5">
+                    <TabsTrigger key={f.key} value={f.key} className="gap-1.5">
                       {f.label}
                       {/* Counts describe the LOADED window — the route returns
                           pages, never totals — and a tab whose rows are not
@@ -1449,9 +1449,9 @@ export function GatewayLogs({ projectId }: { projectId: string }) {
                           {counts[f.key]!.toLocaleString()}
                         </span>
                       ) : null}
-                    </TabsTriggerCompact>
+                    </TabsTrigger>
                   ))}
-                </TabsListCompact>
+                </TabsList>
               </Tabs>
             </div>
             {/* Beside the outcome tabs, so its submenus open toward the page, never flipped against the window edge. */}

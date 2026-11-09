@@ -49,7 +49,7 @@ import { Button } from '../../../primitives/button';
 import { ConfirmDialog } from '../../../primitives/confirm-dialog';
 import { EmptyState } from '../../../primitives/empty-state';
 import { ErrorState } from '../../../primitives/error-state';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import Loading from '../../../primitives/loading';
@@ -149,17 +149,11 @@ export function WorkspaceKeysSection({
     );
   } else if (keysQuery.isError) {
     body = isMfaRequired(keysQuery.error) ? (
-      <InfoBanner
-        tone="warning"
-        title={tTokens('confirmIdentity')}
-        action={
-          <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent(MFA_REQUIRED_EVENT))}>
-            {tTokens('verify')}
-          </Button>
-        }
-      >
+      <BannerAlert variant="warning" ><BannerAlertTitle>{tTokens('confirmIdentity')}</BannerAlertTitle><BannerAlertDescription>
         {tTokens('mfaDescription')}
-      </InfoBanner>
+      </BannerAlertDescription><BannerAlertActions>{<Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent(MFA_REQUIRED_EVENT))}>
+            {tTokens('verify')}
+          </Button>}</BannerAlertActions></BannerAlert>
     ) : (
       <ErrorState
         size="sm"

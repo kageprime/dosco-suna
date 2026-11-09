@@ -16,7 +16,7 @@ import {
   InputGroupSearchIcon,
   InputGroupSearchInput,
 } from '../../primitives/input-group';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { useTranslations } from '../../i18n';
 import type { SessionLogMessage } from '@kortix/sdk';
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
@@ -283,13 +283,13 @@ export function SessionContextMessageExplorer({
                   onValueChange={(value) => setRawRole(value as typeof rawRole)}
                   className="w-fit"
                 >
-                  <TabsListCompact type="default">
-                    <TabsTriggerCompact value="all">{t.raw('rawFilterAll')}</TabsTriggerCompact>
-                    <TabsTriggerCompact value="user">{t.raw('rawFilterUser')}</TabsTriggerCompact>
-                    <TabsTriggerCompact value="assistant">
+                  <TabsList size="xs" type="default">
+                    <TabsTrigger value="all">{t.raw('rawFilterAll')}</TabsTrigger>
+                    <TabsTrigger value="user">{t.raw('rawFilterUser')}</TabsTrigger>
+                    <TabsTrigger value="assistant">
                       {t.raw('rawFilterAssistant')}
-                    </TabsTriggerCompact>
-                  </TabsListCompact>
+                    </TabsTrigger>
+                  </TabsList>
                 </Tabs>
               </div>
               {filteredRawMessages.length === 0 ? (

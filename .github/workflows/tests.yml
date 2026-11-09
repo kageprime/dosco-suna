@@ -106,7 +106,7 @@ jobs:
           node-version: 22
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       # No node_modules cache: measured 2026-10-16 (runs
       # 38936414571 cold, 38937437360 warm), restoring the 1.33 GB node_modules
       # archive took 24-44 s plus a 4 s install, against a 41-49 s cold install.

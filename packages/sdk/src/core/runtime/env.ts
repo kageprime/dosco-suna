@@ -14,47 +14,31 @@
  * to whatever the global active runtime happens to be at call time risks
  * reading/writing secrets on the wrong sandbox.
  */
-import { authenticatedFetch } from '../http/auth';
-
-async function envErrorMessage(res: Response, fallback: string): Promise<string> {
-  const body = await res.json().catch(() => ({}) as { error?: string });
-  return body?.error || res.statusText || fallback;
-}
-
-function requireBaseUrl(baseUrl: string): string {
-  if (!baseUrl) {
-    throw new Error('[kortix-runtime] Server URL not ready — sandbox is still loading');
-  }
-  return baseUrl;
-}
+import { sandboxRequest } from './sandbox-request';
 
 /** List all secrets (key → value). Daemon `GET /env`. */
 export async function listEnv(baseUrl: string): Promise<Record<string, string>> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/env`);
-  if (!res.ok) throw new Error(await envErrorMessage(res, 'Failed to load secrets'));
-  const data = await res.json();
+  const data = await sandboxRequest<{ secrets?: Record<string, string> }>(baseUrl, '/env', undefined, {
+    errorFallback: 'Failed to load secrets',
+  });
   return data.secrets ?? {};
 }
 
 /** Set a single secret. Daemon `PUT /env/:key`. */
 export async function setEnv(baseUrl: string, key: string, value: string): Promise<void> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/env/${encodeURIComponent(key)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ value }),
-  });
-  if (!res.ok) throw new Error(await envErrorMessage(res, 'Failed to save secret'));
+  await sandboxRequest(
+    baseUrl,
+    `/env/${encodeURIComponent(key)}`,
+    { method: 'PUT', body: JSON.stringify({ value }) },
+    { errorFallback: 'Failed to save secret' },
+  );
 }
 
 /** Delete a single secret. Daemon `DELETE /env/:key`. */
 export async function deleteEnv(baseUrl: string, key: string): Promise<void> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/env/${encodeURIComponent(key)}`, {
-    method: 'DELETE',
+  await sandboxRequest(baseUrl, `/env/${encodeURIComponent(key)}`, { method: 'DELETE' }, {
+    errorFallback: 'Failed to delete secret',
   });
-  if (!res.ok) throw new Error(await envErrorMessage(res, 'Failed to delete secret'));
 }
 
 /** Grouped namespace for ergonomic use (also available as named exports). */

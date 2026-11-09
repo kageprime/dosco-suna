@@ -30,7 +30,7 @@ interface DiffPreviewBannerProps {
  *   - nothing to send  → warning, and the parent disables submit
  *   - has changes      → neutral summary
  *
- * Built on `Alert` rather than `InfoBanner` because `InfoBanner`'s tones are
+ * Built on `Alert` rather than `Alert` because `Alert`'s tones are
  * mislabelled — its `info` is yellow and its `destructive` is a grey border —
  * and its tinted tones carry a 25% fill with no border at all, so a warning
  * floated as an edgeless orange block. `Alert` is `Item variant="outline"`, so

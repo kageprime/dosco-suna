@@ -62,7 +62,7 @@ import { useLocale, useTranslations } from '../../../../i18n';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '../../../../primitives/button';
-import { InfoBanner } from '../../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../../../primitives/alert';
 import { Input } from '../../../../primitives/input';
 import { Label } from '../../../../primitives/label';
 import Loading from '../../../../primitives/loading';
@@ -148,7 +148,7 @@ function fmtReset(iso: string | undefined, locale: string): string | null {
 }
 
 // Calm by default, red only when over the cap. The 80% "approaching" warning
-// is carried by the InfoBanner, not by painting the bar amber.
+// is carried by the Alert, not by painting the bar amber.
 function meterTone(pct: number): string {
   return pct >= 100 ? 'bg-destructive' : 'bg-foreground';
 }
@@ -270,12 +270,7 @@ export function GatewayBudgetSection({
       className="basis-auto"
     >
       {alerts.length > 0 && (
-        <InfoBanner
-          tone={exceeded ? 'destructive' : 'warning'}
-          title={
-            exceeded ? tI18nComplete.raw('text7689a34422be') : tI18nComplete.raw('text05126477f420')
-          }
-        >
+        <BannerAlert variant={({ neutral: 'default', info: 'default', success: 'success', warning: 'warning', destructive: 'destructive' } as const)[exceeded ? 'destructive' : 'warning']} ><BannerAlertTitle>{exceeded ? tI18nComplete.raw('text7689a34422be') : tI18nComplete.raw('text05126477f420')}</BannerAlertTitle><BannerAlertDescription>
           {alerts.map((a) => {
             const reset = fmtReset(a.budget.resets_at, locale);
             return (
@@ -288,7 +283,7 @@ export function GatewayBudgetSection({
               </div>
             );
           })}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       <div

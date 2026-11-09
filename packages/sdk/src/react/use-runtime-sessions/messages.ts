@@ -384,7 +384,7 @@ const submissionWireIds = new Map<string, string>();
  */
 function submissionWireId(sessionId: string, clientMessageId: string | undefined): string {
   if (!clientMessageId) return mintPromptMessageId(sessionId);
-  const key = `${sessionId} ${clientMessageId}`;
+  const key = `${sessionId}\u0000${clientMessageId}`;
   const known = submissionWireIds.get(key);
   if (known) return known;
   const minted = mintPromptMessageId(sessionId);

@@ -141,11 +141,7 @@ const uiLoadingMock = () => ({
   default: (props: Record<string, unknown>) => createElement('span', props, 'loading'),
 });
 mock.module('@kortix/ui/loading', uiLoadingMock);
-const uiInfoBannerMock = () => ({
-  InfoBanner: ({ children, title }: { children?: React.ReactNode; title?: React.ReactNode }) =>
-    createElement('aside', null, title, children),
-});
-mock.module('@kortix/ui/info-banner', uiInfoBannerMock);
+
 mock.module('@phosphor-icons/react', () => ({
   ShieldCheckIcon: host('svg'),
   ShieldWarningIcon: host('svg'),

@@ -3,7 +3,7 @@
 import { useAccountDetail } from '@kortix/ui/internal/account-hub/use-account-detail';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { SettingsRow, SettingsRowGroup } from '@kortix/ui/settings-row';
 import { Skeleton } from '@kortix/ui/skeleton';
@@ -127,7 +127,7 @@ export function BillingTab({
   }
 
   if (error) {
-    return <InfoBanner tone="destructive">{error}</InfoBanner>;
+    return <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert>;
   }
 
   const subscription = accountState?.subscription;
@@ -162,7 +162,7 @@ export function BillingTab({
           balance on the Credits pane, which shows the shortfall in the number
           itself rather than in a banner over a pane about subscriptions. */}
       {walletVisible && highlight === 'credits' && totalCredits <= 0 && (
-        <InfoBanner tone="warning" title={t('outOfCredits')}>
+        <BannerAlert variant="warning" ><BannerAlertTitle>{t('outOfCredits')}</BannerAlertTitle><BannerAlertDescription>
           {/* This banner only leads the wallet blocks, so the plan can always
               purchase credits here — "buy credits below or turn on auto
               top-up" is the only advice it can give. */}
@@ -170,7 +170,7 @@ export function BillingTab({
               (KRTX-2376); prune the key across the nine locales when i18n
               churn is cheap — the copy collapse stayed inside this diff. */}
           {t('buyCreditsHint')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       )}
 
       {/* An Enterprise license offer, or the grace after a license ended:

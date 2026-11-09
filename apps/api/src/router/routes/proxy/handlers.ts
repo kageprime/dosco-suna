@@ -14,7 +14,7 @@ import {
   refundToolReservation,
   injectApiKey,
 } from './helpers';
-import { capFirecrawlCrawlLimit } from './crawl-limit';
+import { boundFirecrawlRequest } from './firecrawl-budget';
 
 // === Core Proxy Handler ===
 //
@@ -269,7 +269,7 @@ async function handleKortixProxy(
   let body = await getRequestBody(c, method);
 
   body = injectApiKey(service, headers, body);
-  body = capFirecrawlCrawlLimit(service, method, subPath, body, headers);
+  body = boundFirecrawlRequest(service, method, subPath, body, headers);
   // Route-specific billing overrides service default.
   const billingToolName = matchedRoute.billingToolName || service.billingToolName;
   const toolReservation = await reserveToolProxyCredits(

@@ -1,7 +1,6 @@
 import type {
   AdmitResult,
   AuthedPrincipal,
-  AuthorizeResult,
   GatewayHooks,
   GatewayLogger,
   TokenCounts,
@@ -13,9 +12,22 @@ import { upstreamHeaders } from '../http/call-upstream';
 import { trimTrailingSlash } from '../transports/ai-sdk/model';
 import { upstreamFetch } from '../upstream-fetch';
 import { calculateCost } from '../usage/pricing';
-import { clampRetryAfterSeconds, gatewayErrorResponse } from './error-response';
+import { clampRetryAfterSeconds } from './error-response';
 import { shownModel, shownProvider } from './public-identity';
-import { type HandlerRuntime, authorize, bearer, identity, refundHold, requestId } from './simple-handler';
+import {
+  admissionUnavailable,
+  admitOrRefuse,
+  ensureBillingHold,
+  MISSING_TOKEN,
+  type Refusal,
+  type RefusalSite,
+  type RefusalWire,
+  audioRefusalResponse,
+  refuse,
+  stopped,
+  traceRefusal,
+} from './request-refusal';
+import { type HandlerRuntime, bearer, identity, requestId } from './simple-handler';
 import { type TraceEmitter, type TraceFields, createTraceEmitter } from './trace';
 
 export type AudioOperation = 'transcriptions' | 'speech';
@@ -57,13 +69,8 @@ type Input =
 /** `model` is read before every other field, so admission can resolve it while another field is wrong. */
 type Parsed = { model: string; input: Input } | { model: string; error: string };
 
-interface Refusal {
-  status: number;
-  code: string;
-  message: string;
-  suggestion: string;
-  retryAfter?: number;
-}
+/** The refusal that ends a request past its own time budget. */
+const AUDIO_STOP = { code: 'audio_timeout', message: 'The audio request timed out.' };
 
 /** One request's state, shared by its steps. */
 interface Run {
@@ -78,6 +85,10 @@ interface Run {
   descriptor?: UpstreamDescriptor;
   clientSignal?: AbortSignal;
   signal: AbortSignal;
+  trace(fields: TraceFields): void;
+  readonly site: RefusalSite;
+  /** Audio's own refusal wire, for `refuse`: `retry-after` in the header alone, never a body field. */
+  readonly wire?: RefusalWire;
 }
 
 type Named = Pick<Run, 'id' | 'model'> & { descriptor?: UpstreamDescriptor };
@@ -148,23 +159,9 @@ function servesAudio(descriptor: UpstreamDescriptor): boolean {
   return descriptor.provider === 'platinum' && descriptor.billingMode === 'credits';
 }
 
-function errorResponse(at: Named, refusal: Refusal): Response {
-  return gatewayErrorResponse(refusal.status, {
-    message: refusal.message,
-    code: refusal.code,
-    provider: at.descriptor ? shownProvider(at.descriptor) : '',
-    requestedModel: at.model,
-    resolvedModel: at.model,
-    requestId: at.id,
-    suggestion: refusal.suggestion,
-    retryAfterSeconds: refusal.retryAfter,
-  });
-}
-
 function trace(run: Run, fields: TraceFields): void {
   const { descriptor } = run;
-  run.emit({
-    ...identity(run.principal),
+  traceRefusal(run.emit, run.principal, `audio.${run.operation}`, {
     requestedModel: run.model,
     resolvedModel: run.model,
     provider: descriptor ? shownProvider(descriptor) : '',
@@ -175,30 +172,7 @@ function trace(run: Run, fields: TraceFields): void {
     ...(descriptor?.publicProvider
       ? { upstream: { provider: descriptor.provider, model: descriptor.resolvedModel ?? run.model } }
       : {}),
-    ...fields,
-    // Never the audio, the text or the transcript.
-    request: null,
-    response: null,
-    metadata: { operation: `audio.${run.operation}` },
-  });
-}
-
-/** Every unanswered exit after admission: return any wallet hold, trace, answer. */
-function refuse(run: Run, refusal: Refusal): Response {
-  refundHold(run.hooks, run.principal, run.logger);
-  trace(run, { status: refusal.status, ok: false, errorCode: refusal.code, errorMessage: refusal.message });
-  return errorResponse(run, refusal);
-}
-
-/** A stopped client or the request's time budget ends it. */
-function stopped(run: Pick<Run, 'clientSignal' | 'signal'>): Refusal | null {
-  if (run.clientSignal?.aborted) {
-    return { status: 499, code: 'client_aborted', message: 'The client cancelled the request.', suggestion: 'Retry the request.' };
-  }
-  if (run.signal.aborted) {
-    return { status: 504, code: 'audio_timeout', message: 'The audio request timed out.', suggestion: 'Retry the request.' };
-  }
-  return null;
+  }, fields);
 }
 
 function unreachable(at: Named): Refusal {
@@ -243,33 +217,6 @@ async function upstreamRefusal(at: Named & { logger: GatewayLogger; operation: A
   return unreachable(at);
 }
 
-/** Admission, as chat takes it: one `admit` round trip when the host offers it, else `authorize`. */
-async function admit(
-  runtime: HandlerRuntime,
-  token: string,
-  parsed: Parsed,
-  at: Named,
-  emit: TraceEmitter,
-): Promise<{ admission: AuthorizeResult; prefetched: AdmitResult | null } | Response> {
-  const { hooks, logger } = runtime;
-  try {
-    const prefetched = 'input' in parsed && hooks.admit
-      ? await hooks.admit(token, { requestedModel: parsed.model, requires: { imageInput: false } })
-      : null;
-    if (prefetched?.timing) emit.admitSteps(prefetched.timing);
-    return { admission: prefetched?.admission ?? (await authorize(hooks, token)), prefetched };
-  } catch (error) {
-    logger.error(`[gateway] ${at.id}: admission control unavailable — ${error instanceof Error ? error.message : String(error)}`);
-    return errorResponse(at, {
-      status: 503,
-      code: 'admission_unavailable',
-      message: 'Gateway admission control is unavailable',
-      suggestion: 'Retry the request.',
-      retryAfter: 5,
-    });
-  }
-}
-
 /** The model's upstream, from the admit answer or `resolveUpstream`. */
 async function resolve(run: Run, prefetched: AdmitResult | null): Promise<UpstreamDescriptor | Refusal> {
   let candidates: UpstreamDescriptor[];
@@ -295,27 +242,6 @@ async function resolve(run: Run, prefetched: AdmitResult | null): Promise<Upstre
     };
   }
   return descriptor;
-}
-
-/** The wallet admission for this Kortix-billed request: the admit answer, else `assertBillingActive`. */
-async function charge(run: Run, prefetched: AdmitResult | null): Promise<Refusal | null> {
-  if (run.principal.billingHold) return null;
-  try {
-    const answered = prefetched?.billing;
-    if (answered instanceof Error) throw answered;
-    const billing = answered ?? (await run.hooks.assertBillingActive(run.principal.accountId));
-    if (billing?.holdUsd) run.principal = { ...run.principal, billingHold: { amountUsd: billing.holdUsd } };
-    run.emit.mark('billed');
-    return null;
-  } catch (error) {
-    const reason = (error as { reason?: unknown })?.reason;
-    return {
-      status: 402,
-      code: typeof reason === 'string' ? reason : 'subscription_required',
-      message: error instanceof Error ? error.message : 'Billing inactive',
-      suggestion: 'Check your subscription or add credits, then retry.',
-    };
-  }
 }
 
 /** The upstream's reported price (USD) with the managed markup, or null when it reported none. */
@@ -378,7 +304,7 @@ async function transcribe(run: Run, input: Extract<Input, { operation: 'transcri
     });
   } catch (error) {
     run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} audio unreachable — ${error instanceof Error ? error.message : String(error)}`);
-    return refuse(run, stopped(run) ?? unreachable(run));
+    return refuse(run, stopped(run, AUDIO_STOP) ?? unreachable(run));
   }
   run.emit.mark('upstream_response');
   if (!response.ok) return refuse(run, await upstreamRefusal(run, response));
@@ -389,7 +315,7 @@ async function transcribe(run: Run, input: Extract<Input, { operation: 'transcri
     // answered below
   }
   if (!answer || typeof answer !== 'object') {
-    return refuse(run, stopped(run) ?? upstreamError(`${run.model} returned an unreadable answer.`));
+    return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} returned an unreadable answer.`));
   }
   const { usage, ...transcript } = answer as { usage?: { seconds?: unknown; cost?: unknown }; text?: unknown };
   const cost = priced(run, usage?.cost);
@@ -424,7 +350,7 @@ async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): 
     });
   } catch (error) {
     run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} audio unreachable — ${error instanceof Error ? error.message : String(error)}`);
-    return refuse(run, stopped(run) ?? unreachable(run));
+    return refuse(run, stopped(run, AUDIO_STOP) ?? unreachable(run));
   }
   run.emit.mark('upstream_response');
   if (!response.ok || !response.body) return refuse(run, await upstreamRefusal(run, response));
@@ -440,7 +366,7 @@ async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): 
     while (!first.done && first.value.byteLength === 0);
   } catch (error) {
     run.logger.warn(`[gateway] ${run.id}: ${descriptor.provider} speech failed before audio — ${error instanceof Error ? error.message : String(error)}`);
-    return refuse(run, stopped(run) ?? upstreamError(`${run.model} stopped before any audio.`));
+    return refuse(run, stopped(run, AUDIO_STOP) ?? upstreamError(`${run.model} stopped before any audio.`));
   }
   if (first.done) return refuse(run, upstreamError(`${run.model} returned no audio.`));
   void recordUsage(run, cost);
@@ -465,7 +391,7 @@ async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): 
         }
         controller.enqueue(next.value);
       } catch (error) {
-        const stop = stopped(run);
+        const stop = stopped(run, AUDIO_STOP);
         end({
           status: stop?.status ?? 502,
           ok: false,
@@ -489,44 +415,27 @@ async function speak(run: Run, input: Extract<Input, { operation: 'speech' }>): 
 /** `POST /audio/transcriptions` and `POST /audio/speech`, OpenAI-shaped, on Kortix's managed audio models. */
 export async function handleAudioRequest(runtime: HandlerRuntime, req: AudioRequest): Promise<Response> {
   const { hooks, logger } = runtime;
+  const admitHook = hooks.admit;
   const id = requestId();
   const emit = createTraceEmitter(hooks, logger, id, new Date().toISOString(), Date.now());
   const token = bearer(req.authorization);
   if (!token) {
-    return errorResponse({ id, model: '' }, {
-      status: 401,
-      code: 'missing_token',
-      message: 'Missing bearer token',
-      suggestion: 'Provide a valid gateway key or account token.',
-    });
+    return audioRefusalResponse({ id, provider: '', requestedModel: '', resolvedModel: '' }, MISSING_TOKEN);
   }
   const parsed = req.operation === 'transcriptions' ? await transcriptionInput(req) : speechInput(req);
   req.body = new Uint8Array(0);
-  const admitted = await admit(runtime, token, parsed, { id, model: parsed.model }, emit);
+  const admitted = await admitOrRefuse(runtime, token, {
+    operation: `audio.${req.operation}`,
+    site: { id, provider: '', requestedModel: parsed.model, resolvedModel: parsed.model },
+    emit,
+    requestedModel: parsed.model,
+    prefetch: admitHook && 'input' in parsed
+      ? (t) => admitHook(t, { requestedModel: parsed.model, requires: { imageInput: false } })
+      : undefined,
+    wire: audioRefusalResponse,
+  });
   if (admitted instanceof Response) return admitted;
   const { admission, prefetched } = admitted;
-  if (!admission.ok) {
-    const message = admission.message ?? 'Request not allowed';
-    if (admission.principal) {
-      emit({
-        ...identity(admission.principal),
-        requestedModel: parsed.model,
-        status: admission.status,
-        ok: false,
-        errorCode: admission.errorCode,
-        errorMessage: message,
-        request: null,
-        response: null,
-        metadata: { operation: `audio.${req.operation}` },
-      });
-    }
-    return errorResponse({ id, model: parsed.model }, {
-      status: admission.status,
-      code: admission.errorCode,
-      message,
-      suggestion: 'Sign in again or check the account, then retry.',
-    });
-  }
   // The admit call already took this hold in the API: every exit below settles or refunds it.
   const hold = prefetched?.billing instanceof Error ? undefined : prefetched?.billing?.holdUsd;
   const timeout = AbortSignal.timeout(req.timeoutMs ?? AUDIO_TIMEOUT_MS);
@@ -541,6 +450,13 @@ export async function handleAudioRequest(runtime: HandlerRuntime, req: AudioRequ
     model: parsed.model,
     clientSignal: req.signal,
     signal: req.signal ? AbortSignal.any([req.signal, timeout]) : timeout,
+    trace(fields) {
+      return trace(this, fields);
+    },
+    wire: audioRefusalResponse,
+    get site() {
+      return { id: this.id, provider: this.descriptor ? shownProvider(this.descriptor) : '', requestedModel: this.model, resolvedModel: this.model };
+    },
   };
   emit.mark('admitted');
   if ('error' in parsed) {
@@ -549,8 +465,12 @@ export async function handleAudioRequest(runtime: HandlerRuntime, req: AudioRequ
   const resolved = await resolve(run, prefetched);
   if (!('baseUrl' in resolved)) return refuse(run, resolved);
   run.descriptor = resolved;
-  const denied = await charge(run, prefetched);
+  // The admit call already took this hold in the API: only a fresh billing
+  // check is a billing step worth its trace split.
+  const freshBilling = !run.principal.billingHold;
+  const denied = await ensureBillingHold(run, prefetched);
   if (denied) return refuse(run, denied);
+  if (freshBilling) run.emit.mark('billed');
   emit.mark('dispatch');
   return parsed.input.operation === 'transcriptions' ? transcribe(run, parsed.input) : speak(run, parsed.input);
 }
@@ -559,23 +479,22 @@ export async function handleAudioRequest(runtime: HandlerRuntime, req: AudioRequ
 export async function handleVoicesRequest(runtime: HandlerRuntime, req: VoicesRequest): Promise<Response> {
   const { hooks, logger } = runtime;
   const id = requestId();
-  const at: Named = { id, model: req.model };
+  const site: RefusalSite = { id, provider: '', requestedModel: req.model, resolvedModel: req.model };
   const token = bearer(req.authorization);
   if (!token) {
-    return errorResponse(at, { status: 401, code: 'missing_token', message: 'Missing bearer token', suggestion: 'Provide a valid gateway key or account token.' });
+    return audioRefusalResponse(site, MISSING_TOKEN);
   }
   let principal: AuthedPrincipal | null;
   try {
     principal = await hooks.authenticate(token);
   } catch (error) {
-    logger.error(`[gateway] ${id}: admission control unavailable — ${error instanceof Error ? error.message : String(error)}`);
-    return errorResponse(at, { status: 503, code: 'admission_unavailable', message: 'Gateway admission control is unavailable', suggestion: 'Retry the request.', retryAfter: 5 });
+    return admissionUnavailable(site, logger, error, audioRefusalResponse);
   }
   if (!principal) {
-    return errorResponse(at, { status: 401, code: 'invalid_token', message: 'Invalid token', suggestion: 'Sign in again or provide a valid API token, then retry.' });
+    return audioRefusalResponse(site, { status: 401, code: 'invalid_token', message: 'Invalid token', suggestion: 'Sign in again or provide a valid API token, then retry.' });
   }
   if (!req.model) {
-    return errorResponse(at, { status: 400, code: 'invalid_request', message: '`model` is required: the speech model whose voices to list.', suggestion: 'Add `?model=` and retry.' });
+    return audioRefusalResponse(site, { status: 400, code: 'invalid_request', message: '`model` is required: the speech model whose voices to list.', suggestion: 'Add `?model=` and retry.' });
   }
   const timeout = AbortSignal.timeout(AUDIO_TIMEOUT_MS);
   const run: Run = {
@@ -589,9 +508,15 @@ export async function handleVoicesRequest(runtime: HandlerRuntime, req: VoicesRe
     model: req.model,
     clientSignal: req.signal,
     signal: req.signal ? AbortSignal.any([req.signal, timeout]) : timeout,
+    trace(fields) {
+      return trace(this, fields);
+    },
+    get site() {
+      return { id: this.id, provider: this.descriptor ? shownProvider(this.descriptor) : '', requestedModel: this.model, resolvedModel: this.model };
+    },
   };
   const resolved = await resolve(run, null);
-  if (!('baseUrl' in resolved)) return errorResponse(run, resolved);
+  if (!('baseUrl' in resolved)) return audioRefusalResponse(run.site, resolved);
   run.descriptor = resolved;
   const headers = upstreamHeaders(resolved, id);
   delete headers['content-type'];
@@ -600,11 +525,11 @@ export async function handleVoicesRequest(runtime: HandlerRuntime, req: VoicesRe
     response = await run.fetchImpl(`${trimTrailingSlash(resolved.baseUrl)}/audio/voices`, { method: 'GET', headers, signal: run.signal });
   } catch (error) {
     logger.warn(`[gateway] ${id}: ${resolved.provider} voices unreachable — ${error instanceof Error ? error.message : String(error)}`);
-    return errorResponse(run, stopped(run) ?? unreachable(run));
+    return audioRefusalResponse(run.site, stopped(run, AUDIO_STOP) ?? unreachable(run));
   }
-  if (!response.ok) return errorResponse(run, await upstreamRefusal(run, response));
+  if (!response.ok) return audioRefusalResponse(run.site, await upstreamRefusal(run, response));
   const answer = (await response.json().catch(() => null)) as { data?: unknown } | null;
-  if (!Array.isArray(answer?.data)) return errorResponse(run, upstreamError(`${run.model} returned an unreadable voice list.`));
+  if (!Array.isArray(answer?.data)) return audioRefusalResponse(run.site, upstreamError(`${run.model} returned an unreadable voice list.`));
   const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
   // Only the documented fields reach the client.
   const data = (answer.data as Record<string, unknown>[])

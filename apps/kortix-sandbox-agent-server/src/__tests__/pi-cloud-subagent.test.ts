@@ -120,29 +120,59 @@ describe('cloudSpawnSession — create', () => {
     expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({ agent_name: 'builder', initial_context: 'You are a subagent.' })
   })
 
-  test('the platform coordinator sends no agent_name (the API picks the project default)', async () => {
-    // runtime.ts `cloudParent` leaves `parentAgent` out for the coordinator.
-    const coordinator = cloudSubagentApiFrom({ apiUrl: 'https://a/v1', projectId: 'p', sandboxToken: 't' })!
+  test('a parent with no resolved agent (a router) sends no agent_name, and the spec rides as a note', async () => {
+    const router = cloudSubagentApiFrom({ apiUrl: 'https://a/v1', projectId: 'p', sandboxToken: 't' })!
     const { impl, calls } = fakeApi({ rows: [IDLE], transcript: report('done') })
-    await cloudSpawnSession({ ...coordinator, fetchImpl: impl }, { title: 'x', agent: 'inline', systemPrompt: 'Be brief.', prompt: 'go' }, fast)
-    expect(calls.find((c) => c.method === 'POST')!.body).not.toHaveProperty('agent_name')
+    await cloudSpawnSession({ ...router, fetchImpl: impl }, { title: 'x', agent: 'general', systemPrompt: 'Be brief.', prompt: 'go' }, fast)
+    const body = calls.find((c) => c.method === 'POST')!.body
+    expect(body).not.toHaveProperty('agent_name')
+    expect(body.initial_context).toBe('Be brief.')
+  })
+
+  test('the platform coordinator: every child that names no agent runs as the coordinator, with the spec prompt as its own system prompt', async () => {
+    // My Kortix's own prompt never runs in a child: a built-in, a fork and an inline agent each bring theirs.
+    const coordinator = api(fakeApi({}).impl, { parentAgent: 'mykortix', coordinator: true })
+    for (const spec of [
+      { agent: 'general', systemPrompt: 'You are a subagent.' },
+      { agent: 'inline', systemPrompt: 'You are a product designer.', ownPrompt: true },
+      { agent: 'inline', systemPrompt: 'You are a fork.', fork: true },
+    ]) {
+      const { impl, calls } = fakeApi({ rows: [IDLE], transcript: report('done') })
+      await cloudSpawnSession({ ...coordinator, fetchImpl: impl }, { title: 'x', prompt: 'go', ...spec }, fast)
+      const body = calls.find((c) => c.method === 'POST')!.body
+      expect(body.agent_name).toBe('mykortix')
+      expect(body.runtime_context['kortix.agent.instructions']).toBe(spec.systemPrompt)
+      expect(body).not.toHaveProperty('initial_context')
+    }
+  })
+
+  test('the coordinator naming a workspace agent: that agent runs on its own prompt, with no instructions key', async () => {
+    const { impl, calls } = fakeApi({ rows: [IDLE], transcript: report('done') })
+    await cloudSpawnSession(api(impl, { parentAgent: 'mykortix', coordinator: true }), { title: 'x', agent: 'engineering', systemPrompt: 'unused', prompt: 'go' }, fast)
+    const body = calls.find((c) => c.method === 'POST')!.body
+    expect(body.agent_name).toBe('engineering')
+    expect(body.runtime_context).not.toHaveProperty('kortix.agent.instructions')
+    expect(body).not.toHaveProperty('initial_context')
   })
 
   test('an inline spec: instructions, model and its tools inside the parent narrowing', async () => {
     const { impl, calls } = fakeApi({ rows: [IDLE], transcript: report('done') })
     const result = await cloudSpawnSession(
       api(impl, { depth: 1, toolAllowlist: ['read', 'grep', 'bash'] }),
-      { title: 'x', agent: 'inline', systemPrompt: 'You audit logs.', model: 'kortix/fast', tools: ['read', 'write', 'grep'], prompt: 'go' },
+      { title: 'x', agent: 'inline', systemPrompt: 'You audit logs.', ownPrompt: true, model: 'kortix/fast', tools: ['read', 'write', 'grep'], prompt: 'go' },
       fast,
     )
     expect(result.model).toEqual({ providerID: 'kortix', modelID: 'fast' })
-    expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({
+    const body = calls.find((c) => c.method === 'POST')!.body
+    expect(body).toMatchObject({
+      // The parent's own agent: the child has exactly the parent's access.
       agent_name: 'builder',
       model: 'kortix/fast',
-      initial_context: 'You audit logs.',
+      // The instructions are the child's system prompt, not a note in its first message.
       // `write` is dropped: the parent itself may not use it.
-      runtime_context: { 'kortix.subagent.depth': 2, 'kortix.subagent.tools': 'read,grep' },
+      runtime_context: { 'kortix.subagent.depth': 2, 'kortix.subagent.tools': 'read,grep', 'kortix.agent.instructions': 'You audit logs.' },
     })
+    expect(body).not.toHaveProperty('initial_context')
   })
 
   test('a named agent with a model override: the child runs as that agent on that model, narrowed to the parent tools; its own prompt stays its own', async () => {
@@ -235,7 +265,11 @@ describe('cloudSpawnSession — create', () => {
   test('inline instructions over the API cap are refused before any session exists', async () => {
     const { impl, calls } = fakeApi({})
     await expect(
-      cloudSpawnSession(api(impl), { title: 'x', agent: 'inline', systemPrompt: 'x'.repeat(8_193), prompt: 'go' }, fast),
+      cloudSpawnSession(api(impl), { title: 'x', agent: 'inline', systemPrompt: 'x'.repeat(4_097), ownPrompt: true, prompt: 'go' }, fast),
+    ).rejects.toThrow('Inline agent instructions are 4097 characters; a separate subagent session takes at most 4096.')
+    // A note beside the agent's own prompt keeps the initial_context cap.
+    await expect(
+      cloudSpawnSession(api(impl), { title: 'x', agent: 'general', systemPrompt: 'x'.repeat(8_193), prompt: 'go' }, fast),
     ).rejects.toThrow('at most 8192')
     expect(calls).toEqual([])
   })
@@ -402,6 +436,15 @@ describe('subagent context and target', () => {
     })
     // A present but empty list narrows to nothing, never to everything.
     expect(subagentContextFrom(JSON.stringify({ 'kortix.subagent.tools': '' }))).toEqual({ depth: 0, tools: [] })
+  })
+
+  test('subagentContextFrom reads the instructions an inline agent runs on; blank or non-string is none', () => {
+    expect(subagentContextFrom(JSON.stringify({ 'kortix.subagent.depth': 1, 'kortix.agent.instructions': '  You are a product designer.  ' }))).toEqual({
+      depth: 1,
+      instructions: 'You are a product designer.',
+    })
+    expect(subagentContextFrom(JSON.stringify({ 'kortix.agent.instructions': '   ' }))).toEqual({ depth: 0 })
+    expect(subagentContextFrom(JSON.stringify({ 'kortix.agent.instructions': 7 }))).toEqual({ depth: 0 })
   })
 
   test('childToolAllowlist only ever narrows', () => {

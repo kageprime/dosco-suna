@@ -7,6 +7,7 @@ import { apps } from '@kortix/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { PROJECT_ACTIONS } from '../iam';
+import { agentMayUseEnv, getAgentGrant } from '../iam/agent-scope';
 import { assertProjectCapability, loadProjectForUser } from '../projects/surface';
 import type { AppEnv } from '../types';
 import { db } from '../shared/db';
@@ -46,6 +47,32 @@ export async function authorizedProject(c: Context<AppEnv>, projectId: string, p
   if (!loaded) return c.json({ error: 'Not found' }, 404);
   await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, APP_PERMISSION_ACTION[permission]);
   return loaded;
+}
+
+/**
+ * Naming project secrets in a deployment hands their plaintext values to code
+ * the caller ships: the App and its release command (whose output lands in the
+ * deployment events). So it takes `project.secret.read` on top of deploy, and
+ * an agent session names only the secrets its own grant delivers to it.
+ * Returns the agent's 403 or null; a missing `project.secret.read` throws 403
+ * like assertProjectCapability. GHSA-vx77-8x4h-qf94.
+ */
+export async function secretMappingRefusal(
+  c: Context<AppEnv>,
+  loaded: { userId: string; row: { accountId: string } },
+  projectId: string,
+  secrets: Record<string, string> | undefined,
+): Promise<Response | null> {
+  const identifiers = Object.values(secrets ?? {});
+  if (identifiers.length === 0) return null;
+  await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_SECRET_READ);
+  const grant = getAgentGrant(c);
+  const denied = identifiers.filter((identifier) => !agentMayUseEnv(grant, identifier));
+  if (denied.length === 0) return null;
+  return c.json({
+    error: `Agent "${grant!.agent}" is not granted the secret(s) ${denied.join(', ')}. Add them to its secrets in kortix.yaml.`,
+    code: 'agent_scope_insufficient',
+  }, 403);
 }
 
 /** A live App of the project, whoever asks. */

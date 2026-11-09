@@ -4,20 +4,15 @@ const DEFAULT_ACTIVE_TURN_RENEWAL_INTERVAL_MS = 20_000;
 const MIN_ACTIVE_TURN_RENEWAL_INTERVAL_MS = 5_000;
 const MAX_ACTIVE_TURN_RENEWAL_INTERVAL_MS = 30_000;
 
-type Timer = ReturnType<typeof setTimeout>;
 type Reap = (
   now?: Date,
   dependencyOverrides?: Record<string, never>,
   scope?: { sandboxIds?: readonly string[]; activeTurnsOnly?: boolean },
 ) => Promise<ReapResult>;
-type Schedule = (callback: () => void, delayMs: number) => Timer;
-type Cancel = (timer: Timer) => void;
 
 export interface ActiveTurnRenewalDependencies {
   reap?: Reap;
   now?: () => Date;
-  schedule?: Schedule;
-  cancel?: Cancel;
   intervalMs?: () => number;
   monotonicNowMs?: () => number;
 }

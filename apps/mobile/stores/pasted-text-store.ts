@@ -1,7 +1,7 @@
 /** The open "Pasted text" sheet's text (null while closed); `PastedTextSheet` in `app/_layout.tsx` renders it. */
 import { create } from 'zustand';
 
-export interface PastedTextState {
+interface PastedTextState {
   text: string | null;
   open: (text: string) => void;
   close: () => void;

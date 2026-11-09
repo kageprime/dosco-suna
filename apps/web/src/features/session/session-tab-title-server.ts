@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createScopedKortix } from '@kortix/sdk/server';
 
+import { settleWithin } from '@/lib/deadline';
 import { getServerPublicEnv } from '@/lib/public-env-server';
 import { createClient } from '@/lib/supabase/server';
 import { sessionTabTitle, sessionTabTitleFromSession } from '@kortix/ui/session/status/session-tab-title';
@@ -33,20 +34,6 @@ import { sessionTabTitle, sessionTabTitleFromSession } from '@kortix/ui/session/
  */
 const TITLE_BUDGET_MS = 1_500;
 
-async function withBudget<T>(work: Promise<T>, ms: number): Promise<T | null> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      work,
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), ms);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 export async function resolveSessionTabTitle(
   projectId: string,
   sessionId: string,
@@ -70,11 +57,12 @@ export async function resolveSessionTabTitle(
     // identity. See packages/sdk/src/node/server.ts.
     const kortix = createScopedKortix({ backendUrl, getToken: async () => accessToken });
 
-    const session = await withBudget(
+    const session = await settleWithin(
       // `showErrors: false` — a 404 here is a normal outcome (deleted session,
       // wrong project), not something to surface as a toast on the server.
       kortix.session(projectId, sessionId).get({ showErrors: false }),
       TITLE_BUDGET_MS,
+      () => null,
     );
     if (!session) return unavailable;
 

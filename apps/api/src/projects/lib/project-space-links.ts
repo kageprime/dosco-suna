@@ -17,6 +17,7 @@ import { extractMessageLinks } from './message-links';
 import { findLiveChannel } from './project-spaces';
 import { isSpaceMember } from './project-space-members';
 import { resolveSessionOwnerIdentities } from './user-identity';
+import { errorMessage } from '../../shared/error-message';
 
 type LinkRow = typeof projectSpaceLinks.$inferSelect;
 
@@ -256,7 +257,7 @@ export function collectMessageLinksInBackground(
     collectMessageLinks({ ...rest, userId }).catch((err) =>
       logger.warn('[spaces] collecting message links failed', {
         sessionId: rest.sessionId,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       }),
     );
   });

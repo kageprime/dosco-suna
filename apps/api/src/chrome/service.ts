@@ -70,7 +70,7 @@ export async function deleteChromeConnection(userId: string, chromeId: string): 
 
 // ── Sandbox routes ──────────────────────────────────────────────────────────
 
-export interface AttachInput {
+interface AttachInput {
   userId: string;
   sessionId: string;
   projectId: string;

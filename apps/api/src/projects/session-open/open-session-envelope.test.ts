@@ -15,8 +15,10 @@
  * are scripted per test; the projection/fence modules under test stay real.
  */
 import type { sessionSandboxes } from '@kortix/db';
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import { logger } from '../../lib/logger';
 import * as realRuntimeMapping from '../runtime-session-mapping';
+import * as realRuntimeFetch from '../session-lifecycle/runtime-fetch';
 import * as realProviders from '../../platform/providers';
 import * as realRuntimeIdentity from '../runtime-identity';
 import * as realRuntimeWakeFence from '../session-lifecycle/runtime-wake-fence';
@@ -117,6 +119,20 @@ let pinResults: Array<Record<string, unknown>> = [];
 mock.module('../runtime-session-mapping', () => ({
   ...realRuntimeMapping,
   ensureRuntimeSessionPin: async () => pinResults.shift() ?? { pin: null, changed: false, reason: 'not_ready' },
+  /** The floor's fresh health read routes to the scripted transport below. */
+  sandboxRuntimeEndpoint: async () => ({ url: 'http://ext.test:8000', headers: {} }),
+}));
+
+/** Scripted `/kortix/health` bodies for the runtime floor's own read (the capability read is stubbed to null above). */
+let healthBodies: Array<Record<string, unknown>> = [];
+mock.module('../session-lifecycle/runtime-fetch', () => ({
+  ...realRuntimeFetch,
+  runtimeCapabilities: async () => null,
+  sessionRuntimeFetch: async () => {
+    const body = healthBodies.shift();
+    if (!body) throw new Error('offline');
+    return new Response(JSON.stringify(body), { status: 200 });
+  },
 }));
 
 /** Runtime admission runs on every open of a running box; it admits every box here. */
@@ -196,6 +212,7 @@ beforeEach(() => {
   preservedRows = [];
   wakeStarted = 0;
   recoverInPlaceResult = 'unavailable';
+  healthBodies = [];
 });
 
 describe('openSession response envelope — one pin per orchestration branch', () => {
@@ -419,5 +436,54 @@ describe('openSession response envelope — one pin per orchestration branch', (
     expect(result.sandbox?.status).toBe('active');
     expect(result.action).toBe('checked_provider');
     expect(typeof result.observed_at).toBe('string');
+  });
+
+  test('a pinned box below the runtime floor is refused; its retry opens stay silent in the logs', async () => {
+    // Prod 2026-11-07 (KRTX-4457): the supervisor latched the box's updates off
+    // after a rollback, and a box that cannot reach the floor refuses on every
+    // open of its session (retry bursts every ~10 min for days) — one naming
+    // per box+reason in the log window: the envelope is served every time, the
+    // log names it once.
+    const pinnedHealth = { runtime: { pinned: true } };
+    healthBodies = [pinnedHealth];
+    selectQueue = [[row('active', {})]];
+    providerStatuses = ['running'];
+    pinResults = [{ pin: 'oc-pin-1', changed: false, reason: 'unchanged', sessions: [] }];
+
+    const floorLogs: string[] = [];
+    const stash = (level: string, message: string) => {
+      floorLogs.push(`${level}: ${message}`);
+    };
+    const infoSpy = spyOn(logger, 'info').mockImplementation((message: string) => {
+      stash('info', message);
+    });
+    const warnSpy = spyOn(logger, 'warn').mockImplementation((message: string) => {
+      stash('warn', message);
+    });
+    try {
+      const first = await openSession(args());
+      expect(first.stage).toBe('failed');
+      expect(first.retriable).toBe(false);
+      expect(first.reason).toBe('runtime_below_floor');
+      expect(first.failure?.evidence?.check).toContain('runtime_below_floor:pinned');
+      expect(first.sandbox?.external_id).toBe('ext-1');
+
+      healthBodies = [pinnedHealth];
+      selectQueue = [[row('active', {})]];
+      providerStatuses = ['running'];
+      pinResults = [{ pin: 'oc-pin-1', changed: false, reason: 'unchanged', sessions: [] }];
+      const retry = await openSession(args());
+      expect(retry.stage).toBe('failed');
+      expect(retry.reason).toBe('runtime_below_floor');
+      expect(retry.retriable).toBe(false);
+    } finally {
+      infoSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+    // The refusal is named once: no repeat for the retry open in the same window.
+    expect(floorLogs).toEqual([
+      'info: [runtime-floor] box below the runtime floor',
+      'warn: [runtime-floor] refusing a box that cannot reach the runtime floor',
+    ]);
   });
 });

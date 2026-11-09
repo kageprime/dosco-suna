@@ -4,6 +4,7 @@ import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
 import { reloadSessionConfig, type SessionReloadResult } from './session-reload';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * Bring a session that just came back up onto its base branch's CURRENT config.
@@ -225,7 +226,7 @@ export async function convergeSessionConfig(
   } catch (error) {
     logger.warn('[projects] session config convergence threw', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return 'failed';
   }

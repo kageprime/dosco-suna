@@ -1,7 +1,7 @@
 'use client';
 
 import { Disclosure, DisclosureContent } from '../../../primitives/disclosure';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import { useTranslations } from '../../../i18n';
@@ -43,9 +43,9 @@ export function WhenWebhookAddress({
         />
       </div>
 
-      <InfoBanner tone={security.signed ? 'success' : 'warning'} className="text-xs">
+      <BannerAlert variant={({ neutral: 'default', info: 'default', success: 'success', warning: 'warning', destructive: 'destructive' } as const)[security.signed ? 'success' : 'warning']} className="text-xs"><BannerAlertDescription>
         {security.detail}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
 
       {canWrite ? (
         <div className="space-y-1.5">

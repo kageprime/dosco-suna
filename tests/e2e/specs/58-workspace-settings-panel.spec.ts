@@ -90,7 +90,7 @@ test.describe('58 — Workspace settings is one panel', () => {
       await test.step('the workspace menu opens Members with the invite form', async () => {
         await page.goto(`/workspaces/${project.id}`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('button', { name: 'Switch workspace' }).click();
-        await page.getByRole('menuitem', { name: /Invite people to/ }).click();
+        await page.getByRole('menuitem', { name: 'Invite people', exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/workspaces/${project.id}/admin/members\\?invite=1`), { timeout: 60_000 });
         await expect(page.getByText(`Invite people to Panel ${runId}`).first()).toBeVisible({ timeout: 60_000 });
         await expect(page.getByRole('combobox', { name: 'Role' }).last()).toContainText('Member');

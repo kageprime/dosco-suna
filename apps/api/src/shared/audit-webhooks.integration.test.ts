@@ -1,7 +1,10 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test';
 import { PgClient } from '../__tests__/helpers/pg-client';
 import { replayAuditWebhookDelivery } from './audit-webhooks';
 import { startAuditWebhookWorker, stopAuditWebhookWorker } from '../worker/jobs/audit-webhook';
+
+// leaderTimer consults the lease every tick; the test runs a sole leader.
+mock.module('../shared/leader-election', () => ({ isLeader: () => true }));
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const ACCOUNT = 'c7100000-0000-4000-a000-000000000001';

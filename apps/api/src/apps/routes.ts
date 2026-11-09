@@ -53,7 +53,7 @@ import {
   serializeAppAccessPolicy,
   validateAppAccessPrincipals,
 } from './access';
-import { authorizedProject, capabilityRefusal, visibleApp } from './route-access';
+import { secretMappingRefusal, authorizedProject, capabilityRefusal, visibleApp } from './route-access';
 import { AppObject, appJson, appsJson } from './serialize';
 import { accessibleApps } from './space-apps';
 import { commitAppFields, commitAppRemoval, manifestFieldsOf } from './app-manifest';
@@ -850,7 +850,8 @@ export function registerAppsRoutes(): void {
         'config (processes, http_service, services, mounts, vm, deploy; the shorthands port, ' +
         'command, readiness_path, always_on and resources map onto it). Without it the release runs one `app` ' +
         'process group on the source port, sized like the App. An invalid config answers 400 `app_config_invalid` ' +
-        'with `issues: [{path, message}]`; a mount on a provider without volumes answers 400 `app_volumes_unsupported`.',
+        'with `issues: [{path, message}]`; a mount on a provider without volumes answers 400 `app_volumes_unsupported`. ' +
+        '`secrets` also needs project.secret.read, and an agent session maps only the secrets its grant gives it (403).',
       request: {
         params: z.object({ workspaceId: z.string().uuid(), appId: z.string().uuid() }),
         body: { content: { 'application/json': { schema: z.object({
@@ -880,6 +881,8 @@ export function registerAppsRoutes(): void {
         return c.json({ error: DEPRECATED_PROVIDER_ERROR, code: DEPRECATED_PROVIDER_CODE }, 400);
       }
       if (!body.artifact_id) return c.json({ error: 'artifact_id is required' }, 400);
+      const secretRefusal = await secretMappingRefusal(c, loaded, projectId, body.secrets);
+      if (secretRefusal) return secretRefusal;
       const [artifact] = await db.select().from(appArtifacts).where(and(
         eq(appArtifacts.artifactId, body.artifact_id), eq(appArtifacts.projectId, projectId),
       )).limit(1);

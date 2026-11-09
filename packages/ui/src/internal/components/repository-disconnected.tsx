@@ -29,7 +29,7 @@ import { useState } from 'react';
 import { useTranslations } from '../../i18n';
 import { adminPath } from '../../lib/routes';
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import Loading from '../../primitives/loading';
 import { errorToast } from '../../primitives/toast';
 
@@ -109,13 +109,8 @@ export function RepositoryDisconnectedBanner({
 }) {
   const t = useTranslations('repositoryDisconnected');
   return (
-    <InfoBanner
-      tone="warning"
-      icon={PlugsIcon}
-      title={t('title')}
-      action={<ReconnectGitHubButton projectId={projectId} />}
-    >
+    <BannerAlert variant="warning" ><BannerAlertMedia><PlugsIcon /></BannerAlertMedia><BannerAlertTitle>{t('title')}</BannerAlertTitle><BannerAlertDescription>
       {disconnect ? <RepositoryDisconnectText disconnect={disconnect} /> : fallbackMessage}
-    </InfoBanner>
+    </BannerAlertDescription><BannerAlertActions>{<ReconnectGitHubButton projectId={projectId} />}</BannerAlertActions></BannerAlert>
   );
 }

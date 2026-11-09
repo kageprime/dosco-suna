@@ -1,5 +1,6 @@
 import { logger } from '../../lib/logger';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 
 // Executes due scheduled deletions: account requests
 // (`kortix.account_deletion_requests`, including closed workspaces at the end
@@ -18,46 +19,32 @@ import { runWorkerTick } from '../../shared/audit-scope';
 // and the auth-user-delete trigger schedules orphan accounts on every
 // deployment.
 const TICK_MS = 15 * 60 * 1000;
-let timer: ReturnType<typeof setTimeout> | null = null;
-let stopped = true;
-let active: Promise<void> | null = null;
 
-async function tick(): Promise<void> {
-  const { processScheduledDeletions, SWEEP_BATCH_SIZE } = await import('../../billing/services/account-deletion');
-  await processScheduledDeletions();
-  // "Delete my account" requests: their own table, after the account requests.
-  // Paused with the account sweep (ACCOUNT_DELETION_SWEEP_PAUSED).
-  const { config } = await import('../../config');
-  if (config.ACCOUNT_DELETION_SWEEP_PAUSED) return;
-  const { processScheduledPersonDeletions } = await import('../../workspaces/surface');
-  const people = await processScheduledPersonDeletions(SWEEP_BATCH_SIZE);
-  logger.info(`[PersonDeletion] Processed: ${people.processed}, Errors: ${people.errors.length}`);
-}
-
-function schedule(delayMs: number): void {
-  timer = setTimeout(() => {
-    timer = null;
-    active = runWorkerTick('account-deletion', tick)
-      .catch((err) =>
-        logger.error('[AccountDeletion] scheduled deletion tick failed', {
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      )
-      .then(() => {
-        if (!stopped) schedule(TICK_MS);
+const job = leaderTimer(
+  async () => {
+    try {
+      await runWorkerTick('account-deletion', async () => {
+        const { processScheduledDeletions, SWEEP_BATCH_SIZE } = await import('../../billing/services/account-deletion');
+        await processScheduledDeletions();
+        // "Delete my account" requests: their own table, after the account requests.
+        // Paused with the account sweep (ACCOUNT_DELETION_SWEEP_PAUSED).
+        const { config } = await import('../../config');
+        if (config.ACCOUNT_DELETION_SWEEP_PAUSED) return;
+        const { processScheduledPersonDeletions } = await import('../../workspaces/surface');
+        const people = await processScheduledPersonDeletions(SWEEP_BATCH_SIZE);
+        logger.info(`[PersonDeletion] Processed: ${people.processed}, Errors: ${people.errors.length}`);
       });
-  }, delayMs);
-}
+    } catch (err) {
+      // The catch wraps runWorkerTick so a failing sweep settles the tick as
+      // an error and the heartbeat's lastOkAt stays behind (StaleJobs alarm).
+      logger.error('[AccountDeletion] scheduled deletion tick failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return TICK_MS;
+  },
+  { name: 'account-deletion' },
+);
 
-export function startAccountDeletionSchedule(): void {
-  if (!stopped) return;
-  stopped = false;
-  schedule(0);
-}
-
-export async function stopAccountDeletionSchedule(): Promise<void> {
-  stopped = true;
-  if (timer) clearTimeout(timer);
-  timer = null;
-  await active;
-}
+export const startAccountDeletionSchedule = job.start;
+export const stopAccountDeletionSchedule = job.stop;

@@ -34,7 +34,7 @@ import { Field, FieldDescription, FieldLabel } from '../../../primitives/field';
 import Hint from '../../../primitives/hint';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../primitives/hover-card';
 import { Alert, AlertDescription, AlertTitle } from '../../../primitives/alert';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import {
   InputGroup,
@@ -458,16 +458,12 @@ export function SecretsView({
         ) : (
           <>
             {missingRequired.length > 0 && (
-              <InfoBanner
-                tone="warning"
-                icon={<DangerTriangleSolid weight="fill" />}
-                title={tI18nComplete('text10d33709a797', {
+              <BannerAlert variant="warning" ><BannerAlertMedia>{<DangerTriangleSolid weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{tI18nComplete('text10d33709a797', {
                   value0: missingRequired.length,
                   value1: missingRequired.length === 1 ? 'secret' : 'secrets',
-                })}
-              >
+                })}</BannerAlertTitle><BannerAlertDescription>
                 {tI18nComplete.raw('textc18dc13ca821')}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
             )}
 
             {filtered.length === 0 && orphans.length === 0 ? (
@@ -1604,17 +1600,14 @@ function SecretDialog({
                   user can act on them. Both only ever change a DEFAULT — the
                   picker below stays free. */}
               {!isEdit && classification.signingNote && (
-                <InfoBanner tone="warning" title={tI18nComplete.raw('text28cd762621a4')}>
+                <BannerAlert variant="warning" ><BannerAlertTitle>{tI18nComplete.raw('text28cd762621a4')}</BannerAlertTitle><BannerAlertDescription>
                   {classification.signingNote} {tI18nComplete.raw('text4d737ad2895f')}
-                </InfoBanner>
+                </BannerAlertDescription></BannerAlert>
               )}
               {!isEdit && classification.modelProvider && exposure === 'enforced' && (
-                <InfoBanner
-                  tone="neutral"
-                  title={tI18nComplete('text04b204d5535c', {
+                <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete('text04b204d5535c', {
                     value0: classification.modelProvider.label,
-                  })}
-                >
+                  })}</BannerAlertTitle><BannerAlertDescription>
                   {classification.hosts.length > 0
                     ? tI18nComplete('texta1827e131521', {
                         value0: classification.hosts[0],
@@ -1625,7 +1618,7 @@ function SecretDialog({
                       })}{' '}
                   {tI18nComplete.raw('textf0e27f45cf6a')} {classification.modelProvider.label}{' '}
                   {tI18nComplete.raw('text137f1b68d2c8')}
-                </InfoBanner>
+                </BannerAlertDescription></BannerAlert>
               )}
 
               <Field>
@@ -1684,12 +1677,7 @@ function SecretDialog({
               )}
 
               {grantNotice && (
-                <InfoBanner
-                  tone="warning"
-                  icon={<DangerTriangleSolid weight="fill" />}
-                  title={grantNotice.title}
-                  className="[&_[data-slot=alert-content]]:min-w-0"
-                >
+                <BannerAlert variant="warning" className="[&_[data-slot=alert-content]]:min-w-0"><BannerAlertMedia>{<DangerTriangleSolid weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{grantNotice.title}</BannerAlertTitle><BannerAlertDescription>
                   <span className="block text-pretty">{grantNotice.body}</span>
                   {grantPlan.candidates.length > 0 && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1747,7 +1735,7 @@ function SecretDialog({
                   <pre className="border-border bg-muted mt-2 overflow-x-auto rounded-sm border p-2 font-mono text-xs leading-relaxed">
                     {grantManifest}
                   </pre>
-                </InfoBanner>
+                </BannerAlertDescription></BannerAlert>
               )}
 
               {needsHosts && (
@@ -1763,11 +1751,7 @@ function SecretDialog({
                       child shrink below the <pre>'s intrinsic (white-space: pre)
                       width, so the probe scrolls inside its own overflow-x-auto
                       box instead of forcing the whole dialog to scroll. */}
-                  <InfoBanner
-                    tone="neutral"
-                    title={echoNotice.title}
-                    className="[&_[data-slot=alert-content]]:min-w-0"
-                  >
+                  <BannerAlert variant="default" className="[&_[data-slot=alert-content]]:min-w-0"><BannerAlertTitle>{echoNotice.title}</BannerAlertTitle><BannerAlertDescription>
                     <span className="block text-pretty">{echoNotice.body}</span>
                     <pre className="border-border bg-muted mt-2 overflow-x-auto rounded-sm border p-2 font-mono text-xs leading-relaxed">
                       {echoNotice.probe}
@@ -1780,7 +1764,7 @@ function SecretDialog({
                     >
                       {echoNotice.docsLabel}
                     </Link>
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
 
                   <Field>
                     <FieldLabel htmlFor="secret-dialog-hosts">
@@ -1842,9 +1826,9 @@ function SecretDialog({
                         <Skeleton className="h-12 rounded-md" />
                       </div>
                     ) : connectorOptions.length === 0 ? (
-                      <InfoBanner tone="neutral" title={tI18nComplete.raw('text10798ef769fd')}>
+                      <BannerAlert variant="default" ><BannerAlertTitle>{tI18nComplete.raw('text10798ef769fd')}</BannerAlertTitle><BannerAlertDescription>
                         {tI18nComplete.raw('text0b834e60371f')}
-                      </InfoBanner>
+                      </BannerAlertDescription></BannerAlert>
                     ) : (
                       <div className="bg-popover overflow-hidden rounded-md border">
                         {connectorOptions.map((option, index) => (
@@ -1892,9 +1876,9 @@ function SecretDialog({
               )}
 
               {row?.requiresRotation && (
-                <InfoBanner tone="warning" title={tI18nComplete.raw('text640b080e1d85')}>
+                <BannerAlert variant="warning" ><BannerAlertTitle>{tI18nComplete.raw('text640b080e1d85')}</BannerAlertTitle><BannerAlertDescription>
                   {tI18nComplete.raw('text90c889e0b6ff')}
-                </InfoBanner>
+                </BannerAlertDescription></BannerAlert>
               )}
     </>
   );

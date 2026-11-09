@@ -199,8 +199,7 @@ describe('classifyProvisionReplay', () => {
 
   test('the same row past the window is a replay — the bound must expire', () => {
     // A crashed seed leaves {expected:true, seeded:false} FOREVER. An unbounded
-    // in-flight check would make that project permanently un-replayable, when
-    // `shouldSelfHealManagedRepoSeed` is what repairs it on next access.
+    // in-flight check would make that project permanently un-replayable.
     const project = projectRow({
       metadata: pendingSeed,
       createdAt: new Date(T0 - PROVISION_IN_FLIGHT_WINDOW_MS - 1),

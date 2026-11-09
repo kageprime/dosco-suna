@@ -263,6 +263,7 @@ export function registerAccessRequestsRoutes(): void {
       targetAccountRole = await ensureOrgMembership(
         loaded.row.accountId,
         request.requesterUserId,
+        'access_request',
       );
 
       if (!isAccountManager(targetAccountRole)) {

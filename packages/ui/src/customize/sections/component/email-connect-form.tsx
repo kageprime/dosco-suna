@@ -31,7 +31,7 @@ import { useCopy } from '../../../internal/hooks/use-copy';
 import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import { Field, FieldDescription, FieldLabel } from '../../../primitives/field';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import Loading from '../../../primitives/loading';
 import { RadioGroup, RadioGroupItem } from '../../../primitives/radio-group';
@@ -380,7 +380,7 @@ export function EmailConnectForm({
         ) : null}
       </section>
 
-      {error ? <InfoBanner tone="destructive">{error}</InfoBanner> : null}
+      {error ? <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert> : null}
       <div className="flex justify-end">
         <Button onClick={submit} disabled={connect.isPending || mode.isLoading || (!attachOpen && !domainReady)}>
           {connect.isPending ? <Loading className="size-3.5 shrink-0" /> : null}

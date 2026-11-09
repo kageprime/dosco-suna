@@ -38,6 +38,7 @@ import { loadProjectRosterIds } from './project-access-view';
 import { isWatcherOfSpace } from './space-watch/store';
 import { resolveUserIdentities } from './user-identity';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 /** Session metadata: the agent that wrote a top-level post (its name), when it was not the thread's agent. */
 export const CHAT_ROOT_AUTHOR_KEY = 'chat_root_author';
@@ -103,7 +104,7 @@ export async function notifyMessageMentions(input: {
   } catch (error) {
     logger.warn('[space-posts] message mention notifications were not sent', {
       session_id: input.sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return [];
   }
@@ -156,7 +157,7 @@ export async function messageAddressesOnlyPeople(input: { accountId: string; pro
   try {
     return addressesOnlyPeople(input.text, await projectMentionCandidates(input), input.authorId);
   } catch (error) {
-    logger.warn('[space-posts] the message mentions were not read; the agent answers', { error: error instanceof Error ? error.message : String(error) });
+    logger.warn('[space-posts] the message mentions were not read; the agent answers', { error: errorMessage(error) });
     return false;
   }
 }
@@ -210,7 +211,7 @@ export async function notifyMentions(input: {
   } catch (error) {
     logger.warn('[space-posts] mention notifications were not sent', {
       session_id: input.threadSessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return [];
   }

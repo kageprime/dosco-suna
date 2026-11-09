@@ -198,8 +198,3 @@ export async function probeAccountStore(accountId: string, s: ResolvedStorage): 
     return { ok: false, error: (error as Error)?.message ?? String(error) };
   }
 }
-
-/** Drop the cache. Tests only. */
-export function resetAccountStoreCache(): void {
-  storeCache.clear();
-}

@@ -260,6 +260,36 @@ accountsRouter.openapi(
   },
 );
 
+// DELETE /v1/me/tokens/self — revoke the key this request authenticated with.
+// `kortix logout` calls it: the CLI stores only the secret PAT and the token
+// lists expose `public_key` (an unrelated random string), so the CLI cannot
+// map its bearer to a token_id. Registered before `/{tokenId}` so the static
+// path is not shadowed by the param route (registration order, see accounts/index.ts).
+accountsRouter.openapi(
+  createRoute({
+    method: 'delete',
+    path: '/me/tokens/self',
+    tags: ['accounts'],
+    summary: 'Revoke the personal key this request authenticated with',
+    ...auth,
+    responses: {
+      200: json(z.object({ ok: z.literal(true) }), 'Revocation result'),
+      ...errors(401, 403, 404),
+    },
+  }),
+  async (c) => {
+  if (!isPersonCaller(c)) return c.json({ error: 'Personal keys are managed by the person, from a browser session or a personal key', code: 'person_route' }, 403);
+  // A browser session holds no key row: its credential is the session itself.
+  const tokenId = c.get('iamTokenId') as string | undefined;
+  if (!tokenId || !isUuid(tokenId)) return c.json({ error: 'token not found' }, 404);
+  // Another person's key and an unknown id answer the same 404.
+  const accountId = await personalTokenAccountOfUser(tokenId, c.get('userId') as string);
+  if (!accountId) return c.json({ error: 'token not found' }, 404);
+  if (!(await revokeAccountToken(tokenId, accountId))) return c.json({ error: 'token not found or already revoked' }, 404);
+  return c.json({ ok: true as const }, 200);
+  },
+);
+
 accountsRouter.openapi(
   createRoute({
     method: 'delete',

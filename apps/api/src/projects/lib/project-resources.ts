@@ -19,6 +19,7 @@ import { canonicalTreePath, refreshMirror } from '../git/mirror';
 import { withProjectGitAuth } from './git';
 import { savedProjectConfig } from '../config-summary/service';
 import { ttlMemo } from '../../shared/ttl-memo';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * Load a project's config WITH its repo file list: a registered skill's
@@ -281,7 +282,7 @@ export async function resourceDenierForRequest(ctx: ResourceAccessContext & {
   } catch (err) {
     console.warn('[resource-denier] config load failed; skipping file-path scoping', {
       projectId: ctx.projectId,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }

@@ -1,4 +1,4 @@
-import { clientAbortTarget, clientRevertMessage } from '../client-abort';
+import { clientAbortTarget, clientRevertMessage, parseForkPath } from '../client-abort';
 import { NOT_TURN_PROMPTER, NOT_TURN_PROMPTER_MESSAGE } from '../../shared/turn-stop-refusal';
 import { extractTurnIdentity, markTurnStopRequested } from '../../projects/session-turn-ledger';
 import { ProvisionTimeline } from '../../platform/services/provision-timeline';
@@ -14,7 +14,6 @@ import {
 } from '../pre-prompt-env-sync';
 import { isNonIdempotentSessionWrite } from '../prompt-dedupe';
 import { canonicalProxyPath } from '../proxy-path';
-import { stripInBoxProxyPrefix } from '../runtime-request';
 import { carriesSessionData } from '../session-data-ports';
 import {
   agentSwitchRefusal,
@@ -126,6 +125,13 @@ export async function forwardToSandbox(
     transport: 'http' as const,
   };
   const upstreamPort = routeSandboxIngress(record, ingressRequest).effectivePort;
+  // The two turn predicates, computed ONCE (KRTX-4477): every gate below and the
+  // one inside `forwardWithRetry` re-read the same `upstreamPort`/`method`/
+  // `remainingPath`, which cannot change from here on — five repeated
+  // evaluations became two (the env-sync boolean rides into the retry loop
+  // through `ForwardRequest`).
+  const turnStartRequest = isTurnStartRequest(upstreamPort, method, remainingPath);
+  const turnStartEnvSync = isTurnStartEnvSync(upstreamPort, method, remainingPath);
   // Did the BOX author this request? It holds two credentials that authenticate
   // perfectly well, and every deadline decision below — the turn-start
   // observation, the preview-use extend, the auto-resume — must exclude them or
@@ -209,7 +215,7 @@ export async function forwardToSandbox(
     );
   }
 
-  if (isTurnStartEnvSync(upstreamPort, method, remainingPath)) {
+  if (turnStartEnvSync) {
     const guardProjectId = record.projectId;
     const checked = await dropUndeclaredPromptAgent({
       body: requestBody,
@@ -231,7 +237,7 @@ export async function forwardToSandbox(
   // Was `isConnectorGatedTurn`, a byte-identical second copy of the predicate
   // below. One definition: "a USER turn", i.e. `isTurnStartRequest` minus
   // `/summarize`.
-  if (!sandboxAuthored && isTurnStartEnvSync(upstreamPort, method, remainingPath)) {
+  if (!sandboxAuthored && turnStartEnvSync) {
     const promptAgent = requestedPromptAgent(requestBody, incomingHeaders);
     // Authorization FIRST. The connector gate below reads this agent's manifest,
     // and its refusal names the connectors that agent requires — not something a
@@ -246,9 +252,7 @@ export async function forwardToSandbox(
   }
   if (
     record.status === 'stopped' &&
-    carriesSessionData(upstreamPort) &&
-    method === 'POST' &&
-    /^\/session\/[^/?#]+\/fork\/?(?:$|[?#])/.test(stripInBoxProxyPrefix(remainingPath))
+    parseForkPath(upstreamPort, method, remainingPath) !== null
   ) {
     // Fork cannot wait for the asynchronous wake. Return a non-retryable
     // conflict so the caller displays the recovery action instead of a 503.
@@ -299,7 +303,7 @@ export async function forwardToSandbox(
   //
   // Config does not converge here: a box that is behind converges after its
   // turn ends (`convergeConfigIfBehind`), and the prompt never waits for it.
-  if (!sandboxAuthored && isTurnStartRequest(upstreamPort, method, remainingPath)) {
+  if (!sandboxAuthored && turnStartRequest) {
     const converged = await convergeTurnStartRuntime({
       record,
       ingressRequest,
@@ -328,7 +332,7 @@ export async function forwardToSandbox(
   const { promptDedupeKey } = claim;
 
   const turnIdentity =
-    !sandboxAuthored && isTurnStartRequest(upstreamPort, method, remainingPath)
+    !sandboxAuthored && turnStartRequest
       ? extractTurnIdentity(remainingPath, requestBody)
       : null;
 
@@ -357,13 +361,12 @@ export async function forwardToSandbox(
       prefetchedIngress,
       promptDedupeKey,
       turnIdentity,
+      turnStartEnvSync,
       turn: createTurnLifecycle(sandboxId, turnIdentity, opts.promptSource),
     },
     requestBody,
   );
-  const forkSource = carriesSessionData(upstreamPort) && method.toUpperCase() === 'POST'
-    ? /^\/?session\/([^/]+)\/fork$/.exec(remainingPath)?.[1]
-    : undefined;
+  const forkSource = parseForkPath(upstreamPort, method, remainingPath);
   if (forkSource && response.ok) {
     const { registerRuntimeFork } = await import('../../projects/surface');
     await registerRuntimeFork({

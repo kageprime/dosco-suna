@@ -122,6 +122,14 @@ describe('a broken part of kortix.yaml is turned off, never fatal', () => {
     expect(escaped.agent.w).toEqual({ disable: true });
   });
 
+  test('a prompt_file that opens with frontmatter (a Claude Code agent) compiles to its body', () => {
+    const set = compileAgentConfig(
+      { default_agent: 'planner', agents: { planner: { prompt_file: '.claude/agents/planner.md' } } },
+      { '.claude/agents/planner.md': '---\nname: planner\ntools: Read, Grep\nmodel: opus\n---\nYou plan changes.\n' },
+    );
+    expect(set.agent.planner?.prompt).toBe('You plan changes.\n');
+  });
+
   test('warnings never reach the session: only errors, at most 50', () => {
     const obsolete = { path: 'kortix_version', message: 'obsolete', severity: 'warning' as const };
     expect(compileAgentConfig({}, {}, [obsolete]).manifest_issues).toBeUndefined();

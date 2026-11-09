@@ -537,6 +537,67 @@ test('executeComposio treats invalid Linear GraphQL as caller error, not provide
   expect(result.data).toMatchObject({ error: 'Cannot query field on Issue | Code: GRAPHQL_VALIDATION_FAILED' });
 });
 
+test('executeComposio treats a Composio 400 for missing required args as a caller error', async () => {
+  // A call without the tool's required argument: Composio refuses the request
+  // itself with a 400 in the execute payload. KRTX-678: this shape reached the
+  // gateway's 502-warn path (70% of one prod warn spike).
+  const message = "Invalid request data provided\n- Following fields are missing: {'query_or_mutation'}";
+  const resumed = session({
+    id: 'persisted-session',
+    toolkit: { slug: 'linear', name: 'Linear', isNoAuth: true },
+    execute: async () => ({ data: { message, status_code: 400 }, error: message, logId: 'log-missing' }),
+  });
+  const result = await executeComposio({
+    projectId: 'project-1', connectorSlug: 'linear', connectionId: 'connection-1',
+    sessionId: 'persisted-session', toolkit: 'linear', toolSlug: 'LINEAR_RUN_QUERY_OR_MUTATION',
+    args: {}, connectedAccountId: null, runtime: fakeRuntime({ resumed }),
+  });
+  expect(result.ok).toBe(false);
+  expect(result.status).toBe(400);
+  expect(result.data).toMatchObject({ error: message });
+});
+
+test('executeComposio treats a provider INVALID_INPUT argument rejection as a caller error', async () => {
+  // Linear rejects a mutation argument that fails validation; Composio wraps
+  // it as `Code: INVALID_INPUT`. KRTX-678: this shape also reached the
+  // 502-warn path (the classifier matched two other codes only).
+  const error =
+    "Message: Argument Validation Error | Code: INVALID_INPUT | Path: commentCreate | " +
+    "Details: issueId must be a valid UUID or issue identifier (e.g., 'LIN-123').";
+  const resumed = session({
+    id: 'persisted-session',
+    toolkit: { slug: 'linear', name: 'Linear', isNoAuth: true },
+    execute: async () => ({ data: { message: error }, error, logId: 'log-invalid-input' }),
+  });
+  const result = await executeComposio({
+    projectId: 'project-1', connectorSlug: 'linear', connectionId: 'connection-1',
+    sessionId: 'persisted-session', toolkit: 'linear', toolSlug: 'LINEAR_RUN_QUERY_OR_MUTATION',
+    args: { query_or_mutation: 'mutation { commentCreate(...) }' }, connectedAccountId: null,
+    runtime: fakeRuntime({ resumed }),
+  });
+  expect(result.ok).toBe(false);
+  expect(result.status).toBe(400);
+});
+
+test('executeComposio treats a Composio 400 payload as a caller error for any toolkit', async () => {
+  // The rejection semantics are the caller's input, not the toolkit's: the
+  // scoping to LINEAR_RUN_QUERY_OR_MUTATION is how the missing-argument shape
+  // leaked into the 502-warn path (KRTX-678).
+  const message = "Invalid request data provided\n- Following fields are missing: {'message'}";
+  const resumed = session({
+    id: 'persisted-session',
+    toolkit: { slug: 'slack', name: 'Slack', isNoAuth: true },
+    execute: async () => ({ data: { message, status_code: 400 }, error: message, logId: 'log-slack' }),
+  });
+  const result = await executeComposio({
+    projectId: 'project-1', connectorSlug: 'slack', connectionId: 'connection-1',
+    sessionId: 'persisted-session', toolkit: 'slack', toolSlug: 'SLACK_SEND_MESSAGE',
+    args: {}, connectedAccountId: null, runtime: fakeRuntime({ resumed }),
+  });
+  expect(result.ok).toBe(false);
+  expect(result.status).toBe(400);
+});
+
 test('executeComposio uploads a URL in a file field and refuses an internal URL by field name', async () => {
   const executed: Array<Record<string, unknown>> = [];
   const resumed = session({
@@ -652,6 +713,52 @@ test('executeComposio turns an HTML error page from Composio\'s edge into a shor
     args: {}, connectedAccountId: null, runtime: fakeRuntime({ resumed }),
   });
   expect(result).toEqual({
+    ok: false,
+    status: 502,
+    data: 'composio_upstream_unavailable: Composio answered 502 with an HTML error page (page: Bad gateway)',
+  });
+});
+
+test('executeComposio states only the title of a Cloudflare WAF block page and keeps the legacy text when a page has no title', async () => {
+  const blocked = session({
+    id: 'persisted-session',
+    toolkit: { slug: 'linear', name: 'Linear', isNoAuth: true },
+    execute: async () => {
+      throw Object.assign(
+        new Error(
+          '403 <!DOCTYPE html>\n<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->\n<title>Attention Required! | Cloudflare</title>\n</html>',
+        ),
+        { status: 403 },
+      );
+    },
+  });
+  const blockedResult = await executeComposio({
+    projectId: 'project-1', connectorSlug: 'linear', connectionId: 'connection-1',
+    sessionId: 'persisted-session', toolkit: 'linear', toolSlug: 'LINEAR_UPDATE_LINEAR_COMMENT',
+    args: {}, connectedAccountId: null, runtime: fakeRuntime({ resumed: blocked }),
+  });
+  expect(blockedResult).toEqual({
+    ok: false,
+    status: 502,
+    data: 'composio_upstream_unavailable: Composio answered 403 with an HTML error page (page: Attention Required! | Cloudflare)',
+  });
+
+  const untitled = session({
+    id: 'persisted-session',
+    toolkit: { slug: 'linear', name: 'Linear', isNoAuth: true },
+    execute: async () => {
+      throw Object.assign(
+        new Error('502 <html><body>Bad gateway</body></html>'),
+        { status: 502 },
+      );
+    },
+  });
+  const untitledResult = await executeComposio({
+    projectId: 'project-1', connectorSlug: 'linear', connectionId: 'connection-1',
+    sessionId: 'persisted-session', toolkit: 'linear', toolSlug: 'LINEAR_GET_LINEAR_ISSUE',
+    args: {}, connectedAccountId: null, runtime: fakeRuntime({ resumed: untitled }),
+  });
+  expect(untitledResult).toEqual({
     ok: false,
     status: 502,
     data: 'composio_upstream_unavailable: Composio answered 502 with an HTML error page',

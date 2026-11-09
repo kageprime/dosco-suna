@@ -369,7 +369,10 @@ export function registerSessionLogRoutes(): void {
       description:
         'One page of one thread of the stored session log (`SessionLogPage`), from Postgres only. ' +
         '`thread` defaults to the root thread; `messages` are the newest `limit` (default 40, max 500) ' +
-        'with `seq < before_seq`, ascending by seq, tombstoned messages left out. Session read permission, ' +
+        'with `seq < before_seq`, ascending by seq, tombstoned messages left out. A page carries whole ' +
+        'messages up to `SESSION_LOG_PAGE_MAX_BYTES` of stored payload (default 2 MiB): an over-budget ' +
+        'window answers fewer than `limit` with `has_more: true`, the newest message served however large it is. ' +
+        'Session read permission, ' +
         'the same gate as `GET .../transcript`: a session-bound token reads the sessions that route serves it. ' +
         '404 when the session has no stored log (`code: session_log_missing`) or no such thread.',
       ...auth,

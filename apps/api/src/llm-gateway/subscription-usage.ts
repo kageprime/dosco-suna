@@ -12,7 +12,7 @@
  * A refresh the provider refuses keeps the last stored snapshot.
  */
 import { accountSecretResources } from '@kortix/db';
-import { windowId, type SubscriptionUsage } from '@kortix/llm-gateway';
+import { byWindowLength, resetIso, usageSnapshot, type SubscriptionUsage, type UsageWindowInput } from '@kortix/llm-gateway';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from '@hono/zod-openapi';
 import { db } from '../shared/db';
@@ -113,44 +113,11 @@ type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
 const REFRESH_EVERY_MS = 60_000;
 const PROVIDER_TIMEOUT_MS = 8_000;
 
-interface UsageEndpointWindow { used_percent: number; window_minutes: number | null; resets_at: string | null; fallback: string }
-
-function snapshot(windows: UsageEndpointWindow[], limited: boolean, now: number): SubscriptionUsage | null {
-  if (!windows.length) return null;
-  const shaped = windows
-    .map(({ fallback, ...window }) => ({ id: windowId(window.window_minutes, fallback), ...window, used_percent: Math.round(Math.min(100, Math.max(0, window.used_percent)) * 10) / 10 }))
-    .sort((a, b) => (a.window_minutes ?? Infinity) - (b.window_minutes ?? Infinity));
-  return {
-    windows: shaped,
-    limited: limited || shaped.some((window) => window.used_percent >= 100),
-    observed_at: new Date(now).toISOString(),
-    source: 'usage_endpoint',
-  };
-}
-
-/**
- * The instant `Date` can represent, else null: the provider's body is untrusted
- * input, and a reset past year 275760 is no reset time. `Date.parse` agrees on
- * the string form (`NaN` for an unrepresentable one).
- */
-function representable(milliseconds: number): Date | null {
-  const date = new Date(milliseconds);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isoOrNull(value: unknown, now: number, afterSeconds?: unknown): string | null {
-  const at = (value: number) => representable(value)?.toISOString() ?? null;
-  if (typeof value === 'number' && value > 0) return at(value * 1000);
-  if (typeof value === 'string' && !Number.isNaN(Date.parse(value))) return at(Date.parse(value));
-  if (typeof afterSeconds === 'number' && afterSeconds >= 0) return at(now + afterSeconds * 1000);
-  return null;
-}
-
 /** ChatGPT's `wham/usage` body: `rate_limit.{primary,secondary}_window`, `used_percent` 0–100. */
 export function codexUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
   const rateLimit = (body as { rate_limit?: Record<string, unknown> } | null)?.rate_limit;
   if (!rateLimit || typeof rateLimit !== 'object') return null;
-  const windows: UsageEndpointWindow[] = [];
+  const windows: UsageWindowInput[] = [];
   for (const slot of ['primary', 'secondary'] as const) {
     const window = rateLimit[`${slot}_window`] as Record<string, unknown> | null | undefined;
     if (!window || typeof window.used_percent !== 'number') continue;
@@ -159,10 +126,10 @@ export function codexUsageFromBody(body: unknown, now = Date.now()): Subscriptio
       fallback: slot,
       used_percent: window.used_percent,
       window_minutes: seconds ? Math.round(seconds / 60) : null,
-      resets_at: isoOrNull(window.reset_at, now, window.reset_after_seconds),
+      resets_at: resetIso(window.reset_at, now, window.reset_after_seconds),
     });
   }
-  return snapshot(windows, rateLimit.limit_reached === true || rateLimit.allowed === false, now);
+  return usageSnapshot(windows.sort(byWindowLength), { limited: rateLimit.limit_reached === true || rateLimit.allowed === false, now, source: 'usage_endpoint' });
 }
 
 const CLAUDE_WINDOWS: Record<string, number | null> = { five_hour: 300, seven_day: 7 * 24 * 60, seven_day_opus: 7 * 24 * 60, seven_day_sonnet: 7 * 24 * 60, seven_day_fable: 7 * 24 * 60 };
@@ -170,7 +137,7 @@ const CLAUDE_WINDOWS: Record<string, number | null> = { five_hour: 300, seven_da
 /** Claude's `oauth/usage` body: `{ five_hour, seven_day, seven_day_opus, … }`, `utilization` 0–100. */
 export function claudeUsageFromBody(body: unknown, now = Date.now()): SubscriptionUsage | null {
   if (!body || typeof body !== 'object') return null;
-  const windows: UsageEndpointWindow[] = [];
+  const windows: UsageWindowInput[] = [];
   for (const [name, minutes] of Object.entries(CLAUDE_WINDOWS)) {
     const window = (body as Record<string, { utilization?: unknown; resets_at?: unknown } | null>)[name];
     if (!window || typeof window.utilization !== 'number') continue;
@@ -179,10 +146,10 @@ export function claudeUsageFromBody(body: unknown, now = Date.now()): Subscripti
       fallback: name === 'seven_day' ? 'weekly' : name,
       used_percent: window.utilization,
       window_minutes: name === 'seven_day' || name === 'five_hour' ? minutes : null,
-      resets_at: isoOrNull(window.resets_at, now),
+      resets_at: resetIso(window.resets_at, now),
     });
   }
-  return snapshot(windows, false, now);
+  return usageSnapshot(windows.sort(byWindowLength), { limited: false, now, source: 'usage_endpoint' });
 }
 
 type UsageRow = Pick<typeof accountSecretResources.$inferSelect,

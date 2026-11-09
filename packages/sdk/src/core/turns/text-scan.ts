@@ -391,7 +391,7 @@ function httpAt(s: string, at: number): boolean {
  * every position inside it: 240k spaces took 21.9 s.
  */
 export function urlError(s: string, url: string): string | null {
-  const text = fold(s);
+  const folded = fold(s);
   const needle = fold(url);
   const n = s.length;
   const skipWs = (from: number) => {
@@ -399,7 +399,7 @@ export function urlError(s: string, url: string): string | null {
     while (i < n && isWs(s[i])) i++;
     return i;
   };
-  for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
+  for (let at = folded.indexOf(needle); at !== -1; at = folded.indexOf(needle, at + 1)) {
     const colon = skipWs(at + needle.length);
     if (s[colon] !== ':') continue;
     const start = skipWs(colon + 1);
@@ -416,4 +416,32 @@ export function urlError(s: string, url: string): string | null {
     return s.slice(start);
   }
   return null;
+}
+
+/** A JSON value that owns properties — i.e. a plain object, not null/array. */
+export function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** A trimmed non-empty string value, else `undefined`. */
+export const text = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+/** `undefined` when the text is not JSON — distinct from a parsed `undefined`. */
+export function tryParseJson(value: unknown): unknown {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/** A captured JSON key with its escapes decoded, as `JSON.parse` would give it. */
+export function decodeJsonStringLiteral(raw: string): string {
+  try {
+    return JSON.parse(`"${raw}"`) as string;
+  } catch {
+    return raw;
+  }
 }

@@ -252,7 +252,7 @@ async function seed(args: Args): Promise<void> {
 const FILLER = '00000000-0000-4000-8000-0000000000aa';
 
 /** A concrete request path for a manifest route pattern. */
-export function concretePath(pattern: string, ctx: ContextState): string {
+function concretePath(pattern: string, ctx: ContextState): string {
   // A legacy account-keyed path takes the account id, as an old client sends it.
   // Only the canonical /v1/workspaces family takes the workspace id there.
   const accountKeyed = /^\/(v1\/accounts|v1\/account-invites|scim\/v2\/accounts)\//.test(pattern);
@@ -268,7 +268,7 @@ export function concretePath(pattern: string, ctx: ContextState): string {
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 /** The auth verdict of one response. */
-export function verdictOf(status: number, body: string): string {
+function verdictOf(status: number, body: string): string {
   if (status !== 401 && status !== 403 && status !== 404 && status !== 429) return 'pass';
   if (status === 404 || status === 429) return String(status);
   const check = /check=([a-z0-9:_-]+)/i.exec(body)?.[1];

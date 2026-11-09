@@ -3,8 +3,8 @@
 # ciphertext. Run on a plain checkout — no staging area, no keys, no network.
 #
 # Why this exists alongside the other two secret gates:
-#   - .githooks/pre-commit runs `dotenvx ext precommit`, which only inspects the
-#     STAGED diff. On a fresh checkout nothing is staged, so it is a no-op in CI.
+#   - .githooks/pre-commit (step 1b) checks only the STAGED .env files. On a
+#     fresh checkout nothing is staged, so it is a no-op in CI.
 #   - secret-scan.yml (gitleaks) is PATTERN-based. It caught INTERNAL_HMAC_SECRET
 #     in testing but missed a plaintext `postgres://user:password@host` URL.
 # This check is STRUCTURAL: a value either starts with `encrypted:` or it fails,

@@ -59,10 +59,13 @@ export function projectSessionIdForProjectPrincipal(
 }
 
 /**
- * The channel connector(s) that CREATED a session, resolved from the session's
- * own `metadata.source` and the project's channel connector rows — never from
+ * The channel connector(s) that CREATED a session, resolved from
+ * `metadata.source` and the project's channel connector rows — never from
  * the request. See `principalMayUseConnector` for why they stay reachable
- * under any grant.
+ * under any grant. A child that runs as its parent's own agent (an inline
+ * colleague, a built-in, a fork: kortixd `cloud-subagent.ts`) has its
+ * parent's access, so it also reaches the channel that created its parent
+ * ({@link sessionChannelSource}).
  */
 export async function sessionChannelConnectorSlugs(
   projectId: string,
@@ -70,13 +73,8 @@ export async function sessionChannelConnectorSlugs(
 ): Promise<string[]> {
   if (!sessionId) return [];
   try {
-    const [session] = await db
-      .select({ metadata: projectSessions.metadata })
-      .from(projectSessions)
-      .where(and(eq(projectSessions.sessionId, sessionId), eq(projectSessions.projectId, projectId)))
-      .limit(1);
-    const source = (session?.metadata as { source?: unknown } | null)?.source;
-    if (typeof source !== 'string' || !CHANNEL_SOURCES.has(source)) return [];
+    const source = await sessionChannelSource(projectId, sessionId);
+    if (!source) return [];
     const rows = await db
       .select({ slug: connectors.slug, config: connectors.config, providerType: connectors.providerType })
       .from(connectors)
@@ -102,6 +100,33 @@ export async function sessionChannelConnectorSlugs(
 
 /** `project_sessions.metadata.source` values that name a channel platform. */
 const CHANNEL_SOURCES: ReadonlySet<string> = new Set(CHANNEL_PLATFORM_IDS);
+
+/** Parents a channel passes through at most: above the subagent depth cap (kortixd, 2 by default). */
+const CHANNEL_INHERIT_MAX_HOPS = 4;
+
+/**
+ * The channel platform that created this session, or the one that created
+ * the nearest ancestor in an unbroken line of children that each run as
+ * their parent's agent. A child of another agent ends the line: that agent
+ * has its own grant, not its parent's access. Null: no channel.
+ */
+async function sessionChannelSource(projectId: string, sessionId: string): Promise<string | null> {
+  let id: string | null = sessionId;
+  let childAgent: string | null = null;
+  for (let hop = 0; id && hop <= CHANNEL_INHERIT_MAX_HOPS; hop += 1) {
+    const [row] = await db
+      .select({ metadata: projectSessions.metadata, agentName: projectSessions.agentName, parentSessionId: projectSessions.parentSessionId })
+      .from(projectSessions)
+      .where(and(eq(projectSessions.sessionId, id), eq(projectSessions.projectId, projectId)))
+      .limit(1);
+    if (!row || (hop > 0 && row.agentName !== childAgent)) return null;
+    const source = (row.metadata as { source?: unknown } | null)?.source;
+    if (typeof source === 'string' && CHANNEL_SOURCES.has(source)) return source;
+    childAgent = row.agentName;
+    id = row.parentSessionId;
+  }
+  return null;
+}
 
 /**
  * The connector principal a bearer token names, or null when there is no

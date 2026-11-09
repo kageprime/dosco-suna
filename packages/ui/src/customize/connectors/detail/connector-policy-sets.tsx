@@ -40,7 +40,7 @@ import {
   ModalTitle,
 } from '../../../primitives/modal';
 import { Skeleton } from '../../../primitives/skeleton';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '../../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../../primitives/tabs';
 import { errorToast, successToast } from '../../../primitives/toast';
 
 import { agentHref, capabilityTabHref } from '../../../internal/lib/capability-tab-routes';
@@ -188,18 +188,18 @@ export function ConnectorPolicySetBar({
       <div className="flex min-w-0 items-center gap-2">
         <div className="min-w-0 overflow-x-auto">
           <Tabs value={value ?? BASE_VALUE} onValueChange={(next) => onChange(next === BASE_VALUE ? null : next)}>
-            <TabsListCompact aria-label={t('rulesFor')}>
-              <TabsTriggerCompact value={BASE_VALUE}>{t('baseRules')}</TabsTriggerCompact>
+            <TabsList size="xs" aria-label={t('rulesFor')}>
+              <TabsTrigger value={BASE_VALUE}>{t('baseRules')}</TabsTrigger>
               {sets.map((set) => (
-                <TabsTriggerCompact key={set.name} value={set.name} title={set.name}>
+                <TabsTrigger key={set.name} value={set.name} title={set.name}>
                   {policySetLabel(set.name)}
                   <span className="text-muted-foreground">
                     {' · '}
                     {t('agentCount', { count: set.agents.length })}
                   </span>
-                </TabsTriggerCompact>
+                </TabsTrigger>
               ))}
-            </TabsListCompact>
+            </TabsList>
           </Tabs>
         </div>
         <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setEditor({ mode: 'create' })}>

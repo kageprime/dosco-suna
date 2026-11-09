@@ -30,7 +30,7 @@
  */
 
 import { execFile, spawn } from 'node:child_process';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { childProcessEnv, config } from '../../config';
@@ -126,7 +126,7 @@ export function missingObjectIdsFromGitError(text: string): string[] {
   return [...ids];
 }
 
-export interface FetchObjectsOptions {
+interface FetchObjectsOptions {
   /** Credentials and other variables for the fetch (`gitAuthEnv`). */
   env: Record<string, string>;
   /** The fetch is stopped once the received pack passes this many bytes. */
@@ -238,7 +238,6 @@ async function newPackBytes(packDir: string, before: Set<string>): Promise<numbe
 }
 
 async function removeNewPacks(packDir: string, before: Set<string>, only?: RegExp): Promise<void> {
-  const { rm } = await import('node:fs/promises');
   for (const name of await readdir(packDir).catch(() => [] as string[])) {
     if (before.has(name) || (only && !only.test(name))) continue;
     await rm(join(packDir, name), { force: true }).catch(() => {});
@@ -249,7 +248,7 @@ async function removeNewPacks(packDir: string, before: Set<string>, only?: RegEx
 const storeLocks = new Map<string, Promise<unknown>>();
 
 /** Run `fn` after every earlier fetch into the same store has settled. */
-export function withStoreLock<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
+function withStoreLock<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
   const previous = storeLocks.get(repoPath) ?? Promise.resolve();
   const next = previous.catch(() => {}).then(fn);
   const settled = next.catch(() => {});

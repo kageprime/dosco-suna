@@ -729,6 +729,30 @@ describe('handleImageRequest', () => {
     }
   });
 
+  // Characterization (KRTX-4484): the image refusal envelope. Pins the shape a
+  // client reads — status, code, the `retry_after` body field and header, the
+  // relayed limit header, the request id and the model naming.
+  test('the 429 refusal envelope carries the identity, the request id and the retry', async () => {
+    const { run } = setup({}, async () => new Response('{"detail":"limit"}', {
+      status: 429,
+      headers: { 'retry-after': '120', 'x-codex-primary-reset-after-seconds': '3600' },
+    }));
+    const response = await run({ model: 'codex/gpt-image-2', prompt: 'a red cube' });
+    expect(response.status).toBe(429);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(response.headers.get('retry-after')).toBe('120');
+    expect(response.headers.get('x-codex-primary-reset-after-seconds')).toBe('3600');
+    const body = (await response.json()) as ErrorBody & { request_id: string; provider: string; requested_model: string; resolved_model: string };
+    expect(body.code).toBe('image_rate_limited');
+    expect(body.message).toBe('The ChatGPT image limit is reached.');
+    expect(body.suggestion).toBe('Wait for the limit to reset, then retry.');
+    expect(body.retry_after).toBe(120);
+    expect(body.request_id).toMatch(/^req_/);
+    expect(body.provider).toBe('openai-codex');
+    expect(body.requested_model).toBe('codex/gpt-image-2');
+    expect(body.resolved_model).toBe('gpt-image-2');
+  });
+
   test('a 429 on one pooled account moves to the next without a cooldown', async () => {
     let n = 0;
     const cooldowns: unknown[][] = [];

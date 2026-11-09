@@ -24,12 +24,20 @@
  * What a child gets, and why it never has more than its parent:
  *  - A named project agent (`subagent_type: reviewer`) runs as that agent. The
  *    API authorizes the agent exactly as for any session the caller starts.
- *  - A built-in (`general`, `explore`) or an inline spec runs as the PARENT's
- *    own resolved agent (runtime.ts `cloudParent`), so its connectors, secrets
- *    and permissions are the parent's. The platform coordinator omits
- *    `agent_name`: the API then picks the project default (session-create.ts,
- *    the coordinator recursion stop).
- *  - The spec's instructions ride in `initial_context` (a model-only part).
+ *  - A built-in (`general`, `explore`), a fork or an inline spec runs as the
+ *    PARENT's own resolved agent (runtime.ts `cloudParent`), My Kortix
+ *    included, so its grant, connectors, secrets, sandbox and originating
+ *    channel are the parent's, never another agent's. Only a parent with no
+ *    resolved agent (a router) omits `agent_name`, and the API picks.
+ *  - An inline spec's instructions are the child's own system prompt: they
+ *    ride in `runtime_context` ({@link AGENT_INSTRUCTIONS_CONTEXT_KEY}, at most
+ *    4,096 characters), and the child's runtime uses them as its base prompt
+ *    in place of its agent's (runtime.ts `systemPrompt`). Under the platform
+ *    coordinator every spec prompt rides there, because My Kortix's own
+ *    prompt never runs in a child; the API lets a My Kortix child carrying the
+ *    key through its recursion stop (session-create.ts). Any other spec prompt
+ *    (a built-in's, a fork's) is a note beside the agent's own prompt and
+ *    rides in `initial_context`, which the child pastes into its first message.
  *  - The parent's effective tool list, intersected with the spec's list, rides
  *    in `runtime_context` (`kortix.subagent.tools`) for EVERY child, named
  *    agents included. The child's runtime narrows its own tools to it
@@ -129,6 +137,12 @@ export const SUBAGENT_TOOLS_KEY = 'kortix.subagent.tools'
 export const AGENT_HANDLE_CONTEXT_KEY = 'kortix.agent.handle'
 /** `runtime_context` key: the lead session of this teammate (agent teams). */
 export const TEAM_LEAD_CONTEXT_KEY = 'kortix.team.lead'
+/**
+ * `runtime_context` key: an inline agent's instructions, this session's own
+ * system prompt in place of its agent's. Only a box creating its own child
+ * sets a `kortix.` key (apps/api `session-runtime-context.ts`).
+ */
+export const AGENT_INSTRUCTIONS_CONTEXT_KEY = 'kortix.agent.instructions'
 /** A name `agent({ name })` takes: what `send_message` addresses. */
 export const AGENT_HANDLE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/
 
@@ -151,8 +165,10 @@ export interface CloudSubagentApi {
   token: string
   /** This box's own session id (`KORTIX_SESSION_ID`): a resumed `task_id` must name one of its children. */
   sessionId?: string
-  /** The parent's resolved agent, set per call. Built-in and inline children run as it. Absent: the API picks. */
+  /** The parent's resolved agent, set per call. Built-in, fork and inline children run as it. Absent (a router): the API picks. */
   parentAgent?: string
+  /** This session is the platform coordinator (My Kortix): every spec prompt is its child's own system prompt. */
+  coordinator?: boolean
   /** This session's own subagent depth (0 for a root session). */
   depth: number
   maxDepth: number
@@ -178,6 +194,8 @@ export interface SubagentContext {
   frontThread?: boolean
   /** A space's watcher (`kortix.watcher`, watcher.ts): no tools, one JSON decision per turn. */
   watcher?: boolean
+  /** An inline agent's instructions ({@link AGENT_INSTRUCTIONS_CONTEXT_KEY}): the base system prompt. */
+  instructions?: string
 }
 
 /** Parse `KORTIX_SESSION_CONTEXT` (the API's JSON envelope of `runtime_context`). Malformed = a root session. */
@@ -195,6 +213,7 @@ export function subagentContextFrom(raw: string | undefined): SubagentContext {
   const depth = typeof rawDepth === 'number' && Number.isInteger(rawDepth) && rawDepth > 0 ? rawDepth : 0
   const handle = typeof record[AGENT_HANDLE_CONTEXT_KEY] === 'string' && AGENT_HANDLE.test(record[AGENT_HANDLE_CONTEXT_KEY] as string) ? (record[AGENT_HANDLE_CONTEXT_KEY] as string) : undefined
   const lead = typeof record[TEAM_LEAD_CONTEXT_KEY] === 'string' && (record[TEAM_LEAD_CONTEXT_KEY] as string).trim() ? (record[TEAM_LEAD_CONTEXT_KEY] as string).trim() : undefined
+  const instructions = typeof record[AGENT_INSTRUCTIONS_CONTEXT_KEY] === 'string' ? (record[AGENT_INSTRUCTIONS_CONTEXT_KEY] as string).trim() : ''
   const named = {
     depth,
     ...(handle ? { handle } : {}),
@@ -203,6 +222,7 @@ export function subagentContextFrom(raw: string | undefined): SubagentContext {
     ...(record[FRONT_CONTEXT_KEY] === true ? { front: true } : {}),
     ...(record[FRONT_THREAD_CONTEXT_KEY] === true ? { frontThread: true } : {}),
     ...(record[WATCHER_CONTEXT_KEY] === true ? { watcher: true } : {}),
+    ...(instructions ? { instructions } : {}),
   }
   const rawTools = record[SUBAGENT_TOOLS_KEY]
   if (typeof rawTools !== 'string') return named
@@ -250,7 +270,7 @@ function splitModel(ref: string | undefined): { providerID: string; modelID: str
   return slash < 0 ? { providerID: 'kortix', modelID: ref } : { providerID: ref.slice(0, slash), modelID: ref.slice(slash + 1) }
 }
 
-/** Built-in subagent names and the inline label: none is a real project agent, so the child runs as the parent's agent. */
+/** Built-in subagent names and the inline label: none is a real project agent, so the child runs as the parent's agent, with the parent's access. */
 const CLOUD_UNMAPPABLE_AGENTS = new Set(['general', 'explore', 'inline'])
 
 /** Poll the child session until it goes idle, at most this long. */
@@ -468,8 +488,15 @@ function isWorkingBackgroundChild(row: SessionRow): boolean {
 function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Record<string, unknown> {
   const named = input.agent && !CLOUD_UNMAPPABLE_AGENTS.has(input.agent) ? input.agent : undefined
   const agentName = named ?? api.parentAgent
-  // A named agent brings its own prompt. A built-in or inline spec has only this one.
-  const instructions = named ? '' : input.systemPrompt.trim()
+  // A named agent brings its own prompt. A built-in, fork or inline spec has only this one.
+  const spec = named ? '' : input.systemPrompt.trim()
+  // The child's own system prompt: an inline agent's instructions, or any spec of the coordinator,
+  // whose own prompt never runs in a child. Otherwise the spec is a note beside the agent's prompt.
+  const ownPrompt = input.ownPrompt === true || api.coordinator === true ? spec : ''
+  const note = ownPrompt ? '' : spec
+  if (ownPrompt.length > RUNTIME_CONTEXT_STRING_MAX) {
+    throw new Error(`Inline agent instructions are ${ownPrompt.length} characters; a separate subagent session takes at most ${RUNTIME_CONTEXT_STRING_MAX}.`)
+  }
   // Every child, named or not, is narrowed to the parent's tools (the in-process path's `rootToolAllowed`).
   const tools = childToolAllowlist(api.toolAllowlist, input.tools)
   const invalid = (tools ?? []).filter((name) => !TOOL_NAME.test(name))
@@ -480,9 +507,9 @@ function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Recor
   }
   const teammate = input.teammate
   const handle = checkedHandle(input)
-  const context = [instructions, teammate ? teammate.instructions.trim() : ''].filter(Boolean).join('\n\n')
+  const context = [note, teammate ? teammate.instructions.trim() : ''].filter(Boolean).join('\n\n')
   if (context.length > INITIAL_CONTEXT_MAX_CHARS) {
-    throw new Error(`Inline agent instructions are ${context.length} characters; a separate subagent session takes at most ${INITIAL_CONTEXT_MAX_CHARS}.`)
+    throw new Error(`Subagent instructions are ${context.length} characters; a separate subagent session takes at most ${INITIAL_CONTEXT_MAX_CHARS}.`)
   }
   const runtimeContext = {
     ...input.runtimeContext,
@@ -490,6 +517,7 @@ function buildCreateBody(api: CloudSubagentApi, input: SpawnSessionInput): Recor
     ...(tools ? { [SUBAGENT_TOOLS_KEY]: toolsValue ?? '' } : {}),
     ...(handle ? { [AGENT_HANDLE_CONTEXT_KEY]: handle } : {}),
     ...(teammate ? { [TEAM_LEAD_CONTEXT_KEY]: teammate.lead } : {}),
+    ...(ownPrompt ? { [AGENT_INSTRUCTIONS_CONTEXT_KEY]: ownPrompt } : {}),
   }
   const bytes = new TextEncoder().encode(JSON.stringify(runtimeContext)).byteLength
   if (bytes > RUNTIME_CONTEXT_MAX_BYTES) {

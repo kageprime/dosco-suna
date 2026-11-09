@@ -7,6 +7,7 @@ import {
 } from '@kortix/api-contract/compiled-agent-config-env';
 import { db } from '../../shared/db';
 import { resolveSandboxIngress } from '../../sandbox-proxy/backend';
+import { errorMessage } from '../../shared/error-message';
 // Aliased: every push below binds a local `config` from the sandbox row, which
 // would shadow the app config import inside those function bodies.
 import { config as appConfig } from '../../config';
@@ -263,7 +264,7 @@ export async function pushSessionAgentConfigToSandbox(input: {
       runtimeTurnEnded: pushed.runtimeTurnEnded,
     };
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const reason = errorMessage(err);
     console.warn(`[env-sync] agent-config push failed for session ${input.sessionId}:`, reason);
     return { applied: false, reason };
   }
@@ -323,7 +324,7 @@ export async function pushSessionModelToSandbox(input: {
     });
     return { applied: true };
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const reason = errorMessage(err);
     console.warn(`[env-sync] model push failed for session ${input.sessionId}:`, reason);
     return { applied: false, reason };
   }
@@ -408,7 +409,7 @@ export async function pushSessionScopeToSandbox(input: {
     });
     return { applied: true };
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const reason = errorMessage(err);
     console.warn(`[env-sync] scope push failed for session ${input.sessionId}:`, reason);
     return { applied: false, reason };
   }

@@ -92,6 +92,7 @@ try {
     [
       "import { createKortix, ApiError, classifyTurn, getSessionCostRecord, listSessionCosts, mintWireMessageId } from '@kortix/sdk';",
       "import { mintWireMessageId as mintFromSubpath, mintWireMessageIdAbove, maxWireIdClock, wireIdClockDelta } from '@kortix/sdk/wire-message-id';",
+      "import { THREAD_STATUSES as statusesFromSubpath } from '@kortix/sdk/wire-values';",
       "import { useSession } from '@kortix/sdk/react';",
       "import { createScopedKortix, createKortixAuth } from '@kortix/sdk/server';",
       "if (typeof createKortix !== 'function') throw new Error('createKortix is not a function');",
@@ -108,6 +109,7 @@ try {
       "const sdk = await import('@kortix/sdk');",
       "for (const name of ['readKortixMember', 'requireKortixMember', 'verifyKortixToken', 'kortixToken', 'kortixBinding', 'KortixMemberError', 'createAppToken']) if (typeof sdk[name] !== 'function') throw new Error(`${name} missing`);",
       "if (sdk.readKortixMember({ sub: 'u1', groups: ['Finance'] })?.groups[0] !== 'Finance') throw new Error('readKortixMember broken in the tarball');",
+      "if (statusesFromSubpath !== sdk.THREAD_STATUSES) throw new Error('@kortix/sdk/wire-values is not the root module');",
       "if (!(new ApiError('x') instanceof Error)) throw new Error('ApiError is not an Error');",
       "const k = createKortix({ backendUrl: 'http://smoke.test/v1', getToken: async () => null });",
       "if (typeof k.projects.list !== 'function') throw new Error('facade is not wired');",

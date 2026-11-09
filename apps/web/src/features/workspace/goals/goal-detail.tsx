@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { EmptyState } from '@kortix/ui/empty-state';
 import { ErrorState } from '@kortix/ui/error-state';
 import { Hint } from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { InputGroup, InputGroupAddon, InputGroupButton } from '@kortix/ui/input-group';
 import { AgentMark } from '@kortix/ui/internal/components/agent-mark';
 import Loading from '@kortix/ui/loading';
@@ -288,21 +288,12 @@ function ControlFailure({ actions }: { actions: GoalActions }) {
   if (!failure || failure.input.action === 'answer') return null;
   const retrying = actions.pending === failure.input.action;
   return (
-    <InfoBanner
-      tone="destructive"
-      icon={WarningIcon}
-      title={t(ERROR_TITLE[failure.input.action])}
-      role="alert"
-      data-testid="goal-control-error"
-      action={
-        <Button size="xs" variant="outline" className="gap-1.5" disabled={retrying} aria-busy={retrying} onClick={() => void actions.retry()} data-testid="goal-control-retry">
+    <BannerAlert variant="destructive" role="alert" data-testid="goal-control-error"><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{t(ERROR_TITLE[failure.input.action])}</BannerAlertTitle><BannerAlertDescription>
+      {failure.message || null}
+    </BannerAlertDescription><BannerAlertActions>{<Button size="xs" variant="outline" className="gap-1.5" disabled={retrying} aria-busy={retrying} onClick={() => void actions.retry()} data-testid="goal-control-retry">
           {retrying ? <Loading className="size-3.5 shrink-0" /> : null}
           {t('retry')}
-        </Button>
-      }
-    >
-      {failure.message || null}
-    </InfoBanner>
+        </Button>}</BannerAlertActions></BannerAlert>
   );
 }
 
@@ -351,30 +342,23 @@ function GoalMain({ projectId, goal, brief, files, actions }: { projectId: strin
       <ControlFailure actions={actions} />
 
       {open && goal.blockedReason ? (
-        <InfoBanner
-          tone="warning"
-          icon={WarningIcon}
-          title={t('blockedTitle')}
-          data-testid="goal-blocked"
-          data-reason={goal.blockedReason}
-          action={<BlockedAction goal={goal} actions={actions} />}
-        >
+        <BannerAlert variant="warning" data-testid="goal-blocked" data-reason={goal.blockedReason}><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{t('blockedTitle')}</BannerAlertTitle><BannerAlertDescription>
           {`${issueText('blocked', goal)} ${nextStep(goal) ?? ''}`.trim()}
-        </InfoBanner>
+        </BannerAlertDescription><BannerAlertActions>{<BlockedAction goal={goal} actions={actions} />}</BannerAlertActions></BannerAlert>
       ) : null}
 
       {record.provenance === 'legacy_unverified' ? (
-        <InfoBanner tone="neutral" title={t('legacyUnverifiedTitle')} data-testid="goal-legacy">
+        <BannerAlert variant="default" data-testid="goal-legacy"><BannerAlertTitle>{t('legacyUnverifiedTitle')}</BannerAlertTitle><BannerAlertDescription>
           {t('legacyUnverified')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       {waiting ? <QuestionForYou projectId={projectId} goal={goal} /> : null}
 
       {issues.map((issue) => (
-        <InfoBanner key={issue} tone="warning" icon={WarningIcon} title={t('attentionTitle')}>
+        <BannerAlert variant="warning" key={issue}><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{t('attentionTitle')}</BannerAlertTitle><BannerAlertDescription>
           {issueText(issue, goal)}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ))}
 
       <section className="flex flex-col gap-3" aria-label={t('doneWhen')} data-testid="goal-criteria">

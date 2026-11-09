@@ -80,11 +80,11 @@ test.describe('38 — The project shell knows who you are', () => {
       await test.step('the workspace menu leads with the workspace and its actions, then the person', async () => {
         await page.getByRole('button', { name: 'Switch workspace' }).click();
         const menu = page.getByRole('menu');
-        // Header: the workspace and the caller's one role.
+        // Header: the workspace only. The caller's role is not shown here.
         await expect(menu.getByTestId('workspace-menu-header')).toContainText(projectName);
-        await expect(menu.getByTestId('workspace-menu-header')).toContainText('Owner');
+        await expect(menu.getByTestId('workspace-menu-header')).not.toContainText('Owner');
         const rows = await menu.getByRole('menuitem').allInnerTexts();
-        const order = ['Invite people to', 'Workspace settings', 'Switch workspace', 'Preferences', 'Log out'].map((label) =>
+        const order = ['Invite people', 'Workspace settings', 'Switch workspace', 'Preferences', 'More', 'Log out'].map((label) =>
           rows.findIndex((row) => row.startsWith(label)),
         );
         expect(order.every((index) => index >= 0)).toBe(true);

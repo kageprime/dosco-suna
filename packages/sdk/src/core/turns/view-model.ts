@@ -42,6 +42,7 @@
  */
 
 import { stripAnsi } from './parts';
+import { isJsonObject } from './text-scan';
 import { editBlocks } from './edit-blocks';
 import { toolKind } from './tool-kind';
 import type { ToolView } from './classify';
@@ -150,9 +151,7 @@ function firstString(...candidates: unknown[]): string | undefined {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
+  return isJsonObject(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 // ============================================================================

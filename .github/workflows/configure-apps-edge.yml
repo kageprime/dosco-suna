@@ -39,13 +39,11 @@ jobs:
         with:
           keys: |
             CLOUDFLARE_API_TOKEN=kortix-ci-env:CLOUDFLARE_APPS_EDGE_API_TOKEN
-            CLOUDFLARE_GLOBAL_API_KEY
-            CLOUDFLARE_EMAIL
 
       - name: Validate Cloudflare configuration
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_GLOBAL_API_KEY CLOUDFLARE_EMAIL CLOUDFLARE_ZONE_ID; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ZONE_ID; do
             if [ -z "${!name:-}" ]; then
               echo "::error::${name} is not configured."
               exit 1
@@ -79,8 +77,7 @@ jobs:
           phase="$api/phases/http_response_headers_transform/entrypoint"
           current="$({
             curl --fail-with-body --silent --show-error \
-              --header "X-Auth-Email: $CLOUDFLARE_EMAIL" \
-              --header "X-Auth-Key: $CLOUDFLARE_GLOBAL_API_KEY" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "$phase"
           })"
           jq -e '.success == true and (.result.id | type == "string")' <<<"$current"
@@ -113,8 +110,7 @@ jobs:
           updated="$({
             curl --fail-with-body --silent --show-error \
               --request PUT \
-              --header "X-Auth-Email: $CLOUDFLARE_EMAIL" \
-              --header "X-Auth-Key: $CLOUDFLARE_GLOBAL_API_KEY" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               --header 'Content-Type: application/json' \
               --data "$body" \
               "$api/$ruleset_id"

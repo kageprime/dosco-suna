@@ -20,6 +20,7 @@ import { sandboxRuntimeEndpoint } from '../runtime-session-mapping';
 import { sessionHoldsTurnAuthority } from '../session-lifecycle/inbox-admission';
 import { sessionRuntimeFetch } from '../session-lifecycle/runtime-fetch';
 import {
+  claimRuntimeFloorRefusalLog,
   currentBelowSpell,
   decideRuntimeFloor,
   decideRuntimeFloorWhileBooting,
@@ -57,7 +58,9 @@ export async function holdBelowRuntimeFloor(
   if (booting) {
     const whileBooting = decideRuntimeFloorWhileBooting(record, externalId, Date.now());
     if (whileBooting.action === 'none') return null;
-    if (whileBooting.action === 'refuse') return refuse(args, row, externalId, whileBooting.why, currentBelowSpell(record, externalId, Date.now()));
+    if (whileBooting.action === 'refuse')
+      return refuse(args, row, externalId, whileBooting.why, currentBelowSpell(record, externalId, Date.now()),
+        claimRuntimeFloorRefusalLog(externalId, whileBooting.why, Date.now()));
     await writeRecord(row.sandboxId, { below: storedSpell(whileBooting.spell) });
     return holdingAnswer(args, row, externalId);
   }
@@ -88,8 +91,11 @@ export async function holdBelowRuntimeFloor(
     canExec: providerCanExec(row.provider),
     nowMs,
   });
-  // One line per spell while it waits, one per action: an open polls every second.
-  if (decision.action !== 'wait' || spell.since === spell.seenAt) logger.info('[runtime-floor] box below the runtime floor', {
+  // A box that cannot reach the floor refuses on every open of its session
+  // (prod 2026-11-07: retry bursts every ~10 min for days). One naming of the
+  // refusal per box+reason in the log window; the spell record still moves.
+  const logRefusal = decision.action !== 'refuse' || claimRuntimeFloorRefusalLog(externalId, decision.why, nowMs);
+  if (logRefusal && (decision.action !== 'wait' || spell.since === spell.seenAt)) logger.info('[runtime-floor] box below the runtime floor', {
     session_id: row.sessionId,
     sandbox_id: row.sandboxId,
     external_id: externalId,
@@ -112,7 +118,7 @@ export async function holdBelowRuntimeFloor(
       }
       return holdingAnswer(args, row, externalId);
     case 'refuse':
-      return refuse(args, row, externalId, decision.why, spell);
+      return refuse(args, row, externalId, decision.why, spell, logRefusal);
   }
 }
 
@@ -125,8 +131,9 @@ const REFUSAL_EVIDENCE: Record<RuntimeFloorRefusal, string> = {
 
 /**
  * The box cannot reach the floor. Refuse the open with the reason. The box is
- * left running as it is: its identity is immutable and it may hold uncommitted
- * work.
+ * left running as it is: its identity is immutable and it may hold
+ * uncommitted work. `nameIt`: the refusal was claimed in the log window
+ * (the caller's info line already carries it); repeats stay silent.
  */
 async function refuse(
   args: OpenSessionArgs,
@@ -134,11 +141,12 @@ async function refuse(
   externalId: string,
   why: RuntimeFloorRefusal,
   spell: RuntimeFloorBelow,
+  nameIt: boolean,
 ): Promise<SessionStartResult> {
   // The spell replaces the record, so the box loses any `current` stamp: the
   // delivery fast path must not reach a daemon this open refused.
   await writeRecord(row.sandboxId, { below: storedSpell(spell) });
-  logger.warn('[runtime-floor] refusing a box that cannot reach the runtime floor', {
+  if (nameIt) logger.warn('[runtime-floor] refusing a box that cannot reach the runtime floor', {
     session_id: row.sessionId,
     sandbox_id: row.sandboxId,
     external_id: externalId,

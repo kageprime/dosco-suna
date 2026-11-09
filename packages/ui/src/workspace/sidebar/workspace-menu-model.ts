@@ -1,30 +1,28 @@
 /**
  * The rows of the workspace menu (the sidebar's workspace name, Slack's
- * "Acme ▾"), in order, by group (design.md §3.1 finding 21):
+ * "Acme ▾"), in order, by group:
  *
- *  1. the workspace header (icon, name, the caller's role);
- *  2. Invite people to {name} · Workspace settings;
- *  3. Switch workspace (the list, with the pending-invitation count) · Create workspace;
- *  4. Inbox (the person's notifications from every workspace, KRTX-1742) ·
- *     Preferences (the person's own settings; Mod+,) · Apps and extensions ·
- *     Appearance · Help · Download app;
- *  5. Leave {name} · Log out.
+ *  1. the workspace header (icon and name);
+ *  2. the workspace: Invite people · Workspace settings · Switch workspace
+ *     (the list, with the pending-invitation count; Create workspace sits at
+ *     the bottom of that list, beside the workspaces it adds to);
+ *  3. the person: Inbox (notifications from every workspace, KRTX-1742) ·
+ *     Preferences (Mod+,) · More (Apps and extensions, Appearance, Help,
+ *     Download app: rows a person opens rarely, one level down);
+ *  4. Leave {name} · Log out.
  *
- * Each gated row follows the gate its target applies, so a row never opens a
- * page that refuses the caller.
+ * Seven rows at most at the top level: the rows used daily stay in reach,
+ * and the rest wait one hover away. Each gated row follows the gate its
+ * target applies, so a row never opens a page that refuses the caller.
  */
 export type WorkspaceMenuRow =
   | 'header'
   | 'invite'
   | 'settings'
   | 'switch'
-  | 'create'
   | 'inbox'
   | 'preferences'
-  | 'apps'
-  | 'appearance'
-  | 'help'
-  | 'download'
+  | 'more'
   | 'leave'
   | 'logout';
 
@@ -33,8 +31,6 @@ export interface WorkspaceMenuGates {
   canInvite: boolean;
   /** Customize › Workspace settings' gate (`config`). */
   canOpenSettings: boolean;
-  /** `canCreateWorkspace`: not a self-host that restricts account creation. */
-  canCreate: boolean;
   /** Not the last owner (`useLeaveWorkspace`). */
   canLeave: boolean;
   /** The host serves an Inbox page (`useInboxSummary(...).href` is set). */
@@ -45,9 +41,12 @@ export interface WorkspaceMenuGates {
 export function workspaceMenuGroups(gates: WorkspaceMenuGates): WorkspaceMenuRow[][] {
   const groups: WorkspaceMenuRow[][] = [
     ['header'],
-    [...(gates.canInvite ? (['invite'] as const) : []), ...(gates.canOpenSettings ? (['settings'] as const) : [])],
-    ['switch', ...(gates.canCreate ? (['create'] as const) : [])],
-    [...(gates.hasInbox ? (['inbox'] as const) : []), 'preferences', 'apps', 'appearance', 'help', 'download'],
+    [
+      ...(gates.canInvite ? (['invite'] as const) : []),
+      ...(gates.canOpenSettings ? (['settings'] as const) : []),
+      'switch',
+    ],
+    [...(gates.hasInbox ? (['inbox'] as const) : []), 'preferences', 'more'],
     [...(gates.canLeave ? (['leave'] as const) : []), 'logout'],
   ];
   return groups.filter((group) => group.length > 0);

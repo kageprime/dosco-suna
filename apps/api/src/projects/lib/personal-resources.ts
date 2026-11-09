@@ -30,6 +30,7 @@ import { agentPrincipalModeFor, isGovernedAgentGrant } from '../../iam/agent-pri
 import { db } from '../../shared/db';
 import type { ConnectionAgentPrincipalReach } from './connection-access';
 import { resolveSessionOnBehalfOf } from './on-behalf-of';
+import { errorMessage } from '../../shared/error-message';
 
 // The request readers `requestAgentPrincipalReach` and `requestPersonalOwner`
 // live in `http-personal-resources.ts`. Re-exported here so every importer and
@@ -167,7 +168,7 @@ export async function resolveSessionPersonalOwner(input: {
   } catch (err) {
     console.warn('[personal-resources] session resolution failed; no personal resources', {
       sessionId: input.sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }

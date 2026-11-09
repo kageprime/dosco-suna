@@ -906,5 +906,3 @@ export async function dropHeartbeat(goal: GoalRow): Promise<void> {
   await deleteHeartbeat(goal.projectId, goal.heartbeatReminderId);
   await setGoalRuntimeFields(goal.goalId, { heartbeatReminderId: null, nextWakeAt: null });
 }
-
-export { randomUUID as newGoalId };

@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { eq, sql } from 'drizzle-orm';
-import { accountMembers, accounts, projectMembers, projects } from '@kortix/db';
+import { accountMembers, accounts, projectMembers, projectSessions, projects } from '@kortix/db';
 import { db } from '../shared/db';
 import { app } from '../index';
 import { createAccountToken } from '../repositories/account-tokens';
@@ -16,6 +16,10 @@ const MEMBER = crypto.randomUUID();
 // (those are manager-only), so the "human/legacy token with no agent grant still
 // passes" cases for those routes need a manager, not the floor member.
 const MANAGER = crypto.randomUUID();
+// A real session on the project: the pool route must read it before it answers
+// the leaf, so the 403 is the gate and not a missing row. MANAGER owns it, so
+// the manager control is answered on a session the manager may see.
+const POOL_SESSION = crypto.randomUUID();
 
 const minted: string[] = [];
 let upstream: LocalGitUpstream;
@@ -47,12 +51,23 @@ beforeAll(async () => {
     { accountId: ACCOUNT, projectId: PROJECT, userId: MEMBER, projectRole: 'member' },
     { accountId: ACCOUNT, projectId: PROJECT, userId: MANAGER, projectRole: 'manager' },
   ]);
+  await db.insert(projectSessions).values({
+    sessionId: POOL_SESSION,
+    accountId: ACCOUNT,
+    projectId: PROJECT,
+    branchName: 'synthetic-pool-branch',
+    createdBy: MANAGER,
+    // Shared with the project, so the floor member reaches the leaf instead of
+    // the visibility 404 — the 403 it gets is then the gate, not a missing row.
+    visibility: 'project',
+  });
 });
 
 afterAll(async () => {
   for (const tokenId of minted) {
     await db.execute(sql`delete from kortix.account_tokens where token_id = ${tokenId}`);
   }
+  await db.delete(projectSessions).where(eq(projectSessions.projectId, PROJECT));
   await db.delete(projects).where(eq(projects.accountId, ACCOUNT));
   await db.delete(accounts).where(eq(accounts.accountId, ACCOUNT));
   upstream.remove();
@@ -86,6 +101,14 @@ function getReq(path: string, secret: string) {
   return app.request(path, {
     method: 'GET',
     headers: { Authorization: `Bearer ${secret}` },
+  });
+}
+
+function putReq(path: string, secret: string, body: unknown) {
+  return app.request(path, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   });
 }
 
@@ -269,4 +292,34 @@ describe('HTTP enforcement — send-primitive gates (Slack upload / meet speak)'
       });
     });
   }
+});
+
+// The provider-secret pool selects which keys a session may spend at the
+// gateway, so PUT asks project.secret.read next to the session control leaf.
+// A floor member holds project.session.stop but not project.secret.read: the
+// real IAM refuses at that leaf, after the session read and before any pool is
+// touched, so a session the member cannot see is still a 404.
+describe('HTTP enforcement — PUT session provider-secret pool needs project.secret.read', () => {
+  // The real session row, so the member's refusal is the leaf and not a 404.
+  const poolPath = () => `/v1/projects/${PROJECT}/sessions/${POOL_SESSION}/provider-secret-pools/anthropic`;
+
+  test('floor MEMBER (session control, no secret read) → 403 naming project.secret.read', async () => {
+    const res = await putReq(poolPath(), await mintToken(null), { secret_ids: null });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ action: PROJECT_ACTIONS.PROJECT_SECRET_READ });
+  });
+
+  test('MANAGER (holds the leaf) → the same session answers 200, so the gate cleared', async () => {
+    const res = await putReq(poolPath(), await mintManagerToken(null), { secret_ids: null });
+    expect(res.status).toBe(200);
+  });
+
+  test('a session the caller cannot see is 404, never the leaf 403', async () => {
+    const res = await putReq(
+      `/v1/projects/${PROJECT}/sessions/${crypto.randomUUID()}/provider-secret-pools/anthropic`,
+      await mintToken(null),
+      { secret_ids: null },
+    );
+    expect(res.status).toBe(404);
+  });
 });

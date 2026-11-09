@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { FlatModel } from './model-flatten';
-import { hasUsableModel, useModelStore, type ModelKey } from './use-model-store';
+import { hasUsableModel, seedGlobalDefaultFromServer, setGlobalDefaultModel, useModelStore, type ModelKey } from './use-model-store';
 
 // Regression coverage for connection-gating (`hasUsableModel`/`isVisible`)
 // preferring the explicit `provider` field the gateway now serves per model
@@ -180,5 +180,63 @@ describe('useModelStore — `isVisible` is independent of the calling surface (c
     for (const key of KEYS) {
       expect(connectedOnlySurface.isVisible(key)).toBe(expected[key.modelID]);
     }
+  });
+});
+
+// ============================================================================
+// The explicit global-default write (characterization, KRTX-4522).
+// The account default (“make this my default everywhere”) has two entry
+// points: the non-hook `setGlobalDefaultModel` and the hook's `setGlobalDefault`.
+// Both must leave the one store. Passive hydration (`seedGlobalDefaultFromServer`)
+// is a different action and keeps the user’s picks.
+// ============================================================================
+
+describe('the explicit global-default write clears the per-agent and per-session selections', () => {
+  const NEW: ModelKey = { providerID: 'kortix', modelID: 'kortix/new-global' };
+  const seed = (store: ReturnType<typeof useModelStore>) => {
+    store.setSessionModel('s1', { providerID: 'kortix', modelID: 'old/pick' }, 500);
+    store.setSessionAgentName('s1', 'coder');
+    store.setSelectedModel('coder', { providerID: 'kortix', modelID: 'old/agent-pick' });
+  };
+
+  test('setGlobalDefaultModel clears sessionModel, the fallback stamps and selectedModel', () => {
+    seed(captureModelStore([]));
+    setGlobalDefaultModel(NEW);
+    const after = captureModelStore([]);
+    expect(after.globalDefault).toEqual(NEW);
+    expect(after.getSessionModel('s1')).toBeUndefined();
+    expect(after.getSessionModelFallbackAt('s1')).toBeUndefined();
+    expect(after.getSelectedModel('coder')).toBeUndefined();
+  });
+
+  test('the hook’s setGlobalDefault clears the same selections', () => {
+    seed(captureModelStore([]));
+    captureModelStore([]).setGlobalDefault(NEW);
+    const after = captureModelStore([]);
+    expect(after.globalDefault).toEqual(NEW);
+    expect(after.getSessionModel('s1')).toBeUndefined();
+    expect(after.getSessionModelFallbackAt('s1')).toBeUndefined();
+    expect(after.getSelectedModel('coder')).toBeUndefined();
+  });
+
+  test('setGlobalDefaultModel(undefined) clears a stored default and the picks', () => {
+    captureModelStore([]).setGlobalDefault(NEW);
+    seed(captureModelStore([]));
+    setGlobalDefaultModel(undefined);
+    const after = captureModelStore([]);
+    expect(after.globalDefault).toBeUndefined();
+    expect(after.getSessionModel('s1')).toBeUndefined();
+    expect(after.getSessionModelFallbackAt('s1')).toBeUndefined();
+    expect(after.getSelectedModel('coder')).toBeUndefined();
+  });
+
+  test('passive hydration seeds the default and keeps the user’s picks', () => {
+    seed(captureModelStore([]));
+    seedGlobalDefaultFromServer(NEW);
+    const after = captureModelStore([]);
+    expect(after.globalDefault).toEqual(NEW);
+    expect(after.getSessionModel('s1')).toEqual({ providerID: 'kortix', modelID: 'old/pick' });
+    expect(after.getSessionModelFallbackAt('s1')).toBe(500);
+    expect(after.getSelectedModel('coder')).toEqual({ providerID: 'kortix', modelID: 'old/agent-pick' });
   });
 });

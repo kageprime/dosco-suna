@@ -24,6 +24,13 @@ mock.module('./viewer', () => ({
   },
 }));
 
+// The live access re-check of a public App's viewer (GHSA-6j4m-wf8w-27j2).
+let viewerHasAccess = true;
+mock.module('./access', () => ({
+  ...realAccess,
+  appAccessibleToUser: async () => viewerHasAccess,
+}));
+
 const { appApiProxyResponse } = await import('./public-proxy-api');
 
 function appRow(overrides: Record<string, unknown> = {}) {
@@ -73,6 +80,7 @@ const sameOrigin = (extra: Record<string, string> = {}) => ({
 beforeEach(() => {
   minted = [];
   forwarded = [];
+  viewerHasAccess = true;
 });
 
 describe('the App API path', () => {
@@ -141,6 +149,22 @@ describe('the App API path', () => {
     });
     expect(response.status).toBe(401);
     expect((await response.json()).error).toBe('no_viewer_identity');
+    expect(forwarded).toEqual([]);
+  });
+
+  test('a public App forwards as its viewer only while the viewer still has access', async () => {
+    const publicApp = appRow({ accessMode: 'public' });
+    expect((await call('/_kortix/api/v1/accounts/me', { headers: sameOrigin() }, publicApp)).status).toBe(200);
+    expect(minted).toEqual([{ appId: APP_ID, userId: USER_ID }]);
+
+    // Removed from the App's account; the 8 h gate cookie is still valid.
+    minted = [];
+    forwarded = [];
+    viewerHasAccess = false;
+    const response = await call('/_kortix/api/v1/accounts/me', { headers: sameOrigin() }, publicApp);
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toBe('no_viewer_identity');
+    expect(minted).toEqual([]);
     expect(forwarded).toEqual([]);
   });
 

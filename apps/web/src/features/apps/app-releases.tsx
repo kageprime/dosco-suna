@@ -25,6 +25,8 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { appCan, localizedAppCopy } from '@kortix/ui/apps';
 
+import { formatClock } from '@/lib/format-clock';
+
 type Translator = ReturnType<typeof useTranslations>;
 
 /** A history entry: one release, or a run of consecutive failed builds folded into one row. */
@@ -59,8 +61,7 @@ export function historyItems(deployments: AppDeployment[]): HistoryItem[] {
 /** `mm:ss` from the release's first event, the column an opened row lines its stages up on. */
 export function elapsed(from: string, to: string): string {
   const seconds = Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 1000));
-  const minutes = Math.floor(seconds / 60);
-  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  return formatClock(seconds, { padMinutes: true });
 }
 
 function strategyLabel(strategy: AppDeployStrategy, t: Translator): string {

@@ -14,7 +14,7 @@ import { logger } from '../lib/logger';
  * gzip passthrough counts its compressed size, which is what the wire carried.
  */
 
-export type ProxyByteClass = 'events' | 'runtime' | 'file' | 'daemon' | 'preview';
+type ProxyByteClass = 'events' | 'runtime' | 'file' | 'daemon' | 'preview';
 
 const FLUSH_INTERVAL_MS = 60_000;
 

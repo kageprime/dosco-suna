@@ -12,12 +12,16 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const actualConfig = await import('../config');
+const { observeWorkerTicks } = await import('../shared/audit-scope');
 const ORIGINAL_BILLING_ENABLED = actualConfig.config.KORTIX_BILLING_INTERNAL_ENABLED;
 
 type ProcessorResult = { processed: number; errors: string[] };
 
 let processorCalls = 0;
 let processor: () => Promise<ProcessorResult> = async () => ({ processed: 0, errors: [] });
+
+// leaderTimer consults the lease every tick; the test runs a sole leader.
+mock.module('../shared/leader-election', () => ({ isLeader: () => true }));
 
 mock.module('../billing/services/account-deletion', () => ({
   processScheduledDeletions: async () => processor(),
@@ -68,6 +72,38 @@ describe('startAccountDeletionSchedule', () => {
     await expect(stopAccountDeletionSchedule()).resolves.toBeUndefined();
     await Bun.sleep(50);
     expect(processorCalls).toBe(1);
+  });
+
+  // The heartbeat (`worker/runtime/heartbeat.ts`) moves `lastOkAt` only when
+  // the tick settles without an error; a tick that throws every time leaves
+  // the last success behind so the 2 h StaleJobs alarm can fire for a dead
+  // deleter. A catch INSIDE the `runWorkerTick` callback would settle the
+  // failing sweep as ok and blind that alarm.
+  test('a failing sweep settles the tick as an error, not ok', async () => {
+    const settlements: { worker: string; failed: boolean }[] = [];
+    observeWorkerTicks(
+      (worker) =>
+        (error?: unknown) => {
+          settlements.push({ worker, failed: error !== undefined });
+        },
+    );
+    processor = async () => {
+      processorCalls += 1;
+      throw new Error('db unavailable');
+    };
+    try {
+      startAccountDeletionSchedule();
+      await until(
+        () => settlements.some((s) => s.worker === 'account-deletion'),
+        'the failing tick to settle',
+      );
+    } finally {
+      await stopAccountDeletionSchedule();
+      observeWorkerTicks(null);
+    }
+    const ticks = settlements.filter((s) => s.worker === 'account-deletion');
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0].failed).toBe(true);
   });
 
   // Self-hosted deployments run with billing off. Their users request

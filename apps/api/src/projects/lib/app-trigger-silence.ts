@@ -20,7 +20,7 @@ import { db } from '../../shared/db';
 import { emitAppPlatformEvent } from './app-events';
 import { raiseTriggerSilenceAlert } from './trigger-alerts';
 
-export const APP_TRIGGER_SILENCE_CHECK_EVERY_MS = 60_000;
+const APP_TRIGGER_SILENCE_CHECK_EVERY_MS = 60_000;
 /** Alerts raised per pass, so one pass after an outage cannot stampede the notifier. */
 const SILENCE_CHECK_LIMIT = 200;
 

@@ -91,13 +91,24 @@ function mockApi(
     agent: string | null;
     connectors: string[] | 'all' | null;
     kortix_permissions?: string[] | 'all' | null;
-    kortix_cli: string[] | 'all' | null;
-    env: string[] | 'all' | null;
+    kortix_cli?: string[] | 'all' | null;
+    env?: string[] | 'all' | null;
   },
+  /** The `DELETE /v1/me/tokens/self` answer. `absent` = the 500 the old
+   *  catch-all returned, so logout tests that never mock revocation keep
+   *  exercising the failed-revocation path. */
+  tokenRevocation: 'ok' | 'fail' | 'absent' = 'absent',
 ) {
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = String(input);
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+    const url = input instanceof Request ? input.url : String(input);
     requests.push(url);
+    if (method === 'DELETE' && url.endsWith('/v1/me/tokens/self')) {
+      return new Response(JSON.stringify(tokenRevocation === 'ok' ? { ok: true } : { error: 'no' }), {
+        status: tokenRevocation === 'ok' ? 200 : 500,
+        headers: JSON_HEADERS,
+      });
+    }
     if (url.endsWith('/v1/me')) {
       return new Response(
         JSON.stringify({
@@ -325,6 +336,26 @@ describe('kortix hosts logout', () => {
     const code = await runLogout([]);
     expect(code).toBe(0);
     expect(getHost('test')?.token).toBe('');
+  });
+
+  test('revokes the stored key on the API before clearing it (KRTX-4493)', async () => {
+    mockApi(ACCOUNTS, undefined, 'ok');
+    const code = await runLogout([]);
+    expect(code).toBe(0);
+    // The revoke call went to the credential itself (the CLI cannot map a
+    // secret PAT to a token_id; the API revokes the presented bearer).
+    expect(requests.some((r) => r.endsWith('/v1/me/tokens/self'))).toBe(true);
+    // The local token is cleared either way.
+    expect(getHost('test')?.token).toBe('');
+    expect(stripAnsi(stdout)).not.toContain('could not be revoked');
+  });
+
+  test('still clears locally when the revocation fails, and says so', async () => {
+    mockApi(ACCOUNTS, undefined, 'fail');
+    const code = await runLogout([]);
+    expect(code).toBe(0);
+    expect(getHost('test')?.token).toBe('');
+    expect(stripAnsi(stdout)).toContain('could not be revoked');
   });
 });
 

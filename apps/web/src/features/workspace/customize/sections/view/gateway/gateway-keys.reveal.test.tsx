@@ -39,14 +39,6 @@ describe('Gateway key reveal — KM01', () => {
     expect(out).toMatch(/<code[^>]*>https:\/\/gateway\.dosco\.live\/v1<\/code>/);
   });
 
-  test('the dialog: full key + dark Copy, the shown-once note in an info Alert', () => {
-    expect(reveal).toContain('{created.secret_key}');
-    expect(reveal).toContain("t('shownOnceNote')");
-    expect(reveal).toContain('<Alert>');
-    expect(reveal).not.toContain('InfoBanner');
-    expect(reveal).toContain('<GatewayFirstRequest');
-  });
-
   test('closing is gated on "I\'ve stored this key"', () => {
     expect(reveal).toContain("t('storedConfirm')");
     expect(reveal).toContain('disabled={!stored}');

@@ -1409,8 +1409,13 @@ async function healMissingSnapshot(
   // and retry once. Capped at one heal per session start.
   if (isSnapshotMissingOnProvider(bgErr) && state.imageInfo && !state.healedStaleSnapshot) {
     state.healedStaleSnapshot = true;
+    // Delete the EXACT snapshot name the session booted — never re-derive it
+    // from the slug (a project template named `default-warm` that disappears
+    // mid-provision would re-resolve to the shared platform default and make
+    // this heal delete the image every tenant's next session boots from;
+    // KRTX-4465, Strix CWE-367).
     await deleteSandboxImage(opts.gitProject, {
-      slug: state.imageInfo.slug,
+      snapshotName: state.imageInfo.snapshotName,
       provider: state.providerName,
     }).catch((err: unknown) =>
       console.warn(

@@ -39,10 +39,6 @@ export function unregisterSocket(chromeId: string, ws: ChromeSocket): boolean {
   return true;
 }
 
-export function hasLocalSocket(chromeId: string): boolean {
-  return sockets.has(chromeId);
-}
-
 function deliverLocal(chromeId: string, frame: unknown): boolean {
   const ws = sockets.get(chromeId);
   return ws ? applyFrame(ws, frame) : false;

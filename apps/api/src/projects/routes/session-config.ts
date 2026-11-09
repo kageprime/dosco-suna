@@ -68,6 +68,19 @@ function budgetLeft(spendFrom: number): number {
   return Math.max(1_000, LATEST_ETAG_BUDGET_MS - (Date.now() - spendFrom));
 }
 
+/**
+ * Cap on the box-health probe inside ONE GET /config read (the
+ * `sandbox_state` stage). A probe that does not answer is answered the same
+ * shape either way — `sandbox_reachable: false`, `stale: null` — so the wait
+ * only holds the poller. Its p95 is ~467 ms over 26 h of prod reads, so the
+ * 10 s default only ever fired for a box whose daemon stopped answering: an
+ * enterprise workspace polled it 18 times in two hours and set the route's
+ * p95 at ~10000 ms while its p50 stayed flat (KRTX-629). 3 s keeps the
+ * healthy box and still answers quickly; reloads and convergences keep the
+ * 10 s default because they act on the state.
+ */
+const SANDBOX_CONFIG_PROBE_TIMEOUT_MS = 3_000;
+
 /** Degrade one bounded stage to `null` on its budget timeout, loudly once. */
 async function boundedStage<T>(promise: Promise<T>, label: string, budgetMs: number): Promise<T | null> {
   try {
@@ -130,7 +143,9 @@ export function registerSessionConfigRoutes(): void {
         gitAuthToken: null,
       };
       const [running, latest] = await Promise.all([
-        timeConfigStage('sandbox_state', () => readSandboxConfigState({ sessionId })),
+        timeConfigStage('sandbox_state', () =>
+          readSandboxConfigState({ sessionId, timeoutMs: SANDBOX_CONFIG_PROBE_TIMEOUT_MS }),
+        ),
         timeConfigStage('latest_etag', () =>
           latestAgentConfigEtag(
             {

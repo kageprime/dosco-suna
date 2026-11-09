@@ -25,7 +25,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../primitives/alert';
 import { Input } from '../../primitives/input';
 import { Label } from '../../primitives/label';
 import Loading from '../../primitives/loading';
@@ -262,16 +262,13 @@ export function PoliciesPanel({ projectId }: { projectId: string }) {
 
   if (isForbidden) {
     return (
-      <InfoBanner
-        tone="warning"
-        title={tI18nHardcoded.raw(
+      <BannerAlert variant="warning" ><BannerAlertTitle>{tI18nHardcoded.raw(
           'autoComponentsProjectsPoliciesPanelJsxAttrTitleAdminAccessRequired34f66101',
-        )}
-      >
+        )}</BannerAlertTitle><BannerAlertDescription>
         {tI18nHardcoded.raw(
           'autoComponentsProjectsPoliciesPanelJsxTextOnlyProjectManagersCan603f67fc',
         )}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
 
@@ -354,12 +351,9 @@ export function PoliciesPanel({ projectId }: { projectId: string }) {
         </div>
 
         {parseErrors.length > 0 && (
-          <InfoBanner
-            tone="warning"
-            title={tI18nHardcoded.raw(
+          <BannerAlert variant="warning" ><BannerAlertTitle>{tI18nHardcoded.raw(
               'autoComponentsProjectsPoliciesPanelJsxAttrTitleKortixTomlHad8db85c74',
-            )}
-          >
+            )}</BannerAlertTitle><BannerAlertDescription>
             <ul className="space-y-1">
               {parseErrors.map((e) => (
                 <li key={`${e.path}:${e.error}`} className="text-xs">
@@ -367,7 +361,7 @@ export function PoliciesPanel({ projectId }: { projectId: string }) {
                 </li>
               ))}
             </ul>
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         )}
 
         {query.isLoading ? (

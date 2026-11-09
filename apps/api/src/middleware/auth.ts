@@ -18,7 +18,10 @@ import { auditLoginFail, auditLoginSuccess } from './auth-audit';
 // shared/dead-credential-log.ts so the session gate can throw it without
 // pulling this module's whole import graph; re-exported here so every
 // existing importer keeps working.
-import { deadCredential401 } from '../shared/dead-credential-log';
+import {
+  INVALID_OR_EXPIRED_TOKEN_MESSAGE,
+  deadCredential401,
+} from '../shared/dead-credential-log';
 export { deadCredential401 } from '../shared/dead-credential-log';
 import { requestClientKey } from './client-ip';
 import { isOAuthAccessToken } from '../oauth/access-token';
@@ -297,7 +300,7 @@ async function resolveJwt(c: Context, next: Next, token: string) {
   if (!isInconclusiveVerifyFailure(local.reason)) {
     // Token is definitively invalid (bad signature, expired, malformed)
     auditLoginFail({ c, reason: `jwt_${local.reason}`, authType: 'jwt' });
-    throw new HTTPException(401, { message: 'Invalid or expired token' });
+    throw new HTTPException(401, { message: INVALID_OR_EXPIRED_TOKEN_MESSAGE });
   }
 
   try {
@@ -313,7 +316,7 @@ async function resolveJwt(c: Context, next: Next, token: string) {
         reason: error?.message ?? 'jwt_network_invalid',
         authType: 'jwt',
       });
-      throw new HTTPException(401, { message: 'Invalid or expired token' });
+      throw new HTTPException(401, { message: INVALID_OR_EXPIRED_TOKEN_MESSAGE });
     }
 
     const payload = decodeSupabaseJwtPayload(token);

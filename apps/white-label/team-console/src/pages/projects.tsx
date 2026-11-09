@@ -4,7 +4,7 @@ import Loading from '@kortix/ui/loading';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kortix/ui/table';
 import { FolderSimple } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { PageTitle, RowLink, When } from '../app';
+import { PageTitle, RowLink, When } from '../ui';
 import { kortix } from '../kortix';
 
 export function useProjects() {

@@ -11,7 +11,7 @@
  */
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions} from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { errorToast } from '@kortix/ui/toast';
 import { useBillingReturnUrl } from '@/features/billing/billing-return';
@@ -40,24 +40,18 @@ export function PlanAccessNotice({ state }: { state: AccountState }) {
   return (
     <div className="space-y-3 empty:hidden">
       {state.model_access?.requires_provider_key ? (
-        <InfoBanner tone="info" title={tModel('managedTitle')}>
+        <BannerAlert variant="default" ><BannerAlertTitle>{tModel('managedTitle')}</BannerAlertTitle><BannerAlertDescription>
           {tModel('managedUpgradeHint')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
       {offer ? <OfferBanner offer={offer} manager={canManageBilling(state)} /> : null}
 
       {grace ? (
-        <InfoBanner
-          tone="warning"
-          title={t('graceTitle')}
-          action={
-            <Button size="sm" variant="outline" disabled={sales.isPending} onClick={sales.talk}>
-              {t('talkToSales')}
-            </Button>
-          }
-        >
+        <BannerAlert variant="warning" ><BannerAlertTitle>{t('graceTitle')}</BannerAlertTitle><BannerAlertDescription>
           {t('graceBodyContract', { date: formatDay(grace.ends_at, locale) })}
-        </InfoBanner>
+        </BannerAlertDescription><BannerAlertActions>{<Button size="sm" variant="outline" disabled={sales.isPending} onClick={sales.talk}>
+              {t('talkToSales')}
+            </Button>}</BannerAlertActions></BannerAlert>
       ) : null}
     </div>
   );
@@ -90,20 +84,14 @@ function OfferBanner({ offer, manager }: { offer: NonNullable<AccountState['ente
     );
 
   return (
-    <InfoBanner
-      tone="info"
-      title={t('offerTitle')}
-      action={
-        offer.collection === 'checkout' && manager ? (
+    <BannerAlert variant="default" ><BannerAlertTitle>{t('offerTitle')}</BannerAlertTitle><BannerAlertDescription>
+      {t('offerLicense', { license: formatWholeUsd(offer.license_usd, locale), months: offer.term_months })}{' '}
+      {offer.collection !== 'checkout' ? t('offerInvoiced') : manager ? null : t('offerAskManager')}
+    </BannerAlertDescription><BannerAlertActions>{offer.collection === 'checkout' && manager ? (
           <Button size="sm" className="gap-1.5" onClick={acceptOffer} disabled={accept.isPending}>
             {accept.isPending ? <Loading className="size-4 shrink-0" /> : null}
             {t('offerAccept')}
           </Button>
-        ) : null
-      }
-    >
-      {t('offerLicense', { license: formatWholeUsd(offer.license_usd, locale), months: offer.term_months })}{' '}
-      {offer.collection !== 'checkout' ? t('offerInvoiced') : manager ? null : t('offerAskManager')}
-    </InfoBanner>
+        ) : null}</BannerAlertActions></BannerAlert>
   );
 }

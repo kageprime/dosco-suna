@@ -15,7 +15,7 @@ import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { Button } from '@kortix/ui/button';
 import { ButtonGroup } from '@kortix/ui/button-group';
 import Hint from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
 import { OutcomeTitle } from '@kortix/ui/internal/auth/auth-consent';
@@ -326,9 +326,9 @@ export default function PublicSessionSharePage() {
                   <p className="text-muted-foreground text-sm text-pretty">{offlineDescription}</p>
                 </div>
                 {startError && (
-                  <InfoBanner className="w-full" tone="destructive" role="alert">
+                  <BannerAlert variant="destructive" className="w-full" role="alert"><BannerAlertDescription>
                     {startError}
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
                 )}
                 <Button
                   onClick={startSession}

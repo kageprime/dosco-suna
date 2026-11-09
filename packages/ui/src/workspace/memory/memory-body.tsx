@@ -15,7 +15,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 import { useTranslations } from '../../i18n';
 import { Button } from '../../primitives/button';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import Loading from '../../primitives/loading';
 import { successToast } from '../../primitives/toast';
 import { docToMarkdown, markdownToDoc, memoryLinkTarget, superscript } from './body-doc';
@@ -178,16 +178,9 @@ export function MemoryBody({
         {!editing && !page.body.trim() ? <p className="text-muted-foreground text-sm">{t('emptyPage')}</p> : null}
         <EditorContent editor={editor} className={!editing && !page.body.trim() ? 'hidden' : undefined} />
         {editing && error === 'conflict' ? (
-          <InfoBanner
-            tone="warning"
-            icon={WarningCircleIcon}
-            title={t('editor.conflict')}
-            action={
-              <Button type="button" variant="outline" size="toolbar" onClick={onReload}>
+          <BannerAlert variant="warning" ><BannerAlertMedia><WarningCircleIcon /></BannerAlertMedia><BannerAlertTitle>{t('editor.conflict')}</BannerAlertTitle><BannerAlertActions>{<Button type="button" variant="outline" size="toolbar" onClick={onReload}>
                 {t('editor.reload')}
-              </Button>
-            }
-          />
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : editing && error ? (
           <p role="alert" className="text-destructive text-xs">
             {t(`editor.error.${error}`)}

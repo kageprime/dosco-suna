@@ -296,7 +296,8 @@ const catalog = {
       "actionImport": "Import an existing repository",
       "ownerTypePersonal": "Personal account",
       "ownerTypeOrg": "Organization",
-      "createPersonalAuthorize": "Kortix asks GitHub for your authorization the first time you create a repository in a personal account."
+      "createPersonalAuthorize": "Kortix asks GitHub for your authorization the first time you create a repository in a personal account.",
+      "importHint": "Kortix reads agents from kortix.yaml in this repository. Without one, the workspace opens on a setup prompt you copy into your coding agent."
     }
   },
   "projectHome": {
@@ -2222,6 +2223,25 @@ const catalog = {
     "startHint": "Tell Kortix what you’re working on below, or send “Onboard me” for a guided setup.",
     "placeholder": "Tell Kortix what you're working on",
     "kickoff": "Onboard me"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "Set up Kortix in this repository",
+      "body": "Paste the setup prompt into Claude Code, Codex or Cursor in your clone. Chat opens here when <code>kortix.yaml</code> lands on <code>{branch}</code>."
+    },
+    "defaultBranch": "the default branch",
+    "copy": "Copy setup prompt",
+    "copied": "Copied",
+    "copyFailed": "Could not copy the prompt",
+    "docs": "Setup guide",
+    "noAccess": {
+      "title": "No agents available to you",
+      "body": "Anyone who manages this workspace can give you access."
+    },
+    "empty": {
+      "title": "No agents in this workspace",
+      "body": "Declare one in kortix.yaml, or create one with New agent."
+    }
   },
   "hardcodedUi": {
     "appProjectsIdCustomizeSecretsPage": {
@@ -9960,7 +9980,9 @@ const catalog = {
         "createdDescription": "{name} acts as {actsAs}. Kortix shows the key once: copy it now and store it as a secret.",
         "accessFullHint": "Everything the key's principal may do in this workspace.",
         "accessCustomHint": "Only the permissions you pick. Each one must be something the key's principal may do."
-      }
+      },
+      "searchPlaceholder": "Search settings",
+      "searchNoResults": "No settings match"
     },
     "models": {
       "yourDefault": "Workspace default",

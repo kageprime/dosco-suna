@@ -17,6 +17,7 @@ import { accountGithubInstallationStates, accountGithubInstallations, accountTok
 import type { AgentGrant } from '@kortix/db';
 import { and, countDistinct, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { errorMessage } from '../../shared/error-message';
 // Imported from the leaf modules, not the `../../iam` barrel: this file is
 // pulled in by most of the project surface, and several suites mock the barrel
 // with a partial shape — a barrel import here turns those into module-load
@@ -882,7 +883,7 @@ export async function resolveProjectGitAuth(project: ProjectRow): Promise<Projec
         logger.warn('[projects] GitHub App installation token mint failed', {
           projectId: project.projectId,
           installationId,
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage(err),
         });
         return { authSource: 'none', reason: 'installation_unusable' };
       }

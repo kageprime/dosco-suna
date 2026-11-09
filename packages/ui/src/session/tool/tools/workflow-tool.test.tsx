@@ -418,6 +418,17 @@ describe('WorkflowRunRows — an open phase', () => {
   });
 });
 
+describe('WorkflowRunRows — type scale', () => {
+  test('the rows set text-xs themselves, so the run card and the agents line popover render one type scale', () => {
+    // The card's section sets text-xs, but the agents line popover renders the
+    // same rows with no size context: without this, its status text inherits
+    // the popover's base size and renders larger than the row titles.
+    const stop = { enabled: false, pending: new Set<string>(), stop: () => {} };
+    const html = render(<WorkflowRunRows run={run() as never} live={false} now={0} onOpen={() => {}} stop={stop} />);
+    expect(html.startsWith('<div class="flex flex-col p-1.5 text-xs"')).toBe(true);
+  });
+});
+
 describe('WorkflowRunRows — the phase ring', () => {
   test('a done phase draws the done check only when every agent finished', () => {
     const stop = { enabled: false, pending: new Set<string>(), stop: () => {} };

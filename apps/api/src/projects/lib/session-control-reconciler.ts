@@ -57,6 +57,7 @@ import {
   readSessionAuditWatermark,
   readSessionControlState,
 } from './session-control-readers';
+import { errorMessage } from '../../shared/error-message';
 export type { RuntimeControlState, AuditWatermark, SessionControlState } from './session-control-readers';
 import { deriveSessionWorking } from './session-working';
 import type { SessionTurnStatus } from '@kortix/api-contract';
@@ -568,7 +569,7 @@ async function driveWakeLadder(sessionId: string, reconciler: Reconciler): Promi
   } catch (error) {
     logger.warn('[wake-ladder] step failed', {
       sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   } finally {
     ladder.acting = false;

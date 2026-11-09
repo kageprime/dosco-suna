@@ -5,15 +5,16 @@
  * Used by the web "Create project" flow — there's no local working tree to push
  * (unlike `kortix ship`), so the server seeds the starter or sessions can't boot
  * from an empty repo. Works for any HTTPS git remote (GitHub, GitLab, …) via
- * the same `x-access-token` basic scheme, injected per-invocation through
- * http.extraHeader so the token never lands in a config file.
+ * the git-backends shared basic-auth scheme (`basicAuthHeader` in ./types),
+ * injected per-invocation through http.extraHeader so the token never lands in
+ * a config file.
  */
 import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import type { SeedFile } from './types';
+import { basicAuthHeader, type SeedFile } from './types';
 
 const execFileAsync = promisify(execFile);
 
@@ -80,7 +81,10 @@ export async function seedRepoViaGitPush(input: {
     }
 
     const host = new URL(input.upstreamUrl).host;
-    const encoded = Buffer.from(`x-access-token:${input.token}`).toString('base64');
+    // The push sends the credential as an http.extraHeader (never a config
+    // file). The git-backends header builder owns the x-access-token basic
+    // encoding; the extraheader carries its value lowercase.
+    const encoded = basicAuthHeader(input.token).Authorization.slice('Basic '.length);
     await run(
       ['push', input.upstreamUrl, `${branch}:refs/heads/${branch}`],
       ['-c', `http.https://${host}/.extraheader=AUTHORIZATION: basic ${encoded}`],

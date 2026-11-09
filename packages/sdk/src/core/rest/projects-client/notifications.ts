@@ -6,7 +6,7 @@
 import { backendApi } from '../../http/api-client';
 import { ApiError } from '../../http/api/errors';
 import { platformConfig } from '../../http/config';
-import { platformApiBase } from '../platform-client/shared';
+import { platformApiBase } from '../../http/url';
 import { unwrap } from './shared';
 
 /** Per-device push preferences. An omitted key keeps its stored value (true for a new token). */

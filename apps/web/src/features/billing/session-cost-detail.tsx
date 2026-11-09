@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Skeleton } from '@kortix/ui/skeleton';
 import {
   Table,
@@ -92,9 +92,9 @@ export function SessionCostDetailContent({
     return (
       <div className="space-y-4">
         <h2 className="text-lg font-medium">{tI18nComplete.raw('texte3a7167b0134')}</h2>
-        <InfoBanner tone="destructive" title={tI18nComplete.raw('text79910479b58e')}>
+        <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nComplete.raw('text79910479b58e')}</BannerAlertTitle><BannerAlertDescription>
           {error.message}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       </div>
     );
   }

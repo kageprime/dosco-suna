@@ -50,6 +50,7 @@ import {
 import { db } from '../../shared/db';
 import { logger } from '../../lib/logger';
 import { writeRuntimeSessionList } from './runtime-session-snapshot';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * How old a RUNNING box's projection may be before it is refused.
@@ -253,7 +254,7 @@ export async function saveRuntimeProjection(
   }).catch((err) =>
     logger.warn('[runtime-projection] session list write failed', {
       session_id: input.sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     }),
   );
   return 'stored';

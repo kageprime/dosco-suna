@@ -145,10 +145,38 @@ describe('local capability permission enforcement', () => {
         __permission: {
           permissionId: 'permission-1',
           capability: 'shell',
-          scope: { commands: ['node'], workingDir: root },
+          scope: { commands: ['node --version'], workingDir: root },
         },
       }),
     ).rejects.toThrow('outside allowed directories');
+  });
+
+  test('an allowed executable cannot take unapproved interpreter arguments', async () => {
+    const marker = join(root, 'pwned');
+    const payload = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x')`;
+    const permission = (commands: string[]) => ({
+      permissionId: 'permission-1',
+      capability: 'shell',
+      scope: { commands },
+    });
+    const scoped = createShellCapability(config()).methods.get('shell.exec')!;
+    await expect(
+      scoped({ command: 'node', args: ['-e', payload], __permission: permission(['node']) }),
+    ).rejects.toThrow('not in the allowed commands list');
+    const local = createShellCapability({ ...config(), allowedCommands: ['node --version'] })
+      .methods.get('shell.exec')!;
+    await expect(
+      local({ command: 'node', args: ['-e', payload], __permission: permission(['node *']) }),
+    ).rejects.toThrow('not in the allowed commands list');
+    await expect(readFile(marker, 'utf8')).rejects.toThrow();
+
+    const result = (await local({
+      command: 'node',
+      args: ['--version'],
+      __permission: permission(['node *']),
+    })) as { exitCode: number; stdout: string };
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toStartWith('v');
   });
 
   test('disjoint local and permission command allowlists fail closed', async () => {

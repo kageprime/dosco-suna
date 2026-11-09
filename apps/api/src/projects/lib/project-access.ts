@@ -16,6 +16,7 @@ import { invalidateIamCacheForUser, registerPrincipalScopedMemo } from '../../ia
 import { buildDenialError, denialReasonMessage } from '../../iam/denial-message';
 import { projectRoleForUser } from '../../iam/read-models';
 import { db } from '../../shared/db';
+import { captureProductEvent } from '../../shared/product-analytics';
 import { IMPERSONATION_INVALID_CODE, impersonatedAccountFor } from '../../shared/impersonation';
 import { accountKeyForWorkspaceId, resolveAccountId } from '../../shared/resolve-account';
 import { isUuid } from '../../shared/validate';
@@ -122,14 +123,17 @@ export function parseExpiresAtBody(
 export async function ensureOrgMembership(
   accountId: string,
   userId: string,
+  via: 'project_invite' | 'access_request',
 ): Promise<AccountRole> {
   const existing = await getAccountMembership(userId, accountId);
   if (existing) return existing.accountRole as AccountRole;
   // THE membership write (iam/workspace-members.ts). `SYSTEM_ACTOR`: the two
-  // callers (accepting a project invite, approving an access request) were
-  // authorized by their own route, and the person being added is not the writer.
+  // callers (adding an existing user to a project, approving an access request)
+  // were authorized by their own route, and the person being added is not the writer.
   await addWorkspaceMember(accountId, userId, 'member', [], { writer: SYSTEM_ACTOR, source: 'system' });
   invalidateIamCacheForUser(userId);
+  // Only a new membership is a join; an existing member gains a project, not a workspace.
+  captureProductEvent({ userId, accountId, event: 'member_joined', properties: { via, role: 'member' } });
   return 'member';
 }
 

@@ -5,7 +5,7 @@
 // them). Not re-exported from index.ts: no public name.
 
 import type { AssignmentInput, ListAssignmentsFilter } from './assignments';
-import { appendQuery } from './iam-query';
+import { appendQuery } from '../../http/url';
 
 /** The list filter as a query string (`''` when empty). */
 export function assignmentQuery(filter: ListAssignmentsFilter | undefined) {

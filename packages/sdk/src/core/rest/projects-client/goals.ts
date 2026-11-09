@@ -17,6 +17,7 @@
  */
 
 import { ApiError, backendApi } from '../../http/api-client';
+import { appendQuery } from '../../http/url';
 import { generateSessionId } from '../../../platform/session-id';
 import { mintWireMessageId } from '../../session/wire-message-id';
 import type { ResourceBinding } from './manifest-spaces';
@@ -618,7 +619,7 @@ export async function listWorkspaceGoalEvents(
   goalId: string,
   options?: { cursor?: string | null },
 ): Promise<{ events: ProjectGoalEvent[]; nextCursor: string | null }> {
-  const query = options?.cursor ? `?cursor=${encodeURIComponent(options.cursor)}` : '';
+  const query = appendQuery({ cursor: options?.cursor });
   const page = unwrap(
     await backendApi.get<{ events: ProjectGoalEvent[]; next_cursor: string | null }>(`${goalPath(projectId, goalId)}/events${query}`),
     'Goal events request failed',

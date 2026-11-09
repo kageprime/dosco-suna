@@ -347,7 +347,8 @@
       "actionImport": "Увези постојећи репозиторијум",
       "ownerTypePersonal": "Лични налог",
       "ownerTypeOrg": "Организација",
-      "createPersonalAuthorize": "Kortix će prvi put zatražiti vašu autorizaciju na GitHubu kada kreirate repozitorijum na ličnom nalogu."
+      "createPersonalAuthorize": "Kortix će prvi put zatražiti vašu autorizaciju na GitHubu kada kreirate repozitorijum na ličnom nalogu.",
+      "importHint": "Kortix čita agente iz kortix.yaml u ovom repozitorijumu. Bez njega, workspace se otvara sa promptom za podešavanje koji kopiraš u svog agenta za kodiranje."
     }
   },
   "projectHome": {
@@ -3749,6 +3750,25 @@
     "startHint": "Реци Kortix-у испод на чему радиш или пошаљи „Уведи ме у Kortix“ за вођено подешавање.",
     "placeholder": "Реци Kortix-у на чему радиш",
     "kickoff": "Уведи ме у Kortix"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "Podesi Kortix u ovom repozitorijumu",
+      "body": "Nalepi prompt za podešavanje u Claude Code, Codex ili Cursor u svom klonu. Čet se otvara ovde kada <code>kortix.yaml</code> stigne na <code>{branch}</code>."
+    },
+    "defaultBranch": "podrazumevanu granu",
+    "copy": "Kopiraj prompt za podešavanje",
+    "copied": "Kopirano",
+    "copyFailed": "Prompt nije kopiran",
+    "docs": "Vodič za podešavanje",
+    "noAccess": {
+      "title": "Nemaš dostupnih agenata",
+      "body": "Svako ko upravlja ovim workspace-om može da ti da pristup."
+    },
+    "empty": {
+      "title": "U ovom workspace-u nema agenata",
+      "body": "Deklariši jednog u kortix.yaml ili ga napravi pomoću Novi agent."
+    }
   },
   "announcements": {
     "memories": {
@@ -26606,7 +26626,9 @@
         "createdDescription": "{name} делује као {actsAs}. Kortix приказује кључ само једном: копирајте га сада и сачувајте као тајну.",
         "accessFullHint": "Све што принципал кључа сме у овом радном простору.",
         "accessCustomHint": "Само дозволе које изаберете. Свака мора бити нешто што принципал кључа сме."
-      }
+      },
+      "searchPlaceholder": "Претражи подешавања",
+      "searchNoResults": "Ниједно подешавање не одговара"
     },
     "cli": {
       "noWorkspaceTitle": "Направите радни простор да бисте пријавили CLI",
@@ -26637,7 +26659,9 @@
     },
     "menu": {
       "invite": "Позови људе у {name}",
-      "leave": "Напусти {name}"
+      "leave": "Напусти {name}",
+      "invitePeople": "Позови људе",
+      "more": "Више"
     },
     "roles": {
       "owner": {

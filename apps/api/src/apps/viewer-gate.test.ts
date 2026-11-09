@@ -296,6 +296,42 @@ describe('the viewer header the container receives', () => {
   });
 });
 
+describe('a public App re-checks its viewer before it mints a credential (GHSA-6j4m-wf8w-27j2)', () => {
+  // `appAccessibleToUser` admits OTHER_USER only: USER_ID holds a valid gate
+  // cookie from before they were removed from the App's account.
+  const publicApi = () => appRow({ accessMode: 'public', viewerTokenScope: 'api' });
+
+  test('GET /_kortix/viewer answers 401 and mints nothing', async () => {
+    mintedFor = [];
+    const request = req({ headers: { cookie: sessionCookie() } }, '/_kortix/viewer');
+    const res = await appViewerEndpointResponse(request, URL_HTTPS, publicApi());
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toBe('no_viewer_identity');
+    expect(mintedFor).toEqual([]);
+  });
+
+  test('the proxied request keeps the identity header but carries no token', async () => {
+    mintedFor = [];
+    const header = await appViewerContextHeader(req({ headers: { cookie: sessionCookie() } }), URL_HTTPS, publicApi());
+    expect(header!.context).toBeTruthy();
+    expect(header!.token).toBeNull();
+    expect(mintedFor).toEqual([]);
+  });
+
+  test('a viewer who still has access gets the token', async () => {
+    mintedFor = [];
+    const res = await appViewerEndpointResponse(
+      req({ headers: { cookie: sessionCookie() } }, '/_kortix/viewer'),
+      URL_HTTPS,
+      publicApi(),
+      async () => true,
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).access_token).toBe('kortix_oat_minted');
+    expect(mintedFor).toEqual([{ appId: APP_ID, userId: USER_ID, scope: 'api' }]);
+  });
+});
+
 describe('GET /_kortix/viewer', () => {
   test('hands a signed-in viewer their identity and an App-scoped token', async () => {
     mintedFor = [];

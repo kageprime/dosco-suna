@@ -72,6 +72,35 @@ export async function buildSessionTranscriptDigest(
 }
 
 /**
+ * The last assistant answer of the turn the digest ends on: the newest
+ * assistant message after the last user message — the turn that just ended —
+ * plus the newest assistant message's turn error. No user message reads the
+ * whole window (the inline selections this replaces did the same).
+ *
+ * `text` is the newest non-blank assistant text, `''` when the window had
+ * none; `id` belongs to the message that carried it. `error` is the turn's
+ * error — the newest assistant message may differ from the one with text —
+ * and it never carries the reader's own failure.
+ */
+export function lastAssistantAnswer(transcript: SessionTranscriptDigest): {
+  id: string | null;
+  text: string;
+  error: { name?: string; message?: string } | null;
+} | null {
+  const messages = transcript.messages;
+  const lastUser = messages.map((m) => m.role).lastIndexOf('user');
+  const assistants = messages.slice(lastUser + 1).filter((m) => m.role === 'assistant');
+  const last = assistants.at(-1);
+  if (!last) return null;
+  const withText = [...assistants].reverse().find((m) => m.text.trim());
+  return {
+    id: withText?.id ?? null,
+    text: withText?.text.trim() ?? '',
+    error: last.error ?? null,
+  };
+}
+
+/**
  * The sync-store envelope. Always the stored copy (the session log): a client whose sandbox is up
  * reads the runtime directly, so re-proxying it here would only duplicate the
  * body this endpoint exists to avoid.

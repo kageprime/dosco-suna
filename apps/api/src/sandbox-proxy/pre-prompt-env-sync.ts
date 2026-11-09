@@ -15,8 +15,16 @@
  * 13 pass / 0 fail; run after a file that imported the route it was 27 / 3, and
  * the three casualties were the Idempotency-Key-burn cases.
  *
- * So this module holds the pure predicates and the injectable turn-start block,
- * and imports NOTHING that a proxy suite mocks as a value:
+ * Since KRTX-4477 this file holds only the env sync itself: the refusal
+ * response (`jsonProxyError`, `errorMessage`) lives in `proxy-error.ts`, the
+ * body readers (`DEFAULT_AGENT_SENTINEL`, `requestedPromptAgent`,
+ * `requestedPromptManagedModelId`, `bodyWithoutPromptAgent`) in
+ * `prompt-body.ts`, and `isTurnStartEnvSync` beside the `isTurnStartRequest`
+ * it is phrased on, in `projects/turn-start-request.ts` (the repo lint rule
+ * `kortix-api/projects-surface` bars a deep `projects/` import from a new
+ * proxy module, so `proxy-path.ts` cannot host it). All three are re-exported
+ * from here, so every existing import path keeps resolving. The module still
+ * imports NOTHING that a proxy suite mocks as a value:
  *  - the four collaborators are `import type` only (erased at runtime) and are
  *    passed in as `PrePromptEnvSyncDeps` — the real set lives in
  *    `forward/turn-start.ts`;
@@ -27,10 +35,7 @@
  * `routes/preview.ts` re-exports the public names, so every existing import
  * path keeps working.
  */
-import { isTurnStartRequest } from '../projects/turn-start-request';
 import { claudeSubscriptionRequiredBody } from '../llm-gateway/resolution/claude-agent';
-import { classifyRuntimeRequest } from './runtime-request';
-import { previewCorsHeaders } from './preview-hosts';
 import type { ProviderName } from '../platform/providers';
 import type { bindSessionTurnIdentity } from '../projects/lib/on-behalf-of';
 import type { syncSandboxEnvForPrompt } from '../projects/lib/sandbox-env-sync';
@@ -43,39 +48,22 @@ import {
   extractPromptInfo,
   type generateSessionTitleFromFirstPrompt,
 } from '../projects/session-title-generate';
+import { errorMessage, jsonProxyError } from './proxy-error';
+import { DEFAULT_AGENT_SENTINEL } from './prompt-body';
 
-/** One JSON error body with the proxy's CORS pair applied. Lives here rather
- *  than in the route because every refusal below builds one, and the route must
- *  not have to be evaluated to construct a response. */
-export function jsonProxyError(
-  body: Record<string, unknown>,
-  status: number,
-  origin?: string,
-): Response {
-  // The preview allowlist, as every proxy response: the preview cookie is
-  // ambient on cross-site requests, so an arbitrary origin gets nothing.
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-    ...previewCorsHeaders(origin ?? ''),
-  });
-  return new Response(JSON.stringify(body), {
-    status,
-    headers,
-  });
-}
-
-export function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : String(error || fallback);
-}
-
-// The sentinel name a session carries when it isn't bound to a *concrete* agent.
-// `project_sessions.agent_name` defaults to this, and no agent is literally named
-// "default" — the runtime resolves it to the manifest's `default_agent`
-// (conventionally `kortix`). It is therefore non-binding: a "default" session's
-// connector token carries the least-privileged grant (null = full for ungoverned
-// projects, deny for governed ones — see `grantFromLoadedAgents`), so a prompt
-// can never use it to escalate into another agent's connector / Kortix-CLI grant.
-export const DEFAULT_AGENT_SENTINEL = 'default';
+// Re-exported so every importer keeps resolving through this path after the
+// KRTX-4477 split. `isTurnStartEnvSync` is defined in
+// `projects/turn-start-request.ts`, beside the `isTurnStartRequest` it is phrased
+// on (the repo lint rule `kortix-api/projects-surface` bars a deep import from a
+// new proxy module; this edge is this file's already-listed one).
+export { errorMessage, jsonProxyError } from './proxy-error';
+export {
+  DEFAULT_AGENT_SENTINEL,
+  bodyWithoutPromptAgent,
+  requestedPromptAgent,
+  requestedPromptManagedModelId,
+} from './prompt-body';
+export { isTurnStartEnvSync } from '../projects/turn-start-request';
 
 // A fetch that timed out or never connected (Bun and Node spellings).
 const RETRYABLE_ENV_SYNC_ERROR_NAMES = new Set(['TimeoutError', 'AbortError']);
@@ -97,174 +85,46 @@ export function isRetryableEnvSyncFailure(err: unknown): boolean {
 }
 
 /**
- * Should this request get the PRE-PROMPT project-env sync (and the small set of
- * turn-start side effects that hang off it)?
+ * One warn per minute per process for a refused prompt (KRTX-4016).
  *
- * ONE PREDICATE, because three turn-start preparations used to disagree inside a
- * single request. `shouldSyncProjectEnvBeforeProxy` — which this replaces —
- * answered `port !== 8000 ⇒ false` and never stripped the in-box `/proxy/<n>/`
- * prefix, while the config-convergence gate and the connector gate both keyed on
- * `isTurnStartRequest`, which covers 4096/4097 AND strips the prefix. Platinum
- * rewrites 4096→8000 and Daytona does not, so on Daytona a prompt addressed
- * straight at :4096 got the config check and the undeclared-agent drop but NOT
- * the secret refresh or the connector-grant re-mint. Same request, two answers,
- * provider-dependent. Built on `isTurnStartRequest` so that can never recur.
+ * A container-wide fork burst (`spawn EAGAIN` / `cannot fork() for
+ * remote-https`) refuses EVERY prompt for minutes, and the per-prompt warn
+ * became the log-pattern spike the issue files on — 52 identical lines in one
+ * 4-minute window, against a 4-line-per-hour baseline. The refusal response is
+ * unchanged (still 503 + `git_mirror_unavailable`, retryable); only the log
+ * dedupes, and the aggregate count keeps the burst measurable in one line.
  *
- * THREE endpoints. `/command` is one of them, and it was missing until
- * 2026-08-12. `POST /session/:id/command` is the box's blocking slash-command
- * endpoint (OpenCode-shaped, served by pi): it creates a user message and runs a full agent turn, exactly like
- * `/message` does. Skipping the sync for it left two real holes:
- *
- *  - **Stale secrets.** A secret write propagates to live boxes through
- *    `propagateProjectSecretsToActiveSandboxes`, which is fire-and-forget and
- *    targets `status='active'` rows only. A box that was stopped at write time
- *    never receives it, so the per-turn sync is the ONLY self-heal. A session
- *    driven entirely by slash commands never healed.
- *  - **An unre-scoped agent switch.** A command body carries `agent` just like a
- *    prompt does. `agentSwitchRefusal` decides whether the caller MAY run that
- *    agent, but only this block re-resolves the secret grant for it
- *    (`syncSandboxEnvForPrompt`'s `requestedAgent`) and re-points the session
- *    token's connector/CLI grant at it (`remintGrantForAgentSwitch`). Without
- *    both, `/command` with `agent: B` ran B against agent A's env and A's grant.
- *
- * It is deliberately NOT the same list as `isNonIdempotentSessionWrite`, and the
- * two must not be merged back together — see the comment on that function. This
- * one answers "does this turn need its env re-scoped first?"; that one answers
- * "may the proxy send this body twice?".
- *
- * `/summarize` stays OUT even though `isTurnStartRequest` counts it. Compaction
- * carries no user prompt and no `agent` to re-scope for, and the sync is
- * fail-closed on a grant error — refusing to compact a conversation because a
- * manifest read failed would wedge a session instead of protecting it. That is
- * the ONLY difference from `isTurnStartRequest`, and it is why the connector
- * gate (`isConnectorGatedTurn`, which excluded `/summarize` for the identical
- * reason) is now this same function rather than a second copy of it.
- *
- * CALL IT WITH THE UPSTREAM PORT and the remaining path — the values the request
- * actually reaches the box on. Passing the client-addressed port is what created
- * the divergence above.
- *
- * Pure + exported so the gate is unit-tested without provisioning a box — the
- * same reason `shouldAutoResumeStoppedSandbox` and `isProxiedBaseReset` are.
+ * Emission is traffic-driven: the suppressed count covers everything since the
+ * previous line, whatever span that was, and flushes on the next refusal.
+ * ponytail: the final suppressed count flushes on the next refusal only; a
+ * wall-clock flush needs a module timer per burst — add one if the aggregate
+ * must be exact.
  */
-export function isTurnStartEnvSync(port: number, method: string, path: string): boolean {
-  if (!isTurnStartRequest(port, method, path)) return false;
-  const request = classifyRuntimeRequest(method, path);
-  return request.kind === 'turn-start' && request.verb !== 'summarize';
+const GRANT_REFUSAL_LOG_INTERVAL_MS = 60_000;
+let grantRefusalLastLoggedAt = 0;
+let grantRefusalsSinceLog = 0;
+
+export function logSecretGrantRefusal(
+  sandboxId: string,
+  port: number,
+  detail: string,
+  now = Date.now(),
+): void {
+  grantRefusalsSinceLog += 1;
+  if (now - grantRefusalLastLoggedAt < GRANT_REFUSAL_LOG_INTERVAL_MS) return;
+  const suppressed = grantRefusalsSinceLog - 1;
+  grantRefusalLastLoggedAt = now;
+  grantRefusalsSinceLog = 0;
+  console.warn(
+    `[PREVIEW] Secret grant refused prompt for ${sandboxId}:${port}: ${detail}` +
+      (suppressed > 0 ? ` (+${suppressed} suppressed since the previous line)` : ''),
+  );
 }
 
-/** The body's `agent` field, or null. Pure + exported so it is unit-tested
- *  against a real `/command` body without provisioning a box. */
-export function requestedPromptAgent(
-  body: ArrayBuffer | undefined,
-  incomingHeaders: Headers,
-): string | null {
-  if (!body) return null;
-  const contentType = incomingHeaders.get('content-type') ?? '';
-  if (!contentType.toLowerCase().includes('application/json')) return null;
-  try {
-    const parsed = JSON.parse(new TextDecoder().decode(body)) as {
-      agent?: unknown;
-    };
-    return typeof parsed.agent === 'string' && parsed.agent.trim() ? parsed.agent.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-function stripKortixPrefix(id: string): string {
-  return id.startsWith('kortix/') ? id.slice('kortix/'.length) : id;
-}
-
-/**
- * The bare managed-model id a turn-start body asks for, or null.
- *
- * NOT ONE WIRE SHAPE — the box's contract differs by endpoint (the
- * `/session/...` shapes are OpenCode's, verified against `@opencode-ai/sdk`'s
- * generated `types.gen.d.ts`; pi serves the same shapes):
- *
- *  - `POST /kortix/runtime/sessions/:id/prompt` — a flat STRING ref
- *    (`"kortix/<id>"`). Every server-relayed delivery arrives as this
- *    (`session-lifecycle/runtime-client.ts`'s `postPrompt`), so it is the
- *    turn-start body the overwhelming majority of prompts have.
- *  - `POST /session/:id/message` and `/prompt_async` (`SessionPromptData`) —
- *    a NESTED `model: {providerID, modelID}`. A daemon without
- *    `runtime.turns.v1` gets the relay in this shape.
- *  - `POST /session/:id/summarize` (`SessionSummarizeData`) — FLAT top-level
- *    `{providerID, modelID}`, no `model` wrapper. `prompt-dedupe.ts` documents
- *    the identical shape for its own reasons.
- *  - `POST /session/:id/command` (`SessionCommandData`) — `model` is a flat
- *    STRING ref (`"kortix/<id>"` or a native `provider/model`), not an object.
- *
- * Only a `kortix`-provider request is in scope: BYOK/other-provider ids are
- * not part of the managed lineup `turn-start-convergence.ts`'s model-catalog
- * lane self-heals, and returning null for them is what makes that lane a
- * no-op (no memo read, no network call) for the overwhelming majority of
- * turns. The result is always the BARE id (the `kortix/` prefix stripped),
- * matching what the control plane's managed lineup and the daemon's own
- * provider map both key on.
- */
-export function requestedPromptManagedModelId(
-  body: ArrayBuffer | undefined,
-  incomingHeaders: Headers,
-): string | null {
-  if (!body) return null;
-  const contentType = incomingHeaders.get('content-type') ?? '';
-  if (!contentType.toLowerCase().includes('application/json')) return null;
-  try {
-    const parsed = JSON.parse(new TextDecoder().decode(body)) as {
-      providerID?: unknown;
-      modelID?: unknown;
-      model?: unknown;
-    };
-    // `/message` + `/prompt_async`: nested {providerID, modelID}.
-    if (parsed.model && typeof parsed.model === 'object' && !Array.isArray(parsed.model)) {
-      const nested = parsed.model as { providerID?: unknown; modelID?: unknown };
-      if (nested.providerID !== 'kortix') return null;
-      const modelID = typeof nested.modelID === 'string' ? nested.modelID.trim() : '';
-      return modelID ? stripKortixPrefix(modelID) : null;
-    }
-    // The Kortix prompt route and `/command`: a flat "kortix/<id>" (or native
-    // "provider/model") string.
-    if (typeof parsed.model === 'string') {
-      const ref = parsed.model.trim();
-      return ref.startsWith('kortix/') ? stripKortixPrefix(ref) : null;
-    }
-    // `/summarize`: flat top-level providerID/modelID, no `model` wrapper.
-    if (parsed.providerID === 'kortix') {
-      const modelID = typeof parsed.modelID === 'string' ? parsed.modelID.trim() : '';
-      return modelID ? stripKortixPrefix(modelID) : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// Drop the prompt's `agent` field entirely so the runtime resolves the
-// manifest's `default_agent`. Used for non-concrete ('default') sessions: the box must
-// always run the agent it booted with — the one the connector token was minted
-// for — regardless of which concrete name the client speculatively echoed.
-//
-// Pure + exported so the rewrite is unit-tested on a real `/command` body — the
-// rest of `{command, arguments, variant}` must survive it intact.
-export function bodyWithoutPromptAgent(
-  body: ArrayBuffer | undefined,
-  incomingHeaders: Headers,
-): ArrayBuffer | undefined {
-  if (!body) return body;
-  const contentType = incomingHeaders.get('content-type') ?? '';
-  if (!contentType.toLowerCase().includes('application/json')) return body;
-  try {
-    const parsed = JSON.parse(new TextDecoder().decode(body)) as {
-      agent?: unknown;
-    };
-    if (!('agent' in parsed)) return body;
-    parsed.agent = undefined;
-    return new TextEncoder().encode(JSON.stringify(parsed)).buffer;
-  } catch {
-    return body;
-  }
+/** Test-only: forget the refusal log rate-limit state. */
+export function __resetSecretGrantRefusalLogForTests(): void {
+  grantRefusalLastLoggedAt = 0;
+  grantRefusalsSinceLog = 0;
 }
 
 /**
@@ -486,9 +346,7 @@ export async function runPrePromptEnvSync(
     // rather than forwarding it against an env we can't vouch for.
     const grantResponse = secretGrantErrorResponse(err, origin);
     if (grantResponse) {
-      console.warn(
-        `[PREVIEW] Secret grant refused prompt for ${sandboxId}:${port}: ${errorMessage(err, 'secret grant error')}`,
-      );
+      logSecretGrantRefusal(sandboxId, port, errorMessage(err, 'secret grant error'));
       return grantResponse;
     }
     const message = errorMessage(err, 'project env sync failed');

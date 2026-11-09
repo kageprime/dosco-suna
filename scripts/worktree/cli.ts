@@ -411,6 +411,16 @@ async function cmdCreate(a: Args) {
   }
 
   const root = repoRoot();
+  // An absolute core.hooksPath makes every worktree run the primary
+  // checkout's hooks, from whatever branch the primary has checked out.
+  // 2026-11-08: the primary's stale pre-commit ran `dotenvx protect` from a
+  // worktree and pointed the global git filter at that worktree. `.githooks`
+  // is what `pnpm install` sets (package.json `prepare`).
+  const hooksPath = sh(['git', '-C', root, 'config', '--get', 'core.hooksPath']).stdout.trim();
+  if (hooksPath && isAbsolute(hooksPath)) {
+    sh(['git', '-C', root, 'config', 'core.hooksPath', '.githooks']);
+    sub(`core.hooksPath was ${hooksPath}; set it to .githooks so each worktree runs its own hooks`);
+  }
   const wtPath = defaultWorktreePath(root, name);
   const branch = (typeof a.flags.branch === 'string' && a.flags.branch) || name;
   // `dev` (the default) resolves to a freshly fetched origin/dev, never the

@@ -22,6 +22,7 @@ import {
   manifestCandidatePaths,
   HARNESS_TOOL_NAMES,
   safeToolFile,
+  splitFrontmatter,
   TOOL_NAME_RE,
   usableManifest,
   validateManifest,
@@ -382,7 +383,10 @@ function compileAgent(
   else if (block.prompt_file !== undefined) {
     const prompt = promptText(files, block.prompt_file, `agents.${name}.prompt_file`, issues);
     if (prompt === null) return { disable: true };
-    out.prompt = prompt;
+    // An agent file another tool reads too (`.claude/agents/<name>.md`) opens
+    // with that tool's frontmatter: its settings, not prompt text. kortix.yaml
+    // holds the agent's settings, so the prompt is the body.
+    out.prompt = splitFrontmatter(prompt).body;
   }
   const tools = agentToolsMap(block.tools);
   if (tools) out.tools = tools;

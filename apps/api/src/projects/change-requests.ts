@@ -17,6 +17,7 @@ import { type SQL, and, asc, desc, eq, gt, inArray, lt, ne, sql } from 'drizzle-
 import type { ChangeRequest } from '@kortix/api-contract';
 import { changeRequests } from '@kortix/db';
 import { db } from '../shared/db';
+import { isUniqueViolation } from '../shared/postgres-errors';
 import { type TransitionResult, transitionStatus } from '../shared/status-transition';
 import { isUuid } from '../shared/validate';
 
@@ -269,8 +270,7 @@ export async function markChangeRequestsLanded(input: {
 
 /**
  * Next per-project CR number. The table has a unique index on
- * (project_id, number) so racing opens surface as 23505 — callers should
- * retry once.
+ * (project_id, number) so a race between two opens surfaces as 23505.
  */
 export async function getNextCrNumber(projectId: string): Promise<number> {
   const [row] = await db
@@ -278,6 +278,34 @@ export async function getNextCrNumber(projectId: string): Promise<number> {
     .from(changeRequests)
     .where(eq(changeRequests.projectId, projectId));
   return (row?.max ?? 0) + 1;
+}
+
+/** Insert one change request with its next per-project number, retrying the
+ *  allocation on a (project_id, number) unique-index collision — two opens of
+ *  the same project can race. The loser re-allocates after the winner's row
+ *  lands and inserts. Drizzle wraps every pg failure in a DrizzleQueryError
+ *  whose own message is only "Failed query: …"; the pg detail (SQLSTATE 23505,
+ *  "duplicate key …") hangs off `cause` (prod, 2026-11-07: a `duplicate key`
+ *  regex on the outer message never matched and a racing open paged as an
+ *  unhandled 500). Classify with isUniqueViolation, which reads the chain,
+ *  like the wallet's duplicate guard does.
+ */
+export async function insertChangeRequest(
+  values: Omit<typeof changeRequests.$inferInsert, 'number'>,
+): Promise<typeof changeRequests.$inferSelect | null> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const number = await getNextCrNumber(values.projectId);
+    try {
+      const [row] = await db
+        .insert(changeRequests)
+        .values({ ...values, number })
+        .returning();
+      return row;
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+    }
+  }
+  return null;
 }
 
 /** A UUID (the canonical cr_id) or a bare per-project number ("233", "#233"

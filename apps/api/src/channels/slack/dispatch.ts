@@ -632,13 +632,15 @@ export async function dispatchSlackEvent(
   // Exactly-once gate. ONE user message can arrive as several events (Slack
   // delivers a channel @mention as both `app_mention` and `message`), be retried
   // with a fresh event_id, and fan across replicas — but every delivery shares the
-  // message's (team, channel, ts). Claim that identity atomically; if we lose, a
-  // sibling delivery already owns this message, so we must NOT run it again.
+  // message's (team, channel, ts) — per RECEIVING project, because every BYO app
+  // of the workspace receives the same message. Claim that identity atomically;
+  // if we lose, a sibling delivery of OUR project already owns this message, so
+  // we must NOT run it again.
   // This gate must sit before every visible Slack response, including auth
   // prompts and empty-mention help, so one bare @mention never posts twice.
   // (Button clicks synthesize their own turns via spawnAgentTurn directly and are
   // intentionally NOT gated here, so re-clicking an option still works.)
-  const msgKey = inboundMessageKey(teamId, event);
+  const msgKey = inboundMessageKey(projectId, teamId, event);
   if (msgKey && !(await claimInboundMessage(msgKey))) return;
 
   // A bare @mention with no text is a "what now?" prompt — post help text.

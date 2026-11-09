@@ -1037,10 +1037,11 @@ export const SessionCreateInputSchema = z
     sandbox_slug: z.string().min(1).optional(),
     initial_prompt: z.string().optional(),
     /**
-     * Harness context that rides beside `initial_prompt` and is delivered to
-     * the model as a synthetic (model-only) message part — e.g. the CLI's
-     * worker contract. The transcript keeps showing the caller's own words:
-     * every renderer already hides synthetic text parts.
+     * Harness context that rides beside `initial_prompt` — e.g. the CLI's
+     * worker contract. pi appends it to the first user message
+     * (kortixd `harness/pi/boot.ts`), so the transcript shows it after the
+     * caller's words. It is never a system prompt: an inline agent's
+     * instructions ride in `runtime_context` `kortix.agent.instructions`.
      */
     initial_context: z.string().min(1).max(SESSION_INITIAL_CONTEXT_MAX_CHARS).optional(),
     pending_prompt: PendingSessionPromptSchema.optional(),

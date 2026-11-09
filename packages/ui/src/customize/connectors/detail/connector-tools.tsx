@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../primitives/dropdown-menu';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import {
   InputGroupSearch,
   InputGroupSearchClear,
@@ -398,17 +398,13 @@ export function ConnectorTools({
       ) : null}
 
       {projectLockedCount > 0 ? (
-        <InfoBanner
-          tone="warning"
-          icon={LockIcon}
-          title={tI18nComplete('textd3d900c89bd0', {
+        <BannerAlert variant="warning" ><BannerAlertMedia><LockIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete('textd3d900c89bd0', {
             value0: projectLockedCount,
             value1:
               projectLockedCount === 1
                 ? tI18nComplete.raw('text86ca67d2851a')
                 : tI18nComplete.raw('textd50ab26e1621'),
-          })}
-        >
+          })}</BannerAlertTitle><BannerAlertDescription>
           {t('toolsProjectLockedBody')}{' '}
           <Link
             href={rulesHref(projectId)}
@@ -416,7 +412,7 @@ export function ConnectorTools({
           >
             {t('toolsOpenRules')}
           </Link>
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       {policiesQuery.isPending ? (

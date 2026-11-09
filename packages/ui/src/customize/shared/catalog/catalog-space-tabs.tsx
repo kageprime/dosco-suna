@@ -3,7 +3,7 @@ import { useTranslations } from '../../../i18n';
 import type { SpaceGroup } from '@kortix/sdk';
 
 import { CountBadge } from '../../../primitives/count-badge';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '../../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../../primitives/tabs';
 
 /** The sentinel filter value that shows every space (grouped). */
 export const ALL_SPACES = 'all';
@@ -30,15 +30,15 @@ export function CatalogSpaceTabs<T>({
 
   return (
     <Tabs value={value} onValueChange={onValueChange}>
-      <TabsListCompact aria-label={t('filter')}>
-        <TabsTriggerCompact value={ALL_SPACES}>{t('all')}</TabsTriggerCompact>
+      <TabsList size="xs" aria-label={t('filter')}>
+        <TabsTrigger value={ALL_SPACES}>{t('all')}</TabsTrigger>
         {groups.map((group) => (
-          <TabsTriggerCompact key={group.name} value={group.name}>
+          <TabsTrigger key={group.name} value={group.name}>
             {group.label}
             <CountBadge count={group.items.length} tone="neutral" />
-          </TabsTriggerCompact>
+          </TabsTrigger>
         ))}
-      </TabsListCompact>
+      </TabsList>
     </Tabs>
   );
 }

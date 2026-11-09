@@ -14,6 +14,7 @@ import type {
   WorkflowRunPhase,
   WorkflowRunStatus,
 } from '../../rest/projects-client/multi-agent';
+import { decodeJsonStringLiteral as decodeKey, isJsonObject as isObject, text } from '../text-scan';
 
 /** A phase's status. `pending`: declared in the script's `meta.phases`, not started yet. */
 export type WorkflowPhaseStatus = WorkflowRunPhase['status'];
@@ -56,12 +57,6 @@ const MAX_AGENTS = 200;
 const MAX_LOGS = 5;
 const MAX_LOG_CHARS = 500;
 
-type Json = Record<string, unknown>;
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-const text = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim() ? value.trim() : undefined;
 const time = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 const count = (value: unknown): number | undefined =>
@@ -318,7 +313,7 @@ export function parseWorkflowResult(output: string): WorkflowResult | null {
       const recovered = fields ? documentOf(fields) : null;
       return { kind: 'markdown', text: recovered ?? body };
     }
-    const document = isRecord(parsed) ? documentOf(Object.entries(parsed)) : null;
+    const document = isObject(parsed) ? documentOf(Object.entries(parsed)) : null;
     if (document) return { kind: 'markdown', text: document };
     return { kind: 'json', text: prettyJson(parsed, body) };
   }
@@ -355,10 +350,6 @@ function nestingDepth(body: string): number {
     else if (char === '}' || char === ']') depth -= 1;
   }
   return max;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** A string a person reads, not a value: it spans lines, or runs long as words (a long URL or token is data). */
@@ -434,13 +425,4 @@ function cutStringFields(body: string): [string, string][] | null {
     at = comma.lastIndex;
   }
   return fields;
-}
-
-/** A captured JSON key with its escapes decoded, as `JSON.parse` would give it. */
-function decodeKey(raw: string): string {
-  try {
-    return JSON.parse(`"${raw}"`) as string;
-  } catch {
-    return raw;
-  }
 }

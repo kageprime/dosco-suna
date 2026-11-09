@@ -1,7 +1,7 @@
 'use client';
 
 import type { SessionReminder } from '@kortix/sdk';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { soonestFire } from './reminder-format';
 
 /** The scheduler ticks every second; this is enough for the fire to land. */
@@ -24,14 +24,4 @@ export function useRefetchAfterFire(
     const timer = setTimeout(() => void refetch(), wait);
     return () => clearTimeout(timer);
   }, [soonest, refetch]);
-}
-
-/** The current time for relative labels ("in 12 min"), re-read every 30 s. */
-export function useNow(intervalMs = 30_000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-  return now;
 }

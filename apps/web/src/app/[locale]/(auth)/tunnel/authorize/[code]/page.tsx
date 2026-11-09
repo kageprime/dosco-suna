@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import Loading from '@kortix/ui/loading';
 import { RadioGroup, RadioGroupItem } from '@kortix/ui/radio-group';
@@ -188,13 +188,9 @@ function DeviceAuthorize() {
           ) : null}
 
           {registered ? (
-            <InfoBanner
-              tone="info"
-              icon={ArrowsClockwiseIcon}
-              title={t('alreadyConnected', { name: registered.name })}
-            >
+            <BannerAlert variant="default" ><BannerAlertMedia><ArrowsClockwiseIcon /></BannerAlertMedia><BannerAlertTitle>{t('alreadyConnected', { name: registered.name })}</BannerAlertTitle><BannerAlertDescription>
               {registered.isLive ? t('alreadyConnectedLive') : t('alreadyConnectedHint')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           ) : null}
 
           <div className="space-y-3">

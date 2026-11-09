@@ -199,6 +199,8 @@ const SUBPATH_TIERS: Subpath[] = [
   { name: './workspace-search', file: 'workspace-search/index.ts', tier: 'isomorphic-core' },
   // Zero imports: `apps/api` loads the wire-id clock without the whole root barrel.
   { name: './wire-message-id', file: 'core/session/wire-message-id.ts', tier: 'isomorphic-core' },
+  // Zero imports: the canonical wire value sets (re-exported by @kortix/api-contract/wire-values).
+  { name: './wire-values', file: 'core/wire-values.ts', tier: 'isomorphic-core' },
   { name: './capture-rules', file: 'core/capture/rules.ts', tier: 'isomorphic-core' },
 ];
 

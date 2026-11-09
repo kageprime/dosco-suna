@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { subscriptionUsageFromHeaders } from '@kortix/llm-gateway';
 import { claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody } from './subscription-usage';
 
 const NOW = Date.parse('2026-11-04T14:00:00Z');
@@ -110,5 +111,35 @@ describe('who a subscription login signs in as', () => {
     expect(claudeAccountFromProfile({ account: { email_address: 'p@example.test', has_claude_pro: true } }))
       .toEqual({ email: 'p@example.test', plan: 'pro' });
     expect(claudeAccountFromProfile({ error: { type: 'permission_error' } })).toBeNull();
+  });
+});
+
+// Characterization (KRTX-4484): the two readers of a login's plan usage — the
+// gateway, from a model response's headers, and the API, from the provider's
+// usage endpoint — must shape the same windows identically, so a snapshot
+// stored on the account never depends on who read it.
+describe('one shaping for both subscription-usage readers', () => {
+  test('a header-derived and an endpoint-derived snapshot of the same windows are identical', () => {
+    const resetAt = NOW / 1000 + 86_400;
+    const fromHeaders = subscriptionUsageFromHeaders(new Headers({
+      'x-codex-primary-used-percent': '41.5',
+      'x-codex-primary-window-minutes': '300',
+      'x-codex-primary-reset-after-seconds': '3600',
+      'x-codex-secondary-used-percent': '12',
+      'x-codex-secondary-window-minutes': '10080',
+      'x-codex-secondary-reset-at': String(resetAt),
+    }), NOW);
+    const fromEndpoint = codexUsageFromBody({
+      rate_limit: {
+        allowed: true, limit_reached: false,
+        primary_window: { used_percent: 41.5, limit_window_seconds: 18_000, reset_after_seconds: 3_600 },
+        secondary_window: { used_percent: 12, limit_window_seconds: 604_800, reset_at: resetAt },
+      },
+    }, NOW);
+    expect(fromHeaders).not.toBeNull();
+    expect(fromEndpoint).not.toBeNull();
+    if (!fromHeaders || !fromEndpoint) throw new Error('a snapshot was expected from each reader');
+    expect(fromEndpoint.limited).toBe(fromHeaders.limited);
+    expect(fromEndpoint.windows).toEqual(fromHeaders.windows);
   });
 });

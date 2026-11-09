@@ -13,8 +13,9 @@ project:
 builtin_agents:
   my_kortix: true
 
-# The agent a session or trigger runs when it names none. My Kortix starts
-# `worker` when it names no agent.
+# The agent a session or trigger runs when it names none. My Kortix hands
+# work to `worker` by name; a helper it starts without naming an agent works
+# with My Kortix's own access.
 default_agent: mykortix
 
 # Workspace skills: folders under skills/, registered by name. Each agent then

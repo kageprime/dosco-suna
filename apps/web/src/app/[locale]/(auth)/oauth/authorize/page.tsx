@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
 import { AuthFrame } from '@kortix/ui/internal/auth/auth-card-shell';
@@ -289,9 +289,9 @@ function OAuthConsent() {
 
         <div className="space-y-5">
           {consentRequest.selfRegistered ? (
-            <InfoBanner tone="warning" icon={ShieldWarningIcon} title={t('unverifiedTitle')}>
+            <BannerAlert variant="warning" ><BannerAlertMedia><ShieldWarningIcon /></BannerAlertMedia><BannerAlertTitle>{t('unverifiedTitle')}</BannerAlertTitle><BannerAlertDescription>
               {t('unverifiedBody', { client: clientName })}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           ) : null}
           {scopes.length > 0 ? (
             <div className="space-y-3">

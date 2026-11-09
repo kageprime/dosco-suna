@@ -154,9 +154,6 @@ export async function reconcileSnapshotQuota(
     );
     return result;
   }
-  result.orgTotal = all.length;
-  result.managedCount = all.filter((snapshot) => isManaged(snapshot.name)).length;
-
   const now = opts.now ?? Date.now();
 
   // Names any local template row would boot from (trust-the-row / graceful
@@ -170,6 +167,10 @@ export async function reconcileSnapshotQuota(
       '[snapshot-gc] referenced-name lookup failed — pass skipped:',
       err instanceof Error ? err.message : err,
     );
+    // A partial pass still reports the org it inspected (the heartbeat's org/
+    // managed counts); the complete pass gets both from the plan instead.
+    result.orgTotal = all.length;
+    result.managedCount = all.filter((snapshot) => isManaged(snapshot.name)).length;
     return result;
   }
 

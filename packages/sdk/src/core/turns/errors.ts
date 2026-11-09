@@ -4,6 +4,8 @@
  * creating an index.ts <-> classify.ts import cycle.
  */
 
+import { tryParseJson } from './text-scan';
+
 const GENERIC_ERROR_MESSAGE = 'An error occurred';
 
 /**
@@ -42,15 +44,6 @@ function stripErrorPrefixes(str: string): string {
     s = next;
   }
   return s;
-}
-
-function tryParseJson(value: unknown): unknown {
-  if (typeof value !== 'string' || !value) return undefined;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
 }
 
 /**

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../../primitives/button';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
 import {
   Modal,
@@ -178,13 +178,9 @@ export function ShareSessionModal({
             </p>
           )}
           {oversightOn ? (
-            <InfoBanner
-              tone="neutral"
-              icon={ShieldCheckIcon}
-              data-testid="session-oversight-disclosure"
-            >
+            <BannerAlert variant="default" data-testid="session-oversight-disclosure"><BannerAlertMedia><ShieldCheckIcon /></BannerAlertMedia><BannerAlertDescription>
               {tOversight.raw('shareDisclosure')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           ) : null}
           {/* Next to the in-team picker: who in the project can open the
               session, and an embed snippet for the actual session page (the

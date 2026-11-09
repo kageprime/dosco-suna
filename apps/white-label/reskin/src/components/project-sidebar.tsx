@@ -40,7 +40,8 @@ import { ProjectSessionList } from '@kortix/ui/workspace';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme, type ThemeChoice } from '@/components/theme';
+import { useTheme, type ThemeChoice } from '@kortix/white-label-shared/theme';
+import { THEME_DEFAULT, THEME_KEY } from '@/config/theme-script';
 import {
   CaretUpDownIcon,
   CheckIcon,
@@ -170,7 +171,7 @@ function SidebarCollapse() {
 /** Footer: who this browser acts as, the theme, costs, and sign-out. */
 function AccountMenu() {
   const account = useAccount();
-  const { choice, setChoice } = useTheme();
+  const { choice, setChoice } = useTheme({ key: THEME_KEY, defaultChoice: THEME_DEFAULT });
   const initial = (account.label[0] ?? 'L').toUpperCase();
   return (
     <SidebarMenu>

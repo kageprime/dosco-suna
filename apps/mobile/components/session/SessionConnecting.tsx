@@ -45,6 +45,7 @@ import {
   type SessionMessageAuthors,
   type SessionParticipants,
 } from '@kortix/sdk';
+import { useNow } from '@kortix/sdk/react';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowCounterClockwiseIcon as RotateCcw } from '@/lib/icons';
@@ -306,16 +307,6 @@ function WakingStatus({ label }: { label: string }) {
       </View>
     </View>
   );
-}
-
-/** A 1 s tick for the image step's timer. */
-function useNow(): number {
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
 }
 
 /**

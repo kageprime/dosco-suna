@@ -40,7 +40,7 @@ import { cn } from '@kortix/ui/lib/utils';
 import Loading from '@kortix/ui/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '@kortix/ui/popover';
 import { Skeleton } from '@kortix/ui/skeleton';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '@kortix/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast } from '@kortix/ui/toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -385,10 +385,10 @@ export function ChromePanelHome() {
           />
           <div className="flex items-center gap-2">
             <Tabs value={mode} onValueChange={(value) => setMode(value as PanelMode)}>
-              <TabsListCompact aria-label={t('modeLabel')}>
-                <TabsTriggerCompact value="read">{t('read')}</TabsTriggerCompact>
-                <TabsTriggerCompact value="act">{t('act')}</TabsTriggerCompact>
-              </TabsListCompact>
+              <TabsList size="xs" aria-label={t('modeLabel')}>
+                <TabsTrigger value="read">{t('read')}</TabsTrigger>
+                <TabsTrigger value="act">{t('act')}</TabsTrigger>
+              </TabsList>
             </Tabs>
             <span className="flex-1" />
             <Hint label={t('send')} side="top">

@@ -13,11 +13,27 @@ import {
 } from '../llm-gateway/custom-providers';
 import { projectsView, updateProjectRows } from '../workspaces/rows';
 
-export async function getProjectModelAccess(projectId: string) {
+/** The transaction handle a `db.transaction` callback receives. */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** One plain metadata read: the select and its not-found throw. */
+async function readProjectMetadata(projectId: string): Promise<unknown> {
   const [row] = await db.select({ metadata: projectsView.metadata }).from(projectsView)
     .where(eq(projectsView.projectId, projectId)).limit(1);
   if (!row) throw new Error('Project not found');
-  return readModelAccess(row.metadata);
+  return row.metadata;
+}
+
+/** One row-locked metadata read (`FOR UPDATE`), inside `db.transaction`. */
+async function lockProjectMetadata(tx: Tx, projectId: string): Promise<unknown> {
+  const [row] = await tx.select({ metadata: projectsView.metadata }).from(projectsView)
+    .where(eq(projectsView.projectId, projectId)).for('update');
+  if (!row) throw new Error('Project not found');
+  return row.metadata;
+}
+
+export async function getProjectModelAccess(projectId: string) {
+  return readModelAccess(await readProjectMetadata(projectId));
 }
 
 /** Read model access, the pooled flag and custom providers from one projects row (KRTX-586). */
@@ -27,13 +43,11 @@ export function getProjectGatewayResolution(projectId: string) {
 }
 
 async function readProjectGatewayResolution(projectId: string) {
-  const [row] = await db.select({ metadata: projectsView.metadata }).from(projectsView)
-    .where(eq(projectsView.projectId, projectId)).limit(1);
-  if (!row) throw new Error('Project not found');
+  const metadata = await readProjectMetadata(projectId);
   return {
-    access: readModelAccess(row.metadata),
-    pooledEnabled: resolveFeatureFlag(row.metadata, 'pooled_provider_secrets'),
-    customProviders: readCustomProviders(row.metadata),
+    access: readModelAccess(metadata),
+    pooledEnabled: resolveFeatureFlag(metadata, 'pooled_provider_secrets'),
+    customProviders: readCustomProviders(metadata),
   };
 }
 
@@ -45,10 +59,8 @@ export async function changeProjectModelAccess(input: {
   change: ModelAccessChange;
 }) {
   return db.transaction(async (tx) => {
-    const [row] = await tx.select({ metadata: projectsView.metadata }).from(projectsView)
-      .where(eq(projectsView.projectId, input.projectId)).for('update');
-    if (!row) throw new Error('Project not found');
-    const policy = updateModelAccess(readModelAccess(row.metadata), input.change);
+    const metadata = await lockProjectMetadata(tx, input.projectId);
+    const policy = updateModelAccess(readModelAccess(metadata), input.change);
     if (!input.change.enabled && input.defaultModel && !modelAccessAllows(policy, input.defaultModel)) {
       return { conflict: true as const };
     }
@@ -97,10 +109,8 @@ export async function writeProjectCustomProvider(
   detected?: Parameters<typeof upsertCustomProvider>[3],
 ): Promise<CustomLlmProviderDefinition[] | null> {
   return db.transaction(async (tx) => {
-    const [row] = await tx.select({ metadata: projectsView.metadata }).from(projectsView)
-      .where(eq(projectsView.projectId, projectId)).for('update');
-    if (!row) throw new Error('Project not found');
-    const current = readCustomProviders(row.metadata);
+    const metadata = await lockProjectMetadata(tx, projectId);
+    const current = readCustomProviders(metadata);
     if (!input && !current.some((provider) => provider.id === id)) return null;
     const next = input ? upsertCustomProvider(current, id, input, detected) : current.filter((provider) => provider.id !== id);
     await updateProjectRows(eq(projectsView.projectId, projectId), {

@@ -15,7 +15,7 @@ import { ChromeError } from './logic';
 
 // replica-local: per-instance bucket; the one-time token is the real limit.
 const panelLimiter = new TokenBucketRateLimiter('chrome_panel_session');
-export const PANEL_SESSION_POLICY = { limit: 10, windowMs: 60_000 };
+const PANEL_SESSION_POLICY = { limit: 10, windowMs: 60_000 };
 
 export class PanelRateLimited extends Error {
   constructor(readonly retryAfterSeconds: number) {
@@ -23,7 +23,7 @@ export class PanelRateLimited extends Error {
   }
 }
 
-export interface PanelCaller {
+interface PanelCaller {
   userId: string;
   authType: string | undefined;
   oauthClientId: string | undefined;

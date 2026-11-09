@@ -106,11 +106,10 @@ export function contractDrift(): void {
   // `warm_pool*` are read by older hosts only; the API stopped sending them.
   noPhantom<NoPhantom<KortixProject, C.Project, 'warm_pool' | 'warm_pool_available'>>();
 
-  // The runtime value sets, both ways: the SDK's copy is the contract's (`core/wire-values`).
+  // The runtime value sets: one canonical body (`@kortix/sdk/wire-values`); the
+  // contract file re-exports it, so the SDK's types accept the wire's sets.
   fits<RuntimeCapability>(wire<RR.RuntimeCapability>());
-  fits<RR.RuntimeCapability>(wire<RuntimeCapability>());
   fits<RuntimeThreadStatus>(wire<RR.RuntimeThreadStatus>());
-  fits<RR.RuntimeThreadStatus>(wire<RuntimeThreadStatus>());
   // The turn verdict `kortix.control.turn` carries.
   fits<SessionWorkingVerdict>(wire<C.SessionWorking>());
   noPhantom<NoPhantom<SessionWorkingVerdict, C.SessionWorking>>();

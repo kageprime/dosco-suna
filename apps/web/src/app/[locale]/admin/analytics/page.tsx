@@ -38,7 +38,7 @@ import {
   type ChartConfig,
 } from '@kortix/ui/chart';
 import { Skeleton } from '@kortix/ui/skeleton';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '@kortix/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { EmptyState } from '@kortix/ui/empty-state';
 import { ErrorState } from '@kortix/ui/error-state';
 import {
@@ -120,13 +120,13 @@ export default function AdminAnalyticsPage() {
       action={<AdminRefreshButton busy={isFetching} onRefresh={refresh} />}
       filters={
         <Tabs value={range} onValueChange={setRange}>
-          <TabsListCompact>
+          <TabsList size="xs">
             {RANGES.map((r) => (
-              <TabsTriggerCompact key={r.value} value={r.value}>
+              <TabsTrigger key={r.value} value={r.value}>
                 {r.label}
-              </TabsTriggerCompact>
+              </TabsTrigger>
             ))}
-          </TabsListCompact>
+          </TabsList>
         </Tabs>
       }
     >

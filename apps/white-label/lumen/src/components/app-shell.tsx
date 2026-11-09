@@ -3,7 +3,8 @@
 import { type Firm, useFirm } from '@/components/access';
 import { BrandMark } from '@/components/brand-mark';
 import { KIND, historyHref } from '@/components/runs/history-list';
-import { useTheme, type ThemeChoice } from '@/components/theme';
+import { useTheme, type ThemeChoice } from '@kortix/white-label-shared/theme';
+import { THEME_DEFAULT, THEME_KEY } from '@/config/theme-script';
 import { authClient } from '@/lib/auth-client';
 import { isAdmin, roleLabel } from '@/lib/roles';
 import { api } from '@convex/_generated/api';
@@ -303,7 +304,7 @@ function RecentMatters({ firm, path }: { firm: Firm; path: string }) {
 function UserMenu({ collapsed, firm }: { collapsed: boolean; firm: Firm }) {
   const { data } = authClient.useSession();
   const orgs = authClient.useListOrganizations();
-  const { choice, setChoice } = useTheme();
+  const { choice, setChoice } = useTheme({ key: THEME_KEY, defaultChoice: THEME_DEFAULT });
   const router = useRouter();
   const name = data?.user.name || data?.user.email || '';
   return (

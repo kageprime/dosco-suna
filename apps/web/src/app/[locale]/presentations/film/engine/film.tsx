@@ -18,6 +18,7 @@ import {
   type Ref,
 } from 'react';
 import { flushSync } from 'react-dom';
+import { formatClock } from '@/lib/format-clock';
 import { FPS, interp } from './time';
 
 /** The default stage is designed at 720p and scaled; the renderer multiplies by device scale. */
@@ -272,10 +273,7 @@ function Fit({ size, children }: { size: { w: number; h: number }; children: Rea
   );
 }
 
-const clock = (frame: number) => {
-  const s = Math.floor(frame / FPS);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
+const clock = (frame: number) => formatClock(Math.floor(frame / FPS));
 
 /**
  * Live playback. The soundtrack is the clock when there is one — a muted

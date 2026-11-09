@@ -38,6 +38,26 @@ export interface PendingQuestion {
   asked_at: string;
 }
 
+/** A stored row as the wire shape: snake_case fields, the jsonb questions coerced. */
+function toWireQuestion(row: {
+  id: string;
+  sessionId: string;
+  requestId: string;
+  runtimeSessionId: string | null;
+  questions: unknown;
+  askedAt: string;
+}): PendingQuestion {
+  return {
+    id: row.id,
+    session_id: row.sessionId,
+    request_id: row.requestId,
+    runtime_session_id: row.runtimeSessionId,
+    // `jsonb`; only /turn-question writes it, after coercing to RuntimeQuestion[].
+    questions: row.questions as RuntimeQuestion[],
+    asked_at: row.askedAt,
+  };
+}
+
 /**
  * Record a question the agent is blocked on.
  *
@@ -91,16 +111,7 @@ export async function recordPendingQuestion(input: {
       inserted: sql<boolean>`(xmax = 0)`,
     });
   if (!row) return null;
-  return {
-    id: row.id,
-    session_id: row.sessionId,
-    request_id: row.requestId,
-    runtime_session_id: row.runtimeSessionId,
-    // `jsonb`; only /turn-question writes it, after coercing to RuntimeQuestion[].
-    questions: row.questions as RuntimeQuestion[],
-    asked_at: row.askedAt,
-    inserted: row.inserted === true,
-  };
+  return { ...toWireQuestion(row), inserted: row.inserted === true };
 }
 
 /**
@@ -129,15 +140,7 @@ export async function getOpenQuestion(sessionId: string): Promise<PendingQuestio
     .orderBy(desc(sessionPendingQuestions.askedAt))
     .limit(1);
   if (!row) return null;
-  return {
-    id: row.id,
-    session_id: row.sessionId,
-    request_id: row.requestId,
-    runtime_session_id: row.runtimeSessionId,
-    // `jsonb`; only /turn-question writes it, after coercing to RuntimeQuestion[].
-    questions: row.questions as RuntimeQuestion[],
-    asked_at: row.askedAt,
-  };
+  return toWireQuestion(row);
 }
 
 /** A stored question by its row id, in its project: a chat button names it. */

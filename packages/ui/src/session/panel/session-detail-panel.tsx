@@ -111,6 +111,14 @@ export function SessionDetailPanel() {
         {/* Only while nothing covers the home: one wake status mounted at a time. */}
         {booting && !detail && !terminalOpen ? (
           <SessionBootStatus projectId={projectId} sessionId={projectSessionId} />
+        ) : // Open with nothing on it — every path that opens the panel gives it
+        // a detail or the terminal in the same update, but a click whose
+        // content has not landed yet can sit in between. Name the state;
+        // never draw a blank panel.
+        !detail && !terminalOpen ? (
+          <div className="text-muted-foreground/70 flex h-full items-center justify-center p-8 text-center text-sm">
+            {tI18nComplete.raw('text49abaf804ab3')}
+          </div>
         ) : null}
       </DetailLayer>
     </div>

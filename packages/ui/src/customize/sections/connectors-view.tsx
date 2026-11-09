@@ -34,7 +34,7 @@ import {
 } from '../../primitives/dropdown-menu';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../primitives/field';
 import Hint from '../../primitives/hint';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { InlineMeta } from '../../primitives/inline-meta';
 import { Input } from '../../primitives/input';
 import { Label } from '../../primitives/label';
@@ -1134,7 +1134,7 @@ export function ChannelConnectionSection({
     <section className="space-y-4">
       <Label>{tI18nComplete.raw('text639a40e82b9a')}</Label>
       <div className="bg-popover rounded-md border px-4 py-3">
-        <InfoBanner tone="warning">{tI18nComplete.raw('text53f76274b923')}</InfoBanner>
+        <BannerAlert variant="warning" ><BannerAlertDescription>{tI18nComplete.raw('text53f76274b923')}</BannerAlertDescription></BannerAlert>
       </div>
     </section>
   );
@@ -1171,13 +1171,9 @@ function SlackChannelConnection({
         ) : canWrite ? (
           <SlackConnectForm projectId={projectId} onConnected={onChanged} />
         ) : (
-          <InfoBanner
-            tone="neutral"
-            icon={<SlackLogo />}
-            title={tI18nComplete.raw('textb36d622566f6')}
-          >
+          <BannerAlert variant="default" ><BannerAlertMedia>{<SlackLogo />}</BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('textb36d622566f6')}</BannerAlertTitle><BannerAlertDescription>
             {tI18nComplete.raw('text98d27bdc2fa7')}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         )}
       </div>
     </section>
@@ -1200,10 +1196,10 @@ function ConnectedSlackConnection({
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="space-y-4">
-      <InfoBanner tone="success" icon={Check} title={tI18nComplete.raw('text4fce550efde4')}>
+      <BannerAlert variant="success" ><BannerAlertMedia><Check /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text4fce550efde4')}</BannerAlertTitle><BannerAlertDescription>
         {tI18nComplete.raw('text87bb59ba2f92')}{' '}
         <code className="font-mono">{installation.workspaceName || installation.workspaceId}</code>
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
       {canWrite && (
         <div className="flex items-center justify-end gap-2">
           {confirming ? (
@@ -1292,29 +1288,18 @@ export function SlackConnectForm({
         (mode.isLoading ? (
           <Skeleton className="h-24 w-full rounded-md" />
         ) : installUrl ? (
-          <InfoBanner
-            tone="info"
-            icon={<SlackLogo />}
-            title={tI18nComplete.raw('text0e671041e03f')}
-            action={
-              <Button size="sm" className="shrink-0 gap-1.5" asChild>
+          <BannerAlert variant="default" ><BannerAlertMedia>{<SlackLogo />}</BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text0e671041e03f')}</BannerAlertTitle><BannerAlertDescription>
+            {tI18nComplete.raw('text8b3305c40176')}
+          </BannerAlertDescription><BannerAlertActions>{<Button size="sm" className="shrink-0 gap-1.5" asChild>
                 <a href={installUrl}>
                   {tI18nComplete.raw('text3357cd3d0cee')}
                   <ChevronRight className="h-4 w-4" />
                 </a>
-              </Button>
-            }
-          >
-            {tI18nComplete.raw('text8b3305c40176')}
-          </InfoBanner>
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : (
-          <InfoBanner
-            tone="warning"
-            icon={<SlackLogo />}
-            title={tI18nComplete.raw('text36e7df856716')}
-          >
+          <BannerAlert variant="warning" ><BannerAlertMedia>{<SlackLogo />}</BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text36e7df856716')}</BannerAlertTitle><BannerAlertDescription>
             {tI18nComplete.raw('text51e0d22747d7')}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ))}
       <div className={cn(!customOnly && 'space-y-3')}>
         {!customOnly && (
@@ -1392,9 +1377,9 @@ export function SlackConnectForm({
               {manifest.isLoading ? (
                 <Skeleton className={cn('h-52 w-full', !customOnly && 'rounded-md')} />
               ) : manifest.isError ? (
-                <InfoBanner tone="destructive">
+                <BannerAlert variant="destructive" ><BannerAlertDescription>
                   {(manifest.error as Error)?.message || tI18nComplete.raw('text65a8ec4a4a48')}
-                </InfoBanner>
+                </BannerAlertDescription></BannerAlert>
               ) : manifest.data ? (
                 <div className={cn('max-h-[26rem] overflow-auto', !customOnly && 'rounded-md')}>
                   <CodeSnippet code={manifest.data} language="json" />
@@ -1454,7 +1439,7 @@ export function SlackConnectForm({
                   />
                 </Field>
               </div>
-              {error ? <InfoBanner tone="destructive">{error}</InfoBanner> : null}
+              {error ? <BannerAlert variant="destructive" ><BannerAlertDescription>{error}</BannerAlertDescription></BannerAlert> : null}
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -1579,20 +1564,14 @@ export function ConnectionSection({
       </p>
       <div className="bg-popover rounded-md border px-4 py-3">
         {configQuery.isError ? (
-          <InfoBanner
-            tone="destructive"
-            title={tI18nHardcoded.raw(
+          <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nHardcoded.raw(
               'autoComponentsProjectsCustomizeSectionsConnectorsViewJsxAttrTitleCouldn277b73a0',
-            )}
-            action={
-              <Button size="sm" variant="outline" onClick={() => configQuery.refetch()}>
-                {tI18nHardcoded.raw('i18nComplete.text942087cc2d41')}
-              </Button>
-            }
-          >
+            )}</BannerAlertTitle><BannerAlertDescription>
             {(configQuery.error as Error)?.message ??
               tI18nHardcoded.raw('i18nComplete.text27c2ccd962c2')}
-          </InfoBanner>
+          </BannerAlertDescription><BannerAlertActions>{<Button size="sm" variant="outline" onClick={() => configQuery.refetch()}>
+                {tI18nHardcoded.raw('i18nComplete.text942087cc2d41')}
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : configQuery.isLoading || !draft ? (
           <div className="space-y-3">
             <Skeleton className="h-9 w-full rounded-md" />
@@ -2318,9 +2297,9 @@ export function CustomConnectorForm({
           />
           {oauth2Selected && (
             <div className="space-y-4">
-              <InfoBanner tone="info" title={tI18nHardcoded.raw('i18nComplete.textc2a08c85f9d8')}>
+              <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.textc2a08c85f9d8')}</BannerAlertTitle><BannerAlertDescription>
                 {tI18nHardcoded.raw('i18nComplete.text9dedee588b5e')}
-              </InfoBanner>
+              </BannerAlertDescription></BannerAlert>
               <OAuth2CredentialFields
                 value={oauth2}
                 onChange={setOauth2}
@@ -2329,32 +2308,32 @@ export function CustomConnectorForm({
             </div>
           )}
           {draft.auth === undefined && discovery.isFetching && (
-            <InfoBanner tone="info">
+            <BannerAlert variant="default" ><BannerAlertDescription>
               {tI18nHardcoded.raw('i18nComplete.text0fc5f970755c')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           {draft.auth === undefined && discovery.data?.status === 'none' && (
-            <InfoBanner tone="neutral">
+            <BannerAlert variant="default" ><BannerAlertDescription>
               {tI18nHardcoded.raw('i18nComplete.textcec52b040075')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           {draft.auth === undefined && discovery.data?.status === 'unsupported' && (
-            <InfoBanner tone="warning">
+            <BannerAlert variant="warning" ><BannerAlertDescription>
               {tI18nHardcoded.raw('i18nComplete.text028f0773776c')}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           {draft.auth === undefined && discovery.error && (
-            <InfoBanner tone="warning">
+            <BannerAlert variant="warning" ><BannerAlertDescription>
               {tI18nHardcoded.raw('i18nComplete.textf26a5845c994')}{' '}
               {(discovery.error as Error).message}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           {authActive && !oauth2Selected && (
-            <InfoBanner tone="info">
+            <BannerAlert variant="default" ><BannerAlertDescription>
               {tI18nHardcoded.raw(
                 'autoComponentsProjectsCustomizeSectionsConnectorsViewJsxTextYouLle5def626',
               )}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           )}
           <div className="border-border/60 flex justify-end border-t pt-5">
             <Button
@@ -2753,23 +2732,23 @@ export function SetCredentialModal({
       </TabsContent>
       <TabsContent value="oauth2" className="space-y-4">
         {discoveryPending ? (
-          <InfoBanner tone="neutral" title={tI18nHardcoded.raw('i18nComplete.text1ead5326bbb8')}>
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.text1ead5326bbb8')}</BannerAlertTitle><BannerAlertDescription>
             {tI18nHardcoded.raw('i18nComplete.textc9b1c409642d')}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : plan.kind === 'no_authorization' ? (
-          <InfoBanner tone="neutral" title={tI18nHardcoded.raw('i18nComplete.text24f46f717cfa')}>
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.text24f46f717cfa')}</BannerAlertTitle><BannerAlertDescription>
             {tI18nHardcoded.raw('i18nComplete.text93bc06df8dd8')}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : plan.kind === 'register' && !manualSetup ? (
           <div className="space-y-3">
-            <InfoBanner tone="neutral" title={tI18nHardcoded.raw('i18nComplete.text477d50f7ddbf')}>
+            <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.text477d50f7ddbf')}</BannerAlertTitle><BannerAlertDescription>
               {tI18nHardcoded.raw('i18nComplete.text07fdd059f8a1')}
               {plan.scopes.length
                 ? tI18nHardcoded('i18nComplete.text1d42883b00c1', {
                     value0: plan.scopes.join(', '),
                   })
                 : ''}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -2792,33 +2771,27 @@ export function SetCredentialModal({
             </div>
           </div>
         ) : plan.kind === 'client_id_required' ? (
-          <InfoBanner tone="neutral" title={tI18nHardcoded.raw('i18nComplete.textcb7c06207756')}>
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.textcb7c06207756')}</BannerAlertTitle><BannerAlertDescription>
             {tI18nHardcoded.raw('i18nComplete.text0dbb23e7febb')}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : plan.kind === 'manual' && !manualSetup ? (
-          <InfoBanner
-            tone="neutral"
-            title={tI18nHardcoded.raw('i18nComplete.texteb99bb9a22f3')}
-            action={
-              <Button
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.texteb99bb9a22f3')}</BannerAlertTitle><BannerAlertDescription>
+            {plan.reason}
+          </BannerAlertDescription><BannerAlertActions>{<Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => setManualSetup(true)}
               >
                 {tI18nHardcoded.raw('i18nComplete.textb1d877ab2f51')}
-              </Button>
-            }
-          >
-            {plan.reason}
-          </InfoBanner>
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : (
-          <InfoBanner tone="info">{tI18nHardcoded.raw('i18nComplete.text67dc9c4395f1')}</InfoBanner>
+          <BannerAlert variant="default" ><BannerAlertDescription>{tI18nHardcoded.raw('i18nComplete.text67dc9c4395f1')}</BannerAlertDescription></BannerAlert>
         )}
         {discoveryError && (
-          <InfoBanner tone="neutral" title={tI18nHardcoded.raw('i18nComplete.textdc258e9a953b')}>
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded.raw('i18nComplete.textdc258e9a953b')}</BannerAlertTitle><BannerAlertDescription>
             {discoveryError}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         )}
         {showManualOAuth2Fields && (
           <>
@@ -2868,13 +2841,13 @@ export function SetCredentialModal({
           </>
         )}
         {device && (
-          <InfoBanner
-            tone="neutral"
-            title={tI18nHardcoded('i18nComplete.textbfd271fe6ead', {
+          <BannerAlert variant="default" ><BannerAlertTitle>{tI18nHardcoded('i18nComplete.textbfd271fe6ead', {
               value0: device.user_code,
-            })}
-            action={
-              <Button
+            })}</BannerAlertTitle><BannerAlertDescription>
+            {tI18nHardcoded.raw('i18nComplete.text9c67cc26222a')} {device.interval_seconds}{' '}
+            {tI18nHardcoded.raw('i18nComplete.text4616b90a6d94')}{' '}
+            {new Date(device.expires_at).toLocaleTimeString()}.
+          </BannerAlertDescription><BannerAlertActions>{<Button
                 type="button"
                 size="sm"
                 variant="outline"
@@ -2888,13 +2861,7 @@ export function SetCredentialModal({
               >
                 <ExternalLink className="size-4" />
                 {tI18nHardcoded.raw('i18nComplete.text97fc3d60fab5')}
-              </Button>
-            }
-          >
-            {tI18nHardcoded.raw('i18nComplete.text9c67cc26222a')} {device.interval_seconds}{' '}
-            {tI18nHardcoded.raw('i18nComplete.text4616b90a6d94')}{' '}
-            {new Date(device.expires_at).toLocaleTimeString()}.
-          </InfoBanner>
+              </Button>}</BannerAlertActions></BannerAlert>
         )}
       </TabsContent>
     </Tabs>

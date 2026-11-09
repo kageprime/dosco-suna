@@ -1,4 +1,4 @@
-import { appendQuery } from './iam-query';
+import { appendQuery } from '../../http/url';
 import { backendApi } from '../../http/api-client';
 import { iamGet, iamUnwrap as unwrap } from './iam-shared';
 import type { AuditEvent } from './audit';

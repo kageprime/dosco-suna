@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../../primitives/button';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import { Label } from '../../../primitives/label';
 import { useTranslations as useI18nTranslations } from '../../../i18n';
@@ -54,9 +54,9 @@ export function WhenWebhook({
       <p className="text-muted-foreground text-xs leading-relaxed text-pretty">
         {tI18nComplete.raw('textcbdd5dc3da21')}
       </p>
-      <InfoBanner tone="info" className="text-xs">
+      <BannerAlert variant="default" className="text-xs"><BannerAlertDescription>
         {tI18nComplete.raw('textc22e9b2269f5')}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     </div>
   );
 }

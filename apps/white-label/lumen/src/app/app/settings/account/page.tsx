@@ -1,7 +1,8 @@
 'use client';
 
 import { useFirm } from '@/components/access';
-import { useTheme, type ThemeChoice } from '@/components/theme';
+import { useTheme, type ThemeChoice } from '@kortix/white-label-shared/theme';
+import { THEME_DEFAULT, THEME_KEY } from '@/config/theme-script';
 import { ACTIONS } from '@/lib/audit-labels';
 import { authClient } from '@/lib/auth-client';
 import { downloadCsv } from '@/lib/csv';
@@ -35,7 +36,7 @@ function Card({ title, body, children }: { title: string; body?: string; childre
 export default function AccountPage() {
   const firm = useFirm();
   const { data } = authClient.useSession();
-  const { choice, setChoice } = useTheme();
+  const { choice, setChoice } = useTheme({ key: THEME_KEY, defaultChoice: THEME_DEFAULT });
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [current, setCurrent] = useState('');

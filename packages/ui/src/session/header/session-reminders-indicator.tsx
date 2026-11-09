@@ -24,13 +24,10 @@ import { useCapabilityAccess } from '../../internal/layout/project-settings-nav'
 import { BELL_REFLECTION_MASK } from '../../internal/notifications/notification-bell';
 import { badgeCount } from '../../internal/notifications/notification-rows';
 import { reminderTitle } from '../../internal/reminders/reminder-format';
-import {
-  useNow,
-  useRefetchAfterFire,
-} from '../../internal/reminders/use-refetch-after-fire';
+import { useRefetchAfterFire } from '../../internal/reminders/use-refetch-after-fire';
 import { cn } from '../../internal/lib/utils';
 import { useTranslations } from '../../i18n';
-import { qk, useFeatureFlag, useSessionWorking } from '@kortix/sdk/react';
+import { qk, useFeatureFlag, useNow, useSessionWorking } from '@kortix/sdk/react';
 import { AlarmIcon, PauseIcon, PlayIcon, TrashIcon } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSessionIds } from '../../providers/session-ids';
@@ -176,7 +173,7 @@ export function SessionRemindersIndicator({ runtimeSessionId }: { runtimeSession
   const gate = useFeatureFlag(projectId, 'reminders');
   const { reminders, controls, confirm } = useReminderControls(gate.enabled ? projectId : null, sessionId);
   useRefetchAfterFire(reminders.data?.reminders, reminders.refetch);
-  const now = useNow();
+  const now = useNow(30_000);
   const hasTab = useCapabilityAccess(projectId).tabs.includes('reminders');
   // Null when the host serves no customize pages: no "Open in Reminders" link.
   const manageHref = hasTab ? `${remindersHref(projectId)}?session=${sessionId}` : null;

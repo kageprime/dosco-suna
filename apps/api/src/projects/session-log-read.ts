@@ -42,7 +42,8 @@ import {
 } from '@kortix/api-contract/session-log';
 import { KORTIX_TRANSCRIPT_SCHEMA } from '@kortix/api-contract/transcript';
 import { projectSessions, sessionLogMessages, sessionLogs, sessionLogThreads } from '@kortix/db';
-import { and, asc, desc, eq, inArray, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
+import { config } from '../config';
 import { db } from '../shared/db';
 import { qualifiedColumn } from '../shared/sql-qualified-column';
 import {
@@ -85,6 +86,43 @@ function readThreads(tx: Tx, sessionId: string): Promise<ThreadRow[]> {
 
 type PageInput = { sessionId: string; threadId: string | null; beforeSeq: number | null; limit: number };
 
+const threadScope = (input: PageInput, threadId: string) =>
+  and(
+    eq(sessionLogMessages.sessionId, input.sessionId),
+    eq(sessionLogMessages.threadId, threadId),
+    isNull(sessionLogMessages.deletedAt),
+    input.beforeSeq === null ? undefined : lt(sessionLogMessages.seq, input.beforeSeq),
+  ) as SQL;
+
+/** Rows the page window would carry, newest first, each with its stored record size (`pg_column_size`, bytes on disk ≈ a lower bound of the JSON payload). */
+type SizedWindowRow = { seq: number; bytes: number };
+
+/**
+ * How many window rows the page budget serves.
+ *
+ * Rows arrive seq-descending (newest first). The page keeps the newest whole
+ * messages and drops the tail rows that would overflow `budget`; the newest
+ * message is served however large it is (an empty page answers nothing, and the
+ * route's clients read that as no log). A dropped tail means older messages
+ * exist: the caller answers `has_more: true` and clients read on with `before_seq`.
+ */
+export function keptUnderBudget(rows: SizedWindowRow[], budget: number): {
+  keptCount: number;
+  /** The oldest kept row's `seq`; `null` when nothing was dropped (no lower bound needed). */
+  oldestKeptSeq: number | null;
+  dropped: boolean;
+} {
+  let acc = 0;
+  let keptCount = 0;
+  for (const row of rows) {
+    if (keptCount > 0 && acc + row.bytes > budget) break;
+    acc += row.bytes;
+    keptCount += 1;
+  }
+  const dropped = keptCount < rows.length;
+  return { keptCount, oldestKeptSeq: dropped ? rows[keptCount - 1]!.seq : null, dropped };
+}
+
 /** One page of one thread. Null when the session has no stored log (a new session). */
 export function readSessionLogPage(input: PageInput): Promise<SessionLogPage | 'unknown_thread' | null> {
   return db.transaction(async (tx) => {
@@ -108,22 +146,36 @@ export function readSessionLogPage(input: PageInput): Promise<SessionLogPage | '
       threadId = first?.threadId ?? null;
     }
     const threadRecord = threads.find((t) => t.threadId === threadId)?.record;
+    // The page budget bounds the read's wire cost: `GET …/log` serves a window of whole stored
+    // records and a heavy session's page carried tens of MB (the read scales with the page
+    // payload: 40 MB ran ~330 ms on loopback; prod `db;dur` was ~96 % of a 1–5 s read —
+    // KRTX-4508). Probe the window's seq and sizes first (TOAST pointers, no payload), keep
+    // the newest run under `SESSION_LOG_PAGE_MAX_BYTES`, then read only those records in full.
+    let budgetCut = false;
     const rows =
       threadId === null
         ? []
-        : await tx
-            .select({ record: sessionLogMessages.record })
-            .from(sessionLogMessages)
-            .where(
-              and(
-                eq(sessionLogMessages.sessionId, input.sessionId),
-                eq(sessionLogMessages.threadId, threadId),
-                isNull(sessionLogMessages.deletedAt),
-                input.beforeSeq === null ? undefined : lt(sessionLogMessages.seq, input.beforeSeq),
-              ),
-            )
-            .orderBy(desc(sessionLogMessages.seq))
-            .limit(input.limit + 1);
+        : await (async () => {
+            const scope = threadScope(input, threadId);
+            const window = await tx
+              .select({ seq: sessionLogMessages.seq, bytes: sql<number>`pg_column_size(${sessionLogMessages.record})::int` })
+              .from(sessionLogMessages)
+              .where(scope)
+              .orderBy(desc(sessionLogMessages.seq))
+              .limit(input.limit + 1);
+            const kept = keptUnderBudget(window, config.SESSION_LOG_PAGE_MAX_BYTES);
+            budgetCut = kept.dropped;
+            let payloadScope = scope;
+            if (kept.dropped) {
+              payloadScope = and(scope, gte(sessionLogMessages.seq, kept.oldestKeptSeq!)) as SQL;
+            }
+            return (await tx
+              .select({ record: sessionLogMessages.record })
+              .from(sessionLogMessages)
+              .where(payloadScope)
+              .orderBy(desc(sessionLogMessages.seq))
+              .limit(kept.keptCount));
+          })();
     return {
       session: log.record as SessionLogPage['session'],
       generation: log.generation,
@@ -133,7 +185,7 @@ export function readSessionLogPage(input: PageInput): Promise<SessionLogPage | '
         .slice(0, input.limit)
         .reverse()
         .map((r) => withKeptToolInputs(log.record as J, threadRecord, r.record as SessionLogMessage)),
-      has_more: rows.length > input.limit,
+      has_more: budgetCut || rows.length > input.limit,
     };
   }, READ_ONLY);
 }

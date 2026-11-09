@@ -22,6 +22,18 @@ interface ClaimedRow extends Record<string, unknown> {
 }
 
 /**
+ * The claim fence for a settle write: it lands only on the row this worker
+ * claimed, and never on a row a later attempt has already set ready.
+ */
+function claimedRowWhere(snapshotId: string, workerId: string) {
+  return and(
+    eq(projectSnapshotArchives.snapshotId, snapshotId),
+    eq(projectSnapshotArchives.lockedBy, workerId),
+    sql`${projectSnapshotArchives.status} <> 'ready'`,
+  );
+}
+
+/**
  * Claim due rows. `queued` rows past `next_attempt_at`, or `building` rows
  * whose lease expired (a worker that died mid-build). `attempts` is bumped at
  * claim time so a crash still counts. Postgres `SKIP LOCKED` keeps N replicas
@@ -80,13 +92,7 @@ async function settleReady(
       readyAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(projectSnapshotArchives.snapshotId, snapshotId),
-        eq(projectSnapshotArchives.lockedBy, workerId),
-        sql`${projectSnapshotArchives.status} <> 'ready'`,
-      ),
-    );
+    .where(claimedRowWhere(snapshotId, workerId));
 }
 
 async function settleFailure(
@@ -108,13 +114,7 @@ async function settleFailure(
       lockedUntil: null,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(projectSnapshotArchives.snapshotId, snapshotId),
-        eq(projectSnapshotArchives.lockedBy, workerId),
-        sql`${projectSnapshotArchives.status} <> 'ready'`,
-      ),
-    );
+    .where(claimedRowWhere(snapshotId, workerId));
   return exhausted ? 'failed' : 'requeued';
 }
 

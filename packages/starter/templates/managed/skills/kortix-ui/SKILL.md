@@ -29,35 +29,36 @@ Module entries and `@kortix/ui/theme` need 0.14.4+. Inside `kortix-ai/CompanyOS`
 
 ## 2. Compose before you create
 
-| Job | Compose | Subpath |
-| --- | --- | --- |
-| Dialog or sheet | `Modal`, `ModalContent`, `ModalHeader`, `ModalTitle`, `ModalBody`, `ModalFooter` | `modal` |
-| Destructive action | `ConfirmDialog` before the mutation, never a single click | `confirm-dialog` |
-| Tooltip on an icon button | `Hint label="…"` | `hint` |
-| Toast after a mutation | `successToast`, `errorToast`, `infoToast`, `warningToast`, `loadingToast` | `toast` |
-| Status chip; count beside a label | `Badge size="sm"`; `CountBadge` (`waiting`, `reminder`, `conflict`, `neutral`) | `badge`, `count-badge` |
-| Inline alert | `InfoBanner tone="…" title="…"` | `info-banner` |
-| Pending spinner | `Loading` (default export) | `loading` |
-| Expand and collapse | `Disclosure`, `DisclosureTrigger`, `DisclosureContent` | `disclosure` |
-| Form field; search field | `Field`, `FieldLabel`, `FieldGroup`, `FieldDescription` with `Input`, `Textarea`, `Select`; `InputGroupSearch` | `field`, `input-group` |
-| Panel; buttons side by side | `Card` and its slots, or `bg-popover rounded-md border px-4 py-5`; `ButtonGroup` | `card`, `button-group` |
-| Tabs and filters | `Tabs`, `TabsList`, `TabsListCompact` | `tabs` |
-| Menu, picker, palette | `DropdownMenu`, `Popover`, `Command` | `dropdown-menu`, `popover`, `command` |
-| Table and empty list | `Table`; `Empty` with one muted line | `table`, `empty` |
+| Job                               | Compose                                                                                                        | Subpath                               |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Dialog or sheet                   | `Modal`, `ModalContent`, `ModalHeader`, `ModalTitle`, `ModalBody`, `ModalFooter`                               | `modal`                               |
+| Destructive action                | `ConfirmDialog` before the mutation, never a single click                                                      | `confirm-dialog`                      |
+| Tooltip on an icon button         | `Hint label="…"`                                                                                               | `hint`                                |
+| Toast after a mutation            | `successToast`, `errorToast`, `infoToast`, `warningToast`, `loadingToast`                                      | `toast`                               |
+| Status chip; count beside a label | `Badge size="sm"`; `CountBadge` (`waiting`, `reminder`, `conflict`, `neutral`)                                 | `badge`, `count-badge`                |
+| Inline alert                      | `Alert` + `AlertTitle` + `AlertDescription`                                                                                  | `alert`                               |
+| Pending spinner                   | `Loading` (default export)                                                                                     | `loading`                             |
+| Expand and collapse               | `Disclosure`, `DisclosureTrigger`, `DisclosureContent`                                                         | `disclosure`                          |
+| Form field; search field          | `Field`, `FieldLabel`, `FieldGroup`, `FieldDescription` with `Input`, `Textarea`, `Select`; `InputGroupSearch` | `field`, `input-group`                |
+| Panel; buttons side by side       | `Card` and its slots, or `bg-popover rounded-md border px-4 py-5`; `ButtonGroup`                               | `card`, `button-group`                |
+| Tabs and filters                  | `Tabs`, `TabsList size="xs"`, `TabsTrigger`                                                                          | `tabs`                                |
+| Menu, picker, palette             | `DropdownMenu`, `Popover`, `Command`                                                                           | `dropdown-menu`, `popover`, `command` |
+| Table and empty list              | `Table`; `Empty` with one muted line                                                                           | `table`, `empty`                      |
 
 A new primitive is the last step: tokens only, a small API, and a section on `/design-system`.
+
 ## 3. Banned
 
-| Never | Use |
-| --- | --- |
-| `Dialog` / `DialogContent` in feature code | `Modal` |
-| `Tooltip` primitives in feature code | `Hint` |
-| `toast()` from `sonner`, `toast.success()` | the toast helpers and `<Toaster />`, all from `@kortix/ui/toast`; a host needs no `sonner` import |
-| An icon with `animate-spin`, `CircleNotchIcon`, `SpinnerIcon` | `Loading` |
-| A hand-rolled chip `<span>` or a colored banner | `Badge`, `InfoBanner` |
-| `SectionCard`, `List` / `ListRow` | `Card`, `<ul className="space-y-2">` rows |
-| `lucide-react` or another icon set | `@phosphor-icons/react`, `*Icon` names, no `weight` prop (only `weight="fill"` for solid status glyphs) |
-| A fork or a restyled copy of a component | the component as it ships; theme with tokens (section 6) |
+| Never                                                         | Use                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `Dialog` / `DialogContent` in feature code                    | `Modal`                                                                                                 |
+| `Tooltip` primitives in feature code                          | `Hint`                                                                                                  |
+| `toast()` from `sonner`, `toast.success()`                    | the toast helpers and `<Toaster />`, all from `@kortix/ui/toast`; a host needs no `sonner` import       |
+| An icon with `animate-spin`, `CircleNotchIcon`, `SpinnerIcon` | `Loading`                                                                                               |
+| A hand-rolled chip `<span>` or a colored banner               | `Badge`, `Alert`                                                                                        |
+| `SectionCard`, `List` / `ListRow`                             | `Card`, `<ul className="space-y-2">` rows                                                               |
+| `lucide-react` or another icon set                            | `@phosphor-icons/react`, `*Icon` names, no `weight` prop (only `weight="fill"` for solid status glyphs) |
+| A fork or a restyled copy of a component                      | the component as it ships; theme with tokens (section 6)                                                |
 
 ## 4. Tokens only
 
@@ -69,8 +70,20 @@ A new primitive is the last step: tokens only, a small API, and a section on `/d
 ## 5. Status tones
 
 One meaning per hue. `StatusTone` (`@kortix/ui/status`): `success`, `warning`, `destructive`, `info`, `neutral`, for
-`InfoBanner tone`, `StatusBadge`, `STATUS_DOT`; `Badge` variants map the same, `muted` for neutral. Tinted icon tile:
+`StatusBadge` and `STATUS_DOT`; `Badge` variants map the same, `muted` for neutral.
+`Alert` accepts only `default`, `success`, `warning`, and `destructive`. Map info and neutral notices to `variant="default"`. Tinted icon tile:
 `bg-kortix-green/15` (or `-orange`, `-blue`) with the icon in the full hue.
+
+```tsx
+import { Alert, AlertTitle, AlertDescription } from '@kortix/ui/alert';
+
+<Alert variant="default">
+  <AlertTitle>Connection pending</AlertTitle>
+  <AlertDescription>Finish authorization to connect this account.</AlertDescription>
+</Alert>
+```
+
+Do not pass `title` to `Alert`: that is a native tooltip attribute, not visible content.
 
 ## 6. White-label
 
@@ -82,21 +95,20 @@ Theme with `@kortix/ui/theme`, never by forking a component: `themeToCss(theme)`
 
 ## 7. Components
 
-| Import from | Names |
-| --- | --- |
-| `@kortix/ui` (adapters) | `cn`, `UiProvider`, `defaultUiStrings`, `useUiStrings`, `useUiLink`, `useUiImage`, `useUiBrand`, `UiStrings`, `UiStringsInput`, `UiLinkProps`, `UiLinkComponent`, `UiImageProps`, `UiImageComponent`, `UiBrand`, `UseUiBrand`, `useIsDark`, `useUiRouter`, `useUiShallowNavigate`, `UiShallowNavigate`, `useUiPathname`, `useUiSearchParams`, `useUiParams`, `defaultUiNavigation`, `UiNavigation`, `UiRouter`, `UiRouteParams`, `UiSearchParams`, `useUiViewerId`, `useUiHostConfig`, `defaultUiHostConfig`, `UiHostConfig`, `UiSlashAction`, `SessionIdsProvider`, `useSessionIds`, `UiSessionIds` |
-| `@kortix/ui` (actions, display) | `Button`, `buttonVariants`, `ButtonProps`, `Badge`, `badgeVariants`, `Card`, `CardAction`, `CardButton`, `CardContent`, `CardDescription`, `CardEyebrow`, `CardFeature`, `CardFooter`, `CardGroup`, `CardHeader`, `CardImage`, `CardMedia`, `CardTitle`, `CardButtonProps`, `CardButtonSize`, `CardButtonVariant`, `CardGroupProps`, `CardLogo`, `CardProps`, `Separator`, `Skeleton` |
-| `@kortix/ui` (forms) | `Input`, `inputFocusClasses`, `inputInvalidClasses`, `inputSurfaceClasses`, `inputTransitionClasses`, `InputProps`, `useAutosizeTextArea`, `Textarea`, `AutosizeTextAreaRef`, `AutosizeTextAreaProps`, `Label`, `Checkbox`, `CheckboxProps`, `CheckboxVariant`, `Switch`, `SwitchProps`, `Select`, `SelectContent`, `SelectGroup`, `SelectItem`, `SelectLabel`, `SelectScrollDownButton`, `SelectScrollUpButton`, `SelectSeparator`, `SelectTrigger`, `SelectValue`, `SelectTriggerProps` |
-| `@kortix/ui` (overlays) | `Modal`, `ModalBody`, `ModalClose`, `ModalContent`, `ModalContentInner`, `ModalDescription`, `ModalFooter`, `ModalHeader`, `ModalOverlay`, `ModalPortal`, `ModalTitle`, `ModalTrigger`, `Hint`, `HintProps`, `Popover`, `PopoverAnchor`, `PopoverContent`, `PopoverTrigger`, `DropdownMenu`, `DropdownMenuCheckboxItem`, `DropdownMenuContent`, `DropdownMenuGroup`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuPortal`, `DropdownMenuRadioGroup`, `DropdownMenuRadioItem`, `DropdownMenuSeparator`, `DropdownMenuShortcut`, `DropdownMenuSub`, `DropdownMenuSubContent`, `DropdownMenuSubTrigger`, `DropdownMenuTrigger` |
-| `@kortix/ui` (primitives, not for feature code: section 3) | `Dialog`, `DialogClose`, `DialogContent`, `DialogDescription`, `DialogFooter`, `DialogHeader`, `DialogOverlay`, `DialogPortal`, `DialogTitle`, `DialogTrigger`, `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger` |
-| `@kortix/ui` (navigation) | `FilterBar`, `FilterBarItem`, `Tabs`, `TabsContent`, `TabsList`, `TabsListCompact`, `TabsTrigger`, `TabsTriggerCompact`, `tabsTriggerHeightVariants`, `tabsTriggerPaddingVariants`, `tabsTriggerTextVariants`, `TabsListType`, `TabsSize`, `TabsTriggerSize`, `TabsTriggerVariant`, `TabsUnderlineSize` |
-| `@kortix/ui` (conversation) | `Bubble`, `BubbleContent`, `BubbleGroup`, `BubbleReactions`, `bubbleVariants`, `Message`, `MessageAvatar`, `MessageContent`, `MessageFooter`, `MessageGroup`, `MessageHeader`, `Marker`, `MarkerContent`, `MarkerIcon`, `markerVariants` |
-| `@kortix/ui` (hooks, helpers) | `UiLink`, `UiImage`, `useUiViewer`, `UiViewer`, `UiHostComponents`, `UiPreviewUrlResolver`, `UiPreviewRequest`, `useDebounce`, `useIsMobile`, `useMediaQuery`, `useSlashFocus`, `lazyClient`, `spring`, `floatingZ`, `dialogContentZ`, `dialogOverlayZ`, `useDialogDepth`, `hasOpenFloatingLayer`, `hasOpenNestedDialog`, `DEFAULT_ICON_WEIGHT`, `ICON_WEIGHTS`, `SHIPPED_ICON_WEIGHTS`, `faviconUrlForHostname`, `setUiTelemetry`, `setUiHostEnv`, `setUiRoutes`, `uiRoutes`, `newSessionHref`, `isNewSessionRequested`, `defaultUiRoutes`, `decodeSpaceSegment`, `UiRoutes` |
-| `@kortix/ui/theme` | `KortixTheme`, `themeToCss`, `themeToCssVars`, `ThemeScope`, `ThemeScopeProps`, `THEME_COLOR_VARS`, `ThemeColor`, `ThemeColors`, `ThemeCssVars`, `ThemeTextStep`, `ThemeShadowStep`, `ThemeDurationStep`, `ThemeEasing`, `WALLPAPERS`, `DEFAULT_WALLPAPER_ID`, `getWallpaperById`, `Wallpaper` |
-| `@kortix/ui/session` (whole thread) | `SessionThread`, `SessionThreadProps` |
-| `@kortix/ui/session` (blocks) | `UserMessage`, `ThrottledMarkdown`, `UnifiedMarkdown`, `UnifiedMarkdownProps`, `ToolPartRenderer`, `SessionChatInput`, `SessionChatInputProps`, `AgentSelector`, `ModelSelector`, `ModelSelectorProps`, `SessionPermissionPrompt`, `QuestionPrompt`, `QuestionPromptHandle`, `TurnErrorDisplay`, `SessionBusyIndicator`, `SessionStartingLoader` |
-| `@kortix/ui/session` (tool rows, pickers) | `ToolRegistry`, `ToolProps`, `ToolComponent`, `BasicTool`, `BasicToolProps`, `GenericTool`; for a form outside a session: `ModelSelector`, `AgentSelector` |
-
+| Import from                                                | Names                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@kortix/ui` (adapters)                                    | `cn`, `UiProvider`, `defaultUiStrings`, `useUiStrings`, `useUiLink`, `useUiImage`, `useUiBrand`, `UiStrings`, `UiStringsInput`, `UiLinkProps`, `UiLinkComponent`, `UiImageProps`, `UiImageComponent`, `UiBrand`, `UseUiBrand`, `useIsDark`, `useUiRouter`, `useUiShallowNavigate`, `UiShallowNavigate`, `useUiPathname`, `useUiSearchParams`, `useUiParams`, `defaultUiNavigation`, `UiNavigation`, `UiRouter`, `UiRouteParams`, `UiSearchParams`, `useUiViewerId`, `useUiHostConfig`, `defaultUiHostConfig`, `UiHostConfig`, `UiSlashAction`, `SessionIdsProvider`, `useSessionIds`, `UiSessionIds`                                 |
+| `@kortix/ui` (actions, display)                            | `Button`, `buttonVariants`, `ButtonProps`, `Badge`, `badgeVariants`, `Card`, `CardAction`, `CardButton`, `CardContent`, `CardDescription`, `CardEyebrow`, `CardFeature`, `CardFooter`, `CardGroup`, `CardHeader`, `CardImage`, `CardMedia`, `CardTitle`, `CardButtonProps`, `CardButtonSize`, `CardButtonVariant`, `CardGroupProps`, `CardLogo`, `CardProps`, `Separator`, `Skeleton`                                                                                                                                                                                                                                                |
+| `@kortix/ui` (forms)                                       | `Input`, `inputFocusClasses`, `inputInvalidClasses`, `inputSurfaceClasses`, `inputTransitionClasses`, `InputProps`, `useAutosizeTextArea`, `Textarea`, `AutosizeTextAreaRef`, `AutosizeTextAreaProps`, `Label`, `Checkbox`, `CheckboxProps`, `CheckboxVariant`, `Switch`, `SwitchProps`, `Select`, `SelectContent`, `SelectGroup`, `SelectItem`, `SelectLabel`, `SelectScrollDownButton`, `SelectScrollUpButton`, `SelectSeparator`, `SelectTrigger`, `SelectValue`, `SelectTriggerProps`                                                                                                                                            |
+| `@kortix/ui` (overlays)                                    | `Modal`, `ModalBody`, `ModalClose`, `ModalContent`, `ModalContentInner`, `ModalDescription`, `ModalFooter`, `ModalHeader`, `ModalOverlay`, `ModalPortal`, `ModalTitle`, `ModalTrigger`, `Hint`, `HintProps`, `Popover`, `PopoverAnchor`, `PopoverContent`, `PopoverTrigger`, `DropdownMenu`, `DropdownMenuCheckboxItem`, `DropdownMenuContent`, `DropdownMenuGroup`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuPortal`, `DropdownMenuRadioGroup`, `DropdownMenuRadioItem`, `DropdownMenuSeparator`, `DropdownMenuShortcut`, `DropdownMenuSub`, `DropdownMenuSubContent`, `DropdownMenuSubTrigger`, `DropdownMenuTrigger` |
+| `@kortix/ui` (primitives, not for feature code: section 3) | `Dialog`, `DialogClose`, `DialogContent`, `DialogDescription`, `DialogFooter`, `DialogHeader`, `DialogOverlay`, `DialogPortal`, `DialogTitle`, `DialogTrigger`, `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger`                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `@kortix/ui` (navigation)                                  | `FilterBar`, `FilterBarItem`, `Tabs`, `TabsContent`, `TabsList`, `TabsTrigger`, `tabsTriggerHeightVariants`, `tabsTriggerPaddingVariants`, `tabsTriggerTextVariants`, `TabsListType`, `TabsSize`, `TabsTriggerSize`, `TabsTriggerVariant`, `TabsUnderlineSize`                                                                                                                                                                                                                                                                                                                              |
+| `@kortix/ui` (conversation)                                | `Bubble`, `BubbleContent`, `BubbleGroup`, `BubbleReactions`, `bubbleVariants`, `Message`, `MessageAvatar`, `MessageContent`, `MessageFooter`, `MessageGroup`, `MessageHeader`, `Marker`, `MarkerContent`, `MarkerIcon`, `markerVariants`                                                                                                                                                                                                                                                                                                                                                                                             |
+| `@kortix/ui` (hooks, helpers)                              | `UiLink`, `UiImage`, `useUiViewer`, `UiViewer`, `UiHostComponents`, `UiPreviewUrlResolver`, `UiPreviewRequest`, `useDebounce`, `useIsMobile`, `useMediaQuery`, `useSlashFocus`, `lazyClient`, `spring`, `floatingZ`, `dialogContentZ`, `dialogOverlayZ`, `useDialogDepth`, `hasOpenFloatingLayer`, `hasOpenNestedDialog`, `DEFAULT_ICON_WEIGHT`, `ICON_WEIGHTS`, `SHIPPED_ICON_WEIGHTS`, `faviconUrlForHostname`, `setUiTelemetry`, `setUiHostEnv`, `setUiRoutes`, `uiRoutes`, `newSessionHref`, `isNewSessionRequested`, `defaultUiRoutes`, `decodeSpaceSegment`, `UiRoutes`                                                        |
+| `@kortix/ui/theme`                                         | `KortixTheme`, `themeToCss`, `themeToCssVars`, `ThemeScope`, `ThemeScopeProps`, `THEME_COLOR_VARS`, `ThemeColor`, `ThemeColors`, `ThemeCssVars`, `ThemeTextStep`, `ThemeShadowStep`, `ThemeDurationStep`, `ThemeEasing`, `WALLPAPERS`, `DEFAULT_WALLPAPER_ID`, `getWallpaperById`, `Wallpaper`                                                                                                                                                                                                                                                                                                                                       |
+| `@kortix/ui/session` (whole thread)                        | `SessionThread`, `SessionThreadProps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `@kortix/ui/session` (blocks)                              | `UserMessage`, `ThrottledMarkdown`, `UnifiedMarkdown`, `UnifiedMarkdownProps`, `ToolPartRenderer`, `SessionChatInput`, `SessionChatInputProps`, `AgentSelector`, `ModelSelector`, `ModelSelectorProps`, `SessionPermissionPrompt`, `QuestionPrompt`, `QuestionPromptHandle`, `TurnErrorDisplay`, `SessionBusyIndicator`, `SessionStartingLoader`                                                                                                                                                                                                                                                                                     |
+| `@kortix/ui/session` (tool rows, pickers)                  | `ToolRegistry`, `ToolProps`, `ToolComponent`, `BasicTool`, `BasicToolProps`, `GenericTool`; for a form outside a session: `ModelSelector`, `AgentSelector`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Every other primitive is one subpath per file: `@kortix/ui/<file name>` (`@kortix/ui/dot-matrix/<name>` for the dot matrices).
 Also: `lib/telemetry` (`UiTelemetryRegister`: declaration-merge `event`), `error-boundary` (`ErrorBoundary`, `ErrorBoundaryFallback`).
@@ -120,14 +132,21 @@ One entry per module. Its curated names are the public API (semver). Every name,
 | `@kortix/ui/access`, `@kortix/ui/customize` | Sharing and roles; workspace configuration pages | `<ConnectorsPage projectId />` |
 | `@kortix/ui/theme`, `@kortix/ui/i18n`, `@kortix/ui/icons` | Theme; `useTranslations`, `useLocale` (next-intl signatures); glyphs | none |
 
+
 Deep paths (`@kortix/ui/internal/*`, `@kortix/ui/<module>/<path>`) have no semver: only Kortix's own apps import them (`scripts/deep-exports.json`).
 
 ## 9. Recipes
 
 ```tsx
-import { useSession } from '@kortix/sdk/react';
-import { SessionWorkspace } from '@kortix/ui/workspace';
-export function Session({ projectId, sessionId }: { projectId: string; sessionId: string }) {
+import { useSession } from "@kortix/sdk/react";
+import { SessionWorkspace } from "@kortix/ui/workspace";
+export function Session({
+  projectId,
+  sessionId,
+}: {
+  projectId: string;
+  sessionId: string;
+}) {
   return <SessionWorkspace session={useSession(projectId, sessionId)} />;
 }
 ```
@@ -148,3 +167,11 @@ export function Session({ projectId, sessionId }: { projectId: string; sessionId
 
 In `kortix-ai/CompanyOS`, `kortix-brand` (values, voice) and `kortix-design-system` (which component) in `.agents/skills/` win
 over this file. `apps/web` imports `@kortix/ui` like any host and keeps no re-export shims: edit the component in `packages/ui/src/`.
+
+## Copy and completion icons
+
+- Every copy action uses `CopyButton` from `@kortix/ui/markdown/copy-button`: text, links, code, tokens, and IDs.
+- It uses `Copy` from `@kortix/ui/icons` (`packages/ui/src/icons/copy.tsx`) and swaps in `SolidCheckIcon` from `@kortix/ui/internal/icons/solid-check-icon` after clipboard success. Keep one fixed icon box. Reduced motion swaps immediately.
+- Within `packages/ui`, custom copy controls reuse `AnimatedCopyIcon` with those same two icons. Hosts compose `CopyButton`. Preserve clipboard error handling and an accessible label. Never use Phosphor CopyIcon or a local copy timer.
+- Completion and success use `SolidCheckIcon`. Never use a square filled CheckIcon as a completion symbol. A checkbox is for an editable selection only.
+- Avoid crowded cards. Use one heading, short facts, and one primary action. Put secondary explanation in an info hover card. Keep space between header, body, and actions. Do not stack a description under every fact.

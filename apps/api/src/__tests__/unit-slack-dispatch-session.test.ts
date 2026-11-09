@@ -652,20 +652,31 @@ describe('createOrJoinThreadSession — atomic claim arbitrates a brand-new thre
 // fresh event_id, and fans it across replicas — every one of which shares the
 // message's (team, channel, ts). The key collapses them to one identity, and
 // dispatchSlackEvent claims it atomically before ever spawning the turn.
-describe('inboundMessageKey — one message ⇒ one identity', () => {
+describe('inboundMessageKey — one message ⇒ one identity, per receiving project', () => {
   test('app_mention and message of the SAME message yield the SAME key', () => {
-    const k1 = inboundMessageKey('T1', { channel: 'C1', ts: '100.1' }); // app_mention
-    const k2 = inboundMessageKey('T1', { channel: 'C1', ts: '100.1' }); // sibling message
-    expect(k1).toBe('slack:msg:T1:C1:100.1');
+    const k1 = inboundMessageKey('proj-1', 'T1', { channel: 'C1', ts: '100.1' }); // app_mention
+    const k2 = inboundMessageKey('proj-1', 'T1', { channel: 'C1', ts: '100.1' }); // sibling message
+    expect(k1).toBe('slack:msg:proj-1:T1:C1:100.1');
     expect(k2).toBe(k1);
   });
 
   test('distinct messages → distinct keys; missing coordinates → null (no gate)', () => {
-    expect(inboundMessageKey('T1', { channel: 'C1', ts: '100.1' })).not.toBe(
-      inboundMessageKey('T1', { channel: 'C1', ts: '200.2' }),
+    expect(inboundMessageKey('proj-1', 'T1', { channel: 'C1', ts: '100.1' })).not.toBe(
+      inboundMessageKey('proj-1', 'T1', { channel: 'C1', ts: '200.2' }),
     );
-    expect(inboundMessageKey('T1', { ts: '100.1' })).toBeNull();
-    expect(inboundMessageKey('', { channel: 'C1', ts: '100.1' })).toBeNull();
+    expect(inboundMessageKey('proj-1', 'T1', { ts: '100.1' })).toBeNull();
+    expect(inboundMessageKey('proj-1', '', { channel: 'C1', ts: '100.1' })).toBeNull();
+    expect(inboundMessageKey('', 'T1', { channel: 'C1', ts: '100.1' })).toBeNull();
+  });
+
+  // Every BYO Slack app of a workspace receives every channel message, so the
+  // same message reaches us once per installed project. The claim is owed per
+  // receiving project: another project's claim must never suppress this one
+  // (CWE-863, KRTX-4447).
+  test('the SAME message in another receiving project is a distinct identity', () => {
+    expect(inboundMessageKey('proj-2', 'T1', { channel: 'C1', ts: '100.1' })).not.toBe(
+      inboundMessageKey('proj-1', 'T1', { channel: 'C1', ts: '100.1' }),
+    );
   });
 });
 
@@ -690,7 +701,7 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
 
     dbResults = [
       [], // ensureProjectChannelBinding
-      [{ eventId: 'slack:msg:T1:C1:200.1' }], // claimInboundMessage → WON
+      [{ eventId: 'slack:msg:proj-1:T1:C1:200.1' }], // claimInboundMessage → WON
       [project], // project account lookup before empty-mention help
       [], // resolveSlackActor identity lookup → unlinked
     ];
@@ -718,7 +729,7 @@ describe('dispatchSlackEvent — exactly-once per inbound user message', () => {
     // Delivery #1 — claim WON, known thread, delivered into the existing session.
     dbResults = [
       [], // ensureProjectChannelBinding
-      [{ eventId: 'slack:msg:T1:C1:100.1' }], // claimInboundMessage → WON
+      [{ eventId: 'slack:msg:proj-1:T1:C1:100.1' }], // claimInboundMessage → WON
       [project],
       [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], // chat_threads lookup (known thread)
       [], // update lastMessageAt
@@ -768,7 +779,7 @@ describe('dispatchSlackEvent — a mention addressed to another workspace bot', 
     deliverOutcome = 'delivered';
     dbResults = [
       [], // ensureProjectChannelBinding
-      [{ eventId: 'slack:msg:T1:C1:301.1' }], // claimInboundMessage → WON
+      [{ eventId: 'slack:msg:proj-1:T1:C1:301.1' }], // claimInboundMessage → WON
       [project],
       [{ sessionId: 'sess-1', createdBy: 'user-1', metadata: {} }], // known thread
       [], // update lastMessageAt

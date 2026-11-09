@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 
 import { Button } from '../../../primitives/button';
 import Hint from '../../../primitives/hint';
-import { Tabs, TabsListCompact, TabsTriggerCompact } from '../../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../../primitives/tabs';
 import { cn } from '../../../lib/utils';
 import { formatRelative } from '@kortix/shared';
 import { CheckCircleIcon, GitDiffIcon, PlusIcon, XCircleIcon } from '@phosphor-icons/react';
@@ -144,20 +144,20 @@ export function ChangeRequestsPanel({ open = false, onClose }: ChangeRequestsPan
             onValueChange={(v) => setStatus(v as ChangeRequestStatus | 'all')}
             className="gap-0"
           >
-            <TabsListCompact className="w-fit">
-              <TabsTriggerCompact value="open">
+            <TabsList size="xs" className="w-fit">
+              <TabsTrigger value="open">
                 {tI18nComplete.raw('texted077f3d8125')}
-              </TabsTriggerCompact>
-              <TabsTriggerCompact value="merged">
+              </TabsTrigger>
+              <TabsTrigger value="merged">
                 {tI18nComplete.raw('text0c79a9c22284')}
-              </TabsTriggerCompact>
-              <TabsTriggerCompact value="closed">
+              </TabsTrigger>
+              <TabsTrigger value="closed">
                 {tI18nComplete.raw('text9d74727714db')}
-              </TabsTriggerCompact>
-              <TabsTriggerCompact value="all">
+              </TabsTrigger>
+              <TabsTrigger value="all">
                 {tI18nComplete.raw('texta52ace420f21')}
-              </TabsTriggerCompact>
-            </TabsListCompact>
+              </TabsTrigger>
+            </TabsList>
           </Tabs>
         }
       >

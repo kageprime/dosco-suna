@@ -38,6 +38,7 @@ export {
   normalizeDesktopCall,
   isTunnelCapability,
   operationForMethod,
+  shellCommandAllowed,
   validateTunnelPermissionScope,
 } from './permissions';
 export type { PermissionScopeValidationResult } from './permissions';

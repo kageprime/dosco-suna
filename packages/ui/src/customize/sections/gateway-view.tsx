@@ -42,8 +42,9 @@ import { useTranslations } from '../../i18n';
  *  - **Budgets folded into Costs.** The cap belongs under the number it caps —
  *    see `gateway-budgets.tsx`.
  *
- * The page synchronizes its active tab with `?tab=`. Subscription usage also
- * reads `?provider=codex|claude-agent`; agent editors keep their local tabs.
+ * The page synchronizes its active tab with `?tab=`; agent editors keep their
+ * local tabs. The Usage tab exists only while a ChatGPT or Claude login is
+ * connected.
  * Legacy deep-links / `openCustomize('llm-providers')` set the hosting
  * panel's section, read here via `useSettingsNav()` (once, and followed on
  * change) to pick the initial tab.
@@ -93,7 +94,7 @@ import { CapabilityPageShell } from '../shared/capability-page-shell';
 import { GatewayAccessTab } from './gateway-access-tab';
 import { CustomProviderPanel } from './llm-provider/custom-provider-panel';
 import { ModelsTab } from './llm-provider/models-tab';
-import { SubscriptionUsageTab } from './view/subscription-usage-tab';
+import { SubscriptionUsageTab, useHasSubscriptions } from './view/subscription-usage-tab';
 import { GatewayLogs } from './view/gateway/gateway-logs';
 import { GatewayOverview } from './view/gateway/gateway-overview';
 import { GatewayRouting } from './view/gateway/gateway-routing';
@@ -386,9 +387,15 @@ export function LlmManagementView({
   const agentScoped = surface.kind === 'agent' && agentSettings !== undefined;
   const urlTab = !agentScoped ? LLM_TABS.find(entry => entry.id === requestedTab)?.id as LlmTab | undefined : undefined;
   const tAgentScope = useTranslations('agentScope');
+  // No ChatGPT or Claude login, no Usage tab: it would only say "connect one".
+  const subscriptions = useHasSubscriptions(projectId);
+  const pageTabs = useMemo(
+    () => (subscriptions.has ? LLM_TABS : LLM_TABS.filter((entry) => entry.id !== 'usage')),
+    [subscriptions.has],
+  );
   const agentTabs = useMemo<LlmTabEntry[]>(
-    () => [{ id: AGENT_TAB, label: tAgentScope('thisAgent') }, ...LLM_TABS],
-    [tAgentScope],
+    () => [{ id: AGENT_TAB, label: tAgentScope('thisAgent') }, ...pageTabs],
+    [tAgentScope, pageTabs],
   );
   const [tab, setTab] = useState<LlmTab | typeof AGENT_TAB>(
     () => urlTab ?? TAB_BY_SECTION[section as LegacyLlmSubTab] ?? (agentScoped ? AGENT_TAB : 'providers'),
@@ -413,9 +420,14 @@ export function LlmManagementView({
     if (agentScoped) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
-    if (next !== 'usage') params.delete('provider');
+    params.delete('provider');
     navigate(`${pathname}?${params}`, { replace: true });
   }, [searchParams, pathname, navigate, agentScoped]);
+
+  // A link to Usage after the last subscription was disconnected lands on Providers.
+  useEffect(() => {
+    if (tab === 'usage' && subscriptions.ready && !subscriptions.has) selectTab('providers');
+  }, [tab, subscriptions.ready, subscriptions.has, selectTab]);
 
   const [providerId, setProviderId] = useState<string | null>(null);
 
@@ -450,7 +462,7 @@ export function LlmManagementView({
             </FadedScrollArea>
           ) : (
             <FadedScrollArea orientation="horizontal" fadeColor="from-background" className="min-w-0 max-w-full">
-              <LlmTabStrip value={tab} onValueChange={(v) => selectTab(v as LlmTab)} tabs={LLM_TABS} />
+              <LlmTabStrip value={tab} onValueChange={(v) => selectTab(v as LlmTab)} tabs={pageTabs} />
             </FadedScrollArea>
           )}
         </>

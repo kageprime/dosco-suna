@@ -43,4 +43,11 @@ printf '%s\n' "$push_refs" | sh "$(cd "$(dirname "$0")/.." && pwd)/scripts/check
 # deployed DB refuses it and the next deploy stops at migrate.
 printf '%s\n' "$push_refs" | sh "$(cd "$(dirname "$0")/.." && pwd)/scripts/check-migration-order.sh"
 
-exec $DX ext precommit
+# Plaintext .env backstop. `ext precommit` still blocks on dotenvx 2.x, where it
+# is deprecated. Its hint "run [dotenvx protect]" is hidden: `protect` checks
+# nothing and installs a global git filter that runs whichever binary ran it
+# (see pre-commit step 4).
+if ! out=$($DX ext precommit 2>&1); then
+  printf '%s\n' "$out" | grep -v 'DEPRECATED' >&2
+  exit 1
+fi

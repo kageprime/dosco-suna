@@ -123,6 +123,9 @@ export const SessionLogManifestSchema = z.object({
  * - `thread_id`: the paged thread, `thread` or else the root thread (null: no thread stored).
  * - `messages`: that thread's newest `limit` messages (default 40, at most 500) with
  *   `seq < before_seq`, ascending by `seq`. A tombstoned message is left out; its seq is a gap.
+ *   A page carries whole messages up to `SESSION_LOG_PAGE_MAX_BYTES` of stored payload
+ *   (default 2 MiB): an over-budget window answers fewer than `limit` with `has_more: true`,
+ *   the newest message served however large it is.
  * - `has_more`: an older message exists. Read it with `before_seq` = the first message's `seq`.
  */
 export const SessionLogPageSchema = z.object({

@@ -7,7 +7,7 @@ import { Button } from '../../primitives/button';
 import { Disclosure, DisclosureContent, DisclosureTrigger } from '../../primitives/disclosure';
 import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 import { Skeleton } from '../../primitives/skeleton';
-import { Tabs, TabsList, TabsListCompact, TabsTrigger, TabsTriggerCompact } from '../../primitives/tabs';
+import { Tabs, TabsList, TabsTrigger} from '../../primitives/tabs';
 import { errorToast, successToast, warningToast } from '../../primitives/toast';
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
@@ -862,15 +862,15 @@ export function ProjectSessionsView({ projectId }: { projectId: string }) {
             onValueChange={(value) => selectTab(value as SessionsTab)}
             className="shrink-0"
           >
-            <TabsListCompact aria-label={tSidebar('startedBy.label')}>
+            <TabsList size="xs" aria-label={tSidebar('startedBy.label')}>
               {STARTED_BY_FILTERS.map((value) => (
-                <TabsTriggerCompact key={value} value={value}>
+                <TabsTrigger key={value} value={value}>
                   {tSidebar(`startedBy.${value}`)}
-                </TabsTriggerCompact>
+                </TabsTrigger>
               ))}
-              <TabsTriggerCompact value="archived">{tPinArchive('view')}</TabsTriggerCompact>
-              <TabsTriggerCompact value="deleted">{tDeleted('view')}</TabsTriggerCompact>
-            </TabsListCompact>
+              <TabsTrigger value="archived">{tPinArchive('view')}</TabsTrigger>
+              <TabsTrigger value="deleted">{tDeleted('view')}</TabsTrigger>
+            </TabsList>
           </Tabs>
           {listState === 'loading' ? (
             <SessionListSkeleton />

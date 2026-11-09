@@ -2,7 +2,7 @@
 
 import { Button } from '../../primitives/button';
 import { Checkbox } from '../../primitives/checkbox';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../primitives/alert';
 import Loading from '../../primitives/loading';
 import { ArrowCounterClockwiseIcon as ArrowCounterClockwise } from '@phosphor-icons/react';
 import { useTranslations } from '../../i18n';
@@ -135,9 +135,9 @@ export function SessionSecretsEditor({
   }
   if (catalog.secrets.status === 'unavailable') {
     return (
-      <InfoBanner tone="neutral" title={t('secrets.unavailableTitle')}>
+      <BannerAlert variant="default" ><BannerAlertTitle>{t('secrets.unavailableTitle')}</BannerAlertTitle><BannerAlertDescription>
         {t('secrets.unavailableDescription')}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   }
 

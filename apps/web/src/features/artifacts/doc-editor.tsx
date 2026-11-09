@@ -16,7 +16,7 @@ import { Button } from '@kortix/ui/button';
 import { ButtonGroup } from '@kortix/ui/button-group';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { ErrorState } from '@kortix/ui/error-state';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { MENU_PANEL_STATIC, menuRow } from '@kortix/ui/menu-recipe';
 import { errorToast, infoToast } from '@kortix/ui/toast';
@@ -368,23 +368,16 @@ export function DocEditor({
           {editable && conflict ? (
             // Pinned to the top of the doc while it scrolls: the choice stays in reach.
             <div className="bg-background sticky top-0 z-10 mb-6 pt-2">
-              <InfoBanner
-                tone="warning"
-                icon={WarningIcon}
-                title={t('conflictTitle')}
-                action={
-                  <ButtonGroup>
+              <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{t('conflictTitle')}</BannerAlertTitle><BannerAlertDescription>
+                {t('conflict')}
+              </BannerAlertDescription><BannerAlertActions>{<ButtonGroup>
                     <Button size="xs" variant="outline" onClick={keepMine}>
                       {t('conflictKeepMine')}
                     </Button>
                     <Button size="xs" variant="outline" onClick={() => setConfirmReload(true)}>
                       {t('conflictReload')}
                     </Button>
-                  </ButtonGroup>
-                }
-              >
-                {t('conflict')}
-              </InfoBanner>
+                  </ButtonGroup>}</BannerAlertActions></BannerAlert>
             </div>
           ) : null}
           <ConfirmDialog

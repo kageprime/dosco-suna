@@ -5,6 +5,7 @@ import { SANDBOX_SERVICE_PORT } from './sandbox-env-transport';
 import { resolveSandboxIngress } from '../../sandbox-proxy/backend';
 import { db } from '../../shared/db';
 import { KORTIX_SERVICE_CALL_HEADER } from '../../shared/kortix-user-context';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * Poke a live sandbox's daemon so it re-converges on this deploy's runtime
@@ -142,7 +143,7 @@ export function scheduleSandboxRuntimeRefresh(sessionId: string, context: string
       logger.warn('[projects] sandbox runtime-asset refresh threw', {
         session_id: sessionId,
         context,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       }),
     );
 }

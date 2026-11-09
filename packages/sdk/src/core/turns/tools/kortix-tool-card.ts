@@ -6,6 +6,7 @@
  * every field is checked. A result that does not parse is `null`, and a host
  * renders the call as its generic tool card instead of a half-drawn one.
  */
+import { isJsonObject as isObject, text } from '../text-scan';
 
 /** `KORTIX_PLATFORM_TOOL_NAMES` in `packages/api-contract/src/kortix-tool-card.ts`. */
 export const KORTIX_PLATFORM_TOOLS = [
@@ -100,13 +101,6 @@ const STATUSES = new Set<KortixCardStatus>(['done', 'running', 'needs_you', 'den
 const ERROR_KINDS = new Set<KortixToolError['kind']>(['denied', 'not_found', 'invalid', 'failed']);
 /** A card holds a short list; a longer one is the tool's mistake, not a page to render. */
 const MAX_ITEMS = 50;
-
-type Json = Record<string, unknown>;
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-const text = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
 /** The platform tool a call name names: `kortix_agents`, also as `kortix-agents` or `oc-kortix_agents`. */
 export function kortixPlatformTool(name: string): KortixPlatformTool | undefined {

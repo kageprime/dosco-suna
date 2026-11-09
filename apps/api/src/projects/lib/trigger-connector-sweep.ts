@@ -5,6 +5,7 @@ import { db } from '../../shared/db';
 import type { ProjectRow } from './serializers';
 import { schedulerHealth, connectorProjectConcurrency, connectorProjectTimeoutMs, manifestCatalogBatchSize, manifestDiscoveryBatchSize, mapWithConcurrency, withTimeout } from './trigger-scheduler-state';
 import { projectsView } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 // A new leader starts both cursors at a random project. They live in this
 // process, and autoscaling moves the leader every few hours: from a fixed start
@@ -108,7 +109,7 @@ export async function runProjectConnectorSweep(): Promise<{
         } catch (error) {
           console.warn('[project-connectors] project reconcile failed', {
             projectId: project.projectId,
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMessage(error),
           });
           return { synced: 0, errors: 1 };
         }
@@ -124,9 +125,9 @@ export async function runProjectConnectorSweep(): Promise<{
   } catch (error) {
     status = 'failed';
     out.errors += 1;
-    schedulerHealth.lastCatalogSweepError = error instanceof Error ? error.message : String(error);
+    schedulerHealth.lastCatalogSweepError = errorMessage(error);
     console.error('[project-connectors] sweep failed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return out;
   } finally {

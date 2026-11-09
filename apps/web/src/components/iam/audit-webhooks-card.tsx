@@ -22,7 +22,7 @@ import { Badge } from '@kortix/ui/badge';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -340,15 +340,15 @@ function CreateAuditWebhookDialog({
                   every real audit event). */}
               {created.test &&
                 (created.test.ok ? (
-                  <InfoBanner tone="success" icon={Check}>
+                  <BannerAlert variant="success" ><BannerAlertMedia><Check /></BannerAlertMedia><BannerAlertDescription>
                     {tI18nComplete.raw('text648e418a5d31')}
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
                 ) : (
-                  <InfoBanner tone="warning" icon={AlertTriangle}>
+                  <BannerAlert variant="warning" ><BannerAlertMedia><AlertTriangle /></BannerAlertMedia><BannerAlertDescription>
                     {tI18nComplete.raw('text0bb4b2553043')}
                     {created.test.error ? `: ${created.test.error}` : ''}
                     {tI18nComplete.raw('text4b85caae9864')}
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
                 ))}
               <CopyRow
                 label={tI18nComplete.raw('texte7ee22e117a1')}

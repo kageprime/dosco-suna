@@ -15,8 +15,22 @@ mock.module('@tanstack/react-query', () => ({
   }),
 }));
 
-const { appDeploymentKey, appDeploymentsKey, appEventsKey, workspaceAppsKey, useAppAccess, useAppDeployment, useAppDeployments, useAppEvents, useWorkspaceApps, useSendAppTestEvent } =
-  await import('./use-project-apps');
+const {
+  appDeploymentKey,
+  appDeploymentsKey,
+  appEventsKey,
+  appMachinesKey,
+  appVolumesKey,
+  workspaceAppsKey,
+  useAppAccess,
+  useAppDeployment,
+  useAppDeployments,
+  useAppEvents,
+  useAppMachines,
+  useAppVolumes,
+  useWorkspaceApps,
+  useSendAppTestEvent,
+} = await import('./use-project-apps');
 
 beforeEach(() => {
   invalidated = [];
@@ -105,6 +119,38 @@ describe('Kortix Apps React Query bindings', () => {
     expect(listRefresh({ queryKey: qk.project.apps('project-1') })).toBe(true);
     expect(listRefresh({ queryKey: qk.project.appEvents('project-1', 'app-2') })).toBe(true);
     expect(listRefresh({ queryKey: qk.project.spaceApps('project-1', 'S1') })).toBe(true);
+  });
+
+  test('machine lifecycle mutations refresh the machines list and the App list', () => {
+    const machines = useAppMachines('project-1', 'app-1') as any;
+    expect(machines.queryKey).toEqual(appMachinesKey('project-1', 'app-1'));
+    machines.start.onSuccess();
+    machines.stop.onSuccess();
+    machines.restart.onSuccess();
+    machines.scale.onSuccess();
+    machines.destroy.onSuccess();
+    // Each mutation takes both the machines key and the App list: an instance
+    // change shows in the list's instance status.
+    expect(invalidated).toEqual([
+      appMachinesKey('project-1', 'app-1'), qk.project.apps('project-1'),
+      appMachinesKey('project-1', 'app-1'), qk.project.apps('project-1'),
+      appMachinesKey('project-1', 'app-1'), qk.project.apps('project-1'),
+      appMachinesKey('project-1', 'app-1'), qk.project.apps('project-1'),
+      appMachinesKey('project-1', 'app-1'), qk.project.apps('project-1'),
+    ]);
+  });
+
+  test('volume mutations refresh the volumes list only', () => {
+    const volumes = useAppVolumes('project-1', 'app-1') as any;
+    expect(volumes.queryKey).toEqual(appVolumesKey('project-1', 'app-1'));
+    volumes.snapshot.onSuccess();
+    volumes.restore.onSuccess();
+    volumes.fork.onSuccess();
+    volumes.extend.onSuccess();
+    volumes.destroy.onSuccess();
+    expect(invalidated).toEqual(
+      Array.from({ length: 5 }, () => appVolumesKey('project-1', 'app-1')),
+    );
   });
 
   test('a channel’s Apps sit under the App list key, so every App invalidation refetches them', () => {

@@ -168,10 +168,9 @@ export async function findIdempotentProvision(
  * retryable `409`, never a confident `201`.
  *
  * WHY IT MUST EXPIRE. A pod killed mid-seed leaves `{expected:true,
- * seeded:false}` on the row permanently. `shouldSelfHealManagedRepoSeed`
- * (`../managed-repo-seed.ts`) is what repairs that on next access, so an
- * unbounded in-flight check would make such a project un-replayable forever —
- * trading a rare wrong `201` for a guaranteed permanent `409`.
+ * seeded:false}` on the row permanently, so an unbounded in-flight check
+ * would make such a project un-replayable forever — trading a rare wrong
+ * `201` for a guaranteed permanent `409`.
  *
  * WHY 120s. It is the longest window any first-party client waits on this exact
  * route: `@kortix/sdk`'s `provisionProject` sends `timeout: 120_000`
@@ -179,7 +178,7 @@ export async function findIdempotentProvision(
  * socket even earlier — `/provision` is exempt from the 25s request deadline
  * but not from that). Past 120s no caller is still attached to the original
  * request, so a row still pending is far more likely a dead provision than live
- * work, and the self-heal path is the right owner. Residual, stated plainly: a
+ * work, and a replay that provisions fresh is the right owner. Residual, stated plainly: a
  * provision whose seed is still running at 121s and fails at 122s can still
  * strand one replayed id. Narrowing that further would cost recovery time on
  * the far more common crashed-seed case.
@@ -275,7 +274,8 @@ export function describeProvisionedRepo(row: {
         ? String(rawRepoId)
         : null;
   // Same reader the rest of the codebase uses, so "seeded" means here exactly
-  // what it means to `shouldSelfHealManagedRepoSeed`.
+  // what `readManagedRepoSeedState` means: the default branch was verified
+  // present on the remote.
   const seeded = readManagedRepoSeedState(row.metadata)?.seeded === true;
   return { repoId, seeded };
 }

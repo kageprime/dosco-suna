@@ -30,7 +30,11 @@ import { logger } from '../lib/logger';
  */
 export type ProductEvent =
   // Acquisition and activation
-  /** A new person reached Kortix for the first time (accounts/core/signup-event.ts). `method`: auth provider. */
+  /**
+   * A new person reached Kortix for the first time (accounts/core/signup-event.ts). `method`: auth provider,
+   * `invited`: an invitation to their email was open at sign-up. Sets the person property `signup_kind`
+   * (invited | self_serve) once.
+   */
   | 'user_signed_up'
   /** A CLI or device login completed. `method`. */
   | 'user_logged_in'
@@ -38,13 +42,13 @@ export type ProductEvent =
   | 'project_created'
   /** A person created a session (not a trigger, channel or agent). `source`. */
   | 'session_created'
-  /** A session's sandbox started for a person. `provider`, `boot_ms`, `stage`. */
+  /** A session's runtime answered for the first time in one boot: every boot, wake and restart. `provider`, `boot_ms`, `stage`. */
   | 'session_started'
   /** A person restarted a session. `provider`. */
   | 'session_restarted'
   /** A session's sandbox stopped. `reason`, `active_ms`. */
   | 'session_stopped'
-  /** A person sent a prompt. `model`, `attachment_count`, `source`. */
+  /** A person sent a prompt, in the prompt POST or inside the session create (`at_create`). `model`, `attachment_count`, `source`. */
   | 'prompt_sent'
   /** An agent turn ended. `status`: ok | error | aborted, `end_reason`, `duration_ms`. */
   | 'turn_completed'
@@ -69,7 +73,7 @@ export type ProductEvent =
   | 'app_deployed'
   /** A project feature flag was toggled. `key`, `enabled`. */
   | 'feature_flag_toggled'
-  /** A user joined an account by invite. `via`, `role`. */
+  /** A person joined a workspace someone else created. `via`: invite | auto_claim | direct_add | project_invite | access_request, `role`. */
   | 'member_joined'
   // Revenue
   /** A request was refused for billing. `reason`, `where`. */
@@ -93,6 +97,8 @@ export interface ProductEventInput {
   properties?: ProductEventProperties;
   /** Any stable string; the same key always yields the same event uuid. */
   dedupeKey?: string;
+  /** Person properties PostHog sets only when the person has none yet (`$set_once`). */
+  personPropertiesOnce?: Record<string, string>;
 }
 
 // replica-local: one client per process, created on first use.
@@ -140,6 +146,7 @@ export function captureProductEvent(input: ProductEventInput): void {
             ? 'production'
             : config.INTERNAL_KORTIX_ENV,
         $lib_custom: 'kortix-api',
+        ...(input.personPropertiesOnce ? { $set_once: input.personPropertiesOnce } : {}),
       },
     });
   } catch (error) {

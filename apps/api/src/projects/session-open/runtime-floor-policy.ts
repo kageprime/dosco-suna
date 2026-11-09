@@ -43,6 +43,15 @@ export const RUNTIME_FLOOR_RESTART_BUDGET_MS = 90_000;
 /** A gap this long between two observations below the floor starts a new spell (the box slept). */
 export const RUNTIME_FLOOR_SPELL_GAP_MS = 5 * 60_000;
 
+/**
+ * How long one refusal of one box is named in the API log. A box that cannot
+ * reach the floor refuses on every open of its session (prod 2026-11-07,
+ * KRTX-4457: retry bursts of concurrent opens gauge every ~10 min for days,
+ * 3 opens per burst), and the DB spell record already holds that state — one
+ * naming per box+reason per window is the whole signal the logs need.
+ */
+export const RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS = 60 * 60_000;
+
 /** One spell of a box observed below the floor. */
 export interface RuntimeFloorBelow {
   externalId: string;
@@ -128,6 +137,30 @@ export function currentBelowSpell(
 /** A stop claim wins only when this box had no stop since this instant. */
 export function runtimeFloorRestartCutoff(nowMs: number): string {
   return new Date(nowMs - RUNTIME_FLOOR_SPELL_GAP_MS).toISOString();
+}
+
+// replica-local: silence is per replica; every replica's logs ship to the same
+// Better Stack pattern, so a box is named at most once per window per replica
+// (3 replicas) and the pattern stays at baseline. A cross-replica stamp goes
+// into the DB spell record only if the repeat noise ever outruns the window.
+const refusalLogSeenAt = new Map<string, number>();
+
+/**
+ * Claim the right to name this refusal in the log: true for the first refusal
+ * of this box+reason inside `RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS`, false for
+ * every repeat. Takes `nowMs`, so tests pass actual times and never wait.
+ */
+export function claimRuntimeFloorRefusalLog(externalId: string, why: RuntimeFloorRefusal, nowMs: number): boolean {
+  const staleAt = nowMs - RUNTIME_FLOOR_REFUSAL_LOG_WINDOW_MS;
+  if (refusalLogSeenAt.size > 1_000) {
+    for (const [key, at] of refusalLogSeenAt) if (at <= staleAt) refusalLogSeenAt.delete(key);
+    if (refusalLogSeenAt.size > 1_000) refusalLogSeenAt.clear();
+  }
+  const key = `${externalId}:${why}`;
+  const last = refusalLogSeenAt.get(key);
+  if (last !== undefined && last > staleAt) return false;
+  refusalLogSeenAt.set(key, nowMs);
+  return true;
 }
 
 /** The old daemon downloaded the current one and waits for a restart to run it. */

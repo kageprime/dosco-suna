@@ -1408,6 +1408,54 @@ describe('project session runtime guards', () => {
     expect(created.metadata?.spawned_by_session).toBe(SESSION_ID);
   });
 
+  // A project whose default agent is My Kortix, with a restrictive agent that sorts first.
+  const MY_KORTIX_DEFAULT_MANIFEST = [
+    'default_agent: mykortix',
+    'builtin_agents:',
+    '  my_kortix: true',
+    'agents:',
+    '  code-auditor: { mode: subagent, tools: all }',
+    '  compliance-officer: { tools: all }',
+    '  kortix: { tools: all }',
+    '',
+  ].join('\n');
+  const spawnAsMyKortix = (body: Record<string, unknown>) => {
+    sessionRow = { ...sessionRow!, agentName: 'mykortix' };
+    return createApp().request(`/v1/projects/${PROJECT_ID}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_BOUND_PAT}` },
+      body: JSON.stringify({ provider: 'platinum', base_ref: 'main', ...body }),
+    });
+  };
+
+  test('My Kortix naming no agent, where My Kortix is the default: 400 AGENT_REQUIRED with the agents to name, never a guessed agent', async () => {
+    manifestYaml = MY_KORTIX_DEFAULT_MANIFEST;
+    const response = await spawnAsMyKortix({});
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'AGENT_REQUIRED', agents: ['compliance-officer', 'kortix'] });
+    expect(sandboxProvisionCalls).toBe(0);
+  });
+
+  test('My Kortix starting an inline colleague (kortix.agent.instructions): the child runs as My Kortix, on its sandbox, linked to the caller', async () => {
+    manifestYaml = MY_KORTIX_DEFAULT_MANIFEST;
+    const response = await spawnAsMyKortix({
+      agent_name: 'mykortix',
+      runtime_context: { 'kortix.subagent.depth': 1, 'kortix.agent.instructions': 'You are a product designer and prototyper.' },
+    });
+    expect(response.status).toBe(201);
+    const created = await response.json();
+    expect(created.agent_name).toBe('mykortix');
+    expect(created.metadata?.sandbox_slug).toBe('mykortix');
+    expect(created.metadata?.spawned_by_session).toBe(SESSION_ID);
+  });
+
+  test('My Kortix naming My Kortix without instructions is still META_AGENT_RECURSION', async () => {
+    manifestYaml = MY_KORTIX_DEFAULT_MANIFEST;
+    const response = await spawnAsMyKortix({ agent_name: 'mykortix' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('META_AGENT_RECURSION');
+  });
+
   test('a session-bound spawn inherits the SPAWNING session sharing, not the private default', async () => {
     // The caller's own session (sessionRow / SESSION_ID) is shared project-wide.
     // A worker it spawns must be reachable by the same grantees, not fall back

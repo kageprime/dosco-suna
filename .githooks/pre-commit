@@ -10,8 +10,8 @@
 #    tree unstaged/untracked (e.g. you edited `apps/api/.env` but didn't stage
 #    it). Encrypted IN PLACE only — NOT added to your commit — so a stray
 #    plaintext .env elsewhere can't plaintext-leak or block this commit.
-# 3. Backstop: fails the commit only if an unencrypted, non-gitignored .env still
-#    somehow remains.
+# 3. Backstop (1b): fails the commit if a staged .env value is still not
+#    `encrypted:…`, whatever the dotenvx version.
 #
 # `dotenvx encrypt` is idempotent on already-encrypted files (no churn) and mints
 # a keypair into the adjacent .env.keys for a new file.
@@ -152,27 +152,13 @@ sh "$(cd "$(dirname "$0")/.." && pwd)/scripts/check-blocked-terms.sh" staged
 # process environment.
 sh "$(cd "$(dirname "$0")/.." && pwd)/scripts/check-binary-dumps.sh" staged
 
-# (4) Backstop: block any remaining unencrypted, committable .env.
-#
-# `dotenvx protect`, not the deprecated `ext precommit` (dotenvx 2.29.0 prints
-# "[DEPRECATED] dotenvx precommit. fix: run [dotenvx protect]" and points here).
-# The deprecated check also flags `apps/api/scripts/test.env`, which is
-# plaintext ON PURPOSE with fake values — read its header: the unit suite runs
-# off it with no decryption key, and encrypting it hands CI
-# `SUPABASE_URL=encrypted:…`. `protect` guards the `.env*` files that hold real
-# secrets and leaves that one alone, so the guard keeps its job and stops
-# refusing a file the repo is required to keep readable.
-#
-# `protect` exists only from dotenvx 2.29. An older dotenvx — the repo pins
-# 1.x, and a global install is often older — prints "unknown command
-# 'protect'" and EXITS 0, which turned this backstop into a silent pass. So
-# pick by version: `protect` from 2.29, otherwise the deprecated
-# `ext precommit` this hook ran before (it blocks a staged plaintext .env; its
-# one false positive is a staged apps/api/scripts/test.env).
-dx_version=$($DX --version 2>/dev/null | tr -dc '0-9.')
-dx_major=${dx_version%%.*}
-dx_minor=${dx_version#*.}; dx_minor=${dx_minor%%.*}
-if [ "${dx_major:-0}" -gt 2 ] 2>/dev/null || { [ "${dx_major:-0}" -eq 2 ] && [ "${dx_minor:-0}" -ge 29 ]; } 2>/dev/null; then
-  exec $DX protect
-fi
-exec $DX ext precommit
+# (4) No final dotenvx call. Step 1b is the gate: it reads every staged .env
+# from the index, needs no dotenvx version, and leaves the plaintext-on-purpose
+# apps/api/scripts/test.env alone (read its header). `ext precommit`, the
+# deprecated 1.x check, flags that file. `dotenvx protect` checks nothing and
+# exits 0: it installs a GLOBAL git clean filter (`filter.dotenvx.*`,
+# `required = true`) that runs whichever binary ran it. From here that is a
+# worktree's node_modules: once that worktree is removed, `git add` of any
+# `.env*` file fails (exit 128) in every repository on the machine
+# (2026-11-07). Install protection once with the global CLI instead (the
+# dotenvx-secrets skill).

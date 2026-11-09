@@ -1,9 +1,17 @@
+import { shellCommandAllowed } from '../../shared/permissions';
+
 const SHELL_METACHAR_REGEX = /[;&|`$(){}[\]<>!#~]/;
 
+/**
+ * `allowedCommands` entries are whole command lines (see `shellCommandAllowed`):
+ * `git status` allows only that, `git *` allows any git arguments.
+ * `blockedCommands` entries are executable names.
+ */
 export function validateCommand(
   command: string,
-  allowedCommands: string[],
-  blockedCommands: string[],
+  args: readonly string[],
+  allowedCommands: readonly string[],
+  blockedCommands: readonly string[],
 ): string {
   if (!command || typeof command !== 'string') {
     throw new Error('Command is required');
@@ -18,15 +26,13 @@ export function validateCommand(
   const executable = trimmed;
 
   // A blocked name also blocks every path that ends in it: `/bin/rm` is `rm`.
-  // Arguments stay unrestricted: an allowed `git` or `python` runs code through
-  // its own flags, so a `shell` grant is local code execution, not a sandbox.
   const name = executable.slice(executable.lastIndexOf('/') + 1);
   if (blockedCommands.length > 0 && (blockedCommands.includes(executable) || blockedCommands.includes(name))) {
     throw new Error(`Command "${executable}" is blocked`);
   }
 
   if (allowedCommands.length > 0) {
-    if (!allowedCommands.includes(executable)) {
+    if (!shellCommandAllowed(allowedCommands, executable, args)) {
       throw new Error(`Command "${executable}" is not in the allowed commands list`);
     }
   }

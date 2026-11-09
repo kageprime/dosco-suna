@@ -40,6 +40,7 @@ import {
 } from './receive-pack';
 import { evaluateRefUpdates, principalLabel } from './ref-policy';
 import { isRepositoryDisconnectedError } from '../shared/repository-health';
+import { joinChunks } from '../shared/join-chunks';
 import { annotateGitTransfer, bindGitProxyPrincipal, gitAuditOutcome, gitPushRefSummary } from './audit';
 import { denialsAfterScopes, sessionMayBypassGrantReview } from './ref-scopes';
 import {
@@ -425,7 +426,7 @@ async function gateReceivePack(
     if (done) break;
     chunks.push(value);
     buffered += value.length;
-    parsed = parseReceivePackCommands(concatChunks(chunks, buffered));
+    parsed = parseReceivePackCommands(joinChunks(chunks, buffered));
   }
   if (parsed.status !== 'ok') {
     reader.cancel().catch(() => {});
@@ -477,7 +478,7 @@ async function gateReceivePack(
       chunks.push(value);
       buffered += value.length;
     }
-    const pack = complete ? packOf(concatChunks(chunks, buffered), parsed) : null;
+    const pack = complete ? packOf(joinChunks(chunks, buffered), parsed) : null;
     if (pack) {
       const project = await loadGitProject({ row: auth.project }).catch(() => null);
       const error = project ? await pushedManifestSyntaxError(project, toDefault[0]!, pack) : null;
@@ -520,7 +521,7 @@ async function gateReceivePack(
 
   // Allowed: replay what we read, then hand the rest of the stream straight
   // through. The pack itself is never buffered.
-  const prefix = concatChunks(chunks, buffered);
+  const prefix = joinChunks(chunks, buffered);
   return {
     updates: parsed.updates,
     body: new ReadableStream<Uint8Array>({
@@ -553,17 +554,6 @@ function packOf(body: Uint8Array, parsed: { commandBytes: number; capabilities: 
   }
   const magic = new TextDecoder('latin1').decode(body.subarray(offset, offset + 4));
   return magic === 'PACK' ? body.subarray(offset) : null;
-}
-
-function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
-  if (chunks.length === 1) return chunks[0]!;
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return out;
 }
 
 // info/refs, fast-boot-bundle and project-snapshot carry a query schema, and the

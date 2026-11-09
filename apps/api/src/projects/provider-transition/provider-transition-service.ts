@@ -145,11 +145,7 @@ export function defaultTransitionDeps(database: Database = appDb): TransitionDep
       }
     },
     resolvePrepIdentity,
-    loadProject: async (projectId) => {
-      const [row] = await database.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
-      if (!row || row.status === 'archived') return null;
-      return toGitBackedProject(row);
-    },
+    loadProject: (projectId) => readProjectRow(database, projectId).then((row) => row && toGitBackedProject(row)),
     // FIX-M1: default-only projects get the full warm hit; a custom-template
     // project still migrates safely on the default warm image, and the runner
     // emits `custom_template_cold_boot` at activation so its (un-prepared) custom
@@ -167,6 +163,15 @@ export function kickDrive(transitionId: string, database: Database = appDb): voi
       error: err instanceof Error ? err.message : String(err),
     }),
   );
+}
+
+/**
+ * One project-row read: null when the row is missing or archived ("not found"
+ * is one treatment here, for the loadProject dep and the request guard alike).
+ */
+async function readProjectRow(database: Database, projectId: string): Promise<ProjectRow | null> {
+  const [row] = await database.select().from(projectsView).where(eq(projectsView.projectId, projectId)).limit(1);
+  return row && row.status !== 'archived' ? row : null;
 }
 
 export class ProviderTransitionError extends Error {
@@ -198,8 +203,8 @@ export async function requestProviderTransition(input: {
   const database = input.database ?? appDb;
   const target = normalizeTargetProvider(input.targetRaw);
 
-  const [row] = await database.select().from(projectsView).where(eq(projectsView.projectId, input.projectId)).limit(1);
-  if (!row || row.status === 'archived') throw new ProviderTransitionError('project not found', 'not_found');
+  const row = await readProjectRow(database, input.projectId);
+  if (!row) throw new ProviderTransitionError('project not found', 'not_found');
 
   // Validate the target (enabled provider) — a disabled/unknown target is a hard
   // 400, never a silently-ignored switch. A deprecated provider (Daytona) is
@@ -221,12 +226,13 @@ export async function requestProviderTransition(input: {
 
   // ── Immediate (clear / switch to a safe target) — set pin + supersede ──────
   if (kind === 'immediate_clear' || kind === 'immediate_set' || kind === 'noop') {
-    await setPinWithGenerationBump(database, { projectId: input.projectId, pin: target, now: new Date() });
+    const { projectRow } = await setPinWithGenerationBump(database, { projectId: input.projectId, pin: target, now: new Date() });
     if (kind === 'immediate_clear') {
       emitProviderTransitionEvent('cancelled', { target: 'default', source: sourceProvider, projectId: input.projectId });
     }
-    const [updated] = await database.select().from(projectsView).where(eq(projectsView.projectId, input.projectId)).limit(1);
-    return { kind: 'immediate', pin: target, projectRow: updated ?? row };
+    // setPin's write RETURNED the row with the pin applied: no re-SELECT, so the response
+    // is the serializable project with this switch's own pin, never the pre-write row.
+    return { kind: 'immediate', pin: target, projectRow: projectRow ?? row };
   }
 
   // ── Prepare: resolve identity, reserve a generation, kick the drive ────────

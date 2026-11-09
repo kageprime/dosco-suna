@@ -6,6 +6,7 @@ import type { FastBootGitHint } from '../git/fast-boot-bundle';
 import { MAX_FAST_BOOT_GIT_BUNDLE_BASE64_BYTES, resolveFastBootGitHint } from '../git/fast-boot-bundle';
 import type { GitBackedProject } from '../git/types';
 import { metadataMergeSubtree, projectsView, updateProjectRows } from '../../workspaces/rows';
+import { errorMessage } from '../../shared/error-message';
 
 // v3: a delta may be REMOTE (parent known, bundle downloaded by the daemon) and
 // the entry carries the OpenCode config dir at the tip. v2 entries are
@@ -153,7 +154,7 @@ export async function resolveFastBootGitHintWithCache(
     console.warn('[git] fast-boot hint cache write failed', {
       projectId: project.projectId,
       ref,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   });
   return fresh;

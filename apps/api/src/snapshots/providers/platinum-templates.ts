@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { platinumJson, platinumJsonResponse, isPlatinumConfigured } from '../../shared/platinum';
 import type { BuildLogTap } from './index';
-import { classifyPlatinumPollError, isTerminalPollError, retryAfterMsFromError } from './platinum-poll-classify';
+import { classifyPlatinumPollError, httpStatusFromMessage, isTerminalPollError, retryAfterMsFromError } from './platinum-poll-classify';
 import { exponentialBackoffMs } from '../../shared/backoff';
 
 const ACTIVATE_DEADLINE_MS = 12 * 60 * 1000; // build + activate ceiling
@@ -285,7 +285,8 @@ export async function findTemplateById(
   try {
     return await client.json<PlatinumTemplate>(`/v1/templates/${id}`);
   } catch (err) {
-    if (/ -> 404(?:\s|$)/.test(err instanceof Error ? err.message : String(err))) return null;
+    // One status parser for the whole unit: any `->404` spacing variant counts.
+    if (httpStatusFromMessage(err instanceof Error ? err.message : String(err)) === 404) return null;
     throw err;
   }
 }
@@ -498,5 +499,6 @@ export async function preparePlatinumTemplateRegion(
  */
 export function isPlatinumAuthFailure(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
-  return /-> (401|403)\b/.test(err.message);
+  const status = httpStatusFromMessage(err.message);
+  return status === 401 || status === 403;
 }

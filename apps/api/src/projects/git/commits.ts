@@ -1,6 +1,6 @@
-// Commit reads + shared git-log parsing primitives (FIELD/RECORD separators,
-// LOG_FORMAT, parseLogStdout, decodeStatusChar) used by branches.ts and
-// merge.ts as well.
+// Commit reads + in-file git-log parsing primitives (FIELD/RECORD
+// separators, LOG_FORMAT, parseLogStdout, decodeStatusChar). branches.ts
+// imports FIELD_SEP for its branch listing.
 
 import { existsSync } from 'node:fs';
 import { validateRef, validateSha } from '../git-ref';
@@ -25,8 +25,8 @@ import type {
 } from './types';
 
 export const FIELD_SEP = '';
-export const RECORD_SEP = '';
-export const LOG_FORMAT = [
+const RECORD_SEP = '';
+const LOG_FORMAT = [
   '%H',
   '%h',
   '%P',
@@ -40,7 +40,7 @@ export const LOG_FORMAT = [
   '%b',
 ].join(FIELD_SEP) + RECORD_SEP;
 
-export function parseLogStdout(stdout: string): GitLogEntry[] {
+function parseLogStdout(stdout: string): GitLogEntry[] {
   return stdout
     .split(RECORD_SEP)
     .map((chunk) => chunk.replace(/^\n+/, ''))
@@ -78,7 +78,7 @@ export function parseLogStdout(stdout: string): GitLogEntry[] {
     .filter((entry): entry is GitLogEntry => entry !== null);
 }
 
-export function decodeStatusChar(code: string): GitCommitFile['status'] {
+function decodeStatusChar(code: string): GitCommitFile['status'] {
   const head = code[0] || 'M';
   switch (head) {
     case 'A':

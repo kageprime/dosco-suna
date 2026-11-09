@@ -8,7 +8,7 @@ import { MarkdownWithFrontmatter } from '../../markdown/markdown-frontmatter';
 import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
 import Hint from '../../primitives/hint';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import Loading from '../../primitives/loading';
 import { ImageUnavailable } from '../renderers/image-frame';
 import { StatusDot } from '../../primitives/status';
@@ -622,15 +622,11 @@ export function FileContentRenderer({
               >
                 {/* Diff indicator */}
                 {fileContent.patch && fileContent.patch.hunks.length > 0 && (
-                  <InfoBanner
-                    tone="warning"
-                    icon={FileDiff}
-                    className="shrink-0 items-center gap-1.5 rounded-none border-x-0 border-t-0 px-3 py-1.5"
-                  >
+                  <BannerAlert variant="warning" className="shrink-0 items-center gap-1.5 rounded-none border-x-0 border-t-0 px-3 py-1.5"><BannerAlertMedia><FileDiff /></BannerAlertMedia><BannerAlertDescription>
                     {tHardcodedUi.raw(
                       'featuresFilesComponentsFileContentRenderer.line869JsxTextUncommittedChanges',
                     )}
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
                 )}
                 {isJsonTreeView && isJsonFile ? (
                   <div key={filePath} className="h-full w-full overflow-auto">

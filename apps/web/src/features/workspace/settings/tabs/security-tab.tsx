@@ -23,7 +23,7 @@ import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { SessionDotMatrix } from '@kortix/ui/dot-matrix/session-dot-matrix';
 import Hint from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { inputSurfaceClasses, inputTransitionClasses } from '@kortix/ui/input';
 import Loading from '@kortix/ui/loading';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '@kortix/ui/modal';
@@ -476,22 +476,15 @@ export function SecurityTabView({
             - it has factors → nothing here; the rows above ARE the answer.
             Loading outranks both: an in-flight list has no answer yet. */}
         {!factorsLoading && factorsError ? (
-          <InfoBanner
-            tone="destructive"
-            icon={Warning}
-            title={copy.factorsLoadFailed}
-            action={
-              <Button variant="outline" size="sm" onClick={onRetryFactors}>
-                {copy.retry}
-              </Button>
-            }
-          >
+          <BannerAlert variant="destructive" ><BannerAlertMedia><Warning /></BannerAlertMedia><BannerAlertTitle>{copy.factorsLoadFailed}</BannerAlertTitle><BannerAlertDescription>
             {copy.factorsUnchanged}
-          </InfoBanner>
+          </BannerAlertDescription><BannerAlertActions>{<Button variant="outline" size="sm" onClick={onRetryFactors}>
+                {copy.retry}
+              </Button>}</BannerAlertActions></BannerAlert>
         ) : !factorsLoading && factors.length === 0 && !enrolling ? (
-          <InfoBanner tone="warning" icon={ShieldWarning} title={copy.noFactorEnrolled}>
+          <BannerAlert variant="warning" ><BannerAlertMedia><ShieldWarning /></BannerAlertMedia><BannerAlertTitle>{copy.noFactorEnrolled}</BannerAlertTitle><BannerAlertDescription>
             {copy.noFactorDescription}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : null}
 
         <EnrollDialog

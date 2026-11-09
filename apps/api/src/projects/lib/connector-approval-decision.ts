@@ -39,23 +39,27 @@ export interface PendingApprovalRow {
   expiresAt: Date | null;
 }
 
+/** The one pending-approval column list: a new column cannot drift between
+ *  the read (`loadApprovalRow`) and the expiry path's `.returning()`. */
+const PENDING_APPROVAL_COLUMNS = {
+  executionId: connectorCalls.executionId,
+  sessionId: connectorCalls.sessionId,
+  actingUserId: connectorCalls.actingUserId,
+  connectorId: connectorCalls.connectorId,
+  actionPath: connectorCalls.actionPath,
+  status: connectorCalls.status,
+  approvedBy: connectorCalls.approvedBy,
+  resolvedAt: connectorCalls.resolvedAt,
+  resultSummary: connectorCalls.resultSummary,
+  expiresAt: connectorCalls.expiresAt,
+};
+
 export async function loadApprovalRow(
   projectId: string,
   executionId: string,
 ): Promise<PendingApprovalRow | null> {
   const [row] = await db
-    .select({
-      executionId: connectorCalls.executionId,
-      sessionId: connectorCalls.sessionId,
-      actingUserId: connectorCalls.actingUserId,
-      connectorId: connectorCalls.connectorId,
-      actionPath: connectorCalls.actionPath,
-      status: connectorCalls.status,
-      approvedBy: connectorCalls.approvedBy,
-      resolvedAt: connectorCalls.resolvedAt,
-      resultSummary: connectorCalls.resultSummary,
-      expiresAt: connectorCalls.expiresAt,
-    })
+    .select(PENDING_APPROVAL_COLUMNS)
     .from(connectorCalls)
     .where(and(eq(connectorCalls.executionId, executionId), eq(connectorCalls.projectId, projectId)))
     .limit(1);
@@ -93,7 +97,7 @@ export function normalizeApprovalNote(value: unknown): string {
   return typeof value === 'string' ? value.trim().slice(0, 4_000) : '';
 }
 
-export type DecideOutcome = 'resolved' | 'already_resolved' | 'preview_unavailable' | 'expired';
+type DecideOutcome = 'resolved' | 'already_resolved' | 'preview_unavailable' | 'expired';
 
 /**
  * Apply one human decision. `resume: 'queue'` enqueues the durable
@@ -261,7 +265,7 @@ export async function decideConnectorApproval(input: {
   return 'resolved';
 }
 
-export type ResolveApprovalResult =
+type ResolveApprovalResult =
   | { outcome: DecideOutcome | 'not_found' }
   | { outcome: 'forbidden'; reason: ApprovalRefusal };
 
@@ -355,16 +359,7 @@ export async function expireDueApprovals(
         .returning({
           accountId: connectorCalls.accountId,
           projectId: connectorCalls.projectId,
-          executionId: connectorCalls.executionId,
-          sessionId: connectorCalls.sessionId,
-          actingUserId: connectorCalls.actingUserId,
-          connectorId: connectorCalls.connectorId,
-          actionPath: connectorCalls.actionPath,
-          status: connectorCalls.status,
-          approvedBy: connectorCalls.approvedBy,
-          resolvedAt: connectorCalls.resolvedAt,
-          resultSummary: connectorCalls.resultSummary,
-          expiresAt: connectorCalls.expiresAt,
+          ...PENDING_APPROVAL_COLUMNS,
         });
       // An expired gate never runs: its held input goes with the decision window.
       await cancelHeldInputs(tx, expired.map((r) => r.executionId));

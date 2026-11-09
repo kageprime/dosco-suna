@@ -339,6 +339,39 @@ describe('forwardToSandbox — a client abort asks who may stop the turn', () =>
   });
 });
 
+describe('forwardToSandbox — the box\'s own credential never decides an ask (GHSA-pm8p-gc5w-mjj4)', () => {
+  const decisions: Array<[string, string, unknown]> = [
+    ['POST', '/kortix/runtime/permissions/perm_1/reply', { reply: 'always' }],
+    ['POST', '/kortix/runtime/questions/que_1/reply', { answers: [['yes']] }],
+    ['POST', '/kortix/runtime/questions/que_1/reject', undefined],
+    ['POST', '/permission/perm_1/reply', { reply: 'once' }],
+    ['POST', '/question/que_1/reply', { answers: [['yes']] }],
+    ['PUT', '/kortix/runtime/sessions/ses_root/grants', { grants: ['*'] }],
+  ];
+  const send = (access: typeof principal, method: string, path: string, body: unknown) =>
+    forwardToSandbox('sb-1', 8000, access, method, path, '', jsonHeaders(), body === undefined ? undefined : bodyOf(body), 'http://app.local');
+
+  test.each(decisions)('sandbox-authored %s %s: 403 ASK_REQUIRES_HUMAN, nothing forwarded', async (method, path, body) => {
+    queueFetch();
+    const res = await send({ ...principal, sandboxAuthored: true }, method, path, body);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { code?: string }).code).toBe('ASK_REQUIRES_HUMAN');
+    expect(fetchCalls).toBe(0);
+  });
+
+  test('a person\'s reply is forwarded to the box', async () => {
+    queueFetch(new Response('true', { status: 200 }));
+    expect((await send(principal, 'POST', '/kortix/runtime/questions/que_1/reject', undefined)).status).toBe(200);
+    expect(fetchCalls).toBe(1);
+  });
+
+  test('a sandbox-authored park is not a decision: forwarded', async () => {
+    queueFetch(new Response('{"parked":0}', { status: 200 }));
+    expect((await send({ ...principal, sandboxAuthored: true }, 'POST', '/kortix/runtime/asks/park', undefined)).status).toBe(200);
+    expect(fetchCalls).toBe(1);
+  });
+});
+
 describe('forwardToSandbox — idempotent GET retry is unchanged', () => {
   test('a GET that 502s then 200s is retried and returns the eventual success', async () => {
     queueFetch(new Response('bad gateway', { status: 502 }), new Response('ok', { status: 200 }));

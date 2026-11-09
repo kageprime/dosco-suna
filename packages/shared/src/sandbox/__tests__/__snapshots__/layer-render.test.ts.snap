@@ -65,18 +65,18 @@ RUN case "$(uname -m)" in \\
     && test "$(npm --version)" = "12.0.1"
 
 RUN case "$(uname -m)" in \\
-      x86_64) bun_arch=x64; bun_sha=3e730528d89775f03f87f05c06787c4df4099d0a37f3f252e7b829cb23816e18 ;; \\
-      aarch64|arm64) bun_arch=aarch64; bun_sha=efa9813da5ed72423bf847f916e8d2c47c0d776add972354026a75e10da9aa21 ;; \\
+      x86_64) bun_arch=x64; bun_sha=bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c ;; \\
+      aarch64|arm64) bun_arch=aarch64; bun_sha=baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e ;; \\
       *) echo "unsupported Bun architecture: $(uname -m)" >&2; exit 1 ;; \\
     esac \\
     && curl -fsSL --retry 3 --retry-delay 2 -o /tmp/bun.zip \\
-         "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-\${bun_arch}.zip" \\
+         "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-\${bun_arch}.zip" \\
     && echo "\${bun_sha}  /tmp/bun.zip" | sha256sum -c - \\
     && unzip -q /tmp/bun.zip -d /tmp/bun \\
     && install -m 0755 "/tmp/bun/bun-linux-\${bun_arch}/bun" /home/kortix/.bun/bin/bun \\
     && ln -sf bun /home/kortix/.bun/bin/bunx \\
     && rm -rf /tmp/bun /tmp/bun.zip \\
-    && test "$(bun --version)" = "1.4.3"
+    && test "$(bun --version)" = "1.4.4"
 
 # ─── Project-agent workstation (dockerfile-layer.ts) ───
 USER root
@@ -263,18 +263,18 @@ RUN case "$(uname -m)" in \\
     && test "$(npm --version)" = "12.0.1"
 
 RUN case "$(uname -m)" in \\
-      x86_64) bun_arch=x64; bun_sha=3e730528d89775f03f87f05c06787c4df4099d0a37f3f252e7b829cb23816e18 ;; \\
-      aarch64|arm64) bun_arch=aarch64; bun_sha=efa9813da5ed72423bf847f916e8d2c47c0d776add972354026a75e10da9aa21 ;; \\
+      x86_64) bun_arch=x64; bun_sha=bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c ;; \\
+      aarch64|arm64) bun_arch=aarch64; bun_sha=baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e ;; \\
       *) echo "unsupported Bun architecture: $(uname -m)" >&2; exit 1 ;; \\
     esac \\
     && curl -fsSL --retry 3 --retry-delay 2 -o /tmp/bun.zip \\
-         "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-\${bun_arch}.zip" \\
+         "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-\${bun_arch}.zip" \\
     && echo "\${bun_sha}  /tmp/bun.zip" | sha256sum -c - \\
     && unzip -q /tmp/bun.zip -d /tmp/bun \\
     && install -m 0755 "/tmp/bun/bun-linux-\${bun_arch}/bun" /home/kortix/.bun/bin/bun \\
     && ln -sf bun /home/kortix/.bun/bin/bunx \\
     && rm -rf /tmp/bun /tmp/bun.zip \\
-    && test "$(bun --version)" = "1.4.3"
+    && test "$(bun --version)" = "1.4.4"
 
 # ─── Project-agent workstation (dockerfile-layer.ts) ───
 USER root

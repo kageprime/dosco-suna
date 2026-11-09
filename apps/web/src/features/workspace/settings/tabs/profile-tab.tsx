@@ -29,7 +29,7 @@ import { removeProfileAvatar } from './profile-avatar';
  *   text on the right instead of swapping the row out for a paragraph.
  *
  * The factor list answers in four states and each one is visible: loading
- * (skeleton row), failed (red `InfoBanner` + Retry), empty (orange "No second
+ * (skeleton row), failed (red `Alert` + Retry), empty (orange "No second
  * factor enrolled" nudge), and populated (`FactorRow`s). A failed fetch never
  * borrows the empty-state copy — that copy asserts the account has no second
  * factor, which a failed fetch cannot know.
@@ -65,7 +65,7 @@ import { useWorkspaceDirectory } from '@kortix/ui/workspace/sidebar/use-workspac
 import { Avatar, AvatarFallback, AvatarImage } from '@kortix/ui/avatar';
 import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { KortixLoader } from '@kortix/ui/kortix-loader';
 import { Label } from '@kortix/ui/label';
@@ -293,7 +293,7 @@ function DeletionPlanSummary({ plan, copy }: { plan: ProfileDeletionPlan; copy: 
     <div className="space-y-3" data-testid="deletion-plan">
       {empty ? <p className="text-muted-foreground text-sm">{copy.nothing}</p> : null}
       {plan.blockers.length > 0 ? (
-        <InfoBanner tone="destructive" title={copy.blockersTitle}>
+        <BannerAlert variant="destructive" ><BannerAlertTitle>{copy.blockersTitle}</BannerAlertTitle><BannerAlertDescription>
           <p>{copy.blockers}</p>
           <ul className="list-disc space-y-1 pl-5">
             {plan.blockers.map((blocker) => (
@@ -302,7 +302,7 @@ function DeletionPlanSummary({ plan, copy }: { plan: ProfileDeletionPlan; copy: 
               </li>
             ))}
           </ul>
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
       {plan.deleteNames.length > 0 ? (
         <div className="space-y-1.5">
@@ -541,7 +541,7 @@ export function ProfileTabView({
                   <ModalTitle>{loginOnly?.title ?? copy.deleteDialogTitle}</ModalTitle>
                 </ModalHeader>
                 <ModalBody className="space-y-4">
-                  <InfoBanner tone="warning">
+                  <BannerAlert variant="warning" ><BannerAlertDescription>
                     {loginOnly ? (
                       loginOnly.warning
                     ) : deletionType === 'immediate' ? (
@@ -552,7 +552,7 @@ export function ProfileTabView({
                         {deletionPreviewDateLabel && <p>{deletionPreviewDateLabel}</p>}
                       </>
                     )}
-                  </InfoBanner>
+                  </BannerAlertDescription></BannerAlert>
                   {loginOnly ? null : (
                   <>
                   {deletionPlan ? (

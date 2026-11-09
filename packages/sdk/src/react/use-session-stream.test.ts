@@ -109,6 +109,28 @@ describe('applySessionControlFrame', () => {
     applySessionControlFrame(client, P, S, frame('kortix.control.audit', watermark), {});
     expect(client.getQueryData<unknown>(qk.project.sessionAuditWatermark(P, S))).toEqual(watermark);
   });
+
+  // A newer API may send a control type this SDK does not know (see
+  // `SessionControlFrame.type`). It must stay ignored: no cache write, no
+  // refetch, and the caller's memory is untouched.
+  test('a control frame type this SDK does not know is ignored', () => {
+    const client = new QueryClient();
+    client.setQueryData(qk.project.session(P, S), { session_id: S, name: 'New session' });
+    const memory: { secretsRev?: string; runtimeKey?: string; modelRev?: string } = {};
+    applySessionControlFrame(
+      client,
+      P,
+      S,
+      frame('kortix.control.unknown', { known: true, title: 'Sea', turns: [], sandbox_status: 'up', pending: 1 }),
+      memory,
+      1,
+    );
+    expect(client.getQueryData(qk.project.sessionTurn(P, S))).toBeUndefined();
+    expect(client.getQueryData(qk.project.sessionRuntimeControl(P, S))).toBeUndefined();
+    expect(client.getQueryData(qk.project.sessionAuditWatermark(P, S))).toBeUndefined();
+    expect(client.getQueryState(qk.project.session(P, S))?.isInvalidated).toBe(false);
+    expect(memory).toEqual({});
+  });
 });
 
 describe('patchCachedSessionTitle', () => {

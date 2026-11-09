@@ -1,9 +1,12 @@
 /**
- * The closed value sets the session wire carries: a copy of
- * `packages/api-contract/src/wire-values.ts`, which apps/api and kortixd import.
- * `wire-values.test.ts` holds the two byte-equal from the first declaration on,
- * so a set changes in both or the test fails. The SDK does not depend on the
- * contract package (zod stays out of its bundle).
+ * The closed value sets the session wire carries, defined once.
+ *
+ * Each set is a `const` tuple, its type is derived from it, and each decision a
+ * client makes on a value is a function here, so no client compares a free
+ * string of its own. No zod and no import: the package stays zod-free and
+ * framework-free. This is the canonical body — `@kortix/api-contract/wire-values`
+ * re-exports it at `./wire-values`, and kortixd vendors it standalone
+ * (`KORTIXD_SHARED_SOURCES`, the `wire-message-id` shape).
  */
 
 // ─── Thread status ───────────────────────────────────────────────────────────

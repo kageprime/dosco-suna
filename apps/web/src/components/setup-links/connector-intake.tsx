@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@kortix/ui/button';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import Loading from '@kortix/ui/loading';
 import { SessionDotMatrix } from '@kortix/ui/dot-matrix/session-dot-matrix';
 import { SolidCheckIcon } from '@kortix/ui/internal/icons/solid-check-icon';
@@ -179,7 +179,7 @@ export function ConnectorIntakeView({
 
       {failed ? (
         error ? (
-          <InfoBanner tone="destructive" icon={<WarningIcon weight="fill" />} title={error} />
+          <BannerAlert variant="destructive" ><BannerAlertMedia>{<WarningIcon weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{error}</BannerAlertTitle></BannerAlert>
         ) : null
       ) : connected ? (
         <div className="bg-muted flex items-center gap-3 rounded-md px-4 py-3">
@@ -205,7 +205,7 @@ export function ConnectorIntakeView({
       ) : (
         <div className="space-y-4">
           {error ? (
-            <InfoBanner tone="destructive" icon={<WarningIcon weight="fill" />} title={error} />
+            <BannerAlert variant="destructive" ><BannerAlertMedia>{<WarningIcon weight="fill" />}</BannerAlertMedia><BannerAlertTitle>{error}</BannerAlertTitle></BannerAlert>
           ) : null}
           <Button
             className="w-full"

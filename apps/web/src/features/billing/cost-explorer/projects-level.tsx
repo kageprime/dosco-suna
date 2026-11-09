@@ -9,7 +9,7 @@ import { ReceiptIcon as ReceiptText } from '@phosphor-icons/react';
 import { Button } from '@kortix/ui/button';
 import { resolvePreset, type CostRange } from '@kortix/ui/date-range-picker';
 import Hint from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Skeleton } from '@kortix/ui/skeleton';
 import {
   Table,
@@ -317,9 +317,9 @@ export function ProjectsLevelContent({
   let tableSlot: ReactNode;
   if (projectsError) {
     tableSlot = (
-      <InfoBanner tone="destructive" title={tI18nComplete.raw('text625e6bf05289')}>
+      <BannerAlert variant="destructive" ><BannerAlertTitle>{tI18nComplete.raw('text625e6bf05289')}</BannerAlertTitle><BannerAlertDescription>
         {projectsError.message}
-      </InfoBanner>
+      </BannerAlertDescription></BannerAlert>
     );
   } else if (isProjectsLoading || !page) {
     // `!page` — not `isProjectsLoading && !page`. Both empty states below are

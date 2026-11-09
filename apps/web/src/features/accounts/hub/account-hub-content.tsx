@@ -69,7 +69,7 @@ import { Button } from '@kortix/ui/button';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
 import Hint from '@kortix/ui/hint';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { InlineMeta } from '@kortix/ui/inline-meta';
 import { Input } from '@kortix/ui/input';
 import {
@@ -644,11 +644,11 @@ export function AccountHubContent({
             </div>
           ) : null}
 
-          {/* Branding — Enterprise. The pane exists for anyone with
-              account.write (rail rule); the entitlement decides whether it
-              is the editor or the upsell, mirroring the server's 402 on the
-              write routes. */}
-          {activeSection === 'branding' && canWriteAccount ? (
+          {/* Branding — Enterprise, self-host only. The pane exists for
+              anyone with account.write off the Kortix cloud (rail rule); the
+              entitlement decides whether it is the editor or the upsell,
+              mirroring the server's 402 on the write routes. */}
+          {activeSection === 'branding' && sectionVisible.branding ? (
             entitlementsLoading ? (
               <Skeleton className="h-64 w-full rounded-md" />
             ) : brandingEnabled ? (
@@ -782,9 +782,9 @@ function GitHubConnectionCard({
           <Skeleton className="h-[58px] w-full rounded-md" />
         </div>
       ) : installationsQuery.isError ? (
-        <InfoBanner tone="warning" icon={Github} title={tI18nComplete.raw('textd3a118da5b46')}>
+        <BannerAlert variant="warning" ><BannerAlertMedia><Github /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('textd3a118da5b46')}</BannerAlertTitle><BannerAlertDescription>
           {(installationsQuery.error as Error).message}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : installations.length === 0 ? (
         // Quiet contained empty state — the toolbar above already carries the
         // single "Connect GitHub" CTA.

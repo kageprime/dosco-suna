@@ -50,13 +50,13 @@ import type {
  * limit bounds what one request can make the API download.
  */
 /** One file opened in the file browser or read by a config loader. */
-export const FILE_READ_MAX_BYTES = 64 * 1024 * 1024;
+const FILE_READ_MAX_BYTES = 64 * 1024 * 1024;
 /** A file read as text (`readRepoFile`): the default git read buffer. */
 const TEXT_READ_MAX_BYTES = 10 * 1024 * 1024;
 /** Every file a content search reads at one commit. Over it, the search covers the files fetched so far. */
-export const CONTENT_SEARCH_MAX_BYTES = 64 * 1024 * 1024;
+const CONTENT_SEARCH_MAX_BYTES = 64 * 1024 * 1024;
 /** Every file in one zip download. */
-export const ARCHIVE_MAX_BYTES = 512 * 1024 * 1024;
+const ARCHIVE_MAX_BYTES = 512 * 1024 * 1024;
 
 /** The repository is too large for the operation: a request for less (a folder, one file) can still succeed. */
 export class RepoContentTooLargeError extends Error {
@@ -118,13 +118,13 @@ export interface ProjectDirectoryEntry {
 }
 
 /** Entry cap of one folder listing that asks for no page. */
-export const DIRECTORY_LISTING_LIMIT = 5000;
+const DIRECTORY_LISTING_LIMIT = 5000;
 /** Default and ceiling of a paged folder listing (`limit` or `cursor` sent). */
 export const DIRECTORY_PAGE_LIMIT = 500;
 export const DIRECTORY_PAGE_MAX_LIMIT = 2000;
 
 /** Where a paged folder listing resumes: the commit the first page read, and the last key it returned. */
-export interface DirectoryPageStart {
+interface DirectoryPageStart {
   commit: string;
   key: string;
 }
@@ -771,7 +771,7 @@ export async function findLastGoodManifestCommit(
 }
 
 /** A legacy manifest as the latest shape, and what the conversion read (`legacy`). */
-export interface ManifestLegacy {
+interface ManifestLegacy {
   /** The format the file is in: 1 (`kortix.toml`) or 2. */
   from: 1 | 2;
   /** Repo path → the text a reader uses for it (prompts without their frontmatter). */

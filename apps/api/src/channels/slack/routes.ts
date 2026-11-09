@@ -363,7 +363,9 @@ export function registerSlackWebhookRoutes(): void {
 
       if (envelope.type !== 'event_callback' || !envelope.event) return c.json({ ok: true });
       const outcome = await runWebhookWork('slack-byo-event', async () => {
-        if (await alreadyHandled(envelope.event_id)) return;
+        // Scoped per project: this is a BYO app with its own event id space, and
+        // another project (or the canonical app) may deliver the same event_id.
+        if (await alreadyHandled(envelope.event_id, { projectId })) return;
         const teamId = inbound.kind === 'project' ? inbound.teamId : '';
         if (envelope.event && (await maybeHandleDmCommand(teamId, envelope.event, projectId))) {
           return;

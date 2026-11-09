@@ -34,6 +34,7 @@ import {
   transitionSandbox,
   transitionSession,
 } from '../session-lifecycle/status-transitions';
+import { stripMetadataKeys } from '../session-lifecycle/sandbox-metadata-sql';
 import { evaluateUnattendedRecovery } from '../session-lifecycle/unattended-runtime-recovery';
 import type { StopReason } from '../stop-reason';
 import { captureProductEvent } from '../../shared/product-analytics';
@@ -196,7 +197,7 @@ export async function clearPendingStopObservation(sandboxId: string): Promise<vo
   await db
     .update(sessionSandboxes)
     .set({
-      metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) - 'pendingStopObservedAtMs'`,
+      metadata: stripMetadataKeys(['pendingStopObservedAtMs']),
       updatedAt: new Date(),
     })
     .where(eq(sessionSandboxes.sandboxId, sandboxId))

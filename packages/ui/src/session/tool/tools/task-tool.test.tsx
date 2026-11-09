@@ -216,6 +216,23 @@ describe('TaskTool — one agent row that opens the agent', () => {
     expect(markup).not.toContain('text-kortix-red');
   });
 
+  test('a model that sent a truthy non-string subagent_type still renders the row as General, never crashes (KRTX-4511)', () => {
+    childMessages = undefined;
+    const markup = render(
+      taskPart({ childSessionId: null, input: { subagent_type: { name: 'explorer' }, description: 'Find the bug' } }),
+    );
+    expect(markup).toContain('>General</span>');
+    expect(markup).toContain('>Find the bug</span>');
+  });
+
+  test('a model that sent a truthy non-string name falls back to the agent kind, never crashes (KRTX-4511)', () => {
+    childMessages = undefined;
+    const markup = render(
+      taskPart({ childSessionId: null, input: { subagent_type: 'explorer', name: { first: 'Researcher' } } }),
+    );
+    expect(markup).toContain('>Explorer</span>');
+  });
+
   test('a failed call that never got a session keeps its failure in place: one sentence, the raw error behind Details', () => {
     childMessages = undefined;
     const failed = taskPart({ status: 'error', childSessionId: null }) as ToolPart & { state: { error?: string } };

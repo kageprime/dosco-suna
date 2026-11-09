@@ -22,6 +22,10 @@ function sharedFilesFor(specifier: string): string[] | null {
   const shared = /^@kortix\/shared\/(ssrf-guard|peer-message-prompt)$/.exec(specifier)
   if (shared) return [`packages/shared/src/${shared[1]}.ts`]
   if (specifier === '@kortix/sdk/wire-message-id') return ['packages/sdk/src/core/session/wire-message-id.ts']
+  // The wire value sets: the contract file is a re-export stub over the
+  // canonical `@kortix/sdk/wire-values` file, so the standalone bundle needs
+  // both copied in and listed in KORTIXD_SHARED_SOURCES.
+  if (specifier === '@kortix/api-contract/wire-values') return ['packages/api-contract/src/wire-values.ts', 'packages/sdk/src/core/wire-values.ts']
   // The voice package bundles whole: its entry imports the rest of its src/.
   if (specifier === '@kortix/voice/kortix') return ['packages/voice/src']
   const contract = /^@kortix\/api-contract\/([a-z-]+)$/.exec(specifier)
@@ -52,6 +56,14 @@ for (const file of productionFiles(join(APP, 'src'))) {
 }
 
 describe('the files kortixd bundles from outside its package', () => {
+  test('the wire-value stub resolves the vendored SDK file it re-exports', async () => {
+    const api = await import('@kortix/api-contract/wire-values')
+    const sdk = await import('@kortix/sdk/wire-values')
+    expect(api.THREAD_STATUSES).toBe(sdk.THREAD_STATUSES)
+    expect(api.RUNTIME_CAPABILITIES).toBe(sdk.RUNTIME_CAPABILITIES)
+    expect(api.THREAD_STATUSES).toEqual(['idle', 'busy', 'retry', 'compacting'])
+  })
+
   test('KORTIXD_SHARED_SOURCES lists exactly the files the daemon imports', () => {
     expect([...imported.keys()].sort()).toEqual([...KORTIXD_SHARED_SOURCES].sort())
   })

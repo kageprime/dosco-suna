@@ -49,6 +49,10 @@
       // pi mints message ids with the platform codec. The file imports nothing;
       // the Dockerfiles copy it to the matching relative path.
       "@kortix/sdk/wire-message-id": ["../../packages/sdk/src/core/session/wire-message-id.ts"],
+      // The wire value sets: the contract file is a re-export stub over the
+      // canonical SDK body (KRTX-4489), which the standalone bundle resolves
+      // the same way. Copied to the matching relative path too.
+      "@kortix/sdk/wire-values": ["../../packages/sdk/src/core/wire-values.ts"],
       // The mapped contract imports zod (runtime-relay.ts), and this standalone
       // build installs zod only here. `scripts/build.sh` passes this tsconfig to
       // `bun build` so the bundler resolves it the same way.

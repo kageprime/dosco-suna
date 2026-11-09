@@ -64,7 +64,7 @@ import {
   DropdownMenuTrigger,
 } from '@kortix/ui/dropdown-menu';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -631,17 +631,17 @@ function GroupMembersCard({
     <>
       {/* The IdP owns this membership — say so, and say where to change it. */}
       {idpManaged ? (
-        <InfoBanner tone="info">{tI18nComplete.raw('text58dc708c6651')}</InfoBanner>
+        <BannerAlert variant="default" ><BannerAlertDescription>{tI18nComplete.raw('text58dc708c6651')}</BannerAlertDescription></BannerAlert>
       ) : null}
 
       {settled && members.length > 0 && overrideCount > 0 ? (
-        <InfoBanner tone="warning">
+        <BannerAlert variant="warning" ><BannerAlertDescription>
           {overrideCount}{' '}
           {overrideCount === 1
             ? tI18nComplete.raw('textbff3c2a3f88a')
             : tI18nComplete.raw('text68817a89d628')}{' '}
           {tI18nComplete.raw('text954f5f9042e8')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       {membersQuery.isLoading ? (

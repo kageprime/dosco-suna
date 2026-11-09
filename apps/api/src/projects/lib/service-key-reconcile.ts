@@ -47,6 +47,7 @@ import { invalidateSandbox } from '../../sandbox-proxy/backend';
 import { db } from '../../shared/db';
 import { logger } from '../../lib/logger';
 import { isPlausibleServiceKey } from './heal-session-token';
+import { errorMessage } from '../../shared/error-message';
 
 /** One bounded exec. A reconcile must never hold an open. */
 const EXEC_TIMEOUT_MS = 15_000;
@@ -193,7 +194,7 @@ export async function reconcileServiceKeyFromBox(
   } catch (error) {
     logger.warn('[service-key] reconcile could not run', {
       sandbox_id: sandboxId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return 'unreadable';
   }

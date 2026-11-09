@@ -101,7 +101,7 @@ export function appIdentifier(expo, platform) {
 }
 
 /** Why this platform must not publish, or null when it may. */
-export function skipReason(channel, platform, runtime) {
+function skipReason(channel, platform, runtime) {
   const appId = appIdentifier(JSON.parse(readFileSync(join(MOBILE, 'app.json'), 'utf8')).expo, platform);
   const builds = easJson([
     'build:list', '--channel', channel, '--platform', platform, '--app-identifier', appId,

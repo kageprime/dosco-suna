@@ -90,7 +90,7 @@ let imageResolutionQueue: Array<{
   isDefault: boolean;
   built: boolean;
 }> = [];
-let standardImageDeleteCalls: Array<{ slug?: string; provider?: string }> = [];
+let standardImageDeleteCalls: Array<{ slug?: string; provider?: string; snapshotName?: string }> = [];
 let accountTokenCreateCalls: Array<Record<string, unknown>> = [];
 let serviceAccountCreateCalls: Array<Record<string, unknown>> = [];
 let networkBoundaryBindings: Array<Record<string, unknown>> = [];
@@ -751,10 +751,12 @@ describe('provisionSessionSandbox — mid-provision delete race', () => {
     expect(providerCreateOpts[0]?.snapshot).toBe('snap-test-1');
   });
 
-  test('a missing image named like a retired project image heals through the SAME slug rebuild path', async () => {
-    // The per-project image system is gone: there is no longer a second delete
-    // path keyed on the image name. Every snapshot-missing heal now deletes by
-    // (slug, provider) and re-resolves, whatever the stale image was called.
+  test('a missing image named like a retired project image heals by its exact booted identity', async () => {
+    // Every snapshot-missing heal deletes the EXACT snapshot name the session
+    // booted — never a re-derive from the slug (a project template named
+    // `default-warm` that disappears mid-provision would re-resolve to the
+    // shared platform default; KRTX-4465, Strix CWE-367). Whatever the stale
+    // image was called, the heal drops that name and the retry rebuilds it.
     const legacyProjectImageName = 'kortix-ppwarm-00000000-37a8eec1-aaaaaaaaaaaa';
     imageResolutionQueue = [
       {
@@ -781,12 +783,12 @@ describe('provisionSessionSandbox — mid-provision delete race', () => {
     await provisionSessionSandbox(baseOpts());
     await opened;
 
-    expect(standardImageDeleteCalls).toEqual([{ slug: 'default', provider: 'daytona' }]);
+    expect(standardImageDeleteCalls).toEqual([{ snapshotName: legacyProjectImageName, provider: 'daytona' }]);
     expect(imageRequests).toHaveLength(2);
     expect(providerCreateOpts.at(-1)?.snapshot).toBe('kortix-default-base-intact');
   });
 
-  test('a missing standard image keeps the existing slug-based rebuild path', async () => {
+  test('a missing standard image heals by its exact booted identity and rebuilds', async () => {
     imageResolutionQueue = [
       {
         snapshotName: 'kortix-default-stale',
@@ -812,7 +814,7 @@ describe('provisionSessionSandbox — mid-provision delete race', () => {
     await provisionSessionSandbox(baseOpts());
     await opened;
 
-    expect(standardImageDeleteCalls).toEqual([{ slug: 'default', provider: 'daytona' }]);
+    expect(standardImageDeleteCalls).toEqual([{ snapshotName: 'kortix-default-stale', provider: 'daytona' }]);
     expect(imageRequests).toHaveLength(2);
     expect(providerCreateOpts.at(-1)?.snapshot).toBe('kortix-default-rebuilt');
   });

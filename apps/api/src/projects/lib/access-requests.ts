@@ -70,7 +70,7 @@ type AccessRequestRow = typeof projectAccessRequests.$inferSelect;
  * request BEFORE it grants the role: a reject that lost the claim grants
  * nothing, and an approve that lost it grants nothing either.
  */
-export const ACCESS_REQUEST_TRANSITIONS = {
+const ACCESS_REQUEST_TRANSITIONS = {
   approve: { from: ['pending'], to: 'approved' },
   reject: { from: ['pending'], to: 'rejected' },
   /** The approve's grant failed after the claim: the request is pending again. */

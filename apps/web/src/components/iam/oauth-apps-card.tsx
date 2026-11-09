@@ -34,7 +34,7 @@ import { Button } from '@kortix/ui/button';
 import { Checkbox } from '@kortix/ui/checkbox';
 import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 import { EntityAvatar } from '@kortix/ui/entity-avatar';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '@kortix/ui/alert';
 import { Input } from '@kortix/ui/input';
 import { Label } from '@kortix/ui/label';
 import Loading from '@kortix/ui/loading';
@@ -513,11 +513,11 @@ function SecretReveal({ client }: { client: CreatedOAuthClient }) {
   return (
     <div className="space-y-4">
       {client.client_secret ? (
-        <InfoBanner tone="warning" icon={WarningIcon} title={tI18nComplete.raw('text8989e0a7f3cb')}>
+        <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text8989e0a7f3cb')}</BannerAlertTitle><BannerAlertDescription>
           {tI18nComplete.raw('text949aff7c5b57')}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : (
-        <InfoBanner tone="neutral">{tI18nComplete.raw('text26b154c97fd8')}</InfoBanner>
+        <BannerAlert variant="default" ><BannerAlertDescription>{tI18nComplete.raw('text26b154c97fd8')}</BannerAlertDescription></BannerAlert>
       )}
       <CopyRow
         label={tI18nComplete.raw('text844a263ddf5a')}
@@ -677,9 +677,9 @@ function OAuthAppSheetForm({ accountId, scopesSupported, client }: OAuthAppSheet
   return (
     <form id={oauthAppFormId(client)} onSubmit={submit} className="space-y-4">
         {formError ? (
-          <InfoBanner tone="destructive" icon={WarningIcon}>
+          <BannerAlert variant="destructive" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertDescription>
             {formError}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : null}
 
         <div className="space-y-1.5">

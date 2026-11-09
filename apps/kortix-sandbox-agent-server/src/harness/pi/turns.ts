@@ -16,10 +16,12 @@ const READ = answer(409, { code: MESSAGE_READ_CODE, error: 'a model call read th
 const OK = answer(200, { ok: true })
 const NOT_ROOT = answer(404, { error: 'not the session root' })
 
-/** The box's own session log, built from the runtime's store, and its queued prompts; null while the runtime is down. */
+/** The box's own session log, built from the runtime's store, and its queued prompts; null while the runtime is down.
+ * No per-message hashing: a log read never consumes the hash map, and on a long session
+ * digesting every entry's JSON costs more than the derivation it wraps (KRTX-4488). */
 function sessionLogOf(rt: PiRuntime) {
   const snapshot = rt.sessionLogSnapshot()
-  return snapshot ? { ...piSessionLog(snapshot), queued: piQueued(snapshot) } : null
+  return snapshot ? { ...piSessionLog(snapshot, { hashes: false }), queued: piQueued(snapshot) } : null
 }
 
 /**

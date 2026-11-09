@@ -8,6 +8,7 @@
 // the API answers with, never a silent drop.
 
 import { backendApi } from '../../http/api-client';
+import { appendQuery } from '../../http/url';
 import { unwrap } from './shared';
 
 /** Largest message body a session may send another, in characters. */
@@ -223,7 +224,7 @@ export async function getSessionReachableAgents(
   sessionId: string,
   options: { scope?: ReachableScope } = {},
 ): Promise<ReachableAgents> {
-  const query = options.scope && options.scope !== 'mine' ? `?scope=${options.scope}` : '';
+  const query = appendQuery({ scope: options.scope && options.scope !== 'mine' ? options.scope : undefined });
   return unwrap(
     await backendApi.get<ReachableAgents>(`${session(projectId, sessionId)}/reachable${query}`, { showErrors: false }),
   );
@@ -244,7 +245,7 @@ export async function listPeerMessages(
   sessionId: string,
   options: { direction?: 'in' | 'out' } = {},
 ): Promise<{ messages: PeerMessage[] }> {
-  const query = options.direction ? `?direction=${options.direction}` : '';
+  const query = appendQuery({ direction: options.direction });
   return unwrap(
     await backendApi.get<{ messages: PeerMessage[] }>(`${session(projectId, sessionId)}/peer-messages${query}`, {
       showErrors: false,

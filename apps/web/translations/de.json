@@ -347,7 +347,8 @@
       "actionImport": "Bestehendes Repository importieren",
       "ownerTypePersonal": "Persönliches Konto",
       "ownerTypeOrg": "Organisation",
-      "createPersonalAuthorize": "Kortix bittet GitHub beim ersten Erstellen eines Repositorys in einem persönlichen Konto um deine Autorisierung."
+      "createPersonalAuthorize": "Kortix bittet GitHub beim ersten Erstellen eines Repositorys in einem persönlichen Konto um deine Autorisierung.",
+      "importHint": "Kortix liest Agenten aus der kortix.yaml in diesem Repository. Ohne sie öffnet der Workspace einen Einrichtungs-Prompt, den du in deinen Coding-Agenten kopierst."
     }
   },
   "projectHome": {
@@ -3749,6 +3750,25 @@
     "startHint": "Sag Kortix unten, woran du arbeitest, oder sende „Führ mich durch Kortix“ für eine geführte Einrichtung.",
     "placeholder": "Sagen Sie Kortix, woran Sie arbeiten",
     "kickoff": "Führ mich durch Kortix"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "Kortix in diesem Repository einrichten",
+      "body": "Füge den Einrichtungs-Prompt in Claude Code, Codex oder Cursor in deinem Klon ein. Der Chat öffnet sich hier, sobald <code>kortix.yaml</code> auf <code>{branch}</code> liegt."
+    },
+    "defaultBranch": "dem Standard-Branch",
+    "copy": "Einrichtungs-Prompt kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Der Prompt konnte nicht kopiert werden",
+    "docs": "Anleitung",
+    "noAccess": {
+      "title": "Für dich sind keine Agenten verfügbar",
+      "body": "Alle, die diesen Workspace verwalten, können dir Zugriff geben."
+    },
+    "empty": {
+      "title": "Keine Agenten in diesem Workspace",
+      "body": "Lege einen in kortix.yaml an oder erstelle einen mit Neuer Agent."
+    }
   },
   "announcements": {
     "memories": {
@@ -26606,7 +26626,9 @@
         "createdDescription": "{name} handelt als {actsAs}. Kortix zeigt den Schlüssel nur einmal: Kopieren Sie ihn jetzt und speichern Sie ihn als Secret.",
         "accessFullHint": "Alles, was der Prinzipal des Schlüssels in diesem Workspace darf.",
         "accessCustomHint": "Nur die Berechtigungen, die Sie auswählen. Jede muss etwas sein, das der Prinzipal des Schlüssels darf."
-      }
+      },
+      "searchPlaceholder": "Einstellungen durchsuchen",
+      "searchNoResults": "Keine passende Einstellung"
     },
     "cli": {
       "noWorkspaceTitle": "Erstelle einen Workspace, um die CLI anzumelden",
@@ -26637,7 +26659,9 @@
     },
     "menu": {
       "invite": "Personen zu {name} einladen",
-      "leave": "{name} verlassen"
+      "leave": "{name} verlassen",
+      "invitePeople": "Personen einladen",
+      "more": "Mehr"
     },
     "roles": {
       "owner": {

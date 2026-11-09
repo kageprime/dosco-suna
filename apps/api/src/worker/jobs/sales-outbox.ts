@@ -1,27 +1,21 @@
 import { processSalesOutbox } from '../../accounts/sales-outbox';
 import { logger } from '../../lib/logger';
 import { runWorkerTick } from '../../shared/audit-scope';
+import { leaderTimer } from '../../shared/leader-timer';
 
-let timer: ReturnType<typeof setTimeout> | null = null;
-let stopped = true;
-let active: Promise<void> | null = null;
+const TICK_MS = 30_000;
 
-function schedule(delay: number): void {
-  timer = setTimeout(() => {
-    timer = null;
-    active = runWorkerTick('sales-outbox', () => processSalesOutbox())
-      .catch(() => logger.error('[sales-outbox] delivery tick failed'))
-      .then(() => { if (!stopped) schedule(30_000); });
-  }, delay);
-}
-export function startSalesOutbox(): void {
-  if (!stopped) return;
-  stopped = false;
-  schedule(0);
-}
-export async function stopSalesOutbox(): Promise<void> {
-  stopped = true;
-  if (timer) clearTimeout(timer);
-  timer = null;
-  await active;
-}
+const job = leaderTimer(
+  async () => {
+    try {
+      await runWorkerTick('sales-outbox', () => processSalesOutbox());
+    } catch {
+      logger.error('[sales-outbox] delivery tick failed');
+    }
+    return TICK_MS;
+  },
+  { name: 'sales-outbox' },
+);
+
+export const startSalesOutbox = job.start;
+export const stopSalesOutbox = job.stop;

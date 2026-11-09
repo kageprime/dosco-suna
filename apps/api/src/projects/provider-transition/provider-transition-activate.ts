@@ -10,7 +10,7 @@ import {
   PIN_META_KEY, TRANSITION_META_KEY,
 } from './provider-transition-routing';
 import { TRANSITION_AUDIT_COLUMNS, type Queryable } from './provider-transition-store';
-import { metadataMerge, projectsView, updateProjectRows } from '../../workspaces/rows';
+import { metadataMerge, projectsView, updateProjectRows, updateProjectRowsReturning, type ProjectRow } from '../../workspaces/rows';
 
 type ActivationArgs = {
   projectId: string;
@@ -178,7 +178,7 @@ export async function activateWithCas(
 export async function setPinWithGenerationBump(
   db: Database,
   args: { projectId: string; pin: string | null; now: Date },
-): Promise<{ generation: number }> {
+): Promise<{ generation: number; projectRow: ProjectRow | null }> {
   return db.transaction(async (tx) => {
     const [project] = await tx
       .select({ metadata: projectsView.metadata, generation: projectsView.sandboxProviderGeneration })
@@ -186,7 +186,7 @@ export async function setPinWithGenerationBump(
       .where(eq(projectsView.projectId, args.projectId))
       .for('update')
       .limit(1);
-    if (!project) return { generation: 0 };
+    if (!project) return { generation: 0, projectRow: null };
     const newGen = (project.generation ?? 0) + 1;
     // FIX-J: set/clear ONLY the pin's own keys via a SQL-side atomic merge, under
     // the FOR UPDATE lock + generation bump (both UNCHANGED) — never the whole
@@ -204,7 +204,8 @@ export async function setPinWithGenerationBump(
     const deleteKeys = [ACTIVE_EXTERNAL_ID_META_KEY, ACTIVE_SNAPSHOT_NAME_META_KEY];
     if (args.pin === null) deleteKeys.push(PIN_META_KEY);
     else patch[PIN_META_KEY] = args.pin;
-    await updateProjectRows(eq(projectsView.projectId, args.projectId), { metadata: metadataMerge(patch, deleteKeys), sandboxProviderGeneration: newGen, updatedAt: args.now }, tx);
+    // RETURNING hands the immediate response the row with the pin applied: no re-SELECT.
+    const [projectRow] = await updateProjectRowsReturning(eq(projectsView.projectId, args.projectId), { metadata: metadataMerge(patch, deleteKeys), sandboxProviderGeneration: newGen, updatedAt: args.now }, tx);
     // The epoch bump fences any runner still driving a cancelled row (see
     // reserveSwitchTransition's supersede).
     await tx
@@ -216,7 +217,7 @@ export async function setPinWithGenerationBump(
         updatedAt: args.now,
       })
       .where(and(eq(providerTransitions.projectId, args.projectId), inArray(providerTransitions.status, LIVE_TRANSITION_STATUSES)));
-    return { generation: newGen };
+    return { generation: newGen, projectRow: projectRow ?? null };
   });
 }
 

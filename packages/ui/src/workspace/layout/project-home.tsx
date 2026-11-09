@@ -32,9 +32,11 @@ import {
   type SessionPromptOverrides,
 } from '@kortix/sdk';
 import type { AttachmentSubmission } from '../../session/composer/attachment-submission';
-import { contract, invalidateProject, qk, type Command } from '@kortix/sdk/react';
+import { contract, invalidateProject, qk, useProjectConfig, useRuntimeAgents, type Command } from '@kortix/sdk/react';
 import { MY_KORTIX_SANDBOX_SLUG, isMyKortixAgentName } from '@kortix/shared';
 import { AccessRequestsBell } from '../home/access-requests-bell';
+import { NoAgentHome, type NoAgentReason } from '../home/no-agent-home';
+import { composerSelectableAgents } from '../../session/composer/composer-agent-access';
 import { FirstChat } from '../home/first-chat';
 import { SandboxPicker } from '../home/sandbox-picker';
 import { ProjectHomeWallpaper, ProjectHomeWelcomeBody } from '../home/welcome-body';
@@ -49,6 +51,9 @@ const ONBOARDING_ACTIONS = [
   PROJECT_ACTIONS.PROJECT_SETTINGS_WRITE,
   PROJECT_ACTIONS.PROJECT_SESSION_START,
 ] as const;
+
+/** How often a home with no runnable agent re-reads the project, waiting for one. */
+const NO_AGENT_POLL_MS = 15_000;
 
 export interface ProjectHomeSendOptions extends ComposerOptions {
   sandbox_slug?: string;
@@ -208,8 +213,48 @@ function ProjectHomeView({
   const canSetUpProject = ONBOARDING_ACTIONS.every(
     (action) => onboardingCans[action]?.allowed === true,
   );
+  // No agent the viewer may run: every send would be refused ("No agents
+  // available to you"), so the chat area is a blocked state instead
+  // (`home/no-agent-home.tsx`). The roster is the composer's own
+  // (`useRuntimeAgents`), so the two never disagree. `undefined` while it
+  // loads: a pending roster blocks nothing.
+  const projectConfig = useProjectConfig(projectId);
+  const { data: roster } = useRuntimeAgents({ projectId });
+  const writeProbe = useProjectCan(projectId, PROJECT_ACTIONS.PROJECT_WRITE);
+  const canWriteProject = writeProbe.allowed;
+  // Waits for the permission probe too, so an owner never sees the member
+  // variant flash before the setup one.
+  const noAgent =
+    roster !== undefined && !writeProbe.isLoading && composerSelectableAgents(roster).length === 0;
+  // A member is told `restricted`, never `missing`: only someone who can read
+  // the manifest learns the repository has none, and only someone who can
+  // push gets the setup prompt.
+  const noAgentReason: NoAgentReason | null = !noAgent
+    ? null
+    : projectConfig?.manifest_health?.state === 'missing' && canWriteProject
+      ? 'setup'
+      : canWriteProject
+        ? 'empty'
+        : 'noAccess';
+  // The detail key is the prefix of the roster's key, so both re-read.
+  const recheckAgents = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: qk.project.detail(projectId) }),
+    [queryClient, projectId],
+  );
+  // A push on the upstream is seen within one mirror refresh (60 s): re-read
+  // while blocked, and when the tab regains focus (the person comes back from
+  // their editor), so the home turns into the chat by itself.
+  useEffect(() => {
+    if (!noAgent) return;
+    const timer = setInterval(recheckAgents, NO_AGENT_POLL_MS);
+    window.addEventListener('focus', recheckAgents);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', recheckAgents);
+    };
+  }, [noAgent, recheckAgents]);
   const onboarding =
-    onboardingEnabled && projectRowQuery.isSuccess && !onboarded && canSetUpProject;
+    onboardingEnabled && projectRowQuery.isSuccess && !onboarded && canSetUpProject && !noAgent;
   // The onboarding lands on the first chat: it starts the chat (the sidebar
   // row) and moves the address to it. Rendered as the first chat from this
   // render on, so the usual home never paints in between.
@@ -225,13 +270,17 @@ function ProjectHomeView({
   }, [onboarding, hubLinkPending, firstChatRequested, projectId, router]);
   const firstChat = (firstChatPending && firstChatRequested) || onboarding;
 
-  // Once per mount: a second prefill id would send a second kickoff.
+  // Once per mount: a second prefill id would send a second kickoff. Not
+  // before the config is read: a repository that runs no agent turns the
+  // home into the setup page, and a kickoff queued before that is known
+  // would be refused.
+  const configRead = roster !== undefined;
   const kickoffQueuedRef = useRef(false);
   useEffect(() => {
-    if (!onboarding || kickoffQueuedRef.current) return;
+    if (!onboarding || !configRead || kickoffQueuedRef.current) return;
     kickoffQueuedRef.current = true;
     setPrefill({ text: tFirstChat('kickoff'), id: Date.now(), submit: 'when-ready' });
-  }, [onboarding, tFirstChat]);
+  }, [onboarding, configRead, tFirstChat]);
   // Resolved during render so the bell is an anchor and Next holds its payload
   // in the segment cache. `account_id` arrives on a different query than the
   // count, so the bell can paint before the destination exists.
@@ -399,8 +448,9 @@ function ProjectHomeView({
           stamps the project) can never be followed by the promo popping over
           the project page the user just asked for (KRTX-2635). On later
           projects, which the create flow stamps without a wizard, the era
-          never starts and the promo shows as before. */}
-      {firstChatPending || !onboarded || !HomeAnnouncement ? null : <HomeAnnouncement />}
+          never starts and the promo shows as before. Not over the no-agent
+          state either: that page has one job. */}
+      {firstChatPending || !onboarded || noAgent || !HomeAnnouncement ? null : <HomeAnnouncement />}
 
       {/* What changed when a legacy account's workspaces became their own (C9). */}
       <div className="relative z-10 mx-auto w-full max-w-2xl px-4 pt-14 empty:hidden">
@@ -412,7 +462,13 @@ function ProjectHomeView({
           create resolves and the session route opens; the instant shell draws
           the first turn there (`useFirstPromptPreviewStore`). Painting the turn
           here left a slow or stuck create looking like a live session. */}
-      {firstChat ? (
+      {noAgentReason ? (
+        <NoAgentHome
+          reason={noAgentReason}
+          repoUrl={projectRowQuery.data?.repo_url}
+          branch={projectRowQuery.data?.default_branch}
+        />
+      ) : firstChat ? (
         <FirstChat composer={composer} />
       ) : (
         <ProjectHomeWelcomeBody

@@ -71,6 +71,30 @@ describe('tunnel permission scope enforcement', () => {
     ).toBe(false);
   });
 
+  test('a shell allow list matches the whole command line, not the executable name', () => {
+    const allowed = (commands: string[], command: string, args?: unknown) =>
+      validateScopeForOperation('shell', { commands }, 'exec', { command, args }).allowed;
+    // GHSA-j7fw-xwjq-c93q / GHSA-vh8g-gjv8-63v3: interpreter and LOLBin flags.
+    expect(allowed(['node'], 'node', ['-e', 'process.exit(7)'])).toBe(false);
+    expect(allowed(['git'], 'git', ['-c', 'alias.x=!touch /tmp/x', 'x'])).toBe(false);
+    expect(allowed(['git status'], 'git', ['status', '-c', 'core.fsmonitor=x'])).toBe(false);
+    expect(allowed(['git status'], 'git', ['status --short'])).toBe(false);
+    expect(allowed(['node'], 'node', 'not-an-array')).toBe(false);
+    expect(allowed(['node'], '', [])).toBe(false);
+    expect(allowed(['node'], 'node', [])).toBe(true);
+    expect(allowed(['git status'], 'git', ['status'])).toBe(true);
+    expect(allowed(['git *'], 'git', ['-c', 'core.pager=x', 'log'])).toBe(true);
+    expect(allowed(['npm run *'], 'npm', ['run', 'build'])).toBe(true);
+    expect(allowed(['npm run *'], 'npm', ['exec', 'x'])).toBe(false);
+    // No `commands` field is the unrestricted shell grant pairing mints.
+    expect(
+      validateScopeForOperation('shell', { scope: 'shell:exec' }, 'exec', {
+        command: 'sh',
+        args: ['-c', 'true'],
+      }).allowed,
+    ).toBe(true);
+  });
+
   test('checks write size in bytes', () => {
     expect(
       validateScopeForOperation(

@@ -485,7 +485,7 @@ export async function loadSessionExportMessages(
   let log = saved ? useSyncStore.getState().sessionLogs[saved.sessionId] : undefined;
   // The API serves the log and the session has none yet: only the runtime can hold messages.
   let missing = false;
-  if (saved && !log && loadSessionLogPage) {
+  if (saved && !log) {
     const page = await readSessionLogAnswer(loadSessionLogPage, saved.projectId, saved.sessionId, { limit: SESSION_LOG_EXPORT_PAGE_LIMIT });
     if (page === 'missing') missing = true;
     else if (page) log = applySessionLogPage(EMPTY_SESSION_LOG_STATE, page);

@@ -1,13 +1,10 @@
 'use client';
 
-import { useWrapperMode } from '@/app/providers';
 import { CallSnippet } from '@/components/dev/call-snippet';
-import { Button } from '@kortix/ui/button';
 import Loading from '@kortix/ui/loading';
 import { kortix } from '@/lib/kortix';
 import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import { ShieldCheckIcon, UserCheckIcon } from '@phosphor-icons/react';
 
 function useApplicationUser() {
@@ -20,29 +17,6 @@ function useApplicationUser() {
     },
     staleTime: 60_000,
   });
-}
-
-/** Backend (wrapper) mode only: in direct mode there is no application user and no local ownership. */
-export function ApplicationUserBadge({ projectId }: { projectId: string }) {
-  if (!useWrapperMode()) return null;
-  return <ApplicationUserStrip projectId={projectId} />;
-}
-
-function ApplicationUserStrip({ projectId }: { projectId: string }) {
-  const user = useApplicationUser();
-  return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-1.5 text-xs text-muted-foreground">
-      <UserCheckIcon className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">
-        Application user{' '}
-        <span className="font-mono">{user.data?.userId ?? '…'}</span> — local
-        project ownership controls access.
-      </span>
-      <Button asChild size="xs" variant="ghost">
-        <Link href={`/projects/${projectId}/sessions`}>Access</Link>
-      </Button>
-    </div>
-  );
 }
 
 export function ProjectAccessPanel({ projectId }: { projectId: string }) {

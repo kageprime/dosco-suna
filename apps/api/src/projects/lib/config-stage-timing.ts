@@ -1,7 +1,7 @@
 /** Non-identifying stage attribution for the session-config read. */
 import { getRequestContext, setContextField } from '../../lib/request-context';
 
-export type ConfigStage = 'project_access' | 'session_access' | 'sandbox_state' | 'latest_etag' | 'desired_release' | 'runtime_block' | 'config_dir';
+type ConfigStage = 'project_access' | 'session_access' | 'sandbox_state' | 'latest_etag' | 'desired_release' | 'runtime_block' | 'config_dir';
 
 export async function timeConfigStage<T>(stage: ConfigStage, fn: () => Promise<T>): Promise<T> {
   const context = getRequestContext();

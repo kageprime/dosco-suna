@@ -21,7 +21,7 @@ a given import path is:
 
 | Tier | Entries | Guarantee |
 |---|---|---|
-| Stable | `.`, `./react`, `./server`, `./genui`, `./genui/fence`, `./genui/react`, `./wire-message-id`, `./workspace-search`, `./capture-rules` | semver |
+| Stable | `.`, `./react`, `./server`, `./genui`, `./genui/fence`, `./genui/react`, `./wire-message-id`, `./wire-values`, `./workspace-search`, `./capture-rules` | semver |
 | Deprecated | the 21 legacy subpaths | works; removed on the next major |
 | Internal | `./internal/*` | **no guarantee**, may change in any release |
 
@@ -31,7 +31,9 @@ imports `node:async_hooks`, respectively. The three `./genui*` entries carry the
 optional Generative UI peers (`zod`, `@openuidev/lang-core`); `./genui/fence`
 loads neither. `./wire-message-id` is the message-id mint alone — it has no
 imports, so a server loads it without the root barrel; the root exports the same
-names. `./capture-rules` holds the Kortix Capture constants (also at the root).
+names. `./wire-values` is the session wire value sets alone (also no imports;
+the same deal). `./capture-rules` holds the Kortix Capture constants (also at
+the root).
 `./workspace-search` is isolated from the root on purpose. The legacy subpaths
 (`@kortix/sdk/projects-client`, `/turns`, `/files`, `/session`, `/event-stream`,
 the zustand stores, `/message-queue`, …) were removed in 0.15.0 — import from

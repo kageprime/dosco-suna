@@ -2,7 +2,7 @@
 
 import { Button } from '../../../primitives/button';
 import { Field, FieldDescription, FieldLabel } from '../../../primitives/field';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import {
   InputGroup,
@@ -322,13 +322,9 @@ export function CustomProviderForm({
           </Field>
 
           {error ? (
-            <InfoBanner
-              tone="destructive"
-              icon={TriangleAlert}
-              title={tI18nComplete.raw('text464de08899db')}
-            >
+            <BannerAlert variant="destructive" ><BannerAlertMedia><TriangleAlert /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('text464de08899db')}</BannerAlertTitle><BannerAlertDescription>
               {error}
-            </InfoBanner>
+            </BannerAlertDescription></BannerAlert>
           ) : null}
 
           <div className="flex gap-2 pt-1">

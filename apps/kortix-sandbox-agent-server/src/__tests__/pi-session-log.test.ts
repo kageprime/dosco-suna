@@ -247,6 +247,16 @@ describe('pi session-log export', () => {
     expect(port.blob!('0'.repeat(64))).toBeNull()
   })
 
+  test('a read skips the per-message hashing (the log-route read, KRTX-4488): log equal, hashes empty', () => {
+    const hashed = piSessionLog(fixture())
+    const read = piSessionLog(fixture(), { hashes: false })
+    expect(read.hashes.size).toBe(0)
+    expect(read.log).toEqual(hashed.log)
+    expect(read.images.size).toBe(hashed.images.size)
+    // The relay's default still hashes: changes() needs them.
+    expect(piSessionLog(fixture()).hashes).toEqual(hashed.hashes)
+  })
+
   test('a sub-agent child is a thread spawned by the task call', () => {
     const child = piSessionLog(fixture()).log.threads[1]!
     expect(child).toMatchObject({ thread_id: CHILD, parent_thread_id: ROOT, spawned_by: { message_id: 'msg_k', call_id: 'call_task' }, agent: 'general' })

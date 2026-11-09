@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/i18n/use-translations';
 import {
   ArrowsClockwiseIcon,
   BellIcon,
@@ -8,7 +9,6 @@ import {
   CodeIcon,
   CubeIcon,
   DatabaseIcon,
-  DotsThreeIcon,
   FolderIcon,
   GitBranchIcon,
   KeyIcon,
@@ -21,17 +21,14 @@ import {
   UsersIcon,
   type Icon,
 } from '@phosphor-icons/react';
-import { useTranslations } from '@/i18n/use-translations';
 import { useState, type ComponentProps } from 'react';
 
+import { DESIGN_SYSTEM_TRANSLATION_KEYS } from '@/i18n/design-system-translation-keys.generated';
 import {
   Card,
-  CardAction,
   CardButton,
-  CardContent,
   CardDescription,
   CardEyebrow,
-  CardFeature,
   CardFooter,
   CardGroup,
   CardHeader,
@@ -39,9 +36,8 @@ import {
   CardMedia,
   CardTitle,
 } from '@kortix/ui/card';
-import { DESIGN_SYSTEM_TRANSLATION_KEYS } from '@/i18n/design-system-translation-keys.generated';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
-import { cn } from '@kortix/ui';
+import { DemoContainer, InfoHint, SpecRow } from './spec';
 
 /**
  * Body of the Card section. The `#comp-card` anchor, the heading and the
@@ -55,7 +51,7 @@ import { cn } from '@kortix/ui';
  * The surface is transparent and borderless by default: a card inherits the
  * substrate under it and leans on hairline dividers plus the magnetic
  * proximity highlight instead of a drawn frame. Each demo therefore sits on a
- * `bg-card/10` frame, the same substrate the rest of this page uses.
+ * `DemoContainer` frame, the same frame the rest of this page uses.
  */
 
 // ── demo data ────────────────────────────────────────────
@@ -120,17 +116,8 @@ const BUTTON_SIZES: ComponentProps<typeof CardButton>['size'][] = [
 
 // ── local chrome ─────────────────────────────────────────
 
-/** Mirrors `DemoContainer` on the design-system page (kept local so this file
- *  stays a standalone section, like `icons-section.tsx`). */
-function Frame({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn('border-border bg-card/10 max-w-full min-w-0 rounded-lg border p-6', className)}
-    >
-      {children}
-    </div>
-  );
-}
+/** The page's demo frame (`spec.tsx`): the page surface plus a hairline. */
+const Frame = DemoContainer;
 
 function Variant({
   label,
@@ -143,12 +130,12 @@ function Variant({
   children: React.ReactNode;
   frameClassName?: string;
 }) {
+  // One row of the Card spec: the label column, the note behind the info icon,
+  // the variant in the page's demo frame (patterns.md, sections 1 to 3).
   return (
-    <div className="mb-8 last:mb-0">
-      <p className="text-muted-foreground mb-1 text-xs tracking-widest uppercase">{label}</p>
-      <p className="text-muted-foreground mb-3 max-w-2xl text-sm leading-relaxed">{note}</p>
+    <SpecRow label={label} about={note}>
       <Frame className={frameClassName}>{children}</Frame>
-    </div>
+    </SpecRow>
   );
 }
 
@@ -179,39 +166,38 @@ export function CardSection() {
   ].filter((notice) => !dismissed.includes(notice.id));
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* 1 ── anatomy ------------------------------------------------ */}
       <Variant
         label={tI18nComplete.raw('text7d345569180b')}
         note={tI18nComplete.raw('text06da55ff64fa')}
       >
-        <Card className="max-w-sm">
-          <CardHeader>
+        <Card className="max-w-md space-y-6 p-6">
+          <div className="flex items-center gap-3">
             <CardMedia icon={CubeIcon} />
-            <CardEyebrow>{tI18nComplete.raw('text109311589787')}</CardEyebrow>
-            <CardTitle>{tI18nComplete.raw('textbd333807715b')}</CardTitle>
-            <CardDescription>{tI18nComplete.raw('texte92ed53f62b3')}</CardDescription>
-            <CardAction>
-              <CardButton icon={DotsThreeIcon}>{tI18nComplete.raw('text5a23444828db')}</CardButton>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <CardFeature
-              icon={LightningIcon}
-              title={tI18nComplete.raw('text386bdafccae6')}
-              description={tI18nComplete.raw('texta02979216a1f')}
-            />
-            <CardFeature
-              icon={ShieldCheckIcon}
-              title={tI18nComplete.raw('texta1eef2f07cad')}
-              description={tI18nComplete.raw('textbb87df16a4e3')}
-            />
-          </CardContent>
-          <CardFooter>
-            <CardButton variant="default" icon={TerminalWindowIcon}>
-              {tI18nComplete.raw('textb205bb47f81a')}
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-medium">Sandbox session</h3>
+              <InfoHint label="About the sandbox session">
+                A live cloud sandbox for each session. Credentials are injected at boot. The API
+                streams readiness when it starts.
+              </InfoHint>
+            </div>
+          </div>
+          <ul className="text-muted-foreground space-y-3 text-sm">
+            <li className="flex items-center gap-2">
+              <LightningIcon className="size-4 shrink-0" />
+              Starts with your session
+            </li>
+            <li className="flex items-center gap-2">
+              <ShieldCheckIcon className="size-4 shrink-0" />
+              Session-scoped credentials
+            </li>
+          </ul>
+          <CardFooter className="gap-3 px-0 pt-0">
+            <CardButton variant="secondary" icon={TerminalWindowIcon}>
+              Open session
             </CardButton>
-            <CardButton variant="ghost">{tI18nComplete.raw('textea2100dc89ae')}</CardButton>
+            <CardButton variant="ghost">Logs</CardButton>
           </CardFooter>
         </Card>
       </Variant>

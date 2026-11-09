@@ -9,6 +9,7 @@ let poolEnabled = false;
 let poolLoading = false;
 let poolError = false;
 let secretAllowed = true;
+let secretLoading = false;
 let managesSession = true;
 let selection: Record<string, string[]> = {};
 // The scope catalog (and, for a session, its scope) has answered.
@@ -37,7 +38,7 @@ mock.module('../../i18n', () => ({
     values ? `${key}:${values.count}` : key, { raw: (key: string) => key }),
 }));
 mock.module('../../internal/lib/use-project-can', () => ({
-  useProjectCan: () => ({ allowed: secretAllowed, isLoading: false }),
+  useProjectCan: () => ({ allowed: secretAllowed, isLoading: secretLoading }),
 }));
 mock.module('../scope/use-session-scope', () => ({
   useSessionScope: () => ({
@@ -121,8 +122,28 @@ test('existing session retains provider loading and failure summaries', () => {
   expect(render(true)[1]?.summary).toBe('keysLoadError');
   poolLoading = false;
   poolError = false;
+});
+
+// Without `project.secret.read` the pools route refuses the save, so the row
+// goes with the secrets row instead of showing keys the viewer cannot keep.
+test('a viewer without project.secret.read gets no Provider keys row', () => {
+  poolEnabled = true;
+  secretAllowed = true;
+  secretLoading = false;
+  expect(render().map((row) => row.id)).toEqual(['secrets', 'provider-keys', 'sandbox']);
+  // Both editable rows are gone; the sandbox row is read-only on a new session,
+  // so the toolbar renders nothing at all rather than a gear onto a dead Save.
   secretAllowed = false;
-  expect(render(true).map((row) => row.id)).toEqual(['provider-keys', 'sandbox']);
+  expect(render()).toEqual([]);
+});
+
+// An unresolved probe is not a denial: the row stays while it loads, so it does
+// not blink out and back on every session open.
+test('an unresolved project.secret.read probe keeps the Provider keys row', () => {
+  poolEnabled = true;
+  secretAllowed = false;
+  secretLoading = true;
+  expect(render().map((row) => row.id)).toEqual(['secrets', 'provider-keys', 'sandbox']);
 });
 
 // The scope catalog (secrets, connectors, connections) can take seconds. It
@@ -131,6 +152,7 @@ test('existing session retains provider loading and failure summaries', () => {
 test('a new session saves at once while its secrets catalog loads', async () => {
   poolEnabled = true;
   secretAllowed = true;
+  secretLoading = false;
   catalogLoaded = false;
   selection = { alpha: ['key-a'] };
   providerDrafts = {};

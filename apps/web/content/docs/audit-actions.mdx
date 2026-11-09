@@ -48,7 +48,7 @@ One table per domain. The route column shows the method and route template. `any
 | `account.token.create` | Created personal access token | `POST /v1/accounts/tokens` (also `POST /v1/accounts/:workspaceId/tokens`) |
 | `account.token.list` | Listed personal access tokens | `GET /v1/accounts/tokens` (also `GET /v1/accounts/:workspaceId/tokens`) |
 | `account.token.personal.list` | Listed personal keys | `GET /v1/me/tokens` (also `GET /v1/accounts/me/tokens`) |
-| `account.token.personal.revoke` | Revoked personal key | `DELETE /v1/me/tokens/:tokenId` (also `DELETE /v1/accounts/me/tokens/:tokenId`) |
+| `account.token.personal.revoke` | Revoked personal key | `DELETE /v1/me/tokens/:tokenId` (also `DELETE /v1/me/tokens/self`, `DELETE /v1/accounts/me/tokens/self`, `DELETE /v1/accounts/me/tokens/:tokenId`) |
 | `account.token.revoke` | Revoked personal access token | `DELETE /v1/accounts/tokens/:tokenId` (also `DELETE /v1/accounts/:workspaceId/tokens/:tokenId`) |
 | `account.update` | Renamed account | `PATCH /v1/accounts/:workspaceId` |
 

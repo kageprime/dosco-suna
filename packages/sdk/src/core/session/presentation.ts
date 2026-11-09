@@ -1,12 +1,7 @@
 import { retiredEndpointError } from '../http/api/errors';
+import { stripTrailingSlashes } from '../../platform/strings';
 
 export type RuntimePresentationFormat = 'pdf' | 'pptx';
-
-function trimTrailingSlashes(value: string): string {
-  let trimmed = value;
-  while (trimmed.endsWith('/')) trimmed = trimmed.slice(0, -1);
-  return trimmed;
-}
 
 /**
  * @deprecated The API serves no `/v1/presentation-templates` route. Always
@@ -28,7 +23,7 @@ export function buildRuntimePresentationConversionUrl(
   runtimeUrl: string,
   format: RuntimePresentationFormat,
 ): string {
-  return `${trimTrailingSlashes(runtimeUrl)}/presentation/convert-to-${format}`;
+  return `${stripTrailingSlashes(runtimeUrl)}/presentation/convert-to-${format}`;
 }
 
 export interface ConvertRuntimePresentationOptions {

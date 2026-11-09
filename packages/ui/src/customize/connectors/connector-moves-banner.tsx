@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { UiLink as Link } from '../../providers/ui-provider';
 import { Fragment } from 'react';
 
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '../../primitives/alert';
 import { useTranslations } from '../../i18n';
 
 import { connectorHref } from './connector-routes';
@@ -22,7 +22,7 @@ export function ConnectorMovesBanner({ projectId }: { projectId: string }) {
   const movable = (moves.data ?? []).filter((move) => move.to && move.provider === 'pipedream');
   if (movable.length === 0) return null;
   return (
-    <InfoBanner tone="info" title={t('movesBannerTitle', { count: movable.length })}>
+    <BannerAlert variant="default" ><BannerAlertTitle>{t('movesBannerTitle', { count: movable.length })}</BannerAlertTitle><BannerAlertDescription>
       <p className="text-muted-foreground text-xs text-pretty">
         {t('movesBannerBody')}{' '}
         {movable.map((move, index) => (
@@ -37,6 +37,6 @@ export function ConnectorMovesBanner({ projectId }: { projectId: string }) {
           </Fragment>
         ))}
       </p>
-    </InfoBanner>
+    </BannerAlertDescription></BannerAlert>
   );
 }

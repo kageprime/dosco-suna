@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  decodeJsonStringLiteral,
+  isJsonObject,
   jsonTail,
   hasPhrasePair,
   labelledValue,
@@ -13,8 +15,10 @@ import {
   tagBody,
   tagBodyTrimNewline,
   taskRow,
+  text,
   textBetween,
   textItems,
+  tryParseJson,
   unwrapMarkdownLinks,
   urlError,
 } from './text-scan';
@@ -303,5 +307,65 @@ describe('fold (pinned through hasPhrasePair, the public path)', () => {
       const matched = [...letters].some((l) => hasPhrasePair(ch, l, ''));
       expect(matched).toBe(/^[a-z]$/i.test(ch));
     }
+  });
+});
+
+describe('untrusted-JSON leaf', () => {
+  test('isJsonObject accepts only plain objects', () => {
+    const value = { a: 1 };
+    expect(isJsonObject(value)).toBe(true);
+    // Every non-record shape the parsers guard against.
+    expect(isJsonObject(null)).toBe(false);
+    expect(isJsonObject(undefined)).toBe(false);
+    expect(isJsonObject([value])).toBe(false);
+    // Any non-array non-null object passes: a class instance is not distinguished
+    // from a plain record (true of all five copies this replaces).
+    expect(isJsonObject(new Date(0))).toBe(true);
+    expect(isJsonObject('a')).toBe(false);
+    expect(isJsonObject(0)).toBe(false);
+    expect(isJsonObject(false)).toBe(false);
+  });
+
+  test('text is the trimmed non-empty string, undefined otherwise', () => {
+    expect(text('a b')).toBe('a b');
+    expect(text('  ab ')).toBe('ab');
+    expect(text('')).toBeUndefined();
+    expect(text(' \t\n ')).toBeUndefined();
+    expect(text(null)).toBeUndefined();
+    expect(text(0)).toBeUndefined();
+    expect(text(['a'])).toBeUndefined();
+    expect(text({})).toBeUndefined();
+  });
+
+  test('tryParseJson parses a string, undefined on non-string, "" and malformed JSON', () => {
+    expect(tryParseJson('{"a":1}')).toEqual({ a: 1 });
+    expect(tryParseJson('"?x=1"')).toBe('?x=1');
+    // The JSON null is a parsed value: distinct parsed output, not undefined.
+    expect(tryParseJson('null')).toBeNull();
+    expect(tryParseJson('nope')).toBeUndefined();
+    expect(tryParseJson('{oops')).toBeUndefined();
+    expect(tryParseJson('')).toBeUndefined();
+    // The errors.ts form refuses a non-string before parsing.
+    expect(tryParseJson(undefined)).toBeUndefined();
+    expect(tryParseJson(3)).toBeUndefined();
+    expect(tryParseJson(null)).toBeUndefined();
+    expect(tryParseJson(['{}'])).toBeUndefined();
+  });
+
+  test('decodeJsonStringLiteral unescapes one JSON string body, raw on failure', () => {
+    expect(decodeJsonStringLiteral('a\\"b')).toBe('a"b');
+    expect(decodeJsonStringLiteral('x\\ny')).toBe('x\ny');
+    expect(decodeJsonStringLiteral('x\\ry')).toBe('x\ry');
+    expect(decodeJsonStringLiteral('\\u0039\\u0045')).toBe('9E');
+    expect(decodeJsonStringLiteral('a\\tb')).toBe('a\tb');
+    // A bare key round-trips: wrapping it in quotes is valid JSON, and the
+    // parsed string equals the raw text.
+    expect(decodeJsonStringLiteral('plain-key')).toBe('plain-key');
+    // The failures reach the catch: an invalid \\q escape, a raw control
+    // character, and an escaped quote that closes nothing.
+    expect(decodeJsonStringLiteral('un\\"terminated')).toBe('un"terminated');
+    expect(decodeJsonStringLiteral('a\\qb')).toBe('a\\qb');
+    expect(decodeJsonStringLiteral('raw\nnewline')).toBe('raw\nnewline');
+    expect(decodeJsonStringLiteral('end\\')).toBe('end\\');
   });
 });

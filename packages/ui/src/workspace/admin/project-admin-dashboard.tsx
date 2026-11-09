@@ -75,6 +75,8 @@ import { useProjectCans, useProjectPageCans, type CanResult } from '../../intern
 import { capabilityTabHref } from '../../internal/lib/capability-tab-routes';
 import { cn } from '../../internal/lib/utils';
 import { useSettingsPanelStore } from '../../internal/stores/settings-panel-store';
+import { useWorkspaceSettingsRailStore } from '../../internal/stores/workspace-settings-rail-store';
+import { useSettingsSearchLanding } from './settings-search-landing';
 
 import { buildProjectAdminNav } from './project-admin-nav';
 import {
@@ -471,6 +473,45 @@ export function ProjectAdminDashboard({
     strip.scrollLeft += tabBox.left - stripBox.left - (stripBox.width - tabBox.width) / 2;
   }, [isMobile, settled, active]);
 
+  // Publish the rail: the project sidebar drills into it (Back, then these
+  // groups), so on the desktop the rail lives there and not in this page.
+  const setRail = useWorkspaceSettingsRailStore((s) => s.setRail);
+  const railInSidebar = useWorkspaceSettingsRailStore((s) => s.sidebarDocked) && !isMobile;
+  const accessCheckFailed = canAdmin?.isError === true;
+  useEffect(() => {
+    // The gate probe failed: publish no rows, so the sidebar shows Back
+    // beside the error instead of a skeleton that never ends.
+    if (accessCheckFailed) {
+      setRail({ projectId, groups: [], footer: null, active: undefined });
+      return;
+    }
+    if (!settled) return;
+    const toRail = (group: RailGroupRows, label?: string) => ({
+      id: group.id,
+      label,
+      rows: group.rows.map((row) => ({
+        key: row.key,
+        href: row.href ?? projectAdminHref(projectId, row.key),
+        label: row.label,
+        icon: row.icon,
+        linkOut: !!row.href,
+      })),
+    });
+    const footer = groups.find((group) => group.id === RAIL_FOOTER_GROUP);
+    setRail({
+      projectId,
+      groups: groups
+        .filter((group) => group.id !== RAIL_FOOTER_GROUP)
+        .map((group) => toRail(group, tSettings(`groups.${group.id}`))),
+      footer: footer ? toRail(footer) : null,
+      active,
+    });
+  }, [accessCheckFailed, settled, groups, active, projectId, setRail, tSettings]);
+
+  // A settings search result scrolls to the card it names once its pane renders.
+  const mainRef = useRef<HTMLElement>(null);
+  useSettingsSearchLanding(projectId, settled ? active : undefined, mainRef);
+
   const membersTab = useSettingsPanelStore((s) => s.membersTab);
   const navigateTo = useCallback((href: string) => router.push(href), [router]);
   const settingsNav = useMemo(
@@ -526,11 +567,13 @@ export function ProjectAdminDashboard({
   return (
     <SettingsNavProvider value={settingsNav}>
       <div
-        className={cn('min-h-0 flex-1 overflow-hidden', isMobile ? 'flex flex-col' : 'grid')}
+        className={cn('min-h-0 flex-1 overflow-hidden', isMobile || railInSidebar ? 'flex flex-col' : 'grid')}
         // The Settings page's rail width, so the two settings surfaces are one shape.
-        style={isMobile ? undefined : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }}
+        style={
+          isMobile || railInSidebar ? undefined : { gridTemplateColumns: `${SETTINGS_SIDEBAR_WIDTH_PX}px 1fr` }
+        }
       >
-        {isMobile ? (
+        {railInSidebar ? null : isMobile ? (
           // The frame's title bar names the panel; this row is the rail only.
           <nav aria-label={title} className="border-border/60 bg-background flex shrink-0 flex-col border-b">
             <FadedScrollArea ref={stripRef} orientation="horizontal" fadeColor="from-background" className="min-w-0 flex-1 py-2">
@@ -587,7 +630,7 @@ export function ProjectAdminDashboard({
           </aside>
         )}
 
-        <main className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main ref={mainRef} className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {settled && active && activeRow && (ProjectPage || AccountPage) ? (
             <Suspense key={active} fallback={<CapabilitiesSkeleton />}>
               {isProjectAdminResource(active) && ProjectPage ? (

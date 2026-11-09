@@ -43,6 +43,7 @@ import { resolveSandboxIngress } from '../../sandbox-proxy/backend';
 import { SANDBOX_SERVICE_PORT } from './sandbox-env-transport';
 import { loadActiveSandbox } from './sandbox-runtime-refresh';
 import { logger } from '../../lib/logger';
+import { errorMessage } from '../../shared/error-message';
 
 /**
  * ONE attempt, bounded — no retry ladder. Called from the turn-start gate,
@@ -110,7 +111,7 @@ export async function convergeSandboxModelCatalog(
   } catch (error) {
     logger.warn('[projects] on-demand catalog converge could not reach the box', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return null;
   }
@@ -223,7 +224,7 @@ export async function convergeModelCatalogBeforeTurnStart(
   } catch (error) {
     logger.warn('[projects] turn-start model-catalog convergence threw', {
       session_id: sessionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return { decision: 'unknown' };
   }

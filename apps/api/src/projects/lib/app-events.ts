@@ -34,7 +34,7 @@ const EVENT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
  * `expect_event_within` and is never stored and never fires. Every other
  * `kortix.` name is reserved for events Kortix itself writes.
  */
-export const HEARTBEAT_EVENT_NAME = 'kortix.heartbeat';
+const HEARTBEAT_EVENT_NAME = 'kortix.heartbeat';
 const RESERVED_PREFIX = 'kortix.';
 
 /**
@@ -46,15 +46,15 @@ const RESERVED_PREFIX = 'kortix.';
  * (`on: { event: kortix.app.silent, app: <slug> }`), never `event: "*"`, and
  * it never counts as the App posting.
  */
-export const APP_PLATFORM_EVENTS = ['kortix.app.silent', 'kortix.app.recovered', 'kortix.app.crashed'] as const;
-export type AppPlatformEventName = (typeof APP_PLATFORM_EVENTS)[number];
+const APP_PLATFORM_EVENTS = ['kortix.app.silent', 'kortix.app.recovered', 'kortix.app.crashed'] as const;
+type AppPlatformEventName = (typeof APP_PLATFORM_EVENTS)[number];
 
 export function isAppPlatformEvent(name: string): name is AppPlatformEventName {
   return (APP_PLATFORM_EVENTS as readonly string[]).includes(name);
 }
 
 /** The slug of an `unmatched` row: no trigger slug is empty. */
-export const UNMATCHED_SLUG = '';
+const UNMATCHED_SLUG = '';
 /** Unmatched events kept per App in a trailing hour. Past it they are counted, not stored. */
 export const UNMATCHED_KEPT_PER_HOUR = 60;
 
@@ -89,7 +89,7 @@ export function parseAppEventsBody(body: Record<string, unknown>, options: { pla
 }
 
 /** The id prefix every test event carries, so a test never spends a real event id. */
-export const TEST_EVENT_ID_PREFIX = 'test-';
+const TEST_EVENT_ID_PREFIX = 'test-';
 
 /**
  * Events a person or agent sends to test the wiring (`POST …/events/test`):
@@ -128,7 +128,7 @@ export interface AppEventIngestResult extends MonitorIngestResult {
 }
 
 /** Why an event matched no trigger, for the log row and the POST answer. */
-export function unmatchedReason(appSlug: string, disabledSlugs: readonly string[]): string {
+function unmatchedReason(appSlug: string, disabledSlugs: readonly string[]): string {
   if (disabledSlugs.length > 0) {
     return `every trigger on App "${appSlug}" is disabled (${disabledSlugs.join(', ')}): enable one to run it`;
   }
@@ -221,7 +221,7 @@ async function markAppTriggersHeard(projectId: string, appSlug: string, slugs: r
   }
 }
 
-export interface AppPlatformEventResult extends MonitorIngestResult {
+interface AppPlatformEventResult extends MonitorIngestResult {
   /** Enabled triggers whose event is this exact name. */
   triggers: number;
   /** 1 when no trigger listens (kept as `unmatched`, so the App's log still shows it). */
@@ -383,7 +383,7 @@ type LogRow = Pick<
 >;
 
 /** A stored row → the API shape. Pure. */
-export function appEventLogEntry(row: LogRow): AppEventLogEntry {
+function appEventLogEntry(row: LogRow): AppEventLogEntry {
   const line = row.line ?? {};
   const truncated = line.truncated === true;
   const unmatched = row.slug === UNMATCHED_SLUG;

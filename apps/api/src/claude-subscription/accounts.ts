@@ -32,7 +32,7 @@ import type { ProviderAccountKind } from '../secrets/provider-accounts';
 export const CLAUDE_ACCOUNT: ProviderAccountKind = { providerId: 'claude-agent', name: 'CLAUDE_CODE_OAUTH_TOKEN', label: 'Claude' };
 
 /** Who asks for a Claude account: the gateway principal's fields. */
-export interface ClaudeAccountPrincipal {
+interface ClaudeAccountPrincipal {
   accountId: string;
   projectId: string;
   userId: string;
@@ -43,7 +43,7 @@ export interface ClaudeAccountPrincipal {
   personalUserId: string | null;
 }
 
-export interface ClaudeCredential {
+interface ClaudeCredential {
   secretId: string;
   label: string;
   token: string;

@@ -7,9 +7,12 @@
 // when serving falls back to Dosco, the content-addressed object name, and
 // the product-name rules.
 import { describe, expect, test } from 'bun:test';
+import { config } from '../config';
 import {
+  brandingEntitled,
   brandingObjectPath,
   brandingObjectPathFromUrl,
+  brandingOffered,
   effectiveBranding,
   isBrandingEmpty,
   normalizeAppName,
@@ -125,9 +128,12 @@ describe('normalizeBranding / isBrandingEmpty', () => {
     });
   });
 
-  test('empty means every slot null', () => {
-    expect(isBrandingEmpty(normalizeBranding({}))).toBe(true);
-    expect(isBrandingEmpty(normalizeBranding({ icon_dark_url: 'http://x/i.png' }))).toBe(false);
+  test('detects an empty record', () => {
+    expect(isBrandingEmpty(undefined)).toBe(true);
+    expect(isBrandingEmpty({})).toBe(true);
+    expect(isBrandingEmpty({ app_name: '' })).toBe(true);
+    expect(isBrandingEmpty({ app_name: 'Acme' })).toBe(false);
+    expect(isBrandingEmpty({ logo_url: 'http://x/l.svg' })).toBe(false);
   });
 });
 
@@ -157,8 +163,32 @@ describe('effectiveBranding — what members are SERVED', () => {
   });
 });
 
+describe('brandingOffered — Cloud does not offer branding', () => {
+  test('billing on (the cloud) → not offered, and no account reads as entitled', async () => {
+    const before = config.KORTIX_BILLING_INTERNAL_ENABLED;
+    config.KORTIX_BILLING_INTERNAL_ENABLED = true;
+    try {
+      expect(brandingOffered()).toBe(false);
+      // Answers before any billing read: the account id does not exist.
+      expect(await brandingEntitled('no-such-account')).toBe(false);
+    } finally {
+      config.KORTIX_BILLING_INTERNAL_ENABLED = before;
+    }
+  });
+
+  test('billing off (self-host) → offered; the entitlement decides', () => {
+    const before = config.KORTIX_BILLING_INTERNAL_ENABLED;
+    config.KORTIX_BILLING_INTERNAL_ENABLED = false;
+    try {
+      expect(brandingOffered()).toBe(true);
+    } finally {
+      config.KORTIX_BILLING_INTERNAL_ENABLED = before;
+    }
+  });
+});
+
 describe('instanceBranding — what the sign-in page shows', () => {
-  test('no enterprise license (the Dosco cloud) → null, and the database is never read', async () => {
+  test('no enterprise license (Cloud) → null, and the database is never read', async () => {
     let reads = 0;
     const load = async () => {
       reads += 1;

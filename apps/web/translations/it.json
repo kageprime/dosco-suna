@@ -347,7 +347,8 @@
       "actionImport": "Importa un repository esistente",
       "ownerTypePersonal": "Account personale",
       "ownerTypeOrg": "Organizzazione",
-      "createPersonalAuthorize": "Kortix chiede la tua autorizzazione a GitHub la prima volta che crei un repository in un account personale."
+      "createPersonalAuthorize": "Kortix chiede la tua autorizzazione a GitHub la prima volta che crei un repository in un account personale.",
+      "importHint": "Kortix legge gli agenti dal kortix.yaml di questo repository. Se manca, il workspace si apre su un prompt di configurazione da copiare nel tuo agente di coding."
     }
   },
   "projectHome": {
@@ -3749,6 +3750,25 @@
     "startHint": "Di’ a Kortix qui sotto a cosa stai lavorando, oppure invia «Guidami alla scoperta di Kortix» per una configurazione guidata.",
     "placeholder": "Dì a Kortix su cosa stai lavorando",
     "kickoff": "Guidami alla scoperta di Kortix"
+  },
+  "noAgentHome": {
+    "setup": {
+      "title": "Configura Kortix in questo repository",
+      "body": "Incolla il prompt di configurazione in Claude Code, Codex o Cursor nel tuo clone. La chat si apre qui quando <code>kortix.yaml</code> arriva su <code>{branch}</code>."
+    },
+    "defaultBranch": "il branch predefinito",
+    "copy": "Copia il prompt di configurazione",
+    "copied": "Copiato",
+    "copyFailed": "Impossibile copiare il prompt",
+    "docs": "Guida alla configurazione",
+    "noAccess": {
+      "title": "Nessun agente disponibile per te",
+      "body": "Chiunque gestisca questo workspace può darti accesso."
+    },
+    "empty": {
+      "title": "Nessun agente in questo workspace",
+      "body": "Dichiaranne uno in kortix.yaml o creane uno con Nuovo agente."
+    }
   },
   "announcements": {
     "memories": {
@@ -26606,7 +26626,9 @@
         "createdDescription": "{name} agisce come {actsAs}. Kortix mostra la chiave una sola volta: copiala ora e salvala come segreto.",
         "accessFullHint": "Tutto ciò che il principal della chiave può fare in questo workspace.",
         "accessCustomHint": "Solo i permessi che scegli. Ognuno deve rientrare in ciò che il principal della chiave può fare."
-      }
+      },
+      "searchPlaceholder": "Cerca nelle impostazioni",
+      "searchNoResults": "Nessuna impostazione corrisponde"
     },
     "cli": {
       "noWorkspaceTitle": "Crea un workspace per accedere con la CLI",
@@ -26637,7 +26659,9 @@
     },
     "menu": {
       "invite": "Invita persone in {name}",
-      "leave": "Lascia {name}"
+      "leave": "Lascia {name}",
+      "invitePeople": "Invita persone",
+      "more": "Altro"
     },
     "roles": {
       "owner": {

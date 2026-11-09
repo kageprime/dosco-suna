@@ -14,9 +14,9 @@ import { db } from '../../shared/db';
 import type { GitTriggerSpec } from '../triggers';
 import { triggerScheduleRevision } from '../trigger-schedule';
 
-export const APP_RUN_SLUG_PREFIX = 'apprun.';
-export const MAX_PENDING_APP_RUNS = 1000;
-export const APP_RUN_RETENTION_DAYS = 30;
+const APP_RUN_SLUG_PREFIX = 'apprun.';
+const MAX_PENDING_APP_RUNS = 1000;
+const APP_RUN_RETENTION_DAYS = 30;
 
 const pendingOf = (projectId: string, app: string) => and(
   eq(projectTriggerRuntime.projectId, projectId),

@@ -19,7 +19,8 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { type SandboxProviderName, config } from '../../config';
 import { getProvider } from '../../platform/providers';
 import { db } from '../../shared/db';
-import { stripMetadataKeys } from '../session-lifecycle/sandbox-metadata-sql';
+import { patchedSandboxMetadata } from '../session-lifecycle/status-transitions';
+import { mergeMetadata } from './sandbox-state-sync';
 
 export const PROVIDER_REMOVAL_PENDING_KEY = 'providerRemovalPendingAt';
 /** Set only when the provider confirmed the archived row's box is gone. */
@@ -44,6 +45,9 @@ export const DELETED_SESSION_CLEARED_KEYS = [
   'runtimeRecoveryLeaseExpiresAtMs',
   'activeTurns',
 ] as const;
+
+/** The predicate that names a row whose removal intent is still stamped. */
+const removalPending = sql`${sessionSandboxes.metadata} ? ${sql.raw(`'${PROVIDER_REMOVAL_PENDING_KEY}'`)}`;
 
 const REMOVAL_BATCH = 50;
 const BASE_BACKOFF_MS = 60_000;
@@ -73,12 +77,10 @@ async function markRemoved(sandboxId: string, now: Date): Promise<void> {
   await db
     .update(sessionSandboxes)
     .set({
-      metadata: sql`(${stripMetadataKeys([
-        PROVIDER_REMOVAL_PENDING_KEY,
-        'providerRemovalAttempts',
-        'providerRemovalRetryAfterAt',
-        'providerRemovalError',
-      ])}) || ${JSON.stringify({ [PROVIDER_REMOVED_KEY]: now.toISOString() })}::jsonb`,
+      metadata: patchedSandboxMetadata({
+        strip: [PROVIDER_REMOVAL_PENDING_KEY, 'providerRemovalAttempts', 'providerRemovalRetryAfterAt', 'providerRemovalError'],
+        merge: { [PROVIDER_REMOVED_KEY]: now.toISOString() },
+      }),
       updatedAt: now,
     })
     .where(
@@ -103,14 +105,14 @@ async function markRemovalFailed(
   await db
     .update(sessionSandboxes)
     .set({
-      metadata: sql`coalesce(${sessionSandboxes.metadata}, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb`,
+      metadata: mergeMetadata(patch),
       updatedAt: now,
     })
     .where(
       and(
         eq(sessionSandboxes.sandboxId, sandboxId),
         eq(sessionSandboxes.status, 'archived'),
-        sql`${sessionSandboxes.metadata} ? ${sql.raw(`'${PROVIDER_REMOVAL_PENDING_KEY}'`)}`,
+        removalPending,
       ),
     );
 }
@@ -173,7 +175,7 @@ export async function removeArchivedProviderBoxes(now = new Date()): Promise<{
       and(
         eq(sessionSandboxes.status, 'archived'),
         isNotNull(sessionSandboxes.externalId),
-        sql`${sessionSandboxes.metadata} ? ${sql.raw(`'${PROVIDER_REMOVAL_PENDING_KEY}'`)}`,
+        removalPending,
       ),
     )
     .orderBy(sql`${sessionSandboxes.metadata}->>'providerRemovalRetryAfterAt' asc nulls first`)

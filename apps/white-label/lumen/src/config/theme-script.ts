@@ -1,5 +1,7 @@
 /** Lumen's light/dark choice: the storage key, the default, and the pre-paint script. */
-export type ThemeChoice = 'light' | 'dark' | 'system';
+import type { ThemeChoice } from '@kortix/white-label-shared/theme';
+
+export type { ThemeChoice };
 
 export const THEME_KEY = 'lumen_theme';
 export const THEME_DEFAULT: ThemeChoice = 'system';

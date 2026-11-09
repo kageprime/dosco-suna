@@ -1951,6 +1951,22 @@ export function SessionChat({
       }
     };
   }, []);
+  // The composer locks into answer mode exactly while the docked question can
+  // still be answered: a LIVE question (the runtime holds the turn on it) or a
+  // PARKED ask (decided here through the asks API). The old gate was
+  // `renderedQuestion && isBusy`, and it dropped the lock exactly when it
+  // mattered: a parked ask docks on an idle session — the ask no longer holds
+  // the turn — so a typed answer left as a new prompt while the question card
+  // stayed open (KRTX-4450). A question in neither list is one just answered,
+  // held only for its fade-out: unlocked, so text typed into the fade is a
+  // message, never a swallowed answer.
+  const questionLock = useMemo(() => {
+    if (!renderedQuestion) return false;
+    return (
+      liveQuestions.some((q) => q.id === renderedQuestion.id) ||
+      parkedAskIdByRequest.has(renderedQuestion.id)
+    );
+  }, [renderedQuestion, liveQuestions, parkedAskIdByRequest]);
   // Quick Queue entries share the turn renderer. The inbox marks their IDs as
   // pending until delivery; a client-minted wire ID does not place a message.
   // Each is the user message `sessionLogPromptMessage` mints for its prompt.
@@ -5196,13 +5212,9 @@ export function SessionChat({
                 onCompactClick={runtimeCanCompact ? handleCompactClick : undefined}
                 quoteRequests={quoteRequests}
                 onQuoteRequestsApplied={handleQuoteRequestsApplied}
-                // Only lock the input into question-answer mode while the session is
-                // actually busy (a live question keeps the run busy). If a question
-                // chip is ever showing while the session is idle — e.g. a dead /
-                // abandoned question the agent left behind — the input stays unlocked
-                // so a typed message is sent to the agent instead of being swallowed
-                // as a custom answer.
-                lockForQuestion={!!renderedQuestion && isBusy}
+                // Locks while the docked question is answerable — a live
+                // question or a parked ask — see `questionLock` above.
+                lockForQuestion={questionLock}
                 // Same dead-prompt guard as questions: only lock while the agent is
                 // actually paused on the decision (isBusy), so a stale card can't
                 // swallow the composer on an idle session.

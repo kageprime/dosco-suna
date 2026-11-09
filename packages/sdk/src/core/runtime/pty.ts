@@ -12,8 +12,9 @@
  * `triggers.ts`) rather than reading the module-global "active runtime" —
  * a caller keyed to a specific sandbox instance must talk to THAT instance.
  */
-import { authenticatedFetch, getAuthToken } from '../http/auth';
+import { getAuthToken } from '../http/auth';
 import { stripTrailingSlashes } from '../../platform/strings';
+import { sandboxBaseUrl, sandboxRequest } from './sandbox-request';
 
 export interface KortixPty {
   id: string;
@@ -26,62 +27,48 @@ export interface KortixPty {
   exitCode?: number;
 }
 
-async function ptyErrorMessage(res: Response, fallback: string): Promise<string> {
-  const body = await res.json().catch(() => ({}) as { error?: string; message?: string });
-  return body?.error || body?.message || res.statusText || fallback;
-}
-
-function requireBaseUrl(baseUrl: string): string {
-  if (!baseUrl) {
-    throw new Error('[kortix-pty] Server URL not ready — sandbox is still loading');
-  }
-  return stripTrailingSlashes(baseUrl);
-}
-
 /** List running/exited terminals. Daemon `GET /kortix/pty`. */
-export async function listKortixPty(baseUrl: string): Promise<KortixPty[]> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/kortix/pty`);
-  if (!res.ok) throw new Error(await ptyErrorMessage(res, 'Failed to list terminals'));
-  return res.json();
+export function listKortixPty(baseUrl: string): Promise<KortixPty[]> {
+  return sandboxRequest<KortixPty[]>(baseUrl, '/kortix/pty', undefined, {
+    errorFallback: 'Failed to list terminals',
+  });
 }
 
 /** Spawn a new terminal. Daemon `POST /kortix/pty`. */
-export async function createKortixPty(
+export function createKortixPty(
   baseUrl: string,
   body?: { command?: string; args?: string[]; cwd?: string; title?: string; env?: Record<string, string> },
 ): Promise<KortixPty> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/kortix/pty`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body ?? {}),
-  });
-  if (!res.ok) throw new Error(await ptyErrorMessage(res, 'Failed to create terminal'));
-  return res.json();
+  return sandboxRequest<KortixPty>(
+    baseUrl,
+    '/kortix/pty',
+    { method: 'POST', body: JSON.stringify(body ?? {}) },
+    { errorFallback: 'Failed to create terminal' },
+  );
 }
 
 /** Rename/resize a terminal. Daemon `PATCH /kortix/pty/:id`. */
-export async function updateKortixPty(
+export function updateKortixPty(
   baseUrl: string,
   ptyId: string,
   body: { title?: string; size?: { rows: number; cols: number } },
 ): Promise<KortixPty> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/kortix/pty/${encodeURIComponent(ptyId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(await ptyErrorMessage(res, 'Failed to update terminal'));
-  return res.json();
+  return sandboxRequest<KortixPty>(
+    baseUrl,
+    `/kortix/pty/${encodeURIComponent(ptyId)}`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+    { errorFallback: 'Failed to update terminal' },
+  );
 }
 
 /** Kill + remove a terminal. Daemon `DELETE /kortix/pty/:id`. */
-export async function removeKortixPty(baseUrl: string, ptyId: string): Promise<void> {
-  const url = requireBaseUrl(baseUrl);
-  const res = await authenticatedFetch(`${url}/kortix/pty/${encodeURIComponent(ptyId)}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(await ptyErrorMessage(res, 'Failed to remove terminal'));
+export function removeKortixPty(baseUrl: string, ptyId: string): Promise<void> {
+  return sandboxRequest<void>(
+    baseUrl,
+    `/kortix/pty/${encodeURIComponent(ptyId)}`,
+    { method: 'DELETE' },
+    { errorFallback: 'Failed to remove terminal' },
+  );
 }
 
 /**
@@ -105,7 +92,7 @@ export async function getKortixPtyWebSocketUrl(
   baseUrl: string,
   opts?: { wake?: boolean },
 ): Promise<string> {
-  const base = requireBaseUrl(baseUrl);
+  const base = sandboxBaseUrl(baseUrl);
   const wsBase = (() => {
     try {
       const parsed = new URL(base);

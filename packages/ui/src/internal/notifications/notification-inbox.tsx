@@ -23,7 +23,7 @@ import { EmptyArt } from '../../primitives/empty-art';
 import { EmptyState } from '../../primitives/empty-state';
 import { ErrorState } from '../../primitives/error-state';
 import Hint from '../../primitives/hint';
-import { InfoBanner } from '../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertActions as BannerAlertActions, AlertMedia as BannerAlertMedia } from '../../primitives/alert';
 import { Skeleton } from '../../primitives/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { SolidCheckIcon } from '../icons/solid-check-icon';
@@ -165,11 +165,7 @@ export function NotificationInboxView({
             ) : null}
           </div>
           {prompt ? (
-            <InfoBanner
-              icon={BellIcon}
-              title={prompt}
-              action={
-                <ButtonGroup>
+            <BannerAlert variant="default" ><BannerAlertMedia><BellIcon /></BannerAlertMedia><BannerAlertTitle>{prompt}</BannerAlertTitle><BannerAlertActions>{<ButtonGroup>
                   <Button variant="secondary" size="xs" onClick={onTurnOn}>
                     {t('inbox.turnOn')}
                   </Button>
@@ -178,9 +174,7 @@ export function NotificationInboxView({
                       <XIcon className="size-3.5 shrink-0" />
                     </Button>
                   </Hint>
-                </ButtonGroup>
-              }
-            />
+                </ButtonGroup>}</BannerAlertActions></BannerAlert>
           ) : null}
           {state === 'loading' ? (
             <div className="space-y-0.5">

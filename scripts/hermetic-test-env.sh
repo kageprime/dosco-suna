@@ -43,6 +43,12 @@ done < <(compgen -e)
 # Children spawned with an explicit env object still need
 # KORTIX_DISABLE_SANDBOX_ENV_FILE: '1' of their own — they inherit nothing.
 export KORTIX_DISABLE_SANDBOX_ENV_FILE=1
+# Path 5: a worker box keeps its own config release at the default root
+# (/opt/kortix/config). config-release.ts reads that root as its fallback
+# release, so every rig boots with the box's compiled governance and its task
+# permissions of another project. Point the release root at an empty dir.
+KORTIX_TEST_BOOT_CONFIG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kortix-hermetic-boot-config.XXXXXX")"
+export KORTIX_BOOT_CONFIG_ROOT="$KORTIX_TEST_BOOT_CONFIG_DIR"
 # Path 4: a suite-owned, empty config store (see the leak list above).
 KORTIX_TEST_CONFIG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kortix-hermetic-config.XXXXXX")"
 export KORTIX_CONFIG_FILE="$KORTIX_TEST_CONFIG_DIR/config.json"

@@ -262,3 +262,36 @@ describe('team tasks', () => {
     expect(created.map((t) => t.seq).sort()).toEqual([1, 2, 3, 4]);
   });
 });
+
+describe('cross-project reach', () => {
+  // `requireAccountProject` must read the project row fresh: a project moves
+  // between accounts (`transferProjectOwnership`), so a cached account answer
+  // would let the previous owner's sessions still reach the new owner's project.
+  test('a project that moved between accounts immediately refuses the previous account', async () => {
+    const from = crypto.randomUUID();
+    const to = crypto.randomUUID();
+    const host = crypto.randomUUID(); // the mover's own project
+    const moved = crypto.randomUUID(); // the project that moves between accounts
+    for (const id of [from, to]) await db.execute(sql`INSERT INTO kortix.accounts (account_id, name) VALUES (${id}::uuid, 'multi-agent-it')`);
+    for (const [pid, acc, status] of [[host, from, 'archived'], [moved, from, 'active']] as const) {
+      await db.execute(sql`INSERT INTO kortix.projects (project_id, account_id, name, repo_url, status) VALUES (${pid}::uuid, ${acc}::uuid, 'multi-agent-it', 'https://example.invalid/r.git', ${status})`);
+    }
+    try {
+      const mover = crypto.randomUUID();
+      await db.execute(sql`
+        INSERT INTO kortix.project_sessions (session_id, account_id, project_id, branch_name, status, created_by, agent_name, metadata)
+        VALUES (${mover}, ${from}::uuid, ${host}::uuid, ${`br-${mover}`}, 'stopped', ${PERSON}::uuid, 'default', '{"agent_handle":"mover"}'::jsonb)`);
+      const self = await session(mover);
+      // One good reach warms the account state before the move.
+      expect((await reachableAgents({ self, scope: 'project', projectId: moved, caller })).agents).toHaveLength(0);
+      await db.execute(sql`UPDATE kortix.projects SET account_id = ${to}::uuid WHERE project_id = ${moved}::uuid`);
+      await expect(reachableAgents({ self, scope: 'project', projectId: moved, caller }))
+        .rejects.toMatchObject({ status: 404, code: 'project_not_found' });
+    } finally {
+      await db.execute(sql`DELETE FROM kortix.session_lifecycle_commands WHERE project_id = ${host}::uuid`).catch(() => undefined);
+      await db.execute(sql`DELETE FROM kortix.project_sessions WHERE project_id = ${host}::uuid`).catch(() => undefined);
+      await db.execute(sql`DELETE FROM kortix.projects WHERE project_id IN (${host}::uuid, ${moved}::uuid)`).catch(() => undefined);
+      await db.execute(sql`DELETE FROM kortix.accounts WHERE account_id IN (${from}::uuid, ${to}::uuid)`).catch(() => undefined);
+    }
+  });
+});

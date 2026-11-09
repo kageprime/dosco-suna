@@ -13,7 +13,7 @@ import {
   CommandPopoverContent,
   CommandPopoverTrigger,
 } from '../../../primitives/command';
-import { InfoBanner } from '../../../primitives/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import { Input } from '../../../primitives/input';
 import Loading from '../../../primitives/loading';
 import { Modal, ModalBody, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '../../../primitives/modal';
@@ -541,9 +541,9 @@ function RepositoryGroup({
       {repositoryDisconnectOf(connection) ? (
         <RepositoryDisconnectedBanner projectId={project.project_id} disconnect={repositoryDisconnectOf(connection)} />
       ) : connection?.last_error_message ? (
-        <InfoBanner tone="warning" icon={WarningIcon} title={tI18nComplete.raw('textcb25ff313d81')}>
+        <BannerAlert variant="warning" ><BannerAlertMedia><WarningIcon /></BannerAlertMedia><BannerAlertTitle>{tI18nComplete.raw('textcb25ff313d81')}</BannerAlertTitle><BannerAlertDescription>
           {connection.last_error_message}
-        </InfoBanner>
+        </BannerAlertDescription></BannerAlert>
       ) : null}
 
       <SettingsRowGroup>

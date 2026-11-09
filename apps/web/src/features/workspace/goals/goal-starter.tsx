@@ -4,7 +4,7 @@ import { useTranslations } from '@/i18n/use-translations';
 import { defaultGoalAgent } from '@kortix/sdk';
 import { useProjectConfig } from '@kortix/sdk/react';
 import { cn, useIsMobile } from '@kortix/ui';
-import { InfoBanner } from '@kortix/ui/info-banner';
+import { Alert as BannerAlert, AlertTitle as BannerAlertTitle, AlertDescription as BannerAlertDescription} from '@kortix/ui/alert';
 import { ComposerChatInput } from '@kortix/ui/session/composer/composer-chat-input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kortix/ui/tabs';
 import { errorToast } from '@kortix/ui/toast';
@@ -132,9 +132,9 @@ export function GoalStarter({
           parentClassName="max-w-none px-0"
         />
         {start.isError ? (
-          <InfoBanner tone="destructive" title={t('startError')} role="alert">
+          <BannerAlert variant="destructive" role="alert"><BannerAlertTitle>{t('startError')}</BannerAlertTitle><BannerAlertDescription>
             {start.error instanceof Error ? start.error.message : null}
-          </InfoBanner>
+          </BannerAlertDescription></BannerAlert>
         ) : null}
       </div>
 

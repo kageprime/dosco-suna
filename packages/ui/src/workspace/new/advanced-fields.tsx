@@ -317,6 +317,7 @@ export function AdvancedFields({
         // fields share the in-field gap rather than the gap between fields.
         <div className="flex flex-col space-y-3">
           <ImportRepositoryField state={state} accountId={accountId} onChange={onChange} />
+          <p className="text-muted-foreground text-xs">{t('repository.importHint')}</p>
           {/* A branch belongs to a repository: until one is picked there is
               nothing to choose from, so the field waits rather than sitting
               there disabled. */}

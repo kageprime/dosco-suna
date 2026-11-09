@@ -21,7 +21,8 @@
  * does. A named agent (`opts.agent`) must be one the `agent` tool offers
  * (`subagentTypes`: the `permission.task` rule filters it); without one the
  * child runs as an inline agent, which a separate session runs as this
- * session's own agent. On My Kortix's box (`anyProjectAgent`) any project
+ * session's own agent, with this session's access; its `instructions`, when
+ * given, are its own system prompt. On My Kortix's box (`anyProjectAgent`) any project
  * agent may be named; its background runner is a My Kortix session too, so
  * its box says the same. Nothing in a session's context widens the agent
  * set, and the API authorizes the name either way.
@@ -307,7 +308,7 @@ function describe(agentNames: string[], limits: WorkflowLimits, saved: string[],
     '- Optional first statement: `export const meta = { name, description, phases: [{ title, detail? }] }`, a plain literal. Give each phase the exact title you pass to phase().',
     '- agent(prompt, { label?, phase?, agent?, model?, instructions?, tools?, schema?, strict?, stallMs? }) starts one subagent and resolves to its final answer. With `schema` (a JSON Schema object) it resolves to the parsed JSON that matches it. The prompt must state the task and the facts it depends on: the subagent does not see this conversation, and reads it with `kortix sessions log` only when the prompt leaves something out. ' +
       `\`agent\` is a named agent type${agentNames.length > 0 ? ` (${agentNames.join(', ')})` : ''}; without it the subagent runs as the current agent. A subagent with no new output for \`stallMs\` (default ${DEFAULT_STALL_MS / 60_000} min) starts over, up to ${STALL_ATTEMPTS} attempts.`,
-    '- Custom agents: `model` (provider/model) runs it on another model; `instructions` (without `agent`) is its own system prompt, an inline agent; `tools` (tool names) limits it to those of your tools, and a tool you lack is refused. The three are part of the resume key.',
+    '- Custom agents: `model` (provider/model) runs it on another model; `instructions` (without `agent`) is its own system prompt, an inline agent with your own access; `tools` (tool names) limits it to those of your tools, and a tool you lack is refused. The three are part of the resume key.',
     '- agent() resolves to null when its session was stopped and throws when it failed: awaited directly, that ends the run; inside parallel() or pipeline() it becomes null.',
     `- With schema, an answer that still does not match after ${STRUCTURED_ATTEMPTS} attempts resolves to { schema_error, text } (its last answer as text), and the run goes on: check \`result.schema_error\` where it matters. Pass strict: true to make agent() throw instead.`,
     `- parallel([() => agent(...), ...]) runs the functions at once. pipeline(items, stage1, stage2, ...) sends each item through the stages; a stage gets (previousResult, item, index). At most ${MAX_ITEMS} items per call.`,
@@ -878,7 +879,10 @@ class WorkflowRun {
    */
   private spec(named: string | undefined, model: string | undefined, instructions: string | undefined, tools: string[] | undefined): Omit<SpawnSessionInput, 'title' | 'prompt'> {
     const base = { session: 'separate' as const, waitMs: WORKFLOW_DEADLINE_MS, ...(model ? { model } : {}), ...(tools ? { tools } : {}) }
-    if (!named) return { ...base, agent: INLINE_AGENT, systemPrompt: instructions ?? SUBAGENT_PROMPT }
+    if (!named) {
+      const own = instructions?.trim()
+      return { ...base, agent: INLINE_AGENT, systemPrompt: own || SUBAGENT_PROMPT, ...(own ? { ownPrompt: true } : {}) }
+    }
     const types = subagentTypes(this.host)
     const type = types.get(named)
     // My Kortix's box (or its runner): any project agent, by name; the API authorizes it when it creates the session.
