@@ -19,9 +19,9 @@ describe('hero characterization', () => {
     const html = renderToStaticMarkup(<Hero />);
     expect(html).toContain('id="hero"');
     expect(html).not.toContain('id="demo"');
-    expect(html).toContain('The cloud platform where AI agents get work done.');
-    expect(html).toContain('Spin up agents that code');
-    expect(html).toContain('The agentic OS that replaces');
+    expect(html).toContain('The production harness for autonomous agent teams.');
+    expect(html).toContain('Give AI agents persistent workstations, real cloud computers');
+    expect(html).toContain('Any model, your keys · Isolated cloud sandboxes · Governed review');
     expect(html).not.toContain('Request demo');
     expect(html).not.toContain('Get started');
   });

@@ -84,7 +84,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'marketplace',
     title: 'Marketplace: agents, skills and workspace templates',
     description:
-      'Browse skills, agents, and commands from every source. Add them to a Kortix workspace in one click.',
+      'Browse skills, agents, and commands from every source. Add them to a workspace in one click.',
     htmlPath: '/marketplace',
   },
   {
@@ -92,7 +92,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'developers',
     title: 'Developers: CLI, SDK and API for AI agents',
     description:
-      'Build with Kortix from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.',
+      'Build with Dosco from the terminal: drive workspaces, sessions, and agents through the CLI and SDK, wire triggers and connectors, and land every change through a reviewed change request.',
     htmlPath: '/developers',
     markdownPath: '/markdown/developers.md',
   },
@@ -101,14 +101,14 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     slug: 'careers',
     title: 'Careers',
     description:
-      'Open positions at Kortix — FDE, GTM and MTS. Belgrade, Serbia and San Francisco. We hire for prolonged ownership.',
+      'Open positions at Dosco Tek — FDE, GTM and MTS. We hire for prolonged ownership.',
     htmlPath: '/careers',
   },
   {
     kind: 'marketing',
     slug: 'changelog',
     title: 'Changelog',
-    description: 'What shipped in Kortix each week, straight from our production releases.',
+    description: 'What shipped in Dosco each week, straight from our production releases.',
     htmlPath: '/changelog',
   },
   {
@@ -123,15 +123,15 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     kind: 'marketing',
     slug: 'download',
     title: 'Download the desktop app and CLI',
-    description: 'Get Kortix for macOS, Windows, Linux, iOS, and Android.',
+    description: 'Get Dosco for macOS, Windows, Linux, iOS, and Android.',
     htmlPath: '/download',
   },
   {
     kind: 'marketing',
     slug: 'enterprise',
-    title: 'Kortix for Enterprise',
+    title: 'Dosco for Enterprise',
     description:
-      'One CompanyOS for every team: agents, skills and memory in one place you own, on Kortix Cloud, your VPC or on-prem, with any model.',
+      'One CompanyOS for every team: agents, skills and memory in one place you own, on Cloud, your VPC or on-prem, with any model.',
     htmlPath: '/enterprise',
     markdownPath: '/markdown/enterprise.md',
   },
@@ -159,7 +159,7 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
     // is not a microVM. The narrower claims below are the true ones.
     title: 'AI agent security: isolation, permissions, audit',
     description:
-      'How Kortix is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.',
+      'How Dosco is built to survive a security review: an isolated machine per session, connector credentials brokered server-side that never enter that machine, permissions for people and agents, human approval gates, and a change request between an agent and main.',
     htmlPath: '/security',
     markdownPath: '/markdown/security.md',
   },
@@ -183,9 +183,9 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'framework',
-    title: 'The Kortix framework',
+    title: 'The Dosco harness',
     description:
-      'Kortix is a backend framework for AI agents: a project is a git repository, kortix.yaml declares the agents, skills, tools and triggers, every session runs the open-source pi coding agent on its own computer, and @kortix/sdk and @kortix/ui compose your own experience.',
+      'Dosco is a production harness for AI agents: a project is a git repository, kortix.yaml declares the agents, skills, tools and triggers, every session runs on its own cloud sandbox, and @kortix/sdk and @kortix/ui compose your own experience.',
     htmlPath: '/framework',
   },
   {
@@ -199,9 +199,9 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'sovereign',
-    title: 'Sovereign and open',
+    title: 'Sovereign platform',
     description:
-      'Kortix is open source. Run it on Kortix Cloud, in your VPC or on-prem, with any model and your own keys, and keep your agents, skills and files in a git repo you own.',
+      'Dosco is a sovereign agent harness. Run on Cloud, in your VPC or on-prem, with any model and your own keys, and keep your agents, skills and files under your control.',
     htmlPath: '/sovereign',
   },
   {
@@ -215,51 +215,51 @@ const MARKETING_RECORDS: PublicContentRecord[] = [
   {
     kind: 'marketing',
     slug: 'self-hosted',
-    title: 'Self-hosted AI agents on your infrastructure',
+    title: 'Private AI agents on your infrastructure',
     description:
-      'Run the same Kortix on your own box. One Docker Compose stack, the same images the managed cloud runs, your database and your files on disk you control. kortix self-host start, then kortix hosts use selfhost.',
+      'Run Dosco on your own infrastructure with isolated sandboxes, your database and your files on disk you control.',
     htmlPath: '/self-hosted',
     markdownPath: '/markdown/self-hosted.md',
   },
   {
     kind: 'marketing',
     slug: 'white-label',
-    title: 'White-label: your AI product on Platinum.dev compute',
+    title: 'White-label: your AI product powered by Dosco Tek',
     description:
-      'Fork Kortix, put your brand on it, and sell it as your own product. The license is free. The one requirement is that your compute runs on Platinum.dev.',
+      'Deploy white-label agent solutions powered by Dosco Tek. Custom domains, dedicated infrastructure, and sovereign controls.',
     htmlPath: '/white-label',
     markdownPath: '/markdown/white-label.md',
   },
   {
     kind: 'marketing',
     slug: 'desktop',
-    title: 'Kortix desktop app for Mac, Windows and Linux',
+    title: 'Dosco desktop app for Mac, Windows and Linux',
     description:
-      'The Kortix desktop app: Quick Entry over any app (⌘⇧Space), a badge for finished work, and an opt-in connection that lends an agent this computer. macOS universal, Windows 64-bit, Linux AppImage.',
+      'The Dosco desktop app: Quick Entry over any app (⌘⇧Space), a badge for finished work, and an opt-in connection that lends an agent this computer. macOS universal, Windows 64-bit, Linux AppImage.',
     htmlPath: '/desktop',
   },
   {
     kind: 'marketing',
     slug: 'mobile',
-    title: 'Kortix mobile app for iPhone, iPad and Android',
+    title: 'Dosco mobile app for iPhone, iPad and Android',
     description:
-      'Start, steer and approve Kortix sessions from your phone: live streaming, dictation, attachments, tool approvals, change-request review and push notifications. On the App Store and Google Play.',
+      'Start, steer and approve Dosco sessions from your phone: live streaming, dictation, attachments, tool approvals, change-request review and push notifications. On the App Store and Google Play.',
     htmlPath: '/mobile',
   },
   {
     kind: 'marketing',
     slug: 'slack',
-    title: 'Kortix in Slack: one thread, one session',
+    title: 'Dosco in Slack: one thread, one session',
     description:
-      'Mention Kortix in a Slack thread. An agent runs the session on its own machine, streams progress into the thread, and asks for approval in the thread before it acts. Kortix checks the sender is a member; the agent acts with its own permissions.',
+      'Mention Dosco in a Slack thread. An agent runs the session on its own machine, streams progress into the thread, and asks for approval in the thread before it acts. Dosco checks the sender is a member; the agent acts with its own permissions.',
     htmlPath: '/slack',
   },
   {
     kind: 'marketing',
     slug: 'teams',
-    title: 'Kortix in Microsoft Teams',
+    title: 'Dosco in Microsoft Teams',
     description:
-      'Kortix agent sessions in Teams chats, group chats and channels: a live progress card, approval cards with feedback, and per-person identity. A tenant admin grants consent once.',
+      'Dosco agent sessions in Teams chats, group chats and channels: a live progress card, approval cards with feedback, and per-person identity. A tenant admin grants consent once.',
     htmlPath: '/teams',
   },
 ];
@@ -665,10 +665,8 @@ function documentHeader(record: PublicContentRecord): string {
 
 function renderMarketingMarkdown(record: PublicContentRecord): string {
   const links = [
-    `- [Documentation](${CANONICAL_ORIGIN}/docs)`,
     `- [Blog](${CANONICAL_ORIGIN}/blog)`,
-    `- [Use cases](${CANONICAL_ORIGIN}/use-cases)`,
-    `- [GitHub](https://github.com/kortix-ai/CompanyOS)`,
+    `- [Download](${CANONICAL_ORIGIN}/download)`,
   ];
 
   if (record.slug === 'pricing' || record.slug === 'enterprise') {

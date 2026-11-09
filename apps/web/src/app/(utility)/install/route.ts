@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Serves the Kortix CLI installer. Hit via:
-//   curl -fsSL https://kortix.com/install | bash
+// Serves the Dosco CLI installer. Hit via:
+//   curl -fsSL https://dosco.live/install | bash
 //
 // ALWAYS serves the canonical script from the `main` branch on GitHub raw.
 // We deliberately do NOT prefer a locally-bundled copy: a stale build (e.g. an
@@ -11,9 +11,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // Browsers hitting this URL (Accept: text/html) get a 302 redirect to
 // the script's GitHub page so a human can review it before running.
 
-const REPO_URL = 'https://github.com/kortix-ai/CompanyOS';
-const REPO_SCRIPT_URL = `${REPO_URL}/blob/dev/scripts/install.sh`;
-const RAW_SCRIPT_URL = 'https://raw.githubusercontent.com/kortix-ai/CompanyOS/dev/scripts/install.sh';
+const REPO_URL = 'https://github.com/kageprime/dosco-suna';
+const REPO_SCRIPT_URL = `${REPO_URL}/blob/main/scripts/install.sh`;
+const RAW_SCRIPT_URL = 'https://raw.githubusercontent.com/kageprime/dosco-suna/main/scripts/install.sh';
 
 function prefersHtml(request: NextRequest): boolean {
   const accept = request.headers.get('accept') || '';

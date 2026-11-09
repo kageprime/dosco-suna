@@ -292,17 +292,17 @@ export const faq = {
     {
       id: 'platform',
       q: 'What do you build it on?',
-      a: 'On Kortix CompanyOS the open-source operating system we make. Every agent, skill, connector and app lives in a git repo you own, so your team can run and extend it without us.',
+      a: 'On CompanyOS, the agentic operating system powered by Dosco Tek. Every agent, skill, connector and app lives in a git repo you own, so your team can run and extend it without us.',
     },
     {
       id: 'own',
       q: 'Who owns what you build?',
-      a: 'You do. Every agent, skill, connector and app lives in a git repo you own, on the open-source Kortix CompanyOS. Every session and file of context stays yours.',
+      a: 'You do. Every agent, skill, connector and app lives in a git repo you own, powered by CompanyOS. Every session and file of context stays yours.',
     },
     {
       id: 'host',
-      q: 'Do we have to use Kortix Cloud?',
-      a: 'No. Run it on Kortix Cloud, in your VPC, or on your own on-prem network. Any model provider with your own keys.',
+      q: 'Do we have to use Cloud?',
+      a: 'No. Run it on Cloud, in your VPC, or on your own isolated infrastructure. Any model provider with your own keys.',
     },
     {
       id: 'fit',

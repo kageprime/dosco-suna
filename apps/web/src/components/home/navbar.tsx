@@ -8,7 +8,6 @@ import { MarketingButton } from '@/features/marketing/kit/marketing-button';
 import { MARKETING_CONTAINER } from '@/features/marketing/kit/section';
 import { SiteSwitcher } from '@/features/marketing/kit/site-switcher';
 import { useAuth } from '@/features/providers/auth-provider';
-import { useGitHubStars } from '@/hooks/use-github-stars';
 import { SITE_CONFIG_TRANSLATION_KEYS } from '@/i18n/site-config-translation-keys.generated';
 import { useTranslations } from '@/i18n/use-translations';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
@@ -23,7 +22,6 @@ import {
 } from '@kortix/ui/context-menu';
 import { localizeUiCatalog } from '@kortix/ui/i18n';
 import { Download } from '@kortix/ui/internal/icons/download';
-import { Github } from '@kortix/ui/internal/icons/github';
 import { PROJECT_LANDING_PATH } from '@kortix/ui/internal/lib/onboarding/landing-destination';
 import { latestProjectPath } from '@kortix/ui/internal/lib/onboarding/last-project-cookie';
 import Loading from '@kortix/ui/loading';
@@ -100,7 +98,6 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const openDemo = useRequestDemo();
-  const { stars, formattedStars, loading: starsLoading } = useGitHubStars('kortix-ai', 'kortix');
 
   const [scrolled, setScrolled] = useState(false);
   // True while a page's dark top band (`data-hero-band`) is under the bar.
@@ -562,21 +559,6 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
             </nav>
 
             <div className="ml-auto flex items-center justify-end gap-1" onPointerEnter={closeOnEnter}>
-              {/* The GitHub link shows at every width, phones included. The
-                  count joins it once it loads. `stars`, not `formattedStars`:
-                  the formatter returns an en dash for a missing count. */}
-              <Link
-                href="https://github.com/kortix-ai/CompanyOS"
-                target="_blank"
-                rel="noopener noreferrer"
-                data-github-link=""
-                className={cn(BAR_LINK, 'hit-area-y-3 mr-2 gap-1.5 lg:mr-4 lg:gap-2')}
-              >
-                <Github className="size-4 shrink-0" />
-                {stars !== null && !starsLoading && (
-                  <span className="tabular-nums">{formattedStars}</span>
-                )}
-              </Link>
               {user ? (
                 <MarketingButton asChild className="hit-area-y-3">
                   <Link href={projectsHref} prefetch>
@@ -635,7 +617,6 @@ export function Navbar({ solidAtTop = false }: { solidAtTop?: boolean } = {}) {
                 open={openMenu === menu.id}
                 onNavigate={() => setMenu(null, { instant: true })}
                 onKeyDown={onPanelKeyDown(menu.id)}
-                stars={stars !== null && !starsLoading ? formattedStars : null}
               />
             ))}
           </div>

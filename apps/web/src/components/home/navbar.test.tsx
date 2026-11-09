@@ -137,18 +137,10 @@ test('the bar renders the brand, the desktop nav and a GitHub stars chip', async
   expect(html).toContain('href="/pricing"');
 });
 
-test('the GitHub link shows at every width, with or without a star count', async () => {
+test('the header does not render open-source GitHub links', async () => {
   await mountNavbar();
-  const link = () => header()!.querySelector('[data-github-link]');
-  expect(link()!.getAttribute('href')).toBe('https://github.com/kortix-ai/CompanyOS');
-  // No breakpoint hides it: it is the bar's one always-on social proof.
-  expect(link()!.className.split(' ').some((c) => c === 'hidden' || c.endsWith(':hidden'))).toBe(false);
-  expect(link()!.textContent).toContain('4,321');
-
-  stars = null;
-  await act(async () => root!.render(React.createElement(Navbar)));
-  expect(link()).not.toBeNull();
-  expect(link()!.textContent).toBe('GitHub');
+  const link = header()!.querySelector('[data-github-link]');
+  expect(link).toBeNull();
 });
 
 test('the mobile drawer locks body scroll while open and unlocks on close', async () => {

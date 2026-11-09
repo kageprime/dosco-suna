@@ -6,9 +6,9 @@ const catalog = {
     "openSettings": "Open Git settings",
     "reconnectError": "Could not open the GitHub install page. Try again.",
     "reasons": {
-      "app_uninstalled": "The Kortix GitHub App was uninstalled from {owner}, so Kortix cannot reach {repository}. A GitHub owner of {owner} must reinstall it.",
-      "app_suspended": "The Kortix GitHub App is suspended on {owner}, so Kortix cannot reach {repository}. A GitHub owner of {owner} must unsuspend it in GitHub settings.",
-      "repo_not_accessible": "Kortix cannot reach {repository}. It was deleted, renamed, or removed from the Kortix GitHub App. A GitHub owner of {owner} must add it again."
+      "app_uninstalled": "The Dosco GitHub App was uninstalled from {owner}, so Dosco cannot reach {repository}. A GitHub owner of {owner} must reinstall it.",
+      "app_suspended": "The Dosco GitHub App is suspended on {owner}, so Dosco cannot reach {repository}. A GitHub owner of {owner} must unsuspend it in GitHub settings.",
+      "repo_not_accessible": "Dosco cannot reach {repository}. It was deleted, renamed, or removed from the Dosco GitHub App. A GitHub owner of {owner} must add it again."
     }
   },
   "repositoryChange": {
@@ -22,7 +22,7 @@ const catalog = {
     "verifying": "Verifying GitHub…",
     "verifyAgain": "Verify GitHub again",
     "verify": "Verify GitHub access",
-    "noInstallation": "No Kortix App installation is available for this repository owner. Add the repository to the App installation in GitHub, then verify again.",
+    "noInstallation": "No Dosco App installation is available for this repository owner. Add the repository to the App installation in GitHub, then verify again.",
     "installation": "GitHub App installation",
     "selectInstallation": "Select installation",
     "manifestRequirement": "The new repository needs {manifest} on its default branch. Stop active sessions and close open change requests first.",
@@ -59,7 +59,7 @@ const catalog = {
     "connectChatGpt": "Connect ChatGPT",
     "reconnectChatGpt": "Reconnect ChatGPT",
     "noChatGptAccounts": "No ChatGPT accounts yet",
-    "oauthCreationDescription": "Sign in with your ChatGPT Plus or Pro account. Kortix stores the login encrypted and never shows it.",
+    "oauthCreationDescription": "Sign in with your ChatGPT Plus or Pro account. Dosco stores the login encrypted and never shows it.",
     "defaultAccountLabel": "ChatGPT · {name}",
     "onlyYou": "Only you",
     "onlyYouDescription": "Only you can select it in a session.",
@@ -170,7 +170,7 @@ const catalog = {
     "noClaudeAccounts": "No Claude accounts yet",
     "connectClaude": "Sign in with Claude",
     "claudeOauthPrivateDescription": "Use your Claude Pro or Max plan for Claude models in this workspace. New accounts are private to you until you share them.",
-    "claudeOauthCreationDescription": "Sign in with your Claude Pro or Max account. Kortix stores the login encrypted and never shows it.",
+    "claudeOauthCreationDescription": "Sign in with your Claude Pro or Max account. Dosco stores the login encrypted and never shows it.",
     "claudeDefaultAccountLabel": "Claude · {name}",
     "claudeAccountConnected": "Claude account connected",
     "claudeAccountReconnected": "Claude account reconnected",
@@ -182,13 +182,13 @@ const catalog = {
   "secrets": {
     "undecryptable": {
       "badge": "Undecryptable",
-      "hint": "Kortix cannot decrypt the stored value. The encryption key changed, or the value is damaged. Anyone who manages this workspace can enter it again.",
+      "hint": "Dosco cannot decrypt the stored value. The encryption key changed, or the value is damaged. Anyone who manages this workspace can enter it again.",
       "reenter": "Re-enter value",
-      "dialog": "Kortix cannot decrypt the stored value. Enter it again to save.",
-      "keyHint": "Kortix cannot decrypt this API key. The server's encryption key changed, or the stored key is damaged. Kortix does not use it until its owner or a workspace admin enters it again.",
-      "loginHint": "Kortix cannot decrypt this login. The server's encryption key changed, or the stored login is damaged. Kortix does not use it until its owner reconnects it.",
+      "dialog": "Dosco cannot decrypt the stored value. Enter it again to save.",
+      "keyHint": "Dosco cannot decrypt this API key. The server's encryption key changed, or the stored key is damaged. Dosco does not use it until its owner or a workspace admin enters it again.",
+      "loginHint": "Dosco cannot decrypt this login. The server's encryption key changed, or the stored login is damaged. Dosco does not use it until its owner reconnects it.",
       "reenterKey": "Re-enter key",
-      "mineHint": "Kortix cannot decrypt your own value of this secret. Your sessions read it in place of the shared value, so they fail until you delete it.",
+      "mineHint": "Dosco cannot decrypt your own value of this secret. Your sessions read it in place of the shared value, so they fail until you delete it.",
       "deleteMine": "Delete my value",
       "mineDeleted": "Value deleted",
       "mineDeleteError": "Could not delete your value. Try again."
@@ -227,7 +227,7 @@ const catalog = {
     "next": "Next",
     "upgrade": "Upgrade",
     "basic": "Basic",
-    "tryFree": "My Kortix"
+    "tryFree": "The Orc"
   },
   "newWorkspace": {
     "title": "Create a workspace",
@@ -275,16 +275,16 @@ const catalog = {
       "loadRepositoriesError": "Could not load repositories. Try again.",
       "sources": {
         "managed": {
-          "label": "Kortix managed",
-          "description": "Kortix creates and manages a private repository for this workspace."
+          "label": "Managed",
+          "description": "Dosco creates and manages a private repository for this workspace."
         },
         "githubCreate": {
-          "description": "Kortix creates a private repository in your GitHub account."
+          "description": "Dosco creates a private repository in your GitHub account."
         }
       },
       "repositoryLabel": "Repository",
       "loadingOptions": "Loading repository options…",
-      "managedUnavailable": "Kortix-managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
+      "managedUnavailable": "Managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
       "installationUnreachable": "This GitHub connection no longer works. Reconnect it to list repositories.",
       "reconnect": "Reconnect in Git settings",
       "managedImportLabel": "Import an existing managed repository",
@@ -296,8 +296,8 @@ const catalog = {
       "actionImport": "Import an existing repository",
       "ownerTypePersonal": "Personal account",
       "ownerTypeOrg": "Organization",
-      "createPersonalAuthorize": "Kortix asks GitHub for your authorization the first time you create a repository in a personal account.",
-      "importHint": "Kortix reads agents from kortix.yaml in this repository. Without one, the workspace opens on a setup prompt you copy into your coding agent."
+      "createPersonalAuthorize": "Dosco asks GitHub for your authorization the first time you create a repository in a personal account.",
+      "importHint": "Dosco reads agents from kortix.yaml in this repository. Without one, the workspace opens on a setup prompt you copy into your coding agent."
     }
   },
   "projectHome": {
@@ -391,7 +391,7 @@ const catalog = {
           "label": "Connected accounts"
         },
         "chrome": {
-          "label": "Kortix in Chrome",
+          "label": "Dosco in Chrome",
           "description": "Your sessions use Chrome with your logins. You see every step."
         },
         "tokens": {
@@ -408,7 +408,7 @@ const catalog = {
         },
         "mcp": {
           "label": "MCP",
-          "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
+          "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install."
         },
         "computer": {
           "label": "My computer",
@@ -422,7 +422,7 @@ const catalog = {
     },
     "git": {
       "updateFailed": "Failed to update repository",
-      "unreachable": "Kortix can't reach this repository",
+      "unreachable": "Dosco can't reach this repository",
       "repository": "Repository",
       "hostedOn": "Hosted on {provider}.",
       "storedIn": "Stored in {provider}.",
@@ -442,7 +442,7 @@ const catalog = {
       "learnMore": "Learn more",
       "localTitle": "Work on this locally",
       "localDescription": "Put a copy of this workspace on your own computer and edit it in your own editor.",
-      "installTitle": "Install the Kortix command line",
+      "installTitle": "Install the Dosco command line",
       "installHint": "A one-time setup on macOS or Linux. Skip this if you already have it.",
       "installCommand": "Install command",
       "cloneTitle": "Copy the workspace to your computer",
@@ -453,13 +453,13 @@ const catalog = {
       "setupCommand": "Setup command",
       "secretsCommand": "Secrets command",
       "ownClientTitle": "Use your own Git client",
-      "ownClientDescription": "Clone with plain <code>git</code> instead of the Kortix command line.",
-      "cloneAddressDescription": "Clone from this address with any Git client. Kortix signs the request for you, so there is no access token to create, paste, or keep on your machine.",
+      "ownClientDescription": "Clone with plain <code>git</code> instead of the Dosco command line.",
+      "cloneAddressDescription": "Clone from this address with any Git client. Dosco signs the request for you, so there is no access token to create, paste, or keep on your machine.",
       "cloneAddress": "Clone address",
       "peopleTitle": "People with access",
       "peopleManagedDescription": "Invite someone by their GitHub username. GitHub emails them an invite to accept.",
       "peopleExternalDescription": "Who can read and write this workspace’s repository.",
-      "externalGithubDescription": "Kortix did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.",
+      "externalGithubDescription": "Dosco did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.",
       "externalProviderDescription": "This workspace’s repository is hosted on {provider}, which does not support collaborator invites from Kortix. Manage access where the repository lives.",
       "manageOnGithub": "Manage on GitHub",
       "alreadyHasAccess": "@{username} already has access to this repo",
@@ -496,7 +496,7 @@ const catalog = {
       "deleteDialog": "This deletes {name} for every member. You can restore it for 14 days.",
       "consequencesTitle": "Straight away:",
       "consequences": {
-        "sessions": "After 14 days, its sessions, files, and Kortix-managed repository are erased",
+        "sessions": "After 14 days, its sessions, files, and Managed repository are erased",
         "automation": "Triggers and scheduled runs stop firing",
         "integrations": "Its API keys and connected apps stop working",
         "plan": "A paid plan is set to cancel at the end of its billing period; restoring the workspace keeps it",
@@ -529,7 +529,7 @@ const catalog = {
         "unknown": "Unknown"
       },
       "sources": {
-        "platform": "Kortix platform",
+        "platform": "Dosco platform",
         "dashboard": "This dashboard"
       },
       "facts": {
@@ -538,7 +538,7 @@ const catalog = {
         "storage": "Storage",
         "baseImage": "Base image",
         "builtFrom": "Built from",
-        "kortixDefault": "Kortix default",
+        "kortixDefault": "Default",
         "definedIn": "Defined in"
       },
       "toasts": {
@@ -575,7 +575,7 @@ const catalog = {
       "loadFailed": "Failed to load sandbox templates:",
       "retry": "Retry",
       "descriptionStart": "Every session starts from a sandbox template — a prepared machine with your repository already checked out at",
-      "descriptionEnd": "The Kortix default works for most workspaces. Add your own below, or declare them as",
+      "descriptionEnd": "The Default works for most workspaces. Add your own below, or declare them as",
       "configReadFailed": "Couldn’t read workspace sandbox config:",
       "emptyTitle": "No templates resolved yet.",
       "emptyDescription": "Create one, or add it to your workspace's manifest.",
@@ -599,7 +599,7 @@ const catalog = {
         "disk": "Disk (GiB)",
         "entrypoint": "Entrypoint",
         "optional": "optional",
-        "entrypointPlaceholder": "Leave blank to use the Kortix default (recommended).",
+        "entrypointPlaceholder": "Leave blank to use the Default (recommended).",
         "residentialIp": "Residential IP",
         "residentialIpHint": "Send this sandbox's web traffic through a residential IP address, billed per GB from your credits. Sessions start only where the deployment offers it.",
         "cancel": "Cancel",
@@ -829,7 +829,7 @@ const catalog = {
           "description": "Group the sidebar's sessions into named folders that everyone in the workspace shares, for example one per store or client. Move a session into a group from its menu or by dragging it; reorder and collapse the groups."
         },
         "chrome": {
-          "name": "Kortix in Chrome",
+          "name": "Dosco in Chrome",
           "description": "Let a session use your connected Chrome browser. You can take over or stop it at any time."
         },
         "agent_teams": {
@@ -850,7 +850,7 @@ const catalog = {
         },
         "chat_front": {
           "name": "Spaces-Router",
-          "description": "With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml."
+          "description": "With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs The Orc on in kortix.yaml."
         },
         "spaces_proactive": {
           "name": "Spaces-Proactive",
@@ -1105,7 +1105,7 @@ const catalog = {
     "sessionViewOptions": "Session view options",
     "sectionOptions": "Section options",
     "allSectionsHidden": "All sections are hidden.",
-    "metaCoordinator": "My Kortix",
+    "metaCoordinator": "The Orc",
     "files": "Files",
     "retry": "Try again",
     "review": "Review",
@@ -1178,7 +1178,7 @@ const catalog = {
       "warningsOnly": "Everything still runs.",
       "error": "Error",
       "warning": "Warning",
-      "fix": "Fix with My Kortix",
+      "fix": "Fix with The Orc",
       "fixInSession": "Fix in a new session"
     },
     "filter": {
@@ -2148,8 +2148,8 @@ const catalog = {
       "shared": "Someone shares a session with you.",
       "automation_failed": "A trigger or a loop starts failing.",
       "automation_recovered": "A failing trigger or loop works again.",
-      "capture_device_down": "A Kortix Capture computer is not recording. Sent to people who manage Capture.",
-      "capture_device_recovered": "A Kortix Capture computer that stopped records again."
+      "capture_device_down": "A Capture computer is not recording. Sent to people who manage Capture.",
+      "capture_device_recovered": "A Capture computer that stopped records again."
     },
     "inbox": {
       "title": "Inbox",
@@ -2964,7 +2964,7 @@ const catalog = {
       "text18885f27b5af": "Python",
       "text1898b198a7e6": "Nobody present",
       "text18a4e711991b": "Enriches leads from the CRM, researches each account and drafts tailored outreach.",
-      "text18f31a325716": "About Kortix CompanyOS – the open-source operating system for your company",
+      "text18f31a325716": "About CompanyOS – the open-source operating system for your company",
       "text18fb4a5618b9": "The same parameter view used for live approvals.",
       "text18fdd549b2ed": "New",
       "text192173c3beda": "billed to your own provider keys",
@@ -3214,7 +3214,7 @@ const catalog = {
       "text2f3263f5c933": "e.g. GMAPS-primary",
       "text2f485b9971df": "You're all caught up",
       "text2f5525e787a5": "Pick workspace members to add to this group.",
-      "text2f72fafe0ce1": "instead of the Kortix command line.",
+      "text2f72fafe0ce1": "instead of the Dosco command line.",
       "text2f77668a9dfb": "Message",
       "text2f80158a9d89": "research/",
       "text2f883b75cd2d": "Search a URL or port",
@@ -3731,7 +3731,7 @@ const catalog = {
       "text5a41803b2dd1": "Deny all",
       "text5a517d8378f5": "Could not create key",
       "text5a5735e88fae": "— default",
-      "text5a7b24722fae": "Clone a full, working Kortix workspace in one click, or add skills from every source into your own.",
+      "text5a7b24722fae": "Clone a full, working workspace in one click, or add skills from every source into your own.",
       "text5a9622af8882": "errorBody",
       "text5aa40906d187": "No secrets yet",
       "text5aaf2a8498fd": "Add an image or document",
@@ -3788,7 +3788,7 @@ const catalog = {
       "text5efd0bed7735": "Double-click to edit path",
       "text5efdbc5da7d2": "#ff6762",
       "text5f2ed72dfcbc": "at minute",
-      "text5f303c017ed7": "A laptop, a VPS, or your own VPC — the exact same stack as Kortix cloud.",
+      "text5f303c017ed7": "A laptop, a VPS, or your own VPC — the exact same stack as Cloud.",
       "text5f61b63c2c4a": "Channel bindings",
       "text5f6dc605ac36": "Some entries could not be read",
       "text5f6f23bff165": "Everything paused for this workspace",
@@ -3973,7 +3973,7 @@ const catalog = {
       "text6e293a8c009e": "Waiting",
       "text6e3032b6895f": "Notification types",
       "text6e3fcca472c5": "Bring your own Slack app",
-      "text6e5a03445559": "Kortix did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.",
+      "text6e5a03445559": "Dosco did not create this repository, so it cannot add collaborators to it. Manage access from the repository settings on GitHub.",
       "text6e60f9c42ef8": "Open Files",
       "text6e795d4d3cc2": "Period",
       "text6e8c98a8560e": "Input Needed",
@@ -4161,7 +4161,7 @@ const catalog = {
       "text7ecec93ed268": "Kortix home",
       "text7ed62f13532a": "Session event",
       "text7ed6733a3900": "Delete {value0} {value1}?",
-      "text7eebc3924618": "Marketplace — Clone a ready-made Kortix workspace",
+      "text7eebc3924618": "Marketplace — Clone a ready-made workspace",
       "text7eeffb726e71": "Features you can switch on before they are generally available.",
       "text7f619d9e30a8": "Workspace secrets handed to this agent's sessions as environment variables.",
       "text7f619ff13aa8": "Loading providers",
@@ -4184,7 +4184,7 @@ const catalog = {
       "text81b35f1b4332": "Previous item",
       "text81b95130940b": "Browser tab — 32×32 PNG or ICO. Uses the icon when none is set.",
       "text81c45fd9b904": "Remove key",
-      "text81fbecb138f6": "Install the Kortix command line",
+      "text81fbecb138f6": "Install the Dosco command line",
       "text8207d840e935": "MS Teams",
       "text8228542fed70": "Sales & marketing",
       "text822b33ad87c1": "acme",
@@ -4626,7 +4626,7 @@ const catalog = {
       "texta5e68dfbff0b": "#d63a37",
       "texta619e901f9c0": "Failed to paste: {value0}",
       "texta63fb2eebd02": "Every tool runs without asking. Only the rules below can stop one.",
-      "texta64b1e9803b3": "GitHub stars on kortix-ai/CompanyOS",
+      "texta64b1e9803b3": "Active workspaces on Dosco",
       "texta67b04cd5c49": "Worker",
       "texta680491a9229": "Last activity: {value0}",
       "texta6879661926e": "Downloading {value0}…",
@@ -4733,7 +4733,7 @@ const catalog = {
       "textae79dce0e646": "Pick people or groups, or type an email to invite someone new — everyone selected gets the same role on this workspace.",
       "textae8252daa297": "Into",
       "textaea4a04a8042": "Rejected",
-      "textaeb72f2ccad6": "scaffold a new Kortix workspace",
+      "textaeb72f2ccad6": "scaffold a new workspace",
       "textaebabad39063": "OAuth 2.0",
       "textaed3545ea8e4": "Use custom Slack app",
       "textaed6b7aa2a05": "macOS",
@@ -5082,7 +5082,7 @@ const catalog = {
       "textcae7d57bc067": "Stop",
       "textcb0b50a0d111": "Show the API key",
       "textcb23e849693a": "Add a pattern",
-      "textcb25ff313d81": "Kortix can't reach this repository",
+      "textcb25ff313d81": "Dosco can't reach this repository",
       "textcb2b6a572a85": "Disconnecting…",
       "textcb702378f315": "Errors",
       "textcb7c06207756": "This server needs a pre-registered OAuth app",
@@ -5116,7 +5116,7 @@ const catalog = {
       "textce0faee27592": "billing payment credit card subscription manage wallet tier plan limits overview spend",
       "textce18e358bf01": "Try a different term.",
       "textce1e609b7bf5": "Sandbox ports only",
-      "textce34af36d804": "Kortix CompanyOS – the open-source operating system for your company",
+      "textce34af36d804": "CompanyOS – the open-source operating system for your company",
       "textce4683e7013a": "Channel",
       "text68971283841a": "Subject",
       "textce49e021df99": "The session owner or a workspace manager can reload it.",
@@ -5409,7 +5409,7 @@ const catalog = {
       "texte2d15fe36f4d": "Almost ready...",
       "texte2ee2909fe27": "Ctrl",
       "texte3190ee3d8a8": "Unable to display workbook",
-      "texte327e6c1348b": "Clone from this address with any Git client. When git asks, enter any username and a Kortix API key as the password — the Kortix command line does this for you through its credential helper, plain",
+      "texte327e6c1348b": "Clone from this address with any Git client. When git asks, enter any username and a Kortix API key as the password — the Dosco command line does this for you through its credential helper, plain",
       "texte391550d9883": "No agent can receive this secret",
       "texte392a3891c07": "Suspended",
       "texte3ba17e32240": "30d",
@@ -5786,13 +5786,13 @@ const catalog = {
       "text03a01dd53ffa": "Press ↑ to edit queued messages",
       "text1eb132d9d4da": "Queue paused",
       "textcd5f943d5863": "Not sent",
-      "text39481fc24bd5": "Kortix-managed repositories on this instance are created under {value0}.",
-      "text89a9816ffa6f": "Kortix-managed repositories are available on this instance.",
-      "textb79bb0e54e4f": "Kortix-managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
+      "text39481fc24bd5": "Managed repositories on this instance are created under {value0}.",
+      "text89a9816ffa6f": "Managed repositories are available on this instance.",
+      "textb79bb0e54e4f": "Managed repositories are not available on this instance. A platform admin sets this up in the admin console.",
       "textf7be8a17b0e7": "Add a GitHub account",
-      "text659d5668b62b": "Link a GitHub personal account or organization to this Kortix workspace.",
-      "textdc520b664af2": "GitHub lists every personal account and organization you administer. Pick one, choose which repositories the Kortix App may reach, and that owner is linked to this Kortix workspace.",
-      "text8d3f36f31348": "Install the Kortix App",
+      "text659d5668b62b": "Link a GitHub personal account or organization to this workspace.",
+      "textdc520b664af2": "GitHub lists every personal account and organization you administer. Pick one, choose which repositories the Dosco App may reach, and that owner is linked to this workspace.",
+      "text8d3f36f31348": "Install the Dosco App",
       "text183bc0d276cc": "This instance has no GitHub App to install. A platform admin sets this up in the admin console.",
       "text7f59f014cd7b": "Already installed on the owner you want?",
       "text9180f7df8906": "Link an installation you already administer",
@@ -5889,7 +5889,7 @@ const catalog = {
       "textafc219f2a1e7": "Channel settings",
       "text95112f275fba": "Changes apply to sessions started here after you save.",
       "text255e5c59ef00": "Channel settings saved",
-      "text9116af1ce384": "A conversation is shared, so it can use Kortix models and keys shared with the whole workspace, not personal keys.",
+      "text9116af1ce384": "A conversation is shared, so it can use Dosco models and keys shared with the whole workspace, not personal keys.",
       "texte83e9ba50357": "Any linked workspace member can join a session here.",
       "text4540af5229a8": "Only the person who started a session can continue it.",
       "textda4bd8bdfe42": "Other people need the session owner's approval to join.",
@@ -5915,7 +5915,7 @@ const catalog = {
       "textda0aeb0ae5ee": "sandbox thrown away",
       "textf03edab2b5cf": "Work is code.",
       "text48ab3bffe3da": "You own the stack.",
-      "textea64448cda1c": "kortix cloud",
+      "textea64448cda1c": "Cloud",
       "textdb80902e511f": "your servers",
       "textcb3d2cb4cb30": "Write it like code. Run it like a fleet.",
       "text3d560e7ee7e8": "Agents live in your repo as files. Kortix runs each session in its own sandbox.",
@@ -5962,7 +5962,7 @@ const catalog = {
       "text9a889403e802": "Pull / push as dotenv",
       "text4c8c67dac30c": "Open, review & merge change requests",
       "text5d2e6aa802d4": "Invite, grant & revoke access",
-      "text866551d87f8c": "Run your own Kortix cloud",
+      "text866551d87f8c": "Run your own Cloud",
       "text39d62d3a69b7": "Switch cloud ↔ local",
       "texta4d1a10ca1cd": "Bring your own model keys",
       "text854c7f775847": "Every tool,",
@@ -6077,11 +6077,11 @@ const catalog = {
       "text8c712bd7c1ec": "sidebar customize reorder hide show navigation rows",
       "text3fa17bba73e1": "This workspace has no plan yet. Pick a monthly amount of credits to run sessions. Every member shares one pool.",
       "text6821e42be2c1": "Your wallet is empty, so sessions can’t run. Top up to keep compute and the latest AI models going — your plan is unaffected.",
-      "text1554fd387f25": "Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Kortix-managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.",
+      "text1554fd387f25": "Free is $0: 500 credits a month on your first workspace and every feature, with your own key or ChatGPT subscription for models. Managed models need a paid plan. Paid plans are credits: pick a monthly amount, members are free and unlimited, and one pool covers the whole workspace. Self-hosting the software costs nothing; you pay your own model bill and your own compute bill instead.",
       "text5dffd4db88c5": "Your plan, credits, and billing for this workspace.",
       "textad828837ddd8": "members member workspace access collaborators people teammates roster who can see permissions grant share",
       "textf651529d7e60": "workspace account members organization roster owners admins",
-      "texta67e3dc962e8": "Kortix Capture",
+      "texta67e3dc962e8": "Capture",
       "textf12162aa6ac0": "capture recording screen devices install enrollment",
       "text81e6bf495c98": "Plans, credits, Enterprise, entitlements, members and billing state, per account.",
       "textfe3436af86b4": "Extensions",
@@ -6121,7 +6121,7 @@ const catalog = {
       "text85a6c98e5584": "New connector event",
       "text165d9237c163": "Search connector events",
       "texta9caf7909165": "No connector events yet",
-      "text451ef98453d2": "Have an agent run when one of your Kortix Apps emits an event.",
+      "text451ef98453d2": "Have an agent run when one of your Dosco Apps emits an event.",
       "text064694999e1f": "New App event",
       "text1934aa0740bb": "Search App events",
       "text25db7e5609e5": "No App events yet",
@@ -6616,7 +6616,7 @@ const catalog = {
     "providerError": "Could not update provider access.",
     "managedTitle": "Kortix Managed Models",
     "managedDescription": "Models from Platinum Inference, at its price plus a {fee}% platform fee, paid from credits. No API key needed.",
-    "managedUpgradeHint": "Upgrade to use Kortix's managed models, or connect your own provider.",
+    "managedUpgradeHint": "Upgrade to use Dosco's managed models, or connect your own provider.",
     "managedRowHint": "Use every model without your own API keys. Included with a paid plan.",
     "textImage": "Text + image",
     "textOnly": "Text only",
@@ -7034,7 +7034,7 @@ const catalog = {
   },
   "connectMcp": {
     "title": "Connect Kortix over MCP",
-    "description": "Use Kortix from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
+    "description": "Use Dosco from Claude, Claude Code, Cursor, Codex, or any MCP client. You sign in once. Nothing to install.",
     "docs": "Docs",
     "done": "Done",
     "copy": "Copy",
@@ -7163,10 +7163,10 @@ const catalog = {
     "onEvent": "On an event"
   },
   "chrome": {
-    "pill": "Kortix in Chrome",
+    "pill": "Dosco in Chrome",
     "connectTitle": "Add Kortix to Chrome",
     "connectDescription": "Let your sessions use Chrome, with your logins. You see what they do and can stop them at any time.",
-    "promoLabel": "Kortix in Chrome",
+    "promoLabel": "Dosco in Chrome",
     "dismissPromo": "Dismiss",
     "steps": {
       "install": {
@@ -7190,7 +7190,7 @@ const catalog = {
     "connect": "Connect",
     "connecting": "Connecting…",
     "done": "Done",
-    "unsupported": "Open Kortix in Chrome, Edge, Brave or Arc to connect it. Copy the link to open it there.",
+    "unsupported": "Open Dosco in Chrome, Edge, Brave or Arc to connect it. Copy the link to open it there.",
     "connectFailed": "Could not connect the browser. Try again.",
     "online": "Online",
     "offline": "Offline",
@@ -7235,7 +7235,7 @@ const catalog = {
     "another": {
       "title": "Another browser",
       "waiting": "Waiting for the new browser to connect.",
-      "description": "Open Kortix in the other browser or Chrome profile, then add Kortix to Chrome there. Copy the link to open it."
+      "description": "Open Dosco in the other browser or Chrome profile, then add Kortix to Chrome there. Copy the link to open it."
     },
     "panel": {
       "project": "Workspace",
@@ -7770,11 +7770,11 @@ const catalog = {
   },
   "capture": {
     "account": {
-      "title": "Kortix Capture",
-      "label": "Kortix Capture is on",
+      "title": "Capture",
+      "label": "Capture is on",
       "description": "Computers record into this workspace. Each person sees their own recordings; owners and admins see everyone's.",
-      "descriptionReadOnly": "An owner or admin of this workspace turns Kortix Capture on or off.",
-      "failed": "Could not change Kortix Capture."
+      "descriptionReadOnly": "An owner or admin of this workspace turns Capture on or off.",
+      "failed": "Could not change Capture."
     }
   },
   "automationsPause": {
@@ -7953,10 +7953,10 @@ const catalog = {
       "startSubagentBlocked": "Subagents are called by other agents, not started directly.",
       "defaultAgent": "Default agent",
       "actsAsYou": "Acts as the person who starts the session",
-      "askToEditAgent": "Ask My Kortix to edit",
+      "askToEditAgent": "Ask The Orc to edit",
       "deleteAgent": "Delete {name}",
       "deleteTitle": "Delete {name}?",
-      "deleteBody": "My Kortix opens a change request that removes this agent from kortix.yaml. Nothing changes until you merge it.",
+      "deleteBody": "The Orc opens a change request that removes this agent from kortix.yaml. Nothing changes until you merge it.",
       "deletePrompt": "Delete the \"{name}\" agent (its config lives at `{path}`): remove it from kortix.yaml and remove its triggers. Then open a change request so I can review and merge it.",
       "leaveTitle": "Leave with unsaved changes?",
       "leaveBody": "Your changes to {tabs} are not saved.",
@@ -8037,27 +8037,27 @@ const catalog = {
       "write": "Write",
       "preview": "Preview",
       "split": "Split",
-      "askToEdit": "Ask My Kortix to edit",
+      "askToEdit": "Ask The Orc to edit",
       "fullScreen": "Full screen",
       "exitFullScreen": "Exit full screen",
       "myKortixPromise": "The one agent you talk to. It routes each task to the agent made for it and runs it, with your permissions.",
-      "myKortixNoInstructions": "My Kortix is built in, so it has no instructions to edit here. To change how work gets done, change the agents it runs.",
-      "composerLabel": "Ask My Kortix",
-      "composerPlaceholder": "Ask My Kortix to create an agent, or to change what one may do",
+      "myKortixNoInstructions": "The Orc is built in, so it has no instructions to edit here. To change how work gets done, change the agents it runs.",
+      "composerLabel": "Ask The Orc",
+      "composerPlaceholder": "Ask The Orc to create an agent, or to change what one may do",
       "composerNote": "Every change opens as a change request you approve.",
       "chipCreate": "Create an agent that ",
       "chipNarrow": "Narrow an agent to the access its work needs",
       "chipReview": "Which agents can reach secrets?",
       "send": "Send",
       "newAgent": "New agent",
-      "newAgentHelp": "My Kortix writes the agent into kortix.yaml and opens a change request.",
+      "newAgentHelp": "The Orc writes the agent into kortix.yaml and opens a change request.",
       "name": "Name",
       "namePlaceholder": "market-scan",
       "nameHelp": "Lowercase letters, digits and dashes. Saved as <slug></slug>.",
       "nameTaken": "An agent with this name already exists.",
       "howToStart": "How to start",
-      "startDescribe": "Describe it to My Kortix",
-      "startDescribeHelp": "My Kortix drafts the instructions and grants only the access the work needs.",
+      "startDescribe": "Describe it to The Orc",
+      "startDescribeHelp": "The Orc drafts the instructions and grants only the access the work needs.",
       "startBlank": "Start blank",
       "startBlankHelp": "No instructions and no access. You fill in every tab.",
       "startDuplicate": "Duplicate an agent",
@@ -8068,7 +8068,7 @@ const catalog = {
       "whatItDoesPlaceholder": "Scans competitor pricing pages every Monday and posts a short summary.",
       "descriptionPlaceholderShort": "One line on what this agent does",
       "createAgent": "Create agent",
-      "agentsLead": "You talk to My Kortix. It runs these agents, each with only the access its work needs.",
+      "agentsLead": "You talk to The Orc. It runs these agents, each with only the access its work needs.",
       "agentsLoadError": "Could not load this workspace's agents.",
       "workAgents": "Work agents",
       "colAgent": "Agent",
@@ -8120,13 +8120,13 @@ const catalog = {
       "hideRules": "Hide rules",
       "addConnector": "Add connector",
       "policySetsNote": "Policy sets come from <file></file>. A connector with no set uses its default actions.",
-      "previewDrafted": "Drafted by My Kortix",
+      "previewDrafted": "Drafted by The Orc",
       "previewEmpty": "Empty",
       "previewCopied": "Copied",
       "previewAccessScoped": "Only what the work needs",
       "previewAccessNone": "None",
       "editInstructionsConfirmTitle": "Please confirm",
-      "editInstructionsConfirmBody": "Are you sure you want to edit the instructions? My Kortix starts a new session to make the change.",
+      "editInstructionsConfirmBody": "Are you sure you want to edit the instructions? The Orc starts a new session to make the change.",
       "colorHelp": "The agent's color in pickers. Saved in kortix.yaml; the pi runtime does not use it yet.",
       "providerOptions": "Provider options",
       "providerOptionsHelp": "Extra settings for the model provider, as JSON. Saved in kortix.yaml; the pi runtime does not apply them yet.",
@@ -8199,8 +8199,8 @@ const catalog = {
       },
       "project": {
         "title": "Workspace setting",
-        "label": "My Kortix",
-        "help": "My Kortix is on in this workspace. Kortix maintains its prompt and tools. To turn it off, delete <code>builtin_agents.my_kortix</code> from kortix.yaml or set it to false."
+        "label": "The Orc",
+        "help": "The Orc is on in this workspace. Kortix maintains its prompt and tools. To turn it off, delete <code>builtin_agents.my_kortix</code> from kortix.yaml or set it to false."
       }
     },
     "modelView": {
@@ -8254,7 +8254,7 @@ const catalog = {
     "shareError": "Could not share the response. Try again.",
     "unshareError": "Could not stop sharing. Try again.",
     "copyError": "Could not copy the link. Copy it from the field.",
-    "tryKortix": "Try Kortix",
+    "tryKortix": "Try Dosco",
     "goneTitle": "This link is no longer active",
     "goneHint": "The response it pointed to is no longer public.",
     "busyTitle": "This page is busy",
@@ -8332,9 +8332,9 @@ const catalog = {
     "askAgentPlaceholder": "What should change?",
     "notFoundTitle": "This artifact is not available",
     "notFoundHint": "It was deleted, or its owner stopped sharing it.",
-    "busyTitle": "Kortix is busy",
+    "busyTitle": "Dosco is busy",
     "busyHint": "Try again in a minute.",
-    "tryKortix": "Try Kortix",
+    "tryKortix": "Try Dosco",
     "docStatus": {
       "unsaved": "Unsaved changes",
       "saving": "Saving…",
@@ -8425,7 +8425,7 @@ const catalog = {
   },
   "emailConnect": {
     "homeTitle": "Where the inbox lives",
-    "homeManaged": "Kortix managed",
+    "homeManaged": "Managed",
     "homeManagedHint": "On {domain}. Nothing to set up.",
     "homeOwn": "Your Resend account",
     "homeOwnHint": "Your key, your domains.",
@@ -8474,7 +8474,7 @@ const catalog = {
     "linkInboxes": "About Resend Inboxes"
   },
   "emailInboxes": {
-    "homeManaged": "Kortix managed",
+    "homeManaged": "Managed",
     "homeOwn": "Your Resend account",
     "defaultLabel": "Inbox",
     "addTitle": "Add an inbox",
@@ -8564,9 +8564,9 @@ const catalog = {
       "pagesLabel": "Memory pages",
       "all": {
         "title": "All",
-        "explainCompany": "Kortix memory: what agents know about this workspace. They read it before every reply.",
-        "explainChannel": "Kortix memory: what agents know about {place}. They read it before every reply.",
-        "explainDm": "Kortix memory: what agents know about you and {place}. They read it before every reply."
+        "explainCompany": "Memory: what agents know about this workspace. They read it before every reply.",
+        "explainChannel": "Memory: what agents know about {place}. They read it before every reply.",
+        "explainDm": "Memory: what agents know about you and {place}. They read it before every reply."
       },
       "allPages": "All pages",
       "noMatches": "No page matches “{query}”.",
@@ -8718,7 +8718,7 @@ const catalog = {
       "artifacts": "Artifacts bound to this space will show up here",
       "folder": "This folder is empty",
       "board": "Blocks on this board will show up here",
-      "boardHint": "Ask My Kortix to add a block: a note, an App, a file or an embedded page."
+      "boardHint": "Ask The Orc to add a block: a note, an App, a file or an embedded page."
     },
     "doc": "Doc",
     "page": "Page",
@@ -9165,7 +9165,7 @@ const catalog = {
     "openAgent": "Open {name}",
     "needsYou": "need you",
     "newSession": "New session",
-    "askMyKortix": "Ask My Kortix",
+    "askMyKortix": "Ask The Orc",
     "askPrompt": "I want to change the {name} space (`spaces.{slug}` in kortix.yaml): its tabs, its header or the agents in it. Ask me what to change.",
     "intro": {
       "title": "This is the start of #{name}",
@@ -9190,7 +9190,7 @@ const catalog = {
       "close": "Close details",
       "private": "Private",
       "rename": "Rename and describe",
-      "personalDescription": "Your private space with My Kortix. Only you see it.",
+      "personalDescription": "Your private space with The Orc. Only you see it.",
       "privateDescription": "Only the people and agents in it see this space.",
       "noDescription": "No description yet.",
       "agents": "Agents",
@@ -9273,23 +9273,23 @@ const catalog = {
   },
   "appsModal": {
     "title": "Apps and extensions",
-    "subtitle": "Use Kortix in your browser, on your computer and from your tools.",
+    "subtitle": "Use Dosco in your browser, on your computer and from your tools.",
     "mock": {
       "group": "Kortix · Return my order",
       "button": "Start return",
-      "working": "Kortix is working",
+      "working": "Dosco is working",
       "takeOver": "Take over",
       "stop": "Stop"
     },
     "chrome": {
-      "name": "Kortix in Chrome",
-      "description": "Kortix opens pages, clicks and fills forms in your own browser, with your logins. You see every step.",
+      "name": "Dosco in Chrome",
+      "description": "Dosco opens pages, clicks and fills forms in your own browser, with your logins. You see every step.",
       "connect": "Connect",
       "connecting": "Connecting…",
       "manage": "Manage",
-      "unsupported": "Open Kortix in Chrome, Edge, Brave or Arc to add it. Copy the link to open it there.",
+      "unsupported": "Open Dosco in Chrome, Edge, Brave or Arc to add it. Copy the link to open it there.",
       "group": "Browser",
-      "manageLabel": "Manage Kortix in Chrome",
+      "manageLabel": "Manage Dosco in Chrome",
       "summary": "{count, plural, one {# browser} other {# browsers}} · {online} online"
     },
     "computer": {
@@ -9300,7 +9300,7 @@ const catalog = {
       "connect": "Connect",
       "manage": "Manage",
       "desktop": "Desktop app",
-      "desktopDescription": "Kortix as an app on your computer.",
+      "desktopDescription": "Dosco as an app on your computer.",
       "desktopRunning": "You are using it.",
       "download": "Download",
       "manageLabel": "Manage this computer",
@@ -9313,7 +9313,7 @@ const catalog = {
       "copy": "Copy command",
       "copied": "Copied",
       "mcp": "MCP",
-      "mcpDescription": "Use Kortix from Claude, Cursor or Codex.",
+      "mcpDescription": "Use Dosco from Claude, Cursor or Codex.",
       "connect": "Connect",
       "connectLabel": "Connect MCP",
       "copyFailed": "Could not copy the command. Try again."
@@ -9324,12 +9324,12 @@ const catalog = {
     "openTab": "Open in new tab",
     "offline": "The desktop is not running on this computer.",
     "noDesktop": "This computer has no desktop.",
-    "noDesktopHint": "My Kortix runs on a minimal computer. Your agents' sessions have a desktop.",
-    "start": "Ask Kortix to run",
+    "noDesktopHint": "The Orc runs on a minimal computer. Your agents' sessions have a desktop.",
+    "start": "Ask Dosco to run",
     "retry": "Retry",
     "takeOver": "Take over",
     "userControl": "You have control",
-    "agentControl": "Kortix has control",
+    "agentControl": "Dosco has control",
     "returnControl": "Return control",
     "escape": "Esc"
   },
@@ -9360,7 +9360,7 @@ const catalog = {
   },
   "agentCapabilities": {
     "skillsTitle": "Skills",
-    "skillsDescription": "Each skill this agent may load. Built-in skills come with Kortix.",
+    "skillsDescription": "Each skill this agent may load. Built-in skills come with Dosco.",
     "toolsTitle": "Tools",
     "toolsDescription": "Each tool this agent may call. A tool that is off is not offered to the model.",
     "extensionsTitle": "Extensions",
@@ -9792,7 +9792,7 @@ const catalog = {
     "exceptions": "Exceptions",
     "modeLabel": "When a model fails",
     "modeCustom": "Use my backups",
-    "modeInherit": "Let Kortix pick",
+    "modeInherit": "Let Dosco pick",
     "modeDisabled": "Show the error",
     "stopNote": "The error is shown right away.",
     "addBackups": "Add backups",
@@ -9817,7 +9817,7 @@ const catalog = {
     "tryInOrder": "Try in order",
     "onlyOnHeader": "Only on",
     "projectDefault": "Workspace default · every request",
-    "kortixPicks": "Kortix picks",
+    "kortixPicks": "Dosco picks",
     "useMyOwn": "Use my own"
   },
   "sessionModelSwitch": {
@@ -9828,7 +9828,7 @@ const catalog = {
   "workspaces": {
     "chooser": {
       "createTitle": "Create a workspace",
-      "createBody": "A workspace is where your company works with Kortix: people, agents and everything they make.",
+      "createBody": "A workspace is where your company works with Dosco: people, agents and everything they make.",
       "createAction": "Create workspace",
       "invitedHint": "Invited? Open the invite link from your email, or ask an admin to invite {email}.",
       "moreOptions": "More options",
@@ -9977,7 +9977,7 @@ const catalog = {
         "rowAgent": "Agent · {name}",
         "rowBot": "Bot · {name}",
         "createdBy": "Created by {email}",
-        "createdDescription": "{name} acts as {actsAs}. Kortix shows the key once: copy it now and store it as a secret.",
+        "createdDescription": "{name} acts as {actsAs}. Dosco shows the key once: copy it now and store it as a secret.",
         "accessFullHint": "Everything the key's principal may do in this workspace.",
         "accessCustomHint": "Only the permissions you pick. Each one must be something the key's principal may do."
       },

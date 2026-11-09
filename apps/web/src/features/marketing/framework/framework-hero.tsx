@@ -407,14 +407,9 @@ export function FrameworkHero() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5 pt-2">
-          <MarketingButton variant="secondary" size="md" className="hit-area-y-1" asChild>
-            <a href="https://github.com/kortix-ai/CompanyOS" target="_blank" rel="noreferrer">
-              {tMarketing('text20672423d716')}
-            </a>
-          </MarketingButton>
           <MarketingButton size="md" className="hit-area-y-1" asChild>
-            <Link href="/docs/developers#kortixyaml-reference">
-              {tMarketing('text6773a5e43e46')}
+            <Link href="/download">
+              Download Dosco
             </Link>
           </MarketingButton>
         </div>

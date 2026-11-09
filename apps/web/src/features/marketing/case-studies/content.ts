@@ -64,7 +64,7 @@ export type CaseStudy = {
   id: string;
   /** A logo on a white tile (the client's own, or a symbol Kortix drew), or a drawn brand mark. */
   logo?: { src: string; alt: string; width: number; height: number };
-  mark?: 'kortix' | 'platinum';
+  mark?: 'dosco' | 'kortix' | 'platinum';
   /** Kept in this file, not shown anywhere. */
   hidden?: boolean;
   category: string;
@@ -274,12 +274,12 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
       ],
     },
     {
-      id: 'kortix',
+      id: 'dosco',
       hidden: true,
-      mark: 'kortix',
+      mark: 'dosco',
       category: 'Software',
-      title: 'Kortix, run on Kortix.',
-      body: 'Our company is one Kortix workspace. Agents triage and fix issues, keep SOC 2 evidence current and run sales and support. People approve.',
+      title: 'Dosco, run on Dosco.',
+      body: 'Our company is one workspace. Agents triage and fix issues, keep SOC 2 evidence current and run sales and support. People approve.',
       facts: [
         'Issues triaged by an intake agent',
         'Up to 16 worker agents at once',
@@ -297,10 +297,10 @@ export const caseStudies: { title: string; titleMuted: string; items: readonly C
         height: 35,
       },
       category: 'Enterprise AI',
-      title: 'The enterprise AI platform, built from Kortix’s open-source code.',
+      title: 'The enterprise AI platform, built on Dosco.',
       body: 'Enterprises such as Salesforce, Vanguard and KPMG run their marketing, sales and support agents on WRITER.',
       facts: [
-        'Core platform built from Kortix’s code',
+        'Core platform built on Dosco',
         'Salesforce, Vanguard and KPMG',
         'Dropbox, H&R Block and Boots',
         'Agents for marketing, sales and support',

@@ -108,20 +108,22 @@ corner to make sure the output is good.
 
 ### CRITICAL DIRECTIVE: THIS IS NOT KORTIX. THIS IS DOSCO / DOSCO TEK
 - **Never write "Kortix" on any customer-facing surface:** This includes marketing pages, security pages, enterprise pages, framework docs, metadata titles, social cards, modals, settings, and UI labels. The product and company are **Dosco** or **Dosco Tek**.
+- **No brand prefixes on product surfaces.** Write `workspace`, not "Kortix workspace" or "Dosco workspace"; write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS".
 - **No Platinum:** Dosco does NOT use Platinum. Sandboxes run in isolated cloud microVMs powered by **E2B**, storage uses **Supabase Storage**, and models route through **OpenRouter & BYOK**. Never claim "Platinum compute", "runs on Platinum", or "Platinum microVMs".
-- **Not open source:** Dosco is a proprietary managed product. Never describe Dosco as open source, free to self-host, or forkable.
+- **Not open source:** Dosco is a proprietary managed product. Never describe Dosco as open source, free to self-host, or forkable. Do not display GitHub repository links to `kortix-ai/CompanyOS` or display upstream GitHub star counts anywhere in the UI (navbar, hero, footer, or metadata).
 - **Allowed technical occurrences only:** The ONLY acceptable appearances of the string "kortix" are strictly internal technical artifacts:
   - The repository project manifest filename (`kortix.yaml`).
   - Internal package namespaces and imports (e.g., `@kortix/ui`, `@kortix/sdk`).
   - Legacy internal database columns or environment variable tokens where renaming would cause data loss or migration drift (e.g., `KORTIX_TOKEN` inside sandboxes).
   On every user-facing, customer-facing, or marketing surface, replace any reference with Dosco.
 
-- **No brand prefixes on product surfaces.** Write `Cloud`, not "Dosco Cloud"; write `Drive`, not "Dosco Drive"; write `Capture`, not "Dosco Capture"; write `CompanyOS`, not "Dosco CompanyOS".
 - **Company and platform identity:** Dosco or Dosco Tek. Tagline: **"Dosco Tek is the harness that powers companies that run agents."**
-- **Not open source:** Dosco is a proprietary managed product. Do not describe Dosco as open source or free to self-host. Do not link public open-source repos as the platform codebase.
-- **Built-in system agent is Orchestrator ("The Orc"):** (Internal slug `mykortix`). Do not write "My Kortix" in customer-facing copy or documentation.
+- **Built-in system agent is Orchestrator ("The Orc"):** (Internal slug `mykortix`). Never write "My Kortix" in customer-facing copy, UI labels, or documentation.
 - **Default workspace agent is Xera:** (Internal slug `xera`, `@xera`, `xera@dosco.live`). Do not write "kortix" as an agent name.
 - **Repository manifest is `kortix.yaml`:** Retain the technical filename for project manifests.
+- **Translation source of truth:** `apps/web/translations/en.json` is the root source of truth for both the web app and `@kortix/ui`. When updating translations, regenerate `@kortix/ui` catalog via `pnpm --filter @kortix/ui gen-i18n-catalog` and verify zero drift with `node packages/ui/scripts/gen-i18n-catalog.mjs --check`.
+- **Download and installer repository:** Dosco downloads and installers originate from `https://github.com/kageprime/dosco-suna`, never `kortix-ai/CompanyOS`.
+- **Mandatory Brand Gate:** Run `bun test tests/unit/dosco-brand-surfaces.test.ts` before committing any UI, marketing, or translation changes.
 
 ## Dosco Sovereign Architecture: Protected Surfaces Against Upstream Divergence
 
@@ -177,7 +179,12 @@ When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/s
    - Verify `driveStorageAvailable()` was not replaced with `isPlatinumConfigured()`.
    - Verify `Dockerfile.heroku` was not overwritten.
    - Verify Dosco brand rules and "The Orc" naming were preserved.
-3. **Mandatory gate**: Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts` before committing any upstream sync. If it fails, fix the regression immediately.
+   - Verify upstream navbar GitHub stars and `kortix-ai/CompanyOS` links are not reintroduced.
+   - Verify translations in `en.json` and `packages/ui/src/i18n/en.ts` retain generic "workspace" and Dosco terms.
+3. **Mandatory gates**:
+   - Run `bun test apps/api/src/platform/providers/dosco-sovereignty.test.ts`
+   - Run `bun test tests/unit/dosco-brand-surfaces.test.ts`
+   If either fails, fix the regression immediately.
 
 ## Skills live in `.agents/skills/`
 

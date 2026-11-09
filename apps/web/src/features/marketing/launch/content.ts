@@ -8,12 +8,12 @@
  */
 
 export const hero = {
-  title: 'The open-source CompanyOS',
-  sub: 'Your agents, skills, company memory and connectors in one git repo you own. Any model, your keys, self-hosted or managed cloud.',
+  title: 'The production harness for autonomous agent teams',
+  sub: 'Your agents, skills, company memory and connectors in one git repo you own. Any model, your keys, managed cloud.',
   ctaPrimary: 'Get started',
   ctaPrimaryHref: '/auth',
-  ctaSecondary: 'Star on GitHub',
-  ctaSecondaryHref: 'https://github.com/kortix-ai/CompanyOS',
+  ctaSecondary: 'Download App',
+  ctaSecondaryHref: '/download',
 } as const;
 
 export const pillars = {
@@ -23,10 +23,10 @@ export const pillars = {
   items: [
     {
       id: 'open',
-      title: 'Open and yours',
-      body: 'Open source and self-hostable. Your data, your models, your infrastructure. No lock-in, and every line auditable.',
-      href: '/self-hosted',
-      link: 'Self-hosting',
+      title: 'Sovereign and secure',
+      body: 'Your data, your models, your infrastructure. Governed and auditable.',
+      href: '/security',
+      link: 'Security',
     },
     {
       id: 'workforce',

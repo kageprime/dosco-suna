@@ -76,7 +76,7 @@ export const openSource = {
   /** The one number on this section. Read live; never hardcoded. */
   stars: {
     /** Sits under the digits, and is the accessible label with them. */
-    caption: 'GitHub stars on kortix-ai/CompanyOS',
+    caption: 'Active agents on Dosco',
   },
 
   /**
@@ -85,13 +85,13 @@ export const openSource = {
    * step.
    */
   title:
-    'We are building the agentic operating system. Every company should own all of it.',
+    'Dosco is the harness that powers companies that run agents.',
 
   /** Primary way out: the rest of the reason, on the home page. */
   aboutLabel: 'Why we are building it',
   aboutHref: '/',
 
-  /** Secondary: the proof the number is about something real. */
-  repoLabel: 'Read the source',
-  repoHref: 'https://github.com/kortix-ai/CompanyOS',
+  /** Secondary: get started. */
+  repoLabel: 'Download',
+  repoHref: '/download',
 } as const;
