@@ -69,7 +69,7 @@ interface PageProps {
 }
 
 export function generateStaticParams() {
-  return getAllUseCases().map((post) => ({ slug: post.slug }));
+  return [];
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {

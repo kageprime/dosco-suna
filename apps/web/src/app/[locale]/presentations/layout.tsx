@@ -6,7 +6,7 @@ import { localeStaticParams } from '@/i18n/static-params';
 // middleware rewrites an unprefixed URL onto /en/… with request headers; a page
 // that was not prerendered for that locale then renders on demand, calls a
 // dynamic API, and fails with DYNAMIC_SERVER_USAGE (500) in production builds.
-export const generateStaticParams = localeStaticParams;
+export const generateStaticParams = () => [];
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('hardcodedUi.i18nComplete');

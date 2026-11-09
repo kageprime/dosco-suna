@@ -1,7 +1,8 @@
-import { useCases } from '@/.source';
-import { loader } from 'fumadocs-core/source';
-
-export const useCasesSource = loader({
-  baseUrl: '/use-cases',
-  source: useCases.toFumadocsSource(),
-});
+/**
+ * Use cases source loader stub.
+ * Programmatic use cases are disabled to minimize build graph and memory usage.
+ */
+export const useCasesSource = {
+  getPages: () => [],
+  getPage: () => undefined,
+} as any;

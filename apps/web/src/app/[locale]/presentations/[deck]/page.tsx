@@ -5,7 +5,7 @@ import { DECKS, findDeck, localizedDecks } from '../registry';
 import { DeckClient } from './deck-client';
 
 export function generateStaticParams() {
-  return DECKS.map((d) => ({ deck: d.slug }));
+  return [];
 }
 
 export async function generateMetadata({

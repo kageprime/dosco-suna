@@ -4,7 +4,7 @@ import { FILMS, findFilm } from '../registry';
 import { FilmClient } from './film-client';
 
 export function generateStaticParams() {
-  return FILMS.map((f) => ({ film: f.slug }));
+  return [];
 }
 
 export async function generateMetadata({

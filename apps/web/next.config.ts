@@ -1,12 +1,7 @@
-import { withBetterStack } from '@logtail/next';
-import { withSentryConfig } from '@sentry/nextjs';
 import fs from 'fs';
-import { createMDX } from 'fumadocs-mdx/next';
 import type { NextConfig } from 'next';
-import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import createNextIntlPlugin from 'next-intl/plugin';
 import path from 'path';
-import { buildBlumeDocs, getBlumeDocsOutputPaths } from './scripts/blume-docs.mjs';
 import { BLOG_ORIGIN } from './src/config/blog-origin';
 import { locales } from './src/i18n/catalog.mjs';
 import { workspaceDesktopRewrites, workspaceRedirects } from './src/lib/workspace-redirects';
@@ -16,7 +11,6 @@ import {
   enforcedContentSecurityPolicy,
   reportOnlyContentSecurityPolicy,
 } from './src/lib/security/content-security-policy';
-import { refreshContentTimestamps } from './scripts/build-content-timestamps.mjs';
 import { copyEmojibaseData, getEmojibaseDataOutputPaths } from './scripts/emojibase-data.mjs';
 import { copyViewerWasm, getViewerWasmOutputPaths } from './scripts/viewer-wasm.mjs';
 
@@ -31,20 +25,9 @@ const embedFrameHeaders = () => [
 ];
 
 // --- Content timestamps manifest -----------------------------------------
-// Public AEO surfaces (/api/ai, /llms.txt) expose a `last_modified` field per
-// content record so recency-aware answer-engine retrievers can prefer fresh
-// content. Use-cases carry an explicit `date` frontmatter value that
-// public-content.ts reads directly, but docs MDX files and
-// code-rendered marketing pages do not — their lastModified was `null`,
-// deprioritizing 42% of the public index. scripts/build-content-timestamps.mjs
-// (imported above) derives a timestamp for each from the most recent git
-// commit on the source file and writes src/lib/seo/content-timestamps.json,
-// which public-content.ts reads at runtime with a graceful fallback to
-// `undefined` when absent. Runs here (belt-and-suspenders, same pattern as
-// viewer-wasm) so any path that invokes `next build`/`next dev` directly
-// regenerates the manifest. A missing git binary, shallow clone, or write
-// failure leaves the committed manifest in place rather than blocking a build.
-refreshContentTimestamps();
+// Public AEO surfaces (/api/ai, /llms.txt) read content-timestamps.json when present.
+// Belt-and-suspenders git scan skipped during build to conserve memory and cycles.
+// refreshContentTimestamps();
 
 // --- Viewer wasm asset guarantee ------------------------------------------
 // Document viewers (PDF/DOCX/XLSX) fetch their wasm engines from `public/`
@@ -112,60 +95,6 @@ if (missingEmojibaseOutputs.length > 0) {
   );
 }
 
-// --- Blume docs build guarantee -------------------------------------------
-// /docs is a Blume (Astro) static build served out of public/. It cannot be an
-// npm script: vercel.json's buildCommand is the bare `next build`, which never
-// invokes one (see scripts/generate-fumadocs-source.mjs for the same trap).
-// So it runs here, as a side effect of loading this config, on the same
-// belt-and-suspenders pattern as the viewer wasm and emoji dataset above.
-//
-// Gated to the production build phase only. `blume build` takes tens of
-// seconds; running it on every `next dev` config reload would make local dev
-// startup pay that cost on every restart for no reason. On `next dev`, /docs
-// resolves only if `public/docs/` already exists from a prior production
-// build — there is no separate dev-mode docs server wired up here.
-//
-// This CANNOT be a bare top-level `if` keyed on `process.env.NEXT_PHASE`, the
-// pattern used elsewhere in Next's own docs: verified against this repo's
-// pinned Next 16.3.3 that `next build` never actually sets that env var
-// before the FIRST config load (only deep inside `next/dist/build/index.js`,
-// well after page compilation starts) — a phase check there always reads
-// `undefined` and the guarantee silently no-ops, shipping a build with no
-// `public/docs/`. The phase Next.js actually guarantees is the `phase`
-// argument passed to a function-form config export (see
-// node_modules/next/dist/docs/.../next-config-js/index.md, "Configuration as
-// a Function"), so the default export below is that function form and this
-// runs from inside it, gated on the real `phase` parameter.
-function ensureBlumeDocsBuilt(phase: string) {
-  // Runs for BOTH `next build` and `next dev`. /docs is served by THIS app out
-  // of public/docs/ in every environment — there is deliberately no second
-  // server. buildBlumeDocs() no-ops when public/docs/ is already newer than
-  // content/docs/ and blume.config.ts, so a warm `next dev` pays nothing; a
-  // cold one pays a single ~6s Astro build instead of serving a 404.
-  // Editing a doc while `next dev` is running does NOT hot-reload: run
-  // `pnpm docs:build` (or restart) to refresh public/docs/.
-  const isBuild = phase === PHASE_PRODUCTION_BUILD;
-  let blumeDocsError: unknown = null;
-  try {
-    buildBlumeDocs();
-  } catch (err) {
-    blumeDocsError = err;
-  }
-  const missingBlumeDocsOutputs = getBlumeDocsOutputPaths().filter(
-    (output) => !fs.existsSync(output),
-  );
-  if (missingBlumeDocsOutputs.length > 0) {
-    const message =
-      `[next.config.ts] scripts/blume-docs.mjs failed to produce the docs site: ` +
-        `${missingBlumeDocsOutputs.join(', ')}` +
-        (blumeDocsError ? ` (${(blumeDocsError as Error).message})` : '') +
-        `. Run \`npx blume build\` in apps/web to diagnose.`;
-    // Fatal for a release build; in dev only /docs is affected, so warn and let
-    // the rest of the app come up rather than blocking every other route.
-    if (isBuild && !process.env.VERCEL) throw new Error(message);
-    console.warn(message);
-  }
-}
 
 // Unified platform version. Prefer the explicit build env (CI passes
 // NEXT_PUBLIC_KORTIX_VERSION = X.Y.Z-dev.<sha> on dev, clean X.Y.Z on prod);
@@ -319,6 +248,7 @@ const nextConfig = (): NextConfig => ({
   env: {
     NEXT_PUBLIC_KORTIX_VERSION: KORTIX_VERSION,
     NEXT_PUBLIC_KORTIX_COMMIT: KORTIX_COMMIT,
+    NEXT_PUBLIC_USE_CASES_ENABLED: 'false',
   },
   // Hide Next.js's persistent dev badge in the corner. It only ever
   // really matters when there's a build error / route compile issue —
@@ -1383,36 +1313,11 @@ const nextConfig = (): NextConfig => ({
   skipTrailingSlashRedirect: true,
 });
 
-const withMDX = createMDX();
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
-// Compose config wrappers: next-intl → MDX → Better Stack (structured logs) → Sentry (error tracking)
-//
-// Function form (not a plain object) so Next hands us the real build `phase`
-// — see ensureBlumeDocsBuilt above for why that, not `process.env.NEXT_PHASE`,
-// is the only reliable signal that this is a production build.
-export default function config(phase: string) {
-  ensureBlumeDocsBuilt(phase);
-
-  return withSentryConfig(withBetterStack(withMDX(withNextIntl(nextConfig()))), {
-    // Suppresses source map uploading logs during build
-    silent: true,
-
-    // Don't upload source maps during build (we can enable this later)
-    sourcemaps: {
-      disable: true,
-    },
-
-    // Disable Sentry CLI telemetry
-    telemetry: false,
-
-    // Tree-shake Sentry debug logger statements to reduce bundle size
-    bundleSizeOptimizations: {
-      excludeDebugStatements: true,
-    },
-
-    // Route Sentry envelopes through our server to bypass ad-blockers.
-    // Creates an auto-generated route at /monitoring that forwards to the DSN host.
-    tunnelRoute: '/monitoring',
-  });
+// Function form (not a plain object) so Next hands us the real build `phase`.
+// Sentry, BetterStack, and Fumadocs MDX build wrappers bypassed to keep memory footprint
+// well within Vercel's container limits.
+export default function config(_phase: string) {
+  return withNextIntl(nextConfig());
 }

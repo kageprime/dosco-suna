@@ -17,7 +17,7 @@ interface PageProps {
 }
 
 export function generateStaticParams() {
-  return getAllPosts().map((post) => ({ slug: post.slug }));
+  return [];
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
