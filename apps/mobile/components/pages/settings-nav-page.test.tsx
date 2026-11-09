@@ -181,7 +181,7 @@ describe('project Settings controls', () => {
 });
 
 describe('Customize group follows the read leaf and a write leaf', () => {
-  const CUSTOMIZE = ['Trigger', 'Secrets', 'Members', 'Connectors', 'More on kortix.com'];
+  const CUSTOMIZE = ['Trigger', 'Secrets', 'Members', 'Connectors', 'More on dosco.live'];
   test('a plain member sees no Customize row and no hand-off', () => {
     renderAs({
       'project.trigger.read': can(true),
@@ -199,6 +199,6 @@ describe('Customize group follows the read leaf and a write leaf', () => {
     renderAs({ 'project.secret.read': can(true), 'project.secret.write': can(true) });
     expect(row('Secrets')).toBeTruthy();
     expect(row('Trigger')).toBeUndefined();
-    expect(row('More on kortix.com')).toBeTruthy();
+    expect(row('More on dosco.live')).toBeTruthy();
   });
 });

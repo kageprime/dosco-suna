@@ -101,7 +101,7 @@ android {
         // fingerprint.
         def devVariant = System.getenv('APP_VARIANT') == 'dev'
         if (devVariant) applicationIdSuffix '.dev'
-        resValue "string", "app_name", devVariant ? "Kortix (dev)" : "Kortix"
+        resValue "string", "app_name", devVariant ? "Dosco (dev)" : "Dosco"
         manifestPlaceholders += [
             appIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher",
             appRoundIcon: devVariant ? "@mipmap/ic_launcher_dev" : "@mipmap/ic_launcher_round",

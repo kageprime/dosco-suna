@@ -1,5 +1,5 @@
 {
-  "name": "kortix",
+  "name": "@dosco/mobile",
   "main": "expo-router/entry",
   "scripts": {
     "typecheck": "tsgo --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsgo.tsbuildinfo",

@@ -24,7 +24,9 @@ node_modules/
 .expo/
 .metro-health-check*/
 dist/
+**/dist/
 build/
+**/build/
 out/
 coverage/
 .jacoco/

@@ -93,7 +93,7 @@ function macBandMetrics() {
      The page reserves 138.
    - left: the web app draws one control in the slot the lights take on macOS,
      the app-menu button. It pops up this shell's application menu
-     (`show_app_menu`), so About, Settings, Check for Updates and Change Kortix
+     (`show_app_menu`), so About, Settings, Check for Updates and Change Dosco
      Instance are one click away. Alt opens the same menu.
 
    The web half mirrors this as CSS custom properties on

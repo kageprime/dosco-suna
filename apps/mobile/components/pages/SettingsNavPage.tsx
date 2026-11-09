@@ -507,7 +507,7 @@ export function SettingsNavPage({
                     }}
                   />
                 ))}
-                <SettingsRow icon={Globe} label="More on kortix.com" external onPress={openCustomizeOnWeb} />
+                <SettingsRow icon={Globe} label="More on dosco.live" external onPress={openCustomizeOnWeb} />
               </SettingsGroup>
               ) : null}
 
@@ -563,7 +563,7 @@ export function SettingsNavPage({
       <WebHandoffSheet
         ref={connectorsHandoffRef}
         title="Customize in the web app"
-        line="Connectors are set up on kortix.com."
+        line="Connectors are set up on dosco.live."
         run={runConnectorsHandoff}
       />
       {project ? (

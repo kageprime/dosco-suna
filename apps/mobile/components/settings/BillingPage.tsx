@@ -128,7 +128,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
     try {
       await openExternalUrl(getWebBillingUrl());
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
     }
   }, [t, toast]);
 
@@ -277,7 +277,7 @@ export function BillingPage({ visible, accountId, onChangePlan }: BillingPagePro
             ) : null}
             {canPurchase ? (
               <SettingsRow
-                label={t('billing.manageOnWeb', 'Manage on kortix.com')}
+                label={t('billing.manageOnWeb', 'Manage on dosco.live')}
                 external
                 onPress={openWebBilling}
               />

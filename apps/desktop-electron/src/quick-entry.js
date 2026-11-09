@@ -372,7 +372,7 @@ function setupQuickEntry({ dir, openMainWindow, getMainWindow }) {
       // shows the macOS prompt the first time. macOS 11+ reports a never-asked
       // app as denied, so a status check alone never asked (computer-tray.js).
       void desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } }).catch(() => []);
-      notify('Allow Kortix under Screen Recording, then quit and reopen Kortix.', {
+      notify('Allow Dosco under Screen Recording, then quit and reopen Dosco.', {
         label: 'Open Settings',
         run: () => shell.openExternal(SCREEN_RECORDING_SETTINGS),
       });

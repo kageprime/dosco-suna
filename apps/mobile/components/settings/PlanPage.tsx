@@ -91,7 +91,7 @@ export function PlanPage({ visible = true }: PlanPageProps) {
     try {
       await openExternalUrl(url);
     } catch {
-      toast.error(t('billing.openWebFailed', 'Could not open kortix.com. Try again.'));
+      toast.error(t('billing.openWebFailed', 'Could not open dosco.live. Try again.'));
     }
   };
 

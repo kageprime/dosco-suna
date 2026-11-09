@@ -14,7 +14,7 @@
         "image": "macos-tahoe-26.5-xcode-26.6"
       },
       "android": {
-        "resourceClass": "large"
+        "resourceClass": "default"
       }
     },
     "development": {
@@ -86,7 +86,7 @@
         "ascAppId": "6754448524"
       },
       "android": {
-        "applicationId": "com.kortix.application",
+        "applicationId": "live.dosco.mobile",
         "track": "production",
         "releaseStatus": "completed"
       }
