@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dosco Tek — Official 60s Product Film</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --dim: rgba(255, 255, 255, 0.65);
+      --faint: rgba(255, 255, 255, 0.15);
+      --green: #7be3a4;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      border-bottom: 1px solid var(--faint);
+      padding: 14px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .crest-icon {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 12px rgba(255, 60, 0, 0.4));
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--dim);
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--faint);
+    }
+    .stage-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .screen-shell {
+      position: relative;
+      width: 100%;
+      max-width: 1120px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--faint);
+      box-shadow: 0 24px 60px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .screen-shell.vertical {
+      max-width: 420px;
+      aspect-ratio: 9 / 16;
+    }
+    .video-viewport {
+      position: absolute;
+      inset: 0;
+      background: #000;
+    }
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      z-index: 1;
+      transition: opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+      background: #000;
+      will-change: opacity;
+      pointer-events: none;
+    }
+    video.active {
+      opacity: 1;
+      z-index: 3;
+    }
+    video.outgoing {
+      opacity: 0;
+      z-index: 2;
+    }
+    .stage-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.85) 100%);
+      pointer-events: none;
+      z-index: 10;
+    }
+    .stage-content {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .super-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--dim);
+      margin-bottom: 12px;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .super-headline {
+      font-size: clamp(28px, 4.2vw, 56px);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      color: #ffffff;
+      max-width: 22ch;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .super-sub {
+      font-size: clamp(15px, 1.6vw, 22px);
+      color: var(--dim);
+      margin-top: 14px;
+      max-width: 44ch;
+      line-height: 1.45;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    /* Diff Overlay Card */
+    .diff-card {
+      position: absolute;
+      bottom: 48px;
+      right: 48px;
+      width: 440px;
+      background: rgba(10, 10, 10, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #e5e5e5;
+      z-index: 25;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      opacity: 0;
+      transform: translateY(20px) scale(0.97);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+    .diff-card.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .diff-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--faint);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      font-size: 11px;
+      color: var(--dim);
+    }
+    .diff-row {
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    .diff-del {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+    }
+    .diff-add {
+      background: rgba(123, 227, 164, 0.15);
+      color: var(--green);
+    }
+    .merge-btn {
+      margin-top: 14px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.25s ease;
+      background: #ffffff;
+      color: #000000;
+      width: 100%;
+    }
+    .merge-btn.merged {
+      background: var(--green);
+      color: #000;
+      box-shadow: 0 0 30px rgba(123, 227, 164, 0.5);
+    }
+
+    /* End Card with Animated Logo Plate */
+    .end-card-view {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      text-align: center;
+      background: transparent;
+      z-index: 30;
+      opacity: 0;
+      padding-bottom: 48px;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+    }
+    .end-card-view.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .end-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.95) 100%);
+      z-index: 1;
+    }
+    .end-card-inner {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .end-crest-hero {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 0 24px rgba(255, 60, 0, 0.6));
+    }
+    .end-title {
+      font-size: 48px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+    }
+    .end-tagline {
+      font-size: 18px;
+      color: var(--dim);
+      margin-top: 8px;
+      max-width: 38ch;
+    }
+    .end-link {
+      margin-top: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #fff;
+      padding: 9px 22px;
+      border-radius: 999px;
+      border: 1px solid var(--faint);
+      background: rgba(255,255,255,0.06);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .end-link:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    /* Player Controls */
+    .controls-bar {
+      width: 100%;
+      max-width: 1120px;
+      margin-top: 18px;
+      background: rgba(18, 18, 18, 0.9);
+      border: 1px solid var(--faint);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .scrubber-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+      cursor: pointer;
+      position: relative;
+    }
+    .scrubber-fill {
+      height: 100%;
+      background: #fff;
+      border-radius: 3px;
+      width: 0%;
+      position: relative;
+      transition: width 0.05s linear;
+    }
+    .scrubber-thumb {
+      position: absolute;
+      right: -6px;
+      top: -4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .btn-ctrl {
+      background: transparent;
+      border: 1px solid var(--faint);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-ctrl:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .btn-ctrl.active {
+      background: #fff;
+      color: #000;
+    }
+    .timer {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--dim);
+    }
+
+    /* Chapter Chips */
+    .chapters-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .chapter-chip {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--faint);
+      color: var(--dim);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .chapter-chip:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .chapter-chip.active {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* Voiceover Drawer */
+    .vo-box {
+      max-width: 1120px;
+      width: 100%;
+      margin: 20px auto 40px;
+      background: rgba(14, 14, 14, 0.85);
+      border: 1px solid var(--faint);
+      border-radius: 12px;
+      padding: 24px 28px;
+    }
+    .vo-title {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--dim);
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .vo-text {
+      font-size: 16px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.85);
+      font-weight: 400;
+    }
+    .vo-current {
+      color: #ffffff;
+      background: rgba(255,255,255,0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-lockup">
+      <img src="dosco-crest.png" alt="Dosco Crest" class="crest-icon" />
+      <span class="brand-title">Dosco Tek</span>
+      <span class="brand-tag">60s Product Film</span>
+    </div>
+    <div class="ctrl-group">
+      <button id="ratioToggle" class="btn-ctrl">16:9 Master</button>
+      <a href="https://dosco.live" target="_blank" class="btn-ctrl">dosco.live ↗</a>
+    </div>
+  </header>
+
+  <div class="stage-container">
+    <div class="screen-shell" id="screenShell">
+      <div class="video-viewport">
+        <!-- Preloaded Media Plates -->
+        <video id="vid1" src="cursor.mp4" preload="auto" muted playsinline></video>
+        <video id="vid2" src="clock.mp4" preload="auto" muted playsinline></video>
+        <video id="vid3" src="coffee.mp4" preload="auto" muted playsinline></video>
+        <video id="vid4" src="laptop-closed.mp4" preload="auto" muted playsinline></video>
+        <video id="vid5" src="finger-press.mp4" preload="auto" muted playsinline></video>
+        <video id="vid6" src="light-waking.mp4" preload="auto" muted playsinline></video>
+        <video id="vid7" src="keys-drawer.mp4" preload="auto" muted playsinline></video>
+        <video id="vid8" src="vertical-lights.mp4" preload="auto" muted playsinline></video>
+        <video id="vid9" src="hand-button.mp4" preload="auto" muted playsinline></video>
+        <video id="vid10" src="green-line.mp4" preload="auto" muted playsinline></video>
+        <video id="vid11" src="morning-light.mp4" preload="auto" muted playsinline></video>
+        <!-- Logo Animation Reveal for End Card -->
+        <video id="vidLogo" src="dosco-logo-animation.mp4" preload="auto" muted playsinline></video>
+      </div>
+
+      <!-- Soundtrack Audio -->
+      <audio id="soundtrack" src="audio.m4a" preload="auto"></audio>
+
+      <!-- Stage Overlays & Copy -->
+      <div class="stage-overlay"></div>
+
+      <div class="stage-content animate" id="stageContent">
+        <span class="super-eyebrow" id="superEyebrow">The Void</span>
+        <h2 class="super-headline" id="superHeadline">Every business runs on decisions.</h2>
+        <p class="super-sub" id="superSub">Who does the work. What tools they touch. What happens when everyone logs off.</p>
+      </div>
+
+      <!-- Diff Card for Gate Scene -->
+      <div class="diff-card" id="diffCard">
+        <div class="diff-header">
+          <span>change-request #418 · invoice-reconciliation</span>
+          <span style="color:var(--green)">verified 24 items</span>
+        </div>
+        <div class="diff-row diff-del">- reconcile_status: manual_review</div>
+        <div class="diff-row diff-add">+ reconcile_status: auto_approved</div>
+        <div class="diff-row diff-add">+ reconciliation_trigger: async_event</div>
+        <button class="merge-btn" id="mergeBtn">Approve & Merge</button>
+      </div>
+
+      <!-- End Card Featuring Dosco Tek Logo & Fiery Crest -->
+      <div class="end-card-view" id="endCardView">
+        <div class="end-overlay"></div>
+        <div class="end-card-inner">
+          <img src="dosco-crest.png" alt="Dosco Crest" class="end-crest-hero" />
+          <h1 class="end-title">Dosco Tek</h1>
+          <p class="end-tagline">The harness that powers companies that run agents.</p>
+          <a href="https://dosco.live" target="_blank" class="end-link">Get started at dosco.live</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+      <div class="scrubber-track" id="scrubberTrack">
+        <div class="scrubber-fill" id="scrubberFill">
+          <div class="scrubber-thumb"></div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <div class="ctrl-group">
+          <button id="playBtn" class="btn-ctrl">▶ Play</button>
+          <button id="muteBtn" class="btn-ctrl">Sound: Off</button>
+          <span class="timer" id="timerText">00:00 / 01:00</span>
+        </div>
+
+        <div class="chapters-row" id="chaptersRow">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Voiceover Synchronized Card -->
+    <div class="vo-box">
+      <div class="vo-title">
+        <span>Synchronized Spoken Voiceover Script (105 WPM · Low Affect · Close Mic)</span>
+        <span id="sceneLabel">Scene 1 / 12</span>
+      </div>
+      <p class="vo-text" id="voParagraph">
+        <!-- Live updated -->
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const DURATION = 60; // 60 seconds
+    let currentTime = 0;
+    let isPlaying = false;
+    let isMuted = true;
+    let isVertical = false;
+
+    // Granular scene timeline for 100% seamless cut pacing
+    const scenes = [
+      {
+        id: 'c01',
+        start: 0,
+        end: 4,
+        video: 'vid1',
+        eyebrow: '01 · The Void',
+        headline: 'Every company runs on decisions.',
+        sub: '',
+        vo: 'Every company runs on decisions.',
+        chip: '01 The Void'
+      },
+      {
+        id: 'c02',
+        start: 4,
+        end: 7,
+        video: 'vid2',
+        eyebrow: '02 · The Late Night',
+        headline: 'Most of it lives in people\'s heads.',
+        sub: 'Who does the work. What tools they touch. What happens when no one is watching.',
+        vo: 'Who does the work. What they\'re allowed to touch.',
+        chip: '02 Decisions'
+      },
+      {
+        id: 'c03',
+        start: 7,
+        end: 10,
+        video: 'vid3',
+        eyebrow: '03 · Babysitting Prompts',
+        headline: 'The rest lives in software you rent.',
+        sub: 'You still do the work. Copying data between ten different tabs.',
+        vo: 'What happens when no one is watching. Most of it lives in people\'s heads.',
+        chip: '03 Software You Rent'
+      },
+      {
+        id: 'c04',
+        start: 10,
+        end: 14,
+        video: 'vid4',
+        eyebrow: '04 · The Shift',
+        headline: 'Close the laptop.',
+        sub: 'The work keeps going.',
+        vo: 'The rest lives in software you rent. What if you closed your laptop...',
+        chip: '04 Close Laptop'
+      },
+      {
+        id: 'c05',
+        start: 14,
+        end: 18,
+        video: 'vid5',
+        eyebrow: '05 · The Trigger',
+        headline: 'Autonomous execution.',
+        sub: 'Work that starts without anyone asking.',
+        vo: '...and the work kept going?',
+        chip: '05 Autonomous'
+      },
+      {
+        id: 'c06',
+        start: 18,
+        end: 28,
+        video: 'vid6',
+        eyebrow: '06 · Company As Code',
+        headline: 'A company, written down.',
+        sub: 'Agents, skills, memory, and rules. Structured in one repository you own.',
+        vo: 'This is a company written down. Its agents. Its skills. Everything it has learned. In one repository you own.',
+        chip: '06 Company-as-Code'
+      },
+      {
+        id: 'c07',
+        start: 28,
+        end: 34,
+        video: 'vid7',
+        eyebrow: '07 · Governed Tools',
+        headline: 'Every tool your company runs on. None of the keys.',
+        sub: 'Gmail, Stripe, Slack, Notion. Connected directly through scoped tokens.',
+        vo: 'Every tool your company runs on. None of the keys. The agent asks. Dosco brokers.',
+        chip: '07 None Of The Keys'
+      },
+      {
+        id: 'c08',
+        start: 34,
+        end: 40,
+        video: 'vid8',
+        eyebrow: '08 · Real Compute',
+        headline: 'Thousands of computers. One main.',
+        sub: 'Isolated cloud sandboxes running around the clock. Your laptop is not invited.',
+        vo: 'The key never enters the machine. Thousands of computers. One main.',
+        chip: '08 Cloud Sandboxes'
+      },
+      {
+        id: 'c09',
+        start: 40,
+        end: 46,
+        video: 'vid9',
+        eyebrow: '09 · The Gate',
+        headline: 'Nothing merges itself.',
+        sub: 'It can propose. It cannot decide. Every change is a diff a person reviews.',
+        vo: 'Every change reviewed. Every decision reversible. It can propose, but it cannot decide.',
+        chip: '09 The Gate'
+      },
+      {
+        id: 'c10',
+        start: 46,
+        end: 50,
+        video: 'vid10',
+        eyebrow: '10 · Governed Approval',
+        headline: 'One click to merge.',
+        sub: 'Verified outcomes delivered to your review queue. Zero hallucinations in prod.',
+        vo: 'Nothing merges itself.',
+        chip: '10 Approval'
+      },
+      {
+        id: 'c11',
+        start: 50,
+        end: 55,
+        video: 'vid11',
+        eyebrow: '11 · Morning Relief',
+        headline: 'Wake up to finished work.',
+        sub: 'It works while you sleep. You start your day with results, not backlogs.',
+        vo: 'It works while you sleep. It answers when you ask. You wake up to finished work.',
+        chip: '11 Morning Relief'
+      },
+      {
+        id: 'c12',
+        start: 55,
+        end: 60,
+        video: 'vidLogo',
+        eyebrow: '12 · Dosco Tek',
+        headline: 'Dosco Tek',
+        sub: 'The harness that powers companies that run agents.',
+        vo: 'Dosco Tek. The harness that powers companies that run agents. dosco.live',
+        chip: '12 Dosco Tek'
+      }
+    ];
+
+    const playBtn = document.getElementById('playBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const ratioToggle = document.getElementById('ratioToggle');
+    const screenShell = document.getElementById('screenShell');
+    const scrubberTrack = document.getElementById('scrubberTrack');
+    const scrubberFill = document.getElementById('scrubberFill');
+    const timerText = document.getElementById('timerText');
+    const stageContent = document.getElementById('stageContent');
+    const superEyebrow = document.getElementById('superEyebrow');
+    const superHeadline = document.getElementById('superHeadline');
+    const superSub = document.getElementById('superSub');
+    const diffCard = document.getElementById('diffCard');
+    const mergeBtn = document.getElementById('mergeBtn');
+    const endCardView = document.getElementById('endCardView');
+    const chaptersRow = document.getElementById('chaptersRow');
+    const voParagraph = document.getElementById('voParagraph');
+    const sceneLabel = document.getElementById('sceneLabel');
+    const audio = document.getElementById('soundtrack');
+
+    // Build Chapter Chips
+    scenes.forEach((sc, idx) => {
+      const chip = document.createElement('button');
+      chip.className = 'chapter-chip' + (idx === 0 ? ' active' : '');
+      chip.textContent = sc.chip;
+      chip.onclick = () => seekTo(sc.start);
+      chaptersRow.appendChild(chip);
+    });
+
+    function formatTime(s) {
+      const mins = Math.floor(s / 60);
+      const secs = Math.floor(s % 60);
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function getActiveScene(t) {
+      return scenes.find(s => t >= s.start && t < s.end) || scenes[scenes.length - 1];
+    }
+
+    let activeVidElement = null;
+    let primedNextVidElement = null;
+
+    // Pre-warm all videos on initial gesture or load
+    function prewarmVideos() {
+      const allVideos = screenShell.querySelectorAll('video');
+      allVideos.forEach(v => {
+        v.load();
+      });
+    }
+
+    function renderFrame(t) {
+      currentTime = Math.max(0, Math.min(DURATION, t));
+      scrubberFill.style.width = `${(currentTime / DURATION) * 100}%`;
+      timerText.textContent = `${formatTime(currentTime)} / 01:00`;
+
+      const curScene = getActiveScene(currentTime);
+      const sceneIndex = scenes.indexOf(curScene);
+      const nextScene = scenes[sceneIndex + 1] || null;
+
+      // Update chips
+      const chips = chaptersRow.querySelectorAll('.chapter-chip');
+      chips.forEach((c, i) => c.classList.toggle('active', i === sceneIndex));
+      sceneLabel.textContent = `Scene ${sceneIndex + 1} of ${scenes.length}`;
+
+      // Target current video
+      const targetVid = curScene.video ? document.getElementById(curScene.video) : null;
+
+      if (targetVid !== activeVidElement) {
+        if (activeVidElement) {
+          activeVidElement.classList.remove('active');
+          activeVidElement.classList.add('outgoing');
+          const oldVid = activeVidElement;
+          setTimeout(() => {
+            if (oldVid !== activeVidElement) {
+              oldVid.classList.remove('outgoing');
+              oldVid.pause();
+            }
+          }, 450);
+        }
+
+        if (targetVid) {
+          targetVid.classList.remove('outgoing');
+          targetVid.classList.add('active');
+          const sceneElapsed = currentTime - curScene.start;
+          if (Math.abs(targetVid.currentTime - sceneElapsed) > 0.3) {
+            targetVid.currentTime = sceneElapsed;
+          }
+          if (isPlaying) {
+            targetVid.play().catch(() => {});
+          }
+        }
+        activeVidElement = targetVid;
+      } else if (targetVid) {
+        const sceneElapsed = currentTime - curScene.start;
+        if (Math.abs(targetVid.currentTime - sceneElapsed) > 0.4) {
+          targetVid.currentTime = sceneElapsed;
+        }
+      }
+
+      // Lookahead priming: if within 0.8s of next scene, prime & pre-play next video
+      if (nextScene && nextScene.video && isPlaying) {
+        const timeToNext = nextScene.start - currentTime;
+        const nextVid = document.getElementById(nextScene.video);
+        if (timeToNext <= 0.8 && timeToNext > 0) {
+          if (nextVid && nextVid !== primedNextVidElement) {
+            primedNextVidElement = nextVid;
+            nextVid.currentTime = 0;
+            if (timeToNext <= 0.2) {
+              nextVid.play().catch(() => {});
+            }
+          }
+        }
+      } else {
+        primedNextVidElement = null;
+      }
+
+      // Diff Card logic (Scene 9 & 10)
+      if (curScene.id === 'c09' || curScene.id === 'c10') {
+        diffCard.classList.add('visible');
+        if (currentTime >= 46) {
+          mergeBtn.classList.add('merged');
+          mergeBtn.textContent = '✓ Approved & Merged';
+        } else {
+          mergeBtn.classList.remove('merged');
+          mergeBtn.textContent = 'Approve & Merge';
+        }
+      } else {
+        diffCard.classList.remove('visible');
+      }
+
+      // End Card logic with Animated Logo (Scene 12)
+      if (curScene.id === 'c12') {
+        endCardView.classList.add('active');
+        stageContent.style.opacity = '0';
+      } else {
+        endCardView.classList.remove('active');
+        stageContent.style.opacity = '1';
+      }
+
+      // Update Copy with gentle fade
+      if (superHeadline.textContent !== curScene.headline) {
+        superEyebrow.textContent = curScene.eyebrow;
+        superHeadline.textContent = curScene.headline;
+        superSub.textContent = curScene.sub;
+      }
+
+      // Update VO Script
+      voParagraph.innerHTML = scenes.map((s, i) => {
+        if (i === sceneIndex) {
+          return `<span class="vo-current">▶ "${s.vo}"</span>`;
+        }
+        return `<span>"${s.vo}"</span>`;
+      }).join(' &nbsp;•&nbsp; ');
+    }
+
+    let animFrame = null;
+    let lastStamp = null;
+
+    function tick(timestamp) {
+      if (!lastStamp) lastStamp = timestamp;
+      const delta = (timestamp - lastStamp) / 1000;
+      lastStamp = timestamp;
+
+      if (isPlaying) {
+        currentTime += delta;
+        if (currentTime >= DURATION) {
+          currentTime = DURATION;
+          pause();
+        }
+        renderFrame(currentTime);
+        animFrame = requestAnimationFrame(tick);
+      }
+    }
+
+    function play() {
+      prewarmVideos();
+      isPlaying = true;
+      playBtn.textContent = '❚❚ Pause';
+      playBtn.classList.add('active');
+      lastStamp = null;
+      if (!isMuted) {
+        audio.currentTime = currentTime;
+        audio.play().catch(() => {});
+      }
+      if (activeVidElement) {
+        activeVidElement.play().catch(() => {});
+      }
+      animFrame = requestAnimationFrame(tick);
+    }
+
+    function pause() {
+      isPlaying = false;
+      playBtn.textContent = '▶ Play';
+      playBtn.classList.remove('active');
+      audio.pause();
+      const allVideos = screenShell.querySelectorAll('video');
+      allVideos.forEach(v => v.pause());
+      if (animFrame) cancelAnimationFrame(animFrame);
+    }
+
+    function seekTo(target) {
+      renderFrame(target);
+      if (isPlaying && !isMuted) {
+        audio.currentTime = target;
+      }
+    }
+
+    playBtn.onclick = () => (isPlaying ? pause() : play());
+
+    muteBtn.onclick = () => {
+      isMuted = !isMuted;
+      audio.muted = isMuted;
+      muteBtn.textContent = isMuted ? 'Sound: Off' : 'Sound: On';
+      muteBtn.classList.toggle('active', !isMuted);
+      if (!isMuted && isPlaying) {
+        audio.currentTime = currentTime;
+        audio.play().catch(() => {});
+      }
+    };
+
+    ratioToggle.onclick = () => {
+      isVertical = !isVertical;
+      screenShell.classList.toggle('vertical', isVertical);
+      ratioToggle.textContent = isVertical ? '9:16 Reel' : '16:9 Master';
+    };
+
+    scrubberTrack.onclick = (e) => {
+      const rect = scrubberTrack.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      seekTo(pos * DURATION);
+    };
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        isPlaying ? pause() : play();
+      } else if (e.code === 'ArrowRight') {
+        seekTo(currentTime + 2);
+      } else if (e.code === 'ArrowLeft') {
+        seekTo(currentTime - 2);
+      }
+    });
+
+    // Initial warm setup
+    renderFrame(0);
+    window.addEventListener('load', prewarmVideos);
+  </script>
+</body>
+</html>
