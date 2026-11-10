@@ -1225,10 +1225,12 @@ export function UnifiedSettingsPage({
                   <AgentPage
                     projectId={projectId}
                     agentName={selectedAgent}
+                    onBack={() => handleSelectAgent(null)}
                   />
                 ) : (
                   <AgentsPage
                     projectId={projectId}
+                    onSelectAgent={(name) => handleSelectAgent(name)}
                   />
                 )
               )}

@@ -150,15 +150,19 @@ export type RenderAgentApps = (args: { agentName: string; grant: AgentGrant; nee
 
 type Agent = ProjectConfigSummary['agents'][number];
 
+export interface AgentPageProps {
+  projectId: string;
+  agentName: string;
+  renderApps?: RenderAgentApps;
+  onBack?: () => void;
+}
+
 export function AgentPage({
   projectId,
   agentName,
   renderApps,
-}: {
-  projectId: string;
-  agentName: string;
-  renderApps?: RenderAgentApps;
-}) {
+  onBack,
+}: AgentPageProps) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const accountId = useProjectAccountId(projectId);
@@ -278,6 +282,7 @@ export function AgentPage({
       config={config}
       initial={configQuery.data?.block ?? {}}
       renderApps={renderApps}
+      onBack={onBack}
     />
   ) : (
     <ReadOnlyAgentPage
@@ -286,6 +291,7 @@ export function AgentPage({
       config={config}
       block={configQuery.data?.block ?? blockFromScope(agent)}
       canWrite={canWrite}
+      onBack={onBack}
     />
   );
 }
@@ -734,12 +740,14 @@ function EditableAgentPage({
   config,
   initial,
   renderApps,
+  onBack,
 }: {
   projectId: string;
   agent: Agent;
   config: ProjectConfigSummary;
   initial: AgentConfigBlock;
   renderApps?: RenderAgentApps;
+  onBack?: () => void;
 }) {
   const tCapabilities = useI18nTranslations('agentCapabilities');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -971,6 +979,7 @@ function EditableAgentPage({
           slug={agent.name}
           title={name}
           badges={<HeaderBadges agent={agent} config={config} block={draft} />}
+          onBack={onBack}
           actions={
             <AgentActions
               projectId={projectId}
@@ -1030,6 +1039,7 @@ function ReadOnlyAgentPage({
   config,
   block,
   canWrite,
+  onBack,
 }: {
   projectId: string;
   agent: Agent;
@@ -1037,6 +1047,7 @@ function ReadOnlyAgentPage({
   block: AgentConfigBlock;
   /** A writer on a read-only answer keeps Make default and Ask My Kortix to edit. */
   canWrite: boolean;
+  onBack?: () => void;
 }) {
   const t = useI18nTranslations('agentEditor.tabs');
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -1147,6 +1158,7 @@ function ReadOnlyAgentPage({
         slug={agent.name}
         title={name}
         badges={<HeaderBadges agent={agent} config={config} block={block} />}
+        onBack={onBack}
         actions={
           <AgentActions
             projectId={projectId}

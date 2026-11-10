@@ -163,12 +163,14 @@ export function AgentBreadcrumbHeader({
   title,
   badges,
   actions,
+  onBack,
 }: {
   listHref: string;
   slug: string;
   title: ReactNode;
   badges?: ReactNode;
   actions?: ReactNode;
+  onBack?: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const sidebar = useOptionalSidebar();
@@ -180,13 +182,24 @@ export function AgentBreadcrumbHeader({
     >
       {framed ? null : <SidebarToggle />}
       <nav aria-label={tI18nComplete.raw('text2bd873d6c734')} className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
-        <Link
-          href={listHref}
-          prefetch
-          className="text-muted-foreground hover:text-foreground shrink-0 transition-colors duration-fast"
-        >
-          {tI18nComplete.raw('text279b44d2ab4b')}
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-muted-foreground hover:text-foreground shrink-0 transition-colors duration-fast cursor-pointer flex items-center gap-1"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            <span>{tI18nComplete.raw('text279b44d2ab4b')}</span>
+          </button>
+        ) : (
+          <Link
+            href={listHref}
+            prefetch
+            className="text-muted-foreground hover:text-foreground shrink-0 transition-colors duration-fast"
+          >
+            {tI18nComplete.raw('text279b44d2ab4b')}
+          </Link>
+        )}
         <CaretRightIcon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
         <AgentMark slug={slug} />
         <h1 className="text-foreground min-w-0 truncate text-sm font-medium">{title}</h1>

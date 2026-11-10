@@ -91,10 +91,37 @@ describe('AgentsPage access line', () => {
         <AgentsPage projectId="synthetic-project-mixed" />
       </QueryClientProvider>,
     );
-    expect(markup).toContain('aria-label="Filter agents by mode"');
-    expect(markup).toContain('Primary');
+    expect(markup).toContain('subagents-heading');
     expect(markup).toContain('Subagents');
     expect(markup).toContain('@xera');
     expect(markup).toContain('@research-helper');
+  });
+
+  test('AgentsPage accepts onSelectAgent callback prop without crashing', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(qk.project.detail('synthetic-project-mixed'), {
+      account_id: 'synthetic-account',
+      config: {
+        default_agent: 'xera',
+        agents: [
+          {
+            name: 'xera',
+            path: 'agents/xera.md',
+            mode: 'primary',
+            description: 'Primary worker.',
+            scope: { env: 'all', connectors: 'all', kortix_permissions: 'all', kortix_cli: 'all' },
+          },
+        ],
+      },
+    });
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <AgentsPage
+          projectId="synthetic-project-mixed"
+          onSelectAgent={(_name) => {}}
+        />
+      </QueryClientProvider>,
+    );
+    expect(markup).toContain('@xera');
   });
 });

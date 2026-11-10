@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import {
+  ArrowLeftIcon,
   GearSixIcon,
   PaintBrushIcon,
   TranslateIcon,
@@ -292,6 +294,16 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
   const [modelSubTab, setModelSubTab] = useState<'providers' | 'models' | 'custom' | 'gateway' | 'routing' | 'overview' | 'logs'>('providers');
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
+  // Auto-close modal on external route changes so nothing opens behind it
+  const pathname = usePathname();
+  const currentPathRef = useRef(pathname);
+  useEffect(() => {
+    if (currentPathRef.current !== pathname && open) {
+      close();
+    }
+    currentPathRef.current = pathname;
+  }, [pathname, open, close]);
+
   // Sync from store tab on open
   useEffect(() => {
     if (!open) return;
@@ -400,6 +412,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
                       type="button"
                       onClick={() => {
                         setActiveTab(item.id);
+                        setSelectedAgent(null);
                         setStoreTab(item.id as any);
                       }}
                       className={cn(
@@ -449,6 +462,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
                             type="button"
                             onClick={() => {
                               setActiveTab(item.id);
+                              if (item.id !== 'agents') setSelectedAgent(null);
                               if (item.id === 'workspace') setStoreTab('workspace');
                               else if (item.id === 'sandbox') setStoreTab('sandbox');
                               else if (item.id === 'feature-flags') setStoreTab('feature-flags');
@@ -489,6 +503,7 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
                         type="button"
                         onClick={() => {
                           setActiveTab(item.id);
+                          setSelectedAgent(null);
                           if (item.id === 'plan') setStoreTab('plan');
                           else if (item.id === 'credits') setStoreTab('credits');
                           else if (item.id === 'tokens') setStoreTab('tokens');
@@ -521,7 +536,10 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('profile')}
+                onClick={() => {
+                  setActiveTab('profile');
+                  setSelectedAgent(null);
+                }}
                 className={cn(
                   'w-full flex items-center gap-2.5 p-1.5 rounded-lg transition-colors text-left cursor-pointer',
                   activeTab === 'profile' ? 'bg-accent' : 'hover:bg-hover',
@@ -544,13 +562,29 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
           <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
             {/* Header: Title + Subtitle + Close 'X' Button */}
             <header className="h-16 shrink-0 border-b border-border/60 px-6 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-foreground tracking-tight truncate">
-                  {activeDef.label}
-                </h2>
-                <p className="text-xs text-muted-foreground truncate">
-                  {activeDef.description}
-                </p>
+              <div className="min-w-0 flex items-center gap-3">
+                {activeTab === 'agents' && selectedAgent ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedAgent(null)}
+                    className="gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer -ml-2"
+                  >
+                    <ArrowLeftIcon className="size-3.5" />
+                    <span>Agents</span>
+                  </Button>
+                ) : null}
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-foreground tracking-tight truncate">
+                    {activeTab === 'agents' && selectedAgent ? selectedAgent : activeDef.label}
+                  </h2>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeTab === 'agents' && selectedAgent
+                      ? `Customize configuration, instructions, and tools for @${selectedAgent}.`
+                      : activeDef.description}
+                  </p>
+                </div>
               </div>
 
               <Button
@@ -609,9 +643,16 @@ export function UnifiedSettingsModal({ projectId }: UnifiedSettingsModalProps) {
               {activeTab === 'agents' && (
                 projectId ? (
                   selectedAgent ? (
-                    <AgentPage projectId={projectId} agentName={selectedAgent} />
+                    <AgentPage
+                      projectId={projectId}
+                      agentName={selectedAgent}
+                      onBack={() => setSelectedAgent(null)}
+                    />
                   ) : (
-                    <AgentsPage projectId={projectId} />
+                    <AgentsPage
+                      projectId={projectId}
+                      onSelectAgent={(name) => setSelectedAgent(name)}
+                    />
                   )
                 ) : <div className="text-sm text-muted-foreground">Select a project to configure agents.</div>
               )}

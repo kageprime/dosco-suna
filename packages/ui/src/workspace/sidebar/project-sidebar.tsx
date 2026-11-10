@@ -41,6 +41,7 @@ import { ProjectChromeNavItem } from './footer/project-chrome-nav';
 import { CHROME_UI_ENABLED } from '../../internal/chrome/use-chrome-offered';
 import {
   ChatCircleIcon,
+  GearSixIcon,
   MagnifyingGlassIcon,
   PlusIcon,
 } from '@phosphor-icons/react';
@@ -191,6 +192,26 @@ export function ProjectSidebar({
                   this group, and above the nav rows it put a sell between the
                   user and the links they actually use. */}
               <SidebarUpgradeButton accountId={accountId} />
+              {/* Permanent Settings button at the bottom of the sidebar */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  type="button"
+                  tooltip={`${t('settings')} (${modSymbol},)`}
+                  className="group/menu-button text-sidebar-foreground relative"
+                  onClick={() => useSettingsPanelStore.getState().openSettings()}
+                >
+                  <span className="shrink-0">
+                    <GearSixIcon className="size-4" />
+                  </span>
+                  <span className="group-data-[collapsible=icon]:hidden">{t('settings')}</span>
+                  {!isMobile && (
+                    <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden">
+                      <Kbd className="font-mono">{modSymbol}</Kbd>
+                      <Kbd className="font-mono">,</Kbd>
+                    </KbdGroup>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
     </>
   );
 
@@ -423,6 +444,26 @@ export function ProjectSidebar({
                   this group, and above the nav rows it put a sell between the
                   user and the links they actually use. */}
               <SidebarUpgradeButton accountId={accountId} />
+              {/* Permanent Settings button at the bottom of the sidebar */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  type="button"
+                  tooltip={`${t('settings')} (${modSymbol},)`}
+                  className="group/menu-button text-sidebar-foreground relative"
+                  onClick={() => useSettingsPanelStore.getState().openSettings()}
+                >
+                  <span className="shrink-0">
+                    <GearSixIcon className="size-4" />
+                  </span>
+                  <span className="group-data-[collapsible=icon]:hidden">{t('settings')}</span>
+                  {!isMobile && (
+                    <KbdGroup className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden">
+                      <Kbd className="font-mono">{modSymbol}</Kbd>
+                      <Kbd className="font-mono">,</Kbd>
+                    </KbdGroup>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {/* Bottom expand toggle visible only in icon mode */}
               <li className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center pt-1">
                 <Hint side="right" label={t('expandSidebar')}>

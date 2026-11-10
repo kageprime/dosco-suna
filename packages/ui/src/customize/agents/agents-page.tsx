@@ -72,7 +72,12 @@ import { AgentPinButton } from './agent-pin-button';
 
 type Agent = ProjectConfigSummary['agents'][number];
 
-export function AgentsPage({ projectId }: { projectId: string }) {
+export interface AgentsPageProps {
+  projectId: string;
+  onSelectAgent?: (agentName: string) => void;
+}
+
+export function AgentsPage({ projectId, onSelectAgent }: AgentsPageProps) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const t = useI18nTranslations('agentEditor.tabs');
   const tPage = useI18nTranslations('agentEditor.page');
@@ -173,6 +178,7 @@ export function AgentsPage({ projectId }: { projectId: string }) {
       key={agent.name}
       slug={agent.name}
       href={agentHref(projectId, agent.name)}
+      onClick={onSelectAgent ? () => onSelectAgent(agent.name) : undefined}
       onIntent={() => prefetchAgentConfig(queryClient, projectId, agent.name)}
       title={agentDisplayName(agent.name)}
       description={agent.description}
