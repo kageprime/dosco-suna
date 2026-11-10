@@ -150,7 +150,7 @@ describe('Dosco sovereignty invariants', () => {
       expect(content).toContain('## Dosco Sovereign Architecture: Protected Surfaces Against Upstream Divergence');
       expect(content).toContain('apps/api/src/platform/providers/e2b.ts');
       expect(content).toContain('Supabase Storage');
-      expect(content).toContain('The Orc');
+      expect(content).toContain('Dot');
     });
   });
 });
