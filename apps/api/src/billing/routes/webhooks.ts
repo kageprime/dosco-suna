@@ -82,5 +82,27 @@ webhooksRouter.openapi(
   },
 );
 
+webhooksRouter.openapi(
+  createRoute({
+    method: 'post',
+    path: '/paystack',
+    tags: ['billing'],
+    summary: 'Paystack webhook (signature-verified, public)',
+    responses: {
+      200: json(z.record(z.string(), z.any()), 'Webhook processing result'),
+      ...errors(400, 500),
+    },
+  }),
+  async (c: any) => {
+    const signature = c.req.header('x-paystack-signature');
+    if (!signature) return c.json({ error: 'Missing x-paystack-signature header' }, 400);
+
+    const rawBody = await c.req.text();
+    const { processPaystackWebhook } = await import('../services/paystack');
+    const result = await processPaystackWebhook(rawBody, signature);
+    return c.json(result);
+  },
+);
+
 // Sandbox lifecycle webhooks (Daytona/Platinum) live at /v1/webhooks/sandbox/*
 // (platform/webhooks/routes.ts) — they're provider state events, not billing.

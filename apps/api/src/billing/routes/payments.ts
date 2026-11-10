@@ -17,6 +17,7 @@ import { makeOpenApiApp, json, auth, errors } from '../../openapi';
 import { formatUsdAsCredits } from '@kortix/shared';
 import { captureProductEvent } from '../../shared/product-analytics';
 import { analyticsSource } from '../../middleware/analytics-source';
+import { config } from '../../config';
 
 export const paymentsRouter = makeOpenApiApp<AppEnv>();
 
@@ -39,13 +40,14 @@ paymentsRouter.openapi(
               account_id: z.string().optional(),
               success_url: z.string().optional(),
               cancel_url: z.string().optional(),
+              provider: z.string().optional(),
             }),
           },
         },
       },
     },
     responses: {
-      200: json(z.object({ checkout_url: z.string().nullable() }), 'Stripe checkout URL'),
+      200: json(z.object({ checkout_url: z.string().nullable() }), 'Checkout URL'),
       ...errors(400, 429),
     },
   }),
@@ -57,6 +59,7 @@ paymentsRouter.openapi(
     const email = c.get('userEmail');
     const body = await c.req.json();
     const amount = Number(body.amount);
+    const provider = typeof body.provider === 'string' ? body.provider : undefined;
 
     if (!amount || amount <= 0) throw new BillingError('Invalid amount');
 
@@ -69,6 +72,24 @@ paymentsRouter.openapi(
 
     if (!entitlements.canPurchaseCredits) {
       throw new BillingError('Your tier does not allow credit purchases');
+    }
+
+    if (provider === 'paystack' || (!config.STRIPE_SECRET_KEY && config.PAYSTACK_SECRET_KEY)) {
+      const { createPaystackCreditCheckout } = await import('../services/paystack');
+      const checkout = await createPaystackCreditCheckout({
+        accountId,
+        email: email || `${accountId}@user.dosco.live`,
+        amount,
+        successUrl: body.success_url,
+      });
+
+      captureProductEvent({
+        userId: c.get('userId'),
+        accountId,
+        event: 'checkout_started',
+        properties: { kind: 'credits', amount_usd: amount, provider: 'paystack', source: analyticsSource(c) },
+      });
+      return c.json({ checkout_url: checkout.checkout_url });
     }
 
     const customerId = await getOrCreateStripeCustomer(accountId, email);

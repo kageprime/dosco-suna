@@ -79,6 +79,15 @@ mock.module('../wallet', () => ({
   },
 }));
 
+mock.module('./paystack', () => ({
+  createPaystackSubscriptionCheckout: async (params: any) => ({
+    status: 'checkout_created' as const,
+    checkout_url: 'https://checkout.paystack.com/sub_test',
+    reference: 'psk_sub_123',
+    monthly_usd: params.monthlyUsd,
+  }),
+}));
+
 const { setPlan, previewPlan, parseMonthlyUsd } = await import('./subscriptions');
 
 const base = { accountId: 'acct-1', email: 'owner@example.com', successUrl: 'https://s', cancelUrl: 'https://c' };
@@ -337,5 +346,27 @@ describe('paired preview and execution characterization', () => {
     expect((await previewPlan({ accountId: base.accountId, monthlyUsd: 100 })).change).toBe('none');
     await expect(setPlan({ ...base, monthlyUsd: 100 })).rejects.toThrow(/yearly commitment/);
     expect(updates).toHaveLength(0);
+  });
+
+  test('setPlan and previewPlan route through Paystack when provider is paystack', async () => {
+    account = { tier: 'free', planMonthlyUsd: null };
+    const preview = await previewPlan({ accountId: base.accountId, monthlyUsd: 100, provider: 'paystack' });
+    expect(preview).toEqual({
+      change: 'checkout',
+      monthly_usd: 100,
+      current_monthly_usd: null,
+      due_now_usd: 100,
+      credits_now: 10_000,
+      effective_at: null,
+    });
+
+    const result = await setPlan({ ...base, monthlyUsd: 100, provider: 'paystack' });
+    expect(result.status).toBe('checkout_created');
+    expect((result as any).checkout_url).toBe('https://checkout.paystack.com/sub_test');
+
+    // Unchanged when amount matches current plan
+    account = { tier: 'credits', planMonthlyUsd: '100', provider: 'paystack' };
+    const unchanged = await setPlan({ ...base, monthlyUsd: 100, provider: 'paystack' });
+    expect(unchanged).toEqual({ status: 'unchanged', change: 'none', monthly_usd: 100 });
   });
 });

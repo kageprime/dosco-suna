@@ -461,7 +461,7 @@ async function getUsableAutoTopupPaymentMethodId(accountId: string): Promise<str
 
 async function getAutoTopupPaymentStatus(accountId: string): Promise<PaymentMethodResolution> {
   const customer = await getCustomerByAccountId(accountId);
-  if (!customer) {
+  if (!customer || !config.STRIPE_SECRET_KEY) {
     return resolveUsablePaymentMethod({});
   }
 

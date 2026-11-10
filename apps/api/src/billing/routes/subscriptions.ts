@@ -56,6 +56,7 @@ subscriptionsRouter.openapi(
       successUrl: String(body.success_url ?? ''),
       cancelUrl: String(body.cancel_url ?? ''),
       locale: typeof body.locale === 'string' ? body.locale : undefined,
+      provider: typeof body.provider === 'string' ? body.provider : undefined,
     });
     if (result.status === 'checkout_created') {
       captureProductEvent({
@@ -87,7 +88,11 @@ subscriptionsRouter.openapi(
   async (c) => {
     const accountId = await resolveBillingWriteAccountId(c, 'body', 'preview');
     const body = await readJsonObject(c);
-    return c.json(await previewPlan({ accountId, monthlyUsd: parseMonthlyUsd(body.monthly_usd) }));
+    return c.json(await previewPlan({
+      accountId,
+      monthlyUsd: parseMonthlyUsd(body.monthly_usd),
+      provider: typeof body.provider === 'string' ? body.provider : undefined,
+    }));
   },
 );
 

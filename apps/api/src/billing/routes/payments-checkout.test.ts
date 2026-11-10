@@ -4,6 +4,21 @@ import { HTTPException } from 'hono/http-exception';
 const sessions: Array<{ params: unknown; options: unknown }> = [];
 const purchases: unknown[] = [];
 let price: string | null = null;
+let currentConfig = {
+  STRIPE_SECRET_KEY: 'sk_test_synthetic',
+  PAYSTACK_SECRET_KEY: undefined as string | undefined,
+};
+mock.module('../../config', () => ({
+  get config() {
+    return currentConfig;
+  },
+}));
+mock.module('../services/paystack', () => ({
+  createPaystackCreditCheckout: async (params: any) => ({
+    checkout_url: 'https://checkout.paystack.com/psk_test',
+    reference: 'psk_ref_123',
+  }),
+}));
 mock.module('../../shared/stripe', () => ({ getStripe: () => ({ checkout: { sessions: {
   create: async (params: unknown, options: unknown) => {
     sessions.push({ params, options });
@@ -65,3 +80,21 @@ test.each(['/transactions', '/transactions/summary', '/credit-usage', '/auto-top
     }
   },
 );
+
+test('credit checkout routes through Paystack when provider is paystack or Stripe is unconfigured', async () => {
+  currentConfig.STRIPE_SECRET_KEY = '' as any;
+  currentConfig.PAYSTACK_SECRET_KEY = 'sk_test_paystack';
+  try {
+    const response = await paymentsRouter.request('/purchase-credits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: 50, provider: 'paystack' }),
+    });
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json).toEqual({ checkout_url: 'https://checkout.paystack.com/psk_test' });
+  } finally {
+    currentConfig.STRIPE_SECRET_KEY = 'sk_test_synthetic';
+    currentConfig.PAYSTACK_SECRET_KEY = undefined;
+  }
+});

@@ -17,6 +17,7 @@ import { isDeadSubscriptionStatus } from './billing-state';
 import { applyStripeSync } from './account-write-owner';
 import { grantForPaidProrationInvoice } from './proration-grants';
 import Stripe from 'stripe';
+import { config } from '../../config';
 
 /**
  * True for Stripe's "No such <object>" (resource_missing): the id does not
@@ -42,6 +43,7 @@ function isStripeNoSuchResource(err: unknown): boolean {
 export async function resolveLiveStripeCustomerId(accountId: string): Promise<string | null> {
   const existing = await getCustomerByAccountId(accountId);
   if (!existing) return null;
+  if (!config.STRIPE_SECRET_KEY && config.PAYSTACK_SECRET_KEY) return null;
   try {
     const cust = await getStripe().customers.retrieve(existing.id);
     if (!('deleted' in cust) || !cust.deleted) return existing.id;
@@ -92,6 +94,9 @@ export function parseMonthlyUsd(value: unknown): number {
 
 async function planChangeContext(accountId: string, priceId: string) {
   const account = await getCreditAccount(accountId);
+  if (!config.STRIPE_SECRET_KEY && config.PAYSTACK_SECRET_KEY) {
+    return { account, stripe: null as any, live: null, livePaid: null, billedUsd: 0, onCreditsPrice: false, inEffectUsd: 0 };
+  }
   const stripe = getStripe();
   const live = account?.stripeSubscriptionId
     ? await stripe.subscriptions.retrieve(account.stripeSubscriptionId).catch(() => null)
@@ -136,11 +141,33 @@ export async function setPlan(params: {
   successUrl: string;
   cancelUrl: string;
   locale?: string;
+  provider?: string;
 }) {
-  const { accountId, email, monthlyUsd, successUrl, cancelUrl, locale } = params;
+  const { accountId, email, monthlyUsd, successUrl, cancelUrl, locale, provider } = params;
+  const account = await getCreditAccount(accountId);
+  const isPaystack = Boolean(
+    provider === 'paystack' ||
+    (!config.STRIPE_SECRET_KEY && config.PAYSTACK_SECRET_KEY) ||
+    account?.paystackSubscriptionCode ||
+    (account?.provider === 'paystack' && !account?.stripeSubscriptionId)
+  );
+
+  if (isPaystack) {
+    if (account?.tier === 'credits' && account?.planMonthlyUsd && Number(account.planMonthlyUsd) === monthlyUsd) {
+      return { status: 'unchanged' as const, change: 'none' as const, monthly_usd: monthlyUsd };
+    }
+    const { createPaystackSubscriptionCheckout } = await import('./paystack');
+    return await createPaystackSubscriptionCheckout({
+      accountId,
+      email: email || `${accountId}@user.dosco.live`,
+      monthlyUsd,
+      successUrl,
+    });
+  }
+
   const priceId = resolveCreditsPriceId();
   const quantity = monthlyUsd * 100;
-  const { account, stripe, live, livePaid, billedUsd, onCreditsPrice, inEffectUsd } = await planChangeContext(accountId, priceId);
+  const { stripe, live, livePaid, billedUsd, onCreditsPrice, inEffectUsd } = await planChangeContext(accountId, priceId);
 
   if (!livePaid) {
     const customerId = await getOrCreateStripeCustomer(accountId, email);
@@ -256,8 +283,42 @@ export async function setPlan(params: {
  * priced from Stripe's own proration preview, so coupons and the exact period
  * length count; `credits_now` sums the same proration lines the grant sums.
  */
-export async function previewPlan(params: { accountId: string; monthlyUsd: number }) {
-  const { accountId, monthlyUsd } = params;
+export async function previewPlan(params: {
+  accountId: string;
+  monthlyUsd: number;
+  provider?: string;
+}) {
+  const { accountId, monthlyUsd, provider } = params;
+  const account = await getCreditAccount(accountId);
+  const isPaystack = Boolean(
+    provider === 'paystack' ||
+    (!config.STRIPE_SECRET_KEY && config.PAYSTACK_SECRET_KEY) ||
+    account?.paystackSubscriptionCode ||
+    (account?.provider === 'paystack' && !account?.stripeSubscriptionId)
+  );
+
+  if (isPaystack) {
+    const currentUsd = account?.planMonthlyUsd ? Number(account.planMonthlyUsd) : null;
+    if (currentUsd === monthlyUsd) {
+      return {
+        change: 'none' as const,
+        monthly_usd: monthlyUsd,
+        current_monthly_usd: currentUsd,
+        due_now_usd: 0,
+        credits_now: 0,
+        effective_at: null,
+      };
+    }
+    return {
+      change: 'checkout' as const,
+      monthly_usd: monthlyUsd,
+      current_monthly_usd: currentUsd,
+      due_now_usd: monthlyUsd,
+      credits_now: monthlyUsd * 100,
+      effective_at: null,
+    };
+  }
+
   const priceId = resolveCreditsPriceId();
   const { stripe, livePaid, billedUsd, onCreditsPrice, inEffectUsd } = await planChangeContext(accountId, priceId);
   if (!livePaid) {
