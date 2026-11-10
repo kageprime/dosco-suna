@@ -6,13 +6,15 @@ describe('agentDisplayName', () => {
     expect(agentDisplayName('session-reviewer')).toBe('Session reviewer');
   });
 
-  test('the Orchestrator agent keeps its display name', () => {
-    expect(agentDisplayName('mykortix')).toBe('Orchestrator');
+  test('the centralized platform agent displays as Dot', () => {
+    expect(agentDisplayName('mykortix')).toBe('Dot');
+    expect(agentDisplayName('dot')).toBe('Dot');
   });
 
-  test('default workspace agent displays as Xera', () => {
-    expect(agentDisplayName('xera')).toBe('Xera');
-    expect(agentDisplayName('worker')).toBe('Xera');
+  test('default workspace agent displays as Dot', () => {
+    expect(agentDisplayName('xera')).toBe('Dot');
+    expect(agentDisplayName('worker')).toBe('Dot');
+    expect(agentDisplayName('kortix')).toBe('Dot');
   });
 
   test('a truthy non-string slug from model tool input degrades to a label, never throws (KRTX-4511)', () => {

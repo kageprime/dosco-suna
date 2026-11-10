@@ -47,14 +47,13 @@ export function declaredBuiltinAgents(
 }
 
 /**
- * Which built-in agents this project runs. Per key: on only when the manifest
- * sets it to `true` (the repository is the source of truth). Anything else is
- * off: absent, `false`, a non-boolean, a missing or broken file.
+ * Which built-in agents this project runs. Per key: in Dosco, Dot (`my_kortix`)
+ * is on by default unless explicitly disabled (`declared.my_kortix === false`).
  */
 export function resolveBuiltinAgents(
   declared: Partial<Record<BuiltinAgentKey, boolean>>,
 ): Record<BuiltinAgentKey, boolean> {
-  return { my_kortix: declared.my_kortix === true };
+  return { my_kortix: declared.my_kortix !== false };
 }
 
 /** {@link resolveBuiltinAgents} for a raw kortix.yaml manifest: what every API surface reads. */

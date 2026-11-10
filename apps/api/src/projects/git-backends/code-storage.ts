@@ -265,7 +265,7 @@ async function commitPack(
   token: string,
   opts: { branch: string; message: string; files: SeedFile[] },
 ): Promise<void> {
-  const author = { name: 'Xera', email: 'xera@dosco.live' };
+  const author = { name: 'Dot', email: 'dot@dosco.live' };
   const commitFiles: CommitPackFile[] = opts.files.map((f) => ({
     path: f.path,
     content: f.content,

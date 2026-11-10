@@ -46,7 +46,7 @@ export class MemoryError extends Error {
 export const notFound = () => new MemoryError(404, 'memory_not_found', 'Memory not found.');
 
 /** The `mykortix` layer's name, as the Memory screen shows it. */
-export const MY_KORTIX_DISPLAY_NAME = 'My Dosco';
+export const MY_KORTIX_DISPLAY_NAME = 'Dot';
 
 /** Who asks: a person, and their project rights (`session`: a member; `write`: an admin). */
 export interface Viewer {

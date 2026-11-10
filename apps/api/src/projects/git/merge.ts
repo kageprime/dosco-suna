@@ -447,8 +447,8 @@ export async function mergeBranches(
   }
 
   const message = options.message || `Merge branch '${headRef}' into '${baseRef}'`;
-  const authorName = options.authorName || 'Xera';
-  const authorEmail = options.authorEmail || 'xera@dosco.live';
+  const authorName = options.authorName || 'Dot';
+  const authorEmail = options.authorEmail || 'dot@dosco.live';
 
   const commitResult = await runGit(
     ['commit-tree', treeSha, '-p', baseShaBefore, '-p', headSha, '-m', message],

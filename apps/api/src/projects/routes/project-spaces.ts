@@ -40,6 +40,7 @@ import { recordAuditEvent } from '../../shared/audit';
 import { isUuid } from '../../shared/validate';
 import { DEFAULT_AGENT_SENTINEL, isLaunchableAgentName, loadProjectAgents } from '../agents';
 import { assertProjectCapability, loadProjectForUser, projectCapabilityAllowed } from '../lib/access';
+import { canonicalAgentName, isMyKortixAgentName } from '@kortix/shared';
 import { resolveAndAuthorizeAgent } from '../lib/agent-access';
 import { projectsApp } from '../lib/app';
 import {
@@ -318,12 +319,13 @@ function registerSpaceRoutes(): void {
     async (c) => {
       const loaded = await loadSpacesProject(c);
       if (loaded instanceof Response) return loaded;
-      const agentName = c.req.valid('json').agent_name;
+      const rawAgentName = c.req.valid('json').agent_name;
+      const agentName = canonicalAgentName(rawAgentName);
       // The session create route's gates: the caller may run this agent, and
-      // the project's manifest declares it.
+      // the project's manifest declares it (or it is the centralized built-in agent Dot).
       await resolveAndAuthorizeAgent(c, loaded, loaded.row.projectId, agentName);
       if (!(await projectAgentCheck(loaded))(agentName)) {
-        return c.json({ error: `No agent "${agentName}" in this project.`, code: 'agent_not_found' }, 404);
+        return c.json({ error: `No agent "${rawAgentName}" in this project.`, code: 'agent_not_found' }, 404);
       }
       const space = await getOrCreateDm(loaded.row.projectId, loaded.row.accountId, loaded.userId, agentName);
       // Its Files folder in the caller’s own folder, best effort and off the response path.

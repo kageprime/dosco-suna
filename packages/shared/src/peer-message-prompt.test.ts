@@ -35,10 +35,11 @@ describe('peer message prompt', () => {
 });
 
 describe('peerHandleLabel', () => {
-  test("My Kortix's generated handle reads as My Kortix; a named agent as @name", async () => {
+  test("Dot's generated handle reads as Dot; a named agent as @name", async () => {
     const { peerHandleLabel } = await import('./my-kortix-agent');
-    expect(peerHandleLabel('mykortix-d755ceea')).toBe('My Kortix');
-    expect(peerHandleLabel('meta-0a1b2c3d')).toBe('My Kortix');
+    expect(peerHandleLabel('dot-d755ceea')).toBe('Dot');
+    expect(peerHandleLabel('mykortix-d755ceea')).toBe('Dot');
+    expect(peerHandleLabel('meta-0a1b2c3d')).toBe('Dot');
     expect(peerHandleLabel('reviewer')).toBe('@reviewer');
     expect(peerHandleLabel('worker-02ed0ab3')).toBe('@worker-02ed0ab3');
   });

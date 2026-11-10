@@ -138,23 +138,22 @@ describe('My Kortix agent', () => {
     });
   });
 
-  test('builtin_agents: on only when the manifest sets true, else off', () => {
+  test('builtin_agents: in Dosco, Dot is on by default unless explicitly set to false', () => {
     expect(declaredBuiltinAgents({})).toEqual({});
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
     expect(declaredBuiltinAgents({ builtin_agents: { my_kortix: 'no' } })).toEqual({});
     expect(declaredBuiltinAgents({ builtin_agents: ['my_kortix'] })).toEqual({});
-    expect(resolveBuiltinAgents({})).toEqual({ my_kortix: false });
+    expect(resolveBuiltinAgents({})).toEqual({ my_kortix: true });
     expect(resolveBuiltinAgents({ my_kortix: false })).toEqual({ my_kortix: false });
     expect(resolveBuiltinAgents({ my_kortix: true })).toEqual({ my_kortix: true });
     const valid = { project: { name: 'p' }, default_agent: 'worker', agents: { worker: { mode: 'primary', tools: 'all' } } };
-    expect(projectBuiltinAgents(valid)).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents(valid)).toEqual({ my_kortix: true });
     expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: true } })).toEqual({ my_kortix: true });
     expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: false } })).toEqual({ my_kortix: false });
-    expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: 'yes' } })).toEqual({ my_kortix: false });
-    // No exception for a missing, empty or broken file: only the file's own `true` turns it on.
-    expect(projectBuiltinAgents(null)).toEqual({ my_kortix: false });
-    expect(projectBuiltinAgents({})).toEqual({ my_kortix: false });
-    expect(projectBuiltinAgents({ ...valid, sandbox: 42 })).toEqual({ my_kortix: false });
+    expect(projectBuiltinAgents({ ...valid, builtin_agents: { my_kortix: 'yes' } })).toEqual({ my_kortix: true });
+    expect(projectBuiltinAgents(null)).toEqual({ my_kortix: true });
+    expect(projectBuiltinAgents({})).toEqual({ my_kortix: true });
+    expect(projectBuiltinAgents({ ...valid, sandbox: 42 })).toEqual({ my_kortix: true });
     expect(projectBuiltinAgents({ ...valid, sandbox: 42, builtin_agents: { my_kortix: true } })).toEqual({ my_kortix: true });
   });
 

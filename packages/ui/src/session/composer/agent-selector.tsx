@@ -58,7 +58,10 @@ export function resolveDisplayedAgentName(primaryAgents: Agent[], selectedAgent:
 export function agentDisplayLabel(agents: Agent[], selectedAgent: string | null): string {
   const name = resolveDisplayedAgentName(composerSelectableAgents(agents), selectedAgent);
   if (!name) return 'Agent';
-  return isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name);
+  if (name === 'worker' || name === 'kortix' || name === 'xera' || name === 'dot' || isMyKortixAgentName(name)) {
+    return 'Dot';
+  }
+  return capitalizeWords(name);
 }
 
 /**
@@ -79,7 +82,10 @@ export function useComposerAgentChoices(agents: Agent[]) {
   const primaryAgents = useMemo(() => composerSelectableAgents(offered), [offered]);
   const label = useCallback(
     (name: string) =>
-      agentLabels?.[name] ?? (isMyKortixAgentName(name) ? MY_KORTIX_DISPLAY_NAME : capitalizeWords(name)),
+      agentLabels?.[name] ??
+      (name === 'worker' || name === 'kortix' || name === 'xera' || name === 'dot' || isMyKortixAgentName(name)
+        ? 'Dot'
+        : capitalizeWords(name)),
     [agentLabels],
   );
   return { offered, primaryAgents, label, agentLabels };

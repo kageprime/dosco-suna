@@ -565,10 +565,10 @@ async function resolveSessionAgent(params: {
     (project.metadata as Record<string, unknown> | null | undefined)?.default_agent,
   );
   const projectDefaultAgent = normalizeString(loadedAgents.defaultAgent) ?? mirroredDefaultAgent;
-  // My Kortix (slug `mykortix`) runs only when kortix.yaml sets
-  // `builtin_agents.my_kortix: true`.
-  // Off: a session that would run My Kortix is refused with 409
-  // builtin_agent_disabled. Without the refusal it ran with My Kortix's grant,
+  // Dot (slug `dot`, internal `mykortix`) runs by default unless kortix.yaml sets
+  // `builtin_agents.my_kortix: false`.
+  // Off: a session that would run Dot is refused with 409
+  // builtin_agent_disabled. Without the refusal it ran with Dot's grant,
   // prompt and sandbox anyway.
   const metaAgentEnabled = loadedAgents.builtinAgents?.my_kortix === true;
   // Meta→meta recursion stop. Anyone — dashboard users included — may start
@@ -626,7 +626,7 @@ async function resolveSessionAgent(params: {
         status: 409,
         body: {
           error:
-            'My Kortix is off in this project. Pick a project agent, or set `builtin_agents: { my_kortix: true }` in kortix.yaml.',
+            'Dot is off in this project. Pick a project agent, or enable Dot in kortix.yaml.',
           code: 'builtin_agent_disabled',
         },
       },

@@ -169,15 +169,10 @@ export function AuthFrame({
               <div className="space-y-2 text-[11px] leading-relaxed">
                 <div className="flex items-center gap-2 text-neutral-300">
                   <span className="text-red-400 font-bold">❯</span>
-                  <span>System agent:</span>
-                  <span className="font-medium text-white">Orchestrator (&quot;The Orc&quot;)</span>
+                  <span>Primary agent:</span>
+                  <span className="font-medium text-white">Dot (@dot)</span>
+                  <span className="text-neutral-300">dot@dosco.live</span>
                   <span className="text-emerald-400">[ONLINE]</span>
-                </div>
-                <div className="flex items-center gap-2 text-neutral-300">
-                  <span className="text-red-400 font-bold">❯</span>
-                  <span>Default workspace:</span>
-                  <span className="font-medium text-white">Xera (@xera)</span>
-                  <span className="text-neutral-300">xera@dosco.live</span>
                 </div>
                 <div className="flex items-center gap-2 text-neutral-300">
                   <span className="text-red-400 font-bold">❯</span>

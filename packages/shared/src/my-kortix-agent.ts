@@ -1,6 +1,7 @@
-/** My Kortix, the platform's built-in agent: its slug. Session rows, token
- *  grants, the sandbox slug, image names and the config-release variant key
- *  on it. */
+/** Dot (slug `dot`, internal compatibility slug `mykortix`), the platform's
+ *  centralized agent: session rows, token grants, sandbox slug, image names
+ *  and config-release variant key on it. */
+export const DOT_AGENT_NAME = 'dot';
 export const MY_KORTIX_AGENT_NAME = 'mykortix';
 /** The slug My Kortix had until 2026-10-30. Sessions, tokens and boxes made
  *  before the rename still carry it, so every read accepts it
@@ -8,31 +9,31 @@ export const MY_KORTIX_AGENT_NAME = 'mykortix';
  *  session or box from before the rename is live. */
 export const LEGACY_MY_KORTIX_AGENT_NAME = 'meta';
 export const MY_KORTIX_SANDBOX_SLUG = 'mykortix';
-/** My Kortix — the built-in agent's DISPLAY name, the name every UI renders. */
-export const MY_KORTIX_DISPLAY_NAME = 'Orchestrator';
+/** Dot — the centralized agent's DISPLAY name, the name every UI renders. */
+export const MY_KORTIX_DISPLAY_NAME = 'Dot';
 
-/** True for My Kortix under its slug, or the legacy `meta` slug of an older session. */
+/** True for Dot under its canonical slug, the internal `mykortix` slug, or the legacy `meta` slug. */
 /**
- * How a person reads a session's message handle: My Kortix's own session has
- * the generated handle `mykortix-<short id>` (or the legacy `meta-…`), shown
- * as "My Kortix"; a named agent shows as `@name`.
+ * How a person reads a session's message handle: Dot's own session has
+ * the generated handle `dot-<short id>` or `mykortix-<short id>` (or legacy `meta-…`),
+ * shown as "Dot"; a named agent shows as `@name`.
  */
 export function peerHandleLabel(handle: string): string {
-  return /^(mykortix|meta)-[0-9a-f]{8}$/.test(handle) ? MY_KORTIX_DISPLAY_NAME : `@${handle}`;
+  return /^(dot|mykortix|meta)-[0-9a-f]{8}$/.test(handle) ? MY_KORTIX_DISPLAY_NAME : `@${handle}`;
 }
 
 export function isMyKortixAgentName(name: string | null | undefined): boolean {
-  return name === MY_KORTIX_AGENT_NAME || name === LEGACY_MY_KORTIX_AGENT_NAME;
+  return name === MY_KORTIX_AGENT_NAME || name === LEGACY_MY_KORTIX_AGENT_NAME || name === DOT_AGENT_NAME;
 }
 
-/** True for My Kortix's sandbox slug, or the legacy `meta` slug of an older box. */
+/** True for Dot's sandbox slug, or the legacy `meta` slug of an older box. */
 export function isMyKortixSandboxSlug(slug: string | null | undefined): boolean {
-  return slug === MY_KORTIX_SANDBOX_SLUG || slug === LEGACY_MY_KORTIX_AGENT_NAME;
+  return slug === MY_KORTIX_SANDBOX_SLUG || slug === LEGACY_MY_KORTIX_AGENT_NAME || slug === DOT_AGENT_NAME;
 }
 
-/** The current slug for a name: `meta` becomes `mykortix`, any other name stays. */
+/** The current slug for a name: `meta` and `dot` map to `mykortix` internally, any other name stays. */
 export function canonicalAgentName<T extends string | null | undefined>(name: T): T | typeof MY_KORTIX_AGENT_NAME {
-  return name === LEGACY_MY_KORTIX_AGENT_NAME ? MY_KORTIX_AGENT_NAME : name;
+  return name === LEGACY_MY_KORTIX_AGENT_NAME || name === DOT_AGENT_NAME ? MY_KORTIX_AGENT_NAME : name;
 }
 
 /**

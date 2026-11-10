@@ -118,7 +118,7 @@ export function agentDisplayName(slug: string): string {
   // form instead of crashing the render tree (KRTX-4511: `e.replace is not a
   // function` took down the session page).
   if (typeof slug !== 'string') return String(slug);
-  if (slug === 'worker' || slug === 'kortix' || slug === 'xera') return 'Xera';
+  if (slug === 'worker' || slug === 'kortix' || slug === 'xera' || slug === 'dot') return 'Dot';
   const words = slug.replace(/[-_]+/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

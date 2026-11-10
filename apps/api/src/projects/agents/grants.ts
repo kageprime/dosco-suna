@@ -80,7 +80,7 @@ export function isLaunchableAgentName(agentName: string, loaded: LoadedAgents): 
   const name = agentName.trim();
   if (!name) return false;
   if (name === DEFAULT_AGENT_SENTINEL) return true;
-  // My Kortix is launchable only when kortix.yaml sets `builtin_agents.my_kortix: true`.
+  // Dot (slug `dot`, internal `mykortix`) is launchable when the project runs it (default true via resolveBuiltinAgents).
   if (isMyKortixAgentName(name)) return loaded.builtinAgents?.my_kortix === true;
   // OpenCode shipped these in every runtime and a governed project's picker can
   // still send one. They are the runtime's own, not another project's, so they

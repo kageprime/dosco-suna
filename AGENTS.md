@@ -118,8 +118,7 @@ corner to make sure the output is good.
   On every user-facing, customer-facing, or marketing surface, replace any reference with Dosco.
 
 - **Company and platform identity:** Dosco or Dosco Tek. Tagline: **"Dosco Tek is the harness that powers companies that run agents."**
-- **Built-in system agent is Orchestrator ("The Orc"):** (Internal slug `mykortix`). Never write "My Kortix" in customer-facing copy, UI labels, or documentation.
-- **Default workspace agent is Xera:** (Internal slug `xera`, `@xera`, `xera@dosco.live`). Do not write "kortix" as an agent name.
+- **Platform and default agent is Dot:** (Display name `Dot`, internal compatibility slugs `dot`, `mykortix`, `xera`, handle `@dot`, email `dot@dosco.live`). Never write "Kortix" or "My Kortix" in customer-facing copy, UI labels, or documentation.
 - **Repository manifest is `kortix.yaml`:** Retain the technical filename for project manifests.
 - **Translation source of truth:** `apps/web/translations/en.json` is the root source of truth for both the web app and `@kortix/ui`. When updating translations, regenerate `@kortix/ui` catalog via `pnpm --filter @kortix/ui gen-i18n-catalog` and verify zero drift with `node packages/ui/scripts/gen-i18n-catalog.mjs --check`.
 - **Download and installer repository:** Dosco downloads and installers originate from `https://github.com/kageprime/dosco-suna`, never `kortix-ai/CompanyOS`.
@@ -178,7 +177,7 @@ When syncing changes from upstream Kortix (`kortix-ai/CompanyOS` or `kortix-ai/s
    - Verify `e2b.ts` and E2B references were not deleted or stripped.
    - Verify `driveStorageAvailable()` was not replaced with `isPlatinumConfigured()`.
    - Verify `Dockerfile.heroku` was not overwritten.
-   - Verify Dosco brand rules and "The Orc" naming were preserved.
+   - Verify Dosco brand rules and "Dot" naming were preserved.
    - Verify upstream navbar GitHub stars and `kortix-ai/CompanyOS` links are not reintroduced.
    - Verify translations in `en.json` and `packages/ui/src/i18n/en.ts` retain generic "workspace" and Dosco terms.
 3. **Mandatory gates**:

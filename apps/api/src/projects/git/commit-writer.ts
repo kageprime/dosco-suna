@@ -429,8 +429,8 @@ export async function commitMultipleFilesToBranch(
   const expectedFileRevision = normalizeExpectedFileRevision(opts);
   await assertExpectedRevisions(repoPath, parentSha, expectedFileRevision, opts);
 
-  const author = opts.authorName || 'Xera';
-  const email = opts.authorEmail || 'xera@dosco.live';
+  const author = opts.authorName || 'Dot';
+  const email = opts.authorEmail || 'dot@dosco.live';
   const identEnv = {
     GIT_AUTHOR_NAME: author,
     GIT_AUTHOR_EMAIL: email,
