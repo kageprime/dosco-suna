@@ -850,7 +850,7 @@ export function ModelSelector({
                           showSubscriptionTag={false}
                         />
                       ))}
-                    {isOpen && section.id === 'antigravity' && (
+                    {open && section.id === 'antigravity' && (
                       <CommandItem
                         value="antigravity-view-usage"
                         onSelect={() => {
