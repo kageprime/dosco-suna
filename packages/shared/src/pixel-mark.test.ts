@@ -18,10 +18,10 @@ describe('pixelMarkShape', () => {
     }
   });
 
-  test('golden My Kortix mark: the 12 × 10 Kortix symbol, solid and dithered cells', () => {
+  test('golden My Kortix mark: the 12 × 10 Dosco crest, solid and dithered cells', () => {
     expect(pixelMarkShape('mykortix')).toMatchObject({
-      path: 'M0 0h2v1h-2zM5 0h2v1h-2zM10 0h2v1h-2zM0 1h2v1h-2zM5 1h2v1h-2zM10 1h2v1h-2zM1 2h1v1h-1zM5 2h2v1h-2zM10 2h1v1h-1zM1 3h2v1h-2zM5 3h2v1h-2zM9 3h2v1h-2zM2 4h8v1h-8zM2 5h8v1h-8zM1 6h2v1h-2zM5 6h2v1h-2zM9 6h2v1h-2zM1 7h1v1h-1zM5 7h2v1h-2zM10 7h1v1h-1zM0 8h2v1h-2zM5 8h2v1h-2zM10 8h2v1h-2zM0 9h2v1h-2zM5 9h2v1h-2zM10 9h2v1h-2z',
-      ditherPath: 'M0 2h1v1h-1zM2 2h1v1h-1zM9 2h1v1h-1zM11 2h1v1h-1zM3 3h1v1h-1zM8 3h1v1h-1zM3 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM9 7h1v1h-1zM11 7h1v1h-1z',
+      path: 'M6 0h2v1h-2zM6 1h2v1h-2zM6 2h1v1h-1zM9 2h2v1h-2zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h2v1h-2zM4 4h5v1h-5zM3 5h1v1h-1zM5 5h3v1h-3zM4 6h4v1h-4zM3 7h2v1h-2zM7 7h2v1h-2zM2 8h2v1h-2zM8 8h2v1h-2zM1 9h1v1h-1zM9 9h2v1h-2z',
+      ditherPath: 'M5 2h1v1h-1zM7 2h1v1h-1zM11 2h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM10 3h1v1h-1zM3 4h1v1h-1zM4 5h1v1h-1zM8 6h1v1h-1zM9 7h1v1h-1zM7 8h1v1h-1zM10 8h1v1h-1zM0 9h1v1h-1zM2 9h1v1h-1zM11 9h1v1h-1z',
       width: 12,
       height: 10,
     });

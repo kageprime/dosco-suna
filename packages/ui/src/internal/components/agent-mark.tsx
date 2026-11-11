@@ -41,6 +41,28 @@ export function agentMarkTileClass(slug: string): string | undefined {
  *  mark fills `size`; a wider reserved grid (My Kortix's 12 × 10 symbol) keeps
  *  whole-pixel cells, `floor(size / 12)` px each. */
 export function AgentMarkGlyph({ slug, size }: { slug: string; size: AgentMarkSize }) {
+  if (isMyKortixAgentName(slug) || slug === 'kortix' || slug === 'dot' || slug === 'xera') {
+    return (
+      <span className="relative inline-flex items-center justify-center shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/dosco-icon-light.png"
+          alt={MY_KORTIX_DISPLAY_NAME}
+          draggable={false}
+          className="shrink-0 select-none object-contain dark:hidden"
+          style={{ width: `${size}px`, height: `${size}px` }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/dosco-icon-dark.png"
+          alt={MY_KORTIX_DISPLAY_NAME}
+          draggable={false}
+          className="hidden shrink-0 select-none object-contain dark:block"
+          style={{ width: `${size}px`, height: `${size}px` }}
+        />
+      </span>
+    );
+  }
   const mark = pixelMark(slug);
   const cell = mark.width === 7 ? size / 7 : Math.max(1, Math.floor(size / 12));
   return (
@@ -82,6 +104,8 @@ export function AgentMark({
   label?: string;
   className?: string;
 }) {
+  const isDot = isMyKortixAgentName(slug) || slug === 'kortix' || slug === 'dot' || slug === 'xera';
+  const iconSize = Math.max(12, Math.round(tile * 0.65));
   // A mark is a face, not a name: the hover hint says whose face it is.
   const mark = (
     <span
@@ -95,7 +119,28 @@ export function AgentMark({
         className,
       )}
     >
-      <AgentMarkGlyph slug={slug} size={size} />
+      {isDot ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/dosco-icon-light.png"
+            alt={label ?? MY_KORTIX_DISPLAY_NAME}
+            draggable={false}
+            className="shrink-0 select-none object-contain dark:hidden"
+            style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/dosco-icon-dark.png"
+            alt={label ?? MY_KORTIX_DISPLAY_NAME}
+            draggable={false}
+            className="hidden shrink-0 select-none object-contain dark:block"
+            style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+          />
+        </>
+      ) : (
+        <AgentMarkGlyph slug={slug} size={size} />
+      )}
     </span>
   );
   return (
