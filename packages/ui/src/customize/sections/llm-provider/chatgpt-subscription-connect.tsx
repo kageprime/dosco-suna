@@ -12,6 +12,7 @@ import {
   createAccountSecretResource,
   deleteAccountSecretResource,
   deleteProjectProviderOAuth,
+  deleteProjectSecret,
   getClaudeSubscription,
   getProjectDetail,
   listAccountSecretResources,
@@ -22,7 +23,7 @@ import {
   startProjectProviderOAuth,
   upsertProjectSecret,
 } from '@kortix/sdk';
-import { parseAntigravityAuth } from '@kortix/api-contract/antigravity';
+import { parseAntigravityAuth } from './antigravity-auth';
 import { contract, qk, refreshProjectProviderState } from '@kortix/sdk/react';
 import {
   CheckCircleIcon as CheckCircle2,
@@ -321,11 +322,16 @@ export function useSubscriptionSignIn({
   });
   const connected = useMemo(() => {
     if (claude) return claudeQuery.data?.connected === true;
+    if (antigravity) {
+      const data = secretsQuery.data;
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      return items.some((item) => item.name === 'ANTIGRAVITY_AUTH_JSON');
+    }
     if (!chatgpt) return (loginsQuery.data ?? []).some((login) => login.provider_id === subscription.oauth);
     const data = secretsQuery.data;
     const items = Array.isArray(data) ? data : (data?.items ?? []);
     return subscriptionIsConnected(items.map((item) => item.name));
-  }, [chatgpt, claude, claudeQuery.data, loginsQuery.data, secretsQuery.data, subscription.oauth]);
+  }, [antigravity, chatgpt, claude, claudeQuery.data, loginsQuery.data, secretsQuery.data, subscription.oauth]);
 
   const disconnect = useMutation({
     // The server route was always correct and always unreachable: it deletes
@@ -340,6 +346,16 @@ export function useSubscriptionSignIn({
         for (const secret of secrets.filter((item) => item.provider_id === subscription.providerId && item.created_by === viewer?.id)) {
           await deleteAccountSecretResource(accountId, secret.secret_id);
         }
+      } else if (antigravity) {
+        await deleteProjectSecret(projectId, 'ANTIGRAVITY_AUTH_JSON').catch(() => {});
+        const detail = await getProjectDetail(projectId).catch(() => null);
+        const accountId = detail?.project?.account_id;
+        if (accountId) {
+          const { secrets } = await listAccountSecretResources(accountId, projectId).catch(() => ({ secrets: [] }));
+          for (const secret of secrets.filter((item) => item.provider_id === 'antigravity')) {
+            await deleteAccountSecretResource(accountId, secret.secret_id).catch(() => {});
+          }
+        }
       } else await deleteProjectProviderOAuth(projectId, subscription.oauth);
     },
     // Returning the promise keeps the button in its pending state until the
@@ -351,6 +367,10 @@ export function useSubscriptionSignIn({
         void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
       }
       else if (chatgpt) await forgetSubscriptionCredentials(queryClient, projectId);
+      else if (antigravity) {
+        void queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
+        void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
+      }
       else {
         queryClient.setQueryData(providerLoginsKey(projectId), (logins: Awaited<ReturnType<typeof listProjectProviderOAuth>> | undefined) =>
           logins?.filter((login) => login.provider_id !== subscription.oauth));

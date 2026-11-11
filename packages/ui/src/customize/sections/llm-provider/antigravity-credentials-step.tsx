@@ -6,7 +6,7 @@ import { useTranslations } from '../../../i18n';
 import { Button } from '../../../primitives/button';
 import { Textarea } from '../../../primitives/textarea';
 import Loading from '../../../primitives/loading';
-import { parseAntigravityAuth } from '@kortix/api-contract/antigravity';
+import { parseAntigravityAuth } from './antigravity-auth';
 import { errorToast } from '../../../primitives/toast';
 
 export function AntigravityCredentialsStep({

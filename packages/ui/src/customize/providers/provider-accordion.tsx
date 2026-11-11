@@ -72,6 +72,7 @@ import {
   useProviderMeta,
 } from './provider-connect';
 import {
+  AntigravityCredentialsStep,
   ClaudeCodeStep,
   DeviceCode,
   ProviderKeyForm,
@@ -511,8 +512,8 @@ function SignInSubRows({
   const sign = useSubscriptionSignIn({ projectId, kind: sub.kind, onConnected: () => undefined });
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const waiting = sign.phase === 'waiting';
-  // A Claude login is the member's own: any member signs in. A shared login needs write access.
-  const canSignIn = canWrite || sign.pastesCode;
+  // A Claude or Antigravity login is the member's own: any member signs in. A shared login needs write access.
+  const canSignIn = canWrite || sign.pastesCode || sign.isAntigravity;
 
   const copyCode = () => {
     if (!sign.challenge?.code) return;
@@ -551,7 +552,14 @@ function SignInSubRows({
             ? t('signingIn', { name: sub.name })
             : `${t('subscription', { plan: sub.plan })} · ${t('notConnected')}`}
       </AccordionSubRow>
-      {waiting && sign.pastesCode ? (
+      {waiting && sign.isAntigravity ? (
+        <div className="border-border border-t py-3">
+          <AntigravityCredentialsStep
+            saving={sign.checking}
+            onSubmit={(raw) => void sign.submitAntigravityCredentials(raw)}
+          />
+        </div>
+      ) : waiting && sign.pastesCode ? (
         <div className="border-border border-t py-3">
           <ClaudeCodeStep url={sign.challenge?.url ?? null} checking={sign.checking} onSubmit={(code) => void sign.submitCode(code)} />
         </div>

@@ -38,8 +38,8 @@ export function parseAntigravityAuth(value: string | null | undefined): StoredAn
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  // Handle raw bearer token or Gemini API key directly
-  if (trimmed.startsWith('ya29.') || trimmed.startsWith('Bearer ') || trimmed.startsWith('AIzaSy')) {
+  // Handle raw token or key (non-JSON) directly
+  if (!trimmed.startsWith('{')) {
     return {
       type: 'bearer',
       access: trimmed.replace(/^Bearer\s+/i, ''),
@@ -75,7 +75,11 @@ export function parseAntigravityAuth(value: string | null | undefined): StoredAn
     }
     return null;
   } catch {
-    return null;
+    return {
+      type: 'bearer',
+      access: trimmed.replace(/^Bearer\s+/i, ''),
+      expires: Date.now() + 365 * 24 * 3600 * 1000,
+    };
   }
 }
 

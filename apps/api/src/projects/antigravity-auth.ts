@@ -63,6 +63,9 @@ export async function startAntigravityDeviceAuth(): Promise<AntigravityDeviceCha
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => '');
+    if (res.status === 401 && errorText.includes('invalid_client')) {
+      throw new Error('Google OAuth device authorization requires a Google Cloud TV/Limited Input client. Connect Google Antigravity by pasting your Antigravity token or credentials instead.');
+    }
     throw new Error(`Failed to start Google Antigravity device authorization (${res.status}): ${errorText}`);
   }
 

@@ -53,8 +53,9 @@ import { Copy } from '../../icons/copy';
 import { InputGroup, InputGroupInput } from '../../primitives/input-group';
 import Loading from '../../primitives/loading';
 import { ClaudeCodeStep } from '../sections/llm-provider/claude-code-step';
+import { AntigravityCredentialsStep } from '../sections/llm-provider/antigravity-credentials-step';
 
-export { ClaudeCodeStep };
+export { ClaudeCodeStep, AntigravityCredentialsStep };
 import {
   SplitSheetBody,
   SplitSheetDescription,
@@ -719,8 +720,8 @@ function SubscriptionBody({ projectId, entry, connected: keyConnected, canWrite,
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const waiting = sign.phase === 'waiting';
   const anyConnected = sign.connected || keyConnected;
-  // A Claude login is the member's own: any member signs in. A shared login or a key needs write access.
-  const canSignIn = canWrite || sign.pastesCode;
+  // A Claude or Antigravity login is the member's own: any member signs in. A shared login or a key needs write access.
+  const canSignIn = canWrite || sign.pastesCode || sign.isAntigravity;
 
   const copyCode = () => {
     if (!sign.challenge?.code) return;
@@ -731,7 +732,12 @@ function SubscriptionBody({ projectId, entry, connected: keyConnected, canWrite,
   if (!canSignIn) {
     body = anyConnected ? null : <p className="text-muted-foreground text-sm">{t('readOnly')}</p>;
   } else if (waiting) {
-    body = sign.pastesCode ? (
+    body = sign.isAntigravity ? (
+      <AntigravityCredentialsStep
+        saving={sign.checking}
+        onSubmit={(raw) => void sign.submitAntigravityCredentials(raw)}
+      />
+    ) : sign.pastesCode ? (
       <ClaudeCodeStep url={sign.challenge?.url ?? null} checking={sign.checking} onSubmit={(code) => void sign.submitCode(code)} />
     ) : (
       <DeviceCode
