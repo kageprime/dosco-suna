@@ -55,12 +55,12 @@ console.log(`
 // Classifiers, model pricing, the managed lineup and the gateway catalog.
 await prepareProcess({ entry: import.meta.main });
 
-// Boot only when this module is the entry point (`bun run src/index.ts`, which
-// is how both `pnpm dev` and the Docker CMD launch it). Guarding behind
-// import.meta.main lets tooling and tests `import { app }` to introspect the
-// route table without starting the DB schema check, background workers, or
-// signal handlers. Does NOT change production boot — there, import.meta.main is true.
-if (import.meta.main) {
+/**
+ * The boot sequence any non-entry importer (serve.ts) must run after loading
+ * this module: schema check -> services -> signal handlers. Entry boot calls
+ * this; tests and tooling that `import { app }` do not.
+ */
+export function startBootServices(): void {
   // One line an operator can grep for when email "does not work": which
   // providers EMAIL_URL resolved to, and the address mail is sent from. Never
   // prints credentials.
@@ -83,6 +83,15 @@ if (import.meta.main) {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+// Boot only when this module is the entry point (`bun run src/index.ts`, which
+// is how both `pnpm dev` and the Docker CMD launch it). Guarding behind
+// import.meta.main lets tooling and tests `import { app }` to introspect the
+// route table without starting the DB schema check, background workers, or
+// signal handlers. Does NOT change production boot — there, import.meta.main is true.
+if (import.meta.main) {
+  startBootServices();
 }
 
 async function handleInbound(req: Request, server: any): Promise<Response | undefined> {

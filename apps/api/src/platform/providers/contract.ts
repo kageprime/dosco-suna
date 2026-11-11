@@ -1,9 +1,10 @@
 import { config } from '../../config';
 
 // Platinum is the reference provider; Daytona is a legacy fallback (removal
-// scheduled). E2B support is discontinued: a stored `e2b` row resolves through
-// tryGetProvider() to null.
-export type ProviderName = 'platinum' | 'daytona';
+// scheduled). E2B is Dosco's production sandbox provider (Heroku has no
+// Docker-in-Docker), so it stays a first-class member: a stored `e2b` row
+// resolves through tryGetProvider() to a live E2BProvider.
+export type ProviderName = 'platinum' | 'daytona' | 'e2b';
 
 export class WarmRuntimeUnavailableError extends Error {
   constructor(message: string) {

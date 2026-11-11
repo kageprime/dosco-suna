@@ -10,7 +10,6 @@ import { sandboxFrontendBaseUrl } from '../sandbox-frontend-url';
 import { serviceKeyForExternalId } from '../service-key';
 import { e2bDomain } from './e2b-domain';
 import type {
-  AppMachineSupport,
   CreateSandboxOpts,
   ProviderName,
   ProvisionResult,
@@ -600,13 +599,6 @@ export class E2BProvider implements SandboxProvider {
       connectedSandboxCachedAt.set(externalId, this.now());
     }
   }
-
-  /**
-   * E2B's Template.build takes cpuCount and memoryMB and has no disk parameter
-   * (e2b 2.37.0), so an App's disk_gb is provider-managed here and must not be
-   * billed as if Dosco had allocated it.
-   */
-  readonly appMachineSupport: AppMachineSupport = { cpu: true, memoryGb: true, diskGb: false };
 
   /**
    * Relaunch kortix-appd if it died. This used to be a no-op on the reasoning

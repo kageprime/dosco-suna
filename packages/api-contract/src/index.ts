@@ -143,8 +143,9 @@ export type ProjectRole = z.infer<typeof ProjectRoleSchema>;
 
 /** Every sandbox provider the current platform can select or emit. */
 // Platinum is the reference provider; Daytona is a legacy fallback (removal
-// scheduled). E2B support is discontinued.
-export const SANDBOX_PROVIDERS = ['platinum', 'daytona'] as const;
+// scheduled). E2B is Dosco's production sandbox provider (Heroku has no
+// Docker-in-Docker), so it stays a first-class member.
+export const SANDBOX_PROVIDERS = ['platinum', 'daytona', 'e2b'] as const;
 export const SandboxProviderSchema = z.enum(SANDBOX_PROVIDERS);
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 

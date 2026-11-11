@@ -23,7 +23,6 @@ process.env.KORTIX_URL = 'https://api.example.com';
 process.env.INTERNAL_KORTIX_ENV = 'dev';
 process.env.FRONTEND_URL = 'https://app.example.com';
 process.env.PLATINUM_INFERENCE_URL = 'https://inference.example.com';
-process.env.KORTIX_CONFIG_ARCHIVE_S3_ENDPOINT = 'https://s3.example.com';
 
 const SRC_ROOT = join(import.meta.dirname, '..', '..');
 const API_ROOT = join(SRC_ROOT, '..');
