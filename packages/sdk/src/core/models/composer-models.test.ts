@@ -201,6 +201,13 @@ describe('modelInDefaultView', () => {
       }),
     ).toBe(true);
     expect(
+      modelInDefaultView(flat('antigravity', 'gemini-3.8-flash'), {
+        search: '',
+        isStoreVisible: hidden,
+        selected: null,
+      }),
+    ).toBe(true);
+    expect(
       modelInDefaultView(model, {
         search: '',
         isStoreVisible: hidden,

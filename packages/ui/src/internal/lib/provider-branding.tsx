@@ -19,7 +19,12 @@ export const POPULAR_PROVIDER_IDS = [
   'vercel',
 ];
 
-export const MODEL_SELECTOR_PROVIDER_IDS: readonly string[] = SHARED_MODEL_SELECTOR_PROVIDER_IDS;
+export const MODEL_SELECTOR_PROVIDER_IDS: readonly string[] = [
+  'kortix',
+  'antigravity',
+  'claude-agent',
+  ...SHARED_MODEL_SELECTOR_PROVIDER_IDS.filter((id) => id !== 'kortix'),
+];
 export const PROVIDER_LABELS: Record<string, string> = {
   ...SHARED_PROVIDER_LABELS,
   antigravity: 'Google Antigravity',

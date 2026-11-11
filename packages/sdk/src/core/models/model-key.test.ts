@@ -39,6 +39,8 @@ describe('Claude subscription models', () => {
   test('a stored claude-agent/<id> ref is the claude-agent provider, not a gateway wire id', () => {
     expect(modelRefToKey('claude-agent/opus')).toEqual({ providerID: 'claude-agent', modelID: 'opus' });
     expect(modelRefToKey('kortix/claude-agent/sonnet')).toEqual({ providerID: 'claude-agent', modelID: 'sonnet' });
+    expect(modelRefToKey('antigravity/gemini-3.8-flash')).toEqual({ providerID: 'antigravity', modelID: 'gemini-3.8-flash' });
+    expect(modelRefToKey('kortix/antigravity/gemini-4-argon')).toEqual({ providerID: 'antigravity', modelID: 'gemini-4-argon' });
   });
 
   test('the picker catalog lists the Claude group beside the gateway models, runnable only once the caller connected Claude', () => {
@@ -73,10 +75,13 @@ describe('Claude subscription models', () => {
     expect(enabled).toEqual({ opus: true, haiku: false, sonnet: true });
   });
 
-  test('every Claude subscription model shows in the picker without a search: the list is already curated', () => {
+  test('every Claude and Antigravity subscription model shows in the picker without a search: the list is already curated', () => {
     const hidden = () => false;
     for (const modelID of ['opus', 'fable', 'sonnet', 'haiku']) {
       expect(modelInDefaultView({ providerID: 'claude-agent', modelID } as never, { search: '', isStoreVisible: hidden, selected: null })).toBe(true);
+    }
+    for (const modelID of ['gemini-4-argon', 'gemini-3.8-flash', 'claude-opus-5.5']) {
+      expect(modelInDefaultView({ providerID: 'antigravity', modelID } as never, { search: '', isStoreVisible: hidden, selected: null })).toBe(true);
     }
   });
 });

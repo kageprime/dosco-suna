@@ -199,6 +199,15 @@ describe('unavailableModelConnection', () => {
     ).toBe('chatgpt');
   });
 
+  test('a Claude or Antigravity model without a login opens its provider connection', () => {
+    expect(
+      unavailableModelConnection({ available: false, providerID: 'claude-agent' }, { chatGptAvailable: true }),
+    ).toBe('claude');
+    expect(
+      unavailableModelConnection({ available: false, providerID: 'antigravity' }, { chatGptAvailable: true }),
+    ).toBe('antigravity');
+  });
+
   test('otherwise the provider connection opens', () => {
     expect(
       unavailableModelConnection({ available: false, availability: 'login' }, { chatGptAvailable: false }),

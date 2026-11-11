@@ -189,6 +189,9 @@ export function connectedGatewayProviderIdsFromSecretNames(secretNames: Set<stri
   if (secretNames.has('CODEX_AUTH_JSON') || secretNames.has('OPENCODE_AUTH_JSON')) {
     ids.add('codex');
   }
+  if (secretNames.has('ANTIGRAVITY_AUTH_JSON') || secretNames.has('GOOGLE_ANTIGRAVITY_AUTH_JSON')) {
+    ids.add('antigravity');
+  }
   return ids;
 }
 
@@ -314,7 +317,7 @@ export function projectLlmCatalogToProviderList(
                     attachment: true,
                     tool_call: true,
                     variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])),
-                    available: model.connected && !model.unavailable,
+                    available: model.connected,
                     availability: 'login',
                     enabled: model.enabled !== false,
                     badge: model.badge,

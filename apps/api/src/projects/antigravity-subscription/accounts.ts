@@ -54,7 +54,7 @@ export async function countUsableAntigravityAccounts(
 
   // Fallback: check project_secrets for project-level credentials
   const projectRows = await db
-    .select({ id: projectSecrets.id })
+    .select({ secretId: projectSecrets.secretId })
     .from(projectSecrets)
     .where(
       and(

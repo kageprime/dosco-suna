@@ -664,8 +664,8 @@ export function ModelSelector({
       // An unavailable model is never chosen: the turn would fail after Send.
       const connect = unavailableModelConnection(model, { chatGptAvailable });
       if (connect === 'chatgpt') return handleOpenChatGpt();
-      // A Claude model signs in under Anthropic, in the provider list.
-      if (connect === 'claude' || connect === 'provider') return handleOpenProviderModal('providers');
+      // A Claude or Antigravity model signs in under the provider list.
+      if (connect === 'claude' || connect === 'antigravity' || connect === 'provider') return handleOpenProviderModal('providers');
       onSelect({ providerID: model.providerID, modelID: model.modelID });
       setOpen(false);
     },

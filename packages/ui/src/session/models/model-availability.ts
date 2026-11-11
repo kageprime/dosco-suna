@@ -23,10 +23,11 @@ export function isRunnableModel(model: { enabled?: boolean; available?: boolean 
 export function unavailableModelConnection(
   model: { enabled?: boolean; available?: boolean; availability?: 'login' | 'provider'; providerID?: string; provider?: string | null },
   options: { chatGptAvailable: boolean },
-): 'chatgpt' | 'claude' | 'provider' | null {
+): 'chatgpt' | 'claude' | 'antigravity' | 'provider' | null {
   if (model.available !== false) return null;
   // A Claude subscription model needs the caller's own Claude login, never a project provider.
   if (model.providerID === 'claude-agent' || model.provider === 'claude-agent') return 'claude';
+  if (model.providerID === 'antigravity' || model.provider === 'antigravity') return 'antigravity';
   return model.availability === 'login' && options.chatGptAvailable ? 'chatgpt' : 'provider';
 }
 

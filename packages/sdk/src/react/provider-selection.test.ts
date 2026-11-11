@@ -65,6 +65,11 @@ describe('connectedGatewayProviderIdsFromSecretNames', () => {
     const ids = connectedGatewayProviderIdsFromSecretNames(new Set(['ANTHROPIC_API_KEY']));
     expect(ids.has('anthropic')).toBe(true);
   });
+
+  test('Antigravity connects via ANTIGRAVITY_AUTH_JSON', () => {
+    const ids = connectedGatewayProviderIdsFromSecretNames(new Set(['ANTIGRAVITY_AUTH_JSON']));
+    expect(ids.has('antigravity')).toBe(true);
+  });
 });
 
 describe('mergeProjectSecretConnectedProviders', () => {

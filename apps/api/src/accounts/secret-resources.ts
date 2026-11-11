@@ -124,7 +124,7 @@ export function registerSecretResourceRoutes() {
     const rows = await db.select().from(accountSecretResources).where(and(
       eq(accountSecretResources.accountId, accountId),
       sql`(${accountSecretResources.projectId} is null or ${accountSecretResources.projectId} = ${projectId})`,
-      sql`${accountSecretResources.providerId} in ('codex', 'claude-agent')`,
+      sql`${accountSecretResources.providerId} in ('codex', 'claude-agent', 'antigravity')`,
     ));
     const subscriptions = (await Promise.all(rows.map((row) => view(row, userId, projectId))))
       .filter((row) => row.can_use).map((row) => ({ ...row, storage: 'account_resource' as const }));

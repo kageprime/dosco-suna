@@ -1,4 +1,4 @@
-import { CLAUDE_AGENT_PROVIDER_ID } from './model-key';
+import { ANTIGRAVITY_PROVIDER_ID, CLAUDE_AGENT_PROVIDER_ID } from './model-key';
 import { defaultEnabledModelIds } from '@kortix/llm-catalog/lite';
 
 import type { FlatModel } from './model-flatten';
@@ -228,8 +228,8 @@ export function modelInDefaultView(
   },
 ): boolean {
   if (input.search.trim().length > 0) return true;
-  // The gateway's list and the Claude subscription list are curated server-side: show them whole.
-  if (model.providerID === 'kortix' || model.providerID === CLAUDE_AGENT_PROVIDER_ID) return true;
+  // The gateway's list, Claude subscription list, and Google Antigravity list are curated server-side: show them whole.
+  if (model.providerID === 'kortix' || model.providerID === CLAUDE_AGENT_PROVIDER_ID || model.providerID === ANTIGRAVITY_PROVIDER_ID) return true;
   if (
     input.selected &&
     input.selected.providerID === model.providerID &&
