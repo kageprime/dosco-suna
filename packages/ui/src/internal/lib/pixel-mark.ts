@@ -43,7 +43,7 @@ const BRAND: PixelMarkTone = {
   tileDark: '#2C2C2C',
   inkDark: '#FFFFFF',
 };
-const RESERVED: Record<string, PixelMarkTone> = { kortix: BRAND, mykortix: BRAND, meta: BRAND };
+const RESERVED: Record<string, PixelMarkTone> = { kortix: BRAND, mykortix: BRAND, meta: BRAND, dot: BRAND, xera: BRAND };
 
 export function pixelMark(slug: string) {
   const tone = RESERVED[slug] ?? PIXEL_MARK_TONES[fnv1a(`${slug}#tone`) % PIXEL_MARK_TONES.length];

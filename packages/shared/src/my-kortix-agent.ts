@@ -23,7 +23,15 @@ export function peerHandleLabel(handle: string): string {
 }
 
 export function isMyKortixAgentName(name: string | null | undefined): boolean {
-  return name === MY_KORTIX_AGENT_NAME || name === LEGACY_MY_KORTIX_AGENT_NAME || name === DOT_AGENT_NAME;
+  if (!name) return false;
+  const n = String(name).toLowerCase().trim();
+  return (
+    n === MY_KORTIX_AGENT_NAME ||
+    n === LEGACY_MY_KORTIX_AGENT_NAME ||
+    n === DOT_AGENT_NAME ||
+    n === 'kortix' ||
+    n === 'xera'
+  );
 }
 
 /** True for Dot's sandbox slug, or the legacy `meta` slug of an older box. */

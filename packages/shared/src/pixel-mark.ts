@@ -56,7 +56,11 @@ const MASK = [
 /** My Kortix (slug `mykortix`) wears the Kortix symbol itself, the same 12 × 10
  *  grid as `PixelKortixMark` and the merch chips. `+` cells are the dithered
  *  curve cells; at agent-mark sizes they paint at half ink. */
-const RESERVED_ROWS: Record<string, readonly string[]> = { mykortix: PIXEL_KORTIX_ROWS, meta: PIXEL_KORTIX_ROWS };
+const RESERVED_ROWS: Record<string, readonly string[]> = {
+  mykortix: PIXEL_KORTIX_ROWS,
+  meta: PIXEL_KORTIX_ROWS,
+  dot: PIXEL_KORTIX_ROWS,
+};
 
 type Grid = boolean[][];
 

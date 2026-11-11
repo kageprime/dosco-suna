@@ -41,7 +41,7 @@ export function agentMarkTileClass(slug: string): string | undefined {
  *  mark fills `size`; a wider reserved grid (My Kortix's 12 × 10 symbol) keeps
  *  whole-pixel cells, `floor(size / 12)` px each. */
 export function AgentMarkGlyph({ slug, size }: { slug: string; size: AgentMarkSize }) {
-  if (isMyKortixAgentName(slug) || slug === 'kortix' || slug === 'dot' || slug === 'xera') {
+  if (isMyKortixAgentName(slug)) {
     return (
       <span className="relative inline-flex items-center justify-center shrink-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -104,7 +104,7 @@ export function AgentMark({
   label?: string;
   className?: string;
 }) {
-  const isDot = isMyKortixAgentName(slug) || slug === 'kortix' || slug === 'dot' || slug === 'xera';
+  const isDot = isMyKortixAgentName(slug);
   const iconSize = Math.max(12, Math.round(tile * 0.65));
   // A mark is a face, not a name: the hover hint says whose face it is.
   const mark = (
