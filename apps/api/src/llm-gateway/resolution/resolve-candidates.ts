@@ -467,6 +467,7 @@ async function resolveAntigravityCandidates(context: Context): Promise<UpstreamD
     principal.projectId,
     personalUserId || principal.userId,
     principal.accountId,
+    principal.sessionId,
   );
 
   if (!credential) {

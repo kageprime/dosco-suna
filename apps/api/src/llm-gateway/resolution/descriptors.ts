@@ -255,9 +255,12 @@ export function antigravityDescriptor(credential: AntigravityCredential, model: 
   let resolvedModel = bareModel;
   if (bareModel === 'gemini-4-argon') resolvedModel = 'gemini-2.5-pro';
   else if (bareModel === 'gemini-3.8-flash') resolvedModel = 'gemini-2.5-flash';
+  else if (bareModel === 'gemini-4-carbon') resolvedModel = 'gemini-2.5-flash';
   else if (bareModel === 'claude-opus-5.5') resolvedModel = 'claude-3-5-opus';
   else if (bareModel === 'claude-sonnet-5.5') resolvedModel = 'claude-3-5-sonnet';
   else if (bareModel === 'gpt-oss-120b') resolvedModel = 'gpt-4o';
+
+  const isApiKey = credential.access.startsWith('AIza');
 
   return {
     provider: 'antigravity',
@@ -269,6 +272,7 @@ export function antigravityDescriptor(credential: AntigravityCredential, model: 
     resolvedModel,
     headers: {
       Authorization: `Bearer ${credential.access}`,
+      ...(isApiKey ? { 'x-goog-api-key': credential.access } : {}),
     },
   };
 }

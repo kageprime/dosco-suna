@@ -46,6 +46,7 @@ const {
   isAwsRegion,
   livePricing,
   managedCandidates,
+  antigravityDescriptor,
   stripBedrockInferenceProfilePrefix,
   normalizeBedrockInferenceProfileRegion,
 } = await import('./descriptors');
@@ -291,5 +292,25 @@ describe('bedrockByokBaseUrl', () => {
   test('an unset region uses us-east-1', () => {
     expect(bedrockByokBaseUrl(null)).toBe('https://bedrock-runtime.us-east-1.amazonaws.com');
     expect(bedrockByokBaseUrl('  ')).toBe('https://bedrock-runtime.us-east-1.amazonaws.com');
+  });
+});
+
+describe('antigravityDescriptor', () => {
+  test('maps bare and prefixed model names to Google OpenAI-compatible endpoint', () => {
+    const desc = antigravityDescriptor({ access: 'ya29.test' }, 'antigravity/gemini-3.8-flash');
+    expect(desc).toMatchObject({
+      provider: 'antigravity',
+      kind: 'openai-compat',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      apiKey: 'ya29.test',
+      resolvedModel: 'gemini-2.5-flash',
+    });
+    expect(desc.headers?.Authorization).toBe('Bearer ya29.test');
+  });
+
+  test('adds x-goog-api-key header when an AIza key is supplied', () => {
+    const desc = antigravityDescriptor({ access: 'AIzaSy12345' }, 'antigravity/gemini-4-carbon');
+    expect(desc.headers?.['x-goog-api-key']).toBe('AIzaSy12345');
+    expect(desc.resolvedModel).toBe('gemini-2.5-flash');
   });
 });

@@ -15,14 +15,14 @@
  */
 
 import { and, eq, sql } from 'drizzle-orm';
-import { accountSecretResources, projectSecrets } from '@kortix/db';
+import { accountSecretResources, projectSecrets, projects } from '@kortix/db';
 import {
   parseAntigravityAuth,
   type StoredAntigravityAuth,
 } from '@kortix/api-contract/antigravity';
 import { config } from '../../config';
 import { db } from '../../shared/db';
-import { encryptProjectSecret, resolveProjectSecretForConsumer } from '../../projects/secrets';
+import { resolveProjectSecretForConsumer, writeSharedProjectSecret } from '../../projects/secrets';
 import { writeRotatedAccountLogin } from './rotating-login-write';
 
 export { parseAntigravityAuth, type StoredAntigravityAuth };
@@ -98,20 +98,92 @@ export async function resolveAntigravityCredential(
   projectId: string,
   userId: string,
   accountId?: string,
+  sessionId?: string | null,
 ): Promise<AntigravityCredential | null> {
-  // 1. Check project secret first
-  let rawSecret = await resolveProjectSecretForConsumer(projectId, 'ANTIGRAVITY_AUTH_JSON', userId).catch(() => null);
+  // If accountId is not provided, look it up from the project
+  let resolvedAccountId = accountId;
+  if (!resolvedAccountId) {
+    const [proj] = await db
+      .select({ accountId: projects.accountId })
+      .from(projects)
+      .where(eq(projects.projectId, projectId))
+      .limit(1)
+      .catch(() => []);
+    if (proj?.accountId) resolvedAccountId = proj.accountId;
+  }
 
-  // 2. If not found, check account secret resource if accountId provided
-  if (!rawSecret && accountId) {
-    const { resolveDefaultProviderAccountSecret } = await import('../../secrets/account-resource');
-    const { readAccountSecret } = await import('../../accounts/secret-resources');
-    const acctSecret = await resolveDefaultProviderAccountSecret(accountId, projectId, userId, {
-      providerId: 'antigravity',
-      name: 'ANTIGRAVITY_AUTH_JSON',
+  const candidateNames = ['ANTIGRAVITY_AUTH_JSON', 'GOOGLE_ANTIGRAVITY_AUTH_JSON', 'GEMINI_API_KEY'];
+  let rawSecret: string | null = null;
+  let sourceSecretId: string | null = null;
+  let sourceIsAccountResource = false;
+
+  // 1. Check project secrets
+  for (const name of candidateNames) {
+    const resolved = await resolveProjectSecretForConsumer({
+      projectId,
+      accountId: resolvedAccountId,
+      sessionId,
+      actorUserId: userId,
+      principalUserId: userId,
+      name,
+      consumer: 'llm_gateway',
     }).catch(() => null);
-    if (acctSecret && acctSecret.valueEnc) {
-      rawSecret = readAccountSecret(accountId, acctSecret.secretId, acctSecret.valueEnc);
+
+    if (resolved?.value) {
+      rawSecret = resolved.value;
+      sourceSecretId = resolved.secretId;
+      break;
+    }
+  }
+
+  // 2. If not found in project secrets, check account secret resources
+  if (!rawSecret && resolvedAccountId) {
+    const { resolveDefaultProviderAccountSecret, resolveProjectSharedProviderSecrets } = await import(
+      '../../secrets/account-resource'
+    );
+
+    const providerIds = ['antigravity', 'google'];
+
+    // Check personal default account secret
+    for (const providerId of providerIds) {
+      for (const name of candidateNames) {
+        const acctSecret = await resolveDefaultProviderAccountSecret(resolvedAccountId, projectId, userId, {
+          providerId,
+          name,
+        }).catch(() => null);
+        if (acctSecret?.value) {
+          rawSecret = acctSecret.value;
+          sourceSecretId = acctSecret.secretId;
+          sourceIsAccountResource = true;
+          break;
+        }
+      }
+      if (rawSecret) break;
+    }
+
+    // Check project shared provider secrets
+    if (!rawSecret) {
+      for (const providerId of providerIds) {
+        for (const name of candidateNames) {
+          const shared = await resolveProjectSharedProviderSecrets({
+            accountId: resolvedAccountId,
+            projectId,
+            userId,
+            grantUserId: userId,
+            sessionId,
+            providerId,
+            name,
+          }).catch(() => null);
+          const secret = shared?.secrets?.[0];
+          if (secret?.value) {
+            rawSecret = secret.value;
+            sourceSecretId = secret.secretId;
+            sourceIsAccountResource = true;
+            break;
+          }
+        }
+        if (rawSecret) break;
+      }
     }
   }
 
@@ -130,7 +202,21 @@ export async function resolveAntigravityCredential(
       };
 
       const updatedJson = JSON.stringify({ antigravity: updatedAuth }, null, 2);
-      await encryptProjectSecret(projectId, 'ANTIGRAVITY_AUTH_JSON', updatedJson, { userId }).catch(() => {});
+      if (sourceIsAccountResource && sourceSecretId) {
+        await writeRotatedAccountLogin({
+          secretId: sourceSecretId,
+          usedRefresh: auth.refresh,
+          refreshOf: (plaintext) => parseAntigravityAuth(plaintext)?.refresh,
+          value: updatedJson,
+        }).catch(() => {});
+      } else {
+        await writeSharedProjectSecret({
+          projectId,
+          name: 'ANTIGRAVITY_AUTH_JSON',
+          value: updatedJson,
+          createdBy: userId,
+        }).catch(() => {});
+      }
 
       return {
         access: updatedAuth.access!,
