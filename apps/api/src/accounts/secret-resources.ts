@@ -10,7 +10,7 @@ import { accountMemberRow } from '../iam/membership-read';
 import { clearAccountSecretCooldown, encryptAccountSecret, memberMayReadProject, probeAccountSecret, secretUsableInProject } from '../secrets/account-resource';
 import { resolveFeatureFlag } from '../feature-flags/registry';
 import { ACCOUNT_ACTIONS, actorOf, authorize, PROJECT_ACTIONS } from '../iam';
-import { resolveCatalogUpstream } from '../llm-gateway/models/provider-registry';
+import { expectedSecretResourceName } from './secret-resource-name';
 import { SUBSCRIPTION_PROVIDERS, SubscriptionAccountSchema, SubscriptionUsageSchema, refreshSubscriptionUsage, storedSubscriptionUsage, subscriptionAccount } from '../llm-gateway/subscription-usage';
 import { AccountIdParam, accountsRouter, getMembership } from './core/app';
 import { readJsonObject } from '../shared/http-body';
@@ -192,7 +192,7 @@ export function registerSecretResourceRoutes() {
     const parsed = Create.safeParse(await readJsonObject(c));
     if (!parsed.success) return c.json({ error: 'Invalid secret resource' }, 400);
     const body = parsed.data;
-    if (resolveCatalogUpstream(body.provider_id)?.envVar !== body.name) {
+    if (expectedSecretResourceName(body.provider_id) !== body.name) {
       return c.json({ error: 'Provider and environment name do not match' }, 400);
     }
     if (body.project_id) {

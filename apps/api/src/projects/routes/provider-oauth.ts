@@ -1,4 +1,4 @@
-/** LLM provider OAuth device flow (ChatGPT via Codex, OpenCode Zen and Go via the OpenCode Console): start, poll, status, disconnect. */
+/** LLM provider OAuth device flow (ChatGPT via Codex, Google Antigravity via Google's device grant, OpenCode Zen and Go via the OpenCode Console): start, poll, status, disconnect. */
 import { parseSharingIntent } from '../../connectors/share';
 import { randomUUID } from 'node:crypto';
 import { PROJECT_ACTIONS } from '../../iam';
@@ -7,6 +7,11 @@ import { recordAuditEvent, runAuditedTransaction } from '../../shared/audit';
 import { db } from '../../shared/db';
 import { accountMemberRow } from '../../iam/membership-read';
 import { pollCodexDeviceAuth, startCodexDeviceAuth } from '../codex-device-auth';
+import {
+  pollAntigravityDeviceAuth,
+  startAntigravityDeviceAuth,
+} from '../antigravity-auth';
+import { parseAntigravityAuth } from '../../llm-gateway/credentials/antigravity';
 import {
   OPENCODE_CONSOLE_PROVIDERS,
   parseOpencodeLogin,
@@ -89,6 +94,17 @@ function oauthProvider(provider: string): OAuthProvider | null {
       },
       poll: (handle, userCode) => pollCodexDeviceAuth({ deviceAuthId: handle, userCode }),
       isLogin: () => true,
+    };
+  }
+  if (provider === 'google') {
+    return {
+      label: 'Google Antigravity', secretName: ANTIGRAVITY_AUTH_JSON_SECRET_NAME, resourceProviderId: 'antigravity',
+      start: async () => {
+        const c = await startAntigravityDeviceAuth();
+        return { verificationUrl: c.verificationUrl, userCode: c.userCode, handle: c.deviceAuthId, intervalMs: c.intervalMs };
+      },
+      poll: (handle, userCode) => pollAntigravityDeviceAuth({ deviceAuthId: handle, userCode }),
+      isLogin: (value) => parseAntigravityAuth(value) !== null,
     };
   }
   const secretName = OPENCODE_CONSOLE_PROVIDERS[provider] ? resolveCatalogUpstream(provider)?.envVar : null;
@@ -284,10 +300,7 @@ export function registerProviderOauthRoutes(): void {
 
     const cfg = oauthProvider(provider);
     if (!cfg) {
-      const hint = provider === 'google'
-        ? ' Connect Google Antigravity by pasting your Antigravity token or credentials.'
-        : '';
-      return c.json({ error: `OAuth device flow is not available for "${provider}".${hint}` }, 400);
+      return c.json({ error: `OAuth device flow is not available for "${provider}"` }, 400);
     }
 
     const parsed = await parseOAuthStartRequest(c, body, cfg, loaded, projectId);
@@ -495,7 +508,7 @@ export function registerProviderOauthRoutes(): void {
     await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_READ);
 
     const items: Array<{ provider_id: string; expires_in_ms: number | null; updated_at: string }> = [];
-    for (const providerId of ['openai', ...Object.keys(OPENCODE_CONSOLE_PROVIDERS)]) {
+    for (const providerId of ['openai', 'google', ...Object.keys(OPENCODE_CONSOLE_PROVIDERS)]) {
       const cfg = oauthProvider(providerId);
       if (!cfg) continue;
       const credential = await resolveProjectSecretForConsumer({

@@ -227,9 +227,14 @@ export function useSubscriptionSignIn({
         throw new Error('Invalid Antigravity credentials or token format');
       }
       const authJson = JSON.stringify({ antigravity: parsed }, null, 2);
+      // The LLM gateway reads this secret with consumer `llm_gateway`; the
+      // generic default (`sandbox`) makes every gateway read a denial, and the
+      // model then reports `provider_not_connected` despite the row existing.
       await upsertProjectSecret(projectId, {
         name: 'ANTIGRAVITY_AUTH_JSON',
         value: authJson,
+        consumer: 'llm_gateway',
+        strategy: 'broker',
       });
 
       const detail = await getProjectDetail(projectId).catch(() => null);
@@ -266,9 +271,43 @@ export function useSubscriptionSignIn({
   const handleConnect = useCallback(async () => {
     if (claude) return startClaude();
     if (antigravity) {
+      const isCancelled = runs.begin();
       setError(null);
       setChallenge(null);
       setPhase('waiting');
+      let start: Awaited<ReturnType<typeof startProjectProviderOAuth>>;
+      try {
+        start = await startProjectProviderOAuth(projectId, subscription.oauth, {});
+      } catch (err) {
+        if (isCancelled()) return;
+        // The device flow is unavailable (a server without it, or Google
+        // unreachable): keep the paste step on screen as the manual fallback.
+        setError(err instanceof Error && err.message ? err.message : copy.failed);
+        setPhase('waiting');
+        return;
+      }
+      if (isCancelled()) return;
+      const started = start;
+      await runDeviceGrant({
+        startOAuth: () => Promise.resolve(started),
+        pollOAuth: (flowId) => pollProjectProviderOAuth(projectId, subscription.oauth, flowId),
+        sleep,
+        now: Date.now,
+        isCancelled,
+        setChallenge,
+        setPhase,
+        setError,
+        failedMessage: copy.failed,
+        onSuccess: () => {
+          setPhase('done');
+          successToast(copy.connectedToast);
+          void queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
+          void queryClient.invalidateQueries({ queryKey: providerLoginsKey(projectId) });
+          void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
+          refreshProjectProviderState(queryClient, projectId, { expectProviderId: subscription.providerId });
+          onConnected(subscription.providerId);
+        },
+      });
       return;
     }
     const isCancelled = runs.begin();
@@ -456,7 +495,9 @@ export function ChatGptSubscriptionConnect({
         {accessSlot}
       </div>
 
-      {waiting && isAntigravity && (
+      {waiting && isAntigravity && !challenge && error && (
+        // The device flow was refused before any code arrived: the paste step
+        // is the manual fallback, shown together with the reason below.
         <div className="mt-3">
           <AntigravityCredentialsStep
             saving={checking}
@@ -465,7 +506,7 @@ export function ChatGptSubscriptionConnect({
         </div>
       )}
 
-      {waiting && !isAntigravity && (
+      {waiting && (!isAntigravity || challenge || !error) && (
         <div className="border-border bg-muted/30 mt-3 rounded-md border p-3">
           {challenge ? (
             <>

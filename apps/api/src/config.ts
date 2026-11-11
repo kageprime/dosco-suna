@@ -898,6 +898,10 @@ export const envSchema = z.object({
   //   autodelete → NEVER (-1). A sandbox is only ever removed when a user
   //                explicitly deletes the session — auto-stop + cold archive
   //                make an idle box nearly free, so we never destroy disk.
+  // Platinum paces its org write budget (20 writes/s in all); the worker's
+  // sweeps pace at most this many writes/s so a burst never 429s a session
+  // start. 8 leaves 12/s for session starts and previews. 0 turns pacing off.
+  KORTIX_PLATINUM_BACKGROUND_WRITES_PER_SECOND: optInt(8),
   KORTIX_SANDBOX_AUTOSTOP_MINUTES: optInt(15),
   KORTIX_SANDBOX_AUTOARCHIVE_MINUTES: optInt(720), // 12 hours
   KORTIX_SANDBOX_AUTODELETE_MINUTES: optInt(-1), // never auto-delete
@@ -1730,6 +1734,10 @@ export const config = {
   E2B_DOMAIN: env.E2B_DOMAIN,
   E2B_TEMPLATE: env.E2B_TEMPLATE,
   E2B_WEBHOOK_SECRET: env.E2B_WEBHOOK_SECRET,
+  // Google Antigravity OAuth client override; empty = the built-in device
+  // client (the flows work without it, these only reroute to a custom client).
+  GOOGLE_ANTIGRAVITY_CLIENT_ID: env.GOOGLE_ANTIGRAVITY_CLIENT_ID,
+  GOOGLE_ANTIGRAVITY_CLIENT_SECRET: env.GOOGLE_ANTIGRAVITY_CLIENT_SECRET,
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
   ARTIFACT_CONTENT_URL: env.ARTIFACT_CONTENT_URL.replace(/\/+$/, ''),

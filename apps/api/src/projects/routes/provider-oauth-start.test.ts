@@ -75,6 +75,16 @@ mock.module('../codex-device-auth', () => ({
   },
 }));
 
+const realAntigravity = await import('../antigravity-auth');
+mock.module('../antigravity-auth', () => ({
+  ...realAntigravity,
+  startAntigravityDeviceAuth: async () => {
+    startCalls += 1;
+    if (startError) throw startError;
+    return { verificationUrl: 'https://www.google.com/device', userCode: 'GVCD-1234', deviceAuthId: 'gdev-1', intervalMs: 5000 };
+  },
+}));
+
 const { projectsApp } = await import('../lib/app');
 (await import('./provider-oauth')).registerProviderOauthRoutes();
 
@@ -263,6 +273,17 @@ describe('POST /:projectId/oauth/:provider/start — accepted requests', () => {
     expect(body.user_code).toBe('ABCD-1234');
     expect(body.verification_url).toBe('https://auth.example/device');
     expect(body.interval_ms).toBe(3000);
+    expect(typeof body.flow_id).toBe('string');
+  });
+
+  test('Google Antigravity starts through the same route and response shape', async () => {
+    const response = await start({}, 'google');
+    expect(response.status).toBe(200);
+    expect(startCalls).toBe(1);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.user_code).toBe('GVCD-1234');
+    expect(body.verification_url).toBe('https://www.google.com/device');
+    expect(body.interval_ms).toBe(5000);
     expect(typeof body.flow_id).toBe('string');
   });
 
