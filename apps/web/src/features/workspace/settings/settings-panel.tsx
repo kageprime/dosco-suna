@@ -37,7 +37,7 @@ function preloadWhenIdle(): () => void {
 }
 
 export function SettingsPanel({ projectId }: { projectId?: string }) {
-  useSettingsKeyboardShortcut(projectId);
+  useSettingsKeyboardShortcut();
 
   useEffect(preloadWhenIdle, []);
 
