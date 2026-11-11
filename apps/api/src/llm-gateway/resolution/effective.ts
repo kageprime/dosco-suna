@@ -41,6 +41,8 @@ export function toSessionModelRef(model: string): string {
   // A Claude subscription model is not a gateway model: the box reads its
   // provider from the ref itself (`claude-agent/<id>`).
   if (isClaudeAgentModelRef(model)) return model.trim();
+  // Antigravity models retain their provider prefix (`antigravity/<id>`).
+  if (model.trim().startsWith('antigravity/')) return model.trim();
   return `${KORTIX_PREFIX}${toWireModel(model)}`;
 }
 

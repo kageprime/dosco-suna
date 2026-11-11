@@ -16,41 +16,25 @@
 
 import { and, eq, sql } from 'drizzle-orm';
 import { accountSecretResources, projectSecrets } from '@kortix/db';
+import {
+  parseAntigravityAuth,
+  type StoredAntigravityAuth,
+} from '@kortix/api-contract/antigravity';
 import { config } from '../../config';
 import { db } from '../../shared/db';
 import { encryptProjectSecret, resolveProjectSecretForConsumer } from '../../projects/secrets';
 import { writeRotatedAccountLogin } from './rotating-login-write';
 
+export { parseAntigravityAuth, type StoredAntigravityAuth };
+
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DEFAULT_GOOGLE_CLIENT_ID = '936475272427.apps.googleusercontent.com';
 const REFRESH_WINDOW_MS = 5 * 60 * 1000;
-
-export interface StoredAntigravityAuth {
-  type?: string;
-  access?: string;
-  refresh?: string;
-  expires?: number;
-  email?: string;
-  plan?: string;
-}
 
 export interface AntigravityCredential {
   access: string;
   email?: string;
   plan?: string;
-}
-
-export function parseAntigravityAuth(value: string): StoredAntigravityAuth | null {
-  try {
-    const parsed = JSON.parse(value);
-    const auth = parsed.antigravity ?? parsed.google ?? parsed;
-    if (auth && typeof auth === 'object') {
-      return auth as StoredAntigravityAuth;
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export function isTokenExpired(auth: StoredAntigravityAuth): boolean {
@@ -113,11 +97,27 @@ export async function refreshAntigravityToken(
 export async function resolveAntigravityCredential(
   projectId: string,
   userId: string,
+  accountId?: string,
 ): Promise<AntigravityCredential | null> {
-  const secret = await resolveProjectSecretForConsumer(projectId, 'ANTIGRAVITY_AUTH_JSON', userId).catch(() => null);
-  if (!secret) return null;
+  // 1. Check project secret first
+  let rawSecret = await resolveProjectSecretForConsumer(projectId, 'ANTIGRAVITY_AUTH_JSON', userId).catch(() => null);
 
-  const auth = parseAntigravityAuth(secret);
+  // 2. If not found, check account secret resource if accountId provided
+  if (!rawSecret && accountId) {
+    const { resolveDefaultProviderAccountSecret } = await import('../../secrets/account-resource');
+    const { readAccountSecret } = await import('../../accounts/secret-resources');
+    const acctSecret = await resolveDefaultProviderAccountSecret(accountId, projectId, userId, {
+      providerId: 'antigravity',
+      name: 'ANTIGRAVITY_AUTH_JSON',
+    }).catch(() => null);
+    if (acctSecret && acctSecret.valueEnc) {
+      rawSecret = readAccountSecret(accountId, acctSecret.secretId, acctSecret.valueEnc);
+    }
+  }
+
+  if (!rawSecret) return null;
+
+  const auth = parseAntigravityAuth(rawSecret);
   if (!auth || !auth.access) return null;
 
   if (isTokenExpired(auth) && auth.refresh) {

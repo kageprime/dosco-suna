@@ -1001,6 +1001,37 @@ export function ProviderSheet({
         {models}
       </SplitSheetBody>
     );
+  } else if (pooled.pooledSecretsEnabled && pooled.accountId && entry.id === 'google') {
+    // Google Antigravity accounts, exactly as Claude accounts; Google Gemini API keys below them.
+    content = (
+      <SplitSheetBody className="space-y-7">
+        <div className="space-y-3">
+          <p className="text-foreground text-sm font-medium">Google Antigravity accounts</p>
+          <p className="text-muted-foreground text-xs text-pretty">Connect your Google Antigravity account or paste credentials to use Gemini models on your own subscription.</p>
+          <AccountSecretResourcesPanel
+            accountId={pooled.accountId}
+            projectId={projectId}
+            providerId="antigravity"
+            providerName="Google Antigravity"
+            envVar="ANTIGRAVITY_AUTH_JSON"
+            canWrite
+          />
+          <ChatGptSubscriptionConnect projectId={projectId} onConnected={() => undefined} kind="antigravity" />
+        </div>
+        <div className="space-y-3">
+          <p className="text-foreground text-sm font-medium">{tPooled('providerKeysFor', { provider: entry.label })}</p>
+          <AccountSecretResourcesPanel
+            accountId={pooled.accountId}
+            projectId={projectId}
+            providerId={entry.id}
+            providerName={entry.label}
+            envVar={entry.envVars[0]!}
+            canWrite
+          />
+        </div>
+        {models}
+      </SplitSheetBody>
+    );
   } else if (pooled.pooledSecretsEnabled && pooled.accountId && supportsPooledProviderKey(entry)) {
     content = (
       <SplitSheetBody className="space-y-7">

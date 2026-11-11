@@ -7,6 +7,7 @@ import {
   CODEX_USER_AGENT,
   type CodexCredential,
 } from '../credentials/codex';
+import type { AntigravityCredential } from '../credentials/antigravity';
 import { getRuntimeManagedModel, type ManagedModel } from '../models/managed-models';
 import { isFreeManagedModel } from '../models/free-models';
 import { isAwsRegion } from './aws-region';
@@ -246,5 +247,28 @@ export function codexDescriptor(credential: CodexCredential, model: string): Ups
     markup: 0,
     resolvedModel: model.replace(/^codex\//, ''),
     headers,
+  };
+}
+
+export function antigravityDescriptor(credential: AntigravityCredential, model: string): UpstreamDescriptor {
+  const bareModel = model.replace(/^antigravity\//, '');
+  let resolvedModel = bareModel;
+  if (bareModel === 'gemini-4-argon') resolvedModel = 'gemini-2.5-pro';
+  else if (bareModel === 'gemini-3.8-flash') resolvedModel = 'gemini-2.5-flash';
+  else if (bareModel === 'claude-opus-5.5') resolvedModel = 'claude-3-5-opus';
+  else if (bareModel === 'claude-sonnet-5.5') resolvedModel = 'claude-3-5-sonnet';
+  else if (bareModel === 'gpt-oss-120b') resolvedModel = 'gpt-4o';
+
+  return {
+    provider: 'antigravity',
+    kind: 'openai-compat',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    apiKey: credential.access,
+    billingMode: 'none',
+    markup: 0,
+    resolvedModel,
+    headers: {
+      Authorization: `Bearer ${credential.access}`,
+    },
   };
 }

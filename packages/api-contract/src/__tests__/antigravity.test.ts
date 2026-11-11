@@ -58,6 +58,49 @@ describe('Google Antigravity api-contract', () => {
     expect(antigravityModelId('codex/gpt-5')).toBeNull();
 
     expect(isAntigravityModelRef(null)).toBe(false);
-    expect(antigravityModelId(undefined)).toBeNull();
+    expect(antigravityModelId(null)).toBeNull();
+  });
+
+  test('parseAntigravityAuth parses tokens, oauth_creds.json and wrapped structures', async () => {
+    const { parseAntigravityAuth } = await import('../antigravity');
+
+    // 1. Raw bearer token
+    const raw = parseAntigravityAuth('ya29.a0AfH6SMB...test');
+    expect(raw).not.toBeNull();
+    expect(raw?.type).toBe('bearer');
+    expect(raw?.access).toBe('ya29.a0AfH6SMB...test');
+
+    // 2. Gemini API key
+    const apiKey = parseAntigravityAuth('AIzaSyD-xyz123');
+    expect(apiKey).not.toBeNull();
+    expect(apiKey?.access).toBe('AIzaSyD-xyz123');
+
+    // 3. Local Google oauth_creds.json format
+    const googleCreds = JSON.stringify({
+      access_token: 'ya29.google-test-token',
+      refresh_token: '1//refresh-test-token',
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      token_type: 'Bearer',
+      expiry_date: 1731330000000,
+    });
+    const parsedGoogle = parseAntigravityAuth(googleCreds);
+    expect(parsedGoogle).not.toBeNull();
+    expect(parsedGoogle?.access).toBe('ya29.google-test-token');
+    expect(parsedGoogle?.refresh).toBe('1//refresh-test-token');
+    expect(parsedGoogle?.expires).toBe(1731330000000);
+
+    // 4. Wrapped Antigravity JSON
+    const wrapped = JSON.stringify({
+      antigravity: {
+        access: 'ya29.wrapped-token',
+        refresh: '1//wrapped-refresh',
+        expires: 1731340000000,
+        email: 'user@example.com',
+      },
+    });
+    const parsedWrapped = parseAntigravityAuth(wrapped);
+    expect(parsedWrapped).not.toBeNull();
+    expect(parsedWrapped?.access).toBe('ya29.wrapped-token');
+    expect(parsedWrapped?.email).toBe('user@example.com');
   });
 });

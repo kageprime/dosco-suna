@@ -1,6 +1,7 @@
 'use client';
 
 import { ChatGptDeviceChallenge } from './chatgpt-device-challenge';
+import { AntigravityCredentialsStep } from './antigravity-credentials-step';
 import { Button } from '../../../primitives/button';
 import { Alert as BannerAlert, AlertDescription as BannerAlertDescription, AlertMedia as BannerAlertMedia } from '../../../primitives/alert';
 import Loading from '../../../primitives/loading';
@@ -8,6 +9,7 @@ import { errorToast, successToast } from '../../../primitives/toast';
 import { ProviderLogo } from '../../../internal/lib/provider-branding';
 import {
   completeClaudeSubscriptionLogin,
+  createAccountSecretResource,
   deleteAccountSecretResource,
   deleteProjectProviderOAuth,
   getClaudeSubscription,
@@ -18,7 +20,9 @@ import {
   pollProjectProviderOAuth,
   startClaudeSubscriptionLogin,
   startProjectProviderOAuth,
+  upsertProjectSecret,
 } from '@kortix/sdk';
+import { parseAntigravityAuth } from '@kortix/api-contract/antigravity';
 import { contract, qk, refreshProjectProviderState } from '@kortix/sdk/react';
 import {
   CheckCircleIcon as CheckCircle2,
@@ -212,8 +216,60 @@ export function useSubscriptionSignIn({
     }
   }, [claudeConnected, claudeFlow, projectId, tClaude, runs]);
 
+  const submitAntigravityCredentials = useCallback(async (raw: string) => {
+    const isCancelled = runs.begin();
+    setChecking(true);
+    setError(null);
+    try {
+      const parsed = parseAntigravityAuth(raw);
+      if (!parsed || (!parsed.access && !parsed.refresh)) {
+        throw new Error('Invalid Antigravity credentials or token format');
+      }
+      const authJson = JSON.stringify({ antigravity: parsed }, null, 2);
+      await upsertProjectSecret(projectId, {
+        name: 'ANTIGRAVITY_AUTH_JSON',
+        value: authJson,
+      });
+
+      const detail = await getProjectDetail(projectId).catch(() => null);
+      const accountId = detail?.project?.account_id;
+      if (accountId) {
+        await createAccountSecretResource(accountId, {
+          label: 'Google Antigravity',
+          provider_id: 'antigravity',
+          name: 'ANTIGRAVITY_AUTH_JSON',
+          value: authJson,
+          consumer: 'llm_gateway',
+          strategy: 'broker',
+        }).catch(() => {});
+      }
+
+      if (isCancelled()) return;
+      setPhase('done');
+      setChallenge(null);
+      successToast(copy.connectedToast);
+      await queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
+      await queryClient.invalidateQueries({ queryKey: providerLoginsKey(projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['account-secret-resources'] });
+      refreshProjectProviderState(queryClient, projectId, { expectProviderId: subscription.providerId });
+      onConnected(subscription.providerId);
+    } catch (err) {
+      if (isCancelled()) return;
+      setPhase('idle');
+      setError(err instanceof Error && err.message ? err.message : copy.failed);
+    } finally {
+      setChecking(false);
+    }
+  }, [projectId, queryClient, onConnected, subscription.providerId, copy.connectedToast, copy.failed, runs]);
+
   const handleConnect = useCallback(async () => {
     if (claude) return startClaude();
+    if (antigravity) {
+      setError(null);
+      setChallenge(null);
+      setPhase('waiting');
+      return;
+    }
     const isCancelled = runs.begin();
     setError(null);
     setChallenge(null);
@@ -237,7 +293,7 @@ export function useSubscriptionSignIn({
           onConnected(subscription.providerId);
       },
     });
-  }, [claude, startClaude, projectId, queryClient, onConnected, subscription, copy.connectedToast, copy.failed, runs]);
+  }, [claude, antigravity, startClaude, projectId, queryClient, onConnected, subscription, copy.connectedToast, copy.failed, runs]);
 
   // What the PROJECT holds, not what this component remembers doing. A
   // credential connected in another tab, another surface, or before this page
@@ -324,6 +380,8 @@ export function useSubscriptionSignIn({
     /** Claude only: the member pastes the code claude.com shows (`submitCode`) instead of typing one into the provider. */
     pastesCode: claude,
     submitCode,
+    submitAntigravityCredentials,
+    isAntigravity: antigravity,
     checking,
   };
 }
@@ -355,6 +413,9 @@ export function ChatGptSubscriptionConnect({
     start: handleConnect,
     cancel: reset,
     disconnect,
+    submitAntigravityCredentials,
+    isAntigravity,
+    checking,
   } = useSubscriptionSignIn({ projectId, onConnected, kind });
   const waiting = phase === 'waiting';
   const action = subscriptionPrimaryAction({ connected, failed: !!error });
@@ -375,7 +436,16 @@ export function ChatGptSubscriptionConnect({
         {accessSlot}
       </div>
 
-      {waiting && (
+      {waiting && isAntigravity && (
+        <div className="mt-3">
+          <AntigravityCredentialsStep
+            saving={checking}
+            onSubmit={(raw) => void submitAntigravityCredentials(raw)}
+          />
+        </div>
+      )}
+
+      {waiting && !isAntigravity && (
         <div className="border-border bg-muted/30 mt-3 rounded-md border p-3">
           {challenge ? (
             <>

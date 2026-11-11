@@ -376,14 +376,14 @@ export async function createPortalSession(accountId: string, returnUrl: string, 
     return getPaystackManageSubscriptionLink(accountId);
   }
 
-  // If Paystack is default and Stripe is not configured:
+  // If Stripe is not configured or Paystack is used:
   const { config } = await import('../../config');
-  if (config.PAYSTACK_SECRET_KEY && !config.STRIPE_SECRET_KEY) {
+  if (!config.STRIPE_SECRET_KEY) {
     if (account?.paystackSubscriptionCode) {
       const { getPaystackManageSubscriptionLink } = await import('./paystack');
       return getPaystackManageSubscriptionLink(accountId);
     }
-    throw new BillingError('No active subscription found to manage', 400);
+    return { portal_url: null, message: 'Billing portal is not configured on this instance.' };
   }
 
   // Verify the stored customer exists in the current Stripe account (drops a

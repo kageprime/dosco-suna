@@ -36,6 +36,7 @@ import {
 import { isFreeManagedModel } from '../models/free-models';
 import { resolveCatalogUpstream } from '../models/provider-registry';
 import {
+  antigravityDescriptor,
   bedrockByokBaseUrl,
   codexDescriptor,
   livePricing,
@@ -451,6 +452,34 @@ function noManagedModelsError(model: string, tierIsPaid: boolean): GatewayResolu
  * final "no candidates at all" response to surface instead of the one-size-
  * fits-all "No upstream configured for model X".
  */
+async function resolveAntigravityCandidates(context: Context): Promise<UpstreamDescriptor[]> {
+  const { principal, effectiveModel, personalUserId } = context;
+  if (!principal.projectId) {
+    throw new GatewayResolutionError(
+      'provider_not_connected',
+      'Connect Google Antigravity to use this model.',
+      'Connect your Google Antigravity account in project settings, then retry.',
+    );
+  }
+
+  const { resolveAntigravityCredential } = await import('../credentials/antigravity');
+  const credential = await resolveAntigravityCredential(
+    principal.projectId,
+    personalUserId || principal.userId,
+    principal.accountId,
+  );
+
+  if (!credential) {
+    throw new GatewayResolutionError(
+      'provider_not_connected',
+      'Connect Google Antigravity to use this model.',
+      'Connect your Google Antigravity account or paste your credentials in project settings, then retry.',
+    );
+  }
+
+  return [antigravityDescriptor(credential, effectiveModel)];
+}
+
 export async function resolveCandidates(
   principal: AuthedPrincipal,
   model: string,
@@ -485,6 +514,10 @@ export async function resolveCandidates(
     const conversation = codexConversationHeaders(principal);
     return (await resolveCodexCandidates(context)).map((candidate) =>
       ({ ...candidate, headers: { ...candidate.headers, ...conversation } }));
+  }
+
+  if (provider === 'antigravity') {
+    return await resolveAntigravityCandidates(context);
   }
 
   const custom = resolution?.customProviders?.find((candidate) => candidate.id === provider);
