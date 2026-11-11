@@ -9720,6 +9720,22 @@ const catalog = {
     "connectClaude": "Connect Claude",
     "reconnectClaude": "Reconnect Claude"
   },
+  "antigravitySubscription": {
+    "title": "Use your Google Antigravity subscription",
+    "description": "Run Gemini and frontier partner models on your Google AI Pro or Ultra subscription. Only your sessions use your plan.",
+    "starting": "Starting Google sign-in…",
+    "approveDescription": "Sign in with the Google account that has your Antigravity subscription and approve the request on google.com/device.",
+    "deviceDescription": "Follow the instructions on google.com/device to connect your Antigravity subscription.",
+    "connect": "Connect Google Antigravity",
+    "connecting": "Connecting…",
+    "connectedTitle": "Your Google Antigravity subscription is connected",
+    "connected": "Google Antigravity subscription connected",
+    "disconnect": "Disconnect Google Antigravity",
+    "disconnected": "Google Antigravity subscription disconnected",
+    "startError": "Could not start the Google Antigravity sign-in. Try again.",
+    "connectAntigravity": "Sign in with Google Antigravity",
+    "reconnectAntigravity": "Reconnect Google Antigravity"
+  },
   "contextReset": {
     "pill": "Fresh context · full history kept",
     "pillRunning": "Freeing up context…",

@@ -34,6 +34,9 @@ import {
   PlusIcon as Plus,
   SlidersHorizontalIcon as SlidersHorizontal,
   StarIcon as Star,
+  SpeedometerIcon as Speedometer,
+  WarningIcon as Warning,
+  WarningCircleIcon as WarningCircle,
 } from '@phosphor-icons/react';
 import { useTranslations } from '../../i18n';
 import { useSessionIds } from '../../providers/session-ids';
@@ -54,7 +57,13 @@ import {
   splitModelLabel,
 } from './model-grouping';
 import { modelInDefaultView } from '@kortix/sdk';
-import { isClaudeSubscriptionModel, isSubscriptionModel, pickerModelName, shouldShowFreeTag } from './model-tags';
+import {
+  isAntigravitySubscriptionModel,
+  isClaudeSubscriptionModel,
+  isSubscriptionModel,
+  pickerModelName,
+  shouldShowFreeTag,
+} from './model-tags';
 import { useModelConnectionGate } from './use-model-connection-gate';
 
 // Re-export for consumers
@@ -173,6 +182,10 @@ function ModelRow({
   const unavailable = model.available === false;
   const isFree = shouldShowFreeTag(model);
   const isSubscription = isSubscriptionModel(model);
+  const isAntigravity = isAntigravitySubscriptionModel(model) || groupProviderID === 'antigravity';
+  const modelAny = model as any;
+  const effort = modelAny.defaultEffort;
+  const badge = modelAny.badge;
   // Display name only — `model.modelName` still carries " (ChatGPT)" for search
   // and for the aria labels below, where there is no group heading to lean on.
   const { lead, trail } = splitModelLabel(pickerModelName(model));
@@ -217,10 +230,33 @@ function ModelRow({
         className="size-4 rounded-none bg-transparent"
       />
 
-      <span className={cn('min-w-0 flex-1 truncate leading-tight', unavailable && 'opacity-60')}>
+      <span className={cn('min-w-0 flex-1 truncate leading-tight flex items-center gap-1.5', unavailable && 'opacity-60')}>
         <span className="text-foreground font-medium">{lead}</span>
         {trail ? <span className="text-muted-foreground font-normal"> {trail}</span> : null}
+        {isAntigravity && effort ? (
+          <span className="text-xs text-muted-foreground font-normal capitalize">
+            {effort}
+          </span>
+        ) : null}
       </span>
+
+      {isAntigravity && badge === 'new' && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+          <Warning className="size-3 text-amber-500" />
+          <span>New</span>
+        </span>
+      )}
+      {isAntigravity && badge === 'notice' && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+          <WarningCircle className="size-3 text-blue-400" />
+          <span>Notice</span>
+        </span>
+      )}
+      {isAntigravity && (badge === 'unavailable' || modelAny.unavailable) && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground border border-border/40 shrink-0">
+          <span>Unavailable</span>
+        </span>
+      )}
 
       {/*
         ONE tag per row. A subscription model is billed to the connected ChatGPT
@@ -229,13 +265,15 @@ function ModelRow({
         Neutral on purpose: this is metadata, not status, and the seven
         `kortix-*` accents are reserved for state.
       */}
-      {unavailable ? (
-        <Tag>{connectLabel}</Tag>
-      ) : isFree ? (
-        <Tag variant="free">{t('free')}</Tag>
-      ) : isSubscription && showSubscriptionTag ? (
-        <Tag>{t('included')}</Tag>
-      ) : null}
+      {!isAntigravity && (
+        unavailable ? (
+          <Tag>{connectLabel}</Tag>
+        ) : isFree ? (
+          <Tag variant="free">{t('free')}</Tag>
+        ) : isSubscription && showSubscriptionTag ? (
+          <Tag>{t('included')}</Tag>
+        ) : null
+      )}
 
       {/*
         ONE trailing slot, always the same 24px wide, so swapping what sits in
@@ -513,9 +551,9 @@ export function ModelSelector({
       .filter(
         (m) =>
           m.enabled !== false &&
-          // Claude subscription models appear once the member signed in to Claude
-          // (Customize → Models → Anthropic), like ChatGPT subscription models.
+          // Claude & Antigravity subscription models appear once the member signed in
           !(isClaudeSubscriptionModel(m) && m.available === false) &&
+          !(isAntigravitySubscriptionModel(m) && m.available === false) &&
           (!q ||
             (m.modelName || '').toLowerCase().includes(q) ||
             (m.modelID || '').toLowerCase().includes(q) ||
@@ -533,7 +571,7 @@ export function ModelSelector({
    *  state below branches on this: "no models match your search" and "you have
    *  no models" are different problems with different ways out. */
   const hasAnyModel = useMemo(
-    () => models.some((m) => m.enabled !== false && !(isClaudeSubscriptionModel(m) && m.available === false)),
+    () => models.some((m) => m.enabled !== false && !(isClaudeSubscriptionModel(m) && m.available === false) && !(isAntigravitySubscriptionModel(m) && m.available === false)),
     [models],
   );
 
@@ -812,6 +850,22 @@ export function ModelSelector({
                           showSubscriptionTag={false}
                         />
                       ))}
+                    {isOpen && section.id === 'antigravity' && (
+                      <CommandItem
+                        value="antigravity-view-usage"
+                        onSelect={() => {
+                          const tab: ProviderModalTab = 'providers';
+                          handleOpenProviderModal(tab);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center justify-between px-3 py-2 cursor-pointer border-t border-border/40 mt-1"
+                      >
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Speedometer className="size-3.5" />
+                          <span>View Usage</span>
+                        </span>
+                        <CaretRight className="size-3 text-muted-foreground" />
+                      </CommandItem>
+                    )}
                   </CommandGroup>
                 </Fragment>
               );
@@ -825,7 +879,7 @@ export function ModelSelector({
              "No models available" and a Connect-provider CTA. */
           <ModelSearchEmpty
             search={search}
-            modelCount={models.filter((model) => model.enabled !== false && !(isClaudeSubscriptionModel(model) && model.available === false)).length}
+            modelCount={models.filter((model) => model.enabled !== false && !(isClaudeSubscriptionModel(model) && model.available === false) && !(isAntigravitySubscriptionModel(model) && model.available === false)).length}
             onClear={() => setSearch('')}
             onUpgrade={showUpgradeOption ? handleUpgrade : undefined}
           />

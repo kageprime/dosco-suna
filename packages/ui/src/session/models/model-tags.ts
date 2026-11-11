@@ -31,6 +31,14 @@ export function isClaudeSubscriptionModel(model: { provider?: string | null; pro
 }
 
 /**
+ * A model that runs through Google Antigravity on the caller's own Google subscription
+ * (`antigravity/<id>`, `@kortix/api-contract/antigravity`).
+ */
+export function isAntigravitySubscriptionModel(model: { provider?: string | null; providerID?: string }): boolean {
+  return model.providerID === 'antigravity' || model.provider === 'antigravity';
+}
+
+/**
  * What the picker prints for a model.
  *
  * The gateway appends " (ChatGPT)" to every subscription model's name

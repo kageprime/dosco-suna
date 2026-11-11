@@ -249,9 +249,14 @@ export function projectLlmCatalogToProviderList(
   );
   const firstModelId = Object.keys(models)[0];
   const claude = catalog.claudeSubscription;
+  const antigravity = catalog.antigravitySubscription;
+  const connectedProviders = ['kortix'];
+  if (claude?.connected) connectedProviders.push(claude.providerId);
+  if (antigravity?.connected) connectedProviders.push(antigravity.providerId);
+
   return {
     default: firstModelId ? { kortix: firstModelId } : {},
-    connected: claude ? ['kortix', claude.providerId] : ['kortix'],
+    connected: connectedProviders,
     all: [
       {
         id: 'kortix',
@@ -283,6 +288,38 @@ export function projectLlmCatalogToProviderList(
                     availability: 'login',
                     // The project's on/off switch (Models tab). An older API sends none: on.
                     enabled: model.enabled !== false,
+                  },
+                ]),
+              ),
+            },
+          ]
+        : []),
+      // Google Antigravity models on the caller's Google Antigravity subscription
+      ...(antigravity
+        ? [
+            {
+              id: antigravity.providerId,
+              name: antigravity.name,
+              source: 'antigravity-subscription',
+              models: Object.fromEntries(
+                antigravity.models.map((model) => [
+                  model.id.slice(antigravity.providerId.length + 1),
+                  {
+                    name: model.name,
+                    provider: antigravity.providerId,
+                    provider_name: antigravity.name,
+                    description: model.description,
+                    limit: model.limit,
+                    reasoning: true,
+                    attachment: true,
+                    tool_call: true,
+                    variants: Object.fromEntries(model.efforts.map((effort) => [effort, {}])),
+                    available: model.connected && !model.unavailable,
+                    availability: 'login',
+                    enabled: model.enabled !== false,
+                    badge: model.badge,
+                    defaultEffort: model.defaultEffort,
+                    unavailable: model.unavailable,
                   },
                 ]),
               ),

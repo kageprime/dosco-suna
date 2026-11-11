@@ -7,6 +7,7 @@ import { recordAuditEvent, runAuditedTransaction } from '../../shared/audit';
 import { db } from '../../shared/db';
 import { accountMemberRow } from '../../iam/membership-read';
 import { pollCodexDeviceAuth, startCodexDeviceAuth } from '../codex-device-auth';
+import { pollAntigravityDeviceAuth, startAntigravityDeviceAuth } from '../antigravity-auth';
 import {
   OPENCODE_CONSOLE_PROVIDERS,
   parseOpencodeLogin,
@@ -36,6 +37,7 @@ import {
 import { projectsApp } from '../lib/app';
 import { parseOAuthStartRequest } from '../lib/provider-oauth-request';
 import {
+  ANTIGRAVITY_AUTH_JSON_SECRET_NAME,
   CODEX_AUTH_JSON_SECRET_NAME,
   loadSecretViewsForUser,
   normalizeString,
@@ -87,6 +89,17 @@ function oauthProvider(provider: string): OAuthProvider | null {
         return { verificationUrl: c.verificationUrl, userCode: c.userCode, handle: c.deviceAuthId, intervalMs: c.intervalMs };
       },
       poll: (handle, userCode) => pollCodexDeviceAuth({ deviceAuthId: handle, userCode }),
+      isLogin: () => true,
+    };
+  }
+  if (provider === 'google') {
+    return {
+      label: 'Google Antigravity', secretName: ANTIGRAVITY_AUTH_JSON_SECRET_NAME, resourceProviderId: 'antigravity',
+      start: async () => {
+        const c = await startAntigravityDeviceAuth();
+        return { verificationUrl: c.verificationUrl, userCode: c.userCode, handle: c.deviceAuthId, intervalMs: c.intervalMs };
+      },
+      poll: (handle, userCode) => pollAntigravityDeviceAuth({ deviceAuthId: handle, userCode }),
       isLogin: () => true,
     };
   }

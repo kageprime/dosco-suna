@@ -152,10 +152,13 @@ export const CODEX_AUTH_JSON_SECRET_NAME = 'CODEX_AUTH_JSON';
  * @deprecated No sign-in writes this secret. Read `CODEX_AUTH_JSON_SECRET_NAME`. Removed in the next major.
  */
 export const LEGACY_RUNTIME_AUTH_JSON_SECRET_NAME = 'OPENCODE_AUTH_JSON';
+/** The secret a Google Antigravity sign-in writes. Its models appear under provider `antigravity`. */
+export const ANTIGRAVITY_AUTH_JSON_SECRET_NAME = 'ANTIGRAVITY_AUTH_JSON';
 
 /**
  * The providers a project's secret names connect: every catalogue provider
- * with one auth method fully satisfied, plus `codex` for a ChatGPT sign-in.
+ * with one auth method fully satisfied, plus `codex` for a ChatGPT sign-in
+ * and `antigravity` for a Google Antigravity sign-in.
  * Pooled account connections are listed separately (`accounts.secretResources`).
  */
 export function providerIdsWithCredentials(
@@ -165,6 +168,9 @@ export function providerIdsWithCredentials(
   const ids = new Set<string>();
   if (secretNames.has(CODEX_AUTH_JSON_SECRET_NAME) || secretNames.has(LEGACY_RUNTIME_AUTH_JSON_SECRET_NAME)) {
     ids.add('codex');
+  }
+  if (secretNames.has(ANTIGRAVITY_AUTH_JSON_SECRET_NAME)) {
+    ids.add('antigravity');
   }
   for (const entry of entries) {
     if (entry.id === 'kortix') continue;
@@ -180,7 +186,7 @@ export const FIRST_CLASS_PROVIDER_IDS = ['anthropic', 'openai', 'google'] as con
 
 /** A subscription a provider signs in with. */
 export interface ProviderSubscription {
-  kind: 'chatgpt' | 'claude' | 'opencode-go';
+  kind: 'chatgpt' | 'claude' | 'opencode-go' | 'antigravity';
   /** "ChatGPT" in "Sign in with ChatGPT". */
   name: string;
   /** The plan the sign-in needs. */
@@ -197,6 +203,7 @@ export const PROVIDER_SUBSCRIPTIONS: Readonly<Record<string, ProviderSubscriptio
   // Claude models run through Claude Code on the member's own plan.
   anthropic: { kind: 'claude', name: 'Claude', plan: 'Claude Pro or Max', oauthProvider: null, modelProviderId: 'claude-agent' },
   'opencode-go': { kind: 'opencode-go', name: 'OpenCode', plan: 'OpenCode Go', oauthProvider: 'opencode-go', modelProviderId: 'opencode-go' },
+  google: { kind: 'antigravity', name: 'Google Antigravity', plan: 'Google AI Pro or Ultra', oauthProvider: 'google', modelProviderId: 'antigravity' },
 };
 
 /** How a provider is connected. */
@@ -211,12 +218,24 @@ export function providerConnectMethod(entry: Pick<LlmProviderEntry, 'id' | 'envV
 /** How a connected two-way provider is connected. */
 export type ProviderConnectedVia = 'signIn' | 'key' | 'both';
 
-/** OpenAI's sign-in connects as `codex` and its key as `openai`. Other providers: undefined. */
+/** How a two-way provider is connected (OpenAI, Anthropic, Google). Other providers: undefined. */
 export function providerConnectedVia(providerId: string, connectedIds: ReadonlySet<string>): ProviderConnectedVia | undefined {
-  if (providerId !== 'openai') return undefined;
-  const signIn = connectedIds.has('codex');
-  const key = connectedIds.has('openai');
-  return signIn && key ? 'both' : signIn ? 'signIn' : key ? 'key' : undefined;
+  if (providerId === 'openai') {
+    const signIn = connectedIds.has('codex');
+    const key = connectedIds.has('openai');
+    return signIn && key ? 'both' : signIn ? 'signIn' : key ? 'key' : undefined;
+  }
+  if (providerId === 'anthropic') {
+    const signIn = connectedIds.has('claude-agent');
+    const key = connectedIds.has('anthropic');
+    return signIn && key ? 'both' : signIn ? 'signIn' : key ? 'key' : undefined;
+  }
+  if (providerId === 'google') {
+    const signIn = connectedIds.has('antigravity');
+    const key = connectedIds.has('google');
+    return signIn && key ? 'both' : signIn ? 'signIn' : key ? 'key' : undefined;
+  }
+  return undefined;
 }
 
 // Mirrors the gateway's base-URL fallbacks: a provider without an API host or

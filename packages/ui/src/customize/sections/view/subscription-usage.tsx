@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from '../../../i18n';
 import { Progress } from '../../../primitives/progress';
 
 /** Providers whose stored value is a subscription login with plan windows. */
-const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent']);
+const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
 /** A snapshot older than this says when it was observed. */
 const STALE_MS = 10 * 60 * 1000;

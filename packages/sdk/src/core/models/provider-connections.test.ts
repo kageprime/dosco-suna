@@ -374,6 +374,12 @@ describe('providerIdsWithCredentials — a ChatGPT sign-in connects provider cod
     expect(connectedIds(new Set(['OPENCODE_AUTH_JSON'])).has('codex')).toBe(true);
   });
 
+  test('ANTIGRAVITY_AUTH_JSON connects antigravity, not google', () => {
+    const ids = connectedIds(new Set(['ANTIGRAVITY_AUTH_JSON']));
+    expect(ids.has('antigravity')).toBe(true);
+    expect(ids.has('google')).toBe(false);
+  });
+
   test('kortix is never a credential provider', () => {
     expect(connectedIds(new Set(['KORTIX_API_KEY'])).has('kortix')).toBe(false);
   });
@@ -385,8 +391,8 @@ describe('providerConnectMethod — how a provider is connected', () => {
     expect(providerConnectMethod({ id: 'x', envVars: ['X_KEY'], managed: true })).toBe('included');
   });
 
-  test('OpenAI, Claude and OpenCode Go offer a sign-in or a key', () => {
-    for (const id of ['openai', 'anthropic', 'opencode-go']) {
+  test('OpenAI, Claude, OpenCode Go and Google offer a sign-in or a key', () => {
+    for (const id of ['openai', 'anthropic', 'opencode-go', 'google']) {
       expect(providerConnectMethod({ id, envVars: ['K'] })).toBe('signInOrKey');
     }
   });
@@ -406,15 +412,25 @@ describe('providerConnectMethod — how a provider is connected', () => {
     expect(PROVIDER_SUBSCRIPTIONS['opencode-go']).toEqual({
       kind: 'opencode-go', name: 'OpenCode', plan: 'OpenCode Go', oauthProvider: 'opencode-go', modelProviderId: 'opencode-go',
     });
+    expect(PROVIDER_SUBSCRIPTIONS.google).toEqual({
+      kind: 'antigravity', name: 'Google Antigravity', plan: 'Google AI Pro or Ultra', oauthProvider: 'google', modelProviderId: 'antigravity',
+    });
   });
 });
 
-describe('providerConnectedVia — OpenAI by sign-in, by key, or both', () => {
+describe('providerConnectedVia — OpenAI and Google by sign-in, by key, or both', () => {
   test('codex is the sign-in, openai the key', () => {
     expect(providerConnectedVia('openai', new Set(['codex']))).toBe('signIn');
     expect(providerConnectedVia('openai', new Set(['openai']))).toBe('key');
     expect(providerConnectedVia('openai', new Set(['codex', 'openai']))).toBe('both');
     expect(providerConnectedVia('openai', new Set())).toBeUndefined();
+  });
+
+  test('antigravity is the sign-in, google the key', () => {
+    expect(providerConnectedVia('google', new Set(['antigravity']))).toBe('signIn');
+    expect(providerConnectedVia('google', new Set(['google']))).toBe('key');
+    expect(providerConnectedVia('google', new Set(['antigravity', 'google']))).toBe('both');
+    expect(providerConnectedVia('google', new Set())).toBeUndefined();
   });
 
   test('other providers report nothing', () => {

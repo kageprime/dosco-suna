@@ -39,6 +39,7 @@ export function pickerGroupId(model: FlatModel): string {
 // degrading to the raw `providerID` because neither `provider` nor a `/` was
 // present — at that point `groupID === model.providerID` anyway).
 export function pickerGroupLabel(groupID: string, model: FlatModel): string {
+  if (groupID === 'antigravity') return 'Google Antigravity';
   return PROVIDER_LABELS[groupID] ?? model.providerName;
 }
 

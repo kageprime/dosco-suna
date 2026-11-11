@@ -46,13 +46,14 @@ import { createRunGeneration, runDeviceGrant } from './device-grant';
  * member approves on claude.com and pastes the code back, `submitCode`).
  * Same flow, same card; only the provider, the copy and that last step differ.
  */
-export type SubscriptionKind = 'chatgpt' | 'opencode-go' | 'claude';
+export type SubscriptionKind = 'chatgpt' | 'opencode-go' | 'claude' | 'antigravity';
 
 /** OAuth route id, the provider the models belong to, and the logo. */
 const SUBSCRIPTIONS: Record<SubscriptionKind, { oauth: string; providerId: string; logo: string; logoName: string }> = {
   chatgpt: { oauth: 'openai', providerId: 'codex', logo: 'openai', logoName: 'OpenAI' },
   'opencode-go': { oauth: 'opencode-go', providerId: 'opencode-go', logo: 'opencode-go', logoName: 'OpenCode Go' },
   claude: { oauth: 'claude', providerId: 'claude-agent', logo: 'anthropic', logoName: 'Anthropic' },
+  antigravity: { oauth: 'google', providerId: 'antigravity', logo: 'google', logoName: 'Google' },
 };
 
 /** Whether the caller can use a Claude account in the project (`GET /projects/:id/claude-subscription`). */
@@ -81,7 +82,9 @@ export function useSubscriptionSignIn({
   const subscription = SUBSCRIPTIONS[kind];
   const chatgpt = kind === 'chatgpt';
   const claude = kind === 'claude';
+  const antigravity = kind === 'antigravity';
   const tClaude = useTranslations('claudeSubscription');
+  const tAntigravity = useTranslations('antigravitySubscription');
   const copy = claude ? {
     title: tClaude('title'),
     description: tClaude('description'),
@@ -94,6 +97,18 @@ export function useSubscriptionSignIn({
     connecting: tClaude('starting'),
     deviceDescription: undefined,
     failed: tClaude('startError'),
+  } : antigravity ? {
+    title: tAntigravity('title') || 'Google Antigravity',
+    description: tAntigravity('description') || 'Sign in with your Google Antigravity account to access Gemini and frontier models on your Google AI Pro / Ultra subscription.',
+    connectedBanner: tAntigravity('connectedTitle') || 'Google Antigravity subscription connected',
+    connectedToast: tAntigravity('connected') || 'Google Antigravity subscription connected',
+    disconnectedToast: tAntigravity('disconnected') || 'Google Antigravity disconnected',
+    connect: tAntigravity('connectAntigravity') || 'Sign in with Google Antigravity',
+    reconnect: tAntigravity('reconnectAntigravity') || 'Reconnect Google Antigravity',
+    disconnect: tAntigravity('disconnect') || 'Disconnect',
+    connecting: tAntigravity('starting') || 'Starting sign-in...',
+    deviceDescription: tAntigravity('deviceDescription') || 'Follow instructions on google.com/device to connect your Antigravity subscription.',
+    failed: tAntigravity('startError') || 'Failed to connect Google Antigravity',
   } : chatgpt ? {
     title: tHardcodedUi.raw('autoComponentsProjectsProjectProviderModalJsxTextChatGPTPlusPro0deb5530'),
     description: tHardcodedUi.raw('autoComponentsProjectsProjectProviderModalJsxTextSignInWitha0c5128c'),

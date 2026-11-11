@@ -23,6 +23,8 @@ import { SESSION_PROMPT_REASONS } from './wire-values';
 export * from './memory';
 export * from './goals';
 export * from './wire-values';
+export * from './claude-agent';
+export * from './antigravity';
 
 /** Loose JSON object — jsonb metadata/config columns surfaced as-is. */
 export const JsonObjectSchema = z.record(z.string(), z.unknown());

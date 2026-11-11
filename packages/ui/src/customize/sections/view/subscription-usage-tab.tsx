@@ -30,6 +30,7 @@ import {
 const PROVIDER_NAME: Record<string, string> = {
   codex: 'ChatGPT',
   'claude-agent': 'Claude Code',
+  antigravity: 'Google Antigravity',
 };
 
 const TONE_BAR = {

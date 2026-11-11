@@ -501,11 +501,38 @@ export interface ClaudeSubscriptionPickerGroup {
   }>;
 }
 
+/**
+ * The Google Antigravity subscription models `/model-picker` lists apart from the gateway's
+ * (`antigravity/<id>`). `connected` is whether the caller signed in to Google Antigravity.
+ */
+export interface AntigravitySubscriptionPickerGroup {
+  providerId: string;
+  name: string;
+  connected: boolean;
+  defaultModel?: string;
+  models: Array<{
+    /** `antigravity/<id>`. */
+    id: string;
+    name: string;
+    description: string;
+    limit: { context: number; output: number };
+    efforts: string[];
+    defaultEffort?: string;
+    badge?: 'new' | 'notice' | 'unavailable';
+    unavailable?: boolean;
+    requires: 'antigravity_subscription';
+    connected: boolean;
+    enabled?: boolean;
+  }>;
+}
+
 /** @deprecated Use `WorkspaceLlmCatalogResponse`. Kept permanently. */
 export interface ProjectLlmCatalogResponse {
   models: Record<string, GatewayCatalogModel>;
   /** Absent from an API without Claude subscription models. */
   claudeSubscription?: ClaudeSubscriptionPickerGroup;
+  /** Absent from an API without Google Antigravity subscription models. */
+  antigravitySubscription?: AntigravitySubscriptionPickerGroup;
   /** Kortix's platform fee on managed model usage, in percent of each model's `cost`. */
   platformFeePercent?: number;
   /**

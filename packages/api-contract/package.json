@@ -19,6 +19,7 @@
     "./kortix-tool-card": "./src/kortix-tool-card.ts",
     "./multi-agent": "./src/multi-agent.ts",
     "./claude-agent": "./src/claude-agent.ts",
+    "./antigravity": "./src/antigravity.ts",
     "./wire-values": "./src/wire-values.ts"
   },
   "scripts": {

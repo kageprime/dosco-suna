@@ -38,6 +38,7 @@ import { loadManifestForEdit } from '../lib/triggers';
 import type { ProjectRow } from '../lib/serializers';
 import { rethrowDatabaseError } from '../../shared/database-errors';
 import { claudeSubscriptionPickerGroup } from '../claude-subscription/picker';
+import { antigravitySubscriptionPickerGroup } from '../antigravity-subscription/picker';
 import { checkClaudeAgentRef } from '../../llm-gateway/resolution/claude-agent';
 import { workspaceIdParam } from '../../shared/route-params';
 import { projectsView } from '../../workspaces/rows';
@@ -230,6 +231,11 @@ export function registerModelsRoutes(): void {
         // must not carry them. Each model's `enabled` follows the same model
         // settings as `models`.
         claudeSubscription: await claudeSubscriptionPickerGroup({
+          accountId, projectId, userId: loaded.userId,
+          access: await getProjectModelAccess(projectId),
+          modelOverrides: catalog.modelOverrides,
+        }),
+        antigravitySubscription: await antigravitySubscriptionPickerGroup({
           accountId, projectId, userId: loaded.userId,
           access: await getProjectModelAccess(projectId),
           modelOverrides: catalog.modelOverrides,

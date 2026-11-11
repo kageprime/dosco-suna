@@ -42,6 +42,7 @@ import { driveStorageAvailable } from '../../drives/volumes';
 import { projectsView } from '../../workspaces/rows';
 
 export const CODEX_AUTH_JSON_SECRET_NAME = 'CODEX_AUTH_JSON';
+export const ANTIGRAVITY_AUTH_JSON_SECRET_NAME = 'ANTIGRAVITY_AUTH_JSON';
 
 export type ProjectRow = typeof projectsView.$inferSelect;
 

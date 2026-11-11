@@ -99,6 +99,7 @@ export const SUBSCRIPTION_BY_PROVIDER: Record<string, { kind: SubscriptionKind; 
   // Claude models run through Claude Code on the member's own plan; the login is the member's own.
   anthropic: { kind: 'claude', name: 'Claude', plan: 'Claude Pro or Max' },
   'opencode-go': { kind: 'opencode-go', name: 'OpenCode', plan: 'OpenCode Go' },
+  google: { kind: 'antigravity', name: 'Google Antigravity', plan: 'Google AI Pro or Ultra' },
 };
 
 
@@ -907,7 +908,7 @@ export function ProviderSheet({
   const connectedIdSet = new Set(connectedProviders.map((provider) => provider.id));
   const keyConnected = connectedProviders.some((provider) => provider.id === entry.id);
   const subscriptionConnected = connectedProviders.some(
-    (provider) => provider.id === (entry.id === 'openai' ? 'codex' : entry.id),
+    (provider) => provider.id === (entry.id === 'openai' ? 'codex' : entry.id === 'google' ? 'antigravity' : entry.id === 'anthropic' ? 'claude-agent' : entry.id),
   );
   const status: ProviderStatus =
     method === 'included'

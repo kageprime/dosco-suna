@@ -20,7 +20,10 @@ export const POPULAR_PROVIDER_IDS = [
 ];
 
 export const MODEL_SELECTOR_PROVIDER_IDS: readonly string[] = SHARED_MODEL_SELECTOR_PROVIDER_IDS;
-export const PROVIDER_LABELS: Record<string, string> = SHARED_PROVIDER_LABELS;
+export const PROVIDER_LABELS: Record<string, string> = {
+  ...SHARED_PROVIDER_LABELS,
+  antigravity: 'Google Antigravity',
+};
 
 export const PROVIDER_HINTS: Record<string, string> = {
   anthropic: 'Pro/Max or API key',
@@ -54,6 +57,7 @@ const PROVIDER_ICON_MAP: Record<string, { icon: string; fallback: string }> = {
   'opencode-go': { icon: 'opencode', fallback: 'OC' },
   'github-copilot': { icon: 'github-copilot', fallback: 'GH' },
   google: { icon: 'google', fallback: 'GO' },
+  antigravity: { icon: 'google', fallback: 'AG' },
   openrouter: { icon: 'openrouter', fallback: 'OR' },
   vercel: { icon: 'vercel', fallback: 'VE' },
   groq: { icon: 'groq', fallback: 'GQ' },

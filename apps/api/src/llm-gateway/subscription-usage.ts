@@ -20,8 +20,9 @@ import { logger } from '../lib/logger';
 import { readAccountSecret } from '../secrets/account-resource';
 import { CODEX_USER_AGENT, resolveCodexAccountCredential } from './credentials/codex';
 import { parseCodexAuth } from './credentials/codex-core';
+import { parseAntigravityAuth } from './credentials/antigravity';
 
-export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent']);
+export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
 export const SubscriptionUsageSchema = z.object({
   windows: z.array(z.object({
@@ -81,9 +82,20 @@ export function claudeAccountFromProfile(body: unknown): SubscriptionAccount | n
 const StoredClaudeAccountSchema = SubscriptionAccountSchema.extend({ checked_at: z.string() });
 const PROFILE_RETRY_MS = 24 * 60 * 60 * 1000;
 
-/** Who the row's login signs in as: decoded for ChatGPT, stored for Claude. */
+/** A Google Antigravity login's email and plan from its stored credentials JSON. No network. */
+export function antigravityAccountFromLogin(value: string | null): SubscriptionAccount | null {
+  if (!value) return null;
+  const auth = parseAntigravityAuth(value);
+  if (!auth) return null;
+  const email = text(auth.email);
+  const plan = text(auth.plan) ?? 'pro';
+  return email || plan ? { email, plan } : null;
+}
+
+/** Who the row's login signs in as: decoded for ChatGPT & Antigravity, stored for Claude. */
 export function subscriptionAccount(row: Pick<UsageRow, 'accountId' | 'secretId' | 'providerId' | 'valueEnc' | 'providerAccount'>): SubscriptionAccount | null {
   if (row.providerId === 'codex') return codexAccountFromLogin(readAccountSecret(row.accountId, row.secretId, row.valueEnc));
+  if (row.providerId === 'antigravity') return antigravityAccountFromLogin(readAccountSecret(row.accountId, row.secretId, row.valueEnc));
   if (row.providerId !== 'claude-agent') return null;
   const stored = StoredClaudeAccountSchema.safeParse(row.providerAccount);
   return stored.success && (stored.data.email || stored.data.plan) ? { email: stored.data.email, plan: stored.data.plan } : null;
