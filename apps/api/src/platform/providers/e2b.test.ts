@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { logger } from '../../lib/logger';
 mock.module('../sandbox-ownership', () => ({ sandboxOwnershipMarker: async () => 'v2-owner-a' }));
 
 process.env.DATABASE_URL = 'postgres://postgres:postgres@127.0.0.1:54322/postgres';
@@ -235,9 +236,9 @@ describe('E2B provider lifecycle', () => {
     // follows it resumes the box. Throwing turned every renewal tick into a
     // provider failure.
     const warns: string[] = [];
-    const originalWarn = console.warn;
-    console.warn = (line: unknown) => {
-      if (typeof line === 'string') warns.push(line);
+    const originalWarn = logger.warn;
+    logger.warn = (line: string) => {
+      warns.push(line);
     };
     try {
       infoEndAt = new Date(Date.now() + 20 * 60_000);
@@ -249,15 +250,15 @@ describe('E2B provider lifecycle', () => {
       expect(connected).toEqual([]);
       expect(warns.join('\n')).toContain('max_length_hours');
     } finally {
-      console.warn = originalWarn;
+      logger.warn = originalWarn;
     }
   });
 
   test('the clamp warning is rate-limited to one line per box per window', async () => {
     const warns: string[] = [];
-    const originalWarn = console.warn;
-    console.warn = (line: unknown) => {
-      if (typeof line === 'string') warns.push(line);
+    const originalWarn = logger.warn;
+    logger.warn = (line: string) => {
+      warns.push(line);
     };
     try {
       infoEndAt = new Date(Date.now() + 20 * 60_000);
@@ -269,7 +270,7 @@ describe('E2B provider lifecycle', () => {
       expect(timeoutRenewals.map((r) => r.sandboxId)).toEqual(['sb-capped-twice', 'sb-capped-twice']);
       expect(warns).toHaveLength(1);
     } finally {
-      console.warn = originalWarn;
+      logger.warn = originalWarn;
     }
   });
 
